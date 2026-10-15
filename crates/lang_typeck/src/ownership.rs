@@ -2060,6 +2060,25 @@ impl Own<'_, '_, '_> {
                     self.carried_borrows(a, out);
                 }
             }
+            // a view (a sequence or closure) read from an affine value by a
+            // method (`batch.items()`, `acc.writer()`) borrows it, and a
+            // returned function may hold the arguments' borrows
+            ExprKind::MethodCall { recv, args, .. } => {
+                let (recv, args) = (*recv, args.clone());
+                let view = self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t));
+                if view
+                    && let Some(root) = self.place_root(recv)
+                    && self.is_affine(root)
+                {
+                    out.push((root, hir.exprs[e].span));
+                }
+                if view || holds_ref {
+                    self.carried_borrows(recv, out);
+                    for a in args {
+                        self.carried_borrows(a, out);
+                    }
+                }
+            }
             ExprKind::Block { tail: Some(t), .. } => self.carried_borrows(*t, out),
             // a borrow chosen by a branch, or a loop's `break` value
             ExprKind::If { then, els, .. } => {
@@ -2089,8 +2108,24 @@ impl Own<'_, '_, '_> {
             }
             // a closure borrowing its captures (or copying captured borrows)
             ExprKind::Lambda(_) => {
-                for c in self.lambda_borrows.get(&e).cloned().unwrap_or_default() {
-                    let is_ref = self.local_ty(c).is_some_and(|t| matches!(&*t, TyKind::Ref(..)));
+                let hir_l = match &hir.exprs[e].kind {
+                    ExprKind::Lambda(l) => l.captures.clone(),
+                    _ => vec![],
+                };
+                let mut caps = self.lambda_borrows.get(&e).cloned().unwrap_or_default();
+                // a captured closure (or other value) holding borrows passes
+                // them on, as a captured reference does
+                for c in hir_l {
+                    if !caps.contains(&c)
+                        && (self.carriers.contains_key(&c) || self.loans.iter().any(|ln| ln.holder == c))
+                    {
+                        caps.push(c);
+                    }
+                }
+                for c in caps {
+                    let is_ref = self.local_ty(c).is_some_and(|t| matches!(&*t, TyKind::Ref(..)))
+                        || self.carriers.contains_key(&c)
+                        || self.loans.iter().any(|ln| ln.holder == c);
                     if is_ref {
                         let mut copied: Vec<(LocalId, Span)> =
                             self.carriers.get(&c).cloned().unwrap_or_default();

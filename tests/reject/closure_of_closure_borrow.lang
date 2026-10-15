@@ -1,0 +1,17 @@
+// expect-error: E0405
+// A closure calling a borrowing closure holds that borrow too.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    b.push(1)
+    let f = fn(v: Int) { b.push(v) }
+    let g = fn(v: Int) { f(v) }
+    f(2)
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    g(3)
+    g(4)
+    io.println(a.len())?
+    ok(())
+}

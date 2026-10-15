@@ -1,0 +1,17 @@
+// A wrapped view used before its source is consumed is fine.
+import std.io
+import std.buffer
+struct Acc { b: Buffer<Int> }
+impl Acc {
+    fn writer(self: &mut Self) -> fn(Int) -> Unit { fn(v) { self.b.push(v) } }
+    fn take(self: Self) -> Array<Int> { buffer.freeze(self.b) }
+}
+pub fn main() -> Unit {
+    let bb: Buffer<Int> = buffer.new()
+    let a: Acc = { b: bb }
+    let h = { w: a.writer() }
+    h.w(1)
+    h.w(2)
+    let arr = a.take()
+    let _ = io.println($"{arr.len()}")
+}

@@ -1,0 +1,20 @@
+// expect-error: E0405
+// A view wrapped in a record still borrows the affine value it came from.
+import std.io
+import std.buffer
+struct Acc { b: Buffer<Int> }
+impl Acc {
+    fn writer(self: &mut Self) -> fn(Int) -> Unit { fn(v) { self.b.push(v) } }
+    fn take(self: Self) -> Array<Int> { buffer.freeze(self.b) }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let bb: Buffer<Int> = buffer.new()
+    let a: Acc = { b: bb }
+    let h = { w: a.writer() }
+    let arr = a.take()
+    io.println(arr.len())?
+    h.w(7)
+    h.w(8)
+    io.println(arr.len())?
+    ok(())
+}
