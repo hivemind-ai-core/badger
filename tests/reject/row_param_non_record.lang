@@ -1,0 +1,11 @@
+// expect-error: E0341
+// A Row parameter takes a record type.
+import std.io
+struct Wrapper<R: Row> { v: { ..R } }
+fn bad(w: Wrapper<Int>) -> Int { 1 }
+type Al<R: Row> = { a: Int, ..R }
+fn bad2(w: Al<String>) -> Int { 1 }
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(1)?
+    ok(())
+}

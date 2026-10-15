@@ -1,0 +1,8 @@
+// An explicit record type argument for a Row parameter stands for its fields.
+import std.io
+fn f<R: Row>(x: { ..R }) -> { ..R } { x }
+pub fn main() -> Result<Unit, io.Error> {
+    let a = f<{ x: Int }>({ x: 1 })
+    io.println(a.x)?
+    ok(())
+}

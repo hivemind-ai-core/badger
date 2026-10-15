@@ -550,6 +550,23 @@ impl<'g, 'a> Infer<'g, 'a> {
             return self.icx.fresh();
         };
         let explicit: Vec<Ty> = type_args.iter().map(|t| self.hty(t)).collect();
+        // a record written for a `Row` type parameter stands for its fields
+        let row_marker = self.g.hir.try_lang("Row");
+        let explicit: Vec<Ty> = explicit
+            .into_iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let is_row = scheme.generics.get(i).is_some_and(|g| {
+                    self.g.hir.generics[*g].bounds.iter().any(
+                        |b| matches!(&b.kind, lang_hir::HTyKind::Named { def, .. } if Some(*def) == row_marker),
+                    )
+                });
+                match &*t {
+                    TyKind::Record(r) if is_row => r.clone(),
+                    _ => t,
+                }
+            })
+            .collect();
         if explicit.len() > scheme.generics.len() {
             let n = scheme.generics.len();
             self.error("E0210", span, format!("too many type arguments: expected at most {n}"), "here");

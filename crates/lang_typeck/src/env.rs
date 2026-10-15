@@ -1090,6 +1090,24 @@ impl TypeEnv {
                     .enumerate()
                     .map(|(i, a)| match &*a {
                         TyKind::Record(r) if self.param_has_kind(hir, *def, i, "Row") => r.clone(),
+                        // anything else is not a row (`Wrapper<Int>`)
+                        TyKind::Con(..)
+                        | TyKind::Tuple(_)
+                        | TyKind::Fn(_)
+                        | TyKind::Ref(..)
+                        | TyKind::Dyn(..)
+                            if self.param_has_kind(hir, *def, i, "Row") =>
+                        {
+                            diags.push(
+                                Diagnostic::error("a `Row` parameter takes a record type")
+                                    .with_code("E0341")
+                                    .with_label(
+                                        t.span,
+                                        "write the fields as a record type, e.g. `{ x: Int }`",
+                                    ),
+                            );
+                            error_ty()
+                        }
                         _ => a,
                     })
                     .collect();
