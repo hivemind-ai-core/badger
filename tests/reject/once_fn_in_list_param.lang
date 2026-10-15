@@ -1,0 +1,17 @@
+// expect-error: E0404
+// A once fn kept in a list (or received in one) is called at most once.
+import std.io
+import std.buffer
+fn use2(h: List<once fn() -> Buffer<Int>>) -> Int {
+    let p = h[0]()
+    let q = h[0]()
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    a.len()
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    io.println(use2([fn() { b }]))?
+    ok(())
+}

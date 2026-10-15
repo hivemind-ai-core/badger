@@ -1,0 +1,16 @@
+// expect-error: E0404
+// A consuming closure assigned to a var keeps the var single-use.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    var h = fn() { buffer.new<Int>() }
+    h = fn() { b }
+    let p = h()
+    let q = h()
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

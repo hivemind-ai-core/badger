@@ -1,0 +1,18 @@
+// expect-error: E0404
+// A consuming closure appended to a builder makes the list single-use.
+import std.io
+import std.buffer
+import std.list
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let lb = list.builder<fn() -> Buffer<Int>>()
+    lb.append(fn() { b })
+    let l = lb.finish()
+    let p = l[0]()
+    let q = l[0]()
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

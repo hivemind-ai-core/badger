@@ -117,6 +117,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     for p in params.clone() {
         let mut ls = vec![];
         pat_locals(hir, p, &mut ls);
+        o.mark_once_holders(&ls);
         o.params.extend(ls);
     }
     o.collect_uses(body);
@@ -1177,15 +1178,36 @@ impl Own<'_, '_, '_> {
     /// Whether a value contains a consuming closure (outside other closures'
     /// bodies): directly, in an aggregate, or as an argument of a call that
     /// may return it.
-    fn holds_consuming(&self, e: ExprId) -> bool {
+    fn holds_consuming(&mut self, e: ExprId) -> bool {
         let hir = self.inf.g.hir;
         if self.consuming_lambdas.contains_key(&e) {
             return true;
         }
         match &hir.exprs[e].kind {
-            ExprKind::Local(l) => self.consuming.contains(l),
+            // a consuming holder, or a value typed with a `once fn` inside
+            ExprKind::Local(l) => {
+                self.consuming.contains(l)
+                    || self
+                        .local_ty(*l)
+                        .is_some_and(|t| crate::ty::ty_any(&t, &mut |k| matches!(k, TyKind::Fn(f) if f.once)))
+            }
             ExprKind::Lambda(_) => false,
             k => children(k).into_iter().any(|c| self.holds_consuming(c)),
+        }
+    }
+
+    /// Mark a parameter or a local holding a `once fn` inside an aggregate
+    /// (`List<once fn ...>`) as single-use.
+    fn mark_once_holders(&mut self, locals: &[LocalId]) {
+        for &l in locals {
+            let holds_once = self.local_ty(l).is_some_and(|t| {
+                !matches!(&*t, TyKind::Fn(_))
+                    && crate::ty::ty_any(&t, &mut |k| matches!(k, TyKind::Fn(f) if f.once))
+            });
+            if holds_once {
+                self.consuming.insert(l);
+                self.affine.insert(l, true);
+            }
         }
     }
 
@@ -1986,7 +2008,22 @@ impl Own<'_, '_, '_> {
                 }
                 // after the arguments: closures among them know their borrows
                 self.check_stored_borrows(e, *recv, args);
-                if let Some(root) = consumed_root {
+                // a consuming closure stored into a builder, buffer, or channel
+                // makes the container (and what it becomes) single-use
+                if let ExprKind::MethodCall { method, .. } = &hir.exprs[e].kind
+                    && matches!(
+                        self.inf.sym(*method),
+                        "push" | "append" | "insert" | "set" | "send" | "try_send" | "try_append"
+                    )
+                    && let Some(root) = self.place_root(*recv)
+                    && args.iter().any(|a| self.holds_consuming(*a))
+                {
+                    self.consuming.insert(root);
+                    self.affine.insert(root, true);
+                }
+                if let Some(root) = consumed_root
+                    && rm != Mode::Move
+                {
                     self.use_local(root, span, Mode::Move, st);
                 }
                 d
@@ -2303,6 +2340,11 @@ impl Own<'_, '_, '_> {
                             self.check_loans(*local, *aspan, Mode::BorrowMut);
                             st.remove(local);
                             self.overwrite_result(*local, *aspan);
+                            // a consuming closure assigned to a variable makes it single-use
+                            if self.holds_consuming(*value) {
+                                self.consuming.insert(*local);
+                                self.affine.insert(*local, true);
+                            }
                             // an assigned value carrying borrows keeps them
                             // borrowed while the variable is used
                             let mut carried = vec![];
