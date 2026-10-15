@@ -439,7 +439,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0606",
         "generic system output",
-        "A generic provider must yield a concrete output at each system node; supply its type arguments.",
+        "A generic provider must yield a concrete output at each system node, including nodes built by a generic function: each call must fix its type arguments.",
     ),
     (
         "E0607",

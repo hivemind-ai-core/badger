@@ -85,16 +85,22 @@ error. `lang_cli` is the `lang` binary.
   impl of `Q` for the same type.
 - **Other checks:** exhaustiveness of `match`, affine use-after-move
   (builders, buffers, `once` closures), must-use results and fallible task
-  handles, effect bounds, infinite-size types, `const` initializers, and
+  handles, effect bounds, infinite-size types, `const` initializers (their
+  integer arithmetic is evaluated at check time at each expression's type:
+  overflow, division by zero, and out-of-range shifts are E0139), and
   numeric literal ranges; an operator alone never picks a numeric type (a
   literal or annotation must, E0332); rows hold unique labels, so `{x: T,
   ..Rest}` implies `Rest lacks x` (E0303); `Rest: Row` is checked as a kind.
   Ignored results include unread `Result` bindings, `Result`s overwritten
   before being read, results inside a discarded tuple or list, and unused
-  collections of fallible tasks. `ownership.rs` checks borrows (conflicts, escapes,
+  collections of fallible tasks; a `Result` held anywhere inside an option,
+  collection, tuple, record, constructor, or a captured task's `Exit`
+  counts (E0337). `ownership.rs` checks borrows (conflicts, escapes,
   assignable places, affine fields/elements); `regions.rs` tracks region
   taint so scoped values cannot escape through sequences, tasks, handles,
-  `dyn`, or `Data`. A trailing region parameter (`S: Scope`, as in
+  `dyn`, or `Data`. Helpers are summarized by which parameter they store
+  into another parameter's container (through other helpers too), so a
+  scoped value stored through a helper escapes as well (E0401). A trailing region parameter (`S: Scope`, as in
   `sqlite.Pool<S>` and `system.InitScope<S>`) may be elided in annotations.
 - **Ownership details:** a `let` re-initializes its names (a fresh affine
   value per loop iteration); handles (channel endpoints, cells, atoms,
@@ -119,13 +125,21 @@ error. `lang_cli` is the `lang` binary.
   resources (channel endpoints, pools, transactions, tasks), judged by what
   a value stores rather than by function signatures (E0138; a local REPL
   session's bindings are exempt). Values coerced to `dyn` must be
-  `Share` (a `dyn` value is copied freely and may cross tasks), and task-confined cells are found through struct and enum
-  fields. The compiler capability `Unscoped` (no region-parameterized value
+  `Share` (a `dyn` value is copied freely and may cross tasks), and
+  task-confined cells are found through struct and enum fields. Generic
+  bodies record the capabilities they need of their type parameters
+  (`Transfer` for values sent to a task, `Share` for `dyn` coercions); every
+  instantiation is held to them after checking, and requirements reaching a
+  caller's own type parameters pass on to its callers. A sequence or
+  closure read from an affine value by a method borrows that value while it
+  is used (releasing it first is E0405). The compiler capability `Unscoped` (no region-parameterized value
   inside) is required of provider errors. A scoped value stored into an
   outer cell, atom, collection, or `var` escapes its callback (E0401).
 - **Systems:** each node's output must be concrete after inference (a
   generic provider's free type argument is E0606); region arguments are
-  fixed when the system runs.
+  fixed when the system runs. A node output left to the enclosing
+  function's generics makes them node parameters: each instantiation of
+  them must be concrete in turn, transitively through callers.
 - **Effects:** after inference, a fixpoint over resolved calls charges
   every callee's modeled effects to its callers (functions and methods
   declared without an annotation are effect-polymorphic until their bodies
@@ -200,7 +214,10 @@ error. `lang_cli` is the `lang` binary.
 
 - **Heap:** precise, nonmoving mark-sweep. Objects carry a type descriptor
   (layout, tracing, display/equality/hashing, codec schema). Roots are task
-  shadow stacks, module-level values, and pinned/temporary runtime roots.
+  shadow stacks, pointer-valued module-level values (lowering records which
+  slots hold managed pointers), and pinned/temporary runtime roots. Floats
+  display their own width's shortest round-trip digits, with `.0` on any
+  finite whole number.
   Off-heap memory owned by objects (map tries) counts toward collection.
 - **Tasks:** stackful coroutines (corosensei) with cooperative polls,
   timers, parking/waking, cancellation, cleanup ladders, task scopes,
