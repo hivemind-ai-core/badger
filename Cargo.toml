@@ -23,6 +23,7 @@ lang_driver = { path = "crates/lang_driver" }
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"
 pest_derive = "2.9.3"
+toml = { version = "1.1.6", default-features = false, features = ["std", "parse", "serde"] }  # manifest validation (exact TOML semantics)
 
 # --- code generation (Cranelift JIT) ---------------------------------------
 cranelift-codegen = "0.136.3"

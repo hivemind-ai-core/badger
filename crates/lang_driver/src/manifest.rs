@@ -134,6 +134,20 @@ impl Manifest {
     }
 
     pub fn parse(text: &str) -> Result<Manifest, String> {
+        let m = Self::parse_entries(text)?;
+        // exact TOML as well: syntax, duplicate keys, and conflicting tables
+        // (a key and a table of one name, inline tables extended later)
+        if let Err(e) = text.parse::<toml::Table>() {
+            let line =
+                e.span().map(|r| text[..r.start.min(text.len())].matches('\n').count() + 1).unwrap_or(1);
+            let msg = e.message().trim_end_matches('\n').to_string();
+            return Err(format!("line {line}: {msg}"));
+        }
+        Ok(m)
+    }
+
+    /// The manifest's entries, with this format's own diagnostics.
+    fn parse_entries(text: &str) -> Result<Manifest, String> {
         let mut section = String::new();
         let mut m = Manifest {
             name: String::new(),
@@ -183,8 +197,20 @@ impl Manifest {
             let Some((k, v)) = line.split_once('=') else {
                 return Err(format!("line {}: expected `key = value`", i + 1));
             };
-            // a quoted key names the same key (`"workers" = 1`)
-            let (k, v) = (k.trim().trim_matches('"'), v.trim());
+            // a quoted key names the same key (`"workers" = 1`, `'workers' = 1`)
+            let raw_key = k.trim();
+            let quoted = raw_key.len() >= 2
+                && ((raw_key.starts_with('"') && raw_key.ends_with('"'))
+                    || (raw_key.starts_with('\'') && raw_key.ends_with('\'')));
+            let (k, v) = (if quoted { &raw_key[1..raw_key.len() - 1] } else { raw_key }, v.trim());
+            // keys are paths of names (configuration keys become record
+            // fields): a quoted key containing `.` has no such meaning
+            if quoted && k.contains('.') {
+                return Err(format!(
+                    "line {}: quoted key `{raw_key}` contains `.`; write a dotted key or a table instead",
+                    i + 1
+                ));
+            }
             // `a.b = 1` in `[config]` and `b = 2` in `[config.a]` are one key
             let full = if section.is_empty() { k.to_string() } else { format!("{section}.{k}") };
             if keys_seen.iter().any(|(_, key)| *key == full) {
@@ -411,5 +437,20 @@ mod tests {
             Manifest::parse("[package]\nname = \"a\"\n[config]\na.b = 1\n[config.a]\nb = 2\n").unwrap_err();
         assert!(dotted.contains("key `b` is defined twice"), "{dotted}");
         assert!(Manifest::parse("[package]\nname = \"a\"\n[runtime]\n\"workers\" = 2\n").is_ok());
+    }
+
+    #[test]
+    fn toml_semantics() {
+        let p = |body: &str| Manifest::parse(&format!("[package]\nname = \"a\"\n{body}"));
+        // duplicates inside inline tables, keys extended as tables, and
+        // inline tables reopened as sections are TOML errors
+        assert!(p("[config]\nx = { a = 1, a = 2 }\n").unwrap_err().contains("line 4"));
+        assert!(p("[config]\na = 1\na.b = 2\n").is_err());
+        assert!(p("[config]\na = { b = 1 }\n[config.a]\nc = 2\n").is_err());
+        // single-quoted keys name the same key
+        assert_eq!(p("[runtime]\n'workers' = 3\n").unwrap().workers, 3);
+        // a quoted key with `.` is not a path of names
+        assert!(p("[config]\n\"a.b\" = 1\n").unwrap_err().contains("contains `.`"));
+        assert!(p("[config\nx = 1\n").unwrap_err().contains("line 3"));
     }
 }
