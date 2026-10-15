@@ -338,6 +338,16 @@ impl Regions<'_, '_, '_> {
                 ) && captured(*recv)
                 {
                     for a in args.clone() {
+                        // `update(f)` stores what `f` returns: plain data
+                        // cannot carry the scope
+                        if m == "update"
+                            && let Some(TyKind::Fn(f)) = self.ty(a).as_deref()
+                        {
+                            let ret = f.ret.clone();
+                            if !self.mentions(&ret) && !self.opaque(&ret) {
+                                continue;
+                            }
+                        }
                         if self.tainted(a) {
                             let span = hir.exprs[a].span;
                             self.report(span);
