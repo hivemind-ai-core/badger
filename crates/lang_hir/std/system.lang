@@ -53,6 +53,9 @@ pub struct InitScope<S: Scope> {
     workers: Cell<List<(Int, worker.Shutdown)>>,
     /// The node's plan key (default worker name).
     node: Symbol,
+    /// Set once halting began stopping the workers: workers still listed
+    /// afterwards did not settle (the grace period escalated).
+    stopping: Cell<Bool>,
 }
 
 extern "intrinsic" fn task_spawn<T>(scope: Int, f: fn() -> T, captured: Bool) -> Int
@@ -334,8 +337,8 @@ pub type Running<S, Os: Row> = {
 
 /// Stop a node's workers per their shutdown policies, waiting for them.
 fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait} {
+    s.stopping.set(true)
     let ws = s.workers.get()
-    s.workers.set([])
     for w in ws {
         match w.1 {
             .drain(limit) => {
@@ -348,8 +351,11 @@ fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait} {
         }
         task_cancel(w.0)
     }
+    // a worker leaves the list only once it settled: if the grace period
+    // escalates, the ones still listed keep their node's resources alive
     for w in ws {
         task_settle(w.0)
+        s.workers.set(list.filter(s.workers.get(), fn(x: (Int, worker.Shutdown)) -> Bool { x.0 != w.0 }))
     }
 }
 
@@ -360,6 +366,12 @@ fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait} {
 fn halt_all(scopes: List<InitScope<Unit>>) -> List<String> {
     var notes = []
     for s in list.reverse(scopes) {
+        // a worker that outlived the grace period may still use this node and
+        // everything it depends on (started earlier): nothing more is freed
+        if s.stopping.get() && list.len(s.workers.get()) > 0 {
+            notes = list.append(notes, $"node {s.node}: halts skipped, a worker is still running after the cleanup grace period")
+            break
+        }
         stop_workers(s)
         loop {
             let hs = s.halts.get()
@@ -400,7 +412,7 @@ pub fn run<Os: Row, R, E>(plan: SystemPlan<Os>, body: for<S: Scope> fn(Running<S
         }
     })
     for n in plan.nodes {
-        let scope: InitScope<Unit> = { brand: identity<Int, Brand<Unit>>(0), halts: Cell.new([]), tasks: workers, workers: Cell.new([]), node: n.label }
+        let scope: InitScope<Unit> = { brand: identity<Int, Brand<Unit>>(0), halts: Cell.new([]), tasks: workers, workers: Cell.new([]), node: n.label, stopping: Cell.new(false) }
         scopes.set(list.append(scopes.get(), scope))
         match n.start(scope, outputs) {
             .ok(v) => outputs.slots.set(map.insert(outputs.slots.get(), n.index, v)),

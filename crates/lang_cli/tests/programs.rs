@@ -621,3 +621,18 @@ fn main_error_report() {
         "{err}"
     );
 }
+
+/// When a worker outlives the cleanup grace period the system escalates
+/// with a defect and does not free the node's resources under it.
+#[test]
+fn grace_escalation_keeps_resources() {
+    let out = lang()
+        .args(["run", "tests/runtime/grace_keeps_resources.lang"])
+        .env("LANG_CLEANUP_GRACE_MS", "200")
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("failed: cleanup exceeded the grace period of 200ms"), "{text}");
+    assert!(text.contains("worker cleanup uses resource alive=1"), "{text}");
+    assert!(!text.contains("resource freed"), "{text}");
+}
