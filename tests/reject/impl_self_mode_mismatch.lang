@@ -1,0 +1,8 @@
+// expect-error: E0220
+// An impl method's parameter modes match the protocol's (self: Self vs &Self).
+// impl param mode differs: Self by value vs &Self -> expect E0220
+import std.io
+protocol Named { fn name(self: &Self) -> String }
+struct S { v: Int }
+impl Named for S { fn name(self: Self) -> String { "s" } }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(s.name())?; ok(()) }

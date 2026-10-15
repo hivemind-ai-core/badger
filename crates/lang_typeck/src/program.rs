@@ -392,6 +392,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         }
     }
     diags.extend(inf_diags);
+    check_impl_effects(&g, &mut diags);
     // module values are pure immutable data: no task-confined mutable cells,
     // affine builders/buffers, or open transactions (a local REPL session's
     // bindings are interactive state instead)
@@ -627,7 +628,15 @@ fn check_impl_signatures(g: &Global, diags: &mut Vec<Diagnostic>) {
             let (TyKind::Fn(a), TyKind::Fn(b)) = (&*mt, &*pt) else { continue };
             let shape =
                 |f: &FnTy| mk(TyKind::Tuple(f.params.iter().cloned().chain([f.ret.clone()]).collect()));
-            if !icx.try_unify(&shape(a), &shape(b)) {
+            // parameter modes must agree exactly (owned, `&`, `&mut`): unification
+            // alone allows an automatic borrow
+            let mode = |t: &Ty| match &**t {
+                TyKind::Ref(m, _) => Some(*m),
+                _ => None,
+            };
+            let modes_differ = a.params.iter().zip(&b.params).any(|(x, y)| mode(x) != mode(y))
+                || mode(&a.ret) != mode(&b.ret);
+            if modes_differ || !icx.try_unify(&shape(a), &shape(b)) {
                 let names = Names { g, skolems: &icx.skolems };
                 let strip = |f: &FnTy| {
                     mk(TyKind::Fn(FnTy {
@@ -704,6 +713,52 @@ fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<String> {
         TyKind::Tuple(ts) => ts.iter().find_map(|x| stored_state(g, x, seen)),
         TyKind::Record(r) => row_fields(r).0.iter().find_map(|(_, x)| stored_state(g, x, seen)),
         _ => None,
+    }
+}
+
+/// An implementation method may not perform effects its protocol method's
+/// explicit effect annotation does not allow (checked after inference,
+/// when the method's effects are known).
+fn check_impl_effects(g: &Global, diags: &mut Vec<Diagnostic>) {
+    let hir = g.hir;
+    for imp in &g.env.impls {
+        let (Some(idef), Some((proto, _)), ImplMethods::Defs(methods)) =
+            (imp.def, &imp.protocol, &imp.methods)
+        else {
+            continue;
+        };
+        if hir.modules[hir.defs[idef].module].is_std {
+            continue;
+        }
+        let DefKind::Protocol(pd) = &hir.defs[*proto].kind else { continue };
+        let pname = g.interner.resolve(hir.defs[*proto].name).to_string();
+        for (name, &m) in methods {
+            let Some(&pm) = pd.methods.iter().find(|pm| hir.defs[**pm].name == *name) else { continue };
+            let DefKind::Fn(pf) = &hir.defs[pm].kind else { continue };
+            if pf.effect.is_none() {
+                continue;
+            }
+            let (Some(ms), Some(ps)) = (g.schemes.get(&m), g.schemes.get(&pm)) else { continue };
+            let (TyKind::Fn(a), TyKind::Fn(b)) = (&*ms.ty, &*ps.ty) else { continue };
+            let (allowed, _) = row_fields(&b.eff);
+            let (have, _) = row_fields(&a.eff);
+            let extra: Vec<String> = have
+                .iter()
+                .map(|(l, _)| g.interner.resolve(*l).to_string())
+                .filter(|l| matches!(l.as_str(), "Io" | "Wait" | "State" | "Foreign"))
+                .filter(|l| !allowed.iter().any(|(x, _)| g.interner.resolve(*x) == l.as_str()))
+                .collect();
+            if !extra.is_empty() {
+                let mname = g.interner.resolve(*name).to_string();
+                diags.push(
+                    Diagnostic::error(format!("`{mname}` performs effects `{pname}` does not allow"))
+                        .with_code("E0501")
+                        .with_label(hir.defs[m].span, format!("performs {}", extra.join(", ")))
+                        .with_related(pname.clone(), hir.defs[pm].span)
+                        .with_note("an implementation is bounded by the protocol method's effect annotation"),
+                );
+            }
+        }
     }
 }
 

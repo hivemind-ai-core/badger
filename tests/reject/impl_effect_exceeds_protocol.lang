@@ -1,0 +1,8 @@
+// expect-error: E0501
+// An impl method stays within the protocol method's effect annotation.
+// impl with tighter effect than protocol: fine. Wider effect than protocol pure: should reject?
+import std.io
+protocol Named { fn name(self: &Self) -> String !{} }
+struct S { v: Int }
+impl Named for S { fn name(self: &Self) -> String { let _ = io.println("x"); "s" } }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(s.name())?; ok(()) }
