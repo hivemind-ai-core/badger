@@ -639,6 +639,16 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 self.owners.push(OwnerFrame { owner: Owner::Global(def), captures: vec![] });
                 self.locals.push(FxHashMap::default());
                 let ty = ty.map(|t| self.lower_ty(t));
+                // public values have explicit types (as public signatures do);
+                // the standard library's own values are exempt
+                let d = &self.cx.hir.defs[def];
+                if d.is_pub
+                    && !self.cx.hir.modules[d.module].is_std
+                    && (ty.is_none() || ty.as_ref().is_some_and(contains_hole))
+                {
+                    let span = self.ast.pats[*pat].span;
+                    self.err("E0118", span, "public values must declare their type", "add `: Type`");
+                }
                 let value = self.lower_expr(*value);
                 self.locals.pop();
                 self.owners.pop();

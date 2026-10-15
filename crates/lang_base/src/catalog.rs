@@ -100,7 +100,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0118",
         "incomplete public signature",
-        "Public functions declare parameter and result types and cannot use `_` holes.",
+        "Public functions declare parameter and result types, and public module values declare their type; neither can use `_` holes.",
     ),
     (
         "E0119",

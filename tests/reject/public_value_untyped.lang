@@ -1,0 +1,5 @@
+// expect-error: E0118
+// Public module values declare their type.
+pub let sizes = [1, 2]
+
+pub fn main() {}
