@@ -1087,13 +1087,19 @@ impl ThreadPool {
     }
 
     fn submit(&'static self, job: Job) {
-        self.jobs.lock().unwrap().push_back(job);
-        if self.idle.load(Ordering::SeqCst) == 0
+        let mut g = self.jobs.lock().unwrap();
+        g.push_back(job);
+        // `idle` counts threads waiting for jobs, updated under this lock:
+        // a thread already woken for an earlier job still counts until it
+        // takes one, so every unclaimed job beyond the waiting threads gets
+        // a new thread (otherwise it would wait behind a job that blocks)
+        if g.len() > self.idle.load(Ordering::SeqCst)
             && self.threads.load(Ordering::SeqCst) < self.max.load(Ordering::SeqCst)
         {
             self.threads.fetch_add(1, Ordering::SeqCst);
             let _ = std::thread::Builder::new().name(self.name.into()).spawn(move || self.work());
         }
+        drop(g);
         self.cond.notify_one();
     }
 
