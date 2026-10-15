@@ -220,6 +220,9 @@ pub struct ExternalQueue {
 pub struct Runtime {
     tasks: FxHashMap<TaskId, Box<Task>>,
     ready: VecDeque<TaskId>,
+    /// Several workers: a task woken by a running task, kept to run next on
+    /// the waker's worker (0 = none); idle workers steal from these.
+    next: [TaskId; MAX_WORKERS],
     next_id: TaskId,
     timers: BinaryHeap<Timer>,
     /// Sleeps under a controlled clock: (deadline in controlled nanos,
@@ -257,6 +260,7 @@ pub fn rt() -> &'static mut Runtime {
             *r = Some(Runtime {
                 tasks: FxHashMap::default(),
                 ready: VecDeque::new(),
+                next: [0; MAX_WORKERS],
                 next_id: 1,
                 timers: BinaryHeap::new(),
                 virtual_timers: vec![],
@@ -887,13 +891,52 @@ pub fn check_interrupts() {
     }
 }
 
+/// Queue a woken task. A task woken by a running task (several workers,
+/// uncontrolled scheduling) runs next on the waker's worker, so a request
+/// and its reply stay on one worker without waking another; the task it
+/// displaces joins the shared queue.
+fn make_ready(id: TaskId) {
+    // under chaos, a random half of wakes use the slot (both paths run)
+    let chaotic_skip = chaos().is_some() && chaos_next() & 1 == 0;
+    if multi() && current_raw() != 0 && !chaotic_skip && !sched_controlled() {
+        let w = worker_index();
+        let prev = std::mem::replace(&mut rt().next[w], id);
+        if prev != 0 {
+            rt().ready.push_back(prev);
+            notify_ready();
+        }
+        return;
+    }
+    rt().ready.push_back(id);
+    notify_ready();
+}
+
+/// Whether any task waits to run (the shared queue or a worker's next slot).
+fn has_ready() -> bool {
+    let r = rt();
+    !r.ready.is_empty() || r.next.iter().any(|t| *t != 0)
+}
+
+/// This worker's next task, else the shared queue, else another worker's
+/// next task.
+fn take_ready() -> Option<TaskId> {
+    let w = worker_index();
+    let mine = std::mem::take(&mut rt().next[w]);
+    if mine != 0 {
+        return Some(mine);
+    }
+    if let Some(t) = chaos_pop() {
+        return Some(t);
+    }
+    rt().next.iter_mut().find(|t| **t != 0).map(std::mem::take)
+}
+
 pub fn wake(id: TaskId, reason: Wake) {
     if let Some(t) = task(id) {
         if t.state == State::Parked {
             t.state = if t.in_cleanup { State::Cleaning } else { State::Ready };
             t.wake = reason;
-            rt().ready.push_back(id);
-            notify_ready();
+            make_ready(id);
         } else if t.publishing {
             // the running task woke itself on its way to parking
             t.early_wake = Some(reason);
@@ -944,7 +987,7 @@ pub fn yield_now() {
     }
     // make due timers and completed external work runnable (fairness)
     harvest_events();
-    if rt().ready.is_empty() {
+    if !has_ready() {
         check_interrupts();
         return;
     }
@@ -1590,7 +1633,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         let pick = if sched_controlled() {
             if worker_index() == 0 { next_ready() } else { None }
         } else {
-            chaos_pop()
+            take_ready()
         };
         if let Some(id) = pick {
             run_one(id);
@@ -1601,12 +1644,12 @@ fn worker_loop(n: usize) -> Option<Exit> {
         run_scheduler_work();
         // (a worker standing aside for controlled scheduling waits instead)
         let aside = worker_index() != 0 && sched_controlled();
-        if !rt().ready.is_empty() && !aside {
+        if has_ready() && !aside {
             continue;
         }
         // (a worker standing aside for controlled scheduling waits instead)
         let aside = worker_index() != 0 && sched_controlled();
-        if !rt().ready.is_empty() && !aside {
+        if has_ready() && !aside {
             continue;
         }
         let r = rt();

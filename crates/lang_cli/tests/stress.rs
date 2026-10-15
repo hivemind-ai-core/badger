@@ -176,6 +176,9 @@ fn stress_programs() {
         Config { workers: 8, chaos: Some(4), ..base.clone() },
         Config { workers: 4, chaos: Some(5), verify: true, ..base.clone() },
         Config { workers: 4, chaos: Some(6), release: true, ..base.clone() },
+        // ordinary multi-worker scheduling (no chaos), plain and optimized
+        Config { workers: 4, ..base.clone() },
+        Config { workers: 8, release: true, ..base.clone() },
     ];
     let mut jobs = vec![];
     for p in programs() {
