@@ -720,3 +720,17 @@ fn run_bench_reports_execution_time() {
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.starts_with("bench: run ") && err.contains("ms (compilation "), "{err}");
 }
+
+/// Receiving a batch allocates its lease object while the batch's
+/// messages must stay reachable: collecting at every allocation
+/// (`LANG_GC_STRESS=1`) must not free them.
+#[test]
+fn batch_receive_under_gc_stress() {
+    let out = lang()
+        .args(["run", "tests/runtime/batch_gc_stress.lang"])
+        .env("LANG_GC_STRESS", "1")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "32 messages, checksum 48496\n");
+}

@@ -156,7 +156,12 @@ fn finalize_chan(o: *mut Header) {
 fn trace_batch(o: *mut Header, f: &mut dyn FnMut(u64)) {
     unsafe {
         let p = (*o).payload();
-        let b = &*(*(p as *const *mut Batch));
+        // a lease object not yet filled in (allocated before its batch)
+        let bp = *(p as *const *mut Batch);
+        if bp.is_null() {
+            return;
+        }
+        let b = &*bp;
         let ch = *(p.add(8) as *const u64);
         f(ch);
         if data(ch).elem.is_ptr() {
@@ -623,9 +628,15 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
     _r.add(ch);
     loop {
         let d = data(ch);
-        if let Some(items) = d.batches.pop_front() {
-            d.leased += items.len();
+        if !d.batches.is_empty() {
+            // allocate the lease object first: the allocation may collect,
+            // and the messages must still be reachable from the channel then
             let b = gc::alloc(batch_desc(), 16);
+            _r.add(b);
+            let d = data(ch);
+            // another receiver may have taken it while this one allocated
+            let Some(items) = d.batches.pop_front() else { continue };
+            d.leased += items.len();
             unsafe {
                 let p = obj(b).payload();
                 *(p as *mut *mut Batch) = Box::into_raw(Box::new(Batch { items, released: false }));

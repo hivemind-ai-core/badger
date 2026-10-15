@@ -337,7 +337,8 @@ added.
   unification; `crates/lang_syntax/tests/format_repo.rs` formats every
   repository source.
 
-Debug switches: `LANG_DEBUG_INSTANCE` (instances as lowered),
+Debug switches: `LANG_GC_STRESS=1` (collect before every allocation, to
+expose missing roots), `LANG_DEBUG_INSTANCE` (instances as lowered),
 `LANG_DEBUG_SCHED` (scheduler state on idle), `LANG_DEBUG_LIVE` (reload
 entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
 (seeded scheduling in tests), `LANG_DUMP_CLIF`, and `lang run --dump-mir`.

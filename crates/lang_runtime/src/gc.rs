@@ -96,10 +96,17 @@ fn layout(payload: usize) -> Layout {
     Layout::from_size_align(HEADER + payload.max(8), 8).unwrap()
 }
 
+/// `LANG_GC_STRESS=1`: collect before every allocation (a debugging aid
+/// that turns missing roots into deterministic failures).
+fn stress() -> bool {
+    static STRESS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *STRESS.get_or_init(|| std::env::var_os("LANG_GC_STRESS").is_some_and(|v| v == "1"))
+}
+
 /// Allocate a zeroed object with `payload` bytes. May collect first.
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     let h = heap();
-    if h.allocated > h.threshold && h.disabled == 0 {
+    if (h.allocated > h.threshold || stress()) && h.disabled == 0 {
         collect();
     }
     let h = heap();
