@@ -1,0 +1,47 @@
+// Request-scoped handlers: a fresh request region, a scoped body reader,
+// and a stream consumed (and its scoped source closed) inside the handler.
+import std.http
+import std.io
+import std.seq
+import std.text
+
+type Order = { title: String }
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let closed = Atom.new(0)
+    let h = http.scoped(fn(scope) -> Result<http.Sent, http.Error> {
+        let body = scope.body()
+        if scope.request().path == "/echo" {
+            let pieces = body.chunks(3).count()
+            return ok(scope.respond(http.text(200, $"{body.len()} bytes in {pieces} pieces")?))
+        }
+        if scope.request().path == "/order" {
+            let o: Order = match body.decode<Order>() {
+                .ok(o) => o,
+                .err(e) => { return ok(scope.respond(http.json(400, { error: e.message })?)) },
+            }
+            return ok(scope.respond(http.json(201, o)?))
+        }
+        // a stream over a request-scoped source, consumed before returning
+        let src = seq.scoped(fn() { Cell.new(0) }, fn(c: Cell<Int>) {
+            let k = c.get()
+            if k < 3 {
+                c.set(k + 1)
+                Option.some(text.to_bytes($"part{k};"))
+            } else {
+                Option.none
+            }
+        }, fn(_c: Cell<Int>) { let _ = closed.update(fn(n: Int) -> Int { n + 1 }) })
+        ok(scope.stream(200, "text/plain", src))
+    })
+    io.println(show(http.call(h, http.request(:post, "/echo", "abcdefgh"))))?
+    io.println(show(http.call(h, http.request(:post, "/order", "{\"title\":\"pens\"}"))))?
+    io.println(show(http.call(h, http.request(:post, "/order", "{}"))))?
+    io.println(show(http.call(h, http.request(:get, "/stream", ""))))?
+    io.println($"stream source closed {closed.get()} time(s)")?
+    ok(())
+}

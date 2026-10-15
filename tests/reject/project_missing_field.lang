@@ -1,0 +1,6 @@
+// expect-error: E0301
+import std.records
+type Contact = { name: String, email: String }
+pub fn main() -> Unit {
+    let c = records.project<Contact>({ name: "x" })
+}

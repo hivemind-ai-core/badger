@@ -1,0 +1,7 @@
+// expect-error: E0341
+// A `Row` parameter stands for record fields, not a value type.
+fn f<Rest: Row>(r: Rest) -> Int { 1 }
+
+pub fn main() {
+    let _ = f(1)
+}

@@ -1,0 +1,1 @@
+pub fn sum(xs: List<Int>) -> Int { xs.fold(0, fn(a: Int, b: Int) -> Int { a + b }) }

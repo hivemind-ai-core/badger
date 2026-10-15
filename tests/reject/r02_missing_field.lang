@@ -1,0 +1,6 @@
+// R02: a required field is missing/misspelled.
+// expect-error: E0301
+fn greet(person) { person.name }
+pub fn main() -> Unit {
+    let _ = greet({ nmae: "Ada" })
+}

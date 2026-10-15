@@ -1,0 +1,21 @@
+// expect-error: E0215
+// `dyn` cannot erase a protocol whose method types depend on `Self.Item`.
+import std.io
+pub protocol Container {
+    type Item
+    fn first(self: &Self) -> Option<Self.Item>
+    fn size(self: &Self) -> Int
+}
+struct Shelf { books: List<String> }
+impl Container for Shelf {
+    type Item = String
+    fn first(self: &Self) -> Option<String> { self.books.first() }
+    fn size(self: &Self) -> Int { self.books.len() }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let s: Shelf = { books: ["a"] }
+    let d: dyn Container = s
+    io.println(d.size())?
+    let f = d.first()
+    ok(())
+}

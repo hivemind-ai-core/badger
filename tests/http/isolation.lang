@@ -1,0 +1,59 @@
+// Scenario 6: request A fails (a task defect) while request B waits on the
+// database; B continues and A's transaction and task scope are released.
+import std.config
+import std.http
+import std.sqlite
+import std.system
+import std.system.{component}
+import std.task
+
+type Settings = { port: U16 }
+
+pub enum AppError {
+    config(source: config.Error),
+    database(source: sqlite.Error),
+    http(source: http.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+fn handle(db: sqlite.Pool, request: http.Request) -> Result<http.Response, AppError> {
+    if request.path == "/fail" {
+        use tx <- sqlite.transaction(db)
+        sqlite.execute(tx, "INSERT INTO hits (path) VALUES ('fail')", [])?
+        panic("request A failed")
+    }
+    if request.path == "/slow" {
+        task.sleep(300ms)
+        let row = sqlite.query_one(db, "SELECT count(*) AS n FROM hits", [])?
+        return http.json(200, { hits: row }) |> result_http
+    }
+    http.json(404, { error: "not found" }) |> result_http
+}
+
+fn result_http(r: Result<http.Response, http.Error>) -> Result<http.Response, AppError> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err(AppError.http(e)),
+    }
+}
+
+let api = system.provider({
+    name: :test/api,
+    init: fn(_scope, cfg) -> Result<_, AppError> {
+        sqlite.execute(cfg.db, "CREATE TABLE IF NOT EXISTS hits (path TEXT)", [])?
+        let db = cfg.db
+        ok(http.handler(fn(request) -> Result<_, AppError> { handle(db, request) }))
+    },
+})
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.from_env<Settings>("ISO_")?
+    let plan = system {
+        db: component(sqlite.pool, { path: ":memory:" }),
+        api: component(api, { db: ref(:db) }),
+        server: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api) }),
+    }
+    use running <- system.run(plan)
+    running.wait_for_shutdown()?
+    ok(())
+}

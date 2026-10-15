@@ -1,0 +1,34 @@
+// Standard input/output.
+
+import std.prelude
+
+/// An I/O failure: a stable kind symbol and a message.
+pub struct Error {
+    pub kind: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for Error {}
+
+extern "intrinsic" fn write_out(text: String, newline: Bool, stderr: Bool) -> Result<Unit, Error>
+extern "intrinsic" fn fs_read_text(path: String) -> Result<String, Error>
+
+/// Read a whole UTF-8 file (the same operation as `fs.read_text`).
+pub fn read_text(path: String) -> Result<String, Error> !{Io, Wait} { fs_read_text(path) }
+
+/// Print a value and a newline to standard output.
+pub fn println<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), true, false)
+}
+
+pub fn print<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), false, false)
+}
+
+pub fn eprintln<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), true, true)
+}

@@ -1,0 +1,14 @@
+// expect-error: E0407
+// A borrow stored in a Cell could be read after its owner moves.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(none)
+    var b: Buffer<Int> = buffer.new()
+    c.set(some(&mut b))
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    match c.get() { .some(m) => m.push(99), .none => () }
+    io.println(a.len())?
+    ok(())
+}

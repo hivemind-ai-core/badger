@@ -1,0 +1,4 @@
+// expect-error: E0003
+pub fn main() {
+    let b = 1 < 2 < 3
+}

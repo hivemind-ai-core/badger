@@ -1,0 +1,17 @@
+// Subprocesses (run on the blocking pool) and process control.
+
+import std.io
+
+pub type Output = { status: Int, stdout: String, stderr: String }
+
+extern "intrinsic" fn process_run(program: String, args: List<String>) -> Result<Output, io.Error>
+extern "intrinsic" fn process_exit(code: Int) -> Never
+extern "intrinsic" fn process_id() -> Int
+
+/// Run a program to completion, capturing its output.
+pub fn run(program: String, args: List<String>) -> Result<Output, io.Error> !{Io, Wait} { process_run(program, args) }
+
+/// Exit the process immediately with `code`.
+pub fn exit(code: Int) -> Never !{Io} { process_exit(code) }
+
+pub fn id() -> Int { process_id() }

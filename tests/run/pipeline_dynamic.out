@@ -1,0 +1,4 @@
+[:app/log]
+[:app/a, :app/b, :app/c, :app/log]
+/x after 3 stage(s) [log] <app/c> <app/b> <app/a>
+defect contained: true, 3 stages selected

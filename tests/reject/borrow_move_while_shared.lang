@@ -1,0 +1,9 @@
+// expect-error: E0405
+// A borrowed value cannot be moved (here: frozen) while the borrow lives.
+import std.buffer
+pub fn main() -> Unit {
+    let buf = buffer.new<Int>()
+    let r = &buf
+    let a = buf.freeze()
+    let _ = r.len()
+}

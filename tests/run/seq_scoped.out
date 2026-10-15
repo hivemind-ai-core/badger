@@ -1,0 +1,34 @@
+open a
+close a at 5
+total 10
+open b
+close b at 3
+after break
+open c
+close c at 3
+first_big 2
+open d
+close d at 3
+find_err is_err true
+open e
+close e at 2
+take [0, 1]
+open f
+close f at 2
+chain [10]
+open g
+close g at 0
+open g
+close g at 1
+open g
+close g at 2
+flat [0, 0, 1]
+open h
+close h at 3
+zip 2
+open outer
+open inner
+close inner at 2
+close outer at 1
+nested 0
+done

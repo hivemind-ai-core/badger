@@ -1,0 +1,33 @@
+// P02: an earlier leave reads a field introduced only by a later stage,
+// even though the final context contains it.
+// expect-error: E0301
+import std.pipeline
+import std.pipeline.{handle}
+
+fn early() {
+    pipeline.stage({
+        name: :p02/early,
+        enter: fn(ctx) { pipeline.next({ ..ctx, verified: false }) },
+        leave: fn(ctx, reply) {
+            let _ = ctx.token
+            pipeline.leave(ctx, reply)
+        },
+    })
+}
+
+fn later() {
+    pipeline.stage({
+        name: :p02/later,
+        enter: fn(ctx) { pipeline.next({ ..ctx, token: "t" }) },
+    })
+}
+
+pub fn main() -> Result<Unit, String> {
+    let process = pipeline.compile(pipeline {
+        early(),
+        later(),
+        handle(fn(ctx) -> Result<Int, String> { ok(ctx.id) }),
+    })
+    let _ = process({ id: 1 })?
+    ok(())
+}

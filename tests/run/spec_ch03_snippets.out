@@ -1,0 +1,5 @@
+double 42
+load failed: io/not_found
+parse true
+decode error: decode: $: expected an integer
+validation: validation: negative: -3

@@ -1,0 +1,60 @@
+// Chapter 1 grammar forms: protocols with supertypes and associated types,
+// once/effect/row/borrow/dyn/for types, labels, dotted updates, patterns.
+import std.io
+import std.list as lists
+import std.map.{empty as empty_map, insert}
+
+protocol Named {
+    fn name(self: &Self) -> String
+}
+
+protocol Loud: Named + Display {
+    type Volume
+    fn shout(self: &Self) -> String
+}
+
+struct Dog { pub n: String } derive(Eq,)
+
+impl Display for Dog { fn display(self: &Self) -> String { self.n } }
+impl Named for Dog { fn name(self: &Self) -> String { self.n } }
+impl Loud for Dog {
+    type Volume = Int
+    fn shout(self: &Self) -> String { $"{self.n}!" }
+}
+
+fn apply<A, B>(f: once fn(A) -> B, a: A) -> B { f(a) }
+fn effy<Eff: Effect>(f: fn() -> Int !Eff) -> Int !Eff { f() }
+fn width<R: Row>(r: { w: Int, ..R }) -> Int { r.w }
+fn bump(x: &mut Int) -> Unit {}
+fn talk(d: dyn Named) -> String { d.name() }
+fn scoped<R>(body: for<S: Scope> fn(Int) -> R) -> R { body(1) }
+fn where_fn<T>(x: T) -> String where T: Display + Eq { x.display() }
+
+enum Shape { circle(r: Int,), square(side: Int), none }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let d: Dog = { n: "rex" }
+    io.println($"{talk(d)} {d.shout()} {apply(fn(x: Int) { x + 1 }, 1)} {effy(fn() { 3 })}")?
+    io.println($"{width({ w: 5, h: 6 })} {scoped(fn(x) { x + 1 })} {where_fn(4)}")?
+    let rec = { [:app/id]: 1, plain: 2, nested: { a: 1 } }
+    let up = { ..rec, nested.a: 9 }
+    io.println($"{up.nested.a} {lists.len([1, 2])} {insert(empty_map<String, Int>(), "a", 1).len()}")?
+    let s = Shape.circle(2)
+    let area = match s {
+        Shape.circle(r) => r * r,
+        .square(side) => side,
+        .none => 0,
+    }
+    let (p, q) = (1, (2, 3))
+    let { plain, .. } = rec
+    let t = match (p, "x") {
+        (1, "x") => "lit",
+        _ => "other",
+    }
+    var acc = 0
+    const k = 3
+    if acc > 0 { acc = 1 } else if acc == 0 { acc = 2 } else { acc = 3 }
+    let u = unsafe { 5 }
+    io.println($"{area} {p} {q.1} {plain} {t} {acc} {k} {u}")?
+    ok(())
+}

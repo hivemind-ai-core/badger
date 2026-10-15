@@ -1,0 +1,12 @@
+// expect-error: E0412
+// Ordinary function arguments borrow explicitly.
+import std.buffer
+fn add(b: &mut Buffer<Int>, v: Int) -> Unit { b.push(v) }
+fn peek(b: &Buffer<Int>) -> Int { b.len() }
+pub fn main() {
+    let b = buffer.new<Int>()
+    add(b, 1)
+    let n = peek(b)
+    add(&mut b, 2)
+    let m = peek(&b)
+}

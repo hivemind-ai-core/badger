@@ -1,0 +1,19 @@
+// A defect while iterating a scoped sequence still closes its resource,
+// during the failing task's cleanup.
+import std.seq
+import std.io
+
+fn main() {
+    let s = seq.scoped(
+        fn() { Cell.new(0) },
+        fn(c: Cell<Int>) {
+            c.set(c.get() + 1)
+            Option.some(c.get())
+        },
+        fn(c: Cell<Int>) { let _ = io.println($"closed after {c.get()}") },
+    )
+    for x in s {
+        let _ = io.println($"item {x}")
+        assert(x < 3)
+    }
+}

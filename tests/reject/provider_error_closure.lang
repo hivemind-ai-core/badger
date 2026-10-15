@@ -1,0 +1,25 @@
+// expect-error: E0411
+// A provider error cannot hold a closure (it may capture a scoped resource).
+import std.sqlite
+import std.system
+
+pub struct Leaky {
+    pub f: fn() -> Int,
+}
+
+impl Display for Leaky {
+    fn display(self: &Self) -> String { "leaky" }
+}
+
+impl Error for Leaky {}
+
+fn bad_init(scope: system.InitScope, c: { path: String }) -> Result<Int, Leaky> {
+    match scope.acquire(sqlite.pool, c) {
+        .ok(p) => err({ f: fn() { let _ = p; 1 } }),
+        .err(_) => ok(0),
+    }
+}
+
+let bad = system.provider({ name: :t/bad, init: bad_init })
+
+pub fn main() {}

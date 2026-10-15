@@ -1,0 +1,14 @@
+// Runtime inspection: structured snapshots for diagnostics and tooling.
+
+extern "intrinsic" fn display_value<T>(value: T) -> String
+extern "intrinsic" fn inspect_tasks() -> Data
+extern "intrinsic" fn inspect_heap() -> Data
+
+/// Render any value through its schema (debug display).
+pub fn show<T>(value: T) -> String { display_value(value) }
+
+/// Snapshot of tasks: id, name, state, owner scope, cleanup count.
+pub fn tasks() -> Data !{State} { inspect_tasks() }
+
+/// Snapshot of the managed heap: objects, bytes, collections.
+pub fn heap() -> Data !{State} { inspect_heap() }

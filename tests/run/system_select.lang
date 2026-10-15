@@ -1,0 +1,43 @@
+// `system.select(plan, keys)` starts only the selected keys and their
+// dependency closure; the selected outputs form a smaller typed record.
+import std.io
+import std.system
+import std.system.{component}
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+fn counter(name: String) -> system.Provider<{ start: Int }, Int, Failure> {
+    system.provider({
+        name: :test/counter,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            let _ = io.println($"start {name}")
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                let _ = io.println($"halt {name}")
+                ok(())
+            })
+            ok(config.start)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, system.Error> {
+    let plan = system {
+        base: component(counter("base"), { start: 1 }),
+        derived: component(counter("derived"), { start: ref(:base) + 10 }),
+        unrelated: component(counter("unrelated"), { start: 100 }),
+    }
+    let only = system.select(plan, [:derived])
+    let _ = io.println(only.labels())
+    system.run(only, fn(running) -> Result<Unit, system.Error> {
+        let _ = io.println($"derived = {running.derived}")
+        ok(())
+    })
+}

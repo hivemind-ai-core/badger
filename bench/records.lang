@@ -1,0 +1,52 @@
+// Native field access: closed records, row-generic (specialized) readers
+// called with wider shapes, and nominal structs.
+import std.io
+import std.time
+
+struct Size {
+    w: Int,
+    h: Int,
+}
+
+fn area(s) { s.w * s.h }
+
+fn report(label: String, n: Int, t: Duration, check: Int) -> Result<Unit, io.Error> !{Io} {
+    io.println($"{label}: {time.as_nanos(t) * 1000 / n} ps/op (check {check})")
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 20000000
+    let small = { w: 3, h: 4 }
+    let wide = { id: 7, name: "box", w: 5, h: 6, depth: 2, tags: ["a"] }
+    let size: Size = { w: 2, h: 9 }
+
+    var sum = 0
+    var t = time.now()
+    for i in 0..n {
+        sum = sum + small.w * small.h + i % 2
+    }
+    report("closed record fields", n, time.now() - t, sum)?
+
+    sum = 0
+    t = time.now()
+    for i in 0..n {
+        sum = sum + area(wide) + i % 2
+    }
+    report("row-generic call, 6-field shape", n, time.now() - t, sum)?
+
+    sum = 0
+    t = time.now()
+    for i in 0..n {
+        sum = sum + size.w * size.h + i % 2
+    }
+    report("struct fields", n, time.now() - t, sum)?
+
+    sum = 0
+    t = time.now()
+    for i in 0..n {
+        let moved = { ..small, w: i }
+        sum = sum + moved.w % 7
+    }
+    report("record update (allocates)", n, time.now() - t, sum)?
+    ok(())
+}

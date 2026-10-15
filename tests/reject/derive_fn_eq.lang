@@ -1,0 +1,4 @@
+// expect-error: E0204
+// A derivation is checked against every field.
+struct S { f: fn() -> Int } derive(Eq)
+pub fn main() -> Unit {}

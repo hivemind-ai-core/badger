@@ -1,0 +1,6 @@
+child done
+release second resource
+release first resource
+result 7
+cleanup after failure
+failed true

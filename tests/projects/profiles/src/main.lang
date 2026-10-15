@@ -1,0 +1,22 @@
+import std.io
+import std.config
+
+type Settings = {
+    port: Int,
+    database: String,
+    verbose: Bool,
+    limits: { requests: Int, burst: Int },
+    db: { pool: Int, timeout_ms: Int },
+}
+
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let s = config.load<Settings>("PROFILES_")?
+    io.println($"port={s.port} database={s.database} verbose={s.verbose}")?
+    io.println($"limits={s.limits.requests}/{s.limits.burst} pool={s.db.pool} timeout={s.db.timeout_ms}")?
+    ok(())
+}

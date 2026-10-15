@@ -1,0 +1,52 @@
+import std.records
+
+type Contact = { name: String, email: String }
+
+// A nominal type can use an ordinary contextual record literal.
+struct Person {
+    pub name: String,
+    pub age: Int,
+}
+
+// The rest of the caller's shape survives this transformation.
+fn birthday(person) {
+    { ..person, age: person.age + 1 }
+}
+
+pub fn greeting<Rest: Row>(person: { name: String, ..Rest }) -> String {
+    $"Hello, {person.name}"
+}
+
+pub fn main() -> Result<Unit, Never> {
+    let original = {
+        name: "Ada",
+        age: 36,
+        email: "ada@example.test",
+        address: { city: "Dublin", country: "Ireland" },
+    }
+    let older = birthday(original)
+    let relocated = { ..older, address.city: "Cork" }
+    assert(original.age == 36)
+    assert(relocated.age == 37)
+    assert(relocated.address.country == "Ireland")
+    assert(greeting(relocated) == "Hello, Ada")
+
+    let contact = records.project<Contact>(relocated)
+    let { name, email } = contact
+    assert(name == "Ada")
+    assert(email == original.email)
+
+    let tagged = { ..contact, [:import/source]: "contacts.csv" }
+    assert(tagged[:import/source] == "contacts.csv")
+    let untagged = records.remove(tagged, :import/source)
+    assert(untagged == contact)
+
+    let settings = records.merge({ retries: 2, enabled: true }, { retries: 4 })
+    assert(settings == { enabled: true, retries: 4 })
+
+    // Exact compatible shape; source field order does not determine layout.
+    let fields = { age: 36, name: "Ada" }
+    let person: Person = fields
+    assert(person.name == "Ada")
+    ok(())
+}

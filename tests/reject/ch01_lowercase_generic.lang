@@ -1,0 +1,3 @@
+// expect-error: E0001
+fn f<t>(v: t) -> t { v }
+pub fn main() {}

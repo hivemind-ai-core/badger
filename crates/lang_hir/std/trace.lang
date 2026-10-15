@@ -1,0 +1,29 @@
+// Structured runtime events. Events are encoded through the value's derived
+// schema into a bounded sink; set `LANG_TRACE=1` to also export them to
+// standard error. When the sink is full, the configured overflow policy
+// (`[runtime] trace_capacity`, `trace_overflow = "drop_oldest" |
+// "drop_newest"`) decides which event is lost; losses never block or fail
+// the caller and are reported separately (`stats`, and on stderr at exit).
+
+extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
+
+pub fn event<T>(name: Symbol, data: T) -> Unit where T: Codec {
+    trace_event(name, data)
+}
+
+extern "intrinsic" fn trace_count(name: Symbol) -> Int
+extern "intrinsic" fn trace_last(name: Symbol) -> Option<String>
+
+/// Number of recorded events named `name` (bounded in-memory sink).
+pub fn count(name: Symbol) -> Int { trace_count(name) }
+
+/// JSON payload of the most recent event named `name`.
+pub fn last(name: Symbol) -> Option<String> { trace_last(name) }
+
+/// Sink state: capacity, events recorded, events not retained or not
+/// exported because the sink was overloaded, and the overflow policy.
+pub type Stats = { capacity: Int, recorded: Int, dropped: Int, export_dropped: Int, policy: Symbol }
+
+extern "intrinsic" fn trace_stats() -> Stats
+
+pub fn stats() -> Stats { trace_stats() }

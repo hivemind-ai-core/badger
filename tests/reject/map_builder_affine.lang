@@ -1,0 +1,7 @@
+// expect-error: E0404
+import std.map
+fn main() {
+    let mb = map.builder<String, Int>()
+    let m = mb.finish()
+    mb.insert("a", 1)
+}

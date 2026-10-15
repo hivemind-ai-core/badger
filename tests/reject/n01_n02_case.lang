@@ -1,0 +1,7 @@
+// N01, N02: lowercase type names and uppercase value names are rejected.
+// expect-error: E0101
+// expect-error: E0102
+type person = { name: String }
+pub fn main() -> Unit {
+    let Count = 1
+}

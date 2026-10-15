@@ -1,0 +1,6 @@
+[:base, :derived]
+start base
+start derived
+derived = 11
+halt derived
+halt base

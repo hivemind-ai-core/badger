@@ -1,0 +1,13 @@
+// expect-error: E0407
+// A borrow of a local cannot escape inside a record or an Option.
+import std.buffer
+fn leak() -> { r: &Buffer<Int> } {
+    let buf = buffer.new<Int>()
+    { r: &buf }
+}
+fn leak2() -> Option<&Buffer<Int>> {
+    let buf = buffer.new<Int>()
+    some(&buf)
+}
+fn fine(b: &Buffer<Int>) -> { r: &Buffer<Int> } { { r: b } }
+pub fn main() {}

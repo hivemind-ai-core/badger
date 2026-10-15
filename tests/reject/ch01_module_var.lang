@@ -1,0 +1,3 @@
+// expect-error: E0110
+var counter = 5
+pub fn main() {}

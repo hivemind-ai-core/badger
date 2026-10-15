@@ -1,0 +1,161 @@
+// Paged lists and builders.
+
+extern "intrinsic" fn list_len<T>(list: List<T>) -> Int
+extern "intrinsic" fn list_get<T>(list: List<T>, index: Int) -> Option<T>
+extern "intrinsic" fn list_builder<T>() -> ListBuilder<T>
+extern "intrinsic" fn list_builder_append<T>(builder: ListBuilder<T>, value: T) -> Unit
+extern "intrinsic" fn list_builder_len<T>(builder: ListBuilder<T>) -> Int
+extern "intrinsic" fn list_finish<T>(builder: ListBuilder<T>) -> List<T>
+extern "intrinsic" fn list_append<T>(list: List<T>, value: T) -> List<T>
+extern "intrinsic" fn list_concat<T>(a: List<T>, b: List<T>) -> List<T>
+extern "intrinsic" fn list_reverse<T>(list: List<T>) -> List<T>
+extern "intrinsic" fn list_slice<T>(list: List<T>, start: Int, end: Int) -> List<T>
+extern "intrinsic" fn list_sort<T>(list: List<T>) -> List<T>
+extern "intrinsic" fn list_contains<T>(list: List<T>, value: T) -> Bool
+extern "intrinsic" fn page_count<T>(list: List<T>) -> Int
+extern "intrinsic" fn list_chunks<T>(list: List<T>) -> List<Array<T>>
+extern "intrinsic" fn convert_lossy<A, B>(value: A) -> B
+extern "intrinsic" fn element_address<T>(list: List<T>, index: Int) -> Int
+extern "intrinsic" fn list_page<T>(list: List<T>, index: Int) -> Page
+extern "intrinsic" fn list_slot<T>(list: List<T>, index: Int) -> Int
+extern "intrinsic" fn page_read<T>(page: Page, slot: Int) -> T
+extern "intrinsic" fn list_to_array<T>(list: List<T>) -> Array<T>
+
+/// One fixed-capacity page of list storage.
+extern type Page
+
+/// A managed stable reference to one list element. It retains the element's
+/// page, so the builder may keep appending (initialized slots never change)
+/// and the reference stays valid after the list is finished or dropped.
+pub struct ElementRef<T> {
+    page: Page,
+    slot: Int,
+}
+
+impl<T> ElementRef<T> {
+    pub fn get(self: &Self) -> T { page_read(self.page, self.slot) }
+}
+
+impl<T> List<T> {
+    pub fn len(self: &Self) -> Int { list_len(self) }
+    pub fn is_empty(self: &Self) -> Bool { list_len(self) == 0 }
+    /// Checked lookup: `none` when out of range (any integer index type).
+    pub fn get<I>(self: &Self, index: I) -> Option<T> where I: Integer { list_get(self, convert_lossy<I, Int>(index)) }
+    /// Read-only contiguous views of the list's pages.
+    pub fn chunks(self: &Self) -> List<Array<T>> { list_chunks(self) }
+    pub fn first(self: &Self) -> Option<T> { list_get(self, 0) }
+    pub fn last(self: &Self) -> Option<T> { list_get(self, list_len(self) - 1) }
+    pub fn contains(self: &Self, value: T) -> Bool { list_contains(self, value) }
+    /// Lazy view over the elements.
+    pub fn seq(self: &Self) -> Seq<T> { of(self) }
+    /// Read-only contiguous page views (page directory size).
+    pub fn page_count(self: &Self) -> Int { page_count(self) }
+    /// A new list with `value` appended (pages are shared, not copied).
+    pub fn append(self: &Self, value: T) -> List<T> { list_append(self, value) }
+    pub fn concat(self: &Self, other: List<T>) -> List<T> { list_concat(self, other) }
+    pub fn reverse(self: &Self) -> List<T> { list_reverse(self) }
+    pub fn slice(self: &Self, start: Int, end: Int) -> List<T> { list_slice(self, start, end) }
+    pub fn sort(self: &Self) -> List<T> { list_sort(self) }
+    pub fn map<U>(self: &Self, f: fn(T) -> U) -> List<U> { map(self, f) }
+    pub fn filter(self: &Self, keep: fn(T) -> Bool) -> List<T> { filter(self, keep) }
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
+    /// Stable reference to an element (shareable elements only).
+    pub fn element_ref(self: &Self, index: Int) -> ElementRef<T> where T: Share { element_ref(self, index) }
+    /// Explicit contiguous collection: copies the elements into an array.
+    pub fn to_array(self: &Self) -> Array<T> { list_to_array(self) }
+}
+
+fn element_ref<T>(list: List<T>, index: Int) -> ElementRef<T> {
+    { page: list_page(list, index), slot: list_slot(list, index) }
+}
+
+impl<T> ListBuilder<T> {
+    pub fn append(self: &mut Self, value: T) -> Unit { list_builder_append(self, value) }
+    pub fn len(self: &Self) -> Int { list_builder_len(self) }
+    /// Freeze into a list, transferring the page directory.
+    pub fn finish(self: Self) -> List<T> { list_finish(self) }
+    /// Stable address of an appended element (pages never move).
+    pub fn element_address(self: &Self, index: Int) -> Int { element_address(list_finish_peek(self), index) }
+    /// Stable reference to an appended element (shareable elements only).
+    pub fn element_ref(self: &Self, index: Int) -> ElementRef<T> where T: Share { element_ref(list_finish_peek(self), index) }
+}
+
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+fn list_finish_peek<T>(b: ListBuilder<T>) -> List<T> { identity(b) }
+
+pub fn builder<T>() -> ListBuilder<T> {
+    list_builder()
+}
+
+pub fn empty<T>() -> List<T> {
+    list_finish(list_builder())
+}
+
+/// A lazy sequence over a list.
+pub fn of<T>(list: List<T>) -> Seq<T> {
+    {
+        start: fn() {
+            let i = Cell.new(0)
+            fn() {
+                let k = i.get()
+                if k < list_len(list) {
+                    i.set(k + 1)
+                    list_get(list, k)
+                } else {
+                    Option.none
+                }
+            }
+        },
+    }
+}
+
+/// Collect a sequence into a list.
+pub fn collect<T>(items: Seq<T>) -> List<T> {
+    let b = list_builder()
+    for x in items {
+        list_builder_append(b, x)
+    }
+    list_finish(b)
+}
+
+pub fn len<T>(list: List<T>) -> Int { list_len(list) }
+pub fn append<T>(list: List<T>, value: T) -> List<T> { list_append(list, value) }
+pub fn concat<T>(a: List<T>, b: List<T>) -> List<T> { list_concat(a, b) }
+pub fn reverse<T>(list: List<T>) -> List<T> { list_reverse(list) }
+pub fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T> { list_slice(list, start, end) }
+pub fn sort<T>(list: List<T>) -> List<T> { list_sort(list) }
+
+pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
+    let b = list_builder()
+    for x in list {
+        list_builder_append(b, f(x))
+    }
+    list_finish(b)
+}
+
+pub fn filter<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T> {
+    let b = list_builder()
+    for x in list {
+        if keep(x) {
+            list_builder_append(b, x)
+        }
+    }
+    list_finish(b)
+}
+
+pub fn fold<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> A {
+    var acc = initial
+    for x in list {
+        acc = f(acc, x)
+    }
+    acc
+}
+
+pub fn range(start: Int, end: Int) -> List<Int> {
+    let b = list_builder()
+    for i in start..end {
+        list_builder_append(b, i)
+    }
+    list_finish(b)
+}

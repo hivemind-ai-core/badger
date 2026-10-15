@@ -1,0 +1,25 @@
+// std.parse: left-recursive grammars, spans, ambiguity, failures.
+import std.io
+import std.parse
+
+pub fn main() -> Result<Unit, String> {
+    let g = parse.grammar("%skip /\\s+/\nsum = sum \"+\" product | product\nproduct = product \"*\" atom | atom\natom = /[0-9]+/ | \"(\" sum \")\"")?
+    match g.parse("1 + 2 * (3 + 4)") {
+        .ok(p) => { let _ = io.println($"ambiguous: {p.ambiguous}\n{p.tree}") },
+        .err(f) => { let _ = io.println($"failed at {f.offset}") },
+    }
+    match g.parse("1 + * 2") {
+        .ok(_) => { let _ = io.println("unexpected success") },
+        .err(f) => { let _ = io.println($"failure at line {f.line} column {f.column}, expected {f.expected}") },
+    }
+    let amb = parse.grammar("e = e \"-\" e | /[0-9]/")?
+    match amb.parse("1-2-3") {
+        .ok(p) => { let _ = io.println($"ambiguous: {p.ambiguous}") },
+        .err(_) => (),
+    }
+    match parse.grammar("x = y") {
+        .ok(_) => (),
+        .err(e) => { let _ = io.println($"grammar error: {e}") },
+    }
+    ok(())
+}

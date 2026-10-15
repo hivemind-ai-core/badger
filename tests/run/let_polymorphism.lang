@@ -1,0 +1,21 @@
+// Local let-polymorphism: nonexpansive local bindings (closures, function
+// references, constructors) generalize and are instantiated per use.
+import std.io
+fn id<T>(x: T) -> T { x }
+pub fn main() -> Result<Unit, io.Error> {
+    let k = 10
+    let s2 = "y"
+    let f = fn(x) { x }
+    let pair = fn(a, b) { (a, b) }
+    let g = id
+    let e = Option.none
+    let a: Int = f(1)
+    let b: String = f("s")
+    let p = pair(1, "x")
+    let q = pair(true, 2.5)
+    let add = fn(x: Int) -> Int { x + k }
+    let o1: Option<Int> = e
+    let o2: Option<String> = e
+    io.println($"{a} {b} {p.0} {p.1} {q.0} {q.1} {g(3)} {g(s2)} {add(1)} {o1.is_none()} {o2.is_none()}")?
+    ok(())
+}

@@ -1,0 +1,7 @@
+// expect-error: E0341
+// Implementing a protocol requires its supertraits.
+protocol Named { fn name(self: &Self) -> String }
+protocol Greeter: Named { fn greet(self: &Self) -> String }
+struct S { v: Int }
+impl Greeter for S { fn greet(self: &Self) -> String { "hi" } }
+fn main() {}

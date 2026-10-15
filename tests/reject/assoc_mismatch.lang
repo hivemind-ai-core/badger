@@ -1,0 +1,24 @@
+// expect-error: E0326
+// `C.Item` is `String` for a `Shelf`, so an `Int` fallback does not fit.
+pub protocol Container {
+    type Item
+    fn first(self: &Self) -> Option<Self.Item>
+}
+
+struct Shelf {
+    books: List<String>,
+}
+
+impl Container for Shelf {
+    type Item = String
+    fn first(self: &Self) -> Option<String> { self.books.first() }
+}
+
+fn first_or<C>(c: C, fallback: C.Item) -> C.Item where C: Container {
+    c.first().unwrap_or(fallback)
+}
+
+pub fn main() -> Unit {
+    let shelf: Shelf = { books: [] }
+    let _ = first_or(shelf, 5)
+}

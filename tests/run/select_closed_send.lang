@@ -1,0 +1,41 @@
+import std.io
+import std.channel
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+enum Out {
+    sent,
+    got(v: Int),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<Int>(channel.defaults)?
+    a.sender.close()
+    match channel.select([channel.Op.send(a.sender, 1)], none) {
+        .closed(i) => io.println($"send {i} closed")?,
+        _ => io.println("other")?,
+    }
+    let (sel, unsent) = channel.select_keep([channel.Op.send(a.sender, 7)], none)
+    match sel {
+        .closed(_) => io.println($"kept {unsent.len()} value(s): {unsent[0]}")?,
+        _ => io.println("other")?,
+    }
+    // a closed send case drops out; the open receive still commits
+    let b = channel.create<Int>(channel.defaults)?
+    let _ = b.sender.send(5)
+    let r = channel.choose([
+        channel.on_send(a.sender, 1, fn() { Out.sent }),
+        channel.on_recv(b.receiver, fn(m: Option<Int>) { Out.got(m.unwrap_or(0)) }),
+    ], none)
+    match r {
+        .some(.got(v)) => io.println($"choose received {v}")?,
+        _ => io.println("other")?,
+    }
+    // no case can commit any more
+    let none_left = channel.choose([channel.on_send(a.sender, 1, fn() { Out.sent })], none)
+    io.println($"choose with only closed sends: {none_left.is_none()}")?
+    ok(())
+}

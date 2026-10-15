@@ -1,0 +1,6 @@
+// expect-error: E0406
+// Raw pointer use requires `unsafe`.
+import std.ffi
+pub fn main() -> Unit {
+    let p = ffi.alloc<Int>(1)
+}

@@ -1,0 +1,11 @@
+// expect-error: E0337
+// A task whose value is a `Result` is must-use: discarding its handle would
+// silently drop an expected error.
+import std.task
+
+pub fn main() -> Result<Unit, String> {
+    task.scope(fn(s) -> Result<Unit, String> {
+        s.spawn(fn() -> Result<Int, String> { err("lost") })
+        ok(())
+    })
+}

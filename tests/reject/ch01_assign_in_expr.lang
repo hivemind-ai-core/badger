@@ -1,0 +1,5 @@
+// expect-error: E0001
+pub fn main() {
+    var x = 1
+    let y = (x = 3)
+}

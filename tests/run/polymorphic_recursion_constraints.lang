@@ -1,0 +1,13 @@
+// The fallback serves functions whose constraints the runtime dispatches
+// through descriptors (Display, Eq, ...).
+import std.io
+fn show<T>(x: T, n: Int) -> String where T: Display {
+    if n == 0 { $"{x}" } else { show([x], n - 1) }
+}
+fn same<T>(a: T, b: T, n: Int) -> Bool where T: Eq {
+    if n == 0 { a == b } else { same((a, 1), (b, 1), n - 1) }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(show(7, 3))?
+    io.println($"{same(1, 1, 30)} {same(1, 2, 30)}")
+}

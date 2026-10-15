@@ -1,0 +1,14 @@
+// expect-error: E0404
+// The same holds for an inferred generic function.
+import std.io
+import std.buffer
+fn dup(x) { (x, x) }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let (p, q) = dup(b)
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

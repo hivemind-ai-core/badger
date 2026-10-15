@@ -1,0 +1,20 @@
+// Persistent append shares pages; diverging versions never see each other's
+// elements (a contested partial tail page is copied).
+import std.io
+import std.list
+pub fn main() -> Result<Unit, io.Error> {
+    let base = [1, 2, 3]
+    let a = base.append(4)
+    let b = base.append(5)
+    let c = a.append(6)
+    let d = b.append(7)
+    io.println($"{base} {a} {b} {c} {d}")?
+    var big: List<String> = []
+    for i in 0..5000 {
+        big = big.append($"s{i}")
+    }
+    let fork1 = big.append("x")
+    let fork2 = big.append("y")
+    io.println($"{big.len()} {fork1.last().unwrap_or("")} {fork2.last().unwrap_or("")} {big.get(4999).unwrap_or("")} {fork1.get(4321).unwrap_or("")}")?
+    ok(())
+}

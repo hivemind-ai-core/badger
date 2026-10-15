@@ -1,0 +1,24 @@
+// O02: a shared immutable message used after send is accepted.
+import std.channel
+import std.io
+import std.list
+
+type Job = { id: Int, title: String }
+
+pub fn main() -> Result<Unit, channel.ConfigError> {
+    let endpoints = channel.create<Job>(channel.defaults)?
+    let job = { id: 1, title: "first" }
+    let _ = endpoints.sender.send(job)
+    let _ = io.println(job.title)
+    match endpoints.receiver.try_recv() {
+        .value(j) => { let _ = io.println(j.id) },
+        _ => { let _ = io.println("missing") },
+    }
+    // builders: append borrows, finish consumes once
+    let b = list.builder<Int>()
+    b.append(1)
+    b.append(2)
+    let l = b.finish()
+    let _ = io.println(l)
+    ok(())
+}

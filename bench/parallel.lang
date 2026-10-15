@@ -1,0 +1,32 @@
+// CPU-bound tasks: with `--workers N` they run in parallel (compiled code
+// runs outside the runtime lock). Compare `--workers 1` and `--workers 4`.
+import std.io
+import std.task
+import std.time
+
+fn crunch(seed: Int, n: Int) -> Int {
+    var acc = seed
+    for i in 0..n {
+        acc = (acc * 31 + i) % 1000003
+    }
+    acc
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let tasks = 4
+    let n = 50000000
+    let t = time.now()
+    let total = task.scope(fn(s) -> Result<Int, io.Error> {
+        var handles = []
+        for k in 0..tasks {
+            handles = handles.append(s.spawn(fn() -> Int { crunch(k, n) }))
+        }
+        var sum = 0
+        for h in handles {
+            sum = sum + h.join()
+        }
+        ok(sum)
+    })?
+    io.println($"{task.worker_count()} worker(s): {time.as_millis(time.now() - t)} ms (check {total})")?
+    ok(())
+}

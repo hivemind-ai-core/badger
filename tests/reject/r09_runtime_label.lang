@@ -1,0 +1,6 @@
+// R09: a runtime symbol indexing a heterogeneous record is rejected.
+// expect-error: E0335
+fn get(r: { a: Int, b: String }, key: Symbol) {
+    r[key]
+}
+pub fn main() -> Unit {}

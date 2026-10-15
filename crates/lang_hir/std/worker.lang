@@ -1,0 +1,32 @@
+// Worker restart policies.
+
+/// Restart policy of a managed worker.
+pub enum Policy {
+    /// Never restart: a failure escalates to the owning scope.
+    never,
+    /// Restart after failures, at most `max_restarts` times per `window`,
+    /// waiting `backoff` between attempts; exceeding the budget escalates.
+    on_failure(max_restarts: Int, window: Duration, backoff: Duration),
+}
+
+pub type Options = { max_restarts: Int, window: Duration, backoff: Duration }
+
+pub let defaults = { max_restarts: 3, window: 1s, backoff: 10ms }
+
+pub fn never() -> Policy { Policy.never }
+
+pub fn on_failure(options: Options) -> Policy {
+    Policy.on_failure(options.max_restarts, options.window, options.backoff)
+}
+
+/// What halting the owning node does with a managed worker.
+pub enum Shutdown {
+    /// Request cancellation at once (the default).
+    cancel,
+    /// Let the worker finish on its own for up to `timeout`, then cancel.
+    drain(timeout: Duration),
+}
+
+pub fn cancel() -> Shutdown { Shutdown.cancel }
+
+pub fn drain(timeout: Duration) -> Shutdown { Shutdown.drain(timeout) }

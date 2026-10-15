@@ -1,0 +1,28 @@
+// Validated configuration.
+
+import std.prelude
+
+pub struct Error {
+    pub key: String,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.key}: {self.message}" }
+}
+
+impl prelude.Error for Error {}
+
+extern "intrinsic" fn config_from_env<T>(prefix: String) -> Result<T, Error>
+
+/// Decode required record fields from prefixed environment variables
+/// (`PREFIX` + upper-cased field name). Missing variables and failed
+/// conversions are structured errors.
+pub fn from_env<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec { config_from_env(prefix) }
+
+extern "intrinsic" fn config_load<T>(prefix: String) -> Result<T, Error>
+
+/// Decode the effective configuration: the project's `[config]` table merged
+/// with the selected `[profile.NAME]` (`lang run --profile NAME`), overlaid
+/// by prefixed environment variables (`PREFIX` + upper-cased field name).
+pub fn load<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec { config_load(prefix) }

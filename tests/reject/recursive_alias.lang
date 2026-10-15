@@ -1,0 +1,4 @@
+// expect-error: E0213
+// An alias that contains itself has no finite size.
+type R = { value: Int, next: R }
+pub fn main() -> Unit {}

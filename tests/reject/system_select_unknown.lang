@@ -1,0 +1,25 @@
+// expect-error: E0301
+// Selected keys must be keys of the plan.
+import std.system
+import std.system.{component}
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+fn value() -> system.Provider<{ v: Int }, Int, Failure> {
+    system.provider({ name: :test/value, init: fn(scope, config) -> Result<Int, Failure> { ok(config.v) } })
+}
+
+pub fn main() -> Unit {
+    let plan = system {
+        a: component(value(), { v: 1 }),
+    }
+    let _ = system.select(plan, [:b])
+}

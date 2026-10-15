@@ -1,0 +1,83 @@
+// Runtime acceptance scenarios 1-4: prefix-visible live context views.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum Failure {
+    terminal,
+    in_enter,
+    in_leave,
+} derive(Error)
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+// Stage A: adds `verified` and `count`; observes them while unwinding.
+fn stage_a() {
+    pipeline.stage({
+        name: :test/a,
+        enter: fn(ctx) { pipeline.next({ ..ctx, verified: false, count: 0 }) },
+        leave: fn(ctx, reply) {
+            say($"A.leave verified={ctx.verified} count={ctx.count} reply={reply}")
+            pipeline.leave(ctx, reply)
+        },
+        error: fn(ctx, e) {
+            say($"A.error verified={ctx.verified} count={ctx.count} error={e}")
+            pipeline.propagate(ctx, e)
+        },
+    })
+}
+
+// Stage B: commits `verified = true` and a later-only `token`.
+fn stage_b(fail_enter: Bool, fail_leave: Bool, recover: Bool) {
+    pipeline.stage({
+        name: :test/b,
+        enter: fn(ctx) {
+            if fail_enter {
+                return err(Failure.in_enter)
+            }
+            pipeline.next({ ..ctx, verified: true, token: "secret" })
+        },
+        leave: fn(ctx, reply) {
+            say($"B.leave token={ctx.token}")
+            if fail_leave {
+                return err(Failure.in_leave)
+            }
+            // writeback of an A-visible field
+            pipeline.leave({ ..ctx, count: ctx.count + 10 }, reply)
+        },
+        error: fn(ctx, e) {
+            say($"B.error token={ctx.token} error={e}")
+            if recover {
+                pipeline.recover({ ..ctx, count: ctx.count + 1 }, 7)
+            } else {
+                pipeline.propagate(ctx, e)
+            }
+        },
+    })
+}
+
+fn run(label: String, fail_enter: Bool, fail_leave: Bool, fail_handler: Bool, recover: Bool) -> Unit {
+    say($"-- {label}")
+    let plan = pipeline {
+        stage_a(),
+        stage_b(fail_enter, fail_leave, recover),
+        handle(fn(ctx) -> Result<Int, Failure> {
+            if fail_handler { err(Failure.terminal) } else { ok(ctx.id + ctx.count) }
+        }),
+    }
+    let process = pipeline.compile(plan)
+    match process({ id: 40 }) {
+        .ok(r) => say($"result ok {r}"),
+        .err(e) => say($"result err {e}"),
+    }
+}
+
+pub fn main() -> Unit {
+    run("success", false, false, false, false)
+    run("terminal failure", false, false, true, false)
+    run("failure in B.enter", true, false, false, false)
+    run("recovery in B.error", false, false, true, true)
+    run("error in B.leave", false, true, false, false)
+}

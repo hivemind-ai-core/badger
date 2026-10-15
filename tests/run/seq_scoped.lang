@@ -1,0 +1,69 @@
+// Scoped sequences close their resource exactly once: when exhausted, when
+// the consumer stops early (break, return, `?`, take), or when an adapter
+// downstream stops pulling.
+import std.seq
+import std.io
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn lines(name: String) -> Seq<Int> {
+    seq.scoped(
+        fn() {
+            say($"open {name}")
+            Cell.new(0)
+        },
+        fn(c: Cell<Int>) {
+            let k = c.get()
+            if k < 5 {
+                c.set(k + 1)
+                Option.some(k)
+            } else {
+                Option.none
+            }
+        },
+        fn(c: Cell<Int>) { say($"close {name} at {c.get()}") },
+    )
+}
+
+fn first_big(s: Seq<Int>) -> Option<Int> {
+    for x in s {
+        if x > 1 { return Option.some(x) }
+    }
+    Option.none
+}
+
+fn find_err(s: Seq<Int>) -> Result<Int, String> {
+    for x in s {
+        let _ = (if x == 2 { Result.err("two") } else { Result.ok(x) })?
+    }
+    ok(0)
+}
+
+fn nested() -> Int {
+    for i in lines("outer") {
+        for x in lines("inner") {
+            if x == 1 { return i }
+        }
+    }
+    0
+}
+
+fn main() {
+    var total = 0
+    for x in lines("a") { total = total + x }
+    say($"total {total}")
+    for x in lines("b") {
+        if x == 2 { break }
+    }
+    say("after break")
+    say($"first_big {first_big(lines("c")).unwrap_or(-1)}")
+    say($"find_err is_err {find_err(lines("d")).is_err()}")
+    say($"take {lines("e").take(2).collect()}")
+    say($"chain {lines("f").map(fn(x) { x * 10 }).filter(fn(x) { x > 0 }).take(1).collect()}")
+    say($"flat {seq.range(0, 3).flat_map(fn(i) { lines("g").take(i) }).collect()}")
+    say($"zip {lines("h").zip(seq.range(0, 2)).count()}")
+    say($"nested {nested()}")
+    say("done")
+}

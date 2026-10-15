@@ -1,0 +1,33 @@
+// expect-error: E0401
+// Appending a node output to an outer batch channel escapes system.run.
+import std.io
+import std.channel
+import std.system
+import std.system.{component}
+pub struct F { pub m: String }
+impl Display for F { fn display(self: &Self) -> String { self.m } }
+impl Error for F {}
+fn say(s: String) -> Unit { let _ = io.println(s) }
+type Counter = { bump: fn() -> Int, closed: fn() -> Bool }
+let counter = system.provider({ name: :t/counter, init: fn(scope, c: { start: Int }) -> Result<Counter, F> {
+    let n = Atom.new(c.start)
+    let open = Atom.new(1)
+    scope.on_halt(fn() -> Result<Unit, F> { open.set(0); say("counter halted"); ok(()) })
+    ok({ bump: fn() { n.update(fn(x: Int) -> Int { x + 1 }) }, closed: fn() { open.get() == 0 } })
+} })
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError) } derive(Error, From)
+pub fn main() -> Result<Unit, AppError> {
+    let ch = channel.batch(channel.batch_defaults)?
+    let plan = system { c: component(counter, { start: 0 }) }
+    system.run(plan, fn(running) -> Result<Unit, AppError> {
+        let _ = ch.sender.append(running.c)
+        ch.sender.flush()
+        ok(())
+    })?
+    ch.sender.close()
+    match ch.receiver.recv_batch() {
+        .some(b) => { for c in b.items() { say($"escaped resource used after halt: bump={c.bump()} closed={c.closed()}") } },
+        _ => (),
+    }
+    ok(())
+}

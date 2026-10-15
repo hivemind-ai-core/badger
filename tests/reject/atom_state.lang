@@ -1,0 +1,4 @@
+// expect-error: E0501
+// Atom operations are shared state.
+fn f(a: &Atom<Int>) -> Unit !{} { a.set(1) }
+pub fn main() -> Unit {}

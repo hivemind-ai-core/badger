@@ -1,0 +1,12 @@
+// E03: an IO call inside a `!{}` function is rejected.
+// expect-error: E0501
+import std.io
+
+fn double(value: Int) -> Int !{} {
+    let _ = io.println(value)
+    value * 2
+}
+
+pub fn main() -> Unit {
+    let _ = double(2)
+}

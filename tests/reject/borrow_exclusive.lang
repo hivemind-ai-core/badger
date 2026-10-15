@@ -1,0 +1,9 @@
+// expect-error: E0405
+// An exclusive borrow excludes every other access while it is used later.
+import std.buffer
+pub fn main() -> Unit {
+    let buf = buffer.new<Int>()
+    let r = &mut buf
+    let n = buf.len()
+    r.push(n)
+}

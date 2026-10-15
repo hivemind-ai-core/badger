@@ -1,0 +1,52 @@
+// Scenario 16, controlled reconstruction (version 1). The harness replaces
+// this file with reconstruct_v2.lang, whose `Point` has another shape, while
+// it runs under `lang run --watch --reconstruct`: the old program is
+// cancelled, its resource halts, and the new version starts fresh.
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+struct Point {
+    x: Int,
+}
+
+fn label(p: Point) -> String { $"v1 point {p.x}" }
+
+fn resource(name: String) -> system.Provider<{ v: Int }, Int, Failure> {
+    system.provider({
+        name: :test/resource,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            let _ = io.println($"start {name}")
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                let _ = io.println($"halt {name}")
+                ok(())
+            })
+            ok(config.v)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, system.Error> {
+    let plan = system {
+        res: component(resource("v1"), { v: 1 }),
+    }
+    system.run(plan, fn(running) -> Result<Unit, system.Error> {
+        let _ = io.println(label({ x: running.res }))
+        // serves until the program is reconstructed
+        while true {
+            task.sleep(20ms)
+        }
+        ok(())
+    })
+}

@@ -1,0 +1,60 @@
+// Scenarios 10-12: an appended message is published when its producer
+// parks waiting for a reply (never stranded in staging); a producer's exit
+// preserves accepted data; no end-of-stream is reported while accepted
+// staged messages can still appear.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let requests = channel.batch<Int>({ ..channel.batch_defaults, capacity: 16, max_batch: 8 })?
+    let replies = channel.create<Int>(channel.defaults)?
+    let r = task.scope(fn(scope) -> Result<Unit, AppError> {
+        let client = scope.spawn(fn() -> Result<Unit, AppError> {
+            // one message, far below max_batch, then wait for the reply
+            let _ = requests.sender.append(20)
+            match replies.receiver.recv() {
+                .some(v) => { let _ = io.println($"client got reply {v}") },
+                .none => { let _ = io.println("no reply") },
+            }
+            // accepted then exit: the staged data must survive the producer
+            let _ = requests.sender.append(1)
+            let _ = requests.sender.append(2)
+            ok(())
+        })
+        let server = scope.spawn(fn() -> Result<Unit, AppError> {
+            match requests.receiver.recv_batch() {
+                .some(batch) => {
+                    for x in batch.items() {
+                        let _ = replies.sender.send(x * 2 + 2)
+                    }
+                    batch.release()
+                },
+                .none => { let _ = io.println("stream ended early") },
+            }
+            ok(())
+        })
+        scope.try_join(client, server)?
+        ok(())
+    })
+    let _ = r
+    // the client has exited; close and drain: staged messages are delivered
+    requests.sender.close()
+    var total = 0
+    loop {
+        match requests.receiver.recv_batch() {
+            .some(batch) => {
+                for x in batch.items() { total = total + x }
+                batch.release()
+            },
+            .none => { break },
+        }
+    }
+    let _ = io.println($"drained after close: {total}")
+    let _ = io.println($"batches published: {requests.sender.batches_published()}")
+    ok(())
+}

@@ -1,0 +1,5 @@
+// expect-error: E0102
+// Ordinary record labels are lowercase identifiers.
+pub fn main() -> Unit {
+    let r = { Name: 1 }
+}

@@ -1,0 +1,5 @@
+// expect-error: E0001
+pub fn main() {
+    let _ = 1
+    let y = _
+}

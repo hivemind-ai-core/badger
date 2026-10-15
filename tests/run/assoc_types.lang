@@ -1,0 +1,55 @@
+// Protocols with associated types: `type Item` in the protocol, bindings in
+// each implementation, and `Self.Item` / `T.Item` projections.
+import std.io
+
+pub protocol Container {
+    type Item
+    fn first(self: &Self) -> Option<Self.Item>
+    fn size(self: &Self) -> Int
+}
+
+struct Shelf {
+    books: List<String>,
+}
+
+struct Counter {
+    limit: Int,
+}
+
+impl Container for Shelf {
+    type Item = String
+    fn first(self: &Self) -> Option<String> { self.books.first() }
+    fn size(self: &Self) -> Int { self.books.len() }
+}
+
+impl Container for Counter {
+    type Item = Int
+    fn first(self: &Self) -> Option<Self.Item> {
+        if self.limit > 0 { Option.some(0) } else { Option.none }
+    }
+    fn size(self: &Self) -> Int { self.limit }
+}
+
+fn first_or<C>(c: C, fallback: C.Item) -> C.Item where C: Container {
+    c.first().unwrap_or(fallback)
+}
+
+fn describe<C>(c: C) -> String where C: Container, C.Item: Display {
+    match c.first() {
+        .some(x) => $"{c.size()} items, first {x}",
+        .none => "empty",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let shelf: Shelf = { books: ["Dune", "Emma"] }
+    let counter: Counter = { limit: 3 }
+    let title: String = first_or(shelf, "none")
+    let n = first_or(counter, -1) + 10
+    io.println(title)?
+    io.println(n)?
+    io.println(describe(shelf))?
+    let empty: Counter = { limit: 0 }
+    io.println(describe(empty))?
+    ok(())
+}

@@ -1,0 +1,6 @@
+// expect-error: E0300
+// `from` exists only for lossless conversions; narrowing needs `try_from`.
+pub fn main() -> Unit {
+    let big: Int = 300
+    let b = U8.from(big)
+}

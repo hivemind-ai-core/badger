@@ -1,0 +1,26 @@
+// Record literals construct directly into an expected `Map<Symbol, V>`, and an
+// expected `Data` authorizes explicit dynamic encoding of each field.
+import std.io
+import std.codec
+
+fn total(prices: Map<Symbol, Int>) -> Int {
+    var sum = 0
+    for (_, p) in prices {
+        sum = sum + p
+    }
+    sum
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let prices: Map<Symbol, Int> = { apple: 3, pear: 5 }
+    io.println(prices.len())?
+    io.println(prices.get(:pear).unwrap_or(0))?
+    io.println(total({ fig: 10, kiwi: 2, lime: 1 }))?
+
+    let fields: Map<Symbol, Data> = { name: "Ada", age: 36, tags: ["math", "engines"] }
+    io.println(fields.get(:age).is_some())?
+
+    let doc: Data = { title: "Notes", pages: 12, draft: false }
+    io.println(codec.encode_text(doc))?
+    ok(())
+}

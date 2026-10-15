@@ -1,0 +1,13 @@
+// Filesystem paths (as strings).
+
+extern "intrinsic" fn path_join(a: String, b: String) -> String
+extern "intrinsic" fn path_parent(p: String) -> Option<String>
+extern "intrinsic" fn path_file_name(p: String) -> Option<String>
+extern "intrinsic" fn path_extension(p: String) -> Option<String>
+extern "intrinsic" fn path_components(p: String) -> List<String>
+
+pub fn join(a: String, b: String) -> String { path_join(a, b) }
+pub fn parent(p: String) -> Option<String> { path_parent(p) }
+pub fn file_name(p: String) -> Option<String> { path_file_name(p) }
+pub fn extension(p: String) -> Option<String> { path_extension(p) }
+pub fn components(p: String) -> List<String> { path_components(p) }

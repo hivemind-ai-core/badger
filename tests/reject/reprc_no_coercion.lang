@@ -1,0 +1,10 @@
+// expect-error: E0300
+// A `repr c` struct does not inherit internal layout equivalence.
+repr c struct Pt {
+    pub x: I32,
+    pub y: I32,
+}
+pub fn main() -> Unit {
+    let r = { y: 1I32, x: 2I32 }
+    let p: Pt = r
+}

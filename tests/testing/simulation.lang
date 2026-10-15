@@ -1,0 +1,78 @@
+// Simulation fixtures: controlled scheduling explores interleavings and a
+// recorded schedule replays one exactly; property checks run seeded
+// generators and report the reproducing seed.
+import std.list
+import std.random
+import std.task
+import std.test
+
+// two tasks append in steps; which interleaving happens is a scheduling
+// decision
+fn interleave() -> List<String> {
+    let log: Atom<List<String>> = Atom.new([])
+    let _ = task.scope(fn(s) -> Result<Unit, String> {
+        let a = s.spawn(fn() {
+            let _ = log.update(fn(l) { l.append("a1") })
+            task.yield_now()
+            let _ = log.update(fn(l) { l.append("a2") })
+        })
+        let b = s.spawn(fn() {
+            let _ = log.update(fn(l) { l.append("b1") })
+            task.yield_now()
+            let _ = log.update(fn(l) { l.append("b2") })
+        })
+        a.join()
+        b.join()
+        ok(())
+    })
+    log.get()
+}
+
+fn test_seeded_schedule_is_reproducible() {
+    test.schedule_seed(7)
+    let first = interleave()
+    test.schedule_seed(7)
+    test.assert_eq(interleave(), first)
+}
+
+fn test_seeds_explore_interleavings() {
+    var seen: List<String> = []
+    for seed in 1..=20 {
+        test.schedule_seed(seed)
+        let order = $"{interleave()}"
+        if !seen.contains(order) {
+            seen = seen.append(order)
+        }
+    }
+    test.fifo_schedule()
+    test.assert_true(seen.len() > 1, $"only one interleaving: {seen}")
+}
+
+fn test_record_and_replay() {
+    test.schedule_seed(3)
+    test.record_schedule()
+    let recorded = interleave()
+    let decisions = test.recorded_schedule()
+    test.replay_schedule(decisions)
+    test.assert_eq($"{interleave()}", $"{recorded}")
+}
+
+fn test_explore_reports_failing_seed() {
+    // fails under some interleaving: reported with seed and decisions
+    test.explore(20, fn() -> Result<Unit, String> {
+        let order = interleave()
+        if order[0] == "b1" { err($"b ran first: {order}") } else { ok(()) }
+    })
+}
+
+fn test_property_holds() {
+    test.property(50, 1, fn(r: random.Random) -> Int { r.int(-1000, 1000) }, fn(x: Int) -> Result<Unit, String> {
+        if x * x >= 0 { ok(()) } else { err("negative square") }
+    })
+}
+
+fn test_property_reports_counterexample() {
+    test.property(50, 1, fn(r: random.Random) -> Int { r.int(0, 100) }, fn(x: Int) -> Result<Unit, String> {
+        if x < 90 { ok(()) } else { err("too large") }
+    })
+}

@@ -1,0 +1,63 @@
+// Typed routes: body/reply schemas validate input (structured 400s), URLs
+// come from the same descriptions with structured errors, and an OpenAPI
+// document is generated from the table.
+import std.bytes
+import std.codec
+import std.http
+import std.io
+import std.route
+import std.text
+
+type NewOrder = { title: String, quantity: Int, note: Option<String> }
+type Order = { id: Int, title: String, quantity: Int }
+
+pub enum AppError {
+    route(source: route.RouteError),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let routes = [
+        route.json(:post, "/orders", :orders/create, fn(_req, _params, o: NewOrder) -> Result<(Int, Order), String> {
+            if o.quantity <= 0 {
+                return err("quantity must be positive")
+            }
+            ok((201, { id: 1, title: o.title, quantity: o.quantity }))
+        }),
+        route.json_get("/orders/:id", :orders/show, fn(_req, params) -> Result<(Int, Order), String> {
+            ok((200, { id: 7, title: $"order {params["id"]}", quantity: 1 }))
+        }),
+    ]
+    let h = route.table(routes)?
+    io.println(show(http.call(h, http.request(:post, "/orders", "{\"title\":\"pens\",\"quantity\":3}"))))?
+    io.println(show(http.call(h, http.request(:post, "/orders", "{\"title\":\"pens\"}"))))?
+    io.println(show(http.call(h, http.request(:post, "/orders", "{\"title\":\"pens\",\"quantity\":\"x\"}"))))?
+    io.println(show(http.call(h, http.request(:post, "/orders", "{\"title\":\"pens\",\"quantity\":0}"))))?
+    io.println(show(http.call(h, http.request(:get, "/orders/a%20b", ""))))?
+    io.println(show(http.call(h, http.request(:get, "/missing", ""))))?
+    // URLs from the same descriptions
+    io.println(route.url(routes, :orders/show, map { "id" => "a b/7" })?)?
+    for attempt in [
+        route.url(routes, :orders/show, map {}),
+        route.url(routes, :orders/show, map { "id" => "1", "x" => "2" }),
+        route.url(routes, :nope, map {}),
+    ] {
+        match attempt {
+            .ok(u) => io.println($"unexpected {u}")?,
+            .err(e) => io.println($"url error: {e}")?,
+        }
+    }
+    // validation before serving
+    let dup = route.validate([route.json_get("/a/:x/:x", :dup, fn(_r, _p) -> Result<(Int, Int), String> { ok((200, 1)) })])
+    io.println($"repeated parameter rejected: {dup.is_err()}")?
+    // OpenAPI from the table
+    let doc = route.openapi(routes, "orders", "1.0")?
+    let parsed = codec.parse_data(doc)
+    io.println($"openapi parses: {parsed.is_ok()}")?
+    io.println(doc)?
+    ok(())
+}

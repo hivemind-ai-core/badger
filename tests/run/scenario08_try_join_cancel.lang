@@ -1,0 +1,38 @@
+// Scenario 8: one child returns `err` while its peer is blocked on a full
+// channel; try_join cancels and settles the peer promptly. Ordinary spawn
+// still returns arbitrary typed values.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    failed(message: String),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    use endpoints <- channel.open<Int>({ ..channel.defaults, capacity: 1 })
+    let r = task.scope(fn(scope) -> Result<Unit, AppError> {
+        let plain = scope.spawn(fn() { 40 + 2 })
+        let _ = io.println($"plain spawn returned {plain.join()}")
+        let blocked = scope.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..1000 {
+                let _ = endpoints.sender.send(i)
+            }
+            let _ = io.println("blocked producer finished (unexpected)")
+            ok(())
+        })
+        let failing = scope.spawn(fn() -> Result<Unit, AppError> {
+            task.sleep(5ms)
+            err(AppError.failed("child failed"))
+        })
+        let _ = scope.try_join(blocked, failing)?
+        ok(())
+    })
+    match r {
+        .ok(_) => { let _ = io.println("unexpected success") },
+        .err(e) => { let _ = io.println($"try_join returned: {e}") },
+    }
+    let _ = io.println($"queued while cancelled: {endpoints.receiver.len()}")
+    ok(())
+}

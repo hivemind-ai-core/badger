@@ -1,0 +1,83 @@
+import std.pipeline
+import std.pipeline.{handle_context}
+import std.trace
+
+type Reply = { status: Int, message: String }
+
+pub enum RequestError {
+    invalid_name,
+} derive(Error)
+
+fn audit() {
+    pipeline.stage({
+        name: :request/audit,
+        enter: fn(ctx) {
+            pipeline.next({ ..ctx, checked: false, processed: 0 })
+        },
+        leave: fn(ctx, reply) {
+            // Latest values from later enters, handler, and leave callbacks.
+            assert(ctx.checked)
+            if reply.status == 200 {
+                assert(ctx.processed == 2)
+            } else {
+                // The handler failed without committing an update. identify's
+                // error callback forwarded; its leave will not run on recovery.
+                assert(ctx.processed == 0)
+            }
+            // ctx.identity is unavailable: a later stage introduced it.
+            trace.event(:request/completed, { processed: ctx.processed })
+            pipeline.leave(ctx, reply)
+        },
+        error: fn(ctx, error) {
+            trace.event(:request/failed, { checked: ctx.checked })
+            pipeline.propagate(ctx, error)
+        },
+    })
+}
+
+fn recover_invalid_name() {
+    pipeline.stage({
+        name: :request/recover,
+        error: fn(ctx, error: RequestError) {
+            match error {
+                .invalid_name => pipeline.recover(ctx, {
+                    status: 400,
+                    message: "A name is required",
+                }),
+            }
+        },
+    })
+}
+
+fn identify() {
+    pipeline.stage({
+        name: :request/identify,
+        enter: fn(ctx) {
+            pipeline.next({ ..ctx, checked: true, identity: ctx.name })
+        },
+        leave: fn(ctx, reply) {
+            pipeline.leave({ ..ctx, processed: ctx.processed + 1 }, reply)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, RequestError> {
+    let process = pipeline.compile(pipeline {
+        audit(),
+        recover_invalid_name(),
+        identify(),
+        handle_context(fn(ctx) -> Result<_, RequestError> {
+            if ctx.identity == "" {
+                return err(RequestError.invalid_name)
+            }
+            let reply: Reply = { status: 200, message: $"Hello, {ctx.identity}" }
+            ok(({ ..ctx, processed: ctx.processed + 1 }, reply))
+        }),
+    })
+
+    let reply = process({ name: "Ada" })?
+    assert(reply.status == 200)
+    let rejected = process({ name: "" })?
+    assert(rejected.status == 400)
+    ok(())
+}

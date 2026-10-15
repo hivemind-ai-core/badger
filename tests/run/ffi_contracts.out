@@ -1,0 +1,3 @@
+blocking calls overlapped: true, worker ticked 5 times
+pinned thread is stable: true
+inline call works: true

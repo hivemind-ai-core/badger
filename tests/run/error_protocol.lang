@@ -1,0 +1,51 @@
+// `Error` provides display, a stable code, an optional cause (the causal
+// chain), and structured details; `derive(Error)` fills them in.
+import std.io
+
+pub struct ParseFailure {
+    pub line: Int,
+}
+
+impl Display for ParseFailure {
+    fn display(self: &Self) -> String { $"bad input on line {self.line}" }
+}
+
+impl Error for ParseFailure {
+    fn details(self: &Self) -> Data { { line: self.line } }
+}
+
+pub enum LoadError {
+    parse(source: ParseFailure),
+    missing(path: String, reason: String),
+    timeout,
+} derive(Error, Display)
+
+fn load(n: Int) -> Result<Int, LoadError> {
+    if n == 0 {
+        return err(LoadError.parse({ line: 7 }))
+    }
+    if n == 1 {
+        return err(LoadError.missing("a.txt", "gone"))
+    }
+    ok(n)
+}
+
+fn report(e: LoadError) -> Result<Unit, io.Error> !{Io} {
+    io.println($"{e.code()}: {e}")?
+    match e.cause() {
+        .some(c) => io.println($"  caused by {c.code()}: {c} {c.details()}")?,
+        .none => io.println("  no cause")?,
+    }
+    io.println(error_chain(e))
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    for n in [0, 1] {
+        match load(n) {
+            .ok(v) => io.println(v)?,
+            .err(e) => report(e)?,
+        }
+    }
+    io.println(LoadError.timeout.code())?
+    ok(())
+}

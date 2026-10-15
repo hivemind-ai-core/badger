@@ -1,0 +1,24 @@
+// Unbounded recursion is a task defect ("stack overflow"), contained like
+// any other defect: the parent observes the failed child and continues.
+import std.io
+import std.task
+
+fn depth(n: Int) -> Int {
+    if n == 0 { 0 } else { 1 + depth(n - 1) }
+}
+
+fn forever(n: Int) -> Int { 1 + forever(n + 1) }
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"deep recursion: {depth(50000)}")?
+    let line = task.scope(fn(s) -> Result<String, io.Error> {
+        let t = s.capture(fn() { forever(0) })
+        match t.join() {
+            .failed(info) => ok($"child failed: {info.message}"),
+            _ => ok("unexpected"),
+        }
+    })?
+    io.println(line)?
+    io.println($"still running: {depth(10)}")?
+    ok(())
+}

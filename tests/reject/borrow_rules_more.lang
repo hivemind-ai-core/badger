@@ -1,0 +1,29 @@
+// expect-error: E0405
+// expect-error: E0407
+// Borrow rules: references copy freely; an exclusive borrow excludes other
+// uses in the same call; borrows escaping through bindings are caught.
+import std.buffer
+
+fn id(r: &Buffer<Int>) -> &Buffer<Int> { r }
+
+fn wrap(r: &Buffer<Int>) -> { r: &Buffer<Int> } { { r: r } }
+
+fn both(a: &mut Buffer<Int>, b: &Buffer<Int>) -> Int {
+    a.push(1)
+    b.len()
+}
+
+struct W {
+    r: &Buffer<Int>,
+}
+
+fn leak() -> W {
+    let b = buffer.new<Int>()
+    let w: W = { r: &b }
+    w
+}
+
+pub fn main() {
+    let b = buffer.new<Int>()
+    let n = both(&mut b, &b)
+}

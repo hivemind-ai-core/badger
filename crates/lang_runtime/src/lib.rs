@@ -1,0 +1,161 @@
+//! Runtime support linked into the host process and called from JIT code.
+//!
+//! - [`gc`]: precise nonmoving mark-sweep heap with shadow-stack roots
+//! - [`desc`]: runtime type descriptors (layout, tracing, schema)
+//! - [`task`], [`scope`]: stackful tasks, scheduler, cancellation, cleanup
+//! - [`value`]: descriptor-driven equality, hashing, ordering, display
+//! - [`string`], [`list`], [`map`]: core managed data
+//! - [`intrinsics`]: `extern "C"` entry points used by compiled code
+//!
+//! Compiled code calls the runtime through `extern "C"` functions named
+//! `lang_rt_*`; [`symbols`] lists them for the JIT linker. Standard-library
+//! intrinsics use a uniform ABI:
+//!
+//! ```text
+//! fn(ctx: *mut TaskCtx, targs: *const &TypeDesc, ret: &TypeDesc, args: u64...) -> u64
+//! ```
+#![allow(clippy::type_complexity)]
+// Entry points take raw words and pointers from compiled code by design.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
+pub mod abi;
+pub mod buffer;
+pub mod channel;
+pub mod codec;
+pub mod desc;
+pub mod ffi;
+pub mod gc;
+pub mod http;
+pub mod inspect;
+pub mod intrinsics;
+pub mod intrinsics_codec;
+pub mod intrinsics_io;
+pub mod intrinsics_os;
+pub mod intrinsics_std;
+pub mod intrinsics_task;
+pub mod list;
+pub mod live;
+pub mod map;
+pub mod parse;
+pub mod scope;
+pub mod sqlite;
+pub mod string;
+pub mod task;
+pub mod value;
+
+pub use desc::{Field, Kind, Repr, TypeDesc, Variant};
+pub use task::TaskCtx;
+
+/// Signature of a closure's word adapter: arguments and result as 64-bit
+/// words (floats as bits, small integers zero-extended).
+pub type Adapter = extern "C" fn(ctx: *mut TaskCtx, closure: u64, args: *const u64) -> u64;
+
+/// Closure payload layout: code pointer, adapter pointer, captures.
+pub const CLOSURE_CODE: usize = 0;
+pub const CLOSURE_ADAPTER: usize = 8;
+pub const CLOSURE_CAPTURES: usize = 16;
+
+/// Call a managed closure with word arguments.
+///
+/// # Safety
+/// `closure` must be a live closure object whose signature matches `args`.
+pub unsafe fn call_closure(ctx: *mut TaskCtx, closure: u64, args: &[u64]) -> u64 {
+    unsafe {
+        let p = gc::obj(closure).payload();
+        let adapter = *(p.add(CLOSURE_ADAPTER) as *const usize);
+        let f: Adapter = std::mem::transmute(adapter);
+        // compiled code runs outside the runtime lock (several workers)
+        task::leave_runtime();
+        let r = f(ctx, closure, args.as_ptr());
+        task::enter_runtime();
+        r
+    }
+}
+
+/// Construct an enum value `desc` with variant `tag` and field words.
+pub fn make_enum(desc: &'static TypeDesc, tag: u32, fields: &[u64]) -> u64 {
+    let _r = gc::Roots::new();
+    // only pointer-typed payload words are roots
+    if let Some(v) = desc.variant(tag) {
+        for (fd, &f) in v.fields.iter().zip(fields) {
+            if fd.desc.is_ptr() {
+                _r.add(f);
+            }
+        }
+    }
+    let w = gc::alloc(desc, desc.payload_size() as usize);
+    unsafe {
+        let p = gc::obj(w).payload();
+        *(p as *mut u32) = tag;
+        if let Some(v) = desc.variant(tag) {
+            for (fd, &val) in v.fields.iter().zip(fields) {
+                fd.repr.store(p.add(fd.offset as usize), val);
+            }
+        }
+    }
+    w
+}
+
+/// Construct `Result.ok(value)` / `Option.some(value)` style values by
+/// variant name.
+pub fn make_variant(desc: &'static TypeDesc, name: &str, fields: &[u64]) -> u64 {
+    let tag = desc.variant_index(name).unwrap_or_else(|| panic!("{} has no variant {name}", desc.name));
+    make_enum(desc, tag, fields)
+}
+
+/// Read an enum's tag and variant field words.
+pub fn enum_parts(w: u64) -> (u32, Vec<u64>) {
+    unsafe {
+        let o = gc::obj(w);
+        let p = o.payload();
+        let tag = *(p as *const u32);
+        let v = o.desc().variant(tag);
+        let fields = v
+            .map(|v| v.fields.iter().map(|f| f.repr.load(p.add(f.offset as usize))).collect())
+            .unwrap_or_default();
+        (tag, fields)
+    }
+}
+
+/// Construct a record/struct value from named field words.
+pub fn make_record(desc: &'static TypeDesc, fields: &[(&str, u64)]) -> u64 {
+    let _r = gc::Roots::new();
+    for (name, f) in fields {
+        if desc.field(name).is_some_and(|fd| fd.desc.is_ptr()) {
+            _r.add(*f);
+        }
+    }
+    let w = gc::alloc(desc, desc.payload_size() as usize);
+    unsafe {
+        let p = gc::obj(w).payload();
+        for (name, val) in fields {
+            if let Some(fd) = desc.field(name) {
+                fd.repr.store(p.add(fd.offset as usize), *val);
+            }
+        }
+    }
+    w
+}
+
+/// Read a named field of a record/struct value.
+pub fn record_field(w: u64, name: &str) -> Option<u64> {
+    unsafe {
+        let o = gc::obj(w);
+        let fd = o.desc().field(name)?;
+        Some(fd.repr.load(o.payload().add(fd.offset as usize)))
+    }
+}
+
+/// Name and address of every runtime function JIT code may call.
+pub fn symbols() -> Vec<(&'static str, *const u8)> {
+    let mut v = abi::symbols();
+    v.extend(intrinsics::symbols());
+    v.extend(ffi::symbols());
+    v.extend([
+        ("lang_rt_enter", task::lang_rt_enter as *const u8),
+        ("lang_rt_leave", task::lang_rt_leave as *const u8),
+        ("lang_rt_safe_begin", task::lang_rt_safe_begin as *const u8),
+        ("lang_rt_safe_end", task::lang_rt_safe_end as *const u8),
+    ]);
+    v
+}

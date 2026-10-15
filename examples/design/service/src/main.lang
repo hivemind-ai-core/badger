@@ -1,0 +1,137 @@
+import std.codec
+import std.config
+import std.http
+import std.pipeline
+import std.pipeline.{handle}
+import std.result
+import std.sqlite
+import std.system
+import std.system.{component}
+import std.time
+import std.trace
+
+type Config = {
+    database_path: String,
+    address: String,
+    port: U16,
+}
+
+type OrderInput = { title: String }
+type Order = { id: Int, title: String }
+
+pub enum AppError {
+    configuration(source: config.Error),
+    database(source: sqlite.Error),
+    decode(source: codec.DecodeError),
+    http(source: http.Error),
+    system(source: system.Error),
+    invalid_input(message: String),
+} derive(Error, From)
+
+fn timing() {
+    pipeline.stage({
+        name: :orders/timing,
+        enter: fn(ctx) {
+            pipeline.next({ ..ctx, [:orders/started]: time.now() })
+        },
+        leave: fn(ctx, response) {
+            trace.event(:orders/completed, {
+                elapsed: time.now() - ctx[:orders/started],
+            })
+            pipeline.leave(ctx, response)
+        },
+        error: fn(ctx, error) {
+            trace.event(:orders/failed, {
+                elapsed: time.now() - ctx[:orders/started],
+                message: error.display(),
+            })
+            pipeline.propagate(ctx, error)
+        },
+    })
+}
+
+fn decode_order() {
+    pipeline.stage({
+        name: :orders/decode,
+        enter: fn(ctx) -> Result<_, AppError> {
+            let input = codec.decode<OrderInput>(ctx.request.body)?
+            if input.title == "" {
+                return err(AppError.invalid_input("title must not be empty"))
+            }
+            pipeline.next({ ..ctx, input })
+        },
+    })
+}
+
+fn respond_to_errors() {
+    pipeline.stage({
+        name: :orders/errors,
+        error: fn(ctx, error: AppError) {
+            let reply = match error {
+                .decode(_) => http.json(400, { error: "invalid JSON request" }),
+                .invalid_input(message) => http.json(400, { error: message }),
+                _ => http.json(500, { error: "internal server error" }),
+            }
+            match reply {
+                .ok(response) => pipeline.recover(ctx, response),
+                .err(reply_error) => pipeline.propagate(ctx, AppError.http(reply_error)),
+            }
+        },
+    })
+}
+
+fn save_order(ctx) -> Result<_, AppError> {
+    use tx <- sqlite.transaction(ctx.database)
+    let row = sqlite.query_one(
+        tx,
+        "INSERT INTO orders (title) VALUES (?) RETURNING id, title",
+        [Data.string(ctx.input.title)],
+    )?
+    let order = codec.from_data<Order>(row)?
+    let response = http.json(201, order)?
+    ok(response)
+}
+
+let api_provider = system.provider({
+    name: :orders/api,
+    init: fn(_scope, settings) -> Result<_, AppError> {
+        let database = settings.database
+        sqlite.execute(
+            database,
+            "CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY, title TEXT NOT NULL)",
+            [],
+        )?
+
+        let process = pipeline.compile(pipeline {
+            timing(),
+            respond_to_errors(),
+            decode_order(),
+            handle(save_order),
+        })
+
+        ok(http.handler(fn(request) -> Result<_, AppError> {
+            if request.method != :post || request.path != "/orders" {
+                return http.json(404, { error: "not found" })
+                    |> result.map_err(AppError.http)
+            }
+            process({ request, database })
+        }))
+    },
+})
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.from_env<Config>("ORDERS_")?
+    let plan = system {
+        database: component(sqlite.pool, { path: settings.database_path }),
+        api: component(api_provider, { database: ref(:database) }),
+        server: component(http.server, {
+            address: settings.address,
+            port: settings.port,
+            handler: ref(:api),
+        }),
+    }
+
+    use running <- system.run(plan)
+    running.wait_for_shutdown()?
+    ok(())
+}

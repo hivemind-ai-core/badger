@@ -1,0 +1,7 @@
+// Module-level bindings may destructure: each name binds its part.
+import std.io
+let (ga, gb) = (1, "two")
+let { x, y: why } = { x: 3, y: 4 }
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{ga} {gb} {x} {why}")
+}

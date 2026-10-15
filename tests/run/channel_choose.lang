@@ -1,0 +1,54 @@
+// Heterogeneous selection: cases of different message types map their
+// outcomes into one enum; exactly one case commits.
+import std.channel
+import std.io
+
+enum Event {
+    number(n: Int),
+    word(w: String),
+    ended,
+    delivered,
+}
+
+impl Display for Event {
+    fn display(self: &Self) -> String {
+        match self {
+            .number(n) => $"number {n}",
+            .word(w) => $"word {w}",
+            .ended => "ended",
+            .delivered => "delivered",
+        }
+    }
+}
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 2 })?
+    let b = channel.create<String>({ ..channel.defaults, capacity: 2 })?
+    let out = channel.create<Bool>({ ..channel.defaults, capacity: 1 })?
+    let _ = a.sender.send(7)
+    let _ = b.sender.send("hi")
+    a.sender.close()
+    let to_event_int = fn(m: Option<Int>) -> Event { match m { .some(n) => Event.number(n), .none => Event.ended } }
+    let to_event_str = fn(m: Option<String>) -> Event { match m { .some(w) => Event.word(w), .none => Event.ended } }
+    var seen: List<String> = []
+    for _ in 0..4 {
+        let e = channel.choose([
+            channel.on_recv(a.receiver, to_event_int),
+            channel.on_recv(b.receiver, to_event_str),
+            channel.on_send(out.sender, true, fn() { Event.delivered }),
+        ], Option.some(50ms))
+        match e {
+            .some(ev) => { seen = seen.append(ev.display()) },
+            .none => { seen = seen.append("timeout") },
+        }
+    }
+    io.println(seen.sort())?
+    let t = channel.choose([channel.on_recv(b.receiver, to_event_str)], Option.some(10ms))
+    io.println($"timeout gives none: {t.is_none()}")?
+    ok(())
+}

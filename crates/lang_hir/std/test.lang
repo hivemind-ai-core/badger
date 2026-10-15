@@ -1,0 +1,99 @@
+// Assertions and controlled-runtime fixtures for tests: a controlled clock,
+// seeded randomness (`std.random`), controlled scheduling with
+// record/replay of interleavings, and property checks.
+
+import std.random
+
+extern "intrinsic" fn test_fail(message: String) -> Never
+extern "intrinsic" fn clock_manual(start: Instant) -> Unit
+extern "intrinsic" fn clock_advance(d: Duration) -> Unit
+extern "intrinsic" fn clock_real() -> Unit
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+extern "intrinsic" fn sched_seed(seed: Int) -> Unit
+extern "intrinsic" fn sched_record() -> Unit
+extern "intrinsic" fn sched_recorded() -> List<Int>
+extern "intrinsic" fn sched_replay(decisions: List<Int>) -> Unit
+extern "intrinsic" fn sched_reset() -> Unit
+
+/// Fail the current test unless `actual == expected`.
+pub fn assert_eq<T>(actual: T, expected: T) -> Unit where T: Eq, T: Display {
+    if actual != expected {
+        test_fail($"assertion failed: expected {expected}, found {actual}")
+    }
+}
+
+pub fn assert_true(condition: Bool, message: String) -> Unit {
+    if !condition {
+        test_fail($"assertion failed: {message}")
+    }
+}
+
+/// Fail unless `r` is an error.
+pub fn expect_err<T, E>(r: Result<T, E>) -> E {
+    match r {
+        .ok(_) => test_fail("expected an error, got ok"),
+        .err(e) => e,
+    }
+}
+
+pub fn fail(message: String) -> Never { test_fail(message) }
+
+/// Switch `time.now()` to a controlled clock starting at `start_nanos`.
+pub fn manual_clock(start_nanos: Int) -> Unit { clock_manual(identity(start_nanos)) }
+
+/// Advance the controlled clock.
+pub fn advance(d: Duration) -> Unit { clock_advance(d) }
+
+/// Return to the real monotonic clock.
+pub fn real_clock() -> Unit { clock_real() }
+
+/// Controlled scheduling (single worker): pick among ready tasks
+/// pseudo-randomly from `seed` instead of first-in first-out. Combined with
+/// a controlled clock and seeded randomness, an interleaving is
+/// reproducible from its seed. `LANG_SCHED_SEED` sets it for every test.
+pub fn schedule_seed(seed: Int) -> Unit { sched_seed(seed) }
+
+/// Start recording the scheduling decisions made from now on.
+pub fn record_schedule() -> Unit { sched_record() }
+
+/// The decisions recorded so far (indices into the ready queue).
+pub fn recorded_schedule() -> List<Int> { sched_recorded() }
+
+/// Replay recorded decisions (then continue first-in first-out).
+pub fn replay_schedule(decisions: List<Int>) -> Unit { sched_replay(decisions) }
+
+/// Return to first-in first-out scheduling.
+pub fn fifo_schedule() -> Unit { sched_reset() }
+
+/// Run `body` under `runs` scheduling seeds. A failing interleaving fails
+/// the test with its seed and recorded decisions, which `replay_schedule`
+/// reproduces.
+pub fn explore<E>(runs: Int, body: fn() -> Result<Unit, E>) -> Unit where E: Display {
+    for seed in 1..=runs {
+        sched_seed(seed)
+        sched_record()
+        match body() {
+            .ok(_) => (),
+            .err(e) => {
+                let trace = sched_recorded()
+                sched_reset()
+                test_fail($"failed under schedule seed {seed} (decisions {trace}): {e}")
+            },
+        }
+    }
+    sched_reset()
+}
+
+/// A behavioral (property) check: `check` must hold for `runs` values made
+/// by `gen` from seeded random sources (`seed`, `seed + 1`, ...). A failure
+/// reports the value and the seed that regenerates it.
+pub fn property<T, E>(runs: Int, seed: Int, gen: fn(random.Random) -> T, check: fn(T) -> Result<Unit, E>) -> Unit where T: Display, E: Display {
+    for i in 0..runs {
+        let s = seed + i
+        let value = gen(random.seeded(s))
+        match check(value) {
+            .ok(_) => (),
+            .err(e) => test_fail($"property failed for {value} (run {i}, seed {s}): {e}"),
+        }
+    }
+}

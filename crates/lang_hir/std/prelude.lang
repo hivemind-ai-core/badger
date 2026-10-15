@@ -1,0 +1,363 @@
+// The prelude is implicitly imported into every module.
+
+pub extern type Never
+pub extern type Bool
+pub extern type I8
+pub extern type I16
+pub extern type I32
+pub extern type I64
+pub extern type U8
+pub extern type U16
+pub extern type U32
+pub extern type U64
+pub extern type F32
+pub extern type F64
+pub extern type Char
+pub extern type Symbol
+pub extern type String
+pub extern type Bytes
+pub extern type Duration
+pub extern type Instant
+pub extern type Timestamp
+
+pub type Unit = ()
+pub type Int = I64
+pub type Float = F64
+pub type Byte = U8
+pub type Size = U64
+
+/// Frozen paged sequence.
+pub extern type List<T>
+/// Affine append builder for `List<T>`.
+pub extern type ListBuilder<T>
+/// Contiguous growable affine storage.
+pub extern type Buffer<T>
+/// Fixed-length immutable contiguous storage.
+pub extern type Array<T>
+pub extern type Map<K, V>
+pub extern type Set<T>
+/// Lazy integer range `start..end` / `start..=end`.
+pub extern type Range<T>
+/// Shareable synchronized cell: tasks may share one `Atom<T>` (it is
+/// `Transfer` when `T` is), and every operation is indivisible with respect
+/// to other tasks. `update` runs a pure function on the current value.
+pub struct Atom<T> {
+    value: T,
+}
+
+extern "intrinsic" fn atom_get<T>(atom: Atom<T>) -> T
+extern "intrinsic" fn atom_set<T>(atom: Atom<T>, value: T) -> Unit
+extern "intrinsic" fn atom_cas<T>(atom: Atom<T>, expected: T, value: T) -> Bool
+
+impl<T> Atom<T> {
+    pub fn new(value: T) -> Atom<T> { { value } }
+    pub fn get(self: &Self) -> T !{State} { atom_get(self) }
+    pub fn set(self: &Self, value: T) -> Unit !{State} { atom_set(self, value) }
+    /// Replace the value with `f(value)` and return the new value. `f` may
+    /// run again if another task changed the value concurrently.
+    pub fn update(self: &Self, f: fn(T) -> T !{}) -> T !{State} {
+        loop {
+            let old = atom_get(self)
+            let next = f(old)
+            if atom_cas(self, old, next) {
+                return next
+            }
+        }
+    }
+    /// Store `value` and return the previous value.
+    pub fn swap(self: &Self, value: T) -> T !{State} {
+        loop {
+            let old = atom_get(self)
+            if atom_cas(self, old, value) {
+                return old
+            }
+        }
+    }
+}
+
+/// A value with the source location that produced it (`located(value)`
+/// records its call site).
+pub struct Located<T> {
+    pub value: T,
+    pub file: String,
+    pub line: Int,
+    pub column: Int,
+}
+
+pub extern "intrinsic" fn located<T>(value: T) -> Located<T>
+
+impl<T> Display for Located<T> where T: Display {
+    fn display(self: &Self) -> String { $"{self.value} ({self.file}:{self.line}:{self.column})" }
+}
+
+/// Immutable indirection for recursive definitions.
+pub struct Box<T> {
+    value: T,
+}
+
+impl<T> Box<T> {
+    pub fn new(value: T) -> Box<T> { { value } }
+    pub fn get(self: &Self) -> T { self.value }
+}
+
+/// Task-confined mutable cell.
+pub struct Cell<T> {
+    value: T,
+}
+
+extern "intrinsic" fn cell_get<T>(cell: Cell<T>) -> T
+extern "intrinsic" fn cell_set<T>(cell: Cell<T>, value: T) -> Unit
+
+impl<T> Cell<T> {
+    pub fn new(value: T) -> Cell<T> { { value } }
+    pub fn get(self: &Self) -> T { cell_get(self) }
+    pub fn set(self: &Self, value: T) -> Unit { cell_set(self, value) }
+}
+pub extern type Schema<T>
+/// A heap value of statically unknown type: the compiler's fallback for
+/// polymorphic recursion (its runtime descriptor is its own).
+extern type Dynamic
+
+extern "intrinsic" fn dynamic_display(value: Dynamic) -> String
+
+impl Display for Dynamic {
+    fn display(self: &Self) -> String { dynamic_display(self) }
+}
+
+/// Typed lazy sequence: a reusable description producing fresh iterators.
+pub struct Seq<T> {
+    pub start: fn() -> fn() -> Option<T>,
+}
+
+pub enum Option<T> {
+    none,
+    some(value: T),
+}
+
+pub enum Result<T, E> {
+    ok(value: T),
+    err(error: E),
+}
+
+/// Explicit dynamic data.
+pub enum Data {
+    null,
+    bool(value: Bool),
+    int(value: Int),
+    float(value: Float),
+    string(value: String),
+    list(items: List<Data>),
+    object(fields: Map<String, Data>),
+}
+
+pub protocol Display {
+    fn display(self: &Self) -> String
+}
+
+/// An expected failure: display text, a stable machine-readable code, an
+/// optional cause (the causal chain), and structured details.
+pub protocol Error: Display {
+    /// Stable code: by default the enum variant (or type) name.
+    fn code(self: &Self) -> Symbol { error_code(self) }
+    /// The error this one wraps, if any (`derive(Error)` reports the payload
+    /// of a single-field variant that is itself an `Error`).
+    fn cause(self: &Self) -> Option<dyn Error> { Option.none }
+    /// Structured diagnostic details (by default, none).
+    fn details(self: &Self) -> Data { error_details(self) }
+}
+
+extern "intrinsic" fn error_code<T>(value: T) -> Symbol
+extern "intrinsic" fn error_details<T>(value: T) -> Data
+
+/// The causal chain of an error, outermost first.
+pub fn error_chain(e: dyn Error) -> List<String> {
+    var out = [e.display()]
+    var cur = e.cause()
+    loop {
+        match cur {
+            .some(c) => {
+                out = out.append(c.display())
+                cur = c.cause()
+            },
+            .none => { break },
+        }
+    }
+    out
+}
+
+pub protocol From<T> {
+    fn from(value: T) -> Self
+}
+
+/// Checked conversion: `Target.try_from(value)` (see `std.num`).
+pub protocol TryFrom<T> {
+    fn try_from(value: T) -> Result<Self, NumericError>
+}
+
+/// Failure of a checked arithmetic helper or numeric conversion.
+pub enum NumericError {
+    overflow,
+    division_by_zero,
+    out_of_range,
+}
+
+impl Display for NumericError {
+    fn display(self: &Self) -> String {
+        match self {
+            .overflow => "arithmetic overflow",
+            .division_by_zero => "division by zero",
+            .out_of_range => "value out of range for the target type",
+        }
+    }
+}
+
+impl Error for NumericError {}
+
+/// Total equality (reflexive): floats are excluded, having only IEEE
+/// `PartialEq`.
+pub protocol Eq {}
+/// Equality as `==` computes it (IEEE for floats: `nan != nan`).
+pub protocol PartialEq {}
+/// Ordering as `<` computes it (IEEE for floats).
+pub protocol PartialOrd {}
+pub protocol Hash {}
+pub protocol Codec {}
+pub protocol Transfer {}
+/// Safely duplicable and usable by several tasks: neither affine nor
+/// task-confined (a compiler-checked capability, like `Transfer`).
+pub protocol Share {}
+/// Carries no value bound to a scope region (pools, transactions, request
+/// scopes, ...): may outlive the scope that produced it (compiler-checked).
+pub protocol Unscoped {}
+/// Any integer type (`I8`..`U64`).
+pub protocol Integer {}
+
+/// Kind markers usable as bounds (`Rest: Row`, `S: Scope`, `E: Effect`).
+pub protocol Row {}
+pub protocol Scope {}
+pub protocol Effect {}
+
+pub fn some<T>(value: T) -> Option<T> {
+    Option.some(value)
+}
+
+pub let none = Option.none
+
+pub fn ok<T, E>(value: T) -> Result<T, E> {
+    Result.ok(value)
+}
+
+pub fn err<T, E>(error: E) -> Result<T, E> {
+    Result.err(error)
+}
+
+/// Terminate the current task with a defect.
+pub extern "intrinsic" fn panic(message: String) -> Never
+
+/// Terminate the current task with a defect if `condition` is false.
+pub extern "intrinsic" fn assert(condition: Bool) -> Unit
+
+/// Derived typed schema for `T`.
+pub extern "intrinsic" fn schema<T>() -> Schema<T> where T: Codec
+
+extern "intrinsic" fn schema_describe<T>(s: Schema<T>) -> String
+
+impl<T> Schema<T> {
+    /// A JSON description of the schema (fields, variants, element types).
+    pub fn describe(self: &Self) -> String { schema_describe(self) }
+}
+
+extern "intrinsic" fn int_to_string<T>(value: T) -> String
+extern "intrinsic" fn float_to_string<T>(value: T) -> String
+extern "intrinsic" fn char_to_string(value: Char) -> String
+extern "intrinsic" fn symbol_to_string(value: Symbol) -> String
+extern "intrinsic" fn duration_to_string(value: Duration) -> String
+extern "intrinsic" fn data_to_string(value: Data) -> String
+
+impl Display for String {
+    fn display(self: &Self) -> String { self }
+}
+impl Display for Bool {
+    fn display(self: &Self) -> String { if self { "true" } else { "false" } }
+}
+impl Display for I8 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for I16 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for I32 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for I64 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for U8 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for U16 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for U32 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for U64 {
+    fn display(self: &Self) -> String { int_to_string(self) }
+}
+impl Display for F32 {
+    fn display(self: &Self) -> String { float_to_string(self) }
+}
+impl Display for F64 {
+    fn display(self: &Self) -> String { float_to_string(self) }
+}
+impl Display for Char {
+    fn display(self: &Self) -> String { char_to_string(self) }
+}
+impl Display for Symbol {
+    fn display(self: &Self) -> String { symbol_to_string(self) }
+}
+impl Display for Duration {
+    fn display(self: &Self) -> String { duration_to_string(self) }
+}
+impl Display for Data {
+    fn display(self: &Self) -> String { data_to_string(self) }
+}
+impl Display for () {
+    fn display(self: &Self) -> String { "()" }
+}
+
+extern "intrinsic" fn display_value<T>(value: T) -> String
+
+impl<T> Display for List<T> where T: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<K, V> Display for Map<K, V> where K: Display, V: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<T> Display for Box<T> where T: Display {
+    fn display(self: &Self) -> String { self.value.display() }
+}
+
+impl<T> Display for Set<T> where T: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+
+/// The report of an error that ends a program: its code, message, causal
+/// chain, and structured details.
+pub fn describe_error<E>(e: E) -> String where E: Error {
+    let d: dyn Error = e
+    var out = $"error[{d.code()}]: {d.display()}"
+    var first = true
+    for line in error_chain(d) {
+        if first {
+            first = false
+        } else {
+            out = $"{out}\n  caused by: {line}"
+        }
+    }
+    match d.details() {
+        .null => (),
+        other => { out = $"{out}\n  details: {other}" },
+    }
+    out
+}

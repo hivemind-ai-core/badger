@@ -1,0 +1,11 @@
+// expect-error: E0212
+// A derivation and an explicit implementation overlap.
+enum Shape {
+    dot,
+} derive(Display)
+
+impl Display for Shape {
+    fn display(self: &Self) -> String { "shape" }
+}
+
+pub fn main() -> Unit {}

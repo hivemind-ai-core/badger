@@ -1,0 +1,8 @@
+// expect-error: E0404
+// A list of affine buffers is affine: taking an element consumes it.
+import std.buffer
+pub fn main() -> Unit {
+    let l = [buffer.new<Int>()]
+    let a = l[0]
+    let b = l[0]
+}

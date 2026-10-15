@@ -1,0 +1,14 @@
+// expect-error: E0401
+// A request-scoped body reader cannot outlive its request.
+import std.http
+
+pub fn main() {
+    let keep: Cell<List<Int>> = Cell.new([])
+    let leaked_reader = Cell.new(Option.none)
+    let h = http.scoped(fn(scope) -> Result<http.Sent, http.Error> {
+        let reader = scope.body()
+        leaked_reader.set(Option.some(reader))
+        keep.set([1])
+        ok(scope.respond(http.text(200, "x")?))
+    })
+}

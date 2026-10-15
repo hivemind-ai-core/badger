@@ -1,0 +1,46 @@
+import std.channel
+import std.io
+import std.task
+
+type Job = { id: Int, payload: String }
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Job>),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    use endpoints <- channel.open<Job>({ ..channel.defaults, capacity: 4 })
+    use scope <- task.scope()
+
+    let producer = scope.spawn(fn() -> Result<Unit, AppError> {
+        for id in 0..10 {
+            let job = { id, payload: $"work-{id}" }
+            endpoints.sender.send(job)?
+            // Immutable shareable payloads may still be used after send.
+            assert(job.id == id)
+        }
+        endpoints.sender.close()
+        ok(())
+    })
+
+    let consumer = scope.spawn(fn() -> Result<Int, AppError> {
+        var processed = 0
+        loop {
+            match endpoints.receiver.recv() {
+                .some(job) => {
+                    io.println(job.payload)?
+                    processed = processed + 1
+                },
+                .none => { break },
+            }
+        }
+        ok(processed)
+    })
+
+    // Observe both children together: a failed consumer must unblock its peer.
+    let (_, processed) = scope.try_join(producer, consumer)?
+    assert(processed == 10)
+    ok(())
+}

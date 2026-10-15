@@ -1,0 +1,4 @@
+// expect-error: E0409
+// Managed values need an adapter to cross the C boundary.
+extern "c" fn strlen(s: String) -> U64
+pub fn main() -> Unit {}

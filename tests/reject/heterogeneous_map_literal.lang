@@ -1,0 +1,6 @@
+// expect-error: E0300
+// Every field of a record literal constructing `Map<Symbol, V>` must fit `V`;
+// heterogeneous fields need an explicit `Data` value type.
+pub fn main() -> Unit {
+    let m: Map<Symbol, Int> = { count: 1, name: "x" }
+}

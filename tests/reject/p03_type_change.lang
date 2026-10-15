@@ -1,0 +1,28 @@
+// P03: a later stage changes the type of an earlier field.
+// expect-error: E0703
+import std.pipeline
+import std.pipeline.{handle}
+
+fn early() {
+    pipeline.stage({
+        name: :p03/early,
+        enter: fn(ctx) { pipeline.next({ ..ctx, verified: false }) },
+    })
+}
+
+fn later() {
+    pipeline.stage({
+        name: :p03/later,
+        enter: fn(ctx) { pipeline.next({ ..ctx, verified: "yes" }) },
+    })
+}
+
+pub fn main() -> Result<Unit, String> {
+    let process = pipeline.compile(pipeline {
+        early(),
+        later(),
+        handle(fn(ctx) -> Result<Int, String> { ok(ctx.id) }),
+    })
+    let _ = process({ id: 1 })?
+    ok(())
+}

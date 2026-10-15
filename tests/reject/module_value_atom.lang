@@ -1,0 +1,10 @@
+// expect-error: E0138
+// Module values are pure immutable data: an Atom is mutable state.
+import std.io
+
+let counter = Atom.new(0)
+
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = counter.update(fn(n: Int) -> Int { n + 1 })
+    io.println(counter.get())
+}

@@ -1,0 +1,6 @@
+// R03: annotation {x: Int} receives {x, y}: no implicit field loss.
+// expect-error: E0301
+fn takes(p: { x: Int }) -> Int { p.x }
+pub fn main() -> Unit {
+    let _ = takes({ x: 1, y: 2 })
+}

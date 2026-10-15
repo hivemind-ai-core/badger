@@ -1,0 +1,4 @@
+send 0 closed
+kept 1 value(s): 7
+choose received 5
+choose with only closed sends: true

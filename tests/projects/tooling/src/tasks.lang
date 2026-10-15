@@ -1,0 +1,15 @@
+// User tasks: typed functions the tool invokes (`lang task NAME`). A task
+// takes no parameters or the command-line arguments as `List<String>`.
+import std.env
+import std.io
+
+pub fn seed() -> Result<Unit, io.Error> {
+    io.println($"seeding {env.args().len()} records")
+}
+
+pub fn greet(names: List<String>) -> Result<Unit, io.Error> {
+    for name in names {
+        io.println($"hello {name}")?
+    }
+    ok(())
+}

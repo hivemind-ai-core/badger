@@ -1,0 +1,10 @@
+// A local closure over a task scope may spawn on it (no false escape).
+import std.task
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    let n = task.scope(fn(s) -> Result<Int, io.Error> {
+        let mk = fn() { s.spawn(fn() { 1 }) }
+        ok(mk().join())
+    })?
+    io.println(n)
+}

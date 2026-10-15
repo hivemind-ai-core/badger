@@ -1,0 +1,12 @@
+// S01: a wrongly typed system reference is rejected before initialization.
+// expect-error: E0300
+import std.sqlite
+import std.system
+import std.system.{component}
+
+pub fn main() -> Unit {
+    let _ = system {
+        database: component(sqlite.pool, { path: ":memory:" }),
+        other: component(sqlite.pool, { path: ref(:database) }),
+    }
+}

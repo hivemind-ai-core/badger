@@ -1,0 +1,48 @@
+// The C boundary: raw pointers, C memory, and C strings.
+//
+// `Ptr<T>` is a raw address: it has no ownership or lifetime, and the
+// collector never traces it. Reading, writing, allocating, and freeing
+// through raw pointers are foreign operations: they require `unsafe` and
+// contribute the `Foreign` effect. `T` is a scalar or a `repr c` struct.
+
+/// A raw C address of a `T`.
+pub extern type Ptr<T>
+
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+extern "intrinsic" fn ptr_read<T>(p: Ptr<T>) -> T
+extern "intrinsic" fn ptr_write<T>(p: Ptr<T>, value: T) -> Unit
+extern "intrinsic" fn ptr_offset<T>(p: Ptr<T>, n: Int) -> Ptr<T>
+extern "intrinsic" fn c_alloc<T>(count: Int) -> Ptr<T>
+extern "intrinsic" fn c_free<T>(p: Ptr<T>) -> Unit
+extern "intrinsic" fn cstring_new(s: String) -> Ptr<U8>
+extern "intrinsic" fn cstring_read(p: Ptr<U8>) -> String
+
+/// The null pointer.
+pub fn null<T>() -> Ptr<T> { identity(0) }
+
+impl<T> Ptr<T> {
+    pub fn is_null(self: &Self) -> Bool { identity<Ptr<T>, Int>(self) == 0 }
+    pub fn address(self: &Self) -> Int { identity(self) }
+}
+
+/// Read the `T` at `p` (copied into a managed value).
+pub fn read<T>(p: Ptr<T>) -> T !{Foreign} { ptr_read(p) }
+/// Write `value` at `p` in C layout.
+pub fn write<T>(p: Ptr<T>, value: T) -> Unit !{Foreign} { ptr_write(p, value) }
+/// The address `n` elements after `p`.
+pub fn offset<T>(p: Ptr<T>, n: Int) -> Ptr<T> !{Foreign} { ptr_offset(p, n) }
+/// Zeroed C memory for `count` values of `T` (free with `free`).
+pub fn alloc<T>(count: Int) -> Ptr<T> !{Foreign} { c_alloc(count) }
+pub fn free<T>(p: Ptr<T>) -> Unit !{Foreign} { c_free(p) }
+
+/// A NUL-terminated copy of `s` in C memory for the duration of `f`
+/// (the rooting/ownership adapter for passing text to C).
+pub fn with_cstring<R>(s: String, f: fn(Ptr<U8>) -> R) -> R !{Foreign} {
+    let p = cstring_new(s)
+    let r = f(p)
+    c_free(p)
+    r
+}
+
+/// Copy a NUL-terminated C string into managed text.
+pub fn read_cstring(p: Ptr<U8>) -> String !{Foreign} { cstring_read(p) }

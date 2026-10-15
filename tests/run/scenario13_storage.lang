@@ -1,0 +1,42 @@
+// Scenarios 13-14: a retained list view survives collection and producer
+// task death; builder growth never moves existing elements and freezing
+// keeps the pages; contiguous buffers may relocate when they grow.
+import std.buffer
+import std.io
+import std.list
+import std.task
+
+fn churn() -> Int {
+    var keep = 0
+    for i in 0..200000 {
+        let r = { id: i, text: $"garbage-{i}" }
+        keep = keep + r.id % 2
+    }
+    keep
+}
+
+pub fn main() -> Result<Unit, String> {
+    let b = list.builder<String>()
+    b.append("first")
+    let before = b.element_address(0)
+    for i in 0..5000 {
+        b.append($"item-{i}")
+    }
+    let after = b.element_address(0)
+    let _ = io.println($"builder element stable: {before == after}")
+    let frozen = b.finish()
+    let _ = io.println($"pages: {frozen.page_count() > 1}, first: {frozen[0]}")
+    // a list produced by a finished child task stays valid after GC
+    let retained = task.scope(fn(scope) -> Result<List<String>, String> {
+        let child = scope.spawn(fn() { list.map(list.range(0, 1000), fn(i) { $"v{i}" }) })
+        ok(child.join())
+    })?
+    let _ = churn()
+    let _ = io.println($"retained after collection: {retained[999]} {retained.len()}")
+    let buf = buffer.with_capacity<Int>(1)
+    buf.push(1)
+    let addr = buf.storage_address()
+    for i in 0..10000 { buf.push(i) }
+    let _ = io.println($"buffer relocated: {addr != buf.storage_address()}")
+    ok(())
+}

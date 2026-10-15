@@ -1,0 +1,61 @@
+// Unicode text operations.
+
+import std.list
+
+extern "intrinsic" fn text_lines(text: String) -> List<String>
+extern "intrinsic" fn text_split(text: String, sep: String) -> List<String>
+extern "intrinsic" fn text_trim(text: String) -> String
+extern "intrinsic" fn text_len(text: String) -> Int
+extern "intrinsic" fn text_byte_len(text: String) -> Int
+extern "intrinsic" fn text_is_empty(text: String) -> Bool
+extern "intrinsic" fn text_contains(text: String, part: String) -> Bool
+extern "intrinsic" fn text_starts_with(text: String, part: String) -> Bool
+extern "intrinsic" fn text_ends_with(text: String, part: String) -> Bool
+extern "intrinsic" fn text_to_upper(text: String) -> String
+extern "intrinsic" fn text_to_lower(text: String) -> String
+extern "intrinsic" fn text_replace(text: String, from: String, to: String) -> String
+extern "intrinsic" fn text_concat(a: String, b: String) -> String
+extern "intrinsic" fn text_repeat(text: String, n: Int) -> String
+extern "intrinsic" fn text_join(parts: List<String>, sep: String) -> String
+extern "intrinsic" fn text_chars(text: String) -> List<Char>
+extern "intrinsic" fn text_slice(text: String, start: Int, end: Int) -> Option<String>
+extern "intrinsic" fn text_parse_int(text: String) -> Option<Int>
+extern "intrinsic" fn text_parse_float(text: String) -> Option<Float>
+extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+
+/// Lines of a text as a lazy sequence.
+pub fn lines(text: String) -> Seq<String> { list.of(text_lines(text)) }
+pub fn split(text: String, sep: String) -> List<String> { text_split(text, sep) }
+pub fn trim(text: String) -> String { text_trim(text) }
+/// Number of Unicode scalar values.
+pub fn len(text: String) -> Int { text_len(text) }
+pub fn byte_len(text: String) -> Int { text_byte_len(text) }
+pub fn is_empty(text: String) -> Bool { text_is_empty(text) }
+pub fn contains(text: String, part: String) -> Bool { text_contains(text, part) }
+pub fn starts_with(text: String, part: String) -> Bool { text_starts_with(text, part) }
+pub fn ends_with(text: String, part: String) -> Bool { text_ends_with(text, part) }
+pub fn to_upper(text: String) -> String { text_to_upper(text) }
+pub fn to_lower(text: String) -> String { text_to_lower(text) }
+pub fn replace(text: String, from: String, to: String) -> String { text_replace(text, from, to) }
+pub fn concat(a: String, b: String) -> String { text_concat(a, b) }
+pub fn repeat(text: String, n: Int) -> String { text_repeat(text, n) }
+pub fn join(parts: List<String>, sep: String) -> String { text_join(parts, sep) }
+pub fn chars(text: String) -> List<Char> { text_chars(text) }
+/// Checked character slice.
+pub fn slice(text: String, start: Int, end: Int) -> Option<String> { text_slice(text, start, end) }
+pub fn parse_int(text: String) -> Option<Int> { text_parse_int(text) }
+pub fn parse_float(text: String) -> Option<Float> { text_parse_float(text) }
+pub fn from_bytes(bytes: Bytes) -> Result<String, String> { text_from_bytes(bytes) }
+pub fn to_bytes(text: String) -> Bytes { text_to_bytes(text) }
+
+impl String {
+    pub fn len(self: &Self) -> Int { text_len(self) }
+    pub fn is_empty(self: &Self) -> Bool { text_is_empty(self) }
+    pub fn trim(self: &Self) -> String { text_trim(self) }
+    pub fn contains(self: &Self, part: String) -> Bool { text_contains(self, part) }
+    pub fn starts_with(self: &Self, part: String) -> Bool { text_starts_with(self, part) }
+    pub fn split(self: &Self, sep: String) -> List<String> { text_split(self, sep) }
+    pub fn to_upper(self: &Self) -> String { text_to_upper(self) }
+    pub fn to_lower(self: &Self) -> String { text_to_lower(self) }
+}

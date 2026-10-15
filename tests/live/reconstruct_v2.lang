@@ -1,0 +1,47 @@
+// Scenario 16, controlled reconstruction (version 2): `Point` gained a field,
+// so the running program cannot keep its live values; it is rebuilt.
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+fn label(p: Point) -> String { $"v2 point {p.x} {p.y}" }
+
+fn resource(name: String) -> system.Provider<{ v: Int }, Int, Failure> {
+    system.provider({
+        name: :test/resource,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            let _ = io.println($"start {name}")
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                let _ = io.println($"halt {name}")
+                ok(())
+            })
+            ok(config.v)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, system.Error> {
+    let plan = system {
+        res: component(resource("v2"), { v: 1 }),
+    }
+    system.run(plan, fn(running) -> Result<Unit, system.Error> {
+        let _ = io.println(label({ x: running.res, y: 2 }))
+        ok(())
+    })
+}

@@ -1,0 +1,29 @@
+import std.env
+import std.fs
+import std.io
+import std.list
+import std.seq
+import std.text
+
+pub enum AppError {
+    usage(message: String),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let path = match env.args().get(0) {
+        .some(path) => path,
+        .none => { return err(AppError.usage("expected an input file")) },
+    }
+
+    let input = fs.read_text(path)?
+    let lines = text.lines(input)
+        |> seq.map(fn(line) { text.trim(line) })
+        |> seq.filter(fn(line) { !text.is_empty(line) })
+        |> list.collect()
+
+    for line in lines {
+        io.println(line)?
+    }
+    ok(())
+}

@@ -1,0 +1,57 @@
+// Persistent maps with value semantics.
+
+extern "intrinsic" fn map_empty<K, V>() -> Map<K, V>
+extern "intrinsic" fn map_insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
+extern "intrinsic" fn map_remove<K, V>(m: Map<K, V>, key: K) -> Map<K, V>
+extern "intrinsic" fn map_get<K, V>(m: Map<K, V>, key: K) -> Option<V>
+extern "intrinsic" fn map_contains<K, V>(m: Map<K, V>, key: K) -> Bool
+extern "intrinsic" fn map_len<K, V>(m: Map<K, V>) -> Int
+extern "intrinsic" fn map_entries<K, V>(m: Map<K, V>) -> List<(K, V)>
+extern "intrinsic" fn map_insert_mut<K, V>(m: Map<K, V>, key: K, value: V) -> Unit
+
+/// Affine builder for bulk construction; `finish` freezes the map in place.
+pub struct MapBuilder<K, V> {
+    map: Map<K, V>,
+}
+
+impl<K, V> MapBuilder<K, V> {
+    /// Insert or replace an entry.
+    pub fn insert(self: &mut Self, key: K, value: V) -> Unit { map_insert_mut(self.map, key, value) }
+    pub fn len(self: &Self) -> Int { map_len(self.map) }
+    pub fn finish(self: Self) -> Map<K, V> { self.map }
+}
+
+pub fn builder<K, V>() -> MapBuilder<K, V> where K: Hash { { map: map_empty() } }
+
+/// Bulk construction from entries (later duplicates win).
+pub fn from_list<K, V>(entries: List<(K, V)>) -> Map<K, V> where K: Hash {
+    let m = map_empty()
+    for (k, v) in entries {
+        map_insert_mut(m, k, v)
+    }
+    m
+}
+
+pub fn collect<K, V>(entries: Seq<(K, V)>) -> Map<K, V> where K: Hash {
+    let m = map_empty()
+    for (k, v) in entries {
+        map_insert_mut(m, k, v)
+    }
+    m
+}
+
+pub fn empty<K, V>() -> Map<K, V> where K: Hash { map_empty() }
+pub fn insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V> { map_insert(m, key, value) }
+pub fn remove<K, V>(m: Map<K, V>, key: K) -> Map<K, V> { map_remove(m, key) }
+pub fn get<K, V>(m: Map<K, V>, key: K) -> Option<V> { map_get(m, key) }
+pub fn contains<K, V>(m: Map<K, V>, key: K) -> Bool { map_contains(m, key) }
+pub fn len<K, V>(m: Map<K, V>) -> Int { map_len(m) }
+/// Entries in unspecified order.
+pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map_entries(m) }
+
+impl<K, V> Map<K, V> {
+    pub fn get(self: &Self, key: K) -> Option<V> { map_get(self, key) }
+    pub fn insert(self: &Self, key: K, value: V) -> Map<K, V> { map_insert(self, key, value) }
+    pub fn contains(self: &Self, key: K) -> Bool { map_contains(self, key) }
+    pub fn len(self: &Self) -> Int { map_len(self) }
+}

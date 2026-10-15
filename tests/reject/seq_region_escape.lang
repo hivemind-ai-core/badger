@@ -1,0 +1,8 @@
+// expect-error: E0401
+// A lazy sequence built from a closure capturing a scoped value escapes.
+import std.seq
+struct Handle<S> { n: Int }
+fn with<R>(f: for<S> fn(Handle<S>) -> R) -> R { f({ n: 1 }) }
+pub fn main() -> Unit {
+    let s = with(fn(h) { seq.range(0, 3) |> seq.map(fn(x: Int) -> Int { x + h.n }) })
+}

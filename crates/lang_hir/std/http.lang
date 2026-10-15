@@ -1,0 +1,352 @@
+// HTTP request/reply adapter.
+
+import std.prelude
+
+import std.codec
+import std.system
+
+/// Immutable request metadata and body.
+pub type Request = { method: Symbol, path: String, headers: Map<String, String>, body: Bytes }
+
+pub struct Response {
+    pub status: Int,
+    pub headers: Map<String, String>,
+    pub body: Bytes,
+}
+
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for Error {}
+
+/// A streamed reply: the head is sent first, then each chunk as the
+/// request task produces it (chunked transfer encoding). The chunk sequence
+/// may use request-scoped resources: it is fully consumed (and a scoped
+/// sequence closed) by the request task before the request scope ends.
+pub struct Streamed {
+    pub status: Int,
+    pub headers: Map<String, String>,
+    pub chunks: Seq<Bytes>,
+}
+
+enum Reply {
+    full(response: Response),
+    stream(reply: Streamed),
+    /// already written during the handler (a request-scoped stream)
+    sent,
+}
+
+/// The connection side of one request: a live connection, or an in-process
+/// sink (`call`).
+pub struct Exchange {
+    conn: Int,
+    guard: Cell<Int>,
+    sink: Option<Cell<Response>>,
+}
+
+/// A packaged request handler; handler errors become 500 replies.
+pub struct Handler {
+    run: fn(Request, Exchange) -> Reply,
+}
+
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+/// One request's scope, for its fresh region `S`. Values branded with `S`
+/// (the body reader) cannot outlive the request; a stream written through
+/// it is fully consumed (and a scoped sequence closed) before the handler
+/// returns, so it may use request-scoped resources.
+pub struct RequestScope<S: Scope> {
+    brand: system.Brand<S>,
+    request: Request,
+    exchange: Exchange,
+}
+
+/// Scoped access to the request body (valid only within the request).
+pub struct BodyReader<S: Scope> {
+    brand: system.Brand<S>,
+    bytes: Bytes,
+}
+
+/// Proof that a scoped handler produced its reply.
+pub struct Sent {
+    status: Int,
+}
+
+extern "intrinsic" fn bytes_len(b: Bytes) -> Int
+extern "intrinsic" fn bytes_slice(b: Bytes, start: Int, end: Int) -> Option<Bytes>
+
+impl<S: Scope> BodyReader<S> {
+    pub fn len(self: &Self) -> Int { bytes_len(self.bytes) }
+    pub fn bytes(self: &Self) -> Bytes { self.bytes }
+    pub fn text(self: &Self) -> String { http_body_text(self.bytes) }
+    /// Validate and decode the body (JSON) as `T`.
+    pub fn decode<T>(self: &Self) -> Result<T, codec.DecodeError> where T: Codec { codec.decode(self.bytes) }
+    /// The body in pieces of at most `size` bytes.
+    pub fn chunks(self: &Self, size: Int) -> Seq<Bytes> {
+        let b = self.bytes
+        let n = bytes_len(b)
+        {
+            start: fn() {
+                let at = Cell.new(0)
+                fn() -> Option<Bytes> {
+                    let i = at.get()
+                    if i >= n {
+                        Option.none
+                    } else {
+                        let j = if i + size > n { n } else { i + size }
+                        at.set(j)
+                        bytes_slice(b, i, j)
+                    }
+                }
+            },
+        }
+    }
+}
+
+impl<S: Scope> RequestScope<S> {
+    /// The immutable request metadata and body.
+    pub fn request(self: &Self) -> Request { self.request }
+    /// A reader of the body, branded with this request's region.
+    pub fn body(self: &Self) -> BodyReader<S> { { brand: self.brand, bytes: self.request.body } }
+    /// Reply with a complete response.
+    pub fn respond(self: &Self, response: Response) -> Sent {
+        send_full(self.exchange, response)
+        { status: response.status }
+    }
+    /// Stream a reply now: the head, then each chunk as it is produced;
+    /// the sequence is consumed (and closed) before this returns.
+    pub fn stream(self: &Self, status: Int, content_type: String, chunks: Seq<Bytes>) -> Sent {
+        let headers = map { "content-type" => content_type }
+        match self.exchange.sink {
+            .some(cell) => {
+                var body = text_to_bytes("")
+                for chunk in chunks {
+                    body = bytes_concat(body, chunk)
+                }
+                cell.set({ status, headers, body })
+            },
+            .none => {
+                let ex = self.exchange
+                let g = http_stream_begin(ex.conn, ex.guard.get(), status, headers)
+                ex.guard.set(g)
+                for chunk in chunks {
+                    http_stream_chunk(ex.conn, chunk)
+                }
+                http_stream_end(ex.conn, g)
+                ex.guard.set(-1)
+            },
+        }
+        { status }
+    }
+}
+
+fn send_full(ex: Exchange, response: Response) -> Unit {
+    match ex.sink {
+        .some(cell) => cell.set(response),
+        .none => {
+            http_respond(ex.conn, ex.guard.get(), response)
+            ex.guard.set(-1)
+        },
+    }
+}
+
+/// Package a request-scoped callback: it runs under a fresh request region
+/// `S`, may capture longer-lived values (a system's pool), and replies
+/// through its scope (`respond` or `stream`). Errors become 500 replies.
+pub fn scoped<E>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E>) -> Handler where E: Display {
+    {
+        run: fn(request, exchange) {
+            let scope: RequestScope<Unit> = { brand: identity<Int, system.Brand<Unit>>(0), request, exchange }
+            match f(scope) {
+                .ok(_) => Reply.sent,
+                .err(e) => {
+                    trace_event(:http/handler_error, { message: e.display() })
+                    Reply.full(error_response(500, "internal server error"))
+                },
+            }
+        },
+    }
+}
+
+/// Explicit request limits. A body over `max_body_bytes` is answered 413,
+/// headers over `max_header_bytes` 431, and a request arriving while
+/// `max_in_flight` are being handled 503 (bounded admission), all without
+/// running the handler. Defaults come from the runtime configuration
+/// (`[runtime] http_max_body_bytes`, `http_max_header_bytes`,
+/// `http_max_in_flight`).
+pub struct Limits {
+    pub max_body_bytes: Int,
+    pub max_header_bytes: Int,
+    pub max_in_flight: Int,
+}
+
+/// A server's effective limits and how many requests they rejected.
+pub struct LimitStats {
+    pub max_body_bytes: Int,
+    pub max_header_bytes: Int,
+    pub max_in_flight: Int,
+    pub rejected: Int,
+}
+
+pub struct Server {
+    id: Int,
+}
+
+extern "intrinsic" fn http_listen<Req>(address: String, port: U16, serve: fn(Req, Int) -> Unit, limits: Limits) -> Result<Int, Error>
+extern "intrinsic" fn http_limits(id: Int) -> LimitStats
+extern "intrinsic" fn http_default_limits() -> Limits
+extern "intrinsic" fn http_stream_begin(conn: Int, guard: Int, status: Int, headers: Map<String, String>) -> Int
+extern "intrinsic" fn http_stream_chunk(conn: Int, chunk: Bytes) -> Unit
+extern "intrinsic" fn http_stream_end(conn: Int, guard: Int) -> Unit
+extern "intrinsic" fn http_stop(id: Int) -> Unit
+extern "intrinsic" fn http_port(id: Int) -> Int
+extern "intrinsic" fn http_begin(conn: Int) -> Int
+extern "intrinsic" fn http_respond(conn: Int, guard: Int, response: Response) -> Unit
+extern "intrinsic" fn http_body_text(body: Bytes) -> String
+extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
+
+/// Package a request callback.
+pub fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Display {
+    {
+        run: fn(request, _exchange) {
+            match f(request) {
+                .ok(r) => Reply.full(r),
+                .err(e) => {
+                    trace_event(:http/handler_error, { message: e.display() })
+                    Reply.full(error_response(500, "internal server error"))
+                },
+            }
+        },
+    }
+}
+
+/// Package a streaming request callback; an error before streaming starts
+/// becomes a 500 reply.
+pub fn streaming_handler<E>(f: fn(Request) -> Result<Streamed, E>) -> Handler where E: Display {
+    {
+        run: fn(request, _exchange) {
+            match f(request) {
+                .ok(s) => Reply.stream(s),
+                .err(e) => {
+                    trace_event(:http/handler_error, { message: e.display() })
+                    Reply.full(error_response(500, "internal server error"))
+                },
+            }
+        },
+    }
+}
+
+/// A streamed reply of `chunks` with the given status and content type.
+pub fn stream(status: Int, content_type: String, chunks: Seq<Bytes>) -> Result<Streamed, Error> {
+    ok({ status, headers: map { "content-type" => content_type }, chunks })
+}
+
+extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
+
+/// Run a handler in-process on `request` (tests and adapters): a streamed
+/// reply is collected into the body.
+pub fn call(h: Handler, request: Request) -> Response {
+    let sink: Cell<Response> = Cell.new(error_response(500, "no reply"))
+    match h.run(request, { conn: -1, guard: Cell.new(-1), sink: Option.some(sink) }) {
+        .full(r) => r,
+        .sent => sink.get(),
+        .stream(s) => {
+            var body = text_to_bytes("")
+            for chunk in s.chunks {
+                body = bytes_concat(body, chunk)
+            }
+            { status: s.status, headers: s.headers, body }
+        },
+    }
+}
+
+/// A request value for `call`.
+pub fn request(method: Symbol, path: String, body: String) -> Request {
+    { method, path, headers: map {}, body: text_to_bytes(body) }
+}
+
+/// The runtime-configured default limits.
+pub fn limits() -> Limits { http_default_limits() }
+
+fn error_response(status: Int, message: String) -> Response {
+    { status, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: message }) }
+}
+
+/// A JSON reply with the given status.
+pub fn json<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec {
+    ok({ status, headers: map { "content-type" => "application/json" }, body: codec.encode(value) })
+}
+
+pub fn text(status: Int, body: String) -> Result<Response, Error> {
+    ok({ status, headers: map { "content-type" => "text/plain" }, body: text_bytes(body) })
+}
+
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+
+fn text_bytes(s: String) -> Bytes { text_to_bytes(s) }
+
+pub fn body_text(request: Request) -> String { http_body_text(request.body) }
+
+/// Start serving with the default limits; requests run as isolated sibling
+/// tasks of the server.
+pub fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error> !{Io} {
+    listen_with(address, port, h, limits())
+}
+
+/// Start serving with explicit limits.
+pub fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error> !{Io} {
+    let id = http_listen<Request>(address, port, fn(request: Request, conn: Int) {
+        let guard = http_begin(conn)
+        let exchange: Exchange = { conn, guard: Cell.new(guard), sink: Option.none }
+        match h.run(request, exchange) {
+            .sent => (),
+            .full(response) => http_respond(conn, guard, response),
+            .stream(s) => {
+                let g = http_stream_begin(conn, guard, s.status, s.headers)
+                for chunk in s.chunks {
+                    http_stream_chunk(conn, chunk)
+                }
+                http_stream_end(conn, g)
+            },
+        }
+    }, limits)?
+    ok({ id })
+}
+
+/// Effective limits of a running server and its rejection count.
+pub fn stats(s: Server) -> LimitStats { http_limits(s.id) }
+
+/// Stop admission and settle in-flight requests.
+pub fn stop(s: Server) -> Unit { http_stop(s.id) }
+
+pub fn port(s: Server) -> Int { http_port(s.id) }
+
+fn server_init(scope: system.InitScope, config: { address: String, port: U16, handler: Handler }) -> Result<Server, Error> {
+    let s = listen(config.address, config.port, config.handler)?
+    scope.on_halt(fn() -> Result<Unit, Error> {
+        stop(s)
+        ok(())
+    })
+    ok(s)
+}
+
+/// Provider of a managed server for `{address, port, handler}` (default
+/// limits from the runtime configuration).
+pub let server = system.provider({ name: :http/server, init: server_init })
+
+fn limited_server_init(scope: system.InitScope, config: { address: String, port: U16, handler: Handler, limits: Limits }) -> Result<Server, Error> {
+    let s = listen_with(config.address, config.port, config.handler, config.limits)?
+    scope.on_halt(fn() -> Result<Unit, Error> {
+        stop(s)
+        ok(())
+    })
+    ok(s)
+}
+
+/// Provider of a managed server with explicit `limits`.
+pub let limited_server = system.provider({ name: :http/limited_server, init: limited_server_init })

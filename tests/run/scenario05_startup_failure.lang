@@ -1,0 +1,58 @@
+// Scenario 5: node c fails after a and b start; b then a halt, every halt
+// attempt runs, and cleanup failures attach to c's original error.
+import std.io
+import std.system
+import std.system.{component}
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ dep: Int }, Int, Failure> {
+    system.provider({
+        name: :test/node,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            if fail_start {
+                say($"start {label} failed")
+                return err({ message: $"{label} could not start" })
+            }
+            say($"start {label} (dep {config.dep})")
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                say($"halt {label}")
+                if fail_halt { err({ message: $"{label} halt failed" }) } else { ok(()) }
+            })
+            ok(config.dep + 1)
+        },
+    })
+}
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+pub fn main() -> Unit {
+    let plan = system {
+        c: component(make("c", true, false), { dep: ref(:b) }),
+        a: component(make("a", false, true), { dep: 0 }),
+        b: component(make("b", false, false), { dep: ref(:a) }),
+    }
+    say($"order: {plan.labels()}")
+    let r = system.run(plan, fn(_running) -> Result<Unit, AppError> {
+        say("running (unexpected)")
+        ok(())
+    })
+    match r {
+        .ok(_) => say("unexpected success"),
+        .err(e) => say($"error: {e}"),
+    }
+}

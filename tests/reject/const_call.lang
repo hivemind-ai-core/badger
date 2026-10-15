@@ -1,0 +1,9 @@
+// expect-error: E0136
+// `const` does not evaluate functions.
+fn compute() -> Int { 42 }
+
+const answer = compute()
+
+pub fn main() -> Unit {
+    const local = [answer, 1]
+}

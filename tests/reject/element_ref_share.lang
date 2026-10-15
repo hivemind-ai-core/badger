@@ -1,0 +1,8 @@
+// expect-error: E0341
+import std.list
+import std.buffer
+fn main() {
+    let b = list.builder<Buffer<Int>>()
+    b.append(buffer.new())
+    let r = b.element_ref(0)
+}

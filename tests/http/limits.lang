@@ -1,0 +1,73 @@
+// Explicit HTTP limits and streaming replies: oversized bodies get 413,
+// requests beyond the in-flight bound get 503 without running a handler,
+// and a streamed reply's scoped chunk source is consumed and closed by the
+// request task.
+import std.bytes
+import std.config
+import std.http
+import std.io
+import std.seq
+import std.system
+import std.system.{component}
+import std.task
+import std.text
+
+type Settings = { port: U16 }
+
+pub enum AppError {
+    config(source: config.Error),
+    http(source: http.Error),
+    io(source: io.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+fn chunks(n: Int) -> Seq<Bytes> {
+    seq.scoped(
+        fn() { Cell.new(0) },
+        fn(c: Cell<Int>) {
+            let k = c.get()
+            if k < n {
+                c.set(k + 1)
+                Option.some(text.to_bytes($"chunk {k}\n"))
+            } else {
+                Option.none
+            }
+        },
+        fn(c: Cell<Int>) { let _ = io.println($"stream closed after {c.get()} chunks") },
+    )
+}
+
+let api = system.provider({
+    name: :test/api,
+    init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
+        let plain = http.handler(fn(request) -> Result<http.Response, http.Error> {
+            if request.path == "/slow" {
+                task.sleep(400ms)
+            }
+            http.json(200, { path: request.path, size: bytes.len(request.body) })
+        })
+        let streaming = http.streaming_handler(fn(request) -> Result<http.Streamed, http.Error> {
+            http.stream(200, "text/plain", chunks(3))
+        })
+        let scoped = http.scoped(fn(scope) -> Result<http.Sent, http.Error> {
+            ok(scope.stream(200, "text/plain", chunks(2)))
+        })
+        ok({ plain, streaming, scoped })
+    },
+})
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.from_env<Settings>("LIM_")?
+    let limits: http.Limits = { ..http.limits(), max_body_bytes: 64, max_in_flight: 1 }
+    let plan = system {
+        api: component(api, {}),
+        plain: component(http.limited_server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).plain, limits }),
+        streaming: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).streaming }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(:api).scoped }),
+    }
+    use running <- system.run(plan)
+    running.wait_for_shutdown()?
+    let stats = http.stats(running.plain)
+    io.println($"limits: body {stats.max_body_bytes}, in flight {stats.max_in_flight}, rejected {stats.rejected}")?
+    ok(())
+}

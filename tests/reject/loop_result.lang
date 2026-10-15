@@ -1,0 +1,8 @@
+// expect-error: E0337
+// A result discarded at the end of a loop body is still unhandled.
+import std.io
+pub fn main() -> Unit {
+    for x in [1, 2] {
+        io.println(x)
+    }
+}

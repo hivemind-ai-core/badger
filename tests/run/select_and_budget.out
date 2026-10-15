@@ -1,0 +1,7 @@
+received on 1: from b
+timed out as expected
+sent on 1
+won
+late value 7
+send failed: channel/too_large, value returned: this message is too large
+fits

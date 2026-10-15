@@ -1,0 +1,54 @@
+// Default protocol methods, blanket implementations, several
+// implementations of one parameterized protocol, PartialEq/PartialOrd for
+// floats, supertrait methods through `dyn`, `Located`, and exact literals.
+import std.io
+
+pub protocol Greet: Display {
+    fn name(self: &Self) -> String
+    fn greet(self: &Self) -> String { $"hello {self.name()} ({self})" }
+}
+
+struct P { n: String }
+impl Display for P { fn display(self: &Self) -> String { "p" } }
+impl Greet for P { fn name(self: &Self) -> String { self.n } }
+
+struct Q { n: String }
+impl Display for Q { fn display(self: &Self) -> String { "q" } }
+impl Greet for Q {
+    fn name(self: &Self) -> String { self.n }
+    fn greet(self: &Self) -> String { "custom" }
+}
+
+fn via<T>(x: &T) -> String where T: Greet { x.greet() }
+
+pub protocol Loud { fn loud(self: &Self) -> String }
+impl<T> Loud for T where T: Display { fn loud(self: &Self) -> String { $"{self}!" } }
+
+pub protocol Conv<T> { fn conv(self: &Self) -> T }
+struct N { v: Int }
+impl Conv<String> for N { fn conv(self: &Self) -> String { $"n{self.v}" } }
+impl Conv<Int> for N { fn conv(self: &Self) -> Int { self.v * 10 } }
+fn as_int<X>(x: &X) -> Int where X: Conv<Int> { x.conv() }
+
+fn same<T>(a: T, b: T) -> Bool where T: PartialEq { a == b }
+fn less<T>(a: T, b: T) -> Bool where T: PartialOrd { a < b }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let p: P = { n: "ada" }
+    let q: Q = { n: "bo" }
+    io.println(p.greet())?
+    io.println(via(&p))?
+    io.println(via(&q))?
+    let d: dyn Greet = p
+    io.println($"{d.greet()} / {d}")?
+    io.println(5.loud())?
+    let n: N = { v: 4 }
+    let s: String = n.conv()
+    let i: Int = n.conv()
+    io.println($"{s} {i} {as_int(&n)}")?
+    io.println($"{same(1.5, 1.5)} {less(1.5, 2.5)} {same(0.0 / 0.0, 0.0 / 0.0)}")?
+    let l = located(7)
+    io.println($"{l.value} line {l.line}")?
+    io.println($"{-128I8} {-9223372036854775808}")?
+    ok(())
+}

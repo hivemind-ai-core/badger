@@ -1,0 +1,10 @@
+// expect-error: E0138
+// Module-level values may not hold a Buffer.
+import std.io
+import std.buffer
+let buf = buffer.new<Int>()
+fn add(v: Int) -> Int !{} { buf.push(v); buf.len() }
+fn eat() -> Int { buffer.freeze(buf).len() }
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{add(1)} {add(2)} {eat()} {eat()}")
+}

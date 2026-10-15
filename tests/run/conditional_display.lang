@@ -1,0 +1,15 @@
+// A conditional implementation applies only where its bounds hold: `W<P>`
+// (P has no Display) must not pick up the `Display` hook of `W<T>`.
+import std.io
+struct W<T> { v: T }
+impl<T> Display for W<T> where T: Display {
+    fn display(self: &Self) -> String { self.v.display() }
+}
+struct P { x: Int }
+pub fn main() -> Result<Unit, io.Error> {
+    let a: W<P> = { v: { x: 1 } }
+    io.println($"{a.v.x}")?
+    let b: W<Int> = { v: 3 }
+    io.println(b)?
+    ok(())
+}

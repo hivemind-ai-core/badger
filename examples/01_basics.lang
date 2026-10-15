@@ -1,0 +1,29 @@
+import std.io
+
+// Private functions infer their parameter and return types.
+fn double(value) {
+    value * 2
+}
+
+fn apply_twice<T>(value: T, transform: fn(T) -> T) -> T {
+    transform(transform(value))
+}
+
+fn factorial(value: Int) -> Int !{} {
+    var product = 1
+    for factor in 1..=value {
+        product = product * factor
+    }
+    product
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let answer = apply_twice(3, double)
+    let description = if answer == 12 { "twelve" } else { "something else" }
+    let increment = fn(value) { value + 1 }
+
+    assert(increment(answer) == 13)
+    assert(factorial(5) == 120)
+    io.println($"The answer is {description}; 5! is {factorial(5)}")?
+    ok(())
+}

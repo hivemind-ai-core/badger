@@ -1,0 +1,90 @@
+// path, process, bytes, random, regex, test fixtures, streams, routes.
+import std.bytes
+import std.channel
+import std.io
+import std.path
+import std.process
+import std.random
+import std.regex
+import std.route
+import std.stream
+import std.task
+import std.test
+import std.time
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+pub enum AppError {
+    io(source: io.Error),
+    config(source: channel.ConfigError),
+    route(source: route.RouteError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    say(path.join("/tmp", "notes.txt"))
+    say(path.extension("archive.tar.gz").unwrap_or("?"))
+    say($"{path.components("a/b/c")}")
+    let out = process.run("echo", ["hello", "process"])?
+    say($"status {out.status}: {out.stdout}")
+    let b = bytes.from_text("hi!")
+    say($"{bytes.len(b)} bytes, hex {bytes.hex(b)}, first {b[0]}")
+    let r1 = random.seeded(42)
+    let r2 = random.seeded(42)
+    let a = r1.int(0, 1000)
+    test.assert_eq(a, r2.int(0, 1000))
+    test.assert_true(r1.float() < 1.0, "float in range")
+    say("seeded randomness is deterministic")
+    say($"{regex.is_match("^[a-z]+-[0-9]+$", "job-42")}")
+    match regex.captures("([a-z]+)-([0-9]+)", "job-42") {
+        .ok(groups) => say($"{groups}"),
+        .err(e) => say(e),
+    }
+    say(regex.replace_all("[0-9]", "a1b22", "#"))
+    // controlled clock
+    test.manual_clock(1000)
+    let t0 = time.now()
+    test.advance(5s)
+    say($"elapsed {time.now() - t0}")
+    test.real_clock()
+    // streams from a channel
+    let ch = channel.create<Int>(channel.defaults)?
+    let r = task.scope(fn(scope) -> Result<Unit, AppError> {
+        let p = scope.spawn(fn() {
+            for i in 1..=4 {
+                let _ = ch.sender.send(i)
+            }
+            ch.sender.close()
+            ok(())
+        })
+        var total = 0
+        for x in stream.from_receiver(ch.receiver) |> stream.map(fn(x) { x * 10 }) {
+            total = total + x
+        }
+        say($"stream total {total}")
+        let joined: Result<Unit, AppError> = p.join()
+        joined
+    })
+    r?
+    // routes: validation and URL construction
+    let routes = [
+        route.get("/orders/:id", :orders/show, fn(_req, params) -> Result<_, AppError> {
+            ok({ status: 200, headers: map {}, body: bytes.from_text(params["id"]) })
+        }),
+        route.post("/orders", :orders/create, fn(_req, _params) -> Result<_, AppError> {
+            ok({ status: 201, headers: map {}, body: bytes.from_text("created") })
+        }),
+    ]
+    let _ = route.table(routes)?
+    say(route.url(routes, :orders/show, map { "id" => "7" }).unwrap_or("?"))
+    let conflicting = [
+        route.get("/a/:x", :one, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
+        route.get("/a/:y", :two, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
+    ]
+    match route.table(conflicting) {
+        .ok(_) => say("conflict not detected"),
+        .err(e) => say(e.message),
+    }
+    ok(())
+}

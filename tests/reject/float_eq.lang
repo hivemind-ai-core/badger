@@ -1,0 +1,4 @@
+// expect-error: E0341
+// Floats have only IEEE `PartialEq`, not total `Eq`.
+fn need<T>(x: T) -> Bool where T: Eq { x == x }
+pub fn main() -> Unit { let _ = need(1.5) }

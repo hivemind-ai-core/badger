@@ -1,0 +1,10 @@
+// expect-error: E0401
+// `dyn` cannot erase a scope brand.
+import std.sqlite
+pub protocol Runner { fn run(self: &Self) -> Int }
+struct Holder<S> { n: Int }
+impl<S> Runner for Holder<S> { fn run(self: &Self) -> Int { self.n } }
+fn with<R>(f: for<S> fn(Holder<S>) -> R) -> R { f({ n: 1 }) }
+pub fn main() -> Unit {
+    let r: dyn Runner = with(fn(h) { let d: dyn Runner = h; d })
+}

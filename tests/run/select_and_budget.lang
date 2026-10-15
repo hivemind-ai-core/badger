@@ -1,0 +1,57 @@
+// channel.select: one operation commits; losers keep ownership; timeouts.
+// Byte budgets: an oversized message is rejected instead of waiting forever.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<String>(channel.defaults)?
+    let b = channel.create<String>(channel.defaults)?
+    let _ = b.sender.send("from b")
+    match channel.select([channel.Op.recv(a.receiver), channel.Op.recv(b.receiver)], none) {
+        .received(i, v) => { let _ = io.println($"received on {i}: {v.unwrap_or("?")}") },
+        .sent(_) => (),
+        .closed(_) => (),
+        .timeout => { let _ = io.println("timeout") },
+    }
+    match channel.select([channel.Op.recv(a.receiver)], some(5ms)) {
+        .timeout => { let _ = io.println("timed out as expected") },
+        _ => { let _ = io.println("unexpected") },
+    }
+    // a send wins against an empty receive; the receive keeps nothing
+    let full = channel.create<String>({ ..channel.defaults, capacity: 1 })?
+    let _ = full.sender.send("occupies")
+    match channel.select([channel.Op.send(full.sender, "lost"), channel.Op.send(a.sender, "won")], some(5ms)) {
+        .sent(i) => { let _ = io.println($"sent on {i}") },
+        _ => { let _ = io.println("unexpected") },
+    }
+    let _ = io.println(a.receiver.recv().unwrap_or("?"))
+    // a receiver in another task wakes a blocked select
+    let r = task.scope(fn(scope) -> Result<Unit, AppError> {
+        let late = channel.create<Int>(channel.defaults)?
+        let t = scope.spawn(fn() {
+            task.sleep(2ms)
+            let _ = late.sender.send(7)
+            ok(())
+        })
+        match channel.select([channel.Op.recv(late.receiver)], none) {
+            .received(_, v) => { let _ = io.println($"late value {v.unwrap_or(0)}") },
+            _ => (),
+        }
+        let joined: Result<Unit, AppError> = t.join()
+        joined
+    })
+    let _ = r
+    let small = channel.create<String>({ capacity: 8, byte_budget: 10 })?
+    match small.sender.send("this message is too large") {
+        .ok(_) => { let _ = io.println("accepted (unexpected)") },
+        .err(e) => { let _ = io.println($"{e}, value returned: {e.value}") },
+    }
+    let _ = small.sender.send("fits")
+    let _ = io.println(small.receiver.recv().unwrap_or("?"))
+    ok(())
+}

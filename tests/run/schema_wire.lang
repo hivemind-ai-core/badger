@@ -1,0 +1,42 @@
+// Versioned wire contracts: renamed fields/variants, accepted older names.
+import std.io
+import std.schema
+
+enum Shape { circle(r: Int), square(side: Int), empty }
+struct P { name: String, shape: Shape, tags: List<String> }
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn main() {
+    let s = schema.of<P>()
+    let v1 = schema.wire(s, 1)
+    let v2 = schema.wire(s, 2).rename("P.name", "full_name").accept("P.name", "name").rename("Shape.circle", "round").rename("Shape.circle.r", "radius").rename("Shape.empty", "none")
+    let p: P = { name: "x", shape: Shape.circle(2), tags: ["a"] }
+    say(v1.encode_text(p))
+    say(v2.encode_text(p))
+    say(v2.encode_text({ ..p, shape: Shape.empty }))
+    // version 2 reads both its own names and version-1 field names
+    match v2.decode_text("{\"name\":\"old\",\"shape\":{\"round\":{\"radius\":5}},\"tags\":[]}") {
+        .ok(q) => say($"decoded {q.name}"),
+        .err(e) => say($"error {e}"),
+    }
+    match v2.decode_text("{\"full_name\":\"new\",\"shape\":\"none\",\"tags\":[]}") {
+        .ok(q) => say($"decoded {q.name}"),
+        .err(e) => say($"error {e}"),
+    }
+    match v2.decode_text("{\"full_name\":\"new\",\"shape\":{\"circle\":{\"r\":1}},\"tags\":[]}") {
+        .ok(q) => say($"decoded {q.name}"),
+        .err(e) => say($"error {e}"),
+    }
+    match v1.decode_text("{\"full_name\":\"new\",\"shape\":\"empty\",\"tags\":[]}") {
+        .ok(q) => say($"decoded {q.name}"),
+        .err(e) => say($"error {e}"),
+    }
+    say(v2.describe())
+    match schema.decode_text(s, "{\"name\":\"plain\",\"shape\":\"empty\",\"tags\":[]}") {
+        .ok(q) => say($"plain {q.name}"),
+        .err(e) => say($"error {e}"),
+    }
+}

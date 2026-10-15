@@ -1,0 +1,37 @@
+import std.buffer
+import std.codec
+
+type Settings = { retries: Int }
+
+pub enum InputError {
+    decode(source: codec.DecodeError),
+    invalid_retries(value: Int),
+} derive(Error, From)
+
+fn read_settings(payload: Bytes) -> Result<Settings, InputError> {
+    let settings = codec.decode<Settings>(payload)?
+    // A valid wire shape still needs application-specific validation.
+    if settings.retries < 0 {
+        return err(InputError.invalid_retries(settings.retries))
+    }
+    ok(settings)
+}
+
+pub fn main() -> Result<Unit, InputError> {
+    let description = schema<Settings>()
+    // Bytes for {"retries":3}; no implicit String-to-Bytes conversion.
+    let encoded: Buffer<Byte> = [123, 34, 114, 101, 116, 114, 105, 101, 115, 34, 58, 51, 125]
+    let settings = read_settings(buffer.freeze(encoded))?
+    assert(settings.retries == 3)
+
+    // Dynamic input has an explicit boundary, checked by the same schema.
+    let decode_external = fn(external: Data) -> Result<Settings, codec.DecodeError> {
+        codec.from_data<Settings>(external)
+    }
+    match decode_external(Data.string("this is not a settings object")) {
+        .err(_) => (),
+        .ok(_) => { assert(false) },
+    }
+    let _ = description
+    ok(())
+}

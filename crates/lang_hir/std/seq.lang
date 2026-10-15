@@ -1,0 +1,263 @@
+// Typed lazy sequences. A `Seq<T>` is a reusable description: each
+// iteration calls `start` for a fresh iterator. Effects happen during
+// iteration, in order, not when the view is constructed.
+
+import std.list
+import std.map as maps
+
+extern "intrinsic" fn iter_on_close<T>(it: fn() -> Option<T>, close: fn() -> Unit) -> Unit
+extern "intrinsic" fn iter_has_close<T>(it: fn() -> Option<T>) -> Bool
+extern "intrinsic" fn iter_close<T>(it: fn() -> Option<T>) -> Unit
+
+/// Close an iterator's scoped resources now (no-op when it has none or is
+/// already closed). `for` loops call this when they exit early.
+pub fn close_iter<T>(it: fn() -> Option<T>) -> Unit { iter_close(it) }
+
+/// Make closing `outer` close `inner` (an adapter over a scoped iterator).
+fn link<T, U>(outer: fn() -> Option<T>, inner: fn() -> Option<U>) -> fn() -> Option<T> {
+    if iter_has_close(inner) {
+        iter_on_close(outer, fn() { iter_close(inner) })
+    }
+    outer
+}
+
+/// A sequence over a scoped resource. Each iteration calls `open`; the
+/// resource is closed exactly once when iteration is exhausted, when the
+/// consumer terminates early (`break`, `return`, `?`, `take`), or when the
+/// iterating task exits by defect or cancellation.
+pub fn scoped<R, T>(open: fn() -> R, next: fn(R) -> Option<T>, close: fn(R) -> Unit) -> Seq<T> {
+    {
+        start: fn() {
+            let r = open()
+            let me: Cell<Option<fn() -> Option<T>>> = Cell.new(Option.none)
+            let it = fn() -> Option<T> {
+                match me.get() {
+                    .none => Option.none,
+                    .some(self_it) => match next(r) {
+                        .some(x) => Option.some(x),
+                        .none => {
+                            iter_close(self_it)
+                            Option.none
+                        },
+                    },
+                }
+            }
+            me.set(Option.some(it))
+            iter_on_close(it, fn() {
+                me.set(Option.none)
+                close(r)
+            })
+            it
+        },
+    }
+}
+
+pub fn from_fn<T>(start: fn() -> fn() -> Option<T>) -> Seq<T> {
+    { start }
+}
+
+extern "intrinsic" fn range_field(r: Range<Int>, i: Int) -> Int
+
+/// The integers of a range (`a..b` or `a..=b`), as a sequence. A range is
+/// used where a `Seq<Int>` is expected through this view.
+pub fn from_range(r: Range<Int>) -> Seq<Int> {
+    let (lo, hi, inclusive) = (range_field(r, 0), range_field(r, 1), range_field(r, 2) != 0)
+    {
+        start: fn() {
+            let i = Cell.new(lo)
+            let done = Cell.new(false)
+            fn() {
+                let k = i.get()
+                if done.get() || k > hi || (!inclusive && k == hi) {
+                    Option.none
+                } else {
+                    // an inclusive end stops without stepping past it
+                    if k == hi { done.set(true) } else { i.set(k + 1) }
+                    Option.some(k)
+                }
+            }
+        },
+    }
+}
+
+pub fn map<T, U>(items: Seq<T>, f: fn(T) -> U) -> Seq<U> {
+    {
+        start: fn() {
+            let next = items.start()
+            link(fn() {
+                match next() {
+                    .some(x) => Option.some(f(x)),
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+pub fn filter<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T> {
+    {
+        start: fn() {
+            let next = items.start()
+            link(fn() -> Option<T> {
+                loop {
+                    match next() {
+                        .some(x) => if keep(x) { return Option.some(x) },
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+pub fn take<T>(items: Seq<T>, n: Int) -> Seq<T> {
+    {
+        start: fn() {
+            let next = items.start()
+            let left = Cell.new(n)
+            link(fn() {
+                if left.get() <= 0 {
+                    // early termination closes the upstream iterator
+                    iter_close(next)
+                    Option.none
+                } else {
+                    left.set(left.get() - 1)
+                    next()
+                }
+            }, next)
+        },
+    }
+}
+
+pub fn flat_map<T, U>(items: Seq<T>, f: fn(T) -> Seq<U>) -> Seq<U> {
+    {
+        start: fn() {
+            let outer = items.start()
+            let inner: Cell<Option<fn() -> Option<U>>> = Cell.new(Option.none)
+            let me: Cell<Option<fn() -> Option<U>>> = Cell.new(Option.none)
+            let closer = fn() {
+                match inner.get() {
+                    .some(i) => iter_close(i),
+                    .none => (),
+                }
+                iter_close(outer)
+            }
+            let it = fn() -> Option<U> {
+                loop {
+                    match inner.get() {
+                        .some(i) => match i() {
+                            .some(x) => { return Option.some(x) },
+                            .none => inner.set(Option.none),
+                        },
+                        .none => match outer() {
+                            .some(x) => {
+                                let i = f(x).start()
+                                inner.set(Option.some(i))
+                                // a scoped inner iterator makes this one scoped
+                                if iter_has_close(i) {
+                                    match me.get() {
+                                        .some(s) => if !iter_has_close(s) { iter_on_close(s, closer) },
+                                        .none => (),
+                                    }
+                                }
+                            },
+                            .none => { return Option.none },
+                        },
+                    }
+                }
+            }
+            me.set(Option.some(it))
+            if iter_has_close(outer) {
+                iter_on_close(it, closer)
+            }
+            it
+        },
+    }
+}
+
+pub fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)> {
+    {
+        start: fn() {
+            let na = a.start()
+            let nb = b.start()
+            let it = fn() {
+                match na() {
+                    .some(x) => match nb() {
+                        .some(y) => Option.some((x, y)),
+                        .none => {
+                            iter_close(na)
+                            Option.none
+                        },
+                    },
+                    .none => {
+                        iter_close(nb)
+                        Option.none
+                    },
+                }
+            }
+            if iter_has_close(na) || iter_has_close(nb) {
+                iter_on_close(it, fn() {
+                    iter_close(na)
+                    iter_close(nb)
+                })
+            }
+            it
+        },
+    }
+}
+
+pub fn fold<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> A {
+    var acc = initial
+    for x in items {
+        acc = f(acc, x)
+    }
+    acc
+}
+
+pub fn count<T>(items: Seq<T>) -> Int {
+    var n = 0
+    for _ in items {
+        n = n + 1
+    }
+    n
+}
+
+pub fn range(start: Int, end: Int) -> Seq<Int> {
+    {
+        start: fn() {
+            let i = Cell.new(start)
+            fn() {
+                let k = i.get()
+                if k < end {
+                    i.set(k + 1)
+                    Option.some(k)
+                } else {
+                    Option.none
+                }
+            }
+        },
+    }
+}
+
+/// Group items by key. Groups keep the items' iteration order.
+pub fn group_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash {
+    var groups: Map<K, List<T>> = maps.empty()
+    for x in items {
+        let k = key(x)
+        let group = groups.get(k).unwrap_or(list.empty())
+        groups = groups.insert(k, list.append(group, x))
+    }
+    groups
+}
+
+impl<T> Seq<T> {
+    pub fn map<U>(self: &Self, f: fn(T) -> U) -> Seq<U> { map(self, f) }
+    pub fn filter(self: &Self, keep: fn(T) -> Bool) -> Seq<T> { filter(self, keep) }
+    pub fn take(self: &Self, n: Int) -> Seq<T> { take(self, n) }
+    pub fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U>) -> Seq<U> { flat_map(self, f) }
+    pub fn zip<U>(self: &Self, other: Seq<U>) -> Seq<(T, U)> { zip(self, other) }
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
+    pub fn count(self: &Self) -> Int { count(self) }
+    pub fn collect(self: &Self) -> List<T> { list.collect(self) }
+    pub fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
+}

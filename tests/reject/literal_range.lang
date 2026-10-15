@@ -1,0 +1,5 @@
+// expect-error: E0338
+// Literals do not silently wrap.
+pub fn main() -> Unit {
+    let a = 128I8
+}

@@ -1,0 +1,18 @@
+// Typed record operations.
+
+/// `S: Extends<T>`: every field of record `T` is present in `S` at the same
+/// type. Solved structurally by the compiler.
+pub protocol Extends<T> {}
+
+/// `S: Projects<T>`: `S` has every field of `T` at the same type, so the
+/// closed subset `T` can be projected out. Solved by the compiler.
+pub protocol Projects<T> {}
+
+/// Construct the closed subset `T` of a record value (copies fields).
+pub extern "intrinsic" fn project<T, S>(value: S) -> T where S: Projects<T>
+
+/// The record without field `label` (a literal, existing label).
+pub extern "intrinsic" fn remove<R, S>(record: S, label: Symbol) -> R
+
+/// Right-biased merge: overlapping fields take the right value and type.
+pub extern "intrinsic" fn merge<A, B, C>(left: A, right: B) -> C

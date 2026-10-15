@@ -1,0 +1,8 @@
+// expect-error: E0405
+// A held exclusive borrow conflicts with a fresh borrow in the same call.
+import std.buffer
+fn mk() -> Buffer<Int> { buffer.new<Int>() }
+fn two(a: &mut Buffer<Int>, b: &mut Buffer<Int>) -> Int { a.push(1); b.len() }
+fn mr(a: &mut Buffer<Int>, w: &{ x: Buffer<Int> }) -> Int { a.len() }
+fn idm(r: &mut Buffer<Int>) -> &mut Buffer<Int> { r }
+pub fn main() { let b = mk(); let r = &mut b; let n = two(r, &mut b) }

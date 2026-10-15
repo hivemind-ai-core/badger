@@ -1,0 +1,50 @@
+// `dyn Protocol`: explicit dictionary-dispatched values for heterogeneous
+// interfaces.
+import std.io
+
+pub protocol Shape {
+    fn area(self: &Self) -> Float
+    fn label(self: &Self, prefix: String) -> String
+}
+
+pub struct Circle {
+    pub r: Float,
+}
+
+pub struct Rect {
+    pub w: Float,
+    pub h: Float,
+}
+
+impl Shape for Circle {
+    fn area(self: &Self) -> Float { 3.0 * self.r * self.r }
+    fn label(self: &Self, prefix: String) -> String { $"{prefix} circle" }
+}
+
+impl Shape for Rect {
+    fn area(self: &Self) -> Float { self.w * self.h }
+    fn label(self: &Self, prefix: String) -> String { $"{prefix} rect" }
+}
+
+pub enum Color {
+    red,
+    green,
+} derive(Display)
+
+fn describe(s: dyn Shape) -> String {
+    $"{s.label("a")} with area {s.area()}"
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c: Circle = { r: 1.0 }
+    let r: Rect = { w: 2.0, h: 3.0 }
+    let shapes: List<dyn Shape> = [c, r]
+    for s in shapes {
+        io.println(describe(s))?
+    }
+    let shown: List<dyn Display> = [42, "text", Color.green]
+    for d in shown {
+        io.println(d.display())?
+    }
+    ok(())
+}

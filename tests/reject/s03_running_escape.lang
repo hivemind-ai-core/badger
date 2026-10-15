@@ -1,0 +1,13 @@
+// S03: a scoped running system returned from system.run is rejected.
+// expect-error: E0401
+import std.system
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+fn leak<Os: Row>(plan: system.SystemPlan<Os>) -> Unit {
+    let _ = system.run(plan, fn(running) -> Result<_, AppError> { ok(running) })
+}
+
+pub fn main() -> Unit {}

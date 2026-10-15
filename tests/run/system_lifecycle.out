@@ -1,0 +1,6 @@
+worker settled before halt: true
+a: failing halt
+a: first registered halt runs last
+result: system: system node system/halt: cleanup failed after: failed: body failed (cleanup: a halt failed)
+replaced value 42
+node value provider test/doubled

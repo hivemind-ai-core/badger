@@ -1,0 +1,7 @@
+// expect-error: E0501
+// Callback effects propagate to the caller.
+import std.io
+fn apply(f: fn(Int) -> Int, a: Int) -> Int { f(a) }
+fn bad() -> Int !{} { apply(fn(x: Int) -> Int { let _ = io.println(x)
+    x }, 1) }
+pub fn main() -> Unit {}

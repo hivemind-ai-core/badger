@@ -1,0 +1,29 @@
+// Clocks and durations.
+
+extern "intrinsic" fn time_now() -> Instant
+extern "intrinsic" fn time_wall_nanos() -> Int
+extern "intrinsic" fn task_sleep(d: Duration) -> Unit
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+/// The monotonic clock's current instant.
+pub fn now() -> Instant !{Io} { time_now() }
+
+pub fn sleep(d: Duration) -> Unit !{Wait} { task_sleep(d) }
+
+/// A duration of `n` units; durations are never negative (a negative
+/// count is a defect: keep signed values as `Int` nanoseconds).
+pub fn nanos(n: Int) -> Duration { identity(nonnegative(n)) }
+pub fn millis(n: Int) -> Duration { identity(nonnegative(n) * 1000000) }
+pub fn seconds(n: Int) -> Duration { identity(nonnegative(n) * 1000000000) }
+
+fn nonnegative(n: Int) -> Int {
+    if n < 0 {
+        panic("negative duration (keep signed values as `Int` nanoseconds)")
+    }
+    n
+}
+pub fn as_nanos(d: Duration) -> Int { identity(d) }
+pub fn as_millis(d: Duration) -> Int { identity<Duration, Int>(d) / 1000000 }
+
+/// Wall-clock timestamp (nanoseconds since the Unix epoch).
+pub fn timestamp() -> Timestamp !{Io} { identity(time_wall_nanos()) }

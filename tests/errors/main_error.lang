@@ -1,0 +1,25 @@
+// A program ending with an error reports its code, causal chain, and the
+// location where it started propagating.
+import std.io
+
+pub enum Inner {
+    bad(n: Int),
+} derive(Error)
+
+pub enum Outer {
+    wrap(source: Inner),
+} derive(Error, From)
+
+fn inner(n: Int) -> Result<Int, Inner> {
+    if n > 3 { err(Inner.bad(n)) } else { ok(n) }
+}
+
+fn f() -> Result<Int, Outer> {
+    let x = inner(4)?
+    ok(x)
+}
+
+pub fn main() -> Result<Unit, Outer> {
+    let x = f()?
+    ok(())
+}

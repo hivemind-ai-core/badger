@@ -1,0 +1,33 @@
+// Broadcast delivers each message to every subscriber; a slow subscriber
+// with `:drop_oldest` retention loses its oldest messages and sees a lag.
+import std.broadcast
+import std.io
+
+pub enum AppError {
+    config(source: broadcast.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = broadcast.create<Int>({ ..broadcast.defaults, backlog: 4 })?
+    let fast = b.subscribe()?
+    let slow = b.subscribe()?
+    var fast_sum = 0
+    for i in 1..11 {
+        let reached = b.publish(i)
+        assert(reached == 2)
+        // the fast subscriber keeps up
+        fast_sum = fast_sum + fast.recv().unwrap_or(0)
+    }
+    b.close()
+    var slow_seen = []
+    loop {
+        match slow.recv() {
+            .some(v) => { slow_seen = slow_seen.append(v) },
+            .none => { break },
+        }
+    }
+    io.println($"fast subscriber sum {fast_sum}, lagged {fast.lagged()}")?
+    io.println($"slow subscriber kept {slow_seen}, lagged {slow.lagged()}")?
+    ok(())
+}

@@ -1,0 +1,44 @@
+import std.io
+
+// The private field keeps construction behind a normal function.
+struct UserId {
+    value: U64,
+}
+
+fn user_id(value: U64) -> UserId {
+    { value }
+}
+
+impl Display for UserId {
+    fn display(self: &Self) -> String {
+        $"user-{self.value}"
+    }
+}
+
+enum Command {
+    greet(user: UserId, name: String),
+    retry(attempt: Int),
+    shutdown,
+}
+
+fn describe(command: Command) -> String {
+    match command {
+        .greet(user, name) => $"Hello {name}, signed in as {user}",
+        .retry(attempt) if attempt < 3 => $"Retry {attempt}",
+        .retry(_) => "Retry budget exhausted",
+        .shutdown => "Stopping",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let commands = [
+        Command.greet(user_id(42U64), "Ada"),
+        Command.retry(1),
+        Command.retry(3),
+        Command.shutdown,
+    ]
+    for command in commands {
+        io.println(describe(command))?
+    }
+    ok(())
+}

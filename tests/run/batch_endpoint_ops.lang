@@ -1,0 +1,35 @@
+import std.io
+import std.channel
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn show<T>(r: channel.TryRecv<T>) -> String where T: Display {
+    match r {
+        .value(v) => $"value {v}",
+        .empty => "empty",
+        .closed => "closed",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 2, max_batch: 2, byte_budget: 0 })?
+    io.println($"try_recv before publish: {show(b.receiver.try_recv())}")?
+    let _ = b.sender.try_append(1)
+    let _ = b.sender.try_send(2)
+    match b.sender.try_append(3) {
+        .ok(_) => io.println("third accepted")?,
+        .err(e) => io.println($"third: {e.reason} (value {e.value})")?,
+    }
+    b.sender.flush()
+    io.println($"recv: {b.receiver.recv().unwrap_or(0)}")?
+    io.println($"try_recv: {show(b.receiver.try_recv())}")?
+    io.println($"try_recv drained: {show(b.receiver.try_recv())}")?
+    let _ = b.sender.try_append(4)
+    b.sender.close()
+    io.println($"recv after close: {b.receiver.recv().unwrap_or(0)}")?
+    io.println($"try_recv closed: {show(b.receiver.try_recv())}")?
+    ok(())
+}

@@ -1,0 +1,16 @@
+// expect-error: E0214
+// An implementation binds every associated type its protocol declares.
+pub protocol Source {
+    type Item
+    fn next(self: &Self) -> Option<Self.Item>
+}
+
+struct Empty {
+    n: Int,
+}
+
+impl Source for Empty {
+    fn next(self: &Self) -> Option<Int> { Option.none }
+}
+
+pub fn main() -> Unit {}

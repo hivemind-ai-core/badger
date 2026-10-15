@@ -1,0 +1,37 @@
+// Result helpers.
+
+pub fn map<T, U, E>(r: Result<T, E>, f: fn(T) -> U) -> Result<U, E> {
+    match r {
+        .ok(x) => Result.ok(f(x)),
+        .err(e) => Result.err(e),
+    }
+}
+
+pub fn map_err<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F> {
+    match r {
+        .ok(x) => Result.ok(x),
+        .err(e) => Result.err(f(e)),
+    }
+}
+
+pub fn unwrap_or<T, E>(r: Result<T, E>, default: T) -> T {
+    match r {
+        .ok(x) => x,
+        .err(_) => default,
+    }
+}
+
+pub fn is_ok<T, E>(r: Result<T, E>) -> Bool {
+    match r {
+        .ok(_) => true,
+        .err(_) => false,
+    }
+}
+
+impl<T, E> Result<T, E> {
+    pub fn is_ok(self: &Self) -> Bool { is_ok(self) }
+    pub fn is_err(self: &Self) -> Bool { !is_ok(self) }
+    pub fn unwrap_or(self: &Self, default: T) -> T { unwrap_or(self, default) }
+    pub fn map<U>(self: &Self, f: fn(T) -> U) -> Result<U, E> { map(self, f) }
+    pub fn map_err<F>(self: &Self, f: fn(E) -> F) -> Result<T, F> { map_err(self, f) }
+}

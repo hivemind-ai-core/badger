@@ -1,0 +1,5 @@
+// expect-error: E0408
+// A shared borrow cannot be passed where exclusive access is needed.
+import std.buffer
+fn add(b: &mut Buffer<Int>) -> Unit { b.push(1) }
+pub fn main() { let b = buffer.new<Int>(); add(&b) }

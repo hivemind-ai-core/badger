@@ -1,0 +1,4 @@
+first line
+second
+third
+expected error: No such file or directory (os error 2)

@@ -1,0 +1,9 @@
+// R06: record construction of a private-invariant struct outside its module.
+// expect-error: E0315
+import std.task
+
+fn forge() -> task.TaskScope<Int> {
+    { id: 7 }
+}
+
+pub fn main() -> Unit {}

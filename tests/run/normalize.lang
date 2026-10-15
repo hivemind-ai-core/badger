@@ -1,0 +1,30 @@
+// The CLI normalization design example, run on a fixed input file.
+import std.fs
+import std.io
+import std.list
+import std.seq
+import std.text
+
+pub enum AppError {
+    usage(message: String),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let path = "tests/run/normalize.txt"
+    fs.write_text(path, "  first line  \n\n   second\n\t\nthird   \n")?
+    let input = fs.read_text(path)?
+    let lines = text.lines(input)
+        |> seq.map(fn(line) { text.trim(line) })
+        |> seq.filter(fn(line) { !text.is_empty(line) })
+        |> list.collect()
+    for line in lines {
+        io.println(line)?
+    }
+    let missing = fs.read_text("tests/run/does-not-exist.txt")
+    match missing {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"expected error: {e}")?,
+    }
+    ok(())
+}

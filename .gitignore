@@ -1,0 +1,4 @@
+/target
+*.clif
+# written by examples/12_import_notes.lang when run from the repository root
+/notes.sqlite

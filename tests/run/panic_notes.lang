@@ -1,0 +1,35 @@
+// A halt failure during defect cleanup is attached to the defect as a note,
+// visible in the joined PanicInfo.
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+pub struct F { pub m: String }
+impl Display for F { fn display(self: &Self) -> String { self.m } }
+impl Error for F {}
+pub enum AppError { system(source: system.Error) } derive(Error, From)
+let p = system.provider({
+    name: :t/p,
+    init: fn(scope, c: { v: Int }) -> Result<Int, F> {
+        scope.on_halt(fn() -> Result<Unit, F> { err({ m: "flush failed" }) })
+        ok(c.v)
+    },
+})
+fn run_it() -> Result<Unit, AppError> {
+    let plan = system { a: component(p, { v: 1 }) }
+    system.run(plan, fn(r) -> Result<Unit, AppError> {
+        let _ = r.a
+        panic("body boom")
+    })
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let line = task.scope(fn(s) -> Result<String, io.Error> {
+        let t = s.capture(fn() { run_it() })
+        match t.join() {
+            .failed(info) => ok($"failed: {info.message} notes={info.notes}"),
+            _ => ok("other"),
+        }
+    })?
+    io.println(line)?
+    ok(())
+}

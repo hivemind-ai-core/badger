@@ -1,0 +1,39 @@
+// Typed path parameters (parsed and validated), overlapping patterns and
+// parameter/pattern mismatches rejected, parameter schemas in OpenAPI.
+import std.http
+import std.io
+import std.route
+import std.text
+
+type Ids = { id: Int, verbose: Bool }
+type Empty = {}
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, route.RouteError> {
+    let routes = [
+        route.typed(:get, "/orders/:id/:verbose", :orders/show, fn(_req, p: Ids, _b: Empty) -> Result<(Int, { id: Int, twice: Int }), String> {
+            ok((200, { id: p.id, twice: p.id * 2 }))
+        }),
+    ]
+    let h = route.table(routes)?
+    let _ = io.println(show(http.call(h, http.request(:get, "/orders/21/true", ""))))
+    let _ = io.println(show(http.call(h, http.request(:get, "/orders/x/true", ""))))
+    let overlap = route.validate([
+        route.get("/a/:x", :one, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
+        route.get("/a/b", :two, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
+    ])
+    let _ = io.println($"overlap rejected: {overlap.is_err()}")
+    let mismatch = route.validate([
+        route.typed(:get, "/x/:other", :bad, fn(_req, p: Ids, _b: Empty) -> Result<(Int, Int), String> { ok((200, 1)) }),
+    ])
+    match mismatch {
+        .ok(_) => { let _ = io.println("unexpected") },
+        .err(e) => { let _ = io.println($"param mismatch: {e}") },
+    }
+    let doc = route.openapi(routes, "t", "1")?
+    let _ = io.println(text.contains(doc, "\"name\":\"id\",\"in\":\"path\",\"required\":true,\"schema\":{\"type\":\"integer\"}"))
+    ok(())
+}

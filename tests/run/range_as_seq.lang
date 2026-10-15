@@ -1,0 +1,12 @@
+// An integer range is a Seq<Int> where one is expected.
+import std.io
+import std.seq
+import std.list
+pub fn main() -> Result<Unit, io.Error> {
+    let sq = (0..5) |> seq.map(fn(x) { x * x })
+    io.println(list.collect(sq))?
+    let s: Seq<Int> = 1..=3
+    io.println(list.collect(s))?
+    io.println(list.collect(seq.map(2..2, fn(x) { x })))?
+    ok(())
+}

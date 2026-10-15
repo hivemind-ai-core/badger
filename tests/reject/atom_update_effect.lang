@@ -1,0 +1,12 @@
+// expect-error: E0501
+// `Atom.update` runs a pure function: waiting inside it would let other
+// tasks interleave with the read-modify-write.
+import std.task
+
+pub fn main() -> Unit {
+    let a = Atom.new(0)
+    let _ = a.update(fn(n: Int) -> Int {
+        task.yield_now()
+        n + 1
+    })
+}

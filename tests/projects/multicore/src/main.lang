@@ -1,0 +1,80 @@
+// Scenario 15: producers migrate between worker threads while appending to a
+// batch channel. Each producer's messages arrive in its own order; the
+// interleaving across producers is unspecified.
+import std.channel
+import std.io
+import std.task
+
+type Message = { producer: Int, seq: Int }
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Message>),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn produce(ends: channel.BatchEndpoints<Message>, producer: Int, count: Int) -> Result<Bool, AppError> {
+    let first = task.worker_index()
+    var moved = false
+    for seq in 0..count {
+        ends.sender.append({ producer, seq })?
+        if seq % 10 == 0 {
+            task.yield_now()
+            if task.worker_index() != first {
+                moved = true
+            }
+        }
+    }
+    ok(moved)
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let producers = 4
+    let count = 3000
+    let (in_order, total, moved) = channel.open_batch<Message, (Bool, Int, Int), AppError>(
+        { ..channel.batch_defaults, capacity: 512, max_batch: 64 },
+        fn(ends) {
+            task.scope(fn(s) -> Result<(Bool, Int, Int), AppError> {
+                var tasks = []
+                for p in 0..producers {
+                    tasks = tasks.append(s.spawn(fn() -> Result<Bool, AppError> { produce(ends, p, count) }))
+                }
+                let closer = s.spawn(fn() -> Result<Int, AppError> {
+                    var moved = 0
+                    for t in tasks {
+                        if t.join()? {
+                            moved = moved + 1
+                        }
+                    }
+                    ends.sender.close()
+                    ok(moved)
+                })
+                var next = [0, 0, 0, 0]
+                var ordered = true
+                var total = 0
+                loop {
+                    match ends.receiver.recv_batch() {
+                        .some(batch) => {
+                            for m in batch.items() {
+                                if m.seq != next[m.producer] {
+                                    ordered = false
+                                }
+                                next = next.slice(0, m.producer).append(m.seq + 1).concat(next.slice(m.producer + 1, producers))
+                                total = total + 1
+                            }
+                            batch.release()
+                        },
+                        .none => { break },
+                    }
+                }
+                let moved = closer.join()?
+                ok((ordered, total, moved))
+            })
+        },
+    )?
+    io.println($"workers: {task.worker_count()}")?
+    io.println($"per-producer order preserved: {in_order}")?
+    io.println($"messages: {total}")?
+    io.println($"some producer moved between workers: {moved > 0}")?
+    ok(())
+}

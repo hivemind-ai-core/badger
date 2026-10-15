@@ -1,0 +1,8 @@
+// expect-error: E0213
+// A recursive definition without indirection has no finite size.
+enum Expr {
+    num(value: Int),
+    add(left: Expr, right: Expr),
+}
+
+pub fn main() -> Unit {}

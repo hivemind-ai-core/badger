@@ -1,0 +1,19 @@
+// `match` is exhaustive; guarded arms do not establish exhaustiveness.
+// expect-error: E0342
+pub enum Job {
+    import_file(path: String),
+    purge(days: Int),
+    shutdown,
+}
+
+fn describe(j: Job) -> String {
+    match j {
+        .import_file(p) => p,
+        .purge(d) if d > 3 => "old",
+        .shutdown => "bye",
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = describe(Job.shutdown)
+}

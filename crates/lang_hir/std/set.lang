@@ -1,0 +1,52 @@
+// Persistent sets.
+
+extern "intrinsic" fn set_insert<T>(s: Set<T>, value: T) -> Set<T>
+extern "intrinsic" fn set_remove<T>(s: Set<T>, value: T) -> Set<T>
+extern "intrinsic" fn set_items<T>(s: Set<T>) -> List<T>
+extern "intrinsic" fn set_insert_mut<T>(s: Set<T>, value: T) -> Unit
+
+/// Affine builder for bulk construction; `finish` freezes the set in place.
+pub struct SetBuilder<T> {
+    set: Set<T>,
+}
+
+impl<T> SetBuilder<T> {
+    pub fn insert(self: &mut Self, value: T) -> Unit { set_insert_mut(self.set, value) }
+    pub fn len(self: &Self) -> Int { len(self.set) }
+    pub fn finish(self: Self) -> Set<T> { self.set }
+}
+
+pub fn builder<T>() -> SetBuilder<T> where T: Hash { { set: empty() } }
+
+pub fn from_list<T>(items: List<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in items {
+        set_insert_mut(s, x)
+    }
+    s
+}
+
+pub fn collect<T>(items: Seq<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in items {
+        set_insert_mut(s, x)
+    }
+    s
+}
+extern "intrinsic" fn map_contains<K, V>(m: Map<K, V>, key: K) -> Bool
+extern "intrinsic" fn map_len<K, V>(m: Map<K, V>) -> Int
+extern "intrinsic" fn map_empty<K, V>() -> Map<K, V>
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+pub fn empty<T>() -> Set<T> where T: Hash { identity(map_empty<T, Unit>()) }
+pub fn insert<T>(s: Set<T>, value: T) -> Set<T> { set_insert(s, value) }
+pub fn remove<T>(s: Set<T>, value: T) -> Set<T> { set_remove(s, value) }
+pub fn contains<T>(s: Set<T>, value: T) -> Bool { map_contains(identity<Set<T>, Map<T, Unit>>(s), value) }
+pub fn len<T>(s: Set<T>) -> Int { map_len(identity<Set<T>, Map<T, Unit>>(s)) }
+/// Members in unspecified order.
+pub fn to_list<T>(s: Set<T>) -> List<T> { set_items(s) }
+
+impl<T> Set<T> {
+    pub fn contains(self: &Self, value: T) -> Bool { contains(self, value) }
+    pub fn len(self: &Self) -> Int { len(self) }
+}

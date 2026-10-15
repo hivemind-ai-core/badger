@@ -1,0 +1,11 @@
+import std.io
+import textutil
+import textutil.words
+import app.report
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(textutil.shout("hello"))?
+    io.println(words.count("one two  three"))?
+    io.println(report.summary(["a", "bb", "ccc"]))?
+    ok(())
+}

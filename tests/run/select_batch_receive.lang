@@ -1,0 +1,50 @@
+// Batch receivers take part in selection: one published message at a time.
+import std.io
+import std.channel
+import std.task
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+enum Got {
+    prompt(v: Int),
+    batched(v: Int),
+    closed,
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let p = channel.create<Int>(channel.defaults)?
+    let b = channel.batch<Int>({ capacity: 8, max_batch: 4, byte_budget: 0 })?
+    let _ = b.sender.append(7)
+    b.sender.flush()
+    match channel.select([channel.Op.recv(p.receiver), channel.Op.recv_batch(b.receiver)], none) {
+        .received(i, v) => io.println($"select received {v.unwrap_or(0)} on {i}")?,
+        _ => io.println("other")?,
+    }
+    // a selection waiting on a batch channel wakes when a batch is published
+    let r = task.scope(fn(s) -> Result<Unit, AppError> {
+        let producer = s.spawn(fn() {
+            task.sleep(10ms)
+            let _ = b.sender.append(9)
+            b.sender.flush()
+        })
+        let got = channel.choose([
+            channel.on_recv(p.receiver, fn(m: Option<Int>) { Got.prompt(m.unwrap_or(0)) }),
+            channel.on_recv_batch(b.receiver, fn(m: Option<Int>) {
+                match m {
+                    .some(v) => Got.batched(v),
+                    .none => Got.closed,
+                }
+            }),
+        ], none)
+        producer.join()
+        match got {
+            .some(.batched(v)) => io.println($"choose received batched {v}")?,
+            _ => io.println("other")?,
+        }
+        ok(())
+    })
+    r
+}

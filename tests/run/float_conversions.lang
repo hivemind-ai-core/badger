@@ -1,0 +1,22 @@
+// Conversions involving floats are exact or fail; none truncate silently.
+import std.io
+fn show<T>(r: Result<T, NumericError>) -> String where T: Display {
+    match r {
+        .ok(v) => $"ok {v}",
+        .err(_) => "out of range",
+    }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(show(Int.try_from(3.0)))?
+    io.println(show(Int.try_from(3.5)))?
+    io.println(show(I8.try_from(300.0)))?
+    io.println(show(U8.try_from(-1.0)))?
+    io.println(show(Float.try_from(9007199254740993)))?
+    io.println(show(Float.try_from(1024)))?
+    let f32: F32 = 1.5
+    io.println(show(Float.try_from(f32)))?
+    io.println(show(F32.try_from(0.1)))?
+    io.println(show(F32.try_from(0.5)))?
+    io.println(show(Int.try_from(0.0 / 0.0)))?
+    ok(())
+}

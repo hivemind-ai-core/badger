@@ -1,0 +1,51 @@
+// Suspending input streams (e.g. from channels). Unlike `Seq`, pulling from
+// a stream may wait, and a stream is consumed as it is read.
+
+import std.channel
+
+pub struct Stream<T> {
+    pub next: fn() -> Option<T>,
+}
+
+/// Messages from a receiver until it is closed and drained.
+pub fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T> {
+    { next: fn() { r.recv() } }
+}
+
+pub fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U> {
+    {
+        next: fn() {
+            match s.next() {
+                .some(x) => Option.some(f(x)),
+                .none => Option.none,
+            }
+        },
+    }
+}
+
+pub fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T> {
+    {
+        next: fn() -> Option<T> {
+            loop {
+                match s.next() {
+                    .some(x) => if keep(x) { return Option.some(x) },
+                    .none => { return Option.none },
+                }
+            }
+        },
+    }
+}
+
+/// Read every remaining item.
+pub fn collect<T>(s: Stream<T>) -> List<T> !{Wait} {
+    let b = list.builder<T>()
+    loop {
+        match s.next() {
+            .some(x) => b.append(x),
+            .none => { break },
+        }
+    }
+    b.finish()
+}
+
+import std.list

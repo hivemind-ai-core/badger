@@ -1,0 +1,109 @@
+// Grammar parsers with source spans and structured failures.
+//
+// A grammar is a string — rules `name = alt | alt` (one per line or
+// `;`-separated) over rule names, `"literals"`, and `/regexes/`, with
+// `%skip /regex/` skipping text before each terminal — or a list of
+// programmatic productions. The first rule is the start rule. Left
+// recursion and ambiguity are supported: `parse` returns one tree and
+// reports whether others exist; `forest` returns the shared packed parse
+// forest; `trees` enumerates trees up to a bound and reports cycles;
+// `parse_recovering` skips unparsable regions and reports each as an error.
+
+import std.text
+
+pub struct Grammar {
+    id: Int,
+}
+
+/// A parse tree: nodes `{rule, start, end, children}` and tokens
+/// `{token, start, end}` with byte offsets.
+pub type Parsed = { tree: Data, ambiguous: Bool }
+
+pub type Failure = { offset: Int, line: Int, column: Int, expected: List<String> }
+
+/// Enumerated trees: at most the requested number (`truncated` when more
+/// exist), and whether the grammar derives a node from itself here (a
+/// cycle, i.e. infinitely many trees; each is followed once per path).
+pub type Trees = { trees: List<Data>, truncated: Bool, cyclic: Bool }
+
+/// A tree built after skipping unparsable regions, one error per region.
+pub type Recovered = { tree: Data, errors: List<Failure> }
+
+/// A symbol of a programmatic production.
+pub enum Sym {
+    rule(name: String),
+    lit(text: String),
+    re(pattern: String),
+}
+
+/// A programmatic production: a rule name and its alternatives.
+pub type Production = { name: String, alts: List<List<Sym>> }
+
+extern "intrinsic" fn parse_grammar(text: String) -> Result<Int, String>
+extern "intrinsic" fn parse_run(grammar: Int, input: String) -> Result<Parsed, Failure>
+extern "intrinsic" fn parse_forest(grammar: Int, input: String) -> Result<Data, Failure>
+extern "intrinsic" fn parse_trees(grammar: Int, input: String, limit: Int) -> Result<Trees, Failure>
+extern "intrinsic" fn parse_recover(grammar: Int, input: String, max_errors: Int) -> Result<Recovered, Failure>
+
+/// Compile a grammar string; malformed grammars are errors.
+pub fn grammar(text: String) -> Result<Grammar, String> {
+    match parse_grammar(text) {
+        .ok(id) => ok({ id }),
+        .err(e) => err(e),
+    }
+}
+
+pub fn rule(name: String) -> Sym { Sym.rule(name) }
+pub fn lit(text: String) -> Sym { Sym.lit(text) }
+pub fn re(pattern: String) -> Sym { Sym.re(pattern) }
+
+pub fn production(name: String, alts: List<List<Sym>>) -> Production { { name, alts } }
+
+// literals escape backslashes and quotes; regexes keep their escapes and
+// only escape the `/` delimiter
+fn quote_lit(s: String) -> String {
+    let escaped = text.replace(text.replace(s, "\\", "\\\\"), "\"", "\\\"")
+    $"\"{escaped}\""
+}
+
+fn quote_re(p: String) -> String { $"/{text.replace(p, "/", "\\/")}/" }
+
+fn sym_text(s: Sym) -> String {
+    match s {
+        .rule(n) => n,
+        .lit(t) => quote_lit(t),
+        .re(p) => quote_re(p),
+    }
+}
+
+/// Compile programmatic productions (the first is the start rule), with
+/// an optional skip pattern.
+pub fn from_productions(productions: List<Production>, skip: Option<String>) -> Result<Grammar, String> {
+    var lines: List<String> = []
+    match skip {
+        .some(p) => { lines = lines.append($"%skip {quote_re(p)}") },
+        .none => (),
+    }
+    for p in productions {
+        let alts = p.alts.map(fn(alt: List<Sym>) -> String { text.join(alt.map(sym_text), " ") })
+        lines = lines.append($"{p.name} = {text.join(alts, " | ")}")
+    }
+    grammar(text.join(lines, "\n"))
+}
+
+impl Grammar {
+    pub fn parse(self: &Self, input: String) -> Result<Parsed, Failure> { parse_run(self.id, input) }
+
+    /// The shared packed parse forest:
+    /// `{root, ambiguous, cyclic, nodes: [{id, rule, start, end,
+    /// alternatives: [[{node} | {token, start, end}]]}]}`.
+    pub fn forest(self: &Self, input: String) -> Result<Data, Failure> { parse_forest(self.id, input) }
+
+    /// At most `limit` trees, lazily expanded from the forest.
+    pub fn trees(self: &Self, input: String, limit: Int) -> Result<Trees, Failure> { parse_trees(self.id, input, limit) }
+
+    /// Parse, skipping up to `max_errors` unparsable regions.
+    pub fn parse_recovering(self: &Self, input: String, max_errors: Int) -> Result<Recovered, Failure> {
+        parse_recover(self.id, input, max_errors)
+    }
+}

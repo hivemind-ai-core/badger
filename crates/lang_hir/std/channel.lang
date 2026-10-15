@@ -1,0 +1,405 @@
+// Typed bounded channels and batch channels.
+
+import std.list
+
+pub extern type Sender<T>
+pub extern type Receiver<T>
+pub extern type BatchSender<T>
+pub extern type BatchReceiver<T>
+/// A leased, sealed batch of messages; release it when processed.
+pub extern type Batch<T>
+
+pub type Endpoints<T> = { sender: Sender<T>, receiver: Receiver<T> }
+pub type BatchEndpoints<T> = { sender: BatchSender<T>, receiver: BatchReceiver<T> }
+pub type Options = { capacity: Int, byte_budget: Int }
+pub type BatchOptions = { capacity: Int, max_batch: Int, byte_budget: Int }
+/// Batch disposal and publication policy. `discard_on_close`: staged
+/// messages are released instead of published when the channel closes.
+/// `flush_latency`: staged messages are published at the next safe point
+/// once they are this old.
+pub type BatchPolicy = { discard_on_close: Bool, flush_latency: Duration }
+
+pub let defaults = { capacity: 64, byte_budget: 0 }
+pub let batch_defaults = { capacity: 256, max_batch: 32, byte_budget: 0 }
+pub let batch_policy = { discard_on_close: false, flush_latency: 1ms }
+
+pub struct ConfigError {
+    pub message: String,
+}
+
+impl Display for ConfigError {
+    fn display(self: &Self) -> String { $"invalid channel configuration: {self.message}" }
+}
+
+impl Error for ConfigError {}
+
+/// A failed send returns the unsent value.
+pub struct SendError<T> {
+    pub value: T,
+    pub reason: Symbol,
+}
+
+impl<T> Display for SendError<T> {
+    fn display(self: &Self) -> String { $"send failed: {self.reason}" }
+}
+
+pub enum TryRecv<T> {
+    value(item: T),
+    empty,
+    closed,
+}
+
+extern "intrinsic" fn chan_new<T, C>(capacity: Int, max_batch: Int, batched: Bool, byte_budget: Int) -> C
+extern "intrinsic" fn chan_select<T>(kinds: List<Int>, chans: List<Receiver<T>>, values: List<T>, start: Int, timeout: Duration) -> Selected<T>
+extern "intrinsic" fn task_id() -> Int
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+extern "intrinsic" fn chan_send<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
+extern "intrinsic" fn chan_try_send<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
+extern "intrinsic" fn chan_recv<T, C>(ch: C) -> Option<T>
+extern "intrinsic" fn chan_try_recv<T, C>(ch: C) -> TryRecv<T>
+extern "intrinsic" fn chan_close<C>(ch: C) -> Unit
+extern "intrinsic" fn chan_len<C>(ch: C) -> Int
+extern "intrinsic" fn chan_guard<C>(ch: C) -> Int
+extern "intrinsic" fn chan_unguard<C>(handle: Int, ch: C) -> Unit
+extern "intrinsic" fn batch_append<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
+extern "intrinsic" fn batch_try_append<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
+extern "intrinsic" fn batch_recv_one<T, C>(ch: C) -> Option<T>
+extern "intrinsic" fn batch_try_recv<T, C>(ch: C) -> TryRecv<T>
+extern "intrinsic" fn batch_flush<C>(ch: C) -> Unit
+extern "intrinsic" fn batch_recv<T, C>(ch: C) -> Option<Batch<T>>
+extern "intrinsic" fn batch_len<T>(b: Batch<T>) -> Int
+extern "intrinsic" fn batch_get<T>(b: Batch<T>, i: Int) -> T
+extern "intrinsic" fn batch_release<T>(b: Batch<T>) -> Unit
+extern "intrinsic" fn batches_published<C>(ch: C) -> Int
+
+/// Validate options and create a prompt channel.
+pub fn create<T>(options: Options) -> Result<Endpoints<T>, ConfigError> where T: Transfer {
+    if options.capacity < 0 {
+        return err({ message: "capacity must not be negative" })
+    }
+    if options.byte_budget < 0 {
+        return err({ message: "byte budget must not be negative" })
+    }
+    let s: Sender<T> = chan_new<T, Sender<T>>(options.capacity, 1, false, options.byte_budget)
+    ok({ sender: s, receiver: identity(s) })
+}
+
+/// Validate options and create a batch channel.
+pub fn batch<T>(options: BatchOptions) -> Result<BatchEndpoints<T>, ConfigError> where T: Transfer {
+    batch_with_policy(options, batch_policy)
+}
+
+/// A batch channel with an explicit disposal/publication policy.
+pub fn batch_with_policy<T>(options: BatchOptions, policy: BatchPolicy) -> Result<BatchEndpoints<T>, ConfigError> where T: Transfer {
+    if options.capacity <= 0 {
+        return err({ message: "batch channels require positive capacity" })
+    }
+    if options.max_batch <= 0 || options.max_batch > options.capacity {
+        return err({ message: "max_batch must be between 1 and capacity" })
+    }
+    if options.byte_budget < 0 {
+        return err({ message: "byte budget must not be negative" })
+    }
+    let s: BatchSender<T> = chan_new<T, BatchSender<T>>(options.capacity, options.max_batch, true, options.byte_budget)
+    chan_configure(s, policy.discard_on_close, policy.flush_latency)
+    ok({ sender: s, receiver: identity(s) })
+}
+
+/// Scoped prompt channel: closed when `body` ends (including on failure).
+pub fn open<T, R, E>(options: Options, body: fn(Endpoints<T>) -> Result<R, E>) -> Result<R, E> !{Wait} where E: From<ConfigError>, T: Transfer {
+    match create<T>(options) {
+        .err(e) => err(E.from(e)),
+        .ok(endpoints) => {
+            let guard = chan_guard(endpoints.sender)
+            let r = body(endpoints)
+            chan_unguard(guard, endpoints.sender)
+            chan_close(endpoints.sender)
+            r
+        },
+    }
+}
+
+/// Scoped batch channel: staged messages are published and the channel is
+/// closed when `body` ends.
+pub fn open_batch<T, R, E>(options: BatchOptions, body: fn(BatchEndpoints<T>) -> Result<R, E>) -> Result<R, E> !{Wait} where E: From<ConfigError>, T: Transfer {
+    match batch<T>(options) {
+        .err(e) => err(E.from(e)),
+        .ok(endpoints) => {
+            let guard = chan_guard(endpoints.sender)
+            let r = body(endpoints)
+            chan_unguard(guard, endpoints.sender)
+            chan_close(endpoints.sender)
+            r
+        },
+    }
+}
+
+impl<T> Sender<T> {
+    /// Wait for capacity and publish promptly; success transfers ownership.
+    pub fn send(self: &Self, value: T) -> Result<Unit, SendError<T>> !{Wait} { chan_send(self, value) }
+    pub fn try_send(self: &Self, value: T) -> Result<Unit, SendError<T>> { chan_try_send(self, value) }
+    pub fn close(self: &Self) -> Unit { chan_close(self) }
+}
+
+impl<T> Receiver<T> {
+    /// Wait for one message; `none` after closure and drain.
+    pub fn recv(self: &Self) -> Option<T> !{Wait} { chan_recv(self) }
+    pub fn try_recv(self: &Self) -> TryRecv<T> { chan_try_recv(self) }
+    /// Stop consuming: pending messages are released and senders get a
+    /// closed error (with their values back).
+    pub fn close(self: &Self) -> Unit { chan_close_receiver(self) }
+    pub fn len(self: &Self) -> Int { chan_len(self) }
+}
+
+impl<T> BatchSender<T> {
+    /// Wait for capacity and accept into runtime-owned staging.
+    pub fn append(self: &Self, value: T) -> Result<Unit, SendError<T>> !{Wait} { batch_append(self, value) }
+    /// Never parks: `channel/full` when admission has no capacity.
+    pub fn try_append(self: &Self, value: T) -> Result<Unit, SendError<T>> { batch_try_append(self, value) }
+    /// The endpoint-generic name of `try_append`.
+    pub fn try_send(self: &Self, value: T) -> Result<Unit, SendError<T>> { batch_try_append(self, value) }
+    /// Publish this producer's accepted messages.
+    pub fn flush(self: &Self) -> Unit { batch_flush(self) }
+    pub fn close(self: &Self) -> Unit { chan_close(self) }
+    pub fn batches_published(self: &Self) -> Int { batches_published(self) }
+}
+
+impl<T> BatchReceiver<T> {
+    /// Receive a leased sealed batch; `none` after closure and drain.
+    pub fn recv_batch(self: &Self) -> Option<Batch<T>> !{Wait} { batch_recv(self) }
+    /// Wait for one published message; `none` after closure and drain.
+    pub fn recv(self: &Self) -> Option<T> !{Wait} { batch_recv_one(self) }
+    /// Never parks: distinguishes a message, nothing published, and closed.
+    pub fn try_recv(self: &Self) -> TryRecv<T> { batch_try_recv(self) }
+    /// Stop consuming: staged and published batches are released.
+    pub fn close(self: &Self) -> Unit { chan_close_receiver(self) }
+}
+
+impl<T> Batch<T> {
+    pub fn len(self: &Self) -> Int { batch_len(self) }
+    /// The batch's messages, in producer order.
+    pub fn items(self: &Self) -> Seq<T> {
+        let b = self
+        {
+            start: fn() {
+                let i = Cell.new(0)
+                fn() {
+                    let k = i.get()
+                    if k < batch_len(b) {
+                        i.set(k + 1)
+                        Option.some(batch_get(b, k))
+                    } else {
+                        Option.none
+                    }
+                }
+            },
+        }
+    }
+    /// End the lease: the page returns to the pool.
+    pub fn release(self: &Self) -> Unit { batch_release(self) }
+}
+
+/// One operation of a homogeneous selection.
+pub enum Op<T> {
+    recv(from: Receiver<T>),
+    send(to: Sender<T>, value: T),
+    /// Receive one published message of a batch channel.
+    recv_batch(from: BatchReceiver<T>),
+}
+
+/// The committed operation of a selection. Losing sends keep their values.
+/// `closed` reports a send operation whose channel is closed: nothing was
+/// sent, and the value stays with the caller (`select_keep` returns it).
+pub enum Selected<T> {
+    received(index: Int, value: Option<T>),
+    sent(index: Int),
+    closed(index: Int),
+    timeout,
+}
+
+/// Wait until one operation can commit; exactly one commits. Selection
+/// rotates fairly between calls. `timeout` of `none` waits indefinitely.
+extern "intrinsic" fn select_seq() -> Int
+extern "intrinsic" fn chan_close_receiver<C>(ch: C) -> Unit
+extern "intrinsic" fn chan_configure<C>(ch: C, discard: Bool, latency: Duration) -> Unit
+
+/// A boxed message of any type (an `Option<T>` object).
+extern type Erased
+
+extern "intrinsic" fn type_desc<T>() -> Int
+extern "intrinsic" fn chan_select_cases(kinds: List<Int>, chans: List<Erased>, values: List<Erased>, odescs: List<Int>, start: Int, timeout: Duration) -> { index: Int, value: Erased }
+
+/// One case of a heterogeneous selection, mapping its outcome into `R`.
+pub struct Case<R> {
+    kind: Int,
+    chan: Erased,
+    value: Erased,
+    odesc: Int,
+    map: fn(Erased) -> R,
+    /// A send case that did not commit gives its value back here.
+    lost: fn(Erased) -> Unit,
+}
+
+/// Receive from `r`; `f` gets the message, or `none` if the channel closed.
+pub fn on_recv<T, R>(r: Receiver<T>, f: fn(Option<T>) -> R) -> Case<R> {
+    let none: Option<T> = Option.none
+    {
+        kind: 0,
+        chan: identity(r),
+        value: identity(none),
+        odesc: type_desc<Option<T>>(),
+        map: fn(e: Erased) -> R { f(identity<Erased, Option<T>>(e)) },
+        lost: fn(_e: Erased) {},
+    }
+}
+
+/// Receive one published message of batch channel `r`; `f` gets it, or
+/// `none` if the channel closed and drained.
+pub fn on_recv_batch<T, R>(r: BatchReceiver<T>, f: fn(Option<T>) -> R) -> Case<R> {
+    let none: Option<T> = Option.none
+    {
+        kind: 2,
+        chan: identity(r),
+        value: identity(none),
+        odesc: type_desc<Option<T>>(),
+        map: fn(e: Erased) -> R { f(identity<Erased, Option<T>>(e)) },
+        lost: fn(_e: Erased) {},
+    }
+}
+
+/// Send `value` on `s`; `f` runs if this send commits. A losing shareable
+/// payload is simply dropped; owned (affine) payloads use `on_send_keep`.
+pub fn on_send<T, R>(s: Sender<T>, value: T, f: fn() -> R) -> Case<R> where T: Share {
+    on_send_keep(s, value, f, fn(_v: T) {})
+}
+
+/// Like `on_send`, but if another case commits, `keep` receives the
+/// unsent value back (its ownership is retained).
+pub fn on_send_keep<T, R>(s: Sender<T>, value: T, f: fn() -> R, keep: fn(T) -> Unit) -> Case<R> {
+    let boxed: Option<T> = Option.some(value)
+    {
+        kind: 1,
+        chan: identity(s),
+        value: identity(boxed),
+        odesc: type_desc<Option<T>>(),
+        map: fn(_e: Erased) -> R { f() },
+        lost: fn(e: Erased) {
+            match identity<Erased, Option<T>>(e) {
+                .some(v) => keep(v),
+                .none => (),
+            }
+        },
+    }
+}
+
+/// Heterogeneous selection: wait until one case commits (exactly one does;
+/// ready cases rotate fairly) and return its mapped outcome, or `none` on
+/// timeout. A send case whose channel is closed can never commit: it drops
+/// out (an `on_send_keep` value goes back to `keep`), and when no case can
+/// commit any more the result is `none`. Cases may receive and send different message types; the
+/// outcomes meet in the caller's own type `R` (typically an enum).
+pub fn choose<R>(cases: List<Case<R>>, timeout: Option<Duration>) -> Option<R> !{Wait} {
+    let wait = match timeout {
+        .some(d) => d,
+        .none => identity<Int, Duration>(-1),
+    }
+    let r = chan_select_cases(
+        cases.map(fn(c: Case<R>) -> Int { c.kind }),
+        cases.map(fn(c: Case<R>) -> Erased { c.chan }),
+        cases.map(fn(c: Case<R>) -> Erased { c.value }),
+        cases.map(fn(c: Case<R>) -> Int { c.odesc }),
+        select_seq(),
+        wait,
+    )
+    // losing sends give their values back
+    var i = 0
+    for c in cases {
+        if c.kind == 1 && i != r.index {
+            c.lost(c.value)
+        }
+        i = i + 1
+    }
+    if r.index < 0 {
+        Option.none
+    } else {
+        Option.some(cases[r.index].map(r.value))
+    }
+}
+
+/// Wait for the first ready operation. Selection rotates fairly among ready
+/// operations; use `select_priority` to prefer earlier ones explicitly.
+pub fn select<T>(ops: List<Op<T>>, timeout: Option<Duration>) -> Selected<T> !{Wait} where T: Share {
+    select_from(ops, timeout, select_seq())
+}
+
+/// Like `select`, but also returns the values of sends that did not
+/// commit, in operation order: losing sends retain their ownership.
+pub fn select_keep<T>(ops: List<Op<T>>, timeout: Option<Duration>) -> (Selected<T>, List<T>) !{Wait} {
+    let committed = select_from(ops, timeout, select_seq())
+    let sent_index = match committed {
+        .sent(i) => i,
+        _ => -1,
+    }
+    let unsent = list.builder<T>()
+    var i = 0
+    for op in ops {
+        match op {
+            .send(_, v) => if i != sent_index { unsent.append(v) },
+            .recv(_) => (),
+            .recv_batch(_) => (),
+        }
+        i = i + 1
+    }
+    (committed, unsent.finish())
+}
+
+/// Like `select`, but when several operations are ready the earliest listed
+/// one wins (explicit priority).
+pub fn select_priority<T>(ops: List<Op<T>>, timeout: Option<Duration>) -> Selected<T> !{Wait} where T: Share {
+    select_from(ops, timeout, 0)
+}
+
+fn select_from<T>(ops: List<Op<T>>, timeout: Option<Duration>, start: Int) -> Selected<T> !{Wait} {
+    let kinds = list.builder<Int>()
+    let chans = list.builder<Receiver<T>>()
+    let values = list.builder<T>()
+    var placeholder: Option<T> = Option.none
+    for op in ops {
+        match op {
+            .recv(r) => {
+                kinds.append(0)
+                chans.append(r)
+            },
+            .send(s, v) => {
+                kinds.append(1)
+                chans.append(identity(s))
+                placeholder = Option.some(v)
+            },
+            .recv_batch(r) => {
+                kinds.append(2)
+                chans.append(identity(r))
+            },
+        }
+    }
+    // receive slots carry a placeholder value (never sent)
+    let vs = list.builder<T>()
+    for op in ops {
+        match op {
+            .recv(_) => match placeholder {
+                .some(p) => vs.append(p),
+                .none => vs.append(identity<Int, T>(0)),
+            },
+            .recv_batch(_) => match placeholder {
+                .some(p) => vs.append(p),
+                .none => vs.append(identity<Int, T>(0)),
+            },
+            .send(_, v) => vs.append(v),
+        }
+    }
+    let _ = values
+    let wait = match timeout {
+        .some(d) => d,
+        .none => identity<Int, Duration>(-1),
+    }
+    chan_select(kinds.finish(), chans.finish(), vs.finish(), start, wait)
+}

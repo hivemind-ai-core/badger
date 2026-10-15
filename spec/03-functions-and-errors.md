@@ -1,0 +1,185 @@
+# Functions, effects, errors, and protocols
+
+Status: draft 0 proposal. See [the specification index](../SPEC.md).
+
+## Function values and capture
+
+Functions are eager first-class values. They may be stored in records, passed,
+returned, and captured by closures. There is no implicit receiver or ambient
+application dependency injection. A record of functions is a useful service
+interface; a component factory closes those functions over its dependencies.
+
+An ordinary `fn(A) -> R` is callable repeatedly subject to its parameter modes.
+A `once fn(A) -> R` may be called at most once and can capture affine values
+that it consumes. Closure mode and captures infer. A closure capturing a
+task-local cell cannot be transferred to another task. Capturing a scoped
+resource preserves its region bound, even if the closure is otherwise shareable.
+No closure erases the ownership or lifetime of what it captures.
+
+Parameters are by value unless borrowed with `&T` or `&mut T`. Shareable values
+can be used again; affine arguments move. Borrowed parameters do not acquire
+ownership. Standard methods auto-borrow their receiver according to their
+declared signature; ordinary function arguments use explicit borrows when
+required. A `once` callback parameter allows ordinary one-shot closures without
+writing a `move` modifier at every call site.
+
+Scope helpers check callbacks against restricted higher-rank region signatures.
+They do not introduce unrestricted impredicative inference into ordinary code.
+See [scope ownership](04-memory-and-collections.md).
+
+## Inferred effects without async coloring
+
+Every function can execute inside a runtime task. There are no separate `async`
+functions, futures that must be manually polled, or duplicated sync/async APIs.
+I/O or channel calls may suspend the current task while preserving sequential
+source-level control flow.
+
+The compiler records effect summaries. Draft 0 effect types are:
+
+| Effect | Meaning |
+|---|---|
+| `Io` | External filesystem, network, process, device, or environment interaction |
+| `Wait` | Explicit parking, timers, or coordination that can suspend the task |
+| `State` | Access to mutable state observable outside a function's private computation |
+| `Foreign` | An unsafe foreign operation outside the language's ordinary guarantees |
+
+Clock and random-source access are explicit dependencies and appear as `Io` or
+`State` according to the provider. Mutation of a unique local builder alone
+does not introduce externally observable `State`. Scope cleanup contributes
+the effects of the cleanup operation.
+
+```lang
+fn double(value: Int) -> Int !{} {
+    value * 2
+}
+
+fn load(path: String) -> Result<String, io.Error> !{Io, Wait} {
+    io.read_text(path)
+}
+```
+
+An omitted effect annotation is inferred. `!{}` permits no modeled external
+effects; it is not a totality or panic-freedom proof. Effect rows can be generic:
+`fn(A) -> B !Eff`, with `Eff: Effect`. Callback effects propagate to their
+caller. An explicit annotation is an upper bound; calling a less effectful
+function where a larger bound is allowed is safe.
+
+Implementation note: an omitted effect is inferred only where inference can
+see it. In a parameter type it is effect-polymorphic, so a callback's effects
+are charged to the caller, including callbacks carried in records, lists,
+structs, and enums. In a struct field, enum payload, alias, or a signature's
+result, nothing determines it, so such a function type may perform any
+modeled effect (`Io`, `Wait`, `State`, `Foreign`); annotate it (`!{}`,
+`!{Io}`) to call it under a tighter bound.
+
+Scheduler budget checks, tracing bookkeeping, and GC safe points are runtime
+mechanisms, not a requirement to annotate every pure function with `Wait`.
+Source-level nondeterminism still comes from concurrency and effectful calls.
+Effects are static summaries for checking/tooling, not algebraic effect handlers
+or arbitrary control-flow interception. No handler syntax is added in draft 0.
+
+## Expected errors
+
+The prelude contains:
+
+```lang
+enum Option<T> {
+    none,
+    some(value: T),
+}
+
+enum Result<T, E> {
+    ok(value: T),
+    err(error: E),
+}
+```
+
+`some`, `none`, `ok`, and `err` are ordinary prelude helpers. Other enum
+constructors use their type namespace. Results are eager values, not exceptions.
+Ignoring a `Result` is a diagnostic error by default; `let _ = expression`
+explicitly acknowledges discarding it. Ordinary values may be discarded.
+
+`?` requires a surrounding function or callback returning `Result`. For
+`Result<T, E1>` inside `Result<R, E2>`, it accepts `E1 = E2` or one unique
+direct `From<E1>` implementation for `E2`. It does not search conversion chains,
+erase to `Data`, invent a union, or catch task failure. `Option` must be matched
+or converted explicitly with a missing-value error.
+
+```lang
+pub enum AppError {
+    decode(source: codec.DecodeError),
+    database(source: db.Error),
+    validation(message: String),
+} derive(Error, From)
+```
+
+`derive(From)` generates direct conversions for variants with exactly one
+payload whose type is unique among eligible variants. Duplicate source types
+require explicit mapping; there is no arbitrary preferred variant. `Error`
+provides display, optional cause, and structured diagnostic details. Domain
+validation remains normal code returning a named error.
+
+Error diagnostics include a stable code, message, source span, causal chain,
+and typed or explicitly encoded context. Codecs may render that context as
+`Data`. A programmer-defined error does not require arbitrary dynamic fields.
+
+## Task defects and cancellation
+
+Checked overflow, bounds violations, failed assertions, and explicit `panic`
+terminate the current task through its failure boundary. They are not expected
+`Result` errors and are not silently caught by ordinary interceptors. A task
+capture boundary can report a typed `Exit<T>` to a parent or supervisor.
+Cancellation is its own exit reason and is observed at supported safe points.
+
+All language exit paths run registered scope cleanup. Cleanup can suspend under
+a bounded shutdown policy with cancellation shielding for the cleanup itself.
+An initial failure remains primary; cleanup failures are attached rather than
+replacing it. A process abort, memory corruption, or unsupported foreign fault
+does not promise recoverable language-task isolation.
+
+There is no source-level `throw`/`catch`/`finally` in draft 0. Expected failures
+use `Result`; external-resource cleanup uses scoped helpers; task defects are
+handled at explicit task boundaries. A transaction helper can fail after its
+callback returns, so callers must preserve the helper's result.
+
+## Protocols and coherent extension
+
+```lang
+pub protocol Display {
+    fn display(self: &Self) -> String
+}
+
+impl Display for UserId {
+    fn display(self: &Self) -> String {
+        $"user-{self.value}"
+    }
+}
+```
+
+Protocols define statically checked behavior. Bounds use `where`:
+`fn render<T>(value: &T) -> String where T: Display`. The initial protocol
+system supports type parameters and named associated types, but no higher-kinded
+type parameters, specialization, blanket overlapping instances, or inheritance
+of storage. One resolved implementation applies to a protocol/type combination.
+
+An implementation must belong to the package defining the protocol or the
+outer nominal type. Otherwise use a local nominal wrapper. Structural aliases
+are not distinct implementation identities. Primitive/structural operations are
+provided through generic implementations and compiler derivation.
+
+`derive(Eq, Hash, Display, Codec, From, Error)` requests supported derivations;
+each has a checked schema and can fail with a normal diagnostic. Derivation
+does not expose a general macro evaluator. Equality and hashing preserve their
+laws; floats do not automatically satisfy total equality/hash constraints.
+
+`dyn Protocol` is an explicit dictionary-dispatched value for heterogeneous
+interfaces. Object-safe protocols must have a representable calling convention;
+generic methods are not dynamically callable without a separate concrete
+adapter. Ordinary generic calls specialize or use typed dictionaries.
+
+The memory capabilities `Share`, `Transfer`, and affine ownership are compiler
+properties, not protocols that arbitrary safe code may implement dishonestly.
+Unsafe runtime/FFI extensions require an audited declaration and remain explicit.
+
+The continuation syntax is informed by [Gleam's `use`](https://tour.gleam.run/advanced-features/use/).
+All error, effect, and protocol rules above are this draft's own proposal.

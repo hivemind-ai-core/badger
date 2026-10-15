@@ -1,0 +1,29 @@
+// Endpoints of a channel carrying owned buffers are shared by producers.
+import std.io
+import std.buffer
+import std.channel
+import std.task
+pub enum AppError {
+    config(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+pub fn main() -> Result<Unit, AppError> {
+    let ends = channel.create<Buffer<Int>>({ ..channel.defaults, capacity: 4 })?
+    let total = task.scope(fn(s) -> Result<Int, AppError> {
+        let p1 = s.spawn(fn() { let b = buffer.new<Int>(); b.push(1); let _ = ends.sender.send(b) })
+        let p2 = s.spawn(fn() { let b = buffer.new<Int>(); b.push(2); b.push(3); let _ = ends.sender.send(b) })
+        p1.join()
+        p2.join()
+        ends.sender.close()
+        var t = 0
+        loop {
+            match ends.receiver.recv() {
+                .some(b) => { t = t + b.len() },
+                .none => { break },
+            }
+        }
+        ok(t)
+    })?
+    io.println($"received {total} items")?
+    ok(())
+}

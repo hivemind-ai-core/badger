@@ -1,0 +1,46 @@
+import std.env
+import std.fs
+import std.io
+import std.seq
+import std.sqlite
+import std.system
+import std.system.{component}
+import std.text
+
+pub enum AppError {
+    usage(message: String),
+    io(source: io.Error),
+    database(source: sqlite.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let path = match env.args().get(0) {
+        .some(path) => path,
+        .none => { return err(AppError.usage("expected a notes file")) },
+    }
+    let content = fs.read_text(path)?
+    let plan = system {
+        database: component(sqlite.pool, { path: "notes.sqlite" }),
+    }
+    use running <- system.run(plan)
+    sqlite.execute(running.database,
+        "CREATE TABLE IF NOT EXISTS notes (body TEXT NOT NULL)", [])?
+
+    let inserted: Result<Int, AppError> = sqlite.transaction(running.database, fn(tx) {
+        let notes = text.lines(content)
+            |> seq.map(fn(line) { text.trim(line) })
+            |> seq.filter(fn(line) { !text.is_empty(line) })
+        var count = 0
+        for note in notes {
+            sqlite.execute(tx, "INSERT INTO notes (body) VALUES (?)", [Data.string(note)])?
+            count = count + 1
+        }
+        ok(count)
+    })
+    // Preserve the transaction helper's result: even a successful body can
+    // encounter a commit error. The summary is printed only after commit.
+    let count = inserted?
+    io.println($"Imported {count} notes")?
+    ok(())
+}

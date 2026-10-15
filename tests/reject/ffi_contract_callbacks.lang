@@ -1,0 +1,3 @@
+// expect-error: E0115
+extern "c callbacks" fn qsort(base: I64, n: I64, size: I64, cmp: I64) -> Unit
+pub fn main() {}

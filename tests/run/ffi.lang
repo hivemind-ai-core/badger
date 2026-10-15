@@ -1,0 +1,14 @@
+// Native host FFI over primitive types; calls require `unsafe`.
+import std.io
+
+extern "c" fn abs(x: I32) -> I32
+extern "c" fn labs(x: Int) -> Int
+extern "c" fn sqrt(x: Float) -> Float
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a = unsafe { abs(-7I32) }
+    let b = unsafe { labs(-1234567890123) }
+    let c = unsafe { sqrt(2.25) }
+    io.println($"{a} {b} {c}")?
+    ok(())
+}

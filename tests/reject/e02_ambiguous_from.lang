@@ -1,0 +1,7 @@
+// E02: two From-derived variants accept the same source error.
+// expect-error: E0203
+pub enum AppError {
+    a(source: Int),
+    b(source: Int),
+} derive(Error, From)
+pub fn main() -> Unit {}

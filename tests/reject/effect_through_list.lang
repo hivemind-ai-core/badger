@@ -1,0 +1,6 @@
+// expect-error: E0501
+// Callback effects propagate through collections.
+import std.io
+fn run(l: List<fn() -> Unit>) -> Unit { for c in l { c() } }
+fn g() -> Unit !{} { run([fn() { let _ = io.println("leaked via list") }]) }
+pub fn main() -> Result<Unit, io.Error> { g(); ok(()) }

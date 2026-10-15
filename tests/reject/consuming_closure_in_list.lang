@@ -1,0 +1,12 @@
+// expect-error: E0404
+// A list holding a consuming closure is single-use.
+import std.io
+import std.list
+pub fn main() -> Result<Unit, io.Error> {
+    let b = list.builder<Int>()
+    b.append(1)
+    let fs = [fn() { let l = b.finish(); l.len() }]
+    for f in fs { io.println(f())? }
+    for f in fs { io.println(f())? }
+    ok(())
+}

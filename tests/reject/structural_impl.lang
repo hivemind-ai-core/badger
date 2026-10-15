@@ -1,0 +1,6 @@
+// expect-error: E0218
+// Records (and aliases of them) are not implementation identities.
+pub protocol Named { fn name(self: &Self) -> String }
+type Pt = { x: Int }
+impl Named for Pt { fn name(self: &Self) -> String { "pt" } }
+pub fn main() -> Unit {}

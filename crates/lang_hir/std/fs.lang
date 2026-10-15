@@ -1,0 +1,12 @@
+// Filesystem access. Operations run on the blocking pool and park the
+// calling task instead of blocking the worker.
+
+import std.io
+
+extern "intrinsic" fn fs_read_text(path: String) -> Result<String, io.Error>
+extern "intrinsic" fn fs_write_text(path: String, text: String) -> Result<Unit, io.Error>
+extern "intrinsic" fn fs_exists(path: String) -> Bool
+
+pub fn read_text(path: String) -> Result<String, io.Error> !{Io, Wait} { fs_read_text(path) }
+pub fn write_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_write_text(path, text) }
+pub fn exists(path: String) -> Bool !{Io} { fs_exists(path) }

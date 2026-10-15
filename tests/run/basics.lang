@@ -1,0 +1,70 @@
+import std.io
+
+type Person = { name: String, age: Int }
+
+pub enum Shape {
+    circle(radius: Float),
+    rect(w: Float, h: Float),
+    dot,
+}
+
+fn area(s: Shape) -> Float {
+    match s {
+        .circle(r) => 3.0 * r * r,
+        .rect(w, h) => w * h,
+        .dot => 0.0,
+    }
+}
+
+fn greet(person) {
+    $"Hello, {person.name}"
+}
+
+fn birthday(person) {
+    { ..person, age: person.age + 1 }
+}
+
+fn apply(f, x) { f(x) }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let p = { name: "Ada", age: 36, needs_glasses: false }
+    let q = birthday(p)
+    io.println(greet(q))?
+    io.println(q.age)?
+    io.println(q.needs_glasses)?
+    io.println(area(Shape.rect(2.0, 3.5)))?
+    io.println(area(Shape.dot))?
+    let k = 10
+    let add_k = fn(x) { x + k }
+    io.println(apply(add_k, 5))?
+    var total = 0
+    for i in 0..10 {
+        total = total + i
+    }
+    io.println($"total={total}")?
+    var n = 0
+    while n < 5 { n = n + 2 }
+    io.println(n)?
+    let xs = [1, 2, 3]
+    var s = 0
+    for x in xs { s = s + x * x }
+    io.println(s)?
+    let pair = (1, "two")
+    let (a, b) = pair
+    io.println($"{a} {b}")?
+    let found = loop {
+        n = n + 1
+        if n > 10 { break n }
+    }
+    io.println(found)?
+    let label = match some(3) {
+        .some(v) if v > 2 => "big",
+        .some(_) => "small",
+        .none => "none",
+    }
+    io.println(label)?
+    io.println(xs)?
+    io.println(xs == [1, 2, 3])?
+    io.println(xs[1])?
+    ok(())
+}

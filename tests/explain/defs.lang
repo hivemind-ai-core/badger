@@ -1,0 +1,8 @@
+struct Point { x: Int, y: Int }
+enum Shape { circle(r: Int), empty }
+type Pair<T> = (T, T)
+fn total<T>(items: List<T>, f: fn(T) -> Int) -> Int where T: Display { 0 }
+fn main() {}
+struct Box2<T> { pub value: T, count: Int } derive(Eq)
+protocol Named { fn name(self: &Self) -> String }
+fn show_all<T, U>(a: T, b: U) -> String where T: Display, U: Display + Eq { $"{a}{b}" }

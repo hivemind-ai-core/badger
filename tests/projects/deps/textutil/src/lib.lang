@@ -1,0 +1,3 @@
+import std.text
+
+pub fn shout(s: String) -> String { $"{text.to_upper(s)}!" }

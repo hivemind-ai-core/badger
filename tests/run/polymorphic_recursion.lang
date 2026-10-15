@@ -1,0 +1,7 @@
+// Polymorphic recursion with an explicit signature specializes per depth.
+import std.io
+fn nest<T>(n: Int, x: T) -> Int { if n == 0 { 0 } else { 1 + nest<List<T>>(n - 1, [x]) } }
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{nest(3, 1)}")?
+    ok(())
+}

@@ -1,0 +1,19 @@
+-- success
+B.leave token=secret
+A.leave verified=true count=10 reply=40
+result ok 40
+-- terminal failure
+B.error token=secret error=terminal
+A.error verified=true count=0 error=terminal
+result err terminal
+-- failure in B.enter
+A.error verified=false count=0 error=in_enter
+result err in_enter
+-- recovery in B.error
+B.error token=secret error=terminal
+A.leave verified=true count=1 reply=7
+result ok 7
+-- error in B.leave
+B.leave token=secret
+A.error verified=true count=0 error=in_leave
+result err in_leave

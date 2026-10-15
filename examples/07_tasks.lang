@@ -1,0 +1,34 @@
+import std.env
+import std.fs
+import std.io
+import std.task
+
+pub enum AppError {
+    usage(message: String),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn argument(index: Size) -> Result<String, AppError> {
+    match env.args().get(index) {
+        .some(value) => ok(value),
+        .none => err(AppError.usage("expected two file paths")),
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let first_path = argument(0)?
+    let second_path = argument(1)?
+    use scope <- task.scope()
+
+    // Ordinary sequential I/O within each task; both tasks can progress.
+    let first = scope.spawn(fn() { fs.read_text(first_path) })
+    let second = scope.spawn(fn() { fs.read_text(second_path) })
+    let (first_text, second_text) = scope.try_join(first, second)?
+    // On either expected error, try_join cancels and settles the other child.
+
+    let summary = scope.spawn(fn() { { identical: first_text == second_text } })
+    let result = summary.join()
+    // join returns the child's value directly; spawn does not wrap it in Result.
+    io.println(result.identical)?
+    ok(())
+}

@@ -1,0 +1,7 @@
+// expect-error: E0129
+fn h(f: fn(Int) -> Result<Int, String>) -> Result<Int, String> { f(1) }
+fn g() -> Result<Int, String> {
+    use x <- h?
+    ok(x)
+}
+pub fn main() {}

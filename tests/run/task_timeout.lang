@@ -1,0 +1,31 @@
+// `task.timeout` cancels slow work at its next safe point.
+import std.io
+import std.task
+
+fn spin(n: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        total = total + i
+        task.yield_now()
+    }
+    total
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    match task.timeout(1s, fn() { spin(1000) }) {
+        .ok(v) => io.println($"fast: {v}")?,
+        .err(e) => io.println($"fast: {e}")?,
+    }
+    match task.timeout(20ms, fn() -> Int {
+        task.sleep(10s)
+        1
+    }) {
+        .ok(v) => io.println($"slow: {v}")?,
+        .err(e) => io.println($"slow: {e}")?,
+    }
+    match task.timeout(20ms, fn() { spin(1000000000) }) {
+        .ok(v) => io.println($"busy: {v}")?,
+        .err(e) => io.println($"busy: {e}")?,
+    }
+    ok(())
+}

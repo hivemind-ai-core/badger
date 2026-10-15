@@ -1,0 +1,17 @@
+// `seq.group_by` and method-style sequence operations.
+import std.io
+import std.seq
+import std.list
+
+pub fn main() -> Result<Unit, io.Error> {
+    let words = ["apple", "avocado", "banana", "blueberry", "cherry", "apricot"]
+    let groups = words.seq().group_by(fn(w: String) -> Int { w.len() })
+    io.println(groups.get(6).unwrap_or([]))?
+    io.println(groups.get(7).unwrap_or([]))?
+    let by_parity = seq.group_by(seq.range(0, 10), fn(n: Int) -> Bool { n % 2 == 0 })
+    io.println(by_parity.get(true).unwrap_or([]))?
+    let squares = seq.range(1, 100).map(fn(n: Int) -> Int { n * n }).filter(fn(n: Int) -> Bool { n % 3 == 0 }).take(4).collect()
+    io.println(squares)?
+    io.println(seq.range(0, 5).fold(0, fn(a: Int, b: Int) -> Int { a + b }))?
+    ok(())
+}

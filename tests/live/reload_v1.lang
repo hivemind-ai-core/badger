@@ -1,0 +1,38 @@
+// Scenario 16 (version 1). The test harness replaces this file with
+// reload_v2.lang while it runs under `lang run --watch`.
+import std.io
+import std.task
+
+struct Point {
+    x: Int,
+}
+
+fn version() -> String { "v1" }
+
+fn describe(p: Point) -> String { $"v1 point {p.x}" }
+
+// A frame that is executing when the reload happens keeps its code version:
+// it prints its own (v1) text but sees new dispatches through `version()`.
+fn worker() -> Unit {
+    var seen = ""
+    while seen != "v2" {
+        seen = version()
+        let _ = io.println($"worker body v1 sees {seen}")
+        task.sleep(40ms)
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = io.println("main started")
+    let r = task.scope(fn(s) -> Result<Unit, io.Error> {
+        let w = s.spawn(fn() { worker() })
+        while version() != "v2" {
+            task.sleep(20ms)
+        }
+        w.join()
+        ok(())
+    })
+    io.println(describe({ x: 1 }))?
+    io.println("main finished")?
+    r
+}

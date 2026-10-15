@@ -1,0 +1,85 @@
+// Contiguous affine buffers and immutable arrays.
+
+extern "intrinsic" fn buffer_new<T>(capacity: Int) -> Buffer<T>
+extern "intrinsic" fn buffer_push<T>(b: Buffer<T>, value: T) -> Unit
+extern "intrinsic" fn buffer_pop<T>(b: Buffer<T>) -> Option<T>
+extern "intrinsic" fn buffer_get<T, C>(b: C, index: Int) -> Option<T>
+extern "intrinsic" fn buffer_set<T>(b: Buffer<T>, index: Int, value: T) -> Unit
+extern "intrinsic" fn buffer_len<C>(b: C) -> Int
+extern "intrinsic" fn buffer_capacity<T>(b: Buffer<T>) -> Int
+extern "intrinsic" fn buffer_address<T>(b: Buffer<T>) -> Int
+extern "intrinsic" fn buffer_freeze<T>(b: Buffer<T>) -> Array<T>
+extern "intrinsic" fn buffer_to_list<T, C>(b: C) -> List<T>
+
+/// A buffer with a fixed capacity: it never relocates, and appending to a
+/// full buffer returns `Full` (with the rejected value) instead of growing.
+pub struct FixedBuffer<T> {
+    buf: Buffer<T>,
+    cap: Int,
+}
+
+/// A fixed-capacity buffer was full; the rejected value is returned.
+pub struct Full<T> {
+    pub value: T,
+    pub capacity: Int,
+}
+
+impl<T> Display for Full<T> {
+    fn display(self: &Self) -> String { $"fixed-capacity buffer is full (capacity {self.capacity})" }
+}
+
+impl<T> Error for Full<T> {
+    fn code(self: &Self) -> Symbol { :buffer/full }
+}
+
+/// A fixed-capacity buffer (allocated once, up front).
+pub fn fixed<T>(capacity: Int) -> FixedBuffer<T> { { buf: buffer_new(capacity), cap: capacity } }
+
+impl<T> FixedBuffer<T> {
+    /// Append, or return the value back when the buffer is full.
+    pub fn push(self: &mut Self, value: T) -> Result<Unit, Full<T>> {
+        if buffer_len(self.buf) >= self.cap {
+            err({ value, capacity: self.cap })
+        } else {
+            buffer_push(self.buf, value)
+            ok(())
+        }
+    }
+    pub fn pop(self: &mut Self) -> Option<T> { buffer_pop(self.buf) }
+    pub fn get(self: &Self, index: Int) -> Option<T> { buffer_get(self.buf, index) }
+    /// Checked write; an invalid index is a task defect.
+    pub fn set(self: &mut Self, index: Int, value: T) -> Unit { buffer_set(self.buf, index, value) }
+    pub fn len(self: &Self) -> Int { buffer_len(self.buf) }
+    pub fn capacity(self: &Self) -> Int { self.cap }
+    pub fn is_full(self: &Self) -> Bool { buffer_len(self.buf) >= self.cap }
+    /// Address of the storage (never changes for a fixed buffer).
+    pub fn storage_address(self: &Self) -> Int { buffer_address(self.buf) }
+    pub fn freeze(self: Self) -> Array<T> { buffer_freeze(self.buf) }
+}
+
+/// A new empty buffer (capacity hints are advisory).
+pub fn new<T>() -> Buffer<T> { buffer_new(0) }
+pub fn with_capacity<T>(capacity: Int) -> Buffer<T> { buffer_new(capacity) }
+
+/// Consume a buffer into an immutable array (reuses the allocation).
+pub fn freeze<T>(b: Buffer<T>) -> Array<T> { buffer_freeze(b) }
+
+impl<T> Buffer<T> {
+    pub fn push(self: &mut Self, value: T) -> Unit { buffer_push(self, value) }
+    pub fn pop(self: &mut Self) -> Option<T> { buffer_pop(self) }
+    pub fn get(self: &Self, index: Int) -> Option<T> { buffer_get(self, index) }
+    /// Checked write; an invalid index is a task defect.
+    pub fn set(self: &mut Self, index: Int, value: T) -> Unit { buffer_set(self, index, value) }
+    pub fn len(self: &Self) -> Int { buffer_len(self) }
+    pub fn capacity(self: &Self) -> Int { buffer_capacity(self) }
+    /// Address of the contiguous storage (relocates on growth).
+    pub fn storage_address(self: &Self) -> Int { buffer_address(self) }
+    pub fn freeze(self: Self) -> Array<T> { buffer_freeze(self) }
+}
+
+impl<T> Array<T> {
+    pub fn get(self: &Self, index: Int) -> Option<T> { buffer_get(self, index) }
+    pub fn is_empty(self: &Self) -> Bool { buffer_len(self) == 0 }
+    pub fn len(self: &Self) -> Int { buffer_len(self) }
+    pub fn to_list(self: &Self) -> List<T> { buffer_to_list(self) }
+}

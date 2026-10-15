@@ -1,0 +1,29 @@
+// Task scopes register deterministic cleanup: deferred functions run when
+// the scope closes, after children settle, in reverse order, also when the
+// scope's body fails.
+import std.io
+import std.task
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let r = task.scope(fn(s) -> Result<Int, String> {
+        s.defer(fn() { say("release first resource") })
+        s.defer(fn() { say("release second resource") })
+        let child = s.spawn(fn() -> Int {
+            task.sleep(10ms)
+            say("child done")
+            7
+        })
+        ok(child.join())
+    })
+    say($"result {r.unwrap_or(0)}")
+    let failed = task.scope(fn(s) -> Result<Int, String> {
+        s.defer(fn() { say("cleanup after failure") })
+        err("boom")
+    })
+    say($"failed {failed.is_err()}")
+    ok(())
+}

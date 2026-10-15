@@ -1,0 +1,39 @@
+// Controlled clocks in tests: a sleep completes by virtual time (advanced
+// explicitly or automatically once nothing else can run), each test starts
+// on the real clock, and a failing assertion reports the caller's location.
+import std.test
+import std.time
+import std.task
+
+fn test_a_manual_clock_sleep() {
+    test.manual_clock(1000)
+    let start = time.now()
+    task.sleep(5s)
+    test.assert_eq(time.as_millis(time.now() - start), 5000)
+}
+
+fn test_b_clock_isolated() {
+    // the previous test's controlled clock does not leak into this one
+    let a = time.now()
+    task.sleep(10ms)
+    test.assert_true(time.now() - a >= 10ms, "real clock")
+}
+
+fn test_c_advance_wakes_sleeper() -> Result<Unit, String> {
+    test.manual_clock(0)
+    let woke = task.scope(fn(s) -> Result<Instant, String> {
+        let t = s.spawn(fn() -> Result<Instant, String> {
+            task.sleep(1s)
+            ok(time.now())
+        })
+        task.yield_now()
+        test.advance(2s)
+        t.join()
+    })?
+    test.assert_eq(time.as_millis(woke - time.now() + 2s), 2000)
+    ok(())
+}
+
+fn test_d_failure_location() {
+    test.assert_eq(1 + 1, 3)
+}

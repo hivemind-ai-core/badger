@@ -1,0 +1,46 @@
+// The chapter 3 snippets compile as written: an `io.read_text` loader with
+// its effect bound, and an application error deriving `Error` and `From`
+// over a codec error and a database error (`db` names std.sqlite).
+import std.io
+import std.codec
+import std.sqlite as db
+
+fn double(value: Int) -> Int !{} {
+    value * 2
+}
+
+fn load(path: String) -> Result<String, io.Error> !{Io, Wait} {
+    io.read_text(path)
+}
+
+pub enum AppError {
+    decode(source: codec.DecodeError),
+    database(source: db.Error),
+    validation(message: String),
+} derive(Error, From)
+
+fn parse(text: String) -> Result<Int, AppError> {
+    let n: Int = codec.decode_text(text)?
+    if n < 0 {
+        return err(AppError.validation($"negative: {n}"))
+    }
+    ok(n)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"double {double(21)}")?
+    match load("/nonexistent/file.txt") {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"load failed: {e.kind}")?,
+    }
+    io.println($"parse {parse("5").is_ok()}")?
+    match parse("\"x\"") {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"decode error: {e}")?,
+    }
+    match parse("-3") {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"validation: {e}")?,
+    }
+    ok(())
+}

@@ -1,0 +1,58 @@
+// The C boundary: `repr c` structs by value (in registers and in memory,
+// nested inline), raw pointers, C memory, and C strings via an adapter.
+import std.io
+import std.ffi
+
+repr c struct Div {
+    pub quot: I32,
+    pub rem: I32,
+}
+
+repr c struct LDiv {
+    pub quot: I64,
+    pub rem: I64,
+}
+
+repr c struct Tm {
+    pub sec: I32,
+    pub min: I32,
+    pub hour: I32,
+    pub mday: I32,
+    pub mon: I32,
+    pub year: I32,
+    pub wday: I32,
+    pub yday: I32,
+    pub isdst: I32,
+    pub gmtoff: I64,
+    pub zone: ffi.Ptr<U8>,
+}
+
+extern "c" fn div(a: I32, b: I32) -> Div
+extern "c" fn ldiv(a: I64, b: I64) -> LDiv
+extern "c" fn strlen(s: ffi.Ptr<U8>) -> U64
+extern "c" fn timegm(tm: ffi.Ptr<Tm>) -> I64
+extern "c" fn gmtime_r(t: ffi.Ptr<I64>, out: ffi.Ptr<Tm>) -> ffi.Ptr<Tm>
+
+pub fn main() -> Result<Unit, io.Error> {
+    let d = unsafe { div(17I32, 5I32) }
+    io.println($"div {d.quot} {d.rem}")?
+    let l = unsafe { ldiv(-100000000000, 7) }
+    io.println($"ldiv {l.quot} {l.rem}")?
+    let n = unsafe { ffi.with_cstring("hello, C", fn(p: ffi.Ptr<U8>) -> U64 { strlen(p) }) }
+    io.println($"strlen {n}")?
+    // a struct written into C memory and read back through a pointer
+    let when = unsafe {
+        let t = ffi.alloc<I64>(1)
+        ffi.write(t, 86400 * 365)
+        let out = ffi.alloc<Tm>(1)
+        let r = gmtime_r(t, out)
+        let tm = ffi.read(r)
+        let back = timegm(out)
+        ffi.free(t)
+        ffi.free(out)
+        $"year {tm.year + 1900} mon {tm.mon} day {tm.mday} back {back}"
+    }
+    io.println(when)?
+    io.println(ffi.null<Int>().is_null())?
+    ok(())
+}

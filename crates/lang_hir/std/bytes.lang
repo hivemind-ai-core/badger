@@ -1,0 +1,24 @@
+// Immutable byte storage.
+
+extern "intrinsic" fn bytes_len(b: Bytes) -> Int
+extern "intrinsic" fn bytes_slice(b: Bytes, start: Int, end: Int) -> Option<Bytes>
+extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
+extern "intrinsic" fn bytes_to_list(b: Bytes) -> List<Byte>
+extern "intrinsic" fn bytes_hex(b: Bytes) -> String
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+
+pub fn len(b: Bytes) -> Int { bytes_len(b) }
+/// Checked byte slice.
+pub fn slice(b: Bytes, start: Int, end: Int) -> Option<Bytes> { bytes_slice(b, start, end) }
+pub fn concat(a: Bytes, b: Bytes) -> Bytes { bytes_concat(a, b) }
+pub fn to_list(b: Bytes) -> List<Byte> { bytes_to_list(b) }
+pub fn hex(b: Bytes) -> String { bytes_hex(b) }
+/// UTF-8 encoding of a string.
+pub fn from_text(s: String) -> Bytes { text_to_bytes(s) }
+/// Validate UTF-8.
+pub fn to_text(b: Bytes) -> Result<String, String> { text_from_bytes(b) }
+
+impl Bytes {
+    pub fn len(self: &Self) -> Int { bytes_len(self) }
+}

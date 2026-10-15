@@ -1,0 +1,52 @@
+// Scenario 7: the callback succeeds but commit fails; the helper returns
+// the commit error. A callback error rolls back.
+import std.io
+import std.sqlite
+
+pub enum AppError {
+    database(source: sqlite.Error),
+    validation(message: String),
+} derive(Error, From)
+
+fn setup(db: sqlite.Pool) -> Result<Unit, AppError> {
+    sqlite.execute(db, "PRAGMA foreign_keys = ON", [])?
+    sqlite.execute(db, "CREATE TABLE parent (id INTEGER PRIMARY KEY)", [])?
+    sqlite.execute(db, "CREATE TABLE child (id INTEGER PRIMARY KEY, parent INTEGER REFERENCES parent(id) DEFERRABLE INITIALLY DEFERRED)", [])?
+    ok(())
+}
+
+fn count(db: sqlite.Pool) -> Result<Data, AppError> {
+    let row = sqlite.query_one(db, "SELECT count(*) AS n FROM child", [])?
+    ok(row)
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    setup(db)?
+    // the deferred foreign key fails only at COMMIT
+    let r = sqlite.transaction(db, fn(tx) -> Result<Int, AppError> {
+        sqlite.execute(tx, "PRAGMA foreign_keys = ON", [])?
+        sqlite.execute(tx, "INSERT INTO child (id, parent) VALUES (1, 99)", [])?
+        ok(1)
+    })
+    match r {
+        .ok(_) => { let _ = io.println("committed (unexpected)") },
+        .err(e) => { let _ = io.println($"commit error: {e}") },
+    }
+    let ok_r = sqlite.transaction(db, fn(tx) -> Result<Int, AppError> {
+        sqlite.execute(tx, "INSERT INTO parent (id) VALUES (1)", [])?
+        sqlite.execute(tx, "INSERT INTO child (id, parent) VALUES (2, 1)", [])?
+        ok(2)
+    })
+    let _ = io.println($"committed: {ok_r.is_ok()}")
+    let rolled = sqlite.transaction(db, fn(tx) -> Result<Int, AppError> {
+        sqlite.execute(tx, "INSERT INTO child (id, parent) VALUES (3, 1)", [])?
+        err(AppError.validation("rejected by the callback"))
+    })
+    match rolled {
+        .ok(_) => (),
+        .err(e) => { let _ = io.println($"callback error: {e}") },
+    }
+    let _ = io.println($"rows: {count(db)?}")
+    ok(())
+}

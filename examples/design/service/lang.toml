@@ -1,0 +1,11 @@
+# Draft-0 project manifest (`lang run examples/design/service`).
+[package]
+name = "orders-service"
+edition = "0"
+entry = "src/main.lang"
+
+[toolchain]
+language = "draft-0"
+
+[runtime]
+workers = 1

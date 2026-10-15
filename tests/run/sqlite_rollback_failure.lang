@@ -1,0 +1,32 @@
+// A failed rollback after a callback error is returned, not dropped: the
+// result is a `sqlite/rollback_failed` error whose cause is the callback's
+// own error.
+import std.io
+import std.sqlite
+
+pub enum AppError {
+    database(source: sqlite.Error),
+    validation(message: String),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE t (id INTEGER PRIMARY KEY)", [])?
+    let r = sqlite.transaction(db, fn(tx) -> Result<Int, AppError> {
+        sqlite.execute(tx, "INSERT INTO t (id) VALUES (1)", [])?
+        // ending the transaction behind the helper's back makes its
+        // rollback fail
+        sqlite.execute(tx, "COMMIT", [])?
+        err(AppError.validation("rejected after commit"))
+    })
+    match r {
+        .ok(_) => { let _ = io.println("unexpected success") },
+        .err(e) => {
+            let _ = io.println($"code: {e.code()}")
+            for line in error_chain(e) {
+                let _ = io.println($"  {line}")
+            }
+        },
+    }
+    ok(())
+}

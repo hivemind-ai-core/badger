@@ -1,0 +1,23 @@
+// Scenario 9: an instrumented long loop cannot indefinitely prevent a ready
+// timer task from running (budget polls at loop back-edges).
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, String> {
+    use scope <- task.scope()
+    let timer = scope.spawn(fn() {
+        task.sleep(1ms)
+        let _ = io.println("timer fired")
+        ok(())
+    })
+    let busy = scope.spawn(fn() {
+        var x = 0
+        for i in 0..20000000 {
+            x = (x + i) % 1000003
+        }
+        let _ = io.println("busy loop done")
+        ok(())
+    })
+    scope.try_join(timer, busy)?
+    ok(())
+}

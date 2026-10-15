@@ -1,0 +1,12 @@
+import std.io
+import std.trace
+
+pub fn main() -> Result<Unit, io.Error> {
+    for i in 0..10 {
+        trace.event(:tooling/tick, { i })
+    }
+    let s = trace.stats()
+    io.println($"capacity={s.capacity} recorded={s.recorded} dropped={s.dropped} policy={s.policy}")?
+    io.println($"last={trace.last(:tooling/tick).unwrap_or("none")}")?
+    ok(())
+}

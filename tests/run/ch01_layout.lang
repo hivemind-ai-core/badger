@@ -1,0 +1,20 @@
+// Layout: newlines after an unfinished operator or comma and inside brackets
+// continue the expression.
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    let x = 1 +
+    2 *
+    3
+    let ok_and = true &&
+    false
+    let y = f(
+        1,
+        2,
+    )
+    let z = [
+        1, 2,
+        3,
+    ]
+    io.println($"{x} {ok_and} {y} {z}")
+}
+fn f(a: Int, b: Int) -> Int { a + b }

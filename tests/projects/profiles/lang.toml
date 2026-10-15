@@ -1,0 +1,24 @@
+[package]
+name = "profiles"
+entry = "src/main.lang"
+
+# Base configuration; profiles overlay it, environment variables overlay both.
+[config]
+port = 8080
+database = "orders.db"
+verbose = false
+limits = { requests = 100, burst = 10 }
+
+[config.db]
+pool = 4
+timeout_ms = 500
+
+[profile.test]
+database = ":memory:"
+verbose = true
+
+[profile.test.db]
+pool = 1
+
+[profile.prod]
+port = 80

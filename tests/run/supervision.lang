@@ -1,0 +1,56 @@
+// Minimal worker supervision: `on_failure` restarts within budget; normal
+// completion ends the worker; halting the node cancels a running worker.
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+import std.worker
+
+pub struct Boom {
+    pub message: String,
+}
+
+impl Display for Boom {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Boom {}
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+let flaky = system.provider({
+    name: :test/flaky,
+    init: fn(scope, cfg) -> Result<Unit, Boom> {
+        let attempts = Cell.new(0)
+        scope.worker_with(:test/flaky_worker, fn() -> Result<Unit, Boom> {
+            attempts.set(attempts.get() + 1)
+            say($"flaky attempt {attempts.get()}")
+            if attempts.get() == 1 { return err({ message: "first attempt fails" }) }
+            if attempts.get() == 2 { panic("second attempt panics") }
+            say("flaky completed")
+            ok(())
+        }, worker.on_failure({ ..worker.defaults, max_restarts: cfg.restarts }), worker.cancel())
+        scope.worker_with(:test/forever, fn() -> Result<Unit, Boom> {
+            loop {
+                task.sleep(1ms)
+            }
+        }, worker.never(), worker.cancel())
+        ok(())
+    },
+})
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        workers: component(flaky, { restarts: 3 }),
+    }
+    use _running <- system.run(plan)
+    task.sleep(100ms)
+    say("halting")
+    ok(())
+}

@@ -1,0 +1,61 @@
+// Parsers: programmatic productions, packed forests for ambiguity, bounded
+// tree enumeration with cycle reporting, and error recovery.
+import std.io
+import std.parse
+import std.parse.{rule, lit, re}
+
+pub enum AppError {
+    grammar(message: String),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn g(r: Result<parse.Grammar, String>) -> Result<parse.Grammar, AppError> {
+    match r {
+        .ok(x) => ok(x),
+        .err(m) => err(AppError.grammar(m)),
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    // programmatic productions: sums with left recursion
+    let sums = g(parse.from_productions([
+        parse.production("expr", [[rule("expr"), lit("+"), rule("num")], [rule("num")]]),
+        parse.production("num", [[re("[0-9]+")]]),
+    ], Option.some("\\s+")))?
+    match sums.parse("1 + 22 + 3") {
+        .ok(p) => io.println($"productions: ambiguous={p.ambiguous}")?,
+        .err(f) => io.println($"unexpected failure at {f.offset}")?,
+    }
+    // an ambiguous grammar: two derivations of 1-2-3 share subtrees
+    let amb = g(parse.grammar("e = e \"-\" e | /[0-9]/"))?
+    match amb.forest("1-2-3") {
+        .ok(f) => io.println($"forest: {f}")?,
+        .err(_) => io.println("unexpected")?,
+    }
+    match amb.trees("1-2-3-4", 3) {
+        .ok(t) => io.println($"trees: {t.trees.len()} shown, truncated={t.truncated}, cyclic={t.cyclic}")?,
+        .err(_) => io.println("unexpected")?,
+    }
+    // a cyclic grammar: a derives a
+    let cyc = g(parse.grammar("a = a | \"x\""))?
+    match cyc.trees("x", 10) {
+        .ok(t) => io.println($"cyclic grammar: cyclic={t.cyclic}, {t.trees.len()} finite tree(s)")?,
+        .err(_) => io.println("unexpected")?,
+    }
+    // recovery: skip garbage and report it
+    let list = g(parse.grammar("%skip /\\s+/\nitems = items item | item\nitem = /[a-z]+/ \";\""))?
+    match list.parse_recovering("ab; cd; 12; ef; ?!; gh;", 5) {
+        .ok(r) => {
+            io.println($"recovered with {r.errors.len()} error(s)")?
+            for e in r.errors {
+                io.println($"  error at {e.line}:{e.column} expected {e.expected}")?
+            }
+        },
+        .err(f) => io.println($"unrecoverable at {f.offset}")?,
+    }
+    match list.parse("ab; 12;") {
+        .ok(_) => io.println("unexpected")?,
+        .err(f) => io.println($"strict parse fails at {f.line}:{f.column}")?,
+    }
+    ok(())
+}

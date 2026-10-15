@@ -1,0 +1,10 @@
+// expect-error: E0220
+// An implementation method has its protocol's signature.
+import std.io
+struct S { v: Int }
+impl Display for S { fn display(self: &Self) -> Int { self.v } }
+pub fn main() -> Result<Unit, io.Error> {
+    let s: S = { v: 12345 }
+    io.println($"{s}")?
+    ok(())
+}

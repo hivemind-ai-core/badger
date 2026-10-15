@@ -1,0 +1,7 @@
+// Smoke test: the smallest complete program (an expression, printed).
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x = 4
+    io.println((1 + 2) * x)
+}

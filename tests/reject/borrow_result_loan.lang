@@ -1,0 +1,16 @@
+// expect-error: E0405
+// A reference returned from a call keeps its source borrowed.
+import std.io
+import std.buffer
+fn idm(r: &mut Buffer<Int>) -> &mut Buffer<Int> { r }
+pub fn main() -> Result<Unit, io.Error> {
+    let b = buffer.new<Int>()
+    b.push(1)
+    let m = idm(&mut b)
+    let frozen = b.freeze()
+    io.println(frozen.len())?
+    m.push(2)
+    m.push(3)
+    io.println(frozen.len())?
+    ok(())
+}

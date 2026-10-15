@@ -1,0 +1,6 @@
+// expect-error: E0216
+// Generic methods cannot be called through `dyn`.
+pub protocol G { fn show<T>(self: &Self, x: T) -> String where T: Display }
+pub fn main() -> Unit {
+    let f = fn(d: dyn G) -> Unit {}
+}

@@ -1,0 +1,20 @@
+[package]
+name = "lang_driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+lang_base.workspace = true
+lang_syntax.workspace = true
+lang_hir.workspace = true
+lang_typeck.workspace = true
+lang_mir.workspace = true
+lang_codegen.workspace = true
+lang_runtime.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+pretty_assertions.workspace = true

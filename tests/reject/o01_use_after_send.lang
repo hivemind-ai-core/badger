@@ -1,0 +1,13 @@
+// O01: an affine buffer used after a successful send is rejected.
+// expect-error: E0404
+import std.buffer
+import std.channel
+
+pub fn main() -> Result<Unit, channel.ConfigError> {
+    let endpoints = channel.create<Buffer<Int>>(channel.defaults)?
+    let buf = buffer.new<Int>()
+    buf.push(1)
+    let _ = endpoints.sender.send(buf)
+    buf.push(2)
+    ok(())
+}

@@ -1,0 +1,23 @@
+// try_join with two error types infers the error type both convert into.
+import std.io
+import std.task
+pub struct Small { pub m: String }
+impl Display for Small { fn display(self: &Self) -> String { self.m } }
+impl Error for Small {}
+pub enum Both {
+    small(source: Small),
+    text(message: String),
+} derive(Error)
+impl From<Small> for Both { fn from(e: Small) -> Both { Both.small(e) } }
+impl From<String> for Both { fn from(e: String) -> Both { Both.text(e) } }
+pub fn main() -> Result<Unit, io.Error> {
+    let r = task.scope(fn(s) -> Result<Int, io.Error> {
+        let x = s.spawn(fn() -> Result<Int, Small> { ok(1) })
+        let y = s.spawn(fn() -> Result<Int, Both> { err(Both.text("no")) })
+        match s.try_join(x, y) {
+            .ok((a, b)) => ok(a + b),
+            .err(e) => ok(-1),
+        }
+    })?
+    io.println(r)
+}

@@ -1,0 +1,7 @@
+order: [:a, :b, :c]
+start a (dep 0)
+start b (dep 1)
+start c failed
+halt b
+halt a
+error: system: system node c: c could not start (provider test/node, node at tests/run/scenario05_startup_failure.lang:45:9) (cleanup: a halt failed)

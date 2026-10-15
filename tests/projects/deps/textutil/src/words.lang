@@ -1,0 +1,10 @@
+import std.text
+import mathlib
+
+pub fn count(s: String) -> Int {
+    text.split(s, " ").filter(fn(w: String) -> Bool { w.len() > 0 }).len()
+}
+
+pub fn total_length(items: List<String>) -> Int {
+    mathlib.sum(items.map(fn(w: String) -> Int { w.len() }))
+}

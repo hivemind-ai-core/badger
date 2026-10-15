@@ -1,0 +1,13 @@
+// expect-error: E0404
+// A Seq over affine items is consumed by its first traversal.
+import std.io
+import std.buffer
+import std.list
+import std.seq
+pub fn main() -> Result<Unit, io.Error> {
+    let l = [buffer.new<Int>()]
+    let s = l.seq().map(fn(x) { x.push(1); x.len() })
+    let a = list.collect(s)
+    let c = list.collect(s)
+    io.println($"{a[0]} {c[0]}")
+}

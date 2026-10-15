@@ -1,0 +1,5 @@
+// expect-error: E0137
+// No hidden environment reads during imports.
+import std.env
+let home = env.get("HOME")
+pub fn main() -> Unit {}

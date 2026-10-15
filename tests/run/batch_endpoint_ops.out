@@ -1,0 +1,7 @@
+try_recv before publish: empty
+third: channel/full (value 3)
+recv: 1
+try_recv: value 2
+try_recv drained: empty
+recv after close: 4
+try_recv closed: closed

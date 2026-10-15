@@ -1,0 +1,15 @@
+// expect-error: E0404
+// A consuming closure stored in a record is used up by its call.
+import std.io
+import std.buffer
+import std.inspect
+pub fn main() -> Result<Unit, io.Error> {
+    let buf: Buffer<Int> = buffer.new()
+    let r = { f: fn(v: Int) { buf.push(v); buffer.freeze(buf) } }
+    let a1 = (r.f)(1)
+    io.println(a1.len())?
+    let a2 = (r.f)(2)
+    io.println(a1.len())?
+    io.println(a2.len())?
+    ok(())
+}

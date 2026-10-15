@@ -1,0 +1,52 @@
+import std.channel
+import std.task
+
+type Event = { sequence: Int, value: Int }
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Event>),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    use endpoints <- channel.open_batch<Event>({
+        ..channel.batch_defaults,
+        capacity: 32,
+        max_batch: 8,
+    })
+    use scope <- task.scope()
+
+    let producer = scope.spawn(fn() -> Result<Unit, AppError> {
+        for sequence in 0..100 {
+            endpoints.sender.append({ sequence, value: sequence * 2 })?
+        }
+        // close publishes the partial tail; it is not discarded at task exit.
+        endpoints.sender.close()
+        ok(())
+    })
+
+    let consumer = scope.spawn(fn() -> Result<Int, AppError> {
+        var total = 0
+        var expected_sequence = 0
+        loop {
+            match endpoints.receiver.recv_batch() {
+                .some(batch) => {
+                    for event in batch.items() {
+                        assert(event.sequence == expected_sequence)
+                        expected_sequence = expected_sequence + 1
+                        total = total + event.value
+                    }
+                    // A sealed page becomes reusable only after its views end.
+                    batch.release()
+                },
+                .none => { break },
+            }
+        }
+        assert(expected_sequence == 100)
+        ok(total)
+    })
+
+    let (_, total) = scope.try_join(producer, consumer)?
+    assert(total == 9900)
+    ok(())
+}

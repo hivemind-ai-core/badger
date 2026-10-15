@@ -1,0 +1,23 @@
+// `Atom<T>` is a shareable synchronized cell: several tasks update one
+// counter; each `update` is indivisible.
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, io.Error> {
+    let hits = Atom.new(0)
+    let done = task.scope(fn(s) -> Result<Int, io.Error> {
+        for _ in 0..8 {
+            let _ = s.spawn(fn() {
+                for _ in 0..1000 {
+                    hits.update(fn(n: Int) -> Int { n + 1 })
+                    task.yield_now()
+                }
+            })
+        }
+        ok(8)
+    })?
+    io.println($"{done} tasks: {hits.get()}")?
+    let old = hits.swap(5)
+    io.println($"{old} -> {hits.get()}")?
+    ok(())
+}

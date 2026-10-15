@@ -1,0 +1,8 @@
+// expect-error: E0407
+// A borrow of a local cannot be returned past its owner.
+import std.buffer
+fn leak() -> &Buffer<Int> {
+    let buf = buffer.new<Int>()
+    &buf
+}
+pub fn main() -> Unit {}

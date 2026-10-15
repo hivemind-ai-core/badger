@@ -1,0 +1,8 @@
+// R08: a branch adding a field on only one path is rejected.
+// expect-error: E0301
+fn pick(flag: Bool) {
+    if flag { { x: 1 } } else { { x: 1, y: 2 } }
+}
+pub fn main() -> Unit {
+    let _ = pick(true)
+}

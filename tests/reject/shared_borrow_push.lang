@@ -1,0 +1,5 @@
+// expect-error: E0408
+// A shared borrow cannot be reborrowed exclusively to mutate through it.
+import std.buffer
+fn g(b: &Buffer<Int>) -> Unit { let m = &mut b; m.push(1) }
+pub fn main() {}

@@ -1,0 +1,10 @@
+// Keywords may name struct and variant fields (members after a dot).
+import std.io
+struct S { pub type: Int, pub match: Int }
+enum E { tok(type: String) }
+pub fn main() -> Result<Unit, io.Error> {
+    let s: S = { type: 1, match: 2 }
+    let e = E.tok("x")
+    let t = match e { .tok(v) => v }
+    io.println($"{s.type} {s.match} {t}")
+}

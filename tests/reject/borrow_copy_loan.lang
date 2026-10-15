@@ -1,0 +1,14 @@
+// expect-error: E0405
+// Copies of an exclusive borrow keep the source borrowed.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b = buffer.new<Int>()
+    b.push(1)
+    let m = &mut b
+    let m2 = m
+    let frozen = b.freeze()
+    m2.push(2)
+    io.println(frozen.len())?
+    ok(())
+}

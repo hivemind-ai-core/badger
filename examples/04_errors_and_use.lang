@@ -1,0 +1,34 @@
+import std.io
+
+pub enum AppError {
+    invalid_quantity(quantity: Int),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn validate_quantity(quantity: Int) -> Result<Int, AppError> {
+    if quantity < 1 {
+        return err(AppError.invalid_quantity(quantity))
+    }
+    ok(quantity)
+}
+
+// `use` supplies the rest of its block as this function's final callback.
+// It is ordinary continuation syntax, also used by scoped resource APIs.
+fn with_label<T, E>(label: String, body: fn(String) -> Result<T, E>) -> Result<T, E> {
+    body(label)
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let rejected = validate_quantity(0)
+    match rejected {
+        .err(.invalid_quantity(quantity)) => { assert(quantity == 0) },
+        .err(.io(_)) => { assert(false) },
+        .ok(_) => { assert(false) },
+    }
+
+    use label <- with_label("shipment")
+    let quantity = validate_quantity(3)?
+    // `?` converts io.Error directly into AppError.io through derived From.
+    io.println($"{label}: {quantity} packages")?
+    ok(())
+}

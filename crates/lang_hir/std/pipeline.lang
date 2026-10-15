@@ -1,0 +1,170 @@
+// Typed interceptor pipelines.
+//
+// `pipeline { s1, s2, handle(f) }` is desugared by the compiler into nested
+// stage runners. Each runner returns its *input-shaped* context: a typed
+// projection of the deepest context with the latest values of the prefix
+// fields. Earlier unwind callbacks therefore observe later writes to fields
+// they can see, never fields introduced only by later stages.
+
+import std.list
+import std.records
+import std.trace
+
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+
+pub enum Enter<In, Out, R> {
+    next(context: Out),
+    stop(context: In, reply: R),
+}
+
+pub enum ErrorStep<C, R, E> {
+    propagate(context: C, error: E),
+    recover(context: C, reply: R),
+}
+
+pub enum Unwind<C, R, E> {
+    done(context: C, reply: R),
+    error(context: C, error: E),
+}
+
+pub struct Stage<In, Out, R, E> {
+    pub name: Symbol,
+    pub enter: fn(In) -> Result<Enter<In, Out, R>, E>,
+    pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>,
+    pub error: Option<fn(Out, E) -> ErrorStep<Out, R, E>>,
+}
+
+pub struct Handler<C, R, E> {
+    pub run: fn(C) -> Result<(C, R), E>,
+}
+
+/// A composed pipeline: its runner and its stage names in order.
+pub struct Plan<In, R, E> {
+    pub run: fn(In) -> Unwind<In, R, E>,
+    pub stages: List<Symbol>,
+}
+
+pub fn next<In, Out, R, E>(context: Out) -> Result<Enter<In, Out, R>, E> { ok(Enter.next(context)) }
+pub fn stop<In, Out, R, E>(context: In, reply: R) -> Result<Enter<In, Out, R>, E> { ok(Enter.stop(context, reply)) }
+pub fn leave<C, R, E>(context: C, reply: R) -> Result<(C, R), E> { ok((context, reply)) }
+pub fn propagate<C, R, E>(context: C, error: E) -> ErrorStep<C, R, E> { ErrorStep.propagate(context, error) }
+pub fn recover<C, R, E>(context: C, reply: R) -> ErrorStep<C, R, E> { ErrorStep.recover(context, reply) }
+
+/// Stage descriptor factory. Calls with a record literal are normalized by
+/// the compiler into `make_stage` / `make_passthrough`.
+pub fn stage<T>(descriptor: T) -> T { descriptor }
+
+pub fn make_stage<In, Out, R, E>(
+    name: Symbol,
+    enter: Option<fn(In) -> Result<Enter<In, Out, R>, E>>,
+    leave: Option<fn(Out, R) -> Result<(Out, R), E>>,
+    error: Option<fn(Out, E) -> ErrorStep<Out, R, E>>,
+) -> Stage<In, Out, R, E> where Out: records.Extends<In> {
+    match enter {
+        .some(f) => { name, enter: f, leave, error },
+        .none => panic("stage without enter"),
+    }
+}
+
+/// A stage without `enter`: its output context is its input context.
+pub fn make_passthrough<C, R, E>(
+    name: Symbol,
+    leave: Option<fn(C, R) -> Result<(C, R), E>>,
+    error: Option<fn(C, E) -> ErrorStep<C, R, E>>,
+) -> Stage<C, C, R, E> {
+    { name, enter: fn(c) { ok(Enter.next(c)) }, leave, error }
+}
+
+/// Terminal handler returning only a reply.
+pub fn handle<C, R, E>(f: fn(C) -> Result<R, E>) -> Handler<C, R, E> {
+    {
+        run: fn(c) {
+            match f(c) {
+                .ok(r) => ok((c, r)),
+                .err(e) => err(e),
+            }
+        },
+    }
+}
+
+/// Terminal handler that may update established context values.
+pub fn handle_context<C, R, E>(f: fn(C) -> Result<(C, R), E>) -> Handler<C, R, E> where C: records.Extends<C> {
+    { run: f }
+}
+
+pub fn run_handler<C, R, E>(h: Handler<C, R, E>, ctx: C) -> Unwind<C, R, E> {
+    match h.run(ctx) {
+        .ok((c, r)) => Unwind.done(c, r),
+        .err(e) => Unwind.error(ctx, e),
+    }
+}
+
+/// Enter `stage`, run the rest of the chain, then unwind through this
+/// stage's leave/error callback exactly once.
+extern "intrinsic" fn task_stage_push(name: Symbol) -> Unit
+extern "intrinsic" fn task_stage_pop() -> Unit
+
+pub fn run_stage<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Unwind<Out, R, E>, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
+    // a defect or cancellation skips recovery but leaves a trace of the
+    // aborted chain (one event per entered stage, innermost first)
+    let name = stage.name
+    let guard = cleanup_push(fn() { trace.event(:pipeline/aborted, { stage: name }) })
+    // introspection shows the stages a task is inside
+    task_stage_push(name)
+    let r = run_stage_inner(stage, rest, ctx)
+    task_stage_pop()
+    cleanup_remove(guard)
+    r
+}
+
+fn run_stage_inner<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Unwind<Out, R, E>, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
+    match stage.enter(ctx) {
+        // this stage's own fields never existed: earlier stages handle it
+        .err(e) => Unwind.error(ctx, e),
+        .ok(.stop(c, reply)) => Unwind.done(c, reply),
+        .ok(.next(out)) => match rest(out) {
+            .done(out2, reply) => match stage.leave {
+                .none => Unwind.done(records.project<In>(out2), reply),
+                .some(f) => match f(out2, reply) {
+                    .ok((out3, reply2)) => Unwind.done(records.project<In>(out3), reply2),
+                    .err(e) => Unwind.error(records.project<In>(out2), e),
+                },
+            },
+            .error(out2, e) => match stage.error {
+                .none => Unwind.error(records.project<In>(out2), e),
+                .some(f) => match f(out2, e) {
+                    .propagate(out3, e2) => Unwind.error(records.project<In>(out3), e2),
+                    .recover(out3, reply) => Unwind.done(records.project<In>(out3), reply),
+                },
+            },
+        },
+    }
+}
+
+pub fn plan<In, R, E>(run: fn(In) -> Unwind<In, R, E>, stages: List<Symbol>) -> Plan<In, R, E> {
+    { run, stages }
+}
+
+/// Runtime-selected stages: wrap `inner` with `stages` (outermost first).
+/// Each stage preserves the context contract `C` (it may carry private
+/// state in its closures), so the composition is checked statically
+/// whatever the selection.
+pub fn with_stages<C, R, E>(stages: List<Stage<C, C, R, E>>, inner: Plan<C, R, E>) -> Plan<C, R, E> {
+    var run = inner.run
+    for s in list.reverse(stages) {
+        let rest = run
+        run = fn(c: C) -> Unwind<C, R, E> { run_stage(s, rest, c) }
+    }
+    { run, stages: list.concat(list.map(stages, fn(s: Stage<C, C, R, E>) -> Symbol { s.name }), inner.stages) }
+}
+
+/// Compile a plan into a handler function.
+pub fn compile<In, R, E>(p: Plan<In, R, E>) -> fn(In) -> Result<R, E> {
+    fn(c) {
+        match p.run(c) {
+            .done(_, r) => ok(r),
+            .error(_, e) => err(e),
+        }
+    }
+}

@@ -1,0 +1,19 @@
+// expect-error: E0212
+// One implementation applies to a protocol/type combination.
+pub protocol Describe {
+    fn describe(self: &Self) -> String
+}
+
+struct Wrapper<T> {
+    value: T,
+}
+
+impl<T> Describe for Wrapper<T> {
+    fn describe(self: &Self) -> String { "any" }
+}
+
+impl Describe for Wrapper<Int> {
+    fn describe(self: &Self) -> String { "int" }
+}
+
+pub fn main() -> Unit {}

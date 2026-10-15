@@ -1,0 +1,5 @@
+// expect-error: E0217
+// `Transfer` is derived by the compiler, never asserted.
+struct S { c: Cell<Int> }
+impl Transfer for S {}
+pub fn main() -> Unit {}

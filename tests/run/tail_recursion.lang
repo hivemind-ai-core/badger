@@ -1,0 +1,31 @@
+// Self tail recursion is lowered to a loop: deep recursion uses constant
+// stack space (a task stack is far smaller than these depths).
+import std.io
+
+fn count_down(n: Int, acc: Int) -> Int {
+    if n == 0 { acc } else { count_down(n - 1, acc + 1) }
+}
+
+fn sum_to(n: Int, acc: Int) -> Int {
+    match n {
+        0 => acc,
+        _ => sum_to(n - 1, acc + n),
+    }
+}
+
+fn find(xs: List<Int>, i: Int, target: Int) -> Option<Int> {
+    if i >= xs.len() {
+        return none
+    }
+    if xs[i] == target {
+        return some(i)
+    }
+    find(xs, i + 1, target)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(count_down(10000000, 0))?
+    io.println(sum_to(1000000, 0))?
+    io.println(find([5, 6, 7, 8], 0, 8).unwrap_or(-1))?
+    ok(())
+}

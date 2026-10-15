@@ -1,0 +1,16 @@
+// `const` bindings: literal and constructor aggregates, operators, and
+// references to other constants.
+import std.io
+
+const limit = 4 * 1024
+const greeting = "hello"
+const origin = { x: 0, y: 0 }
+const sizes = [limit, limit / 2, -1]
+const fallback: Option<Int> = Option.some(limit + 1)
+
+pub fn main() -> Result<Unit, io.Error> {
+    const doubled = (limit * 2, !false)
+    io.println(limit)?
+    io.println($"{greeting} {origin.x} {sizes} {fallback.unwrap_or(0)} {doubled.0} {doubled.1}")?
+    ok(())
+}

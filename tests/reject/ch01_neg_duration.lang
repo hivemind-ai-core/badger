@@ -1,0 +1,4 @@
+// expect-error: E0327
+pub fn main() {
+    let d = -5s
+}

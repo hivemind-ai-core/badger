@@ -1,0 +1,7 @@
+// expect-error: E0211
+// Neither `Display` nor `Int` belongs to this package.
+impl Display for Int {
+    fn display(self: &Self) -> String { "int" }
+}
+
+pub fn main() -> Unit {}

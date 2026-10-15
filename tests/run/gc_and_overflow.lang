@@ -1,0 +1,29 @@
+import std.io
+
+fn build(n: Int) -> List<{ id: Int, name: String }> {
+    var out = []
+    var i = 0
+    while i < n {
+        let rec = { id: i, name: $"item-{i}" }
+        out = [rec]
+        i = i + 1
+    }
+    out
+}
+
+fn chain(n: Int) -> Int {
+    var acc = { v: 0, prev: "x" }
+    for i in 0..n {
+        acc = { v: acc.v + i, prev: $"{i}" }
+    }
+    acc.v
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let xs = build(300000)
+    io.println(xs[0].name)?
+    io.println(chain(1000000))?
+    let big: I32 = 2147483000
+    io.println(big + 1000)?
+    ok(())
+}

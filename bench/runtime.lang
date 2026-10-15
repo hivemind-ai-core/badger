@@ -1,0 +1,116 @@
+// Stack/root overhead and shutdown under failure: the cost of calls whose
+// frames hold managed pointers (shadow-stack roots) versus scalars, deep
+// recursion, and how long a failing system takes to settle its tasks and
+// run every halt.
+import std.channel
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+import std.time
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    io(source: io.Error),
+    system(source: system.Error),
+    failed(message: String),
+} derive(Error, From)
+
+// scalars only: no roots in the frame
+fn scalar_step(a: Int, b: Int, c: Int, d: Int) -> Int { a + b * 2 + c * 3 + d * 4 }
+
+// four managed pointers live across a call: rooted in the frame
+fn rooted_step(a: String, b: List<Int>, c: { x: Int }, d: String, k: Int) -> Int {
+    let n = scalar_step(k, 1, 2, 3)
+    n + c.x
+}
+
+fn depth(n: Int) -> Int {
+    if n == 0 { 0 } else { 1 + depth(n - 1) }
+}
+
+fn resource(halts: Atom<Int>) -> system.Provider<{ n: Int }, Int, Failure> {
+    system.provider({
+        name: :bench/resource,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                let _ = halts.update(fn(h: Int) -> Int { h + 1 })
+                ok(())
+            })
+            ok(config.n)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let n = 5000000
+    var t = time.now()
+    var acc = 0
+    for i in 0..n {
+        acc = acc + scalar_step(i, 1, 2, 3)
+    }
+    let scalar_ns = time.as_nanos(time.now() - t)
+    let (s1, l1, r1, s2) = ("a", [1, 2], { x: 3 }, "bcd")
+    t = time.now()
+    var acc2 = 0
+    for i in 0..n {
+        acc2 = acc2 + rooted_step(s1, l1, r1, s2, i)
+    }
+    let rooted_ns = time.as_nanos(time.now() - t)
+    io.println($"call, scalar frame: {scalar_ns * 1000 / n} ps/call")?
+    io.println($"call, 4 rooted pointers: {rooted_ns * 1000 / n} ps/call")?
+    t = time.now()
+    let d = depth(20000)
+    io.println($"recursion depth {d}: {time.as_nanos(time.now() - t) / d} ns/frame")?
+
+    // shutdown under failure: 8 resources, 200 tasks blocked on a channel,
+    // and a body defect; measure until every task settled and every halt ran
+    let halts = Atom.new(0)
+    let plan = system {
+        r1: component(resource(halts), { n: 1 }),
+        r2: component(resource(halts), { n: ref(:r1) + 1 }),
+        r3: component(resource(halts), { n: ref(:r2) + 1 }),
+        r4: component(resource(halts), { n: ref(:r3) + 1 }),
+        r5: component(resource(halts), { n: ref(:r4) + 1 }),
+        r6: component(resource(halts), { n: ref(:r5) + 1 }),
+        r7: component(resource(halts), { n: ref(:r6) + 1 }),
+        r8: component(resource(halts), { n: ref(:r7) + 1 }),
+    }
+    let ch = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let started = Atom.new(time.now())
+    let outcome = task.scope(fn(s) -> Result<Bool, AppError> {
+        let t = s.capture(fn() -> Result<Unit, AppError> {
+            system.run(plan, fn(running) -> Result<Unit, AppError> {
+                let _ = running.r8
+                task.scope(fn(inner) -> Result<Unit, AppError> {
+                    for _ in 0..200 {
+                        let _ = inner.spawn(fn() { let _ = ch.receiver.recv() })
+                    }
+                    task.yield_now()
+                    started.set(time.now())
+                    panic("body failed")
+                })
+            })
+        })
+        match t.join() {
+            .failed(_) => ok(true),
+            _ => ok(false),
+        }
+    })?
+    let settle = time.now() - started.get()
+    io.println($"shutdown under failure: defect contained {outcome}, {halts.get()} halts ran, settled in {time.as_nanos(settle) / 1000} us")?
+    if acc == 0 || acc2 == 0 {
+        return err(AppError.failed("unexpected"))
+    }
+    ok(())
+}

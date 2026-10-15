@@ -1,0 +1,9 @@
+// Typed reflection visits each field with its wire name as `Data`.
+import std.io
+import std.schema
+struct U { name: String, age: Int, tags: List<String> }
+pub fn main() -> Result<Unit, io.Error> {
+    let u: U = { name: "ada", age: 36, tags: ["x"] }
+    schema.visit(u, fn(n: String, d: Data) { let _ = io.println($"{n} = {d}") })
+    io.println(schema.fields({ b: 1, a: true }).len())
+}

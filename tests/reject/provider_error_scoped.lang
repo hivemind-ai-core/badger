@@ -1,0 +1,23 @@
+// expect-error: E0411
+// Provider errors must be Unscoped; dyn Display may carry a pool.
+import std.io
+import std.system
+import std.system.{component}
+import std.sqlite
+pub struct E { pub d: dyn Display }
+impl Display for E { fn display(self: &Self) -> String { $"E({self.d})" } }
+impl Error for E {}
+pub struct W<S> { pub pool: sqlite.Pool<S>, pub f: fn() -> Int }
+impl<S> Display for W<S> { fn display(self: &Self) -> String { $"W holding pool, f()={(self.f)()}" } }
+fn init(scope: system.InitScope, c: { path: String }) -> Result<Int, E> {
+    match scope.acquire(sqlite.pool, c) {
+        .ok(p) => { let w: W<Unit> = { pool: p, f: fn() { 42 } }; err({ d: w }) },
+        .err(_) => ok(0),
+    }
+}
+let p = system.provider({ name: :t/p, init })
+pub enum AppError { system(source: system.Error) } derive(Error, From)
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system { a: component(p, { path: ":memory:" }) }
+    system.run(plan, fn(r) -> Result<Unit, AppError> { ok(()) })
+}

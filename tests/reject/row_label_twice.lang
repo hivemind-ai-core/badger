@@ -1,0 +1,10 @@
+// expect-error: E0303
+// An open row implies that its rest lacks the extended label.
+import std.io
+fn add_x<Rest>(r: { ..Rest }) -> { x: Int, ..Rest } { { ..r, x: 1 } }
+pub fn main() -> Result<Unit, io.Error> {
+    let v = add_x({ x: "s", z: true })
+    io.println(v.x)?
+    io.println(v.z)?
+    ok(())
+}

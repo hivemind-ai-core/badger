@@ -1,0 +1,32 @@
+// Schema-directed encoding (JSON) and validating decoding.
+
+pub struct DecodeError {
+    pub path: String,
+    pub message: String,
+}
+
+impl Display for DecodeError {
+    fn display(self: &Self) -> String { $"{self.path}: {self.message}" }
+}
+
+impl Error for DecodeError {}
+
+extern "intrinsic" fn codec_encode<T>(value: T) -> String
+extern "intrinsic" fn codec_encode_bytes<T>(value: T) -> Bytes
+extern "intrinsic" fn codec_decode_text<T>(text: String) -> Result<T, DecodeError>
+extern "intrinsic" fn codec_decode_bytes<T>(bytes: Bytes) -> Result<T, DecodeError>
+extern "intrinsic" fn codec_from_data<T>(data: Data) -> Result<T, DecodeError>
+extern "intrinsic" fn codec_to_data<T>(value: T) -> Data
+extern "intrinsic" fn data_parse(text: String) -> Result<Data, String>
+
+/// Encode as JSON bytes using the value's derived schema.
+pub fn encode<T>(value: T) -> Bytes where T: Codec { codec_encode_bytes(value) }
+pub fn encode_text<T>(value: T) -> String where T: Codec { codec_encode(value) }
+/// Decode JSON bytes, validating against `T`'s schema.
+pub fn decode<T>(bytes: Bytes) -> Result<T, DecodeError> where T: Codec { codec_decode_bytes(bytes) }
+pub fn decode_text<T>(text: String) -> Result<T, DecodeError> where T: Codec { codec_decode_text(text) }
+/// Validate a `Data` value against `T`'s schema.
+pub fn from_data<T>(data: Data) -> Result<T, DecodeError> where T: Codec { codec_from_data(data) }
+/// Encode a value as explicit dynamic `Data`.
+pub fn to_data<T>(value: T) -> Data where T: Codec { codec_to_data(value) }
+pub fn parse_data(text: String) -> Result<Data, String> { data_parse(text) }

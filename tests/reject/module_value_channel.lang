@@ -1,0 +1,7 @@
+// expect-error: E0138
+// Creating a channel is acquisition: it belongs in a function.
+import std.channel
+
+let endpoints = channel.create<Int>(channel.defaults)
+
+pub fn main() {}

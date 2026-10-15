@@ -1,0 +1,47 @@
+import std.pipeline
+import std.pipeline.{handle}
+import std.trace
+
+pub enum ExampleError {
+    failed,
+} derive(Error)
+
+fn auditing() {
+    pipeline.stage({
+        name: :example/audit,
+        enter: fn(ctx) {
+            pipeline.next({ ..ctx, verified: false })
+        },
+        leave: fn(ctx, reply) {
+            assert(ctx.verified)
+            // ctx.token is deliberately unavailable to this stage.
+            pipeline.leave(ctx, reply)
+        },
+        error: fn(ctx, error) {
+            // Reads true after the later update, false if it never committed.
+            trace.event(:example/audit_error, { verified: ctx.verified })
+            pipeline.propagate(ctx, error)
+        },
+    })
+}
+
+fn verifying() {
+    pipeline.stage({
+        name: :example/verify,
+        enter: fn(ctx) {
+            pipeline.next({ ..ctx, verified: true, token: "checked" })
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, ExampleError> {
+    let plan = pipeline {
+        auditing(),
+        verifying(),
+        handle(fn(ctx) -> Result<Int, ExampleError> { ok(ctx.id) }),
+    }
+    let process = pipeline.compile(plan)
+    let reply = process({ id: 42 })?
+    assert(reply == 42)
+    ok(())
+}

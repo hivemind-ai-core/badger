@@ -1,0 +1,94 @@
+// Prompt versus batch channel throughput, and prompt round-trip latency.
+import std.io
+import std.time
+import std.task
+import std.channel
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn report(label: String, n: Int, t: Duration) -> Result<Unit, io.Error> !{Io} {
+    io.println($"{label}: {time.as_nanos(t) / n} ns/message")
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let n = 200000
+
+    let prompt = channel.create<Int>({ ..channel.defaults, capacity: 256 })?
+    var t = time.now()
+    let total = task.scope(fn(s) -> Result<Int, AppError> {
+        let producer = s.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..n {
+                prompt.sender.send(i)?
+            }
+            prompt.sender.close()
+            ok(())
+        })
+        var sum = 0
+        loop {
+            match prompt.receiver.recv() {
+                .some(v) => { sum = sum + v },
+                .none => { break },
+            }
+        }
+        producer.join()?
+        ok(sum)
+    })?
+    report("prompt channel (capacity 256)", n, time.now() - t)?
+
+    t = time.now()
+    let batched = channel.open_batch<Int, Int, AppError>({ ..channel.batch_defaults, capacity: 4096, max_batch: 256 }, fn(ends) {
+        task.scope(fn(s) -> Result<Int, AppError> {
+            let producer = s.spawn(fn() -> Result<Unit, AppError> {
+                for i in 0..n {
+                    ends.sender.append(i)?
+                }
+                ends.sender.close()
+                ok(())
+            })
+            var sum = 0
+            loop {
+                match ends.receiver.recv_batch() {
+                    .some(batch) => {
+                        for v in batch.items() {
+                            sum = sum + v
+                        }
+                        batch.release()
+                    },
+                    .none => { break },
+                }
+            }
+            producer.join()?
+            ok(sum)
+        })
+    })?
+    report("batch channel (max_batch 256)", n, time.now() - t)?
+    assert(total == batched)
+
+    let rounds = 20000
+    let ping = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let pong = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    t = time.now()
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let echo = s.spawn(fn() -> Result<Unit, AppError> {
+            loop {
+                match ping.receiver.recv() {
+                    .some(v) => pong.sender.send(v + 1)?,
+                    .none => { break },
+                }
+            }
+            ok(())
+        })
+        for i in 0..rounds {
+            ping.sender.send(i)?
+            let _ = pong.receiver.recv()
+        }
+        ping.sender.close()
+        echo.join()
+    })?
+    report("prompt round trip", rounds, time.now() - t)?
+    ok(())
+}

@@ -1,0 +1,17 @@
+[package]
+name = "lang_cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+lang_driver.workspace = true
+lang_base.workspace = true
+lang_syntax.workspace = true
+clap.workspace = true
+libc = "0.2"
+
+[[bin]]
+name = "lang"
+path = "src/main.rs"

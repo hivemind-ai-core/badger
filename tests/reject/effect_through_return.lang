@@ -1,0 +1,6 @@
+// expect-error: E0501
+// A returned function without an effect annotation may perform any effect.
+import std.io
+fn mk() -> fn() -> Unit { fn() { let _ = io.println("leaked via return") } }
+fn g() -> Unit !{} { let c = mk(); c() }
+pub fn main() -> Result<Unit, io.Error> { g(); ok(()) }

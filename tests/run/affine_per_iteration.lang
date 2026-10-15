@@ -1,0 +1,11 @@
+// A fresh affine value per loop iteration may be moved in each iteration.
+import std.buffer
+fn consume(b: Buffer<Int>) -> Int { b.len() }
+pub fn main() {
+    var t = 0
+    for i in 0..3 {
+        let b = buffer.new<Int>()
+        b.push(i)
+        t = t + consume(b)
+    }
+}

@@ -1,0 +1,17 @@
+// expect-error: E0501
+// Effects of for<S> callbacks and of cell parameters reach the caller.
+import std.io
+import std.task
+fn f() -> Result<Unit, String> !{Wait} {
+    use scope <- task.scope()
+    let _ = io.println("x")
+    ok(())
+}
+fn bump(c: Cell<Int>) -> Unit !{} { c.set(c.get() + 1) }
+fn g() -> Result<Unit, String> !{Wait} {
+    task.scope(fn(s) -> Result<Unit, String> {
+        s.defer(fn() { let _ = io.println("d") })
+        ok(())
+    })
+}
+pub fn main() {}

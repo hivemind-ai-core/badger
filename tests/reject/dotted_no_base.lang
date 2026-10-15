@@ -1,0 +1,5 @@
+// expect-error: E0105
+// Dotted paths update an existing nested record.
+pub fn main() -> Unit {
+    let r = { address.city: "Cork" }
+}

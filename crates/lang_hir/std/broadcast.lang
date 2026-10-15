@@ -1,0 +1,108 @@
+// Broadcast: every subscriber receives each message published after it
+// subscribed (unlike a channel, where each message has one consumer).
+//
+// Retention is per subscriber: a bounded backlog of `backlog` messages.
+// When a subscriber's backlog is full, the policy decides:
+// - `:drop_oldest` (default): the oldest pending message is dropped and the
+//   subscriber's `lagged()` count grows; publishing never waits.
+// - `:block`: publishing waits for the slow subscriber.
+
+import std.channel
+import std.list
+
+pub type Options = { backlog: Int, policy: Symbol }
+pub let defaults = { backlog: 64, policy: :drop_oldest }
+
+pub type Error = channel.ConfigError
+
+type Sub<T> = { sender: channel.Sender<T>, receiver: channel.Receiver<T>, lagged: Atom<Int> }
+
+pub struct Broadcaster<T> {
+    subs: Atom<List<Sub<T>>>,
+    backlog: Int,
+    blocking: Bool,
+    closed: Atom<Bool>,
+}
+
+pub struct Subscription<T> {
+    receiver: channel.Receiver<T>,
+    lagged: Atom<Int>,
+}
+
+/// A broadcaster with the given retention options.
+pub fn create<T>(options: Options) -> Result<Broadcaster<T>, Error> where T: Share, T: Transfer {
+    if options.backlog <= 0 {
+        return err({ message: "broadcast backlog must be positive" })
+    }
+    if options.policy != :drop_oldest && options.policy != :block {
+        return err({ message: "broadcast policy is :drop_oldest or :block" })
+    }
+    ok({ subs: Atom.new([]), backlog: options.backlog, blocking: options.policy == :block, closed: Atom.new(false) })
+}
+
+impl<T> Broadcaster<T> {
+    /// Receive every message published from now on.
+    pub fn subscribe(self: &Self) -> Result<Subscription<T>, Error> !{State} {
+        if self.closed.get() {
+            return err({ message: "the broadcast is closed" })
+        }
+        let ends = channel.create<T>({ ..channel.defaults, capacity: self.backlog })?
+        let lagged = Atom.new(0)
+        let sub: Sub<T> = { sender: ends.sender, receiver: ends.receiver, lagged }
+        let _ = self.subs.update(fn(l: List<Sub<T>>) -> List<Sub<T>> { l.append(sub) })
+        ok({ receiver: ends.receiver, lagged })
+    }
+
+    /// Deliver `value` to every current subscriber (per the retention
+    /// policy). Returns the number of subscribers reached.
+    pub fn publish(self: &Self, value: T) -> Int !{Wait, State} {
+        var reached = 0
+        for s in self.subs.get() {
+            if self.blocking {
+                match s.sender.send(value) {
+                    .ok(_) => { reached = reached + 1 },
+                    .err(_) => (),
+                }
+            } else {
+                var delivered = false
+                var attempts = 0
+                while !delivered && attempts < 2 {
+                    match s.sender.try_send(value) {
+                        .ok(_) => { delivered = true },
+                        .err(e) => {
+                            if e.reason == :channel/closed {
+                                attempts = 2
+                            } else {
+                                // full: drop the subscriber's oldest message
+                                let _ = s.receiver.try_recv()
+                                let _ = s.lagged.update(fn(n: Int) -> Int { n + 1 })
+                                attempts = attempts + 1
+                            }
+                        },
+                    }
+                }
+                if delivered {
+                    reached = reached + 1
+                }
+            }
+        }
+        reached
+    }
+
+    /// End the broadcast: subscribers drain what they have, then see `none`.
+    pub fn close(self: &Self) -> Unit !{State} {
+        self.closed.set(true)
+        for s in self.subs.get() {
+            s.sender.close()
+        }
+    }
+
+    pub fn subscribers(self: &Self) -> Int !{State} { self.subs.get().len() }
+}
+
+impl<T> Subscription<T> {
+    /// The next message, or `none` after the broadcast closed and drained.
+    pub fn recv(self: &Self) -> Option<T> !{Wait} { self.receiver.recv() }
+    /// Messages dropped because this subscriber fell behind.
+    pub fn lagged(self: &Self) -> Int !{State} { self.lagged.get() }
+}

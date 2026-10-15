@@ -1,0 +1,72 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/lang_cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# --- internal crates -------------------------------------------------------
+lang_base = { path = "crates/lang_base" }
+lang_syntax = { path = "crates/lang_syntax" }
+lang_hir = { path = "crates/lang_hir" }
+lang_typeck = { path = "crates/lang_typeck" }
+lang_mir = { path = "crates/lang_mir" }
+lang_codegen = { path = "crates/lang_codegen" }
+lang_runtime = { path = "crates/lang_runtime" }
+lang_driver = { path = "crates/lang_driver" }
+
+# --- parsing ---------------------------------------------------------------
+pest = "2.9.3"
+pest_derive = "2.9.3"
+
+# --- code generation (Cranelift JIT) ---------------------------------------
+cranelift-codegen = "0.136.3"
+cranelift-frontend = "0.136.3"
+cranelift-module = "0.136.3"
+cranelift-jit = "0.136.3"
+cranelift-native = "0.136.3"
+
+# --- memory / tree storage -------------------------------------------------
+la-arena = "0.3.1"      # typed index arenas (Arena<T>, Idx<T>, ArenaMap) for AST/HIR trees
+index_vec = "0.1.4"     # IndexVec<I, T> with newtype indices for dense side tables & MIR
+slotmap = "1.1.1"       # generational keys for things that get removed (JIT fns, runtime handles)
+bumpalo = { version = "3.20.3", features = ["collections"] }  # per-phase scratch allocation
+lasso = { version = "0.7.3", features = ["multi-threaded"] }         # string interning (identifiers, literals)
+smallvec = { version = "1.16.3", features = ["union", "const_generics"] }
+
+# --- analysis / type inference ---------------------------------------------
+ena = "0.14.4"          # union-find unification tables (from rustc) for HM-style inference
+petgraph = "0.8.3"      # SCCs for binding groups, call graphs, CFG analyses
+
+# --- collections / utilities -----------------------------------------------
+rustc-hash = "2.1.3"
+indexmap = "2.14.2"
+itertools = "0.15.0"
+smol_str = "0.3.6"
+
+# --- diagnostics / errors --------------------------------------------------
+ariadne = "0.6.0"
+thiserror = "2.0.21"
+
+# --- CLI -------------------------------------------------------------------
+clap = { version = "4.6.7", features = ["derive"] }
+
+# --- testing ---------------------------------------------------------------
+insta = "1.49.0"
+pretty_assertions = "1.4.1"
+
+[profile.dev]
+# Cranelift is slow unoptimised; keep our own code debuggable but optimise deps.
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

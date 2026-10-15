@@ -1,0 +1,6 @@
+// Foreign calls require `unsafe`.
+// expect-error: E0406
+extern "c" fn abs(x: I32) -> I32
+pub fn main() -> Unit {
+    let _ = abs(-1I32)
+}

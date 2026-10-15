@@ -1,0 +1,97 @@
+// Typed schemas and versioned wire contracts.
+
+import std.codec
+
+extern "intrinsic" fn wire_encode<T>(names: Map<String, String>, aliases: Map<String, List<String>>, value: T) -> String
+extern "intrinsic" fn wire_decode<T>(names: Map<String, String>, aliases: Map<String, List<String>>, text: String) -> Result<T, codec.DecodeError>
+extern "intrinsic" fn wire_describe<T>(names: Map<String, String>, aliases: Map<String, List<String>>) -> String
+extern "intrinsic" fn wire_json_schema<T>(names: Map<String, String>, aliases: Map<String, List<String>>) -> String
+extern "intrinsic" fn json_schema_of<T>() -> String
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+extern "intrinsic" fn map_empty<K, V>() -> Map<K, V>
+extern "intrinsic" fn map_insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
+extern "intrinsic" fn map_get<K, V>(m: Map<K, V>, key: K) -> Option<V>
+
+extern "intrinsic" fn record_fields<T>(value: T) -> List<(String, Data)>
+
+/// Typed reflection: visit each field of a record or struct value, in
+/// canonical (label) order, with its wire name and its value as explicit
+/// `Data`.
+/// (Heterogeneous fields become homogeneous only through this visitor.)
+pub fn visit<T>(value: T, visitor: fn(String, Data) -> Unit) -> Unit where T: Codec {
+    for (name, data) in record_fields(value) {
+        visitor(name, data)
+    }
+}
+
+/// The fields of a record or struct value as `(wire name, Data)` pairs.
+pub fn fields<T>(value: T) -> List<(String, Data)> where T: Codec { record_fields(value) }
+
+/// The derived schema of `T`.
+pub fn of<T>() -> Schema<T> where T: Codec { schema() }
+
+/// A JSON description of a schema (fields, variants, element types).
+pub fn describe<T>(s: Schema<T>) -> String { s.describe() }
+
+/// The JSON Schema of `T`'s wire form (for OpenAPI and other tools).
+pub fn json_schema<T>(s: Schema<T>) -> String { json_schema_of<T>() }
+
+/// Validate and decode external input; errors carry the input path.
+pub fn decode<T>(s: Schema<T>, bytes: Bytes) -> Result<T, codec.DecodeError> where T: Codec { codec.decode(bytes) }
+pub fn decode_text<T>(s: Schema<T>, text: String) -> Result<T, codec.DecodeError> where T: Codec { codec.decode_text(text) }
+pub fn from_data<T>(s: Schema<T>, data: Data) -> Result<T, codec.DecodeError> where T: Codec { codec.from_data(data) }
+pub fn encode<T>(s: Schema<T>, value: T) -> Bytes where T: Codec { codec.encode(value) }
+
+/// A versioned wire contract for `T`. Wire names of fields and variants are
+/// schema choices, independent of the language names and of memory layout:
+/// a member is named `"Type.field"`, `"Type.variant"`, or
+/// `"Type.variant.field"`. Older names stay decodable with `accept`.
+pub struct Wire<T> {
+    pub version: Int,
+    names: Map<String, String>,
+    aliases: Map<String, List<String>>,
+}
+
+/// Version `version` of the wire contract for schema `s`, initially using
+/// the language names.
+pub fn wire<T>(s: Schema<T>, version: Int) -> Wire<T> where T: Codec {
+    { version, names: map_empty(), aliases: map_empty() }
+}
+
+impl<T> Wire<T> {
+    /// Encode `member` as `name` on the wire.
+    pub fn rename(self: &Self, member: String, name: String) -> Wire<T> {
+        { version: self.version, names: map_insert(self.names, member, name), aliases: self.aliases }
+    }
+
+    /// Also accept `old` for `member` when decoding (a name from an earlier
+    /// version); encoding always uses the current name.
+    pub fn accept(self: &Self, member: String, old: String) -> Wire<T> {
+        let olds = match map_get(self.aliases, member) {
+            .some(l) => l.append(old),
+            .none => [old],
+        }
+        { version: self.version, names: self.names, aliases: map_insert(self.aliases, member, olds) }
+    }
+
+    pub fn encode_text(self: &Self, value: T) -> String { wire_encode(self.names, self.aliases, value) }
+    pub fn encode(self: &Self, value: T) -> Bytes { text_to_bytes(wire_encode(self.names, self.aliases, value)) }
+
+    pub fn decode_text(self: &Self, text: String) -> Result<T, codec.DecodeError> { wire_decode(self.names, self.aliases, text) }
+
+    pub fn decode(self: &Self, bytes: Bytes) -> Result<T, codec.DecodeError> {
+        match text_from_bytes(bytes) {
+            .ok(text) => wire_decode(self.names, self.aliases, text),
+            .err(e) => err({ path: "$", message: $"invalid UTF-8: {e}" }),
+        }
+    }
+
+    /// The JSON Schema under this contract's wire names.
+    pub fn json_schema(self: &Self) -> String { wire_json_schema<T>(self.names, self.aliases) }
+
+    /// The schema description under this contract's wire names.
+    pub fn describe(self: &Self) -> String {
+        $"{{\"version\":{self.version},\"schema\":{wire_describe<T>(self.names, self.aliases)}}}"
+    }
+}

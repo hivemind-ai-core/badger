@@ -1,0 +1,13 @@
+201 {"id":1,"quantity":3,"title":"pens"}
+400 {"error":"invalid request body","message":"missing required field","path":"$.quantity"}
+400 {"error":"invalid request body","message":"expected an integer","path":"$.quantity"}
+500 {"error":"internal server error"}
+200 {"id":7,"quantity":1,"title":"order a b"}
+404 {"error":"not found"}
+/orders/a%20b%2F7
+url error: route orders/show needs parameter :id
+url error: route orders/show has no parameter :x
+url error: no route named nope
+repeated parameter rejected: true
+openapi parses: true
+{"openapi":"3.1.0","info":{"title":"orders","version":"1.0"},"paths":{"/orders":{"post":{"operationId":"orders/create","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{"note":{"anyOf":[{"type":"string"},{"type":"null"}]},"quantity":{"type":"integer"},"title":{"type":"string"}},"required":["quantity","title"]}}}},"responses":{"default":{"content":{"application/json":{"schema":{"type":"object","properties":{"id":{"type":"integer"},"quantity":{"type":"integer"},"title":{"type":"string"}},"required":["id","quantity","title"]}}},"description":"reply"}}}},"/orders/{id}":{"get":{"operationId":"orders/show","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"default":{"content":{"application/json":{"schema":{"type":"object","properties":{"id":{"type":"integer"},"quantity":{"type":"integer"},"title":{"type":"string"}},"required":["id","quantity","title"]}}},"description":"reply"}}}}}}

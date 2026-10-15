@@ -1,0 +1,116 @@
+// System lifecycle details: a node's workers settle before its halt
+// callbacks run; a panicking halt does not stop the remaining cleanup;
+// cleanup failures after a failed body keep the original error attached;
+// `system.replace` swaps a provider with the same contract; plans describe
+// their providers.
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+import std.worker
+
+pub struct Failure {
+    pub message: String,
+}
+
+impl Display for Failure {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Failure {}
+
+pub enum AppError {
+    system(source: system.Error),
+    failed(source: Failure),
+} derive(Error, From)
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+let with_worker = system.provider({
+    name: :test/worker_owner,
+    init: fn(scope, config: { n: Int }) -> Result<Int, Failure> {
+        let ticks = Atom.new(0)
+        scope.on_halt(fn() -> Result<Unit, Failure> {
+            // the worker no longer runs while the halt does
+            let before = ticks.get()
+            task.sleep(30ms)
+            say($"worker settled before halt: {ticks.get() == before && before > 0}")
+            ok(())
+        })
+        scope.worker(fn() -> Result<Unit, Failure> {
+            loop {
+                let _ = ticks.update(fn(n: Int) -> Int { n + 1 })
+                task.sleep(2ms)
+            }
+            ok(())
+        }, worker.never())
+        let _ = config
+        ok(1)
+    },
+})
+
+fn failing_halts(label: String) -> system.Provider<{ v: Int }, Int, Failure> {
+    system.provider({
+        name: :test/failing_halts,
+        init: fn(scope, config) -> Result<Int, Failure> {
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                say($"{label}: first registered halt runs last")
+                ok(())
+            })
+            scope.on_halt(fn() -> Result<Unit, Failure> {
+                say($"{label}: failing halt")
+                err({ message: $"{label} halt failed" })
+            })
+            ok(config.v)
+        },
+    })
+}
+
+let constant = system.provider({
+    name: :test/constant,
+    init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v) },
+})
+
+let doubled = system.provider({
+    name: :test/doubled,
+    init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v * 2) },
+})
+
+pub fn main() -> Result<Unit, AppError> {
+    // workers settle before halts (the worker is cancelled first)
+    let plan = system {
+        owner: component(with_worker, { n: 1 }),
+    }
+    let _ = system.run(plan, fn(running) -> Result<Unit, AppError> {
+        let _ = running.owner
+        task.sleep(20ms)
+        ok(())
+    })
+
+    // a failing body: cleanup failures keep the original error
+    let failing = system {
+        a: component(failing_halts("a"), { v: 1 }),
+    }
+    let r = system.run(failing, fn(running) -> Result<Unit, AppError> {
+        let _ = running.a
+        err(AppError.failed({ message: "body failed" }))
+    })
+    match r {
+        .err(e) => say($"result: {e}"),
+        .ok(_) => say("unexpected success"),
+    }
+
+    // replace a provider with one of the same contract
+    let base = system {
+        value: component(constant, { v: 21 }),
+    }
+    let swapped = system.replace(base, :value, doubled)?
+    let v = system.run(swapped, fn(running) -> Result<Int, AppError> { ok(running.value) })?
+    say($"replaced value {v}")
+    for d in swapped.describe() {
+        say($"node {d.key} provider {d.provider}")
+    }
+    ok(())
+}

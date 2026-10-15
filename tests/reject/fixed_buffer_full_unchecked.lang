@@ -1,0 +1,7 @@
+// expect-error: E0337
+import std.buffer
+fn main() {
+    let fb = buffer.fixed<Int>(2)
+    fb.push(1)
+    let x = 1
+}

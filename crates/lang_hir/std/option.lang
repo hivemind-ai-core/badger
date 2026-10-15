@@ -1,0 +1,38 @@
+// Option helpers.
+
+pub fn map<T, U>(o: Option<T>, f: fn(T) -> U) -> Option<U> {
+    match o {
+        .some(x) => Option.some(f(x)),
+        .none => Option.none,
+    }
+}
+
+pub fn unwrap_or<T>(o: Option<T>, default: T) -> T {
+    match o {
+        .some(x) => x,
+        .none => default,
+    }
+}
+
+pub fn is_some<T>(o: Option<T>) -> Bool {
+    match o {
+        .some(_) => true,
+        .none => false,
+    }
+}
+
+/// Convert absence into an explicit error.
+pub fn ok_or<T, E>(o: Option<T>, error: E) -> Result<T, E> {
+    match o {
+        .some(x) => Result.ok(x),
+        .none => Result.err(error),
+    }
+}
+
+impl<T> Option<T> {
+    pub fn unwrap_or(self: &Self, default: T) -> T { unwrap_or(self, default) }
+    pub fn is_some(self: &Self) -> Bool { is_some(self) }
+    pub fn is_none(self: &Self) -> Bool { !is_some(self) }
+    pub fn map<U>(self: &Self, f: fn(T) -> U) -> Option<U> { map(self, f) }
+    pub fn ok_or<E>(self: &Self, error: E) -> Result<T, E> { ok_or(self, error) }
+}

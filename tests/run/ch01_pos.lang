@@ -1,0 +1,132 @@
+// Chapter 1 surface: literals, imports (including re-exports from std.result),
+// pipes, bindings, control flow, patterns, `use`, and precedence.
+/// Documentation comment for the module item below.
+import std.io
+import std.result.{Result, ok, err}
+import std.seq
+import std.list
+import std.map as maps
+
+pub type Order = { id: U64, total: Int }
+
+pub fn order_total(order: Order) -> Int {
+    order.total
+}
+
+fn identity<T>(value: T) -> T {
+    value
+}
+
+/* block comment /* nested */ still comment */
+const limit = 10
+const pair_c = (1, "x")
+
+fn classify(n: Int) -> String {
+    match n {
+        0 => "zero",
+        x if x < 0 => "negative",
+        _ => "positive",
+    }
+}
+
+fn first_even(xs: List<Int>) -> Int {
+    let found = loop {
+        for x in xs {
+            if x % 2 == 0 { return x }
+        }
+        break -1
+    }
+    found
+}
+
+fn sum_to(n: Int, acc: Int) -> Int {
+    if n == 0 { acc } else { sum_to(n - 1, acc + n) }
+}
+
+fn with_cb(x: Int, f: fn(Int, Int) -> Result<Int, String>) -> Result<Int, String> {
+    let r = f(x, x * 2)?
+    ok(r + 1)
+}
+
+fn use_demo() -> Result<Int, String> {
+    use a, b <- with_cb(5)
+    ok(a + b)
+}
+
+type Services = { save: fn(Int) -> Int }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let count = 42
+    let ratio = 0.5
+    let mask = 0xFFU32
+    let bits = 0b1010_1010
+    let big = 1_000_000
+    let small = 12U8
+    let f32v = 0.5F32
+    let exp = 1.5e3
+    let message = "hello"
+    let formatted = $"received {count} jobs, braces {{literal}}"
+    let initial = 'A'
+    let uni = '\u{263A}'
+    let key = :database
+    let namespaced_key = :app/database
+    let pair = (count, message)
+    let one = (count,)
+    let nothing = ()
+    let jobs = [1, 2, 3]
+    let request = { path: "/orders", method: :post }
+    let headers = map { "accept" => "application/json" }
+    let methods = set { :get, :post }
+    let empty = {}
+    let raw = """raw {count} \n stays"""
+    let raw_i = $"" "interp {count}" ""
+    let escapes = "tab\tq\"b\\s\'"
+    let d = 2min + 1h + 3s + 4ms + 5us + 6ns
+    io.println($"{count} {ratio} {mask} {bits} {big} {small} {f32v} {exp} {message}")?
+    io.println(formatted)?
+    io.println($"{initial} {uni} {key} {namespaced_key} {pair.0} {one.0} {jobs.len()}")?
+    io.println($"{request.path} {headers.len()} {methods.len()} {raw} | {raw_i} | {escapes}")?
+    io.println($"duration {d}")?
+    let answer = identity<Int>(42)
+    let increment = fn(value) { value + 1 }
+    io.println($"{answer} {increment(1)}")?
+    // pipes
+    let names = [1, 2, 3, 4]
+        |> list.filter(fn(x) { x % 2 == 0 })
+        |> list.map(fn(x) { $"n{x}" })
+    io.println(names)?
+    // shadowing, var, assignment
+    let s = 1
+    let s = s + 1
+    var completed = 0
+    for job in jobs {
+        completed = completed + job
+    }
+    let label = if completed == 0 { "empty" } else { "processed" }
+    io.println($"{s} {completed} {label} {classify(-3)} {classify(0)} {first_even([1, 3, 4])}")?
+    io.println($"{sum_to(100000, 0)} {use_demo().unwrap_or(0)}")?
+    let services: Services = { save: fn(n) { n * 10 } }
+    io.println(services.save(4))?
+    var i = 0
+    while i < 3 { i = i + 1 }
+    for k in 0..=2 { i = i + k }
+    io.println($"{i} {limit} {pair_c.1}")?
+    let v = 2 + 3 * 4 - 8 / 2 % 3 << 1 & 0xFF ^ 1 | 2
+    io.println($"{v} {1 < 2 && !(3 > 4) || false} {-(5)}")?
+    let a = 1; let b = 2; io.println(a + b)?
+    let blockv = {
+        let t = 10
+        t * 2
+    }
+    let unitb = {}
+    io.println($"{blockv}")?
+    let r: Result<Int, String> = Result.ok(3)
+    let n = match r {
+        .ok(x) => x,
+        .err(_) => 0,
+    }
+    let rec = { x: 1, y: 2, z: 3 }
+    let { x, .. } = rec
+    io.println($"{n} {x}")?
+    ok(())
+}

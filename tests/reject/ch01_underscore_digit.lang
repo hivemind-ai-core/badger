@@ -1,0 +1,4 @@
+// expect-error: E0001
+pub fn main() {
+    let _1 = 3
+}

@@ -1,0 +1,10 @@
+// A list builder cannot be used after `finish` consumed it.
+// expect-error: E0404
+import std.list
+pub fn main() -> Unit {
+    let b = list.builder<Int>()
+    b.append(1)
+    let l = b.finish()
+    b.append(2)
+    let _ = l
+}

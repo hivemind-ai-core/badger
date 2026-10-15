@@ -1,0 +1,46 @@
+import std.buffer
+import std.list
+import std.seq
+
+pub fn main() -> Result<Unit, Never> {
+    let builder = list.builder<{ id: Int, active: Bool }>()
+    for id in 0..20 {
+        // Growth allocates another page without relocating existing elements.
+        builder.append({ id, active: id % 2 == 0 })
+    }
+    let events = builder.finish()
+    // The builder has been consumed; it cannot be appended to again.
+
+    let active_ids = events
+        |> seq.filter(fn(event) { event.active })
+        |> seq.map(fn(event) { event.id })
+        |> list.collect()
+    assert(active_ids[0] == 0)
+    assert(active_ids[1] == 2)
+
+    var total = 0
+    for chunk in events.chunks() {
+        for event in chunk {
+            total = total + event.id
+        }
+    }
+    assert(total == 190)
+
+    // Expected types choose fixed contiguous or mutable contiguous storage.
+    let offsets: Array<Int> = [0, 8, 16]
+    let writable: Buffer<Byte> = [72, 105]
+    let bytes: Bytes = buffer.freeze(writable)
+    assert(offsets[2] == 16)
+    assert(bytes[0] == 72)
+
+    // Runtime keys belong in a map; heterogeneous record labels stay static.
+    let headers = map { "accept" => "application/json", "x-client" => "demo" }
+    match headers.get("accept") {
+        .some(value) => { assert(value == "application/json") },
+        .none => { assert(false) },
+    }
+    let verbs = set { :get, :post }
+    let same_verbs = set { :post, :get }
+    assert(verbs == same_verbs)
+    ok(())
+}

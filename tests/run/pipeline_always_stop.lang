@@ -1,0 +1,25 @@
+// A stage whose enter always stops keeps the established context type.
+import std.io
+import std.records
+import std.pipeline
+import std.pipeline.{handle, handle_context}
+fn a() {
+    pipeline.stage({
+        name: :a, enter: fn(ctx) { pipeline.next({ ..ctx, v: false }) },
+    })
+}
+fn b() {
+    pipeline.stage({
+        name: :b, enter: fn(ctx) { pipeline.stop(ctx, 99) },
+    })
+}
+pub fn main() -> Result<Unit, String> {
+    let process = pipeline.compile(pipeline {
+        a(),
+        b(),
+        handle(fn(ctx) -> Result<Int, String> { ok(ctx.id) }),
+    })
+    let r = process({ id: 1 })?
+    let _ = io.println($"{r}")
+    ok(())
+}

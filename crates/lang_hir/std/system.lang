@@ -1,0 +1,449 @@
+// Lifecycle-managed systems.
+//
+// `system { key: component(provider, config), ... }` is elaborated by the
+// compiler into typed nodes in dependency order (references are checked and
+// cycles rejected before anything runs) followed by `system.plan`.
+
+import std.list
+import std.prelude
+import std.map
+import std.set
+import std.task
+import std.text
+import std.time
+import std.trace
+import std.worker
+
+/// A startup or cleanup failure, with cleanup failures attached. When
+/// cleanup fails after the body already failed, `original` keeps the body's
+/// error (it is never silently replaced).
+pub struct Error {
+    pub node: Symbol,
+    pub message: String,
+    pub notes: List<String>,
+    pub original: Option<String>,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String {
+        let base = $"system node {self.node}: {self.message}"
+        let base = match self.original {
+            .some(o) => $"{base} after: {o}",
+            .none => base,
+        }
+        if list.len(self.notes) == 0 { base } else { $"{base} (cleanup: {text.join(self.notes, "; ")})" }
+    }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.node }
+}
+
+/// Initialization scope of one node: registers halt callbacks and owns the
+/// node's workers.
+/// A node's initialization scope, for the node's region `S` (elidable in
+/// annotations: `system.InitScope` means `system.InitScope<_>`). Resources
+/// acquired and callbacks registered here live until the node halts.
+pub struct InitScope<S: Scope> {
+    brand: Brand<S>,
+    halts: Cell<List<fn() -> Option<String>>>,
+    /// Task scope owning this system's workers.
+    tasks: Int,
+    /// This node's workers and their shutdown policies.
+    workers: Cell<List<(Int, worker.Shutdown)>>,
+    /// The node's plan key (default worker name).
+    node: Symbol,
+}
+
+extern "intrinsic" fn task_spawn<T>(scope: Int, f: fn() -> T, captured: Bool) -> Int
+extern "intrinsic" fn task_cancel(id: Int) -> Unit
+extern "intrinsic" fn task_settle(id: Int) -> Unit
+extern "intrinsic" fn task_done(id: Int) -> Bool
+extern "intrinsic" fn attach_note(note: String) -> Unit
+extern "intrinsic" fn type_id<T>() -> Int
+extern "intrinsic" fn scope_open() -> Int
+extern "intrinsic" fn scope_close(scope: Int, cancel: Bool) -> Unit
+
+/// Run a worker under its restart policy. Normal completion ends it; a
+/// failure (error or defect) restarts it within budget or escalates.
+fn supervise<E>(name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy) -> Unit where E: prelude.Error {
+    var failures: List<Instant> = []
+    loop {
+        let outcome = task.scope(fn(s) -> Result<task.Exit<Result<Unit, E>>, String> {
+            let t = s.capture(factory)
+            ok(t.join())
+        })
+        let reason = match outcome {
+            .ok(.returned(.ok(_))) => { return () },
+            .ok(.returned(.err(e))) => e.display(),
+            .ok(.failed(info)) => info.display(),
+            .ok(.cancelled(_)) => { return () },
+            .err(m) => m,
+        }
+        match policy {
+            .never => panic($"worker {name} failed: {reason}"),
+            .on_failure(max, window, backoff) => {
+                let now = time.now()
+                failures = list.append(list.filter(failures, fn(t) { now - t < window }), now)
+                if list.len(failures) > max {
+                    panic($"worker {name} exceeded its restart budget: {reason}")
+                }
+                trace.event(:worker/restart, { worker: name, reason })
+                task.sleep(backoff)
+            },
+        }
+    }
+}
+
+impl InitScope<Unit> {
+    /// Register a one-shot, possibly fallible cleanup; halts run in reverse
+    /// registration order, after the node's workers have settled.
+    pub fn on_halt<E>(self: &Self, f: fn() -> Result<Unit, E>) -> Unit where E: prelude.Error {
+        let hs = self.halts
+        hs.set(list.append(hs.get(), fn() {
+            match f() {
+                .ok(_) => Option.none,
+                .err(e) => Option.some(e.display()),
+            }
+        }))
+    }
+
+    /// Start a managed worker owned by this node (named after the node),
+    /// with a restart policy. Halting the node cancels and settles it before
+    /// the node's halt callbacks run; an escalated failure fails the system.
+    pub fn worker<E>(self: &Self, factory: fn() -> Result<Unit, E>, policy: worker.Policy) -> Unit where E: prelude.Error {
+        self.worker_with(self.node, factory, policy, worker.cancel())
+    }
+
+    /// `worker` with an explicit name and shutdown policy.
+    pub fn worker_with<E>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error {
+        let id = task_spawn(self.tasks, fn() { supervise(name, factory, policy) }, false)
+        let ws = self.workers
+        ws.set(list.append(ws.get(), (id, shutdown)))
+    }
+
+    /// Acquire a nested resource whose cleanup belongs to this scope.
+    pub fn acquire<C, O, E>(self: &Self, provider: Provider<C, O, E>, config: C) -> Result<O, E> {
+        provider.init(self, config)
+    }
+}
+
+pub struct Provider<C, O, E> {
+    pub name: Symbol,
+    pub init: fn(InitScope<Unit>, C) -> Result<O, E>,
+}
+
+/// Create a typed provider. Its errors implement `Error` (and, being
+/// errors, carry no resources).
+pub fn provider<C, O, E>(spec: { name: Symbol, init: fn(InitScope<Unit>, C) -> Result<O, E> }) -> Provider<C, O, E> where E: prelude.Error, E: Unscoped {
+    { name: spec.name, init: spec.init }
+}
+
+/// Plan entry marker; elaborated by the compiler inside `system { ... }`.
+pub fn component<C, O, E>(provider: Provider<C, O, E>, config: C) -> Unit {}
+
+pub extern type Erased
+
+extern "intrinsic" fn box_erase<T>(value: T) -> Erased
+extern "intrinsic" fn box_unerase<T>(value: Erased) -> T
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+extern "intrinsic" fn sys_wait_shutdown() -> Unit
+extern "intrinsic" fn sys_started(labels: List<Symbol>, providers: List<Symbol>) -> Int
+extern "intrinsic" fn sys_stopping(id: Int, done: Bool) -> Unit
+
+/// Resolved outputs of started nodes. A selected sub-plan reads the full
+/// output view `partial`ly: unstarted nodes yield placeholders that its
+/// projection never reads.
+pub struct Outputs {
+    slots: Cell<Map<Int, Erased>>,
+    partial: Bool,
+}
+
+extern "intrinsic" fn unerase<A, B>(value: A) -> B
+
+pub struct ErasedNode {
+    pub label: Symbol,
+    pub index: Int,
+    pub deps: List<Int>,
+    /// Provider identity and the node's source location (inspection and
+    /// diagnostics).
+    pub provider: Symbol,
+    pub at: String,
+    start: fn(InitScope<Unit>, Outputs) -> Result<Erased, Error>,
+    /// The configuration function (erased) and its type, for `replace`.
+    config: Erased,
+    config_type: Int,
+}
+
+/// A typed node handle: `ref(:key)` reads its output through `output`.
+pub struct Node<O> {
+    pub index: Int,
+    erased: ErasedNode,
+}
+
+pub fn node<C, O, E>(label: Symbol, index: Int, deps: List<Int>, provider: Provider<C, O, E>, config: fn(Outputs) -> C, at: Located<Unit>) -> Node<O> where E: prelude.Error {
+    let at = $"{at.file}:{at.line}:{at.column}"
+    { index, erased: erased_node(label, index, deps, provider, config, at) }
+}
+
+fn erased_node<C, O, E>(label: Symbol, index: Int, deps: List<Int>, provider: Provider<C, O, E>, config: fn(Outputs) -> C, at: String) -> ErasedNode where E: prelude.Error {
+    let pname = provider.name
+    {
+        label,
+        index,
+        deps,
+        provider: pname,
+        at,
+        start: fn(scope, outputs) {
+            match provider.init(scope, config(outputs)) {
+                .ok(v) => ok(box_erase(v)),
+                .err(e) => err({ node: label, message: $"{e} (provider {pname}, node at {at})", notes: [], original: Option.none }),
+            }
+        },
+        config: box_erase(config),
+        config_type: type_id<C>(),
+    }
+}
+
+pub fn erase<O>(n: Node<O>) -> ErasedNode { n.erased }
+
+pub fn output<O>(outputs: Outputs, n: Node<O>) -> O {
+    match map.get(outputs.slots.get(), n.index) {
+        .some(e) => box_unerase(e),
+        .none => if outputs.partial {
+            unerase<Int, O>(0)
+        } else {
+            panic("system output read before initialization")
+        },
+    }
+}
+
+/// An inspectable, validated system description whose started nodes'
+/// outputs form the record `Os` (one field per plan key).
+pub struct SystemPlan<Os: Row> {
+    pub nodes: List<ErasedNode>,
+    view: fn(Outputs) -> { ..Os },
+}
+
+pub fn plan<Os: Row>(nodes: List<ErasedNode>, view: fn(Outputs) -> { ..Os }) -> SystemPlan<Os> { { nodes, view } }
+
+impl<Os: Row> SystemPlan<Os> {
+    /// Node labels in startup order.
+    pub fn labels(self: &Self) -> List<Symbol> { list.map(self.nodes, fn(n) { n.label }) }
+    /// Inspectable description: key, provider, location, dependencies.
+    pub fn describe(self: &Self) -> List<{ key: Symbol, provider: Symbol, at: String, deps: List<Symbol> }> {
+        let nodes = self.nodes
+        list.map(nodes, fn(n: ErasedNode) -> { key: Symbol, provider: Symbol, at: String, deps: List<Symbol> } {
+            let deps = list.map(n.deps, fn(i: Int) -> Symbol {
+                var label = :unknown
+                for m in nodes {
+                    if m.index == i {
+                        label = m.label
+                    }
+                }
+                label
+            })
+            { key: n.label, provider: n.provider, at: n.at, deps }
+        })
+    }
+}
+
+/// `system.replace(plan, :key, provider)`: the same plan with one node's
+/// provider replaced (tests). The replacement keeps the node's declared
+/// configuration and output contract: the output type is checked statically
+/// (the compiler supplies `pick`), the configuration type at run time.
+pub fn replace<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provider: Provider<C, O, E>) -> Result<SystemPlan<Os>, Error> where E: prelude.Error {
+    err({ node: key, message: "system.replace takes a literal key", notes: [], original: Option.none })
+}
+
+pub fn replace_node<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provider: Provider<C, O, E>, pick: fn({ ..Os }) -> O) -> Result<SystemPlan<Os>, Error> where E: prelude.Error {
+    var found = false
+    var nodes: List<ErasedNode> = []
+    for n in plan.nodes {
+        if n.label == key {
+            found = true
+            if n.config_type != type_id<C>() {
+                return err({ node: key, message: "the replacement provider takes a different configuration type", notes: [], original: Option.none })
+            }
+            let config: fn(Outputs) -> C = box_unerase(n.config)
+            nodes = list.append(nodes, erased_node(n.label, n.index, n.deps, provider, config, n.at))
+        } else {
+            nodes = list.append(nodes, n)
+        }
+    }
+    if !found {
+        return err({ node: key, message: "no such plan key", notes: [], original: Option.none })
+    }
+    let _ = pick
+    ok({ nodes, view: plan.view })
+}
+
+/// `system.select(plan, [:key, ...])`: the sub-plan that starts only the
+/// selected keys and their dependency closure (in the original order), with
+/// just those keys' outputs. The keys must be a literal list; the compiler
+/// rewrites the call to `select_keys` with a typed projection.
+pub fn select<Os: Row>(plan: SystemPlan<Os>, keys: List<Symbol>) -> SystemPlan<Os> { plan }
+
+pub fn select_keys<Os: Row, Sub: Row>(plan: SystemPlan<Os>, keys: List<Symbol>, pick: fn({ ..Os }) -> { ..Sub }) -> SystemPlan<Sub> {
+    // dependency closure of the selected roots
+    var needed: Set<Int> = set.empty()
+    var work: List<Int> = []
+    for n in plan.nodes {
+        if keys.contains(n.label) {
+            work = list.append(work, n.index)
+        }
+    }
+    while work.len() > 0 {
+        let i = work[work.len() - 1]
+        work = list.slice(work, 0, work.len() - 1)
+        if !needed.contains(i) {
+            needed = set.insert(needed, i)
+            for n in plan.nodes {
+                if n.index == i {
+                    for d in n.deps {
+                        work = list.append(work, d)
+                    }
+                }
+            }
+        }
+    }
+    let nodes = list.filter(plan.nodes, fn(n: ErasedNode) -> Bool { needed.contains(n.index) })
+    let view = plan.view
+    {
+        nodes,
+        view: fn(outputs: Outputs) -> { ..Sub } {
+            pick(view({ ..outputs, partial: true }))
+        },
+    }
+}
+
+/// Region brand of a running system (cannot escape `system.run`).
+pub extern type Brand<S>
+
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+/// A running system: every node output by its plan key, plus control
+/// operations. Branded with the region of `system.run`'s callback.
+pub type Running<S, Os: Row> = {
+    brand: Brand<S>,
+    started: List<Symbol>,
+    wait_for_shutdown: fn() -> Result<Unit, Error>,
+    ..Os
+}
+
+/// Stop a node's workers per their shutdown policies, waiting for them.
+fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait} {
+    let ws = s.workers.get()
+    s.workers.set([])
+    for w in ws {
+        match w.1 {
+            .drain(limit) => {
+                let deadline = time.now() + limit
+                while !task_done(w.0) && time.now() < deadline {
+                    task.sleep(1ms)
+                }
+            },
+            .cancel => (),
+        }
+        task_cancel(w.0)
+    }
+    for w in ws {
+        task_settle(w.0)
+    }
+}
+
+/// Halt nodes in reverse start order: each node's workers settle first,
+/// then its callbacks run in reverse registration order. Every callback is
+/// attempted (each is removed before it runs, so a panicking one does not
+/// stop the rest when cleanup resumes); failures are collected.
+fn halt_all(scopes: List<InitScope<Unit>>) -> List<String> {
+    var notes = []
+    for s in list.reverse(scopes) {
+        stop_workers(s)
+        loop {
+            let hs = s.halts.get()
+            if list.len(hs) == 0 {
+                break
+            }
+            let h = hs[list.len(hs) - 1]
+            s.halts.set(list.slice(hs, 0, list.len(hs) - 1))
+            match h() {
+                .some(m) => { notes = list.append(notes, m) },
+                .none => (),
+            }
+        }
+    }
+    notes
+}
+
+/// Start every node in dependency order, run `body`, then halt in reverse.
+/// If startup fails, already-started nodes halt and their cleanup failures
+/// attach to the original error.
+pub fn run<Os: Row, R, E>(plan: SystemPlan<Os>, body: for<S: Scope> fn(Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait} where E: From<Error>, E: Display {
+    let outputs: Outputs = { slots: Cell.new(map.empty()), partial: false }
+    let scopes: Cell<List<InitScope<Unit>>> = Cell.new([])
+    let workers = scope_open()
+    // on a defect or cancellation: halt everything, attaching failures to
+    // the primary defect
+    // the system's introspection entry (0 until started)
+    let registration = Cell.new(0)
+    let guard = cleanup_push(fn() {
+        if registration.get() != 0 {
+            sys_stopping(registration.get(), false)
+        }
+        for n in halt_all(scopes.get()) {
+            attach_note(n)
+        }
+        if registration.get() != 0 {
+            sys_stopping(registration.get(), true)
+        }
+    })
+    for n in plan.nodes {
+        let scope: InitScope<Unit> = { brand: identity<Int, Brand<Unit>>(0), halts: Cell.new([]), tasks: workers, workers: Cell.new([]), node: n.label }
+        scopes.set(list.append(scopes.get(), scope))
+        match n.start(scope, outputs) {
+            .ok(v) => outputs.slots.set(map.insert(outputs.slots.get(), n.index, v)),
+            .err(e) => {
+                // the guard stays until every halt ran (a panicking halt
+                // resumes the rest through it)
+                let notes = halt_all(scopes.get())
+                cleanup_remove(guard)
+                scope_close(workers, true)
+                return err(E.from({ ..e, notes, original: Option.none }))
+            },
+        }
+    }
+    let view = plan.view
+    let registered = sys_started(plan.labels(), list.map(plan.nodes, fn(n) { n.provider }))
+    registration.set(registered)
+    let r = body({
+        ..view(outputs),
+        brand: identity<Int, Brand<Unit>>(0),
+        started: plan.labels(),
+        wait_for_shutdown: fn() -> Result<Unit, Error> {
+            sys_wait_shutdown()
+            ok(())
+        },
+    })
+    sys_stopping(registered, false)
+    let notes = halt_all(scopes.get())
+    cleanup_remove(guard)
+    scope_close(workers, true)
+    sys_stopping(registered, true)
+    match r {
+        .ok(v) => if list.len(notes) == 0 {
+            ok(v)
+        } else {
+            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.none }
+            err(E.from(failure))
+        },
+        // a cleanup failure after a failed body keeps the original attached
+        .err(e) => if list.len(notes) == 0 {
+            err(e)
+        } else {
+            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.some(e.display()) }
+            err(E.from(failure))
+        },
+    }
+}

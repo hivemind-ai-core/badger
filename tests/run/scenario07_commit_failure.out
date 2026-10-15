@@ -1,0 +1,4 @@
+commit error: database: sqlite/commit: FOREIGN KEY constraint failed
+committed: true
+callback error: validation: rejected by the callback
+rows: {"n":1}

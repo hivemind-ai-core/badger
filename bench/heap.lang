@@ -1,0 +1,70 @@
+// Allocation rate, collection count, and stop-the-world pauses with a
+// retained working set; task spawn cost; cancellation latency under
+// backpressure.
+import std.io
+import std.time
+import std.task
+import std.channel
+import std.inspect
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+    stop(message: String),
+} derive(Error)
+
+impl From<channel.ConfigError> for AppError {
+    fn from(e: channel.ConfigError) -> AppError { AppError.config(e) }
+}
+
+impl From<channel.SendError<Int>> for AppError {
+    fn from(e: channel.SendError<Int>) -> AppError { AppError.send(e) }
+}
+
+impl From<io.Error> for AppError {
+    fn from(e: io.Error) -> AppError { AppError.io(e) }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let n = 3000000
+    var window: List<{ id: Int, name: String }> = []
+    var t = time.now()
+    for i in 0..n {
+        let r = { id: i, name: "item" }
+        window = if window.len() >= 2000 { [r] } else { window.append(r) }
+    }
+    let elapsed = time.now() - t
+    io.println($"allocate {n} records: {time.as_nanos(elapsed) / n} ns/record")?
+    io.println($"heap after: {inspect.heap()}")?
+
+    let tasks = 20000
+    t = time.now()
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        for i in 0..tasks {
+            let _ = s.spawn(fn() -> Int { i })
+        }
+        ok(())
+    })?
+    io.println($"spawn+join: {time.as_nanos(time.now() - t) / tasks} ns/task")?
+
+    // producers blocked on a full channel; the scope's error cancels them
+    let full = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let cancel_started = Cell.new(time.now())
+    let r = task.scope(fn(s) -> Result<Unit, AppError> {
+        for _ in 0..100 {
+            let _ = s.spawn(fn() -> Result<Unit, AppError> {
+                loop {
+                    full.sender.send(1)?
+                }
+            })
+        }
+        task.sleep(10ms)
+        cancel_started.set(time.now())
+        err(AppError.stop("stop"))
+    })
+    let settled = time.now() - cancel_started.get()
+    assert(r.is_err())
+    io.println($"cancel 100 blocked producers: {time.as_nanos(settled) / 1000} us to settle")?
+    ok(())
+}

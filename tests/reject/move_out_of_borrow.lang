@@ -1,0 +1,5 @@
+// expect-error: E0404
+// A borrowed parameter does not acquire ownership.
+import std.list
+fn keep(b: &ListBuilder<Int>) -> Unit { let _ = b.finish() }
+pub fn main() -> Unit {}

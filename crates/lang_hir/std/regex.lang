@@ -1,0 +1,13 @@
+// Regular expressions.
+
+extern "intrinsic" fn regex_is_match(pattern: String, text: String) -> Bool
+extern "intrinsic" fn regex_captures(pattern: String, text: String) -> Result<List<String>, String>
+extern "intrinsic" fn regex_replace_all(pattern: String, text: String, replacement: String) -> String
+extern "intrinsic" fn regex_find_all(pattern: String, text: String) -> List<String>
+
+pub fn is_match(pattern: String, text: String) -> Bool { regex_is_match(pattern, text) }
+/// Capture groups of the first match (group 0 is the whole match); an
+/// invalid pattern is an error.
+pub fn captures(pattern: String, text: String) -> Result<List<String>, String> { regex_captures(pattern, text) }
+pub fn replace_all(pattern: String, text: String, replacement: String) -> String { regex_replace_all(pattern, text, replacement) }
+pub fn find_all(pattern: String, text: String) -> List<String> { regex_find_all(pattern, text) }

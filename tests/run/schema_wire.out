@@ -1,0 +1,9 @@
+{"name":"x","shape":{"circle":{"r":2}},"tags":["a"]}
+{"full_name":"x","shape":{"round":{"radius":2}},"tags":["a"]}
+{"full_name":"x","shape":"none","tags":["a"]}
+decoded old
+decoded new
+error $.shape: unknown variant `circle`
+error $.name: missing required field
+{"version":2,"schema":{"record":"P","fields":{"full_name":"String","shape":{"enum":"Shape","variants":{"round":{"radius":"I64"},"square":{"side":"I64"},"none":{}}},"tags":{"list":"String"}}}}
+plain plain

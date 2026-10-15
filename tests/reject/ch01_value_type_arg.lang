@@ -1,0 +1,6 @@
+// expect-error: E0003
+fn id<T>(v: T) -> T { v }
+pub fn main() {
+    let x = 1
+    let y = id<x>(1)
+}

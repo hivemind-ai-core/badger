@@ -1,0 +1,21 @@
+[package]
+name = "lang_mir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+lang_base.workspace = true
+lang_hir.workspace = true
+lang_typeck.workspace = true
+lang_runtime.workspace = true
+index_vec.workspace = true
+la-arena.workspace = true
+rustc-hash.workspace = true
+petgraph.workspace = true
+smallvec.workspace = true
+bumpalo.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

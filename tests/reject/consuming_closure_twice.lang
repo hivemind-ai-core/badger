@@ -1,0 +1,9 @@
+// expect-error: E0404
+// A closure that consumes a captured builder can be called once.
+import std.list
+pub fn main() -> Unit {
+    let b = list.builder<Int>()
+    let f = fn() { let _ = b.finish() }
+    f()
+    f()
+}

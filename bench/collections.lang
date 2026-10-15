@@ -1,0 +1,70 @@
+// Paged list builders and iteration versus contiguous buffers; persistent
+// map insertion and lookup.
+import std.io
+import std.time
+import std.list
+import std.buffer
+import std.map
+
+fn report(label: String, n: Int, t: Duration, check: Int) -> Result<Unit, io.Error> !{Io} {
+    io.println($"{label}: {time.as_nanos(t) / n} ns/op (check {check})")
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 2000000
+
+    var t = time.now()
+    let b = list.builder<Int>()
+    for i in 0..n {
+        b.append(i)
+    }
+    let items = b.finish()
+    report("paged list append", n, time.now() - t, items.len())?
+
+    var sum = 0
+    t = time.now()
+    for x in items {
+        sum = sum + x
+    }
+    report("paged list iterate", n, time.now() - t, sum)?
+
+    sum = 0
+    t = time.now()
+    for page in items.chunks() {
+        for x in page {
+            sum = sum + x
+        }
+    }
+    report("paged list iterate by chunk", n, time.now() - t, sum)?
+
+    t = time.now()
+    var buf = buffer.with_capacity<Int>(16)
+    for i in 0..n {
+        buf.push(i)
+    }
+    let arr = buf.freeze()
+    report("buffer push (contiguous growth)", n, time.now() - t, arr.len())?
+
+    sum = 0
+    t = time.now()
+    for x in arr {
+        sum = sum + x
+    }
+    report("array iterate", n, time.now() - t, sum)?
+
+    let m_n = 200000
+    t = time.now()
+    var m: Map<Int, Int> = map.empty()
+    for i in 0..m_n {
+        m = m.insert(i, i * 2)
+    }
+    report("persistent map insert", m_n, time.now() - t, m.len())?
+
+    sum = 0
+    t = time.now()
+    for i in 0..m_n {
+        sum = sum + m.get(i).unwrap_or(0)
+    }
+    report("map lookup", m_n, time.now() - t, sum)?
+    ok(())
+}

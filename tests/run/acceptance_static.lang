@@ -1,0 +1,84 @@
+// Accepted static cases: N03, R01, R04, R05, R07, E01, P01, P04, P05.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+// N03: lowercase variant under an uppercase type.
+enum Reply {
+    ok(value: Int),
+}
+
+// R01: a field-reading function accepts extra fields and keeps the shape.
+fn name_of(p) { p.name }
+fn touch(p) { { ..p, seen: true } }
+
+// R05: exact record to transparent public struct.
+pub struct Point {
+    pub x: Int,
+    pub y: Int,
+}
+
+fn origin() -> Point {
+    let r = { x: 0, y: 0 }
+    r
+}
+
+// E01: `?` with one declared direct conversion.
+pub enum AppError {
+    parse(source: String),
+} derive(Error, From)
+
+fn parse(s: String) -> Result<Int, String> {
+    if s == "42" { ok(42) } else { err($"bad number {s}") }
+}
+
+fn convert(s: String) -> Result<Int, AppError> {
+    let v = parse(s)?
+    ok(v + 1)
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let r = Reply.ok(1)
+    match r {
+        .ok(v) => { let _ = io.println(v) },
+    }
+    let full = { name: "Ada", age: 36, needs_glasses: false }
+    let _ = io.println(name_of(full))
+    let t = touch(full)
+    let _ = io.println(t.age)
+    // R04: equal closed shapes in different field order
+    let a = { x: 1, y: "y" }
+    let b = { y: "y", x: 1 }
+    let _ = io.println(a == b)
+    let p = origin()
+    let _ = io.println(p.x + p.y)
+    // R07: dotted update preserves nested unknown fields
+    let person = { name: "Ada", address: { city: "London", zip: "N1" } }
+    let moved = { ..person, address.city: "Cork" }
+    let _ = io.println($"{moved.address.city} {moved.address.zip}")
+    let _ = io.println(convert("42")?)
+    match convert("x") {
+        .ok(_) => (),
+        .err(e) => { let _ = io.println(e) },
+    }
+    // P01, P04, P05: later stage reads earlier field; leave updates a
+    // visible field; early stop unwinds only established prefixes.
+    let process = pipeline.compile(pipeline {
+        pipeline.stage({
+            name: :t/first,
+            enter: fn(ctx) { pipeline.next({ ..ctx, hits: 1 }) },
+            leave: fn(ctx, reply) { pipeline.leave({ ..ctx, hits: ctx.hits + 1 }, reply + ctx.hits) },
+        }),
+        pipeline.stage({
+            name: :t/second,
+            enter: fn(ctx) {
+                if ctx.id < 0 { return pipeline.stop(ctx, -1) }
+                pipeline.next({ ..ctx, doubled: ctx.hits * 2 })
+            },
+        }),
+        handle(fn(ctx) -> Result<Int, AppError> { ok(ctx.id + ctx.doubled) }),
+    })
+    let _ = io.println(process({ id: 10 })?)
+    let _ = io.println(process({ id: -5 })?)
+    ok(())
+}

@@ -1,0 +1,42 @@
+// Lossless and checked conversions, checked and wrapping arithmetic.
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let small: I32 = 40000
+    let wide = Int.from(small)
+    io.println(wide * 100000)?
+    let byte: U8 = 200
+    io.println(I16.from(byte))?
+    io.println(Float.from(small) / 3.0)?
+
+    match U8.try_from(300) {
+        .ok(v) => io.println($"fits {v}")?,
+        .err(e) => io.println($"error: {e}")?,
+    }
+    match U8.try_from(255) {
+        .ok(v) => io.println($"fits {v}")?,
+        .err(e) => io.println($"error: {e}")?,
+    }
+    let neg: I8 = -1
+    io.println(U64.try_from(neg).is_err())?
+    let big: U64 = 18446744073709551615
+    io.println(Int.try_from(big).is_err())?
+
+    let max: I32 = 2147483647
+    io.println(max.checked_add(1).is_err())?
+    io.println(max.checked_sub(1).unwrap_or(0))?
+    io.println(max.wrapping_add(1))?
+    let m: U8 = 250
+    io.println(m.wrapping_mul(2))?
+    let ten = 10
+    match ten.checked_div(0) {
+        .ok(_) => io.println("divided")?,
+        .err(e) => io.println(e)?,
+    }
+    let lo: I64 = -9223372036854775807 - 1
+    io.println(lo.checked_div(-1).is_err())?
+    io.println(lo.checked_mul(2).is_err())?
+    io.println((-5).abs())?
+    io.println(3.max(9))?
+    ok(())
+}

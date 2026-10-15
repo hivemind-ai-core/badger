@@ -1,0 +1,5 @@
+import textutil.words
+
+pub fn summary(items: List<String>) -> String {
+    $"{items.len()} items, {words.total_length(items)} characters"
+}

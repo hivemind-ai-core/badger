@@ -1,0 +1,51 @@
+// Losing sends of a selection keep their owned payloads; received affine
+// messages are consumed inside a loop.
+import std.buffer
+import std.channel
+import std.io
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn consume(b: Buffer<Int>) -> Int { b.len() }
+
+pub fn main() -> Result<Unit, AppError> {
+    let full = channel.create<Buffer<Int>>({ ..channel.defaults, capacity: 0 })?
+    let open = channel.create<Buffer<Int>>({ ..channel.defaults, capacity: 1 })?
+    let b1 = buffer.new<Int>()
+    b1.push(1)
+    let b2 = buffer.new<Int>()
+    b2.push(2)
+    b2.push(3)
+    let (sel, unsent) = channel.select_keep([channel.Op.send(full.sender, b1), channel.Op.send(open.sender, b2)], some(5ms))
+    match sel {
+        .sent(i) => io.println($"sent on {i}")?,
+        _ => io.println("other")?,
+    }
+    for b in unsent {
+        io.println($"kept a buffer of {b.len()}")?
+    }
+    open.sender.close()
+    var t = 0
+    loop {
+        match open.receiver.recv() {
+            .some(b) => { t = t + consume(b) },
+            .none => { break },
+        }
+    }
+    io.println($"received {t} items")?
+    // heterogeneous choose: a losing send gives its value back
+    let kept = Cell.new(0)
+    let b3 = buffer.new<Int>()
+    b3.push(9)
+    let other = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let _ = other.sender.send(5)
+    let r = channel.choose([
+        channel.on_recv(other.receiver, fn(m: Option<Int>) -> Int { m.unwrap_or(0) }),
+        channel.on_send_keep(full.sender, b3, fn() -> Int { -1 }, fn(b: Buffer<Int>) { kept.set(b.len()) }),
+    ], some(5ms))
+    io.println($"choose gave {r.unwrap_or(0)}, kept {kept.get()}")?
+    ok(())
+}

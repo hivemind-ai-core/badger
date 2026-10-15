@@ -1,0 +1,50 @@
+// Parenthesized comparisons are operands; keyword-named methods and
+// variants; a call's expected numeric result reaches inferred operands;
+// polymorphically recursive types.
+import std.io
+
+struct S {
+    v: Int,
+}
+
+impl S {
+    pub fn match (self: &Self) -> Int { self.v }
+}
+
+enum E {
+    return,
+    loop (x: Int),
+}
+
+enum Nested<T> {
+    flat(v: T),
+    nest(inner: Box<Nested<List<T>>>),
+}
+
+fn depth<T>(n: Nested<T>) -> Int {
+    match n {
+        .flat(_) => 0,
+        .nest(b) => 1 + depth(b.get()),
+    }
+}
+
+fn add(a, b) { a + b }
+
+fn take(x: U8) -> U8 { x }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a = 1
+    let b = 2
+    io.println($"{(a < b) == true} {(1 == 2) != (3 == 3)}")?
+    let s: S = { v: 4 }
+    let e = E.loop (3)
+    let k = match e {
+        .return => 0,
+        .loop (x) => x,
+    }
+    io.println($"{s.match()} {k}")?
+    io.println(take(add(1, 2)))?
+    let n: Nested<Int> = Nested.nest(Box.new(Nested.nest(Box.new(Nested.flat([[1]])))))
+    io.println(depth(n))?
+    ok(())
+}

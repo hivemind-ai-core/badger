@@ -1,0 +1,5 @@
+// expect-error: E0403
+// Functions have no `Data` encoding.
+pub fn main() -> Unit {
+    let d: Data = { name: "x", run: fn(x: Int) -> Int { x } }
+}

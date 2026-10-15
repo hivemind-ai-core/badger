@@ -1,0 +1,43 @@
+// Declared foreign adapter contracts: `blocking` calls run on the bounded
+// blocking pool while the task parks (other tasks keep running on the
+// worker), and `pinned` calls always run on one dedicated OS thread.
+import std.io
+import std.task
+import std.time
+
+extern "c blocking" fn usleep(micros: U32) -> I32
+extern "c pinned" fn pthread_self() -> U64
+extern "c" fn getpid() -> I32
+
+pub fn main() -> Result<Unit, io.Error> {
+    let started = time.now()
+    let ticks = Atom.new(0)
+    let r = task.scope(fn(s) -> Result<Unit, io.Error> {
+        // four 150 ms blocking sleeps overlap on the pool
+        for _ in 0..4 {
+            let _ = s.spawn(fn() {
+                let _ = unsafe { usleep(150000) }
+            })
+        }
+        // the worker stays free meanwhile
+        let _ = s.spawn(fn() {
+            for _ in 0..5 {
+                let _ = ticks.update(fn(n: Int) -> Int { n + 1 })
+                task.sleep(10ms)
+            }
+        })
+        ok(())
+    })
+    r?
+    let elapsed = time.as_millis(time.now() - started)
+    io.println($"blocking calls overlapped: {elapsed < 450}, worker ticked {ticks.get()} times")?
+    // pinned calls share one OS thread, whichever task makes them
+    let ids = task.scope(fn(s) -> Result<List<U64>, io.Error> {
+        let a = s.spawn(fn() -> U64 { unsafe { pthread_self() } })
+        let b = s.spawn(fn() -> U64 { unsafe { pthread_self() } })
+        ok([a.join(), b.join(), unsafe { pthread_self() }])
+    })?
+    io.println($"pinned thread is stable: {ids[0] == ids[1] && ids[1] == ids[2]}")?
+    io.println($"inline call works: {unsafe { getpid() } > 0}")?
+    ok(())
+}

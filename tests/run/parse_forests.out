@@ -1,0 +1,8 @@
+productions: ambiguous=false
+forest: {"ambiguous":true,"cyclic":false,"nodes":[{"alternatives":[[{"node":4},{"end":2,"start":1,"token":"-"},{"node":5}],[{"node":2},{"end":4,"start":3,"token":"-"},{"node":1}]],"end":5,"id":0,"rule":"e","start":0},{"alternatives":[[{"end":5,"start":4,"token":"3"}]],"end":5,"id":1,"rule":"e","start":4},{"alternatives":[[{"node":4},{"end":2,"start":1,"token":"-"},{"node":3}]],"end":3,"id":2,"rule":"e","start":0},{"alternatives":[[{"end":3,"start":2,"token":"2"}]],"end":3,"id":3,"rule":"e","start":2},{"alternatives":[[{"end":1,"start":0,"token":"1"}]],"end":1,"id":4,"rule":"e","start":0},{"alternatives":[[{"node":3},{"end":4,"start":3,"token":"-"},{"node":1}]],"end":5,"id":5,"rule":"e","start":2}],"root":0}
+trees: 3 shown, truncated=true, cyclic=false
+cyclic grammar: cyclic=true, 1 finite tree(s)
+recovered with 2 error(s)
+  error at 1:9 expected ["/[a-z]+/"]
+  error at 1:17 expected ["/[a-z]+/"]
+strict parse fails at 1:5

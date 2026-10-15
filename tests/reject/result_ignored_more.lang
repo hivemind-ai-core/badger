@@ -1,0 +1,12 @@
+// expect-error: E0337
+// Ignored results: inside a discarded tuple, bound and never read, or
+// overwritten before being read.
+fn fails() -> Result<Int, String> { err("x") }
+
+pub fn main() -> Unit {
+    (fails(), 1)
+    let r = fails()
+    var q = fails()
+    q = fails()
+    ()
+}

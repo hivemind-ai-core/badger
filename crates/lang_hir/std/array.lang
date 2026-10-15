@@ -1,0 +1,64 @@
+// Immutable contiguous arrays: fixed length chosen at construction.
+
+import std.buffer
+
+extern "intrinsic" fn buffer_new<T>(capacity: Int) -> Buffer<T>
+extern "intrinsic" fn buffer_push<T>(b: Buffer<T>, value: T) -> Unit
+extern "intrinsic" fn buffer_freeze<T>(b: Buffer<T>) -> Array<T>
+extern "intrinsic" fn buffer_get<T, C>(b: C, index: Int) -> Option<T>
+extern "intrinsic" fn buffer_len<C>(b: C) -> Int
+extern "intrinsic" fn list_to_array<T>(list: List<T>) -> Array<T>
+
+/// An array of `len` items, initializing item `i` with `init(i)`.
+pub fn build<T>(len: Int, init: fn(Int) -> T) -> Array<T> {
+    let b = buffer_new(len)
+    for i in 0..len {
+        buffer_push(b, init(i))
+    }
+    buffer_freeze(b)
+}
+
+/// Like `build`, but the first error stops construction: the initialized
+/// prefix is destroyed and the error returned.
+pub fn try_build<T, E>(len: Int, init: fn(Int) -> Result<T, E>) -> Result<Array<T>, E> {
+    let b = buffer_new(len)
+    for i in 0..len {
+        match init(i) {
+            .ok(v) => buffer_push(b, v),
+            .err(e) => { return err(e) },
+        }
+    }
+    ok(buffer_freeze(b))
+}
+
+/// Explicit contiguous collection of a paged list (copies the elements).
+pub fn from_list<T>(list: List<T>) -> Array<T> { list_to_array(list) }
+
+/// Collect a sequence into an array.
+pub fn collect<T>(items: Seq<T>) -> Array<T> {
+    let b = buffer_new(0)
+    for x in items {
+        buffer_push(b, x)
+    }
+    buffer_freeze(b)
+}
+
+pub fn empty<T>() -> Array<T> { buffer_freeze(buffer_new(0)) }
+
+pub fn len<T>(a: Array<T>) -> Int { buffer_len(a) }
+
+pub fn get<T>(a: Array<T>, index: Int) -> Option<T> { buffer_get(a, index) }
+
+/// A lazy sequence over an array.
+pub fn of<T>(a: Array<T>) -> Seq<T> {
+    {
+        start: fn() {
+            let i = Cell.new(0)
+            fn() {
+                let k = i.get()
+                i.set(k + 1)
+                buffer_get(a, k)
+            }
+        },
+    }
+}

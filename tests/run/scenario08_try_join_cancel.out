@@ -1,0 +1,3 @@
+plain spawn returned 42
+try_join returned: failed: child failed
+queued while cancelled: 1

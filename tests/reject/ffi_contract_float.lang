@@ -1,0 +1,3 @@
+// expect-error: E0409
+extern "c blocking" fn sqrt(x: F64) -> F64
+pub fn main() {}

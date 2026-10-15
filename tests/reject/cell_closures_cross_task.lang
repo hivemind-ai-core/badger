@@ -1,0 +1,13 @@
+// expect-error: E0402
+// Closures capturing a cell, kept in a list, cannot cross tasks.
+import std.task
+import std.io
+pub fn main() -> Result<Unit, String> {
+    use scope <- task.scope()
+    let c = Cell.new(0)
+    let l = [fn() { c.set(7) }]
+    let child = scope.spawn(fn() { l[0](); ok(()) })
+    let r: Result<Unit, String> = child.join()
+    let _ = io.println(c.get())
+    r
+}

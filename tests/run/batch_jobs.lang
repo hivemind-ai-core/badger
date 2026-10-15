@@ -1,0 +1,46 @@
+import std.channel
+import std.io
+import std.task
+
+type Job = { id: Int, title: String }
+
+pub enum AppError {
+    channel_config(source: channel.ConfigError),
+    send(source: channel.SendError<Job>),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    use endpoints <- channel.open_batch<Job>({
+        ..channel.batch_defaults,
+        capacity: 32,
+        max_batch: 8,
+    })
+    use scope <- task.scope()
+
+    let producer = scope.spawn(fn() -> Result<Unit, AppError> {
+        for id in 0..100 {
+            endpoints.sender.append({ id, title: $"job-{id}" })?
+        }
+        endpoints.sender.close()
+        ok(())
+    })
+
+    let consumer = scope.spawn(fn() -> Result<Unit, AppError> {
+        loop {
+            match endpoints.receiver.recv_batch() {
+                .some(batch) => {
+                    for job in batch.items() {
+                        io.println(job.title)?
+                    }
+                    batch.release()
+                },
+                .none => { break },
+            }
+        }
+        ok(())
+    })
+
+    let _ = scope.try_join(producer, consumer)?
+    ok(())
+}

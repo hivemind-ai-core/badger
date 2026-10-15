@@ -1,0 +1,9 @@
+// expect-error: E0219
+// An implementation provides every method without a default.
+pub protocol Two {
+    fn a(self: &Self) -> Int
+    fn b(self: &Self) -> Int
+}
+struct S { n: Int }
+impl Two for S { fn a(self: &Self) -> Int { 1 } }
+pub fn main() -> Unit {}

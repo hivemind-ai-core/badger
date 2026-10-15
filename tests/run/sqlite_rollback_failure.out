@@ -1,0 +1,4 @@
+code: database
+  database: sqlite/rollback_failed: rollback failed: cannot rollback - no transaction is active
+  sqlite/rollback_failed: rollback failed: cannot rollback - no transaction is active
+  validation: rejected after commit

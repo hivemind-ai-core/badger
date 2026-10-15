@@ -1,0 +1,7 @@
+// Ignoring a Result is diagnosed.
+// expect-error: E0337
+fn fails() -> Result<Int, String> { err("no") }
+pub fn main() -> Unit {
+    fails()
+    let _ = fails()
+}

@@ -1,0 +1,76 @@
+// Fixed-capacity buffers, array construction, map/set builders, and stable
+// element references into paged lists.
+import std.io
+import std.buffer
+import std.array
+import std.list
+import std.map
+import std.set
+import std.seq
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn parse(i: Int) -> Result<Int, String> {
+    if i == 3 { err("bad item 3") } else { ok(i * i) }
+}
+
+fn main() {
+    // fixed-capacity buffer
+    let fb = buffer.fixed<Int>(2)
+    let addr = fb.storage_address()
+    say($"push 1: {fb.push(1).is_ok()}")
+    say($"push 2: {fb.push(2).is_ok()}")
+    match fb.push(3) {
+        .ok(_) => say("unexpected"),
+        .err(e) => say($"push 3: {e} (value {e.value})"),
+    }
+    say($"full {fb.is_full()} stable {fb.storage_address() == addr}")
+    let fa = fb.freeze()
+    say($"frozen {fa.to_list()}")
+
+    // arrays
+    let sq = array.build(4, fn(i) { i * i })
+    say($"build {sq.to_list()}")
+    match array.try_build(5, parse) {
+        .ok(a) => say($"try_build ok {a.len()}"),
+        .err(e) => say($"try_build err {e}"),
+    }
+    match array.try_build(3, parse) {
+        .ok(a) => say($"try_build ok {a.to_list()}"),
+        .err(e) => say($"try_build err {e}"),
+    }
+    let l = list.range(0, 100)
+    let la = l.to_array()
+    say($"to_array {la.len()} {la.get(99).unwrap_or(-1)}")
+    say($"collect {array.collect(seq.range(0, 3)).to_list()}")
+    var s = 0
+    for x in sq { s = s + x }
+    say($"iterate {s}")
+
+    // map/set builders
+    let mb = map.builder<String, Int>()
+    mb.insert("a", 1)
+    mb.insert("b", 2)
+    mb.insert("a", 3)
+    let m = mb.finish()
+    say($"map {m.len()} a={m.get("a").unwrap_or(0)}")
+    let m2 = map.from_list([("x", 1), ("y", 2)])
+    say($"from_list {m2.len()}")
+    let sb = set.builder<Int>()
+    for i in 0..10 { sb.insert(i % 3) }
+    let st = sb.finish()
+    say($"set {st.len()} {st.contains(2)}")
+    say($"set collect {set.collect(seq.range(0, 5)).len()}")
+
+    // stable element refs
+    let b = list.builder<String>()
+    b.append("first")
+    let r = b.element_ref(0)
+    for i in 0..5000 { b.append($"item {i}") }
+    let done = b.finish()
+    say($"ref {r.get()} len {done.len()}")
+    let r2 = done.element_ref(4000)
+    say($"ref2 {r2.get()}")
+}

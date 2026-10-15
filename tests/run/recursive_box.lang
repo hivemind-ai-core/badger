@@ -1,0 +1,38 @@
+// Recursive definitions use `Box<T>` (or a collection) for indirection.
+import std.io
+
+enum Expr {
+    num(value: Int),
+    add(left: Box<Expr>, right: Box<Expr>),
+    mul(left: Box<Expr>, right: Box<Expr>),
+}
+
+struct Tree {
+    label: String,
+    children: List<Tree>,
+}
+
+fn eval(e: Expr) -> Int {
+    match e {
+        .num(v) => v,
+        .add(l, r) => eval(l.get()) + eval(r.get()),
+        .mul(l, r) => eval(l.get()) * eval(r.get()),
+    }
+}
+
+fn size(t: Tree) -> Int {
+    var n = 1
+    for c in t.children {
+        n = n + size(c)
+    }
+    n
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let e = Expr.add(Box.new(Expr.num(2)), Box.new(Expr.mul(Box.new(Expr.num(3)), Box.new(Expr.num(4)))))
+    io.println(eval(e))?
+    let leaf = { label: "leaf", children: [] }
+    let t: Tree = { label: "root", children: [leaf, { label: "mid", children: [leaf] }] }
+    io.println(size(t))?
+    ok(())
+}
