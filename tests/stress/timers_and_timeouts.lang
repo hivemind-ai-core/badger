@@ -1,0 +1,55 @@
+// Stress: many tasks sleep for staggered durations while timeouts race
+// with work finishing. No sleep wakes early, every timed-out task is
+// settled, and every task finishes exactly once.
+import std.io
+import std.task
+import std.time
+
+pub enum AppError {
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let early = Atom.new(0)
+    let finished = Atom.new(0)
+    let n = 60
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let sleepers = (0..n).map(fn(i: Int) {
+            s.spawn(fn() {
+                for k in 0..5 {
+                    let d = 100us * ((i * 7 + k * 3) % 13 + 1)
+                    let start = time.now()
+                    task.sleep(d)
+                    if time.now() - start < d {
+                        let _ = early.update(fn(x: Int) -> Int { x + 1 })
+                    }
+                }
+                let _ = finished.update(fn(x: Int) -> Int { x + 1 })
+            })
+        }).collect()
+        for t in sleepers { t.join() }
+        ok(())
+    })?
+    // timeouts racing with completion: either outcome, never both or neither
+    var completed = 0
+    var timed_out = 0
+    for i in 0..80 {
+        let r = task.timeout(300us * (i % 5 + 1), fn() -> Int {
+            task.sleep(100us * (i % 9 + 1))
+            i
+        })
+        match r {
+            .ok(v) => { if v == i { completed = completed + 1 } },
+            .err(_) => { timed_out = timed_out + 1 },
+        }
+    }
+    if early.get() != 0 {
+        return err(AppError.broken($"{early.get()} sleeps woke early"))
+    }
+    if finished.get() != n || completed + timed_out != 80 {
+        return err(AppError.broken($"finished {finished.get()} of {n}; {completed} + {timed_out} of 80 timeouts"))
+    }
+    io.println("timers and timeouts ok")?
+    ok(())
+}

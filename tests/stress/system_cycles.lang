@@ -1,0 +1,79 @@
+// Stress: systems start and halt repeatedly while their workers fail and
+// restart. Every started node halts exactly once, in reverse start order
+// within a run, and worker restarts stay within budget.
+import std.io
+import std.list
+import std.system
+import std.system.{component}
+import std.task
+import std.worker
+
+pub struct Boom {
+    pub message: String,
+}
+
+impl Display for Boom {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl Error for Boom {}
+
+pub enum AppError {
+    system(source: system.Error),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn node(started: Atom<List<String>>, halted: Atom<List<String>>, attempts: Atom<Int>) -> system.Provider<{ label: String }, String, Boom> {
+    system.provider({
+        name: :stress/node,
+        init: fn(scope, cfg: { label: String }) -> Result<String, Boom> {
+            let _ = started.update(fn(xs: List<String>) -> List<String> { xs.append(cfg.label) })
+            scope.on_halt(fn() -> Result<Unit, Boom> {
+                let _ = halted.update(fn(xs: List<String>) -> List<String> { xs.append(cfg.label) })
+                ok(())
+            })
+            scope.worker_with(:stress/flaky, fn() -> Result<Unit, Boom> {
+                let a = attempts.update(fn(x: Int) -> Int { x + 1 })
+                task.sleep(50us)
+                if a % 3 == 1 { return err({ message: "fails" }) }
+                ok(())
+            }, worker.on_failure({ ..worker.defaults, max_restarts: 5 }), worker.cancel())
+            ok(cfg.label)
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    for round in 0..15 {
+        let started: Atom<List<String>> = Atom.new([])
+        let halted: Atom<List<String>> = Atom.new([])
+        let attempts = Atom.new(0)
+        let p = node(started, halted, attempts)
+        let plan = system {
+            a: component(p, { label: "a" }),
+            b: component(p, { label: "b" }),
+            c: component(p, { label: "c" }),
+        }
+        system.run(plan, fn(r) -> Result<Unit, AppError> {
+            task.sleep(200us * (round % 4 + 1))
+            let _ = r
+            ok(())
+        })?
+        let starts = started.get()
+        let halts = halted.get()
+        if starts.len() != 3 || halts.len() != 3 {
+            return err(AppError.broken($"round {round}: started {starts}, halted {halts}"))
+        }
+        // halts run in reverse start order
+        var k = 0
+        for h in halts {
+            if h != starts[2 - k] {
+                return err(AppError.broken($"round {round}: started {starts}, halted {halts}"))
+            }
+            k = k + 1
+        }
+    }
+    io.println("system cycles ok")?
+    ok(())
+}

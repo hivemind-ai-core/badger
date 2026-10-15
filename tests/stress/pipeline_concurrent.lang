@@ -1,0 +1,60 @@
+// Stress: one compiled pipeline runs concurrently from many tasks; stages
+// see their own context and every request passes every stage once.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+import std.task
+
+type Ctx = { id: Int, hits: Int }
+
+pub enum AppError {
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn counter(name: Symbol, seen: Atom<Int>) -> pipeline.Stage<Ctx, Ctx, String, String> {
+    pipeline.stage({
+        name,
+        enter: fn(ctx: Ctx) -> Result<pipeline.Enter<Ctx, Ctx, String>, String> {
+            let _ = seen.update(fn(n: Int) -> Int { n + 1 })
+            task.yield_now()
+            pipeline.next({ ..ctx, hits: ctx.hits + 1 })
+        },
+        leave: fn(ctx: Ctx, reply: String) -> Result<(Ctx, String), String> {
+            pipeline.leave(ctx, $"{reply}+")
+        },
+    })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let seen = Atom.new(0)
+    let plan = pipeline {
+        counter(:stress/a, seen),
+        counter(:stress/b, seen),
+        counter(:stress/c, seen),
+        handle(fn(ctx: Ctx) -> Result<String, String> { ok($"{ctx.id}:{ctx.hits}") }),
+    }
+    let run = pipeline.compile(plan)
+    let per = 150
+    let bad: Int = task.scope(fn(s) -> Result<Int, AppError> {
+        let ts = (0..12).map(fn(w: Int) {
+            s.spawn(fn() -> Int {
+                var wrong = 0
+                for i in 0..per {
+                    let id = w * 1000 + i
+                    match run({ id, hits: 0 }) {
+                        .ok(r) => { if r != $"{id}:3+++" { wrong = wrong + 1 } },
+                        .err(_) => { wrong = wrong + 1 },
+                    }
+                }
+                wrong
+            })
+        }).collect()
+        ok(ts.fold(0, fn(acc: Int, t) { acc + t.join() }))
+    })?
+    if bad != 0 || seen.get() != 3 * 12 * per {
+        return err(AppError.broken($"{bad} wrong replies; stages entered {seen.get()} times"))
+    }
+    io.println("pipeline concurrent ok")?
+    ok(())
+}
