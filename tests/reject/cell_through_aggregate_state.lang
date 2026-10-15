@@ -1,0 +1,18 @@
+// expect-error: E0501
+// A `!{}` function mutates a caller-visible Cell reached through a struct field / list / Option
+import std.io
+struct H { c: Cell<Int> }
+fn p1(h: H) -> Unit !{} { h.c.set(h.c.get() + 1) }
+fn p2(l: List<Cell<Int>>) -> Unit !{} { l[0].set(l[0].get() + 10) }
+fn p3(o: Option<Cell<Int>>) -> Unit !{} { match o { .some(c) => c.set(c.get() + 100), .none => () } }
+fn p4(r: { c: Cell<Int> }) -> Unit !{} { r.c.set(r.c.get() + 1000) }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let h: H = { c: c }
+    p1(h)
+    p2([c])
+    p3(some(c))
+    p4({ c: c })
+    io.println(c.get())?
+    ok(())
+}

@@ -141,6 +141,9 @@ pub struct Infer<'g, 'a> {
     /// Provider initializers (`fn(InitScope, C)`): their scope and
     /// configuration (with dependency outputs) belong to the running system.
     pub init_lambdas: Vec<ExprId>,
+    /// Locals bound by patterns from a parameter's value: cells reached
+    /// through them are the caller's.
+    pub param_derived: rustc_hash::FxHashSet<LocalId>,
     /// Generalized local `let`s: binding -> (initializer, scheme size, type).
     pub poly_locals: FxHashMap<LocalId, (ExprId, u32, Ty)>,
     /// Instantiation of each use of a generalized local.
@@ -181,6 +184,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             coercions: FxHashMap::default(),
             region_lambdas: vec![],
             init_lambdas: vec![],
+            param_derived: Default::default(),
             poly_locals: FxHashMap::default(),
             callee_ctx: None,
             local_insts: FxHashMap::default(),
@@ -1491,6 +1495,21 @@ impl<'g, 'a> Infer<'g, 'a> {
                 return self.apply(e, ft, args, span, method_span, expected);
             }
         }
+        // a cell reached through a parameter's fields or elements (or bound
+        // from one by a pattern) is the caller's too
+        let recv_ty = self.icx.resolve(&rt);
+        let recv_ty = self.deref(&recv_ty);
+        let user_code = self.module.is_some_and(|m| !self.g.hir.modules[m].is_std);
+        if user_code
+            && !matches!(&self.g.hir.exprs[recv].kind, ExprKind::Local(_))
+            && matches!(self.sym(method), "set" | "get")
+            && self.param_rooted(recv)
+            && matches!(&*recv_ty, TyKind::Con(d, _) if *d == self.b().cell)
+            && let Some(st) = self.intern_existing("State")
+        {
+            let eff = row([(st, unit())], row_empty());
+            self.add_effects(&eff, span);
+        }
         // mutating a cell reached through a borrow is state observable
         // outside this computation
         if let ExprKind::Local(l) = &self.g.hir.exprs[recv].kind
@@ -1503,7 +1522,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             // shared with the caller: reading or writing it is observable
             let shared = match &*lt {
                 TyKind::Ref(_, inner) => is_cell(inner),
-                _ => is_cell(&lt) && self.is_param(*l),
+                _ => is_cell(&lt) && (self.is_param(*l) || self.param_derived.contains(l)),
             };
             if shared
                 && matches!(self.sym(method), "set" | "get")
@@ -2065,6 +2084,29 @@ impl<'g, 'a> Infer<'g, 'a> {
     /// Modeled effects (`Io`, `Wait`, `State`, `Foreign`) of the functions
     /// carried by an argument type, added to the current function.
     /// Whether local `l` is a parameter of the function or lambda binding it.
+    /// Whether a place (`p.c`, `l[0]`, `p`) is rooted in a parameter or a
+    /// local bound from one.
+    fn param_rooted(&self, mut e: ExprId) -> bool {
+        let hir = self.g.hir;
+        loop {
+            match &hir.exprs[e].kind {
+                ExprKind::Local(l) => return self.is_param(*l) || self.param_derived.contains(l),
+                ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => e = *base,
+                ExprKind::Unary { operand, .. } => e = *operand,
+                _ => return false,
+            }
+        }
+    }
+
+    /// Record the locals a pattern binds from a parameter-rooted value.
+    fn note_param_derived(&mut self, source: ExprId, pat: lang_hir::PatId) {
+        if self.param_rooted(source) {
+            let mut ls = vec![];
+            crate::regions::collect(self.g.hir, pat, &mut ls);
+            self.param_derived.extend(ls);
+        }
+    }
+
     fn is_param(&self, l: LocalId) -> bool {
         let hir = self.g.hir;
         let params: &[lang_hir::Param] = match hir.locals[l].owner {
@@ -2205,6 +2247,9 @@ impl<'g, 'a> Infer<'g, 'a> {
         expected: Option<&Ty>,
     ) -> Ty {
         let st = self.infer(scrutinee);
+        for a in arms {
+            self.note_param_derived(scrutinee, a.pat);
+        }
         let t = match expected {
             Some(x) => x.clone(),
             None => self.icx.fresh(),
@@ -2257,6 +2302,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                 }
             }
             Stmt::Let { pat, ty, init, .. } => {
+                self.note_param_derived(*init, *pat);
                 let t = match ty {
                     Some(h) => {
                         let at = self.hty(h);
