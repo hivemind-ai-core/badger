@@ -731,6 +731,10 @@ fn run_bench_reports_execution_time() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "The answer is twelve; 5! is 120\n");
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.starts_with("bench: run ") && err.contains("ms (compilation "), "{err}");
+    // also when the program ends itself with `process.exit`
+    let out = lang().args(["run", "--bench", "tests/runtime/exit_early.lang"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("bench: run "));
 }
 
 /// Receiving a batch allocates its lease object while the batch's

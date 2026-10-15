@@ -1,0 +1,8 @@
+// Ends itself with process.exit (used by the --bench test).
+import std.io
+import std.process
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println("leaving")?
+    process.exit(3)
+}

@@ -130,6 +130,7 @@ os_intrinsics! {
     fn process_exit(ctx, targs, ret, code) {
         use std::io::Write;
         let _ = std::io::stdout().flush();
+        run_exit_hook();
         unsafe { libc::_exit(code as i32) }
     }
     fn process_id(ctx, targs, ret) { std::process::id() as u64 }
@@ -276,4 +277,18 @@ os_intrinsics! {
 #[allow(dead_code)]
 fn unused(ret: &'static TypeDesc) -> u64 {
     io_err_msg(ret, "x", "y")
+}
+
+/// A tool hook run when the program ends itself with `process.exit` (for
+/// example `lang run --bench` reporting the run time).
+static EXIT_HOOK: std::sync::Mutex<Option<Box<dyn Fn() + Send>>> = std::sync::Mutex::new(None);
+
+pub fn set_exit_hook(f: Box<dyn Fn() + Send>) {
+    *EXIT_HOOK.lock().unwrap() = Some(f);
+}
+
+fn run_exit_hook() {
+    if let Some(f) = EXIT_HOOK.lock().unwrap().as_ref() {
+        f();
+    }
 }

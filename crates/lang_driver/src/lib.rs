@@ -580,6 +580,16 @@ fn run_entry(built: Built, bench: Option<std::time::Duration>) -> i32 {
             lang_runtime::task::set_main_args(Some(l));
         }
         let run_start = std::time::Instant::now();
+        if let Some(compile) = bench {
+            // a program ending itself with `process.exit` is reported too
+            lang_runtime::intrinsics_os::set_exit_hook(Box::new(move || {
+                eprintln!(
+                    "bench: run {:.3} ms (compilation {:.3} ms, not included)",
+                    run_start.elapsed().as_secs_f64() * 1e3,
+                    compile.as_secs_f64() * 1e3
+                );
+            }));
+        }
         let exit = lang_codegen::run_main(&built.compiled, &built.prog);
         let ran = run_start.elapsed();
         let code = report_exit(exit, &built.prog);
