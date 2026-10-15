@@ -1,0 +1,35 @@
+// A blocked sender admitted when space opens keeps its byte charge.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<String>),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let ends = channel.create<String>({ capacity: 2, byte_budget: 4 })?
+    let ready = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    ends.sender.send("aaaa")?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let sender = s.spawn(fn() -> Result<Unit, AppError> {
+            let _ = ready.sender.send(1)
+            ends.sender.send("bbbb")?
+            ok(())
+        })
+        let _ = ready.receiver.recv()
+        task.sleep(2ms)
+        let _ = ends.receiver.recv()
+        // The queue holds "bbbb", which consumes all four budgeted bytes.
+        match ends.sender.try_send("cccc") {
+            .ok(_) => io.println("BUG: byte budget exceeded")?,
+            .err(_) => io.println("byte budget respected")?,
+        }
+        sender.join()?
+        ends.receiver.close()
+        ok(())
+    })?
+    ok(())
+}

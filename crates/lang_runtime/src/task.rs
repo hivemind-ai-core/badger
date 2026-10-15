@@ -135,6 +135,8 @@ pub struct Task {
     pub roots: Vec<u64>,
     /// Temporary roots of runtime code running for this task (`gc::Roots`).
     pub temp_roots: Vec<u64>,
+    /// Channels this task is registered with (waiting, watching, leasing).
+    pub chan_regs: Vec<u64>,
     /// Value delivered by the waker (e.g. a received message).
     pub delivered: u64,
     pub delivered_is_ptr: bool,
@@ -574,6 +576,9 @@ pub fn for_each_root(f: &mut dyn FnMut(u64)) {
                 f(w);
             }
         }
+        for &w in &t.chan_regs {
+            f(w);
+        }
         for (_, c) in &t.cleanups {
             if let Cleanup::Closure(w) = c {
                 f(*w);
@@ -627,6 +632,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         scope,
         roots: vec![],
         temp_roots: vec![],
+        chan_regs: vec![],
         delivered: 0,
         delivered_is_ptr: false,
         wait: "",
@@ -1663,7 +1669,7 @@ fn finish(id: TaskId) {
         let objs = std::mem::take(&mut t.on_deschedule);
         h(id, &objs);
     }
-    crate::channel::release_leases_of(id);
+    crate::channel::task_finished(id);
     let t = task(id).unwrap();
     t.state = State::Done;
     t.exit = t.pending_exit.take().or(t.exit.take()).or(Some(Exit::Cancelled));

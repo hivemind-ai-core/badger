@@ -40,7 +40,8 @@ pub struct ChanData {
     pub leases: Vec<(TaskId, u64)>,
     pub recv_waiters: VecDeque<TaskId>,
     /// Waiting senders with their (still owned) values.
-    pub send_waiters: VecDeque<(TaskId, u64)>,
+    /// Parked senders with their values and byte charges.
+    pub send_waiters: VecDeque<(TaskId, u64, usize)>,
     /// Batch producers waiting for capacity.
     pub cap_waiters: VecDeque<TaskId>,
     /// Recycled page buffers (bounded reserve).
@@ -104,7 +105,7 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     d.queue.iter().for_each(|w| f(*w));
     d.batches.iter().flatten().for_each(|w| f(*w));
     d.staging.values().flatten().for_each(|w| f(*w));
-    d.send_waiters.iter().for_each(|(_, w)| f(*w));
+    d.send_waiters.iter().for_each(|(_, w, _)| f(*w));
 }
 
 /// Live channels for inspection: (sequence number, object address).
@@ -376,7 +377,8 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         if !wait {
             return SendResult::Full;
         }
-        d.send_waiters.push_back((me, v));
+        d.send_waiters.push_back((me, v, size));
+        note_waiting(ch);
         task::park_for("channel send");
         let (_, status) = task::take_delivered();
         let d = data(ch);
@@ -384,7 +386,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Sent;
         }
         // not taken: withdraw our reservation (the value is still ours)
-        d.send_waiters.retain(|(t, _)| *t != me);
+        d.send_waiters.retain(|(t, _, _)| *t != me);
         if status == 2 || d.closed {
             return SendResult::Closed;
         }
@@ -433,16 +435,21 @@ pub enum RecvResult {
     Empty,
 }
 
-/// Admit one waiting sender's value after space opens.
+/// Admit one waiting sender's value after space opens, charging its bytes
+/// (a sender whose value does not fit the budget yet keeps waiting, first
+/// in line).
 fn admit_sender(d: &mut ChanData) {
-    while let Some((s, v)) = d.send_waiters.pop_front() {
+    while let Some((s, v, size)) = d.send_waiters.pop_front() {
         if live(s) {
-            if d.capacity == 0 {
+            let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
+            if d.capacity == 0 || !fits || d.queue.len() >= d.capacity {
                 // rendezvous: the receiver takes it directly (handled by caller)
-                d.send_waiters.push_front((s, v));
+                d.send_waiters.push_front((s, v, size));
                 return;
             }
             d.queue.push_back(v);
+            d.bytes += size;
+            d.sizes.push_back(size);
             task::wake_with(s, 0, false, 1);
             return;
         }
@@ -463,7 +470,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Value(v);
         }
         // rendezvous / waiting sender with capacity zero
-        while let Some((s, v)) = d.send_waiters.pop_front() {
+        while let Some((s, v, _)) = d.send_waiters.pop_front() {
             if live(s) {
                 task::wake_with(s, 0, false, 1);
                 return RecvResult::Value(v);
@@ -483,6 +490,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
         }
         let me = task::current_id();
         d.recv_waiters.push_back(me);
+        note_waiting(ch);
         task::park_for("channel receive");
         let (v, status) = task::take_delivered();
         if status == 1 {
@@ -515,7 +523,7 @@ pub fn close(ch: u64) {
     for r in std::mem::take(&mut d.recv_waiters) {
         task::wake(r, task::Wake::Normal);
     }
-    for (s, _) in std::mem::take(&mut d.send_waiters) {
+    for (s, _, _) in std::mem::take(&mut d.send_waiters) {
         task::wake_with(s, 0, false, 2);
     }
     wake_capacity(d);
@@ -567,11 +575,13 @@ pub fn flush_due(producer: TaskId, chans: &[u64]) {
 /// Register the current task to be woken when `ch` may have a message.
 pub fn watch_recv(ch: u64) {
     data(ch).recv_watchers.push_back(task::current_id());
+    note_waiting(ch);
 }
 
 /// Register the current task to be woken when `ch` may have space.
 pub fn watch_space(ch: u64) {
     data(ch).space_waiters.push_back(task::current_id());
+    note_waiting(ch);
 }
 
 pub fn unwatch(ch: u64) {
@@ -660,6 +670,7 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
         }
         let d = data(ch);
         d.cap_waiters.push_back(me);
+        note_waiting(ch);
         task::park_for("batch capacity");
     }
 }
@@ -689,6 +700,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
                 *(p.add(8) as *mut u64) = ch;
             }
             data(ch).leases.push((task::current_id(), b));
+            note_waiting(ch);
             return Some(b);
         }
         if d.closed && d.staging.values().all(Vec::is_empty) {
@@ -696,6 +708,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
         }
         let me = task::current_id();
         d.recv_waiters.push_back(me);
+        note_waiting(ch);
         task::park_for("batch receive");
         data(ch).recv_waiters.retain(|t| *t != me);
     }
@@ -729,18 +742,36 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
         }
         let me = task::current_id();
         d.recv_waiters.push_back(me);
+        note_waiting(ch);
         task::park_for("batch receive");
         data(ch).recv_waiters.retain(|t| *t != me);
     }
 }
 
-/// A finished task's unreleased leases return their capacity (a lease is
-/// released by the cleanup of the task that received it).
-#[allow(static_mut_refs)]
-pub fn release_leases_of(id: TaskId) {
-    let chans: Vec<u64> = unsafe { REGISTRY.iter().map(|&(_, w)| w).collect() };
-    for ch in chans {
-        let held: Vec<u64> = data(ch).leases.iter().filter(|(t, _)| *t == id).map(|(_, b)| *b).collect();
+/// Remember that the current task is registered with `ch` (a waiter,
+/// watcher, or lease holder), so its end withdraws the registration.
+fn note_waiting(ch: u64) {
+    if let Some(t) = task::current()
+        && !t.chan_regs.contains(&ch)
+    {
+        t.chan_regs.push(ch);
+    }
+}
+
+/// A finished task leaves the channels it was registered with: a waiter
+/// abandoned by cancellation is withdrawn (with the value it offered), and
+/// its unreleased leases return their capacity (a lease is released by
+/// the cleanup of the task that received it).
+pub fn task_finished(id: TaskId) {
+    let Some(t) = task::task(id) else { return };
+    for ch in std::mem::take(&mut t.chan_regs) {
+        let d = data(ch);
+        d.send_waiters.retain(|(t, _, _)| *t != id);
+        d.recv_waiters.retain(|t| *t != id);
+        d.cap_waiters.retain(|t| *t != id);
+        d.space_waiters.retain(|t| *t != id);
+        d.recv_watchers.retain(|t| *t != id);
+        let held: Vec<u64> = d.leases.iter().filter(|(t, _)| *t == id).map(|(_, b)| *b).collect();
         for b in held {
             release(b);
         }
