@@ -1718,7 +1718,14 @@ impl<'g, 'a> Infer<'g, 'a> {
             }
             BinOp::Pipe => unreachable!("pipes are desugared"),
             _ => {
-                let lt = self.check_opt(lhs, expected);
+                // a known numeric result type guides literal operands; time
+                // arithmetic is not homogeneous (`Instant - Instant` is a
+                // `Duration`), and an unknown one must not be fixed by them
+                let hint = expected.map(|t| self.deref(t)).filter(|t| {
+                    let b = self.b();
+                    matches!(&**t, TyKind::Con(d, _) if b.is_numeric(*d) && *d != b.duration && *d != b.instant)
+                });
+                let lt = self.check_opt(lhs, hint.as_ref());
                 let rt = self.infer(rhs);
                 let out = self.icx.fresh();
                 self.pending.push(Constraint::Arith {

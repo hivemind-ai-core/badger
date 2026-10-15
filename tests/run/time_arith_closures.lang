@@ -1,0 +1,22 @@
+// Time arithmetic infers in unannotated closures; literals still take expected types.
+import std.io
+import std.time
+fn now2() -> Instant { time.now() }
+pub fn main() -> Unit {
+    let start = time.now()
+    let f = fn() { time.now() - start }
+    let g = fn() { now2() - start }
+    let h = fn() { time.now() - 5ms }
+    let k = fn(d: Duration) { d - 1ms }
+    let e: Duration = f()
+    let later: Instant = h()
+    literals()
+    let _ = io.println($"{e < 100ms} {g() < 100ms} {later < time.now()} {k(3ms)}")
+}
+fn literals() -> Unit {
+    let a: U8 = 200 + 50
+    let b: F32 = 1.5 * 2.0
+    let c = fn() -> I16 { 300 * 2 }
+    let d: Duration = 5ms * 2
+    let _ = io.println($"{a} {b} {c()} {d}")
+}

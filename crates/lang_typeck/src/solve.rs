@@ -1207,6 +1207,21 @@ impl Infer<'_, '_> {
                 self.expect(span, out, &l);
                 Step::Solved
             }
+            // time arithmetic is not homogeneous: only an instant takes an
+            // instant on the right, and a duration may follow either
+            (TyKind::Var(_), TyKind::Con(d, _)) if *d == b.instant => {
+                let ins = self.prim(b.instant);
+                self.expect(span, &l, &ins);
+                self.step_arith(op, lhs, rhs, out, span, expr, final_)
+            }
+            (TyKind::Var(_), TyKind::Con(d, _)) if *d == b.duration => {
+                if !final_ {
+                    return Step::Pending;
+                }
+                let dur = self.prim(b.duration);
+                self.expect(span, &l, &dur);
+                self.step_arith(op, lhs, rhs, out, span, expr, final_)
+            }
             (TyKind::Var(_), TyKind::Con(..)) if is_num(&r) => {
                 self.expect(span, &l, &r);
                 self.expect(span, out, &r);
