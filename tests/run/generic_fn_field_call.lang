@@ -1,0 +1,17 @@
+// A struct field whose declared type is a type parameter can be called
+// when the instance makes it a function.
+import std.io
+
+struct Holder<T> {
+    v: T,
+}
+
+fn run(b: Holder<fn(Int) -> Int>) -> Int { b.v(1) + (b.v)(2) }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let h: Holder<fn(Int) -> Int> = { v: fn(x) { x * 10 } }
+    io.println(h.v(4))?
+    io.println((h.v)(5))?
+    io.println(run(h))?
+    ok(())
+}

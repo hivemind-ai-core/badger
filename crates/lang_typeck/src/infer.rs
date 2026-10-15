@@ -1424,11 +1424,19 @@ impl<'g, 'a> Infer<'g, 'a> {
         }
         // Struct field holding a function (when no method of that name exists).
         if let TyKind::Con(d, sargs) = &*r
-            && let Some(info) = self.g.env.structs.get(d)
+            && self.g.env.structs.contains_key(d)
         {
-            let has_fn_field = info.fields.iter().any(|f| f.0 == method && matches!(&*f.1, TyKind::Fn(_)));
+            // the field's type at this instance (`v: T` with `T = fn(...)`)
+            let field_ty =
+                self.g.env.struct_fields(*d, sargs).into_iter().find(|f| f.0 == method).map(|f| f.1);
+            let has_fn_field = match field_ty {
+                Some(t) => {
+                    let t = self.icx.resolve(&t);
+                    matches!(&*self.deref(&t), TyKind::Fn(_))
+                }
+                None => false,
+            };
             if has_fn_field && !self.lookup_method_peek(&r, method) {
-                let _ = sargs;
                 let ft = self.field(r.clone(), method, method_span, e);
                 self.record_res(e, Res::Method(Target::Field(method)));
                 return self.apply(e, ft, args, span, method_span, expected);
