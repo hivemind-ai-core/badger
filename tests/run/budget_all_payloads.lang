@@ -1,0 +1,34 @@
+// A channel's byte budget charges every payload shape by its contents:
+// options, enums, buffers, maps, and lists alike.
+import std.io
+import std.buffer
+import std.channel
+import std.text
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+enum Note {
+    text(body: String),
+    empty,
+}
+
+fn big() -> String { text.repeat("x", 1000) }
+
+pub fn main() -> Result<Unit, AppError> {
+    let o = channel.create<Option<String>>({ capacity: 4, byte_budget: 64 })?
+    io.println($"option: {o.sender.try_send(some(big())).is_err()} small {o.sender.try_send(some("hi")).is_ok()}")?
+    let e = channel.create<Note>({ capacity: 4, byte_budget: 64 })?
+    io.println($"enum: {e.sender.try_send(Note.text(big())).is_err()} small {e.sender.try_send(Note.empty).is_ok()}")?
+    let bufs = channel.create<Buffer<Int>>({ capacity: 4, byte_budget: 64 })?
+    let b = buffer.new<Int>()
+    for i in 0..100 {
+        b.push(i)
+    }
+    io.println($"buffer: {bufs.sender.try_send(b).is_err()}")?
+    let m = channel.create<Map<String, String>>({ capacity: 4, byte_budget: 64 })?
+    io.println($"map: {m.sender.try_send(map { "k" => big() }).is_err()}")?
+    ok(())
+}

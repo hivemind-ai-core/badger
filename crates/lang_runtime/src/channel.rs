@@ -274,6 +274,52 @@ pub fn admission_size(d: &TypeDesc, w: u64) -> usize {
                 }
             })
             .sum(),
+        // an enum (`Option`, `Result`, user enums): its tag and the chosen
+        // variant's fields
+        Kind::Enum { .. } => {
+            let (tag, fields) = crate::enum_parts(w);
+            let v = d.variant(tag);
+            4 + v
+                .map(|v| {
+                    v.fields
+                        .iter()
+                        .zip(fields)
+                        .map(
+                            |(f, x)| {
+                                if f.desc.is_ptr() {
+                                    admission_size(f.desc, x)
+                                } else {
+                                    f.repr.size() as usize
+                                }
+                            },
+                        )
+                        .sum::<usize>()
+                })
+                .unwrap_or(0)
+        }
+        // maps and sets: their keys and values
+        Kind::Map { key, val } => crate::map::entries(w)
+            .into_iter()
+            .map(|(k, v)| {
+                let ks = if key.is_ptr() { admission_size(key, k) } else { key.repr().size() as usize };
+                let vs = if val.is_ptr() { admission_size(val, v) } else { val.repr().size() as usize };
+                ks + vs
+            })
+            .sum(),
+        Kind::Set { elem } => crate::map::entries(w)
+            .into_iter()
+            .map(|(k, _)| if elem.is_ptr() { admission_size(elem, k) } else { elem.repr().size() as usize })
+            .sum(),
+        // a buffer's (or array's) elements
+        _ if d.is_ptr() && w != 0 && crate::buffer::is_buffer(w) => {
+            let b = crate::buffer::data(w);
+            let elem = b.elem;
+            b.items
+                .clone()
+                .into_iter()
+                .map(|x| if elem.is_ptr() { admission_size(elem, x) } else { elem.repr().size() as usize })
+                .sum()
+        }
         _ => d.repr().size() as usize,
     }
 }
