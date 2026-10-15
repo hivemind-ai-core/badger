@@ -1,0 +1,41 @@
+// Four independent producer/consumer pairs (200,000 messages): runtime
+// contention between workers that share nothing (from the runtime audit).
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn pair() -> Result<Int, AppError> {
+    let ends = channel.create<Int>({ ..channel.defaults, capacity: 256 })?
+    task.scope(fn(s) -> Result<Int, AppError> {
+        let producer = s.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..50000 { ends.sender.send(i)? }
+            ends.sender.close()
+            ok(())
+        })
+        var sum = 0
+        loop {
+            match ends.receiver.recv() {
+                .some(v) => { sum = sum + v },
+                .none => { break },
+            }
+        }
+        producer.join()?
+        ok(sum)
+    })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let handles = (0..4).map(fn(_: Int) { s.spawn(fn() { pair() }) }).collect()
+        for h in handles { assert(h.join()? == 1249975000) }
+        ok(())
+    })?
+    io.println("four independent pairs: 200000 messages conserved")?
+    ok(())
+}

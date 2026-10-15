@@ -1,0 +1,27 @@
+// Four tasks allocating with bounded retained windows: allocation and
+// collection contention between workers (from the runtime audit).
+import std.io
+import std.inspect
+import std.task
+
+pub fn main() -> Result<Unit, io.Error> {
+    let total = task.scope(fn(s) -> Result<Int, io.Error> {
+        let handles = (0..4).map(fn(k: Int) {
+            s.spawn(fn() -> Int {
+                var window: List<{ id: Int, name: String }> = []
+                for i in 0..200000 {
+                    let r = { id: i + k, name: "item" }
+                    window = if window.len() >= 256 { [r] } else { window.append(r) }
+                }
+                window.len()
+            })
+        }).collect()
+        var sum = 0
+        for h in handles { sum = sum + h.join() }
+        ok(sum)
+    })?
+    assert(total == 256)
+    io.println($"retained records: {total}")?
+    io.println($"heap: {inspect.heap()}")?
+    ok(())
+}

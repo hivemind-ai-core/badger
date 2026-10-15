@@ -386,17 +386,17 @@ impl Session {
     }
 
     fn check_one(&mut self, path: &Path) -> Outcome {
-        let Some(loaded) = self.load(path) else { return Outcome::Errors };
+        let Some(loaded) = timed("parse", || self.load(path)) else { return Outcome::Errors };
         if self.diagnostics.has_errors() {
             return Outcome::Errors;
         }
-        let hir = self.lower(&loaded);
+        let hir = timed("resolve", || self.lower(&loaded));
         if self.diagnostics.has_errors() {
             // name errors also report their module and enclosing definition
             self.annotate_scopes(&hir);
             return Outcome::Errors;
         }
-        let (checked, diags) = lang_typeck::check_program(&hir, &self.interner);
+        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
         self.diagnostics.extend(diags);
         // a project's entry points: the function the tool runs exists and
         // takes no parameters or the arguments as `List<String>`
@@ -625,7 +625,7 @@ impl Session {
     /// Check and compile a program (every phase up to native code).
     pub fn build(&mut self, path: &Path, opts: &RunOptions) -> Result<Built, Outcome> {
         let (prog, files, types) = self.lower_to_mir(path, opts)?;
-        let compiled = match lang_codegen::compile(&prog, opts.optimize) {
+        let compiled = match timed("codegen", || lang_codegen::compile(&prog, opts.optimize)) {
             Ok(c) => c,
             Err(e) => {
                 self.diagnostics
@@ -643,22 +643,23 @@ impl Session {
         path: &Path,
         opts: &RunOptions,
     ) -> Result<(lang_mir::Program, Vec<PathBuf>, String), Outcome> {
-        let loaded = self.load(path).ok_or(Outcome::Errors)?;
+        let loaded = timed("parse", || self.load(path)).ok_or(Outcome::Errors)?;
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
-        let hir = self.lower(&loaded);
+        let hir = timed("resolve", || self.lower(&loaded));
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
-        let (checked, diags) = lang_typeck::check_program(&hir, &self.interner);
+        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
         self.diagnostics.extend(diags);
         annotate_scopes(&self.interner, &mut self.sources, &mut self.diagnostics, &hir);
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
         let entry_fn = entry_fn();
-        let (mut prog, errors) = lang_mir::lower_program(&checked.g, &self.sources, opts.tests, &entry_fn);
+        let (mut prog, errors) =
+            timed("lower", || lang_mir::lower_program(&checked.g, &self.sources, opts.tests, &entry_fn));
         for e in errors {
             self.diagnostics
                 .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
@@ -828,7 +829,7 @@ impl Session {
         if opts.dump_mir {
             eprintln!("{}", lang_mir::mir::dump(&prog));
         }
-        let compiled = match lang_codegen::compile(&prog, opts.optimize) {
+        let compiled = match timed("codegen", || lang_codegen::compile(&prog, opts.optimize)) {
             Ok(c) => c,
             Err(e) => {
                 self.diagnostics
@@ -901,6 +902,19 @@ fn apply_runtime_setting(k: &str, v: &str) {
         }
         _ => {}
     }
+}
+
+/// `LANG_TIMINGS=1`: report each compiler phase's duration on stderr
+/// (`[timings] typecheck: 12.345 ms`).
+pub fn timed<T>(phase: &str, f: impl FnOnce() -> T) -> T {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if !*ON.get_or_init(|| std::env::var_os("LANG_TIMINGS").is_some_and(|v| v == "1")) {
+        return f();
+    }
+    let start = std::time::Instant::now();
+    let r = f();
+    eprintln!("[timings] {phase}: {:.3} ms", start.elapsed().as_secs_f64() * 1e3);
+    r
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1072,11 +1086,11 @@ impl Session {
     /// module (`lang explain type|effect`).
     pub fn explain_def(&mut self, path: &Path, name: &str) -> Option<(String, String)> {
         let loaded = self.load(path)?;
-        let hir = self.lower(&loaded);
+        let hir = timed("resolve", || self.lower(&loaded));
         if self.diagnostics.has_errors() {
             return None;
         }
-        let (checked, diags) = lang_typeck::check_program(&hir, &self.interner);
+        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
         self.diagnostics.extend(diags);
         let entry = hir.entry?;
         let sym = self.interner.intern(name);

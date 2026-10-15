@@ -23,4 +23,15 @@ target/release/lang run --release --workers 4 bench/parallel.lang
 | `runtime.lang` | call cost with scalar frames vs frames holding rooted pointers, deep recursion, and shutdown under failure (a body defect with 200 parked tasks and 8 resources: time to settle and run every halt) |
 | `parallel.lang` | CPU-bound tasks across worker threads (compare `--workers 1` and `--workers 4`) |
 
+| `independent_channels.lang` | four producer/consumer pairs sharing nothing: runtime contention between workers |
+| `parallel_alloc.lang` | four allocating tasks with bounded retained windows: allocation and collection contention |
+
 `cargo test` only checks that these programs compile.
+
+## Baseline
+
+`python3 bench/baseline.py --out reports/benchmarks/NAME` records a
+reproducible baseline (writes `NAME.json` and `NAME.md`): compiler phase
+times (`LANG_TIMINGS=1`) for every program and generated programs of 50,
+200, and 800 functions; binary MIR size and load time; and every program's
+`--bench` run time on 1, 2, 4, and 8 workers, as medians of fresh runs.
