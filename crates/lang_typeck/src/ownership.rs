@@ -184,51 +184,91 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
                     _ => None,
                 })
                 .collect();
-            // locals bound from a parameter's value (`for g in gs`, `let`,
-            // `match`) stand for that parameter
-            let mut derived: FxHashMap<LocalId, usize> = FxHashMap::default();
-            let root_param = |e: ExprId, derived: &FxHashMap<LocalId, usize>| -> Option<usize> {
-                let mut x = e;
-                loop {
-                    match &hir.exprs[x].kind {
-                        ExprKind::Local(l) => {
-                            return params
-                                .iter()
-                                .position(|p| *p == Some(*l))
-                                .or_else(|| derived.get(l).copied());
-                        }
-                        ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => x = *base,
-                        ExprKind::MethodCall { recv, .. } => x = *recv,
-                        _ => return None,
-                    }
+            // locals computed from a parameter's value (`for g in gs`,
+            // `let`, `match`, `var` assignments, closures over it) stand for
+            // that parameter, when their type can carry a closure or other
+            // confined state (plain data computed from it cannot)
+            let mut derived: FxHashMap<LocalId, Vec<usize>> = FxHashMap::default();
+            let param_of = |l: LocalId, derived: &FxHashMap<LocalId, Vec<usize>>| -> Vec<usize> {
+                match params.iter().position(|p| *p == Some(l)) {
+                    Some(i) => vec![i],
+                    None => derived.get(&l).cloned().unwrap_or_default(),
                 }
             };
-            for _ in 0..2 {
-                crate::program::walk_exprs(hir, body, &mut |e| {
-                    let binds: Vec<(PatId, ExprId)> = match &hir.exprs[e].kind {
-                        ExprKind::For { pat, iter, .. } => vec![(*pat, *iter)],
-                        ExprKind::Match { scrutinee, arms } => {
-                            arms.iter().map(|a| (a.pat, *scrutinee)).collect()
-                        }
-                        ExprKind::Block { stmts, .. } => stmts
-                            .iter()
-                            .filter_map(|s| match s {
-                                Stmt::Let { pat, init, .. } => Some((*pat, *init)),
-                                _ => None,
-                            })
-                            .collect(),
+            let mentions = |e: ExprId, derived: &FxHashMap<LocalId, Vec<usize>>| -> Vec<usize> {
+                let mut out: Vec<usize> = vec![];
+                crate::program::walk_exprs(hir, e, &mut |x| {
+                    let ls: Vec<LocalId> = match &hir.exprs[x].kind {
+                        ExprKind::Local(l) => vec![*l],
+                        ExprKind::Lambda(lam) => lam.captures.clone(),
                         _ => vec![],
                     };
-                    for (pat, src) in binds {
-                        if let Some(pi) = root_param(src, &derived) {
-                            let mut ls = vec![];
-                            pat_locals(hir, pat, &mut ls);
-                            for l in ls {
-                                derived.insert(l, pi);
+                    for l in ls {
+                        for i in param_of(l, derived) {
+                            if !out.contains(&i) {
+                                out.push(i);
                             }
                         }
                     }
                 });
+                out
+            };
+            loop {
+                let mut grew = false;
+                let mut binds: Vec<(Vec<LocalId>, ExprId)> = vec![];
+                crate::program::walk_exprs(hir, body, &mut |e| match &hir.exprs[e].kind {
+                    ExprKind::For { pat, iter, .. } => {
+                        let mut ls = vec![];
+                        pat_locals(hir, *pat, &mut ls);
+                        binds.push((ls, *iter));
+                    }
+                    ExprKind::Match { scrutinee, arms } => {
+                        for a in arms {
+                            let mut ls = vec![];
+                            pat_locals(hir, a.pat, &mut ls);
+                            binds.push((ls, *scrutinee));
+                        }
+                    }
+                    ExprKind::Block { stmts, .. } => {
+                        for s in stmts {
+                            match s {
+                                Stmt::Let { pat, init, .. } => {
+                                    let mut ls = vec![];
+                                    pat_locals(hir, *pat, &mut ls);
+                                    binds.push((ls, *init));
+                                }
+                                Stmt::Assign { local, value, .. } => binds.push((vec![*local], *value)),
+                                Stmt::Expr { .. } => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                });
+                for (ls, src) in binds {
+                    let from = mentions(src, &derived);
+                    if from.is_empty() {
+                        continue;
+                    }
+                    for l in ls {
+                        let carries = inf.locals.get(&l).cloned().is_some_and(|t| {
+                            let t = inf.icx.resolve(&t);
+                            carries_code(inf.g, &t, &mut vec![])
+                        });
+                        if !carries {
+                            continue;
+                        }
+                        let e = derived.entry(l).or_default();
+                        for i in &from {
+                            if !e.contains(i) {
+                                e.push(*i);
+                                grew = true;
+                            }
+                        }
+                    }
+                }
+                if !grew {
+                    break;
+                }
             }
             let mut found: Vec<usize> = vec![];
             crate::program::walk_exprs(hir, body, &mut |e| {
@@ -249,16 +289,8 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
                 let Some(tp) = out.get(&cd) else { return };
                 for &i in tp {
                     let Some(&a) = args.get(i) else { continue };
-                    let reached: Vec<LocalId> = match &hir.exprs[a].kind {
-                        ExprKind::Local(l) => vec![*l],
-                        ExprKind::Lambda(lam) => lam.captures.clone(),
-                        _ => vec![],
-                    };
-                    for l in reached {
-                        if let Some(pi) =
-                            params.iter().position(|p| *p == Some(l)).or_else(|| derived.get(&l).copied())
-                            && !found.contains(&pi)
-                        {
+                    for pi in mentions(a, &derived) {
+                        if !found.contains(&pi) {
                             found.push(pi);
                         }
                     }
@@ -279,6 +311,39 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
         }
     }
     out
+}
+
+/// Whether a value of type `t` can carry code or confined state: a
+/// function, `dyn` value, type parameter, cell, or a structure holding one.
+fn carries_code(g: &crate::program::Global<'_>, t: &Ty, seen: &mut Vec<DefId>) -> bool {
+    match &**t {
+        TyKind::Fn(_) | TyKind::Dyn(..) | TyKind::Skolem(_) | TyKind::Var(_) | TyKind::Gen(_) => true,
+        TyKind::Con(d, args) => {
+            if *d == g.env.b.cell || args.iter().any(|a| carries_code(g, a, seen)) {
+                return true;
+            }
+            if seen.contains(d) {
+                return false;
+            }
+            seen.push(*d);
+            let fields: Vec<Ty> = if let Some(e) = g.env.enums.get(d) {
+                (0..e.variants.len())
+                    .flat_map(|v| g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
+                    .collect()
+            } else if g.env.structs.contains_key(d) {
+                g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
+            } else {
+                vec![]
+            };
+            let r = fields.iter().any(|f| carries_code(g, f, seen));
+            seen.pop();
+            r
+        }
+        TyKind::Tuple(ts) => ts.iter().any(|x| carries_code(g, x, seen)),
+        TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| carries_code(g, x, seen)),
+        TyKind::Ref(_, x) => carries_code(g, x, seen),
+        _ => false,
+    }
 }
 
 /// A closure carrying task-confined state cannot be passed where it may run
