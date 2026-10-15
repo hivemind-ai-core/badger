@@ -1,0 +1,31 @@
+// A task receiving from its own batch channel sees the batch it published
+// on the way to parking (the self-wakeup is not lost).
+import std.io
+import std.channel
+import std.task
+import std.list
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>(channel.batch_defaults)?
+    let _ = b.sender.append(5)
+    say($"recv: {b.receiver.recv().unwrap_or(-1)}")
+    let q = channel.batch<Int>(channel.batch_defaults)?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let ticker = s.spawn(fn() { for _ in 0..30 { task.sleep(10ms) } })
+        let w = s.spawn(fn() {
+            let _ = q.sender.append(3)
+            var done = 0
+            loop {
+                match q.receiver.recv() {
+                    .some(n) => { done = done + 1; if n > 0 { let _ = q.sender.append(n - 1) } else { break } },
+                    .none => break,
+                }
+            }
+            done
+        })
+        say($"processed {w.join()}")
+        ticker.join()
+        ok(())
+    })
+}

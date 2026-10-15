@@ -159,6 +159,12 @@ pub struct Task {
     pub code_version: u32,
     /// Location of the latest call to a test helper (a static string).
     pub caller_loc: u64,
+    /// A wakeup that arrived while the task was still running (e.g. from
+    /// publishing its own staged batch on the way to parking): the next
+    /// park returns at once instead of losing it.
+    pub early_wake: Option<Wake>,
+    /// Publishing staged batches on the way to parking.
+    pub publishing: bool,
     /// Pipeline stages the task is inside, outermost first.
     pub stages: Vec<String>,
 }
@@ -525,6 +531,8 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         name,
         code_version: crate::live::version(),
         caller_loc: 0,
+        early_wake: None,
+        publishing: false,
         stages: vec![],
     });
     r.tasks.insert(id, t);
@@ -612,6 +620,10 @@ pub fn park_for(reason: &'static str) -> Wake {
 
 pub fn park() -> Wake {
     publish_current();
+    if let Some(w) = current().unwrap().early_wake.take() {
+        check_interrupts();
+        return w;
+    }
     {
         let t = current().unwrap();
         t.state = State::Parked;
@@ -625,6 +637,9 @@ pub fn park() -> Wake {
 /// Park without honoring cancellation (cleanup and settle waits).
 pub fn park_shielded() -> Wake {
     publish_current();
+    if let Some(w) = current().unwrap().early_wake.take() {
+        return w;
+    }
     {
         let t = current().unwrap();
         t.state = State::Parked;
@@ -640,7 +655,11 @@ fn publish_current() {
         && let Some(h) = rt().deschedule_hook
     {
         let objs = t.on_deschedule.clone();
+        t.publishing = true;
         h(t.id, &objs);
+        if let Some(t) = current() {
+            t.publishing = false;
+        }
     }
 }
 
@@ -659,13 +678,16 @@ pub fn check_interrupts() {
 }
 
 pub fn wake(id: TaskId, reason: Wake) {
-    if let Some(t) = task(id)
-        && t.state == State::Parked
-    {
-        t.state = if t.in_cleanup { State::Cleaning } else { State::Ready };
-        t.wake = reason;
-        rt().ready.push_back(id);
-        notify_ready();
+    if let Some(t) = task(id) {
+        if t.state == State::Parked {
+            t.state = if t.in_cleanup { State::Cleaning } else { State::Ready };
+            t.wake = reason;
+            rt().ready.push_back(id);
+            notify_ready();
+        } else if t.publishing {
+            // the running task woke itself on its way to parking
+            t.early_wake = Some(reason);
+        }
     }
 }
 
