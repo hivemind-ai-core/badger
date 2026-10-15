@@ -2001,8 +2001,13 @@ impl Infer<'_, '_> {
         let r = self.deref(recv);
         match &*r {
             TyKind::Var(_) => Lookup::Unknown,
-            TyKind::Con(head, _) => {
-                let mut idxs = self.g.env.impls_by_head.get(head).cloned().unwrap_or_default();
+            // nominal types by head; structural ones (`()`, tuples, records)
+            // through the structural and blanket implementations
+            TyKind::Con(..) | TyKind::Tuple(_) | TyKind::Record(_) => {
+                let mut idxs = match &*r {
+                    TyKind::Con(head, _) => self.g.env.impls_by_head.get(head).cloned().unwrap_or_default(),
+                    _ => vec![],
+                };
                 // blanket implementations (`impl<T> P for T where ...`)
                 idxs.extend(self.g.env.structural_impls.iter().copied());
                 // inherent methods first

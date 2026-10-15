@@ -1,0 +1,13 @@
+// `()` implements Display: printed directly, interpolated, and generically.
+import std.io
+
+fn show<T>(value: T) -> String where T: Display { $"<{value}>" }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let nothing = ()
+    io.println(nothing)?
+    io.println($"{()}")?
+    io.println(show(()))?
+    io.println([(), ()])?
+    ok(())
+}
