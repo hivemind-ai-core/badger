@@ -161,8 +161,17 @@ pub fn cmp(d: &TypeDesc, a: u64, b: u64) -> Ordering {
     }
 }
 
+/// Shortest round-trip digits; a finite whole number keeps a `.0` at any
+/// magnitude so it never reads as an integer.
 pub fn fmt_float(f: f64) -> String {
-    if f.is_finite() && f == f.trunc() && f.abs() < 1e16 { format!("{f:.1}") } else { format!("{f}") }
+    whole_dot(format!("{f}"), f.is_finite())
+}
+
+fn whole_dot(mut s: String, finite: bool) -> String {
+    if finite && !s.contains('.') {
+        s.push_str(".0");
+    }
+    s
 }
 
 /// A float of its own width: an `F32` prints its shortest `F32` digits
@@ -171,7 +180,7 @@ pub fn fmt_float_of(d: &TypeDesc, w: u64) -> String {
     match &d.kind {
         Kind::Float { bits: 32 } => {
             let f = f32::from_bits(w as u32);
-            if f.is_finite() && f == f.trunc() && f.abs() < 1e7 { format!("{f:.1}") } else { format!("{f}") }
+            whole_dot(format!("{f}"), f.is_finite())
         }
         _ => fmt_float(as_f64(d, w)),
     }

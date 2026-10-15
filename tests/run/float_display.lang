@@ -1,0 +1,7 @@
+// Float display: shortest digits, whole numbers keep `.0` at any magnitude.
+import std.io
+pub fn main() -> Unit {
+    let _ = io.println($"{16777216.0F32} {3.0e38F32} {0.1F32} {1.5F32} {-2.0F32}")
+    let _ = io.println($"{1.0e20} {1.0e16} {0.1} {-0.0} {2.5} {1.0e-7}")
+    let _ = io.println($"{1.0 / 0.0} {0.0 / 0.0}")
+}
