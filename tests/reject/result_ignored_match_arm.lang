@@ -1,0 +1,13 @@
+// expect-error: E0337
+// An ignored Result: result_ignored_match_arm.
+import std.io
+import std.task
+import std.list
+fn f() -> Result<Int, String> { err("lost") }
+pub fn main() -> Result<Unit, String> {
+    task.scope(fn(s) -> Result<Unit, String> {
+        let t = s.capture(fn() { f() })
+        match t.join() { .returned(r) => (), _ => () }
+        ok(())
+    })
+}

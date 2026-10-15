@@ -2341,6 +2341,12 @@ impl<'g, 'a> Infer<'g, 'a> {
                 let parts: Vec<ExprId> = match &self.g.hir.exprs[*expr].kind {
                     ExprKind::Tuple(xs) | ExprKind::List(xs) => xs.clone(),
                     ExprKind::Record { fields, .. } => fields.iter().map(|f| f.2).collect(),
+                    // a discarded constructor value (`Wrap.w(fails())`)
+                    ExprKind::Call { callee, args }
+                        if matches!(self.g.hir.exprs[*callee].kind, ExprKind::Ctor { .. }) =>
+                    {
+                        args.clone()
+                    }
                     _ => vec![],
                 };
                 for x in parts {

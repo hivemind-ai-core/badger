@@ -1,0 +1,13 @@
+// expect-error: E0337
+// An ignored Result: result_ignored_list_binding.
+import std.io
+import std.seq
+import std.list
+fn fails() -> Result<Int, String> { err("x") }
+fn id<T>(x: T) -> T { x }
+struct W { r: Result<Int, String> }
+enum Wrap { w(r: Result<Int, String>) }
+pub fn main() -> Unit {
+    let l = [fails()]
+    ()
+}

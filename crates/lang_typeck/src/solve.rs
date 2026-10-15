@@ -1059,9 +1059,14 @@ impl Infer<'_, '_> {
                         {
                             r = self.deref(inner);
                         }
+                        // a result holding a `Result` (an option or tuple of one)
+                        let result = self.b().result;
+                        let rr = self.icx.resolve(&r);
+                        let holds = ty_any(&rr, &mut |k| matches!(k, TyKind::Con(d, _) if *d == result))
+                            && !ty_any(&rr, &mut |k| matches!(k, TyKind::Fn(_)));
                         match &*r {
                             TyKind::Var(_) if !final_ => Step::Pending,
-                            TyKind::Con(rd, _) if *rd == self.b().result => {
+                            _ if holds => {
                                 self.push_diag(
                                     Diagnostic::error("unused task with a `Result`")
                                         .with_code("E0337")

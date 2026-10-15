@@ -798,9 +798,56 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// Whether a value of this type holds a `Result` (directly, through an
+    /// option, collection, tuple, record, or a captured task's `Exit`); a
+    /// task handle itself is checked as a task.
+    fn holds_result(&mut self, t: &Ty) -> bool {
+        let t = self.inf.icx.resolve(t);
+        let result = self.inf.g.env.b.result;
+        let task = self.inf.g.hir.try_lang("task.Task");
+        if matches!(&*t, TyKind::Con(d, _) if Some(*d) == task) {
+            return false;
+        }
+        let mut found = false;
+        let mut stack = vec![t];
+        while let Some(x) = stack.pop() {
+            match &*x {
+                TyKind::Con(d, _) if *d == result => found = true,
+                TyKind::Con(d, args) if Some(*d) != task => stack.extend(args.iter().cloned()),
+                TyKind::Tuple(ts) => stack.extend(ts.iter().cloned()),
+                TyKind::Record(r) => stack.extend(row_fields(r).0.into_iter().map(|f| f.1)),
+                _ => {}
+            }
+        }
+        found
+    }
+
     /// A named fallible task that is never used again loses its error.
     fn unused_tasks(&mut self, e: ExprId) {
         let hir = self.inf.g.hir;
+        // a `match` arm binding a `Result` it never reads ignores it
+        if let ExprKind::Match { arms, .. } = &hir.exprs[e].kind {
+            for a in arms.clone() {
+                let mut ls = vec![];
+                pat_locals(hir, a.pat, &mut ls);
+                for l in ls {
+                    let unread = !self.reads.contains(&l)
+                        && !self.name(l).starts_with('_')
+                        && self.local_ty(l).is_some_and(|t| self.holds_result(&t));
+                    if unread {
+                        let span = hir.locals[l].span;
+                        let name = self.name(l);
+                        self.report(
+                            Diagnostic::error(format!("`{name}` holds a `Result` that is never inspected"))
+                                .with_code("E0337")
+                                .with_label(span, "this `Result` is ignored")
+                                .with_note("handle it, or bind it to `_` to discard explicitly"),
+                            span,
+                        );
+                    }
+                }
+            }
+        }
         if let ExprKind::Block { stmts, .. } = &hir.exprs[e].kind {
             for s in stmts {
                 let Stmt::Let { pat, .. } = s else { continue };
@@ -811,9 +858,7 @@ impl Own<'_, '_, '_> {
                     for l in ls {
                         let unread_result = !self.reads.contains(&l)
                             && !self.name(l).starts_with('_')
-                            && self.local_ty(l).is_some_and(
-                                |t| matches!(&*t, TyKind::Con(d, _) if *d == self.inf.g.env.b.result),
-                            );
+                            && self.local_ty(l).is_some_and(|t| self.holds_result(&t));
                         if unread_result {
                             let span = hir.locals[l].span;
                             let name = self.name(l);
@@ -833,10 +878,11 @@ impl Own<'_, '_, '_> {
                     continue;
                 }
                 let PatKind::Bind(l) = &hir.pats[*pat].kind else { continue };
-                // a bound `Result` that is never read is ignored
+                // a bound `Result` (or a value holding one) never read is ignored
                 if !self.reads.contains(l)
+                    && !self.name(*l).starts_with('_')
                     && let Some(t) = self.local_ty(*l)
-                    && matches!(&*t, TyKind::Con(d, _) if *d == self.inf.g.env.b.result)
+                    && self.holds_result(&t)
                 {
                     let span = hir.pats[*pat].span;
                     let name = self.name(*l);
@@ -875,7 +921,7 @@ impl Own<'_, '_, '_> {
                     continue;
                 }
                 let r = self.result_of_task(&args[1]);
-                if matches!(&*r, TyKind::Con(rd, _) if *rd == self.inf.g.env.b.result) {
+                if self.holds_result(&r) {
                     let span = hir.pats[*pat].span;
                     let name = self.name(*l);
                     self.report(
@@ -917,7 +963,7 @@ impl Own<'_, '_, '_> {
         match &*t {
             TyKind::Con(d, args) if Some(*d) == hir.try_lang("task.Task") && args.len() == 2 => {
                 let r = self.result_of_task(&args[1]);
-                matches!(&*r, TyKind::Con(rd, _) if *rd == self.inf.g.env.b.result)
+                self.holds_result(&r)
             }
             TyKind::Con(_, args) | TyKind::Tuple(args) => {
                 args.clone().iter().any(|a| self.holds_fallible_task(a, depth + 1))
