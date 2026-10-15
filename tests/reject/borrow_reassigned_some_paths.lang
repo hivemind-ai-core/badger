@@ -1,0 +1,17 @@
+// expect-error: E0405
+// Reassigning a borrow on some paths does not end it.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let c: Buffer<Int> = buffer.new()
+    b.push(1)
+    var t = &mut b
+    if c.len() > 5 { t = &mut c }
+    let f = buffer.freeze(b)
+    io.println($"{f.len()} {f[0]}")?
+    t.push(99)
+    t.push(100)
+    io.println($"{f.len()} {f[0]}")?
+    ok(())
+}

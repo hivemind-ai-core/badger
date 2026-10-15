@@ -41,6 +41,9 @@ struct Loan {
     span: Span,
     /// Where the holder was given another value (the loan ends there).
     until: usize,
+    /// The block whose statements began the loan: only an assignment
+    /// there (not one on some paths) ends it.
+    block: Option<ExprId>,
 }
 
 /// How a callee takes each parameter.
@@ -61,6 +64,8 @@ struct Own<'i, 'g, 'a> {
     /// Source position of each local's last use (borrow liveness).
     last_use: FxHashMap<LocalId, usize>,
     loans: Vec<Loan>,
+    /// Blocks being walked, innermost last.
+    blocks: Vec<ExprId>,
     params: FxHashSet<LocalId>,
     /// The function's result type (a borrowed result passes references on).
     ret_ty: Option<Ty>,
@@ -106,6 +111,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         consuming_lambdas: FxHashMap::default(),
         last_use: FxHashMap::default(),
         loans: vec![],
+        blocks: vec![],
         params: FxHashSet::default(),
         ret_ty: ret_ty.clone(),
         carriers: FxHashMap::default(),
@@ -539,6 +545,7 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
         consuming_lambdas: FxHashMap::default(),
         last_use: FxHashMap::default(),
         loans: vec![],
+        blocks: vec![],
         params: FxHashSet::default(),
         ret_ty: None,
         carriers: FxHashMap::default(),
@@ -605,6 +612,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         consuming_lambdas: FxHashMap::default(),
         last_use: FxHashMap::default(),
         loans: vec![],
+        blocks: vec![],
         params: FxHashSet::default(),
         ret_ty,
         carriers: FxHashMap::default(),
@@ -798,6 +806,23 @@ impl Own<'_, '_, '_> {
         for c in children(&hir.exprs[e].kind) {
             self.collect_uses(c);
         }
+        // a local from outside a loop that the loop uses is used again on
+        // the next iteration: it lives to the loop's end
+        if matches!(hir.exprs[e].kind, ExprKind::While { .. } | ExprKind::For { .. } | ExprKind::Loop { .. })
+        {
+            let (start, end) = (span.range().start, span.range().end);
+            let mut inner = vec![];
+            crate::program::walk_exprs(hir, e, &mut |x| match &hir.exprs[x].kind {
+                ExprKind::Local(l) => inner.push(*l),
+                ExprKind::Lambda(lam) => inner.extend(lam.captures.iter().copied()),
+                _ => {}
+            });
+            for l in inner {
+                if hir.locals[l].span.range().start < start {
+                    self.bump(l, end);
+                }
+            }
+        }
     }
 
     /// Whether a value of this type holds a `Result` (directly, through an
@@ -969,6 +994,84 @@ impl Own<'_, '_, '_> {
             }
             TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_fallible_task(x)),
             _ => false,
+        }
+    }
+
+    /// An `if`/`else` or `match` statement assigning a variable in every
+    /// branch ends the loans the variable held before it.
+    fn end_loans_assigned_in_all_branches(&mut self, e: ExprId) {
+        let hir = self.inf.g.hir;
+        let branches: Vec<ExprId> = match &hir.exprs[e].kind {
+            ExprKind::If { then, els: Some(els), .. } => vec![*then, *els],
+            ExprKind::Match { arms, .. } if !arms.is_empty() => arms.iter().map(|a| a.body).collect(),
+            _ => return,
+        };
+        fn assigned(hir: &lang_hir::Hir, b: ExprId, out: &mut Vec<LocalId>) {
+            match &hir.exprs[b].kind {
+                ExprKind::Block { stmts, .. } => {
+                    for s in stmts {
+                        match s {
+                            Stmt::Assign { local, .. } => out.push(*local),
+                            Stmt::Expr { expr, .. } => {
+                                // a nested `if`/`match` assigning in all its branches
+                                let inner: Vec<ExprId> = match &hir.exprs[*expr].kind {
+                                    ExprKind::If { then, els: Some(els), .. } => vec![*then, *els],
+                                    ExprKind::Match { arms, .. } if !arms.is_empty() => {
+                                        arms.iter().map(|a| a.body).collect()
+                                    }
+                                    _ => vec![],
+                                };
+                                let mut sets = inner.iter().map(|x| {
+                                    let mut v = vec![];
+                                    assigned(hir, *x, &mut v);
+                                    v
+                                });
+                                if let Some(first) = sets.next() {
+                                    let rest: Vec<Vec<LocalId>> = sets.collect();
+                                    out.extend(
+                                        first.into_iter().filter(|l| rest.iter().all(|r| r.contains(l))),
+                                    );
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                ExprKind::If { then, els: Some(els), .. } => {
+                    let (mut a, mut b2) = (vec![], vec![]);
+                    assigned(hir, *then, &mut a);
+                    assigned(hir, *els, &mut b2);
+                    out.extend(a.into_iter().filter(|l| b2.contains(l)));
+                }
+                _ => {}
+            }
+        }
+        let mut sets = branches.iter().map(|b| {
+            let mut v = vec![];
+            assigned(hir, *b, &mut v);
+            v
+        });
+        let Some(first) = sets.next() else { return };
+        let rest: Vec<Vec<LocalId>> = sets.collect();
+        let all: Vec<LocalId> = first.into_iter().filter(|l| rest.iter().all(|r| r.contains(l))).collect();
+        let span = hir.exprs[e].span.range();
+        let here = self.blocks.last().copied();
+        for ln in self.loans.iter_mut() {
+            if all.contains(&ln.holder) && ln.start <= span.start && ln.block == here {
+                ln.until = ln.until.min(span.end);
+            }
+        }
+    }
+
+    /// Loans made in a loop's first pass (from `n` on) whose holder lives
+    /// outside the loop are still held when the next iteration starts.
+    fn loans_carried_around(&mut self, lp: ExprId, n: usize) {
+        let hir = self.inf.g.hir;
+        let start = hir.exprs[lp].span.range().start;
+        for ln in &mut self.loans[n..] {
+            if hir.locals[ln.holder].span.range().start < start {
+                ln.start = ln.start.min(start);
+            }
         }
     }
 
@@ -2388,11 +2491,15 @@ impl Own<'_, '_, '_> {
                 }
             }
             ExprKind::While { cond, body } => {
-                for _ in 0..2 {
+                for pass in 0..2 {
+                    let n = self.loans.len();
                     self.expr(*cond, Mode::Move, st);
                     let mut s = st.clone();
                     self.expr(*body, Mode::Move, &mut s);
                     Self::merge(st, &s);
+                    if pass == 0 {
+                        self.loans_carried_around(e, n);
+                    }
                 }
                 false
             }
@@ -2400,7 +2507,8 @@ impl Own<'_, '_, '_> {
                 self.expr(*iter, Mode::Move, st);
                 let mut bound = vec![];
                 pat_locals(hir, *pat, &mut bound);
-                for _ in 0..2 {
+                for pass in 0..2 {
+                    let n = self.loans.len();
                     let mut s = st.clone();
                     // the loop variable is bound afresh each iteration
                     for b in &bound {
@@ -2408,18 +2516,26 @@ impl Own<'_, '_, '_> {
                     }
                     self.expr(*body, Mode::Move, &mut s);
                     Self::merge(st, &s);
+                    if pass == 0 {
+                        self.loans_carried_around(e, n);
+                    }
                 }
                 false
             }
             ExprKind::Loop { body } => {
-                for _ in 0..2 {
+                for pass in 0..2 {
+                    let n = self.loans.len();
                     let mut s = st.clone();
                     self.expr(*body, Mode::Move, &mut s);
                     Self::merge(st, &s);
+                    if pass == 0 {
+                        self.loans_carried_around(e, n);
+                    }
                 }
                 false
             }
             ExprKind::Block { stmts, tail } => {
+                self.blocks.push(e);
                 for s in stmts {
                     let d = match s {
                         Stmt::Let { pat, init, span: lspan, .. } => {
@@ -2502,6 +2618,7 @@ impl Own<'_, '_, '_> {
                                         start: hir.exprs[*init].span.range().end,
                                         span: *lspan,
                                         until: usize::MAX,
+                                        block: self.blocks.last().copied(),
                                     });
                                 }
                                 // a copy of a borrow, a borrow returned by a call,
@@ -2560,6 +2677,7 @@ impl Own<'_, '_, '_> {
                                             start: hir.exprs[*init].span.range().end,
                                             span: *lspan,
                                             until: usize::MAX,
+                                            block: self.blocks.last().copied(),
                                         });
                                     }
                                 }
@@ -2572,7 +2690,34 @@ impl Own<'_, '_, '_> {
                             d
                         }
                         Stmt::Assign { local, value, span: aspan } => {
+                            // the value replaces what the variable held: its
+                            // old loans do not conflict with it (unless the
+                            // value reads the variable)
+                            let mut reads_self = false;
+                            crate::program::walk_exprs(hir, *value, &mut |x| {
+                                if matches!(hir.exprs[x].kind, ExprKind::Local(l) if l == *local) {
+                                    reads_self = true;
+                                }
+                            });
+                            let at = aspan.range().start;
+                            let saved: Vec<(usize, usize)> = if reads_self {
+                                vec![]
+                            } else {
+                                self.loans
+                                    .iter_mut()
+                                    .enumerate()
+                                    .filter(|(_, ln)| ln.holder == *local && ln.until > at)
+                                    .map(|(i, ln)| {
+                                        let u = ln.until;
+                                        ln.until = at;
+                                        (i, u)
+                                    })
+                                    .collect()
+                            };
                             let d = self.expr(*value, Mode::Move, st);
+                            for (i, u) in saved {
+                                self.loans[i].until = u;
+                            }
                             self.check_loans(*local, *aspan, Mode::BorrowMut);
                             st.remove(local);
                             self.overwrite_result(*local, *aspan);
@@ -2581,9 +2726,14 @@ impl Own<'_, '_, '_> {
                                 self.consuming.insert(*local);
                                 self.affine.insert(*local, true);
                             }
-                            // the variable's earlier borrows end here
+                            // the variable's earlier borrows end here, when
+                            // every path from them passes this assignment
                             let at = aspan.range().start;
-                            for ln in self.loans.iter_mut().filter(|ln| ln.holder == *local && ln.start <= at)
+                            let here = self.blocks.last().copied();
+                            for ln in self
+                                .loans
+                                .iter_mut()
+                                .filter(|ln| ln.holder == *local && ln.start <= at && ln.block == here)
                             {
                                 ln.until = ln.until.min(at);
                             }
@@ -2602,6 +2752,7 @@ impl Own<'_, '_, '_> {
                                             start: hir.exprs[*value].span.range().end,
                                             span: *sp,
                                             until: usize::MAX,
+                                            block: self.blocks.last().copied(),
                                         });
                                     }
                                 }
@@ -2609,16 +2760,23 @@ impl Own<'_, '_, '_> {
                             }
                             d
                         }
-                        Stmt::Expr { expr, .. } => self.expr(*expr, Mode::Borrow, st),
+                        Stmt::Expr { expr, .. } => {
+                            let d = self.expr(*expr, Mode::Borrow, st);
+                            self.end_loans_assigned_in_all_branches(*expr);
+                            d
+                        }
                     };
                     if d {
+                        self.blocks.pop();
                         return true;
                     }
                 }
-                match tail {
+                let r = match tail {
                     Some(t) => self.expr(*t, mode, st),
                     None => false,
-                }
+                };
+                self.blocks.pop();
+                r
             }
             ExprKind::Return { value, .. } | ExprKind::Break { value, .. } => {
                 if let Some(v) = value {

@@ -1,0 +1,18 @@
+// expect-error: E0405
+// A loan made late in a loop body is held when the next iteration starts.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let c: Buffer<Int> = buffer.new()
+    var t = &mut c
+    var i = 0
+    while i < 2 {
+        t.push(i)
+        b.push(i)
+        t = &mut b
+        i = i + 1
+    }
+    io.println(b.len())?
+    ok(())
+}

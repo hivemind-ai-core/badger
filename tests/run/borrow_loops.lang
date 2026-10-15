@@ -1,0 +1,29 @@
+// Borrows held by vars across loops, and reassigned in every branch.
+import std.io
+import std.buffer
+pub fn main() -> Unit {
+    let b: Buffer<Int> = buffer.new()
+    let c: Buffer<Int> = buffer.new()
+    var t = &mut b
+    for i in 0..3 { t.push(i) }
+    let _ = io.println($"{b.len()}")
+    for i in 0..2 {
+        let r = &mut c
+        r.push(i)
+        c.push(10)
+    }
+    var cur = &mut b
+    var k = 0
+    while k < 2 {
+        cur = &mut c
+        cur.push(k)
+        k = k + 1
+    }
+    b.push(7)
+    let _ = io.println($"{b.len()} {c.len()}")
+    var which = &mut b
+    if k > 1 { which = &mut c } else { which = &mut c }
+    b.push(8)
+    which.push(9)
+    let _ = io.println($"{b.len()} {c.len()}")
+}

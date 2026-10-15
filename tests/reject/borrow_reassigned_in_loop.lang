@@ -1,0 +1,15 @@
+// expect-error: E0405
+// A reassignment in a loop that may not run does not end the borrow.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let c: Buffer<Int> = buffer.new()
+    b.push(1)
+    var t = &mut b
+    for i in 0..0 { t = &mut c }
+    let f = buffer.freeze(b)
+    t.push(2)
+    io.println($"{f.len()}")?
+    ok(())
+}
