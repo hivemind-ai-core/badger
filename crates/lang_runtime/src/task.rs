@@ -351,6 +351,67 @@ static PARK_CV: Condvar = Condvar::new();
 /// The worker holding the runtime lock (index + 1; 0 when free).
 static OWNER: AtomicUsize = AtomicUsize::new(0);
 
+// ---------------------------------------------------------------- statistics
+
+/// `LANG_RUNTIME_STATS=1`: per-worker counters of lock acquisition and
+/// scheduling, summed and printed on stderr when the program ends.
+pub fn stats_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("LANG_RUNTIME_STATS").is_some_and(|v| v == "1"))
+}
+
+#[repr(align(128))]
+pub struct WorkerStats {
+    /// Lock acquired at once / after spinning / after parking.
+    pub lock_fast: AtomicU64,
+    pub lock_spin: AtomicU64,
+    pub lock_park: AtomicU64,
+    /// Nanoseconds spent parked waiting for the lock.
+    pub lock_park_ns: AtomicU64,
+    /// Task resumptions, idle waits, and broadcasts waking idle workers.
+    pub runs: AtomicU64,
+    pub idle_waits: AtomicU64,
+    pub notifies: AtomicU64,
+}
+
+pub static STATS: [WorkerStats; MAX_WORKERS] = [const {
+    WorkerStats {
+        lock_fast: AtomicU64::new(0),
+        lock_spin: AtomicU64::new(0),
+        lock_park: AtomicU64::new(0),
+        lock_park_ns: AtomicU64::new(0),
+        runs: AtomicU64::new(0),
+        idle_waits: AtomicU64::new(0),
+        notifies: AtomicU64::new(0),
+    }
+}; MAX_WORKERS];
+
+/// Count an event for this worker (when statistics are on).
+pub fn stat(f: impl Fn(&WorkerStats) -> &AtomicU64, n: u64) {
+    if stats_on() {
+        f(&STATS[worker_index()]).fetch_add(n, Ordering::Relaxed);
+    }
+}
+
+pub fn print_stats() {
+    if !stats_on() {
+        return;
+    }
+    let sum = |f: &dyn Fn(&WorkerStats) -> &AtomicU64| -> u64 {
+        STATS.iter().map(|w| f(w).load(Ordering::Relaxed)).sum()
+    };
+    eprintln!(
+        "[runtime stats] lock: {} fast, {} after spinning, {} after parking ({:.3} ms parked); tasks run: {}; idle waits: {}; idle wakeups: {}",
+        sum(&|w| &w.lock_fast),
+        sum(&|w| &w.lock_spin),
+        sum(&|w| &w.lock_park),
+        sum(&|w| &w.lock_park_ns) as f64 / 1e6,
+        sum(&|w| &w.runs),
+        sum(&|w| &w.idle_waits),
+        sum(&|w| &w.notifies),
+    );
+}
+
 fn try_lock() -> bool {
     let ok = LOCKED.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok();
     if ok {
@@ -368,23 +429,31 @@ pub fn holds_lock() -> bool {
 
 fn lock() {
     if try_lock() {
+        stat(|w| &w.lock_fast, 1);
         return;
     }
     for _ in 0..200 {
         std::hint::spin_loop();
         if !LOCKED.load(Ordering::Relaxed) && try_lock() {
+            stat(|w| &w.lock_spin, 1);
             return;
         }
     }
+    let started = stats_on().then(Instant::now);
     let mut g = PARK.lock().unwrap();
     WAITERS.fetch_add(1, Ordering::SeqCst);
     while !try_lock() {
         g = PARK_CV.wait_timeout(g, Duration::from_millis(1)).unwrap().0;
     }
     WAITERS.fetch_sub(1, Ordering::SeqCst);
+    if let Some(t) = started {
+        stat(|w| &w.lock_park, 1);
+        stat(|w| &w.lock_park_ns, t.elapsed().as_nanos() as u64);
+    }
 }
 
 fn unlock() {
+    crate::channel::release_claims();
     OWNER.store(0, Ordering::Relaxed);
     LOCKED.store(false, Ordering::Release);
     if WAITERS.load(Ordering::SeqCst) > 0 {
@@ -835,6 +904,7 @@ pub fn wake(id: TaskId, reason: Wake) {
 /// Let idle workers see newly ready tasks.
 fn notify_ready() {
     if multi() && IDLE.load(Ordering::SeqCst) > 0 {
+        stat(|w| &w.notifies, 1);
         READY_SEQ.fetch_add(1, Ordering::SeqCst);
         let q = rt().external.clone();
         let _g = q.queue.lock().unwrap();
@@ -1577,6 +1647,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         {
             let g = q.queue.lock().unwrap();
             if g.is_empty() && READY_SEQ.load(Ordering::SeqCst) == seq && !SHUTDOWN.load(Ordering::SeqCst) {
+                stat(|w| &w.idle_waits, 1);
                 let _ = q.cond.wait_timeout(g, wait).unwrap();
             }
         }
@@ -1604,6 +1675,7 @@ fn run_one(id: TaskId) {
     t.state = if was_cleaning { State::Cleaning } else { State::Running };
     t.ctx.budget = task_budget();
     set_current(id);
+    stat(|w| &w.runs, 1);
     let co = t.co.as_mut().unwrap() as *mut Co;
     let res = unsafe { (*co).resume(()) };
     set_current(0);

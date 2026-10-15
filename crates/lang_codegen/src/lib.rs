@@ -1302,6 +1302,11 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_list_slice",
     "lang_rt_i_list_contains",
     "lang_rt_i_list_to_array",
+    // channel fast paths; they take the lock themselves when needed
+    "lang_rt_i_chan_send",
+    "lang_rt_i_chan_try_send",
+    "lang_rt_i_chan_recv",
+    "lang_rt_i_chan_try_recv",
 ];
 
 /// Run the compiled program's `main` on the runtime scheduler.
@@ -1310,7 +1315,9 @@ pub fn run_main(c: &Compiled, prog: &Program) -> lang_runtime::task::Exit {
     let closure =
         prog.static_closures.iter().find(|(_, f)| *f == entry).map(|(o, _)| *o).expect("main closure");
     let _ = c;
-    lang_runtime::task::run_main(closure)
+    let exit = lang_runtime::task::run_main(closure);
+    lang_runtime::task::print_stats();
+    exit
 }
 
 /// Integer conversion and a flag that is set when the value does not survive

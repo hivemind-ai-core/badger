@@ -1045,6 +1045,7 @@ fn run_tests(c: &lang_codegen::Compiled, prog: &lang_mir::Program, opts: &RunOpt
         let _ = c;
         lang_runtime::task::reset_test_state();
         let exit = lang_runtime::task::run_main(closure);
+        lang_runtime::task::print_stats();
         let ok = match &exit {
             Exit::Returned(w) => {
                 let r = prog.funcs[*f].ret;

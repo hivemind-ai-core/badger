@@ -22,6 +22,10 @@ pub struct Batch {
 }
 
 pub struct ChanData {
+    /// Ownership with several workers: 0 free, 1 held by an unlocked fast
+    /// path, 2 claimed by code holding the runtime lock (until it releases
+    /// that lock).
+    pub state: std::sync::atomic::AtomicU8,
     pub elem: &'static TypeDesc,
     pub capacity: usize,
     pub max_batch: usize,
@@ -145,6 +149,7 @@ pub fn snapshot_json() -> String {
 fn finalize_chan(o: *mut Header) {
     unsafe {
         REGISTRY.retain(|&(_, w)| w != o as u64);
+        (*CLAIMED.0.get()).retain(|w| *w != o as u64);
         let p = (*o).payload() as *mut *mut ChanData;
         if !(*p).is_null() {
             drop(Box::from_raw(*p));
@@ -181,8 +186,105 @@ fn finalize_batch(o: *mut Header) {
     }
 }
 
+/// A channel's state. With several workers, code holding the runtime lock
+/// claims the channel on first access (waiting out an unlocked fast path),
+/// and keeps it until the lock is released.
 pub fn data<'a>(ch: u64) -> &'a mut ChanData {
+    let d = raw(ch);
+    if task::multi() && task::holds_lock() {
+        claim(ch, d);
+    }
+    d
+}
+
+fn raw<'a>(ch: u64) -> &'a mut ChanData {
     unsafe { &mut **(obj(ch).payload() as *mut *mut ChanData) }
+}
+
+/// Channels claimed by the runtime lock's holder (only it touches this).
+struct Claims(std::cell::UnsafeCell<Vec<u64>>);
+unsafe impl Sync for Claims {}
+static CLAIMED: Claims = Claims(std::cell::UnsafeCell::new(Vec::new()));
+
+fn claim(ch: u64, d: &ChanData) {
+    use std::sync::atomic::Ordering;
+    // one thread holds the runtime lock: a claim already made is its own
+    if d.state.load(Ordering::Acquire) == 2 {
+        return;
+    }
+    while d.state.compare_exchange_weak(0, 2, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        std::hint::spin_loop();
+    }
+    unsafe { (*CLAIMED.0.get()).push(ch) };
+}
+
+/// Release every channel claimed under the runtime lock (called as the
+/// lock is released).
+pub fn release_claims() {
+    let claimed = unsafe { &mut *CLAIMED.0.get() };
+    for ch in claimed.drain(..) {
+        raw(ch).state.store(0, std::sync::atomic::Ordering::Release);
+    }
+}
+
+/// A channel's element type (fixed at creation: read without claiming).
+pub fn data_elem(ch: u64) -> &'static TypeDesc {
+    raw(ch).elem
+}
+
+/// Take a channel for an unlocked fast path, if nothing else holds it.
+fn try_fast(d: &ChanData) -> bool {
+    use std::sync::atomic::Ordering;
+    d.state.compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed).is_ok()
+}
+
+fn end_fast(d: &ChanData) {
+    d.state.store(0, std::sync::atomic::Ordering::Release);
+}
+
+/// Unlocked prompt send: queue `v` when no task waits on the channel (no
+/// one to wake), it has room, and admission is by count alone. `false`
+/// means the locked path must decide.
+pub fn send_fast(ch: u64, v: u64) -> bool {
+    let d = raw(ch);
+    if !try_fast(d) {
+        return false;
+    }
+    let ok = !d.closed
+        && !d.batched
+        && d.byte_budget == 0
+        && d.capacity > 0
+        && d.queue.len() < d.capacity
+        && d.recv_waiters.is_empty()
+        && d.recv_watchers.is_empty()
+        && d.send_waiters.is_empty();
+    if ok {
+        d.queue.push_back(v);
+        d.sizes.push_back(0);
+    }
+    end_fast(d);
+    ok
+}
+
+/// Unlocked prompt receive: take the oldest message when no task waits to
+/// send or for space (no one to admit or wake). `None` means the locked
+/// path must decide.
+pub fn recv_fast(ch: u64) -> Option<u64> {
+    let d = raw(ch);
+    if !try_fast(d) {
+        return None;
+    }
+    let ok = !d.batched && !d.queue.is_empty() && d.send_waiters.is_empty() && d.space_waiters.is_empty();
+    let v = if ok {
+        if let Some(sz) = d.sizes.pop_front() {
+            d.bytes -= sz;
+        }
+        d.queue.pop_front()
+    } else {
+        None
+    };
+    end_fast(d);
+    v
 }
 
 #[allow(static_mut_refs)]
@@ -193,6 +295,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         NEXT_SEQ += 1;
     }
     let d = Box::new(ChanData {
+        state: std::sync::atomic::AtomicU8::new(0),
         elem,
         capacity,
         max_batch: max_batch.max(1),
