@@ -189,9 +189,19 @@ pub fn is_live(w: u64) -> bool {
     unsafe { !(*(obj(w).payload() as *const *mut ListData)).is_null() }
 }
 
-/// Number of slots written in a page (by any list sharing it).
-fn page_len(page: u64) -> usize {
-    unsafe { *(obj(page).payload().add(8) as *const u64) as usize }
+/// Take slot `used` of a shared page if no version has written it yet
+/// (the page's written-slot count is `used`): an atomic claim, so two
+/// appends to one list version never write the same slot.
+fn claim_slot(page: u64, used: usize) -> bool {
+    let count = unsafe { &*(obj(page).payload().add(8) as *const std::sync::atomic::AtomicU64) };
+    count
+        .compare_exchange(
+            used as u64,
+            used as u64 + 1,
+            std::sync::atomic::Ordering::AcqRel,
+            std::sync::atomic::Ordering::Relaxed,
+        )
+        .is_ok()
 }
 
 /// Persistent append: a new list sharing every page of `w`. The partial
@@ -217,7 +227,17 @@ pub fn append(w: u64, v: u64, desc: &'static TypeDesc) -> u64 {
     let used = len % cap;
     if used != 0 {
         let last = *data(out).pages.last().unwrap();
-        if page_len(last) != used {
+        // claim the next slot of the shared tail page: exactly one version
+        // extends it, even when workers append to one list concurrently
+        if claim_slot(last, used) {
+            let d = data(out);
+            unsafe {
+                d.repr.store(obj(last).payload().add(PAGE_HDR + used * size), v);
+            }
+            d.len += 1;
+            return out;
+        }
+        {
             // another version extended this page: copy our prefix of it
             let elem = data(out).elem;
             let copy = _r.add(gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8)));

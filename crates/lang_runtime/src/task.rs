@@ -976,6 +976,11 @@ pub fn caller_location() -> String {
 }
 
 pub fn panic_current(message: String, location: String) -> ! {
+    // a defect raised by runtime code running without the lock (an unlocked
+    // entry called by generated code) takes it, as a locked call would
+    if !holds_lock() {
+        enter_runtime();
+    }
     let t = current().expect("panic outside of a task");
     if t.state == State::Cleaning {
         // a failing cleanup: attach to the primary failure and continue

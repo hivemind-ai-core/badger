@@ -1,0 +1,56 @@
+// Stress: many tasks append to the same list version at once. Persistent
+// appends share a list's tail page; exactly one version may extend it, so
+// every result holds its base followed by its own value.
+import std.io
+import std.list
+import std.task
+
+pub enum AppError {
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn check(base: List<Int>, got: List<Int>, mine: Int) -> Bool {
+    var ok = got.len() == base.len() + 1 && got[base.len()] == mine
+    var i = 0
+    for x in base {
+        if got[i] != x { ok = false }
+        i = i + 1
+    }
+    ok
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let tasks = 12
+    let reps = 300
+    // fresh versions whose next tail slot is unclaimed, one per repetition
+    var versions: List<List<Int>> = []
+    for r in 0..reps {
+        let v: List<Int> = (0..(r % 40 + 3)).map(fn(i: Int) { r * 1000 + i }).collect()
+        versions = versions.append(v)
+    }
+    let arrived = Atom.new(0)
+    let bad: Int = task.scope(fn(s) -> Result<Int, AppError> {
+        let ts = (0..tasks).map(fn(k: Int) {
+            s.spawn(fn() -> Int {
+                var w = 0
+                for r in 0..reps {
+                    // everyone appends to version r at about the same time
+                    let _ = arrived.update(fn(n: Int) -> Int { n + 1 })
+                    while arrived.get() < (r + 1) * tasks { task.yield_now() }
+                    let b = versions[r]
+                    let mine = k * 100000 + r
+                    let got = b.append(mine)
+                    if !check(b, got, mine) { w = w + 1 }
+                }
+                w
+            })
+        }).collect()
+        ok(ts.fold(0, fn(acc: Int, t) { acc + t.join() }))
+    })?
+    if bad != 0 {
+        return err(AppError.broken($"{bad} appends saw another version's element"))
+    }
+    io.println("shared list append ok")?
+    ok(())
+}

@@ -1112,7 +1112,8 @@ impl FnCx<'_> {
     }
 
     /// Call a runtime function; with several workers the call holds the
-    /// runtime lock (`lang_rt_enter` / `lang_rt_leave`).
+    /// runtime lock (`lang_rt_enter` / `lang_rt_leave`), except for the
+    /// entries in [`UNLOCKED`].
     fn rt_call(
         &self,
         b: &mut FunctionBuilder,
@@ -1121,7 +1122,7 @@ impl FnCx<'_> {
         args: &[Value],
         ctx: Value,
     ) -> cranelift_codegen::ir::Inst {
-        let multi = self.prog.workers > 1;
+        let multi = self.prog.workers > 1 && !UNLOCKED.contains(&name);
         if multi {
             b.ins().call(imports["lang_rt_enter"], &[ctx]);
         }
@@ -1270,6 +1271,38 @@ impl Body<'_> {
         }
     }
 }
+
+/// Runtime entries generated code calls without the runtime lock, with
+/// several workers: they read immutable values, use builders or fresh
+/// objects the caller owns, allocate (a due collection takes the lock),
+/// and root through the running task. They never touch scheduler state,
+/// call back into compiled code, or mutate shared objects (a shared list
+/// tail is extended by an atomic slot claim); a defect takes the lock.
+pub const UNLOCKED: &[&str] = &[
+    "lang_rt_alloc",
+    "lang_rt_concat",
+    "lang_rt_eq",
+    "lang_rt_cmp",
+    "lang_rt_list_new",
+    "lang_rt_list_push",
+    "lang_rt_list_len",
+    "lang_rt_list_get",
+    "lang_rt_list_finish",
+    "lang_rt_map_new",
+    "lang_rt_map_insert_mut",
+    "lang_rt_i_list_len",
+    "lang_rt_i_list_get",
+    "lang_rt_i_list_builder",
+    "lang_rt_i_list_builder_append",
+    "lang_rt_i_list_builder_len",
+    "lang_rt_i_list_finish",
+    "lang_rt_i_list_append",
+    "lang_rt_i_list_concat",
+    "lang_rt_i_list_reverse",
+    "lang_rt_i_list_slice",
+    "lang_rt_i_list_contains",
+    "lang_rt_i_list_to_array",
+];
 
 /// Run the compiled program's `main` on the runtime scheduler.
 pub fn run_main(c: &Compiled, prog: &Program) -> lang_runtime::task::Exit {
