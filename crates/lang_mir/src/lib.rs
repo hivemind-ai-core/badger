@@ -11,6 +11,7 @@ pub mod lower;
 pub mod mir;
 pub mod serial;
 pub mod sra;
+pub mod verify;
 
 pub use lower::lower_program;
 pub use mir::*;

@@ -1,0 +1,13 @@
+// Values coerced to dyn inside lists, options, records, and structs stay rooted.
+import std.io
+protocol Show { fn show(self: &Self) -> String }
+impl Show for Int { fn show(self: &Self) -> String { $"i{self}" } }
+impl Show for String { fn show(self: &Self) -> String { $"s{self}" } }
+pub struct P { pub a: dyn Show, pub b: dyn Show }
+pub fn main() -> Unit {
+    let xs: List<dyn Show> = [1, 2, "three", 4, "five", 6]
+    let o: Option<dyn Show> = Option.some(7)
+    let r: { a: dyn Show, b: dyn Show } = { a: 8, b: "nine" }
+    let p: P = { a: 10, b: "eleven" }
+    let _ = io.println($"{xs.map(fn(x: dyn Show) { x.show() })} {o.map(fn(x: dyn Show) { x.show() }).unwrap_or("")} {r.a.show()}{r.b.show()} {p.a.show()}{p.b.show()}")
+}

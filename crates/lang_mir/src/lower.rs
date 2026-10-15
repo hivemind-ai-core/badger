@@ -773,6 +773,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         self.m.g.hir
     }
 
+    /// The representation of `e` as lowered: a coerced value (`dyn`, `Seq`,
+    /// `Data`, `Bytes`) is a managed pointer whatever the source type, and
+    /// must be kept in a pointer (rooted) local.
+    fn lowered_repr(&self, e: ExprId) -> Repr {
+        if self.inst.coercions.contains_key(&e) { Repr::Ptr } else { self.repr(&self.ty(e)) }
+    }
+
     pub fn ty(&self, e: ExprId) -> Ty {
         self.inst.exprs.get(&e).cloned().unwrap_or_else(lang_typeck::ty::unit)
     }
@@ -1312,7 +1319,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 for x in &items {
                     let v = self.lower(*x)?;
                     // keep values rooted across allocation
-                    let r = self.repr(&self.ty(*x));
+                    let r = self.lowered_repr(*x);
                     let l = self.copy_to_local(v, r, None);
                     vals.push(Operand::Local(l));
                 }
@@ -1329,10 +1336,10 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let mut kvs = vec![];
                 for (k, v) in &entries {
                     let kv = self.lower(*k)?;
-                    let kr = self.repr(&self.ty(*k));
+                    let kr = self.lowered_repr(*k);
                     let kl = self.copy_to_local(kv, kr, None);
                     let vv = self.lower(*v)?;
-                    let vr = self.repr(&self.ty(*v));
+                    let vr = self.lowered_repr(*v);
                     let vl = self.copy_to_local(vv, vr, None);
                     kvs.push((Operand::Local(kl), Operand::Local(vl)));
                 }
@@ -1348,7 +1355,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let mut ks = vec![];
                 for k in &items {
                     let kv = self.lower(*k)?;
-                    let kr = self.repr(&self.ty(*k));
+                    let kr = self.lowered_repr(*k);
                     ks.push(Operand::Local(self.copy_to_local(kv, kr, None)));
                 }
                 let d = self.desc_op(&ty);
@@ -1933,7 +1940,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let mut ops = vec![];
                 for a in args {
                     let v = self.lower(*a)?;
-                    let r = self.repr(&self.ty(*a));
+                    let r = self.lowered_repr(*a);
                     ops.push(Operand::Local(self.copy_to_local(v, r, None)));
                 }
                 let v = self.alloc_enum(ty, *variant, ops);
@@ -2196,7 +2203,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let mut vals: Vec<(Symbol, Operand)> = vec![];
         for (l, _, x) in fields {
             let v = self.lower(*x)?;
-            let r = self.repr(&self.ty(*x));
+            let r = self.lowered_repr(*x);
             vals.push((*l, Operand::Local(self.copy_to_local(v, r, None))));
         }
         let layout = self.m.lay.record(ty);
@@ -2275,7 +2282,8 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let closers: Vec<(FuncId, Local)> =
             self.loops[from.min(self.loops.len())..].iter().rev().filter_map(|l| l.close).collect();
         for (f, l) in closers {
-            self.call(Callee::Direct(f), vec![Operand::Local(l)], Repr::I64);
+            let r = self.m.prog.funcs[f].ret;
+            self.call(Callee::Direct(f), vec![Operand::Local(l)], r);
         }
     }
 
@@ -2407,7 +2415,8 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 if let Some((f, l)) = close {
                     // exhausted or broken out of: close scoped resources
                     self.switch(exit);
-                    self.call(Callee::Direct(f), vec![Operand::Local(l)], Repr::I64);
+                    let r = self.m.prog.funcs[f].ret;
+                    self.call(Callee::Direct(f), vec![Operand::Local(l)], r);
                 }
             }
             _ => {
@@ -2743,8 +2752,10 @@ pub fn lower_program<'g, 'a>(
         }
     }
     m.run();
-    let errors = std::mem::take(&mut m.errors);
+    let mut errors = std::mem::take(&mut m.errors);
     m.prog.origins.descs = m.lay.created.borrow().clone();
+    // the lowered program keeps the MIR invariants (`verify`)
+    errors.extend(crate::verify::verify(&m.prog));
     (m.prog, errors)
 }
 
