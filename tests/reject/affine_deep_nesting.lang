@@ -1,0 +1,22 @@
+// expect-error: E0404
+// A buffer nested at any depth makes its container affine.
+import std.buffer
+pub struct R0 { pub b: Buffer<Int> }
+pub struct R1 { pub inner: R0 }
+pub struct R2 { pub inner: R1 }
+pub struct R3 { pub inner: R2 }
+pub struct R4 { pub inner: R3 }
+pub struct R5 { pub inner: R4 }
+pub struct R6 { pub inner: R5 }
+pub struct R7 { pub inner: R6 }
+pub struct R8 { pub inner: R7 }
+pub struct R9 { pub inner: R8 }
+pub struct R10 { pub inner: R9 }
+pub struct R11 { pub inner: R10 }
+fn take(r: R11) -> Unit {}
+fn mk() -> R11 { { inner: { inner: { inner: { inner: { inner: { inner: { inner: { inner: { inner: { inner: { inner: { b: buffer.new() } } } } } } } } } } } } }
+pub fn main() -> Unit {
+    let r = mk()
+    take(r)
+    take(r)
+}

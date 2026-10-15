@@ -1395,10 +1395,11 @@ impl Infer<'_, '_> {
     }
 
     /// No region-parameterized constructor (a scoped resource) inside `t`.
-    fn unscoped(&mut self, t: &Ty, final_: bool, depth: usize) -> Option<bool> {
-        if depth > 8 {
-            return Some(true);
-        }
+    fn unscoped(&mut self, t: &Ty, final_: bool) -> Option<bool> {
+        self.unscoped_in(t, final_, &mut vec![])
+    }
+
+    fn unscoped_in(&mut self, t: &Ty, final_: bool, seen: &mut Vec<Ty>) -> Option<bool> {
         let t = self.deref(t);
         match &*t {
             TyKind::Var(_) => {
@@ -1412,8 +1413,15 @@ impl Infer<'_, '_> {
                 if self.g.env.last_param_is_region(self.g.hir, *d) {
                     return Some(false);
                 }
+                let deep = match expand(seen, &t) {
+                    Expand::Cycle => return Some(true),
+                    Expand::Deep => true,
+                    Expand::Go => false,
+                };
                 let mut parts: Vec<Ty> = args.clone();
-                if self.g.env.structs.contains_key(d) {
+                if deep {
+                    // answered from the arguments alone
+                } else if self.g.env.structs.contains_key(d) {
                     parts.extend(self.g.env.struct_fields(*d, args).into_iter().map(|f| f.1));
                 } else if let Some(e) = self.g.env.enums.get(d) {
                     let n = e.variants.len();
@@ -1422,18 +1430,25 @@ impl Infer<'_, '_> {
                     }
                 }
                 let mut pending = false;
+                let mut r = Some(true);
                 for p in parts {
-                    match self.unscoped(&p, final_, depth + 1) {
-                        Some(false) => return Some(false),
+                    match self.unscoped_in(&p, final_, seen) {
+                        Some(false) => {
+                            r = Some(false);
+                            break;
+                        }
                         None => pending = true,
                         Some(true) => {}
                     }
                 }
-                if pending { None } else { Some(true) }
+                if !deep {
+                    seen.pop();
+                }
+                if r == Some(true) && pending { None } else { r }
             }
             TyKind::Tuple(ts) => {
                 for p in ts.clone() {
-                    if self.unscoped(&p, final_, depth + 1) == Some(false) {
+                    if self.unscoped_in(&p, final_, seen) == Some(false) {
                         return Some(false);
                     }
                 }
@@ -1441,7 +1456,7 @@ impl Infer<'_, '_> {
             }
             TyKind::Record(r) => {
                 for (_, p) in row_fields(r).0 {
-                    if self.unscoped(&p, final_, depth + 1) == Some(false) {
+                    if self.unscoped_in(&p, final_, seen) == Some(false) {
                         return Some(false);
                     }
                 }
@@ -1755,7 +1770,7 @@ impl Infer<'_, '_> {
                 return builtin(r);
             }
             "Extends" | "Projects" => return builtin(self.extends(&t, &args[0], final_)),
-            "Unscoped" => return builtin(self.unscoped(&t, final_, 0)),
+            "Unscoped" => return builtin(self.unscoped(&t, final_)),
             // a row variable stands for record fields, never a value type
             "Row" => {
                 return match &*t {

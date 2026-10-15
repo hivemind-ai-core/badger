@@ -1,0 +1,16 @@
+// Recursive types with no affine part stay freely copyable.
+import std.io
+pub enum Tree { leaf(Int), node(List<Tree>) }
+pub struct Grow<T> { pub v: T, pub next: List<Grow<List<T>>> }
+pub enum Chain { end, link(Int, Box<Chain>) }
+fn size(t: Tree) -> Int { match t { .leaf(_) => 1, .node(xs) => 1 } }
+pub fn main() -> Unit {
+    let t = Tree.node([Tree.leaf(1), Tree.leaf(2)])
+    let a = size(t)
+    let b = size(t)
+    let c = Chain.link(1, Box.new(Chain.end))
+    let d = (c, c)
+    let g: Grow<Int> = { v: 1, next: [] }
+    let h = (g, g)
+    let _ = io.println($"{a + b}")
+}

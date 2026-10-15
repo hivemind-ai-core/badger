@@ -676,6 +676,32 @@ impl InferCtxt {
     }
 }
 
+/// Entering a nominal type in a walk that expands struct and enum
+/// definitions into their fields.
+pub enum Expand {
+    /// Expand it: `t` was pushed onto the stack (pop it afterwards).
+    Go,
+    /// `t` is already being expanded: the cycle adds nothing new.
+    Cycle,
+    /// Its definition keeps recurring at growing arguments (polymorphic
+    /// recursion). Fields not built from the arguments were seen at the
+    /// outer occurrences already, so the walk answers from the arguments,
+    /// which are strictly smaller.
+    Deep,
+}
+
+pub fn expand(seen: &mut Vec<Ty>, t: &Ty) -> Expand {
+    let TyKind::Con(d, _) = &**t else { return Expand::Go };
+    if seen.contains(t) {
+        return Expand::Cycle;
+    }
+    if seen.iter().filter(|s| matches!(&***s, TyKind::Con(x, _) if x == d)).count() >= 4 {
+        return Expand::Deep;
+    }
+    seen.push(t.clone());
+    Expand::Go
+}
+
 /// Does any node of `t` satisfy `f`?
 pub fn ty_any(t: &Ty, f: &mut impl FnMut(&TyKind) -> bool) -> bool {
     if f(t) {

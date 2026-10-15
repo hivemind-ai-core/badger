@@ -905,7 +905,7 @@ impl Own<'_, '_, '_> {
                 let Some(t) = self.local_ty(*l) else { continue };
                 // fallible tasks inside a collection or aggregate
                 if !matches!(&*t, TyKind::Con(d, _) if Some(*d) == hir.try_lang("task.Task"))
-                    && self.holds_fallible_task(&t, 0)
+                    && self.holds_fallible_task(&t)
                 {
                     let span = hir.pats[*pat].span;
                     let name = self.name(*l);
@@ -956,10 +956,7 @@ impl Own<'_, '_, '_> {
     }
 
     /// Whether a type holds a task whose result is a `Result`.
-    fn holds_fallible_task(&mut self, t: &Ty, depth: usize) -> bool {
-        if depth > 6 {
-            return false;
-        }
+    fn holds_fallible_task(&mut self, t: &Ty) -> bool {
         let t = self.inf.icx.resolve(t);
         let hir = self.inf.g.hir;
         match &*t {
@@ -968,9 +965,9 @@ impl Own<'_, '_, '_> {
                 self.holds_result(&r)
             }
             TyKind::Con(_, args) | TyKind::Tuple(args) => {
-                args.clone().iter().any(|a| self.holds_fallible_task(a, depth + 1))
+                args.clone().iter().any(|a| self.holds_fallible_task(a))
             }
-            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_fallible_task(x, depth + 1)),
+            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_fallible_task(x)),
             _ => false,
         }
     }
@@ -980,10 +977,13 @@ impl Own<'_, '_, '_> {
         *e = (*e).max(pos);
     }
 
-    fn is_affine_ty(&mut self, t: &Ty, depth: usize) -> bool {
-        if depth > 8 {
-            return false;
-        }
+    fn is_affine_ty(&mut self, t: &Ty) -> bool {
+        self.affine_in(t, &mut vec![])
+    }
+
+    /// An affine part anywhere inside: a type that keeps growing as it
+    /// recurs counts as affine rather than as freely duplicable.
+    fn affine_in(&mut self, t: &Ty, seen: &mut Vec<Ty>) -> bool {
         let t = self.inf.icx.resolve(t);
         match &*t {
             TyKind::Con(d, args) => {
@@ -996,7 +996,12 @@ impl Own<'_, '_, '_> {
                 }
                 // a sequence of affine items is a one-shot iterator
                 if name.as_deref() == Some("Seq") {
-                    return args.iter().any(|a| self.is_affine_ty(a, depth + 1));
+                    return args.iter().any(|a| self.affine_in(a, seen));
+                }
+                match expand(seen, &t) {
+                    Expand::Cycle => return false,
+                    Expand::Deep => return args.iter().any(|a| self.affine_in(a, seen)),
+                    Expand::Go => {}
                 }
                 let fields: Vec<Ty> = if let Some(e) = self.inf.g.env.enums.get(d) {
                     (0..e.variants.len())
@@ -1015,17 +1020,17 @@ impl Own<'_, '_, '_> {
                     // shared runtime objects: they are not affine themselves
                     vec![]
                 };
-                fields
-                    .iter()
-                    .any(|f| !matches!(&**f, TyKind::Con(x, _) if x == d) && self.is_affine_ty(f, depth + 1))
+                let r = fields.iter().any(|f| self.affine_in(f, seen));
+                seen.pop();
+                r
             }
             TyKind::Fn(f) => f.once,
             TyKind::Skolem(s) if self.generic => {
                 !self.inf.icx.skolems.get(*s as usize).is_some_and(|k| k.region)
             }
             TyKind::Var(_) | TyKind::Gen(_) if self.generic => true,
-            TyKind::Tuple(ts) => ts.iter().any(|x| self.is_affine_ty(x, depth + 1)),
-            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.is_affine_ty(x, depth + 1)),
+            TyKind::Tuple(ts) => ts.iter().any(|x| self.affine_in(x, seen)),
+            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.affine_in(x, seen)),
             TyKind::Ref(..) => false,
             _ => false,
         }
@@ -1066,7 +1071,7 @@ impl Own<'_, '_, '_> {
 
     fn expr_affine(&mut self, e: ExprId) -> bool {
         match self.inf.exprs.get(&e).cloned() {
-            Some(t) => self.is_affine_ty(&t, 0),
+            Some(t) => self.is_affine_ty(&t),
             None => false,
         }
     }
@@ -1085,7 +1090,7 @@ impl Own<'_, '_, '_> {
         }
         let b = match self.local_ty(l) {
             // a binding of borrowed type does not own its referent
-            Some(r) => !matches!(&*r, TyKind::Ref(..)) && self.is_affine_ty(&r, 0),
+            Some(r) => !matches!(&*r, TyKind::Ref(..)) && self.is_affine_ty(&r),
             None => false,
         };
         self.affine.insert(l, b);
@@ -1098,7 +1103,7 @@ impl Own<'_, '_, '_> {
             Some(r) => match &*r {
                 TyKind::Ref(_, inner) => {
                     let inner = inner.clone();
-                    self.is_affine_ty(&inner, 0)
+                    self.is_affine_ty(&inner)
                 }
                 _ => false,
             },
@@ -1188,7 +1193,7 @@ impl Own<'_, '_, '_> {
         let ret = self.inf.icx.resolve(&ret);
         let repeatable = match &*ret {
             TyKind::Fn(f) => !f.once,
-            _ => self.holds_fn(&ret, 0),
+            _ => self.holds_fn(&ret),
         };
         if !repeatable {
             return;
@@ -1248,7 +1253,7 @@ impl Own<'_, '_, '_> {
         let mut bound = vec![];
         pat_locals(self.inf.g.hir, pat, &mut bound);
         for b in bound {
-            if self.local_ty(b).is_some_and(|t| self.holds_fn(&t, 0)) {
+            if self.local_ty(b).is_some_and(|t| self.holds_fn(&t)) {
                 self.consuming.insert(b);
                 self.affine.insert(b, true);
             }
@@ -1257,14 +1262,20 @@ impl Own<'_, '_, '_> {
 
     /// Whether a type holds a function (directly, in fields, payloads, or
     /// elements).
-    fn holds_fn(&mut self, t: &Ty, depth: usize) -> bool {
-        if depth > 6 {
-            return false;
-        }
+    fn holds_fn(&mut self, t: &Ty) -> bool {
+        self.fn_in(t, &mut vec![])
+    }
+
+    fn fn_in(&mut self, t: &Ty, seen: &mut Vec<Ty>) -> bool {
         let t = self.inf.icx.resolve(t);
         match &*t {
             TyKind::Fn(_) => true,
             TyKind::Con(d, args) => {
+                match expand(seen, &t) {
+                    Expand::Cycle => return false,
+                    Expand::Deep => return args.iter().any(|a| self.fn_in(a, seen)),
+                    Expand::Go => {}
+                }
                 let fields: Vec<Ty> = if let Some(e) = self.inf.g.env.enums.get(d) {
                     (0..e.variants.len())
                         .flat_map(|v| {
@@ -1276,12 +1287,12 @@ impl Own<'_, '_, '_> {
                 } else {
                     args.clone()
                 };
-                fields
-                    .iter()
-                    .any(|f| !matches!(&**f, TyKind::Con(x, _) if x == d) && self.holds_fn(f, depth + 1))
+                let r = fields.iter().any(|f| self.fn_in(f, seen));
+                seen.pop();
+                r
             }
-            TyKind::Tuple(ts) => ts.clone().iter().any(|x| self.holds_fn(x, depth + 1)),
-            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_fn(x, depth + 1)),
+            TyKind::Tuple(ts) => ts.clone().iter().any(|x| self.fn_in(x, seen)),
+            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.fn_in(x, seen)),
             _ => false,
         }
     }
@@ -1341,7 +1352,7 @@ impl Own<'_, '_, '_> {
         match &*t {
             TyKind::Ref(_, inner) => {
                 let inner = inner.clone();
-                self.is_affine_ty(&inner, 0)
+                self.is_affine_ty(&inner)
             }
             _ => false,
         }
@@ -1472,7 +1483,7 @@ impl Own<'_, '_, '_> {
         for k in dup {
             let Some(a) = args.get(k as usize) else { continue };
             let a = self.inf.icx.resolve(a);
-            if self.is_affine_ty(&a, 0) {
+            if self.is_affine_ty(&a) {
                 if self.generic {
                     self.offending.push(a.clone());
                 }
@@ -1940,7 +1951,7 @@ impl Own<'_, '_, '_> {
             ExprKind::Call { callee, args }
                 if holds_ref
                     || matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. })
-                    || self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t, 0)) =>
+                    || self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t)) =>
             {
                 for a in args.clone() {
                     self.carried_borrows(a, out);
@@ -2160,7 +2171,7 @@ impl Own<'_, '_, '_> {
                 };
                 // calling a consuming closure stored in a field, or reading one
                 // out of its holder (`m.get(k)`), uses up the holder
-                let reads_fn = self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t, 0));
+                let reads_fn = self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t));
                 let consumed_root = match self.inf.res.get(&e) {
                     Some(Res::Method(Target::Field(_))) => {
                         self.place_root(*recv).filter(|r| self.consuming.contains(r) && !st.contains_key(r))
@@ -2521,7 +2532,7 @@ impl Own<'_, '_, '_> {
                                                 .exprs
                                                 .get(init)
                                                 .cloned()
-                                                .is_some_and(|t| self.holds_fn(&t, 0))
+                                                .is_some_and(|t| self.holds_fn(&t))
                                         {
                                             extra.push((root, false, hir.exprs[*init].span));
                                         }

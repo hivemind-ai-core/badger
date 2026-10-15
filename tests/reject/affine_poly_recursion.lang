@@ -1,0 +1,10 @@
+// expect-error: E0404
+// A polymorphically recursive type holding a buffer is affine.
+import std.buffer
+pub struct Grow<T> { pub v: T, pub next: List<Grow<List<T>>> }
+fn take(g: Grow<Buffer<Int>>) -> Unit {}
+pub fn main() -> Unit {
+    let g: Grow<Buffer<Int>> = { v: buffer.new(), next: [] }
+    take(g)
+    take(g)
+}

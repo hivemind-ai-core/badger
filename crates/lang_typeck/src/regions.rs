@@ -112,16 +112,17 @@ impl Regions<'_, '_, '_> {
     /// Can a value of this type hold on to a scoped value without its type
     /// saying so? Closures, `dyn`, and runtime handles can; plain data
     /// (numbers, text, collections of data, records of data) cannot.
-    fn opaque(&mut self, t: &Ty, depth: usize) -> bool {
-        if depth > 6 {
-            return false;
-        }
+    fn opaque(&mut self, t: &Ty) -> bool {
+        self.opaque_in(t, &mut vec![])
+    }
+
+    fn opaque_in(&mut self, t: &Ty, seen: &mut Vec<Ty>) -> bool {
         match &**t {
             TyKind::Fn(_) | TyKind::Dyn(..) => true,
             TyKind::Skolem(s) => !self.inf.icx.skolems.get(*s as usize).is_some_and(|i| i.region),
-            TyKind::Ref(_, x) | TyKind::Record(x) => self.opaque(x, depth + 1),
-            TyKind::RowExt(_, a, rest) => self.opaque(a, depth + 1) || self.opaque(rest, depth + 1),
-            TyKind::Tuple(ts) => ts.iter().any(|x| self.opaque(x, depth + 1)),
+            TyKind::Ref(_, x) | TyKind::Record(x) => self.opaque_in(x, seen),
+            TyKind::RowExt(_, a, rest) => self.opaque_in(a, seen) || self.opaque_in(rest, seen),
+            TyKind::Tuple(ts) => ts.iter().any(|x| self.opaque_in(x, seen)),
             TyKind::Con(d, args) => {
                 let d = *d;
                 let name = self.inf.lang_name(d).unwrap_or_default();
@@ -155,7 +156,12 @@ impl Regions<'_, '_, '_> {
                     "Unit",
                 ];
                 if data.contains(&name.as_str()) {
-                    return args.iter().any(|x| self.opaque(x, depth + 1));
+                    return args.iter().any(|x| self.opaque_in(x, seen));
+                }
+                match expand(seen, t) {
+                    Expand::Cycle => return false,
+                    Expand::Deep => return args.iter().any(|x| self.opaque_in(x, seen)),
+                    Expand::Go => {}
                 }
                 let fields: Option<Vec<Ty>> = if let Some(e) = self.inf.g.env.enums.get(&d) {
                     Some(
@@ -170,14 +176,14 @@ impl Regions<'_, '_, '_> {
                 } else {
                     None
                 };
-                match fields {
+                let r = match fields {
                     // user and library structs/enums: by their contents
-                    Some(fs) => fs
-                        .iter()
-                        .any(|x| !matches!(&**x, TyKind::Con(y, _) if *y == d) && self.opaque(x, depth + 1)),
+                    Some(fs) => fs.iter().any(|x| self.opaque_in(x, seen)),
                     // runtime handles (pools, transactions, tasks, endpoints)
                     None => true,
-                }
+                };
+                seen.pop();
+                r
             }
             _ => false,
         }
@@ -189,7 +195,7 @@ impl Regions<'_, '_, '_> {
         if self.mentions(&t) {
             return true;
         }
-        let opaque = self.opaque(&t, 0);
+        let opaque = self.opaque(&t);
         match &hir.exprs[e].kind {
             ExprKind::Local(l) => self.tainted.get(l).copied().unwrap_or(false) && opaque,
             ExprKind::Call { callee, args } => {
