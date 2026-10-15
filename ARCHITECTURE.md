@@ -386,3 +386,12 @@ entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
 Programs deploy from source; dependencies are path dependencies with a
 verified lockfile; there is no ahead-of-time object output (a future mode in
 §07). See [README.md](README.md#status).
+
+Known limitation: capture marks (`%region`, `%confined`) share the row
+representation with effects, and calling a function charges the effect
+rows of the functions it receives. So a scope-local cell first passed to
+a storing helper (which ties the cell's closure rows to the helper's
+effect row) and then given a closure over the scope is reported as an
+escape (E0401) although nothing leaves the scope. Passing the cell to the
+helper after storing scope-capturing closures, or not through a helper,
+avoids it. Separating capture marks from effect rows removes it.
