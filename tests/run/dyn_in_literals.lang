@@ -1,0 +1,14 @@
+// Values coerce to dyn inside record and tuple literals, as in structs and lists.
+import std.io
+protocol Show2 { fn show2(self: &Self) -> String }
+struct A { v: Int }
+impl Show2 for A { fn show2(self: &Self) -> String { $"A{self.v}" } }
+struct Holder { d: dyn Show2 }
+pub fn main() -> Result<Unit, io.Error> {
+    let a: A = { v: 1 }
+    let h: Holder = { d: a }
+    let l: List<dyn Show2> = [a]
+    let r: { d: dyn Show2 } = { d: a }
+    let t: (dyn Show2, Int) = (a, 1)
+    io.println($"{h.d.show2()} {l[0].show2()} {r.d.show2()} {t.0.show2()}")
+}

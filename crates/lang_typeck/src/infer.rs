@@ -727,6 +727,18 @@ impl<'g, 'a> Infer<'g, 'a> {
         }
     }
 
+    /// A tuple element or record field: coerced to an expected `dyn` type
+    /// (as a struct field or list element is), otherwise checked against
+    /// the expectation by the enclosing literal.
+    fn check_elem(&mut self, e: ExprId, expected: Option<&Ty>) -> Ty {
+        if let Some(t) = expected
+            && matches!(&*self.deref(t), TyKind::Dyn(..))
+        {
+            return self.check(e, t);
+        }
+        self.check_opt(e, expected)
+    }
+
     pub fn check(&mut self, e: ExprId, expected: &Ty) -> Ty {
         let t = self.check_opt(e, Some(expected));
         self.icx.span_hint = self.g.hir.exprs[e].span;
@@ -915,7 +927,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                 let ts = items
                     .iter()
                     .enumerate()
-                    .map(|(i, x)| self.check_opt(*x, exp_items.as_ref().map(|v| &v[i])))
+                    .map(|(i, x)| self.check_elem(*x, exp_items.as_ref().map(|v| &v[i])))
                     .collect();
                 mk(TyKind::Tuple(ts))
             }
@@ -1818,7 +1830,7 @@ impl<'g, 'a> Infer<'g, 'a> {
         };
         let mut fs = vec![];
         for (l, _, x) in fields {
-            let t = self.check_opt(*x, expected_fields.get(l));
+            let t = self.check_elem(*x, expected_fields.get(l));
             fs.push((*l, t));
         }
         match spread {
