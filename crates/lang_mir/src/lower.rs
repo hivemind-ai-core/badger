@@ -2277,13 +2277,18 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     Rvalue::Load { base: Operand::Local(itl), offset: 16, repr: Repr::I64 },
                 );
                 let i = self.copy_to_local(start, Repr::I64, Some("i".into()));
+                // the bounds are the element type's values widened to 64 bits
+                // (unsigned ones zero-extended): compare in its own order
+                let nt = self.m.lay.num_ty(&item_ty).unwrap_or(NumTy::I(64, true));
+                let wide = match nt {
+                    NumTy::I(_, signed) => NumTy::I(64, signed),
+                    NumTy::F(_) => NumTy::I(64, true),
+                };
                 self.term(Term::Goto(head));
                 self.switch(head);
                 self.emit(Stmt::Poll);
-                let lt = self.assign(
-                    Repr::I8,
-                    Rvalue::Cmp { op: CmpOp::Lt, a: Operand::Local(i), b: end, ty: NumTy::I(64, true) },
-                );
+                let lt = self
+                    .assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Lt, a: Operand::Local(i), b: end, ty: wide });
                 let eq = self.assign(
                     Repr::I8,
                     Rvalue::Cmp { op: CmpOp::Eq, a: Operand::Local(i), b: end, ty: NumTy::I(64, true) },
@@ -2308,16 +2313,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 );
                 self.term(Term::Branch(c, bodyb, exit));
                 self.switch(bodyb);
-                let nt = self.m.lay.num_ty(&item_ty).unwrap_or(NumTy::I(64, true));
                 let x = self.assign(
                     self.repr(&item_ty),
-                    Rvalue::Convert {
-                        a: Operand::Local(i),
-                        from: NumTy::I(64, true),
-                        to: nt,
-                        checked: false,
-                        loc: 0,
-                    },
+                    Rvalue::Convert { a: Operand::Local(i), from: wide, to: nt, checked: false, loc: 0 },
                 );
                 self.bind_irrefutable(pat, x, &item_ty);
                 self.loops.push(LoopCtx { expr: e, cont: step, brk: exit, result: None, close: None });
@@ -2336,13 +2334,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.switch(next);
                 let n = self.assign(
                     Repr::I64,
-                    Rvalue::Bin {
-                        op: BinOp::Add,
-                        a: Operand::Local(i),
-                        b: int(1),
-                        ty: NumTy::I(64, true),
-                        loc: 0,
-                    },
+                    Rvalue::Bin { op: BinOp::Add, a: Operand::Local(i), b: int(1), ty: wide, loc: 0 },
                 );
                 self.emit(Stmt::Assign(i, Rvalue::Use(n)));
                 self.term(Term::Goto(head));

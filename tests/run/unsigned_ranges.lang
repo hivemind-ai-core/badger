@@ -1,0 +1,19 @@
+// Ranges iterate in their element type's order, across the signed boundary too.
+import std.io
+pub fn main() -> Unit {
+    var n = 0
+    var last = 0U64
+    for i in 9223372036854775806U64..9223372036854775810U64 { n = n + 1; last = i }
+    let _ = io.println($"{n} {last}")
+    var m = 0
+    for i in 18446744073709551613U64..=18446744073709551615U64 { m = m + 1; last = i }
+    let _ = io.println($"{m} {last}")
+    var k = 0
+    for i in 250U8..=255U8 { k = k + 1 }
+    for i in 4294967290U32..4294967295U32 { k = k + 1 }
+    for i in -3I8..=127I8 { k = k + 1 }
+    for i in -9223372036854775808..-9223372036854775806 { k = k + 1 }
+    for i in 5U64..2U64 { k = k + 100 }
+    for i in 0U64..=0U64 { k = k + 1 }
+    let _ = io.println($"{k}")
+}
