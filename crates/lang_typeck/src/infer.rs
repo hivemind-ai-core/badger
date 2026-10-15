@@ -1448,9 +1448,23 @@ impl<'g, 'a> Infer<'g, 'a> {
         span: Span,
         expected: Option<&Ty>,
     ) -> Ty {
-        let rt = self.infer(recv);
+        let mut rt = self.infer(recv);
         let explicit: Vec<Ty> = type_args.iter().map(|t| self.hty(t)).collect();
-        let r = self.deref(&rt);
+        let mut r = self.deref(&rt);
+        // an integer range offers the `Seq<Int>` methods it lacks
+        if let TyKind::Con(d, a) = &*r.clone()
+            && self.lang_name(*d).as_deref() == Some("Range")
+            && !self.lookup_method_peek(&r, method)
+            && let Some(seq) = self.g.hir.try_lang("Seq")
+        {
+            let int = self.int_ty();
+            if let Some(elem) = a.first() {
+                let _ = self.icx.unify(elem, &int);
+            }
+            self.coercions.insert(recv, Coercion::RangeToSeq);
+            rt = mk(TyKind::Con(seq, vec![int]));
+            r = rt.clone();
+        }
         // Record field holding a function: call it.
         if let TyKind::Record(_) = &*r {
             let ft = self.field(r.clone(), method, method_span, e);

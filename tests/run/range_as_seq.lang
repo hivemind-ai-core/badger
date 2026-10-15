@@ -8,5 +8,8 @@ pub fn main() -> Result<Unit, io.Error> {
     let s: Seq<Int> = 1..=3
     io.println(list.collect(s))?
     io.println(list.collect(seq.map(2..2, fn(x) { x })))?
+    // and offers the Seq methods directly
+    io.println(list.collect((0..10).filter(fn(x) { x % 3 == 0 })))?
+    io.println(list.collect((1..=3).map(fn(x) { x * 10 })))?
     ok(())
 }
