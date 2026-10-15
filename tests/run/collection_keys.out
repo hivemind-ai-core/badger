@@ -1,0 +1,4 @@
+eq true get 10
+replace 1 20 remove 0
+eq true has true grow 1
+nested true found

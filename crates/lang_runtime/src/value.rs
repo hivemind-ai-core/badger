@@ -160,8 +160,44 @@ pub fn hash(d: &TypeDesc, w: u64, h: &mut impl Hasher) {
                 hash(elem, crate::list::get(w, i), h);
             }
         }
+        // equal maps and sets may differ in insertion order and allocation:
+        // entries combine by a commutative sum of their own hashes
+        Kind::Map { key, val } => {
+            let entries = crate::map::entries(w);
+            h.write_usize(entries.len());
+            let sum = entries.iter().fold(0u64, |acc, (k, v)| {
+                let mut eh = rustc_hash::FxHasher::default();
+                hash(key, *k, &mut eh);
+                hash(val, *v, &mut eh);
+                acc.wrapping_add(mix(eh.finish()))
+            });
+            h.write_u64(sum);
+        }
+        Kind::Set { elem } => {
+            let entries = crate::map::entries(w);
+            h.write_usize(entries.len());
+            let sum = entries.iter().fold(0u64, |acc, (k, _)| {
+                let mut eh = rustc_hash::FxHasher::default();
+                hash(elem, *k, &mut eh);
+                acc.wrapping_add(mix(eh.finish()))
+            });
+            h.write_u64(sum);
+        }
+        Kind::Range { .. } => {
+            let p = unsafe { obj(w).payload() };
+            h.write(unsafe { std::slice::from_raw_parts(p, 24) });
+        }
         _ => h.write_u64(w),
     }
+}
+
+/// Spread an entry hash before summing (FxHash's low bits are weak).
+fn mix(mut x: u64) -> u64 {
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+    x ^ (x >> 33)
 }
 
 pub fn cmp(d: &TypeDesc, a: u64, b: u64) -> Ordering {

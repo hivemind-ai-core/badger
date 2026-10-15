@@ -1,0 +1,21 @@
+// Equal maps and sets are interchangeable keys, whatever their build order.
+import std.io
+import std.map
+import std.set
+pub struct K { pub tags: Set<String>, pub id: Int }
+pub fn main() -> Unit {
+    let k1 = map.from_list([(1, "a"), (2, "b"), (3, "c")])
+    let k2 = map.from_list([(3, "c"), (2, "b"), (1, "a")])
+    let m = map.from_list([(k1, 10)])
+    let _ = io.println($"eq {k1 == k2} get {m.get(k2).unwrap_or(0)}")
+    let replaced = m.insert(k2, 20)
+    let _ = io.println($"replace {replaced.len()} {replaced.get(k1).unwrap_or(0)} remove {map.remove(m, k2).len()}")
+    let s1 = set.from_list([1, 2, 3, 4, 5])
+    let s2 = set.from_list([5, 4, 3, 2, 1])
+    let ss = set.from_list([s1])
+    let _ = io.println($"eq {s1 == s2} has {ss.contains(s2)} grow {set.insert(ss, s2).len()}")
+    let a: K = { tags: set.from_list(["x", "y"]), id: 1 }
+    let b: K = { tags: set.from_list(["y", "x"]), id: 1 }
+    let byk = map.from_list([(a, "found")])
+    let _ = io.println($"nested {a == b} {byk.get(b).unwrap_or("missing")}")
+}
