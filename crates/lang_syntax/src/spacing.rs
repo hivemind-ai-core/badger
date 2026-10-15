@@ -156,8 +156,16 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
             i = j;
             continue;
         }
-        if rest.starts_with("\"\"\"") {
-            return None;
+        if rest.starts_with("\"\"\"") || rest.starts_with("$\"\"\"") {
+            // a raw string closed on this line is copied verbatim; one that
+            // continues leaves the line unchanged
+            let open = if c == '$' { 4 } else { 3 };
+            let tail: String = b[i + open..].iter().collect();
+            let close = tail.find("\"\"\"")?;
+            let end = i + open + tail[..close].chars().count() + 3;
+            push(&mut out, K::Str, b[i..end].iter().collect(), &mut spaced);
+            i = end;
+            continue;
         }
         if c == '"' || (c == '$' && next == Some('"')) {
             let start = i;

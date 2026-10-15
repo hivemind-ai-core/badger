@@ -108,9 +108,10 @@ fn scan(line: &str, stack: &mut Vec<usize>, level: usize, block: &mut usize, raw
                 *block += 1;
                 i += 2;
             }
-            b'"' if b[i..].starts_with(b"\"\"\"") => {
+            // a raw string, also interpolated (`$"""`): verbatim to its end
+            b'"' | b'$' if b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"$\"\"\"") => {
                 *raw = true;
-                i += 3;
+                i += if b[i] == b'$' { 4 } else { 3 };
             }
             b'"' | b'$' if b[i] == b'"' || b.get(i + 1) == Some(&b'"') => {
                 // an ordinary or interpolated string on one line
@@ -161,5 +162,10 @@ mod tests {
     fn raw_strings_are_verbatim() {
         let src = "let s = \"\"\"\n  keep {\n\"\"\"\nlet t = 1\n";
         assert_eq!(format(src), src);
+        // inline raw strings, interpolated too, stay one literal
+        let inline = "fn f() -> Unit {\nio.println($\"\"\"\\n{{ok}} {3}\"\"\")\n}\n";
+        assert_eq!(format(inline), "fn f() -> Unit {\n    io.println($\"\"\"\\n{{ok}} {3}\"\"\")\n}\n");
+        let multi = "let s = $\"\"\"a {x}\n  { b\n\"\"\"\nlet t = 1\n";
+        assert_eq!(format(multi), multi);
     }
 }
