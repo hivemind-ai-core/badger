@@ -1531,6 +1531,7 @@ fn finish(id: TaskId) {
         let objs = std::mem::take(&mut t.on_deschedule);
         h(id, &objs);
     }
+    crate::channel::release_leases_of(id);
     let t = task(id).unwrap();
     t.state = State::Done;
     t.exit = t.pending_exit.take().or(t.exit.take()).or(Some(Exit::Cancelled));

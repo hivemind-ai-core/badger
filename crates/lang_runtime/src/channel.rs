@@ -35,6 +35,9 @@ pub struct ChanData {
     pub staging: FxHashMap<TaskId, Vec<u64>>,
     /// Messages in leased (received, unreleased) batches.
     pub leased: usize,
+    /// Unreleased leases and the tasks holding them (released when the
+    /// holder finishes; traced so a lease outlives its last reference).
+    pub leases: Vec<(TaskId, u64)>,
     pub recv_waiters: VecDeque<TaskId>,
     /// Waiting senders with their (still owned) values.
     pub send_waiters: VecDeque<(TaskId, u64)>,
@@ -94,6 +97,7 @@ fn batch_desc() -> &'static TypeDesc {
 
 fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     let d = unsafe { &*(*((*o).payload() as *const *mut ChanData)) };
+    d.leases.iter().for_each(|(_, b)| f(*b));
     if !d.elem.is_ptr() {
         return;
     }
@@ -192,6 +196,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         batches: VecDeque::new(),
         staging: FxHashMap::default(),
         leased: 0,
+        leases: vec![],
         recv_waiters: VecDeque::new(),
         send_waiters: VecDeque::new(),
         cap_waiters: VecDeque::new(),
@@ -580,6 +585,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
                 *(p as *mut *mut Batch) = Box::into_raw(Box::new(Batch { items, released: false }));
                 *(p.add(8) as *mut u64) = ch;
             }
+            data(ch).leases.push((task::current_id(), b));
             return Some(b);
         }
         if d.closed && d.staging.values().all(Vec::is_empty) {
@@ -625,6 +631,19 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
     }
 }
 
+/// A finished task's unreleased leases return their capacity (a lease is
+/// released by the cleanup of the task that received it).
+#[allow(static_mut_refs)]
+pub fn release_leases_of(id: TaskId) {
+    let chans: Vec<u64> = unsafe { REGISTRY.iter().map(|&(_, w)| w).collect() };
+    for ch in chans {
+        let held: Vec<u64> = data(ch).leases.iter().filter(|(t, _)| *t == id).map(|(_, b)| *b).collect();
+        for b in held {
+            release(b);
+        }
+    }
+}
+
 pub fn batch<'a>(b: u64) -> &'a mut Batch {
     unsafe { &mut **(obj(b).payload() as *mut *mut Batch) }
 }
@@ -644,6 +663,7 @@ pub fn release(b: u64) {
     let mut items = std::mem::take(&mut bt.items);
     uncharge(batch_chan(b), &items);
     let d = data(batch_chan(b));
+    d.leases.retain(|(_, x)| *x != b);
     d.leased -= items.len();
     items.clear();
     if d.pool.len() < 4 {

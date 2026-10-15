@@ -1,0 +1,2 @@
+consumer: true
+capacity reclaimed after consumer task ended? true

@@ -1,0 +1,22 @@
+// expect-error: E0404
+// Releasing a batch lease consumes it.
+import std.io
+import std.channel
+import std.task
+import std.list
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?
+    for i in 0..2 { let _ = b.sender.append(i) }
+    match b.receiver.recv_batch() {
+        .some(x) => {
+            x.release()
+            var s = 0
+            for v in x.items() { s = s + v }
+            say($"items after release: {s} len={x.len()}")
+        },
+        .none => say("none"),
+    }
+    ok(())
+}

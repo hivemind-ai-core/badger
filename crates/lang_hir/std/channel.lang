@@ -195,8 +195,9 @@ impl<T> Batch<T> {
             },
         }
     }
-    /// End the lease: the page returns to the pool.
-    pub fn release(self: &Self) -> Unit { batch_release(self) }
+    /// End the lease (consuming it): the page returns to the pool. A lease
+    /// still held when its task finishes is released then.
+    pub fn release(self: Self) -> Unit { batch_release(self) }
 }
 
 /// One operation of a homogeneous selection.

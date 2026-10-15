@@ -1,0 +1,29 @@
+// A lease still held when its task finishes is released then, so
+// producers get the capacity back.
+import std.io
+import std.channel
+import std.task
+import std.list
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn say(s: String) -> Unit { let _ = io.println(s) }
+fn consume(b: channel.BatchReceiver<Int>) -> Result<Unit, String> {
+    match b.recv_batch() {
+        .some(x) => {
+            for v in x.items() { if v == 2 { return err("io failed mid-batch") } }
+            x.release()
+            ok(())
+        },
+        .none => ok(()),
+    }
+}
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 4, byte_budget: 0 })?
+    for i in 0..4 { let _ = b.sender.append(i) }
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let t = s.spawn(fn() { consume(b.receiver) })
+        say($"consumer: {t.join().is_err()}")
+        ok(())
+    })?
+    say($"capacity reclaimed after consumer task ended? {b.sender.try_append(9).is_ok()}")
+    ok(())
+}
