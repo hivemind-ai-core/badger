@@ -1674,15 +1674,26 @@ impl Global<'_> {
     }
 }
 
-/// Syntactic values that may be generalized (value restriction).
+/// Syntactic values that may be generalized (value restriction), as for
+/// local bindings (`Infer::value_expr`).
 fn is_value(hir: &Hir, e: ExprId) -> bool {
     match &hir.exprs[e].kind {
         ExprKind::Lambda(_) | ExprKind::Lit(_) | ExprKind::Ctor { .. } | ExprKind::Def { .. } => true,
         ExprKind::Call { callee, args } => {
-            matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. }) && args.iter().all(|a| is_value(hir, *a))
+            wraps_value(hir, *callee) && args.iter().all(|a| is_value(hir, *a))
         }
-        ExprKind::Tuple(xs) => xs.iter().all(|x| is_value(hir, *x)),
+        ExprKind::Tuple(xs) | ExprKind::List(xs) => xs.iter().all(|x| is_value(hir, *x)),
         ExprKind::Record { spread: None, fields } => fields.iter().all(|f| is_value(hir, f.2)),
+        _ => false,
+    }
+}
+
+/// A callee building a value from its arguments without running code: a
+/// constructor, or the prelude's `some`, `ok`, and `err`.
+pub(crate) fn wraps_value(hir: &Hir, callee: ExprId) -> bool {
+    match &hir.exprs[callee].kind {
+        ExprKind::Ctor { .. } => true,
+        ExprKind::Def { def, .. } => ["some", "ok", "err"].iter().any(|n| hir.try_lang(n) == Some(*def)),
         _ => false,
     }
 }

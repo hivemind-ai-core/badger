@@ -1,0 +1,21 @@
+// Tuples, records, lists, and some(...) of values generalize like none and [].
+import std.io
+import std.list
+pub fn main() -> Result<Unit, io.Error> {
+    let p = (none, [])
+    let a: (Option<Int>, List<String>) = p
+    let b: (Option<Bool>, List<Int>) = p
+    let r = { x: none, ys: [] }
+    let r1: { x: Option<Int>, ys: List<Int> } = r
+    let r2: { x: Option<String>, ys: List<Char> } = r
+    let s = some([])
+    let s1: Option<List<Int>> = s
+    let s2: Option<List<String>> = s
+    let f = fn(x) { x }
+    io.println($"{f(1)} {f("a")} {a.0.is_none()} {b.1.len()} {r1.ys.len()} {r2.x.is_none()} {s1.is_some()} {s2.is_some()}")?
+    let e = []
+    let l2 = list.append(e, 1)
+    let l3 = list.append(e, "x")
+    io.println($"{l2} {l3} {e.len()}")?
+    ok(())
+}

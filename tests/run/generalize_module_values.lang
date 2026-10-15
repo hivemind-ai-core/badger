@@ -1,0 +1,15 @@
+// Module values generalize by the same rule as local bindings.
+import std.io
+let e = []
+let n = none
+let p = (none, 1)
+pub fn main() -> Result<Unit, io.Error> {
+    let a: List<Int> = e
+    let b: List<String> = e
+    let c: Option<Int> = n
+    let d: Option<String> = n
+    let p1: (Option<Int>, Int) = p
+    let p2: (Option<Bool>, Int) = p
+    io.println($"{a.len()} {b.len()} {c.is_none()} {d.is_none()} {p1.1} {p2.1}")?
+    ok(())
+}

@@ -2118,7 +2118,17 @@ impl<'g, 'a> Infer<'g, 'a> {
         if !matches!(hir.pats[pat].kind, PatKind::Bind(l) if !hir.locals[l].mutable) {
             return false;
         }
-        match &hir.exprs[init].kind {
+        self.value_expr(init)
+    }
+
+    /// A syntactic value whose type may be generalized (the value
+    /// restriction): literals, constructors, functions, generalized module
+    /// values, closures, and tuples, records, lists, and constructor or
+    /// `some`/`ok`/`err` applications of values. Module values use the same
+    /// rule (`program::is_value`).
+    fn value_expr(&mut self, e: ExprId) -> bool {
+        let hir = self.g.hir;
+        match &hir.exprs[e].kind {
             // a closure over a scoped value (e.g. a task scope) belongs to
             // that region: it stays monomorphic
             ExprKind::Lambda(l) => {
@@ -2135,15 +2145,11 @@ impl<'g, 'a> Infer<'g, 'a> {
                 DefKind::Global(_) => self.g.scheme(*def).is_some_and(|s| s.n > 0),
                 _ => false,
             },
-            ExprKind::Ctor { .. } => true,
-            // an empty list is an immutable value of any element type
-            ExprKind::List(xs) => xs.is_empty(),
-            // a constructor applied to generalizable values
+            ExprKind::Lit(_) | ExprKind::Ctor { .. } => true,
+            ExprKind::List(xs) | ExprKind::Tuple(xs) => xs.clone().iter().all(|x| self.value_expr(*x)),
+            ExprKind::Record { spread: None, fields } => fields.clone().iter().all(|f| self.value_expr(f.2)),
             ExprKind::Call { callee, args } => {
-                matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. })
-                    && args
-                        .iter()
-                        .all(|a| matches!(hir.exprs[*a].kind, ExprKind::Lit(_) | ExprKind::Ctor { .. }))
+                crate::program::wraps_value(hir, *callee) && args.clone().iter().all(|a| self.value_expr(*a))
             }
             _ => false,
         }
