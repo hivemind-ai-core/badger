@@ -1,0 +1,38 @@
+// A record written for a `Row` parameter stands for its fields: user
+// structs and `SystemPlan<{...}>` annotations.
+import std.io
+import std.system
+import std.system.{component}
+
+struct Wrapper<R: Row> {
+    v: { ..R },
+}
+
+pub struct F {
+    pub m: String,
+}
+
+impl Display for F {
+    fn display(self: &Self) -> String { self.m }
+}
+
+impl Error for F {}
+
+pub enum AppError {
+    sys(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+let num = system.provider({ name: :t/num, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
+
+fn wrap() -> Wrapper<{ x: Int }> { { v: { x: 1 } } }
+
+fn mkplan() -> system.SystemPlan<{ n: Int }> { system { n: component(num, { v: 3 }) } }
+
+pub fn main() -> Result<Unit, AppError> {
+    io.println(wrap().v.x)?
+    system.run(mkplan(), fn(r) -> Result<Unit, AppError> {
+        io.println(r.n)?
+        ok(())
+    })
+}

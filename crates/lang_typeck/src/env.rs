@@ -1084,6 +1084,15 @@ impl TypeEnv {
             }
             HTyKind::Named { def, args } => {
                 let args: Vec<Ty> = args.iter().map(|x| self.lower(hir, icx, x, sub, holes, diags)).collect();
+                // a record written for a `Row` parameter stands for its fields
+                let args: Vec<Ty> = args
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, a)| match &*a {
+                        TyKind::Record(r) if self.param_has_kind(hir, *def, i, "Row") => r.clone(),
+                        _ => a,
+                    })
+                    .collect();
                 let d = &hir.defs[*def];
                 let expected = match &d.kind {
                     DefKind::Alias(a) => {
@@ -1160,17 +1169,24 @@ impl TypeEnv {
     /// Whether generic parameter `i` of a type constructor is a region
     /// (bounded by `Scope`).
     pub fn param_is_region(&self, hir: &Hir, def: DefId, i: usize) -> bool {
+        self.param_has_kind(hir, def, i, "Scope")
+    }
+
+    /// Whether generic parameter `i` of a type constructor or alias is
+    /// bounded by the kind marker `kind` (`Scope`, `Row`).
+    pub fn param_has_kind(&self, hir: &Hir, def: DefId, i: usize, kind: &str) -> bool {
         let gens = match &hir.defs[def].kind {
             DefKind::Struct(s) => &s.generics,
             DefKind::Enum(e) => &e.generics,
             DefKind::Opaque(o) => &o.generics,
+            DefKind::Alias(a) => &a.generics,
             _ => return false,
         };
         let Some(g) = gens.get(i) else { return false };
         hir.generics[*g].bounds.iter().any(|b| match &b.kind {
             HTyKind::Named { def, .. } => {
                 let d = &hir.defs[*def];
-                hir.modules[d.module].is_std && hir.lang.get("Scope") == Some(def)
+                hir.modules[d.module].is_std && hir.lang.get(kind) == Some(def)
             }
             _ => false,
         })
