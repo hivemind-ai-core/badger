@@ -1,0 +1,32 @@
+// An abandoned scope settles its children before running its own defers.
+import std.io
+import std.list
+import std.task
+pub fn main() -> Unit {
+    let order: Atom<List<String>> = Atom.new([])
+    let note = fn(s: String) { let _ = order.update(fn(xs: List<String>) -> List<String> { xs.append(s) }) }
+    let r = task.scope(fn(top) -> Result<Unit, String> {
+        let owner = top.capture(fn() {
+            let x: Result<Unit, String> = task.scope(fn(s) -> Result<Unit, String> {
+                s.defer(fn() { note("owner defer") })
+                let c = s.spawn(fn() {
+                    let y: Result<Unit, String> = task.scope(fn(cs) -> Result<Unit, String> {
+                        cs.defer(fn() { note("child cleanup") })
+                        task.sleep(200ms)
+                        ok(())
+                    })
+                    let _ = y
+                })
+                let _ = c
+                task.sleep(200ms)
+                ok(())
+            })
+            let _ = x
+        })
+        task.sleep(5ms)
+        owner.cancel()
+        let _ = owner.join()
+        ok(())
+    })
+    let _ = io.println($"{order.get()} {r.is_ok()}")
+}

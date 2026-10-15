@@ -1,0 +1,25 @@
+// Scopes whose deferred cleanup fails still release their record and children.
+import std.io
+import std.inspect
+import std.task
+fn one_round() -> Unit {
+    let r = task.scope(fn(outer) -> Result<Unit, String> {
+        let t = outer.capture(fn() {
+            let inner: Result<Unit, String> = task.scope(fn(s) -> Result<Unit, String> {
+                s.defer(fn() { panic("defer fails") })
+                let c = s.spawn(fn() { 1 })
+                let _ = c
+                ok(())
+            })
+            inner.is_ok()
+        })
+        let _ = t.join()
+        ok(())
+    })
+    let _ = r
+}
+pub fn main() -> Unit {
+    for i in 0..300 { one_round() }
+    let tasks = inspect.tasks()
+    let _ = io.println($"finished children kept: {$"{tasks}".contains("child of task")}")
+}

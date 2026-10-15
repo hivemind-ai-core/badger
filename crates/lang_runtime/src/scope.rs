@@ -16,7 +16,10 @@ pub struct ScopeRec {
     pub owner: TaskId,
     pub children: Vec<TaskId>,
     pub failure: Option<PanicInfo>,
+    /// The owner's cleanup settling the children (kept above the defers).
     pub cleanup: u64,
+    /// The owner's cleanup releasing the record (below the defers).
+    pub release: u64,
     /// Children whose defects are contained (`capture`).
     pub captured: Vec<TaskId>,
     /// Cleanup handles registered with `scope.defer` (run in reverse at
@@ -42,12 +45,36 @@ pub fn open() -> u64 {
     let id = s.0;
     s.0 += 1;
     let owner = task::current_id();
+    // if the owner is abandoned its cleanups run last-in first: settle the
+    // children, then the defers (newest first), then release the record
+    let release = task::push_cleanup(Cleanup::Native(Box::new(move |_| release(id))));
     let cleanup = task::push_cleanup(Cleanup::Native(Box::new(move |_| settle(id, true))));
     s.1.insert(
         id,
-        ScopeRec { owner, children: vec![], failure: None, cleanup, captured: vec![], defers: vec![] },
+        ScopeRec {
+            owner,
+            children: vec![],
+            failure: None,
+            cleanup,
+            release,
+            captured: vec![],
+            defers: vec![],
+        },
     );
     id
+}
+
+/// Forget a closed scope: its record and its finished children. A child
+/// still running (it outlived the cleanup grace period, and escalation
+/// keeps what it uses) keeps its entry.
+fn release(id: u64) {
+    if let Some(s) = scopes().1.remove(&id) {
+        for c in &s.children {
+            if task::is_done(*c) {
+                task::remove_task(*c);
+            }
+        }
+    }
 }
 
 pub fn spawn(scope: u64, closure: u64, captured: bool, result_is_ptr: bool) -> TaskId {
@@ -116,7 +143,9 @@ pub fn close(id: u64, cancel: bool) {
         task::await_task(c, cancel);
     }
     task::remove_cleanup(handle);
-    // deferred cleanups, after every child has settled
+    // deferred cleanups, after every child has settled; one that fails
+    // abandons the owner, whose cleanups then run the remaining defers and
+    // the release
     let defers = std::mem::take(&mut get(id).unwrap().defers);
     for h in defers.into_iter().rev() {
         if let Some(Cleanup::Closure(w)) = task::remove_cleanup(h) {
@@ -126,11 +155,12 @@ pub fn close(id: u64, cancel: bool) {
             task::current().unwrap().roots.pop();
         }
     }
-    let s = scopes().1.remove(&id).unwrap();
-    for c in &s.children {
-        task::remove_task(*c);
+    let failure = get(id).and_then(|s| s.failure.take());
+    if let Some(r) = get(id).map(|s| s.release) {
+        task::remove_cleanup(r);
     }
-    if let Some(f) = s.failure {
+    release(id);
+    if let Some(f) = failure {
         task::panic_current(f.message, f.location);
     }
 }
@@ -140,6 +170,10 @@ pub fn defer(id: u64, f: u64) {
     let h = task::push_cleanup(Cleanup::Closure(f));
     if let Some(s) = get(id) {
         s.defers.push(h);
+        // the children settle before any defer runs, also on abandonment
+        if task::remove_cleanup(s.cleanup).is_some() {
+            s.cleanup = task::push_cleanup(Cleanup::Native(Box::new(move |_| settle(id, true))));
+        }
     }
 }
 
