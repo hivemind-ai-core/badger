@@ -542,6 +542,22 @@ fn structured_diagnostics() {
     assert!(err.contains("in fn structured.Point.norm") && err.contains("expected: Int"), "{err}");
 }
 
+/// Name and syntax errors (found before type checking) also report their
+/// module, and name errors their enclosing definition.
+#[test]
+fn diagnostics_early_phases() {
+    let out = lang().args(["check", "--json", "tests/diagnostics/resolve_phase.lang"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains(r#""module":"resolve_phase""#) && text.contains(r#""scope":"fn resolve_phase.bad""#),
+        "{text}"
+    );
+    // a `.source` file is outside the formatting check (it does not parse)
+    let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains(r#""code":"E0001""#) && text.contains(r#""module":"syntax_phase""#), "{text}");
+}
+
 /// `lang test`: controlled clocks are per test and drive sleeps by virtual
 /// time; assertion failures report the caller's location.
 #[test]

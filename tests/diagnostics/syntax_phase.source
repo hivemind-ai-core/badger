@@ -1,0 +1,4 @@
+// A syntax error reports its module.
+pub fn main() -> Unit {
+    let x = (1,
+}

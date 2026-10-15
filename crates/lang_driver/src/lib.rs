@@ -254,6 +254,8 @@ impl Session {
         let suffix_start = text.len() + 1;
         let text = if self.entry_suffix.is_empty() { text } else { format!("{text}\n{}", self.entry_suffix) };
         let file = self.sources.add(entry_file.display().to_string(), text);
+        // known before parsing, so syntax errors name their module too
+        self.sources.set_module(file, stem.clone());
         let mut ast = self.parse(file)?;
         if !self.entry_suffix.is_empty() {
             // a REPL definition replaces the program's item of the same name
@@ -326,6 +328,8 @@ impl Session {
                 };
                 let Ok(text) = std::fs::read_to_string(&fpath) else { continue };
                 let file = self.sources.add(fpath.display().to_string(), text);
+                let mname: Vec<String> = p.iter().map(|s| self.interner.resolve(*s).to_string()).collect();
+                self.sources.set_module(file, mname.join("."));
                 if let Some(ast) = self.parse(file) {
                     // modules are addressable by both the written and stripped path
                     modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false });
@@ -388,6 +392,8 @@ impl Session {
         }
         let hir = self.lower(&loaded);
         if self.diagnostics.has_errors() {
+            // name errors also report their module and enclosing definition
+            self.annotate_scopes(&hir);
             return Outcome::Errors;
         }
         let (checked, diags) = lang_typeck::check_program(&hir, &self.interner);
