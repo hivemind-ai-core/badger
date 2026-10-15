@@ -62,7 +62,7 @@ pub fn eq(d: &TypeDesc, a: u64, b: u64) -> bool {
         Kind::Symbol => a == b || str_of(a) == str_of(b),
         Kind::String | Kind::Bytes => a == b || crate::string::bytes_of(a) == crate::string::bytes_of(b),
         Kind::Record { fields, .. } => {
-            if a == b {
+            if a == b && !may_hold_float(d) {
                 return true;
             }
             let (pa, pb) = unsafe { (obj(a).payload(), obj(b).payload()) };
@@ -71,7 +71,7 @@ pub fn eq(d: &TypeDesc, a: u64, b: u64) -> bool {
                 .all(|f| eq(f.desc, field_word(pa, f.offset, f.repr), field_word(pb, f.offset, f.repr)))
         }
         Kind::Enum { variants, .. } => {
-            if a == b {
+            if a == b && !may_hold_float(d) {
                 return true;
             }
             let (pa, pb) = unsafe { (obj(a).payload(), obj(b).payload()) };
@@ -95,6 +95,27 @@ pub fn eq(d: &TypeDesc, a: u64, b: u64) -> bool {
         }
         _ => a == b,
     }
+}
+
+/// Whether a value of this type can contain a float. A NaN is unequal to
+/// itself, so only float-free values equal themselves by identity.
+fn may_hold_float(d: &TypeDesc) -> bool {
+    fn go(d: &TypeDesc, seen: &mut Vec<usize>) -> bool {
+        if seen.contains(&d.id) {
+            return false;
+        }
+        seen.push(d.id);
+        match &d.kind {
+            Kind::Float { .. } | Kind::Dynamic => true,
+            Kind::Record { fields, .. } => fields.iter().any(|f| go(f.desc, seen)),
+            Kind::Enum { variants, .. } => variants.iter().any(|v| v.fields.iter().any(|f| go(f.desc, seen))),
+            Kind::List { elem } | Kind::Set { elem } | Kind::Range { elem } => go(elem, seen),
+            Kind::Map { key, val } => go(key, seen) || go(val, seen),
+            Kind::Opaque { args, .. } => args.iter().any(|a| go(a, seen)),
+            _ => false,
+        }
+    }
+    go(d, &mut vec![])
 }
 
 fn mask(d: &TypeDesc) -> u64 {

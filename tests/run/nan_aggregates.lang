@@ -1,0 +1,19 @@
+// NaN stays unequal to itself inside aggregates, shared or not.
+import std.io
+import std.map
+pub struct W { pub f: Float }
+pub struct Outer { pub w: W, pub n: Int }
+pub enum E { v(Float), none }
+pub fn main() -> Unit {
+    let nan = 0.0 / 0.0
+    let w: W = { f: nan }
+    let e = E.v(nan)
+    let t = (nan, 1)
+    let _ = io.println($"{nan == nan} {w == w} {e == e} {t == t} {[nan] == [nan]} {Option.some(nan) == Option.some(nan)}")
+    let w2: W = { f: nan }
+    let o: Outer = { w: w, n: 1 }
+    let m = map.from_list([(1, nan)])
+    let _ = io.println($"{w == w2} {w != w} {o == o} {m == m} {E.none == E.none}")
+    let one: W = { f: 1.0 }
+    let _ = io.println($"{one == one} {(1, 2) == (1, 2)}")
+}
