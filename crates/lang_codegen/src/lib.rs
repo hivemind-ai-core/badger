@@ -834,7 +834,9 @@ impl FnCx<'_> {
             Rvalue::Alloc { desc, size } => {
                 let d = b.ins().iconst(types::I64, *desc as i64);
                 let s = b.ins().iconst(types::I64, *size as i64);
-                let call = self.rt_call(b, imports, "lang_rt_alloc", &[body.ctx, d, s], body.ctx);
+                // allocation needs no runtime lock (per-worker object lists;
+                // a due collection takes the lock itself)
+                let call = b.ins().call(imports["lang_rt_alloc"], &[body.ctx, d, s]);
                 b.inst_results(call)[0]
             }
             Rvalue::Concat(parts) => {

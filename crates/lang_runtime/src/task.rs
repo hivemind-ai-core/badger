@@ -348,8 +348,22 @@ static WAITERS: AtomicUsize = AtomicUsize::new(0);
 static PARK: Mutex<()> = Mutex::new(());
 static PARK_CV: Condvar = Condvar::new();
 
+/// The worker holding the runtime lock (index + 1; 0 when free).
+static OWNER: AtomicUsize = AtomicUsize::new(0);
+
 fn try_lock() -> bool {
-    LOCKED.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok()
+    let ok = LOCKED.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok();
+    if ok {
+        OWNER.store(worker_index() + 1, Ordering::Relaxed);
+    }
+    ok
+}
+
+/// Whether this thread may use runtime state freely: one worker, or this
+/// worker holds the runtime lock (generated code calling an unlocked
+/// runtime entry, such as allocation, does not).
+pub fn holds_lock() -> bool {
+    !multi() || OWNER.load(Ordering::Relaxed) == worker_index() + 1
 }
 
 fn lock() {
@@ -371,6 +385,7 @@ fn lock() {
 }
 
 fn unlock() {
+    OWNER.store(0, Ordering::Relaxed);
     LOCKED.store(false, Ordering::Release);
     if WAITERS.load(Ordering::SeqCst) > 0 {
         let _g = PARK.lock().unwrap();

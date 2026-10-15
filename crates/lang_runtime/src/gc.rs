@@ -21,6 +21,7 @@
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
@@ -68,15 +69,11 @@ pub unsafe fn obj<'a>(w: u64) -> &'a Header {
 }
 
 pub struct Heap {
-    objects: Vec<*mut Header>,
-    allocated: usize,
-    threshold: usize,
     live: usize,
     globals: Vec<*mut u64>,
     temp_roots: Vec<u64>,
     pinned: Vec<u64>,
     pub collections: usize,
-    pub disabled: usize,
     /// Stop-the-world pause times (nanoseconds).
     pub pause_total: u64,
     pub pause_max: u64,
@@ -92,15 +89,11 @@ struct HeapCell(UnsafeCell<Heap>);
 unsafe impl Sync for HeapCell {}
 
 static HEAP: HeapCell = HeapCell(UnsafeCell::new(Heap {
-    objects: Vec::new(),
-    allocated: 0,
-    threshold: 16 << 20,
     live: 0,
     globals: Vec::new(),
     temp_roots: Vec::new(),
     pinned: Vec::new(),
     collections: 0,
-    disabled: 0,
     pause_total: 0,
     pause_max: 0,
     quarantine: VecDeque::new(),
@@ -109,11 +102,30 @@ static HEAP: HeapCell = HeapCell(UnsafeCell::new(Heap {
     immortals: FxHashSet::with_hasher(FxBuildHasher),
 }));
 
-/// The heap belongs to the single worker thread.
+/// The heap's shared state (roots, statistics, verification), used under
+/// the runtime lock.
 #[allow(clippy::mut_from_ref)]
 pub fn heap() -> &'static mut Heap {
     unsafe { &mut *HEAP.0.get() }
 }
+
+/// Objects allocated by each worker. A worker appends to its own list
+/// without the runtime lock; the collector reads and sweeps every list
+/// only while the world is stopped (no worker allocating).
+struct Objects([UnsafeCell<Vec<*mut Header>>; crate::task::MAX_WORKERS]);
+unsafe impl Sync for Objects {}
+static OBJECTS: Objects = Objects([const { UnsafeCell::new(Vec::new()) }; crate::task::MAX_WORKERS]);
+
+#[allow(clippy::mut_from_ref)]
+fn objects(w: usize) -> &'static mut Vec<*mut Header> {
+    unsafe { &mut *OBJECTS.0[w].get() }
+}
+
+/// Bytes allocated since the last collection, the collection threshold,
+/// and collection suppression (`NoGc`) depth.
+static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+static THRESHOLD: AtomicUsize = AtomicUsize::new(16 << 20);
+static DISABLED: AtomicUsize = AtomicUsize::new(0);
 
 fn layout(payload: usize) -> Layout {
     Layout::from_size_align(HEADER + payload.max(8), 8).unwrap()
@@ -154,12 +166,22 @@ fn freed_use(w: u64, by: &str) -> ! {
 
 /// Allocate a zeroed object with `payload` bytes. May collect first.
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
-    let h = heap();
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
-    if (h.allocated > h.threshold || stress() || chaos) && h.disabled == 0 {
-        collect();
+    let due = || ALLOCATED.load(Ordering::Relaxed) > THRESHOLD.load(Ordering::Relaxed);
+    if (due() || stress() || chaos) && DISABLED.load(Ordering::Relaxed) == 0 {
+        if crate::task::holds_lock() {
+            collect();
+        } else {
+            // generated code allocating without the runtime lock: take it
+            // (this is a safe point: its pointers are rooted) and collect
+            // unless another worker just did
+            crate::task::enter_runtime();
+            if due() || stress() || chaos {
+                collect();
+            }
+            crate::task::leave_runtime();
+        }
     }
-    let h = heap();
     unsafe {
         let p = alloc_zeroed(layout(payload)) as *mut Header;
         if p.is_null() {
@@ -168,8 +190,8 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         }
         (*p).desc = desc;
         (*p).meta = (payload as u64) << 32;
-        h.objects.push(p);
-        h.allocated += HEADER + payload;
+        objects(crate::task::worker_index()).push(p);
+        ALLOCATED.fetch_add(HEADER + payload, Ordering::Relaxed);
         p as u64
     }
 }
@@ -177,7 +199,7 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
 /// Count memory owned outside the heap by a just-allocated object (map
 /// tries, buffers) toward the next collection.
 pub fn add_pressure(bytes: usize) {
-    heap().allocated += bytes;
+    ALLOCATED.fetch_add(bytes, Ordering::Relaxed);
 }
 
 /// Allocate an object that is never collected (literals, static closures).
@@ -262,7 +284,7 @@ pub struct NoGc;
 
 impl NoGc {
     pub fn new() -> NoGc {
-        heap().disabled += 1;
+        DISABLED.fetch_add(1, Ordering::Relaxed);
         NoGc
     }
 }
@@ -275,7 +297,7 @@ impl Default for NoGc {
 
 impl Drop for NoGc {
     fn drop(&mut self) {
-        heap().disabled -= 1;
+        DISABLED.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
@@ -297,7 +319,7 @@ fn collect_inner() {
     let mut stack: Vec<u64> = Vec::new();
     let checking = verify();
     let live: FxHashSet<usize> =
-        if checking { h.objects.iter().map(|p| *p as usize).collect() } else { FxHashSet::default() };
+        if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };
     // a referenced word must be a live or immortal object
     let check = |w: u64, by: &dyn Fn() -> String| {
         if !checking || w == 0 || live.contains(&(w as usize)) || h.immortals.contains(&(w as usize)) {
@@ -357,8 +379,10 @@ fn collect_inner() {
     }
     // sweep
     let mut live = 0usize;
-    let mut kept = Vec::with_capacity(h.objects.len());
-    for &p in &h.objects {
+    let mut kept = Vec::with_capacity(all_objects().count());
+    let lists: Vec<Vec<*mut Header>> =
+        (0..crate::task::MAX_WORKERS).map(|w| std::mem::take(objects(w))).collect();
+    for &p in lists.iter().flatten() {
         unsafe {
             if (*p).meta & MARK != 0 {
                 (*p).meta &= !MARK;
@@ -390,10 +414,11 @@ fn collect_inner() {
             dealloc(p as *mut u8, layout(size));
         }
     }
-    h.objects = kept;
+    // survivors stay on worker 0's list (it does not matter which)
+    *objects(0) = kept;
     h.live = live;
-    h.allocated = live;
-    h.threshold = (live * 2).max(16 << 20);
+    ALLOCATED.store(live, Ordering::Relaxed);
+    THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
 }
 
 fn finalize(p: *mut Header) {
@@ -404,6 +429,12 @@ fn finalize(p: *mut Header) {
         Kind::Opaque { finalize: Some(f), .. } => f(p),
         _ => {}
     }
+}
+
+/// Every managed object (while the world is stopped or under the lock in
+/// single-worker mode).
+fn all_objects() -> impl Iterator<Item = *mut Header> {
+    (0..crate::task::MAX_WORKERS).flat_map(|w| objects(w).iter().copied())
 }
 
 /// Visit the managed pointers inside object `w`.
@@ -436,7 +467,7 @@ pub fn trace(w: u64, f: &mut dyn FnMut(u64)) {
 
 pub fn stats() -> (usize, usize, usize) {
     let h = heap();
-    (h.objects.len(), h.allocated, h.collections)
+    (all_objects().count(), ALLOCATED.load(Ordering::Relaxed), h.collections)
 }
 
 /// Total and longest collection pause, in nanoseconds.
