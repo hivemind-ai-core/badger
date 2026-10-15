@@ -138,6 +138,9 @@ pub struct Infer<'g, 'a> {
     /// Callbacks that introduced region brands (`for<S>` arguments) and
     /// their region skolems, for the escape analysis in `regions`.
     pub region_lambdas: Vec<(ExprId, Vec<u32>)>,
+    /// Provider initializers (`fn(InitScope, C)`): their scope and
+    /// configuration (with dependency outputs) belong to the running system.
+    pub init_lambdas: Vec<ExprId>,
     /// Generalized local `let`s: binding -> (initializer, scheme size, type).
     pub poly_locals: FxHashMap<LocalId, (ExprId, u32, Ty)>,
     /// Instantiation of each use of a generalized local.
@@ -177,6 +180,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             displays: FxHashMap::default(),
             coercions: FxHashMap::default(),
             region_lambdas: vec![],
+            init_lambdas: vec![],
             poly_locals: FxHashMap::default(),
             callee_ctx: None,
             local_insts: FxHashMap::default(),
@@ -1835,6 +1839,12 @@ impl<'g, 'a> Infer<'g, 'a> {
             };
             self.check_pat(p.pat, &t, true);
             params.push(t);
+        }
+        if let Some(first) = params.first() {
+            let first = self.icx.shallow(first);
+            if matches!(&*first, TyKind::Con(d, _) if Some(*d) == self.g.hir.try_lang("system.InitScope")) {
+                self.init_lambdas.push(e);
+            }
         }
         let ret = match (&l.ret, &exp_fn) {
             (Some(h), Some(f)) => {

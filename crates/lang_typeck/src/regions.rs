@@ -20,6 +20,32 @@ use crate::infer::Infer;
 use crate::ty::*;
 
 pub fn check(inf: &mut Infer<'_, '_>) {
+    // a provider initializer may not stash its scope or anything derived from
+    // its configuration (which carries dependency outputs) in state that
+    // outlives the running system; returning them as its output is the point
+    for lam in std::mem::take(&mut inf.init_lambdas) {
+        let hir = inf.g.hir;
+        let ExprKind::Lambda(l) = &hir.exprs[lam].kind else { continue };
+        let mut tainted = FxHashMap::default();
+        let mut params = vec![];
+        for p in &l.params {
+            let mut ls = vec![];
+            collect(hir, p.pat, &mut ls);
+            for x in ls {
+                tainted.insert(x, true);
+                params.push(x);
+            }
+        }
+        let mut r = Regions { inf, regions: vec![], tainted };
+        for _ in 0..3 {
+            r.scan(l.body);
+        }
+        // channels and cells reached through the configuration may come
+        // from outside the system as well as captured ones
+        let mut outer = l.captures.clone();
+        outer.extend(params);
+        r.stores(l.body, &outer);
+    }
     let lambdas = std::mem::take(&mut inf.region_lambdas);
     for (lam, regions) in lambdas {
         let hir = inf.g.hir;

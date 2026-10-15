@@ -1,0 +1,33 @@
+// expect-error: E0401
+// A provider init cannot send a dependency output out through its configuration.
+import std.io
+import std.channel
+import std.task
+import std.system
+import std.system.{component}
+pub struct F { pub m: String }
+impl Display for F { fn display(self: &Self) -> String { self.m } }
+impl Error for F {}
+fn say(s: String) -> Unit { let _ = io.println(s) }
+type Counter = { bump: fn() -> Int, closed: fn() -> Bool }
+let counter = system.provider({ name: :t/counter, init: fn(scope, c: { start: Int }) -> Result<Counter, F> {
+    let n = Atom.new(c.start)
+    let open = Atom.new(1)
+    scope.on_halt(fn() -> Result<Unit, F> { open.set(0); say("counter halted"); ok(()) })
+    ok({ bump: fn() { n.update(fn(x: Int) -> Int { x + 1 }) }, closed: fn() { open.get() == 0 } })
+} })
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+let leaky = system.provider({ name: :t/leaky, init: fn(scope, c: { out: channel.Sender<Counter>, inner: Counter }) -> Result<Int, F> {
+    let _ = c.out.try_send(c.inner)
+    ok(1)
+} })
+pub fn main() -> Result<Unit, AppError> {
+    let ch = channel.create<Counter>(channel.defaults)?
+    let plan = system { c: component(counter, { start: 0 }), l: component(leaky, { out: ch.sender, inner: ref(:c) }) }
+    system.run(plan, fn(running) -> Result<Unit, AppError> { ok(()) })?
+    match ch.receiver.try_recv() {
+        .value(c) => say($"escaped: bump={c.bump()} closed={c.closed()}"),
+        _ => (),
+    }
+    ok(())
+}

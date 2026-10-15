@@ -1,0 +1,44 @@
+// expect-error: E0401
+// A provider init cannot keep its InitScope past the system's run.
+import std.io
+import std.task
+import std.system
+import std.system.{component}
+pub struct Failure { pub message: String }
+impl Display for Failure { fn display(self: &Self) -> String { self.message } }
+impl Error for Failure {}
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub enum AppError { system(source: system.Error) } derive(Error, From)
+fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ dep: Int }, Int, Failure> {
+    system.provider({ name: :test/node, init: fn(scope, config) -> Result<Int, Failure> {
+        say($"start {label} (dep {config.dep})")
+        scope.on_halt(fn() -> Result<Unit, Failure> {
+            say($"halt {label} #1")
+            ok(())
+        })
+        scope.on_halt(fn() -> Result<Unit, Failure> {
+            say($"halt {label} #2")
+            if fail_halt { err({ message: $"{label} halt failed" }) } else { ok(()) }
+        })
+        if fail_start { say($"start {label} failed"); return err({ message: $"{label} could not start" }) }
+        ok(config.dep + 1)
+    } })
+}
+import std.worker
+pub fn main() -> Unit {
+    let empty: List<system.InitScope> = []
+    let stash = Atom.new(empty)
+    let leaky = system.provider({ name: :t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
+        stash.set([scope])
+        ok(1)
+    } })
+    let plan = system { l: component(leaky, { x: 1 }) }
+    let _ = system.run(plan, fn(r) -> Result<Unit, AppError> { ok(()) })
+    say("system done")
+    for sc in stash.get() {
+        sc.worker(fn() -> Result<Unit, Failure> { say("zombie worker running after halt"); ok(()) }, worker.never())
+        sc.on_halt(fn() -> Result<Unit, Failure> { say("never runs"); ok(()) })
+    }
+    task.sleep(20ms)
+    say("end")
+}
