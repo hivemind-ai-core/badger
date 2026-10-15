@@ -1713,6 +1713,32 @@ impl Own<'_, '_, '_> {
                 }
             }
             ExprKind::Block { tail: Some(t), .. } => self.carried_borrows(*t, out),
+            // a borrow chosen by a branch, or a loop's `break` value
+            ExprKind::If { then, els, .. } => {
+                let (then, els) = (*then, *els);
+                self.carried_borrows(then, out);
+                if let Some(x) = els {
+                    self.carried_borrows(x, out);
+                }
+            }
+            ExprKind::Match { arms, .. } => {
+                for b in arms.iter().map(|a| a.body).collect::<Vec<_>>() {
+                    self.carried_borrows(b, out);
+                }
+            }
+            ExprKind::Loop { body } => {
+                let mut breaks = vec![];
+                crate::program::walk_exprs(hir, *body, &mut |x| {
+                    if let ExprKind::Break { value: Some(v), target } = &hir.exprs[x].kind
+                        && *target == e
+                    {
+                        breaks.push(*v);
+                    }
+                });
+                for v in breaks {
+                    self.carried_borrows(v, out);
+                }
+            }
             // a closure borrowing its captures (or copying captured borrows)
             ExprKind::Lambda(_) => {
                 for c in self.lambda_borrows.get(&e).cloned().unwrap_or_default() {

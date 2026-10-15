@@ -1,0 +1,12 @@
+// expect-error: E0405
+// A borrow returned through a loop's break value stays tracked.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    var c = buffer.new<Int>()
+    let m = loop { break &mut c }
+    let a = buffer.freeze(c)
+    m.push(1)
+    io.println(a.len())?
+    ok(())
+}
