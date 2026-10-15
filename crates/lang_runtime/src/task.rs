@@ -714,6 +714,9 @@ pub fn park_for(reason: &'static str) -> Wake {
 
 pub fn park() -> Wake {
     publish_current();
+    // cancellation requested while the task was running (on another
+    // worker) woke nothing: honor it before waiting, or nothing will
+    check_interrupts();
     if let Some(w) = current().unwrap().early_wake.take() {
         check_interrupts();
         return w;
