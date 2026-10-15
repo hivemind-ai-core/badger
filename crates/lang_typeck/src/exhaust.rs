@@ -287,7 +287,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
 
 /// Generic providers must yield a concrete output at each system node: an
 /// output type still holding inference variables is rejected (E0606).
-pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId) {
+pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty]) {
     let hir = inf.g.hir;
     let Some(node_fn) = hir.try_lang("system.node") else { return };
     let body = match &hir.defs[d].kind {
@@ -343,6 +343,9 @@ pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId) {
     let mut live: Vec<TyVid> = vec![];
     let mut tys: Vec<Ty> = inf.pending.iter().flat_map(|c| c.types()).collect();
     tys.extend(inf.g.pending_schemes.borrow().values().map(|s| s.ty.clone()));
+    // the group's own types are about to be generalized: their variables
+    // are the definition's (inferred) generic parameters
+    tys.extend(generalized.iter().cloned());
     for t in tys {
         let t = inf.icx.resolve(&t);
         inf.icx.free_vars(&t, &mut live);

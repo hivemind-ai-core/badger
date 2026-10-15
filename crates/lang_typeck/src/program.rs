@@ -1161,7 +1161,7 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
     // post-checks need resolved types
     for &d in defs {
         crate::exhaust::check_def(inf, d);
-        crate::exhaust::check_system_nodes(inf, d);
+        crate::exhaust::check_system_nodes(inf, d, &visible);
         crate::exhaust::check_row_labels(inf, d);
         crate::ownership::check_def(inf, d);
     }
