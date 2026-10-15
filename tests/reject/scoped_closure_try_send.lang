@@ -1,0 +1,19 @@
+// expect-error: E0401
+// A closure capturing a scoped value is reported as an escape (E0401).
+import std.io
+import std.channel
+import std.task
+import std.list
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub fn main() -> Result<Unit, AppError> {
+    let ch = channel.create<fn() -> Int !{Wait}>(channel.defaults)?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let t = s.spawn(fn() { 1 })
+        let _ = t.join()
+        let _ = ch.sender.send(fn() -> Int !{Wait} { t.join() })
+        ok(())
+    })?
+    match ch.receiver.try_recv() { .value(f) => say($"{f()}"), _ => () }
+    ok(())
+}

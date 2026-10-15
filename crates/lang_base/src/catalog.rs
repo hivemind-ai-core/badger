@@ -25,14 +25,18 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0010",
         "invalid project",
-        "The `lang.toml` manifest could not be read or is missing `[package] name`.",
+        "The `lang.toml` manifest could not be read, is missing `[package] name`, has an unknown section or key, defines a section or key twice, names an unknown `[entries]`/`[tasks]` target, or fails its toolchain, edition, dependency, or lockfile checks.",
     ),
     ("E0011", "unreadable source", "The entry file could not be read."),
-    ("E0012", "no main", "`lang run` needs a `main` function in the entry module."),
+    (
+        "E0012",
+        "invalid entry or task",
+        "An entry module needs a `main` function, and a `[tasks]` target must name a function. Entry and task functions take no parameters or one `List<String>` of arguments; anything else cannot be invoked by the tool.",
+    ),
     (
         "E0013",
-        "unknown profile",
-        "`--profile NAME` selects a `[profile.NAME]` table of the project's `lang.toml`; single files have no profiles.",
+        "invalid run configuration",
+        "A run setting is unusable: `--profile NAME` names no `[profile.NAME]` table (single files have no profiles), a runtime setting (`--workers`, `[runtime]`, `LANG_<SETTING>`) is out of range or not a valid value, or a configuration file cannot be read.",
     ),
     (
         "E0014",

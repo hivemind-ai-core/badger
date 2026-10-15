@@ -282,17 +282,25 @@ impl<'g, 'a> Infer<'g, 'a> {
                 if matches!(self.label_str(label).chars().next(), Some('A'..='Z' | '%')) =>
             {
                 // effect rows share the row machinery with records
-                let l = self.label_str(label);
-                let l = if l == "%confined" {
-                    "task-confined capture".to_string()
-                } else {
-                    format!("effect `{l}`")
-                };
+                let raw = self.label_str(label);
                 let (exp, act) = (self.show(expected), self.show(actual));
-                Diagnostic::error(format!("{l} is not permitted here"))
-                    .with_code("E0501")
-                    .with_label(span, format!("this has {l}"))
-                    .with_shapes(exp, act)
+                if raw.starts_with("%region") {
+                    // a closure capturing a scoped value, where its type cannot say so
+                    Diagnostic::error("a closure capturing a scoped value would escape its scope")
+                        .with_code("E0401")
+                        .with_label(span, "this closure captures a value bound to an inner scope")
+                        .with_note("values carrying a scope brand (handles, transactions, running systems, or closures capturing them) cannot outlive the callback that introduced the scope")
+                } else {
+                    let l = if raw == "%confined" {
+                        "task-confined capture".to_string()
+                    } else {
+                        format!("effect `{raw}`")
+                    };
+                    Diagnostic::error(format!("{l} is not permitted here"))
+                        .with_code("E0501")
+                        .with_label(span, format!("this has {l}"))
+                        .with_shapes(exp, act)
+                }
             }
             UnifyError::MissingField { label, record } => {
                 let l = self.label_str(label);
