@@ -183,12 +183,15 @@ impl Manifest {
             let Some((k, v)) = line.split_once('=') else {
                 return Err(format!("line {}: expected `key = value`", i + 1));
             };
-            let (k, v) = (k.trim(), v.trim());
-            if keys_seen.iter().any(|(sec, key)| *sec == section && key == k) {
+            // a quoted key names the same key (`"workers" = 1`)
+            let (k, v) = (k.trim().trim_matches('"'), v.trim());
+            // `a.b = 1` in `[config]` and `b = 2` in `[config.a]` are one key
+            let full = if section.is_empty() { k.to_string() } else { format!("{section}.{k}") };
+            if keys_seen.iter().any(|(_, key)| *key == full) {
                 let place = if section.is_empty() { String::new() } else { format!(" in `[{section}]`") };
                 return Err(format!("line {}: key `{k}` is defined twice{place}", i + 1));
             }
-            keys_seen.push((section.clone(), k.to_string()));
+            keys_seen.push((section.clone(), full));
             let s = v.trim_matches('"').to_string();
             match (section.as_str(), k) {
                 ("package", "name") => m.name = s,
@@ -403,5 +406,10 @@ mod tests {
         assert!(dup_section.contains("section `[runtime]` is defined twice"), "{dup_section}");
         // the same key in different sections is fine
         assert!(Manifest::parse("[package]\nname = \"a\"\n[entries]\nname = \"src/x.lang\"\n").is_ok());
+        // a dotted key and a table entry name the same key; quotes do not matter
+        let dotted =
+            Manifest::parse("[package]\nname = \"a\"\n[config]\na.b = 1\n[config.a]\nb = 2\n").unwrap_err();
+        assert!(dotted.contains("key `b` is defined twice"), "{dotted}");
+        assert!(Manifest::parse("[package]\nname = \"a\"\n[runtime]\n\"workers\" = 2\n").is_ok());
     }
 }

@@ -90,7 +90,8 @@ impl TyNames for Names<'_, '_> {
         self.skolems
             .get(s as usize)
             .map(|k| self.g.interner.resolve(k.name).to_string())
-            .unwrap_or_else(|| format!("S{s}"))
+            // an unnamed scope brand
+            .unwrap_or_else(|| "S".to_string())
     }
 }
 

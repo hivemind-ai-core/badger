@@ -524,6 +524,13 @@ impl Session {
             }
             return self.run_binary(&bytes, args, opts, started);
         }
+        // an invalid manifest is a project error (as `lang check` reports it)
+        if path.is_dir()
+            && let Err(e) = manifest::Manifest::load(&path.join("lang.toml"))
+        {
+            self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
+            return Err(Outcome::Errors);
+        }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => lang_runtime::intrinsics_codec::set_profile(
                 entries.into_iter().map(|(k, v, _)| (k, v)).collect(),
@@ -696,6 +703,12 @@ impl Session {
     /// `lang run FILE` only generates code (environment overrides of the
     /// runtime settings still apply when it runs).
     pub fn compile_binary(&mut self, path: &Path, opts: &RunOptions) -> Result<Vec<u8>, Outcome> {
+        if path.is_dir()
+            && let Err(e) = manifest::Manifest::load(&path.join("lang.toml"))
+        {
+            self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
+            return Err(Outcome::Errors);
+        }
         let config = match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(c) => c,
             Err(e) => {

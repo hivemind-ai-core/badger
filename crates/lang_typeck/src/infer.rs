@@ -1385,14 +1385,9 @@ impl<'g, 'a> Infer<'g, 'a> {
         if let TyKind::Forall(n, body) = &*p {
             self.icx.level += 1;
             let names: Vec<Ty> = (0..*n)
-                .map(|i| {
-                    let name = format!("S{}", self.icx.skolems.len() + i as usize);
-                    let sym = self
-                        .g
-                        .interner
-                        .get(&name)
-                        .or_else(|| self.g.interner.get("S"))
-                        .unwrap_or(lang_base::Symbol::dummy());
+                .map(|_| {
+                    // scope brands are all shown as `S`
+                    let sym = self.g.interner.get("S").unwrap_or(lang_base::Symbol::dummy());
                     self.icx.fresh_skolem(sym, true)
                 })
                 .collect();

@@ -239,6 +239,16 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "Rows hold unique labels. An open row `{x: T, ..Rest}` implies `Rest lacks x`, so a call that instantiates `Rest` with a row containing `x` is rejected.",
     ),
     (
+        "E0343",
+        "records.merge operands",
+        "`records.merge(left, right)` combines two records; both arguments must be record values.",
+    ),
+    (
+        "E0344",
+        "records.remove label",
+        "`records.remove(record, :label)` needs a literal label (`:name` or `:ns/name`) naming a field the record has.",
+    ),
+    (
         "E0220",
         "implementation signature",
         "An implementation method has the signature its protocol declares, with `Self` and the protocol's type arguments replaced by the implementation's.",
