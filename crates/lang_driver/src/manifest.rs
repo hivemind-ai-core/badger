@@ -149,6 +149,9 @@ impl Manifest {
             entries: vec![],
             tasks: vec![],
         };
+        // TOML forbids defining a table or a key twice
+        let mut sections_seen: Vec<String> = vec![];
+        let mut keys_seen: Vec<(String, String)> = vec![];
         for (i, raw) in text.lines().enumerate() {
             let line = strip_comment(raw).trim();
             if line.is_empty() {
@@ -156,6 +159,10 @@ impl Manifest {
             }
             if let Some(s) = line.strip_prefix('[') {
                 section = s.trim_end_matches(']').trim().to_string();
+                if sections_seen.contains(&section) {
+                    return Err(format!("line {}: section `[{section}]` is defined twice", i + 1));
+                }
+                sections_seen.push(section.clone());
                 let known = matches!(
                     section.as_str(),
                     "package" | "toolchain" | "runtime" | "dependencies" | "entries" | "tasks" | "config"
@@ -177,6 +184,11 @@ impl Manifest {
                 return Err(format!("line {}: expected `key = value`", i + 1));
             };
             let (k, v) = (k.trim(), v.trim());
+            if keys_seen.iter().any(|(sec, key)| *sec == section && key == k) {
+                let place = if section.is_empty() { String::new() } else { format!(" in `[{section}]`") };
+                return Err(format!("line {}: key `{k}` is defined twice{place}", i + 1));
+            }
+            keys_seen.push((section.clone(), k.to_string()));
             let s = v.trim_matches('"').to_string();
             match (section.as_str(), k) {
                 ("package", "name") => m.name = s,
@@ -374,5 +386,22 @@ fn set(entries: &mut Vec<(String, String)>, k: &str, v: String) {
     match entries.iter_mut().find(|e| e.0 == k) {
         Some(e) => e.1 = v,
         None => entries.push((k.to_string(), v)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Manifest;
+
+    #[test]
+    fn duplicate_keys_and_sections_are_errors() {
+        let dup_key = Manifest::parse("[package]\nname = \"a\"\nname = \"b\"\n").unwrap_err();
+        assert!(dup_key.contains("key `name` is defined twice"), "{dup_key}");
+        let dup_section =
+            Manifest::parse("[package]\nname = \"a\"\n[runtime]\nworkers = 1\n[runtime]\nworkers = 2\n")
+                .unwrap_err();
+        assert!(dup_section.contains("section `[runtime]` is defined twice"), "{dup_section}");
+        // the same key in different sections is fine
+        assert!(Manifest::parse("[package]\nname = \"a\"\n[entries]\nname = \"src/x.lang\"\n").is_ok());
     }
 }
