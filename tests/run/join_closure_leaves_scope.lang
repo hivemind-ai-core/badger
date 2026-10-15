@@ -1,0 +1,16 @@
+// A closure returned by a joined child task (capturing nothing scoped)
+// can leave the task scope.
+import std.io
+import std.task
+pub fn main() -> Result<Unit, String> {
+    let f = task.scope(fn(sc) -> Result<fn(Int) -> Int, String> {
+        let t = sc.spawn(fn() { fn(x: Int) -> Int { x + 1 } })
+        ok(t.join())
+    })?
+    let _ = io.println($"{f(41)}")
+    let g = task.scope(fn(sc) -> Result<fn(Int) -> Int, String> {
+        ok(fn(x: Int) -> Int { x + 2 })
+    })?
+    let _ = io.println($"{g(40)}")
+    ok(())
+}

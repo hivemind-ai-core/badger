@@ -195,6 +195,16 @@ impl Regions<'_, '_, '_> {
             ExprKind::Call { callee, args } => {
                 opaque && (self.tainted(*callee) || args.clone().into_iter().any(|a| self.tainted(a)))
             }
+            // what a child task returns crossed a task boundary: it can only
+            // reach the scope if its type says so (checked above)
+            ExprKind::MethodCall { recv, method, .. }
+                if matches!(self.inf.sym(*method), "join" | "try_join")
+                    && self.ty(*recv).is_some_and(|t| {
+                        matches!(&*t, TyKind::Con(d, _) if Some(*d) == self.inf.g.hir.try_lang("task.Task"))
+                    }) =>
+            {
+                false
+            }
             ExprKind::MethodCall { recv, args, .. } => {
                 opaque && (self.tainted(*recv) || args.clone().into_iter().any(|a| self.tainted(a)))
             }

@@ -1,0 +1,12 @@
+// expect-error: E0401
+// One that captures the scope cannot.
+import std.task
+import std.io
+pub fn main() -> Result<Unit, String> {
+    let f = task.scope(fn(sc) -> Result<fn() -> Int, String> {
+        let t = sc.spawn(fn() { fn() -> Int { let u = sc.spawn(fn() { 1 }); u.join() } })
+        ok(t.join())
+    })?
+    let _ = io.println($"{f()}")
+    ok(())
+}
