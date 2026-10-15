@@ -199,10 +199,11 @@ pub fn compile(prog: &Program, optimize: bool) -> Result<Compiled, CodegenError>
             desc.set_display(unsafe { std::mem::transmute::<*const u8, lang_runtime::Adapter>(a) });
         }
     }
-    // global value slots are GC roots (even slots; odd slots are init flags)
+    // global value slots holding managed pointers are GC roots (odd slots
+    // are init flags; integer and float values are not pointers)
     if let Some(d) = globals {
         let (ptr, _) = compiled.jit.module.get_finalized_data(d);
-        for i in (0..prog.n_globals).step_by(2) {
+        for &i in &prog.ptr_globals {
             lang_runtime::gc::register_global(unsafe { (ptr as *mut u64).add(i as usize) });
         }
     }

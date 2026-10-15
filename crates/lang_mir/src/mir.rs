@@ -31,6 +31,8 @@ pub struct Program {
     pub error_report: Option<FuncId>,
     /// Global value slots (count).
     pub n_globals: u32,
+    /// Value slots holding managed pointers (the GC roots among them).
+    pub ptr_globals: Vec<u32>,
     /// Static closure objects to patch with code/adapter addresses.
     pub static_closures: Vec<(u64, FuncId)>,
     /// Display implementations to register on descriptors.

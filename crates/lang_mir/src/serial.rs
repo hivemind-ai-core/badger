@@ -15,7 +15,7 @@ use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
 /// Layout of the file format; files of another version are refused.
-const FORMAT: u32 = 2;
+const FORMAT: u32 = 3;
 
 /// The toolchain that wrote a file must be the one that loads it: MIR and
 /// the runtime's ABI change together.
@@ -644,6 +644,10 @@ pub fn encode(prog: &Program, meta: &[(String, String)]) -> Result<Vec<u8>, Stri
     e.w.opt_str(&prog.entry_error);
     opt_fid(&mut e.w, prog.error_report);
     e.w.u32(prog.n_globals);
+    e.w.u32(prog.ptr_globals.len() as u32);
+    for s in &prog.ptr_globals {
+        e.w.u32(*s);
+    }
     e.w.u32(prog.static_closures.len() as u32);
     for (o, f) in &prog.static_closures {
         e.addr(*o)?;
@@ -1090,6 +1094,14 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
     prog.entry_error = dec.r.opt_str()?;
     prog.error_report = if dec.r.u8()? == 1 { Some(dec.fid()?) } else { None };
     prog.n_globals = dec.r.u32()?;
+    let n = dec.r.u32()?;
+    for _ in 0..n {
+        let s = dec.r.u32()?;
+        if s >= prog.n_globals {
+            return Err("invalid compiled program: a global slot out of range".into());
+        }
+        prog.ptr_globals.push(s);
+    }
     let n = dec.r.u32()?;
     for _ in 0..n {
         let o = dec.addr()?;

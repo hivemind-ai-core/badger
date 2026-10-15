@@ -419,6 +419,9 @@ impl<'g, 'a> Mono<'g, 'a> {
                 self.prog.n_globals += 2;
                 let ret_ty = lang_typeck::ty::unit();
                 let mut fl = FnLower::new(self, inst.clone(), Owner::Global(def), ret_ty, fid);
+                if fl.func.ret == Repr::Ptr {
+                    fl.m.prog.ptr_globals.push(slot);
+                }
                 // flag: 0 uninitialized, 1 initializing, 2 ready; the slow
                 // path lets exactly one task initialize while others wait
                 let flag = fl.assign(Repr::I64, Rvalue::GlobalLoad(slot + 1));
