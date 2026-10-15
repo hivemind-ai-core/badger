@@ -19,7 +19,7 @@
 
 use std::cell::{Cell, UnsafeCell};
 use std::collections::{BinaryHeap, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -374,12 +374,12 @@ fn unlock() {
 static IN_COMPILED: AtomicIsize = AtomicIsize::new(0);
 /// Set while a collection waits for every worker to reach a safe point.
 static STOP: AtomicBool = AtomicBool::new(false);
-/// Task context each worker is running (budget forcing for collections).
-static RUNNING_CTX: [AtomicPtr<TaskCtx>; 64] = [const { AtomicPtr::new(std::ptr::null_mut()) }; 64];
+/// Most worker threads (per-worker tables are sized by it).
+pub const MAX_WORKERS: usize = 64;
 /// A managed pointer compiled code just returned to runtime code, per
 /// worker: rooted while the worker waits for the runtime lock, when a
 /// collection on another worker may run.
-static RETURNED: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
+static RETURNED: [AtomicU64; MAX_WORKERS] = [const { AtomicU64::new(0) }; MAX_WORKERS];
 /// Bumped on every wake so idle workers do not miss new work.
 static READY_SEQ: AtomicU64 = AtomicU64::new(0);
 static IDLE: AtomicUsize = AtomicUsize::new(0);
@@ -497,19 +497,15 @@ pub fn enter_runtime_holding(w: u64) {
 }
 
 /// Stop the world for a collection (called under the runtime lock): every
-/// other worker is idle, waiting for the lock, or reaches a safe point soon
-/// because its running task's budget is forced to zero.
+/// other worker is idle, waiting for the lock, or reaches a safe point
+/// soon: compiled code calls into the runtime (or takes a poll's slow path)
+/// within one task budget of polls. Another thread's budget is never
+/// written: the running task owns it.
 pub fn stop_the_world() {
     if !multi() {
         return;
     }
     STOP.store(true, Ordering::SeqCst);
-    for slot in &RUNNING_CTX {
-        let c = slot.load(Ordering::SeqCst);
-        if !c.is_null() {
-            unsafe { std::ptr::write_volatile(&mut (*c).budget, 0) };
-        }
-    }
     while IN_COMPILED.load(Ordering::SeqCst) > 0 {
         std::hint::spin_loop();
         std::thread::yield_now();
@@ -1450,7 +1446,7 @@ fn run_main_multi(entry: u64) -> Exit {
     lock();
     let main = spawn_main(entry);
     rt().main = Some(main);
-    let n = workers().min(RUNNING_CTX.len());
+    let n = workers().min(MAX_WORKERS);
     for w in 1..n {
         let h = std::thread::Builder::new()
             .name(format!("lang-worker-{w}"))
@@ -1579,15 +1575,8 @@ fn run_one(id: TaskId) {
     t.state = if was_cleaning { State::Cleaning } else { State::Running };
     t.ctx.budget = task_budget();
     set_current(id);
-    let w = worker_index();
-    if multi() {
-        RUNNING_CTX[w].store(&mut *t.ctx as *mut TaskCtx, Ordering::SeqCst);
-    }
     let co = t.co.as_mut().unwrap() as *mut Co;
     let res = unsafe { (*co).resume(()) };
-    if multi() {
-        RUNNING_CTX[w].store(std::ptr::null_mut(), Ordering::SeqCst);
-    }
     set_current(0);
     let t = task(id).unwrap();
     match res {
