@@ -1,0 +1,9 @@
+// Stateless dyn module values are pure data.
+import std.io
+protocol B { fn b(self: &Self) -> Int }
+struct P { n: Int }
+impl B for P { fn b(self: &Self) -> Int { self.n } }
+fn mk() -> dyn B { let p: P = { n: 4 }; p }
+let w: dyn B = { let p: P = { n: 3 }; p }
+let v = mk()
+pub fn main() -> Result<Unit, io.Error> { io.println($"{w.b() + v.b()}") }

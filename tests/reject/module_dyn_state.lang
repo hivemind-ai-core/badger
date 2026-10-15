@@ -1,0 +1,11 @@
+// expect-error: E0138
+// A module value cannot hide an Atom behind dyn.
+import std.io
+protocol B { fn b(self: &Self) -> Int }
+struct St { c: Atom<Int> }
+impl B for St { fn b(self: &Self) -> Int { self.c.set(self.c.get() + 1); self.c.get() } }
+let w: dyn B = { let s: St = { c: Atom.new(0) }; s }
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = w.b()
+    io.println(w.b())
+}

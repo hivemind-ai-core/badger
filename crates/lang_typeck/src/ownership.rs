@@ -558,19 +558,76 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
             break;
         }
     }
+    // `dyn` values hide their type: a stateful value coerced to `dyn` (in
+    // the initializer, or in a function returning it) is state too
+    let stateful_dyn =
+        |inf: &mut Infer<'_, '_>, body: ExprId, via: &FxHashMap<DefId, String>| -> Option<String> {
+            let mut found = None;
+            crate::program::walk_exprs(hir, body, &mut |x| {
+                if found.is_some() {
+                    return;
+                }
+                if matches!(inf.coercions.get(&x), Some(crate::Coercion::Dyn { .. }))
+                    && let Some(t) = inf.exprs.get(&x).cloned()
+                {
+                    let t = inf.icx.resolve(&t);
+                    found = crate::program::stored_state(inf.g, &t, &mut vec![]);
+                }
+                if found.is_none()
+                    && let ExprKind::Call { callee, .. } = &hir.exprs[x].kind
+                    && let Some(Res::Callee { def, .. }) = inf.res.get(callee)
+                {
+                    found = via.get(def).cloned();
+                }
+            });
+            found
+        };
+    let returns_dyn = |inf: &mut Infer<'_, '_>, d: DefId| -> bool {
+        inf.g.scheme(d).is_some_and(|s| match &*s.ty {
+            TyKind::Fn(f) => ty_any(&f.ret, &mut |k| matches!(k, TyKind::Dyn(..))),
+            _ => false,
+        })
+    };
+    let mut dyn_state: FxHashMap<DefId, String> = FxHashMap::default();
+    loop {
+        let mut grew = false;
+        for (id, def) in hir.defs.iter() {
+            if hir.modules[def.module].is_std || dyn_state.contains_key(&id) {
+                continue;
+            }
+            let DefKind::Fn(f) = &def.kind else { continue };
+            let Some(body) = f.body else { continue };
+            if !returns_dyn(inf, id) {
+                continue;
+            }
+            if let Some(s) = stateful_dyn(inf, body, &dyn_state) {
+                dyn_state.insert(id, s);
+                grew = true;
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
     let mut reports = vec![];
-    for (_, def) in hir.defs.iter() {
+    for (id, def) in hir.defs.iter() {
         if hir.modules[def.module].is_std {
             continue;
         }
         let DefKind::Global(g) = &def.kind else { continue };
         if let Some(s) = captured_state(inf, g.value, &returning, &inits, 0) {
             reports.push((def.span, inf.g.interner.resolve(def.name).to_string(), s));
+            continue;
+        }
+        let holds_dyn =
+            inf.g.scheme(id).is_some_and(|s| ty_any(&s.ty, &mut |k| matches!(k, TyKind::Dyn(..))));
+        if holds_dyn && let Some(s) = stateful_dyn(inf, g.value, &dyn_state) {
+            reports.push((def.span, inf.g.interner.resolve(def.name).to_string(), s));
         }
     }
     for (span, name, s) in reports {
         inf.push_diag(
-            Diagnostic::error(format!("module-level value `{name}` holds a closure over a `{s}`"))
+            Diagnostic::error(format!("module-level value `{name}` holds a closure or `dyn` value over a `{s}`"))
                 .with_code("E0138")
                 .with_label(span, "module values are pure immutable data shared by every task")
                 .with_note("create mutable state and acquire resources in functions or system initialization, and pass them where they are needed"),
