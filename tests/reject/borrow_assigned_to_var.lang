@@ -1,0 +1,16 @@
+// expect-error: E0405
+// A borrow assigned into a var keeps its owner borrowed while the var is used.
+// borrow stored into an outer `var` (via Option), owner frozen, borrow then used to mutate
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    var b: Buffer<Int> = buffer.new()
+    var holder = none
+    holder = some(&mut b)
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    match holder { .some(m) => m.push(99), .none => () }
+    io.println(a.len())?
+    io.println(a[0])?
+    ok(())
+}

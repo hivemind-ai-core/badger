@@ -1,0 +1,15 @@
+// expect-error: E0405
+// A borrow kept in a map literal keeps its owner borrowed.
+// borrow stored in a map literal, owner frozen, borrow then used to mutate
+import std.io
+import std.buffer
+import std.map
+pub fn main() -> Result<Unit, io.Error> {
+    var b: Buffer<Int> = buffer.new()
+    let m = map { "k" => &mut b }
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    match m.get("k") { .some(x) => x.push(1), .none => () }
+    io.println(a.len())?
+    ok(())
+}

@@ -651,6 +651,16 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// Whether an expression takes an exclusive borrow (outside closures).
+    fn mentions_mut_borrow(&self, e: ExprId) -> bool {
+        let hir = self.inf.g.hir;
+        match &hir.exprs[e].kind {
+            ExprKind::Unary { op: UnOp::RefMut, .. } => true,
+            ExprKind::Lambda(_) => false,
+            k => children(k).into_iter().any(|c| self.mentions_mut_borrow(c)),
+        }
+    }
+
     /// The local a place expression (`r.f`, `fs[0]`) is rooted in.
     fn place_root(&self, mut e: ExprId) -> Option<LocalId> {
         let hir = self.inf.g.hir;
@@ -1133,6 +1143,12 @@ impl Own<'_, '_, '_> {
             ExprKind::Record { fields, .. } => {
                 for f in fields.clone() {
                     self.carried_borrows(f.2, out);
+                }
+            }
+            ExprKind::Map(kv) => {
+                for (k, v) in kv.clone() {
+                    self.carried_borrows(k, out);
+                    self.carried_borrows(v, out);
                 }
             }
             ExprKind::Call { callee, args }
@@ -1649,6 +1665,25 @@ impl Own<'_, '_, '_> {
                             self.check_loans(*local, *aspan, Mode::BorrowMut);
                             st.remove(local);
                             self.overwrite_result(*local, *aspan);
+                            // an assigned value carrying borrows keeps them
+                            // borrowed while the variable is used
+                            let mut carried = vec![];
+                            self.carried_borrows(*value, &mut carried);
+                            if !carried.is_empty() {
+                                let mutable = self.mentions_mut_borrow(*value);
+                                for (owner, sp) in &carried {
+                                    if *owner != *local {
+                                        self.loans.push(Loan {
+                                            holder: *local,
+                                            owner: *owner,
+                                            mutable,
+                                            start: hir.exprs[*value].span.range().end,
+                                            span: *sp,
+                                        });
+                                    }
+                                }
+                                self.carriers.entry(*local).or_default().extend(carried);
+                            }
                             d
                         }
                         Stmt::Expr { expr, .. } => self.expr(*expr, Mode::Borrow, st),
