@@ -509,6 +509,20 @@ impl Session {
     /// Compile with Cranelift and run `main` in-process. Returns the process
     /// exit code.
     pub fn run(&mut self, path: &Path, args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
+        // a program saved by `lang compile`
+        if path.is_file()
+            && let Ok(bytes) = std::fs::read(path)
+            && lang_mir::serial::is_binary(&bytes)
+        {
+            if opts.tests || opts.watch || opts.inspect.is_some() || opts.profile.is_some() {
+                self.diagnostics.push(
+                    Diagnostic::error("a compiled program runs as saved: `--watch`, `--inspect`, `--profile`, and tests need the sources")
+                        .with_code("E0013"),
+                );
+                return Err(Outcome::Errors);
+            }
+            return self.run_binary(&bytes, args, opts);
+        }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => lang_runtime::intrinsics_codec::set_profile(
                 entries.into_iter().map(|(k, v, _)| (k, v)).collect(),
@@ -545,6 +559,14 @@ impl Session {
         if opts.watch {
             live::watch(path.to_path_buf(), built.files.clone(), opts.optimize, opts.reconstruct);
         }
+        Ok(run_entry(built))
+    }
+}
+
+/// Run a built program's entry (its arguments already set) and report how
+/// it ended.
+fn run_entry(built: Built) -> i32 {
+    {
         // an entry taking `List<String>` receives the program arguments
         if let Some(desc) = built.prog.entry_args {
             let l = lang_runtime::list::new(desc);
@@ -560,11 +582,32 @@ impl Session {
         // The JIT image, task stacks, and heap live until process exit; leaving
         // without running destructors avoids tearing them down under parked tasks.
         std::mem::forget(built);
-        Ok(code)
+        code
     }
+}
 
+impl Session {
     /// Check and compile a program (every phase up to native code).
     pub fn build(&mut self, path: &Path, opts: &RunOptions) -> Result<Built, Outcome> {
+        let (prog, files, types) = self.lower_to_mir(path, opts)?;
+        let compiled = match lang_codegen::compile(&prog, opts.optimize) {
+            Ok(c) => c,
+            Err(e) => {
+                self.diagnostics
+                    .push(Diagnostic::error(format!("code generation failed: {e}")).with_code("E9002"));
+                return Err(Outcome::Errors);
+            }
+        };
+        Ok(Built { prog, compiled, files, types })
+    }
+
+    /// Every phase before code generation: load, check, and lower to MIR.
+    #[allow(clippy::type_complexity)]
+    fn lower_to_mir(
+        &mut self,
+        path: &Path,
+        opts: &RunOptions,
+    ) -> Result<(lang_mir::Program, Vec<PathBuf>, String), Outcome> {
         let loaded = self.load(path).ok_or(Outcome::Errors)?;
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
@@ -617,6 +660,106 @@ impl Session {
         if opts.dump_mir {
             eprintln!("{}", lang_mir::mir::dump(&prog));
         }
+        let files = loaded
+            .modules
+            .iter()
+            .filter(|m| !m.is_std)
+            .map(|m| PathBuf::from(&self.sources.get(m.file).name))
+            .collect();
+        let types = live::type_fingerprint(&checked.g);
+        Ok((prog, files, types))
+    }
+
+    /// `lang compile`: check and lower a program, then save it as a binary
+    /// MIR file with its effective configuration and runtime settings, so
+    /// `lang run FILE` only generates code (environment overrides of the
+    /// runtime settings still apply when it runs).
+    pub fn compile_binary(&mut self, path: &Path, opts: &RunOptions) -> Result<Vec<u8>, Outcome> {
+        let config = match Self::effective_config(path, opts.profile.as_deref()) {
+            Ok(c) => c,
+            Err(e) => {
+                self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
+                return Err(Outcome::Errors);
+            }
+        };
+        let settings = match Self::runtime_settings_with_sources(path, opts.profile.as_deref()) {
+            Ok(s) => s,
+            Err(e) => {
+                self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
+                return Err(Outcome::Errors);
+            }
+        };
+        let (prog, _, _) = self.lower_to_mir(path, opts)?;
+        let mut meta: Vec<(String, String)> =
+            config.into_iter().map(|(k, v, _)| (format!("config.{k}"), v)).collect();
+        // settings the environment gave at compile time are not baked in
+        meta.extend(
+            settings.into_iter().filter(|s| s.2 != "env").map(|(k, v, _)| (format!("runtime.{k}"), v)),
+        );
+        meta.push(("workers".into(), prog.workers.to_string()));
+        match lang_mir::serial::encode(&prog, &meta) {
+            Ok(bytes) => Ok(bytes),
+            Err(e) => {
+                self.diagnostics
+                    .push(Diagnostic::error(format!("cannot save the program: {e}")).with_code("E9002"));
+                Err(Outcome::Errors)
+            }
+        }
+    }
+
+    /// Run a program saved by `lang compile`: no parsing or checking, only
+    /// code generation.
+    pub fn run_binary(&mut self, bytes: &[u8], args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
+        let (mut prog, meta) = match lang_mir::serial::decode(bytes) {
+            Ok(x) => x,
+            Err(e) => {
+                self.diagnostics.push(Diagnostic::error(e).with_code("E0011"));
+                return Err(Outcome::Errors);
+            }
+        };
+        let config: Vec<(String, String)> = meta
+            .iter()
+            .filter_map(|(k, v)| k.strip_prefix("config.").map(|k| (k.to_string(), v.clone())))
+            .collect();
+        lang_runtime::intrinsics_codec::set_profile(config);
+        let mut settings: Vec<(String, String)> = meta
+            .iter()
+            .filter_map(|(k, v)| k.strip_prefix("runtime.").map(|k| (k.to_string(), v.clone())))
+            .collect();
+        for key in manifest::RUNTIME_KEYS {
+            let var = format!("LANG_{}", key.to_uppercase());
+            if let Ok(v) = std::env::var(&var) {
+                if let Err(e) = manifest::check_runtime(key, &v, 0) {
+                    self.diagnostics.push(
+                        Diagnostic::error(format!("{var}: {}", e.trim_start_matches("line 0: ")))
+                            .with_code("E0013"),
+                    );
+                    return Err(Outcome::Errors);
+                }
+                match settings.iter_mut().find(|s| s.0 == *key) {
+                    Some(s) => s.1 = v,
+                    None => settings.push((key.to_string(), v)),
+                }
+            }
+        }
+        let saved_workers = settings.iter().find(|s| s.0 == "workers").and_then(|s| s.1.parse().ok());
+        if let Some(w) = opts.workers
+            && !(1..=64).contains(&w)
+        {
+            self.diagnostics.push(
+                Diagnostic::error(format!("--workers must be between 1 and 64 (got {w})")).with_code("E0013"),
+            );
+            return Err(Outcome::Errors);
+        }
+        prog.workers = opts
+            .workers
+            .or(saved_workers)
+            .or_else(|| meta.iter().find(|m| m.0 == "workers").and_then(|m| m.1.parse().ok()))
+            .unwrap_or(1)
+            .clamp(1, 64);
+        if opts.dump_mir {
+            eprintln!("{}", lang_mir::mir::dump(&prog));
+        }
         let compiled = match lang_codegen::compile(&prog, opts.optimize) {
             Ok(c) => c,
             Err(e) => {
@@ -625,14 +768,15 @@ impl Session {
                 return Err(Outcome::Errors);
             }
         };
-        let files = loaded
-            .modules
-            .iter()
-            .filter(|m| !m.is_std)
-            .map(|m| PathBuf::from(&self.sources.get(m.file).name))
-            .collect();
-        let types = live::type_fingerprint(&checked.g);
-        Ok(Built { prog, compiled, files, types })
+        lang_runtime::task::set_workers(prog.workers);
+        for (k, v) in &settings {
+            if k != "workers" {
+                apply_runtime_setting(k, v);
+            }
+        }
+        lang_runtime::intrinsics_io::set_args(args);
+        let built = Built { prog, compiled, files: vec![], types: Default::default() };
+        Ok(run_entry(built))
     }
 }
 

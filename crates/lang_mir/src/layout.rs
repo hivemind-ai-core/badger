@@ -39,6 +39,8 @@ impl RecLayout {
 pub struct Layouts<'g, 'a> {
     pub g: &'g Global<'a>,
     descs: RefCell<FxHashMap<Ty, &'static TypeDesc>>,
+    /// Every descriptor created (including closure environments).
+    pub created: RefCell<Vec<&'static TypeDesc>>,
 }
 
 fn align(off: u32, size: u32) -> u32 {
@@ -47,7 +49,7 @@ fn align(off: u32, size: u32) -> u32 {
 
 impl<'g, 'a> Layouts<'g, 'a> {
     pub fn new(g: &'g Global<'a>) -> Self {
-        Layouts { g, descs: RefCell::new(FxHashMap::default()) }
+        Layouts { g, descs: RefCell::new(FxHashMap::default()), created: RefCell::new(vec![]) }
     }
 
     pub fn sym(&self, s: Symbol) -> &str {
@@ -291,7 +293,9 @@ impl<'g, 'a> Layouts<'g, 'a> {
                 desc: self.desc(&f.ty),
             })
             .collect();
-        TypeDesc::new("closure", Kind::Closure { size: layout.size, captures }).leak()
+        let d = TypeDesc::new("closure", Kind::Closure { size: layout.size, captures }).leak();
+        self.created.borrow_mut().push(d);
+        d
     }
 
     fn fields_of(&self, l: &RecLayout) -> Vec<Field> {
@@ -326,12 +330,14 @@ impl<'g, 'a> Layouts<'g, 'a> {
             )
             .leak();
             self.descs.borrow_mut().insert(t.clone(), d);
+            self.created.borrow_mut().push(d);
             return d;
         }
         let name = self.type_name(t);
         let p: *mut TypeDesc = Box::into_raw(Box::new(TypeDesc::new(name, Kind::Unit)));
         let d: &'static TypeDesc = unsafe { &*p };
         self.descs.borrow_mut().insert(t.clone(), d);
+        self.created.borrow_mut().push(d);
         let kind = self.kind_of(t);
         unsafe { (*p).kind = kind };
         d

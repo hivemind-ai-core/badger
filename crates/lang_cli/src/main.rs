@@ -24,7 +24,24 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Compile a program with the JIT and run it.
+    /// Check a program and save it as binary MIR, which `lang run FILE`
+    /// loads without parsing or checking (only code generation remains).
+    Compile {
+        /// Entry file or project directory (default: the current project).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Output file (default: the entry's name with `.langmir`).
+        #[arg(short, long, value_name = "FILE")]
+        output: Option<PathBuf>,
+        /// Merge `[profile.NAME]` from `lang.toml` into the saved configuration.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Worker threads to save as the default (`lang run --workers` still overrides).
+        #[arg(long, value_name = "N")]
+        workers: Option<usize>,
+    },
+    /// Compile a program with the JIT and run it (a source program, or a
+    /// binary MIR file written by `lang compile`).
     Run {
         /// Entry file, project directory (with `lang.toml`), or the name of
         /// an `[entries]` module of the project in the current directory
@@ -165,6 +182,25 @@ fn main() -> ExitCode {
                 Ok(code) => {
                     report(&session, false);
                     exit_now(code)
+                }
+                Err(_) => {
+                    report(&session, false);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Compile { path, output, profile, workers } => {
+            let opts = lang_driver::RunOptions { profile, workers, ..Default::default() };
+            match session.compile_binary(&path, &opts) {
+                Ok(bytes) => {
+                    let out = output.unwrap_or_else(|| default_binary_name(&path));
+                    if let Err(e) = std::fs::write(&out, &bytes) {
+                        eprintln!("error: cannot write {}: {e}", out.display());
+                        return ExitCode::FAILURE;
+                    }
+                    report(&session, false);
+                    println!("wrote {} ({} bytes)", out.display(), bytes.len());
+                    ExitCode::SUCCESS
                 }
                 Err(_) => {
                     report(&session, false);
@@ -732,4 +768,25 @@ fn report(session: &Session, json: bool) {
         let color = std::io::stderr().is_terminal();
         let _ = session.diagnostics.render_with(&session.sources, &mut std::io::stderr(), color);
     }
+}
+
+/// `prog.lang` -> `prog.langmir`; a project directory -> `<package>.langmir`
+/// in it (the directory's name when there is no manifest name).
+fn default_binary_name(path: &Path) -> PathBuf {
+    if path.is_dir() {
+        let name = std::fs::read_to_string(path.join("lang.toml"))
+            .ok()
+            .and_then(|t| {
+                t.lines().find_map(|l| {
+                    let l = l.trim();
+                    l.strip_prefix("name")
+                        .map(|r| r.trim_start().trim_start_matches('=').trim().trim_matches('"').to_string())
+                })
+            })
+            .filter(|n| !n.is_empty())
+            .or_else(|| path.canonicalize().ok()?.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .unwrap_or_else(|| "program".into());
+        return path.join(format!("{name}.langmir"));
+    }
+    path.with_extension("langmir")
 }

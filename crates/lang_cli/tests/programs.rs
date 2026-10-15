@@ -636,3 +636,64 @@ fn grace_escalation_keeps_resources() {
     assert!(text.contains("worker cleanup uses resource alive=1"), "{text}");
     assert!(!text.contains("resource freed"), "{text}");
 }
+
+/// `lang compile` saves binary MIR that `lang run` executes without the
+/// sources: outputs and exit codes match the source runs.
+#[test]
+fn compiled_programs_run() {
+    let dir = std::env::temp_dir().join(format!("lang-mir-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut failures = vec![];
+    for name in [
+        "channel_choose",
+        "closure_capture_modes",
+        "conditional_display",
+        "dyn_protocol",
+        "ffi_structs",
+        "let_polymorphism",
+        "pipeline_dynamic",
+        "polymorphic_recursion_dynamic",
+        "record_contextual",
+        "schema_visit",
+        "select_rendezvous_oversize",
+        "system_lifecycle",
+        "scenario05_startup_failure",
+        "batch_self_receive",
+    ] {
+        let src = root().join(format!("tests/run/{name}.lang"));
+        let bin = dir.join(format!("{name}.langmir"));
+        let c = lang().arg("compile").arg(&src).arg("-o").arg(&bin).output().unwrap();
+        if !c.status.success() {
+            failures.push(format!("{name}: compile failed: {}", String::from_utf8_lossy(&c.stderr)));
+            continue;
+        }
+        let expected = std::fs::read_to_string(src.with_extension("out")).unwrap_or_default();
+        let code: i32 = std::fs::read_to_string(src.with_extension("exit"))
+            .map(|s| s.trim().parse().unwrap())
+            .unwrap_or(0);
+        let out = lang().arg("run").arg(&bin).output().unwrap();
+        if String::from_utf8_lossy(&out.stdout) != expected || out.status.code() != Some(code) {
+            failures.push(format!(
+                "{name}: exit {:?} (want {code})\n{}\n{}",
+                out.status.code(),
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
+    }
+    // a project: its saved worker count and configuration are used
+    let bin = dir.join("multicore.langmir");
+    assert!(lang().args(["compile", "tests/projects/multicore", "-o"]).arg(&bin).status().unwrap().success());
+    let out = lang().arg("run").arg(&bin).output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "workers: 4\nper-producer order preserved: true\nmessages: 12000\nsome producer moved between workers: true\n"
+    );
+    // a file that is not a program is not mistaken for one
+    let junk = dir.join("junk.langmir");
+    std::fs::write(&junk, b"LANGMIR1\x05").unwrap();
+    let out = lang().arg("run").arg(&junk).output().unwrap();
+    assert!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("truncated"));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}

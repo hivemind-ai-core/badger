@@ -9,6 +9,7 @@
 pub mod layout;
 pub mod lower;
 pub mod mir;
+pub mod serial;
 pub mod sra;
 
 pub use lower::lower_program;

@@ -20,6 +20,8 @@ cargo build --release
 target/release/lang run examples/01_basics.lang
 target/release/lang run examples/design/service        # project with lang.toml
 target/release/lang run [ENTRY]                        # current project; ENTRY: file, dir, or [entries] name
+target/release/lang compile [FILE_OR_PROJECT] [-o OUT] # save binary MIR (OUT.langmir)
+target/release/lang run OUT.langmir [-- ARGS]          # run it: code generation only, no parse/check
 target/release/lang task NAME [-- ARGS]                # a [tasks] function of the current project
 target/release/lang check [FILE_OR_PROJECT] [--json]
 target/release/lang test [FILE_OR_PROJECT] [FILTER] [--json]
@@ -32,7 +34,12 @@ target/release/lang explain diagnostic E0301
 target/release/lang explain type|effect NAME FILE      # functions, types, protocols
 ```
 
-Paths default to the current directory's project. `lang run` accepts
+Paths default to the current directory's project. `lang compile` checks a
+program and saves its lowered form (binary MIR, with the effective
+configuration and runtime settings) so `lang run FILE.langmir` starts in
+milliseconds: it only generates code. `LANG_<SETTING>` and `--workers` still
+apply at run time; `--watch`, `--inspect`, `--profile`, and tests need the
+sources. `lang run` accepts
 `--release` (optimized code), `--workers N` (run tasks on N worker threads;
 default `[runtime] workers` or 1), `--profile NAME` (merge a
 `[profile.NAME]` table of `lang.toml` into the configuration read by

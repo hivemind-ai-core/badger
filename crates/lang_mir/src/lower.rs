@@ -473,6 +473,14 @@ impl<'g, 'a> Mono<'g, 'a> {
         }
         let w = lang_runtime::string::immortal_string(s);
         self.strings.insert(s.to_string(), w);
+        self.prog.origins.strings.insert(w, s.to_string());
+        w
+    }
+
+    /// An interned symbol's address.
+    pub fn symbol(&mut self, name: &str) -> u64 {
+        let w = lang_runtime::string::symbol(name);
+        self.prog.origins.symbols.insert(w, name.to_string());
         w
     }
 
@@ -489,6 +497,7 @@ impl<'g, 'a> Mono<'g, 'a> {
         };
         let w = lang_runtime::string::immortal_string(&text);
         self.locs.insert(span, w);
+        self.prog.origins.strings.insert(w, text);
         w
     }
 
@@ -500,6 +509,7 @@ impl<'g, 'a> Mono<'g, 'a> {
         let layout = self.lay.closure(&[]);
         let desc = self.lay.closure_desc(&layout);
         let w = lang_runtime::gc::alloc_immortal(desc, layout.size as usize);
+        self.prog.origins.closures.insert(w, (desc as *const TypeDesc as u64, layout.size, fid));
         self.prog.static_closures.push((w, fid));
         self.static_closures.insert(fid, w);
         w
@@ -512,6 +522,7 @@ impl<'g, 'a> Mono<'g, 'a> {
         let v: Vec<&'static TypeDesc> = args.iter().map(|a| self.lay.desc(a)).collect();
         let v = Box::leak(v.into_boxed_slice());
         let p = v.as_ptr() as u64;
+        self.prog.origins.targs.insert(p, v.iter().map(|d| *d as *const TypeDesc as u64).collect());
         self.targs.insert(args.to_vec(), p);
         p
     }
@@ -523,6 +534,7 @@ impl<'g, 'a> Mono<'g, 'a> {
         let desc = self.lay.desc(ty);
         let w = lang_runtime::gc::alloc_immortal(desc, desc.payload_size() as usize);
         unsafe { *(lang_runtime::gc::obj(w).payload() as *mut u32) = idx };
+        self.prog.origins.nullary.insert(w, (desc as *const TypeDesc as u64, idx));
         self.nullary.insert((ty.clone(), idx), w);
         w
     }
@@ -1515,7 +1527,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             Lit::Char(c) => Operand::Const(Const::Int(*c as i64, Repr::I32)),
             Lit::Symbol(s) => {
                 let name = self.m.sym(*s).to_string();
-                Operand::Const(Const::Addr(lang_runtime::string::symbol(&name)))
+                Operand::Const(Const::Addr(self.m.symbol(&name)))
             }
             Lit::Bool(b) => Operand::Const(Const::Int(*b as i64, Repr::I8)),
             Lit::Unit => unit_op(),
@@ -2141,10 +2153,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let v = self.lower(*x)?;
                 let vl = self.copy_to_local(v, vr, None);
                 let name = self.m.sym(*l).to_string();
-                kvs.push((
-                    Operand::Const(Const::Addr(lang_runtime::string::symbol(&name))),
-                    Operand::Local(vl),
-                ));
+                kvs.push((Operand::Const(Const::Addr(self.m.symbol(&name))), Operand::Local(vl)));
             }
             let d = self.desc_op(ty);
             let m = self.rt("lang_rt_map_new", vec![d], Repr::Ptr);
@@ -2713,6 +2722,7 @@ pub fn lower_program<'g, 'a>(
     }
     m.run();
     let errors = std::mem::take(&mut m.errors);
+    m.prog.origins.descs = m.lay.created.borrow().clone();
     (m.prog, errors)
 }
 

@@ -152,6 +152,14 @@ error. `lang_cli` is the `lang` binary.
 
 ## MIR and code generation
 
+- **Binary MIR** (`lang compile`, `crates/lang_mir/src/serial.rs`): a lowered
+  program is saved with its runtime constants (descriptors, immortal
+  strings, symbols, static closures, nullary values, type-argument arrays)
+  recorded by how they were made, as a constant pool; loading makes them
+  anew and patches the program, so `lang run FILE.langmir` only generates
+  code. The file also carries the effective configuration and runtime
+  settings.
+
 - MIR is a CFG per function instance with typed representations (`I8..I64`,
   `F32/F64`, `Ptr`). Integer arithmetic, conversions, shifts, and indexing are
   checked (defects carry source locations); `checked_*`/`wrapping_*` helpers

@@ -41,6 +41,26 @@ pub struct Program {
     pub live: bool,
     /// Worker threads; above one, runtime calls take the runtime lock.
     pub workers: usize,
+    /// Where each runtime address in the program came from (for saving a
+    /// program as a relocatable binary file; see `serial`).
+    pub origins: Origins,
+}
+
+/// The runtime objects a lowered program refers to by address.
+#[derive(Debug, Default)]
+pub struct Origins {
+    /// Every descriptor the compiler created.
+    pub descs: Vec<&'static lang_runtime::TypeDesc>,
+    /// Immortal strings (constants and source locations).
+    pub strings: rustc_hash::FxHashMap<u64, String>,
+    /// Interned symbols.
+    pub symbols: rustc_hash::FxHashMap<u64, String>,
+    /// Static closure objects: (descriptor, payload size, function).
+    pub closures: rustc_hash::FxHashMap<u64, (u64, u32, FuncId)>,
+    /// Nullary enum values: (descriptor, variant).
+    pub nullary: rustc_hash::FxHashMap<u64, (u64, u32)>,
+    /// Type-argument descriptor arrays.
+    pub targs: rustc_hash::FxHashMap<u64, Vec<u64>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
