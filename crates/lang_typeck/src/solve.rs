@@ -720,6 +720,7 @@ impl Infer<'_, '_> {
                     let _ = self.icx.unify(&t, &chosen);
                     return Step::Solved;
                 }
+                self.impl_span = *span;
                 match self.find_impl(*proto, args, &t, final_) {
                     ImplSearch::Found(_) => Step::Solved,
                     ImplSearch::Pending => {
@@ -1882,6 +1883,9 @@ impl Infer<'_, '_> {
                         let imp = self.g.env.impls[i].clone();
                         let vars: Vec<Ty> = (0..imp.n_generics).map(|_| self.icx.fresh_matching()).collect();
                         let _ = self.icx.unify(&subst_gen(&imp.self_ty, &vars), &t);
+                        if imp.n_generics > 0 && matches!(imp.methods, ImplMethods::Defs(_)) {
+                            self.impl_uses.push((i, vars.clone(), self.impl_span));
+                        }
                         if let Some((_, pargs)) = &imp.protocol {
                             for (a, b) in pargs.iter().zip(args) {
                                 let _ = self.icx.unify(&subst_gen(a, &vars), b);

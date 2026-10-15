@@ -151,6 +151,16 @@ pub struct Infer<'g, 'a> {
     /// Capabilities a generic body requires of its type parameters
     /// (skolem, `Transfer`/`Share`), checked where it is instantiated.
     pub implied_caps: Vec<(u32, &'static str)>,
+    /// User implementations selected while solving (impl index, its
+    /// generic arguments, use site): the capabilities their methods need
+    /// of the impl's own parameters are checked against these.
+    pub impl_uses: Vec<(usize, Vec<Ty>, Span)>,
+    /// Calls passing a closure that captures affine locals used after the
+    /// call to a user function (callee, parameter, those locals): an error
+    /// if the function hands that parameter to a task.
+    pub task_moves: Vec<(DefId, usize, Vec<(LocalId, Span)>)>,
+    /// Site of the implementation constraint being solved.
+    pub impl_span: Span,
     /// Generalized local `let`s: binding -> (initializer, scheme size, type).
     pub poly_locals: FxHashMap<LocalId, (ExprId, u32, Ty)>,
     /// Instantiation of each use of a generalized local.
@@ -194,6 +204,9 @@ impl<'g, 'a> Infer<'g, 'a> {
             init_lambdas: vec![],
             param_derived: Default::default(),
             implied_caps: vec![],
+            impl_uses: vec![],
+            task_moves: vec![],
+            impl_span: Span::dummy(),
             poly_locals: FxHashMap::default(),
             callee_ctx: None,
             local_insts: FxHashMap::default(),

@@ -1,0 +1,24 @@
+// expect-error: E0341
+// A Cell hidden in a dyn value through a generic impl method cannot cross tasks.
+import std.io
+import std.task
+protocol Bump { fn bump(self: &Self) -> Int }
+impl Bump for Cell<Int> { fn bump(self: &Self) -> Int { self.set(self.get() + 1); self.get() } }
+struct W<T> { v: T }
+impl<T> Bump for W<T> where T: Bump { fn bump(self: &Self) -> Int { self.v.bump() } }
+protocol Mk { fn mk(self: &Self) -> dyn Bump }
+struct H<T> { v: T }
+impl<T> Mk for H<T> where T: Bump { fn mk(self: &Self) -> dyn Bump { let w: W<T> = { v: self.v }; w } }
+fn go<R>(r: &R) -> dyn Bump where R: Mk { r.mk() }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let h: H<Cell<Int>> = { v: c }
+    let d = go(&h)
+    let r: Result<Int, io.Error> = task.scope(fn(s) {
+        let t = s.spawn(fn() { d.bump() })
+        ok(t.join())
+    })
+    io.println(r?)?
+    io.println(c.get())?
+    ok(())
+}

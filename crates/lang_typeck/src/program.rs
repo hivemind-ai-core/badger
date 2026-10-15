@@ -926,6 +926,7 @@ fn effect_tails(t: &Ty, out: &mut Vec<TyVid>) {
 /// caller's own type parameters pass on to its callers.
 fn check_implied_caps(inf: &mut Infer<'_, '_>) {
     let mut done: FxHashSet<(ExprId, u32)> = FxHashSet::default();
+    let mut done_uses: FxHashSet<(usize, DefId, u32)> = FxHashSet::default();
     for _ in 0..6 {
         // attach new requirements to the definitions owning the parameters
         let mut grew = false;
@@ -964,6 +965,28 @@ fn check_implied_caps(inf: &mut Infer<'_, '_>) {
                 let arg = inf.icx.resolve(arg);
                 let span = inf.g.hir.exprs[e].span;
                 inf.pending.push(Constraint::Impl { proto, args: vec![], ty: arg, span, expr: None });
+            }
+        }
+        // an implementation whose methods need a capability of the impl's
+        // own parameters holds only where its arguments have it (calls
+        // through protocol bounds and `dyn` reach those methods unseen)
+        for (k, (imp, vars, span)) in inf.impl_uses.clone().into_iter().enumerate() {
+            let info = &inf.g.env.impls[imp];
+            let ImplMethods::Defs(ms) = &info.methods else { continue };
+            let n = info.n_generics;
+            let methods: Vec<DefId> = ms.values().copied().collect();
+            for m in methods {
+                let reqs = inf.g.implied.borrow().get(&m).cloned().unwrap_or_default();
+                for (i, which) in reqs {
+                    if i >= n || !done_uses.insert((k, m, i)) {
+                        continue;
+                    }
+                    let (Some(arg), Some(proto)) = (vars.get(i as usize), inf.g.hir.try_lang(which)) else {
+                        continue;
+                    };
+                    let arg = inf.icx.resolve(arg);
+                    inf.pending.push(Constraint::Impl { proto, args: vec![], ty: arg, span, expr: None });
+                }
             }
         }
         inf.solve(true);

@@ -1,0 +1,26 @@
+// expect-error: E0402
+// A generic impl method spawning with its parameter needs it transferable where the impl is used.
+import std.io
+import std.task
+protocol Bump { fn bump(self: &Self) -> Int }
+impl Bump for Cell<Int> { fn bump(self: &Self) -> Int { self.set(self.get() + 1); self.get() } }
+protocol Runner { fn run(self: &Self) -> Int }
+struct H<T> { v: T }
+impl<T> Runner for H<T> where T: Bump {
+    fn run(self: &Self) -> Int {
+        let v = self.v
+        let r: Result<Int, String> = task.scope(fn(s) {
+            let t = s.spawn(fn() { v.bump() })
+            ok(t.join())
+        })
+        r.unwrap_or(0)
+    }
+}
+fn go<R>(r: &R) -> Int where R: Runner { r.run() }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let h: H<Cell<Int>> = { v: c }
+    io.println(go(&h))?
+    io.println(c.get())?
+    ok(())
+}
