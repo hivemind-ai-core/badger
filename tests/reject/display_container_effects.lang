@@ -1,0 +1,7 @@
+// expect-error: E0501
+// Effects inside a !{} function: display_container_effects.
+import std.io
+struct S { v: Int }
+impl Display for S { fn display(self: &Self) -> String { let _ = io.println("EFFECT"); "s" } }
+fn pure_l(s: S) -> String !{} { let l = [s]; $"{l}" }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(pure_l(s))?; ok(()) }

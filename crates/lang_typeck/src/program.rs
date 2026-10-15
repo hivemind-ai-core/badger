@@ -357,7 +357,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     let sccs = petgraph::algo::tarjan_scc(&graph);
     let mut inf_diags = vec![];
     // resolved call targets, for the effect fixpoint below
-    let mut call_targets: FxHashMap<ExprId, DefId> = FxHashMap::default();
+    let mut call_targets: FxHashMap<ExprId, Vec<DefId>> = FxHashMap::default();
     {
         let gref: &Global = &g;
         let mut inf = Infer::new(gref, Mode::Generic);
@@ -412,22 +412,55 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
                 Res::Callee { def, .. } => Some(*def),
                 Res::Method(Target::Fn { def, .. }) | Res::Display(Target::Fn { def, .. }) => Some(*def),
                 Res::Try(Some(Target::Fn { def, .. })) => Some(*def),
-                // dictionary dispatch: the protocol's declaration of the method
-                Res::Method(Target::Dyn { protocol, method }) => match &hir.defs[*protocol].kind {
-                    DefKind::Protocol(pd) => {
-                        pd.methods.iter().copied().find(|m| hir.defs[*m].name == *method)
-                    }
-                    _ => None,
-                },
+                // dictionary dispatch: the protocol's (or a supertrait's)
+                // declaration of the method
+                Res::Method(Target::Dyn { protocol, method }) => protocol_method(inf.g, *protocol, *method),
                 _ => None,
             };
             if let Some(d) = t {
-                call_targets.insert(*e, d);
+                call_targets.entry(*e).or_default().push(d);
             }
         }
         for (e, t) in &inf.displays {
-            if let Target::Fn { def, .. } = t {
-                call_targets.insert(*e, *def);
+            let d = match t {
+                Target::Fn { def, .. } => Some(*def),
+                Target::Dyn { protocol, method } => protocol_method(inf.g, *protocol, *method),
+                _ => None,
+            };
+            if let Some(d) = d {
+                call_targets.entry(*e).or_default().push(d);
+            }
+        }
+        // displaying a value displays what it contains: every user type
+        // inside it contributes its `display` implementation
+        let display_name = inf.g.interner.intern("display");
+        let shown: Vec<ExprId> = inf
+            .displays
+            .keys()
+            .copied()
+            .chain(inf.res.iter().filter_map(|(e, r)| matches!(r, Res::Display(_)).then_some(*e)))
+            .chain(hir.exprs.iter().filter_map(|(_, x)| match &x.kind {
+                ExprKind::MethodCall { method, recv, .. } if *method == display_name => Some(*recv),
+                _ => None,
+            }))
+            .collect();
+        for e in shown {
+            let Some(t) = inf.exprs.get(&e).cloned() else { continue };
+            let t = inf.icx.resolve(&t);
+            let mut heads = vec![];
+            nominal_heads(inf.g, &t, &mut heads);
+            let display = inf.g.env.b.display;
+            for imp in &inf.g.env.impls {
+                let (Some((p, _)), ImplMethods::Defs(ms)) = (&imp.protocol, &imp.methods) else { continue };
+                if *p != display {
+                    continue;
+                }
+                if let TyKind::Con(d, _) = &*imp.self_ty
+                    && heads.contains(d)
+                    && let Some(m) = ms.get(&display_name)
+                {
+                    call_targets.entry(e).or_default().push(*m);
+                }
             }
         }
         for (d, s) in new_schemes {
@@ -851,7 +884,59 @@ fn check_implied_caps(inf: &mut Infer<'_, '_>) {
 /// every resolved callee to its callers (to a fixpoint), refine the
 /// schemes of unannotated functions, and report an explicit bound the
 /// propagated effects exceed (E0501).
-fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, DefId>, diags: &mut Vec<Diagnostic>) {
+/// The nominal types a value of type `t` contains (through fields and
+/// payloads), e.g. to find the `display` implementations showing it runs.
+fn nominal_heads(g: &Global, t: &Ty, out: &mut Vec<DefId>) {
+    match &**t {
+        TyKind::Con(d, args) => {
+            if out.contains(d) {
+                return;
+            }
+            out.push(*d);
+            let parts: Vec<Ty> = if let Some(e) = g.env.enums.get(d) {
+                (0..e.variants.len())
+                    .flat_map(|v| g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
+                    .collect()
+            } else if g.env.structs.contains_key(d) {
+                g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
+            } else {
+                args.clone()
+            };
+            for p in parts {
+                nominal_heads(g, &p, out);
+            }
+        }
+        TyKind::Tuple(ts) => ts.iter().for_each(|x| nominal_heads(g, x, out)),
+        TyKind::Record(r) => row_fields(r).0.iter().for_each(|(_, x)| nominal_heads(g, x, out)),
+        TyKind::Ref(_, x) => nominal_heads(g, x, out),
+        _ => {}
+    }
+}
+
+/// A protocol's method by name, or a supertrait's (a `dyn Error` value's
+/// `display` is `Display`'s).
+fn protocol_method(g: &Global, protocol: DefId, method: Symbol) -> Option<DefId> {
+    let hir = g.hir;
+    let mut stack = vec![protocol];
+    let mut seen = vec![];
+    while let Some(p) = stack.pop() {
+        if seen.contains(&p) {
+            continue;
+        }
+        seen.push(p);
+        if let DefKind::Protocol(pd) = &hir.defs[p].kind
+            && let Some(m) = pd.methods.iter().copied().find(|m| hir.defs[*m].name == method)
+        {
+            return Some(m);
+        }
+        if let Some(info) = g.env.protocols.get(&p) {
+            stack.extend(info.supers.iter().copied());
+        }
+    }
+    None
+}
+
+fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diags: &mut Vec<Diagnostic>) {
     let hir = g.hir;
     let modeled: Vec<Symbol> = g.env.all_effects.clone();
     let labels_of = |g: &Global, d: DefId| -> Vec<Symbol> {
@@ -867,9 +952,9 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, DefId>, diags: &m
     };
     // callees of each user function body (closures excluded: their
     // effects belong to the closure value)
-    fn callees(hir: &Hir, e: ExprId, targets: &FxHashMap<ExprId, DefId>, out: &mut Vec<DefId>) {
-        if let Some(d) = targets.get(&e) {
-            out.push(*d);
+    fn callees(hir: &Hir, e: ExprId, targets: &FxHashMap<ExprId, Vec<DefId>>, out: &mut Vec<DefId>) {
+        if let Some(ds) = targets.get(&e) {
+            out.extend(ds.iter().copied());
         }
         if matches!(hir.exprs[e].kind, lang_hir::ExprKind::Lambda(_)) {
             return;
@@ -878,11 +963,10 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, DefId>, diags: &m
             callees(hir, c, targets, out);
         }
     }
+    // standard-library functions take part too: one showing a `dyn Display`
+    // runs the program's own `display` implementations
     let mut calls: Vec<(DefId, Vec<DefId>)> = vec![];
     for (id, def) in hir.defs.iter() {
-        if hir.modules[def.module].is_std {
-            continue;
-        }
         if let DefKind::Fn(f) = &def.kind
             && let Some(b) = f.body
         {
@@ -946,6 +1030,8 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, DefId>, diags: &m
             continue;
         }
         match &f.effect {
+            // the library's own bounds are its contract; user code is checked
+            Some(_) if hir.modules[hir.defs[*d].module].is_std => {}
             // an explicit bound: these effects were not permitted
             Some(_) => {
                 let names: Vec<String> = extra.iter().map(|l| g.interner.resolve(*l).to_string()).collect();

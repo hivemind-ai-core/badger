@@ -1,0 +1,12 @@
+// expect-error: E0501
+// Effects inside a !{} function: cell_via_param_method_state.
+import std.io
+import std.map
+struct H { c: Cell<Int> }
+fn p(m: Map<String, Cell<Int>>) -> Unit !{} { match m.get("a") { .some(c) => c.set(3), .none => () } }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let h: H = { c: c }
+    p(map { "a" => c })
+    io.println(c.get())
+}

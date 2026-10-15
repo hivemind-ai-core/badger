@@ -2108,6 +2108,11 @@ impl<'g, 'a> Infer<'g, 'a> {
                 ExprKind::Local(l) => return self.is_param(*l) || self.param_derived.contains(l),
                 ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => e = *base,
                 ExprKind::Unary { operand, .. } => e = *operand,
+                // what a parameter's method or callback returns may be the
+                // caller's too (`m.get(k)`, `make()`)
+                ExprKind::MethodCall { recv, .. } => e = *recv,
+                ExprKind::Call { callee, .. } => e = *callee,
+                ExprKind::Try(x) => e = *x,
                 _ => return false,
             }
         }

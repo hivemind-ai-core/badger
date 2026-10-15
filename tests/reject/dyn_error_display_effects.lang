@@ -1,0 +1,9 @@
+// expect-error: E0501
+// Effects inside a !{} function: dyn_error_display_effects.
+import std.io
+struct S { v: Int }
+impl Display for S { fn display(self: &Self) -> String { let _ = io.println("EFFECT"); "s" } }
+impl Error for S {}
+fn pure_e(s: S) -> String !{} { let e: dyn Error = s; e.code(); "x" }
+fn pure_c(e: dyn Error) -> List<String> !{} { error_chain(e) }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(pure_c(s))?; ok(()) }
