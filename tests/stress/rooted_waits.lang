@@ -1,0 +1,76 @@
+// Stress: producers park inside channel operations while holding freshly
+// built heap values (lists and strings); collections run while they wait.
+// Every value arrives intact.
+import std.channel
+import std.io
+import std.list
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<List<Int>>),
+    sends(source: channel.SendError<String>),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn payload(p: Int, i: Int) -> List<Int> { (0..(i % 7 + 1)).map(fn(k: Int) { p * 100000 + i * 10 + k }).collect() }
+
+fn intact(xs: List<Int>) -> Bool {
+    var ok = xs.len() > 0
+    var k = 0
+    for x in xs {
+        if x != xs[0] + k { ok = false }
+        k = k + 1
+    }
+    ok
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let per = 150
+    let prompt = channel.create<List<Int>>({ ..channel.defaults, capacity: 1 })?
+    let batched = channel.batch<String>({ capacity: 2, max_batch: 2, byte_budget: 0 })?
+    let checked: (Int, Int) = task.scope(fn(s) -> Result<(Int, Int), AppError> {
+        let ps = (0..4).map(fn(p: Int) {
+            s.spawn(fn() -> Result<Unit, AppError> {
+                for i in 0..per {
+                    prompt.sender.send(payload(p, i))?
+                    batched.sender.append($"value {p}-{i}-{payload(p, i).len()}")?
+                }
+                batched.sender.flush()
+                ok(())
+            })
+        }).collect()
+        let lists = s.spawn(fn() -> Int {
+            var good = 0
+            loop {
+                match prompt.receiver.recv() {
+                    .some(xs) => { if intact(xs) { good = good + 1 } },
+                    .none => { break },
+                }
+                task.yield_now()
+            }
+            good
+        })
+        let strings = s.spawn(fn() -> Int {
+            var good = 0
+            loop {
+                match batched.receiver.recv() {
+                    .some(t) => { if t.starts_with("value ") { good = good + 1 } },
+                    .none => { break },
+                }
+                task.yield_now()
+            }
+            good
+        })
+        s.try_all(ps)?
+        prompt.sender.close()
+        batched.sender.close()
+        ok((lists.join(), strings.join()))
+    })?
+    if checked.0 != 4 * per || checked.1 != 4 * per {
+        return err(AppError.broken($"intact: {checked.0} lists, {checked.1} strings of {4 * per}"))
+    }
+    io.println("rooted waits ok")?
+    ok(())
+}

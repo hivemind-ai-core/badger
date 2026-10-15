@@ -355,12 +355,28 @@ added.
   (`tests/diagnostics`), `lang explain` (`tests/explain`), and checks
   `bench/`; `tests/service.rs` drives the HTTP/SQLite service, request
   isolation, HTTP limits, and streaming (`tests/http`) with a real client.
+- `tests/stress/*.lang` are self-checking concurrency programs (message
+  conservation across prompt, batch, and rendezvous channels, selections
+  committing exactly once, cancellation and timeout storms with cleanup
+  invariants). `crates/lang_cli/tests/stress.rs` runs each on 1, 4, and 8
+  workers under chaos scheduling, heap verification, and optimized code;
+  `LANG_STRESS_SECS=N cargo test -p lang_cli --test stress` soaks
+  randomized configurations (also GC stress and binary MIR) and reports
+  the exact configuration of any failure.
+- `tests/adversarial` holds the retained independent regressions and
+  controls behind `reports/2026-10-15-adversarial.md`.
 - Unit tests cover the formatter (spacing and indentation), layout, and
   unification; `crates/lang_syntax/tests/format_repo.rs` formats every
   repository source.
 
 Debug switches: `LANG_GC_STRESS=1` (collect before every allocation, to
-expose missing roots), `LANG_DEBUG_INSTANCE` (instances as lowered),
+expose missing roots), `LANG_GC_VERIFY=1` (check every root and traced
+pointer at each collection; freed objects are poisoned and quarantined so
+a use-after-free aborts with the object's type instead of corrupting
+memory), `LANG_CHAOS=<seed>` (random task budgets, random choice among
+ready tasks, yields and short sleeps around runtime entry and exit, and
+collections at random allocations; reproducible on one worker),
+`LANG_DEBUG_INSTANCE` (instances as lowered),
 `LANG_DEBUG_SCHED` (scheduler state on idle), `LANG_DEBUG_LIVE` (reload
 entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
 (seeded scheduling in tests), `LANG_DUMP_CLIF`, and `lang run --dump-mir`.

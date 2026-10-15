@@ -1,0 +1,84 @@
+// Stress: a consumer selects over several channels (with timeouts) while
+// producers feed each one; another selects to send. Exactly one operation
+// commits per selection: nothing is lost or duplicated.
+import std.channel
+import std.io
+import std.list
+import std.set
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let per = 400
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 0 })?
+    let b = channel.create<Int>({ ..channel.defaults, capacity: 2 })?
+    let c = channel.create<Int>({ ..channel.defaults, capacity: 32 })?
+    let out = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let got: (List<Int>, Int, List<Int>) = task.scope(fn(s) -> Result<(List<Int>, Int, List<Int>), AppError> {
+        let pa = s.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..per { a.sender.send(i)? }
+            a.sender.close()
+            ok(())
+        })
+        let pb = s.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..per { b.sender.send(per + i)? }
+            b.sender.close()
+            ok(())
+        })
+        let pc = s.spawn(fn() -> Result<Unit, AppError> {
+            for i in 0..per { c.sender.send(2 * per + i)? }
+            c.sender.close()
+            ok(())
+        })
+        // forwards each received value through a selected send
+        let sink = s.spawn(fn() -> List<Int> {
+            var mine: List<Int> = []
+            loop {
+                match out.receiver.recv() {
+                    .some(v) => { mine = mine.append(v) },
+                    .none => { break },
+                }
+            }
+            mine
+        })
+        var got: List<Int> = []
+        var timeouts = 0
+        let rs = [a.receiver, b.receiver, c.receiver]
+        var open = [0, 1, 2]
+        var broken = false
+        while open.len() > 0 && !broken {
+            let ops = open.map(fn(k: Int) { channel.Op.recv(rs[k]) })
+            match channel.select(ops, Option.some(2ms)) {
+                .received(_, .some(v)) => {
+                    got = got.append(v)
+                    match channel.select([channel.Op.send(out.sender, v)], Option.none) {
+                        .sent(_) => (),
+                        _ => { broken = true },
+                    }
+                },
+                // a closed channel stays ready: select over the others
+                .received(i, .none) => {
+                    let gone = open[i]
+                    open = open.filter(fn(k: Int) { k != gone })
+                },
+                .timeout => { timeouts = timeouts + 1 },
+                _ => { broken = true },
+            }
+        }
+        out.sender.close()
+        s.try_all([pa, pb, pc])?
+        ok((got, timeouts, sink.join()))
+    })?
+    let want = 3 * per
+    if got.0.len() != want || set.from_list(got.0).len() != want || got.2.len() != want || set.from_list(got.2).len() != want {
+        return err(AppError.broken($"received {got.0.len()}, forwarded {got.2.len()} of {want}"))
+    }
+    io.println("select exactly once ok")?
+    ok(())
+}

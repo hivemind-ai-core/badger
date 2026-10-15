@@ -1,0 +1,114 @@
+// Stress: children cancelled while running, sleeping, or blocked on
+// channels, and work cut off by timeouts. Every child ends returned or
+// cancelled; no cleanup runs twice; a child that finished its scope ran
+// its cleanup (one cancelled before registering it has none to run).
+import std.channel
+import std.io
+import std.list
+import std.set
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn round(n: Int, seed: Int) -> Result<Unit, AppError> {
+    let started = Atom.new(0)
+    let cleaned: Atom<List<Int>> = Atom.new([])
+    let jam = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let stop = Atom.new(false)
+    let counts: (Int, Int, List<Int>) = task.scope(fn(s) -> Result<(Int, Int, List<Int>), AppError> {
+        // drains the jammed channel slowly, until told to stop
+        let drain = s.spawn(fn() {
+            while !stop.get() {
+                match channel.select([channel.Op.recv(jam.receiver)], Option.some(200us)) {
+                    _ => (),
+                }
+            }
+        })
+        let kids = (0..n).map(fn(i: Int) {
+            s.capture(fn() -> Int {
+                let _ = started.update(fn(x: Int) -> Int { x + 1 })
+                let r: Result<Int, AppError> = task.scope(fn(inner) -> Result<Int, AppError> {
+                    inner.defer(fn() { let _ = cleaned.update(fn(xs: List<Int>) -> List<Int> { xs.append(i) }) })
+                    var acc = 0
+                    let mode = (i + seed) % 4
+                    for k in 0..200 {
+                        if mode == 0 { task.yield_now() }
+                        if mode == 1 { task.sleep(100us) }
+                        if mode == 2 { let _ = jam.sender.send(k) }
+                        acc = acc + k
+                    }
+                    ok(acc)
+                })
+                match r {
+                    .ok(_) => i,
+                    .err(_) => -1,
+                }
+            })
+        }).collect()
+        // cancel every third child at staggered moments
+        var i = 0
+        for t in kids {
+            if i % 3 == 0 {
+                task.sleep(50us)
+                t.cancel()
+            }
+            i = i + 1
+        }
+        var returned = 0
+        var cancelled = 0
+        var finished: List<Int> = []
+        for t in kids {
+            match t.join() {
+                .returned(v) => {
+                    returned = returned + 1
+                    if v >= 0 { finished = finished.append(v) }
+                },
+                .cancelled(_) => { cancelled = cancelled + 1 },
+                .failed(info) => { return err(AppError.broken($"child failed: {info}")) },
+            }
+        }
+        stop.set(true)
+        drain.join()
+        ok((returned, cancelled, finished))
+    })?
+    // work cut off by timeouts settles the same way
+    for k in 0..10 {
+        let r = task.timeout(200us, fn() -> Int {
+            let _ = started.update(fn(x: Int) -> Int { x + 1 })
+            let v: Result<Int, AppError> = task.scope(fn(inner) -> Result<Int, AppError> {
+                inner.defer(fn() { let _ = cleaned.update(fn(xs: List<Int>) -> List<Int> { xs.append(1000 + k) }) })
+                for j in 0..100 { task.sleep(20us) }
+                ok(k)
+            })
+            v.unwrap_or(-1)
+        })
+        let _ = r.is_ok()
+    }
+    if counts.0 + counts.1 != n {
+        return err(AppError.broken($"{counts.0} returned + {counts.1} cancelled of {n}"))
+    }
+    let done = cleaned.get()
+    if set.from_list(done).len() != done.len() {
+        return err(AppError.broken($"a cleanup ran twice: {done}"))
+    }
+    if done.len() > started.get() {
+        return err(AppError.broken($"{done.len()} cleanups for {started.get()} started children"))
+    }
+    let ran = set.from_list(done)
+    for i in counts.2 {
+        if !ran.contains(i) {
+            return err(AppError.broken($"child {i} finished its scope without its cleanup"))
+        }
+    }
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    for seed in 0..6 { round(24, seed)? }
+    io.println("cancel storm ok")?
+    ok(())
+}

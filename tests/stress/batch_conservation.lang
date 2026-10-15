@@ -1,0 +1,74 @@
+// Stress: several producers append to one batch channel while consumers
+// take whole batches (released after reading) and single messages. Every
+// value arrives exactly once and leases never leak capacity.
+import std.channel
+import std.io
+import std.list
+import std.set
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn run(capacity: Int, max_batch: Int, producers: Int, per: Int) -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: capacity, max_batch: max_batch, byte_budget: 0 })?
+    let got: List<List<Int>> = task.scope(fn(s) -> Result<List<List<Int>>, AppError> {
+        let ps = (0..producers).map(fn(p: Int) {
+            s.spawn(fn() -> Result<Unit, AppError> {
+                for i in 0..per {
+                    b.sender.append(p * per + i)?
+                    if i % 37 == 0 { b.sender.flush() }
+                }
+                b.sender.flush()
+                ok(())
+            })
+        }).collect()
+        let whole = s.spawn(fn() -> List<Int> {
+            var mine: List<Int> = []
+            loop {
+                match b.receiver.recv_batch() {
+                    .some(batch) => {
+                        for v in batch.items() { mine = mine.append(v) }
+                        batch.release()
+                    },
+                    .none => { break },
+                }
+            }
+            mine
+        })
+        let single = s.spawn(fn() -> List<Int> {
+            var mine: List<Int> = []
+            loop {
+                match b.receiver.recv() {
+                    .some(v) => { mine = mine.append(v) },
+                    .none => { break },
+                }
+            }
+            mine
+        })
+        s.try_all(ps)?
+        b.sender.close()
+        ok([whole.join(), single.join()])
+    })?
+    let all = got.fold([], fn(acc: List<Int>, xs: List<Int>) { acc.concat(xs) })
+    let want = producers * per
+    if all.len() != want || set.from_list(all).len() != want {
+        return err(AppError.broken($"batch {capacity}/{max_batch}: received {all.len()}, sent {want}"))
+    }
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    for round in 0..3 {
+        run(8, 4, 4, 300)?
+        run(64, 16, 3, 600)?
+        run(256, 32, 6, 400)?
+        let _ = round
+    }
+    io.println("batch conservation ok")?
+    ok(())
+}
