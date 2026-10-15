@@ -1,0 +1,11 @@
+// expect-error: E0404
+// An element accessor on a borrowed list of buffers cannot hand out an owned buffer.
+import std.io
+import std.buffer
+fn poke(x: &List<Buffer<Int>>) -> Array<Int> { let mut_it = x.get(0); match mut_it { .some(b) => buffer.freeze(b), .none => buffer.freeze(buffer.new<Int>()) } }
+pub fn main() -> Result<Unit, io.Error> {
+    let l = [buffer.new<Int>()]
+    let a = poke(&l)
+    l[0].push(1)
+    io.println(a.len())
+}

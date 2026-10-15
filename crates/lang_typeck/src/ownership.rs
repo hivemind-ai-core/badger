@@ -1149,6 +1149,19 @@ impl Own<'_, '_, '_> {
         self.lambda_borrows.remove(&arg);
     }
 
+    /// Whether an expression is a borrow (`&T`, `&mut T`) of an affine value.
+    fn ref_to_affine(&mut self, e: ExprId) -> bool {
+        let Some(t) = self.inf.exprs.get(&e).cloned() else { return false };
+        let t = self.inf.icx.resolve(&t);
+        match &*t {
+            TyKind::Ref(_, inner) => {
+                let inner = inner.clone();
+                self.is_affine_ty(&inner, 0)
+            }
+            _ => false,
+        }
+    }
+
     /// The local a place expression (`r.f`, `fs[0]`) is rooted in.
     fn place_root(&self, mut e: ExprId) -> Option<LocalId> {
         let hir = self.inf.g.hir;
@@ -1935,13 +1948,16 @@ impl Own<'_, '_, '_> {
                 }
                 // reading an affine element through a shared borrow would
                 // duplicate it: the collection is consumed instead
-                if rm == Mode::Borrow && self.expr_affine(e) && self.expr_affine(*recv) {
+                // (also through a borrow of such a collection: that is a move
+                // out of borrowed, reported by the receiver's use)
+                let recv_affine = self.expr_affine(*recv) || self.ref_to_affine(*recv);
+                if rm == Mode::Borrow && self.expr_affine(e) && recv_affine {
                     rm = Mode::Move;
                 }
                 // so do element-visiting methods of collections and sequences
                 // of affine items (only observers keep the collection)
                 if rm == Mode::Borrow
-                    && self.expr_affine(*recv)
+                    && recv_affine
                     && let ExprKind::MethodCall { method, .. } = &hir.exprs[e].kind
                     && !matches!(
                         self.inf.sym(*method),
@@ -2157,6 +2173,24 @@ impl Own<'_, '_, '_> {
                             let init_ty = self.inf.exprs.get(init).cloned();
                             let m = self.mode_into(init_ty);
                             let d = self.expr(*init, m, st);
+                            // destructuring a borrow cannot take affine parts out of it
+                            if !matches!(hir.pats[*pat].kind, PatKind::Bind(_) | PatKind::Discard)
+                                && (self.ref_to_affine(*init) || m == Mode::Borrow && self.expr_affine(*init))
+                            {
+                                let mut ls = vec![];
+                                pat_locals(hir, *pat, &mut ls);
+                                if let Some(l) = ls.into_iter().find(|l| self.is_affine(*l)) {
+                                    let span = hir.locals[l].span;
+                                    let name = self.name(l);
+                                    self.report(
+                                        Diagnostic::error(format!("cannot move `{name}` out of a borrowed value"))
+                                            .with_code("E0404")
+                                            .with_label(span, "this takes ownership of a part of a value that is only borrowed")
+                                            .with_note("borrow the part instead (`let b = &x.b`), or take the value by value"),
+                                        span,
+                                    );
+                                }
+                            }
                             // a sequence derived from an affine source is one-shot
                             if let PatKind::Bind(holder) = &hir.pats[*pat].kind
                                 && self.seq_typed(*init)

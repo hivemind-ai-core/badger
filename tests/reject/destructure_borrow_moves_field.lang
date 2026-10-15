@@ -1,0 +1,13 @@
+// expect-error: E0404
+// Destructuring a shared borrow cannot move an affine field out.
+import std.io
+import std.buffer
+struct H { b: Buffer<Int> }
+fn poke(x: &H) -> Array<Int> { let { b } = x; buffer.freeze(b) }
+pub fn main() -> Result<Unit, io.Error> {
+    let r: H = { b: buffer.new<Int>() }
+    let a = poke(&r)
+    r.b.push(4)
+    io.println(a.len())?
+    io.println(r.b.len())
+}
