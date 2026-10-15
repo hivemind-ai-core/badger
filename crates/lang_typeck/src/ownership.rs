@@ -393,6 +393,27 @@ pub fn check_task_params(inf: &mut Infer<'_, '_>) {
             }
         });
     }
+    // affine values captured by closures that user functions hand to
+    // tasks were moved there: later uses are errors
+    let mut seen: FxHashSet<(LocalId, Span)> = FxHashSet::default();
+    for (def, i, later) in std::mem::take(&mut inf.task_moves) {
+        if !tp.get(&def).is_some_and(|v| v.contains(&i)) {
+            continue;
+        }
+        let callee = inf.g.interner.resolve(hir.defs[def].name).to_string();
+        for (l, span) in later {
+            if !seen.insert((l, span)) {
+                continue;
+            }
+            let name = inf.g.interner.resolve(hir.locals[l].name).to_string();
+            inf.push_diag(
+                Diagnostic::error(format!("use of moved value `{name}`"))
+                    .with_code("E0404")
+                    .with_label(span, format!("`{name}` moves into a task here: `{callee}` hands this closure to one"))
+                    .with_note("a closure running in another task takes its affine captures; use the value before, or not at all after"),
+            );
+        }
+    }
     for (span, name) in reports {
         inf.push_diag(
             Diagnostic::error(format!("`{name}` may run this closure in another task"))
@@ -1471,9 +1492,15 @@ impl Own<'_, '_, '_> {
     fn moves_into_task(&mut self, def: Option<DefId>, i: usize, arg: ExprId, span: Span, st: &mut State) {
         let Some(def) = def else { return };
         let hir = self.inf.g.hir;
-        if !matches!(hir.exprs[arg].kind, ExprKind::Lambda(_)) {
-            return;
-        }
+        // the closure itself, or a local bound to it
+        let lam = match &hir.exprs[arg].kind {
+            ExprKind::Lambda(_) => arg,
+            ExprKind::Local(l) => match self.local_lambdas.get(l).copied() {
+                Some(lam) => lam,
+                None => return,
+            },
+            _ => return,
+        };
         let Some(scheme) = self.inf.g.scheme(def) else { return };
         let TyKind::Fn(f) = &*scheme.ty else { return };
         let Some(pt) = f.params.get(i) else { return };
@@ -1481,12 +1508,33 @@ impl Own<'_, '_, '_> {
         let required = scheme.constraints.iter().any(|c| {
             matches!(c, crate::solve::Constraint::Impl { proto, ty, .. } if Some(*proto) == transfer && ty == pt)
         });
+        let captured: Vec<LocalId> = self
+            .lambda_borrows
+            .get(&lam)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|c| self.is_affine(*c))
+            .collect();
         if !required {
+            // a user function may still hand it to a task: decided once
+            // every body is checked (`check_task_params`)
+            if !captured.is_empty() && !hir.modules[hir.defs[def].module].is_std {
+                let after = span.range().end;
+                let later: Vec<(LocalId, Span)> = captured
+                    .iter()
+                    .filter(|c| self.last_use.get(c).copied().unwrap_or(0) > after)
+                    .map(|c| (*c, span))
+                    .collect();
+                if !later.is_empty() {
+                    self.inf.task_moves.push((def, i, later));
+                }
+            }
             return;
         }
         // captured values of a type parameter must be transferable where the
         // function is instantiated
-        if let ExprKind::Lambda(l) = &hir.exprs[arg].kind {
+        if let ExprKind::Lambda(l) = &hir.exprs[lam].kind {
             for c in l.captures.clone() {
                 if let Some(t) = self.local_ty(c) {
                     let skolems = self.inf.icx.skolems.clone();
@@ -1505,12 +1553,10 @@ impl Own<'_, '_, '_> {
                 }
             }
         }
-        for c in self.lambda_borrows.get(&arg).cloned().unwrap_or_default() {
-            if self.is_affine(c) {
-                self.use_local(c, span, Mode::Move, st);
-            }
+        for c in captured {
+            self.use_local(c, span, Mode::Move, st);
         }
-        self.lambda_borrows.remove(&arg);
+        self.lambda_borrows.remove(&lam);
     }
 
     /// Whether an expression is a borrow (`&T`, `&mut T`) of an affine value.
