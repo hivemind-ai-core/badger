@@ -1,0 +1,9 @@
+// expect-error: E0220
+// An impl cannot take a protocol's once fn parameter as a repeatable fn.
+import std.io
+import std.buffer
+protocol Run { fn run(self: &Self, f: once fn() -> Buffer<Int>) -> Int }
+struct S { v: Int }
+impl Run for S { fn run(self: &Self, f: fn() -> Buffer<Int>) -> Int { let p = f(); let q = f(); p.push(1); let a = buffer.freeze(p); q.push(2); a.len() } }
+fn go<T>(t: &T) -> Int where T: Run { let b: Buffer<Int> = buffer.new(); t.run(fn() { b }) }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(go(&s))?; ok(()) }

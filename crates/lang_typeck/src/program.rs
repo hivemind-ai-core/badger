@@ -677,8 +677,12 @@ fn check_impl_signatures(g: &Global, diags: &mut Vec<Diagnostic>) {
                 TyKind::Ref(m, _) => Some(*m),
                 _ => None,
             };
-            let modes_differ = a.params.iter().zip(&b.params).any(|(x, y)| mode(x) != mode(y))
-                || mode(&a.ret) != mode(&b.ret);
+            // a protocol's `once fn` argument may be called at most once: an
+            // impl cannot take it as a repeatable `fn`
+            let once = |t: &Ty| matches!(&**t, TyKind::Fn(f) if f.once);
+            let modes_differ =
+                a.params.iter().zip(&b.params).any(|(x, y)| mode(x) != mode(y) || (once(y) && !once(x)))
+                    || mode(&a.ret) != mode(&b.ret);
             if modes_differ || !icx.try_unify(&shape(a), &shape(b)) {
                 let names = Names { g, skolems: &icx.skolems };
                 let strip = |f: &FnTy| {
