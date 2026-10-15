@@ -48,24 +48,77 @@ fn multicore_migration() {
     );
 }
 
-fn run_all(flags: &[&str]) {
-    let mut failures = vec![];
-    for f in files("tests/run") {
-        let expected = std::fs::read_to_string(f.with_extension("out")).unwrap_or_default();
-        let code: i32 =
-            std::fs::read_to_string(f.with_extension("exit")).map(|s| s.trim().parse().unwrap()).unwrap_or(0);
-        let out = lang().arg("run").args(flags).arg(&f).output().unwrap();
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        if stdout != expected || out.status.code() != Some(code) {
-            failures.push(format!(
-                "{}: exit {:?} (want {code})\n--- stdout\n{stdout}--- expected\n{expected}--- stderr\n{}",
-                f.display(),
-                out.status.code(),
-                String::from_utf8_lossy(&out.stderr)
-            ));
+/// Run every `tests/run` program with `flags` (on a few threads) and
+/// compare stdout and exit code with its expectations. `compiled` runs
+/// each through `lang compile` and its binary MIR file instead.
+fn run_corpus(flags: &[&str], compiled: bool) {
+    let dir = std::env::temp_dir().join(format!(
+        "lang-corpus-{}-{}{}",
+        std::process::id(),
+        flags.join(""),
+        if compiled { "-mir" } else { "" }
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let jobs = std::sync::Mutex::new(files("tests/run"));
+    let failures = std::sync::Mutex::new(vec![]);
+    std::thread::scope(|s| {
+        for _ in 0..4 {
+            s.spawn(|| {
+                loop {
+                    let Some(f) = jobs.lock().unwrap().pop() else { break };
+                    let expected = std::fs::read_to_string(f.with_extension("out")).unwrap_or_default();
+                    let code: i32 = std::fs::read_to_string(f.with_extension("exit"))
+                        .map(|s| s.trim().parse().unwrap())
+                        .unwrap_or(0);
+                    let target = if compiled {
+                        let bin = dir.join(f.file_stem().unwrap()).with_extension("langmir");
+                        let c = lang().arg("compile").arg(&f).arg("-o").arg(&bin).output().unwrap();
+                        if !c.status.success() {
+                            failures.lock().unwrap().push(format!(
+                                "{}: compile failed: {}",
+                                f.display(),
+                                String::from_utf8_lossy(&c.stderr)
+                            ));
+                            continue;
+                        }
+                        bin
+                    } else {
+                        f.clone()
+                    };
+                    let out = lang().arg("run").args(flags).arg(&target).output().unwrap();
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    if stdout != expected || out.status.code() != Some(code) {
+                        failures.lock().unwrap().push(format!(
+                            "{} ({flags:?}{}): exit {:?} (want {code})\n--- stdout\n{stdout}--- expected\n{expected}--- stderr\n{}",
+                            f.display(),
+                            if compiled { ", binary MIR" } else { "" },
+                            out.status.code(),
+                            String::from_utf8_lossy(&out.stderr)
+                        ));
+                    }
+                }
+            });
         }
-    }
+    });
+    let _ = std::fs::remove_dir_all(&dir);
+    let failures = failures.into_inner().unwrap();
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+fn run_all(flags: &[&str]) {
+    run_corpus(flags, false)
+}
+
+/// Optimized code must behave exactly as unoptimized code.
+#[test]
+fn run_programs_release() {
+    run_all(&["--release"]);
+}
+
+/// Every program saved as binary MIR runs as from source.
+#[test]
+fn run_programs_compiled() {
+    run_corpus(&[], true);
 }
 
 #[test]
@@ -653,50 +706,24 @@ fn grace_escalation_keeps_resources() {
     assert!(!text.contains("resource freed"), "{text}");
 }
 
-/// `lang compile` saves binary MIR that `lang run` executes without the
-/// sources: outputs and exit codes match the source runs.
+/// `lang compile` saves a project's settings in binary MIR, and damaged
+/// files are refused.
 #[test]
 fn compiled_programs_run() {
     let dir = std::env::temp_dir().join(format!("lang-mir-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let mut failures = vec![];
-    for name in [
-        "channel_choose",
-        "closure_capture_modes",
-        "conditional_display",
-        "dyn_protocol",
-        "ffi_structs",
-        "let_polymorphism",
-        "pipeline_dynamic",
-        "polymorphic_recursion_dynamic",
-        "record_contextual",
-        "schema_visit",
-        "select_rendezvous_oversize",
-        "system_lifecycle",
-        "scenario05_startup_failure",
-        "batch_self_receive",
-    ] {
-        let src = root().join(format!("tests/run/{name}.lang"));
-        let bin = dir.join(format!("{name}.langmir"));
-        let c = lang().arg("compile").arg(&src).arg("-o").arg(&bin).output().unwrap();
-        if !c.status.success() {
-            failures.push(format!("{name}: compile failed: {}", String::from_utf8_lossy(&c.stderr)));
-            continue;
-        }
-        let expected = std::fs::read_to_string(src.with_extension("out")).unwrap_or_default();
-        let code: i32 = std::fs::read_to_string(src.with_extension("exit"))
-            .map(|s| s.trim().parse().unwrap())
-            .unwrap_or(0);
-        let out = lang().arg("run").arg(&bin).output().unwrap();
-        if String::from_utf8_lossy(&out.stdout) != expected || out.status.code() != Some(code) {
-            failures.push(format!(
-                "{name}: exit {:?} (want {code})\n{}\n{}",
-                out.status.code(),
-                String::from_utf8_lossy(&out.stdout),
-                String::from_utf8_lossy(&out.stderr)
-            ));
-        }
-    }
+    // (every `tests/run` program runs from binary MIR in `run_programs_compiled`)
+    let src = root().join("tests/run/dyn_protocol.lang");
+    assert!(
+        lang()
+            .arg("compile")
+            .arg(&src)
+            .arg("-o")
+            .arg(dir.join("dyn_protocol.langmir"))
+            .status()
+            .unwrap()
+            .success()
+    );
     // a project: its saved worker count and configuration are used
     let bin = dir.join("multicore.langmir");
     assert!(lang().args(["compile", "tests/projects/multicore", "-o"]).arg(&bin).status().unwrap().success());
@@ -735,7 +762,6 @@ fn compiled_programs_run() {
         assert!(err.contains("E0011") && !err.contains("panicked"), "{err}");
     }
     let _ = std::fs::remove_dir_all(&dir);
-    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
 /// `lang run --bench` times the execution after compilation on stderr and
