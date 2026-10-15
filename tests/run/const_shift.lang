@@ -1,0 +1,12 @@
+// A constant left shift drops high bits exactly as at run time.
+import std.io
+const m: U8 = 0xFFU8 << 4U8
+const x = 1 << 63
+const y = -1 << 1
+const z: I8 = 64I8 << 1I8
+pub fn main() -> Unit {
+    var a = 0xFFU8
+    var b = 64I8
+    var one = 1
+    let _ = io.println($"{m} {x} {y} {z} | {a << 4U8} {one << 63} {b << 1I8}")
+}

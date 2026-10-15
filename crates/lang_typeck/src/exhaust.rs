@@ -553,9 +553,11 @@ pub fn check_const_arithmetic(inf: &mut Infer<'_, '_>) {
                         return None;
                     }
                     BinOp::Shl => {
-                        // shifting out set bits overflows (as at run time)
-                        let r = a.checked_shl(b as u32);
-                        r.filter(|r| (r >> b) == a)
+                        // bits shifted out are dropped (as at run time): the
+                        // result is the low bits, read at the type's sign
+                        let low = ((a as u128) << b) & ((1u128 << ty.0) - 1);
+                        let top = 1u128 << (ty.0 - 1);
+                        Some(if ty.1 && low & top != 0 { low as i128 - (1i128 << ty.0) } else { low as i128 })
                     }
                     BinOp::Shr => Some(a >> b),
                     BinOp::BitAnd => Some(a & b),
