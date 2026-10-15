@@ -1,0 +1,25 @@
+// expect-error: E0606
+// A generic method's node output must be concrete at each method call.
+import std.io
+import std.channel
+import std.task
+import std.system
+import std.system.{component}
+pub struct F { pub m: String }
+impl Display for F { fn display(self: &Self) -> String { self.m } }
+impl Error for F {}
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn nonep<T>() -> system.Provider<{ x: Int }, Option<T>, F> { system.provider({ name: :t/g, init: fn(scope, c) -> Result<Option<T>, F> { ok(none) } }) }
+fn run_decl<T>(p: system.Provider<{ x: Int }, Option<T>, F>) -> Result<Unit, AppError> {
+    let plan = system { a: component(p, { x: 1 }) }
+    system.run(plan, fn(r) -> Result<Unit, AppError> { say($"decl, empty: {r.a.is_none()}"); ok(()) })
+}
+fn run_with(p) -> Result<Unit, AppError> {
+    let plan = system { a: component(p, { x: 1 }) }
+    system.run(plan, fn(r) -> Result<Unit, AppError> { say($"started, empty: {r.a.is_none()}"); ok(()) })
+}
+pub struct Box2 { pub n: Int }
+impl Box2 { pub fn go<T>(self: &Self, p: system.Provider<{ x: Int }, Option<T>, F>) -> Result<Unit, AppError> { run_decl(p) } }
+pub fn main() -> Result<Unit, AppError> { let b: Box2 = { n: 1 }
+    b.go(nonep()) }

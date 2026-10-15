@@ -346,15 +346,68 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     for &v in &values {
         nodes.insert(v, graph.add_node(v));
     }
+    let body_of = |v: DefId| match &hir.defs[v].kind {
+        DefKind::Fn(f) => f.body.unwrap(),
+        DefKind::Global(gd) => gd.value,
+        _ => unreachable!(),
+    };
+    // functions building system nodes (directly or through calls): their
+    // node outputs' generics are fixed by callers, which are checked after
+    // them (E0606), declared or not; methods are matched by name
+    let builds_nodes: FxHashSet<DefId> = {
+        let node_fn = hir.try_lang("system.node");
+        let mut set: FxHashSet<DefId> = FxHashSet::default();
+        loop {
+            let names: FxHashSet<Symbol> = set.iter().map(|d| hir.defs[*d].name).collect();
+            let mut grew = false;
+            for &v in &values {
+                if set.contains(&v) || hir.modules[hir.defs[v].module].is_std {
+                    continue;
+                }
+                let mut hit = false;
+                walk_exprs(hir, body_of(v), &mut |x| match &hir.exprs[x].kind {
+                    ExprKind::Def { def, .. } if Some(*def) == node_fn || set.contains(def) => hit = true,
+                    ExprKind::MethodCall { method, .. } | ExprKind::AssocFn { name: method, .. }
+                        if names.contains(method) =>
+                    {
+                        hit = true
+                    }
+                    _ => {}
+                });
+                if hit {
+                    set.insert(v);
+                    grew = true;
+                }
+            }
+            if !grew || node_fn.is_none() {
+                break set;
+            }
+        }
+    };
+    let node_methods: Vec<DefId> = builds_nodes
+        .iter()
+        .copied()
+        .filter(|d| matches!(&hir.defs[*d].kind, DefKind::Fn(f) if f.owner.is_some()))
+        .collect();
     for &v in &values {
         let mut refs = vec![];
-        let body = match &hir.defs[v].kind {
-            DefKind::Fn(f) => f.body.unwrap(),
-            DefKind::Global(gd) => gd.value,
-            _ => unreachable!(),
-        };
+        let body = body_of(v);
         collect_def_refs(hir, body, &mut refs);
+        // method calls reaching node-building methods
+        walk_exprs(hir, body, &mut |x| {
+            if let ExprKind::MethodCall { method, .. } | ExprKind::AssocFn { name: method, .. } =
+                &hir.exprs[x].kind
+            {
+                refs.extend(node_methods.iter().copied().filter(|m| hir.defs[*m].name == *method));
+            }
+        });
         for r in refs {
+            if builds_nodes.contains(&r) && r != v {
+                if let (Some(&a), Some(&b)) = (nodes.get(&v), nodes.get(&r)) {
+                    graph.add_edge(a, b, ());
+                }
+                continue;
+            }
             // edges to declared functions do not constrain inference order,
             // except that a function returned by one may turn out to be
             // task-confined (recorded in its scheme when its body is checked)

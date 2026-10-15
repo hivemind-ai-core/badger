@@ -318,8 +318,12 @@ pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty])
             };
             outs.push((out.clone(), hir.exprs[e].span, key));
         }
-        ExprKind::Def { .. } => {
-            let Some(Res::Callee { def, args }) = inf.res.get(&e) else { return };
+        ExprKind::Def { .. } | ExprKind::MethodCall { .. } | ExprKind::AssocFn { .. } => {
+            let (def, args) = match inf.res.get(&e) {
+                Some(Res::Callee { def, args }) => (def, args),
+                Some(Res::Method(crate::Target::Fn { def, args })) => (def, args),
+                _ => return,
+            };
             let Some(ix) = inf.g.node_params.borrow().get(def).cloned() else { return };
             let key = format!("system node built by `{}`", inf.g.interner.resolve(hir.defs[*def].name));
             for i in ix {
