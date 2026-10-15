@@ -73,20 +73,27 @@ pub fn publish_version(b: &Built) {
 
 /// Poll the sources; on a change, recompile on the scheduler thread (between
 /// task steps, so no task observes a half-replaced version).
-pub fn watch(entry: PathBuf, files: Vec<PathBuf>, optimize: bool, reconstruct: bool) {
+/// `read_at` is when the running version's sources were read: a file
+/// modified since then (while it compiled) is already a change.
+pub fn watch(entry: PathBuf, files: Vec<PathBuf>, optimize: bool, reconstruct: bool, read_at: SystemTime) {
     lang_runtime::task::add_listener();
     let q = lang_runtime::task::external_queue();
     let stamp = |files: &[PathBuf]| -> Vec<Option<SystemTime>> {
         files.iter().map(|f| std::fs::metadata(f).and_then(|m| m.modified()).ok()).collect()
     };
+    // the baseline is taken now, not whenever the thread starts running
+    let mut last = stamp(&files);
+    let mut changed = last.iter().any(|t| t.is_some_and(|t| t > read_at));
     std::thread::spawn(move || {
-        let mut last = stamp(&files);
         loop {
-            std::thread::sleep(Duration::from_millis(100));
-            let now = stamp(&files);
-            if now == last {
-                continue;
+            if !changed {
+                std::thread::sleep(Duration::from_millis(100));
+                let now = stamp(&files);
+                if now == last {
+                    continue;
+                }
             }
+            changed = false;
             // let a writer finish
             std::thread::sleep(Duration::from_millis(50));
             last = stamp(&files);

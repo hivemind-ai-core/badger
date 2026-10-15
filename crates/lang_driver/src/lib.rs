@@ -550,6 +550,7 @@ impl Session {
             self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
             return Err(Outcome::Errors);
         }
+        let read_at = std::time::SystemTime::now();
         let built = self.build(path, opts)?;
         lang_runtime::task::set_workers(built.prog.workers);
         for (k, v) in Self::runtime_settings(path, opts.profile.as_deref()) {
@@ -571,7 +572,7 @@ impl Session {
             live::publish_version(&built);
         }
         if opts.watch {
-            live::watch(path.to_path_buf(), built.files.clone(), opts.optimize, opts.reconstruct);
+            live::watch(path.to_path_buf(), built.files.clone(), opts.optimize, opts.reconstruct, read_at);
         }
         Ok(run_entry(built, opts.bench.then(|| started.elapsed())))
     }
