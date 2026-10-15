@@ -456,6 +456,10 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
         Kind::List { elem } | Kind::Set { elem } => {
             format!("{{\"type\":\"array\",\"items\":{}}}", json_schema(elem, depth + 1))
         }
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            let elem = crate::buffer::array_elem(d).expect("array");
+            format!("{{\"type\":\"array\",\"items\":{}}}", json_schema(elem, depth + 1))
+        }
         Kind::Map { val, .. } => {
             format!("{{\"type\":\"object\",\"additionalProperties\":{}}}", json_schema(val, depth + 1))
         }
@@ -578,6 +582,9 @@ pub fn describe(d: &TypeDesc, depth: usize) -> String {
             format!("{{\"enum\":{},\"variants\":{{{}}}}}", json_quote(&d.name), vs.join(","))
         }
         Kind::List { elem } => format!("{{\"list\":{}}}", describe(elem, depth + 1)),
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            format!("{{\"array\":{}}}", describe(crate::buffer::array_elem(d).expect("array"), depth + 1))
+        }
         Kind::Map { key, val } => {
             format!("{{\"map\":[{},{}]}}", describe(key, depth + 1), describe(val, depth + 1))
         }

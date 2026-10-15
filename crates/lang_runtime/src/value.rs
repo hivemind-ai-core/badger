@@ -93,6 +93,13 @@ pub fn eq(d: &TypeDesc, a: u64, b: u64) -> bool {
             let (pa, pb) = unsafe { (obj(a).payload(), obj(b).payload()) };
             unsafe { std::slice::from_raw_parts(pa, 24) == std::slice::from_raw_parts(pb, 24) }
         }
+        Kind::Opaque { .. } => match crate::buffer::array_elem(d) {
+            Some(elem) => {
+                let (xa, xb) = (crate::buffer::items(a), crate::buffer::items(b));
+                xa.len() == xb.len() && xa.iter().zip(xb).all(|(x, y)| eq(elem, *x, *y))
+            }
+            None => a == b,
+        },
         _ => a == b,
     }
 }
@@ -186,6 +193,14 @@ pub fn hash(d: &TypeDesc, w: u64, h: &mut impl Hasher) {
         Kind::Range { .. } => {
             let p = unsafe { obj(w).payload() };
             h.write(unsafe { std::slice::from_raw_parts(p, 24) });
+        }
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            let elem = crate::buffer::array_elem(d).expect("array");
+            let xs = crate::buffer::items(w);
+            h.write_usize(xs.len());
+            for x in xs {
+                hash(elem, *x, h);
+            }
         }
         _ => h.write_u64(w),
     }

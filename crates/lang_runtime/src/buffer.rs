@@ -51,6 +51,29 @@ pub fn data<'a>(w: u64) -> &'a mut BufData {
     unsafe { &mut **(obj(w).payload() as *mut *mut BufData) }
 }
 
+/// Element type of an `Array<T>` compiler descriptor: arrays are immutable
+/// values compared, hashed, and encoded by their elements.
+pub fn array_elem(d: &TypeDesc) -> Option<&'static TypeDesc> {
+    match &d.kind {
+        Kind::Opaque { args, .. } if d.name == "Array" && args.len() == 1 => Some(args[0]),
+        _ => None,
+    }
+}
+
+/// The elements of a buffer or array.
+pub fn items<'a>(w: u64) -> &'a [u64] {
+    &data(w).items
+}
+
+/// A new array holding `items`.
+pub fn frozen(elem: &'static TypeDesc, items: Vec<u64>) -> u64 {
+    let w = new(elem, 0);
+    let d = data(w);
+    d.items = items;
+    d.frozen = true;
+    w
+}
+
 /// Element type of a `Buffer<T>`/`Array<T>` compiler descriptor.
 pub fn elem_of(d: &'static TypeDesc) -> &'static TypeDesc {
     match &d.kind {

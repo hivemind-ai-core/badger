@@ -1,0 +1,31 @@
+// Arrays are values: equality, hashing, and codecs use their elements.
+import std.io
+import std.array
+import std.codec
+import std.map
+pub struct S { pub xs: Array<Int>, pub n: Int } derive(Codec)
+fn codecs() -> Unit {
+    let s: S = { xs: array.from_list([4, 5]), n: 1 }
+    let t = codec.encode_text(s)
+    let _ = io.println(t)
+    match codec.decode_text<S>(t) {
+        .ok(v) => { let _ = io.println($"{v.xs.len()} {v == s}") },
+        .err(e) => { let _ = io.println($"decode failed: {e}") },
+    }
+    match codec.decode<Array<Int>>(codec.encode(array.from_list([7, 8, 9]))) {
+        .ok(v) => { let _ = io.println($"bytes {v.len()} {v.get(2).unwrap_or(0)}") },
+        .err(e) => { let _ = io.println($"decode failed: {e}") },
+    }
+    let _ = io.println($"{codec.to_data(array.from_list(["a"]))}")
+}
+pub fn main() -> Unit {
+    let a = array.from_list([1, 2, 3])
+    let b = array.from_list([1, 2, 3])
+    let c = array.from_list([1, 2])
+    let _ = io.println($"{a == b} {a != b} {a == c}")
+    let m = map.from_list([(a, 1)])
+    let _ = io.println($"{m.get(b).unwrap_or(0)}")
+    let f = array.from_list([0.0 / 0.0])
+    let _ = io.println($"{f == f}")
+    codecs()
+}

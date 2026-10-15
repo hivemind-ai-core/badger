@@ -190,6 +190,17 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             }
             o.push(']');
         }
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            let elem = crate::buffer::array_elem(d).expect("array");
+            o.push('[');
+            for (i, x) in crate::buffer::items(w).iter().enumerate() {
+                if i > 0 {
+                    o.push(',');
+                }
+                enc(elem, *x, o);
+            }
+            o.push(']');
+        }
         _ => o.push_str("null"),
     }
 }
@@ -351,6 +362,20 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
                 map::insert_mut(out, kw, vw);
             }
             Ok(out)
+        }
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            let elem = crate::buffer::array_elem(d).expect("array");
+            let Some(a) = j.as_array() else { return fail(path, "expected an array") };
+            // decoded elements stay rooted (`root`) until the array holds them
+            let mut items = Vec::with_capacity(a.len());
+            for (i, x) in a.iter().enumerate() {
+                let v = dec(elem, x, &format!("{path}[{i}]"))?;
+                if elem.is_ptr() {
+                    gc::push_root(v);
+                }
+                items.push(v);
+            }
+            Ok(root(crate::buffer::frozen(elem, items)))
         }
         _ => fail(path, format!("type `{}` has no decoder", d.name)),
     }
