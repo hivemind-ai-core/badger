@@ -686,7 +686,7 @@ fn repl() -> ExitCode {
     });
     // session bindings are interactive state, not a program's module values
     // (which must be pure immutable data)
-    unsafe { std::env::set_var("LANG_REPL_SESSION", &file) };
+    lang_driver::set_repl_session();
     let mut s = Session::new();
     let opts = lang_driver::RunOptions { inspect: Some(addr), ..Default::default() };
     match s.run(&file, vec![], &opts) {

@@ -1156,3 +1156,9 @@ fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
     }
     go(a, e, out);
 }
+
+/// Mark this process as a local REPL session (see
+/// `lang_typeck::set_repl_session`).
+pub fn set_repl_session() {
+    lang_typeck::set_repl_session();
+}

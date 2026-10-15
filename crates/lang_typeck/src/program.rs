@@ -252,6 +252,19 @@ fn ground_keep_bound(t: &Ty) -> Ty {
 
 // ------------------------------------------------------------------ checking
 
+static REPL_SESSION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Mark this process as a local REPL session: bindings typed at the
+/// prompt are interactive state, exempt from the module-value rules.
+/// Only `lang repl` sets it (it cannot be switched on from outside).
+pub fn set_repl_session() {
+    REPL_SESSION.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn repl_session() -> bool {
+    REPL_SESSION.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, Vec<Diagnostic>) {
     let mut diags = vec![];
     for s in ["%confined", "display", "S", "Foreign", "Io", "Wait", "State"] {
@@ -361,7 +374,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         // calls to generic functions analysed after their callers
         crate::ownership::check_deferred_dups(&mut inf);
         crate::ownership::check_task_params(&mut inf);
-        if std::env::var_os("LANG_REPL_SESSION").is_none() {
+        if !repl_session() {
             crate::ownership::check_module_closures(&mut inf);
         }
         // monomorphic schemes (e.g. module-level values) may mention variables
@@ -426,7 +439,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     // module values are pure immutable data: no task-confined mutable cells,
     // affine builders/buffers, or open transactions (a local REPL session's
     // bindings are interactive state instead)
-    let repl_session = std::env::var_os("LANG_REPL_SESSION").is_some();
+    let repl_session = repl_session();
     for (id, def) in hir.defs.iter() {
         if repl_session && hir.entry == Some(def.module) {
             continue;
