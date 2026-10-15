@@ -1307,6 +1307,10 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_chan_try_send",
     "lang_rt_i_chan_recv",
     "lang_rt_i_chan_try_recv",
+    "lang_rt_i_batch_append",
+    "lang_rt_i_batch_try_append",
+    "lang_rt_i_batch_recv_one",
+    "lang_rt_i_batch_try_recv",
 ];
 
 /// Run the compiled program's `main` on the runtime scheduler.

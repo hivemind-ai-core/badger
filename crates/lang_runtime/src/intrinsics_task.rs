@@ -441,35 +441,60 @@ task_intrinsics! {
     fn chan_close(ctx, targs, ret, ch) { channel::close(ch); 0 }
     fn chan_len(ctx, targs, ret, ch) {
         let d = channel::data(ch);
-        (d.queue.len() + d.batches.iter().map(Vec::len).sum::<usize>()) as u64
+        (d.queue.len() + d.batches.iter().map(std::collections::VecDeque::len).sum::<usize>()) as u64
     }
+    // batch append and single receive are unlocked entries too
     fn batch_append(ctx, targs, ret, ch, v) {
-        match channel::append(ch, v, true) {
+        if fast_ok() && channel::append_fast(ch, v) {
+            return ok_unit(rdesc(ret));
+        }
+        locked(|| match channel::append(ch, v, true) {
             SendResult::Sent => ok_unit(rdesc(ret)),
             SendResult::TooLarge => send_err(rdesc(ret), v, "channel/too_large"),
             _ => send_err(rdesc(ret), v, "channel/closed"),
-        }
+        })
     }
     fn batch_try_append(ctx, targs, ret, ch, v) {
-        match channel::append(ch, v, false) {
+        if fast_ok() && channel::append_fast(ch, v) {
+            return ok_unit(rdesc(ret));
+        }
+        locked(|| match channel::append(ch, v, false) {
             SendResult::Sent => ok_unit(rdesc(ret)),
             SendResult::TooLarge => send_err(rdesc(ret), v, "channel/too_large"),
             SendResult::Full => send_err(rdesc(ret), v, "channel/full"),
             SendResult::Closed => send_err(rdesc(ret), v, "channel/closed"),
-        }
+        })
     }
     fn batch_recv_one(ctx, targs, ret, ch) {
-        match channel::recv_one(ch, true) {
+        if fast_ok()
+            && let Some(v) = channel::recv_one_fast(ch)
+        {
+            let r = Roots::new();
+            if channel::data_elem(ch).is_ptr() {
+                r.add(v);
+            }
+            return make_variant(rdesc(ret), "some", &[v]);
+        }
+        locked(|| match channel::recv_one(ch, true) {
             RecvResult::Value(v) => make_variant(rdesc(ret), "some", &[v]),
             _ => make_variant(rdesc(ret), "none", &[]),
-        }
+        })
     }
     fn batch_try_recv(ctx, targs, ret, ch) {
-        match channel::recv_one(ch, false) {
+        if fast_ok()
+            && let Some(v) = channel::recv_one_fast(ch)
+        {
+            let r = Roots::new();
+            if channel::data_elem(ch).is_ptr() {
+                r.add(v);
+            }
+            return make_variant(rdesc(ret), "value", &[v]);
+        }
+        locked(|| match channel::recv_one(ch, false) {
             RecvResult::Value(v) => make_variant(rdesc(ret), "value", &[v]),
             RecvResult::Empty => make_variant(rdesc(ret), "empty", &[]),
             RecvResult::Closed => make_variant(rdesc(ret), "closed", &[]),
-        }
+        })
     }
     fn chan_close_receiver(ctx, targs, ret, ch) { channel::close_receiver(ch); 0 }
     fn chan_configure(ctx, targs, ret, ch, discard, latency) {

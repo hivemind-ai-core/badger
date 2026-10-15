@@ -33,8 +33,12 @@ pub struct ChanData {
     pub closed: bool,
     /// Prompt channel: queued messages. Batch channel: unused.
     pub queue: VecDeque<u64>,
-    /// Batch channel: sealed batches awaiting a receiver.
-    pub batches: VecDeque<Vec<u64>>,
+    /// Batch channel: sealed batches awaiting a receiver (single-message
+    /// receives pop from the front one).
+    pub batches: VecDeque<VecDeque<u64>>,
+    /// Batch channel: staged, published, and leased messages (admission
+    /// occupancy, kept current instead of recounted).
+    pub accepted: usize,
     /// Batch channel: per-producer staging (accepted, not yet published).
     pub staging: FxHashMap<TaskId, Vec<u64>>,
     /// Messages in leased (received, unreleased) batches.
@@ -71,10 +75,14 @@ pub struct ChanData {
 
 impl ChanData {
     fn count(&self) -> usize {
-        self.queue.len()
-            + self.batches.iter().map(Vec::len).sum::<usize>()
-            + self.staging.values().map(Vec::len).sum::<usize>()
-            + self.leased
+        debug_assert_eq!(
+            self.accepted,
+            self.batches.iter().map(VecDeque::len).sum::<usize>()
+                + self.staging.values().map(Vec::len).sum::<usize>()
+                + self.leased,
+            "batch channel occupancy drifted"
+        );
+        self.queue.len() + self.accepted
     }
 }
 
@@ -266,6 +274,52 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
     ok
 }
 
+/// Unlocked batch append: add `v` to the calling producer's existing
+/// staging when it does not fill the batch (no publication, so no one to
+/// wake) and admission is by count alone.
+pub fn append_fast(ch: u64, v: u64) -> bool {
+    let d = raw(ch);
+    if !try_fast(d) {
+        return false;
+    }
+    let me = task::current_id();
+    let ok = d.batched
+        && !d.closed
+        && d.byte_budget == 0
+        && d.queue.len() + d.accepted < d.capacity
+        && d.staging.get(&me).is_some_and(|st| st.len() + 1 < d.max_batch);
+    if ok {
+        d.staging.get_mut(&me).expect("staging").push(v);
+        d.accepted += 1;
+    }
+    end_fast(d);
+    ok
+}
+
+/// Unlocked single-message batch receive: take the oldest published
+/// message when no producer waits for capacity (no one to wake).
+pub fn recv_one_fast(ch: u64) -> Option<u64> {
+    let d = raw(ch);
+    if !try_fast(d) {
+        return None;
+    }
+    let mut v = None;
+    if d.batched && d.byte_budget == 0 && d.cap_waiters.is_empty() {
+        while d.batches.front().is_some_and(VecDeque::is_empty) {
+            d.batches.pop_front();
+        }
+        if let Some(front) = d.batches.front_mut() {
+            v = front.pop_front();
+            if front.is_empty() {
+                d.batches.pop_front();
+            }
+            d.accepted -= 1;
+        }
+    }
+    end_fast(d);
+    v
+}
+
 /// Unlocked prompt receive: take the oldest message when no task waits to
 /// send or for space (no one to admit or wake). `None` means the locked
 /// path must decide.
@@ -303,6 +357,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         closed: false,
         queue: VecDeque::new(),
         batches: VecDeque::new(),
+        accepted: 0,
         staging: FxHashMap::default(),
         leased: 0,
         leases: vec![],
@@ -609,6 +664,7 @@ pub fn close(ch: u64) {
         if d.discard_on_close {
             // the configured disposal: staged data is released, not published
             let staged: Vec<Vec<u64>> = d.staging.drain().map(|(_, v)| v).collect();
+            d.accepted -= staged.iter().map(Vec::len).sum::<usize>();
             for items in staged {
                 uncharge(ch, &items);
             }
@@ -642,8 +698,9 @@ pub fn close(ch: u64) {
 pub fn close_receiver(ch: u64) {
     let d = data(ch);
     let queued: Vec<u64> = d.queue.drain(..).collect();
-    let mut batches: Vec<Vec<u64>> = d.batches.drain(..).collect();
+    let mut batches: Vec<Vec<u64>> = d.batches.drain(..).map(Vec::from).collect();
     batches.extend(d.staging.drain().map(|(_, v)| v));
+    d.accepted -= batches.iter().map(Vec::len).sum::<usize>();
     d.staged_at.clear();
     d.sizes.clear();
     d.bytes = 0;
@@ -704,7 +761,7 @@ pub fn publish(ch: u64, producer: TaskId) {
     if staged.is_empty() {
         return;
     }
-    d.batches.push_back(staged);
+    d.batches.push_back(VecDeque::from(staged));
     d.published_batches += 1;
     wake_one_receiver(d);
     // selections waiting on this channel
@@ -755,6 +812,7 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
             d.staged_at.entry(me).or_insert_with(std::time::Instant::now);
             let st = d.staging.entry(me).or_insert(page);
             st.push(v);
+            d.accepted += 1;
             let full = st.len() >= d.max_batch;
             if let Some(t) = task::current()
                 && !t.on_deschedule.contains(&ch)
@@ -796,6 +854,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
             let d = data(ch);
             // another receiver may have taken it while this one allocated
             let Some(items) = d.batches.pop_front() else { continue };
+            let items: Vec<u64> = items.into();
             d.leased += items.len();
             unsafe {
                 let p = obj(b).payload();
@@ -825,14 +884,15 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
     _r.add(ch);
     loop {
         let d = data(ch);
-        while d.batches.front().is_some_and(Vec::is_empty) {
+        while d.batches.front().is_some_and(VecDeque::is_empty) {
             d.batches.pop_front();
         }
         if let Some(front) = d.batches.front_mut() {
-            let v = front.remove(0);
+            let v = front.pop_front().expect("nonempty batch");
             if front.is_empty() {
                 d.batches.pop_front();
             }
+            d.accepted -= 1;
             uncharge(ch, &[v]);
             wake_capacity(data(ch));
             return RecvResult::Value(v);
@@ -902,6 +962,7 @@ pub fn release(b: u64) {
     let d = data(batch_chan(b));
     d.leases.retain(|(_, x)| *x != b);
     d.leased -= items.len();
+    d.accepted -= items.len();
     items.clear();
     if d.pool.len() < 4 {
         d.pool.push(items);
