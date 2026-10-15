@@ -48,6 +48,9 @@ pub struct Global<'a> {
     /// not yet analysed (checked once every group is done).
     pub dup_done: RefCell<FxHashSet<DefId>>,
     pub dup_deferred: RefCell<Vec<(DefId, Vec<Ty>, Span)>>,
+    /// Scheme parameters reaching the output of a system node the function
+    /// builds: each instance must be concrete where it is fixed (E0606).
+    pub node_params: RefCell<FxHashMap<DefId, Vec<u32>>>,
     /// Set once every generic function's duplication analysis is final.
     pub dups_final: std::cell::Cell<bool>,
     /// The definition and scheme index each declared generic (skolem)
@@ -291,6 +294,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         poly_globals: FxHashSet::default(),
         pending_schemes: RefCell::new(FxHashMap::default()),
         dup_params: RefCell::new(FxHashMap::default()),
+        node_params: RefCell::new(FxHashMap::default()),
         dup_done: RefCell::new(FxHashSet::default()),
         dup_deferred: RefCell::new(vec![]),
         dups_final: std::cell::Cell::new(false),
@@ -1316,9 +1320,10 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
         inf.mono.remove(&d);
     }
     // post-checks need resolved types
+    let mut node_vars: FxHashMap<DefId, (Vec<TyVid>, Vec<u32>)> = FxHashMap::default();
     for &d in defs {
         crate::exhaust::check_def(inf, d);
-        crate::exhaust::check_system_nodes(inf, d, &visible);
+        node_vars.insert(d, crate::exhaust::check_system_nodes(inf, d, &visible));
         crate::exhaust::check_row_labels(inf, d);
         crate::ownership::check_def(inf, d);
     }
@@ -1407,6 +1412,19 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
                     let c2 = c.map_types(&mut |t| generalize(t, icx, &mut var_idx, &mut n));
                     cs.push(c2);
                 }
+            }
+        }
+        // node outputs left to this definition's generics are fixed by its
+        // callers
+        if let Some((vs, sks)) = node_vars.get(&d) {
+            let mut idx: Vec<u32> = sks.iter().filter_map(|k| sk_idx.get(k).copied()).collect();
+            if !declared.contains(&d) {
+                idx.extend(vs.iter().filter_map(|v| var_idx.get(&icx.root(*v)).copied()));
+            }
+            idx.sort_unstable();
+            idx.dedup();
+            if !idx.is_empty() {
+                inf.g.node_params.borrow_mut().insert(d, idx);
             }
         }
         let generics = match &hir.defs[d].kind {

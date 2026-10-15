@@ -2,9 +2,10 @@
 //! establish exhaustiveness. Literal domains other than `Bool` are infinite,
 //! so they need a wildcard or binding.
 
-use lang_base::{Diagnostic, Symbol};
+use lang_base::{Diagnostic, Span, Symbol};
 use lang_hir::{DefId, DefKind, ExprId, ExprKind, Lit, PatId, PatKind};
 
+use crate::Res;
 use crate::infer::Infer;
 use crate::program::walk_exprs;
 use crate::ty::*;
@@ -286,24 +287,52 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
 }
 
 /// Generic providers must yield a concrete output at each system node: an
-/// output type still holding inference variables is rejected (E0606).
-pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty]) {
+/// output type still holding inference variables is rejected (E0606). A
+/// node output left to the definition's own generics is fixed by its
+/// callers: the variables and skolems it holds are returned, and a call to
+/// such a function checks its instance like a node of its own.
+pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty]) -> (Vec<TyVid>, Vec<u32>) {
     let hir = inf.g.hir;
-    let Some(node_fn) = hir.try_lang("system.node") else { return };
+    let none = (vec![], vec![]);
+    let Some(node_fn) = hir.try_lang("system.node") else { return none };
     let body = match &hir.defs[d].kind {
         DefKind::Fn(f) => f.body,
         DefKind::Global(g) => Some(g.value),
         _ => None,
     };
-    let Some(body) = body else { return };
-    let mut calls: Vec<ExprId> = vec![];
-    walk_exprs(hir, body, &mut |e| {
-        if let ExprKind::Call { callee, .. } = &hir.exprs[e].kind
-            && matches!(hir.exprs[*callee].kind, ExprKind::Def { def, .. } if def == node_fn)
-        {
-            calls.push(e);
+    let Some(body) = body else { return none };
+    // (output type, span, what built the node)
+    let mut outs: Vec<(Ty, Span, String)> = vec![];
+    walk_exprs(hir, body, &mut |e| match &hir.exprs[e].kind {
+        ExprKind::Call { callee, args: cargs } => {
+            if !matches!(hir.exprs[*callee].kind, ExprKind::Def { def, .. } if def == node_fn) {
+                return;
+            }
+            let Some(t) = inf.exprs.get(&e).cloned() else { return };
+            let t = inf.icx.resolve(&t);
+            let TyKind::Con(_, args) = &*t else { return };
+            let Some(out) = args.first() else { return };
+            let key = match cargs.first().map(|a| &hir.exprs[*a].kind) {
+                Some(ExprKind::Lit(Lit::Symbol(s))) => format!("system node `:{}`", inf.sym(*s)),
+                _ => "system node `this node`".into(),
+            };
+            outs.push((out.clone(), hir.exprs[e].span, key));
         }
+        ExprKind::Def { .. } => {
+            let Some(Res::Callee { def, args }) = inf.res.get(&e) else { return };
+            let Some(ix) = inf.g.node_params.borrow().get(def).cloned() else { return };
+            let key = format!("system node built by `{}`", inf.g.interner.resolve(hir.defs[*def].name));
+            for i in ix {
+                if let Some(a) = args.get(i as usize) {
+                    outs.push((inf.icx.resolve(a), hir.exprs[e].span, key.clone()));
+                }
+            }
+        }
+        _ => {}
     });
+    if outs.is_empty() {
+        return none;
+    }
     // variables of shape positions; region arguments are fixed when the
     // system runs, and effect rows of function outputs are not part of the
     // output's shape
@@ -351,33 +380,33 @@ pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty])
         inf.icx.free_vars(&t, &mut live);
     }
     let live: Vec<TyVid> = live.into_iter().map(|v| inf.icx.root(v)).collect();
-    for c in calls {
-        let Some(t) = inf.exprs.get(&c).cloned() else { continue };
-        let t = inf.icx.resolve(&t);
-        let TyKind::Con(_, args) = &*t else { continue };
-        let Some(out) = args.first() else { continue };
-        if ty_any(out, &mut |k| matches!(k, TyKind::Error)) {
+    let mut kept = (vec![], vec![]);
+    for (out, span, key) in outs {
+        let out = inf.icx.resolve(&out);
+        if ty_any(&out, &mut |k| matches!(k, TyKind::Error)) {
             continue;
         }
         let mut vs = vec![];
-        shape_vars(&inf.g.env, hir, out, &mut vs);
-        if vs.into_iter().all(|v| live.contains(&inf.icx.root(v))) {
+        shape_vars(&inf.g.env, hir, &out, &mut vs);
+        ty_any(&out, &mut |k| {
+            if let TyKind::Skolem(s) = k {
+                kept.1.push(*s);
+            }
+            false
+        });
+        if vs.iter().all(|v| live.contains(&inf.icx.root(*v))) {
+            kept.0.extend(vs);
             continue;
         }
-        let ExprKind::Call { args: cargs, .. } = &hir.exprs[c].kind else { continue };
-        let key = match cargs.first().map(|a| &hir.exprs[*a].kind) {
-            Some(ExprKind::Lit(Lit::Symbol(s))) => format!(":{}", inf.sym(*s)),
-            _ => "this node".into(),
-        };
-        let shown = inf.show(out);
-        let span = hir.exprs[c].span;
+        let shown = inf.show(&out);
         inf.push_diag(
-            Diagnostic::error(format!("the output of system node `{key}` is not concrete"))
+            Diagnostic::error(format!("the output of {key} is not concrete"))
                 .with_code("E0606")
                 .with_label(span, format!("output type `{shown}` is not fully determined"))
                 .with_note("a generic provider must yield a concrete output at each node; annotate the provider's type arguments"),
         );
     }
+    kept
 }
 
 /// Rows hold unique labels: instantiating an open row `{x: T, ..Rest}` with
