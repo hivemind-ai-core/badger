@@ -360,6 +360,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         inf.solve(true);
         // calls to generic functions analysed after their callers
         crate::ownership::check_deferred_dups(&mut inf);
+        crate::ownership::check_task_params(&mut inf);
         // monomorphic schemes (e.g. module-level values) may mention variables
         // resolved by later uses: resolve them against the final substitution
         {
@@ -739,6 +740,28 @@ fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<String> {
         TyKind::Tuple(ts) => ts.iter().find_map(|x| stored_state(g, x, seen)),
         TyKind::Record(r) => row_fields(r).0.iter().find_map(|(_, x)| stored_state(g, x, seen)),
         _ => None,
+    }
+}
+
+/// Open effect-row variables of the function types inside `t`.
+fn effect_tails(t: &Ty, out: &mut Vec<TyVid>) {
+    match &**t {
+        TyKind::Fn(f) => {
+            if let TyKind::Var(v) = &*f.eff {
+                out.push(*v);
+            }
+            f.params.iter().for_each(|p| effect_tails(p, out));
+            effect_tails(&f.ret, out);
+        }
+        TyKind::Con(_, args) | TyKind::Tuple(args) | TyKind::Dyn(_, args) => {
+            args.iter().for_each(|a| effect_tails(a, out))
+        }
+        TyKind::Record(r) | TyKind::Ref(_, r) => effect_tails(r, out),
+        TyKind::RowExt(_, a, rest) => {
+            effect_tails(a, out);
+            effect_tails(rest, out);
+        }
+        _ => {}
     }
 }
 
@@ -1344,6 +1367,24 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
                 Some(t) => inf.hty(t),
                 None => inf.icx.fresh(),
             };
+            // as in the declared scheme: a function in the result whose
+            // effect is omitted (and not tied to a parameter) may perform any
+            // effect, so the body cannot return a closure the type cannot track
+            if f.ret.is_some() && !hir.modules[hir.defs[d].module].is_std {
+                let mut pvars = vec![];
+                for p in &params {
+                    let p = inf.icx.resolve(p);
+                    inf.icx.free_vars(&p, &mut pvars);
+                }
+                let mut tails = vec![];
+                effect_tails(&inf.icx.resolve(&ret), &mut tails);
+                let any = inf.g.env.any_effect();
+                for v in tails {
+                    if !pvars.contains(&v) {
+                        let _ = inf.icx.unify(&mk(TyKind::Var(v)), &any);
+                    }
+                }
+            }
             let bound = f.effect.as_ref().map(|e| inf.effect_bound(e));
             let eff = match f.body {
                 Some(b) => inf.check_fn_body(Owner::Fn(d), &f.params, &params, &ret, bound, b),

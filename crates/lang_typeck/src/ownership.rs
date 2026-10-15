@@ -129,6 +129,159 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     let _ = param_pats;
 }
 
+/// Parameters of each function whose argument may run in another task: the
+/// callee's scheme requires `Transfer` of it (`spawn`, `capture`,
+/// `timeout`), or a user function hands the parameter (directly or captured
+/// by a closure) to such a parameter.
+fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
+    let hir = inf.g.hir;
+    let transfer = hir.try_lang("Transfer");
+    let mut out: FxHashMap<DefId, Vec<usize>> = FxHashMap::default();
+    // declared requirements
+    let defs: Vec<DefId> = hir.defs.iter().map(|(id, _)| id).collect();
+    for d in &defs {
+        let Some(s) = inf.g.scheme(*d) else { continue };
+        let TyKind::Fn(f) = &*s.ty else { continue };
+        let mut idx = vec![];
+        for c in &s.constraints {
+            if let crate::solve::Constraint::Impl { proto, ty, .. } = c
+                && Some(*proto) == transfer
+            {
+                for (i, p) in f.params.iter().enumerate() {
+                    if p == ty && !idx.contains(&i) {
+                        idx.push(i);
+                    }
+                }
+            }
+        }
+        if !idx.is_empty() {
+            out.insert(*d, idx);
+        }
+    }
+    // user functions forwarding a function-typed parameter to one of those
+    loop {
+        let mut changed = false;
+        for (id, def) in hir.defs.iter() {
+            if hir.modules[def.module].is_std {
+                continue;
+            }
+            let DefKind::Fn(f) = &def.kind else { continue };
+            let Some(body) = f.body else { continue };
+            let params: Vec<Option<LocalId>> = f
+                .params
+                .iter()
+                .map(|p| match &hir.pats[p.pat].kind {
+                    PatKind::Bind(l) => Some(*l),
+                    _ => None,
+                })
+                .collect();
+            let mut found: Vec<usize> = vec![];
+            crate::program::walk_exprs(hir, body, &mut |e| {
+                let (callee_def, args): (Option<DefId>, Vec<ExprId>) = match &hir.exprs[e].kind {
+                    ExprKind::Call { callee, args } => match inf.res.get(callee) {
+                        Some(Res::Callee { def, .. }) => (Some(*def), args.clone()),
+                        _ => (None, vec![]),
+                    },
+                    ExprKind::MethodCall { recv, args, .. } => match inf.res.get(&e) {
+                        Some(Res::Method(Target::Fn { def, .. })) => {
+                            (Some(*def), std::iter::once(*recv).chain(args.iter().copied()).collect())
+                        }
+                        _ => (None, vec![]),
+                    },
+                    _ => (None, vec![]),
+                };
+                let Some(cd) = callee_def else { return };
+                let Some(tp) = out.get(&cd) else { return };
+                for &i in tp {
+                    let Some(&a) = args.get(i) else { continue };
+                    let reached: Vec<LocalId> = match &hir.exprs[a].kind {
+                        ExprKind::Local(l) => vec![*l],
+                        ExprKind::Lambda(lam) => lam.captures.clone(),
+                        _ => vec![],
+                    };
+                    for l in reached {
+                        if let Some(pi) = params.iter().position(|p| *p == Some(l))
+                            && !found.contains(&pi)
+                        {
+                            found.push(pi);
+                        }
+                    }
+                }
+            });
+            if !found.is_empty() {
+                let e = out.entry(id).or_default();
+                for i in found {
+                    if !e.contains(&i) {
+                        e.push(i);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    out
+}
+
+/// A closure carrying task-confined state cannot be passed where it may run
+/// in another task (through any function that spawns with it).
+pub fn check_task_params(inf: &mut Infer<'_, '_>) {
+    let hir = inf.g.hir;
+    let tp = transfer_params(inf);
+    let mut reports: Vec<(Span, String)> = vec![];
+    for (_, def) in hir.defs.iter() {
+        if hir.modules[def.module].is_std {
+            continue;
+        }
+        let body = match &def.kind {
+            DefKind::Fn(f) => f.body,
+            DefKind::Global(g) => Some(g.value),
+            _ => None,
+        };
+        let Some(body) = body else { continue };
+        crate::program::walk_exprs(hir, body, &mut |e| {
+            let (cd, args): (Option<DefId>, Vec<ExprId>) = match &hir.exprs[e].kind {
+                ExprKind::Call { callee, args } => match inf.res.get(callee) {
+                    Some(Res::Callee { def, .. }) => (Some(*def), args.clone()),
+                    _ => (None, vec![]),
+                },
+                _ => (None, vec![]),
+            };
+            let Some(cd) = cd else { return };
+            // direct std task functions are checked by their own constraints
+            if hir.modules[hir.defs[cd].module].is_std {
+                return;
+            }
+            let Some(idx) = tp.get(&cd) else { return };
+            for &i in idx {
+                let Some(&a) = args.get(i) else { continue };
+                let Some(t) = inf.exprs.get(&a).cloned() else { continue };
+                let t = inf.icx.resolve(&t);
+                let confined = crate::ty::ty_any(&t, &mut |k| match k {
+                    TyKind::Fn(f) => {
+                        row_fields(&f.eff).0.iter().any(|(l, _)| inf.g.interner.resolve(*l) == "%confined")
+                    }
+                    _ => false,
+                });
+                if confined {
+                    let name = inf.g.interner.resolve(hir.defs[cd].name).to_string();
+                    reports.push((hir.exprs[a].span, name));
+                }
+            }
+        });
+    }
+    for (span, name) in reports {
+        inf.push_diag(
+            Diagnostic::error(format!("`{name}` may run this closure in another task"))
+                .with_code("E0402")
+                .with_label(span, "this closure captures task-confined state (a `Cell` or a transaction)")
+                .with_note("the function hands this argument to a spawned task; capture shareable state such as an `Atom` instead"),
+        );
+    }
+}
+
 /// Calls recorded before their generic callee was analysed.
 pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
     let calls = std::mem::take(&mut *inf.g.dup_deferred.borrow_mut());

@@ -493,6 +493,24 @@ impl<'g, 'a> Infer<'g, 'a> {
             let rest = self.icx.fresh_row();
             let _ = self.icx.unify(&tail, &row([(l, payload)], rest));
             self.cur_fn().eff_sites.push((l, span));
+            return;
+        }
+        // the closure's function type is already fixed (a declared `fn`
+        // type): a capture mark it cannot carry would be lost
+        let name = self.sym(l).to_string();
+        if matches!(tail.as_ref(), TyKind::RowEmpty) && name.starts_with('%') {
+            let shown = self.show(&amb);
+            let (code, what) = if name == "%confined" {
+                ("E0402", "task-confined state (a `Cell` or a transaction)")
+            } else {
+                ("E0401", "a scoped value")
+            };
+            self.push_diag(
+                Diagnostic::error(format!("this closure captures {what} its declared function type cannot track"))
+                    .with_code(code)
+                    .with_label(span, "captured here")
+                    .with_note(format!("the closure is used as a function with effects `!{{{}}}`, which may be sent to other tasks or outlive the scope; keep it local (let its type be inferred) or capture shareable state such as an `Atom`", shown.trim_start_matches('{').trim_end_matches('}'))),
+            );
         }
     }
 

@@ -1,0 +1,16 @@
+// expect-error: E0402
+// A Cell-capturing closure cannot go to a parameter the callee spawns with.
+import std.io
+import std.task
+fn run_in_task(g: fn() -> Int) -> Int {
+    let r: Result<Int, String> = task.scope(fn(s) {
+        let t = s.spawn(fn() { g() })
+        ok(t.join())
+    })
+    r.unwrap_or(0)
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let n = run_in_task(fn() -> Int { c.set(c.get() + 1); c.get() })
+    io.println($"{n} {c.get()}")
+}
