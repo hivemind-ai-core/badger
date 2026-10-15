@@ -1,0 +1,11 @@
+// expect-error: E0139
+// Constant arithmetic sees through fields of constant records and tuples.
+const x = { a: 1 }
+const z = x.a + 9223372036854775807
+const t = (5, 0)
+const w = 10 / t.1
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(z)?
+    ok(())
+}

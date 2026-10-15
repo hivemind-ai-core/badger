@@ -502,6 +502,38 @@ pub fn check_const_arithmetic(inf: &mut Infer<'_, '_>) {
             v >= 0 && v < (1i128 << bits)
         }
     }
+    /// The expression a constant aggregate gives field `label` (through
+    /// constants, local bindings, and block results).
+    fn aggregate_part(
+        inf: &Infer<'_, '_>,
+        e: ExprId,
+        label: Symbol,
+        locals: &rustc_hash::FxHashMap<lang_hir::LocalId, ExprId>,
+        depth: usize,
+    ) -> Option<ExprId> {
+        let hir = inf.g.hir;
+        if depth > 32 {
+            return None;
+        }
+        match &hir.exprs[e].kind {
+            ExprKind::Def { def, .. } => match &hir.defs[*def].kind {
+                DefKind::Global(g) if g.is_const => aggregate_part(inf, g.value, label, locals, depth + 1),
+                _ => None,
+            },
+            ExprKind::Local(l) => aggregate_part(inf, *locals.get(l)?, label, locals, depth + 1),
+            ExprKind::Block { tail: Some(t), .. } => aggregate_part(inf, *t, label, locals, depth + 1),
+            ExprKind::Record { spread: None, fields } => fields.iter().find(|f| f.0 == label).map(|f| f.2),
+            ExprKind::Tuple(items) => {
+                let i: usize = inf.g.interner.resolve(label).parse().ok()?;
+                items.get(i).copied()
+            }
+            ExprKind::Field { base, label: inner, .. } => {
+                let part = aggregate_part(inf, *base, *inner, locals, depth + 1)?;
+                aggregate_part(inf, part, label, locals, depth + 1)
+            }
+            _ => None,
+        }
+    }
     #[allow(clippy::too_many_arguments)]
     fn eval(
         inf: &mut Infer<'_, '_>,
@@ -527,6 +559,11 @@ pub fn check_const_arithmetic(inf: &mut Infer<'_, '_>) {
             ExprKind::Local(l) => {
                 let init = *locals.get(l)?;
                 eval(inf, init, locals, depth + 1, errs, Some(ty))
+            }
+            // a field of a constant record or tuple
+            ExprKind::Field { base, label, .. } => {
+                let part = aggregate_part(inf, *base, *label, locals, depth + 1)?;
+                eval(inf, part, locals, depth + 1, errs, Some(ty))
             }
             ExprKind::Unary { op: lang_hir::UnOp::Neg, operand } => {
                 let v = eval(inf, *operand, locals, depth + 1, errs, Some(ty))?;
