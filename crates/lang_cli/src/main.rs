@@ -71,6 +71,9 @@ enum Command {
         /// and restart it on the new version.
         #[arg(long, requires = "watch")]
         reconstruct: bool,
+        /// Time the program's execution after all compilation (reported on stderr).
+        #[arg(long)]
+        bench: bool,
         /// Arguments passed to the program (after `--`).
         #[arg(last = true)]
         args: Vec<String>,
@@ -156,7 +159,18 @@ fn main() -> ExitCode {
     }
     let mut session = Session::new();
     match cli.command {
-        Command::Run { entry, release, dump_mir, profile, watch, inspect, workers, reconstruct, args } => {
+        Command::Run {
+            entry,
+            release,
+            dump_mir,
+            profile,
+            watch,
+            inspect,
+            workers,
+            reconstruct,
+            bench,
+            args,
+        } => {
             let path = match entry {
                 None => PathBuf::from("."),
                 Some(e) if Path::new(&e).exists() => PathBuf::from(e),
@@ -177,6 +191,7 @@ fn main() -> ExitCode {
                 inspect,
                 workers,
                 reconstruct,
+                bench,
             };
             match session.run(&path, args, &opts) {
                 Ok(code) => {

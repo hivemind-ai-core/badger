@@ -697,3 +697,14 @@ fn compiled_programs_run() {
     let _ = std::fs::remove_dir_all(&dir);
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
+
+/// `lang run --bench` times the execution after compilation on stderr and
+/// leaves the program's output alone.
+#[test]
+fn run_bench_reports_execution_time() {
+    let out = lang().args(["run", "--bench", "examples/01_basics.lang"]).output().unwrap();
+    assert!(out.status.success());
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "The answer is twelve; 5! is 120\n");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.starts_with("bench: run ") && err.contains("ms (compilation "), "{err}");
+}

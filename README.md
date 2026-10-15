@@ -44,7 +44,8 @@ sources. `lang run` accepts
 default `[runtime] workers` or 1), `--profile NAME` (merge a
 `[profile.NAME]` table of `lang.toml` into the configuration read by
 `config.load`, and `[profile.NAME.runtime]` into the runtime settings),
-`--watch` (replace compatible functions in the running program when sources
+`--bench` (report on stderr how long the program ran, timed after all
+compilation), `--watch` (replace compatible functions in the running program when sources
 change; a changed type, function type, or effect is incompatible, and with
 `--reconstruct` cancels the program, halts its resources, and restarts it on
 the new version), `--inspect ADDR` (serve inspection snapshots and a remote

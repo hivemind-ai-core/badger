@@ -509,6 +509,7 @@ impl Session {
     /// Compile with Cranelift and run `main` in-process. Returns the process
     /// exit code.
     pub fn run(&mut self, path: &Path, args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
+        let started = std::time::Instant::now();
         // a program saved by `lang compile`
         if path.is_file()
             && let Ok(bytes) = std::fs::read(path)
@@ -521,7 +522,7 @@ impl Session {
                 );
                 return Err(Outcome::Errors);
             }
-            return self.run_binary(&bytes, args, opts);
+            return self.run_binary(&bytes, args, opts, started);
         }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => lang_runtime::intrinsics_codec::set_profile(
@@ -559,13 +560,14 @@ impl Session {
         if opts.watch {
             live::watch(path.to_path_buf(), built.files.clone(), opts.optimize, opts.reconstruct);
         }
-        Ok(run_entry(built))
+        Ok(run_entry(built, opts.bench.then(|| started.elapsed())))
     }
 }
 
 /// Run a built program's entry (its arguments already set) and report how
-/// it ended.
-fn run_entry(built: Built) -> i32 {
+/// it ended. With `bench` (the time compilation took), the run is timed
+/// from the entry's start to its end and reported on stderr.
+fn run_entry(built: Built, bench: Option<std::time::Duration>) -> i32 {
     {
         // an entry taking `List<String>` receives the program arguments
         if let Some(desc) = built.prog.entry_args {
@@ -577,8 +579,17 @@ fn run_entry(built: Built) -> i32 {
             }
             lang_runtime::task::set_main_args(Some(l));
         }
+        let run_start = std::time::Instant::now();
         let exit = lang_codegen::run_main(&built.compiled, &built.prog);
+        let ran = run_start.elapsed();
         let code = report_exit(exit, &built.prog);
+        if let Some(compile) = bench {
+            eprintln!(
+                "bench: run {:.3} ms (compilation {:.3} ms, not included)",
+                ran.as_secs_f64() * 1e3,
+                compile.as_secs_f64() * 1e3
+            );
+        }
         // The JIT image, task stacks, and heap live until process exit; leaving
         // without running destructors avoids tearing them down under parked tasks.
         std::mem::forget(built);
@@ -709,7 +720,13 @@ impl Session {
 
     /// Run a program saved by `lang compile`: no parsing or checking, only
     /// code generation.
-    pub fn run_binary(&mut self, bytes: &[u8], args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
+    pub fn run_binary(
+        &mut self,
+        bytes: &[u8],
+        args: Vec<String>,
+        opts: &RunOptions,
+        started: std::time::Instant,
+    ) -> Result<i32, Outcome> {
         let (mut prog, meta) = match lang_mir::serial::decode(bytes) {
             Ok(x) => x,
             Err(e) => {
@@ -776,7 +793,7 @@ impl Session {
         }
         lang_runtime::intrinsics_io::set_args(args);
         let built = Built { prog, compiled, files: vec![], types: Default::default() };
-        Ok(run_entry(built))
+        Ok(run_entry(built, opts.bench.then(|| started.elapsed())))
     }
 }
 
@@ -855,6 +872,8 @@ pub struct RunOptions {
     /// With `watch`: restart on incompatible versions (controlled
     /// reconstruction) instead of rejecting them.
     pub reconstruct: bool,
+    /// Time the program's execution (after all compilation) and report it.
+    pub bench: bool,
 }
 
 fn report_exit(exit: lang_runtime::task::Exit, prog: &lang_mir::Program) -> i32 {
