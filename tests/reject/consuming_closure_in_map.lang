@@ -1,0 +1,16 @@
+// expect-error: E0404
+// Reading a consuming closure out of a map uses up the map.
+import std.io
+import std.buffer
+import std.map
+struct S { f: fn() -> Array<Int> }
+fn call2(f: fn() -> Array<Int>) -> Int { let a = f(); let c = f(); a.len() + c.len() }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    b.push(1)
+    let f = fn() { buffer.freeze(b) }
+    let m = map { 1 => f }
+    match m.get(1) { .some(g) => { let _ = g() }, .none => () }
+    match m.get(1) { .some(g) => { let _ = g() }, .none => () }
+    ok(())
+}

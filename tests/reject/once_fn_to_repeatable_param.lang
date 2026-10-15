@@ -1,0 +1,10 @@
+// expect-error: E0404
+// A once fn cannot be passed where a repeatable function is expected.
+// once closure passed where repeatable fn expected
+import std.io
+fn rep(f: fn() -> Int) -> Int { f() + f() }
+pub fn main() -> Result<Unit, io.Error> {
+    let g = once fn() { 5 }
+    io.println(rep(g))?
+    ok(())
+}

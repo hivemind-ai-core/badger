@@ -1,0 +1,18 @@
+// expect-error: E0404
+// A consuming closure stored in a struct field is used up by its call.
+// consuming closure stored in a struct field of non-once fn type, called twice
+import std.io
+import std.buffer
+struct S { f: fn() -> Buffer<Int> }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let s: S = { f: fn() { b } }
+    let p = (s.f)()
+    let q = (s.f)()
+    p.push(1)
+    let a = buffer.freeze(p)
+    io.println(a.len())?
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

@@ -1,0 +1,12 @@
+// A returned closure that consumes its capture is declared once fn and
+// called once.
+import std.io
+import std.buffer
+fn mk(x: Buffer<Int>) -> once fn() -> Buffer<Int> { fn() { x } }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let f = mk(b)
+    let p = f()
+    p.push(1)
+    io.println(p.len())
+}

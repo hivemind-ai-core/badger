@@ -122,6 +122,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     o.expr(body, m, &mut st);
     o.check_escape(body, true);
     o.unused_tasks(body);
+    o.check_consuming_result(body);
     let _ = param_pats;
 }
 
@@ -192,6 +193,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
     let mut st = State::default();
     let m = o.mode_into(o.ret_ty.clone());
     o.expr(body, m, &mut st);
+    o.check_consuming_result(body);
     let offending = std::mem::take(&mut o.offending);
     let flagged = !o.inf.diags.is_empty();
     o.inf.diags = saved;
@@ -661,6 +663,112 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// A function returning a closure that consumes what it captured must
+    /// say so in its result type (`once fn`): callers could otherwise call
+    /// it repeatedly.
+    fn check_consuming_result(&mut self, body: ExprId) {
+        let Some(ret) = self.ret_ty.clone() else { return };
+        let ret = self.inf.icx.resolve(&ret);
+        let repeatable = match &*ret {
+            TyKind::Fn(f) => !f.once,
+            _ => self.holds_fn(&ret, 0),
+        };
+        if !repeatable {
+            return;
+        }
+        let mut exits = vec![];
+        self.result_exprs(body, &mut exits);
+        for x in exits {
+            if self.holds_consuming(x) {
+                let span = self.inf.g.hir.exprs[x].span;
+                let shown = self.inf.show(&ret);
+                self.report(
+                    Diagnostic::error(
+                        "a closure that consumes a captured value is returned as a repeatable function",
+                    )
+                    .with_code("E0404")
+                    .with_label(span, format!("callers of this `{shown}` could call it more than once"))
+                    .with_note(
+                        "declare the result `once fn(...)`, or borrow the capture instead of consuming it",
+                    ),
+                    span,
+                );
+            }
+        }
+    }
+
+    /// Expressions whose value a function body returns.
+    fn result_exprs(&self, e: ExprId, out: &mut Vec<ExprId>) {
+        let hir = self.inf.g.hir;
+        match &hir.exprs[e].kind {
+            ExprKind::Block { tail: Some(t), .. } => self.result_exprs(*t, out),
+            ExprKind::If { then, els: Some(x), .. } => {
+                self.result_exprs(*then, out);
+                self.result_exprs(*x, out);
+            }
+            ExprKind::Match { arms, .. } => arms.iter().for_each(|a| self.result_exprs(a.body, out)),
+            _ => out.push(e),
+        }
+        self.return_values(e, out);
+    }
+
+    fn return_values(&self, e: ExprId, out: &mut Vec<ExprId>) {
+        let hir = self.inf.g.hir;
+        match &hir.exprs[e].kind {
+            ExprKind::Lambda(_) => {}
+            ExprKind::Return { value: Some(v), .. } => out.push(*v),
+            k => {
+                for c in children(k) {
+                    self.return_values(c, out);
+                }
+            }
+        }
+    }
+
+    /// Mark the function-holding locals a pattern binds from a value that
+    /// holds a consuming closure as single-use.
+    fn mark_consuming_bindings(&mut self, pat: PatId) {
+        let mut bound = vec![];
+        pat_locals(self.inf.g.hir, pat, &mut bound);
+        for b in bound {
+            if self.local_ty(b).is_some_and(|t| self.holds_fn(&t, 0)) {
+                self.consuming.insert(b);
+                self.affine.insert(b, true);
+            }
+        }
+    }
+
+    /// Whether a type holds a function (directly, in fields, payloads, or
+    /// elements).
+    fn holds_fn(&mut self, t: &Ty, depth: usize) -> bool {
+        if depth > 6 {
+            return false;
+        }
+        let t = self.inf.icx.resolve(t);
+        match &*t {
+            TyKind::Fn(_) => true,
+            TyKind::Con(d, args) => {
+                let fields: Vec<Ty> = if let Some(e) = self.inf.g.env.enums.get(d) {
+                    (0..e.variants.len())
+                        .flat_map(|v| {
+                            self.inf.g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1)
+                        })
+                        .collect()
+                } else if self.inf.g.env.structs.contains_key(d) {
+                    self.inf.g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
+                } else {
+                    args.clone()
+                };
+                fields
+                    .iter()
+                    .any(|f| !matches!(&**f, TyKind::Con(x, _) if x == d) && self.holds_fn(f, depth + 1))
+            }
+            TyKind::Tuple(ts) => ts.clone().iter().any(|x| self.holds_fn(x, depth + 1)),
+            TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_fn(x, depth + 1)),
+            _ => false,
+        }
+    }
+
     /// The local a place expression (`r.f`, `fs[0]`) is rooted in.
     fn place_root(&self, mut e: ExprId) -> Option<LocalId> {
         let hir = self.inf.g.hir;
@@ -1013,6 +1121,12 @@ impl Own<'_, '_, '_> {
         let consumed = match &hir.exprs[arg].kind {
             ExprKind::Lambda(_) => self.consuming_lambdas.get(&arg).copied(),
             ExprKind::Local(l) if self.consuming.contains(l) => Some(*l),
+            // a value typed `once fn` (it may consume what it captured)
+            ExprKind::Local(l)
+                if self.local_ty(*l).is_some_and(|t| matches!(&*t, TyKind::Fn(f) if f.once)) =>
+            {
+                Some(*l)
+            }
             _ => None,
         };
         if let Some(c) = consumed {
@@ -1326,9 +1440,14 @@ impl Own<'_, '_, '_> {
                     _ => vec![Param::Shared],
                 };
                 self.check_stored_borrows(e, *recv, args);
-                // calling a consuming closure stored in a field uses up its holder
+                // calling a consuming closure stored in a field, or reading one
+                // out of its holder (`m.get(k)`), uses up the holder
+                let reads_fn = self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t, 0));
                 let consumed_root = match self.inf.res.get(&e) {
                     Some(Res::Method(Target::Field(_))) => {
+                        self.place_root(*recv).filter(|r| self.consuming.contains(r) && !st.contains_key(r))
+                    }
+                    _ if reads_fn => {
                         self.place_root(*recv).filter(|r| self.consuming.contains(r) && !st.contains_key(r))
                     }
                     _ => None,
@@ -1480,6 +1599,12 @@ impl Own<'_, '_, '_> {
                 if self.expr(*scrutinee, Mode::Move, st) {
                     return true;
                 }
+                // closures taken out of a value holding a consuming closure
+                if self.holds_consuming(*scrutinee) {
+                    for a in arms {
+                        self.mark_consuming_bindings(a.pat);
+                    }
+                }
                 let base = st.clone();
                 let mut out: Option<State> = None;
                 for a in arms {
@@ -1559,17 +1684,7 @@ impl Own<'_, '_, '_> {
                             // a consuming closure kept inside an aggregate (or
                             // returned through a call) makes the holder single-use
                             if self.holds_consuming(*init) {
-                                let mut bound = vec![];
-                                pat_locals(hir, *pat, &mut bound);
-                                for b in bound {
-                                    let has_fn = self.local_ty(b).is_some_and(|t| {
-                                        crate::ty::ty_any(&t, &mut |k| matches!(k, TyKind::Fn(_)))
-                                    });
-                                    if has_fn {
-                                        self.consuming.insert(b);
-                                        self.affine.insert(b, true);
-                                    }
-                                }
+                                self.mark_consuming_bindings(*pat);
                             }
                             // borrows the bound value carries
                             if let PatKind::Bind(holder) = &hir.pats[*pat].kind {

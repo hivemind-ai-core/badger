@@ -1,0 +1,22 @@
+// expect-error: E0404
+// A closure taken out of an Option holding a consuming closure is single-use.
+// consuming closure inside Option, called twice
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let o = some(fn() { b })
+    match o {
+        .some(g) => {
+            let p = g()
+            let q = g()
+            p.push(1)
+            let a = buffer.freeze(p)
+            io.println(a.len())?
+            q.push(2)
+            io.println(a.len())?
+        },
+        .none => (),
+    }
+    ok(())
+}

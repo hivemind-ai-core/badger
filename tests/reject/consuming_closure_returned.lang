@@ -1,0 +1,16 @@
+// expect-error: E0404
+// A returned closure that consumes its capture must be declared once fn.
+import std.io
+import std.buffer
+fn mk(x: Buffer<Int>) -> fn() -> Buffer<Int> { fn() { x } }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let f = mk(b)
+    let p = f()
+    let q = f()
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

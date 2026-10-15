@@ -1,0 +1,18 @@
+// expect-error: E0404
+// The same through a generic function.
+import std.io
+import std.buffer
+import std.list
+fn dup<T>(x: T) -> fn() -> T { fn() { x } }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let f = dup(b)
+    let p = f()
+    let q = f()
+    p.push(1)
+    let a = buffer.freeze(p)
+    io.println(a.len())?
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}
