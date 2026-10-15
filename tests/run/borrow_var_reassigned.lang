@@ -1,0 +1,14 @@
+// Reassigning a var that holds a borrow ends its earlier borrow.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let c: Buffer<Int> = buffer.new()
+    var r = &b
+    io.println(r.len())?
+    r = &c
+    b.push(1)
+    io.println(r.len())?
+    io.println(b.len())?
+    ok(())
+}

@@ -39,6 +39,8 @@ struct Loan {
     mutable: bool,
     start: usize,
     span: Span,
+    /// Where the holder was given another value (the loan ends there).
+    until: usize,
 }
 
 /// How a callee takes each parameter.
@@ -1579,6 +1581,7 @@ impl Own<'_, '_, '_> {
                 ln.owner == l
                     && ln.holder != l
                     && ln.start < pos
+                    && pos < ln.until
                     && pos < self.last_use.get(&ln.holder).copied().unwrap_or(0)
             })
             .cloned()
@@ -2487,6 +2490,7 @@ impl Own<'_, '_, '_> {
                                         mutable: *op == UnOp::RefMut,
                                         start: hir.exprs[*init].span.range().end,
                                         span: *lspan,
+                                        until: usize::MAX,
                                     });
                                 }
                                 // a copy of a borrow, a borrow returned by a call,
@@ -2544,6 +2548,7 @@ impl Own<'_, '_, '_> {
                                             mutable,
                                             start: hir.exprs[*init].span.range().end,
                                             span: *lspan,
+                                            until: usize::MAX,
                                         });
                                     }
                                 }
@@ -2565,6 +2570,12 @@ impl Own<'_, '_, '_> {
                                 self.consuming.insert(*local);
                                 self.affine.insert(*local, true);
                             }
+                            // the variable's earlier borrows end here
+                            let at = aspan.range().start;
+                            for ln in self.loans.iter_mut().filter(|ln| ln.holder == *local && ln.start <= at)
+                            {
+                                ln.until = ln.until.min(at);
+                            }
                             // an assigned value carrying borrows keeps them
                             // borrowed while the variable is used
                             let mut carried = vec![];
@@ -2579,6 +2590,7 @@ impl Own<'_, '_, '_> {
                                             mutable,
                                             start: hir.exprs[*value].span.range().end,
                                             span: *sp,
+                                            until: usize::MAX,
                                         });
                                     }
                                 }
