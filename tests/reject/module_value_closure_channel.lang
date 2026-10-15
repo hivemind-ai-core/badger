@@ -1,0 +1,16 @@
+// expect-error: E0138
+// A module value cannot hide a channel acquired at import time in a closure.
+import std.io
+import std.channel
+fn make() -> fn(Int) -> Unit {
+    match channel.create<Int>(channel.defaults) {
+        .ok(e) => fn(v: Int) -> Unit { let _ = e.sender.try_send(v); let _ = io.println($"queued {e.receiver.len()}") },
+        .err(_) => fn(v: Int) -> Unit {},
+    }
+}
+let push = make()
+pub fn main() -> Result<Unit, io.Error> {
+    push(1)
+    push(2)
+    ok(())
+}

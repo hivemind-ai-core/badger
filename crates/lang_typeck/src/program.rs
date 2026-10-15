@@ -361,6 +361,9 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         // calls to generic functions analysed after their callers
         crate::ownership::check_deferred_dups(&mut inf);
         crate::ownership::check_task_params(&mut inf);
+        if std::env::var_os("LANG_REPL_SESSION").is_none() {
+            crate::ownership::check_module_closures(&mut inf);
+        }
         // monomorphic schemes (e.g. module-level values) may mention variables
         // resolved by later uses: resolve them against the final substitution
         {
@@ -691,7 +694,7 @@ fn check_impl_signatures(g: &Global, diags: &mut Vec<Diagnostic>) {
 
 /// The mutable state or acquired resource a value of type `t` stores (through
 /// fields, elements, and payloads; a function's signature stores nothing).
-fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<String> {
+pub(crate) fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<String> {
     let hir = g.hir;
     match &**t {
         TyKind::Con(d, args) => {

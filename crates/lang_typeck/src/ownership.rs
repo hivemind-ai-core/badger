@@ -282,6 +282,84 @@ pub fn check_task_params(inf: &mut Infer<'_, '_>) {
     }
 }
 
+/// Module values are pure immutable data: an initializer may not produce a
+/// closure that captures mutable state or an acquired resource created
+/// while initializing (in the initializer, or inside a function it calls
+/// that returns such a closure).
+pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
+    let hir = inf.g.hir;
+    // the state a closure-valued expression captures, if any
+    fn captured_state(
+        inf: &mut Infer<'_, '_>,
+        e: ExprId,
+        returning: &FxHashMap<DefId, String>,
+    ) -> Option<String> {
+        let hir = inf.g.hir;
+        match &hir.exprs[e].kind {
+            ExprKind::Lambda(l) => {
+                for c in &l.captures {
+                    if let Some(t) = inf.locals.get(c).cloned() {
+                        let t = inf.icx.resolve(&t);
+                        if let Some(s) = crate::program::stored_state(inf.g, &t, &mut vec![]) {
+                            return Some(s);
+                        }
+                    }
+                }
+                None
+            }
+            ExprKind::Call { callee, .. } => match inf.res.get(callee) {
+                Some(Res::Callee { def, .. }) => returning.get(def).cloned(),
+                _ => None,
+            },
+            ExprKind::Block { tail: Some(t), .. } => captured_state(inf, *t, returning),
+            ExprKind::If { then, els, .. } => captured_state(inf, *then, returning)
+                .or_else(|| els.and_then(|x| captured_state(inf, x, returning))),
+            ExprKind::Match { arms, .. } => {
+                let bodies: Vec<ExprId> = arms.iter().map(|a| a.body).collect();
+                bodies.into_iter().find_map(|b| captured_state(inf, b, returning))
+            }
+            _ => None,
+        }
+    }
+    // functions whose result is a closure over state they create
+    let mut returning: FxHashMap<DefId, String> = FxHashMap::default();
+    loop {
+        let mut changed = false;
+        for (id, def) in hir.defs.iter() {
+            if hir.modules[def.module].is_std || returning.contains_key(&id) {
+                continue;
+            }
+            let DefKind::Fn(f) = &def.kind else { continue };
+            let Some(body) = f.body else { continue };
+            if let Some(s) = captured_state(inf, body, &returning) {
+                returning.insert(id, s);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    let mut reports = vec![];
+    for (_, def) in hir.defs.iter() {
+        if hir.modules[def.module].is_std {
+            continue;
+        }
+        let DefKind::Global(g) = &def.kind else { continue };
+        if let Some(s) = captured_state(inf, g.value, &returning) {
+            reports.push((def.span, inf.g.interner.resolve(def.name).to_string(), s));
+        }
+    }
+    for (span, name, s) in reports {
+        inf.push_diag(
+            Diagnostic::error(format!("module-level value `{name}` holds a closure over a `{s}`"))
+                .with_code("E0138")
+                .with_label(span, "module values are pure immutable data shared by every task")
+                .with_note("create mutable state and acquire resources in functions or system initialization, and pass them where they are needed"),
+        );
+    }
+}
+
 /// Calls recorded before their generic callee was analysed.
 pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
     let calls = std::mem::take(&mut *inf.g.dup_deferred.borrow_mut());
