@@ -66,6 +66,81 @@ fn orders_service() {
     assert!(status.success(), "service exit: {status:?}");
 }
 
+/// Concurrent clients against the service on four workers, under chaos
+/// scheduling and heap verification: every order is created exactly once
+/// and receives a distinct id.
+#[test]
+fn orders_service_concurrent() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let dir = std::env::temp_dir().join(format!("lang-service-conc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("orders.db");
+    let _ = std::fs::remove_file(&db);
+    let port = 21000 + (std::process::id() % 1000) as u16;
+    let child = Command::new(env!("CARGO_BIN_EXE_lang"))
+        .current_dir(&root)
+        .args(["run", "--workers", "4", "examples/design/service"])
+        .env("ORDERS_DATABASE_PATH", &db)
+        .env("ORDERS_ADDRESS", "127.0.0.1")
+        .env("ORDERS_PORT", port.to_string())
+        .env("LANG_CHAOS", "11")
+        .env("LANG_GC_VERIFY", "1")
+        .env("LANG_TRACE", "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let start = Instant::now();
+    while TcpStream::connect(("127.0.0.1", port)).is_err() {
+        assert!(start.elapsed() < Duration::from_secs(30), "service did not start");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let clients: Vec<_> = (0..8)
+        .map(|c| {
+            std::thread::spawn(move || {
+                (0..25)
+                    .map(|i| request(port, "POST", "/orders", &format!(r#"{{"title":"c{c} n{i}"}}"#)))
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    let mut ids = vec![];
+    let mut failed = vec![];
+    for c in clients {
+        for (status, body) in c.join().unwrap() {
+            if status != 201 {
+                failed.push(body.clone());
+                continue;
+            }
+            let id: u64 =
+                body.split("\"id\":").nth(1).and_then(|r| r.split(',').next()).unwrap().parse().unwrap();
+            ids.push(id);
+        }
+    }
+    if !failed.is_empty() {
+        unsafe { libc_kill(child.id() as i32, 15) };
+        let out = child.wait_with_output().unwrap();
+        let err = String::from_utf8_lossy(&out.stderr);
+        let lines: Vec<&str> = err
+            .lines()
+            .filter(|l| {
+                !l.contains("orders/completed")
+                    || l.split("\"elapsed\":")
+                        .nth(1)
+                        .and_then(|x| x.trim_end_matches('}').parse::<u64>().ok())
+                        .is_some_and(|ns| ns > 500_000_000)
+            })
+            .collect();
+        panic!("{failed:?}\n{}", lines.join("\n"));
+    }
+    ids.sort_unstable();
+    assert_eq!(ids, (1..=200).collect::<Vec<u64>>(), "ids lost or duplicated");
+    unsafe { libc_kill(child.id() as i32, 15) };
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "service exit: {:?}\n{}", out.status, String::from_utf8_lossy(&out.stderr));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn request_isolation() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
