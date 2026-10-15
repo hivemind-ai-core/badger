@@ -163,6 +163,11 @@ pub struct Task {
     /// publishing its own staged batch on the way to parking): the next
     /// park returns at once instead of losing it.
     pub early_wake: Option<Wake>,
+    /// A parked selection's cases, so a rendezvous partner can commit one
+    /// of them on its behalf (`(channel, index, is_send, value)`), and the
+    /// committed case once one is.
+    pub select_offer: Vec<(u64, usize, bool, u64)>,
+    pub select_done: Option<usize>,
     /// Publishing staged batches on the way to parking.
     pub publishing: bool,
     /// Pipeline stages the task is inside, outermost first.
@@ -269,6 +274,11 @@ pub fn rt() -> &'static mut Runtime {
         }
         r.as_mut().unwrap()
     }
+}
+
+/// Whether a task is parked (waiting to be woken).
+pub fn is_parked(id: TaskId) -> bool {
+    task(id).is_some_and(|t| t.state == State::Parked)
 }
 
 pub fn task(id: TaskId) -> Option<&'static mut Task> {
@@ -532,6 +542,8 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         code_version: crate::live::version(),
         caller_loc: 0,
         early_wake: None,
+        select_offer: vec![],
+        select_done: None,
         publishing: false,
         stages: vec![],
     });

@@ -245,6 +245,7 @@ task_intrinsics! {
                         SendResult::Sent => return make_variant(ret, "sent", &[i as u64]),
                         // the send can never commit: report it, keeping the value
                         SendResult::Closed => return make_variant(ret, "closed", &[i as u64]),
+                        SendResult::TooLarge => return make_variant(ret, "too_large", &[i as u64]),
                         _ => {}
                     }
                 }
@@ -257,12 +258,21 @@ task_intrinsics! {
                 let ch = crate::list::get(chans, i);
                 if crate::list::get(kinds, i) & 1 == 0 { channel::watch_recv(ch) } else { channel::watch_space(ch) }
             }
+            // a rendezvous partner may commit one of these cases while we wait
+            offer_cases(kinds, chans, |i| crate::list::get(values, i));
             match deadline {
                 Some(dl) => { task::sleep(dl.saturating_duration_since(std::time::Instant::now())); }
                 None => { task::park_for("select"); }
             }
             for i in 0..n {
                 channel::unwatch(crate::list::get(chans, i));
+            }
+            if let Some((i, v)) = take_committed(kinds) {
+                if crate::list::get(kinds, i) & 1 == 1 {
+                    return make_variant(ret, "sent", &[i as u64]);
+                }
+                let some = g.add(make_variant(ret.variant(0).unwrap().fields[1].desc, "some", &[v]));
+                return make_variant(ret, "received", &[i as u64, some]);
             }
         }
     }
@@ -312,7 +322,8 @@ task_intrinsics! {
                     let v = crate::enum_parts(boxed).1[0];
                     match channel::send(ch, v, false) {
                         SendResult::Sent => return result(i as i64, boxed),
-                        SendResult::Closed => dead[i] = true,
+                        // can never commit (closed, or larger than the budget)
+                        SendResult::Closed | SendResult::TooLarge => dead[i] = true,
                         _ => {}
                     }
                 }
@@ -329,6 +340,10 @@ task_intrinsics! {
                 let ch = crate::list::get(chans, i);
                 if crate::list::get(kinds, i) & 1 == 0 { channel::watch_recv(ch) } else { channel::watch_space(ch) }
             }
+            offer_cases(kinds, chans, |i| if dead[i] { 0 } else { crate::enum_parts(crate::list::get(values, i)).1.first().copied().unwrap_or(0) });
+            if let Some(t) = task::current() {
+                t.select_offer.retain(|c| !dead[c.1]);
+            }
             match deadline {
                 Some(dl) => {
                     task::sleep(dl.saturating_duration_since(std::time::Instant::now()));
@@ -339,6 +354,14 @@ task_intrinsics! {
             }
             for i in (0..n).filter(|i| !dead[*i]) {
                 channel::unwatch(crate::list::get(chans, i));
+            }
+            if let Some((i, v)) = take_committed(kinds) {
+                if crate::list::get(kinds, i) & 1 == 1 {
+                    return result(i as i64, crate::list::get(values, i));
+                }
+                let od = unsafe { &*(crate::list::get(odescs, i) as *const TypeDesc) };
+                let some = g.add(make_variant(od, "some", &[v]));
+                return result(i as i64, some);
             }
         }
     }
@@ -439,4 +462,26 @@ task_intrinsics! {
 #[allow(dead_code)]
 fn is_list(d: &TypeDesc) -> bool {
     matches!(d.kind, Kind::List { .. })
+}
+
+/// Post a parked selection's cases so a rendezvous partner can commit one.
+fn offer_cases(kinds: u64, chans: u64, value: impl Fn(usize) -> u64) {
+    let n = crate::list::len(kinds);
+    if let Some(t) = task::current() {
+        t.select_done = None;
+        t.select_offer = (0..n)
+            .map(|i| (crate::list::get(chans, i), i, crate::list::get(kinds, i) & 1 == 1, value(i)))
+            .collect();
+    }
+}
+
+/// The case a partner committed while the selection was parked, with the
+/// received value (withdrawing the offer either way).
+fn take_committed(kinds: u64) -> Option<(usize, u64)> {
+    let t = task::current()?;
+    t.select_offer.clear();
+    let i = t.select_done.take()?;
+    let (v, _) = task::take_delivered();
+    let _ = kinds;
+    Some((i, v))
 }

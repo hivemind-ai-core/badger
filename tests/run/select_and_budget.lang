@@ -16,6 +16,7 @@ pub fn main() -> Result<Unit, AppError> {
         .received(i, v) => { let _ = io.println($"received on {i}: {v.unwrap_or("?")}") },
         .sent(_) => (),
         .closed(_) => (),
+        .too_large(_) => (),
         .timeout => { let _ = io.println("timeout") },
     }
     match channel.select([channel.Op.recv(a.receiver)], some(5ms)) {

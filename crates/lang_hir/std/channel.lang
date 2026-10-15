@@ -215,6 +215,8 @@ pub enum Selected<T> {
     received(index: Int, value: Option<T>),
     sent(index: Int),
     closed(index: Int),
+    /// A send operation's value exceeds the channel's byte budget.
+    too_large(index: Int),
     timeout,
 }
 

@@ -1,0 +1,49 @@
+// A selection's send and another selection's receive on a rendezvous
+// channel meet; an oversized send resolves a selection at once.
+import std.io
+import std.channel
+import std.task
+import std.list
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub fn main() -> Result<Unit, AppError> {
+    let ch = channel.create<Int>({ capacity: 0, byte_budget: 0 })?
+    let other = channel.create<Int>(channel.defaults)?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let a = s.spawn(fn() {
+            match channel.select([channel.Op.send(ch.sender, 1), channel.Op.recv(other.receiver)], none) {
+                .sent(_) => "A sent",
+                _ => "A other",
+            }
+        })
+        let b = s.spawn(fn() {
+            task.sleep(5ms)
+            match channel.select([channel.Op.recv(ch.receiver), channel.Op.recv(other.receiver)], none) {
+                .received(0, m) => $"B got {m.unwrap_or(-1)}",
+                _ => "B other",
+            }
+        })
+        say($"{a.join()} / {b.join()}")
+        // the receiving selection parks first this time
+        let d = s.spawn(fn() {
+            let r = channel.choose([channel.on_recv(ch.receiver, fn(m: Option<Int>) { $"D got {m.unwrap_or(-1)}" })], none)
+            r.unwrap_or("D none")
+        })
+        let c = s.spawn(fn() {
+            task.sleep(5ms)
+            let r = channel.choose([channel.on_send(ch.sender, 2, fn() { "C sent" })], none)
+            r.unwrap_or("C none")
+        })
+        say($"{c.join()} / {d.join()}")
+        ok(())
+    })?
+    let small = channel.create<String>({ capacity: 4, byte_budget: 8 })?
+    let big = "this string is far longer than eight bytes"
+    match channel.select([channel.Op.send(small.sender, big)], none) {
+        .too_large(i) => say($"select: send {i} is too large"),
+        _ => say("select: other"),
+    }
+    let r = channel.choose([channel.on_send(small.sender, big, fn() { "sent" })], none)
+    say($"choose with only an oversized send: {r.unwrap_or("none")}")
+    ok(())
+}

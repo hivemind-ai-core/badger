@@ -144,7 +144,11 @@ Implementation note: plain `channel.select` send operations and
 shareable value untouched. Affine payloads use `channel.select_keep` or
 `channel.on_send_keep`, which hand a losing payload back to the caller. A
 send operation on a closed channel resolves `select` as `.closed(index)`
-(nothing is sent; the value stays with the caller) and drops out of `choose`.
+(nothing is sent; the value stays with the caller) and drops out of `choose`;
+a send larger than the byte budget resolves `select` as `.too_large(index)`
+and likewise drops out of `choose`. A selection parked on a rendezvous
+channel can be committed by a partner (a plain operation or another
+selection), so two selections on opposite ends meet.
 Batch receivers select one published message through `Op.recv_batch` and
 `channel.on_recv_batch`.
 

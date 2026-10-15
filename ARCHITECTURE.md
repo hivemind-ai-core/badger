@@ -231,7 +231,9 @@ error. `lang_cli` is the `lang` binary.
   `on_send_keep`) whose outcomes map into the caller's enum; exactly one
   case commits. A send on a closed channel resolves a `select` as
   `closed(index)` (the value stays with the caller) and drops out of a
-  `choose`. Batch receivers take part through `Op.recv_batch` and
+  `choose`; an oversized send resolves as `too_large(index)`. A selection
+  parked on a rendezvous channel posts its cases, so a partner (plain or
+  selecting) commits one of them on its behalf. Batch receivers take part through `Op.recv_batch` and
   `on_recv_batch`, one published message at a time; batch endpoints also
   offer `try_append`/`try_send`, `recv`, and `try_recv`. Plain `select` and `on_send` drop an unsent payload, so
   they require `T: Share`; `select_keep` and `on_send_keep` return an

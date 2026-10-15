@@ -305,6 +305,10 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
                     return SendResult::Sent;
                 }
             }
+            // a rendezvous with a selection parked on a receive of this channel
+            if d.capacity == 0 && commit_select_receive(ch, v) {
+                return SendResult::Sent;
+            }
         }
         if d.queue.len() < d.capacity && fits {
             d.queue.push_back(v);
@@ -334,6 +338,42 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Closed;
         }
     }
+}
+
+/// A parked selection that offers to receive from `ch` takes `v` (that
+/// case commits on its behalf).
+fn commit_select_receive(ch: u64, v: u64) -> bool {
+    let me = task::current_id();
+    let watchers: Vec<TaskId> = data(ch).recv_watchers.iter().copied().collect();
+    for t in watchers {
+        let Some(tk) = task::task(t) else { continue };
+        if t == me || !task::is_parked(t) || tk.select_done.is_some() {
+            continue;
+        }
+        let Some(&(_, i, _, _)) = tk.select_offer.iter().find(|c| c.0 == ch && !c.2) else { continue };
+        tk.select_done = Some(i);
+        task::wake_with(t, v, data(ch).elem.is_ptr(), 1);
+        return true;
+    }
+    false
+}
+
+/// A parked selection that offers to send on `ch` gives its value (that
+/// case commits on its behalf).
+fn commit_select_send(ch: u64) -> Option<u64> {
+    let me = task::current_id();
+    let waiters: Vec<TaskId> = data(ch).space_waiters.iter().copied().collect();
+    for t in waiters {
+        let Some(tk) = task::task(t) else { continue };
+        if t == me || !task::is_parked(t) || tk.select_done.is_some() {
+            continue;
+        }
+        let Some(&(_, i, _, v)) = tk.select_offer.iter().find(|c| c.0 == ch && c.2) else { continue };
+        tk.select_done = Some(i);
+        task::wake_with(t, 0, false, 1);
+        return Some(v);
+    }
+    None
 }
 
 pub enum RecvResult {
@@ -377,6 +417,12 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
                 task::wake_with(s, 0, false, 1);
                 return RecvResult::Value(v);
             }
+        }
+        // a rendezvous with a selection parked on a send to this channel
+        if d.capacity == 0
+            && let Some(v) = commit_select_send(ch)
+        {
+            return RecvResult::Value(v);
         }
         if d.closed {
             return RecvResult::Closed;
