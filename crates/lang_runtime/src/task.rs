@@ -294,6 +294,8 @@ pub fn task(id: TaskId) -> Option<&'static mut Task> {
 thread_local! {
     /// Task running on this worker thread (0 = none) and the worker's index.
     static CURRENT: Cell<TaskId> = const { Cell::new(0) };
+    /// The running task's (boxed, address-stable) entry.
+    static CURRENT_TASK: Cell<*mut Task> = const { Cell::new(std::ptr::null_mut()) };
     static WORKER: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -308,6 +310,12 @@ fn current_raw() -> TaskId {
 #[inline(never)]
 fn set_current(id: TaskId) {
     CURRENT.with(|c| c.set(id));
+    let p = if id == 0 {
+        std::ptr::null_mut()
+    } else {
+        task(id).map_or(std::ptr::null_mut(), |t| t as *mut Task)
+    };
+    CURRENT_TASK.with(|c| c.set(p));
 }
 
 /// Index of the worker thread running the caller (0 with one worker).
@@ -516,11 +524,12 @@ pub fn resume_the_world() {
     STOP.store(false, Ordering::SeqCst);
 }
 
+/// The running task (no table lookup: a task's entry stays in place while
+/// it runs).
+#[inline(never)]
 pub fn current() -> Option<&'static mut Task> {
-    match current_raw() {
-        0 => None,
-        id => task(id),
-    }
+    let p = CURRENT_TASK.with(|c| c.get());
+    if p.is_null() { None } else { Some(unsafe { &mut *p }) }
 }
 
 /// The running task's temporary-root stack (see `gc::Roots`).
