@@ -13,7 +13,7 @@
 //! than that value's region: the child could outlive the resource.
 
 use lang_base::{Diagnostic, Span};
-use lang_hir::{ExprId, ExprKind, LocalId, PatKind, Stmt};
+use lang_hir::{ExprId, ExprKind, LocalId, PatId, PatKind, Stmt};
 use rustc_hash::FxHashMap;
 
 use crate::infer::Infer;
@@ -44,6 +44,7 @@ pub fn check(inf: &mut Infer<'_, '_>) {
         // from outside the system as well as captured ones
         let mut outer = l.captures.clone();
         outer.extend(params);
+        let outer = derived_from(hir, l.body, &outer);
         r.stores(l.body, &outer);
     }
     let lambdas = std::mem::take(&mut inf.region_lambdas);
@@ -71,7 +72,8 @@ pub fn check(inf: &mut Infer<'_, '_>) {
         }
         r.spawns(body);
         // storing a scoped value into state that outlives the callback
-        let captures = l.captures.clone();
+        // (reached through a capture or a local alias of one)
+        let captures = derived_from(hir, body, &l.captures);
         r.stores(body, &captures);
     }
 }
@@ -300,13 +302,11 @@ impl Regions<'_, '_, '_> {
         let hir = self.inf.g.hir;
         // a helper that stores one parameter into another's cell, atom,
         // collection, or channel stores the caller's argument there
-        if let ExprKind::Call { callee, args } = &hir.exprs[e].kind
-            && let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind
-        {
-            let flows = store_summaries(self.inf.g).get(def).cloned().unwrap_or_default();
+        let summaries = store_summaries(self.inf.g);
+        for (flows, args) in helper_calls(self.inf.g, &summaries, e) {
             for (from, into) in flows {
                 let (Some(&src), Some(&dst)) = (args.get(from), args.get(into)) else { continue };
-                if place_in(hir, dst, captures) && self.tainted(src) {
+                if aliases(hir, dst, captures) && self.tainted(src) {
                     let span = hir.exprs[src].span;
                     self.report(span);
                 }
@@ -508,15 +508,133 @@ pub(crate) fn sub_exprs(kind: &ExprKind) -> Vec<ExprId> {
     v
 }
 
-/// Whether a place (`x`, `x.f`, `&x`) is rooted in one of `locals`.
-fn place_in(hir: &lang_hir::Hir, mut x: ExprId, locals: &[LocalId]) -> bool {
+/// `seeds` and the locals of `body` bound or assigned to an alias of them
+/// (the value itself, a part of it, or a record, list, option, or closure
+/// holding it), transitively.
+fn derived_from(hir: &lang_hir::Hir, body: ExprId, seeds: &[LocalId]) -> Vec<LocalId> {
+    let mut out = seeds.to_vec();
     loop {
-        match &hir.exprs[x].kind {
-            ExprKind::Local(l) => return locals.contains(l),
-            ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => x = *base,
-            ExprKind::Unary { op: lang_hir::UnOp::Ref | lang_hir::UnOp::RefMut, operand } => x = *operand,
-            _ => return false,
+        let mut grew = false;
+        crate::program::walk_exprs(hir, body, &mut |x| {
+            // bindings destructuring a derived value (match arms, loop items)
+            let bound: Vec<(PatId, ExprId)> = match &hir.exprs[x].kind {
+                ExprKind::Match { scrutinee, arms } => arms.iter().map(|a| (a.pat, *scrutinee)).collect(),
+                ExprKind::For { pat, iter, .. } => vec![(*pat, *iter)],
+                _ => vec![],
+            };
+            for (pat, from) in bound {
+                if aliases(hir, from, &out) {
+                    let mut ls = vec![];
+                    collect(hir, pat, &mut ls);
+                    for t in ls {
+                        if !out.contains(&t) {
+                            out.push(t);
+                            grew = true;
+                        }
+                    }
+                }
+            }
+            let ExprKind::Block { stmts, .. } = &hir.exprs[x].kind else { return };
+            for st in stmts {
+                let (targets, from) = match st {
+                    Stmt::Let { pat, init, .. } => {
+                        let mut ls = vec![];
+                        collect(hir, *pat, &mut ls);
+                        (ls, *init)
+                    }
+                    Stmt::Assign { local, value, .. } => (vec![*local], *value),
+                    Stmt::Expr { .. } => continue,
+                };
+                if aliases(hir, from, &out) {
+                    for t in targets {
+                        if !out.contains(&t) {
+                            out.push(t);
+                            grew = true;
+                        }
+                    }
+                }
+            }
+        });
+        if !grew {
+            return out;
         }
+    }
+}
+
+/// Can the value of `e` be (or hold) one of `locals` itself, rather than a
+/// new value computed from it?
+fn aliases(hir: &lang_hir::Hir, e: ExprId, locals: &[LocalId]) -> bool {
+    match &hir.exprs[e].kind {
+        ExprKind::Local(l) => locals.contains(l),
+        ExprKind::Lambda(l) => l.captures.iter().any(|c| locals.contains(c)),
+        ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => aliases(hir, *base, locals),
+        ExprKind::Unary { op: lang_hir::UnOp::Ref | lang_hir::UnOp::RefMut, operand } => {
+            aliases(hir, *operand, locals)
+        }
+        ExprKind::Tuple(xs) | ExprKind::List(xs) => xs.iter().any(|x| aliases(hir, *x, locals)),
+        ExprKind::Record { fields, .. } => fields.iter().any(|f| aliases(hir, f.2, locals)),
+        // constructors and the prelude's wrapping functions hold their argument
+        ExprKind::Call { callee, args }
+            if match &hir.exprs[*callee].kind {
+                ExprKind::Ctor { .. } => true,
+                ExprKind::Def { def, .. } => {
+                    ["some", "ok", "err"].iter().any(|n| hir.try_lang(n) == Some(*def))
+                }
+                _ => false,
+            } =>
+        {
+            args.iter().any(|a| aliases(hir, *a, locals))
+        }
+        ExprKind::Block { tail: Some(t), .. } => aliases(hir, *t, locals),
+        ExprKind::If { then, els, .. } => {
+            aliases(hir, *then, locals) || els.is_some_and(|x| aliases(hir, x, locals))
+        }
+        ExprKind::Match { arms, .. } => arms.iter().any(|a| aliases(hir, a.body, locals)),
+        _ => false,
+    }
+}
+
+/// Does `e` mention any of `locals` (also as closure captures)?
+fn mentions_any(hir: &lang_hir::Hir, e: ExprId, locals: &[LocalId]) -> bool {
+    let mut found = false;
+    crate::program::walk_exprs(hir, e, &mut |x| match &hir.exprs[x].kind {
+        ExprKind::Local(l) if locals.contains(l) => found = true,
+        ExprKind::Lambda(l) if l.captures.iter().any(|c| locals.contains(c)) => found = true,
+        _ => {}
+    });
+    found
+}
+
+/// Calls of storing helpers at `e`: each candidate's flows with the call's
+/// arguments in parameter order (a method call's receiver first; methods
+/// are matched by name and arity, which over-approximates the target).
+fn helper_calls(
+    g: &crate::program::Global<'_>,
+    summaries: &FxHashMap<lang_hir::DefId, Vec<(usize, usize)>>,
+    e: ExprId,
+) -> Vec<(Vec<(usize, usize)>, Vec<ExprId>)> {
+    let hir = g.hir;
+    match &hir.exprs[e].kind {
+        ExprKind::Call { callee, args } => match &hir.exprs[*callee].kind {
+            ExprKind::Def { def, .. } => {
+                summaries.get(def).map(|f| vec![(f.clone(), args.clone())]).unwrap_or_default()
+            }
+            _ => vec![],
+        },
+        ExprKind::MethodCall { recv, method, args, .. } => {
+            let mut all = vec![*recv];
+            all.extend(args.iter().copied());
+            summaries
+                .iter()
+                .filter(|(d, _)| {
+                    hir.defs[**d].name == *method
+                        && matches!(&hir.defs[**d].kind, lang_hir::DefKind::Fn(f)
+                            if f.has_self && f.params.len() == all.len())
+                })
+                .map(|(_, f)| (f.clone(), all.clone()))
+                .collect()
+        }
+        _ => vec![],
     }
 }
 
@@ -538,17 +656,7 @@ pub(crate) fn store_summaries(
         )
     };
     let mut out: FxHashMap<lang_hir::DefId, Vec<(usize, usize)>> = FxHashMap::default();
-    // does `e` mention parameter local `p` (also inside closures)?
-    fn mentions(hir: &lang_hir::Hir, e: ExprId, p: LocalId) -> bool {
-        let mut found = false;
-        crate::program::walk_exprs(hir, e, &mut |x| match &hir.exprs[x].kind {
-            ExprKind::Local(l) if *l == p => found = true,
-            ExprKind::Lambda(l) if l.captures.contains(&p) => found = true,
-            _ => {}
-        });
-        found
-    }
-    for _ in 0..4 {
+    loop {
         let mut changed = false;
         for (id, def) in hir.defs.iter() {
             if hir.modules[def.module].is_std {
@@ -564,6 +672,14 @@ pub(crate) fn store_summaries(
                     _ => None,
                 })
                 .collect();
+            // each parameter with the locals derived from it in the body
+            let derived: Vec<Vec<LocalId>> = params
+                .iter()
+                .map(|p| match p {
+                    Some(p) => derived_from(hir, body, &[*p]),
+                    None => vec![],
+                })
+                .collect();
             let mut found: Vec<(usize, usize)> = vec![];
             crate::program::walk_exprs(hir, body, &mut |e| {
                 // (stored values, target place)
@@ -576,29 +692,24 @@ pub(crate) fn store_summaries(
                             pairs.push((*a, *recv));
                         }
                     }
-                    ExprKind::Call { callee, args } => {
-                        if let ExprKind::Def { def: cd, .. } = &hir.exprs[*callee].kind
-                            && let Some(flows) = out.get(cd)
-                        {
-                            for (from, into) in flows {
-                                if let (Some(a), Some(b)) = (args.get(*from), args.get(*into)) {
-                                    pairs.push((*a, *b));
-                                }
-                            }
-                        }
-                    }
                     _ => {}
                 }
+                for (flows, args) in helper_calls(g, &out, e) {
+                    for (from, into) in flows {
+                        if let (Some(a), Some(b)) = (args.get(from), args.get(into)) {
+                            pairs.push((*a, *b));
+                        }
+                    }
+                }
                 for (val, place) in pairs {
-                    for (j, pj) in params.iter().enumerate() {
-                        let Some(pj) = pj else { continue };
-                        if !place_in(hir, place, &[*pj]) {
+                    for (j, dj) in derived.iter().enumerate() {
+                        if dj.is_empty() || !aliases(hir, place, dj) {
                             continue;
                         }
-                        for (i, pi) in params.iter().enumerate() {
-                            if let Some(pi) = pi
-                                && i != j
-                                && mentions(hir, val, *pi)
+                        for (i, di) in derived.iter().enumerate() {
+                            if i != j
+                                && !di.is_empty()
+                                && mentions_any(hir, val, di)
                                 && !found.contains(&(i, j))
                             {
                                 found.push((i, j));

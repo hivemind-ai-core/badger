@@ -1,0 +1,14 @@
+// expect-error: E0401
+// A helper storing an alias of its argument stores the argument.
+import std.io
+import std.task
+fn st(a: Cell<List<fn() -> Unit>>, v: fn() -> Unit) -> Unit { let w = v
+    a.set([w]) }
+pub fn main() -> Result<Unit, io.Error> {
+    let e: List<fn() -> Unit> = []
+    let stash = Cell.new(e)
+    let r: Result<Unit, io.Error> = task.scope(fn(s) { st(stash, fn() { let t = s.spawn(fn() { let _ = io.println("ORPHAN") }); t.join() }); ok(()) })
+    r?
+    for f in stash.get() { f() }
+    io.println("end")
+}

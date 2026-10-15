@@ -1,0 +1,18 @@
+// expect-error: E0401
+// A storing helper method.
+import std.io
+import std.task
+pub struct Stash { pub c: Cell<List<fn() -> Unit>> }
+impl Stash {
+    pub fn keep<S>(self: &Self, s: task.TaskScope<S>) -> Unit {
+        self.c.set([fn() { let t = s.spawn(fn() { let _ = io.println("ORPHAN") }); t.join() }])
+    }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let e: List<fn() -> Unit> = []
+    let stash: Stash = { c: Cell.new(e) }
+    let r: Result<Unit, io.Error> = task.scope(fn(s) { stash.keep(s); ok(()) })
+    r?
+    for f in stash.c.get() { f() }
+    io.println("end")
+}
