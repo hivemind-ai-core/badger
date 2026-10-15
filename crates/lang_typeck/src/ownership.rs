@@ -683,7 +683,7 @@ impl Own<'_, '_, '_> {
                 if Some(*d) != hir.try_lang("task.Task") || args.len() != 2 {
                     continue;
                 }
-                let r = self.inf.icx.resolve(&args[1]);
+                let r = self.result_of_task(&args[1]);
                 if matches!(&*r, TyKind::Con(rd, _) if *rd == self.inf.g.env.b.result) {
                     let span = hir.pats[*pat].span;
                     let name = self.name(*l);
@@ -704,6 +704,18 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// A task's result type, looking through a captured task's `Exit<T>`.
+    fn result_of_task(&mut self, t: &Ty) -> Ty {
+        let r = self.inf.icx.resolve(t);
+        if let TyKind::Con(xd, xa) = &*r
+            && Some(*xd) == self.inf.g.hir.try_lang("task.Exit")
+            && let Some(inner) = xa.first()
+        {
+            return self.inf.icx.resolve(inner);
+        }
+        r
+    }
+
     /// Whether a type holds a task whose result is a `Result`.
     fn holds_fallible_task(&mut self, t: &Ty, depth: usize) -> bool {
         if depth > 6 {
@@ -713,7 +725,7 @@ impl Own<'_, '_, '_> {
         let hir = self.inf.g.hir;
         match &*t {
             TyKind::Con(d, args) if Some(*d) == hir.try_lang("task.Task") && args.len() == 2 => {
-                let r = self.inf.icx.resolve(&args[1]);
+                let r = self.result_of_task(&args[1]);
                 matches!(&*r, TyKind::Con(rd, _) if *rd == self.inf.g.env.b.result)
             }
             TyKind::Con(_, args) | TyKind::Tuple(args) => {

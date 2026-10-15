@@ -1019,7 +1019,14 @@ impl Infer<'_, '_> {
                     TyKind::Con(d, args)
                         if Some(*d) == self.g.hir.try_lang("task.Task") && args.len() == 2 =>
                     {
-                        let r = self.deref(&args[1]);
+                        let mut r = self.deref(&args[1]);
+                        // a captured task's `Exit<T>` still carries `T`
+                        if let TyKind::Con(xd, xa) = &*r.clone()
+                            && Some(*xd) == self.g.hir.try_lang("task.Exit")
+                            && let Some(inner) = xa.first()
+                        {
+                            r = self.deref(inner);
+                        }
                         match &*r {
                             TyKind::Var(_) if !final_ => Step::Pending,
                             TyKind::Con(rd, _) if *rd == self.b().result => {
