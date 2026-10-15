@@ -138,6 +138,10 @@ pub struct Infer<'g, 'a> {
     /// Callbacks that introduced region brands (`for<S>` arguments) and
     /// their region skolems, for the escape analysis in `regions`.
     pub region_lambdas: Vec<(ExprId, Vec<u32>)>,
+    /// Open tails of the function types in a declared result: a returned
+    /// closure may be task-confined (`%confined`), which the declared
+    /// scheme then records; any other capture mark is an error.
+    pub result_marks: Vec<(Ty, Span)>,
     /// Provider initializers (`fn(InitScope, C)`): their scope and
     /// configuration (with dependency outputs) belong to the running system.
     pub init_lambdas: Vec<ExprId>,
@@ -186,6 +190,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             displays: FxHashMap::default(),
             coercions: FxHashMap::default(),
             region_lambdas: vec![],
+            result_marks: vec![],
             init_lambdas: vec![],
             param_derived: Default::default(),
             implied_caps: vec![],

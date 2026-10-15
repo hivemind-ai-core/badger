@@ -1,5 +1,5 @@
-// expect-error: E0501
-// A closure capturing a Cell cannot be returned as a declared fn type.
+// expect-error: E0402
+// A closure over a Cell returned as a declared fn type stays out of other tasks.
 import std.io
 import std.task
 fn make_counter() -> fn() -> Int {

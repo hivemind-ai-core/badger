@@ -1,0 +1,14 @@
+// expect-error: E0402
+// Confinement passes through functions returning another's result.
+import std.io
+import std.task
+fn via() -> fn() -> Int { counter() }
+fn counter() -> fn() -> Int {
+    let c = Cell.new(0)
+    fn() -> Int { c.set(c.get() + 1); c.get() }
+}
+pub fn main() -> Unit {
+    let f = via()
+    let r: Result<Int, String> = task.scope(fn(s) { ok(s.spawn(fn() { f() }).join()) })
+    let _ = io.println($"{r.unwrap_or(0)}")
+}

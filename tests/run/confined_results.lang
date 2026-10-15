@@ -1,0 +1,23 @@
+// A declared function may return closures over a task-confined cell.
+import std.io
+import std.task
+pub fn main() -> Unit {
+    let f = adder(2)
+    let g = pair()
+    let one = g.0
+    let r: Result<Int, String> = task.scope(fn(s) {
+        let t = s.spawn(fn() { f(1) + one() })
+        ok(t.join())
+    })
+    let local = g.1
+    let _ = io.println($"{r.unwrap_or(0)} {local()} {(counter())()}")
+}
+pub fn adder(n: Int) -> fn(Int) -> Int { fn(x: Int) -> Int { x + n } }
+pub fn pair() -> (fn() -> Int, fn() -> Int) {
+    let c = Cell.new(5)
+    (fn() -> Int { 1 }, fn() -> Int { c.get() })
+}
+pub fn counter() -> fn() -> Int {
+    let c = Cell.new(0)
+    fn() -> Int { c.set(c.get() + 1); c.get() }
+}

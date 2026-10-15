@@ -355,8 +355,13 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         };
         collect_def_refs(hir, body, &mut refs);
         for r in refs {
-            // edges to declared functions do not constrain inference order
-            if declared.contains(&r) && !matches!(hir.defs[r].kind, DefKind::Global(_)) {
+            // edges to declared functions do not constrain inference order,
+            // except that a function returned by one may turn out to be
+            // task-confined (recorded in its scheme when its body is checked)
+            if declared.contains(&r)
+                && !matches!(hir.defs[r].kind, DefKind::Global(_))
+                && !g.schemes.get(&r).is_some_and(|s| returns_fn(&s.ty))
+            {
                 continue;
             }
             if let Some(&n) = nodes.get(&r) {
@@ -818,6 +823,82 @@ pub(crate) fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<
 }
 
 /// Open effect-row variables of the function types inside `t`.
+/// Give each closed effect row of a function in output position of a
+/// declared result an open tail, recorded for closing after inference.
+fn open_result_rows(inf: &mut Infer<'_, '_>, t: &Ty, span: Span) -> Ty {
+    let t = inf.icx.resolve(t);
+    match &*t {
+        TyKind::Fn(f) => {
+            let (fs, tail) = row_fields(&inf.icx.resolve(&f.eff));
+            let eff = if matches!(&*tail, TyKind::RowEmpty) {
+                let tail = inf.icx.fresh_row();
+                inf.result_marks.push((tail.clone(), span));
+                row(fs, tail)
+            } else {
+                f.eff.clone()
+            };
+            let ret = open_result_rows(inf, &f.ret, span);
+            mk(TyKind::Fn(FnTy { params: f.params.clone(), ret, eff, once: f.once }))
+        }
+        TyKind::Tuple(xs) => mk(TyKind::Tuple(xs.iter().map(|x| open_result_rows(inf, x, span)).collect())),
+        TyKind::Con(d, xs) => {
+            mk(TyKind::Con(*d, xs.iter().map(|x| open_result_rows(inf, x, span)).collect()))
+        }
+        TyKind::Record(r) => {
+            let (fs, tail) = row_fields(r);
+            let fs: Vec<(Symbol, Ty)> =
+                fs.into_iter().map(|(l, x)| (l, open_result_rows(inf, &x, span))).collect();
+            mk(TyKind::Record(row(fs, tail)))
+        }
+        _ => t.clone(),
+    }
+}
+
+/// Whether a function type's result holds a function.
+fn returns_fn(t: &Ty) -> bool {
+    match &**t {
+        TyKind::Fn(f) => ty_any(&f.ret, &mut |k| matches!(k, TyKind::Fn(_))),
+        _ => false,
+    }
+}
+
+/// The declared result `decl` with the task-confinement marks the body's
+/// inferred result `inferred` carries on its functions.
+fn add_confined(decl: &Ty, inferred: &Ty, conf: Symbol) -> Ty {
+    match (&**decl, &**inferred) {
+        (TyKind::Fn(a), TyKind::Fn(b)) => {
+            let has = |r: &Ty| row_fields(r).0.iter().any(|(l, _)| *l == conf);
+            let eff = if has(&b.eff) && !has(&a.eff) {
+                let (fs, tail) = row_fields(&a.eff);
+                row(fs.into_iter().chain([(conf, unit())]), tail)
+            } else {
+                a.eff.clone()
+            };
+            let ret = add_confined(&a.ret, &b.ret, conf);
+            mk(TyKind::Fn(FnTy { params: a.params.clone(), ret, eff, once: a.once }))
+        }
+        (TyKind::Tuple(xs), TyKind::Tuple(ys)) if xs.len() == ys.len() => {
+            mk(TyKind::Tuple(xs.iter().zip(ys).map(|(x, y)| add_confined(x, y, conf)).collect()))
+        }
+        (TyKind::Con(d, xs), TyKind::Con(e, ys)) if d == e && xs.len() == ys.len() => {
+            mk(TyKind::Con(*d, xs.iter().zip(ys).map(|(x, y)| add_confined(x, y, conf)).collect()))
+        }
+        (TyKind::Record(r), TyKind::Record(s)) => {
+            let (fs, tail) = row_fields(r);
+            let (gs, _) = row_fields(s);
+            let fs: Vec<(Symbol, Ty)> = fs
+                .into_iter()
+                .map(|(l, t)| match gs.iter().find(|(m, _)| *m == l) {
+                    Some((_, u)) => (l, add_confined(&t, u, conf)),
+                    None => (l, t),
+                })
+                .collect();
+            mk(TyKind::Record(row(fs, tail)))
+        }
+        _ => decl.clone(),
+    }
+}
+
 fn effect_tails(t: &Ty, out: &mut Vec<TyVid>) {
     match &**t {
         TyKind::Fn(f) => {
@@ -1312,6 +1393,17 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
     inf.solve_some();
     inf.default_err_convs();
     inf.solve_some();
+    // a declared result's functions: task-confined or nothing else
+    let conf = inf.intern_existing("%confined");
+    for (tail, span) in std::mem::take(&mut inf.result_marks) {
+        let t = inf.icx.resolve(&tail);
+        let confined = conf.is_some_and(|c| row_fields(&t).0.iter().any(|(l, _)| *l == c));
+        let closed = match conf {
+            Some(c) if confined => row([(c, unit())], row_empty()),
+            _ => row_empty(),
+        };
+        inf.expect(span, &closed, &t);
+    }
     let visible: Vec<Ty> =
         def_tys.iter().map(|(_, t, _)| t.clone()).chain(inf.mono.values().cloned()).collect();
     inf.solve_internal(&visible);
@@ -1458,6 +1550,15 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
                     once: false,
                 }));
             }
+            // functions the body returns task-confined stay so for callers
+            if let (TyKind::Fn(decl), TyKind::Fn(inferred)) = (&*s.ty, &*gty)
+                && let Some(c) = inf.intern_existing("%confined")
+            {
+                let ret = add_confined(&decl.ret, &inferred.ret, c);
+                if ret != decl.ret {
+                    s.ty = mk(TyKind::Fn(FnTy { ret, ..decl.clone() }));
+                }
+            }
             s
         } else {
             if matches!(hir.defs[d].kind, DefKind::Global(_)) && n > 0 {
@@ -1557,7 +1658,7 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
                     None => inf.icx.fresh(),
                 })
                 .collect();
-            let ret = match &f.ret {
+            let mut ret = match &f.ret {
                 Some(t) => inf.hty(t),
                 None => inf.icx.fresh(),
             };
@@ -1578,6 +1679,13 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
                         let _ = inf.icx.unify(&mk(TyKind::Var(v)), &any);
                     }
                 }
+            }
+            // the result's functions may be task-confined closures (the
+            // declared scheme records it for callers)
+            if f.ret.is_some() && !hir.modules[hir.defs[d].module].is_std {
+                let span = f.ret.as_ref().map(|t| t.span).unwrap_or(hir.defs[d].span);
+                let r = inf.icx.resolve(&ret);
+                ret = open_result_rows(inf, &r, span);
             }
             let bound = f.effect.as_ref().map(|e| inf.effect_bound(e));
             let eff = match f.body {

@@ -1,0 +1,16 @@
+// expect-error: E0402
+// A closure a declared function returns over a cell stays task-confined.
+import std.io
+import std.task
+pub fn main() -> Unit {
+    let f = counter()
+    let r: Result<Int, String> = task.scope(fn(s) {
+        let t = s.spawn(fn() { f() })
+        ok(t.join())
+    })
+    let _ = io.println($"{r.unwrap_or(0)}")
+}
+pub fn counter() -> fn() -> Int {
+    let c = Cell.new(0)
+    fn() -> Int { c.set(c.get() + 1); c.get() }
+}

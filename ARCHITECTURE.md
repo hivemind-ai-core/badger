@@ -126,7 +126,12 @@ error. `lang_cli` is the `lang` binary.
   a value stores rather than by function signatures (E0138; a local REPL
   session's bindings are exempt). Values coerced to `dyn` must be
   `Share` (a `dyn` value is copied freely and may cross tasks), and
-  task-confined cells are found through struct and enum fields. Generic
+  task-confined cells are found through struct and enum fields. A
+  declared function may return closures over a cell (at its result's
+  function types); the body's inferred confinement is recorded in its
+  scheme, so callers cannot send them to another task (E0402). Function
+  types in struct fields, payloads, and aliases stay transferable and so
+  cannot hold such closures (E0501). Generic
   bodies record the capabilities they need of their type parameters
   (`Transfer` for values sent to a task, `Share` for `dyn` coercions); every
   instantiation is held to them after checking, and requirements reaching a
