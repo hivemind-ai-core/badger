@@ -1944,6 +1944,10 @@ impl Infer<'_, '_> {
                 .with_code("E0402")
                 .with_label(span, "task-confined value crosses a task boundary")
                 .with_note("`Cell`, transactions, and closures capturing them are confined to their owning task"),
+            "Share" => Diagnostic::error(format!("`{ts}` does not implement `Share`"))
+                .with_code("E0341")
+                .with_label(span, "this value would be copied or shared")
+                .with_note("shareable values can be copied and used by several tasks; affine values (buffers, builders, leases, `once` closures) and task-confined cells cannot (a `dyn` value, plain `select` sends, and module-wide sharing require `Share`)"),
             "Unscoped" => Diagnostic::error(format!("`{ts}` may carry a scoped resource"))
                 .with_code("E0411")
                 .with_label(span, "this value may outlive the scope its resource belongs to")

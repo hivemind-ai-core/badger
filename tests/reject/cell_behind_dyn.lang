@@ -1,5 +1,5 @@
-// expect-error: E0402
-// A dyn value may cross tasks: confined state cannot hide in one.
+// expect-error: E0341
+// A dyn value is copied freely and may cross tasks: confined state cannot hide in one.
 import std.task
 import std.io
 struct Holder { c: Cell<Int> }

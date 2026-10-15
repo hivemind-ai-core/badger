@@ -119,7 +119,7 @@ error. `lang_cli` is the `lang` binary.
   resources (channel endpoints, pools, transactions, tasks), judged by what
   a value stores rather than by function signatures (E0138; a local REPL
   session's bindings are exempt). Values coerced to `dyn` must be
-  `Transfer`, and task-confined cells are found through struct and enum
+  `Share` (a `dyn` value is copied freely and may cross tasks), and task-confined cells are found through struct and enum
   fields. The compiler capability `Unscoped` (no region-parameterized value
   inside) is required of provider errors. A scoped value stored into an
   outer cell, atom, collection, or `var` escapes its callback (E0401).

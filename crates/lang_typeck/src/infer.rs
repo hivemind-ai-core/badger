@@ -569,10 +569,13 @@ impl<'g, 'a> Infer<'g, 'a> {
             span,
             expr: None,
         });
-        // a `dyn` value may cross tasks: task-confined state cannot hide in one
-        if let Some(transfer) = self.g.hir.try_lang("Transfer") {
+        // a `dyn` value is copied freely and may cross tasks: affine or
+        // task-confined values cannot hide in one (a type parameter is held
+        // to `Transfer`; its instances are checked where they are concrete)
+        let generic = ty_any(&act, &mut |k| matches!(k, TyKind::Skolem(_)));
+        if let Some(share) = self.g.hir.try_lang(if generic { "Transfer" } else { "Share" }) {
             self.pending.push(Constraint::Impl {
-                proto: transfer,
+                proto: share,
                 args: vec![],
                 ty: act.clone(),
                 span,

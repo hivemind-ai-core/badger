@@ -1,0 +1,16 @@
+// expect-error: E0341
+// A dyn value can be copied, so an affine value cannot become one.
+import std.io
+import std.buffer
+protocol Ping { fn ping(self: &Self) -> Int }
+struct Bh { b: Buffer<Int> }
+impl Ping for Bh { fn ping(self: &Self) -> Int { self.b.len() } }
+fn twice(d: dyn Ping) -> (dyn Ping, dyn Ping) { (d, d) }
+pub fn main() -> Result<Unit, io.Error> {
+    let bh: Bh = { b: buffer.new<Int>() }
+    let e: dyn Ping = bh
+    let f = e
+    io.println(e.ping())?
+    io.println(f.ping())?
+    ok(())
+}
