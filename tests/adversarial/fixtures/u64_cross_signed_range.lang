@@ -1,0 +1,12 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    var n = 0
+    for x in 9223372036854775806U64..=9223372036854775809U64 {
+        io.println(x)?
+        n = n + 1
+        if n > 5 { break }
+    }
+    io.println(n)?
+    ok(())
+}

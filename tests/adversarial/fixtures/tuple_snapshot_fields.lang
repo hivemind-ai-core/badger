@@ -1,0 +1,8 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    var x: Int = 1
+    let xs = (x, { x = 2; x })
+    io.println($"{xs.0} {xs.1}")?
+    ok(())
+}

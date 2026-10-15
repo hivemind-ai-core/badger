@@ -1,0 +1,10 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a = map { 1 => 2 }
+    let b = map { 1 => 2 }
+    let m = map { a => 7 }
+    io.println(a == b)?
+    io.println(m.get(b).unwrap_or(-1))?
+    ok(())
+}

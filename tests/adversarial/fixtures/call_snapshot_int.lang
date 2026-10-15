@@ -1,0 +1,7 @@
+import std.io
+fn pair(a: Int, b: Int) -> Int { a * 10 + b }
+pub fn main() -> Result<Unit, io.Error> {
+    var x: Int = 1
+    io.println(pair(x, { x = 2; x }))?
+    ok(())
+}

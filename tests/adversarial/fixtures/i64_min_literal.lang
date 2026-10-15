@@ -1,0 +1,7 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x: I64 = -9223372036854775808
+    io.println(x)?
+    ok(())
+}

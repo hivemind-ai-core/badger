@@ -1,0 +1,6 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(U64.try_from(18446744073709551616.0).is_err())?
+    ok(())
+}

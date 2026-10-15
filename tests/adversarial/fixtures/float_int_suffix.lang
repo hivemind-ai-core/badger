@@ -1,0 +1,7 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x = 1.75I32
+    io.println(x)?
+    ok(())
+}

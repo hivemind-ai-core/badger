@@ -1,0 +1,12 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 0.0 / 0.0
+    let a = { x: n }
+    let b = Option.some(n)
+    io.println(n == n)?
+    io.println(a == a)?
+    io.println(b == b)?
+    io.println([n] == [n])?
+    ok(())
+}

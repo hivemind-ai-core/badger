@@ -1,0 +1,8 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a: Array<Int> = [1, 2]
+    let b: Array<Int> = [1, 2]
+    io.println(a == b)?
+    ok(())
+}

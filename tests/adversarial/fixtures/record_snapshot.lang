@@ -1,0 +1,8 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    var x = 1
+    let r = { a: x, b: { x = 2; x } }
+    io.println($"{r.a} {r.b}")?
+    ok(())
+}

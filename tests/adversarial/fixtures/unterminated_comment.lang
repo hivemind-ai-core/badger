@@ -1,0 +1,2 @@
+pub fn main() -> Unit { () }
+/* comment never ends

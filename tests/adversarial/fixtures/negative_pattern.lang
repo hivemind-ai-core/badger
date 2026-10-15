@@ -1,0 +1,8 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x: I8 = -1
+    let r = match x { -1 => 7, _ => 9 }
+    io.println(r)?
+    ok(())
+}

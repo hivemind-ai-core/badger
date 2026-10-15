@@ -1,0 +1,7 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x: I8 = -128
+    io.println(x)?
+    ok(())
+}

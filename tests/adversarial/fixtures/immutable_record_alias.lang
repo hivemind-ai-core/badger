@@ -1,0 +1,10 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    var r = { a: 1, nested: { b: 2 } }
+    let old = r
+    r.a = 7
+    r.nested.b = 9
+    io.println($"{old.a} {old.nested.b} {r.a} {r.nested.b}")?
+    ok(())
+}

@@ -1,10 +1,12 @@
 # Adversarial testing report — 2026-10-15
 
-Seven confirmed defects remain in the language implementation. This report is
+Seven defects were confirmed in the language implementation. This report was
 the fixer handoff: it describes broken contracts and required outcomes, without
 test sources, reproducer inputs, fixture names, discovery procedures, or proposed
-patches. The independent regression suite is retained outside main for rerunning
-after fixes. No implementation changes are part of this report.
+patches. The independent regression suite was held outside main until fix
+verification and is now [published with its runner](../tests/adversarial/README.md).
+The findings below describe the original failing revision. No implementation
+changes are part of this report.
 
 ## Revision and verification
 
@@ -134,7 +136,16 @@ Contracts: [types — protocols and schemas](../spec/02-types-and-records.md#pro
 
 ## Fix verification
 
-Address the contracts above without relying on the retained fixtures. Rerun the
-existing workspace suite, then return the implementation revision for the
-independent regression rerun. Fixes should satisfy the general contracts across
-equivalent source forms and supported execution settings.
+The retained cases confirm the fixes for all seven findings on `b8f36f6`, across
+one worker, four workers, and optimized JIT compilation. The original frozen
+suite passed 74/75 checks: its remaining assertion incorrectly required E0002
+for an unterminated comment, whereas the compiler correctly reported syntax
+diagnostic E0001 and refused execution. The published suite corrects that
+expectation and includes the same 12 regression cases and 17 controls in
+`cargo test --workspace`. All 75 published checks and the repository formatting
+check pass. Runtime output expectations are unchanged. The suite documentation
+also records a separate formatter limitation discovered during publication.
+
+The independent rerun covered these retained cases; the full existing workspace
+suite was not repeated during fix verification. Fixes should satisfy the general
+contracts across equivalent source forms and supported execution settings.

@@ -1,0 +1,7 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    var x: Int = 1
+    io.println(x.max({ x = 9; 0 }))?
+    ok(())
+}

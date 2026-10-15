@@ -1,0 +1,7 @@
+import std.io
+import std.codec
+pub fn main() -> Result<Unit, io.Error> {
+    let x: Array<Int> = [1, 2]
+    io.println(codec.encode_text(x))?
+    ok(())
+}

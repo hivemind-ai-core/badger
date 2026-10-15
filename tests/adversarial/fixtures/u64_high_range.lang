@@ -1,0 +1,6 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    for x in 18446744073709551614U64..=18446744073709551615U64 { io.println(x)? }
+    ok(())
+}

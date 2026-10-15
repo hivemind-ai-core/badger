@@ -1,0 +1,10 @@
+import std.io
+import std.buffer
+fn consume(value: { child: { child: Buffer<Int> } }) -> Unit { let _ = buffer.freeze(value.child.child) }
+pub fn main() -> Result<Unit, io.Error> {
+    let b = buffer.new<Int>()
+    let wrapped = { child: { child: b } }
+    consume(wrapped)
+    consume(wrapped)
+    ok(())
+}
