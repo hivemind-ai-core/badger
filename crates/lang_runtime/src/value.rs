@@ -298,7 +298,7 @@ pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
             // the hook is compiled code: it runs outside the runtime lock
             crate::task::leave_runtime();
             let r = f(ctx, 0, &w);
-            crate::task::enter_runtime();
+            crate::task::enter_runtime_holding(r);
             r
         };
         return str_of(s).to_string();

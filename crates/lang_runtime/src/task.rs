@@ -372,6 +372,10 @@ static IN_COMPILED: AtomicIsize = AtomicIsize::new(0);
 static STOP: AtomicBool = AtomicBool::new(false);
 /// Task context each worker is running (budget forcing for collections).
 static RUNNING_CTX: [AtomicPtr<TaskCtx>; 64] = [const { AtomicPtr::new(std::ptr::null_mut()) }; 64];
+/// A managed pointer compiled code just returned to runtime code, per
+/// worker: rooted while the worker waits for the runtime lock, when a
+/// collection on another worker may run.
+static RETURNED: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
 /// Bumped on every wake so idle workers do not miss new work.
 static READY_SEQ: AtomicU64 = AtomicU64::new(0);
 static IDLE: AtomicUsize = AtomicUsize::new(0);
@@ -416,6 +420,19 @@ pub fn enter_runtime() {
     }
 }
 
+/// [`enter_runtime`] after compiled code returned the managed pointer `w`:
+/// it stays rooted until the runtime lock is held (the caller must root it
+/// before allocating or releasing the lock).
+pub fn enter_runtime_holding(w: u64) {
+    if multi() {
+        // the task may have moved to another worker while it ran
+        let slot = &RETURNED[worker_index()];
+        slot.store(w, Ordering::SeqCst);
+        lang_rt_enter(std::ptr::null_mut());
+        slot.store(0, Ordering::SeqCst);
+    }
+}
+
 /// Stop the world for a collection (called under the runtime lock): every
 /// other worker is idle, waiting for the lock, or reaches a safe point soon
 /// because its running task's budget is forced to zero.
@@ -453,6 +470,12 @@ pub fn current_id() -> TaskId {
 
 /// Visit every task-held root: shadow stacks, entries, results, runtime roots.
 pub fn for_each_root(f: &mut dyn FnMut(u64)) {
+    for slot in &RETURNED {
+        let w = slot.load(Ordering::SeqCst);
+        if w != 0 {
+            f(w);
+        }
+    }
     let Some(r) = (unsafe { (*RT.0.get()).as_ref() }) else { return };
     for t in r.tasks.values() {
         f(t.entry);
@@ -583,7 +606,7 @@ fn make_coroutine(id: TaskId, body: Body) -> Co {
             Body::Entry => {
                 let ctx: *mut TaskCtx = &mut *t.ctx;
                 let args: Vec<u64> = t.entry_args.iter().map(|a| a.0).collect();
-                let r = unsafe { crate::call_closure(ctx, t.entry, &args) };
+                let r = unsafe { crate::call_closure_returning(ctx, t.entry, &args, t.result_is_ptr) };
                 let t = task(id).unwrap();
                 t.exit = Some(Exit::Returned(r));
             }

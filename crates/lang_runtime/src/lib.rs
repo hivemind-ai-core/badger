@@ -60,6 +60,15 @@ pub const CLOSURE_CAPTURES: usize = 16;
 /// # Safety
 /// `closure` must be a live closure object whose signature matches `args`.
 pub unsafe fn call_closure(ctx: *mut TaskCtx, closure: u64, args: &[u64]) -> u64 {
+    unsafe { call_closure_returning(ctx, closure, args, false) }
+}
+
+/// [`call_closure`] whose result is a managed pointer when `ptr_result`:
+/// it stays rooted while this worker waits to re-enter the runtime.
+///
+/// # Safety
+/// As [`call_closure`].
+pub unsafe fn call_closure_returning(ctx: *mut TaskCtx, closure: u64, args: &[u64], ptr_result: bool) -> u64 {
     unsafe {
         let p = gc::obj(closure).payload();
         let adapter = *(p.add(CLOSURE_ADAPTER) as *const usize);
@@ -67,7 +76,11 @@ pub unsafe fn call_closure(ctx: *mut TaskCtx, closure: u64, args: &[u64]) -> u64
         // compiled code runs outside the runtime lock (several workers)
         task::leave_runtime();
         let r = f(ctx, closure, args.as_ptr());
-        task::enter_runtime();
+        if ptr_result && r != 0 {
+            task::enter_runtime_holding(r);
+        } else {
+            task::enter_runtime();
+        }
         r
     }
 }

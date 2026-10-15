@@ -1,0 +1,19 @@
+// Joined pointer results survive collections running on other workers.
+import std.io
+import std.task
+fn one(i: Int) -> Int {
+    let outcome: Result<List<Int>, String> = task.scope(fn(s) {
+        let t = s.spawn(fn() { [i] })
+        ok(t.join())
+    })
+    match outcome { .ok(v) => v.len() - 1, .err(m) => 1000000 }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let r: Result<Int, String> = task.scope(fn(s) {
+        let ts = (0..8).map(fn(k) { s.spawn(fn() { var n = 0
+            for i in 0..4000 { n = n + one(i) }
+            n }) }).collect()
+        ok(ts.map(fn(t) { t.join() }).fold(0, fn(a, b) { a + b }))
+    })
+    io.println($"bad results: {r.unwrap_or(-1)}")
+}
