@@ -2461,6 +2461,20 @@ impl Own<'_, '_, '_> {
                                         if holds_ref {
                                             self.carried_call_borrows(*init, &mut extra);
                                         }
+                                        // a view (a sequence or closure) read from an affine
+                                        // value (`batch.items()`) borrows it while it lives
+                                        if let ExprKind::MethodCall { recv, .. } = &hir.exprs[*init].kind
+                                            && let Some(root) = self.place_root(*recv)
+                                            && self.is_affine(root)
+                                            && self
+                                                .inf
+                                                .exprs
+                                                .get(init)
+                                                .cloned()
+                                                .is_some_and(|t| self.holds_fn(&t, 0))
+                                        {
+                                            extra.push((root, false, hir.exprs[*init].span));
+                                        }
                                     }
                                     _ => {}
                                 }
