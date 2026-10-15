@@ -80,8 +80,13 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             o.push_str(&(w & m).to_string())
         }
         Kind::Int { .. } => o.push_str(&crate::value::as_i64(d, w).to_string()),
-        Kind::Float { .. } => {
-            let f = crate::value::as_f64(d, w);
+        Kind::Float { bits } => {
+            // an F32 encodes its own shortest digits, not the widened ones
+            let f = if *bits == 32 {
+                f32::from_bits(w as u32).to_string().parse::<f64>().unwrap_or(f64::NAN)
+            } else {
+                crate::value::as_f64(d, w)
+            };
             if f.is_finite() {
                 o.push_str(&serde_json::Number::from_f64(f).map(|n| n.to_string()).unwrap_or("null".into()))
             } else {

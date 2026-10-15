@@ -1,0 +1,12 @@
+// An F32 prints (and encodes) its own shortest digits.
+import std.io
+import std.codec
+
+pub fn main() -> Result<Unit, io.Error> {
+    let x: F32 = 0.1
+    io.println(x)?
+    io.println($"{1e-3F32} {2.5F32} {3.0F32}")?
+    let r: { v: F32 } = { v: 0.1 }
+    io.println(codec.encode_text(r))?
+    ok(())
+}

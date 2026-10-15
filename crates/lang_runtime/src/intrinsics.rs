@@ -88,7 +88,7 @@ intrinsics! {
         new_string(&s)
     }
     fn float_to_string(ctx, targs, ret, v) {
-        new_string(&value::fmt_float(value::as_f64(targ(targs, 0), v)))
+        new_string(&value::fmt_float_of(targ(targs, 0), v))
     }
     fn char_to_string(ctx, targs, ret, v) {
         new_string(&char::from_u32(v as u32).map(|c| c.to_string()).unwrap_or_default())

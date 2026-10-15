@@ -165,6 +165,18 @@ pub fn fmt_float(f: f64) -> String {
     if f.is_finite() && f == f.trunc() && f.abs() < 1e16 { format!("{f:.1}") } else { format!("{f}") }
 }
 
+/// A float of its own width: an `F32` prints its shortest `F32` digits
+/// (`0.1`, not the widened `0.10000000149011612`).
+pub fn fmt_float_of(d: &TypeDesc, w: u64) -> String {
+    match &d.kind {
+        Kind::Float { bits: 32 } => {
+            let f = f32::from_bits(w as u32);
+            if f.is_finite() && f == f.trunc() && f.abs() < 1e7 { format!("{f:.1}") } else { format!("{f}") }
+        }
+        _ => fmt_float(as_f64(d, w)),
+    }
+}
+
 pub fn fmt_duration(nanos: i64) -> String {
     let n = nanos.unsigned_abs();
     let sign = if nanos < 0 { "-" } else { "" };
@@ -221,7 +233,7 @@ pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
         }
         Kind::Int { signed: false, .. } => (w & mask(d)).to_string(),
         Kind::Int { .. } => as_i64(d, w).to_string(),
-        Kind::Float { .. } => fmt_float(as_f64(d, w)),
+        Kind::Float { .. } => fmt_float_of(d, w),
         Kind::Char => char::from_u32(w as u32)
             .map(|c| if top { c.to_string() } else { format!("{c:?}") })
             .unwrap_or_default(),
