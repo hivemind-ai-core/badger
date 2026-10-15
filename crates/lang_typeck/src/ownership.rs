@@ -1122,6 +1122,33 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// A closure passed where the callee requires `Transfer` (it runs in
+    /// another task: `spawn`, `capture`, `timeout`) takes its affine
+    /// captures by move, never by borrow.
+    fn moves_into_task(&mut self, def: Option<DefId>, i: usize, arg: ExprId, span: Span, st: &mut State) {
+        let Some(def) = def else { return };
+        let hir = self.inf.g.hir;
+        if !matches!(hir.exprs[arg].kind, ExprKind::Lambda(_)) {
+            return;
+        }
+        let Some(scheme) = self.inf.g.scheme(def) else { return };
+        let TyKind::Fn(f) = &*scheme.ty else { return };
+        let Some(pt) = f.params.get(i) else { return };
+        let transfer = hir.try_lang("Transfer");
+        let required = scheme.constraints.iter().any(|c| {
+            matches!(c, crate::solve::Constraint::Impl { proto, ty, .. } if Some(*proto) == transfer && ty == pt)
+        });
+        if !required {
+            return;
+        }
+        for c in self.lambda_borrows.get(&arg).cloned().unwrap_or_default() {
+            if self.is_affine(c) {
+                self.use_local(c, span, Mode::Move, st);
+            }
+        }
+        self.lambda_borrows.remove(&arg);
+    }
+
     /// The local a place expression (`r.f`, `fs[0]`) is rooted in.
     fn place_root(&self, mut e: ExprId) -> Option<LocalId> {
         let hir = self.inf.g.hir;
@@ -1836,6 +1863,10 @@ impl Own<'_, '_, '_> {
                 {
                     self.use_local(root, span, Mode::Move, st);
                 }
+                let callee_def = match &hir.exprs[*callee].kind {
+                    ExprKind::Def { def, .. } => Some(*def),
+                    _ => None,
+                };
                 for (i, a) in args.iter().enumerate() {
                     let p = modes.get(i).copied();
                     if p == Some(Param::Exclusive) {
@@ -1844,6 +1875,7 @@ impl Own<'_, '_, '_> {
                     self.check_explicit_borrow(*a, p);
                     d |= self.expr(*a, Self::mode_of(p), st);
                     self.check_repeatable(*a, p);
+                    self.moves_into_task(callee_def, i, *a, span, st);
                 }
                 d
             }
@@ -1897,10 +1929,15 @@ impl Own<'_, '_, '_> {
                     rm = Mode::Move;
                 }
                 let mut d = self.expr(*recv, rm, st);
+                let callee_def = match self.inf.res.get(&e) {
+                    Some(Res::Method(Target::Fn { def, .. })) => Some(*def),
+                    _ => None,
+                };
                 for (i, a) in args.iter().enumerate() {
                     let p = modes.get(i + 1).copied();
                     d |= self.expr(*a, Self::mode_of(p), st);
                     self.check_repeatable(*a, p);
+                    self.moves_into_task(callee_def, i + 1, *a, span, st);
                 }
                 if let Some(root) = consumed_root {
                     self.use_local(root, span, Mode::Move, st);
