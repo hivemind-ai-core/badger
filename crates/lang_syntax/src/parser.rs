@@ -63,7 +63,13 @@ pub fn parse(
     interner: &mut Interner,
     diags: &mut Vec<Diagnostic>,
 ) -> Result<Ast, ParseError> {
-    let text = layout::layout(src);
+    let (text, unterminated) = layout::layout_checked(src);
+    if let Some(at) = unterminated {
+        return Err(ParseError {
+            message: "unterminated block comment".into(),
+            span: Span::new(file, at, at + 2),
+        });
+    }
     let mut pairs = LangParser::parse(Rule::program, &text).map_err(|e| {
         let (start, end) = match e.location {
             pest::error::InputLocation::Pos(p) => (p, p),

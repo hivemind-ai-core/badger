@@ -26,7 +26,13 @@ enum Tok {
 }
 
 pub fn layout(src: &str) -> String {
+    layout_checked(src).0
+}
+
+/// [`layout`], also returning where an unterminated block comment opens.
+pub fn layout_checked(src: &str) -> (String, Option<usize>) {
     let b = src.as_bytes();
+    let mut unterminated = None;
     let mut out = b.to_vec();
     let mut stack: Vec<u8> = Vec::new();
     let mut last_ends = false;
@@ -57,6 +63,7 @@ pub fn layout(src: &str) -> String {
             continue;
         }
         if c == b'/' && b.get(i + 1) == Some(&b'*') {
+            let open = i;
             let mut depth = 0usize;
             while i < b.len() {
                 if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
@@ -78,6 +85,9 @@ pub fn layout(src: &str) -> String {
                     }
                     i += 1;
                 }
+            }
+            if depth > 0 {
+                unterminated.get_or_insert(open);
             }
             continue;
         }
@@ -103,7 +113,7 @@ pub fn layout(src: &str) -> String {
         out[p] = NL;
     }
     // Comment bytes were replaced by ASCII spaces only; the result is UTF-8.
-    String::from_utf8(out).expect("layout preserves UTF-8")
+    (String::from_utf8(out).expect("layout preserves UTF-8"), unterminated)
 }
 
 fn is_ident(c: u8) -> bool {

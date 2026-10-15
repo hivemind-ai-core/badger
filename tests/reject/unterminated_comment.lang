@@ -1,0 +1,5 @@
+// expect-error: E0001
+// Every block comment must close, nested ones included.
+pub fn main() -> Unit {
+}
+/* opened /* nested */
