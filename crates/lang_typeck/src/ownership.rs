@@ -72,6 +72,8 @@ struct Own<'i, 'g, 'a> {
     reads: FxHashSet<LocalId>,
     /// Captures each closure borrows rather than moves.
     lambda_borrows: FxHashMap<ExprId, Vec<LocalId>>,
+    /// Locals bound directly to a closure expression.
+    local_lambdas: FxHashMap<LocalId, ExprId>,
     /// `Result` values bound or assigned and not read since.
     unread: FxHashMap<LocalId, Span>,
 }
@@ -109,6 +111,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         offending: vec![],
         reads: FxHashSet::default(),
         lambda_borrows: FxHashMap::default(),
+        local_lambdas: FxHashMap::default(),
         unread: FxHashMap::default(),
     };
     for p in params.clone() {
@@ -126,11 +129,42 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     let _ = param_pats;
 }
 
+/// Calls recorded before their generic callee was analysed.
+pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
+    let calls = std::mem::take(&mut *inf.g.dup_deferred.borrow_mut());
+    if calls.is_empty() {
+        return;
+    }
+    let mut o = Own {
+        inf,
+        affine: FxHashMap::default(),
+        reported: FxHashSet::default(),
+        consuming: FxHashSet::default(),
+        consuming_lambdas: FxHashMap::default(),
+        last_use: FxHashMap::default(),
+        loans: vec![],
+        params: FxHashSet::default(),
+        ret_ty: None,
+        carriers: FxHashMap::default(),
+        generic: false,
+        offending: vec![],
+        reads: FxHashSet::default(),
+        lambda_borrows: FxHashMap::default(),
+        local_lambdas: FxHashMap::default(),
+        unread: FxHashMap::default(),
+    };
+    for (def, args, span) in calls {
+        o.inf.g.dup_done.borrow_mut().insert(def);
+        o.check_dup(def, &args, span);
+    }
+}
+
 /// Which scheme parameters of generic `d` its body may duplicate: the body
 /// is re-checked with its type variables treated as affine, and the
 /// variables of every value it would then use twice are recorded.
 pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::Scheme) {
     let hir = inf.g.hir;
+    inf.g.dup_done.borrow_mut().insert(d);
     if scheme.n == 0 || hir.modules[hir.defs[d].module].is_std {
         return;
     }
@@ -182,6 +216,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         offending: vec![],
         reads: FxHashSet::default(),
         lambda_borrows: FxHashMap::default(),
+        local_lambdas: FxHashMap::default(),
         unread: FxHashMap::default(),
     };
     for p in params {
@@ -506,7 +541,7 @@ impl Own<'_, '_, '_> {
             TyKind::Skolem(s) if self.generic => {
                 !self.inf.icx.skolems.get(*s as usize).is_some_and(|k| k.region)
             }
-            TyKind::Var(_) if self.generic => true,
+            TyKind::Var(_) | TyKind::Gen(_) if self.generic => true,
             TyKind::Tuple(ts) => ts.iter().any(|x| self.is_affine_ty(x, depth + 1)),
             TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.is_affine_ty(x, depth + 1)),
             TyKind::Ref(..) => false,
@@ -796,9 +831,65 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// Whether a closure's body would use one of its parameters more than
+    /// once if the parameter were affine; reported when an affine argument
+    /// is passed for it.
+    fn check_lambda_dup(&mut self, lam: ExprId, args: &[ExprId], span: Span) {
+        let hir = self.inf.g.hir;
+        let ExprKind::Lambda(l) = &hir.exprs[lam].kind else { return };
+        let affine_args: Vec<usize> = (0..args.len()).filter(|i| self.expr_affine(args[*i])).collect();
+        if affine_args.is_empty() || self.generic {
+            return;
+        }
+        let mut params: Vec<LocalId> = vec![];
+        for &i in &affine_args {
+            if let Some(p) = l.params.get(i) {
+                pat_locals(hir, p.pat, &mut params);
+            }
+        }
+        // re-walk the body with the parameters' types treated as affine
+        let saved = std::mem::take(&mut self.inf.diags);
+        let (was_generic, saved_reported, saved_affine) =
+            (self.generic, std::mem::take(&mut self.reported), std::mem::take(&mut self.affine));
+        self.generic = true;
+        let mut inner = State::default();
+        self.expr(l.body, Mode::Move, &mut inner);
+        self.offending.clear();
+        let dup = !self.inf.diags.is_empty();
+        self.generic = was_generic;
+        self.reported = saved_reported;
+        self.affine = saved_affine;
+        self.inf.diags = saved;
+        let _ = params;
+        if dup {
+            let shown =
+                self.inf.show(&self.inf.exprs.get(&args[affine_args[0]]).cloned().unwrap_or_else(error_ty));
+            self.report(
+                Diagnostic::error(format!(
+                    "this closure may use its argument of type `{shown}` more than once"
+                ))
+                .with_code("E0404")
+                .with_label(span, format!("`{shown}` is affine: it has one owning use"))
+                .with_note("the closure copies or reuses this parameter; pass a shareable value, or borrow"),
+                span,
+            );
+        }
+    }
+
     /// A generic function that may duplicate a type parameter cannot take
     /// an affine type for it.
     fn check_dup(&mut self, def: DefId, args: &[Ty], span: Span) {
+        let hir = self.inf.g.hir;
+        // a user function analysed later: check this call once it is
+        if !self.generic
+            && !self.inf.g.dup_done.borrow().contains(&def)
+            && !hir.modules[hir.defs[def].module].is_std
+            && matches!(&hir.defs[def].kind, DefKind::Fn(f) if f.body.is_some())
+        {
+            let args: Vec<Ty> = args.iter().map(|a| self.inf.icx.resolve(a)).collect();
+            self.inf.g.dup_deferred.borrow_mut().push((def, args, span));
+            return;
+        }
         let Some(dup) = self.inf.g.dup_params.borrow().get(&def).cloned() else { return };
         for k in dup {
             let Some(a) = args.get(k as usize) else { continue };
@@ -1411,6 +1502,13 @@ impl Own<'_, '_, '_> {
                     _ => Mode::Borrow,
                 };
                 self.check_call_borrows(args);
+                // a local generic closure that uses a parameter twice cannot
+                // take an affine argument for it
+                if let ExprKind::Local(l) = &hir.exprs[*callee].kind
+                    && let Some(lam) = self.local_lambdas.get(l).copied()
+                {
+                    self.check_lambda_dup(lam, args, span);
+                }
                 let mut d = self.expr(*callee, cm, st);
                 // calling a consuming closure held in a field or element
                 // (`(r.f)()`, `fs[0]()`) uses up its holder
@@ -1685,6 +1783,11 @@ impl Own<'_, '_, '_> {
                             // returned through a call) makes the holder single-use
                             if self.holds_consuming(*init) {
                                 self.mark_consuming_bindings(*pat);
+                            }
+                            if let PatKind::Bind(holder) = &hir.pats[*pat].kind
+                                && let ExprKind::Lambda(_) = &hir.exprs[*init].kind
+                            {
+                                self.local_lambdas.insert(*holder, *init);
                             }
                             // borrows the bound value carries
                             if let PatKind::Bind(holder) = &hir.pats[*pat].kind {

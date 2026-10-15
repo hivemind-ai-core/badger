@@ -44,6 +44,10 @@ pub struct Global<'a> {
     /// Scheme parameters a generic function may duplicate (use more than
     /// once): instantiating them with an affine type is rejected.
     pub dup_params: RefCell<FxHashMap<DefId, Vec<u32>>>,
+    /// Generic functions whose duplication analysis ran, and calls to ones
+    /// not yet analysed (checked once every group is done).
+    pub dup_done: RefCell<FxHashSet<DefId>>,
+    pub dup_deferred: RefCell<Vec<(DefId, Vec<Ty>, Span)>>,
 }
 
 pub struct Names<'g, 'a> {
@@ -263,6 +267,8 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         poly_globals: FxHashSet::default(),
         pending_schemes: RefCell::new(FxHashMap::default()),
         dup_params: RefCell::new(FxHashMap::default()),
+        dup_done: RefCell::new(FxHashSet::default()),
+        dup_deferred: RefCell::new(vec![]),
     };
     // Declared schemes: methods, intrinsics, and fully annotated functions.
     let mut declared: FxHashSet<DefId> = FxHashSet::default();
@@ -350,6 +356,8 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             }
         }
         inf.solve(true);
+        // calls to generic functions analysed after their callers
+        crate::ownership::check_deferred_dups(&mut inf);
         // monomorphic schemes (e.g. module-level values) may mention variables
         // resolved by later uses: resolve them against the final substitution
         {

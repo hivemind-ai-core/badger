@@ -1,0 +1,18 @@
+// expect-error: E0404
+// Generic duplication of an affine value through a local closure, a generic method, or a blanket impl.
+import std.io
+import std.buffer
+import std.list
+
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let dup = fn(x) { (x, x) }
+    let r = dup(b)
+    let (p, q) = r
+    p.push(1)
+    let a = buffer.freeze(p)
+    io.println(a.len())?
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}
