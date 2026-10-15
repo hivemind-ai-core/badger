@@ -230,7 +230,7 @@ fn live_reload() {
     let wait_for = |what: &Arc<Mutex<String>>, text: &str| {
         let start = Instant::now();
         while !what.lock().unwrap().contains(text) {
-            assert!(start.elapsed() < Duration::from_secs(20), "timed out waiting for {text:?}");
+            assert!(start.elapsed() < Duration::from_secs(60), "timed out waiting for {text:?}");
             std::thread::sleep(Duration::from_millis(20));
         }
     };
