@@ -106,10 +106,20 @@ fn cty(r: Repr) -> Type {
 
 const HDR: i32 = 16;
 
+/// Whether `name` is a core runtime function code generation knows (used to
+/// validate loaded programs).
+pub fn is_runtime_function(name: &str) -> bool {
+    runtime_sig_of(name).is_some()
+}
+
 /// Native signatures of core runtime functions: (param count after ctx,
 /// returns a value).
 fn runtime_sig(name: &str) -> (usize, bool) {
-    match name {
+    runtime_sig_of(name).unwrap_or_else(|| panic!("unknown runtime function {name}"))
+}
+
+fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
+    Some(match name {
         "lang_rt_alloc" => (2, true),
         "lang_rt_panic" | "lang_rt_defect" => (2, true),
         "lang_rt_poll" => (0, false),
@@ -127,8 +137,8 @@ fn runtime_sig(name: &str) -> (usize, bool) {
         "lang_rt_stack_overflow" => (0, true),
         "lang_rt_ffi_call" => (4, true),
         "lang_rt_err_origin" => (3, false),
-        _ => panic!("unknown runtime function {name}"),
-    }
+        _ => return None,
+    })
 }
 
 pub fn compile(prog: &Program, optimize: bool) -> Result<Compiled, CodegenError> {

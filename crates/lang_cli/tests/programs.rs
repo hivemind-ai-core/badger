@@ -693,7 +693,19 @@ fn compiled_programs_run() {
     let junk = dir.join("junk.langmir");
     std::fs::write(&junk, b"LANGMIR1\x05").unwrap();
     let out = lang().arg("run").arg(&junk).output().unwrap();
-    assert!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("truncated"));
+    assert!(!out.status.success());
+    // a corrupted byte anywhere is refused cleanly, never run
+    let good = std::fs::read(dir.join("dyn_protocol.langmir")).unwrap();
+    for i in [good.len() / 3, good.len() / 2, good.len() - 5] {
+        let mut bad = good.clone();
+        bad[i] ^= 0x10;
+        let p = dir.join("corrupt.langmir");
+        std::fs::write(&p, &bad).unwrap();
+        let out = lang().arg("run").arg(&p).output().unwrap();
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(1), "{err}");
+        assert!(err.contains("E0011") && !err.contains("panicked"), "{err}");
+    }
     let _ = std::fs::remove_dir_all(&dir);
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

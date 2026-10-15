@@ -14,6 +14,24 @@ use rustc_hash::FxHashMap;
 use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
+/// Layout of the file format; files of another version are refused.
+const FORMAT: u32 = 2;
+
+/// The toolchain that wrote a file must be the one that loads it: MIR and
+/// the runtime's ABI change together.
+fn toolchain() -> String {
+    format!("lang {} (mir format {FORMAT})", env!("CARGO_PKG_VERSION"))
+}
+
+/// FNV-1a over the payload: detects corrupted or truncated files.
+fn checksum(bytes: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in bytes {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
 
 /// Whether `bytes` start like a saved program.
 pub fn is_binary(bytes: &[u8]) -> bool {
@@ -657,8 +675,8 @@ pub fn encode(prog: &Program, meta: &[(String, String)]) -> Result<Vec<u8>, Stri
         }
         written += 1;
     }
-    // file: magic, meta, pool entries, descriptor kinds, body
-    let mut w = W { out: MAGIC.to_vec() };
+    // payload: meta, pool entries, descriptor kinds, body
+    let mut w = W { out: vec![] };
     w.u32(meta.len() as u32);
     for (k, v) in meta {
         w.str(k);
@@ -704,7 +722,12 @@ pub fn encode(prog: &Program, meta: &[(String, String)]) -> Result<Vec<u8>, Stri
     w.u32(desc_count);
     w.out.extend_from_slice(&descs_out.out);
     w.out.extend_from_slice(&body);
-    Ok(w.out)
+    // file: magic, toolchain, checksum of the payload, payload
+    let mut file = W { out: MAGIC.to_vec() };
+    file.str(&toolchain());
+    file.u64(checksum(&w.out));
+    file.out.extend_from_slice(&w.out);
+    Ok(file.out)
 }
 
 // ------------------------------------------------------------------ reader
@@ -947,7 +970,18 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
     if !is_binary(bytes) {
         return Err("not a compiled program (missing LANGMIR1 header)".into());
     }
-    let mut r = R { b: bytes, pos: MAGIC.len() };
+    let mut h = R { b: bytes, pos: MAGIC.len() };
+    let made_by = h.str().ok().filter(|s| s.starts_with("lang ") && s.len() < 64);
+    if made_by.as_deref() != Some(toolchain().as_str()) {
+        let by = made_by.unwrap_or_else(|| "another toolchain".into());
+        return Err(format!("compiled by {by}, but this is {}: compile it again", toolchain()));
+    }
+    let sum = h.u64()?;
+    let payload = &bytes[h.pos..];
+    if checksum(payload) != sum {
+        return Err("the compiled program is corrupted (checksum mismatch): compile it again".into());
+    }
+    let mut r = R { b: payload, pos: 0 };
     let n = r.u32()?;
     let mut meta = vec![];
     for _ in 0..n {
@@ -1071,7 +1105,101 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
         let name = dec.r.str()?;
         prog.tests.push((name, dec.fid()?));
     }
+    if dec.r.pos != dec.r.b.len() {
+        return Err("the compiled program has trailing data".into());
+    }
+    validate(&prog)?;
     Ok((prog, meta))
+}
+
+/// Every reference in a loaded program points at something that exists:
+/// functions, locals, blocks, global slots, and runtime entry points.
+fn validate(prog: &Program) -> Result<(), String> {
+    let nf = prog.funcs.len();
+    let bad = |what: &str, f: &str| Err(format!("invalid compiled program: {what} in `{f}`"));
+    let intrinsics: rustc_hash::FxHashSet<&str> =
+        lang_runtime::symbols().into_iter().map(|(n, _)| n).collect();
+    let fid_ok = |f: FuncId| f.index() < nf;
+    for f in prog.funcs.iter() {
+        let nl = f.locals.len();
+        let nb = f.blocks.len();
+        let op_ok = |o: &Operand| match o {
+            Operand::Local(l) => l.index() < nl,
+            Operand::Const(_) => true,
+        };
+        if f.env.index() >= nl || f.params.iter().any(|p| p.index() >= nl) {
+            return bad("a parameter out of range", &f.name);
+        }
+        for b in f.blocks.iter() {
+            for st in &b.stmts {
+                let ok = match st {
+                    Stmt::Assign(l, rv) => {
+                        l.index() < nl
+                            && match rv {
+                                Rvalue::Use(a) | Rvalue::Not(a) | Rvalue::ToWord(a) | Rvalue::Tag(a) => {
+                                    op_ok(a)
+                                }
+                                Rvalue::Neg { a, .. }
+                                | Rvalue::Convert { a, .. }
+                                | Rvalue::Fits { a, .. } => op_ok(a),
+                                Rvalue::FromWord { a, .. } => op_ok(a),
+                                Rvalue::Bin { a, b, .. }
+                                | Rvalue::Cmp { a, b, .. }
+                                | Rvalue::Overflows { a, b, .. } => op_ok(a) && op_ok(b),
+                                Rvalue::Load { base, .. } => op_ok(base),
+                                Rvalue::Alloc { .. } => true,
+                                Rvalue::Concat(os) => os.iter().all(&op_ok),
+                                Rvalue::GlobalLoad(s) | Rvalue::GlobalAddr(s) => *s < prog.n_globals,
+                                Rvalue::FuncAddr(fid) | Rvalue::AdapterAddr(fid) => fid_ok(*fid),
+                                Rvalue::Call { callee, args, .. } => {
+                                    args.iter().all(&op_ok)
+                                        && match callee {
+                                            Callee::Direct(fid) => fid_ok(*fid),
+                                            Callee::Closure(o) => op_ok(o),
+                                            Callee::Runtime(name) => {
+                                                lang_runtime::symbols().iter().any(|(n, _)| n == name)
+                                            }
+                                            Callee::Intrinsic { name, .. } => {
+                                                intrinsics.contains(name.as_str())
+                                            }
+                                            Callee::Foreign { .. } => true,
+                                        }
+                                }
+                            }
+                    }
+                    Stmt::Store { base, value, .. } => op_ok(base) && op_ok(value),
+                    Stmt::GlobalStore { slot, value } => *slot < prog.n_globals && op_ok(value),
+                    Stmt::Poll => true,
+                };
+                if !ok {
+                    return bad("an operation with an invalid reference", &f.name);
+                }
+            }
+            let ok = match &b.term {
+                None => true,
+                Some(Term::Goto(t)) => t.index() < nb,
+                Some(Term::Branch(o, x, y)) => op_ok(o) && x.index() < nb && y.index() < nb,
+                Some(Term::Switch(o, cases, d)) => {
+                    op_ok(o) && d.index() < nb && cases.iter().all(|(_, t)| t.index() < nb)
+                }
+                Some(Term::Return(o)) => op_ok(o),
+                Some(Term::Unreachable) => true,
+            };
+            if !ok {
+                return bad("a branch with an invalid target", &f.name);
+            }
+        }
+    }
+    let entries =
+        prog.entry.iter().chain(prog.error_report.iter()).chain(prog.static_closures.iter().map(|c| &c.1));
+    if entries
+        .chain(prog.display_hooks.iter().map(|d| &d.1))
+        .chain(prog.tests.iter().map(|t| &t.1))
+        .any(|f| !fid_ok(*f))
+    {
+        return Err("invalid compiled program: a function reference out of range".into());
+    }
+    Ok(())
 }
 
 fn read_kind(d: &mut Dec<'_>) -> Result<Kind, String> {

@@ -734,6 +734,23 @@ impl Session {
                 return Err(Outcome::Errors);
             }
         };
+        // runtime entry points code generation knows
+        let unknown = prog.funcs.iter().flat_map(|f| f.blocks.iter()).flat_map(|b| b.stmts.iter()).find_map(
+            |s| match s {
+                lang_mir::mir::Stmt::Assign(
+                    _,
+                    lang_mir::mir::Rvalue::Call { callee: lang_mir::mir::Callee::Runtime(n), .. },
+                ) if !lang_codegen::is_runtime_function(n) => Some(n.to_string()),
+                _ => None,
+            },
+        );
+        if let Some(n) = unknown {
+            self.diagnostics.push(
+                Diagnostic::error(format!("invalid compiled program: unknown runtime function `{n}`"))
+                    .with_code("E0011"),
+            );
+            return Err(Outcome::Errors);
+        }
         let config: Vec<(String, String)> = meta
             .iter()
             .filter_map(|(k, v)| k.strip_prefix("config.").map(|k| (k.to_string(), v.clone())))
