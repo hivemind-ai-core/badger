@@ -1,0 +1,30 @@
+// expect-error: E0401
+// A scoped value stored through a helper function still escapes.
+import std.io
+import std.task
+import std.channel
+import std.system
+import std.system.{component}
+import std.worker
+pub struct Failure { pub message: String }
+impl Display for Failure { fn display(self: &Self) -> String { self.message } }
+impl Error for Failure {}
+fn say(s: String) -> Unit { let _ = io.println(s) }
+pub enum AppError { system(source: system.Error), cfg(source: channel.ConfigError) } derive(Error, From)
+fn keep(a: Atom<List<system.InitScope<Unit>>>, s: system.InitScope<Unit>) -> Unit { a.set([s]) }
+pub fn main() -> Result<Unit, AppError> {
+    let empty: List<system.InitScope<Unit>> = []
+    let stash = Atom.new(empty)
+    let leaky = system.provider({ name: :t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
+        keep(stash, scope)
+        ok(1)
+    } })
+    let plan = system { l: component(leaky, { x: 1 }) }
+    let _ = system.run(plan, fn(r) -> Result<Unit, AppError> { ok(()) })
+    for sc in stash.get() {
+        sc.worker(fn() -> Result<Unit, Failure> { say("ZOMBIE worker running after halt"); ok(()) }, worker.never())
+    }
+    task.sleep(20ms)
+    say("end")
+    ok(())
+}

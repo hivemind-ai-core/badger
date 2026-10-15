@@ -282,6 +282,20 @@ impl Regions<'_, '_, '_> {
     /// outlives the region.
     fn stores(&mut self, e: ExprId, captures: &[LocalId]) {
         let hir = self.inf.g.hir;
+        // a helper that stores one parameter into another's cell, atom,
+        // collection, or channel stores the caller's argument there
+        if let ExprKind::Call { callee, args } = &hir.exprs[e].kind
+            && let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind
+        {
+            let flows = store_summaries(self.inf.g).get(def).cloned().unwrap_or_default();
+            for (from, into) in flows {
+                let (Some(&src), Some(&dst)) = (args.get(from), args.get(into)) else { continue };
+                if place_in(hir, dst, captures) && self.tainted(src) {
+                    let span = hir.exprs[src].span;
+                    self.report(span);
+                }
+            }
+        }
         // the local a place expression (`ch.sender`, `state.items[0]`) is rooted in
         let captured = |mut x: ExprId| loop {
             match &hir.exprs[x].kind {
@@ -476,4 +490,121 @@ pub(crate) fn sub_exprs(kind: &ExprKind) -> Vec<ExprId> {
         _ => {}
     }
     v
+}
+
+/// Whether a place (`x`, `x.f`, `&x`) is rooted in one of `locals`.
+fn place_in(hir: &lang_hir::Hir, mut x: ExprId, locals: &[LocalId]) -> bool {
+    loop {
+        match &hir.exprs[x].kind {
+            ExprKind::Local(l) => return locals.contains(l),
+            ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => x = *base,
+            ExprKind::Unary { op: lang_hir::UnOp::Ref | lang_hir::UnOp::RefMut, operand } => x = *operand,
+            _ => return false,
+        }
+    }
+}
+
+/// For each user function, the parameter pairs `(from, into)` where the
+/// body stores (a value derived from) parameter `from` into a cell, atom,
+/// collection, or channel reached through parameter `into` (directly or
+/// through other such helpers), computed once to a fixpoint.
+pub(crate) fn store_summaries(
+    g: &crate::program::Global<'_>,
+) -> FxHashMap<lang_hir::DefId, Vec<(usize, usize)>> {
+    if let Some(s) = g.store_summaries.borrow().as_ref() {
+        return s.clone();
+    }
+    let hir = g.hir;
+    let storing = |name: &str| {
+        matches!(
+            name,
+            "set" | "update" | "swap" | "push" | "append" | "try_append" | "send" | "try_send" | "insert"
+        )
+    };
+    let mut out: FxHashMap<lang_hir::DefId, Vec<(usize, usize)>> = FxHashMap::default();
+    // does `e` mention parameter local `p` (also inside closures)?
+    fn mentions(hir: &lang_hir::Hir, e: ExprId, p: LocalId) -> bool {
+        let mut found = false;
+        crate::program::walk_exprs(hir, e, &mut |x| match &hir.exprs[x].kind {
+            ExprKind::Local(l) if *l == p => found = true,
+            ExprKind::Lambda(l) if l.captures.contains(&p) => found = true,
+            _ => {}
+        });
+        found
+    }
+    for _ in 0..4 {
+        let mut changed = false;
+        for (id, def) in hir.defs.iter() {
+            if hir.modules[def.module].is_std {
+                continue;
+            }
+            let lang_hir::DefKind::Fn(f) = &def.kind else { continue };
+            let Some(body) = f.body else { continue };
+            let params: Vec<Option<LocalId>> = f
+                .params
+                .iter()
+                .map(|p| match &hir.pats[p.pat].kind {
+                    PatKind::Bind(l) => Some(*l),
+                    _ => None,
+                })
+                .collect();
+            let mut found: Vec<(usize, usize)> = vec![];
+            crate::program::walk_exprs(hir, body, &mut |e| {
+                // (stored values, target place)
+                let mut pairs: Vec<(ExprId, ExprId)> = vec![];
+                match &hir.exprs[e].kind {
+                    ExprKind::MethodCall { recv, method, args, .. }
+                        if storing(g.interner.resolve(*method)) =>
+                    {
+                        for a in args {
+                            pairs.push((*a, *recv));
+                        }
+                    }
+                    ExprKind::Call { callee, args } => {
+                        if let ExprKind::Def { def: cd, .. } = &hir.exprs[*callee].kind
+                            && let Some(flows) = out.get(cd)
+                        {
+                            for (from, into) in flows {
+                                if let (Some(a), Some(b)) = (args.get(*from), args.get(*into)) {
+                                    pairs.push((*a, *b));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                for (val, place) in pairs {
+                    for (j, pj) in params.iter().enumerate() {
+                        let Some(pj) = pj else { continue };
+                        if !place_in(hir, place, &[*pj]) {
+                            continue;
+                        }
+                        for (i, pi) in params.iter().enumerate() {
+                            if let Some(pi) = pi
+                                && i != j
+                                && mentions(hir, val, *pi)
+                                && !found.contains(&(i, j))
+                            {
+                                found.push((i, j));
+                            }
+                        }
+                    }
+                }
+            });
+            if !found.is_empty() {
+                let e = out.entry(id).or_default();
+                for x in found {
+                    if !e.contains(&x) {
+                        e.push(x);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    *g.store_summaries.borrow_mut() = Some(out.clone());
+    out
 }

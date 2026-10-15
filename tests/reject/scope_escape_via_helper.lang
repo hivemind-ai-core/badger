@@ -1,0 +1,16 @@
+// expect-error: E0401
+// A scoped value stored through a helper function still escapes.
+import std.io
+import std.task
+fn keep<S>(a: Cell<List<fn() -> Unit>>, s: task.TaskScope<S>) -> Unit {
+    a.set([fn() { let t = s.spawn(fn() { let _ = io.println("ORPHAN task running after its scope closed") }); t.join() }])
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let e: List<fn() -> Unit> = []
+    let stash = Cell.new(e)
+    let r: Result<Unit, io.Error> = task.scope(fn(s) { keep(stash, s); ok(()) })
+    r?
+    for f in stash.get() { f() }
+    task.sleep(20ms)
+    io.println("end")
+}

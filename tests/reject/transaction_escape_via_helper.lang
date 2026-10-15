@@ -1,0 +1,19 @@
+// expect-error: E0401
+// A scoped value stored through a helper function still escapes.
+import std.io
+import std.sqlite
+pub enum AppError { sql(source: sqlite.Error), io(source: io.Error) } derive(Error, From)
+fn keep<S: Scope>(a: Cell<List<fn() -> Int>>, tx: sqlite.Tx<S>) -> Unit {
+    a.set([fn() { match sqlite.execute(tx, "SELECT 1", []) { .ok(n) => 1, .err(e) => -1 } }])
+}
+pub fn main() -> Result<Unit, AppError> {
+    let pool = sqlite.open(":memory:")?
+    let e: List<fn() -> Int> = []
+    let stash = Cell.new(e)
+    let _ = sqlite.transaction(pool, fn(tx) -> Result<Unit, AppError> {
+        keep(stash, tx)
+        ok(())
+    })
+    for f in stash.get() { let _ = io.println($"after tx: {f()}") }
+    ok(())
+}

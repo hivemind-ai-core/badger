@@ -54,6 +54,10 @@ pub struct Global<'a> {
     /// stands for, and the capabilities definitions require of them.
     pub skolem_owner: RefCell<FxHashMap<u32, (DefId, u32)>>,
     pub implied: RefCell<FxHashMap<DefId, Vec<(u32, &'static str)>>>,
+    /// Helpers storing one parameter into another's container (computed
+    /// on first use; see `regions::store_summaries`).
+    #[allow(clippy::type_complexity)]
+    pub store_summaries: RefCell<Option<FxHashMap<DefId, Vec<(usize, usize)>>>>,
 }
 
 pub struct Names<'g, 'a> {
@@ -291,6 +295,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         dups_final: std::cell::Cell::new(false),
         skolem_owner: RefCell::new(FxHashMap::default()),
         implied: RefCell::new(FxHashMap::default()),
+        store_summaries: RefCell::new(None),
     };
     // Declared schemes: methods, intrinsics, and fully annotated functions.
     let mut declared: FxHashSet<DefId> = FxHashSet::default();
