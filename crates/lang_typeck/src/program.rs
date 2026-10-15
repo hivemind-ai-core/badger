@@ -390,6 +390,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         crate::ownership::check_deferred_dups(&mut inf);
         crate::ownership::check_task_params(&mut inf);
         check_implied_caps(&mut inf);
+        crate::exhaust::check_const_arithmetic(&mut inf);
         if !repl_session() {
             crate::ownership::check_module_closures(&mut inf);
         }

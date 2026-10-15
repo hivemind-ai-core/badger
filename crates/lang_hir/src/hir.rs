@@ -34,6 +34,10 @@ pub struct Hir {
     pub globals: Vec<DefId>,
     /// Entry module (the user's main module).
     pub entry: Option<ModuleId>,
+    /// `const` initializers (module and local), evaluated at check time,
+    /// and the initializer of each local `const` binding.
+    pub const_inits: Vec<ExprId>,
+    pub const_local_inits: Vec<(LocalId, ExprId)>,
 }
 
 impl Hir {

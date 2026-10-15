@@ -157,6 +157,7 @@ impl Cx<'_> {
     /// pure operators and other constants; no function is evaluated.
     fn check_consts(&mut self) {
         for e in std::mem::take(&mut self.const_checks) {
+            self.hir.const_inits.push(e);
             if let Some(bad) = self.non_const(e) {
                 self.diags.push(
                     Diagnostic::error("expression is not constant")
@@ -1696,6 +1697,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         self.cx.const_checks.push(init);
                         if let PatKind::Bind(l) = self.cx.hir.pats[pat].kind {
                             self.cx.const_locals.insert(l);
+                            self.cx.hir.const_local_inits.push((l, init));
                         }
                     }
                     out.push(Stmt::Let { pat, ty, init, span: *span });

@@ -249,6 +249,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`records.remove(record, :label)` needs a literal label (`:name` or `:ns/name`) naming a field the record has.",
     ),
     (
+        "E0139",
+        "constant arithmetic",
+        "`const` initializers are evaluated when the program is checked; integer arithmetic in them that overflows its type, divides by zero, or shifts out of range is reported then.",
+    ),
+    (
         "E0220",
         "implementation signature",
         "An implementation method has the signature its protocol declares, with `Self` and the protocol's type arguments replaced by the implementation's.",

@@ -436,3 +436,137 @@ pub fn check_row_labels(inf: &mut Infer<'_, '_>, d: DefId) {
         }
     }
 }
+
+/// `const` initializers are evaluated at check time: integer arithmetic
+/// that overflows its type, divides by zero, or shifts too far is an error
+/// here rather than a defect on first use (E0139).
+pub fn check_const_arithmetic(inf: &mut Infer<'_, '_>) {
+    use lang_hir::BinOp;
+    let hir = inf.g.hir;
+    let mut local_inits: rustc_hash::FxHashMap<lang_hir::LocalId, ExprId> =
+        hir.const_local_inits.iter().copied().collect();
+    // module constants referenced through their binding
+    for (_, d) in hir.defs.iter() {
+        if let DefKind::Global(g) = &d.kind
+            && g.is_const
+        {
+            local_inits.insert(g.local, g.value);
+        }
+    }
+    // the integer type of an expression: (bits, signed)
+    fn int_ty(inf: &mut Infer<'_, '_>, e: ExprId) -> Option<(u32, bool)> {
+        let t = inf.exprs.get(&e).cloned()?;
+        let t = inf.icx.resolve(&t);
+        let TyKind::Con(d, _) = &*t else { return None };
+        let i = inf.g.env.b.ints.iter().position(|x| x == d)?;
+        Some(([8, 16, 32, 64, 8, 16, 32, 64][i], i < 4))
+    }
+    fn fits(v: i128, (bits, signed): (u32, bool)) -> bool {
+        if signed {
+            let max = (1i128 << (bits - 1)) - 1;
+            v >= -max - 1 && v <= max
+        } else {
+            v >= 0 && v < (1i128 << bits)
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn eval(
+        inf: &mut Infer<'_, '_>,
+        e: ExprId,
+        locals: &rustc_hash::FxHashMap<lang_hir::LocalId, ExprId>,
+        depth: usize,
+        errs: &mut Vec<(lang_base::Span, String)>,
+        ctx: Option<(u32, bool)>,
+    ) -> Option<i128> {
+        let hir = inf.g.hir;
+        if depth > 32 {
+            return None;
+        }
+        // a referenced constant's own expression takes the use's type
+        let ty = int_ty(inf, e).or(ctx)?;
+        match &hir.exprs[e].kind {
+            // negative literals are two's complement: the cast keeps the sign
+            ExprKind::Lit(Lit::Int { value, .. }) => Some(*value as i128),
+            ExprKind::Def { def, .. } => match &hir.defs[*def].kind {
+                DefKind::Global(g) if g.is_const => eval(inf, g.value, locals, depth + 1, errs, Some(ty)),
+                _ => None,
+            },
+            ExprKind::Local(l) => {
+                let init = *locals.get(l)?;
+                eval(inf, init, locals, depth + 1, errs, Some(ty))
+            }
+            ExprKind::Unary { op: lang_hir::UnOp::Neg, operand } => {
+                let v = eval(inf, *operand, locals, depth + 1, errs, Some(ty))?;
+                let r = -v;
+                if !fits(r, ty) {
+                    errs.push((hir.exprs[e].span, format!("`-{v}` does not fit its type")));
+                    return None;
+                }
+                Some(r)
+            }
+            ExprKind::Binary { op, lhs, rhs } => {
+                let (op, lhs, rhs) = (*op, *lhs, *rhs);
+                let a = eval(inf, lhs, locals, depth + 1, errs, Some(ty))?;
+                let b = eval(inf, rhs, locals, depth + 1, errs, Some(ty))?;
+                let span = hir.exprs[e].span;
+                let r = match op {
+                    BinOp::Add => a.checked_add(b),
+                    BinOp::Sub => a.checked_sub(b),
+                    BinOp::Mul => a.checked_mul(b),
+                    BinOp::Div | BinOp::Rem if b == 0 => {
+                        errs.push((span, "division by zero".into()));
+                        return None;
+                    }
+                    BinOp::Div => a.checked_div(b),
+                    BinOp::Rem => a.checked_rem(b),
+                    BinOp::Shl | BinOp::Shr if b < 0 || b >= ty.0 as i128 => {
+                        errs.push((span, format!("shift by {b} is out of range for a {}-bit integer", ty.0)));
+                        return None;
+                    }
+                    BinOp::Shl => {
+                        // shifting out set bits overflows (as at run time)
+                        let r = a.checked_shl(b as u32);
+                        r.filter(|r| (r >> b) == a)
+                    }
+                    BinOp::Shr => Some(a >> b),
+                    BinOp::BitAnd => Some(a & b),
+                    BinOp::BitOr => Some(a | b),
+                    BinOp::BitXor => Some(a ^ b),
+                    _ => return None,
+                };
+                match r {
+                    Some(r) if fits(r, ty) => Some(r),
+                    _ => {
+                        errs.push((span, format!("`{a} {} {b}` overflows its type", op.as_str())));
+                        None
+                    }
+                }
+            }
+            _ => None,
+        }
+    }
+    let mut errs = vec![];
+    for &e in &hir.const_inits.clone() {
+        let mut sub = vec![];
+        walk_exprs(hir, e, &mut |x| sub.push(x));
+        // evaluate each maximal integer expression once (from the root)
+        let _ = eval(inf, e, &local_inits, 0, &mut errs, None);
+        for x in sub {
+            if matches!(hir.exprs[x].kind, ExprKind::Binary { .. }) && int_ty(inf, x).is_some() {
+                let _ = eval(inf, x, &local_inits, 0, &mut errs, None);
+            }
+        }
+    }
+    errs.sort_by_key(|(s, _)| (s.file, s.start));
+    errs.dedup_by_key(|(s, _)| (s.file, s.start));
+    for (span, msg) in errs {
+        inf.push_diag(
+            Diagnostic::error(format!("constant arithmetic fails: {msg}"))
+                .with_code("E0139")
+                .with_label(span, "evaluated at check time")
+                .with_note(
+                    "a `const` is computed when the program is checked; this would be a defect when it runs",
+                ),
+        );
+    }
+}

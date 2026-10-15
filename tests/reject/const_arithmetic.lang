@@ -1,0 +1,14 @@
+// expect-error: E0139
+// `const` arithmetic is evaluated at check time: overflow, division by
+// zero, and oversized shifts are reported then.
+import std.io
+
+const zero = 0
+const quotient = 5 / zero
+const small = 127I8 + 1I8
+const wide = 1 << 70
+const fine = 4 * 1024
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{quotient} {small} {wide} {fine}")
+}
