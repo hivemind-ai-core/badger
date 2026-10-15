@@ -830,6 +830,16 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     }
 
     fn call(&mut self, callee: Callee, args: Vec<Operand>, ret: Repr) -> Operand {
+        // an intrinsic returning a managed value always lands in a rooted
+        // local, whatever word representation the call site asked for
+        let ret = match &callee {
+            Callee::Intrinsic { ret: rd, .. }
+                if ret == Repr::I64 && *rd != 0 && unsafe { &*(*rd as *const TypeDesc) }.is_ptr() =>
+            {
+                Repr::Ptr
+            }
+            _ => ret,
+        };
         self.assign(ret, Rvalue::Call { callee, args, ret })
     }
 
@@ -1546,6 +1556,15 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     /// Convert a runtime word to a value of type `t`.
     fn from_word(&mut self, w: Operand, t: &Ty) -> Operand {
         let r = self.repr(t);
+        // a managed pointer returned as a plain word moves into a pointer
+        // local at once, so the collector sees it (it may run while this
+        // task waits at its next runtime call)
+        if r == Repr::Ptr
+            && let Operand::Local(l) = w
+            && self.func.locals[l].repr != Repr::Ptr
+        {
+            return Operand::Local(self.copy_to_local(w, Repr::Ptr, None));
+        }
         if r == Repr::I64 || r == Repr::Ptr {
             return w;
         }
@@ -1854,10 +1873,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             _ => {
                 let tp = self.m.targs_ptr(&targs);
                 let rd = self.m.lay.desc(ret_ty) as *const TypeDesc as u64;
+                // a managed result goes straight into a rooted (pointer) local
+                let wr = if self.repr(ret_ty) == Repr::Ptr { Repr::Ptr } else { Repr::I64 };
                 let w = self.call(
                     Callee::Intrinsic { name: format!("lang_rt_i_{name}"), targs: tp, ret: rd },
                     args,
-                    Repr::I64,
+                    wr,
                 );
                 if self.is_never(ret_ty) {
                     self.dead();
