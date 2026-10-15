@@ -42,6 +42,12 @@ container permits its mutable interface; arbitrary immutable heap data does
 not gain a mutable interface through borrowing. Mutable borrow of an ordinary
 binding's storage requires an assignable place.
 
+Implementation note: an exclusive borrow grants the borrowed value's mutable
+interface (a buffer's `push`, a builder's `append`, a cell's `set`); it does not
+make the borrowed binding assignable through the reference (`x = x + 1` with
+`x: &mut Int` is E0130). A function that computes a new plain value returns it,
+and the caller assigns its own `var`.
+
 Ordinary local borrow lifetimes infer. Public APIs that express scope relations
 may use region type parameters, written uppercase like other type-level names.
 Trusted scope helpers introduce a fresh abstract region for their callback.
