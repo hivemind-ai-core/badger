@@ -198,10 +198,20 @@ pub fn register_global(slot: *mut u64) {
     heap().globals.push(slot);
 }
 
+/// The temporary roots of the running task (each task has its own: tasks
+/// interleave at suspension points, so one shared stack would let one
+/// task's guard drop another's roots), or the heap's own outside tasks.
+fn temp_roots() -> &'static mut Vec<u64> {
+    match crate::task::current_temp_roots() {
+        Some(v) => unsafe { &mut *v },
+        None => &mut heap().temp_roots,
+    }
+}
+
 /// Keep `w` alive until the matching [`pop_root`]. Runtime code uses this
 /// while it allocates several objects.
 pub fn push_root(w: u64) {
-    heap().temp_roots.push(w);
+    temp_roots().push(w);
 }
 
 /// Keep `w` alive until [`unpin`] (runtime registries).
@@ -217,19 +227,20 @@ pub fn unpin(w: u64) {
 }
 
 pub fn pop_root() {
-    heap().temp_roots.pop();
+    temp_roots().pop();
 }
 
-/// RAII guard over temporary roots.
-pub struct Roots(usize);
+/// RAII guard over temporary roots (of the task that created it).
+pub struct Roots(*mut Vec<u64>, usize);
 
 impl Roots {
     pub fn new() -> Roots {
-        Roots(heap().temp_roots.len())
+        let v = temp_roots();
+        Roots(v as *mut Vec<u64>, v.len())
     }
 
     pub fn add(&self, w: u64) -> u64 {
-        heap().temp_roots.push(w);
+        unsafe { (*self.0).push(w) };
         w
     }
 }
@@ -242,7 +253,7 @@ impl Default for Roots {
 
 impl Drop for Roots {
     fn drop(&mut self) {
-        heap().temp_roots.truncate(self.0);
+        unsafe { (*self.0).truncate(self.1) };
     }
 }
 

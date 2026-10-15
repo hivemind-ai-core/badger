@@ -133,6 +133,8 @@ pub struct Task {
     pub scope: Option<u64>,
     /// Managed values held by the runtime on behalf of this task.
     pub roots: Vec<u64>,
+    /// Temporary roots of runtime code running for this task (`gc::Roots`).
+    pub temp_roots: Vec<u64>,
     /// Value delivered by the waker (e.g. a received message).
     pub delivered: u64,
     pub delivered_is_ptr: bool,
@@ -523,6 +525,14 @@ pub fn current() -> Option<&'static mut Task> {
     }
 }
 
+/// The running task's temporary-root stack (see `gc::Roots`).
+pub fn current_temp_roots() -> Option<*mut Vec<u64>> {
+    if current_raw() == 0 {
+        return None;
+    }
+    current().map(|t| &mut t.temp_roots as *mut Vec<u64>)
+}
+
 pub fn current_id() -> TaskId {
     current_raw()
 }
@@ -556,6 +566,13 @@ pub fn for_each_root(f: &mut dyn FnMut(u64)) {
         }
         for &w in &t.roots {
             f(w);
+        }
+        // runtime helpers root only pointer-typed words; the guard keeps a
+        // stray scalar from being dereferenced
+        for &w in &t.temp_roots {
+            if w % 8 == 0 && w >= 4096 {
+                f(w);
+            }
         }
         for (_, c) in &t.cleanups {
             if let Cleanup::Closure(w) = c {
@@ -609,6 +626,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         iter_closers: vec![],
         scope,
         roots: vec![],
+        temp_roots: vec![],
         delivered: 0,
         delivered_is_ptr: false,
         wait: "",
