@@ -337,34 +337,110 @@ pub fn check_task_params(inf: &mut Infer<'_, '_>) {
 pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
     let hir = inf.g.hir;
     // the state a closure-valued expression captures, if any
+    // initializers of local bindings (a closure may call another closure
+    // bound earlier)
+    let mut inits: FxHashMap<LocalId, ExprId> = FxHashMap::default();
+    for (_, def) in hir.defs.iter() {
+        if hir.modules[def.module].is_std {
+            continue;
+        }
+        let body = match &def.kind {
+            DefKind::Fn(f) => f.body,
+            DefKind::Global(g) => Some(g.value),
+            _ => None,
+        };
+        let Some(body) = body else { continue };
+        crate::program::walk_exprs(hir, body, &mut |e| {
+            if let ExprKind::Block { stmts, .. } = &hir.exprs[e].kind {
+                for st in stmts {
+                    if let Stmt::Let { pat, init, .. } = st
+                        && let PatKind::Bind(l) = &hir.pats[*pat].kind
+                    {
+                        inits.insert(*l, *init);
+                    }
+                }
+            }
+        });
+    }
+    // the state a value captures: through closures (and closures they
+    // capture), aggregates, and calls that may return what they are given
     fn captured_state(
         inf: &mut Infer<'_, '_>,
         e: ExprId,
         returning: &FxHashMap<DefId, String>,
+        inits: &FxHashMap<LocalId, ExprId>,
+        depth: usize,
     ) -> Option<String> {
+        if depth > 8 {
+            return None;
+        }
         let hir = inf.g.hir;
+        let ty_state = |inf: &mut Infer<'_, '_>, e: ExprId| -> Option<String> {
+            let t = inf.exprs.get(&e).cloned()?;
+            let t = inf.icx.resolve(&t);
+            crate::program::stored_state(inf.g, &t, &mut vec![])
+        };
         match &hir.exprs[e].kind {
             ExprKind::Lambda(l) => {
-                for c in &l.captures {
-                    if let Some(t) = inf.locals.get(c).cloned() {
+                for c in l.captures.clone() {
+                    if let Some(t) = inf.locals.get(&c).cloned() {
                         let t = inf.icx.resolve(&t);
                         if let Some(s) = crate::program::stored_state(inf.g, &t, &mut vec![]) {
                             return Some(s);
                         }
                     }
+                    if let Some(&init) = inits.get(&c)
+                        && let Some(s) = captured_state(inf, init, returning, inits, depth + 1)
+                    {
+                        return Some(s);
+                    }
                 }
                 None
             }
-            ExprKind::Call { callee, .. } => match inf.res.get(callee) {
-                Some(Res::Callee { def, .. }) => returning.get(def).cloned(),
-                _ => None,
-            },
-            ExprKind::Block { tail: Some(t), .. } => captured_state(inf, *t, returning),
-            ExprKind::If { then, els, .. } => captured_state(inf, *then, returning)
-                .or_else(|| els.and_then(|x| captured_state(inf, x, returning))),
+            ExprKind::Local(l) => {
+                let init = inits.get(l).copied()?;
+                captured_state(inf, init, returning, inits, depth + 1)
+            }
+            ExprKind::Call { callee, args } => {
+                if let Some(Res::Callee { def, .. }) = inf.res.get(callee)
+                    && let Some(s) = returning.get(def)
+                {
+                    return Some(s.clone());
+                }
+                // a call returning a function may return (a closure over)
+                // what it was given
+                let returns_fn = inf.exprs.get(&e).cloned().is_some_and(|t| {
+                    let t = inf.icx.resolve(&t);
+                    ty_any(&t, &mut |k| matches!(k, TyKind::Fn(_)))
+                });
+                if !returns_fn {
+                    return None;
+                }
+                for a in args.clone() {
+                    if let Some(s) =
+                        ty_state(inf, a).or_else(|| captured_state(inf, a, returning, inits, depth + 1))
+                    {
+                        return Some(s);
+                    }
+                }
+                None
+            }
+            ExprKind::Record { fields, .. } => {
+                let xs: Vec<ExprId> = fields.iter().map(|f| f.2).collect();
+                xs.into_iter().find_map(|x| captured_state(inf, x, returning, inits, depth + 1))
+            }
+            ExprKind::Tuple(xs) | ExprKind::List(xs) => {
+                xs.clone().into_iter().find_map(|x| captured_state(inf, x, returning, inits, depth + 1))
+            }
+            ExprKind::Map(kv) => {
+                kv.clone().into_iter().find_map(|(_, v)| captured_state(inf, v, returning, inits, depth + 1))
+            }
+            ExprKind::Block { tail: Some(t), .. } => captured_state(inf, *t, returning, inits, depth + 1),
+            ExprKind::If { then, els, .. } => captured_state(inf, *then, returning, inits, depth + 1)
+                .or_else(|| els.and_then(|x| captured_state(inf, x, returning, inits, depth + 1))),
             ExprKind::Match { arms, .. } => {
                 let bodies: Vec<ExprId> = arms.iter().map(|a| a.body).collect();
-                bodies.into_iter().find_map(|b| captured_state(inf, b, returning))
+                bodies.into_iter().find_map(|b| captured_state(inf, b, returning, inits, depth + 1))
             }
             _ => None,
         }
@@ -379,7 +455,7 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
             }
             let DefKind::Fn(f) = &def.kind else { continue };
             let Some(body) = f.body else { continue };
-            if let Some(s) = captured_state(inf, body, &returning) {
+            if let Some(s) = captured_state(inf, body, &returning, &inits, 0) {
                 returning.insert(id, s);
                 changed = true;
             }
@@ -394,7 +470,7 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
             continue;
         }
         let DefKind::Global(g) = &def.kind else { continue };
-        if let Some(s) = captured_state(inf, g.value, &returning) {
+        if let Some(s) = captured_state(inf, g.value, &returning, &inits, 0) {
             reports.push((def.span, inf.g.interner.resolve(def.name).to_string(), s));
         }
     }

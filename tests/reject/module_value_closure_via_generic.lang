@@ -1,0 +1,5 @@
+// expect-error: E0138
+// A module value cannot hide a Cell behind a generic helper.
+import std.io
+let bump = { let c = Cell.new(0); let inner = fn() -> Int { c.set(c.get() + 1); c.get() }; fn() -> Int { inner() } }
+pub fn main() -> Result<Unit, io.Error> { let _ = bump(); io.println(bump()) }

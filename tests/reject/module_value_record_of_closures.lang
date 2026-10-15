@@ -1,0 +1,5 @@
+// expect-error: E0138
+// A module value cannot hide a Cell in a record of closures.
+import std.io
+let svc = { let c = Cell.new(0); { bump: fn() -> Int { c.set(c.get() + 1); c.get() } } }
+pub fn main() -> Result<Unit, io.Error> { let _ = svc.bump(); io.println(svc.bump()) }
