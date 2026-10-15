@@ -1,0 +1,13 @@
+// Nonexpansive values generalize: `none`, an empty list, and constructors.
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = none
+    let a: Option<Int> = n
+    let b: Option<String> = n
+    let e = []
+    let xs: List<Int> = e
+    let ys: List<String> = e
+    io.println($"{a.is_none()} {b.is_none()} {xs.len()} {ys.len()}")?
+    ok(())
+}

@@ -2092,8 +2092,22 @@ impl<'g, 'a> Infer<'g, 'a> {
                         crate::ty::ty_any(&t, &mut |k| matches!(k, TyKind::Skolem(_)))
                     })
             }
-            ExprKind::Def { def, .. } => matches!(hir.defs[*def].kind, DefKind::Fn(_)),
+            ExprKind::Def { def, .. } => match hir.defs[*def].kind {
+                DefKind::Fn(_) => true,
+                // a generalized module value (the prelude's `none`)
+                DefKind::Global(_) => self.g.scheme(*def).is_some_and(|s| s.n > 0),
+                _ => false,
+            },
             ExprKind::Ctor { .. } => true,
+            // an empty list is an immutable value of any element type
+            ExprKind::List(xs) => xs.is_empty(),
+            // a constructor applied to generalizable values
+            ExprKind::Call { callee, args } => {
+                matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. })
+                    && args
+                        .iter()
+                        .all(|a| matches!(hir.exprs[*a].kind, ExprKind::Lit(_) | ExprKind::Ctor { .. }))
+            }
             _ => false,
         }
     }
