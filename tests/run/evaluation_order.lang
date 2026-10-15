@@ -1,0 +1,43 @@
+// Operands evaluate left to right, each keeping the value it had when evaluated.
+import std.io
+pub struct P { pub v: Int }
+impl P { fn add(self: &Self, k: Int) -> Int { self.v * 10 + k } }
+fn pair(a: Int, b: Int) -> String { $"{a},{b}" }
+pub fn main() -> Unit {
+    more()
+    var x = 1
+    let _ = io.println(pair(x, { x = 2; x }))
+    var y = 1
+    let t = (y, { y = 5; y })
+    let _ = io.println($"{t.0} {t.1}")
+    var z = 1
+    let f = fn(a: Int, b: Int) -> Int { a * 10 + b }
+    let _ = io.println($"{f(z, { z = 3; z })}")
+    var p: P = { v: 1 }
+    let _ = io.println($"{p.add({ p = { v: 7 }; 2 })}")
+}
+pub struct Q { pub a: Int, pub b: Int }
+pub enum E { two(Int, Int) }
+fn bee() -> String { "b" }
+fn more() -> Unit {
+    var x = 1
+    let s = x + { x = 10; x }
+    var r = 1
+    let q: Q = { a: r, b: { r = 2; r } }
+    var l = 1
+    let xs = [l, { l = 3; l }]
+    var e = 1
+    let v = E.two(e, { e = 4; e })
+    let ev = match v { .two(p, q2) => p * 10 + q2 }
+    var t = "a"
+    let txt = $"{t}{ { t = bee(); t } }"
+    var c = 1
+    let cmp = c < { c = 0; c }
+    var i = 0
+    let ys = [10, 20, 30]
+    let picked = ys.get(i).unwrap_or(0) + ys.get({ i = 2; i }).unwrap_or(0)
+    var w = 5
+    let f = fn() -> Int { w }
+    w = 6
+    let _ = io.println($"{s} {q.a},{q.b} {xs} {ev} {txt} {cmp} {picked} {f()} {w}")
+}

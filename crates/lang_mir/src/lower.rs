@@ -1130,8 +1130,14 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.inst = saved;
                 v
             }
-            ExprKind::Local(l) => match self.locals.get(&l) {
-                Some(x) => Some(Operand::Local(*x)),
+            ExprKind::Local(l) => match self.locals.get(&l).copied() {
+                // a `var` is read as its value now: an operand evaluated
+                // later may assign it before this one is used
+                Some(x) if hir.locals[l].mutable => {
+                    let r = self.repr(&ty);
+                    Some(self.assign(r, Rvalue::Use(Operand::Local(x))))
+                }
+                Some(x) => Some(Operand::Local(x)),
                 None => {
                     // a global's own binding referenced (should not happen)
                     Some(unit_op())
