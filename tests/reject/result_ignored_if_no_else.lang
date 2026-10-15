@@ -1,0 +1,7 @@
+// expect-error: E0337
+// An ignored Result: result_ignored_if_no_else.
+fn fails() -> Result<Int, String> { err("x") }
+pub fn main() -> Unit {
+    if true { fails() }
+    ()
+}

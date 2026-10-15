@@ -641,6 +641,34 @@ impl Own<'_, '_, '_> {
         if let ExprKind::Block { stmts, .. } = &hir.exprs[e].kind {
             for s in stmts {
                 let Stmt::Let { pat, .. } = s else { continue };
+                // `Result`s bound by destructuring and never read
+                if !matches!(hir.pats[*pat].kind, PatKind::Bind(_)) {
+                    let mut ls = vec![];
+                    pat_locals(hir, *pat, &mut ls);
+                    for l in ls {
+                        let unread_result = !self.reads.contains(&l)
+                            && !self.name(l).starts_with('_')
+                            && self.local_ty(l).is_some_and(
+                                |t| matches!(&*t, TyKind::Con(d, _) if *d == self.inf.g.env.b.result),
+                            );
+                        if unread_result {
+                            let span = hir.locals[l].span;
+                            let name = self.name(l);
+                            self.report(
+                                Diagnostic::error(format!(
+                                    "`{name}` holds a `Result` that is never inspected"
+                                ))
+                                .with_code("E0337")
+                                .with_label(span, "this `Result` is ignored")
+                                .with_note(
+                                    "handle it with `?` or `match`, or bind it to `_` to discard explicitly",
+                                ),
+                                span,
+                            );
+                        }
+                    }
+                    continue;
+                }
                 let PatKind::Bind(l) = &hir.pats[*pat].kind else { continue };
                 // a bound `Result` that is never read is ignored
                 if !self.reads.contains(l)

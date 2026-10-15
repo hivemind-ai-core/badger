@@ -911,7 +911,9 @@ impl<'g, 'a> Infer<'g, 'a> {
                         t
                     }
                     None => {
-                        self.infer(then);
+                        // without `else`, the branch's value is discarded
+                        let tt = self.infer(then);
+                        self.discarded(tt, then);
                         unit()
                     }
                 }

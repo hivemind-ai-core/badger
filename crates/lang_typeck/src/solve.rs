@@ -1005,6 +1005,38 @@ impl Infer<'_, '_> {
             }
             Constraint::MustUse { ty, span } => {
                 let t = self.deref(ty);
+                // a discarded value holding a `Result` (in an option, a
+                // collection, a tuple, or a record) discards it too
+                if !matches!(&*t, TyKind::Var(_))
+                    && !matches!(&*t, TyKind::Con(d, _) if *d == self.b().result)
+                {
+                    let t = self.icx.resolve(&t);
+                    let result = self.b().result;
+                    let task = self.g.hir.try_lang("task.Task");
+                    let mut pending = false;
+                    let holds = ty_any(&t, &mut |k| match k {
+                        TyKind::Var(_) => {
+                            pending = true;
+                            false
+                        }
+                        TyKind::Con(d, _) => *d == result,
+                        _ => false,
+                    }) && !matches!(&*t, TyKind::Con(d, _) if Some(*d) == task)
+                        && !matches!(&*t, TyKind::Fn(_));
+                    if pending && !final_ {
+                        return Step::Pending;
+                    }
+                    if holds && !ty_any(&t, &mut |k| matches!(k, TyKind::Fn(_))) {
+                        let shown = self.show(&t);
+                        self.push_diag(
+                            Diagnostic::error(format!("unused `{shown}` holds a `Result`"))
+                                .with_code("E0337")
+                                .with_label(*span, "the `Result` inside is ignored")
+                                .with_note("handle it, or discard it explicitly with `let _ = ...`"),
+                        );
+                        return Step::Solved;
+                    }
+                }
                 match &*t {
                     TyKind::Var(_) if !final_ => Step::Pending,
                     TyKind::Con(d, _) if *d == self.b().result => {

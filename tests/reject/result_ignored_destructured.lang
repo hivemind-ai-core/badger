@@ -1,0 +1,10 @@
+// expect-error: E0337
+// An ignored Result: result_ignored_destructured.
+import std.io
+fn fails() -> Result<Int, String> { err("x") }
+struct S { v: Int }
+pub fn main() -> Unit {
+    let c = true
+    let (a, b) = (fails(), 1)
+    let _ = b
+}

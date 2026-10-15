@@ -16,11 +16,15 @@ pub enum AppError {
     system(source: system.Error),
 } derive(Error, From)
 
+fn fail_request(db: sqlite.Pool) -> Result<Unit, AppError> {
+    use tx <- sqlite.transaction(db)
+    sqlite.execute(tx, "INSERT INTO hits (path) VALUES ('fail')", [])?
+    panic("request A failed")
+}
+
 fn handle(db: sqlite.Pool, request: http.Request) -> Result<http.Response, AppError> {
     if request.path == "/fail" {
-        use tx <- sqlite.transaction(db)
-        sqlite.execute(tx, "INSERT INTO hits (path) VALUES ('fail')", [])?
-        panic("request A failed")
+        fail_request(db)?
     }
     if request.path == "/slow" {
         task.sleep(300ms)

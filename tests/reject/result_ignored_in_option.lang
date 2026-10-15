@@ -1,0 +1,10 @@
+// expect-error: E0337
+// An ignored Result: result_ignored_in_option.
+import std.io
+fn fails() -> Result<Int, String> { err("x") }
+struct S { v: Int }
+pub fn main() -> Unit {
+    let c = true
+    some(fails())
+    ()
+}
