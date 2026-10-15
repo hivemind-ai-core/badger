@@ -1,0 +1,14 @@
+// expect-error: E0405
+// A borrowing closure passed through a call keeps its borrow.
+import std.io
+import std.buffer
+fn id<T>(x: T) -> T { x }
+pub fn main() -> Result<Unit, io.Error> {
+    var b = buffer.new<Int>()
+    let f = id(fn(v: Int) { b.push(v) })
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    f(5)
+    io.println(a.len())?
+    ok(())
+}

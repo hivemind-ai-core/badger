@@ -1701,8 +1701,12 @@ impl Own<'_, '_, '_> {
                     self.carried_borrows(v, out);
                 }
             }
+            // a call result holding a reference or a function (a closure the
+            // callee may return) carries its arguments' borrows
             ExprKind::Call { callee, args }
-                if holds_ref || matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. }) =>
+                if holds_ref
+                    || matches!(hir.exprs[*callee].kind, ExprKind::Ctor { .. })
+                    || self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t, 0)) =>
             {
                 for a in args.clone() {
                     self.carried_borrows(a, out);
@@ -1887,7 +1891,6 @@ impl Own<'_, '_, '_> {
                     }
                     _ => vec![Param::Shared],
                 };
-                self.check_stored_borrows(e, *recv, args);
                 // calling a consuming closure stored in a field, or reading one
                 // out of its holder (`m.get(k)`), uses up the holder
                 let reads_fn = self.inf.exprs.get(&e).cloned().is_some_and(|t| self.holds_fn(&t, 0));
@@ -1939,6 +1942,8 @@ impl Own<'_, '_, '_> {
                     self.check_repeatable(*a, p);
                     self.moves_into_task(callee_def, i + 1, *a, span, st);
                 }
+                // after the arguments: closures among them know their borrows
+                self.check_stored_borrows(e, *recv, args);
                 if let Some(root) = consumed_root {
                     self.use_local(root, span, Mode::Move, st);
                 }

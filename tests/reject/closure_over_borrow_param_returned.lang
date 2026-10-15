@@ -1,0 +1,17 @@
+// expect-error: E0405
+// A closure over a borrow parameter, returned, keeps the caller's value borrowed.
+import std.io
+import std.buffer
+fn mk(r: &mut Buffer<Int>) -> fn(Int) -> Unit {
+    fn(v: Int) { r.push(v) }
+}
+pub fn main() -> Result<Unit, io.Error> {
+    var b = buffer.new<Int>()
+    let f = mk(&mut b)
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    f(5)
+    f(6)
+    io.println(a.len())?
+    ok(())
+}

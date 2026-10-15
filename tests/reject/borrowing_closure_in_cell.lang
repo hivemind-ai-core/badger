@@ -1,0 +1,14 @@
+// expect-error: E0407
+// A borrowing closure cannot be stored in a Cell.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    var b = buffer.new<Int>()
+    let cell = Cell.new(fn(v: Int) { () })
+    cell.set(fn(v: Int) { b.push(v) })
+    let a = buffer.freeze(b)
+    io.println(a.len())?
+    cell.get()(5)
+    io.println(a.len())?
+    ok(())
+}
