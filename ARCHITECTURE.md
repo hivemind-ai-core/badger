@@ -106,7 +106,10 @@ error. `lang_cli` is the `lang` binary.
   exclusive access (E0408); copies of a borrow, call results holding a
   reference, and values carrying one keep the source borrowed, and a held
   borrow conflicts with other uses of its source in the same call. A `Seq`
-  built from an affine source is consuming; a consuming closure kept in a
+  built from an affine source is consuming. A closure copies captured
+  borrows, moves a capture it consumes or that is not used after it, and
+  otherwise borrows the capture (holding that loan while the closure is
+  used). A consuming closure kept in a
   record or list, or returned through a call, makes its holder single-use.
   A borrow cannot be stored in a cell, atom, builder, buffer, or channel
   (E0407). Generic bodies are re-checked with their type variables treated

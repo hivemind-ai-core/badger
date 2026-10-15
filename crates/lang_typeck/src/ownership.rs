@@ -70,6 +70,8 @@ struct Own<'i, 'g, 'a> {
     offending: Vec<Ty>,
     /// Locals read anywhere (assignments are not reads).
     reads: FxHashSet<LocalId>,
+    /// Captures each closure borrows rather than moves.
+    lambda_borrows: FxHashMap<ExprId, Vec<LocalId>>,
     /// `Result` values bound or assigned and not read since.
     unread: FxHashMap<LocalId, Span>,
 }
@@ -106,6 +108,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         generic: false,
         offending: vec![],
         reads: FxHashSet::default(),
+        lambda_borrows: FxHashMap::default(),
         unread: FxHashMap::default(),
     };
     for p in params.clone() {
@@ -177,6 +180,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         generic: true,
         offending: vec![],
         reads: FxHashSet::default(),
+        lambda_borrows: FxHashMap::default(),
         unread: FxHashMap::default(),
     };
     for p in params {
@@ -1125,6 +1129,22 @@ impl Own<'_, '_, '_> {
                 }
             }
             ExprKind::Block { tail: Some(t), .. } => self.carried_borrows(*t, out),
+            // a closure borrowing its captures (or copying captured borrows)
+            ExprKind::Lambda(_) => {
+                for c in self.lambda_borrows.get(&e).cloned().unwrap_or_default() {
+                    let is_ref = self.local_ty(c).is_some_and(|t| matches!(&*t, TyKind::Ref(..)));
+                    if is_ref {
+                        let mut copied: Vec<(LocalId, Span)> =
+                            self.carriers.get(&c).cloned().unwrap_or_default();
+                        copied.extend(
+                            self.loans.iter().filter(|ln| ln.holder == c).map(|ln| (ln.owner, ln.span)),
+                        );
+                        out.extend(copied);
+                    } else if self.is_affine(c) {
+                        out.push((c, hir.exprs[e].span));
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1377,13 +1397,28 @@ impl Own<'_, '_, '_> {
                 d
             }
             ExprKind::Lambda(l) => {
-                for c in &l.captures {
-                    self.use_local(*c, span, Mode::Move, st);
-                }
                 // the body is checked on its own (captures start available);
                 // consuming an affine capture makes the closure single-use
                 let mut inner = State::default();
                 self.expr(l.body, Mode::Move, &mut inner);
+                // capture modes: a captured borrow is copied; a value the
+                // body consumes, or one not used after the closure, moves
+                // in; otherwise the closure borrows it (and holds that loan)
+                let end = span.range().end;
+                let mut borrowed = vec![];
+                for c in &l.captures {
+                    let is_ref = self.local_ty(*c).is_some_and(|t| matches!(&*t, TyKind::Ref(..)));
+                    let consumed = inner.contains_key(c);
+                    let used_after = self.last_use.get(c).is_some_and(|p| *p > end);
+                    let mode = if is_ref || (!consumed && used_after) { Mode::Borrow } else { Mode::Move };
+                    self.use_local(*c, span, mode, st);
+                    if mode == Mode::Borrow {
+                        borrowed.push(*c);
+                    }
+                }
+                if !borrowed.is_empty() {
+                    self.lambda_borrows.insert(e, borrowed);
+                }
                 if let Some(c) = l.captures.iter().find(|c| inner.contains_key(c) && self.is_affine(**c)) {
                     self.consuming_lambdas.insert(e, *c);
                 }

@@ -1,0 +1,12 @@
+// expect-error: E0405
+// A closure that borrows a capture keeps it borrowed while it is used.
+import std.io
+import std.buffer
+pub fn main() -> Result<Unit, io.Error> {
+    let b = buffer.new<Int>()
+    b.push(1)
+    let g = fn() { b.len() }
+    let a = buffer.freeze(b)
+    io.println(g())?
+    io.println(a.len())
+}
