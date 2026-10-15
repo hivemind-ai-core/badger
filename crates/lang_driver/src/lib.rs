@@ -703,11 +703,15 @@ impl Session {
         let (prog, _, _) = self.lower_to_mir(path, opts)?;
         let mut meta: Vec<(String, String)> =
             config.into_iter().map(|(k, v, _)| (format!("config.{k}"), v)).collect();
-        // settings the environment gave at compile time are not baked in
-        meta.extend(
-            settings.into_iter().filter(|s| s.2 != "env").map(|(k, v, _)| (format!("runtime.{k}"), v)),
-        );
-        meta.push(("workers".into(), prog.workers.to_string()));
+        // the effective settings at compile time (manifest, profile, and
+        // environment), with `--workers` deciding the saved worker count
+        meta.extend(settings.into_iter().map(|(k, v, _)| {
+            let v = match (k.as_str(), opts.workers) {
+                ("workers", Some(w)) => w.to_string(),
+                _ => v,
+            };
+            (format!("runtime.{k}"), v)
+        }));
         match lang_mir::serial::encode(&prog, &meta) {
             Ok(bytes) => Ok(bytes),
             Err(e) => {

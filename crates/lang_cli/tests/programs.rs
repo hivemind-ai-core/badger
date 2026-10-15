@@ -689,6 +689,18 @@ fn compiled_programs_run() {
         String::from_utf8_lossy(&out.stdout),
         "workers: 4\nper-producer order preserved: true\nmessages: 12000\nsome producer moved between workers: true\n"
     );
+    // `lang compile --workers N` saves the worker count
+    let bin2 = dir.join("multicore2.langmir");
+    assert!(
+        lang()
+            .args(["compile", "tests/projects/multicore", "--workers", "2", "-o"])
+            .arg(&bin2)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let out = lang().arg("run").arg(&bin2).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).starts_with("workers: 2\n"));
     // a file that is not a program is not mistaken for one
     let junk = dir.join("junk.langmir");
     std::fs::write(&junk, b"LANGMIR1\x05").unwrap();
