@@ -133,7 +133,8 @@ pub fn push(w: u64, v: u64) {
         if elem.is_ptr() {
             _r.add(v);
         }
-        let page = gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8));
+        // rooted until the list holds it
+        let page = _r.add(gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8)));
         unsafe {
             let p = obj(page).payload();
             *(p as *mut *const TypeDesc) = elem;
@@ -219,7 +220,7 @@ pub fn append(w: u64, v: u64, desc: &'static TypeDesc) -> u64 {
         if page_len(last) != used {
             // another version extended this page: copy our prefix of it
             let elem = data(out).elem;
-            let copy = gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8));
+            let copy = _r.add(gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8)));
             unsafe {
                 let dst = obj(copy).payload();
                 let src = obj(last).payload();
