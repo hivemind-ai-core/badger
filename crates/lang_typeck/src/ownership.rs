@@ -175,6 +175,52 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
                     _ => None,
                 })
                 .collect();
+            // locals bound from a parameter's value (`for g in gs`, `let`,
+            // `match`) stand for that parameter
+            let mut derived: FxHashMap<LocalId, usize> = FxHashMap::default();
+            let root_param = |e: ExprId, derived: &FxHashMap<LocalId, usize>| -> Option<usize> {
+                let mut x = e;
+                loop {
+                    match &hir.exprs[x].kind {
+                        ExprKind::Local(l) => {
+                            return params
+                                .iter()
+                                .position(|p| *p == Some(*l))
+                                .or_else(|| derived.get(l).copied());
+                        }
+                        ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => x = *base,
+                        ExprKind::MethodCall { recv, .. } => x = *recv,
+                        _ => return None,
+                    }
+                }
+            };
+            for _ in 0..2 {
+                crate::program::walk_exprs(hir, body, &mut |e| {
+                    let binds: Vec<(PatId, ExprId)> = match &hir.exprs[e].kind {
+                        ExprKind::For { pat, iter, .. } => vec![(*pat, *iter)],
+                        ExprKind::Match { scrutinee, arms } => {
+                            arms.iter().map(|a| (a.pat, *scrutinee)).collect()
+                        }
+                        ExprKind::Block { stmts, .. } => stmts
+                            .iter()
+                            .filter_map(|s| match s {
+                                Stmt::Let { pat, init, .. } => Some((*pat, *init)),
+                                _ => None,
+                            })
+                            .collect(),
+                        _ => vec![],
+                    };
+                    for (pat, src) in binds {
+                        if let Some(pi) = root_param(src, &derived) {
+                            let mut ls = vec![];
+                            pat_locals(hir, pat, &mut ls);
+                            for l in ls {
+                                derived.insert(l, pi);
+                            }
+                        }
+                    }
+                });
+            }
             let mut found: Vec<usize> = vec![];
             crate::program::walk_exprs(hir, body, &mut |e| {
                 let (callee_def, args): (Option<DefId>, Vec<ExprId>) = match &hir.exprs[e].kind {
@@ -200,7 +246,8 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
                         _ => vec![],
                     };
                     for l in reached {
-                        if let Some(pi) = params.iter().position(|p| *p == Some(l))
+                        if let Some(pi) =
+                            params.iter().position(|p| *p == Some(l)).or_else(|| derived.get(&l).copied())
                             && !found.contains(&pi)
                         {
                             found.push(pi);

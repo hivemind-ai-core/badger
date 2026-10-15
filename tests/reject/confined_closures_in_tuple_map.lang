@@ -1,0 +1,27 @@
+// expect-error: E0402
+// The same through a tuple and a map.
+import std.io
+import std.task
+fn run_in_task(gs: (fn() -> Int, Int)) -> Int {
+    let x: Result<Int, String> = task.scope(fn(s) {
+        let (g, k) = gs
+        let t = s.spawn(fn() { g() })
+        ok(t.join())
+    })
+    x.unwrap_or(0)
+}
+fn run_map(gs: Map<String, fn() -> Int>) -> Int {
+    let x: Result<Int, String> = task.scope(fn(s) {
+        let g = gs["a"]
+        let t = s.spawn(fn() { g() })
+        ok(t.join())
+    })
+    x.unwrap_or(0)
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let f = fn() -> Int { c.set(c.get() + 1); c.get() }
+    let n = run_in_task((f, 1))
+    let m = run_map(map { "a" => f })
+    io.println($"RAN {n} {m} {c.get()}")
+}
