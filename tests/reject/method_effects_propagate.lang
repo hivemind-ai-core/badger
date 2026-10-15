@@ -1,0 +1,11 @@
+// expect-error: E0501
+// Effects of a method without an annotation reach callers, directly,
+// through a bound, and through dyn.
+import std.io
+protocol Named { fn name(self: &Self) -> String }
+struct S { v: Int }
+impl Named for S { fn name(self: &Self) -> String { let _ = io.println("EFFECT"); "s" } }
+fn pure_name<T>(x: &T) -> String !{} where T: Named { x.name() }
+fn pure_dyn(d: dyn Named) -> String !{} { d.name() }
+fn pure_direct(s: &S) -> String !{} { s.name() }
+pub fn main() -> Result<Unit, io.Error> { let s: S = { v: 1 }; io.println(pure_name(&s))?; io.println(pure_dyn(s))?; io.println(pure_direct(&s))?; ok(()) }

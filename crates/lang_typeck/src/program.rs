@@ -334,6 +334,8 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     }
     let sccs = petgraph::algo::tarjan_scc(&graph);
     let mut inf_diags = vec![];
+    // resolved call targets, for the effect fixpoint below
+    let mut call_targets: FxHashMap<ExprId, DefId> = FxHashMap::default();
     {
         let gref: &Global = &g;
         let mut inf = Infer::new(gref, Mode::Generic);
@@ -378,6 +380,29 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             }
         }
         inf_diags.append(&mut inf.diags);
+        for (e, r) in &inf.res {
+            let t = match r {
+                Res::Callee { def, .. } => Some(*def),
+                Res::Method(Target::Fn { def, .. }) | Res::Display(Target::Fn { def, .. }) => Some(*def),
+                Res::Try(Some(Target::Fn { def, .. })) => Some(*def),
+                // dictionary dispatch: the protocol's declaration of the method
+                Res::Method(Target::Dyn { protocol, method }) => match &hir.defs[*protocol].kind {
+                    DefKind::Protocol(pd) => {
+                        pd.methods.iter().copied().find(|m| hir.defs[*m].name == *method)
+                    }
+                    _ => None,
+                },
+                _ => None,
+            };
+            if let Some(d) = t {
+                call_targets.insert(*e, d);
+            }
+        }
+        for (e, t) in &inf.displays {
+            if let Target::Fn { def, .. } = t {
+                call_targets.insert(*e, *def);
+            }
+        }
         for (d, s) in new_schemes {
             g_insert(&g, d, s);
         }
@@ -392,6 +417,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         }
     }
     diags.extend(inf_diags);
+    effect_fixpoint(&mut g, &call_targets, &mut diags);
     check_impl_effects(&g, &mut diags);
     // module values are pure immutable data: no task-confined mutable cells,
     // affine builders/buffers, or open transactions (a local REPL session's
@@ -713,6 +739,132 @@ fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<String> {
         TyKind::Tuple(ts) => ts.iter().find_map(|x| stored_state(g, x, seen)),
         TyKind::Record(r) => row_fields(r).0.iter().find_map(|(_, x)| stored_state(g, x, seen)),
         _ => None,
+    }
+}
+
+/// Functions and methods declared without an effect annotation are
+/// effect-polymorphic until their bodies are checked, so callers checked
+/// earlier did not see their effects. Propagate the modeled effects of
+/// every resolved callee to its callers (to a fixpoint), refine the
+/// schemes of unannotated functions, and report an explicit bound the
+/// propagated effects exceed (E0501).
+fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, DefId>, diags: &mut Vec<Diagnostic>) {
+    let hir = g.hir;
+    let modeled: Vec<Symbol> = g.env.all_effects.clone();
+    let labels_of = |g: &Global, d: DefId| -> Vec<Symbol> {
+        match g.schemes.get(&d).map(|s| s.ty.clone()) {
+            Some(t) => match &*t {
+                TyKind::Fn(f) => {
+                    row_fields(&f.eff).0.into_iter().map(|(l, _)| l).filter(|l| modeled.contains(l)).collect()
+                }
+                _ => vec![],
+            },
+            None => vec![],
+        }
+    };
+    // callees of each user function body (closures excluded: their
+    // effects belong to the closure value)
+    fn callees(hir: &Hir, e: ExprId, targets: &FxHashMap<ExprId, DefId>, out: &mut Vec<DefId>) {
+        if let Some(d) = targets.get(&e) {
+            out.push(*d);
+        }
+        if matches!(hir.exprs[e].kind, lang_hir::ExprKind::Lambda(_)) {
+            return;
+        }
+        for c in crate::regions::sub_exprs(&hir.exprs[e].kind) {
+            callees(hir, c, targets, out);
+        }
+    }
+    let mut calls: Vec<(DefId, Vec<DefId>)> = vec![];
+    for (id, def) in hir.defs.iter() {
+        if hir.modules[def.module].is_std {
+            continue;
+        }
+        if let DefKind::Fn(f) = &def.kind
+            && let Some(b) = f.body
+        {
+            let mut cs = vec![];
+            callees(hir, b, targets, &mut cs);
+            cs.sort();
+            cs.dedup();
+            calls.push((id, cs));
+        }
+    }
+    // a call to a protocol method (through a bound or `dyn`) may reach any
+    // implementation of it in the program
+    for imp in &g.env.impls {
+        let (Some((proto, _)), ImplMethods::Defs(methods)) = (&imp.protocol, &imp.methods) else { continue };
+        let DefKind::Protocol(pd) = &hir.defs[*proto].kind else { continue };
+        for &pm in &pd.methods {
+            if let Some(&m) = methods.get(&hir.defs[pm].name) {
+                match calls.iter_mut().find(|c| c.0 == pm) {
+                    Some(c) => c.1.push(m),
+                    None => calls.push((pm, vec![m])),
+                }
+            }
+        }
+    }
+    let mut effects: FxHashMap<DefId, Vec<Symbol>> = FxHashMap::default();
+    for (d, _) in &calls {
+        effects.insert(*d, labels_of(g, *d));
+    }
+    loop {
+        let mut changed = false;
+        for (d, cs) in &calls {
+            let mut add = vec![];
+            for c in cs {
+                let ls = effects.get(c).cloned().unwrap_or_else(|| labels_of(g, *c));
+                for l in ls {
+                    if !effects[d].contains(&l) && !add.contains(&l) {
+                        add.push(l);
+                    }
+                }
+            }
+            if !add.is_empty() {
+                effects.get_mut(d).unwrap().extend(add);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    for (d, _) in &calls {
+        let have = labels_of(g, *d);
+        let all = &effects[d];
+        let extra: Vec<Symbol> = all.iter().copied().filter(|l| !have.contains(l)).collect();
+        if extra.is_empty() {
+            continue;
+        }
+        let DefKind::Fn(f) = &hir.defs[*d].kind else { continue };
+        // a protocol's declaration: its implementations are checked against
+        // an explicit annotation by `check_impl_effects`
+        if f.body.is_none() {
+            continue;
+        }
+        match &f.effect {
+            // an explicit bound: these effects were not permitted
+            Some(_) => {
+                let names: Vec<String> = extra.iter().map(|l| g.interner.resolve(*l).to_string()).collect();
+                let name = g.interner.resolve(hir.defs[*d].name).to_string();
+                diags.push(
+                    Diagnostic::error(format!("`{name}` performs effects its annotation does not permit"))
+                        .with_code("E0501")
+                        .with_label(hir.defs[*d].span, format!("calls functions that perform {}", names.join(", ")))
+                        .with_note("an explicit effect annotation is an upper bound on everything the function calls"),
+                );
+            }
+            // unannotated: its scheme carries the callees' effects
+            None => {
+                if let Some(s) = g.schemes.get_mut(d)
+                    && let TyKind::Fn(ft) = &*s.ty
+                {
+                    let mut ft = ft.clone();
+                    ft.eff = row(extra.iter().map(|l| (*l, unit())), ft.eff.clone());
+                    s.ty = mk(TyKind::Fn(ft));
+                }
+            }
+        }
     }
 }
 

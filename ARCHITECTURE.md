@@ -126,7 +126,12 @@ error. `lang_cli` is the `lang` binary.
 - **Systems:** each node's output must be concrete after inference (a
   generic provider's free type argument is E0606); region arguments are
   fixed when the system runs.
-- **Effects:** callback effects propagate through `for<S>` callback types
+- **Effects:** after inference, a fixpoint over resolved calls charges
+  every callee's modeled effects to its callers (functions and methods
+  declared without an annotation are effect-polymorphic until their bodies
+  are checked); a call through a protocol bound or `dyn` carries the union
+  of the method's implementations; an explicit bound that is exceeded is
+  E0501. Callback effects propagate through `for<S>` callback types
   and through functions carried in collections, structs, and enums; a
   function type written without `!` in a user declaration (struct field,
   payload, alias) or in a signature's result may perform any modeled
