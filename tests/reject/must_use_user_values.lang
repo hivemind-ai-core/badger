@@ -1,0 +1,14 @@
+// expect-error: E0337
+// Results in user enum and struct values, and a var's last assigned Result, must be inspected.
+import std.io
+enum Wrap { w(r: Result<Int, String>) }
+struct S { r: Result<Int, String> }
+fn parse(s: String) -> Result<Int, String> { err("bad") }
+pub fn main() -> Result<Unit, io.Error> {
+    let w = Wrap.w(parse("a"))
+    let s: S = { r: parse("b") }
+    var v = parse("c")
+    let _ = v
+    v = parse("d")
+    io.println("accepted")
+}

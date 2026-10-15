@@ -135,6 +135,21 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     o.check_escape(body, true);
     o.unused_tasks(body);
     o.check_consuming_result(body);
+    // a var's last assigned `Result` that nothing reads afterwards
+    let mut left: Vec<(LocalId, Span)> = o.unread.iter().map(|(l, s)| (*l, *s)).collect();
+    left.sort_by_key(|x| x.1.range().start);
+    for (l, span) in left {
+        if hir.locals[l].mutable && o.reads.contains(&l) && !o.name(l).starts_with('_') {
+            let name = o.name(l);
+            o.report(
+                Diagnostic::error(format!("the `Result` last assigned to `{name}` is never inspected"))
+                    .with_code("E0337")
+                    .with_label(span, "this `Result` is ignored")
+                    .with_note("handle it with `?` or `match` before the variable goes out of use"),
+                span,
+            );
+        }
+    }
     let _ = param_pats;
 }
 
@@ -980,10 +995,26 @@ impl Own<'_, '_, '_> {
         }
         let mut found = false;
         let mut stack = vec![t];
+        let mut seen: Vec<DefId> = vec![];
         while let Some(x) = stack.pop() {
             match &*x {
                 TyKind::Con(d, _) if *d == result => found = true,
-                TyKind::Con(d, args) if Some(*d) != task => stack.extend(args.iter().cloned()),
+                TyKind::Con(d, args) if Some(*d) != task => {
+                    stack.extend(args.iter().cloned());
+                    // a user struct or enum holding one in a field or payload
+                    let user = !self.inf.g.hir.modules[self.inf.g.hir.defs[*d].module].is_std;
+                    if user && !seen.contains(d) {
+                        seen.push(*d);
+                        let env = &self.inf.g.env;
+                        if let Some(e) = env.enums.get(d) {
+                            for v in 0..e.variants.len() {
+                                stack.extend(env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1));
+                            }
+                        } else if env.structs.contains_key(d) {
+                            stack.extend(env.struct_fields(*d, args).into_iter().map(|f| f.1));
+                        }
+                    }
+                }
                 TyKind::Tuple(ts) => stack.extend(ts.iter().cloned()),
                 TyKind::Record(r) => stack.extend(row_fields(r).0.into_iter().map(|f| f.1)),
                 _ => {}
