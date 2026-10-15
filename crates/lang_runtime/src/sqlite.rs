@@ -3,7 +3,8 @@
 //! All database work runs on the blocking pool; the calling task parks.
 //! A pool lends connections; when none is free and the pool is at its limit
 //! the task waits for a release. A transaction holds one connection from
-//! `BEGIN` until `COMMIT`/`ROLLBACK`.
+//! `BEGIN IMMEDIATE` (it takes the write lock first, so concurrent
+//! transactions queue instead of deadlocking) until `COMMIT`/`ROLLBACK`.
 
 use std::collections::VecDeque;
 
@@ -329,7 +330,10 @@ sql_intrinsics! {
             Err(e) => return sql_err(rdesc(ret), "sqlite/pool", &e),
         };
         let (c, r) = task::run_blocking(move || {
-            let r = c.execute_batch("BEGIN").map_err(|e| e.to_string());
+            // take the write lock up front: a deferred transaction holding a
+            // shared lock while waiting to write deadlocks with a committing
+            // one until the busy timeout (concurrent requests)
+            let r = c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string());
             (c, r)
         });
         match r {
