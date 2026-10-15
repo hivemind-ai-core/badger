@@ -1,0 +1,16 @@
+// expect-error: E0404
+// Duplication through a protocol method called on a generic value.
+import std.io
+import std.buffer
+protocol Twice { fn twice(self: Self) -> (Self, Self) }
+impl<T> Twice for T { fn twice(self: Self) -> (Self, Self) { (self, self) } }
+fn go<T>(x: T) -> (T, T) where T: Twice { x.twice() }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let (p, q) = go(b)
+    p.push(1)
+    let a = buffer.freeze(p)
+    q.push(2)
+    io.println(a.len())?
+    ok(())
+}

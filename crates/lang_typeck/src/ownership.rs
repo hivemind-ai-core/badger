@@ -410,6 +410,45 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
 
 /// Calls recorded before their generic callee was analysed.
 pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
+    let hir = inf.g.hir;
+    // analyse generic bodies again until the duplication flags settle: a
+    // generic function calling a protocol method or another generic
+    // function analysed after it learns what they duplicate
+    let fns: Vec<DefId> = hir
+        .defs
+        .iter()
+        .filter(|(_, d)| {
+            !hir.modules[d.module].is_std && matches!(&d.kind, DefKind::Fn(f) if f.body.is_some())
+        })
+        .map(|(id, _)| id)
+        .collect();
+    for _ in 0..4 {
+        let before = inf.g.dup_params.borrow().clone();
+        // a protocol method duplicates `Self` when an implementation does
+        for imp in &inf.g.env.impls {
+            let (Some((proto, _)), crate::env::ImplMethods::Defs(methods)) = (&imp.protocol, &imp.methods)
+            else {
+                continue;
+            };
+            let DefKind::Protocol(pd) = &hir.defs[*proto].kind else { continue };
+            for (name, m) in methods {
+                if inf.g.dup_params.borrow().get(m).is_some_and(|v| !v.is_empty())
+                    && let Some(&pm) = pd.methods.iter().find(|pm| hir.defs[**pm].name == *name)
+                {
+                    inf.g.dup_params.borrow_mut().insert(pm, vec![0]);
+                }
+            }
+        }
+        for &d in &fns {
+            if let Some(s) = inf.g.scheme(d) {
+                generic_pass(inf, d, &s);
+            }
+        }
+        if *inf.g.dup_params.borrow() == before {
+            break;
+        }
+    }
+    inf.g.dups_final.set(true);
     let calls = std::mem::take(&mut *inf.g.dup_deferred.borrow_mut());
     if calls.is_empty() {
         return;
@@ -1256,16 +1295,30 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// A call through a local alias of a generic function: its type
+    /// arguments follow from the arguments at the scheme's parameters.
+    fn check_alias_dup(&mut self, def: DefId, args: &[ExprId], span: Span) {
+        let Some(scheme) = self.inf.g.scheme(def) else { return };
+        let TyKind::Fn(f) = &*scheme.ty else { return };
+        let mut inst: Vec<Ty> = vec![crate::ty::error_ty(); scheme.n as usize];
+        for (p, a) in f.params.iter().zip(args) {
+            if let TyKind::Gen(k) = &**p
+                && let Some(t) = self.inf.exprs.get(a).cloned()
+                && let Some(slot) = inst.get_mut(*k as usize)
+            {
+                *slot = self.inf.icx.resolve(&t);
+            }
+        }
+        self.check_dup(def, &inst, span);
+    }
+
     /// A generic function that may duplicate a type parameter cannot take
     /// an affine type for it.
     fn check_dup(&mut self, def: DefId, args: &[Ty], span: Span) {
         let hir = self.inf.g.hir;
-        // a user function analysed later: check this call once it is
-        if !self.generic
-            && !self.inf.g.dup_done.borrow().contains(&def)
-            && !hir.modules[hir.defs[def].module].is_std
-            && matches!(&hir.defs[def].kind, DefKind::Fn(f) if f.body.is_some())
-        {
+        // calls are checked once every generic function (and protocol
+        // method, through its implementations) is analysed
+        if !self.generic && !self.inf.g.dups_final.get() && !hir.modules[hir.defs[def].module].is_std {
             let args: Vec<Ty> = args.iter().map(|a| self.inf.icx.resolve(a)).collect();
             self.inf.g.dup_deferred.borrow_mut().push((def, args, span));
             return;
@@ -1917,7 +1970,14 @@ impl Own<'_, '_, '_> {
                 if let ExprKind::Local(l) = &hir.exprs[*callee].kind
                     && let Some(lam) = self.local_lambdas.get(l).copied()
                 {
-                    self.check_lambda_dup(lam, args, span);
+                    match &hir.exprs[lam].kind {
+                        // a local alias of a generic function (`let d = dup`)
+                        ExprKind::Def { def, .. } => {
+                            let def = *def;
+                            self.check_alias_dup(def, args, span);
+                        }
+                        _ => self.check_lambda_dup(lam, args, span),
+                    }
                 }
                 let mut d = self.expr(*callee, cm, st);
                 // calling a consuming closure held in a field or element
@@ -2242,7 +2302,10 @@ impl Own<'_, '_, '_> {
                                 self.mark_consuming_bindings(*pat);
                             }
                             if let PatKind::Bind(holder) = &hir.pats[*pat].kind
-                                && let ExprKind::Lambda(_) = &hir.exprs[*init].kind
+                                && matches!(
+                                    &hir.exprs[*init].kind,
+                                    ExprKind::Lambda(_) | ExprKind::Def { .. }
+                                )
                             {
                                 self.local_lambdas.insert(*holder, *init);
                             }

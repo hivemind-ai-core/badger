@@ -48,6 +48,8 @@ pub struct Global<'a> {
     /// not yet analysed (checked once every group is done).
     pub dup_done: RefCell<FxHashSet<DefId>>,
     pub dup_deferred: RefCell<Vec<(DefId, Vec<Ty>, Span)>>,
+    /// Set once every generic function's duplication analysis is final.
+    pub dups_final: std::cell::Cell<bool>,
 }
 
 pub struct Names<'g, 'a> {
@@ -282,6 +284,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         dup_params: RefCell::new(FxHashMap::default()),
         dup_done: RefCell::new(FxHashSet::default()),
         dup_deferred: RefCell::new(vec![]),
+        dups_final: std::cell::Cell::new(false),
     };
     // Declared schemes: methods, intrinsics, and fully annotated functions.
     let mut declared: FxHashSet<DefId> = FxHashSet::default();
