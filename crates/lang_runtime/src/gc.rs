@@ -11,9 +11,18 @@
 //!   objects, temporary roots of runtime code).
 //!
 //! Collection happens only inside allocation, which is a safe point.
+//!
+//! `LANG_GC_VERIFY=1` checks the heap at every collection: each root and
+//! traced pointer must refer to a live object, and freed objects are
+//! poisoned and quarantined (not reused) so that a later use aborts with a
+//! report instead of corrupting memory. Combined with `LANG_GC_STRESS=1`
+//! it turns missing roots into immediate, attributed failures.
 
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::cell::UnsafeCell;
+use std::collections::VecDeque;
+
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 use crate::desc::{Kind, Repr, TypeDesc};
 
@@ -51,7 +60,11 @@ impl Header {
 /// # Safety
 /// `w` must be a live managed pointer.
 pub unsafe fn obj<'a>(w: u64) -> &'a Header {
-    unsafe { &*(w as *const Header) }
+    let o = unsafe { &*(w as *const Header) };
+    if verify() && std::ptr::eq(o.desc, poison()) {
+        freed_use(w, "the runtime");
+    }
+    o
 }
 
 pub struct Heap {
@@ -67,6 +80,12 @@ pub struct Heap {
     /// Stop-the-world pause times (nanoseconds).
     pub pause_total: u64,
     pub pause_max: u64,
+    /// Verification mode: freed objects awaiting release (with their
+    /// original descriptors), their total size, and immortal objects.
+    quarantine: VecDeque<(*mut Header, &'static TypeDesc)>,
+    quarantine_bytes: usize,
+    freed: FxHashMap<usize, &'static TypeDesc>,
+    immortals: FxHashSet<usize>,
 }
 
 struct HeapCell(UnsafeCell<Heap>);
@@ -84,6 +103,10 @@ static HEAP: HeapCell = HeapCell(UnsafeCell::new(Heap {
     disabled: 0,
     pause_total: 0,
     pause_max: 0,
+    quarantine: VecDeque::new(),
+    quarantine_bytes: 0,
+    freed: FxHashMap::with_hasher(FxBuildHasher),
+    immortals: FxHashSet::with_hasher(FxBuildHasher),
 }));
 
 /// The heap belongs to the single worker thread.
@@ -103,10 +126,37 @@ fn stress() -> bool {
     *STRESS.get_or_init(|| std::env::var_os("LANG_GC_STRESS").is_some_and(|v| v == "1"))
 }
 
+/// `LANG_GC_VERIFY=1`: verify the heap at every collection and quarantine
+/// freed objects (see the module documentation).
+pub fn verify() -> bool {
+    static VERIFY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *VERIFY.get_or_init(|| std::env::var_os("LANG_GC_VERIFY").is_some_and(|v| v == "1"))
+}
+
+/// The descriptor of a freed (quarantined) object.
+fn poison() -> &'static TypeDesc {
+    static D: std::sync::OnceLock<&'static TypeDesc> = std::sync::OnceLock::new();
+    D.get_or_init(|| {
+        TypeDesc::new("<freed object>", Kind::Opaque { trace: None, finalize: None, args: vec![] }).leak()
+    })
+}
+
+/// Quarantined objects are released once they exceed this many bytes.
+const QUARANTINE_BYTES: usize = 256 << 20;
+
+/// A freed object was used: report what it was and abort.
+fn freed_use(w: u64, by: &str) -> ! {
+    let was = heap().freed.get(&(w as usize)).map(|d| d.name.as_str()).unwrap_or("?");
+    eprintln!("fatal: heap verification: {by} used freed object {w:#x} (a `{was}`)");
+    eprintln!("{}", std::backtrace::Backtrace::force_capture());
+    std::process::abort();
+}
+
 /// Allocate a zeroed object with `payload` bytes. May collect first.
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     let h = heap();
-    if (h.allocated > h.threshold || stress()) && h.disabled == 0 {
+    let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
+    if (h.allocated > h.threshold || stress() || chaos) && h.disabled == 0 {
         collect();
     }
     let h = heap();
@@ -136,6 +186,9 @@ pub fn alloc_immortal(desc: &'static TypeDesc, payload: usize) -> u64 {
         let p = alloc_zeroed(layout(payload)) as *mut Header;
         (*p).desc = desc;
         (*p).meta = ((payload as u64) << 32) | IMMORTAL;
+        if verify() {
+            heap().immortals.insert(p as usize);
+        }
         p as u64
     }
 }
@@ -231,6 +284,20 @@ fn collect_inner() {
     let h = heap();
     h.collections += 1;
     let mut stack: Vec<u64> = Vec::new();
+    let checking = verify();
+    let live: FxHashSet<usize> =
+        if checking { h.objects.iter().map(|p| *p as usize).collect() } else { FxHashSet::default() };
+    // a referenced word must be a live or immortal object
+    let check = |w: u64, by: &dyn Fn() -> String| {
+        if !checking || w == 0 || live.contains(&(w as usize)) || h.immortals.contains(&(w as usize)) {
+            return;
+        }
+        if h.freed.contains_key(&(w as usize)) {
+            freed_use(w, &by());
+        }
+        eprintln!("fatal: heap verification: {} holds {w:#x}, which is not a heap object", by());
+        std::process::abort();
+    };
     let mark = |w: u64, stack: &mut Vec<u64>| {
         if w == 0 {
             return;
@@ -248,24 +315,32 @@ fn collect_inner() {
     };
     // roots
     for &g in &h.globals {
-        mark(unsafe { *g }, &mut stack);
+        let w = unsafe { *g };
+        check(w, &|| "a module-level value".into());
+        mark(w, &mut stack);
     }
     for &r in &h.temp_roots {
         // runtime helpers root only pointer-typed words; this guard keeps a
         // stray scalar from being dereferenced
         if r % 8 == 0 && r >= 4096 {
+            check(r, &|| "a temporary runtime root".into());
             mark(r, &mut stack);
         }
     }
     for &r in &h.pinned {
+        check(r, &|| "a pinned runtime root".into());
         mark(r, &mut stack);
     }
-    crate::task::for_each_root(&mut |w| mark(w, &mut stack));
+    crate::task::for_each_root(&mut |w| {
+        check(w, &|| "a task root (stack frame, entry, result, or held value)".into());
+        mark(w, &mut stack)
+    });
     // trace
     while let Some(w) = stack.pop() {
         let mut children = Vec::new();
         trace(w, &mut |c| children.push(c));
         for c in children {
+            check(c, &|| format!("a `{}` object", unsafe { obj(w) }.desc().name));
             mark(c, &mut stack);
         }
     }
@@ -280,8 +355,28 @@ fn collect_inner() {
                 kept.push(p);
             } else {
                 finalize(p);
-                dealloc(p as *mut u8, layout((*p).payload_size()));
+                if checking {
+                    // poison and keep: a later use is reported, not reused
+                    let size = (*p).payload_size();
+                    let was = (*p).desc();
+                    std::ptr::write_bytes((*p).payload(), 0xA5, size.max(8));
+                    (*p).desc = poison();
+                    h.freed.insert(p as usize, was);
+                    h.quarantine.push_back((p, was));
+                    h.quarantine_bytes += HEADER + size;
+                } else {
+                    dealloc(p as *mut u8, layout((*p).payload_size()));
+                }
             }
+        }
+    }
+    while h.quarantine_bytes > QUARANTINE_BYTES {
+        let Some((p, _)) = h.quarantine.pop_front() else { break };
+        unsafe {
+            let size = (*p).payload_size();
+            h.quarantine_bytes -= HEADER + size;
+            h.freed.remove(&(p as usize));
+            dealloc(p as *mut u8, layout(size));
         }
     }
     h.objects = kept;

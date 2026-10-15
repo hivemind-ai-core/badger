@@ -381,9 +381,67 @@ static READY_SEQ: AtomicU64 = AtomicU64::new(0);
 static IDLE: AtomicUsize = AtomicUsize::new(0);
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
+// ---------------------------------------------------------------- chaos
+
+/// `LANG_CHAOS=<seed>`: perturb scheduling to expose races. Tasks get
+/// random budgets (preemption at arbitrary polls), workers pick random
+/// ready tasks, threads yield or briefly sleep around runtime entry and
+/// exit, and collections run at random allocations. With one worker the
+/// perturbation is reproducible from the seed.
+pub fn chaos() -> Option<u64> {
+    static CHAOS: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *CHAOS.get_or_init(|| std::env::var("LANG_CHAOS").ok().and_then(|v| v.parse().ok()))
+}
+
+thread_local! {
+    static CHAOS_STATE: Cell<u64> = const { Cell::new(0) };
+}
+
+/// The next chaos random number (splitmix64 per thread, seeded from the
+/// chaos seed and the worker index).
+pub fn chaos_next() -> u64 {
+    let seed = chaos().unwrap_or(0);
+    CHAOS_STATE.with(|c| {
+        let mut x = c.get();
+        if x == 0 {
+            x = seed ^ (worker_index() as u64 + 1).wrapping_mul(0xD1B5_4A32_D192_ED03) | 1;
+        }
+        x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        c.set(x);
+        let mut z = x;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    })
+}
+
+/// A task's budget until its next yield: random under chaos (often tiny).
+fn task_budget() -> i64 {
+    if chaos().is_none() {
+        return BUDGET;
+    }
+    let r = chaos_next();
+    if r & 1 == 0 { 1 + ((r >> 8) % 64) as i64 } else { 1 + ((r >> 8) % BUDGET as u64) as i64 }
+}
+
+/// Under chaos with several workers: sometimes give up the CPU, rarely
+/// sleep briefly, to widen windows between threads.
+fn chaos_jitter() {
+    if chaos().is_none() || !multi() {
+        return;
+    }
+    let r = chaos_next();
+    if r.is_multiple_of(8) {
+        std::thread::yield_now();
+    } else if r.is_multiple_of(97) {
+        std::thread::sleep(Duration::from_micros((r >> 16) % 200));
+    }
+}
+
 /// Compiled code is about to call into the runtime (a safe point).
 pub extern "C" fn lang_rt_enter(_ctx: *mut TaskCtx) {
     IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+    chaos_jitter();
     lock();
 }
 
@@ -391,6 +449,7 @@ pub extern "C" fn lang_rt_enter(_ctx: *mut TaskCtx) {
 pub extern "C" fn lang_rt_leave(_ctx: *mut TaskCtx) {
     IN_COMPILED.fetch_add(1, Ordering::SeqCst);
     unlock();
+    chaos_jitter();
 }
 
 /// A foreign call from compiled code: it cannot touch managed memory, so it
@@ -531,7 +590,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
     r.next_id += 1;
     let ctx = Box::new(TaskCtx {
         shadow: std::ptr::null_mut(),
-        budget: BUDGET,
+        budget: task_budget(),
         flags: 0,
         task: id as u64,
         stack_limit: 0,
@@ -758,7 +817,7 @@ pub fn take_delivered() -> (u64, u64) {
 
 pub fn yield_now() {
     let t = current().unwrap();
-    t.ctx.budget = BUDGET;
+    t.ctx.budget = task_budget();
     // the flush-latency target is checked at every safe point
     if !t.on_deschedule.is_empty()
         && let Some(h) = rt().safepoint_hook
@@ -1127,7 +1186,14 @@ pub fn await_cancelled(ids: &[TaskId]) {
         }
         let now = Instant::now();
         if now >= deadline {
-            let names: Vec<String> = pending.iter().map(|id| format!("task {id}")).collect();
+            let names: Vec<String> = pending
+                .iter()
+                .map(|id| match task(*id) {
+                    Some(t) if !t.wait.is_empty() => format!("task {id}, {:?} on {}", t.state, t.wait),
+                    Some(t) => format!("task {id}, {:?}", t.state),
+                    None => format!("task {id}"),
+                })
+                .collect();
             panic_current(
                 format!(
                     "cleanup exceeded the grace period of {}ms ({} still running)",
@@ -1236,7 +1302,7 @@ fn next_ready() -> Option<TaskId> {
     let mut c = SCHED.lock().unwrap();
     if c.seed.is_none() && c.replay.is_empty() && !c.record {
         drop(c);
-        return r.ready.pop_front();
+        return chaos_pop();
     }
     let n = r.ready.len() as u64;
     let idx = if let Some(i) = c.replay.pop_front() {
@@ -1256,6 +1322,16 @@ fn next_ready() -> Option<TaskId> {
     }
     drop(c);
     r.ready.remove(idx as usize)
+}
+
+/// The next ready task: FIFO, or a random one under chaos.
+fn chaos_pop() -> Option<TaskId> {
+    let r = rt();
+    if chaos().is_some() && r.ready.len() > 1 {
+        let i = (chaos_next() % r.ready.len() as u64) as usize;
+        return r.ready.remove(i);
+    }
+    r.ready.pop_front()
 }
 
 /// Arguments for the next main task (a pinned `List<String>`), if its
@@ -1386,7 +1462,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         let pick = if sched_controlled() {
             if worker_index() == 0 { next_ready() } else { None }
         } else {
-            rt().ready.pop_front()
+            chaos_pop()
         };
         if let Some(id) = pick {
             run_one(id);
@@ -1468,7 +1544,7 @@ fn run_one(id: TaskId) {
     }
     let was_cleaning = t.state == State::Cleaning;
     t.state = if was_cleaning { State::Cleaning } else { State::Running };
-    t.ctx.budget = BUDGET;
+    t.ctx.budget = task_budget();
     set_current(id);
     let w = worker_index();
     if multi() {
