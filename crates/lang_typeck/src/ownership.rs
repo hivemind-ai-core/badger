@@ -1181,6 +1181,27 @@ impl Own<'_, '_, '_> {
         if !required {
             return;
         }
+        // captured values of a type parameter must be transferable where the
+        // function is instantiated
+        if let ExprKind::Lambda(l) = &hir.exprs[arg].kind {
+            for c in l.captures.clone() {
+                if let Some(t) = self.local_ty(c) {
+                    let skolems = self.inf.icx.skolems.clone();
+                    let mut found = vec![];
+                    ty_any(&t, &mut |k| {
+                        if let TyKind::Skolem(s) = k
+                            && !skolems.get(*s as usize).is_some_and(|i| i.region)
+                        {
+                            found.push(*s);
+                        }
+                        false
+                    });
+                    for s in found {
+                        self.inf.implied_caps.push((s, "Transfer"));
+                    }
+                }
+            }
+        }
         for c in self.lambda_borrows.get(&arg).cloned().unwrap_or_default() {
             if self.is_affine(c) {
                 self.use_local(c, span, Mode::Move, st);

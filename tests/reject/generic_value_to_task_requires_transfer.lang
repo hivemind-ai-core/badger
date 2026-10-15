@@ -1,0 +1,18 @@
+// expect-error: E0402
+// A type parameter's value sent to a task requires Transfer of the instantiation.
+import std.io
+import std.task
+fn go<T>(s: &task.TaskScope<T>, x: Cell<Int>) -> Int { 1 }
+fn spawn_with<T>(x: T, f: fn(T) -> Unit) -> Unit {
+    let r: Result<Unit, String> = task.scope(fn(s) {
+        let t = s.spawn(fn() { f(x) })
+        ok(t.join())
+    })
+    let _ = r
+}
+pub fn main() -> Result<Unit, String> {
+    let c = Cell.new(0)
+    spawn_with(c, fn(k) { k.set(9) })
+    let _ = io.println(c.get())
+    ok(())
+}

@@ -1582,6 +1582,11 @@ impl Infer<'_, '_> {
                 });
                 // a region brand is shareable with child tasks, never encodable
                 let region = self.icx.skolems[s as usize].region;
+                // a type parameter sent to another task is required to be
+                // transferable where the function is instantiated
+                if which == "Transfer" && !found && !region {
+                    self.implied_caps.push((s, "Transfer"));
+                }
                 Some(found || which == "Transfer" || (region && which != "Codec"))
             }
             TyKind::Fn(f) => {

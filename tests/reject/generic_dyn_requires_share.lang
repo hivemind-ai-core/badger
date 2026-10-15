@@ -1,0 +1,22 @@
+// expect-error: E0341
+// A generic dyn coercion requires Share of the instantiation.
+import std.io
+import std.task
+protocol Bump { fn bump(self: &Self) -> Int }
+impl Bump for Cell<Int> { fn bump(self: &Self) -> Int { self.set(self.get() + 1); self.get() } }
+protocol Ping { fn ping(self: &Self) -> Int }
+struct G<T> { v: T }
+impl<T> Ping for G<T> where T: Bump { fn ping(self: &Self) -> Int { self.v.bump() } }
+fn mk<T>(x: G<T>) -> dyn Ping where T: Bump { x }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Cell.new(0)
+    let g: G<Cell<Int>> = { v: c }
+    let e = mk(g)
+    let r: Result<Int, io.Error> = task.scope(fn(s) {
+        let t = s.spawn(fn() { e.ping() })
+        ok(t.join())
+    })
+    io.println(r?)?
+    io.println(c.get())?
+    ok(())
+}

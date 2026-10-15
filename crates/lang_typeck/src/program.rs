@@ -50,6 +50,10 @@ pub struct Global<'a> {
     pub dup_deferred: RefCell<Vec<(DefId, Vec<Ty>, Span)>>,
     /// Set once every generic function's duplication analysis is final.
     pub dups_final: std::cell::Cell<bool>,
+    /// The definition and scheme index each declared generic (skolem)
+    /// stands for, and the capabilities definitions require of them.
+    pub skolem_owner: RefCell<FxHashMap<u32, (DefId, u32)>>,
+    pub implied: RefCell<FxHashMap<DefId, Vec<(u32, &'static str)>>>,
 }
 
 pub struct Names<'g, 'a> {
@@ -285,6 +289,8 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         dup_done: RefCell::new(FxHashSet::default()),
         dup_deferred: RefCell::new(vec![]),
         dups_final: std::cell::Cell::new(false),
+        skolem_owner: RefCell::new(FxHashMap::default()),
+        implied: RefCell::new(FxHashMap::default()),
     };
     // Declared schemes: methods, intrinsics, and fully annotated functions.
     let mut declared: FxHashSet<DefId> = FxHashSet::default();
@@ -377,6 +383,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         // calls to generic functions analysed after their callers
         crate::ownership::check_deferred_dups(&mut inf);
         crate::ownership::check_task_params(&mut inf);
+        check_implied_caps(&mut inf);
         if !repl_session() {
             crate::ownership::check_module_closures(&mut inf);
         }
@@ -785,6 +792,56 @@ fn effect_tails(t: &Ty, out: &mut Vec<TyVid>) {
             effect_tails(rest, out);
         }
         _ => {}
+    }
+}
+
+/// Capabilities generic bodies require of their type parameters (a value
+/// sent to a task must be `Transfer`, one coerced to `dyn` must be
+/// `Share`) are checked at every instantiation; requirements reaching a
+/// caller's own type parameters pass on to its callers.
+fn check_implied_caps(inf: &mut Infer<'_, '_>) {
+    let mut done: FxHashSet<(ExprId, u32)> = FxHashSet::default();
+    for _ in 0..6 {
+        // attach new requirements to the definitions owning the parameters
+        let mut grew = false;
+        for (s, which) in std::mem::take(&mut inf.implied_caps) {
+            let owner = inf.g.skolem_owner.borrow().get(&s).copied();
+            if let Some((d, i)) = owner {
+                let mut map = inf.g.implied.borrow_mut();
+                let v = map.entry(d).or_default();
+                if !v.contains(&(i, which)) {
+                    v.push((i, which));
+                    grew = true;
+                }
+            }
+        }
+        if !grew && !done.is_empty() {
+            break;
+        }
+        let calls: Vec<(ExprId, DefId, Vec<Ty>)> = inf
+            .res
+            .iter()
+            .filter_map(|(e, r)| match r {
+                Res::Callee { def, args } => Some((*e, *def, args.clone())),
+                Res::Method(Target::Fn { def, args }) => Some((*e, *def, args.clone())),
+                _ => None,
+            })
+            .collect();
+        for (e, def, args) in calls {
+            let reqs = inf.g.implied.borrow().get(&def).cloned().unwrap_or_default();
+            for (i, which) in reqs {
+                if !done.insert((e, i)) {
+                    continue;
+                }
+                let (Some(arg), Some(proto)) = (args.get(i as usize), inf.g.hir.try_lang(which)) else {
+                    continue;
+                };
+                let arg = inf.icx.resolve(arg);
+                let span = inf.g.hir.exprs[e].span;
+                inf.pending.push(Constraint::Impl { proto, args: vec![], ty: arg, span, expr: None });
+            }
+        }
+        inf.solve(true);
     }
 }
 
@@ -1208,6 +1265,9 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
                 _ => None,
             })
             .collect();
+        for (k, i) in &sk_idx {
+            inf.g.skolem_owner.borrow_mut().insert(*k, (d, *i));
+        }
         let mut n = n_sk + vars.len() as u32;
         let icx = &mut inf.icx;
         let generalize =

@@ -144,6 +144,9 @@ pub struct Infer<'g, 'a> {
     /// Locals bound by patterns from a parameter's value: cells reached
     /// through them are the caller's.
     pub param_derived: rustc_hash::FxHashSet<LocalId>,
+    /// Capabilities a generic body requires of its type parameters
+    /// (skolem, `Transfer`/`Share`), checked where it is instantiated.
+    pub implied_caps: Vec<(u32, &'static str)>,
     /// Generalized local `let`s: binding -> (initializer, scheme size, type).
     pub poly_locals: FxHashMap<LocalId, (ExprId, u32, Ty)>,
     /// Instantiation of each use of a generalized local.
@@ -185,6 +188,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             region_lambdas: vec![],
             init_lambdas: vec![],
             param_derived: Default::default(),
+            implied_caps: vec![],
             poly_locals: FxHashMap::default(),
             callee_ctx: None,
             local_insts: FxHashMap::default(),
@@ -607,6 +611,17 @@ impl<'g, 'a> Infer<'g, 'a> {
         // task-confined values cannot hide in one (a type parameter is held
         // to `Transfer`; its instances are checked where they are concrete)
         let generic = ty_any(&act, &mut |k| matches!(k, TyKind::Skolem(_)));
+        if generic {
+            let skolems = self.icx.skolems.clone();
+            ty_any(&act, &mut |k| {
+                if let TyKind::Skolem(s) = k
+                    && !skolems.get(*s as usize).is_some_and(|i| i.region)
+                {
+                    self.implied_caps.push((*s, "Share"));
+                }
+                false
+            });
+        }
         if let Some(share) = self.g.hir.try_lang(if generic { "Transfer" } else { "Share" }) {
             self.pending.push(Constraint::Impl {
                 proto: share,
