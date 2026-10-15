@@ -1,0 +1,16 @@
+// expect-error: E0408
+// A method taking self: &Self cannot mutate its fields.
+// mutation through `self: &Self` on a field
+import std.io
+import std.buffer
+struct Holder { b: Buffer<Int> }
+impl Holder { fn poke(self: &Self) -> Unit { self.b.push(7) } }
+pub fn main() -> Result<Unit, io.Error> {
+    let h: Holder = { b: buffer.new<Int>() }
+    let r1 = &h
+    let r2 = &h
+    r1.poke()
+    r2.poke()
+    io.println(h.b.len())?
+    ok(())
+}

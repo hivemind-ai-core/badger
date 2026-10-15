@@ -1,0 +1,17 @@
+// expect-error: E0408
+// A shared borrow of an aggregate does not permit mutating its fields.
+// field of shared-borrowed struct, method push
+import std.io
+import std.buffer
+struct Holder { b: Buffer<Int> }
+fn poke(x: &Holder) -> Unit { x.b.push(7) }
+pub fn main() -> Result<Unit, io.Error> {
+    let b: Buffer<Int> = buffer.new()
+    let h: Holder = { b: b }
+    let r1 = &h
+    let r2 = &h
+    poke(r1)
+    poke(r2)
+    io.println(h.b.len())?
+    ok(())
+}

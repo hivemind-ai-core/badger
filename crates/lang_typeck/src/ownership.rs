@@ -854,6 +854,20 @@ impl Own<'_, '_, '_> {
         let shared = match &hir.exprs[e].kind {
             ExprKind::Unary { op: UnOp::Ref, .. } => true,
             ExprKind::Local(l) => matches!(self.local_ty(*l).as_deref(), Some(TyKind::Ref(false, _))),
+            // a field or element reached through a shared borrow
+            ExprKind::Field { .. } | ExprKind::Index { .. } => {
+                let mut x = e;
+                let mut through_shared = false;
+                while let ExprKind::Field { base, .. } | ExprKind::Index { base, .. } = &hir.exprs[x].kind {
+                    x = *base;
+                    let bt = self.inf.exprs.get(&x).cloned().map(|t| self.inf.icx.resolve(&t));
+                    if matches!(bt.as_deref(), Some(TyKind::Ref(false, _))) {
+                        through_shared = true;
+                        break;
+                    }
+                }
+                through_shared
+            }
             _ => false,
         };
         if shared {
