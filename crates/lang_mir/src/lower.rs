@@ -79,6 +79,27 @@ impl<'g, 'a> Mono<'g, 'a> {
         format!("{}.{}", mp.join("."), self.sym(def.name))
     }
 
+    /// The live-reload identity of a definition: its path, and for a method
+    /// the impl it belongs to (`app.<Point as Display>.display`), so methods
+    /// of different impls never share it.
+    fn live_path(&self, d: DefId) -> String {
+        let hir = self.g.hir;
+        if let DefKind::Fn(f) = &hir.defs[d].kind
+            && let Some(o) = f.owner
+            && let Some(imp) = self.g.env.impls.iter().find(|i| i.def == Some(o))
+        {
+            let m = &hir.modules[hir.defs[d].module];
+            let mp: Vec<&str> = m.path.iter().map(|s| self.sym(*s)).collect();
+            let ty = lang_typeck::show_ty(self.g, &imp.self_ty);
+            let owner = match &imp.protocol {
+                Some((p, _)) => format!("<{ty} as {}>", self.sym(hir.defs[*p].name)),
+                None => format!("<{ty}>"),
+            };
+            return format!("{}.{owner}.{}", mp.join("."), self.sym(hir.defs[d].name));
+        }
+        self.def_path(d)
+    }
+
     /// A constraint the runtime can satisfy for a `Dynamic` value through
     /// its descriptor.
     fn runtime_dispatchable(&self, c: &lang_typeck::solve::Constraint) -> bool {
@@ -204,7 +225,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             .map(|(a, _)| lang_typeck::show_ty(self.g, a))
             .collect();
         let key =
-            format!("{}{}<{}>", self.def_path(def), if global { "#global" } else { "" }, targs.join(", "));
+            format!("{}{}<{}>", self.live_path(def), if global { "#global" } else { "" }, targs.join(", "));
         let sig = scheme
             .map(|s| {
                 // the declared (generic) signature with its concrete effects:
