@@ -1,0 +1,32 @@
+// `==` and `!=` on records, tuples, and structs of scalars compare field by
+// field (compiled inline); the result is the same structural equality as
+// for any value: IEEE for floats (a NaN field is unequal to itself),
+// nested records compared recursively, symbols by name.
+import std.io
+
+pub struct Point { pub x: Int, pub y: Int }
+
+type Tagged = { at: Point, tag: Symbol }
+
+pub fn main() -> Unit {
+    let a: Point = { x: 1, y: 2 }
+    let b: Point = { x: 1, y: 2 }
+    let c: Point = { x: 1, y: 3 }
+    let _ = io.println($"structs: {a == b} {a == c} {a != c} {a != b}")
+    let t1 = (1, true, 'a')
+    let t2 = (1, true, 'b')
+    let _ = io.println($"tuples: {t1 == t1} {t1 == t2} {t1 != t2}")
+    let n1: Tagged = { at: a, tag: :k }
+    let n2: Tagged = { at: b, tag: :k }
+    let n3: Tagged = { at: c, tag: :k }
+    let n4: Tagged = { at: a, tag: :j }
+    let _ = io.println($"nested: {n1 == n2} {n1 == n3} {n1 == n4}")
+    let nan = 0.0 / 0.0
+    let f1 = { v: nan, w: 1.0 }
+    let f2 = { v: 0.0, w: 1.0 }
+    let f3 = { v: -0.0, w: 1.0 }
+    let _ = io.println($"floats: nan {f1 == f1} {f1 != f1}; signed zero {f2 == f3}")
+    let s1 = { name: "x", n: 1 }
+    let s2 = { name: "x", n: 1 }
+    let _ = io.println($"with a string: {s1 == s2}")
+}

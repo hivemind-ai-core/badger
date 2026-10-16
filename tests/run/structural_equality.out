@@ -1,0 +1,5 @@
+structs: true false true false
+tuples: true false true
+nested: true false false
+floats: nan false true; signed zero true
+with a string: true

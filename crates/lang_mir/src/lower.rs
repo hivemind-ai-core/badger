@@ -2386,6 +2386,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         if self.m.lay.is_std(t, "Symbol") && matches!(op, CmpOp::Eq | CmpOp::Ne) {
             return self.assign(Repr::I8, Rvalue::Cmp { op, a, b, ty: NumTy::I(64, false) });
         }
+        // small records and tuples of scalars: field by field, without the
+        // runtime's descriptor walk (the same semantics: structural, with
+        // each field compared as its own type)
+        if matches!(op, CmpOp::Eq | CmpOp::Ne) && self.scalar_fields(t, 0).is_some_and(|n| n <= 8) {
+            let eq = self.fields_equal(a, b, t);
+            return if op == CmpOp::Eq { eq } else { self.assign(Repr::I8, Rvalue::Not(eq)) };
+        }
         let d = self.desc_op(t);
         match op {
             CmpOp::Eq | CmpOp::Ne => {
@@ -2397,6 +2404,57 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.assign(Repr::I8, Rvalue::Cmp { op, a: c, b: int(0), ty: NumTy::I(64, true) })
             }
         }
+    }
+
+    /// The number of scalar leaves of a record or tuple whose every field
+    /// (recursively) is a number, `Bool`, `Char`, or `Symbol`; `None`
+    /// otherwise (or when nested too deeply).
+    fn scalar_fields(&mut self, t: &Ty, depth: u32) -> Option<usize> {
+        let shaped = match &**t {
+            TyKind::Record(_) | TyKind::Tuple(_) => true,
+            TyKind::Con(d, _) => self.m.g.env.structs.contains_key(d),
+            _ => false,
+        };
+        if depth > 3 || !shaped {
+            return None;
+        }
+        let layout = self.m.lay.record(t);
+        if layout.fields.is_empty() {
+            return None;
+        }
+        let mut n = 0;
+        for f in &layout.fields {
+            if self.m.lay.num_ty(&f.ty).is_some() || self.m.lay.is_std(&f.ty, "Symbol") {
+                n += 1;
+            } else {
+                n += self.scalar_fields(&f.ty, depth + 1)?;
+            }
+        }
+        Some(n)
+    }
+
+    /// Structural equality of two values of record/tuple type `t` (see
+    /// [`Self::scalar_fields`]): field by field, stopping at the first
+    /// difference.
+    fn fields_equal(&mut self, a: Operand, b: Operand, t: &Ty) -> Operand {
+        let a = Operand::Local(self.copy_to_local(a, Repr::Ptr, None));
+        let b = Operand::Local(self.copy_to_local(b, Repr::Ptr, None));
+        let res = self.fresh(Repr::I8, None);
+        self.emit(Stmt::Assign(res, Rvalue::Use(Operand::Const(Const::Int(0, Repr::I8)))));
+        let done = self.block();
+        let layout = self.m.lay.record(t);
+        for f in &layout.fields {
+            let x = self.assign(f.repr, Rvalue::Load { base: a, offset: f.offset, repr: f.repr });
+            let y = self.assign(f.repr, Rvalue::Load { base: b, offset: f.offset, repr: f.repr });
+            let same = self.compare(CmpOp::Eq, x, y, &f.ty);
+            let next = self.block();
+            self.term(Term::Branch(same, next, done));
+            self.switch(next);
+        }
+        self.emit(Stmt::Assign(res, Rvalue::Use(Operand::Const(Const::Int(1, Repr::I8)))));
+        self.term(Term::Goto(done));
+        self.switch(done);
+        Operand::Local(res)
     }
 
     fn lower_record(
