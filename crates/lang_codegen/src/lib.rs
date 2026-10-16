@@ -1524,6 +1524,22 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_set_insert_mut",
     "lang_rt_i_set_remove",
     "lang_rt_i_set_items",
+    // buffers are affine (one task uses one at a time) and frozen arrays
+    // are immutable; a defect or due collection takes the lock
+    "lang_rt_i_buffer_new",
+    "lang_rt_i_buffer_push",
+    "lang_rt_i_buffer_pop",
+    "lang_rt_i_buffer_get",
+    "lang_rt_i_buffer_set",
+    "lang_rt_i_buffer_len",
+    "lang_rt_i_buffer_capacity",
+    "lang_rt_i_buffer_address",
+    "lang_rt_i_buffer_freeze",
+    "lang_rt_i_buffer_to_list",
+    // reading a batch lease the task holds (its items are the task's until
+    // it releases them; release changes the channel and stays locked)
+    "lang_rt_i_batch_len",
+    "lang_rt_i_batch_get",
     // channel fast paths; they take the lock themselves when needed
     "lang_rt_i_chan_send",
     "lang_rt_i_chan_try_send",
