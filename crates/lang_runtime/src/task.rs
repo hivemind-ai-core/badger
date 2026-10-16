@@ -1005,18 +1005,20 @@ pub fn spawn(entry: u64, scope: Option<u64>, name: String) -> TaskId {
 }
 
 pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: bool) -> TaskId {
-    spawn_with_args(entry, scope, name, result_is_ptr, vec![])
+    spawn_with_args(entry, scope, name, result_is_ptr, vec![], |_| ())
 }
 
-/// [`spawn_typed`] with entry arguments (`(word, is_ptr)`), set before the
-/// task is queued: a worker may start it at once, without the runtime
-/// lock, so nothing about it may change after it is queued.
+/// [`spawn_typed`] with entry arguments (`(word, is_ptr)`), and `register`
+/// run with the new id before the task is queued: a worker may start it
+/// (and it may finish) at once, without the runtime lock, so everything
+/// about it, including its scope's record of it, is settled first.
 pub fn spawn_with_args(
     entry: u64,
     scope: Option<u64>,
     name: String,
     result_is_ptr: bool,
     entry_args: Vec<(u64, bool)>,
+    register: impl FnOnce(TaskId),
 ) -> TaskId {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     let ctx = Box::new(TaskCtx {
@@ -1078,6 +1080,7 @@ pub fn spawn_with_args(
     // complete before it is queued: a worker may start it at once
     let p = t.as_ref() as *const Task as usize;
     shard(id).with(|m| m.insert(id, t));
+    register(id);
     // the coroutine (and its stack) is made when the task first runs, so a
     // burst of spawns reuses the stacks of tasks that finished meanwhile
     if enqueue((id, p), false) {
@@ -2540,7 +2543,7 @@ pub fn set_main_args(list: Option<u64>) {
 
 fn spawn_main(entry: u64) -> TaskId {
     let args = MAIN_ARGS.lock().unwrap().map(|l| vec![(l, true)]).unwrap_or_default();
-    spawn_with_args(entry, None, "main".into(), true, args)
+    spawn_with_args(entry, None, "main".into(), true, args, |_| ())
 }
 
 /// Run the scheduler until the main task finishes. Returns its exit.
@@ -2857,7 +2860,7 @@ fn run_free(mut e: Entry, cycle: bool) {
             break;
         }
         chaos_jitter();
-        let Some(n) = take_ready() else { break };
+        let Some(n) = take_ready().or_else(idle_free) else { break };
         if local(worker_index()).queued() > 0 {
             notify_ready();
         }
@@ -2869,6 +2872,50 @@ fn run_free(mut e: Entry, cycle: bool) {
         e = n;
     }
     lock_for(reason::SCHEDULER);
+}
+
+/// A worker in its lock-free cycle found nothing to run: wait for work
+/// without the runtime lock, as long as other workers are active (the last
+/// one to go idle takes the locked path, which detects deadlock) and
+/// nothing needs the lock (due timers, posted events, shutdown,
+/// controlled scheduling). Returns a task to run, or `None` to continue
+/// with the lock.
+fn idle_free() -> Option<Entry> {
+    let n = workers().min(MAX_WORKERS);
+    loop {
+        if SHUTDOWN.load(Ordering::SeqCst) || events_due() || sched_controlled() {
+            return None;
+        }
+        let (work, steal_in) = work_here();
+        if work {
+            if let Some(e) = take_ready() {
+                return Some(e);
+            }
+            continue;
+        }
+        if IDLE.load(Ordering::SeqCst) + 1 >= n {
+            return None;
+        }
+        let seq = READY_SEQ.load(Ordering::SeqCst);
+        let timer = NEXT_TIMER.load(Ordering::SeqCst);
+        let wait = Duration::from_millis(20)
+            .min(Duration::from_nanos(timer.saturating_sub(now_ns())))
+            .min(steal_in.unwrap_or(Duration::MAX));
+        let q = rt().external.clone();
+        IDLE.fetch_add(1, Ordering::SeqCst);
+        {
+            let g = q.queue.lock().unwrap();
+            if g.is_empty() && READY_SEQ.load(Ordering::SeqCst) == seq && !SHUTDOWN.load(Ordering::SeqCst) {
+                stat(|w| &w.idle_waits, 1);
+                let _ = q.cond.wait_timeout(g, wait).unwrap();
+            }
+        }
+        WAKING.store(false, Ordering::SeqCst);
+        IDLE.fetch_sub(1, Ordering::SeqCst);
+        if let Some(e) = take_ready() {
+            return Some(e);
+        }
+    }
 }
 
 /// The scheduler's part after a task suspended or finished holding the

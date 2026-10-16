@@ -105,16 +105,17 @@ pub fn spawn_with_args(
     args: Vec<(u64, bool)>,
 ) -> TaskId {
     let name = format!("child of task {}", task::current_id());
-    let id = task::spawn_with_args(closure, Some(scope), name, result_is_ptr, args);
-    scopes(|ss| {
-        if let Some(s) = ss.1.get_mut(&scope) {
-            s.children.push(id);
-            if captured {
-                s.captured.push(id);
+    // recorded before it can run: its failure must find it captured
+    task::spawn_with_args(closure, Some(scope), name, result_is_ptr, args, |id| {
+        scopes(|ss| {
+            if let Some(s) = ss.1.get_mut(&scope) {
+                s.children.push(id);
+                if captured {
+                    s.captured.push(id);
+                }
             }
-        }
-    });
-    id
+        })
+    })
 }
 
 /// Called by the scheduler when a child finishes.
