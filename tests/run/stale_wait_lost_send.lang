@@ -1,0 +1,38 @@
+// A send to a channel whose only registered receiver was cancelled (and is
+// now running its cleanup, which does not receive) is queued, not handed
+// to that receiver and lost.
+import std.io
+import std.channel
+import std.task
+import std.time
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let victim = s.capture(fn() {
+            let _: Result<Unit, String> = task.scope(fn(s2) -> Result<Unit, String> {
+                s2.defer(fn() { task.sleep(time.millis(60)) })
+                let _ = a.receiver.recv()
+                ok(())
+            })
+            0
+        })
+        task.sleep(time.millis(20))
+        victim.cancel()
+        task.sleep(time.millis(20))
+        // the victim's cleanup is sleeping: nobody waits on `a` any more
+        a.sender.send(111)?
+        match a.receiver.try_recv() {
+            .value(v) => { let _ = io.println($"still queued: {v}") },
+            .empty => { let _ = io.println("lost: the send went to the cancelled receiver") },
+            .closed => { let _ = io.println("closed") },
+        }
+        let _ = victim.join()
+        ok(())
+    })
+}

@@ -301,18 +301,25 @@ pub fn rt() -> &'static mut Runtime {
     }
 }
 
-/// Start a new wait of the current task; returns its generation (stored
-/// with the registration, checked by [`waits`]).
+/// The generation of the current task's next wait (stored with its
+/// registration, checked by [`waits`]; every park ends it).
 pub fn begin_wait() -> u64 {
-    let t = current().expect("wait outside a task");
-    t.wait_gen += 1;
-    t.wait_gen
+    current().expect("wait outside a task").wait_gen
 }
 
-/// Whether task `id` is still in the wait numbered `wait` (alive, not
-/// cancelled, and not since registered for another wait).
+/// End the current wait: registrations made for it no longer apply.
+fn end_wait() {
+    if let Some(t) = current() {
+        t.wait_gen += 1;
+    }
+}
+
+/// Whether task `id` is still in the wait numbered `wait`: parked in it
+/// (or publishing its staged batches on the way), not cancelled.
 pub fn waits(id: TaskId, wait: u64) -> bool {
-    task(id).is_some_and(|t| t.ctx.flags & FLAG_CANCEL == 0 && t.state != State::Done && t.wait_gen == wait)
+    task(id).is_some_and(|t| {
+        t.ctx.flags & FLAG_CANCEL == 0 && t.wait_gen == wait && (t.state == State::Parked || t.publishing)
+    })
 }
 
 /// Whether a task is parked (waiting to be woken).
@@ -995,8 +1002,14 @@ pub fn park() -> Wake {
     publish_current();
     // cancellation requested while the task was running (on another
     // worker) woke nothing: honor it before waiting, or nothing will
+    // (the wait ends exactly when `check_interrupts` abandons it)
+    let t = current().unwrap();
+    if t.state != State::Cleaning && t.ctx.flags & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+        end_wait();
+    }
     check_interrupts();
     if let Some(w) = current().unwrap().early_wake.take() {
+        end_wait();
         check_interrupts();
         return w;
     }
@@ -1006,6 +1019,7 @@ pub fn park() -> Wake {
         t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
+    end_wait();
     check_interrupts();
     current().unwrap().wake
 }
@@ -1014,6 +1028,7 @@ pub fn park() -> Wake {
 pub fn park_shielded() -> Wake {
     publish_current();
     if let Some(w) = current().unwrap().early_wake.take() {
+        end_wait();
         return w;
     }
     {
@@ -1022,6 +1037,7 @@ pub fn park_shielded() -> Wake {
         t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
+    end_wait();
     current().unwrap().wake
 }
 
