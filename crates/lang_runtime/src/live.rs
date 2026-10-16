@@ -93,6 +93,7 @@ pub fn publish(types: &str, entries: &[Entry]) -> (u32, usize) {
             s.sigs.insert(e.key.clone(), e.sig.clone());
         }
         s.version += 1;
+        publish_version(s.version);
         (s.version, changed)
     })
 }
@@ -100,7 +101,14 @@ pub fn publish(types: &str, entries: &[Entry]) -> (u32, usize) {
 /// Number of the current code version (0 before any publication; 1 for a
 /// program not run with `--watch`).
 pub fn version() -> u32 {
-    with(|s| s.version.max(1))
+    VERSION.load(std::sync::atomic::Ordering::Acquire).max(1)
+}
+
+/// The current version, read without the state lock (every spawn reads it).
+static VERSION: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn publish_version(v: u32) {
+    VERSION.store(v, std::sync::atomic::Ordering::Release);
 }
 
 /// Make a version current although it is incompatible with the running one
@@ -117,6 +125,7 @@ pub fn publish_reconstructed(types: &str, entries: &[Entry]) -> u32 {
             s.sigs.insert(e.key.clone(), e.sig.clone());
         }
         s.version += 1;
+        publish_version(s.version);
         s.version
     })
 }

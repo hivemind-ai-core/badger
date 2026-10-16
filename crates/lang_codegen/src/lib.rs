@@ -1565,6 +1565,8 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_task_yield",
     // joins of tasks that returned
     "lang_rt_i_task_join",
+    // spawning into a scope (its own table shard and scope-record locks)
+    "lang_rt_i_task_spawn",
     // channel fast paths; they take the lock themselves when needed (and
     // prompt sends and receives park without it)
     "lang_rt_i_chan_send",

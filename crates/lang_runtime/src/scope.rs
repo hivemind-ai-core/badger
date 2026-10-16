@@ -7,6 +7,7 @@
 //! registered cleanup cancels and settles the children.
 
 use std::cell::UnsafeCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rustc_hash::FxHashMap;
 
@@ -27,40 +28,54 @@ pub struct ScopeRec {
     pub defers: Vec<u64>,
 }
 
-struct Scopes(UnsafeCell<Option<(u64, FxHashMap<u64, ScopeRec>)>>);
+/// Scope records (boxed: a record stays in place while its scope is open)
+/// under their own lock: owners spawn into them without the runtime lock.
+/// A record's `children` and `captured` grow without the runtime lock (by
+/// its owner); other tasks read them under this lock.
+struct Scopes(UnsafeCell<Option<(u64, FxHashMap<u64, Box<ScopeRec>>)>>);
 unsafe impl Sync for Scopes {}
 static SCOPES: Scopes = Scopes(UnsafeCell::new(None));
+static SCOPES_LOCK: AtomicBool = AtomicBool::new(false);
 
-fn scopes() -> &'static mut (u64, FxHashMap<u64, ScopeRec>) {
-    unsafe { (*SCOPES.0.get()).get_or_insert_with(|| (1, FxHashMap::default())) }
+fn scopes<R>(f: impl FnOnce(&mut (u64, FxHashMap<u64, Box<ScopeRec>>)) -> R) -> R {
+    let locking = task::multi();
+    if locking {
+        while SCOPES_LOCK.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+            std::hint::spin_loop();
+        }
+    }
+    let r = f(unsafe { (*SCOPES.0.get()).get_or_insert_with(|| (1, FxHashMap::default())) });
+    if locking {
+        SCOPES_LOCK.store(false, Ordering::Release);
+    }
+    r
 }
 
 pub fn get(id: u64) -> Option<&'static mut ScopeRec> {
-    scopes().1.get_mut(&id)
+    scopes(|s| s.1.get_mut(&id).map(|b| unsafe { &mut *(b.as_mut() as *mut ScopeRec) }))
 }
 
 /// Open a scope owned by the current task.
 pub fn open() -> u64 {
-    let s = scopes();
-    let id = s.0;
-    s.0 += 1;
+    let id = scopes(|s| {
+        s.0 += 1;
+        s.0 - 1
+    });
     let owner = task::current_id();
     // if the owner is abandoned its cleanups run last-in first: settle the
     // children, then the defers (newest first), then release the record
     let release = task::push_cleanup(Cleanup::Native(Box::new(move |_| release(id))));
     let cleanup = task::push_cleanup(Cleanup::Native(Box::new(move |_| settle(id, true))));
-    s.1.insert(
-        id,
-        ScopeRec {
-            owner,
-            children: vec![],
-            failure: None,
-            cleanup,
-            release,
-            captured: vec![],
-            defers: vec![],
-        },
-    );
+    let rec = Box::new(ScopeRec {
+        owner,
+        children: vec![],
+        failure: None,
+        cleanup,
+        release,
+        captured: vec![],
+        defers: vec![],
+    });
+    scopes(|s| s.1.insert(id, rec));
     id
 }
 
@@ -68,7 +83,7 @@ pub fn open() -> u64 {
 /// still running (it outlived the cleanup grace period, and escalation
 /// keeps what it uses) keeps its entry.
 fn release(id: u64) {
-    if let Some(s) = scopes().1.remove(&id) {
+    if let Some(s) = scopes(|s| s.1.remove(&id)) {
         for c in &s.children {
             if task::is_done(*c) {
                 task::remove_task(*c);
@@ -91,12 +106,14 @@ pub fn spawn_with_args(
 ) -> TaskId {
     let name = format!("child of task {}", task::current_id());
     let id = task::spawn_with_args(closure, Some(scope), name, result_is_ptr, args);
-    if let Some(s) = get(scope) {
-        s.children.push(id);
-        if captured {
-            s.captured.push(id);
+    scopes(|ss| {
+        if let Some(s) = ss.1.get_mut(&scope) {
+            s.children.push(id);
+            if captured {
+                s.captured.push(id);
+            }
         }
-    }
+    });
     id
 }
 
@@ -104,7 +121,14 @@ pub fn spawn_with_args(
 pub fn child_finished(scope: u64, child: TaskId, exit: &Exit) {
     let Some(s) = get(scope) else { return };
     if let Exit::Failed(info) = exit {
-        if s.captured.contains(&child) || s.failure.is_some() {
+        // (its owner may be spawning into it meanwhile)
+        let (contained, siblings) = scopes(|_| {
+            (
+                s.captured.contains(&child),
+                s.children.iter().copied().filter(|c| *c != child).collect::<Vec<_>>(),
+            )
+        });
+        if contained || s.failure.is_some() {
             return;
         }
         let info = PanicInfo {
@@ -113,7 +137,6 @@ pub fn child_finished(scope: u64, child: TaskId, exit: &Exit) {
             notes: info.notes.clone(),
         };
         s.failure = Some(info.clone());
-        let siblings: Vec<TaskId> = s.children.iter().copied().filter(|c| *c != child).collect();
         let owner = s.owner;
         for c in siblings {
             task::cancel_with(c, task::CancelReason::SiblingFailed);
@@ -125,7 +148,7 @@ pub fn child_finished(scope: u64, child: TaskId, exit: &Exit) {
 /// Cancel (optionally) and wait for every child of the scope.
 pub fn settle(id: u64, cancel: bool) {
     let Some(s) = get(id) else { return };
-    let children = s.children.clone();
+    let children = scopes(|_| s.children.clone());
     if cancel {
         for &c in &children {
             task::cancel_with(c, task::CancelReason::ScopeExited);
@@ -142,7 +165,7 @@ pub fn settle(id: u64, cancel: bool) {
 pub fn close(id: u64, cancel: bool) {
     let Some(s) = get(id) else { return };
     let handle = s.cleanup;
-    let children = s.children.clone();
+    let children = scopes(|_| s.children.clone());
     if cancel {
         for &c in &children {
             task::cancel_with(c, task::CancelReason::ScopeExited);

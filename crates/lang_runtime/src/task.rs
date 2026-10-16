@@ -300,8 +300,6 @@ pub struct ExternalQueue {
 }
 
 pub struct Runtime {
-    tasks: FxHashMap<TaskId, Box<Task>>,
-    next_id: TaskId,
     timers: BinaryHeap<Timer>,
     /// Sleeps under a controlled clock: (deadline in controlled nanos,
     /// timer sequence, task).
@@ -336,8 +334,6 @@ pub fn rt() -> &'static mut Runtime {
         let r = &mut *RT.0.get();
         if r.is_none() {
             *r = Some(Runtime {
-                tasks: FxHashMap::default(),
-                next_id: 1,
                 timers: BinaryHeap::new(),
                 virtual_timers: vec![],
                 timer_seq: 0,
@@ -388,9 +384,67 @@ pub fn is_parked(id: TaskId) -> bool {
     task(id).is_some_and(|t| t.state.get() == State::Parked)
 }
 
+/// Task `id`'s record. A record is removed only under the runtime lock (a
+/// finished task, by its scope), so its holder may keep the reference;
+/// code without the runtime lock uses [`with_task_id`] instead, unless
+/// the task cannot be removed meanwhile (one it owns the scope of).
 pub fn task(id: TaskId) -> Option<&'static mut Task> {
-    rt().tasks.get_mut(&id).map(|b| unsafe { &mut *(b.as_mut() as *mut Task) })
+    shard(id).with(|m| m.get_mut(&id).map(|b| unsafe { &mut *(b.as_mut() as *mut Task) }))
 }
+
+/// Run `f` on task `id`'s record while it cannot be removed (its table
+/// shard is held: `f` must not look up tasks).
+fn with_task_id<R>(id: TaskId, f: impl FnOnce(*mut Task) -> R) -> Option<R> {
+    shard(id).with(|m| m.get_mut(&id).map(|b| f(b.as_mut() as *mut Task)))
+}
+
+/// The task table, in shards by id, each under its own lock: spawns
+/// insert without the runtime lock; removal takes both.
+#[repr(align(128))]
+struct Shard {
+    lock: AtomicBool,
+    map: UnsafeCell<Option<FxHashMap<TaskId, Box<Task>>>>,
+}
+
+unsafe impl Sync for Shard {}
+
+const SHARDS: usize = 64;
+
+static TABLE: [Shard; SHARDS] =
+    [const { Shard { lock: AtomicBool::new(false), map: UnsafeCell::new(None) } }; SHARDS];
+
+fn shard(id: TaskId) -> &'static Shard {
+    &TABLE[(id % SHARDS as u64) as usize]
+}
+
+impl Shard {
+    fn with<R>(&self, f: impl FnOnce(&mut FxHashMap<TaskId, Box<Task>>) -> R) -> R {
+        let locking = multi();
+        if locking {
+            while self.lock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err()
+            {
+                std::hint::spin_loop();
+            }
+        }
+        let r = f(unsafe { (*self.map.get()).get_or_insert_with(FxHashMap::default) });
+        if locking {
+            self.lock.store(false, Ordering::Release);
+        }
+        r
+    }
+}
+
+/// Every task's record (runtime lock held, so none is removed meanwhile).
+fn all_tasks() -> Vec<&'static mut Task> {
+    let mut v = vec![];
+    for s in &TABLE {
+        s.with(|m| v.extend(m.values_mut().map(|b| unsafe { &mut *(b.as_mut() as *mut Task) })));
+    }
+    v
+}
+
+/// The next task id (never reused: 64 bits do not wrap).
+static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 // ---------------------------------------------------------------- workers
 
@@ -886,8 +940,10 @@ pub fn for_each_root(f: &mut dyn FnMut(u64)) {
             f(w);
         }
     }
-    let Some(r) = (unsafe { (*RT.0.get()).as_ref() }) else { return };
-    for t in r.tasks.values() {
+    if unsafe { (*RT.0.get()).is_none() } {
+        return;
+    }
+    for t in all_tasks() {
         f(t.entry);
         for (w, p) in &t.entry_args {
             if *p {
@@ -962,9 +1018,7 @@ pub fn spawn_with_args(
     result_is_ptr: bool,
     entry_args: Vec<(u64, bool)>,
 ) -> TaskId {
-    let r = rt();
-    let id = r.next_id;
-    r.next_id += 1;
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     let ctx = Box::new(TaskCtx {
         shadow: std::ptr::null_mut(),
         budget: task_budget(),
@@ -996,7 +1050,7 @@ pub fn spawn_with_args(
         cancel_reason: CancelReason::Requested,
         sleep_seq: 0,
         status: 0,
-        result_is_ptr: true,
+        result_is_ptr,
         wake: Wake::Normal,
         pending_exit: None,
         in_cleanup: false,
@@ -1021,11 +1075,14 @@ pub fn spawn_with_args(
         free_exit: false,
         free_wait: AtomicU8::new(0),
     });
-    with_table(|| r.tasks.insert(id, t));
+    // complete before it is queued: a worker may start it at once
+    let p = t.as_ref() as *const Task as usize;
+    shard(id).with(|m| m.insert(id, t));
     // the coroutine (and its stack) is made when the task first runs, so a
     // burst of spawns reuses the stacks of tasks that finished meanwhile
-    task(id).unwrap().result_is_ptr = result_is_ptr;
-    push_ready(id);
+    if enqueue((id, p), false) {
+        notify_ready();
+    }
     id
 }
 
@@ -1120,12 +1177,9 @@ fn finish_free(p: *mut Task) {
         t.state.set(State::Done);
         std::mem::take(&mut t.joiners)
     });
-    if !joiners.is_empty() {
-        with_table(|| {
-            for j in joiners {
-                wake(j, Wake::Normal);
-            }
-        });
+    for j in joiners {
+        // (a joiner's record stays while it is woken)
+        with_task_id(j, |t| wake_task(t, Wake::Normal, None));
     }
 }
 
@@ -1677,7 +1731,11 @@ fn wake_waiting(id: TaskId, reason: Wake) {
 /// Wake `id` (if parked), first delivering `(value, is_ptr, status)`.
 fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>) {
     let Some(t) = task(id) else { return };
-    let t = t as *mut Task;
+    wake_task(t, reason, delivery)
+}
+
+/// [`wake_delivering`] for a task whose record is known (no table lookup).
+fn wake_task(t: *mut Task, reason: Wake, delivery: Option<(u64, bool, u64)>) {
     let slot = wake_slot();
     let ready = with_task(t, |t| {
         if let Some((value, is_ptr, status)) = delivery {
@@ -2275,29 +2333,17 @@ pub fn await_task(id: TaskId, shielded: bool) {
 /// are never reused, so numbering must survive passing 32 bits).
 #[doc(hidden)]
 pub fn set_next_task_id(n: TaskId) {
-    rt().next_id = n.max(1);
+    NEXT_ID.store(n.max(1), Ordering::Relaxed);
 }
 
 pub fn remove_task(id: TaskId) {
-    with_table(|| rt().tasks.remove(&id));
-}
-
-/// The task table's lock. The table changes only under the runtime lock
-/// (spawn, removal), which also lets its holder read it freely; code
-/// without the runtime lock (a worker finishing a task) reads it under
-/// this lock, and changes take it too.
-static TABLE: AtomicBool = AtomicBool::new(false);
-
-fn with_table<R>(f: impl FnOnce() -> R) -> R {
-    if !multi() {
-        return f();
+    // dropped outside the shard's lock, once its own lock is free: a worker
+    // that marked it done (without the runtime lock) releases that lock
+    // after its scope may already see it done
+    if let Some(mut t) = shard(id).with(|m| m.remove(&id)) {
+        with_task(t.as_mut(), |_| ());
+        drop(t);
     }
-    while TABLE.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
-        std::hint::spin_loop();
-    }
-    let r = f();
-    TABLE.store(false, Ordering::Release);
-    r
 }
 
 /// Register the running task (runtime lock held) to be woken when task
@@ -2334,7 +2380,7 @@ pub fn join_free(id: TaskId) -> Option<u64> {
     if !can_suspend_free() {
         return None;
     }
-    let child = with_table(|| rt().tasks.get_mut(&id).map(|b| b.as_mut() as *mut Task))?;
+    let child = task(id)? as *mut Task;
     let me = current().unwrap() as *mut Task;
     loop {
         let c = unsafe { &*child };
@@ -2519,7 +2565,7 @@ pub fn run_main(entry: u64) -> Exit {
             continue;
         }
         if std::env::var_os("LANG_DEBUG_SCHED").is_some() {
-            for t in rt().tasks.values() {
+            for t in all_tasks() {
                 eprintln!(
                     "[sched] task {} {:?} cleanups={} name={}",
                     t.id,
@@ -2648,7 +2694,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
             && r.listeners == 0
             && q.queue.lock().unwrap().is_empty()
             && IDLE.load(Ordering::SeqCst) == n - 1
-            && !r.tasks.values().any(|t| t.state.get() == State::Running);
+            && !all_tasks().iter().any(|t| t.state.get() == State::Running);
         if quiet && auto_advance() {
             continue;
         }
@@ -3124,7 +3170,7 @@ fn memory_json(t: &Task) -> String {
 }
 
 pub fn snapshot_json() -> String {
-    let mut ts: Vec<&Box<Task>> = rt().tasks.values().collect();
+    let mut ts: Vec<&'static mut Task> = all_tasks();
     ts.sort_by_key(|t| t.id);
     let items: Vec<String> = ts
         .iter()
