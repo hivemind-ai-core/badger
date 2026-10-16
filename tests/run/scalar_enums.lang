@@ -1,0 +1,42 @@
+import std.task
+import std.text
+import std.list
+
+enum Value { number(Int), real(Float), text(String), empty }
+
+fn exercise(seed: Int) -> Int {
+    var total = 0
+    for i in 0..24 {
+        var a = Option.some(i)
+        let before = a
+        a = if i % 2 == 0 { Option.some(i + 10) } else { Option.none }
+        assert(before.unwrap_or(-1) == i)
+        assert(a.unwrap_or(-1) == if i % 2 == 0 { i + 10 } else { -1 })
+        let x = text.repeat("x", (seed + i) % 7)
+        let value = match i % 4 {
+            0 => Value.number(i), 1 => Value.real(2.5), 2 => Value.text(x), _ => Value.empty,
+        }
+        task.yield_now()
+        let garbage = list.range(0, 8)
+        match value {
+            .number(n) => assert(n == i),
+            .real(f) => assert(f == 2.5),
+            .text(t) => assert(t == x),
+            .empty => assert(i % 4 == 3),
+        }
+        total = total + before.unwrap_or(-1)
+        assert(garbage.len() == 8)
+    }
+    total
+}
+
+pub fn main() -> Unit {
+    let result = task.scope(fn(scope) -> Result<Unit, String> {
+        let a = scope.spawn(fn() { exercise(0) })
+        let b = scope.spawn(fn() { exercise(1) })
+        assert(a.join() == 276)
+        assert(b.join() == 276)
+        ok(())
+    })
+    assert(result.is_ok())
+}
