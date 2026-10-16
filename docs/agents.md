@@ -19,7 +19,7 @@ or in a client's JSON configuration:
 |---|---|---|
 | `eval` | `code`, optional `timeout_secs` (default 30) | Output printed by the code, then the value of an expression. Items (`fn`, `struct`, `enum`, `import`, module-level `let`) join the session and replace earlier ones of the same name. |
 | `check` | `path` (file or project directory) or `source` | Diagnostics as JSON; an empty list means it checks. |
-| `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references`, `completion`, `symbols`, `diagnostics`; `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list. |
+| `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references`, `completion`, `symbols`, `diagnostics`; `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list; `graph` with `name` `calls`, `modules`, `types`, or `systems` (JSON nodes and edges). |
 | `run` | `path`, optional `args`, `test`, `release`, `timeout_secs` | Exit status, stdout, and stderr of `lang run` or `lang test`. |
 
 ## Code mode

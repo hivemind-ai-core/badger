@@ -946,3 +946,32 @@ fn debugger_sees_generated_code() {
     assert!(text.contains("$1 = 21"), "{text}");
     assert!(text.contains("total 30"), "{text}");
 }
+
+/// `lang graph`: calls between functions, types used by fields, and
+/// imports, in each output format.
+#[test]
+fn program_graphs() {
+    let dir = std::env::temp_dir().join(format!("lang-graph-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("shapes.lang");
+    std::fs::write(
+        &src,
+        "import std.io\n\npub struct Point { pub x: Int, pub y: Int }\npub struct Line { pub a: Point, pub b: Point }\n\nfn len2(l: Line) -> Int { dx(l) * dx(l) }\nfn dx(l: Line) -> Int { l.b.x - l.a.x }\n\npub fn main() -> Unit {\n    let _ = io.println($\"{len2({ a: { x: 0, y: 0 }, b: { x: 3, y: 4 } })}\")\n}\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let out = lang().args(args).arg(&src).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let calls = run(&["graph", "calls", "--format", "json"]);
+    assert!(calls.contains(r#"{"from":"shapes.main","to":"shapes.len2"}"#), "{calls}");
+    assert!(calls.contains(r#"{"from":"shapes.len2","to":"shapes.dx"}"#), "{calls}");
+    assert!(!calls.contains("println"), "{calls}");
+    assert!(run(&["graph", "calls", "--std", "--format", "json"]).contains("std.io.println"));
+    let types = run(&["graph", "types"]);
+    assert!(types.contains(r#""shapes.Line" -> "shapes.Point";"#), "{types}");
+    let modules = run(&["graph", "modules", "--std", "--format", "mermaid"]);
+    assert!(modules.starts_with("graph LR\n") && modules.contains("std.io"), "{modules}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

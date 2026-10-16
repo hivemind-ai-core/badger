@@ -380,6 +380,12 @@ records (`Diagnostic`, `Location`, `Symbol`, `Completion`) decoded from a
 `lang query` subprocess (`LANG_EXE` names the running executable), plus
 `check_source` and `explain`.
 
+`lang graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
+[--std]` draws program structure from the same analysis: calls from each
+resolved call target to its enclosing function, imports between modules,
+types used by struct fields and enum variants, and system plan nodes with
+the nodes they reference (a node without references is drawn alone).
+
 ## Agent tooling (MCP)
 
 `lang mcp` is a Model Context Protocol server on stdio

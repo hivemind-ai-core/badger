@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod graph;
 mod lsp;
 mod mcp;
 use lang_base::diagnostics::json_str;
@@ -149,6 +150,18 @@ enum Command {
     /// Model Context Protocol server over stdio: a persistent REPL session
     /// ("code mode", with `std.compiler`), checking, queries, and runs.
     Mcp,
+    /// Program structure as a graph: `calls`, `modules`, `types`, or
+    /// `systems`, in DOT (default), Mermaid, or JSON.
+    Graph {
+        kind: String,
+        /// Entry file or project directory (default `.`).
+        path: Option<PathBuf>,
+        #[arg(long, default_value = "dot")]
+        format: String,
+        /// Include standard-library nodes.
+        #[arg(long)]
+        std: bool,
+    },
     /// Answer one question about a program as JSON (1-based positions):
     /// `diagnostics`, `symbols`, or at `--line`/`--col` `hover`,
     /// `definition`, `references`, `completion`.
@@ -310,6 +323,18 @@ fn main() -> ExitCode {
         // no paths: the current directory's sources
         Command::Lsp => ExitCode::from(lsp::serve() as u8),
         Command::Mcp => mcp::serve(),
+        Command::Graph { kind, path, format, std } => {
+            match graph::graph(&kind, &path.unwrap_or_else(|| PathBuf::from(".")), &format, std) {
+                Ok(g) => {
+                    print!("{g}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Command::Query { kind, path, line, col } => match lsp::query(&kind, &path, line, col) {
             Ok(v) => {
                 println!("{v}");

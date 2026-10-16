@@ -113,6 +113,22 @@ pub struct Analysis {
     pub modules: HashMap<String, Vec<Item>>,
     /// Names visible at the top of every user module (its own items).
     pub globals: HashMap<String, Vec<Item>>,
+    pub graphs: Graphs,
+}
+
+/// Program structure as directed graphs (`from`, `to`), named by
+/// qualified definition (`app.orders.total`, `app.Order.validate`) or
+/// module path.
+#[derive(Debug, Default, Clone)]
+pub struct Graphs {
+    /// Function calls: caller, callee, whether the callee is library code.
+    pub calls: Vec<(String, String, bool)>,
+    /// Module imports: importer, imported, whether the imported module is
+    /// standard.
+    pub modules: Vec<(String, String, bool)>,
+    /// Types used by struct fields and enum variants: type, field type,
+    /// whether the field type is a library type.
+    pub types: Vec<(String, String, bool)>,
 }
 
 impl Analysis {
@@ -220,6 +236,24 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
                 .collect(),
             notes,
         });
+    }
+    // module imports (known once parsed)
+    if let Some(l) = &loaded {
+        for m in &l.modules {
+            if m.is_std {
+                continue;
+            }
+            let from: Vec<&str> = m.path.iter().map(|x| s.interner.resolve(*x)).collect();
+            for it in &m.ast.items {
+                if let lang_syntax::ast::ItemKind::Import(imp) = &it.kind {
+                    let to: Vec<&str> = imp.path.iter().map(|n| s.interner.resolve(n.sym)).collect();
+                    let edge = (from.join("."), to.join("."), to.first() == Some(&"std"));
+                    if !out.graphs.modules.contains(&edge) {
+                        out.graphs.modules.push(edge);
+                    }
+                }
+            }
+        }
     }
     // files that did not get as far as checking still appear (diagnostics,
     // and their text for position conversion)
@@ -653,6 +687,97 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
             members,
         });
     }
+    // graphs: calls (each resolved target, from its enclosing function)
+    // and types (struct fields and enum variant fields)
+    let qual = |d: lang_hir::DefId| -> String {
+        let def = &hir.defs[d];
+        let m = &hir.modules[def.module];
+        let module: Vec<&str> = m.path.iter().map(|x| s.interner.resolve(*x)).collect();
+        let name = s.interner.resolve(def.name);
+        let owner = match &def.kind {
+            DefKind::Fn(f) => f.owner.map(|o| match &hir.defs[o].kind {
+                DefKind::Impl(im) => {
+                    let t = ix.text(im.self_ty.span);
+                    t.split('<').next().unwrap_or(t).trim().to_string()
+                }
+                _ => s.interner.resolve(hir.defs[o].name).to_string(),
+            }),
+            _ => None,
+        };
+        let module = module.join(".");
+        match owner {
+            Some(o) => format!("{module}.{o}.{name}"),
+            None => format!("{module}.{name}"),
+        }
+    };
+    let is_std = |d: lang_hir::DefId| hir.modules[hir.defs[d].module].is_std;
+    let mut fn_ranges: Vec<(lang_base::FileId, u32, u32, lang_hir::DefId)> = vec![];
+    for (d, def) in hir.defs.iter() {
+        if let DefKind::Fn(f) = &def.kind
+            && let Some(b) = f.body
+            && user(def.span)
+        {
+            let body = hir.exprs[b].span;
+            fn_ranges.push((def.span.file, def.span.start.min(body.start), def.span.end.max(body.end), d));
+        }
+    }
+    let mut calls: Vec<(String, String, bool)> = vec![];
+    for (e, target) in &types.targets {
+        let sp = hir.exprs[*e].span;
+        let caller = fn_ranges
+            .iter()
+            .filter(|(f, a, b, _)| *f == sp.file && *a <= sp.start && sp.end <= *b)
+            .min_by_key(|(_, a, b, _)| b - a)
+            .map(|r| r.3);
+        if let Some(c) = caller
+            && matches!(hir.defs[*target].kind, DefKind::Fn(_))
+        {
+            let edge = (qual(c), qual(*target), is_std(*target));
+            if !calls.contains(&edge) {
+                calls.push(edge);
+            }
+        }
+    }
+    calls.sort();
+    out.graphs.calls = calls;
+    let mut tys: Vec<(String, String, bool)> = vec![];
+    fn named(t: &HTy, out: &mut Vec<lang_hir::DefId>) {
+        match &t.kind {
+            HTyKind::Named { def, args } => {
+                out.push(*def);
+                args.iter().for_each(|a| named(a, out));
+            }
+            HTyKind::Tuple(ts) => ts.iter().for_each(|x| named(x, out)),
+            HTyKind::Record { fields, .. } => fields.iter().for_each(|(_, x)| named(x, out)),
+            HTyKind::Fn { params, ret, .. } => {
+                params.iter().for_each(|x| named(x, out));
+                named(ret, out);
+            }
+            HTyKind::Ref { inner, .. } => named(inner, out),
+            _ => {}
+        }
+    }
+    for (d, def) in hir.defs.iter() {
+        if !user(def.span) {
+            continue;
+        }
+        let mut used = vec![];
+        match &def.kind {
+            DefKind::Struct(sd) => sd.fields.iter().for_each(|f| named(&f.ty, &mut used)),
+            DefKind::Enum(ed) => {
+                ed.variants.iter().for_each(|v| v.fields.iter().for_each(|(_, t)| named(t, &mut used)))
+            }
+            _ => continue,
+        }
+        for u in used {
+            let edge = (qual(d), qual(u), is_std(u));
+            if !tys.contains(&edge) {
+                tys.push(edge);
+            }
+        }
+    }
+    tys.sort();
+    out.graphs.types = tys;
     // modules: members by the name code uses (`io.println`)
     for (_, m) in hir.modules.iter() {
         let Some(last) = m.path.last() else { continue };

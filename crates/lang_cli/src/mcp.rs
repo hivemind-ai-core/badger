@@ -60,11 +60,11 @@ fn tools() -> Value {
         },
         {
             "name": "query",
-            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references`, `completion` need path, line, col (1-based); `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name.",
+            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references`, `completion` need path, line, col (1-based); `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "symbols", "diagnostics", "explain", "module"] },
+                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "symbols", "diagnostics", "explain", "module", "graph"] },
                     "path": { "type": "string" },
                     "line": { "type": "integer" },
                     "col": { "type": "integer" },
@@ -245,6 +245,17 @@ impl Mcp {
                         },
                         None => text(lang_driver::std_modules().join(", "), false),
                     },
+                    "graph" => {
+                        let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                        let which = a["name"].as_str().unwrap_or("calls").to_string();
+                        let args =
+                            vec!["graph".into(), which, path.to_string(), "--format".into(), "json".into()];
+                        match lang(&args, Duration::from_secs(120)) {
+                            Ok((0, out, _)) => text(out.trim(), false),
+                            Ok((_, _, err)) => text(err.trim(), true),
+                            Err(e) => text(e, true),
+                        }
+                    }
                     _ => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), path.to_string()];
