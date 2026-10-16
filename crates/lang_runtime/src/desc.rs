@@ -157,6 +157,10 @@ pub struct TypeDesc {
     /// Shared immortal values of the first enum variants whose payload is
     /// all unit (`ok(())` and the like), made on first use.
     pub unit_variants: [AtomicU64; 4],
+    /// Whether objects of this type hold no managed pointers (0: not yet
+    /// known; 1: none; 2: some), cached for marking. Reset by code that
+    /// fills in a descriptor's kind after creating it.
+    pub leaf: std::sync::atomic::AtomicU8,
 }
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -169,6 +173,30 @@ impl TypeDesc {
             display: AtomicPtr::new(std::ptr::null_mut()),
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             unit_variants: Default::default(),
+            leaf: std::sync::atomic::AtomicU8::new(0),
+        }
+    }
+
+    /// Objects of this type hold no managed pointers: marking need not
+    /// trace them.
+    pub fn is_leaf(&self) -> bool {
+        match self.leaf.load(Ordering::Relaxed) {
+            1 => true,
+            2 => false,
+            _ => {
+                let ptr = |fs: &[Field]| fs.iter().any(|f| f.repr == Repr::Ptr);
+                let leaf = match &self.kind {
+                    Kind::Record { fields, .. } => !ptr(fields),
+                    Kind::Closure { captures, .. } => !ptr(captures),
+                    Kind::Enum { variants, .. } => !variants.iter().any(|v| ptr(&v.fields)),
+                    Kind::List { .. } | Kind::Map { .. } | Kind::Set { .. } => false,
+                    Kind::Opaque { trace, .. } => trace.is_none(),
+                    Kind::String | Kind::Bytes => true,
+                    _ => false,
+                };
+                self.leaf.store(if leaf { 1 } else { 2 }, Ordering::Relaxed);
+                leaf
+            }
         }
     }
 

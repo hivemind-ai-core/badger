@@ -530,6 +530,10 @@ fn collect_inner() {
                 return;
             }
             (*o).meta |= MARK;
+            // nothing inside to trace (scalar records, strings, bytes)
+            if (*o).desc().is_leaf() {
+                return;
+            }
         }
         stack.push(w);
     };

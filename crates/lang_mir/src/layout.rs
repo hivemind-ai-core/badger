@@ -339,7 +339,10 @@ impl<'g, 'a> Layouts<'g, 'a> {
         self.descs.borrow_mut().insert(t.clone(), d);
         self.created.borrow_mut().push(d);
         let kind = self.kind_of(t);
-        unsafe { (*p).kind = kind };
+        unsafe {
+            (*p).kind = kind;
+            (*p).leaf.store(0, std::sync::atomic::Ordering::Relaxed);
+        }
         d
     }
 
