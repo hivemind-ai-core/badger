@@ -1149,7 +1149,16 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         let base = this.alloc(ExprKind::Local(c), kspan);
                         this.alloc(ExprKind::Field { base, label: key, label_span: kspan }, kspan)
                     });
-                    return self.call_lang("system.replace_node", vec![plan, key_e, provider, pick], span);
+                    // and `pick_config` its configuration against the key's
+                    let pick_config = self.synth_runner(kspan, vec![], |this, c| {
+                        let base = this.alloc(ExprKind::Local(c), kspan);
+                        this.alloc(ExprKind::Field { base, label: key, label_span: kspan }, kspan)
+                    });
+                    return self.call_lang(
+                        "system.replace_node",
+                        vec![plan, key_e, provider, pick, pick_config],
+                        span,
+                    );
                 }
                 return self.lower_call(*callee, type_args, args, span, None);
             }
@@ -2137,7 +2146,19 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 .collect();
             this.alloc(ExprKind::Record { spread: None, fields }, span)
         });
-        let plan = self.call_lang("system.plan", vec![list, view], span);
+        // the providers' configuration types, for the plan's type (the view
+        // is never called): fn(outputs) { { key: system.config_of(__node_key), ... } }
+        let configs = self.synth_runner(span, node_locals.iter().map(|n| n.2).collect(), |this, _| {
+            let fields = node_locals
+                .iter()
+                .map(|(label, lspan, node)| {
+                    let n = this.alloc(ExprKind::Local(*node), *lspan);
+                    (*label, *lspan, this.call_lang("system.config_of", vec![n], *lspan))
+                })
+                .collect();
+            this.alloc(ExprKind::Record { spread: None, fields }, span)
+        });
+        let plan = self.call_lang("system.plan", vec![list, view, configs], span);
         self.alloc(ExprKind::Block { stmts, tail: Some(plan) }, span)
     }
 

@@ -310,8 +310,9 @@ pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty])
             }
             let Some(t) = inf.exprs.get(&e).cloned() else { return };
             let t = inf.icx.resolve(&t);
+            // `Node<C, O>`: the output is the last argument
             let TyKind::Con(_, args) = &*t else { return };
-            let Some(out) = args.first() else { return };
+            let Some(out) = args.last() else { return };
             let key = match cargs.first().map(|a| &hir.exprs[*a].kind) {
                 Some(ExprKind::Lit(Lit::Symbol(s))) => format!("system node `:{}`", inf.sym(*s)),
                 _ => "system node `this node`".into(),

@@ -97,6 +97,10 @@ validation; it cannot introduce a new statically unknown output shape.
 Replacing a provider for tests preserves its declared configuration/output
 contract. A changed output contract requires rechecking dependents. This is
 the canonical dependency-injection mechanism; no ambient service locator.
+Implementation: a plan's type is `SystemPlan<Os, Cs>`, its nodes' outputs
+and providers' configurations by key (`Cs` may be elided in annotations),
+so `system.replace(plan, :key, provider)` checks both the replacement's
+output and configuration types when the program is checked.
 
 ## The user's prefix-visible context rule
 

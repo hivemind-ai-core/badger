@@ -1158,6 +1158,10 @@ impl TypeEnv {
                 if holes && args.len() + 1 == expected && self.last_param_is_region(hir, *def) {
                     args.push(icx.fresh());
                 }
+                // so is a system plan's configuration row (`SystemPlan<Os>`)
+                if args.len() + 1 == expected && hir.try_lang("system.SystemPlan") == Some(*def) {
+                    args.push(icx.fresh_row());
+                }
                 if expected != args.len() {
                     arity_err(diags, t.span, expected, args.len());
                     return error_ty();
