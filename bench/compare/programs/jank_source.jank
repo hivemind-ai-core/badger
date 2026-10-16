@@ -1,0 +1,2 @@
+(require 'jank-workload)
+(apply (resolve 'jank-workload/-main) *command-line-args*)

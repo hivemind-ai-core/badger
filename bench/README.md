@@ -1,5 +1,21 @@
 # Benchmarks
 
+## Cross-language comparison
+
+[`compare/`](compare/README.md) runs correctness-gated application workloads
+against Python, Node, Go, Rust, Lua/LuaJIT, C++, Java, Clojure JVM/Babashka,
+and jank, including source/saved-artifact modes where available. It produces
+an offline HTML report with interactive charts and raw JSON evidence:
+
+```sh
+python3 bench/compare/run.py --smoke --out bench/compare/results/smoke
+python3 bench/compare/run.py --out bench/compare/results/comparison
+```
+
+See the methodology for timing boundaries, tool discovery, and comparison limits.
+
+## Language-only measurements
+
 Measurement programs for the specification's proof/measurement gates
 ([spec/08](../spec/08-worked-examples.md#proofmeasurement-gates-before-implementation-claims)).
 Build the toolchain in release mode and run each with optimized code:
