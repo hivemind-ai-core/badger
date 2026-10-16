@@ -1,0 +1,22 @@
+import orders.api
+
+pub type Fake = {
+    store: api.Store,
+    snapshot: fn() -> List<api.Order> !{State},
+}
+
+// Each factory call owns separate state. The retryable Atom update is pure.
+pub fn create() -> Fake {
+    let rows: Atom<List<api.Order>> = Atom.new([])
+    {
+        store: {
+            insert: fn(input: api.CreateOrder) -> Result<api.Order, api.Error> {
+                let updated = rows.update(fn(current) {
+                    current.append({ id: current.len() + 1, title: input.title })
+                })
+                ok(updated[updated.len() - 1])
+            },
+        },
+        snapshot: fn() { rows.get() },
+    }
+}

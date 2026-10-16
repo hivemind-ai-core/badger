@@ -1,0 +1,45 @@
+import orders.api
+import orders.fake_store
+import orders.service
+import std.io
+import std.system
+
+pub enum Error {
+    domain(source: api.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+    startup,
+} derive(Error, From)
+
+pub type LifecycleLog = Atom<List<String>>
+pub type StoreConfig = { log: LifecycleLog }
+pub type OrdersConfig = { log: LifecycleLog, store: api.Store, fail_start: Bool }
+
+pub let store: system.Provider<StoreConfig, api.Store, Error> = system.provider({
+    name: :baseline/store,
+    init: fn(scope, config) -> Result<api.Store, Error> {
+        let log = config.log
+        let _ = log.update(fn(xs) { xs.append("store.start") })
+        scope.on_halt(fn() -> Result<Unit, Error> {
+            let _ = log.update(fn(xs) { xs.append("store.stop") })
+            ok(())
+        })
+        ok(fake_store.create().store)
+    },
+})
+
+pub let orders: system.Provider<OrdersConfig, api.Service, Error> = system.provider({
+    name: :baseline/orders,
+    init: fn(scope, config) -> Result<api.Service, Error> {
+        let log = config.log
+        let _ = log.update(fn(xs) { xs.append("orders.start") })
+        scope.on_halt(fn() -> Result<Unit, Error> {
+            let _ = log.update(fn(xs) { xs.append("orders.stop") })
+            ok(())
+        })
+        if config.fail_start {
+            return err(Error.startup)
+        }
+        ok(service.create(config.store))
+    },
+})

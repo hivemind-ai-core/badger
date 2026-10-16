@@ -1,0 +1,118 @@
+import orders.api
+import orders.fake_store
+import orders.service
+import providers
+import std.io
+import std.system
+import std.system.{component}
+import std.text
+import std.worker
+
+fn exercise() -> Result<(api.Order, List<String>), providers.Error> {
+    let log: Atom<List<String>> = Atom.new([])
+    let plan = system {
+        orders: component(providers.orders, {
+            store: ref(:store),
+            log,
+            fail_start: false,
+        }),
+        store: component(providers.store, { log }),
+    }
+    let created: Result<api.Order, providers.Error> = {
+        use running <- system.run(plan)
+        let order = running.orders.create({ title: "  first order  " })?
+        ok(order)
+    }
+    let order = created?
+    ok((order, log.get()))
+}
+
+pub fn main() -> Result<Unit, providers.Error> {
+    let (order, log) = exercise()?
+    io.println($"created {order.id}: {order.title}")?
+    io.println(text.join(log, " -> "))?
+    ok(())
+}
+
+fn test_create_with_fake() -> Result<Unit, api.Error> {
+    let fake = fake_store.create()
+    let orders = service.create(fake.store)
+    let order = orders.create({ title: "  first order  " })?
+    assert(order == { id: 1, title: "first order" })
+    assert(fake.snapshot() == [order])
+    ok(())
+}
+
+fn test_validation_prevents_store_write() -> Unit {
+    let fake = fake_store.create()
+    let orders = service.create(fake.store)
+    match orders.create({ title: "  " }) {
+        .err(.invalid_title) => (),
+        _ => panic("expected invalid_title"),
+    }
+    assert(fake.snapshot().is_empty())
+}
+
+fn test_fakes_are_isolated() -> Result<Unit, api.Error> {
+    let first = fake_store.create()
+    let second = fake_store.create()
+    let _ = first.store.insert({ title: "first" })?
+    assert(first.snapshot().len() == 1)
+    assert(second.snapshot().is_empty())
+    ok(())
+}
+
+fn test_dependency_order_and_shutdown() -> Result<Unit, providers.Error> {
+    let (_, log) = exercise()?
+    assert(log == ["store.start", "orders.start", "orders.stop", "store.stop"])
+    ok(())
+}
+
+fn test_partial_start_cleanup() -> Unit {
+    let log: Atom<List<String>> = Atom.new([])
+    let plan = system {
+        store: component(providers.store, { log }),
+        orders: component(providers.orders, {
+            store: ref(:store),
+            log,
+            fail_start: true,
+        }),
+    }
+    let started: Result<Unit, providers.Error> = {
+        use _running <- system.run(plan)
+        ok(())
+    }
+    assert(started.is_err())
+    assert(log.get() == ["store.start", "orders.start", "orders.stop", "store.stop"])
+}
+
+fn test_operation_error_cleanup() -> Unit {
+    let log: Atom<List<String>> = Atom.new([])
+    let plan = system {
+        store: component(providers.store, { log }),
+        orders: component(providers.orders, {
+            store: ref(:store),
+            log,
+            fail_start: false,
+        }),
+    }
+    let result: Result<Unit, providers.Error> = {
+        use running <- system.run(plan)
+        let _ = running.orders.create({ title: "" })?
+        ok(())
+    }
+    assert(result.is_err())
+    assert(log.get() == ["store.start", "orders.start", "orders.stop", "store.stop"])
+}
+
+fn test_supervised_worker_retries_factory() -> Unit {
+    let attempts = Atom.new(0)
+    worker.supervise(:baseline/worker, fn() -> Result<Unit, api.Error> {
+        let attempt = attempts.update(fn(n) { n + 1 })
+        if attempt == 1 {
+            return err(api.Error.unavailable)
+        }
+        ok(())
+    }, worker.on_failure({ max_restarts: 1, window: 1s, backoff: 0ms }))
+    assert(attempts.get() == 2)
+}
