@@ -439,11 +439,14 @@ pub fn recv_free(ch: u64) -> Free {
     let _r = gc::Roots::new();
     _r.add(ch);
     d.recv_waiters.push_back((task::current_id(), task::begin_wait(), task::current_ptr()));
-    note_waiting(ch);
+    let added = note_waiting(ch);
     end_fast(d);
     task::park_free();
     match task::take_delivered() {
-        (v, 1) => Free::Done(v),
+        (v, 1) => {
+            done_waiting(ch, added);
+            Free::Done(v)
+        }
         _ => Free::Woken,
     }
 }
@@ -485,11 +488,14 @@ pub fn send_free(ch: u64, v: u64) -> Free {
         _r.add(v);
     }
     d.send_waiters.push_back((task::current_id(), v, 0, task::begin_wait(), task::current_ptr()));
-    note_waiting(ch);
+    let added = note_waiting(ch);
     end_fast(d);
     task::park_free();
     match task::take_delivered() {
-        (_, 1) => Free::Done(0),
+        (_, 1) => {
+            done_waiting(ch, added);
+            Free::Done(0)
+        }
         _ => Free::Woken,
     }
 }
@@ -711,15 +717,17 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Full;
         }
         d.send_waiters.push_back((me, v, size, task::begin_wait(), task::current_ptr()));
-        note_waiting(ch);
+        let added = note_waiting(ch);
         task::park_for("channel send");
         let (_, status) = task::take_delivered();
         let d = data(ch);
         if status == 1 {
+            done_waiting(ch, added);
             return SendResult::Sent;
         }
         // not taken: withdraw our reservation (the value is still ours)
         d.send_waiters.retain(|(t, _, _, _, _)| *t != me);
+        done_waiting(ch, added);
         if status == 2 || d.closed {
             return SendResult::Closed;
         }
@@ -823,13 +831,15 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
         }
         let me = task::current_id();
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
-        note_waiting(ch);
+        let added = note_waiting(ch);
         task::park_for("channel receive");
         let (v, status) = task::take_delivered();
         if status == 1 {
+            done_waiting(ch, added);
             return RecvResult::Value(v);
         }
         data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
+        done_waiting(ch, added);
     }
 }
 
@@ -937,13 +947,13 @@ pub fn flush_due(producer: TaskId, chans: &[u64]) {
 /// Register the current task to be woken when `ch` may have a message.
 pub fn watch_recv(ch: u64) {
     data(ch).recv_watchers.push_back(task::current_id());
-    note_waiting(ch);
+    let _ = note_waiting(ch);
 }
 
 /// Register the current task to be woken when `ch` may have space.
 pub fn watch_space(ch: u64) {
     data(ch).space_waiters.push_back(task::current_id());
-    note_waiting(ch);
+    let _ = note_waiting(ch);
 }
 
 pub fn unwatch(ch: u64) {
@@ -1033,7 +1043,7 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
         }
         let d = data(ch);
         d.cap_waiters.push_back(me);
-        note_waiting(ch);
+        let _ = note_waiting(ch);
         task::park_for("batch capacity");
     }
 }
@@ -1064,7 +1074,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
                 *(p.add(8) as *mut u64) = ch;
             }
             data(ch).leases.push((task::current_id(), b));
-            note_waiting(ch);
+            let _ = note_waiting(ch);
             return Some(b);
         }
         if d.closed && d.staging.values().all(Vec::is_empty) {
@@ -1072,7 +1082,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
         }
         let me = task::current_id();
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
-        note_waiting(ch);
+        let _ = note_waiting(ch);
         task::park_for("batch receive");
         data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
     }
@@ -1107,7 +1117,7 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
         }
         let me = task::current_id();
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
-        note_waiting(ch);
+        let _ = note_waiting(ch);
         task::park_for("batch receive");
         data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
     }
@@ -1115,11 +1125,25 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
 
 /// Remember that the current task is registered with `ch` (a waiter,
 /// watcher, or lease holder), so its end withdraws the registration.
-fn note_waiting(ch: u64) {
+fn note_waiting(ch: u64) -> bool {
     if let Some(t) = task::current()
         && !t.chan_regs.contains(&ch)
     {
         t.chan_regs.push(ch);
+        return true;
+    }
+    false
+}
+
+/// A wait that [`note_waiting`] recorded (`added`) ended with its
+/// registration gone (taken by the waker, or withdrawn): forget the
+/// channel again, so the task's end does not search it.
+fn done_waiting(ch: u64, added: bool) {
+    if added
+        && let Some(t) = task::current()
+        && let Some(i) = t.chan_regs.iter().rposition(|c| *c == ch)
+    {
+        t.chan_regs.swap_remove(i);
     }
 }
 
