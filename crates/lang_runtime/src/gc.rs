@@ -140,18 +140,29 @@ fn layout(payload: usize) -> Layout {
 const SMALL_MAX: usize = 256;
 const CLASSES: usize = SMALL_MAX / 16;
 const CHUNK: usize = 256 << 10;
+/// Chunks after a worker's first: 2 MiB, aligned and advised as a huge
+/// page, so a program that allocates much takes one page fault per chunk
+/// instead of 512 (a small program keeps its small first chunk).
+const BIG_CHUNK: usize = 2 << 20;
 
 struct Pool {
     free: [*mut u8; CLASSES],
     bump: *mut u8,
     left: usize,
+    chunks: usize,
 }
 
 struct Pools([UnsafeCell<Pool>; crate::task::MAX_WORKERS]);
 unsafe impl Sync for Pools {}
 static POOLS: Pools = Pools(
-    [const { UnsafeCell::new(Pool { free: [std::ptr::null_mut(); CLASSES], bump: std::ptr::null_mut(), left: 0 }) };
-        crate::task::MAX_WORKERS],
+    [const {
+        UnsafeCell::new(Pool {
+            free: [std::ptr::null_mut(); CLASSES],
+            bump: std::ptr::null_mut(),
+            left: 0,
+            chunks: 0,
+        })
+    }; crate::task::MAX_WORKERS],
 );
 
 fn cell_size(payload: usize) -> usize {
@@ -175,12 +186,17 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         return p as *mut Header;
     }
     if pool.left < size {
-        let chunk = unsafe { alloc_zeroed(Layout::from_size_align(CHUNK, 16).unwrap()) };
+        let (bytes, align) = if pool.chunks == 0 { (CHUNK, 16) } else { (BIG_CHUNK, BIG_CHUNK) };
+        let chunk = unsafe { alloc_zeroed(Layout::from_size_align(bytes, align).unwrap()) };
         if chunk.is_null() {
             return chunk as *mut Header;
         }
+        if bytes == BIG_CHUNK {
+            unsafe { libc::madvise(chunk as *mut libc::c_void, bytes, libc::MADV_HUGEPAGE) };
+        }
+        pool.chunks += 1;
         pool.bump = chunk;
-        pool.left = CHUNK;
+        pool.left = bytes;
     }
     let p = pool.bump;
     pool.bump = unsafe { p.add(size) };
