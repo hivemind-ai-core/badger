@@ -1,0 +1,16 @@
+get: hello missing: true
+set_nx: false true
+json: ada 2
+incr: 1 42
+ttl set: true, none for greeting: true
+hash: ada en true
+rpush: 3 lrange: ["a", "b", "c"] lpop: a
+pipeline: ["OK", "v", 1]
+transaction: [1, 2]
+delete: 2 exists: false
+error: valkey/server
+published to 1
+message: news first true
+pattern message: chat.room1 hi chat.*
+timed out: true
+after timeout: second

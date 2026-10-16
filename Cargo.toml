@@ -26,6 +26,7 @@ lang_http = { path = "crates/lang_http" }
 lang_formats = { path = "crates/lang_formats" }
 lang_template = { path = "crates/lang_template" }
 lang_crypto = { path = "crates/lang_crypto" }
+lang_valkey = { path = "crates/lang_valkey" }
 
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"

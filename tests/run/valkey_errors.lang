@@ -1,0 +1,16 @@
+// std.valkey failures that need no server: a refused connection and a
+// URL that is not a Valkey URL are error values.
+import std.io
+import std.valkey
+
+pub fn main() -> Result<Unit, io.Error> {
+    match valkey.connect("valkey://127.0.0.1:1") {
+        .ok(_) => io.println("connected?")?,
+        .err(e) => io.println($"{e.code}")?,
+    }
+    match valkey.connect("http://example.com") {
+        .ok(_) => io.println("connected?")?,
+        .err(e) => io.println($"{e.code}")?,
+    }
+    ok(())
+}

@@ -42,6 +42,7 @@ std_modules![
     "config",
     "system",
     "sqlite",
+    "valkey",
     "http",
     "buffer",
     "worker",

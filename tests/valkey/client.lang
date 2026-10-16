@@ -1,0 +1,65 @@
+// std.valkey against a live server at $VALKEY_URL: strings, JSON, counters,
+// expiry, hashes, lists, pipelines, transactions, and pub/sub.
+import std.env
+import std.io
+import std.task
+import std.time
+import std.valkey
+
+type Profile = { name: String, langs: List<String> }
+
+pub enum AppError {
+    io(source: io.Error),
+    valkey(source: valkey.Error),
+    missing(what: String),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let url = env.get("VALKEY_URL").unwrap_or("valkey://127.0.0.1:6379")
+    let c = valkey.connect(url)?
+    let _ = c.command(["FLUSHDB"])?
+    c.set("greeting", "hello")?
+    io.println($"get: {c.get("greeting")?.unwrap_or("?")} missing: {c.get("nope")?.is_none()}")?
+    io.println($"set_nx: {c.set_nx("greeting", "again")?} {c.set_nx("fresh", "1")?}")?
+    c.set_json("profile", { name: "ada", langs: ["en", "fr"] })?
+    let p: Profile = c.get_json<Profile>("profile")?.ok_or(AppError.missing("profile"))?
+    io.println($"json: {p.name} {p.langs.len()}")?
+    io.println($"incr: {c.incr("n")?} {c.incr_by("n", 41)?}")?
+    c.set_ex("short", "x", time.seconds(100))?
+    let ttl = c.ttl("short")?.map(fn(d: Duration) -> Bool { time.as_millis(d) > 90000 }).unwrap_or(false)
+    io.println($"ttl set: {ttl}, none for greeting: {c.ttl("greeting")?.is_none()}")?
+    c.hset("user:1", "name", "ada")?
+    c.hset("user:1", "lang", "en")?
+    let h = c.hgetall("user:1")?
+    io.println($"hash: {h.get("name").unwrap_or("?")} {h.get("lang").unwrap_or("?")} {c.hget("user:1", "x")?.is_none()}")?
+    io.println($"rpush: {c.rpush("q", ["a", "b", "c"])?} lrange: {c.lrange("q", 0, -1)?} lpop: {c.lpop("q")?.unwrap_or("?")}")?
+    let replies = c.pipeline([["SET", "k", "v"], ["GET", "k"], ["DEL", "k"]])?
+    io.println($"pipeline: {replies}")?
+    let tx = c.transaction([["INCR", "t"], ["INCR", "t"]])?
+    io.println($"transaction: {tx}")?
+    io.println($"delete: {c.delete(["greeting", "fresh", "missing"])?} exists: {c.exists("greeting")?}")?
+    // a server error is an error value
+    match c.command(["INCR", "profile"]) {
+        .ok(_) => io.println("no error?")?,
+        .err(e) => io.println($"error: {e.code}")?,
+    }
+    // pub/sub
+    let sub = c.subscribe(["news"])?
+    let psub = c.psubscribe(["chat.*"])?
+    task.sleep(time.millis(50))
+    io.println($"published to {c.publish("news", "first")?}")?
+    let _ = c.publish("chat.room1", "hi")?
+    let m = sub.recv()?.ok_or(AppError.missing("message"))?
+    io.println($"message: {m.channel} {m.payload} {m.pattern.is_none()}")?
+    let pm = psub.recv()?.ok_or(AppError.missing("pattern message"))?
+    io.println($"pattern message: {pm.channel} {pm.payload} {pm.pattern.unwrap_or("?")}")?
+    // a receive that times out leaves the next message queued
+    let waited = task.timeout(time.millis(100), fn() { sub.recv() })
+    io.println($"timed out: {waited.is_err()}")?
+    let _ = c.publish("news", "second")?
+    io.println($"after timeout: {sub.recv()?.map(fn(m: valkey.Message) -> String { m.payload }).unwrap_or("?")}")?
+    sub.close()
+    psub.close()
+    valkey.close(c)
+    ok(())
+}
