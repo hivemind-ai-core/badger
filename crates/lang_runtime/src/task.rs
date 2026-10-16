@@ -2439,6 +2439,36 @@ pub fn join_free(id: TaskId) -> Option<u64> {
     }
 }
 
+/// What each blocked task waits for, for a deadlock report: its name, the
+/// kind of wait, the channels it is registered with (by creation number),
+/// and the tasks it joins.
+fn blocked_notes() -> Vec<String> {
+    let tasks = all_tasks();
+    let mut out: Vec<(TaskId, String)> = vec![];
+    for t in &tasks {
+        if !matches!(t.state.get(), State::Parked | State::Parking) {
+            continue;
+        }
+        let mut what = match wait_reason(t) {
+            "" => "waits".to_string(),
+            w => format!("waits on {w}"),
+        };
+        let chans: Vec<String> =
+            t.chan_regs.iter().filter_map(|&c| crate::channel::seq_of(c)).map(|n| format!("#{n}")).collect();
+        if !chans.is_empty() {
+            what.push_str(&format!(" (channel {})", chans.join(", ")));
+        }
+        let joined: Vec<String> =
+            tasks.iter().filter(|j| j.joiners.contains(&t.id)).map(|j| format!("task {}", j.id)).collect();
+        if !joined.is_empty() {
+            what.push_str(&format!(" (joining {})", joined.join(", ")));
+        }
+        out.push((t.id, format!("task {} ({}) {what}", t.id, t.name)));
+    }
+    out.sort();
+    out.into_iter().map(|(_, n)| n).collect()
+}
+
 /// Mark the running task about to park (see [`Task::pre_park`]): a wake or
 /// delivery for its current wait before it parks is kept for its park.
 pub fn set_pre_park() {
@@ -2601,10 +2631,16 @@ pub fn run_main(entry: u64) -> Exit {
             if let Some(t) = task(main)
                 && t.state.get() == State::Parked
             {
-                fail_pending(main, PanicInfo { message: msg, location: String::new(), notes: vec![] });
+                fail_pending(
+                    main,
+                    PanicInfo { message: msg, location: String::new(), notes: blocked_notes() },
+                );
                 continue;
             }
             eprintln!("fatal: {msg}");
+            for n in blocked_notes() {
+                eprintln!("note: {n}");
+            }
             return Exit::Failed(PanicInfo {
                 message: "deadlock".into(),
                 location: String::new(),
@@ -2721,10 +2757,16 @@ fn worker_loop(n: usize) -> Option<Exit> {
             // every task is parked and nothing can wake them
             let msg = "deadlock: all tasks are blocked".to_string();
             if task(main).is_some_and(|t| t.state.get() == State::Parked) {
-                fail_pending(main, PanicInfo { message: msg, location: String::new(), notes: vec![] });
+                fail_pending(
+                    main,
+                    PanicInfo { message: msg, location: String::new(), notes: blocked_notes() },
+                );
                 continue;
             }
             eprintln!("fatal: {msg}");
+            for n in blocked_notes() {
+                eprintln!("note: {n}");
+            }
             SHUTDOWN.store(true, Ordering::SeqCst);
             return Some(Exit::Failed(PanicInfo {
                 message: "deadlock".into(),

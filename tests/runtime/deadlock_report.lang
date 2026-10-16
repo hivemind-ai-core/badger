@@ -1,0 +1,22 @@
+// A consumer joined before its channel is closed: every task blocks, and
+// the deadlock report says what each one waits for.
+import std.channel
+import std.task
+
+pub fn main() -> Result<Unit, String> {
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 4 }).map_err(fn(_) { "config" })?
+    task.scope(fn(s) -> Result<Unit, String> {
+        let consumer = s.spawn(fn() {
+            loop {
+                match a.receiver.recv() {
+                    .some(_) => (),
+                    .none => { break },
+                }
+            }
+        })
+        let _ = a.sender.send(1)
+        consumer.join()
+        a.sender.close()
+        ok(())
+    })
+}

@@ -1134,6 +1134,12 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
     }
 }
 
+/// A channel's creation number (inspection, deadlock reports).
+pub fn seq_of(ch: u64) -> Option<u64> {
+    let p = unsafe { *(obj(ch).payload() as *const *mut ChanData) };
+    (!p.is_null()).then(|| unsafe { (*p).seq })
+}
+
 /// Remember that the current task is registered with `ch` (a waiter,
 /// watcher, or lease holder), so its end withdraws the registration.
 fn note_waiting(ch: u64) -> bool {

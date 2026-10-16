@@ -603,6 +603,26 @@ fn structured_diagnostics() {
     assert!(err.contains("in fn structured.Point.norm") && err.contains("expected: Int"), "{err}");
 }
 
+/// A deadlock report names each blocked task and what it waits for.
+#[test]
+fn deadlock_report_names_waits() {
+    for workers in ["1", "4"] {
+        let out = lang()
+            .args(["run", "--workers", workers, "tests/runtime/deadlock_report.lang"])
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(101));
+        let err = String::from_utf8_lossy(&out.stderr);
+        for want in [
+            "deadlock: all tasks are blocked",
+            "task 1 (main) waits on join (joining task 2)",
+            "task 2 (child of task 1) waits on channel receive (channel #1)",
+        ] {
+            assert!(err.contains(want), "missing {want:?} ({workers} workers) in {err}");
+        }
+    }
+}
+
 /// Name and syntax errors (found before type checking) also report their
 /// module, and name errors their enclosing definition.
 #[test]
