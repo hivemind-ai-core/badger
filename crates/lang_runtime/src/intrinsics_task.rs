@@ -1,6 +1,6 @@
 //! Task, scope, channel, time, and cleanup intrinsics (uniform ABI).
 
-use crate::channel::{self, RecvResult, SendResult};
+use crate::channel::{self, Free, RecvResult, SendResult};
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::Roots;
 use crate::intrinsics::{Targs, rdesc, targ};
@@ -67,6 +67,16 @@ fn locked_for<R>(why: u16, f: impl FnOnce() -> R) -> R {
     let r = f();
     task::leave_runtime();
     r
+}
+
+/// Under the runtime lock, after a wait without it on `ch` ended without
+/// completing (`woken`): withdraw the registration and honor a pending
+/// cancellation or failure (as a locked wait does when it wakes).
+fn after_free_wait(ch: u64, woken: bool) {
+    if woken {
+        channel::withdraw(ch);
+        task::check_interrupts();
+    }
 }
 
 /// A split result (see `lang_mir::split`): the variant `name`'s tag of the
@@ -201,7 +211,15 @@ task_intrinsics! {
     fn task_cancel_timeout(ctx, targs, ret, id) { task::cancel_with(id as u32, task::CancelReason::Timeout); 0 }
     fn task_cancel(ctx, targs, ret, id) { task::cancel(id as u32); 0 }
     fn task_settle(ctx, targs, ret, id) { task::await_task(id as u32, true); 0 }
-    fn task_yield(ctx, targs, ret) { task::yield_now(); 0 }
+    // an unlocked entry, like a poll
+    fn task_yield(ctx, targs, ret) {
+        if task::multi() && !task::holds_lock() {
+            task::yield_free();
+        } else {
+            task::yield_now();
+        }
+        0
+    }
     fn task_sleep(ctx, targs, ret, nanos) {
         task::sleep(std::time::Duration::from_nanos((nanos as i64).max(0) as u64));
         0
@@ -432,10 +450,21 @@ task_intrinsics! {
     // without the runtime lock when no other task is involved, otherwise
     // the locked path decides
     fn chan_send(ctx, targs, ret, ch, v) {
-        if fast_ok() && channel::send_fast(ch, v) {
-            return ok_unit(rdesc(ret));
+        let mut woken = false;
+        if fast_ok() {
+            if channel::send_fast(ch, v) {
+                return ok_unit(rdesc(ret));
+            }
+            match channel::send_free(ch, v) {
+                Free::Done(_) => return ok_unit(rdesc(ret)),
+                Free::Woken => woken = true,
+                Free::Locked => {}
+            }
         }
-        locked(|| send_result(ret, v, channel::send(ch, v, true)))
+        locked(|| {
+            after_free_wait(ch, woken);
+            send_result(ret, v, channel::send(ch, v, true))
+        })
     }
     fn chan_try_send(ctx, targs, ret, ch, v) {
         if fast_ok() && channel::send_fast(ch, v) {
@@ -444,18 +473,33 @@ task_intrinsics! {
         locked(|| send_result(ret, v, channel::send(ch, v, false)))
     }
     fn chan_recv(ctx, targs, ret, ch) {
-        if fast_ok()
-            && let Some(v) = channel::recv_fast(ch)
-        {
-            let r = Roots::new();
-            if channel::data_elem(ch).is_ptr() {
-                r.add(v);
+        let mut woken = false;
+        if fast_ok() {
+            let got = match channel::recv_fast(ch) {
+                Some(v) => Some(v),
+                None => match channel::recv_free(ch) {
+                    Free::Done(v) => Some(v),
+                    Free::Woken => {
+                        woken = true;
+                        None
+                    }
+                    Free::Locked => None,
+                },
+            };
+            if let Some(v) = got {
+                let r = Roots::new();
+                if channel::data_elem(ch).is_ptr() {
+                    r.add(v);
+                }
+                return make_variant(rdesc(ret), "some", &[v]);
             }
-            return make_variant(rdesc(ret), "some", &[v]);
         }
-        locked(|| match channel::recv(ch, true) {
-            RecvResult::Value(v) => make_variant(rdesc(ret), "some", &[v]),
-            _ => make_variant(rdesc(ret), "none", &[]),
+        locked(|| {
+            after_free_wait(ch, woken);
+            match channel::recv(ch, true) {
+                RecvResult::Value(v) => make_variant(rdesc(ret), "some", &[v]),
+                _ => make_variant(rdesc(ret), "none", &[]),
+            }
         })
     }
     fn chan_try_recv(ctx, targs, ret, ch) {
@@ -478,14 +522,23 @@ task_intrinsics! {
     // with the message left for `lang_rt_take_aux`
     fn chan_recv_split(ctx, targs, ret, ch) {
         let p = channel::data_elem(ch).is_ptr();
-        if fast_ok()
-            && let Some(v) = channel::recv_fast(ch)
-        {
-            return split(ret, "some", Some((v, p)));
+        let mut woken = false;
+        if fast_ok() {
+            if let Some(v) = channel::recv_fast(ch) {
+                return split(ret, "some", Some((v, p)));
+            }
+            match channel::recv_free(ch) {
+                Free::Done(v) => return split(ret, "some", Some((v, p))),
+                Free::Woken => woken = true,
+                Free::Locked => {}
+            }
         }
-        locked(|| match channel::recv(ch, true) {
-            RecvResult::Value(v) => split(ret, "some", Some((v, p))),
-            _ => split(ret, "none", None),
+        locked(|| {
+            after_free_wait(ch, woken);
+            match channel::recv(ch, true) {
+                RecvResult::Value(v) => split(ret, "some", Some((v, p))),
+                _ => split(ret, "none", None),
+            }
         })
     }
     fn chan_try_recv_split(ctx, targs, ret, ch) {

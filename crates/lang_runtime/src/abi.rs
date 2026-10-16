@@ -98,8 +98,14 @@ pub extern "C" fn lang_rt_take_aux(_ctx: *mut TaskCtx) -> u64 {
     }
 }
 
+/// A poll's slow path: an unlocked entry (several workers yield without
+/// the runtime lock when nothing else needs it).
 pub extern "C" fn lang_rt_poll(_ctx: *mut TaskCtx) {
-    task::yield_now();
+    if task::multi() && !task::holds_lock() {
+        task::yield_free();
+    } else {
+        task::yield_now();
+    }
 }
 
 /// Tasks initializing (and waiting for) module-level values, by flag

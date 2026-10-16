@@ -88,6 +88,11 @@ pub enum Signal {
     Park,
     /// The task's stack is abandoned (defect or cancellation).
     Abandon,
+    /// Waiting for a wakeup, suspended without the runtime lock (it
+    /// resumes without it): see [`park_free`].
+    ParkFree,
+    /// An explicit yield or exhausted budget without the runtime lock.
+    YieldFree,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +103,10 @@ enum State {
     Parked,
     Cleaning,
     Done,
+    /// On its way to parking without the runtime lock: registered to wait
+    /// and still on its stack. A wake records [`Task::pending_wake`]; the
+    /// worker it suspends to then queues it (or marks it parked).
+    Parking,
 }
 
 /// A task's state, readable from any worker (channel fast paths check a
@@ -116,7 +125,8 @@ impl StateCell {
             1 => State::Running,
             2 => State::Parked,
             3 => State::Cleaning,
-            _ => State::Done,
+            4 => State::Done,
+            _ => State::Parking,
         }
     }
 
@@ -223,6 +233,23 @@ pub struct Task {
     pub publishing: bool,
     /// Pipeline stages the task is inside, outermost first.
     pub stages: Vec<String>,
+    /// A wake that arrived while the task was [`State::Parking`] (written
+    /// and read under the scheduler queue lock).
+    pending_wake: Option<Wake>,
+    /// It suspended without the runtime lock, so it resumes without it.
+    free_resume: bool,
+    /// What it waits for while parked without the runtime lock (see
+    /// [`FREE_WAITS`]; 0: nothing). Atomic: inspection reads it under the
+    /// lock while the task runs.
+    free_wait: AtomicU8,
+}
+
+/// Wait reasons of parks without the runtime lock, by `free_wait` number.
+const FREE_WAITS: [&str; 3] = ["", "channel receive", "channel send"];
+
+/// What a task waits for (inspection).
+fn wait_reason(t: &Task) -> &'static str {
+    if !t.wait.is_empty() { t.wait } else { FREE_WAITS[t.free_wait.load(Ordering::Acquire) as usize] }
 }
 
 struct Timer {
@@ -344,7 +371,7 @@ pub fn waits(id: TaskId, wait: u64) -> bool {
     task(id).is_some_and(|t| {
         t.ctx.flags & FLAG_CANCEL == 0
             && t.wait_gen.load(Ordering::Acquire) == wait
-            && (t.state.get() == State::Parked || t.publishing)
+            && (matches!(t.state.get(), State::Parked | State::Parking) || t.publishing)
     })
 }
 
@@ -383,6 +410,14 @@ fn set_current(id: TaskId) {
     } else {
         task(id).map_or(std::ptr::null_mut(), |t| t as *mut Task)
     };
+    CURRENT_TASK.with(|c| c.set(p));
+}
+
+/// [`set_current`] for a task whose record is known (no table lookup:
+/// callers without the runtime lock).
+#[inline(never)]
+fn set_current_task(id: TaskId, p: *mut Task) {
+    CURRENT.with(|c| c.set(id));
     CURRENT_TASK.with(|c| c.set(p));
 }
 
@@ -476,8 +511,9 @@ pub mod reason {
     pub const SCHEDULER: u16 = 7;
     pub const STARTUP: u16 = 8;
     pub const CONSTANT: u16 = 9;
+    pub const POLL: u16 = 10;
     pub const FIRST_ENTRY: u16 = 16;
-    pub const NAMES: [&str; 10] = [
+    pub const NAMES: [&str; 11] = [
         "other",
         "channel slow path",
         "batch slow path",
@@ -488,6 +524,7 @@ pub mod reason {
         "scheduler (park, wake, idle)",
         "worker startup",
         "shared constant",
+        "yield (poll or task.yield_now)",
     ];
 }
 
@@ -942,6 +979,9 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         select_done: None,
         publishing: false,
         stages: vec![],
+        pending_wake: None,
+        free_resume: false,
+        free_wait: AtomicU8::new(0),
     });
     r.tasks.insert(id, t);
     // the coroutine (and its stack) is made when the task first runs, so a
@@ -1071,6 +1111,101 @@ pub fn park_shielded() -> Wake {
     current().unwrap().wake
 }
 
+/// Whether the running task may park or yield without the runtime lock:
+/// several workers, uncontrolled scheduling, called without the lock, and
+/// nothing to do as it schedules out (no staged batches to publish, no
+/// cleanup running).
+pub fn can_suspend_free() -> bool {
+    multi()
+        && !sched_controlled()
+        && !holds_lock()
+        && current()
+            .is_some_and(|t| t.on_deschedule.is_empty() && !t.in_cleanup && t.state.get() == State::Running)
+}
+
+fn flags_of(t: &Task) -> u64 {
+    unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) }
+}
+
+/// Without the runtime lock, holding what the running task registers with
+/// (so no waker takes the registration before the task is parking): mark
+/// it parking, waiting for `why` (an index into [`FREE_WAITS`]). `false`
+/// (cancellation or a failure is pending): it must not park; the locked
+/// path decides instead. The flags are read under the scheduler queue
+/// lock, which a canceller's wake takes after setting them.
+pub fn begin_park_free(why: u8) -> bool {
+    let p = current().expect("park outside a task") as *mut Task;
+    sched(|| {
+        let t = unsafe { &mut *p };
+        if flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+            return false;
+        }
+        t.free_wait.store(why, Ordering::Release);
+        t.wake = Wake::Normal;
+        t.pending_wake = None;
+        t.free_resume = true;
+        t.state.set(State::Parking);
+        true
+    })
+}
+
+/// Park the task [`begin_park_free`] marked (after releasing what it
+/// registered with), without the runtime lock; returns once woken.
+pub fn park_free() -> Wake {
+    chaos_jitter();
+    suspend(Signal::ParkFree);
+    end_wait();
+    let t = current().unwrap();
+    t.free_wait.store(0, Ordering::Release);
+    t.wake
+}
+
+/// A yield (a poll's slow path, `task.yield_now`) without the runtime lock:
+/// requeue behind the other ready tasks when nothing needs the lock, else
+/// the locked [`yield_now`].
+pub fn yield_free() {
+    let t = current().unwrap();
+    if !can_suspend_free()
+        || flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0
+        || STOP.load(Ordering::SeqCst)
+        || events_due()
+    {
+        // (a collection waiting for this worker: the lock is a safe point)
+        enter_runtime_for(reason::POLL);
+        yield_now();
+        leave_runtime();
+        return;
+    }
+    t.ctx.budget = task_budget();
+    if !has_ready() {
+        return;
+    }
+    t.free_resume = true;
+    chaos_jitter();
+    suspend(Signal::YieldFree);
+    if flags_of(current().unwrap()) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+        enter_runtime_for(reason::POLL);
+        check_interrupts();
+        leave_runtime();
+    }
+}
+
+/// A worker without the runtime lock is about to run compiled code: count
+/// it among [`IN_COMPILED`], waiting out a collection stopping the world.
+fn gc_enter() {
+    loop {
+        IN_COMPILED.fetch_add(1, Ordering::SeqCst);
+        if !STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+        while STOP.load(Ordering::SeqCst) {
+            std::hint::spin_loop();
+            std::thread::yield_now();
+        }
+    }
+}
+
 fn publish_current() {
     let Some(t) = current() else { return };
     if !t.on_deschedule.is_empty()
@@ -1113,28 +1248,30 @@ fn wake_slot() -> bool {
 
 /// Queue a ready task (into this worker's next slot when `slot`); returns
 /// whether idle workers should be told. Takes the scheduler queue lock.
-fn enqueue(id: TaskId, slot: bool) -> bool {
-    sched(|| enqueue_locked(id, slot))
+fn enqueue(e: Entry, slot: bool) -> bool {
+    sched(|| enqueue_locked(e, slot))
 }
 
-fn enqueue_locked(id: TaskId, slot: bool) -> bool {
+fn enqueue_locked(e: Entry, slot: bool) -> bool {
     if slot {
         let w = worker_index();
-        let prev = std::mem::replace(&mut queue().next[w], id);
+        let prev = std::mem::replace(&mut queue().next[w], e);
         queue().next_at[w] = now_ns();
-        if prev != 0 {
+        if prev.0 != 0 {
             queue().ready.push_back(prev);
             return true;
         }
         return false;
     }
-    queue().ready.push_back(id);
+    queue().ready.push_back(e);
     true
 }
 
-/// Queue a ready task in the shared queue and tell idle workers.
+/// Queue a ready task in the shared queue and tell idle workers (runtime
+/// lock held: the task is looked up).
 fn push_ready(id: TaskId) {
-    if enqueue(id, false) {
+    let p = task(id).map_or(0, |t| t as *mut Task as usize);
+    if enqueue((id, p), false) {
         notify_ready();
     }
 }
@@ -1146,13 +1283,17 @@ fn push_ready(id: TaskId) {
 /// under it.
 static SCHED_Q: AtomicBool = AtomicBool::new(false);
 
+/// A ready task and its record (so a worker without the runtime lock can
+/// resume it without looking it up).
+type Entry = (TaskId, usize);
+
 /// What [`SCHED_Q`] protects (kept apart from [`Runtime`], which the
 /// runtime lock's holder borrows).
 struct ReadyQueue {
-    ready: VecDeque<TaskId>,
+    ready: VecDeque<Entry>,
     /// Several workers: a task woken by a running task, kept to run next on
     /// the waker's worker (0 = none); idle workers steal from these.
-    next: [TaskId; MAX_WORKERS],
+    next: [Entry; MAX_WORKERS],
     /// When each next slot was filled ([`now_ns`]): another worker may take
     /// it only after [`STEAL_AFTER_NS`], so a woken partner usually runs on
     /// the worker whose caches hold the data it was woken for.
@@ -1163,15 +1304,37 @@ const STEAL_AFTER_NS: u64 = 50_000;
 
 /// Monotonic nanoseconds since the runtime started.
 fn now_ns() -> u64 {
+    epoch().elapsed().as_nanos() as u64
+}
+
+fn epoch() -> Instant {
     static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
-    START.get_or_init(Instant::now).elapsed().as_nanos() as u64
+    *START.get_or_init(Instant::now)
+}
+
+/// The earliest timer's deadline ([`now_ns`]; `u64::MAX`: none), so a
+/// worker without the runtime lock knows when to take it and harvest.
+static NEXT_TIMER: AtomicU64 = AtomicU64::new(u64::MAX);
+/// External events were posted and not yet harvested.
+static EVENTS: AtomicBool = AtomicBool::new(false);
+
+/// Record the earliest timer (runtime lock held, after changing timers).
+fn note_timers() {
+    let at =
+        rt().timers.peek().map_or(u64::MAX, |t| t.at.saturating_duration_since(epoch()).as_nanos() as u64);
+    NEXT_TIMER.store(at, Ordering::SeqCst);
+}
+
+/// Whether harvesting would find work: a due timer or posted events.
+fn events_due() -> bool {
+    EVENTS.load(Ordering::SeqCst) || NEXT_TIMER.load(Ordering::SeqCst) <= now_ns()
 }
 
 struct QueueCell(UnsafeCell<ReadyQueue>);
 unsafe impl Sync for QueueCell {}
 static QUEUE: QueueCell = QueueCell(UnsafeCell::new(ReadyQueue {
     ready: VecDeque::new(),
-    next: [0; MAX_WORKERS],
+    next: [(0, 0); MAX_WORKERS],
     next_at: [0; MAX_WORKERS],
 }));
 
@@ -1197,17 +1360,17 @@ fn sched<R>(f: impl FnOnce() -> R) -> R {
 fn has_ready() -> bool {
     sched(|| {
         let q = queue();
-        !q.ready.is_empty() || q.next.iter().any(|t| *t != 0)
+        !q.ready.is_empty() || q.next.iter().any(|t| t.0 != 0)
     })
 }
 
 /// This worker's next task, else the shared queue, else another worker's
 /// next task.
-fn take_ready() -> Option<TaskId> {
+fn take_ready() -> Option<Entry> {
     sched(|| {
         let w = worker_index();
         let mine = std::mem::take(&mut queue().next[w]);
-        if mine != 0 {
+        if mine.0 != 0 {
             return Some(mine);
         }
         if let Some(t) = chaos_pop() {
@@ -1217,7 +1380,7 @@ fn take_ready() -> Option<TaskId> {
         let now = now_ns();
         let q = queue();
         (0..MAX_WORKERS)
-            .find(|&i| q.next[i] != 0 && now.saturating_sub(q.next_at[i]) >= STEAL_AFTER_NS)
+            .find(|&i| q.next[i].0 != 0 && now.saturating_sub(q.next_at[i]) >= STEAL_AFTER_NS)
             .map(|i| std::mem::take(&mut q.next[i]))
     })
 }
@@ -1229,13 +1392,13 @@ fn work_here() -> (bool, Option<Duration>) {
     sched(|| {
         let q = queue();
         let w = worker_index();
-        if q.next[w] != 0 || !q.ready.is_empty() {
+        if q.next[w].0 != 0 || !q.ready.is_empty() {
             return (true, None);
         }
         let now = now_ns();
         let mut soonest: Option<u64> = None;
         for i in 0..MAX_WORKERS {
-            if q.next[i] != 0 {
+            if q.next[i].0 != 0 {
                 let age = now.saturating_sub(q.next_at[i]);
                 if age >= STEAL_AFTER_NS {
                     return (true, None);
@@ -1250,6 +1413,32 @@ fn work_here() -> (bool, Option<Duration>) {
 
 pub fn wake(id: TaskId, reason: Wake) {
     wake_delivering(id, reason, None)
+}
+
+/// [`wake`] a task that is parked or parking (never recorded as an early
+/// wake of a running task).
+fn wake_waiting(id: TaskId, reason: Wake) {
+    let Some(t) = task(id) else { return };
+    let t = t as *mut Task;
+    let slot = wake_slot();
+    let notify = sched(|| {
+        let t = unsafe { &mut *t };
+        match t.state.get() {
+            State::Parked => {
+                t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
+                t.wake = reason;
+                enqueue_locked((t.id, t as *mut Task as usize), slot)
+            }
+            State::Parking => {
+                t.pending_wake = Some(reason);
+                false
+            }
+            _ => false,
+        }
+    });
+    if notify {
+        notify_ready();
+    }
 }
 
 /// Wake `id` (if parked), first delivering `(value, is_ptr, status)`.
@@ -1267,7 +1456,11 @@ fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>)
         if t.state.get() == State::Parked {
             t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
             t.wake = reason;
-            enqueue_locked(t.id, slot)
+            enqueue_locked((t.id, t as *mut Task as usize), slot)
+        } else if t.state.get() == State::Parking {
+            // its worker queues it once it has left its stack
+            t.pending_wake = Some(reason);
+            false
         } else {
             if t.publishing {
                 // the running task woke itself on its way to parking
@@ -1297,18 +1490,24 @@ pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bo
     let woke = sched(|| {
         let t = unsafe { &mut *t };
         let flags = unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) };
+        let state = t.state.get();
         if flags & FLAG_CANCEL != 0
             || t.wait_gen.load(Ordering::Acquire) != wait
-            || t.state.get() != State::Parked
+            || !matches!(state, State::Parked | State::Parking)
         {
             return None;
         }
         t.delivered = value;
         t.delivered_is_ptr = is_ptr;
         t.status = status;
+        if state == State::Parking {
+            // its worker queues it once it has left its stack
+            t.pending_wake = Some(Wake::Normal);
+            return Some(false);
+        }
         t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
         t.wake = Wake::Normal;
-        Some(enqueue_locked(t.id, slot))
+        Some(enqueue_locked((t.id, t as *mut Task as usize), slot))
     });
     match woke {
         Some(notify) => {
@@ -1428,9 +1627,10 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
             wake(j, Wake::Normal);
         }
     }
-    if t.state.get() == State::Parked {
-        wake(id, Wake::Cancelled);
-    }
+    // a task parking without the runtime lock checks the flags under the
+    // scheduler queue lock, which this wake takes (it sees the request, or
+    // the wake sees it parking)
+    wake_waiting(id, Wake::Cancelled);
 }
 
 /// Make another task fail at its next safe point (child defect propagation).
@@ -1441,9 +1641,7 @@ pub fn fail_pending(id: TaskId, info: PanicInfo) {
     }
     t.ctx.flags |= FLAG_FAIL;
     t.pending_exit = Some(Exit::Failed(info));
-    if t.state.get() == State::Parked {
-        wake(id, Wake::Cancelled);
-    }
+    wake_waiting(id, Wake::Cancelled);
 }
 
 /// Attach a note (a cleanup failure) to the current task's primary defect.
@@ -1583,6 +1781,7 @@ pub fn sleep(d: Duration) -> Wake {
     }
     r.timer_seq += 1;
     r.timers.push(Timer { at: Instant::now() + d, seq: r.timer_seq, task: id });
+    note_timers();
     if let Some(t) = current() {
         t.sleep_seq = r.timer_seq;
     }
@@ -1684,6 +1883,7 @@ fn run_on<T: Send + 'static>(
         let v = f();
         let mut g = q.queue.lock().unwrap();
         g.push_back(External::Complete { task: id, value: Box::new(v) });
+        EVENTS.store(true, Ordering::SeqCst);
         q.cond.notify_one();
     }));
     if let Some(t) = current() {
@@ -1715,6 +1915,7 @@ pub fn add_listener() {
 pub fn post(q: &Arc<ExternalQueue>, e: External) {
     let mut g = q.queue.lock().unwrap();
     g.push_back(e);
+    EVENTS.store(true, Ordering::SeqCst);
     q.cond.notify_one();
 }
 
@@ -1772,7 +1973,9 @@ pub fn await_cancelled(ids: &[TaskId]) {
             let names: Vec<String> = pending
                 .iter()
                 .map(|id| match task(*id) {
-                    Some(t) if !t.wait.is_empty() => format!("task {id}, {:?} on {}", t.state.get(), t.wait),
+                    Some(t) if !wait_reason(t).is_empty() => {
+                        format!("task {id}, {:?} on {}", t.state.get(), wait_reason(t))
+                    }
                     Some(t) => format!("task {id}, {:?}", t.state.get()),
                     None => format!("task {id}"),
                 })
@@ -1798,6 +2001,7 @@ pub fn await_cancelled(ids: &[TaskId]) {
         let r = rt();
         r.timer_seq += 1;
         r.timers.push(Timer { at: deadline, seq: r.timer_seq, task: me });
+        note_timers();
         if let Some(t) = current() {
             t.sleep_seq = r.timer_seq;
         }
@@ -1885,7 +2089,7 @@ pub fn refresh_controlled(c: &SchedControl) {
 }
 
 /// Pick the next ready task: FIFO unless scheduling is controlled.
-fn next_ready() -> Option<TaskId> {
+fn next_ready() -> Option<Entry> {
     let n = sched(|| queue().ready.len()) as u64;
     if n == 0 {
         return None;
@@ -1916,7 +2120,7 @@ fn next_ready() -> Option<TaskId> {
 }
 
 /// The next ready task: FIFO, or a random one under chaos.
-fn chaos_pop() -> Option<TaskId> {
+fn chaos_pop() -> Option<Entry> {
     let r = queue();
     if chaos().is_some() && r.ready.len() > 1 {
         let i = (chaos_next() % r.ready.len() as u64) as usize;
@@ -1953,7 +2157,7 @@ pub fn run_main(entry: u64) -> Exit {
     rt().main = Some(main);
     loop {
         if let Some(id) = next_ready() {
-            run_one(id);
+            run_one(id.0);
             run_scheduler_work();
             if is_done(main) {
                 if restart_main() {
@@ -2063,7 +2267,11 @@ fn worker_loop(n: usize) -> Option<Exit> {
             if sched(|| !queue().ready.is_empty()) {
                 notify_ready();
             }
-            run_one(id);
+            if is_free(id) && !sched_controlled() {
+                run_free(id, true);
+            } else {
+                run_one(id.0);
+            }
             run_scheduler_work();
             continue;
         }
@@ -2129,6 +2337,10 @@ fn run_one(id: TaskId) {
     if t.state.get() == State::Done {
         return;
     }
+    if t.free_resume {
+        run_free((id, t as *mut Task as usize), false);
+        return;
+    }
     // a cancelled task that never started does not run
     if t.ctx.flags & FLAG_CANCEL != 0
         && t.co.as_ref().is_none_or(|c| !c.started())
@@ -2151,9 +2363,108 @@ fn run_one(id: TaskId) {
     t.ctx.budget = task_budget();
     set_current(id);
     stat(|w| &w.runs, 1);
+    let p = t as *mut Task as usize;
     let co = t.co.as_mut().unwrap() as *mut Co;
     let res = unsafe { (*co).resume(()) };
     set_current(0);
+    // a task resumed under the lock releases it as it returns to compiled
+    // code, and may then suspend without it (the table is not looked at
+    // without the lock)
+    if suspended_free((id, p), &res) {
+        lock_for(reason::SCHEDULER);
+    } else {
+        after_resume(id, res);
+    }
+}
+
+/// After a task suspended without the runtime lock (`res`), the worker
+/// (not holding the lock) parks or requeues it; returns whether it did.
+fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
+    let p = e.1 as *mut Task;
+    let notify = match res {
+        CoroutineResult::Yield(Signal::ParkFree) => {
+            IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+            sched(|| {
+                let t = unsafe { &mut *p };
+                match t.pending_wake.take() {
+                    Some(w) => {
+                        t.wake = w;
+                        t.state.set(State::Ready);
+                        enqueue_locked(e, false)
+                    }
+                    None => {
+                        t.state.set(State::Parked);
+                        false
+                    }
+                }
+            })
+        }
+        CoroutineResult::Yield(Signal::YieldFree) => {
+            IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+            sched(|| {
+                unsafe { &*p }.state.set(State::Ready);
+                enqueue_locked(e, false)
+            })
+        }
+        _ => return false,
+    };
+    if notify {
+        notify_ready();
+    }
+    true
+}
+
+/// Whether a ready task suspended without the runtime lock.
+fn is_free(e: Entry) -> bool {
+    unsafe { (*(e.1 as *const Task)).free_resume }
+}
+
+/// Run a task that suspended without the runtime lock (the lock is held on
+/// entry and on return): release the lock and resume it. With `cycle`, the
+/// tasks this worker takes next run without the lock too, while each of
+/// them suspended without it and nothing needs the lock (due timers,
+/// posted events, shutdown).
+fn run_free(mut e: Entry, cycle: bool) {
+    unlock();
+    loop {
+        let p = e.1 as *mut Task;
+        let t = unsafe { &mut *p };
+        gc_enter();
+        t.free_resume = false;
+        t.state.set(State::Running);
+        t.ctx.budget = task_budget();
+        set_current_task(e.0, p);
+        stat(|w| &w.runs, 1);
+        let co = t.co.as_mut().unwrap() as *mut Co;
+        let res = unsafe { (*co).resume(()) };
+        set_current_task(0, std::ptr::null_mut());
+        if !suspended_free(e, &res) {
+            // it suspended (or finished) holding the runtime lock
+            after_resume(e.0, res);
+            return;
+        }
+        if !cycle || SHUTDOWN.load(Ordering::SeqCst) || events_due() {
+            break;
+        }
+        chaos_jitter();
+        let Some(n) = take_ready() else { break };
+        if sched(|| !queue().ready.is_empty()) {
+            notify_ready();
+        }
+        if !is_free(n) {
+            lock_for(reason::SCHEDULER);
+            run_one(n.0);
+            return;
+        }
+        e = n;
+    }
+    lock_for(reason::SCHEDULER);
+}
+
+/// The scheduler's part after a task suspended or finished holding the
+/// runtime lock.
+fn after_resume(id: TaskId, res: CoroutineResult<Signal, ()>) {
+    debug_assert!(holds_lock(), "a task suspended without the runtime lock");
     let t = task(id).unwrap();
     match res {
         CoroutineResult::Yield(Signal::Yield) => {
@@ -2163,6 +2474,9 @@ fn run_one(id: TaskId) {
             push_ready(id);
         }
         CoroutineResult::Yield(Signal::Park) => {}
+        CoroutineResult::Yield(Signal::ParkFree | Signal::YieldFree) => {
+            unreachable!("handled by suspended_free")
+        }
         CoroutineResult::Yield(Signal::Abandon) => {
             // staged messages were accepted by the runtime: publish them
             if !t.on_deschedule.is_empty()
@@ -2260,7 +2574,10 @@ fn finish(id: TaskId) {
 pub fn harvest_events() {
     let q = rt().external.clone();
     let events: Vec<External> = match q.queue.try_lock() {
-        Ok(mut g) => g.drain(..).collect(),
+        Ok(mut g) => {
+            EVENTS.store(false, Ordering::SeqCst);
+            g.drain(..).collect()
+        }
         Err(_) => vec![],
     };
     for e in events {
@@ -2284,6 +2601,7 @@ pub fn harvest_events() {
             wake(t.task, Wake::Timeout);
         }
     }
+    note_timers();
 }
 
 /// Run scheduler callbacks (outside any task).
@@ -2383,6 +2701,7 @@ fn wait_events() -> bool {
             wake(t.task, Wake::Timeout);
         }
     }
+    note_timers();
     true
 }
 
@@ -2451,13 +2770,18 @@ pub fn snapshot_json() -> String {
                 State::Parked => "parked",
                 State::Cleaning => "cleaning",
                 State::Done => "done",
+                State::Parking => "parked",
             };
             let stages: Vec<String> = t.stages.iter().map(|s| crate::intrinsics_io::json_quote(s)).collect();
             format!(
                 "{{\"id\":{},\"name\":{},\"state\":\"{state}\",\"wait\":{},\"scope\":{},\"cleanups\":{},\"code_version\":{},\"stage\":{},\"stages\":[{}],\"memory\":{}}}",
                 t.id,
                 crate::intrinsics_io::json_quote(&t.name),
-                if t.wait.is_empty() { "null".to_string() } else { crate::intrinsics_io::json_quote(t.wait) },
+                if wait_reason(t).is_empty() {
+                    "null".to_string()
+                } else {
+                    crate::intrinsics_io::json_quote(wait_reason(t))
+                },
                 t.scope.map(|s| s.to_string()).unwrap_or("null".into()),
                 t.cleanups.len(),
                 t.code_version,

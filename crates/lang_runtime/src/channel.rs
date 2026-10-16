@@ -383,6 +383,118 @@ pub fn recv_fast(ch: u64) -> Option<u64> {
     v
 }
 
+/// What a waiting send or receive without the runtime lock did.
+pub enum Free {
+    /// Completed (a received message; 0 for a send).
+    Done(u64),
+    /// Not attempted: the locked path decides.
+    Locked,
+    /// Parked, and woken without completing (closing, cancellation): the
+    /// locked path decides after [`withdraw`].
+    Woken,
+}
+
+/// A prompt receive that waits, without the runtime lock: takes a message
+/// as [`recv_fast`] does, or else registers and parks without the lock
+/// ([`task::park_free`]) until a sender hands it one.
+pub fn recv_free(ch: u64) -> Free {
+    if !task::can_suspend_free() {
+        return Free::Locked;
+    }
+    let d = raw(ch);
+    if !try_fast(d) {
+        return Free::Locked;
+    }
+    if d.batched || !d.space_waiters.is_empty() {
+        end_fast(d);
+        return Free::Locked;
+    }
+    if let Some(x) = d.queue.pop_front() {
+        if let Some(sz) = d.sizes.pop_front() {
+            d.bytes -= sz;
+        }
+        admit_sender_fast(d);
+        end_fast(d);
+        return Free::Done(x);
+    }
+    while let Some((_, x, _, wait, p)) = d.send_waiters.pop_front() {
+        if task::deliver(p, wait, 0, false, 1) {
+            end_fast(d);
+            return Free::Done(x);
+        }
+    }
+    if d.closed || !task::begin_park_free(1) {
+        end_fast(d);
+        return Free::Locked;
+    }
+    let _r = gc::Roots::new();
+    _r.add(ch);
+    d.recv_waiters.push_back((task::current_id(), task::begin_wait(), task::current_ptr()));
+    note_waiting(ch);
+    end_fast(d);
+    task::park_free();
+    match task::take_delivered() {
+        (v, 1) => Free::Done(v),
+        _ => Free::Woken,
+    }
+}
+
+/// A prompt send that waits, without the runtime lock: hands `v` to a
+/// parked receiver or queues it as [`send_fast`] does, or else registers
+/// with it and parks without the lock until a receiver takes it.
+pub fn send_free(ch: u64, v: u64) -> Free {
+    if !task::can_suspend_free() {
+        return Free::Locked;
+    }
+    let d = raw(ch);
+    if d.byte_budget > 0 || !try_fast(d) {
+        return Free::Locked;
+    }
+    if d.closed || d.batched || !d.recv_watchers.is_empty() {
+        end_fast(d);
+        return Free::Locked;
+    }
+    while let Some((_, wait, p)) = d.recv_waiters.pop_front() {
+        if task::deliver(p, wait, v, d.elem.is_ptr(), 1) {
+            end_fast(d);
+            return Free::Done(0);
+        }
+    }
+    if d.capacity > 0 && d.queue.len() < d.capacity && d.send_waiters.is_empty() {
+        d.queue.push_back(v);
+        d.sizes.push_back(0);
+        end_fast(d);
+        return Free::Done(0);
+    }
+    if !task::begin_park_free(2) {
+        end_fast(d);
+        return Free::Locked;
+    }
+    let _r = gc::Roots::new();
+    _r.add(ch);
+    if d.elem.is_ptr() {
+        _r.add(v);
+    }
+    d.send_waiters.push_back((task::current_id(), v, 0, task::begin_wait(), task::current_ptr()));
+    note_waiting(ch);
+    end_fast(d);
+    task::park_free();
+    match task::take_delivered() {
+        (_, 1) => Free::Done(0),
+        _ => Free::Woken,
+    }
+}
+
+/// Withdraw the running task's registrations with `ch` as a waiting sender
+/// or receiver (runtime lock held), after a wait without the lock ended
+/// without completing.
+pub fn withdraw(ch: u64) {
+    let me = task::current_id();
+    let d = data(ch);
+    d.recv_waiters.retain(|(t, _, _)| *t != me);
+    d.send_waiters.retain(|(t, _, _, _, _)| *t != me);
+}
+
 /// [`admit_sender`] for a fast path holding the channel.
 fn admit_sender_fast(d: &mut ChanData) {
     while let Some((s, v, size, wait, p)) = d.send_waiters.pop_front() {

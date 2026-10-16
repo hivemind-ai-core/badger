@@ -1559,7 +1559,12 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_chan_try_recv_split",
     "lang_rt_i_batch_recv_one_split",
     "lang_rt_i_batch_try_recv_split",
-    // channel fast paths; they take the lock themselves when needed
+    // yields: without the lock when nothing else needs it (they take it
+    // themselves otherwise)
+    "lang_rt_poll",
+    "lang_rt_i_task_yield",
+    // channel fast paths; they take the lock themselves when needed (and
+    // prompt sends and receives park without it)
     "lang_rt_i_chan_send",
     "lang_rt_i_chan_try_send",
     "lang_rt_i_chan_recv",
