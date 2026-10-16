@@ -245,13 +245,28 @@ error. `lang_cli` is the `lang` binary.
 
 ## Runtime
 
-- **Heap:** precise, nonmoving mark-sweep. Objects carry a type descriptor
-  (layout, tracing, display/equality/hashing, codec schema). Roots are task
-  shadow stacks, pointer-valued module-level values (lowering records which
-  slots hold managed pointers), and pinned/temporary runtime roots. Floats
-  display their own width's shortest round-trip digits, with `.0` on any
-  finite whole number.
+- **Heap:** precise, nonmoving, generational mark-sweep. Objects carry a
+  type descriptor (layout, tracing, display/equality/hashing, codec schema).
+  Roots are task shadow stacks, pointer-valued module-level values
+  (lowering records which slots hold managed pointers), and pinned/temporary
+  runtime roots. Floats display their own width's shortest round-trip
+  digits, with `.0` on any finite whole number.
   Off-heap memory owned by objects (map tries) counts toward collection.
+  Small objects (up to 256 bytes) come from per-worker size-class pools
+  (2 MiB huge-page chunks after a worker's first); larger ones from the
+  system allocator. A survivor keeps its mark (sticky mark bits): marked
+  objects are the old generation. A minor collection marks young objects
+  reachable from the roots and from *remembered* old objects and sweeps
+  only objects allocated since the last collection; a full collection
+  runs when the old generation has doubled. The write barrier remembers an
+  old object written with a pointer: generated code checks after every
+  pointer store into an object not freshly allocated in the same block, and
+  runtime containers (list pages and directories, map builders, buffers,
+  channels, atoms) call `gc::barrier`. `LANG_GC_VERIFY=1` checks every
+  minor collection for a reachable unmarked object (a missed barrier),
+  `LANG_GC_STRESS=1` collects at every allocation, and
+  `LANG_GC_GENERATIONAL=0` turns generations off. Sweeps run per worker
+  list in parallel.
 - **Tasks:** stackful coroutines (corosensei) with cooperative polls,
   timers, parking/waking, cancellation, cleanup ladders, task scopes,
   `capture`/`try_join`/`try_all`/`timeout`, and supervised workers. Blocking
@@ -264,18 +279,26 @@ error. `lang_cli` is the `lang` binary.
   controlled scheduler only the first worker runs tasks, so schedules are
   reproducible at any worker count.
 - **Workers:** one by default (1..64); `[runtime] workers = N`, `--workers N`,
-  or `LANG_WORKERS` runs
-  N OS threads sharing the ready queue, and tasks migrate between them at
-  suspension points. Runtime code runs under one runtime lock (an atomic
-  fast path) while compiled code runs in parallel: in multi-worker builds the
-  code generator brackets each runtime call with `lang_rt_enter`/`lang_rt_leave`,
-  and the runtime releases the lock around calls back into compiled code.
-  A collection stops the world by forcing running tasks' budgets to zero and
-  waiting until no worker executes compiled code. Module-level values
-  initialize once (other tasks wait), `Atom` uses atomic compare-and-swap,
-  and batch staging is keyed by task, so a migrating producer keeps its
-  order. Thread-local runtime state is read only through out-of-line
-  accessors because a coroutine may resume on a different thread.
+  or `LANG_WORKERS` runs N OS threads; tasks migrate between them at
+  suspension points. Each worker has its own run queue (a next slot for a
+  task its running task woke, then a deque), and idle workers steal (a
+  next-slot task only after 50 µs, for cache locality). Common operations
+  need no global lock: channel fast paths hold only the channel; waits
+  park without it (a task is marked parking under its own lock and its
+  worker parks or queues it after it leaves its stack); yields, task start,
+  spawn, join, and normal task exit run without it; idle workers wait
+  without it while others are active. The remaining runtime code (most
+  intrinsics, cleanups, failures, select) runs under one runtime lock:
+  the code generator brackets those calls with `lang_rt_enter`/
+  `lang_rt_leave`; entries listed as unlocked in the code generator take
+  the lock themselves only on their slow paths. A collection stops the
+  world by waiting until no worker executes compiled code (each worker
+  counts itself; a worker resuming a task without the lock waits out a
+  stop). Module-level values initialize once (other tasks wait), `Atom`
+  uses atomic compare-and-swap, and batch staging is keyed by task, so a
+  migrating producer keeps its order. Thread-local runtime state is read
+  only through out-of-line accessors because a coroutine may resume on a
+  different thread.
 - **Numbers and ranges:** float↔integer conversions are `try_from` and
   succeed only when exact (finite, integral, in range, or round-tripping);
   lossless integer→float conversions are `From`. An integer range is a
