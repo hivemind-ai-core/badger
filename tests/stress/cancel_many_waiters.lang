@@ -1,0 +1,73 @@
+// Stress: thousands of tasks parked on one channel leave it at once. A
+// scope's error cancels 4000 blocked senders and 4000 blocked receivers;
+// closing wakes another 4000 receivers. Each leaving waiter is removed
+// from the channel's waiter list without a scan of every waiter (that
+// made settling n of them O(n²)), and the channels still work afterwards.
+import std.io
+import std.task
+import std.channel
+
+fn cancel_senders(full: channel.Sender<Int>, n: Int) -> Bool {
+    let r = task.scope(fn(s) -> Result<Unit, String> {
+        for _ in 0..n {
+            let _ = s.spawn(fn() -> Result<Unit, String> {
+                loop {
+                    full.send(1).map_err(fn(_) { "send" })?
+                }
+            })
+        }
+        task.sleep(5ms)
+        err("stop")
+    })
+    r.is_err()
+}
+
+fn cancel_receivers(empty: channel.Receiver<Int>, n: Int) -> Bool {
+    let r = task.scope(fn(s) -> Result<Unit, String> {
+        for _ in 0..n {
+            let _ = s.spawn(fn() -> Result<Unit, String> {
+                let _ = empty.recv()
+                ok(())
+            })
+        }
+        task.sleep(5ms)
+        err("stop")
+    })
+    r.is_err()
+}
+
+pub fn main() -> Result<Unit, String> {
+    let n = 4000
+    let full = channel.create<Int>({ ..channel.defaults, capacity: 1 }).map_err(fn(_) { "config" })?
+    full.sender.send(0).map_err(fn(_) { "send" })?
+    let a = cancel_senders(full.sender, n)
+    // the queued message and fresh traffic still flow
+    let first = full.receiver.recv().unwrap_or(-1)
+    full.sender.send(7).map_err(fn(_) { "send" })?
+    let again = full.receiver.recv().unwrap_or(-1)
+
+    let quiet = channel.create<Int>({ ..channel.defaults, capacity: 4 }).map_err(fn(_) { "config" })?
+    let b = cancel_receivers(quiet.receiver, n)
+    quiet.sender.send(5).map_err(fn(_) { "send" })?
+    let after = quiet.receiver.recv().unwrap_or(-1)
+
+    // receivers woken by close all see the end
+    let closing = channel.create<Int>({ ..channel.defaults, capacity: 4 }).map_err(fn(_) { "config" })?
+    let ended = Atom.new(0)
+    let r = task.scope(fn(s) -> Result<Unit, String> {
+        for _ in 0..n {
+            let _ = s.spawn(fn() -> Unit {
+                if closing.receiver.recv().is_none() {
+                    let _ = ended.update(fn(x) { x + 1 })
+                }
+            })
+        }
+        task.sleep(5ms)
+        closing.sender.close()
+        ok(())
+    })
+    let c = r.is_ok() && ended.get() == n
+    let line = $"senders cancelled {a}, flow {first} {again}; receivers cancelled {b}, flow {after}; closed {c}"
+    io.println(line).map_err(fn(_) { "io" })?
+    ok(())
+}

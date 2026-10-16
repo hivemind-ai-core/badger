@@ -511,12 +511,16 @@ pub fn send_free(ch: u64, v: u64) -> Free {
 
 /// Withdraw the running task's registrations with `ch` as a waiting sender
 /// or receiver (runtime lock held), after a wait without the lock ended
-/// without completing.
+/// without completing. Such waits are on prompt channels, where waiting
+/// is the task's only registration (no leases or staging), so the task
+/// also forgets the channel and its end does not search it again.
 pub fn withdraw(ch: u64) {
     let me = task::current_id();
     let d = data(ch);
-    d.recv_waiters.retain(|(t, _, _)| *t != me);
-    d.send_waiters.retain(|(t, _, _, _, _)| *t != me);
+    debug_assert!(!d.batched, "waits without the lock are on prompt channels");
+    remove_waiter(&mut d.recv_waiters, |w| w.0, me);
+    remove_waiter(&mut d.send_waiters, |w| w.0, me);
+    done_waiting(ch, true);
 }
 
 /// [`admit_sender`] for a fast path holding the channel.
@@ -735,7 +739,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Sent;
         }
         // not taken: withdraw our reservation (the value is still ours)
-        d.send_waiters.retain(|(t, _, _, _, _)| *t != me);
+        remove_waiter(&mut d.send_waiters, |w| w.0, me);
         done_waiting(ch, added);
         if status == 2 || d.closed {
             return SendResult::Closed;
@@ -847,7 +851,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             done_waiting(ch, added);
             return RecvResult::Value(v);
         }
-        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
+        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
         done_waiting(ch, added);
     }
 }
@@ -1095,7 +1099,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         let _ = note_waiting(ch);
         task::park_for("batch receive");
-        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
+        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
     }
 }
 
@@ -1130,7 +1134,7 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         let _ = note_waiting(ch);
         task::park_for("batch receive");
-        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
+        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
     }
 }
 
@@ -1164,6 +1168,28 @@ fn done_waiting(ch: u64, added: bool) {
     }
 }
 
+/// Remove task `id`'s entry from a list of parked senders or receivers (a
+/// task waits at most once in each). Searched from both ends: waiters
+/// that leave in or against the order they arrived, as when a scope
+/// cancels many tasks blocked on one channel, cost O(1) each instead of a
+/// scan of every waiter (which made cancelling n of them O(n²)).
+fn remove_waiter<T>(q: &mut VecDeque<T>, task_of: impl Fn(&T) -> TaskId, id: TaskId) {
+    let n = q.len();
+    let found = (0..n.div_ceil(2)).find_map(|k| {
+        if task_of(&q[k]) == id {
+            Some(k)
+        } else if task_of(&q[n - 1 - k]) == id {
+            Some(n - 1 - k)
+        } else {
+            None
+        }
+    });
+    if let Some(i) = found {
+        q.remove(i);
+    }
+    debug_assert!(!q.iter().any(|w| task_of(w) == id), "a task waits at most once in a waiter list");
+}
+
 /// A finished task leaves the channels it was registered with: a waiter
 /// abandoned by cancellation is withdrawn (with the value it offered), and
 /// its unreleased leases return their capacity (a lease is released by
@@ -1172,8 +1198,8 @@ pub fn task_finished(id: TaskId) {
     let Some(t) = task::task(id) else { return };
     for ch in std::mem::take(&mut t.chan_regs) {
         let d = data(ch);
-        d.send_waiters.retain(|(t, _, _, _, _)| *t != id);
-        d.recv_waiters.retain(|(t, _, _)| *t != id);
+        remove_waiter(&mut d.send_waiters, |w| w.0, id);
+        remove_waiter(&mut d.recv_waiters, |w| w.0, id);
         d.cap_waiters.retain(|t| *t != id);
         d.space_waiters.retain(|t| *t != id);
         d.recv_watchers.retain(|t| *t != id);
