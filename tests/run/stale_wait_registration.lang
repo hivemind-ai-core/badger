@@ -1,0 +1,41 @@
+// A wait abandoned by cancellation leaves its registration behind; a later
+// wait of the same task (here its cleanup, waiting on another channel of
+// another element type) must not receive what is sent to the first one.
+import std.io
+import std.channel
+import std.task
+import std.time
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    send_text(source: channel.SendError<String>),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<String>({ ..channel.defaults, capacity: 1 })?
+    let b = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let victim = s.capture(fn() {
+            let _: Result<Unit, String> = task.scope(fn(s2) -> Result<Unit, String> {
+                s2.defer(fn() {
+                    match b.receiver.recv() {
+                        .some(v) => { let _ = io.println($"cleanup received {v}") },
+                        .none => { let _ = io.println("cleanup: closed") },
+                    }
+                })
+                let _ = a.receiver.recv()
+                ok(())
+            })
+            0
+        })
+        task.sleep(time.millis(20))
+        victim.cancel()
+        task.sleep(time.millis(20))
+        a.sender.send("from a")?
+        task.sleep(time.millis(20))
+        b.sender.send(222)?
+        let _ = victim.join()
+        ok(())
+    })
+}

@@ -170,6 +170,10 @@ pub struct Task {
     /// defect raised meanwhile (a failing cleanup) keeps them as notes, so
     /// the original error is not lost.
     pub returning: Vec<String>,
+    /// Bumped each time the task registers to wait on a channel: a
+    /// registration left behind by an abandoned wait (cancellation) has an
+    /// older number, so it can no longer deliver to or wake a later wait.
+    pub wait_gen: u64,
     /// Its cleanup outlived a grace period (that was reported); later
     /// waits for its settling do not wait again.
     pub grace_expired: bool,
@@ -295,6 +299,20 @@ pub fn rt() -> &'static mut Runtime {
         }
         r.as_mut().unwrap()
     }
+}
+
+/// Start a new wait of the current task; returns its generation (stored
+/// with the registration, checked by [`waits`]).
+pub fn begin_wait() -> u64 {
+    let t = current().expect("wait outside a task");
+    t.wait_gen += 1;
+    t.wait_gen
+}
+
+/// Whether task `id` is still in the wait numbered `wait` (alive, not
+/// cancelled, and not since registered for another wait).
+pub fn waits(id: TaskId, wait: u64) -> bool {
+    task(id).is_some_and(|t| t.ctx.flags & FLAG_CANCEL == 0 && t.state != State::Done && t.wait_gen == wait)
 }
 
 /// Whether a task is parked (waiting to be woken).
@@ -878,6 +896,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         caller_loc: 0,
         contract_site: 0,
         returning: vec![],
+        wait_gen: 0,
         grace_expired: false,
         stack: (0, 0),
         early_wake: None,
