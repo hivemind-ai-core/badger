@@ -47,10 +47,12 @@ pub struct ChanData {
     /// holder finishes; traced so a lease outlives its last reference).
     pub leases: Vec<(TaskId, u64)>,
     /// Parked receivers and the wait each registered (see `task::waits`).
-    pub recv_waiters: VecDeque<(TaskId, u64)>,
+    /// (task, its wait, its record: see `task::deliver`)
+    pub recv_waiters: VecDeque<(TaskId, u64, usize)>,
     /// Waiting senders with their (still owned) values.
     /// Parked senders with their values and byte charges.
-    pub send_waiters: VecDeque<(TaskId, u64, usize, u64)>,
+    /// (task, value, byte charge, its wait, its record)
+    pub send_waiters: VecDeque<(TaskId, u64, usize, u64, usize)>,
     /// Batch producers waiting for capacity.
     pub cap_waiters: VecDeque<TaskId>,
     /// Recycled page buffers (bounded reserve).
@@ -118,7 +120,7 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     d.queue.iter().for_each(|w| f(*w));
     d.batches.iter().flatten().for_each(|w| f(*w));
     d.staging.values().flatten().for_each(|w| f(*w));
-    d.send_waiters.iter().for_each(|(_, w, _, _)| f(*w));
+    d.send_waiters.iter().for_each(|(_, w, _, _, _)| f(*w));
 }
 
 /// Live channels for inspection: (sequence number, object address).
@@ -242,9 +244,19 @@ pub fn data_elem(ch: u64) -> &'static TypeDesc {
 }
 
 /// Take a channel for an unlocked fast path, if nothing else holds it.
+/// Another fast path holds a channel for a few instructions: wait it out
+/// briefly. A claim by the runtime lock's holder lasts until that lock is
+/// released: give up (the locked path then decides).
 fn try_fast(d: &ChanData) -> bool {
     use std::sync::atomic::Ordering;
-    d.state.compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed).is_ok()
+    for _ in 0..128 {
+        match d.state.compare_exchange_weak(0, 1, Ordering::Acquire, Ordering::Relaxed) {
+            Ok(_) => return true,
+            Err(2) => return false,
+            Err(_) => std::hint::spin_loop(),
+        }
+    }
+    false
 }
 
 fn end_fast(d: &ChanData) {
@@ -259,17 +271,26 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
     if !try_fast(d) {
         return false;
     }
-    let ok = !d.closed
+    let mut ok = false;
+    if !d.closed
         && !d.batched
         && d.byte_budget == 0
-        && d.capacity > 0
-        && d.queue.len() < d.capacity
-        && d.recv_waiters.is_empty()
         && d.recv_watchers.is_empty()
-        && d.send_waiters.is_empty();
-    if ok {
-        d.queue.push_back(v);
-        d.sizes.push_back(0);
+        && d.send_waiters.is_empty()
+    {
+        // hand off to a parked receiver (the channel is held, so the
+        // receiver cannot finish and leave it meanwhile)
+        while let Some((_, wait, p)) = d.recv_waiters.pop_front() {
+            if task::deliver(p, wait, v, d.elem.is_ptr(), 1) {
+                ok = true;
+                break;
+            }
+        }
+        if !ok && d.capacity > 0 && d.queue.len() < d.capacity {
+            d.queue.push_back(v);
+            d.sizes.push_back(0);
+            ok = true;
+        }
     }
     end_fast(d);
     ok
@@ -329,17 +350,44 @@ pub fn recv_fast(ch: u64) -> Option<u64> {
     if !try_fast(d) {
         return None;
     }
-    let ok = !d.batched && !d.queue.is_empty() && d.send_waiters.is_empty() && d.space_waiters.is_empty();
-    let v = if ok {
-        if let Some(sz) = d.sizes.pop_front() {
-            d.bytes -= sz;
+    let mut v = None;
+    if !d.batched && d.space_waiters.is_empty() {
+        if let Some(x) = d.queue.pop_front() {
+            if let Some(sz) = d.sizes.pop_front() {
+                d.bytes -= sz;
+            }
+            v = Some(x);
+            // a sender parked on the full queue moves into the freed slot
+            admit_sender_fast(d);
+        } else {
+            // capacity zero or a drained queue: take a parked sender's value
+            while let Some((_, x, _, wait, p)) = d.send_waiters.pop_front() {
+                if task::deliver(p, wait, 0, false, 1) {
+                    v = Some(x);
+                    break;
+                }
+            }
         }
-        d.queue.pop_front()
-    } else {
-        None
-    };
+    }
     end_fast(d);
     v
+}
+
+/// [`admit_sender`] for a fast path holding the channel.
+fn admit_sender_fast(d: &mut ChanData) {
+    while let Some((s, v, size, wait, p)) = d.send_waiters.pop_front() {
+        let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
+        if d.capacity == 0 || !fits || d.queue.len() >= d.capacity {
+            d.send_waiters.push_front((s, v, size, wait, p));
+            return;
+        }
+        if task::deliver(p, wait, 0, false, 1) {
+            d.queue.push_back(v);
+            d.bytes += size;
+            d.sizes.push_back(size);
+            return;
+        }
+    }
 }
 
 #[allow(static_mut_refs)]
@@ -381,7 +429,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
 }
 
 fn wake_one_receiver(d: &mut ChanData) {
-    while let Some((r, wait)) = d.recv_waiters.pop_front() {
+    while let Some((r, wait, _)) = d.recv_waiters.pop_front() {
         if task::waits(r, wait) {
             task::wake(r, task::Wake::Normal);
             return;
@@ -506,7 +554,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
         // hand off directly to a waiting receiver
         if fits {
-            while let Some((r, wait)) = d.recv_waiters.pop_front() {
+            while let Some((r, wait, _)) = d.recv_waiters.pop_front() {
                 if task::waits(r, wait) {
                     task::wake_with(r, v, d.elem.is_ptr(), 1);
                     return SendResult::Sent;
@@ -532,7 +580,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         if !wait {
             return SendResult::Full;
         }
-        d.send_waiters.push_back((me, v, size, task::begin_wait()));
+        d.send_waiters.push_back((me, v, size, task::begin_wait(), task::current_ptr()));
         note_waiting(ch);
         task::park_for("channel send");
         let (_, status) = task::take_delivered();
@@ -541,7 +589,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Sent;
         }
         // not taken: withdraw our reservation (the value is still ours)
-        d.send_waiters.retain(|(t, _, _, _)| *t != me);
+        d.send_waiters.retain(|(t, _, _, _, _)| *t != me);
         if status == 2 || d.closed {
             return SendResult::Closed;
         }
@@ -594,12 +642,12 @@ pub enum RecvResult {
 /// (a sender whose value does not fit the budget yet keeps waiting, first
 /// in line).
 fn admit_sender(d: &mut ChanData) {
-    while let Some((s, v, size, wait)) = d.send_waiters.pop_front() {
+    while let Some((s, v, size, wait, p)) = d.send_waiters.pop_front() {
         if task::waits(s, wait) {
             let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
             if d.capacity == 0 || !fits || d.queue.len() >= d.capacity {
                 // rendezvous: the receiver takes it directly (handled by caller)
-                d.send_waiters.push_front((s, v, size, wait));
+                d.send_waiters.push_front((s, v, size, wait, p));
                 return;
             }
             d.queue.push_back(v);
@@ -625,7 +673,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Value(v);
         }
         // rendezvous / waiting sender with capacity zero
-        while let Some((s, v, _, wait)) = d.send_waiters.pop_front() {
+        while let Some((s, v, _, wait, _)) = d.send_waiters.pop_front() {
             if task::waits(s, wait) {
                 task::wake_with(s, 0, false, 1);
                 return RecvResult::Value(v);
@@ -644,14 +692,14 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Empty;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait()));
+        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         note_waiting(ch);
         task::park_for("channel receive");
         let (v, status) = task::take_delivered();
         if status == 1 {
             return RecvResult::Value(v);
         }
-        data(ch).recv_waiters.retain(|(t, _)| *t != me);
+        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
     }
 }
 
@@ -676,12 +724,12 @@ pub fn close(ch: u64) {
     }
     let d = data(ch);
     d.closed = true;
-    for (r, wait) in std::mem::take(&mut d.recv_waiters) {
+    for (r, wait, _) in std::mem::take(&mut d.recv_waiters) {
         if task::waits(r, wait) {
             task::wake(r, task::Wake::Normal);
         }
     }
-    for (s, _, _, wait) in std::mem::take(&mut d.send_waiters) {
+    for (s, _, _, wait, _) in std::mem::take(&mut d.send_waiters) {
         if task::waits(s, wait) {
             task::wake_with(s, 0, false, 2);
         }
@@ -870,10 +918,10 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
             return None;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait()));
+        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         note_waiting(ch);
         task::park_for("batch receive");
-        data(ch).recv_waiters.retain(|(t, _)| *t != me);
+        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
     }
 }
 
@@ -905,10 +953,10 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Empty;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait()));
+        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         note_waiting(ch);
         task::park_for("batch receive");
-        data(ch).recv_waiters.retain(|(t, _)| *t != me);
+        data(ch).recv_waiters.retain(|(t, _, _)| *t != me);
     }
 }
 
@@ -930,8 +978,8 @@ pub fn task_finished(id: TaskId) {
     let Some(t) = task::task(id) else { return };
     for ch in std::mem::take(&mut t.chan_regs) {
         let d = data(ch);
-        d.send_waiters.retain(|(t, _, _, _)| *t != id);
-        d.recv_waiters.retain(|(t, _)| *t != id);
+        d.send_waiters.retain(|(t, _, _, _, _)| *t != id);
+        d.recv_waiters.retain(|(t, _, _)| *t != id);
         d.cap_waiters.retain(|t| *t != id);
         d.space_waiters.retain(|t| *t != id);
         d.recv_watchers.retain(|t| *t != id);

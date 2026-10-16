@@ -199,7 +199,7 @@ pub struct Task {
     /// Bumped each time the task registers to wait on a channel: a
     /// registration left behind by an abandoned wait (cancellation) has an
     /// older number, so it can no longer deliver to or wake a later wait.
-    pub wait_gen: u64,
+    pub wait_gen: AtomicU64,
     /// Its cleanup outlived a grace period (that was reported); later
     /// waits for its settling do not wait again.
     pub grace_expired: bool,
@@ -262,10 +262,6 @@ pub struct ExternalQueue {
 
 pub struct Runtime {
     tasks: FxHashMap<TaskId, Box<Task>>,
-    ready: VecDeque<TaskId>,
-    /// Several workers: a task woken by a running task, kept to run next on
-    /// the waker's worker (0 = none); idle workers steal from these.
-    next: [TaskId; MAX_WORKERS],
     next_id: TaskId,
     timers: BinaryHeap<Timer>,
     /// Sleeps under a controlled clock: (deadline in controlled nanos,
@@ -302,8 +298,6 @@ pub fn rt() -> &'static mut Runtime {
         if r.is_none() {
             *r = Some(Runtime {
                 tasks: FxHashMap::default(),
-                ready: VecDeque::new(),
-                next: [0; MAX_WORKERS],
                 next_id: 1,
                 timers: BinaryHeap::new(),
                 virtual_timers: vec![],
@@ -330,13 +324,13 @@ pub fn rt() -> &'static mut Runtime {
 /// The generation of the current task's next wait (stored with its
 /// registration, checked by [`waits`]; every park ends it).
 pub fn begin_wait() -> u64 {
-    current().expect("wait outside a task").wait_gen
+    current().expect("wait outside a task").wait_gen.load(Ordering::Acquire)
 }
 
 /// End the current wait: registrations made for it no longer apply.
 fn end_wait() {
     if let Some(t) = current() {
-        t.wait_gen += 1;
+        t.wait_gen.fetch_add(1, Ordering::AcqRel);
     }
 }
 
@@ -345,7 +339,7 @@ fn end_wait() {
 pub fn waits(id: TaskId, wait: u64) -> bool {
     task(id).is_some_and(|t| {
         t.ctx.flags & FLAG_CANCEL == 0
-            && t.wait_gen == wait
+            && t.wait_gen.load(Ordering::Acquire) == wait
             && (t.state.get() == State::Parked || t.publishing)
     })
 }
@@ -931,7 +925,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         caller_loc: 0,
         contract_site: 0,
         returning: vec![],
-        wait_gen: 0,
+        wait_gen: AtomicU64::new(0),
         grace_expired: false,
         stack: (0, 0),
         early_wake: None,
@@ -944,8 +938,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
     // the coroutine (and its stack) is made when the task first runs, so a
     // burst of spawns reuses the stacks of tasks that finished meanwhile
     task(id).unwrap().result_is_ptr = result_is_ptr;
-    r.ready.push_back(id);
-    notify_ready();
+    push_ready(id);
     id
 }
 
@@ -1101,52 +1094,174 @@ pub fn check_interrupts() {
 /// uncontrolled scheduling) runs next on the waker's worker, so a request
 /// and its reply stay on one worker without waking another; the task it
 /// displaces joins the shared queue.
-fn make_ready(id: TaskId) {
-    // under chaos, a random half of wakes use the slot (both paths run)
+/// Whether a wake from here may use this worker's next slot (several
+/// workers, woken by a running task, uncontrolled scheduling); under
+/// chaos, a random half of wakes do not.
+fn wake_slot() -> bool {
     let chaotic_skip = chaos().is_some() && chaos_next() & 1 == 0;
-    if multi() && current_raw() != 0 && !chaotic_skip && !sched_controlled() {
+    multi() && current_raw() != 0 && !chaotic_skip && !sched_controlled()
+}
+
+/// Queue a ready task (into this worker's next slot when `slot`); returns
+/// whether idle workers should be told. Takes the scheduler queue lock.
+fn enqueue(id: TaskId, slot: bool) -> bool {
+    sched(|| enqueue_locked(id, slot))
+}
+
+fn enqueue_locked(id: TaskId, slot: bool) -> bool {
+    if slot {
         let w = worker_index();
-        let prev = std::mem::replace(&mut rt().next[w], id);
+        let prev = std::mem::replace(&mut queue().next[w], id);
         if prev != 0 {
-            rt().ready.push_back(prev);
-            notify_ready();
+            queue().ready.push_back(prev);
+            return true;
         }
-        return;
+        return false;
     }
-    rt().ready.push_back(id);
-    notify_ready();
+    queue().ready.push_back(id);
+    true
+}
+
+/// Queue a ready task in the shared queue and tell idle workers.
+fn push_ready(id: TaskId) {
+    if enqueue(id, false) {
+        notify_ready();
+    }
+}
+
+/// The scheduler queue lock: the ready queue, the workers' next slots, and
+/// a parked task's transition to ready (with a delivered value). Taken
+/// inside the runtime lock, or by a channel fast path holding its channel;
+/// nothing is waited for while holding it, and no other lock is taken
+/// under it.
+static SCHED_Q: AtomicBool = AtomicBool::new(false);
+
+/// What [`SCHED_Q`] protects (kept apart from [`Runtime`], which the
+/// runtime lock's holder borrows).
+struct ReadyQueue {
+    ready: VecDeque<TaskId>,
+    /// Several workers: a task woken by a running task, kept to run next on
+    /// the waker's worker (0 = none); idle workers steal from these.
+    next: [TaskId; MAX_WORKERS],
+}
+
+struct QueueCell(UnsafeCell<ReadyQueue>);
+unsafe impl Sync for QueueCell {}
+static QUEUE: QueueCell =
+    QueueCell(UnsafeCell::new(ReadyQueue { ready: VecDeque::new(), next: [0; MAX_WORKERS] }));
+
+/// The ready queue (only inside [`sched`]).
+#[allow(clippy::mut_from_ref)]
+fn queue() -> &'static mut ReadyQueue {
+    unsafe { &mut *QUEUE.0.get() }
+}
+
+fn sched<R>(f: impl FnOnce() -> R) -> R {
+    if !multi() {
+        return f();
+    }
+    while SCHED_Q.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        std::hint::spin_loop();
+    }
+    let r = f();
+    SCHED_Q.store(false, Ordering::Release);
+    r
 }
 
 /// Whether any task waits to run (the shared queue or a worker's next slot).
 fn has_ready() -> bool {
-    let r = rt();
-    !r.ready.is_empty() || r.next.iter().any(|t| *t != 0)
+    sched(|| {
+        let q = queue();
+        !q.ready.is_empty() || q.next.iter().any(|t| *t != 0)
+    })
 }
 
 /// This worker's next task, else the shared queue, else another worker's
 /// next task.
 fn take_ready() -> Option<TaskId> {
-    let w = worker_index();
-    let mine = std::mem::take(&mut rt().next[w]);
-    if mine != 0 {
-        return Some(mine);
-    }
-    if let Some(t) = chaos_pop() {
-        return Some(t);
-    }
-    rt().next.iter_mut().find(|t| **t != 0).map(std::mem::take)
+    sched(|| {
+        let w = worker_index();
+        let mine = std::mem::take(&mut queue().next[w]);
+        if mine != 0 {
+            return Some(mine);
+        }
+        if let Some(t) = chaos_pop() {
+            return Some(t);
+        }
+        queue().next.iter_mut().find(|t| **t != 0).map(std::mem::take)
+    })
 }
 
 pub fn wake(id: TaskId, reason: Wake) {
-    if let Some(t) = task(id) {
+    wake_delivering(id, reason, None)
+}
+
+/// Wake `id` (if parked), first delivering `(value, is_ptr, status)`.
+fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>) {
+    let Some(t) = task(id) else { return };
+    let t = t as *mut Task;
+    let slot = wake_slot();
+    let notify = sched(|| {
+        let t = unsafe { &mut *t };
+        if let Some((value, is_ptr, status)) = delivery {
+            t.delivered = value;
+            t.delivered_is_ptr = is_ptr;
+            t.status = status;
+        }
         if t.state.get() == State::Parked {
             t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
             t.wake = reason;
-            make_ready(id);
-        } else if t.publishing {
-            // the running task woke itself on its way to parking
-            t.early_wake = Some(reason);
+            enqueue_locked(t.id, slot)
+        } else {
+            if t.publishing {
+                // the running task woke itself on its way to parking
+                t.early_wake = Some(reason);
+            }
+            false
         }
+    });
+    if notify {
+        notify_ready();
+    }
+}
+
+/// The running task's record (stable while the task exists: channel
+/// registrations keep it so a fast path need not look the task up).
+pub fn current_ptr() -> usize {
+    CURRENT_TASK.with(|c| c.get()) as usize
+}
+
+/// Without the runtime lock (a channel fast path holding the channel the
+/// task registered with, which keeps the task alive): deliver `value` to
+/// task `t` if it is still parked in wait `wait`, and make it ready.
+/// Returns whether it was delivered.
+pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bool {
+    let t = t as *mut Task;
+    let slot = wake_slot();
+    let woke = sched(|| {
+        let t = unsafe { &mut *t };
+        let flags = unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) };
+        if flags & FLAG_CANCEL != 0
+            || t.wait_gen.load(Ordering::Acquire) != wait
+            || t.state.get() != State::Parked
+        {
+            return None;
+        }
+        t.delivered = value;
+        t.delivered_is_ptr = is_ptr;
+        t.status = status;
+        t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
+        t.wake = Wake::Normal;
+        Some(enqueue_locked(t.id, slot))
+    });
+    match woke {
+        Some(notify) => {
+            if notify {
+                notify_ready();
+            }
+            true
+        }
+        None => false,
     }
 }
 
@@ -1177,12 +1292,7 @@ static WAKING: AtomicBool = AtomicBool::new(false);
 
 /// Wake a parked task, delivering a value (`is_ptr`: managed pointer).
 pub fn wake_with(id: TaskId, value: u64, is_ptr: bool, status: u64) {
-    if let Some(t) = task(id) {
-        t.delivered = value;
-        t.delivered_is_ptr = is_ptr;
-        t.status = status;
-    }
-    wake(id, Wake::Normal);
+    wake_delivering(id, Wake::Normal, Some((value, is_ptr, status)))
 }
 
 /// Take (and clear) the value delivered to the current task.
@@ -1705,23 +1815,30 @@ pub struct SchedControl {
 pub static SCHED: Mutex<SchedControl> =
     Mutex::new(SchedControl { seed: None, record: false, decisions: Vec::new(), replay: VecDeque::new() });
 
+/// Whether scheduling is controlled (kept current by every change to
+/// [`SCHED`], so the wake path does not lock it to find out).
+static CONTROLLED: AtomicBool = AtomicBool::new(false);
+
 fn sched_controlled() -> bool {
-    let c = SCHED.lock().unwrap();
-    c.seed.is_some() || c.record || !c.replay.is_empty()
+    CONTROLLED.load(Ordering::Acquire)
+}
+
+/// Record whether `c` controls scheduling (call after changing it).
+pub fn refresh_controlled(c: &SchedControl) {
+    CONTROLLED.store(c.seed.is_some() || c.record || !c.replay.is_empty(), Ordering::Release);
 }
 
 /// Pick the next ready task: FIFO unless scheduling is controlled.
 fn next_ready() -> Option<TaskId> {
-    let r = rt();
-    if r.ready.is_empty() {
+    let n = sched(|| queue().ready.len()) as u64;
+    if n == 0 {
         return None;
     }
     let mut c = SCHED.lock().unwrap();
     if c.seed.is_none() && c.replay.is_empty() && !c.record {
         drop(c);
-        return chaos_pop();
+        return sched(chaos_pop);
     }
-    let n = r.ready.len() as u64;
     let idx = if let Some(i) = c.replay.pop_front() {
         (i as u64).min(n - 1)
     } else if let Some(seed) = c.seed.as_mut() {
@@ -1737,13 +1854,14 @@ fn next_ready() -> Option<TaskId> {
     if c.record {
         c.decisions.push(idx as u32);
     }
+    refresh_controlled(&c);
     drop(c);
-    r.ready.remove(idx as usize)
+    sched(|| queue().ready.remove(idx as usize))
 }
 
 /// The next ready task: FIFO, or a random one under chaos.
 fn chaos_pop() -> Option<TaskId> {
-    let r = rt();
+    let r = queue();
     if chaos().is_some() && r.ready.len() > 1 {
         let i = (chaos_next() % r.ready.len() as u64) as usize;
         return r.ready.remove(i);
@@ -1988,8 +2106,7 @@ fn run_one(id: TaskId) {
             if t.state.get() == State::Running {
                 t.state.set(State::Ready);
             }
-            rt().ready.push_back(id);
-            notify_ready();
+            push_ready(id);
         }
         CoroutineResult::Yield(Signal::Park) => {}
         CoroutineResult::Yield(Signal::Abandon) => {
@@ -2039,8 +2156,7 @@ fn start_cleanup(id: TaskId) {
     let co = make_coroutine(id, Body::Cleanup);
     let old = task(id).unwrap().co.replace(co);
     drop_reset(old);
-    rt().ready.push_back(id);
-    notify_ready();
+    push_ready(id);
 }
 
 fn drop_reset(co: Option<Co>) {
@@ -2132,6 +2248,7 @@ pub fn reset_test_state() {
     c.record = false;
     c.decisions.clear();
     c.replay.clear();
+    refresh_controlled(&c);
 }
 
 /// The controlled clock moved to `now`: wake sleeps that are due.

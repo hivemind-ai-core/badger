@@ -1,0 +1,64 @@
+// Stress: pointer messages handed directly to parked receivers and senders
+// admitted into freed slots (without the runtime lock), under allocation
+// pressure: every message arrives once, in each producer's order.
+import std.channel
+import std.io
+import std.list
+import std.task
+import std.text
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<String>),
+    io(source: io.Error),
+    broken(message: String),
+} derive(Error, From)
+
+fn run(capacity: Int, producers: Int, per: Int) -> Result<Int, AppError> {
+    let ends = channel.create<String>({ ..channel.defaults, capacity: capacity })?
+    task.scope(fn(s) -> Result<Int, AppError> {
+        let ps = (0..producers).map(fn(p: Int) {
+            s.spawn(fn() -> Result<Unit, AppError> {
+                for i in 0..per {
+                    // allocation pressure: a fresh string per message
+                    ends.sender.send($"{p}:{i}:{text.repeat("x", i % 7)}")?
+                }
+                ok(())
+            })
+        }).collect()
+        let consumer = s.spawn(fn() -> Result<Int, AppError> {
+            var last = list.range(0, producers).map(fn(_) { -1 })
+            var n = 0
+            loop {
+                match ends.receiver.recv() {
+                    .some(m) => {
+                        let parts = m.split(":")
+                        let p = text.parse_int(parts.first().unwrap_or("")).unwrap_or(-1)
+                        let i = text.parse_int(parts.get(1).unwrap_or("")).unwrap_or(-1)
+                        if p < 0 || p >= producers || i != last[p] + 1 {
+                            return err(AppError.broken($"capacity {capacity}: {m} after {last[p]}"))
+                        }
+                        last = list.range(0, producers).map(fn(q) { if q == p { i } else { last[q] } })
+                        n = n + 1
+                    },
+                    .none => { break },
+                }
+            }
+            ok(n)
+        })
+        s.try_all(ps)?
+        ends.sender.close()
+        consumer.join()
+    })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    for capacity in [0, 1, 8] {
+        let n = run(capacity, 4, 300)?
+        if n != 1200 {
+            return err(AppError.broken($"capacity {capacity}: {n} of 1200"))
+        }
+    }
+    io.println("handoff: every message once, in order")?
+    ok(())
+}

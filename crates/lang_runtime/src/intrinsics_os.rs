@@ -401,12 +401,14 @@ os_intrinsics! {
         let mut c = crate::task::SCHED.lock().unwrap();
         c.seed = Some(seed);
         c.replay.clear();
+        crate::task::refresh_controlled(&c);
         0
     }
     fn sched_record(ctx, targs, ret) {
         let mut c = crate::task::SCHED.lock().unwrap();
         c.record = true;
         c.decisions.clear();
+        crate::task::refresh_controlled(&c);
         0
     }
     fn sched_recorded(ctx, targs, ret) {
@@ -430,6 +432,7 @@ os_intrinsics! {
         c.seed = None;
         c.record = false;
         c.replay.clear();
+        crate::task::refresh_controlled(&c);
         0
     }
     fn test_fail(ctx, targs, ret, msg) {
