@@ -479,29 +479,35 @@ fn collect_inner() {
     }
     // sweep each worker's list in place
     let mut live = 0usize;
-    for wl in 0..crate::task::MAX_WORKERS {
-        objects(wl).retain(|&p| unsafe {
-            if (*p).meta & MARK != 0 {
-                (*p).meta &= !MARK;
-                live += HEADER + (*p).payload_size();
-                true
-            } else {
-                finalize(p);
-                if checking {
-                    // poison and keep: a later use is reported, not reused
-                    let size = (*p).payload_size();
-                    let was = (*p).desc();
-                    std::ptr::write_bytes((*p).payload(), 0xA5, size.max(8));
-                    (*p).desc = poison();
-                    h.freed.insert(p as usize, was);
-                    h.quarantine.push_back((p, was));
-                    h.quarantine_bytes += HEADER + size;
+    let lists: Vec<usize> = (0..crate::task::MAX_WORKERS).filter(|&w| !objects(w).is_empty()).collect();
+    let total: usize = lists.iter().map(|&w| objects(w).len()).sum();
+    if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
+        live = sweep_parallel(&lists);
+    } else {
+        for wl in lists {
+            objects(wl).retain(|&p| unsafe {
+                if (*p).meta & MARK != 0 {
+                    (*p).meta &= !MARK;
+                    live += HEADER + (*p).payload_size();
+                    true
                 } else {
-                    free_cell(wl, p, (*p).payload_size());
+                    finalize(p);
+                    if checking {
+                        // poison and keep: a later use is reported, not reused
+                        let size = (*p).payload_size();
+                        let was = (*p).desc();
+                        std::ptr::write_bytes((*p).payload(), 0xA5, size.max(8));
+                        (*p).desc = poison();
+                        h.freed.insert(p as usize, was);
+                        h.quarantine.push_back((p, was));
+                        h.quarantine_bytes += HEADER + size;
+                    } else {
+                        free_cell(wl, p, (*p).payload_size());
+                    }
+                    false
                 }
-                false
-            }
-        });
+            });
+        }
     }
     while h.quarantine_bytes > QUARANTINE_BYTES {
         let Some((p, _)) = h.quarantine.pop_front() else { break };
@@ -522,6 +528,54 @@ fn collect_inner() {
     }
     ALLOCATED.store(live, Ordering::Relaxed);
     THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
+}
+
+/// Heaps with at least this many objects (spread over several workers'
+/// lists) are swept in parallel.
+const PARALLEL_SWEEP: usize = 32 << 10;
+
+/// Sweep the given workers' lists on one thread each (the world is
+/// stopped, so the other workers are not using their lists or pools; each
+/// thread frees only into its list's own pool). Dead objects with a
+/// finalizer are finalized and freed afterwards on this thread, in list
+/// order: finalizers touch shared runtime state. Returns the live bytes.
+fn sweep_parallel(lists: &[usize]) -> usize {
+    struct Send<T>(T);
+    unsafe impl<T> std::marker::Send for Send<T> {}
+    let sweep = |wl: usize| -> (usize, Vec<*mut Header>) {
+        let mut live = 0usize;
+        let mut fin = vec![];
+        objects(wl).retain(|&p| unsafe {
+            if (*p).meta & MARK != 0 {
+                (*p).meta &= !MARK;
+                live += HEADER + (*p).payload_size();
+                true
+            } else {
+                if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+                    fin.push(p);
+                } else {
+                    free_cell(wl, p, (*p).payload_size());
+                }
+                false
+            }
+        });
+        (live, fin)
+    };
+    let results: Vec<(usize, Vec<*mut Header>)> = std::thread::scope(|sc| {
+        let handles: Vec<_> = lists[1..].iter().map(|&wl| sc.spawn(move || Send(sweep(wl)))).collect();
+        let mut out = vec![sweep(lists[0])];
+        out.extend(handles.into_iter().map(|h| h.join().expect("sweep thread").0));
+        out
+    });
+    let mut live = 0;
+    for (&wl, (l, fin)) in lists.iter().zip(results) {
+        live += l;
+        for p in fin {
+            finalize(p);
+            free_cell(wl, p, unsafe { (*p).payload_size() });
+        }
+    }
+    live
 }
 
 fn finalize(p: *mut Header) {
