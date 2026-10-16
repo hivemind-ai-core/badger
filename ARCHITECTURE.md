@@ -41,7 +41,7 @@ error. `lang_cli` is the `lang` binary.
 | `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, SQLite, HTTP, parsing | corosensei, imbl, rusqlite, serde_json, regex |
+| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, SQLite, HTTP, parsing | corosensei, rusqlite, serde_json, regex, backtrace |
 | `lang_driver` | sessions, manifests/profiles, test runner, live reload | all of the above |
 | `lang_cli` | command-line interface | clap |
 
@@ -261,6 +261,10 @@ error. `lang_cli` is the `lang` binary.
 - **Data:** paged lists (stable pages, page-sharing persistent append,
   page-retaining element references), buffers (growable and fixed-capacity)
   and arrays, persistent HAMT maps and sets with affine builders,
+  (list headers, page directories, pages, and CHAMP trie nodes are all
+  managed objects: versions share them, a contested directory slot or tail
+  page slot is claimed atomically by one version and copied by the others,
+  and none needs a finalizer),
   strings/bytes/symbols, JSON codecs and `Data` with versioned wire names and
   JSON Schema output, regular expressions, and an Earley parser library
   (grammar strings or productions, packed forests, bounded tree enumeration

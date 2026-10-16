@@ -420,10 +420,8 @@ fn collect_inner() {
 
 fn finalize(p: *mut Header) {
     let desc = unsafe { (*p).desc() };
-    match &desc.kind {
-        Kind::List { .. } => crate::list::finalize(p),
-        Kind::Opaque { finalize: Some(f), .. } => f(p),
-        _ => {}
+    if let Kind::Opaque { finalize: Some(f), .. } = &desc.kind {
+        f(p)
     }
 }
 

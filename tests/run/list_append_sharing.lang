@@ -16,5 +16,29 @@ pub fn main() -> Result<Unit, io.Error> {
     let fork1 = big.append("x")
     let fork2 = big.append("y")
     io.println($"{big.len()} {fork1.last().unwrap_or("")} {fork2.last().unwrap_or("")} {big.get(4999).unwrap_or("")} {fork1.get(4321).unwrap_or("")}")?
+    // forks at a page boundary (512 words per page) contend for the shared
+    // directory's next slot; each grows several pages on its own
+    var edge: List<Int> = []
+    for i in 0..1024 {
+        edge = edge.append(i)
+    }
+    var left = edge
+    var right = edge
+    for i in 0..1500 {
+        left = left.append(i * 2)
+        right = right.append(i * 3)
+    }
+    var intact = edge.len() == 1024 && left.len() == 2524 && right.len() == 2524
+    for i in 0..1500 {
+        if left.get(1024 + i).unwrap_or(-1) != i * 2 || right.get(1024 + i).unwrap_or(-1) != i * 3 {
+            intact = false
+        }
+    }
+    for i in 0..1024 {
+        if left.get(i).unwrap_or(-1) != i || right.get(i).unwrap_or(-1) != i {
+            intact = false
+        }
+    }
+    io.println($"page-boundary forks intact {intact} {edge.get(1024).is_none()}")?
     ok(())
 }

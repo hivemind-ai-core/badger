@@ -191,18 +191,18 @@ std_intrinsics! {
         let elem = targ(targs, 0);
         bool_w((0..list::len(l)).any(|i| crate::value::eq(elem, list::get(l, i), v)))
     }
-    fn page_count(ctx, targs, ret, l) { list::data(l).pages.len() as u64 }
+    fn page_count(ctx, targs, ret, l) { list::page_count(l) as u64 }
     // a range's start, end, or inclusive flag (words 0, 1, 2 of its payload)
     fn range_field(ctx, targs, ret, r, i) { unsafe { *(crate::gc::obj(r).payload().add(i as usize * 8) as *const u64) } }
     fn element_address(ctx, targs, ret, l, i) { list::addr(l, i as usize) as u64 }
     fn list_page(ctx, targs, ret, l, i) {
-        let d = list::data(l);
-        if i as usize >= d.len {
-            crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", d.len, i as i64), String::new());
+        let len = list::len(l);
+        if i as usize >= len {
+            crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", len, i as i64), String::new());
         }
-        d.pages[i as usize / d.page_cap]
+        list::page(l, i as usize / list::page_cap(l))
     }
-    fn list_slot(ctx, targs, ret, l, i) { (i as usize % list::data(l).page_cap) as u64 }
+    fn list_slot(ctx, targs, ret, l, i) { (i as usize % list::page_cap(l)) as u64 }
     fn page_read(ctx, targs, ret, page, slot) { list::page_read(page, slot as usize, targ(targs, 0).repr()) }
     fn list_to_array(ctx, targs, ret, l) {
         let r = Roots::new();
@@ -265,8 +265,7 @@ std_intrinsics! {
         r.add(l);
         let out = r.add(list::new(rdesc(ret)));
         let elem = targ(targs, 0);
-        let d = list::data(l);
-        let (cap, len) = (d.page_cap, d.len);
+        let (cap, len) = (list::page_cap(l), list::len(l));
         let mut i = 0;
         while i < len {
             let end = (i + cap).min(len);
