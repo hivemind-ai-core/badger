@@ -1,0 +1,21 @@
+(ns jank-workload
+  (:require [core-workloads :as core]))
+
+;; Clock instrumentation only. All workload code is shared unmodified Clojure.
+(cpp/raw "#include <chrono>
+long long comparison_now() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+    std::chrono::steady_clock::now().time_since_epoch()).count();
+}")
+
+(defn -main [& args]
+  (let [[name n seed warmups repeats] args
+        [n seed warmups repeats] (mapv parse-long [n seed warmups repeats])]
+    (dotimes [iteration (+ warmups repeats)]
+      (let [started (cpp/comparison_now)
+            checksum (case name
+                       "cpu" (core/cpu n seed)
+                       "records" (core/records n seed)
+                       "snapshots" (core/snapshots n seed))
+            elapsed (- (cpp/comparison_now) started)]
+        (println "BENCH" iteration elapsed checksum)))))
