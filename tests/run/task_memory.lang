@@ -1,0 +1,54 @@
+// Task snapshots measure each task's memory: its stack (reserved address
+// space and the pages in use), its closure with captures, the values the
+// runtime holds for it, and its channel registrations.
+import std.io
+import std.inspect
+import std.task
+
+fn deep(n: Int) -> Int { if n == 0 { 0 } else { 1 + deep(n - 1) } }
+
+fn int(d: Option<Data>) -> Int {
+    match d {
+        .some(.int(v)) => v,
+        _ => -1,
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    use s <- task.scope()
+    let ready = Atom.new(false)
+    let release = Atom.new(false)
+    let t = s.spawn(fn() {
+        let d = deep(20000)
+        ready.set(true)
+        while !release.get() {
+            task.sleep(1ms)
+        }
+        d
+    })
+    while !ready.get() {
+        task.sleep(1ms)
+    }
+    match inspect.tasks() {
+        .list(items) => {
+            for item in items {
+                match item {
+                    .object(fields) => match fields.get("memory") {
+                        .some(.object(m)) => {
+                            let reserved = int(m.get("stack_reserved"))
+                            let resident = int(m.get("stack_resident"))
+                            let deep_stack = int(fields.get("id")) == 2 && resident > 200000
+                            io.println($"task {int(fields.get("id"))}: resident within reserved {resident > 0 && resident <= reserved}, deep {deep_stack}, captures {int(m.get("captures")) > 0}")?
+                        },
+                        _ => io.println("no memory")?,
+                    },
+                    _ => (),
+                }
+            }
+        },
+        _ => io.println("no tasks")?,
+    }
+    release.set(true)
+    io.println($"{t.join()}")?
+    ok(())
+}

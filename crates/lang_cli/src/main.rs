@@ -733,19 +733,21 @@ fn print_snapshot(what: &str, text: &str) {
     match what {
         "tasks" => {
             println!(
-                "{:>5}  {:<9} {:<16} {:>6} {:>4}  {:<18} name",
-                "id", "state", "waiting on", "scope", "code", "stage"
+                "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} name",
+                "id", "state", "waiting on", "scope", "code", "stack", "stage"
             );
             for t in objects(text) {
                 let wait = field(&t, "wait");
                 let stage = field(&t, "stage");
+                let stack = field(&t, "stack_resident").parse::<u64>().map(|b| format!("{}K", b / 1024));
                 println!(
-                    "{:>5}  {:<9} {:<16} {:>6} {:>4}  {:<18} {}",
+                    "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} {}",
                     field(&t, "id"),
                     field(&t, "state"),
                     if wait == "null" { "-".to_string() } else { wait },
                     field(&t, "scope"),
                     format!("v{}", field(&t, "code_version")),
+                    stack.unwrap_or_else(|_| "-".into()),
                     if stage == "null" { "-".to_string() } else { stage },
                     field(&t, "name")
                 );

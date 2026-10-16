@@ -26,6 +26,10 @@ stack commitments, captures, inboxes, and roots. No fixed task-size promise.
 Alternative stack representations may replace this without changing source
 semantics. Migration requires a proven-safe suspension boundary and transferable
 task state, not merely moving a saved stack pointer to another thread.
+Implementation: each task snapshot (`lang inspect tasks`, `inspect.tasks()`)
+has `memory`: `stack_reserved` and `stack_resident` (address space and
+pages in use), `captures` (its closure object), `roots` (values the
+runtime holds for it), and `channels` (registrations).
 
 Runtime I/O parks instead of blocking a worker. Opaque blocking calls execute
 through a bounded foreign/blocking pool. The compiler checks long loops and

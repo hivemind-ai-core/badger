@@ -173,6 +173,9 @@ pub struct Task {
     /// Its cleanup outlived a grace period (that was reported); later
     /// waits for its settling do not wait again.
     pub grace_expired: bool,
+    /// The address range of its coroutine stack (`limit..base`), for
+    /// memory measurement.
+    pub stack: (usize, usize),
     /// A wakeup that arrived while the task was still running (e.g. from
     /// publishing its own staged batch on the way to parking): the next
     /// park returns at once instead of losing it.
@@ -753,6 +756,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         contract_site: 0,
         returning: vec![],
         grace_expired: false,
+        stack: (0, 0),
         early_wake: None,
         select_offer: vec![],
         select_done: None,
@@ -787,6 +791,9 @@ fn make_coroutine(id: TaskId, body: Body) -> Co {
     };
     use corosensei::stack::Stack;
     let limit = stack.limit().get() as u64 + STACK_RESERVE as u64;
+    if let Some(t) = task(id) {
+        t.stack = (stack.limit().get(), stack.base().get());
+    }
     Coroutine::with_stack(stack, move |y: &Yielder<(), Signal>, ()| {
         let t = task(id).unwrap();
         t.yielder = y as *const _;
@@ -2042,6 +2049,37 @@ pub fn set_listener(delta: isize) {
 }
 
 /// JSON snapshot of all tasks (for `inspect.tasks()`).
+/// Bytes of `lo..hi` backed by physical memory (pages touched so far).
+fn resident(lo: usize, hi: usize) -> usize {
+    let page = 4096usize;
+    let (lo, hi) = (lo & !(page - 1), (hi + page - 1) & !(page - 1));
+    if hi <= lo {
+        return 0;
+    }
+    let mut v = vec![0u8; (hi - lo) / page];
+    let r = unsafe { libc::mincore(lo as *mut libc::c_void, hi - lo, v.as_mut_ptr()) };
+    if r != 0 {
+        return 0;
+    }
+    v.iter().filter(|b| **b & 1 != 0).count() * page
+}
+
+/// A task's memory: its stack (address space reserved and pages in use),
+/// the closure it runs with its captures, the values the runtime holds for
+/// it, and the channels it is registered with.
+fn memory_json(t: &Task) -> String {
+    let (lo, hi) = t.stack;
+    let captures =
+        if t.entry != 0 { crate::gc::HEADER + unsafe { crate::gc::obj(t.entry).payload_size() } } else { 0 };
+    format!(
+        "{{\"stack_reserved\":{},\"stack_resident\":{},\"captures\":{captures},\"roots\":{},\"channels\":{}}}",
+        hi - lo,
+        resident(lo, hi),
+        (t.roots.len() + t.temp_roots.len() + t.entry_args.len()) * 8,
+        t.chan_regs.len()
+    )
+}
+
 pub fn snapshot_json() -> String {
     let mut ts: Vec<&Box<Task>> = rt().tasks.values().collect();
     ts.sort_by_key(|t| t.id);
@@ -2057,7 +2095,7 @@ pub fn snapshot_json() -> String {
             };
             let stages: Vec<String> = t.stages.iter().map(|s| crate::intrinsics_io::json_quote(s)).collect();
             format!(
-                "{{\"id\":{},\"name\":{},\"state\":\"{state}\",\"wait\":{},\"scope\":{},\"cleanups\":{},\"code_version\":{},\"stage\":{},\"stages\":[{}]}}",
+                "{{\"id\":{},\"name\":{},\"state\":\"{state}\",\"wait\":{},\"scope\":{},\"cleanups\":{},\"code_version\":{},\"stage\":{},\"stages\":[{}],\"memory\":{}}}",
                 t.id,
                 crate::intrinsics_io::json_quote(&t.name),
                 if t.wait.is_empty() { "null".to_string() } else { crate::intrinsics_io::json_quote(t.wait) },
@@ -2065,7 +2103,8 @@ pub fn snapshot_json() -> String {
                 t.cleanups.len(),
                 t.code_version,
                 t.stages.last().map(|s| crate::intrinsics_io::json_quote(s)).unwrap_or("null".into()),
-                stages.join(",")
+                stages.join(","),
+                memory_json(t)
             )
         })
         .collect();
