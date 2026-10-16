@@ -285,3 +285,57 @@ fn stream_backpressure() {
     assert_eq!(produced(), 1280);
     drop(child.output());
 }
+
+/// Server-sent events to a client that disconnects: the request task is
+/// cancelled while its producer is parked, so the event source is closed.
+#[test]
+fn events_stop_when_the_client_leaves() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let port = 24000 + (std::process::id() % 1000) as u16 * 3;
+    let child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "tests/http/events.lang"])
+            .env("SSE_PORT", port.to_string())
+            .env("LANG_SHUTDOWN_AFTER_MS", "6000")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let start = Instant::now();
+    while TcpStream::connect(("127.0.0.1", port + 2)).is_err() {
+        assert!(start.elapsed() < Duration::from_secs(20), "server did not start");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let closed = || -> u64 {
+        let body = request(port + 2, "GET", "/count", "").1;
+        body.trim_start_matches("{\"closed\":").trim_end_matches('}').parse().unwrap()
+    };
+    for (left, p) in [port, port + 1].into_iter().enumerate() {
+        let mut s = TcpStream::connect(("127.0.0.1", p)).unwrap();
+        s.write_all(b"GET /events HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+        let mut got = Vec::new();
+        let mut buf = [0u8; 1024];
+        while !String::from_utf8_lossy(&got).contains("data: tick 1\n\n") {
+            let n = s.read(&mut buf).unwrap();
+            assert!(n > 0, "stream ended early: {}", String::from_utf8_lossy(&got));
+            got.extend_from_slice(&buf[..n]);
+        }
+        let head = String::from_utf8_lossy(&got).to_string();
+        assert!(head.contains("content-type: text/event-stream"), "{head}");
+        assert!(head.contains("event: tick\nid: 0\ndata: tick 0\n\n"), "{head}");
+        assert_eq!(closed(), left as u64, "closed before the client left");
+        drop(s);
+        let start = Instant::now();
+        while closed() == left as u64 {
+            assert!(
+                start.elapsed() < Duration::from_secs(5),
+                "the event source was not closed after the client left"
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+    let output = child.output();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+}

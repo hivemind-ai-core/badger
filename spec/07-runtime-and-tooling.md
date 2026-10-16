@@ -138,7 +138,11 @@ concurrency, and stream buffering limits are explicit runtime configuration.
 Implementation: `[runtime] http_max_body_bytes`, `http_max_header_bytes`,
 `http_max_in_flight`, and `http_max_stream_buffer_bytes` (bytes of a
 streamed reply waiting for a slow client; beyond it the streaming task
-waits until the client has taken them).
+waits until the client has taken them). A client that goes away while a
+reply streams cancels the request task, even while its producer is parked
+waiting for the next item, so the producer's cleanups run. Server-sent
+events (`http.events`, `RequestScope.events`) are a streamed reply of
+typed `Event` values in the `text/event-stream` format.
 
 Routes are inspectable typed descriptions. A route associates method/path,
 parameter/body schemas, a handler/pipeline, and a stable name. Validate conflicts

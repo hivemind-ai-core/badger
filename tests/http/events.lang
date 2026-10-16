@@ -1,0 +1,65 @@
+// Server-sent events to a client that goes away: the request task is
+// cancelled even while its producer is parked (here, sleeping before a
+// third event), so the event source is closed. `/count` reports closures.
+import std.config
+import std.http
+import std.io
+import std.seq
+import std.system
+import std.system.{component}
+import std.time
+
+type Settings = { port: U16 }
+
+pub enum AppError {
+    config(source: config.Error),
+    http(source: http.Error),
+    io(source: io.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+/// Two events, then a long wait before the third.
+fn ticks(closed: Atom<Int>) -> Seq<http.Event> {
+    seq.scoped(
+        fn() { Cell.new(0) },
+        fn(c: Cell<Int>) {
+            let k = c.get()
+            c.set(k + 1)
+            if k >= 2 {
+                time.sleep(time.seconds(60))
+            }
+            Option.some(http.event($"tick {k}").named("tick").with_id($"{k}"))
+        },
+        fn(_c: Cell<Int>) { let _ = closed.update(fn(n: Int) -> Int { n + 1 }) },
+    )
+}
+
+let api = system.provider({
+    name: :test/events,
+    init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
+        let closed = Atom.new(0)
+        let events = http.streaming_handler(fn(request) -> Result<http.Streamed, http.Error> {
+            http.events(ticks(closed))
+        })
+        let scoped = http.scoped(fn(scope) -> Result<http.Sent, http.Error> {
+            ok(scope.events(ticks(closed)))
+        })
+        let count = http.handler(fn(request) -> Result<http.Response, http.Error> {
+            http.json(200, { closed: closed.get() })
+        })
+        ok({ events, scoped, count })
+    },
+})
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.from_env<Settings>("SSE_")?
+    let plan = system {
+        api: component(api, {}),
+        events: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).events }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).scoped }),
+        count: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(:api).count }),
+    }
+    use running <- system.run(plan)
+    running.wait_for_shutdown()?
+    ok(())
+}

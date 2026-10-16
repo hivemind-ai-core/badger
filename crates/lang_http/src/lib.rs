@@ -26,7 +26,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use lang_native::{Args, CallId, Completion, Error, Handler, Handles, ModuleDef, Outcome, Value};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch};
 
 type Body = BoxBody<Bytes, std::io::Error>;
 
@@ -82,6 +82,24 @@ struct Exchange {
     /// written (`buffer` of them).
     stream: Mutex<Option<(mpsc::Sender<Chunk>, Arc<Semaphore>)>>,
     buffer: usize,
+    /// OPEN, then ENDED (the program finished or aborted the reply) or
+    /// GONE (hyper dropped the body: the client went away), whichever
+    /// comes first.
+    phase: Arc<watch::Sender<u8>>,
+}
+
+const OPEN: u8 = 0;
+const ENDED: u8 = 1;
+const GONE: u8 = 2;
+
+fn settle(phase: &watch::Sender<u8>, to: u8) {
+    phase.send_if_modified(|p| {
+        let open = *p == OPEN;
+        if open {
+            *p = to;
+        }
+        open
+    });
 }
 
 enum Target {
@@ -153,7 +171,12 @@ impl Server {
 
 /// An admitted request as the program sees it, with its exchange.
 fn request_value(p: Pending, buffer: usize) -> Value {
-    let ex = Exchange { reply: Mutex::new(Some(p.reply)), stream: Mutex::new(None), buffer };
+    let ex = Exchange {
+        reply: Mutex::new(Some(p.reply)),
+        stream: Mutex::new(None),
+        buffer,
+        phase: Arc::new(watch::channel(OPEN).0),
+    };
     Value::Map(vec![
         ("exchange".into(), HANDLES.insert(Target::Exchange(Arc::new(ex)))),
         ("method".into(), Value::Symbol(p.method)),
@@ -363,7 +386,7 @@ fn stream_begin(a: &Args) -> Outcome {
     let (ctx, rx) = mpsc::channel::<Chunk>(64);
     let sem = Arc::new(Semaphore::new(ex.buffer));
     // a chunk's permits return as hyper takes it to write
-    let frames = futures_stream(rx);
+    let frames = futures_stream(rx, sem.clone(), ex.phase.clone());
     let body = BoxBody::new(frames);
     let _ = tx.send(response(status, &headers, body));
     *ex.stream.lock().unwrap() = Some((ctx, sem));
@@ -371,10 +394,20 @@ fn stream_begin(a: &Args) -> Outcome {
 }
 
 /// The receiver as a stream of body frames.
+/// Dropping it before the program ended the stream means the client went
+/// away: senders waiting for buffer space fail rather than wait forever.
 fn futures_stream(
     rx: mpsc::Receiver<Chunk>,
+    sem: Arc<Semaphore>,
+    phase: Arc<watch::Sender<u8>>,
 ) -> impl hyper::body::Body<Data = Bytes, Error = std::io::Error> + Send + Sync + 'static {
-    struct Frames(Mutex<mpsc::Receiver<Chunk>>);
+    struct Frames(Mutex<mpsc::Receiver<Chunk>>, Arc<Semaphore>, Arc<watch::Sender<u8>>);
+    impl Drop for Frames {
+        fn drop(&mut self) {
+            settle(&self.2, GONE);
+            self.1.close();
+        }
+    }
     impl hyper::body::Body for Frames {
         type Data = Bytes;
         type Error = std::io::Error;
@@ -394,41 +427,62 @@ fn futures_stream(
             }
         }
     }
-    Frames(Mutex::new(rx))
+    Frames(Mutex::new(rx), sem, phase)
 }
 
 /// Send one chunk of a started stream; waits while the client is behind.
+/// False once the client has gone away (the chunk is dropped).
 fn stream_chunk(a: Args, done: Completion) {
     let (ex, data) = match (exchange(&a, 0), a.bytes(1)) {
         (Ok(e), Ok(b)) => (e, Bytes::from(b.to_vec())),
         (Err(e), _) | (_, Err(e)) => return done.complete(Err(e)),
     };
-    if data.is_empty() {
-        return done.complete(Ok(Value::Unit));
-    }
     let Some((tx, sem)) = ex.stream.lock().unwrap().clone() else {
-        return done.complete(Ok(Value::Unit));
+        return done.complete(Ok(Value::Bool(false)));
     };
+    if data.is_empty() {
+        return done.complete(Ok(Value::Bool(!tx.is_closed())));
+    }
     // a chunk larger than the whole buffer waits for all of it
     let want = data.len().min(ex.buffer).max(1) as u32;
     runtime().spawn(async move {
-        if let Ok(permit) = sem.acquire_many_owned(want).await {
-            // a closed connection drops the chunk
-            let _ = tx.send(Ok((data, permit))).await;
-        }
-        done.complete(Ok(Value::Unit));
+        let sent = match sem.acquire_many_owned(want).await {
+            Ok(permit) => tx.send(Ok((data, permit))).await.is_ok(),
+            Err(_) => false,
+        };
+        done.complete(Ok(Value::Bool(sent)));
     });
 }
 
 fn stream_end(a: &Args) -> Outcome {
     let ex = exchange(a, 0)?;
+    settle(&ex.phase, ENDED);
     ex.stream.lock().unwrap().take();
     Ok(Value::Unit)
+}
+
+/// Wait until a started stream ends: true if the client went away first
+/// (the program should stop producing), false if the program ended it.
+fn stream_watch(a: Args, done: Completion) {
+    let ex = match exchange(&a, 0) {
+        Ok(e) => e,
+        Err(e) => return done.complete(Err(e)),
+    };
+    let mut phase = ex.phase.subscribe();
+    drop(ex);
+    runtime().spawn(async move {
+        let gone = match phase.wait_for(|p| *p != OPEN).await {
+            Ok(p) => *p == GONE,
+            Err(_) => false,
+        };
+        done.complete(Ok(Value::Bool(gone)));
+    });
 }
 
 /// The request's task failed: 500 if nothing was sent, else cut the
 /// stream short (no terminal chunk).
 fn abort_exchange(ex: &Exchange) {
+    settle(&ex.phase, ENDED);
     if let Some(tx) = ex.reply.lock().unwrap().take() {
         let _ = tx.send(simple(500, "internal server error"));
     }
@@ -479,6 +533,7 @@ pub static DEF: ModuleDef = ModuleDef {
         ("stream_begin", Handler::Inline(stream_begin)),
         ("stream_chunk", Handler::Async(stream_chunk)),
         ("stream_end", Handler::Inline(stream_end)),
+        ("stream_watch", Handler::Async(stream_watch)),
         ("abort", Handler::Inline(abort)),
         ("stop", Handler::Inline(stop)),
         ("port", Handler::Inline(port)),
