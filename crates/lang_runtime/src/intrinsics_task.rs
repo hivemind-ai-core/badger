@@ -188,15 +188,16 @@ task_intrinsics! {
                     task::panic_current(format!("child task failed: {}", p.message), p.location);
                 }
             }
-            if ids.iter().all(|id| task::is_done(*id)) {
+            // the unfinished ones, looked at once: a task finishing between
+            // two looks must not leave nothing registered to wake this one
+            let pending: Vec<u64> = ids.iter().copied().filter(|id| !task::is_done(*id)).collect();
+            if pending.is_empty() {
                 return u64::MAX;
             }
-            let me = task::current_id();
-            for &id in &ids {
-                if let Some(t) = task::task(id)
-                    && !t.joiners.contains(&me) {
-                        t.joiners.push(me);
-                    }
+            // (one that finished meanwhile: look again instead of parking)
+            if !pending.iter().all(|&id| task::join_register(id)) {
+                task::end_join_wait();
+                continue;
             }
             task::park_for("join");
         }

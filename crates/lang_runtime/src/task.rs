@@ -240,6 +240,12 @@ pub struct Task {
     free_resume: bool,
     /// The task's own lock (see [`with_task`]).
     tlock: AtomicBool,
+    /// Registered to be woken by tasks it joins, not yet parked: a wake now
+    /// is kept for its park (under its own lock).
+    pre_park: bool,
+    /// Finished without the runtime lock (its exit is recorded; its worker
+    /// completes the finish).
+    free_exit: bool,
     /// What it waits for while parked without the runtime lock (see
     /// [`FREE_WAITS`]; 0: nothing). Atomic: inspection reads it under the
     /// lock while the task runs.
@@ -941,6 +947,19 @@ pub fn spawn(entry: u64, scope: Option<u64>, name: String) -> TaskId {
 }
 
 pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: bool) -> TaskId {
+    spawn_with_args(entry, scope, name, result_is_ptr, vec![])
+}
+
+/// [`spawn_typed`] with entry arguments (`(word, is_ptr)`), set before the
+/// task is queued: a worker may start it at once, without the runtime
+/// lock, so nothing about it may change after it is queued.
+pub fn spawn_with_args(
+    entry: u64,
+    scope: Option<u64>,
+    name: String,
+    result_is_ptr: bool,
+    entry_args: Vec<(u64, bool)>,
+) -> TaskId {
     let r = rt();
     let id = r.next_id;
     r.next_id += 1;
@@ -959,7 +978,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         state: StateCell::new(State::Ready),
         exit: None,
         entry,
-        entry_args: vec![],
+        entry_args,
         joiners: vec![],
         cleanups: vec![],
         iter_closers: vec![],
@@ -996,9 +1015,11 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         pending_wake: None,
         free_resume: false,
         tlock: AtomicBool::new(false),
+        pre_park: false,
+        free_exit: false,
         free_wait: AtomicU8::new(0),
     });
-    r.tasks.insert(id, t);
+    with_table(|| r.tasks.insert(id, t));
     // the coroutine (and its stack) is made when the task first runs, so a
     // burst of spawns reuses the stacks of tasks that finished meanwhile
     task(id).unwrap().result_is_ptr = result_is_ptr;
@@ -1011,38 +1032,99 @@ enum Body {
     Cleanup,
 }
 
-/// Stacks of finished tasks, reused by later spawns (mapping a fresh stack
-/// dominates the cost of a short task).
-static mut STACK_POOL: Vec<DefaultStack> = Vec::new();
-const STACK_POOL_MAX: usize = 256;
+thread_local! {
+    /// Stacks of finished tasks, reused by later spawns (mapping a fresh
+    /// stack dominates the cost of a short task); each worker thread keeps
+    /// its own.
+    static STACK_POOL: std::cell::RefCell<Vec<DefaultStack>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+const STACK_POOL_MAX: usize = 64;
 
 fn make_coroutine(id: TaskId, body: Body) -> Co {
-    #[allow(static_mut_refs)]
-    let pooled = unsafe { STACK_POOL.pop() };
+    let p = task(id).map_or(std::ptr::null_mut(), |t| t as *mut Task);
+    make_coroutine_for(id, p, body)
+}
+
+/// [`make_coroutine`] for a task whose record is known (no table lookup:
+/// also without the runtime lock, for an entry body).
+fn make_coroutine_for(id: TaskId, p: *mut Task, body: Body) -> Co {
+    let pooled = STACK_POOL.with(|p| p.borrow_mut().pop());
     let stack = match pooled {
         Some(s) => s,
-        None => DefaultStack::new(rt().stack_size).expect("task stack"),
+        None => DefaultStack::new(STACK_SIZE.load(Ordering::Relaxed)).expect("task stack"),
     };
     use corosensei::stack::Stack;
     let limit = stack.limit().get() as u64 + STACK_RESERVE as u64;
-    if let Some(t) = task(id) {
-        t.stack = (stack.limit().get(), stack.base().get());
+    if !p.is_null() {
+        unsafe { (*p).stack = (stack.limit().get(), stack.base().get()) };
     }
+    let p = p as usize;
     Coroutine::with_stack(stack, move |y: &Yielder<(), Signal>, ()| {
-        let t = task(id).unwrap();
+        let t = if p != 0 { unsafe { &mut *(p as *mut Task) } } else { task(id).unwrap() };
         t.yielder = y as *const _;
         t.ctx.stack_limit = limit;
         match body {
             Body::Entry => {
                 let ctx: *mut TaskCtx = &mut *t.ctx;
                 let args: Vec<u64> = t.entry_args.iter().map(|a| a.0).collect();
-                let r = unsafe { crate::call_closure_returning(ctx, t.entry, &args, t.result_is_ptr) };
-                let t = task(id).unwrap();
-                t.exit = Some(Exit::Returned(r));
+                let p = t as *mut Task;
+                let r = unsafe {
+                    crate::call_entry(ctx, t.entry, &args, t.result_is_ptr, &mut |r| exit_free(p, r))
+                };
+                if let Some(r) = r {
+                    let t = task(id).unwrap();
+                    t.exit = Some(Exit::Returned(r));
+                }
             }
             Body::Cleanup => run_cleanups(id),
         }
     })
+}
+
+/// A task's body returned `r` without the runtime lock (still counted as
+/// running compiled code, so no collection runs meanwhile): when nothing
+/// but marking it done remains (a scoped task without cleanups,
+/// registrations, staged batches, or a pending cancellation or failure),
+/// record its exit and let its worker finish it without the lock.
+fn exit_free(p: *mut Task, r: u64) -> bool {
+    let t = unsafe { &mut *p };
+    if !multi()
+        || sched_controlled()
+        || t.scope.is_none()
+        || !t.cleanups.is_empty()
+        || !t.on_deschedule.is_empty()
+        || !t.chan_regs.is_empty()
+        || !t.iter_closers.is_empty()
+        || t.pending_exit.is_some()
+        || flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0
+    {
+        return false;
+    }
+    t.exit = Some(Exit::Returned(r));
+    t.ctx.shadow = std::ptr::null_mut();
+    t.free_exit = true;
+    true
+}
+
+/// Finish a task whose body exited without the runtime lock (its worker,
+/// without the lock): release its stack, mark it done (under its own lock,
+/// with its joiners taken), and wake its joiners. Its record is not
+/// touched after it is marked done: its scope may then remove it.
+fn finish_free(p: *mut Task) {
+    let t = unsafe { &mut *p };
+    let old = t.co.take();
+    drop_reset(old);
+    let joiners = with_task(p, |t| {
+        t.state.set(State::Done);
+        std::mem::take(&mut t.joiners)
+    });
+    if !joiners.is_empty() {
+        with_table(|| {
+            for j in joiners {
+                wake(j, Wake::Normal);
+            }
+        });
+    }
 }
 
 fn run_cleanups(id: TaskId) {
@@ -1093,15 +1175,10 @@ pub fn park() -> Wake {
         end_wait();
     }
     check_interrupts();
-    if let Some(w) = current().unwrap().early_wake.take() {
+    if let Err(w) = begin_park() {
         end_wait();
         check_interrupts();
         return w;
-    }
-    {
-        let t = current().unwrap();
-        t.state.set(State::Parked);
-        t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
     end_wait();
@@ -1109,17 +1186,26 @@ pub fn park() -> Wake {
     current().unwrap().wake
 }
 
+/// Mark the running task parked, unless a wake already arrived for it
+/// (`Err`: that wake, consumed). Under its own lock, as wakers check.
+fn begin_park() -> Result<(), Wake> {
+    with_task(current().unwrap(), |t| {
+        t.pre_park = false;
+        if let Some(w) = t.early_wake.take() {
+            return Err(w);
+        }
+        t.state.set(State::Parked);
+        t.wake = Wake::Normal;
+        Ok(())
+    })
+}
+
 /// Park without honoring cancellation (cleanup and settle waits).
 pub fn park_shielded() -> Wake {
     publish_current();
-    if let Some(w) = current().unwrap().early_wake.take() {
+    if let Err(w) = begin_park() {
         end_wait();
         return w;
-    }
-    {
-        let t = current().unwrap();
-        t.state.set(State::Parked);
-        t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
     end_wait();
@@ -1606,8 +1692,9 @@ fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>)
             t.pending_wake = Some(reason);
             false
         } else {
-            if t.publishing {
-                // the running task woke itself on its way to parking
+            if t.publishing || t.pre_park {
+                // on its way to parking (publishing its staged batches,
+                // or registered with tasks it joins): its park returns
                 t.early_wake = Some(reason);
             }
             false
@@ -1764,7 +1851,7 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
     }
     t.ctx.flags |= FLAG_CANCEL;
     // tasks waiting for it now wait under the cleanup grace period
-    let joiners = t.joiners.clone();
+    let joiners = with_task(t, |t| t.joiners.clone());
     for j in joiners {
         if task(j).is_some_and(|x| x.state.get() == State::Parked && x.wait == "join") {
             wake(j, Wake::Normal);
@@ -2132,15 +2219,13 @@ pub fn await_cancelled(ids: &[TaskId]) {
                 String::new(),
             );
         }
-        let me = current_id();
-        for id in &pending {
-            if let Some(t) = task(*id)
-                && !t.joiners.contains(&me)
-            {
-                t.joiners.push(me);
-            }
+        // (one that finished meanwhile: look again instead of parking)
+        if !pending.iter().all(|&id| join_register(id)) {
+            end_join_wait();
+            continue;
         }
         // wake at the deadline as well
+        let me = current_id();
         let r = rt();
         r.timer_seq += 1;
         r.timers.push(Timer { at: deadline, seq: r.timer_seq, task: me });
@@ -2170,8 +2255,10 @@ pub fn await_task(id: TaskId, shielded: bool) {
             await_cancelled(&[id]);
             return;
         }
-        let me = current_id();
-        task(id).unwrap().joiners.push(me);
+        if !join_register(id) {
+            end_join_wait();
+            return;
+        }
         if shielded {
             park_shielded()
         } else {
@@ -2188,7 +2275,55 @@ pub fn set_next_task_id(n: TaskId) {
 }
 
 pub fn remove_task(id: TaskId) {
-    rt().tasks.remove(&id);
+    with_table(|| rt().tasks.remove(&id));
+}
+
+/// The task table's lock. The table changes only under the runtime lock
+/// (spawn, removal), which also lets its holder read it freely; code
+/// without the runtime lock (a worker finishing a task) reads it under
+/// this lock, and changes take it too.
+static TABLE: AtomicBool = AtomicBool::new(false);
+
+fn with_table<R>(f: impl FnOnce() -> R) -> R {
+    if !multi() {
+        return f();
+    }
+    while TABLE.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        std::hint::spin_loop();
+    }
+    let r = f();
+    TABLE.store(false, Ordering::Release);
+    r
+}
+
+/// Register the running task (runtime lock held) to be woken when task
+/// `id` finishes; `false`: it already has (or is gone), so do not wait
+/// for it. Under `id`'s own lock, which its finish takes to mark it done:
+/// a registration is either seen by the finish or sees it. The running
+/// task is marked about to park (see [`Task::pre_park`]) first, so a wake
+/// before it parks is kept; [`end_join_wait`] clears that when it does
+/// not park.
+pub fn join_register(id: TaskId) -> bool {
+    let me = current().expect("join outside a task");
+    let me_id = me.id;
+    with_task(me, |t| t.pre_park = true);
+    let Some(t) = task(id) else { return false };
+    with_task(t, |t| {
+        if t.state.get() == State::Done {
+            return false;
+        }
+        if !t.joiners.contains(&me_id) {
+            t.joiners.push(me_id);
+        }
+        true
+    })
+}
+
+/// The running task will not park after [`join_register`].
+pub fn end_join_wait() {
+    if let Some(t) = current() {
+        with_task(t, |t| t.pre_park = false);
+    }
 }
 
 /// Controlled reconstruction: cancel the running program (its scopes cancel
@@ -2295,13 +2430,8 @@ pub fn set_main_args(list: Option<u64>) {
 }
 
 fn spawn_main(entry: u64) -> TaskId {
-    let id = spawn(entry, None, "main".into());
-    if let Some(l) = *MAIN_ARGS.lock().unwrap()
-        && let Some(t) = task(id)
-    {
-        t.entry_args = vec![(l, true)];
-    }
-    id
+    let args = MAIN_ARGS.lock().unwrap().map(|l| vec![(l, true)]).unwrap_or_default();
+    spawn_with_args(entry, None, "main".into(), true, args)
 }
 
 /// Run the scheduler until the main task finishes. Returns its exit.
@@ -2566,6 +2696,11 @@ fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
             with_task(p, |t| t.state.set(State::Ready));
             enqueue(e, false)
         }
+        CoroutineResult::Return(()) if unsafe { (*p).free_exit } => {
+            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            finish_free(p);
+            false
+        }
         _ => return false,
     };
     if notify {
@@ -2574,9 +2709,11 @@ fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
     true
 }
 
-/// Whether a ready task suspended without the runtime lock.
+/// Whether a ready task suspended without the runtime lock, or is an
+/// uncancelled entry that has not started (it may start without it).
 fn is_free(e: Entry) -> bool {
-    unsafe { (*(e.1 as *const Task)).free_resume }
+    let t = unsafe { &*(e.1 as *const Task) };
+    t.free_resume || (t.co.is_none() && !t.in_cleanup && flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) == 0)
 }
 
 /// Run a task that suspended without the runtime lock (the lock is held on
@@ -2589,6 +2726,10 @@ fn run_free(mut e: Entry, cycle: bool) {
     loop {
         let p = e.1 as *mut Task;
         let t = unsafe { &mut *p };
+        if t.co.is_none() {
+            // its body starts outside the lock (it does not release one)
+            t.co = Some(make_coroutine_for(e.0, p, Body::Entry));
+        }
         gc_enter();
         t.free_resume = false;
         t.state.set(State::Running);
@@ -2690,12 +2831,11 @@ fn start_cleanup(id: TaskId) {
 fn drop_reset(co: Option<Co>) {
     if let Some(mut c) = co {
         if c.done() {
-            #[allow(static_mut_refs)]
-            unsafe {
-                if STACK_POOL.len() < STACK_POOL_MAX {
-                    STACK_POOL.push(c.into_stack());
-                    return;
-                }
+            let full = STACK_POOL.with(|p| p.borrow().len() >= STACK_POOL_MAX);
+            if !full {
+                let s = c.into_stack();
+                STACK_POOL.with(|p| p.borrow_mut().push(s));
+                return;
             }
         } else if c.started() {
             unsafe { c.force_reset() };
@@ -2714,10 +2854,12 @@ fn finish(id: TaskId) {
     }
     crate::channel::task_finished(id);
     let t = task(id).unwrap();
-    t.state.set(State::Done);
     t.exit = t.pending_exit.take().or(t.exit.take()).or(Some(Exit::Cancelled));
     t.ctx.shadow = std::ptr::null_mut();
-    let joiners = std::mem::take(&mut t.joiners);
+    let joiners = with_task(t, |t| {
+        t.state.set(State::Done);
+        std::mem::take(&mut t.joiners)
+    });
     let scope = t.scope;
     let exit = t.exit.clone();
     let old = t.co.take();

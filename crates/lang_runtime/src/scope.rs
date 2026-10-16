@@ -78,8 +78,19 @@ fn release(id: u64) {
 }
 
 pub fn spawn(scope: u64, closure: u64, captured: bool, result_is_ptr: bool) -> TaskId {
+    spawn_with_args(scope, closure, captured, result_is_ptr, vec![])
+}
+
+/// [`spawn`] with entry arguments (see [`task::spawn_with_args`]).
+pub fn spawn_with_args(
+    scope: u64,
+    closure: u64,
+    captured: bool,
+    result_is_ptr: bool,
+    args: Vec<(u64, bool)>,
+) -> TaskId {
     let name = format!("child of task {}", task::current_id());
-    let id = task::spawn_typed(closure, Some(scope), name, result_is_ptr);
+    let id = task::spawn_with_args(closure, Some(scope), name, result_is_ptr, args);
     if let Some(s) = get(scope) {
         s.children.push(id);
         if captured {

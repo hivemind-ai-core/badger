@@ -300,10 +300,7 @@ fn admit(server: u64, req: RawRequest, tx: mpsc::Sender<Out>, flow: Arc<Flow>) {
     let rq =
         g.add(make_record(req_desc, &[("method", method), ("path", path), ("headers", hm), ("body", body)]));
     // spawn the request task (defects contained) in the server scope
-    let id = scope::spawn(sc, serve, true, false);
-    if let Some(t) = task::task(id) {
-        t.entry_args = vec![(rq, true), (conn, false)];
-    }
+    let id = scope::spawn_with_args(sc, serve, true, false, vec![(rq, true), (conn, false)]);
     if let Some(s) = reg().servers.get_mut(&server) {
         s.in_flight.retain(|t| !task::is_done(*t));
         s.in_flight.push(id);

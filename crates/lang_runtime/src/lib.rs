@@ -88,6 +88,41 @@ pub unsafe fn call_closure_returning(ctx: *mut TaskCtx, closure: u64, args: &[u6
     }
 }
 
+/// A task's entry: [`call_closure_returning`], except that with several
+/// workers `exit_free` is first offered the result, still outside the
+/// runtime lock; when it takes it (`None`), the lock is not taken.
+///
+/// # Safety
+/// As [`call_closure`].
+pub unsafe fn call_entry(
+    ctx: *mut TaskCtx,
+    closure: u64,
+    args: &[u64],
+    ptr_result: bool,
+    exit_free: &mut dyn FnMut(u64) -> bool,
+) -> Option<u64> {
+    unsafe {
+        let p = gc::obj(closure).payload();
+        let adapter = *(p.add(CLOSURE_ADAPTER) as *const usize);
+        let f: Adapter = std::mem::transmute(adapter);
+        // started under the runtime lock, or (several workers) by a worker
+        // without it, already counted as running compiled code
+        if task::holds_lock() {
+            task::leave_runtime();
+        }
+        let r = f(ctx, closure, args.as_ptr());
+        if task::multi() && exit_free(r) {
+            return None;
+        }
+        if ptr_result && r != 0 {
+            task::enter_runtime_holding(r);
+        } else {
+            task::enter_runtime_for(task::reason::CALLBACK_RETURN);
+        }
+        Some(r)
+    }
+}
+
 /// Construct an enum value `desc` with variant `tag` and field words.
 pub fn make_enum(desc: &'static TypeDesc, tag: u32, fields: &[u64]) -> u64 {
     if let Some(w) = shared_unit_variant(desc, tag) {

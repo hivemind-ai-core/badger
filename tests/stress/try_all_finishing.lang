@@ -1,0 +1,23 @@
+// Stress: `try_all` on tasks that finish while it looks at them. Tiny
+// tasks finish on other workers between the joiner's checks; the joiner
+// must never wait for a task that is already done.
+import std.io
+import std.list
+import std.task
+
+fn round(n: Int) -> Result<Int, String> {
+    task.scope(fn(s) -> Result<Int, String> {
+        let ts = list.collect((0..n).map(fn(i: Int) { s.spawn(fn() -> Result<Int, String> { ok(i) }) }))
+        let got = s.try_all(ts)?
+        ok(got.fold(0, fn(a: Int, b: Int) { a + b }))
+    })
+}
+
+pub fn main() -> Result<Unit, String> {
+    var total = 0
+    for r in 0..20000 {
+        total = total + round(1 + r % 6)?
+    }
+    io.println($"try_all rounds ok: {total}").map_err(fn(_) { "io" })?
+    ok(())
+}
