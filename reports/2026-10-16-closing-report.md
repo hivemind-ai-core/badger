@@ -94,7 +94,9 @@ record built only to be passed to a helper is not allocated
   module may reach ambient authority (filesystem, processes, environment,
   databases, network, and foreign C functions), directly or through any
   chain of calls or function references; E0170 names the path. Other
-  modules work through the capabilities the entry hands them.
+  modules work through the capabilities the entry hands them: `fs.Dir` /
+  `fs.ReadDir`, `env.Vars` (named variables), `process.Runner` (named
+  programs), and open `sqlite.Pool`s.
 
 ## Testing infrastructure
 
@@ -155,7 +157,8 @@ reproducing programs:
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
 export, agent tooling, directory capabilities, and restricted projects are
-done. Not taken up: capabilities for the network, processes, and databases
-(restricted modules cannot use those at all yet), reproduction bundles,
+done. Not taken up: network capabilities (there is no outbound HTTP client
+yet; restricted modules can serve through handlers the entry installs),
+reproduction bundles,
 durable job state, and typed SQL; these are product work for a pilot
 application.
