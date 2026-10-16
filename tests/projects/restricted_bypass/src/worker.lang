@@ -1,0 +1,7 @@
+import std.fs
+import std.env
+import main
+
+pub fn direct() -> String { env.get("HOME").unwrap_or("") }
+
+pub fn indirect() -> String { main.load("/etc/hostname") }

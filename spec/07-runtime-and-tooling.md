@@ -109,6 +109,16 @@ a lockfile and content/version verification. Configuration cannot run arbitrary
 code during import. User tasks are explicit typed functions invoked by the tool.
 Profile merging produces inspectable effective configuration before execution.
 
+A project may declare `restricted = true` in `[package]`. Then only the
+entry module may use ambient authority: the standard functions that reach
+the filesystem, processes, the environment, databases, or the network by
+name (`fs.read_text`, `process.run`, `env.get`, `sqlite.open`,
+`http.listen`, ...), directly or through any chain of calls or function
+references (E0170, with the path). Other modules are given capabilities by
+the entry, such as `fs.Dir` (a directory tree; `Dir.reader` narrows it to a
+read-only `fs.ReadDir`), so their parameter types state what they may touch.
+Capabilities have private fields and are made only by their providers.
+
 Target commands:
 
 ```text

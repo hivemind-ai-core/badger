@@ -40,6 +40,9 @@ pub struct Manifest {
     pub entries: Vec<(String, String)>,
     /// `[tasks]`: name, module file, function.
     pub tasks: Vec<(String, String, String)>,
+    /// `[package] restricted`: only the entry module may use ambient
+    /// authority (see `authority`).
+    pub restricted: bool,
 }
 
 /// Runtime settings accepted in `[runtime]` / `[profile.NAME.runtime]`.
@@ -162,6 +165,7 @@ impl Manifest {
             profile_runtime: vec![],
             entries: vec![],
             tasks: vec![],
+            restricted: false,
         };
         // TOML forbids defining a table or a key twice
         let mut sections_seen: Vec<String> = vec![];
@@ -227,9 +231,16 @@ impl Manifest {
                     return Err(format!("line {}: this toolchain implements edition `0`, not `{s}`", i + 1));
                 }
                 ("package", "edition") => {}
+                ("package", "restricted") => {
+                    m.restricted = match v {
+                        "true" => true,
+                        "false" => false,
+                        _ => return Err(format!("line {}: `restricted` is `true` or `false`", i + 1)),
+                    }
+                }
                 ("package", other) => {
                     return Err(format!(
-                        "line {}: unknown package key `{other}` (known: name, entry, version, edition)",
+                        "line {}: unknown package key `{other}` (known: name, entry, version, edition, restricted)",
                         i + 1
                     ));
                 }

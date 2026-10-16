@@ -1,0 +1,9 @@
+// Reads only what it is given: a read-only directory.
+import std.fs
+
+pub fn report(d: fs.ReadDir) -> String {
+    match d.read_text("stock.txt") {
+        .ok(t) => $"stock: {t.trim()}",
+        .err(e) => $"no stock ({e.kind})",
+    }
+}

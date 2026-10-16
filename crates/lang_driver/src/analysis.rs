@@ -208,6 +208,11 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
         let (checked, diags) = lang_typeck::check_program(hir, &s.interner);
         lang_typeck::set_record_types(false);
         s.diagnostics.extend(diags);
+        if crate::restricted(path)
+            && let Some(t) = &checked.types
+        {
+            s.diagnostics.extend(crate::authority::check(hir, t, &s.interner));
+        }
         index(&s, hir, &checked, &mut out);
         drop(checked);
         s.annotate_scopes(hir);

@@ -254,6 +254,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`const` initializers are evaluated when the program is checked; integer arithmetic in them that overflows its type, divides by zero, or shifts out of range is reported then.",
     ),
     (
+        "E0170",
+        "ambient authority in a restricted project",
+        "In a project with `[package] restricted = true`, only the entry module may call the standard functions that reach the filesystem, processes, the environment, databases, or the network by name (`fs.read_text`, `process.run`, `env.get`, `sqlite.open`, `http.listen`, ...), directly or through other functions. Other modules receive capabilities from it, such as an `fs.Dir` (or a read-only `fs.ReadDir`) for one directory tree, so their parameters state what they may touch.",
+    ),
+    (
         "E0140",
         "contract clause",
         "`requires` and `ensures` clauses state conditions on a function that has a body: they cannot `return` or propagate errors with `?` (a closure inside a clause may), and a protocol method's signature cannot carry them (put them on each implementation's method).",

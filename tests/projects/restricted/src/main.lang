@@ -1,0 +1,11 @@
+// The entry holds ambient authority and hands a read-only capability for
+// one directory to the module that does the work.
+import std.io
+import std.fs
+import inventory
+
+pub fn main() -> Result<Unit, io.Error> {
+    let data = fs.root("tests/projects/restricted/data")?
+    io.println(inventory.report(data.reader()))?
+    ok(())
+}

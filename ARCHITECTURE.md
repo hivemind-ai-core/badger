@@ -282,9 +282,9 @@ error. `lang_cli` is the `lang` binary.
   a path is canonicalized and must stay under the root). `Dir.sub` narrows
   it, and `Dir.reader` gives a `ReadDir`, which has no writing operations.
   Private fields keep both from being made any other way. The ambient
-  `fs.read_text`/`write_text` remain; a restricted mode that withholds them
-  is future work, and a symlink swapped in between resolution and use is
-  not defended against.
+  `fs.read_text`/`write_text` remain, withheld from non-entry modules in
+  restricted projects (see Projects); a symlink swapped in between
+  resolution and use is not defended against.
 - **Channels:** prompt (including capacity-zero rendezvous) and batch channels
   with paged staging, publication on limits/close, byte budgets, leased
   batches, and `select`.
@@ -337,6 +337,9 @@ the toolchain language (`draft-0`), `[runtime]` settings with
 `[profile.NAME.runtime]` overrides, `[config]` with `[profile.NAME]` overlays,
 named `[entries]`, user `[tasks]` (typed functions run by `lang task`), and
 `[dependencies]` as path inline tables with an optional version prefix.
+`[package] restricted = true` confines ambient authority to the entry module
+(`crates/lang_driver/src/authority.rs`: a reachability check over resolved
+calls and function references, reporting the path to the ambient function).
 Unknown sections and keys are errors. `lang check` and `lang test` cover the
 main entry and every `[entries]` and `[tasks]` module. An entry or task
 function takes no parameters or the arguments as `List<String>`. Dependencies resolve transitively; a module imports

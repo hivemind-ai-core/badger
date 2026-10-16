@@ -16,6 +16,7 @@ use lang_hir::{Hir, ParsedModule};
 use lang_syntax::ast;
 
 pub mod analysis;
+pub mod authority;
 pub mod deps;
 pub mod inspect;
 pub mod live;
@@ -499,7 +500,7 @@ impl Session {
             self.annotate_scopes(&hir);
             return Outcome::Errors;
         }
-        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
+        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
         self.diagnostics.extend(diags);
         // a project's entry points: the function the tool runs exists and
         // takes no parameters or the arguments as `List<String>`
@@ -757,7 +758,7 @@ impl Session {
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
-        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
+        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
         self.diagnostics.extend(diags);
         annotate_scopes(&self.interner, &mut self.sources, &mut self.diagnostics, &hir);
         if self.diagnostics.has_errors() {
@@ -1211,7 +1212,7 @@ impl Session {
         if self.diagnostics.has_errors() {
             return None;
         }
-        let (checked, diags) = timed("typecheck", || lang_typeck::check_program(&hir, &self.interner));
+        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
         self.diagnostics.extend(diags);
         let entry = hir.entry?;
         let sym = self.interner.intern(name);
@@ -1529,4 +1530,38 @@ pub fn std_source(name: &str) -> Option<&'static str> {
 /// Names of the standard modules.
 pub fn std_modules() -> Vec<&'static str> {
     lang_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect()
+}
+
+/// Whether the project `path` belongs to is restricted (`[package]
+/// restricted = true`).
+pub fn restricted(path: &Path) -> bool {
+    let root = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        match Session::entry_of(path) {
+            Ok((_, root, _)) => root,
+            Err(_) => return false,
+        }
+    };
+    manifest::Manifest::load(&root.join("lang.toml")).is_ok_and(|m| m.restricted)
+}
+
+/// Type-check, adding the ambient-authority check of restricted projects.
+fn check_typed<'a>(
+    path: &Path,
+    hir: &'a lang_hir::Hir,
+    interner: &'a Interner,
+) -> (lang_typeck::Checked<'a>, Vec<Diagnostic>) {
+    let restricted = restricted(path);
+    if restricted {
+        lang_typeck::set_record_types(true);
+    }
+    let (checked, mut diags) = lang_typeck::check_program(hir, interner);
+    if restricted {
+        lang_typeck::set_record_types(false);
+        if let Some(t) = &checked.types {
+            diags.extend(authority::check(hir, t, interner));
+        }
+    }
+    (checked, diags)
 }

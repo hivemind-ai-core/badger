@@ -1,0 +1,12 @@
+import std.io
+import std.fs
+import worker
+
+/// A wrapper in the entry module: calling it from elsewhere still reaches
+/// ambient authority.
+pub fn load(path: String) -> String { fs.read_text(path).unwrap_or("") }
+
+pub fn main() -> Unit {
+    let _ = io.println(worker.direct())
+    let _ = io.println(worker.indirect())
+}

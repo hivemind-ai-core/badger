@@ -1086,3 +1086,22 @@ fn inlining_removes_helper_calls_and_allocations() {
     assert!(!inlined.contains("Alloc {") && !inlined.contains("Direct(1)"), "{inlined}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Restricted projects: modules other than the entry work through the
+/// capabilities they are given; ambient authority reached directly or
+/// through a wrapper (even one in the entry module) is rejected with its path.
+#[test]
+fn restricted_projects() {
+    let out = lang().args(["run", "tests/projects/restricted"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "stock: 3 apples\n");
+    let out = lang().args(["check", "--json", "tests/projects/restricted_bypass"]).output().unwrap();
+    assert!(!out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.contains("`worker.direct` uses ambient authority `env.get`"), "{text}");
+    assert!(
+        text.contains("`worker.indirect` uses ambient authority `fs.read_text` through `main.load`"),
+        "{text}"
+    );
+    assert_eq!(text.matches("E0170").count(), 2, "{text}");
+}
