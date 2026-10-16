@@ -734,6 +734,21 @@ fn compiled_programs_run() {
             .unwrap()
             .success()
     );
+    // saved MIR is optimized as `run --release` optimizes it: a receive
+    // whose result is only examined is split (after inlining)
+    let bc = dir.join("broadcast.langmir");
+    assert!(
+        lang()
+            .arg("compile")
+            .arg(root().join("tests/run/broadcast.lang"))
+            .arg("-o")
+            .arg(&bc)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let saved = std::fs::read(&bc).unwrap();
+    assert!(saved.windows(25).any(|w| w == b"lang_rt_i_chan_recv_split"), "saved MIR is not MIR-optimized");
     // a project: its saved worker count and configuration are used
     let bin = dir.join("multicore.langmir");
     assert!(lang().args(["compile", "tests/projects/multicore", "-o"]).arg(&bin).status().unwrap().success());

@@ -181,7 +181,9 @@ error. `lang_cli` is the `lang` binary.
   recorded by how they were made, as a constant pool; loading makes them
   anew and patches the program, so `lang run FILE.langmir` only generates
   code. The file also carries the effective configuration and runtime
-  settings.
+  settings. Saved programs get the MIR optimizations of `run --release`
+  (inlining, split receives); `lang run FILE.langmir --release` then
+  optimizes code generation.
 
 - MIR is a CFG per function instance with typed representations (`I8..I64`,
   `F32/F64`, `Ptr`). Integer arithmetic, conversions, shifts, and indexing are

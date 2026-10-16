@@ -319,7 +319,9 @@ fn main() -> ExitCode {
             }
         }
         Command::Compile { path, output, profile, workers } => {
-            let opts = lang_driver::RunOptions { profile, workers, ..Default::default() };
+            // saved programs get the MIR optimizations of `run --release`
+            // (code generation then optimizes as `lang run` is told)
+            let opts = lang_driver::RunOptions { profile, workers, optimize: true, ..Default::default() };
             match session.compile_binary(&path, &opts) {
                 Ok(bytes) => {
                     let out = output.unwrap_or_else(|| default_binary_name(&path));
