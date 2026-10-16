@@ -51,5 +51,6 @@ std_modules![
     "array",
     "schema",
     "compiler",
-    "fetch"
+    "fetch",
+    "jobs"
 ];

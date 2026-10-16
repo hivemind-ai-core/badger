@@ -22,6 +22,8 @@ an HTTP framework on a CLI program.
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |
 | `std.http`, `std.route` | Request/reply adapters, interceptors, typed routing descriptions |
 | `std.sqlite` | A blessed embedded storage adapter and scoped transactions |
+| `std.jobs` | Durable single-host jobs on SQLite: deduplicated ingestion, fenced step transitions with an outbox, receipts, explicit uncertainty |
+| `std.fetch` | Outbound HTTP(S) requests and origin-bound clients |
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
@@ -55,6 +57,28 @@ Region/effect parameters not written here are retained by the actual signature.
   cancellation. Its result includes begin/commit/rollback failures without
   discarding the callback's error. The callback error accepts direct conversions
   from `sqlite.Error`. Concurrent operations on one transaction are not implied.
+- `jobs.open(path)` opens a job store in a SQLite file. `submit(kind, event,
+  version, state, max_attempts)` ingests an event once per key (`created` or
+  `duplicate`) as job `kind:event` with a `Codec` state. `claim(kind,
+  owner, lease)` takes a due job (a ready one whose timer has passed, or a
+  running one whose lease expired, which counts as a failed attempt) and
+  bumps its fence. `advance(claim, step, version, state, next, sends)`
+  commits the new state, what happens next (`again`, `after(delay)`,
+  `done`, `failed(reason)`), and outbox operations (idempotent by key; a
+  key reused with another payload is an error) in one transaction that
+  fails with `:jobs/lease_lost` or `:jobs/cancelled` when the claim no
+  longer holds. `retry` records a failed attempt with a backoff; `cancel`
+  fences out the worker and cancels unsent operations. `dispatch(kind,
+  limit, timeout, send)` marks each pending operation `sending` (committed)
+  before calling `send`, which returns `confirmed(receipt)`,
+  `rejected(reason)`, `not_sent(reason)`, or `uncertain(reason)`; an
+  operation still `sending` past its deadline becomes `uncertain` and is
+  never resent automatically: `reconcile(kind, check)` asks the destination
+  by key, and `resolve(key, outcome)` records an operator's decision.
+  `migrate` rewrites unfinished jobs' state to a new version; `job`,
+  `jobs`, `history`, `operations`, `count`, and `backup` (`VACUUM INTO`)
+  inspect and copy the store. In restricted projects `jobs.open` is ambient
+  authority; a `Store` is a capability.
 - `http.server` takes `{address: String, port: U16, handler: Handler}` and
   returns a managed server. It owns sibling request scopes and bounded admission.
   A handler is checked under a fresh request region and may capture a longer-lived
@@ -118,7 +142,7 @@ references (E0170, with the path). Other modules are given capabilities by
 the entry, such as `fs.Dir` (a directory tree; `Dir.reader` narrows it to a
 read-only `fs.ReadDir`), `env.Vars` (named environment variables),
 `process.Runner` (named programs), `fetch.Client` (outbound HTTP to one
-origin), or an open `sqlite.Pool`, so their parameter types state what they
+origin), an open `jobs.Store`, or an open `sqlite.Pool`, so their parameter types state what they
 may touch.
 Capabilities have private fields and are made only by their providers.
 

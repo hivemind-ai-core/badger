@@ -1,0 +1,30 @@
+submit created: order:e1
+again duplicate: order:e1
+claimed order:e1 at submitted amount 120
+nothing else due true
+fence true step priced
+conflict jobs/operation_conflict
+operations 1
+stale jobs/lease_lost
+expired lease: jobs/lease_lost; retaken with 1 failed attempt(s)
+retry true
+retry false
+failed after 3 attempts: destination down
+cancel true again false
+cancelled worker jobs/cancelled
+before the timer true
+after the timer waiting
+dispatched order:e1/charge: confirmed (receipt for order:e1/charge)
+dispatched order:e4/charge: pending (connection refused)
+dispatched order:e4/2/charge: uncertain (timed out after sending)
+redispatched 1: order:e4/charge confirmed
+reconciled uncertain
+operator true confirmed
+migrated 1: version 2 120 EUR
+history submitted ready 
+history submitted running claimed by w1
+history priced ready 
+history priced running claimed by w1
+history charged done 
+done 2 failed 1 cancelled 1 running 1
+confirmed 3 cancelled ops 0

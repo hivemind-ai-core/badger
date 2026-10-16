@@ -1,0 +1,113 @@
+// A charging job split over processes, for crash tests of `std.jobs`:
+// `submit EVENT AMOUNT`, `work [crash]` (crash before committing the step),
+// `dispatch [crash]` (crash after the destination accepted a charge but
+// before its receipt is committed), `reconcile`, and `status`. The store is
+// `JOBS_DB`; the destination is `CHARGES` (an HTTP service that takes
+// `POST /charges` with `KEY AMOUNT` and answers `GET /charges/KEY`).
+import std.io
+import std.env
+import std.fetch
+import std.jobs
+import std.process
+import std.text
+import std.time
+
+struct Order {
+    amount: Int,
+} derive(Codec)
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+fn destination() -> Result<fetch.Client, io.Error> !{Io} {
+    let c = fetch.client(env.get("CHARGES").unwrap_or("http://127.0.0.1:1"))?
+    ok(c.timeout(time.seconds(2)))
+}
+
+fn send(c: fetch.Client, e: jobs.Entry, crash: Bool) -> jobs.Outcome !{Io, Wait} {
+    match c.post("/charges", $"{e.key} {e.payload}", "text/plain") {
+        .ok(reply) => {
+            if crash {
+                process.exit(9)
+            }
+            if reply.status == 201 {
+                jobs.Outcome.confirmed(reply.body)
+            } else {
+                jobs.Outcome.rejected($"status {reply.status}")
+            }
+        },
+        .err(e) => {
+            if e.kind == :io/connection_failed {
+                jobs.Outcome.not_sent($"{e}")
+            } else {
+                jobs.Outcome.uncertain($"{e}")
+            }
+        },
+    }
+}
+
+fn check(c: fetch.Client, e: jobs.Entry) -> jobs.Outcome !{Io, Wait} {
+    match c.get($"/charges/{e.key}") {
+        .ok(reply) => {
+            if reply.status == 200 {
+                jobs.Outcome.confirmed(reply.body)
+            } else if reply.status == 404 {
+                jobs.Outcome.not_sent("the destination has no such charge")
+            } else {
+                jobs.Outcome.uncertain($"status {reply.status}")
+            }
+        },
+        .err(e) => jobs.Outcome.uncertain($"{e}"),
+    }
+}
+
+pub fn main(args: List<String>) -> Result<Unit, jobs.Error> {
+    let store = jobs.open(env.get("JOBS_DB").unwrap_or("jobs.db"))?
+    let mode = args.first().unwrap_or("status")
+    let crash = args.get(1).unwrap_or("") == "crash"
+    if mode == "submit" {
+        let amount = text.parse_int(args.get(2).unwrap_or("0")).unwrap_or(0)
+        let o: Order = { amount: amount }
+        say($"{store.submit("order", args.get(1).unwrap_or(""), 1, o, 3)?}")
+    } else if mode == "work" {
+        match store.claim("order", $"worker {process.id()}", time.millis(4000))? {
+            .none => say("nothing due"),
+            .some(c) => {
+                let o: Order = c.state()?
+                if crash {
+                    process.exit(9)
+                }
+                let charge: jobs.Send = { key: $"{c.id}/charge", kind: "charge", payload: $"{o.amount}" }
+                store.advance(c, "charged", 1, o, jobs.Next.done, [charge])?
+                say($"{c.id} decided after {c.attempts} failed attempt(s)")
+            },
+        }
+    } else if mode == "dispatch" || mode == "reconcile" {
+        let c = match destination() {
+            .ok(c) => c,
+            .err(e) => {
+                say($"{e}")
+                return ok(())
+            },
+        }
+        let handled = if mode == "dispatch" {
+            store.dispatch("charge", 10, time.millis(200), fn(e) { send(c, e, crash) })?
+        } else {
+            store.reconcile("charge", fn(e) { check(c, e) })?
+        }
+        for e in handled {
+            say($"{e.key}: {e.status} {e.receipt.unwrap_or("")}")
+        }
+    } else {
+        for status in ["ready", "running", "done", "failed"] {
+            for j in store.jobs(status)? {
+                say($"job {j.id} {j.status} {j.step} attempts {j.attempts}")
+            }
+        }
+        for status in ["pending", "sending", "uncertain", "confirmed", "rejected"] {
+            for e in store.operations(status)? {
+                say($"operation {e.key} {e.status} {e.receipt.unwrap_or("")} sent {e.attempts}x")
+            }
+        }
+    }
+    ok(())
+}

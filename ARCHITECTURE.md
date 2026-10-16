@@ -64,7 +64,7 @@ error. `lang_cli` is the `lang` binary.
   stage runners), `system { ... }` (topologically ordered nodes with typed
   `ref(:key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [:keys])` (a typed output projection).
-- **Standard library.** `crates/lang_hir/std/*.lang` (40 modules) are ordinary
+- **Standard library.** `crates/lang_hir/std/*.lang` (42 modules) are ordinary
   language modules. A program loads the core modules (the prelude,
   collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
@@ -320,6 +320,16 @@ error. `lang_cli` is the `lang` binary.
   output;
   environment and profile configuration; a bounded trace sink whose overload
   is reported separately.
+- **Durable jobs** (`crates/lang_hir/std/jobs.lang`, written in the language
+  over `std.sqlite`): tables for jobs (state as `Codec` JSON with a version,
+  status, step, attempts, run-at time, owner, lease deadline, fence),
+  ingested event keys, outbox operations (unique key, status, receipt,
+  send deadline), and transition history; WAL journal with synchronous
+  FULL. Each operation is one transaction; transitions are conditional
+  updates on the claim's fence and lease, so a worker that lost its claim
+  commits nothing. Dispatch commits `sending` before calling the adapter;
+  an operation found `sending` past its deadline is `uncertain` and goes to
+  reconciliation, never back to sending.
 - **Reproduction bundles** (`crates/lang_runtime/src/repro.rs`): external
   intrinsics (fetch, process, fs, env, clocks, OS random seeds) go through
   `repro::external(kind, key, digest, redact, real)`, which in record mode

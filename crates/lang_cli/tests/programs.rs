@@ -1314,3 +1314,89 @@ fn reproduction_bundles() {
     assert!(err.contains("`env API_TOKEN` was redacted"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `std.jobs` across crashes: a worker that dies before committing is
+/// fenced out and its job retaken after the lease; an event is ingested
+/// once; a dispatcher that dies after the destination accepted a charge
+/// leaves it uncertain, so it is reconciled, not charged twice.
+#[test]
+fn durable_jobs_survive_crashes() {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    // the destination: charges by key, each POST counted
+    let charges: Arc<Mutex<HashMap<String, (String, usize)>>> = Arc::default();
+    let ch = charges.clone();
+    let port = http_server(move |method, path, body| {
+        let mut c = ch.lock().unwrap();
+        match (method, path.strip_prefix("/charges")) {
+            ("POST", Some("")) => {
+                let key = body.split(' ').next().unwrap_or("").to_string();
+                let n = c.len() + 1;
+                let entry = c.entry(key).or_insert((format!("charge-{n}"), 0));
+                entry.1 += 1;
+                ("201 Created".into(), String::new(), entry.0.clone())
+            }
+            ("GET", Some(key)) => match c.get(key.trim_start_matches('/')) {
+                Some((receipt, _)) => ("200 OK".into(), String::new(), receipt.clone()),
+                None => ("404 Not Found".into(), String::new(), String::new()),
+            },
+            _ => ("404 Not Found".into(), String::new(), String::new()),
+        }
+    });
+    let dir = std::env::temp_dir().join(format!("lang-jobs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("jobs.db");
+    let run = |args: &[&str]| {
+        let out = lang()
+            .args(["run", "tests/jobs/charge.lang", "--"])
+            .args(args)
+            .env("JOBS_DB", &db)
+            .env("CHARGES", format!("http://127.0.0.1:{port}"))
+            .output()
+            .unwrap();
+        (
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let ok = |r: (Option<i32>, String, String)| {
+        assert_eq!(r.0, Some(0), "{}{}", r.1, r.2);
+        r.1
+    };
+    assert_eq!(ok(run(&["submit", "e1", "100"])), "created: order:e1\n");
+    assert_eq!(ok(run(&["submit", "e1", "100"])), "duplicate: order:e1\n");
+    // a worker dies holding the job: nobody else gets it until the lease
+    // expires, then it is retaken as a failed attempt
+    assert_eq!(run(&["work", "crash"]).0, Some(9));
+    assert_eq!(ok(run(&["work"])), "nothing due\n");
+    std::thread::sleep(std::time::Duration::from_millis(4200));
+    assert_eq!(ok(run(&["work"])), "order:e1 decided after 1 failed attempt(s)\n");
+    assert_eq!(ok(run(&["submit", "e2", "50"])), "created: order:e2\n");
+    assert_eq!(ok(run(&["work"])), "order:e2 decided after 0 failed attempt(s)\n");
+    // the dispatcher dies after the first charge was accepted
+    assert_eq!(run(&["dispatch", "crash"]).0, Some(9));
+    assert_eq!(charges.lock().unwrap()["order:e1/charge"].1, 1);
+    // after its deadline it is uncertain and not sent again; the other is
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(ok(run(&["dispatch"])), "order:e2/charge: confirmed charge-2\n");
+    let status = ok(run(&["status"]));
+    assert!(
+        status.contains("operation order:e1/charge uncertain sending was interrupted sent 1x"),
+        "{status}"
+    );
+    // reconciliation asks the destination by key
+    assert_eq!(ok(run(&["reconcile"])), "order:e1/charge: confirmed charge-1\n");
+    let status = ok(run(&["status"]));
+    assert_eq!(
+        status,
+        "job order:e1 done charged attempts 0\njob order:e2 done charged attempts 0\noperation order:e1/charge confirmed charge-1 sent 1x\noperation order:e2/charge confirmed charge-2 sent 1x\n"
+    );
+    // each charge reached the destination exactly once
+    let c = charges.lock().unwrap();
+    assert_eq!((c.len(), c.values().map(|v| v.1).sum::<usize>()), (2, 2));
+    drop(c);
+    assert_eq!(ok(run(&["dispatch"])), "");
+    let _ = std::fs::remove_dir_all(&dir);
+}

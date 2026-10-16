@@ -1,0 +1,109 @@
+// The durable job library on an in-memory store: deduplicated ingestion,
+// claims, step transitions with outbox operations (idempotent by key),
+// fencing after a lease expires, bounded retries, cancellation, durable
+// timers, dispatch outcomes, reconciliation, operator resolution,
+// migration, and inspection.
+import std.io
+import std.jobs
+import std.time
+
+struct Order {
+    amount: Int,
+} derive(Codec)
+
+struct OrderV2 {
+    amount: Int,
+    currency: String,
+} derive(Codec)
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+fn must<T>(o: Option<T>) -> Result<T, jobs.Error> { o.ok_or({ code: :test/missing, message: "expected a value" }) }
+
+fn charge(id: String, amount: Int) -> jobs.Send { { key: $"{id}/charge", kind: "charge", payload: $"{amount}" } }
+
+fn code<T>(r: Result<T, jobs.Error>) -> String {
+    match r {
+        .ok(_) => "ok",
+        .err(e) => $"{e.code}",
+    }
+}
+
+pub fn main() -> Result<Unit, jobs.Error> {
+    let store = jobs.open(":memory:")?
+    let o: Order = { amount: 120 }
+    say($"submit {store.submit("order", "e1", 1, o, 3)?}")
+    say($"again {store.submit("order", "e1", 1, o, 3)?}")
+    // a step that decides on a charge, then a step that finishes
+    let c = must(store.claim("order", "w1", time.seconds(30))?)?
+    let st: Order = c.state()?
+    say($"claimed {c.id} at {c.step} amount {st.amount}")
+    say($"nothing else due {store.claim("order", "w2", time.seconds(30))?.is_none()}")
+    store.advance(c, "priced", 1, st, jobs.Next.again, [charge(c.id, st.amount)])?
+    let c2 = must(store.claim("order", "w1", time.seconds(30))?)?
+    say($"fence {c2.fence > c.fence} step {c2.step}")
+    // the same operation again is a no-op; a different payload is refused
+    say($"conflict {code(store.advance(c2, "x", 1, st, jobs.Next.done, [charge(c2.id, 999)]))}")
+    store.advance(c2, "charged", 1, st, jobs.Next.done, [charge(c2.id, st.amount)])?
+    say($"operations {store.operations("pending")?.len()}")
+    // an old claim cannot commit
+    say($"stale {code(store.advance(c, "late", 1, st, jobs.Next.done, []))}")
+    // a lease that expires lets another worker take the job
+    store.submit("order", "e2", 1, o, 3)?
+    let short = must(store.claim("order", "w1", time.millis(1))?)?
+    time.sleep(time.millis(20))
+    let taken = must(store.claim("order", "w2", time.seconds(30))?)?
+    say($"expired lease: {code(store.advance(short, "late", 1, st, jobs.Next.done, []))}; retaken with {taken.attempts} failed attempt(s)")
+    say($"retry {store.retry(taken, "destination down", time.millis(0))?}")
+    let last = must(store.claim("order", "w2", time.seconds(30))?)?
+    say($"retry {store.retry(last, "destination down", time.millis(0))?}")
+    let failed = must(store.job("order:e2")?)?
+    say($"{failed.status} after {failed.attempts} attempts: {failed.error.unwrap_or("")}")
+    // cancellation fences out the worker and cancels unsent operations
+    store.submit("order", "e3", 1, o, 3)?
+    let c3 = must(store.claim("order", "w1", time.seconds(30))?)?
+    say($"cancel {store.cancel(c3.id, "customer withdrew")?} again {store.cancel(c3.id, "x")?}")
+    say($"cancelled worker {code(store.advance(c3, "x", 1, st, jobs.Next.done, []))}")
+    // a durable timer
+    store.submit("order", "e4", 1, o, 3)?
+    let c4 = must(store.claim("order", "w1", time.seconds(30))?)?
+    store.advance(c4, "waiting", 1, st, jobs.Next.after(time.millis(1000)), [])?
+    say($"before the timer {store.claim("order", "w1", time.seconds(30))?.is_none()}")
+    time.sleep(time.millis(1100))
+    let c5 = must(store.claim("order", "w1", time.seconds(30))?)?
+    say($"after the timer {c5.step}")
+    store.advance(c5, "charged", 1, st, jobs.Next.done, [charge(c5.id, 5), charge($"{c5.id}/2", 6)])?
+    // dispatch: confirmed, not sent (tried again), uncertain
+    var calls = 0
+    let sent = store.dispatch("charge", 10, time.seconds(5), fn(e) {
+        if e.payload == "5" {
+            jobs.Outcome.not_sent("connection refused")
+        } else if e.payload == "6" {
+            jobs.Outcome.uncertain("timed out after sending")
+        } else {
+            jobs.Outcome.confirmed($"receipt for {e.key}")
+        }
+    })?
+    for e in sent {
+        say($"dispatched {e.key}: {e.status} ({e.receipt.unwrap_or("")})")
+    }
+    let again = store.dispatch("charge", 10, time.seconds(5), fn(e) { jobs.Outcome.confirmed("second try") })?
+    say($"redispatched {again.len()}: {must(again.first())?.key} {must(again.first())?.status}")
+    // the uncertain one is asked about, not sent again
+    let checked = store.reconcile("charge", fn(e) { jobs.Outcome.uncertain("destination cannot tell") })?
+    say($"reconciled {must(checked.first())?.status}")
+    say($"operator {store.resolve("order:e4/2/charge", jobs.Outcome.confirmed("checked by hand"))?} {must(store.operation("order:e4/2/charge")?)?.status}")
+    // migration of unfinished jobs to a new state version
+    store.submit("order", "e5", 1, o, 3)?
+    let moved = store.migrate("order", 1, 2, fn(old: Order) -> OrderV2 { { amount: old.amount, currency: "EUR" } })?
+    let c6 = must(store.claim("order", "w1", time.seconds(30))?)?
+    let v2: OrderV2 = c6.state()?
+    say($"migrated {moved}: version {c6.version} {v2.amount} {v2.currency}")
+    // inspection
+    for t in store.history("order:e1")? {
+        say($"history {t.step} {t.status} {t.note.unwrap_or("")}")
+    }
+    say($"done {store.count("done")?} failed {store.count("failed")?} cancelled {store.count("cancelled")?} running {store.count("running")?}")
+    say($"confirmed {store.operations("confirmed")?.len()} cancelled ops {store.operations("cancelled")?.len()}")
+    ok(())
+}

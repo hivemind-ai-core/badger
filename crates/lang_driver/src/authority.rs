@@ -26,6 +26,7 @@ const AMBIENT: &[&str] = &[
     "env.args",
     "env.vars",
     "sqlite.open",
+    "jobs.open",
     "http.listen",
     "fetch.get",
     "fetch.post",

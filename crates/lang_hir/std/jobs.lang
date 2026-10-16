@@ -1,0 +1,558 @@
+// Durable jobs on SQLite, for one host: deduplicated ingestion, typed and
+// versioned job state with explicit step transitions, an outbox committed
+// in the same transaction as each transition, worker leases with fencing,
+// dispatch with stable operation keys and persisted receipts, explicit
+// uncertainty, durable timers, bounded retries, cancellation, inspection,
+// state migrations, and backups.
+//
+// Every change is one SQLite transaction (WAL journal, synchronous FULL):
+// a crash leaves the store at the last committed transition. A transition
+// commits only while its worker's lease holds and its fence (a counter
+// bumped by every claim and cancellation) is unchanged, so a worker whose
+// lease expired cannot commit stale state. The dangerous interval, when a
+// destination acted but its receipt is not committed yet, is not hidden: an
+// outbox entry is marked `sending` (committed) before it is sent, and one
+// still `sending` after its send deadline (because the dispatcher crashed or
+// hung) becomes `uncertain`. Uncertain entries are never sent again
+// automatically: `reconcile` asks the destination by operation key, or an
+// operator `resolve`s them. Destinations should treat the operation key as
+// an idempotency key.
+//
+// Errors from SQLite (including a full disk) are returned and roll the
+// transaction back. Not provided: replication or recovery from losing the
+// machine, and persisting anything but `Codec` values (no closures, tasks,
+// channels, or scopes).
+
+import std.prelude
+import std.sqlite
+import std.codec
+import std.time
+
+extern "intrinsic" fn time_wall_nanos() -> Int
+
+/// Wall-clock milliseconds (timers and leases are wall-clock deadlines, so
+/// they survive restarts).
+fn now_ms() -> Int !{Io} { time_wall_nanos() / 1000000 }
+
+/// A job store operation failed: a database error (`code` from SQLite), a
+/// state that does not decode (`:jobs/decode`), a transition by a worker
+/// that lost its claim (`:jobs/lease_lost`) or whose job was cancelled
+/// (`:jobs/cancelled`), an operation key reused with a different payload
+/// (`:jobs/operation_conflict`), or an unknown store layout
+/// (`:jobs/schema`).
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.code}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+}
+
+impl From<sqlite.Error> for Error {
+    fn from(e: sqlite.Error) -> Self { { code: e.code, message: e.message } }
+}
+
+impl From<codec.DecodeError> for Error {
+    fn from(e: codec.DecodeError) -> Self { { code: :jobs/decode, message: $"{e}" } }
+}
+
+fn failure<T>(code: Symbol, message: String) -> Result<T, Error> { err({ code: code, message: message }) }
+
+/// A job store (one SQLite database file; several processes may share it).
+pub struct Store<S: Scope> {
+    pool: sqlite.Pool<S>,
+}
+
+/// Whether `submit` created a job or the event was seen before.
+pub enum Submitted {
+    created(id: String),
+    duplicate(id: String),
+} derive(Display)
+
+/// A job claimed by a worker: its identity, state version, the step it
+/// reached, its failed attempts so far, and the fence its transitions
+/// must match.
+pub struct Claim {
+    pub id: String,
+    pub kind: String,
+    pub version: Int,
+    pub step: String,
+    pub attempts: Int,
+    pub fence: Int,
+    state: String,
+}
+
+impl Claim {
+    /// The job's state (of the claim's `version`).
+    pub fn state<T>(self: &Self) -> Result<T, Error> where T: Codec { ok(codec.decode_text<T>(self.state)?) }
+}
+
+/// What a transition does with the job.
+pub enum Next {
+    /// Ready to be claimed again now.
+    again,
+    /// Ready again after a delay (a durable timer).
+    after(delay: Duration),
+    /// Finished.
+    done,
+    /// Finished unsuccessfully.
+    failed(reason: String),
+}
+
+/// An external operation to dispatch after the transition commits. `key`
+/// identifies it for good (an idempotency key): adding the same key again
+/// (for example from a retried step) does nothing.
+pub struct Send {
+    pub key: String,
+    pub kind: String,
+    pub payload: String,
+}
+
+/// An outbox entry: `pending`, `sending`, `confirmed`, `rejected`,
+/// `uncertain`, or `cancelled`, with the receipt or reason recorded for it.
+pub struct Entry {
+    pub id: Int,
+    pub job: String,
+    pub key: String,
+    pub kind: String,
+    pub payload: String,
+    pub status: String,
+    pub receipt: Option<String>,
+    pub attempts: Int,
+} derive(Codec, Display)
+
+/// What happened to a sent (or checked) operation.
+pub enum Outcome {
+    /// The destination acted; `receipt` is its evidence.
+    confirmed(receipt: String),
+    /// The destination refused it for good.
+    rejected(reason: String),
+    /// It certainly did not reach the destination (send it again later).
+    not_sent(reason: String),
+    /// It may or may not have happened.
+    uncertain(reason: String),
+}
+
+/// A job as stored.
+pub struct Job {
+    pub id: String,
+    pub kind: String,
+    pub version: Int,
+    /// `ready`, `running`, `done`, `failed`, or `cancelled`.
+    pub status: String,
+    pub step: String,
+    pub attempts: Int,
+    pub max_attempts: Int,
+    pub run_at: Int,
+    pub owner: Option<String>,
+    pub error: Option<String>,
+    pub created: Int,
+    pub updated: Int,
+} derive(Codec, Display)
+
+/// One recorded transition of a job.
+pub struct Transition {
+    pub at: Int,
+    pub step: String,
+    pub status: String,
+    pub note: Option<String>,
+} derive(Codec, Display)
+
+struct Version {
+    value: String,
+} derive(Codec)
+
+struct Count {
+    n: Int,
+} derive(Codec)
+
+struct Fenced {
+    status: String,
+    fence: Int,
+} derive(Codec)
+
+struct Stored {
+    id: String,
+    kind: String,
+    version: Int,
+    step: String,
+    attempts: Int,
+    fence: Int,
+    state: String,
+} derive(Codec)
+
+struct Id {
+    id: String,
+} derive(Codec)
+
+struct RowId {
+    id: Int,
+} derive(Codec)
+
+struct Payload {
+    payload: String,
+} derive(Codec)
+
+let schema = [
+    "CREATE TABLE IF NOT EXISTS jobs_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    "INSERT OR IGNORE INTO jobs_meta (key, value) VALUES ('schema', '1')",
+    "CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, kind TEXT NOT NULL, version INTEGER NOT NULL, state TEXT NOT NULL, status TEXT NOT NULL, step TEXT NOT NULL, attempts INTEGER NOT NULL, max_attempts INTEGER NOT NULL, run_at INTEGER NOT NULL, owner TEXT, lease_until INTEGER NOT NULL, fence INTEGER NOT NULL, error TEXT, created INTEGER NOT NULL, updated INTEGER NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS jobs_ready ON jobs (kind, status, run_at)",
+    "CREATE TABLE IF NOT EXISTS jobs_events (key TEXT PRIMARY KEY, job TEXT NOT NULL, received INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS jobs_outbox (id INTEGER PRIMARY KEY, job TEXT NOT NULL, key TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL, receipt TEXT, attempts INTEGER NOT NULL, deadline INTEGER NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS jobs_outbox_status ON jobs_outbox (kind, status, id)",
+    "CREATE TABLE IF NOT EXISTS jobs_history (job TEXT NOT NULL, at INTEGER NOT NULL, step TEXT NOT NULL, status TEXT NOT NULL, note TEXT)",
+    "CREATE INDEX IF NOT EXISTS jobs_history_job ON jobs_history (job, at)",
+]
+
+/// Open (creating if needed) the job store in the SQLite database `path`.
+pub fn open<S: Scope>(path: String) -> Result<Store<S>, Error> !{Io, Wait} {
+    let pool = sqlite.open(path)?
+    sqlite.query(pool, "PRAGMA journal_mode = WAL", [])?
+    sqlite.execute(pool, "PRAGMA synchronous = FULL", [])?
+    sqlite.query(pool, "PRAGMA busy_timeout = 5000", [])?
+    for statement in schema {
+        sqlite.execute(pool, statement, [])?
+    }
+    let v = codec.from_data<Version>(sqlite.query_one(pool, "SELECT value FROM jobs_meta WHERE key = 'schema'", [])?)?
+    if v.value != "1" {
+        return failure(:jobs/schema, $"{path} has job store layout {v.value}; this library reads layout 1")
+    }
+    let s: Store<S> = { pool: pool }
+    ok(s)
+}
+
+fn str(s: String) -> Data { Data.string(s) }
+
+fn int(n: Int) -> Data { Data.int(n) }
+
+fn opt(s: Option<String>) -> Data {
+    match s {
+        .some(v) => Data.string(v),
+        .none => Data.null,
+    }
+}
+
+fn record<C>(tx: C, job: String, at: Int, step: String, status: String, note: Option<String>) -> Result<Unit, Error> !{Io, Wait} where C: sqlite.Connection {
+    sqlite.execute(tx, "INSERT INTO jobs_history (job, at, step, status, note) VALUES (?, ?, ?, ?, ?)", [str(job), int(at), str(step), str(status), opt(note)])?
+    ok(())
+}
+
+/// Why a fenced update changed nothing.
+fn lost<C, T>(tx: C, c: &Claim) -> Result<T, Error> !{Io, Wait} where C: sqlite.Connection {
+    let rows = sqlite.query(tx, "SELECT status, fence FROM jobs WHERE id = ?", [str(c.id)])?
+    match rows.first() {
+        .some(row) => {
+            let f = codec.from_data<Fenced>(row)?
+            if f.status == "cancelled" {
+                failure(:jobs/cancelled, $"job {c.id} was cancelled")
+            } else {
+                failure(:jobs/lease_lost, $"the claim on job {c.id} (fence {c.fence}) is no longer held (now {f.status}, fence {f.fence})")
+            }
+        },
+        .none => failure(:jobs/lease_lost, $"job {c.id} no longer exists"),
+    }
+}
+
+impl<S> Store<S> {
+    /// Ingest an event: create job `kind:event` in its first state, unless
+    /// an event with this key was ingested before (then nothing changes).
+    /// The job may fail `max_attempts` times before it fails for good.
+    pub fn submit<T>(self: &Self, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
+        let id = $"{kind}:{event}"
+        let text = codec.encode_text(state)
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let fresh = sqlite.execute(tx, "INSERT OR IGNORE INTO jobs_events (key, job, received) VALUES (?, ?, ?)", [str(id), str(id), int(t)])?
+        if fresh == 0 {
+            return ok(Submitted.duplicate(id))
+        }
+        sqlite.execute(
+            tx,
+            "INSERT INTO jobs (id, kind, version, state, status, step, attempts, max_attempts, run_at, owner, lease_until, fence, error, created, updated) VALUES (?, ?, ?, ?, 'ready', 'submitted', 0, ?, ?, NULL, 0, 0, NULL, ?, ?)",
+            [str(id), str(kind), int(version), str(text), int(max_attempts), int(t), int(t), int(t)],
+        )?
+        record(tx, id, t, "submitted", "ready", Option.none)?
+        ok(Submitted.created(id))
+    }
+
+    /// Claim the next due job of `kind` for `owner` for `lease`: a ready job
+    /// whose time has come, or a running one whose lease expired (that
+    /// counts as a failed attempt). Each claim bumps the job's fence.
+    pub fn claim(self: &Self, kind: String, owner: String, lease: Duration) -> Result<Option<Claim>, Error> !{Io, Wait} {
+        let t = now_ms()
+        let until = t + time.as_millis(lease)
+        use tx <- sqlite.transaction(self.pool)
+        // expired leases are failed attempts; the last one fails the job
+        let expired = sqlite.query(tx, "SELECT id, kind, version, step, attempts, fence, state FROM jobs WHERE kind = ? AND status = 'running' AND lease_until < ?", [str(kind), int(t)])?
+        for row in expired {
+            let j = codec.from_data<Stored>(row)?
+            sqlite.execute(
+                tx,
+                "UPDATE jobs SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= max_attempts THEN 'failed' ELSE 'ready' END, error = 'lease expired', owner = NULL, fence = fence + 1, updated = ? WHERE id = ? AND fence = ?",
+                [int(t), str(j.id), int(j.fence)],
+            )?
+            record(tx, j.id, t, j.step, "lease expired", Option.some("the worker's lease expired"))?
+        }
+        let rows = sqlite.query(tx, "SELECT id FROM jobs WHERE kind = ? AND status = 'ready' AND run_at <= ? ORDER BY run_at, created LIMIT 1", [str(kind), int(t)])?
+        let id = match rows.first() {
+            .none => return ok(Option.none),
+            .some(row) => codec.from_data<Id>(row)?.id,
+        }
+        sqlite.execute(tx, "UPDATE jobs SET status = 'running', owner = ?, lease_until = ?, fence = fence + 1, updated = ? WHERE id = ? AND status = 'ready'", [str(owner), int(until), int(t), str(id)])?
+        let j = codec.from_data<Stored>(sqlite.query_one(tx, "SELECT id, kind, version, step, attempts, fence, state FROM jobs WHERE id = ?", [str(id)])?)?
+        record(tx, id, t, j.step, "running", Option.some($"claimed by {owner}"))?
+        let c: Claim = { id: j.id, kind: j.kind, version: j.version, step: j.step, attempts: j.attempts, fence: j.fence, state: j.state }
+        ok(Option.some(c))
+    }
+
+    /// Extend a claim's lease (while it is still held).
+    pub fn renew(self: &Self, c: &Claim, lease: Duration) -> Result<Unit, Error> !{Io, Wait} {
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let n = sqlite.execute(tx, "UPDATE jobs SET lease_until = ?, updated = ? WHERE id = ? AND fence = ? AND status = 'running' AND lease_until >= ?", [int(t + time.as_millis(lease)), int(t), str(c.id), int(c.fence), int(t)])?
+        if n == 0 {
+            return lost(tx, c)
+        }
+        ok(())
+    }
+
+    /// Commit a step: the job's new state (of `version`) and step name, what
+    /// happens next, and the external operations it decided on, in one
+    /// transaction that holds only while the claim does. A successful step
+    /// resets the failed-attempt count.
+    pub fn advance<T>(self: &Self, c: &Claim, step: String, version: Int, state: T, next: Next, sends: List<Send>) -> Result<Unit, Error> !{Io, Wait} where T: Codec {
+        let t = now_ms()
+        let text = codec.encode_text(state)
+        let (status, run_at, reason) = match next {
+            .again => ("ready", t, Option.none),
+            .after(d) => ("ready", t + time.as_millis(d), Option.none),
+            .done => ("done", t, Option.none),
+            .failed(r) => ("failed", t, Option.some(r)),
+        }
+        use tx <- sqlite.transaction(self.pool)
+        let n = sqlite.execute(
+            tx,
+            "UPDATE jobs SET state = ?, version = ?, step = ?, status = ?, run_at = ?, error = ?, attempts = 0, owner = NULL, lease_until = 0, updated = ? WHERE id = ? AND fence = ? AND status = 'running' AND lease_until >= ?",
+            [str(text), int(version), str(step), str(status), int(run_at), opt(reason), int(t), str(c.id), int(c.fence), int(t)],
+        )?
+        if n == 0 {
+            return lost(tx, c)
+        }
+        for s in sends {
+            let added = sqlite.execute(
+                tx,
+                "INSERT OR IGNORE INTO jobs_outbox (job, key, kind, payload, status, receipt, attempts, deadline, created, updated) VALUES (?, ?, ?, ?, 'pending', NULL, 0, 0, ?, ?)",
+                [str(c.id), str(s.key), str(s.kind), str(s.payload), int(t), int(t)],
+            )?
+            if added == 0 {
+                let p = codec.from_data<Payload>(sqlite.query_one(tx, "SELECT payload FROM jobs_outbox WHERE key = ?", [str(s.key)])?)?
+                if p.payload != s.payload {
+                    return failure(:jobs/operation_conflict, $"operation {s.key} was already added with a different payload")
+                }
+            }
+        }
+        record(tx, c.id, t, step, status, reason)?
+        ok(())
+    }
+
+    /// Record a failed attempt: the job is ready again after `backoff`, or
+    /// failed for good once it has failed `max_attempts` times. Returns
+    /// whether it will run again.
+    pub fn retry(self: &Self, c: &Claim, error: String, backoff: Duration) -> Result<Bool, Error> !{Io, Wait} {
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let n = sqlite.execute(
+            tx,
+            "UPDATE jobs SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= max_attempts THEN 'failed' ELSE 'ready' END, run_at = ?, error = ?, owner = NULL, lease_until = 0, updated = ? WHERE id = ? AND fence = ? AND status = 'running' AND lease_until >= ?",
+            [int(t + time.as_millis(backoff)), str(error), int(t), str(c.id), int(c.fence), int(t)],
+        )?
+        if n == 0 {
+            return lost(tx, c)
+        }
+        let f = codec.from_data<Fenced>(sqlite.query_one(tx, "SELECT status, fence FROM jobs WHERE id = ?", [str(c.id)])?)?
+        record(tx, c.id, t, c.step, f.status, Option.some(error))?
+        ok(f.status == "ready")
+    }
+
+    /// Cancel a job that has not finished: a worker holding it can no longer
+    /// commit, and its operations not yet sent are cancelled (one already
+    /// sent cannot be taken back). Returns whether it was cancelled.
+    pub fn cancel(self: &Self, id: String, reason: String) -> Result<Bool, Error> !{Io, Wait} {
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let n = sqlite.execute(tx, "UPDATE jobs SET status = 'cancelled', error = ?, owner = NULL, lease_until = 0, fence = fence + 1, updated = ? WHERE id = ? AND status IN ('ready', 'running')", [str(reason), int(t), str(id)])?
+        if n == 0 {
+            return ok(false)
+        }
+        sqlite.execute(tx, "UPDATE jobs_outbox SET status = 'cancelled', updated = ? WHERE job = ? AND status = 'pending'", [int(t), str(id)])?
+        record(tx, id, t, "cancel", "cancelled", Option.some(reason))?
+        ok(true)
+    }
+
+    /// Send pending operations of `kind` (oldest first, at most `limit`)
+    /// with `send`. Each is marked `sending` with a deadline of `timeout`
+    /// (committed) before `send` runs, and its outcome is committed after.
+    /// First, entries still `sending` past their deadline become
+    /// `uncertain`; they are not sent again (see `reconcile`). Returns the
+    /// entries handled, as they ended.
+    pub fn dispatch(self: &Self, kind: String, limit: Int, timeout: Duration, send: fn(Entry) -> Outcome) -> Result<List<Entry>, Error> !{Io, Wait} {
+        let t = now_ms()
+        sqlite.execute(self.pool, "UPDATE jobs_outbox SET status = 'uncertain', receipt = 'sending was interrupted', updated = ? WHERE kind = ? AND status = 'sending' AND deadline < ?", [int(t), str(kind), int(t)])?
+        // the entries pending now (one sent back to pending is not retried
+        // in the same call)
+        let due = sqlite.query(self.pool, "SELECT id FROM jobs_outbox WHERE kind = ? AND status = 'pending' ORDER BY id LIMIT ?", [str(kind), int(limit)])?
+        var handled: List<Entry> = []
+        for row in due {
+            let entry = self.take(codec.from_data<RowId>(row)?.id, timeout)?
+            match entry {
+                .none => (),
+                .some(e) => {
+                    let outcome = send(e)
+                    handled = handled.append(self.settle(e, outcome)?)
+                },
+            }
+        }
+        ok(handled)
+    }
+
+    fn take(self: &Self, id: Int, timeout: Duration) -> Result<Option<Entry>, Error> !{Io, Wait} {
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let rows = sqlite.query(tx, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE id = ? AND status = 'pending'", [int(id)])?
+        let e = match rows.first() {
+            .none => return ok(Option.none),
+            .some(row) => codec.from_data<Entry>(row)?,
+        }
+        sqlite.execute(tx, "UPDATE jobs_outbox SET status = 'sending', attempts = attempts + 1, deadline = ?, updated = ? WHERE id = ? AND status = 'pending'", [int(t + time.as_millis(timeout)), int(t), int(e.id)])?
+        let sending: Entry = { id: e.id, job: e.job, key: e.key, kind: e.kind, payload: e.payload, status: "sending", receipt: e.receipt, attempts: e.attempts + 1 }
+        ok(Option.some(sending))
+    }
+
+    fn settle(self: &Self, e: Entry, outcome: Outcome) -> Result<Entry, Error> !{Io, Wait} {
+        let t = now_ms()
+        let (status, receipt) = match outcome {
+            .confirmed(r) => ("confirmed", r),
+            .rejected(r) => ("rejected", r),
+            .not_sent(r) => ("pending", r),
+            .uncertain(r) => ("uncertain", r),
+        }
+        sqlite.execute(self.pool, "UPDATE jobs_outbox SET status = ?, receipt = ?, updated = ? WHERE id = ? AND status IN ('sending', 'uncertain')", [str(status), str(receipt), int(t), int(e.id)])?
+        let settled: Entry = { id: e.id, job: e.job, key: e.key, kind: e.kind, payload: e.payload, status: status, receipt: Option.some(receipt), attempts: e.attempts }
+        ok(settled)
+    }
+
+    /// Ask the destination about uncertain operations of `kind` (by their
+    /// keys) with `check`, and record what it says; an operation it cannot
+    /// confirm or rule out stays uncertain for an operator to `resolve`.
+    /// `not_sent` sends it again later.
+    pub fn reconcile(self: &Self, kind: String, check: fn(Entry) -> Outcome) -> Result<List<Entry>, Error> !{Io, Wait} {
+        let t = now_ms()
+        sqlite.execute(self.pool, "UPDATE jobs_outbox SET status = 'uncertain', receipt = 'sending was interrupted', updated = ? WHERE kind = ? AND status = 'sending' AND deadline < ?", [int(t), str(kind), int(t)])?
+        let rows = sqlite.query(self.pool, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE kind = ? AND status = 'uncertain' ORDER BY id", [str(kind)])?
+        var out: List<Entry> = []
+        for row in rows {
+            let e = codec.from_data<Entry>(row)?
+            out = out.append(self.settle(e, check(e))?)
+        }
+        ok(out)
+    }
+
+    /// An operator's decision about an uncertain operation.
+    pub fn resolve(self: &Self, key: String, outcome: Outcome) -> Result<Bool, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE key = ? AND status = 'uncertain'", [str(key)])?
+        match rows.first() {
+            .some(row) => {
+                self.settle(codec.from_data<Entry>(row)?, outcome)?
+                ok(true)
+            },
+            .none => ok(false),
+        }
+    }
+
+    /// The outbox entry for an operation key (with its receipt, once sent).
+    pub fn operation(self: &Self, key: String) -> Result<Option<Entry>, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE key = ?", [str(key)])?
+        match rows.first() {
+            .some(row) => ok(Option.some(codec.from_data<Entry>(row)?)),
+            .none => ok(Option.none),
+        }
+    }
+
+    /// Outbox entries with `status` (oldest first).
+    pub fn operations(self: &Self, status: String) -> Result<List<Entry>, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE status = ? ORDER BY id", [str(status)])?
+        var out: List<Entry> = []
+        for row in rows {
+            out = out.append(codec.from_data<Entry>(row)?)
+        }
+        ok(out)
+    }
+
+    /// A job by id.
+    pub fn job(self: &Self, id: String) -> Result<Option<Job>, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT id, kind, version, status, step, attempts, max_attempts, run_at, owner, error, created, updated FROM jobs WHERE id = ?", [str(id)])?
+        match rows.first() {
+            .some(row) => ok(Option.some(codec.from_data<Job>(row)?)),
+            .none => ok(Option.none),
+        }
+    }
+
+    /// Jobs with `status` (oldest first).
+    pub fn jobs(self: &Self, status: String) -> Result<List<Job>, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT id, kind, version, status, step, attempts, max_attempts, run_at, owner, error, created, updated FROM jobs WHERE status = ? ORDER BY created, id", [str(status)])?
+        var out: List<Job> = []
+        for row in rows {
+            out = out.append(codec.from_data<Job>(row)?)
+        }
+        ok(out)
+    }
+
+    /// A job's transitions, oldest first.
+    pub fn history(self: &Self, id: String) -> Result<List<Transition>, Error> !{Io, Wait} {
+        let rows = sqlite.query(self.pool, "SELECT at, step, status, note FROM jobs_history WHERE job = ? ORDER BY rowid", [str(id)])?
+        var out: List<Transition> = []
+        for row in rows {
+            out = out.append(codec.from_data<Transition>(row)?)
+        }
+        ok(out)
+    }
+
+    /// Rewrite the state of every unfinished job of `kind` at version
+    /// `from` with `f`, to version `to`, in one transaction (a job crossing
+    /// a code change either keeps an executor for its old version or is
+    /// migrated). Returns how many jobs changed.
+    pub fn migrate<A, B>(self: &Self, kind: String, from: Int, to: Int, f: fn(A) -> B) -> Result<Int, Error> !{Io, Wait} where A: Codec, B: Codec {
+        let t = now_ms()
+        use tx <- sqlite.transaction(self.pool)
+        let rows = sqlite.query(tx, "SELECT id, kind, version, step, attempts, fence, state FROM jobs WHERE kind = ? AND version = ? AND status IN ('ready', 'running')", [str(kind), int(from)])?
+        var n = 0
+        for row in rows {
+            let j = codec.from_data<Stored>(row)?
+            let old = codec.decode_text<A>(j.state)?
+            let text = codec.encode_text(f(old))
+            sqlite.execute(tx, "UPDATE jobs SET state = ?, version = ?, fence = fence + 1, updated = ? WHERE id = ?", [str(text), int(to), int(t), str(j.id)])?
+            record(tx, j.id, t, j.step, "migrated", Option.some($"version {from} to {to}"))?
+            n = n + 1
+        }
+        ok(n)
+    }
+
+    /// Jobs per status, for monitoring.
+    pub fn count(self: &Self, status: String) -> Result<Int, Error> !{Io, Wait} {
+        let c = codec.from_data<Count>(sqlite.query_one(self.pool, "SELECT count(*) AS n FROM jobs WHERE status = ?", [str(status)])?)?
+        ok(c.n)
+    }
+
+    /// Write a consistent copy of the store to `path` (SQLite `VACUUM
+    /// INTO`; the file must not exist).
+    pub fn backup(self: &Self, path: String) -> Result<Unit, Error> !{Io, Wait} {
+        sqlite.execute(self.pool, "VACUUM INTO ?", [str(path)])?
+        ok(())
+    }
+}

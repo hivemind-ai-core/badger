@@ -108,6 +108,17 @@ called is never allocated:
   `fs.ReadDir`, `env.Vars` (named variables), `process.Runner` (named
   programs), `fetch.Client` (outbound HTTP to one origin), and open
   `sqlite.Pool`s.
+- **Durable jobs** (`std.jobs`, `REAL_WORLD_USE.md` section 7): SQLite
+  job store with deduplicated ingestion, typed versioned state and explicit
+  step transitions committed together with outbox operations, leases with
+  fencing, bounded retries, durable timers, cancellation, dispatch with
+  stable operation keys and receipts, explicit uncertainty with
+  reconciliation and operator resolution, state migration, inspection, and
+  backups. Verified across real process crashes: a worker dying mid-step is
+  fenced out and its job retaken after the lease; an event is ingested
+  once; a dispatcher dying after the destination accepted a charge leaves
+  it uncertain, it is reconciled by key, and each charge reaches the
+  destination exactly once.
 - **Reproduction bundles** (`REAL_WORLD_USE.md` section 6): `lang run
   --record FILE` keeps the program's identity, every external outcome
   (HTTP, subprocesses, files, environment, clocks, random seeds), its
@@ -184,8 +195,8 @@ reproducing programs:
 - Contracts are checked at run time only; nothing is proved statically.
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
-export, agent tooling, directory capabilities, restricted projects, and
-network capabilities, and reproduction bundles are done. Not taken up:
-durable job state and typed SQL; these are product work for a pilot
-application. Bundles do not capture databases or served HTTP (a replay
-that reaches them stops), and they reproduce one worker's schedule.
+export, agent tooling, directory capabilities, restricted projects,
+network capabilities, reproduction bundles, and durable jobs are done. Not
+taken up: typed SQL (queries checked against a schema at compile time).
+Bundles do not capture databases or served HTTP (a replay that reaches them
+stops), and they reproduce one worker's schedule.
