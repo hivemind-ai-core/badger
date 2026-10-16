@@ -617,6 +617,18 @@ fn finalize(p: *mut Header) {
     }
 }
 
+/// Visit every managed object of descriptor `desc` (runtime lock held:
+/// stops the world while it looks; inspection only).
+pub fn for_each_object_of(desc: &'static TypeDesc, f: &mut dyn FnMut(u64)) {
+    crate::task::stop_the_world();
+    for p in all_objects() {
+        if std::ptr::eq(unsafe { (*p).desc }, desc) {
+            f(p as u64);
+        }
+    }
+    crate::task::resume_the_world();
+}
+
 /// Every managed object (while the world is stopped or under the lock in
 /// single-worker mode).
 fn all_objects() -> impl Iterator<Item = *mut Header> {

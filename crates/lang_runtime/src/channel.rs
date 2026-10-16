@@ -28,6 +28,8 @@ pub struct Batch {
 /// ([`data`]). The two never overlap, so no counter or queue is shared
 /// between them unsynchronized.
 pub struct ChanData {
+    /// Creation number (inspection lists channels in creation order).
+    pub seq: u64,
     /// Ownership with several workers: 0 free, 1 held by an unlocked fast
     /// path, 2 claimed by code holding the runtime lock (until it releases
     /// that lock).
@@ -129,17 +131,21 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     d.send_waiters.iter().for_each(|(_, w, _, _, _)| f(*w));
 }
 
-/// Live channels for inspection: object address to sequence number (a map:
-/// a collection finalizing many channels removes each in constant time).
-/// (Its own lock: channels are created without the runtime lock.)
-static REGISTRY: std::sync::Mutex<std::collections::HashMap<u64, u64, rustc_hash::FxBuildHasher>> =
-    std::sync::Mutex::new(std::collections::HashMap::with_hasher(rustc_hash::FxBuildHasher));
+/// Channel numbers for inspection, in creation order.
 static NEXT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// Inspection snapshot of every live channel (JSON array).
 #[allow(static_mut_refs)]
 pub fn snapshot_json() -> String {
-    let mut live: Vec<(u64, u64)> = REGISTRY.lock().unwrap().iter().map(|(&w, &seq)| (seq, w)).collect();
+    // found on the heap: keeping a shared registry of live channels made
+    // creating and finalizing them contend across workers
+    let mut live: Vec<(u64, u64)> = vec![];
+    gc::for_each_object_of(chan_desc(), &mut |w| {
+        let p = unsafe { *(obj(w).payload() as *const *mut ChanData) };
+        if !p.is_null() {
+            live.push((unsafe { (*p).seq }, w));
+        }
+    });
     live.sort_unstable();
     let items: Vec<String> = live
         .iter()
@@ -171,7 +177,6 @@ pub fn snapshot_json() -> String {
 #[allow(static_mut_refs)]
 fn finalize_chan(o: *mut Header) {
     unsafe {
-        REGISTRY.lock().unwrap().remove(&(o as u64));
         (*CLAIMED.0.get()).retain(|w| *w != o as u64);
         let p = (*o).payload() as *mut *mut ChanData;
         if !(*p).is_null() {
@@ -531,6 +536,7 @@ fn admit_sender_fast(d: &mut ChanData) {
 pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: bool) -> u64 {
     let w = gc::alloc(chan_desc(), 8);
     let d = Box::new(ChanData {
+        seq: NEXT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         state: std::sync::atomic::AtomicU8::new(0),
         elem,
         capacity,
@@ -558,9 +564,6 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         staged_at: FxHashMap::default(),
     });
     unsafe { *(obj(w).payload() as *mut *mut ChanData) = Box::into_raw(d) };
-    // registered once complete (inspection may read it from another worker)
-    let seq = NEXT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    REGISTRY.lock().unwrap().insert(w, seq);
     w
 }
 
