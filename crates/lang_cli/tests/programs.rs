@@ -859,3 +859,44 @@ fn sampling_profile() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("[profile]"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A program whose only task is busy still reaches step boundaries for
+/// scheduler work: a remote evaluation answers while it computes.
+#[test]
+fn eval_in_busy_program() {
+    use std::io::Write;
+    use std::time::{Duration, Instant};
+    let dir = std::env::temp_dir().join(format!("lang-busy-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("busy.lang");
+    std::fs::write(
+        &src,
+        "import std.time\npub fn main() -> Unit {\n    let start = time.now()\n    var n = 0\n    while time.now() - start < 20s { n = n + 1 }\n}\n",
+    )
+    .unwrap();
+    let port = 23000 + (std::process::id() % 1000) as u16;
+    let addr = format!("127.0.0.1:{port}");
+    let mut child = lang().args(["run", "--inspect", &addr]).arg(&src).spawn().unwrap();
+    let start = Instant::now();
+    let mut reply = String::new();
+    while start.elapsed() < Duration::from_secs(15) {
+        let mut repl = lang()
+            .args(["repl", "--connect", &addr])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        repl.stdin.take().unwrap().write_all(b"40 + 2\n").unwrap();
+        reply = String::from_utf8_lossy(&repl.wait_with_output().unwrap().stdout).to_string();
+        if reply.contains("42") {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(reply.contains("42"), "{reply}");
+    assert!(start.elapsed() < Duration::from_secs(15));
+}

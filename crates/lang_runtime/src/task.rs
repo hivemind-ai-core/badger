@@ -996,7 +996,10 @@ pub fn yield_now() {
     }
     // make due timers and completed external work runnable (fairness)
     harvest_events();
-    if !has_ready() {
+    // keep running unless another task is ready or scheduler work (an
+    // inspection request, a REPL evaluation, a reload) waits for a step
+    // boundary, which a lone busy task would otherwise never reach
+    if !has_ready() && rt().scheduler_work.is_empty() {
         check_interrupts();
         return;
     }
