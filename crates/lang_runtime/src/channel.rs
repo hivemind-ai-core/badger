@@ -666,8 +666,7 @@ pub fn admission_size(d: &TypeDesc, w: u64) -> usize {
             let b = crate::buffer::data(w);
             let elem = b.elem;
             b.items
-                .clone()
-                .into_iter()
+                .iter()
                 .map(|x| if elem.is_ptr() { admission_size(elem, x) } else { elem.repr().size() as usize })
                 .sum()
         }

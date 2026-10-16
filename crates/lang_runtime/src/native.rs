@@ -550,7 +550,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
             w.u8(tag::LIST);
             w.u32(items.len() as u32);
             for x in items.iter() {
-                encode(elem, *x, w, m)?;
+                encode(elem, x, w, m)?;
             }
         }
         Kind::Opaque { .. } if is_handle_type(d) => {

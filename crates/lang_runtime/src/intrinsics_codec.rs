@@ -462,9 +462,12 @@ pub extern "C" fn inspect_tasks(_ctx: *mut TaskCtx, _t: Targs, ret: *const TypeD
 pub extern "C" fn inspect_heap(_ctx: *mut TaskCtx, _t: Targs, ret: *const TypeDesc) -> u64 {
     let (objects, bytes, collections) = crate::gc::stats();
     let (pause_total, pause_max) = crate::gc::pauses();
+    let (managed_live, external_live) = crate::gc::memory_bytes();
     let j = serde_json::json!({
         "objects": objects,
         "bytes": bytes,
+        "managed_live_bytes": managed_live,
+        "external_live_bytes": external_live,
         "collections": collections,
         "pause_total_ns": pause_total,
         "pause_max_ns": pause_max,

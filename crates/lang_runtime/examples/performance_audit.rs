@@ -27,7 +27,7 @@ fn main() {
             buffer::data(w).items.resize(8_000_000, 42);
             snapshot("8m_byte_elements");
             assert_eq!(buffer::items(w).len(), 8_000_000);
-            assert_eq!(buffer::items(w)[7_999_999], 42);
+            assert_eq!(buffer::items(w).get(7_999_999).unwrap(), 42);
         }
         "prefix" => {
             let d = desc::TypeDesc::new("List<String>", desc::Kind::List { elem: desc::builtin::string() })

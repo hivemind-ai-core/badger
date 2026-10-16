@@ -96,7 +96,7 @@ pub fn eq(d: &TypeDesc, a: u64, b: u64) -> bool {
         Kind::Opaque { .. } => match crate::buffer::array_elem(d) {
             Some(elem) => {
                 let (xa, xb) = (crate::buffer::items(a), crate::buffer::items(b));
-                xa.len() == xb.len() && xa.iter().zip(xb).all(|(x, y)| eq(elem, *x, *y))
+                xa.len() == xb.len() && xa.iter().zip(xb.iter()).all(|(x, y)| eq(elem, x, y))
             }
             None => a == b,
         },
@@ -198,8 +198,8 @@ pub fn hash(d: &TypeDesc, w: u64, h: &mut impl Hasher) {
             let elem = crate::buffer::array_elem(d).expect("array");
             let xs = crate::buffer::items(w);
             h.write_usize(xs.len());
-            for x in xs {
-                hash(elem, *x, h);
+            for x in xs.iter() {
+                hash(elem, x, h);
             }
         }
         _ => h.write_u64(w),

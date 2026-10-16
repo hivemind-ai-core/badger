@@ -190,7 +190,7 @@ pub extern "C" fn lang_rt_list_new(_ctx: *mut TaskCtx, d: u64) -> u64 {
 pub extern "C" fn lang_rt_list_push(_ctx: *mut TaskCtx, list: u64, w: u64) {
     gc::budget_check(8);
     if crate::buffer::is_buffer(list) {
-        crate::buffer::data(list).items.push(w);
+        crate::buffer::push(list, w);
         return crate::gc::barrier(list);
     }
     crate::list::push(list, w)
@@ -256,7 +256,7 @@ pub extern "C" fn lang_rt_list_get(_ctx: *mut TaskCtx, list: u64, i: u64, loc: u
                 str_of(loc).into(),
             );
         }
-        return items[i as usize];
+        return items.get(i as usize).unwrap();
     }
     let n = crate::list::len(list);
     if (i as i64) < 0 || i as usize >= n {

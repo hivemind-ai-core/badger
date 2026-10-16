@@ -131,6 +131,8 @@ fn objects(w: usize) -> &'static mut Vec<*mut Header> {
 static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
 static THRESHOLD: AtomicUsize = AtomicUsize::new(16 << 20);
 static DISABLED: AtomicUsize = AtomicUsize::new(0);
+static EXTERNAL_LIVE: AtomicUsize = AtomicUsize::new(0);
+static EXTERNAL_PRESSURE: AtomicUsize = AtomicUsize::new(0);
 
 fn layout(payload: usize) -> Layout {
     Layout::from_size_align(HEADER + payload.max(8), 8).unwrap()
@@ -268,7 +270,10 @@ impl Drop for Finalized {
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     debug_assert!(!FINALIZING.load(Ordering::Relaxed), "a finalizer allocated");
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
-    let due = || ALLOCATED.load(Ordering::Relaxed) > THRESHOLD.load(Ordering::Relaxed);
+    let due = || {
+        ALLOCATED.load(Ordering::Relaxed).saturating_add(EXTERNAL_PRESSURE.load(Ordering::Relaxed))
+            > THRESHOLD.load(Ordering::Relaxed)
+    };
     if (due() || stress() || chaos) && DISABLED.load(Ordering::Relaxed) == 0 {
         debt_flush();
         if crate::task::holds_lock() {
@@ -329,7 +334,17 @@ fn debt_flush() {
 /// Count memory owned outside the heap by a just-allocated object (map
 /// tries, buffers) toward the next collection.
 pub fn add_pressure(bytes: usize) {
-    ALLOCATED.fetch_add(bytes, Ordering::Relaxed);
+    EXTERNAL_PRESSURE.fetch_add(bytes, Ordering::Relaxed);
+}
+pub fn external_alloc(bytes: usize) {
+    EXTERNAL_LIVE.fetch_add(bytes, Ordering::Relaxed);
+    add_pressure(bytes);
+}
+pub fn external_free(bytes: usize) {
+    EXTERNAL_LIVE.fetch_sub(bytes, Ordering::Relaxed);
+}
+pub fn memory_bytes() -> (usize, usize) {
+    (heap().live, EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
 /// Allocate an object that is never collected (literals, static closures).
@@ -458,8 +473,12 @@ pub fn budget_check(payload: usize) {
         let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
         // (generational: `ALLOCATED` counts since the last collection; else
         // it includes the live data)
-        let since = ALLOCATED.load(Ordering::Relaxed) + owed + payload;
-        let used = if generational() { heap_bytes() + since } else { since };
+        let since = ALLOCATED.load(Ordering::Relaxed).saturating_add(owed).saturating_add(payload);
+        let used = if generational() {
+            heap_bytes().saturating_add(since)
+        } else {
+            since.saturating_add(EXTERNAL_LIVE.load(Ordering::Relaxed))
+        };
         if used > max {
             BUDGET_FULL.store(true, Ordering::Relaxed);
             let locked = crate::task::holds_lock();
@@ -471,7 +490,7 @@ pub fn budget_check(payload: usize) {
             if !locked {
                 crate::task::leave_runtime();
             }
-            if live + payload > max {
+            if live.saturating_add(payload) > max {
                 crate::task::panic_current(
                     format!("heap budget exceeded: {live} bytes live, budget {max} (`heap_max_bytes`)"),
                     String::new(),
@@ -483,7 +502,8 @@ pub fn budget_check(payload: usize) {
 
 /// Bytes of live data at the last collection.
 fn heap_bytes() -> usize {
-    if generational() { OLD_BYTES.load(Ordering::Relaxed) } else { heap().live }
+    (if generational() { OLD_BYTES.load(Ordering::Relaxed) } else { heap().live })
+        .saturating_add(EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
 /// `LANG_GC_GENERATIONAL=0`: every collection is a full one.
@@ -542,6 +562,7 @@ pub fn collect() {
 fn collect_inner() {
     let h = heap();
     h.collections += 1;
+    EXTERNAL_PRESSURE.store(0, Ordering::Relaxed);
     let sticky = generational();
     // (collection stress: a full collection every 16th, so dead old objects
     // do not pile up between the many minor ones)
@@ -909,7 +930,11 @@ pub fn stats() -> (usize, usize, usize) {
     let h = heap();
     let objects = COUNTS.iter().map(|c| c.0.load(Ordering::Relaxed)).sum();
     let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
-    (objects, ALLOCATED.load(Ordering::Relaxed) + owed, h.collections)
+    (
+        objects,
+        ALLOCATED.load(Ordering::Relaxed) + owed + EXTERNAL_PRESSURE.load(Ordering::Relaxed),
+        h.collections,
+    )
 }
 
 /// Each worker's object count, published by the worker itself (others
