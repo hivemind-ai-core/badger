@@ -1707,7 +1707,16 @@ impl Infer<'_, '_> {
                         "Data",
                     ];
                     let user = !self.g.hir.modules[self.g.hir.defs[d].module].is_std;
-                    if !data.contains(&name.as_str()) && !user {
+                    // library types are data when listed, or when they say so
+                    let derived = which == "Codec" && {
+                        let codec = self.b().codec;
+                        match &self.g.hir.defs[d].kind {
+                            lang_hir::DefKind::Struct(sd) => sd.derives.iter().any(|x| x.protocol == codec),
+                            lang_hir::DefKind::Enum(ed) => ed.derives.iter().any(|x| x.protocol == codec),
+                            _ => false,
+                        }
+                    };
+                    if !data.contains(&name.as_str()) && !user && !derived {
                         return Some(false);
                     }
                     // a branded type cannot escape its region through data
