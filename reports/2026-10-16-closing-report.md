@@ -90,6 +90,11 @@ record built only to be passed to a helper is not allocated
   out of it are refused); `Dir.sub` narrows it and `Dir.reader` gives a
   read-only `ReadDir`, so a function's parameter types state what it may
   touch. Private fields keep them from being forged.
+- **Restricted projects** (`[package] restricted = true`): only the entry
+  module may reach ambient authority (filesystem, processes, environment,
+  databases, network, and foreign C functions), directly or through any
+  chain of calls or function references; E0170 names the path. Other
+  modules work through the capabilities the entry hands them.
 
 ## Testing infrastructure
 
@@ -149,8 +154,8 @@ reproducing programs:
 - Contracts are checked at run time only; nothing is proved statically.
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
-export, agent tooling, and a first capability (directories) are done. Not
-taken up: a restricted mode that withholds the ambient filesystem, network,
-and process APIs (without it, capabilities are a discipline rather than a
-guarantee), network capabilities, reproduction bundles, durable job state,
-and typed SQL; these are product work for a pilot application.
+export, agent tooling, directory capabilities, and restricted projects are
+done. Not taken up: capabilities for the network, processes, and databases
+(restricted modules cannot use those at all yet), reproduction bundles,
+durable job state, and typed SQL; these are product work for a pilot
+application.
