@@ -1,6 +1,10 @@
 import std.fs
 import std.env
 import std.fetch
+import std.config
+import std.sqlite
+import std.system
+import std.system.{component}
 import main
 
 pub fn direct() -> String { env.get("HOME").unwrap_or("") }
@@ -15,3 +19,13 @@ pub fn fetching() -> Bool !{Io, Wait} { fetch.get("http://127.0.0.1:1/").is_ok()
 
 // a client handed in is a capability, not ambient authority
 pub fn given(c: fetch.Client) -> Bool !{Io, Wait} { c.get("/").is_ok() }
+
+// standard helpers and providers that reach the environment or a database
+type Settings = { secret_key: String }
+
+pub fn settings() -> Bool { config.from_env<Settings>("").is_ok() }
+
+pub fn database() -> Result<Int, system.Error> {
+    let plan = system { db: component(sqlite.pool, { path: ":memory:" }) }
+    system.run(plan, fn(running) -> Result<Int, system.Error> { ok(1) })
+}

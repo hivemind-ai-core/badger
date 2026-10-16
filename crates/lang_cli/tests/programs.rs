@@ -1113,7 +1113,9 @@ fn restricted_projects() {
         "{text}"
     );
     assert!(text.contains("`worker.fetching` uses ambient authority `fetch.get`"), "{text}");
-    assert_eq!(text.matches("E0170").count(), 4, "{text}");
+    assert!(text.contains("`worker.settings` uses ambient authority `config.from_env`"), "{text}");
+    assert!(text.contains("`worker.database` uses ambient authority `sqlite.pool`"), "{text}");
+    assert_eq!(text.matches("E0170").count(), 6, "{text}");
 }
 
 /// A local HTTP server answering each request with `reply(method, path,

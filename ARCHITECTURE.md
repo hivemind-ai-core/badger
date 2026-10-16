@@ -383,7 +383,11 @@ named `[entries]`, user `[tasks]` (typed functions run by `lang task`), and
 `[dependencies]` as path inline tables with an optional version prefix.
 `[package] restricted = true` confines ambient authority to the entry module
 (`crates/lang_driver/src/authority.rs`: a reachability check over resolved
-calls and function references, reporting the path to the ambient function).
+calls and function references, reporting the path to the ambient function;
+the ambient set is the listed functions plus every standard free function
+or module value, such as a provider, that reaches an OS-facing intrinsic
+through other standard free functions and values; methods act on given
+capabilities and are not ambient).
 Unknown sections and keys are errors. `lang check` and `lang test` cover the
 main entry and every `[entries]` and `[tasks]` module. An entry or task
 function takes no parameters or the arguments as `List<String>`. Dependencies resolve transitively; a module imports
