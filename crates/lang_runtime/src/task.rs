@@ -747,8 +747,8 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         stages: vec![],
     });
     r.tasks.insert(id, t);
-    let co = make_coroutine(id, Body::Entry);
-    task(id).unwrap().co = Some(co);
+    // the coroutine (and its stack) is made when the task first runs, so a
+    // burst of spawns reuses the stacks of tasks that finished meanwhile
     task(id).unwrap().result_is_ptr = result_is_ptr;
     r.ready.push_back(id);
     notify_ready();
@@ -1705,15 +1705,20 @@ fn run_one(id: TaskId) {
         return;
     }
     // a cancelled task that never started does not run
-    if t.ctx.flags & FLAG_CANCEL != 0
-        && t.co.as_ref().is_some_and(|c| !c.started())
-        && t.state == State::Ready
+    if t.ctx.flags & FLAG_CANCEL != 0 && t.co.as_ref().is_none_or(|c| !c.started()) && t.state == State::Ready
     {
         t.pending_exit = Some(Exit::Cancelled);
-        unsafe { t.co.as_mut().unwrap().force_reset() };
+        if let Some(c) = t.co.as_mut() {
+            unsafe { c.force_reset() };
+        }
         start_cleanup(id);
         return;
     }
+    if t.co.is_none() {
+        let co = make_coroutine(id, Body::Entry);
+        task(id).unwrap().co = Some(co);
+    }
+    let t = task(id).unwrap();
     let was_cleaning = t.state == State::Cleaning;
     t.state = if was_cleaning { State::Cleaning } else { State::Running };
     t.ctx.budget = task_budget();
