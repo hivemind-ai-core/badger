@@ -35,3 +35,20 @@ reproducible baseline (writes `NAME.json` and `NAME.md`): compiler phase
 times (`LANG_TIMINGS=1`) for every program and generated programs of 50,
 200, and 800 functions; binary MIR size and load time; and every program's
 `--bench` run time on 1, 2, 4, and 8 workers, as medians of fresh runs.
+
+## Application workload: telemetry indexer
+
+[`telemetry.lang`](telemetry.lang) mixes bounded MPMC ingestion, 256-byte
+payload hashing, spawned enrichment tasks with one-use reply channels, a hot/cold
+cache actor, sharded aggregation, rolling counts, and a concurrent summary sink.
+[`telemetry.py`](telemetry.py) checks an independent oracle and writes throughput,
+worker scaling, latency histograms, peak RSS, heap snapshots, and process counters.
+See [the design and measurement guide](telemetry.md) for profiles and metric limits.
+
+```sh
+python3 bench/telemetry.py --smoke --out /tmp/telemetry-smoke
+python3 bench/telemetry.py --workers 1 2 4 8 --out reports/telemetry/run
+```
+
+This workload has its own runner; `baseline.py` keeps the existing microbenchmark
+suite. `cargo test` checks `telemetry.lang` along with the other benchmark sources.
