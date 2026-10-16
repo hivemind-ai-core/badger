@@ -19,7 +19,7 @@
 
 use std::cell::{Cell, UnsafeCell};
 use std::collections::{BinaryHeap, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -91,12 +91,38 @@ pub enum Signal {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 enum State {
     Ready,
     Running,
     Parked,
     Cleaning,
     Done,
+}
+
+/// A task's state, readable from any worker (channel fast paths check a
+/// waiter's state without the runtime lock; transitions of a parked task
+/// happen under the scheduler queue lock, see [`sched`]).
+struct StateCell(AtomicU8);
+
+impl StateCell {
+    fn new(s: State) -> Self {
+        StateCell(AtomicU8::new(s as u8))
+    }
+
+    fn get(&self) -> State {
+        match self.0.load(Ordering::Acquire) {
+            0 => State::Ready,
+            1 => State::Running,
+            2 => State::Parked,
+            3 => State::Cleaning,
+            _ => State::Done,
+        }
+    }
+
+    fn set(&self, s: State) {
+        self.0.store(s as u8, Ordering::Release);
+    }
 }
 
 /// Why a parked task was woken.
@@ -120,7 +146,7 @@ pub struct Task {
     pub ctx: Box<TaskCtx>,
     co: Option<Co>,
     yielder: *const Yielder<(), Signal>,
-    state: State,
+    state: StateCell,
     pub exit: Option<Exit>,
     /// Closure run by this task (rooted until the task is removed).
     pub entry: u64,
@@ -318,13 +344,15 @@ fn end_wait() {
 /// (or publishing its staged batches on the way), not cancelled.
 pub fn waits(id: TaskId, wait: u64) -> bool {
     task(id).is_some_and(|t| {
-        t.ctx.flags & FLAG_CANCEL == 0 && t.wait_gen == wait && (t.state == State::Parked || t.publishing)
+        t.ctx.flags & FLAG_CANCEL == 0
+            && t.wait_gen == wait
+            && (t.state.get() == State::Parked || t.publishing)
     })
 }
 
 /// Whether a task is parked (waiting to be woken).
 pub fn is_parked(id: TaskId) -> bool {
-    task(id).is_some_and(|t| t.state == State::Parked)
+    task(id).is_some_and(|t| t.state.get() == State::Parked)
 }
 
 pub fn task(id: TaskId) -> Option<&'static mut Task> {
@@ -876,7 +904,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         ctx,
         co: None,
         yielder: std::ptr::null(),
-        state: State::Ready,
+        state: StateCell::new(State::Ready),
         exit: None,
         entry,
         entry_args: vec![],
@@ -1004,7 +1032,7 @@ pub fn park() -> Wake {
     // worker) woke nothing: honor it before waiting, or nothing will
     // (the wait ends exactly when `check_interrupts` abandons it)
     let t = current().unwrap();
-    if t.state != State::Cleaning && t.ctx.flags & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+    if t.state.get() != State::Cleaning && t.ctx.flags & (FLAG_CANCEL | FLAG_FAIL) != 0 {
         end_wait();
     }
     check_interrupts();
@@ -1015,7 +1043,7 @@ pub fn park() -> Wake {
     }
     {
         let t = current().unwrap();
-        t.state = State::Parked;
+        t.state.set(State::Parked);
         t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
@@ -1033,7 +1061,7 @@ pub fn park_shielded() -> Wake {
     }
     {
         let t = current().unwrap();
-        t.state = State::Parked;
+        t.state.set(State::Parked);
         t.wake = Wake::Normal;
     }
     suspend(Signal::Park);
@@ -1058,7 +1086,7 @@ fn publish_current() {
 /// Abandon the current task if cancellation or a child failure is pending.
 pub fn check_interrupts() {
     let t = current().unwrap();
-    if t.state == State::Cleaning {
+    if t.state.get() == State::Cleaning {
         return;
     }
     if t.ctx.flags & FLAG_FAIL != 0 {
@@ -1111,8 +1139,8 @@ fn take_ready() -> Option<TaskId> {
 
 pub fn wake(id: TaskId, reason: Wake) {
     if let Some(t) = task(id) {
-        if t.state == State::Parked {
-            t.state = if t.in_cleanup { State::Cleaning } else { State::Ready };
+        if t.state.get() == State::Parked {
+            t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
             t.wake = reason;
             make_ready(id);
         } else if t.publishing {
@@ -1220,7 +1248,7 @@ pub fn cancel(id: TaskId) {
 
 pub fn cancel_with(id: TaskId, reason: CancelReason) {
     let Some(t) = task(id) else { return };
-    if t.state == State::Done || t.state == State::Cleaning {
+    if t.state.get() == State::Done || t.state.get() == State::Cleaning {
         return;
     }
     if t.ctx.flags & FLAG_CANCEL == 0 {
@@ -1230,11 +1258,11 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
     // tasks waiting for it now wait under the cleanup grace period
     let joiners = t.joiners.clone();
     for j in joiners {
-        if task(j).is_some_and(|x| x.state == State::Parked && x.wait == "join") {
+        if task(j).is_some_and(|x| x.state.get() == State::Parked && x.wait == "join") {
             wake(j, Wake::Normal);
         }
     }
-    if t.state == State::Parked {
+    if t.state.get() == State::Parked {
         wake(id, Wake::Cancelled);
     }
 }
@@ -1242,12 +1270,12 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
 /// Make another task fail at its next safe point (child defect propagation).
 pub fn fail_pending(id: TaskId, info: PanicInfo) {
     let Some(t) = task(id) else { return };
-    if t.state == State::Done || t.state == State::Cleaning || t.pending_exit.is_some() {
+    if t.state.get() == State::Done || t.state.get() == State::Cleaning || t.pending_exit.is_some() {
         return;
     }
     t.ctx.flags |= FLAG_FAIL;
     t.pending_exit = Some(Exit::Failed(info));
-    if t.state == State::Parked {
+    if t.state.get() == State::Parked {
         wake(id, Wake::Cancelled);
     }
 }
@@ -1304,7 +1332,7 @@ pub fn panic_current(message: String, location: String) -> ! {
         enter_runtime_for(reason::DEFECT);
     }
     let t = current().expect("panic outside of a task");
-    if t.state == State::Cleaning {
+    if t.state.get() == State::Cleaning {
         // a failing cleanup: attach to the primary failure and continue
         if let Some(Exit::Failed(p)) = &mut t.pending_exit
             && p.message != message
@@ -1525,11 +1553,11 @@ pub fn post(q: &Arc<ExternalQueue>, e: External) {
 }
 
 pub fn exit_of(id: TaskId) -> Option<Exit> {
-    task(id).and_then(|t| if t.state == State::Done { t.exit.clone() } else { None })
+    task(id).and_then(|t| if t.state.get() == State::Done { t.exit.clone() } else { None })
 }
 
 pub fn is_done(id: TaskId) -> bool {
-    task(id).is_some_and(|t| t.state == State::Done)
+    task(id).is_some_and(|t| t.state.get() == State::Done)
 }
 
 /// Task stack size (`[runtime] task_stack_bytes`, default 8 MiB of address
@@ -1563,7 +1591,7 @@ pub fn await_cancelled(ids: &[TaskId]) {
         let pending: Vec<TaskId> = ids
             .iter()
             .copied()
-            .filter(|id| task(*id).is_some_and(|t| t.state != State::Done && !t.grace_expired))
+            .filter(|id| task(*id).is_some_and(|t| t.state.get() != State::Done && !t.grace_expired))
             .collect();
         if pending.is_empty() {
             return;
@@ -1578,8 +1606,8 @@ pub fn await_cancelled(ids: &[TaskId]) {
             let names: Vec<String> = pending
                 .iter()
                 .map(|id| match task(*id) {
-                    Some(t) if !t.wait.is_empty() => format!("task {id}, {:?} on {}", t.state, t.wait),
-                    Some(t) => format!("task {id}, {:?}", t.state),
+                    Some(t) if !t.wait.is_empty() => format!("task {id}, {:?} on {}", t.state.get(), t.wait),
+                    Some(t) => format!("task {id}, {:?}", t.state.get()),
                     None => format!("task {id}"),
                 })
                 .collect();
@@ -1623,7 +1651,7 @@ pub fn await_task(id: TaskId, shielded: bool) {
         // waiting on a cancelled task is bounded by the cleanup grace period
         if task(id).is_some_and(|t| {
             t.ctx.flags & FLAG_CANCEL != 0
-                || t.state == State::Cleaning
+                || t.state.get() == State::Cleaning
                     && t.pending_exit.as_ref().is_some_and(|e| matches!(e, Exit::Cancelled))
         }) {
             await_cancelled(&[id]);
@@ -1767,7 +1795,7 @@ pub fn run_main(entry: u64) -> Exit {
                 eprintln!(
                     "[sched] task {} {:?} cleanups={} name={}",
                     t.id,
-                    t.state,
+                    t.state.get(),
                     t.cleanups.len(),
                     t.name
                 );
@@ -1778,7 +1806,7 @@ pub fn run_main(entry: u64) -> Exit {
             // every task is parked and nothing can wake them
             let msg = "deadlock: all tasks are blocked".to_string();
             if let Some(t) = task(main)
-                && t.state == State::Parked
+                && t.state.get() == State::Parked
             {
                 fail_pending(main, PanicInfo { message: msg, location: String::new(), notes: vec![] });
                 continue;
@@ -1884,14 +1912,14 @@ fn worker_loop(n: usize) -> Option<Exit> {
             && r.listeners == 0
             && q.queue.lock().unwrap().is_empty()
             && IDLE.load(Ordering::SeqCst) == n - 1
-            && !r.tasks.values().any(|t| t.state == State::Running);
+            && !r.tasks.values().any(|t| t.state.get() == State::Running);
         if quiet && auto_advance() {
             continue;
         }
         if quiet {
             // every task is parked and nothing can wake them
             let msg = "deadlock: all tasks are blocked".to_string();
-            if task(main).is_some_and(|t| t.state == State::Parked) {
+            if task(main).is_some_and(|t| t.state.get() == State::Parked) {
                 fail_pending(main, PanicInfo { message: msg, location: String::new(), notes: vec![] });
                 continue;
             }
@@ -1926,11 +1954,13 @@ fn worker_loop(n: usize) -> Option<Exit> {
 
 fn run_one(id: TaskId) {
     let Some(t) = task(id) else { return };
-    if t.state == State::Done {
+    if t.state.get() == State::Done {
         return;
     }
     // a cancelled task that never started does not run
-    if t.ctx.flags & FLAG_CANCEL != 0 && t.co.as_ref().is_none_or(|c| !c.started()) && t.state == State::Ready
+    if t.ctx.flags & FLAG_CANCEL != 0
+        && t.co.as_ref().is_none_or(|c| !c.started())
+        && t.state.get() == State::Ready
     {
         t.pending_exit = Some(Exit::Cancelled);
         if let Some(c) = t.co.as_mut() {
@@ -1944,8 +1974,8 @@ fn run_one(id: TaskId) {
         task(id).unwrap().co = Some(co);
     }
     let t = task(id).unwrap();
-    let was_cleaning = t.state == State::Cleaning;
-    t.state = if was_cleaning { State::Cleaning } else { State::Running };
+    let was_cleaning = t.state.get() == State::Cleaning;
+    t.state.set(if was_cleaning { State::Cleaning } else { State::Running });
     t.ctx.budget = task_budget();
     set_current(id);
     stat(|w| &w.runs, 1);
@@ -1955,8 +1985,8 @@ fn run_one(id: TaskId) {
     let t = task(id).unwrap();
     match res {
         CoroutineResult::Yield(Signal::Yield) => {
-            if t.state == State::Running {
-                t.state = State::Ready;
+            if t.state.get() == State::Running {
+                t.state.set(State::Ready);
             }
             rt().ready.push_back(id);
             notify_ready();
@@ -1972,7 +2002,7 @@ fn run_one(id: TaskId) {
             }
             unsafe { t.co.as_mut().unwrap().force_reset() };
             t.ctx.shadow = std::ptr::null_mut();
-            if t.state == State::Cleaning {
+            if t.state.get() == State::Cleaning {
                 // a cleanup failed: continue with the remaining cleanups
                 start_cleanup(id);
             } else {
@@ -1980,7 +2010,7 @@ fn run_one(id: TaskId) {
             }
         }
         CoroutineResult::Return(()) => {
-            if t.state == State::Cleaning {
+            if t.state.get() == State::Cleaning {
                 finish(id);
             } else {
                 // normal completion: run any still-registered cleanups
@@ -1998,7 +2028,7 @@ fn run_one(id: TaskId) {
 
 fn start_cleanup(id: TaskId) {
     let t = task(id).unwrap();
-    t.state = State::Cleaning;
+    t.state.set(State::Cleaning);
     t.in_cleanup = true;
     t.ctx.flags &= !(FLAG_CANCEL | FLAG_FAIL);
     t.ctx.shadow = std::ptr::null_mut();
@@ -2040,7 +2070,7 @@ fn finish(id: TaskId) {
     }
     crate::channel::task_finished(id);
     let t = task(id).unwrap();
-    t.state = State::Done;
+    t.state.set(State::Done);
     t.exit = t.pending_exit.take().or(t.exit.take()).or(Some(Exit::Cancelled));
     t.ctx.shadow = std::ptr::null_mut();
     let joiners = std::mem::take(&mut t.joiners);
@@ -2244,7 +2274,7 @@ pub fn snapshot_json() -> String {
     let items: Vec<String> = ts
         .iter()
         .map(|t| {
-            let state = match t.state {
+            let state = match t.state.get() {
                 State::Ready => "ready",
                 State::Running => "running",
                 State::Parked => "parked",
