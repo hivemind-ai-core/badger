@@ -266,6 +266,11 @@ fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Res
     Ok(size)
 }
 
+/// `LANG_DUMP_ASM=name,...` selects functions whose name contains `name`.
+fn f_matches(func: &str, pat: &str) -> bool {
+    !pat.is_empty() && func.contains(pat)
+}
+
 fn code_size(ctx: &Context) -> usize {
     ctx.compiled_code().map_or(0, |c| c.code_info().total_size as usize)
 }
@@ -610,10 +615,20 @@ impl FnCx<'_> {
         if std::env::var("LANG_DUMP_CLIF").is_ok() {
             eprintln!("{}", jit.ctx.func.display());
         }
+        let asm = std::env::var("LANG_DUMP_ASM")
+            .ok()
+            .filter(|pat| pat.is_empty() || pat == "1" || pat.split(',').any(|n| f_matches(&f.name, n)));
+        jit.ctx.set_disasm(asm.is_some());
         jit.module
             .define_function(self.funcs[id], &mut jit.ctx)
             .map_err(|e| CodegenError::Module(format!("{}: {e:?}\n{}", f.name, jit.ctx.func.display())))?;
         let size = code_size(&jit.ctx);
+        if asm.is_some()
+            && let Some(code) = jit.ctx.compiled_code()
+            && let Some(text) = &code.vcode
+        {
+            eprintln!("; {} ({size} bytes)\n{text}", f.name);
+        }
         jit.module.clear_context(&mut jit.ctx);
         let _ = self.call_conv;
         Ok(size)

@@ -387,7 +387,9 @@ collections at random allocations; reproducible on one worker),
 `LANG_DEBUG_INSTANCE` (instances as lowered),
 `LANG_DEBUG_SCHED` (scheduler state on idle), `LANG_DEBUG_LIVE` (reload
 entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
-(seeded scheduling in tests), `LANG_DUMP_CLIF`, and `lang run --dump-mir`.
+(seeded scheduling in tests), `LANG_DUMP_CLIF`, `LANG_DUMP_ASM=NAME,...`
+(machine code of generated functions whose names contain a pattern; `1` for
+all), and `lang run --dump-mir`.
 
 Profiling: `LANG_PROFILE=FILE` samples CPU time at 1 kHz (`SIGPROF`; the
 handler walks frame pointers with fault-tolerant reads) and writes
