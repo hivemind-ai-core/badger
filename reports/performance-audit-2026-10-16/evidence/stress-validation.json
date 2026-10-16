@@ -1,0 +1,59 @@
+{
+  "environment": {
+    "LANG_GC_STRESS": "1",
+    "LANG_GC_VERIFY": "1",
+    "LANG_CHAOS": "20261016"
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes-stress.lang"
+      ],
+      "exit_code": 0,
+      "stdout": "helpers: 133739 ns; check 19800\noptions: 65191 ns; check 9900\nsequence: 305938 ns; check 13266\narray_reads: 130131 ns; check 19900\ncomparisons: 681 ns; check 200\nplain_options: 371 ns; check 9900\nplain_sequence: 481 ns; check 13266\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes-stress.lang"
+      ],
+      "exit_code": 0,
+      "stdout": "helpers: 1142391 ns; check 19800\noptions: 410723 ns; check 9900\nsequence: 2175259 ns; check 13266\narray_reads: 869354 ns; check 19900\ncomparisons: 691 ns; check 200\nplain_options: 381 ns; check 9900\nplain_sequence: 491 ns; check 13266\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--workers",
+        "1",
+        "--release",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes-stress.lang"
+      ],
+      "exit_code": 0,
+      "stdout": "helpers: 10129 ns; check 19800\noptions: 119412 ns; check 9900\nsequence: 382350 ns; check 13266\narray_reads: 167361 ns; check 19900\ncomparisons: 281 ns; check 200\nplain_options: 240 ns; check 9900\nplain_sequence: 311 ns; check 13266\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--workers",
+        "4",
+        "--release",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes-stress.lang"
+      ],
+      "exit_code": 0,
+      "stdout": "helpers: 4559 ns; check 19800\noptions: 1348814 ns; check 9900\nsequence: 1972823 ns; check 13266\narray_reads: 840821 ns; check 19900\ncomparisons: 270 ns; check 200\nplain_options: 321 ns; check 9900\nplain_sequence: 311 ns; check 13266\n",
+      "stderr": ""
+    }
+  ]
+}

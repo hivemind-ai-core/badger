@@ -1,0 +1,345 @@
+{
+  "revision": "ef8d846a3515bd7c8d5bbe46a5e3602bb051c013",
+  "binaries": {
+    "before": {
+      "path": "/tmp/language-before-option-niche-lang",
+      "sha256": "ea838d3cd17ddfcbd0f80ae7fa564833199841b966562ce95715d169626f21c7"
+    },
+    "after": {
+      "path": "/tmp/language-after-option-niche-lang",
+      "sha256": "c75a7f7c451ddc7e2947b956c927efde30995177d73f213de52261a3d705c8bf"
+    }
+  },
+  "source_sha256": "d965d6f078a93ff096f403200b12fc0c5c6bf95c20623c355f3db2d5864beb7d",
+  "runs": [
+    {
+      "mode": "before",
+      "workers": 1,
+      "ns": 13113804,
+      "stdout": "pointer_options_ns=13113804 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 1,
+      "ns": 2373813,
+      "stdout": "pointer_options_ns=2373813 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 2,
+      "ns": 2617485,
+      "stdout": "pointer_options_ns=2617485 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 4,
+      "ns": 12991086,
+      "stdout": "pointer_options_ns=12991086 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 1,
+      "ns": 2358584,
+      "stdout": "pointer_options_ns=2358584 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 2,
+      "ns": 13060976,
+      "stdout": "pointer_options_ns=13060976 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 8,
+      "ns": 13890564,
+      "stdout": "pointer_options_ns=13890564 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 8,
+      "ns": 14096287,
+      "stdout": "pointer_options_ns=14096287 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 1,
+      "ns": 2404790,
+      "stdout": "pointer_options_ns=2404790 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 8,
+      "ns": 2579214,
+      "stdout": "pointer_options_ns=2579214 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 2,
+      "ns": 13386289,
+      "stdout": "pointer_options_ns=13386289 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 4,
+      "ns": 2575818,
+      "stdout": "pointer_options_ns=2575818 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 2,
+      "ns": 13195455,
+      "stdout": "pointer_options_ns=13195455 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 4,
+      "ns": 2593590,
+      "stdout": "pointer_options_ns=2593590 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 4,
+      "ns": 14947866,
+      "stdout": "pointer_options_ns=14947866 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 2,
+      "ns": 3397923,
+      "stdout": "pointer_options_ns=3397923 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 2,
+      "ns": 2613437,
+      "stdout": "pointer_options_ns=2613437 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 8,
+      "ns": 2577231,
+      "stdout": "pointer_options_ns=2577231 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 1,
+      "ns": 13447884,
+      "stdout": "pointer_options_ns=13447884 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 8,
+      "ns": 4358154,
+      "stdout": "pointer_options_ns=4358154 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 2,
+      "ns": 2587900,
+      "stdout": "pointer_options_ns=2587900 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 1,
+      "ns": 2380415,
+      "stdout": "pointer_options_ns=2380415 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 2,
+      "ns": 3252574,
+      "stdout": "pointer_options_ns=3252574 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 2,
+      "ns": 12909476,
+      "stdout": "pointer_options_ns=12909476 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 8,
+      "ns": 2754990,
+      "stdout": "pointer_options_ns=2754990 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 2,
+      "ns": 14983372,
+      "stdout": "pointer_options_ns=14983372 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 8,
+      "ns": 2648703,
+      "stdout": "pointer_options_ns=2648703 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 1,
+      "ns": 15162724,
+      "stdout": "pointer_options_ns=15162724 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 8,
+      "ns": 13016444,
+      "stdout": "pointer_options_ns=13016444 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 4,
+      "ns": 12972692,
+      "stdout": "pointer_options_ns=12972692 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 4,
+      "ns": 2603720,
+      "stdout": "pointer_options_ns=2603720 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 4,
+      "ns": 2600584,
+      "stdout": "pointer_options_ns=2600584 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 8,
+      "ns": 13143239,
+      "stdout": "pointer_options_ns=13143239 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 1,
+      "ns": 2849566,
+      "stdout": "pointer_options_ns=2849566 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 4,
+      "ns": 13106109,
+      "stdout": "pointer_options_ns=13106109 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "after",
+      "workers": 4,
+      "ns": 2563986,
+      "stdout": "pointer_options_ns=2563986 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 4,
+      "ns": 13095049,
+      "stdout": "pointer_options_ns=13095049 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 1,
+      "ns": 13096933,
+      "stdout": "pointer_options_ns=13096933 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 8,
+      "ns": 13834411,
+      "stdout": "pointer_options_ns=13834411 check=7000000\n",
+      "stderr": ""
+    },
+    {
+      "mode": "before",
+      "workers": 1,
+      "ns": 14021288,
+      "stdout": "pointer_options_ns=14021288 check=7000000\n",
+      "stderr": ""
+    }
+  ],
+  "summary": {
+    "before-w1": {
+      "median_ns": 13447884,
+      "min_ns": 13096933,
+      "max_ns": 15162724
+    },
+    "before-w2": {
+      "median_ns": 13195455,
+      "min_ns": 12909476,
+      "max_ns": 14983372
+    },
+    "before-w4": {
+      "median_ns": 13095049,
+      "min_ns": 12972692,
+      "max_ns": 14947866
+    },
+    "before-w8": {
+      "median_ns": 13834411,
+      "min_ns": 13016444,
+      "max_ns": 14096287
+    },
+    "after-w1": {
+      "median_ns": 2380415,
+      "min_ns": 2358584,
+      "max_ns": 2849566
+    },
+    "after-w2": {
+      "median_ns": 2617485,
+      "min_ns": 2587900,
+      "max_ns": 3397923
+    },
+    "after-w4": {
+      "median_ns": 2593590,
+      "min_ns": 2563986,
+      "max_ns": 2603720
+    },
+    "after-w8": {
+      "median_ns": 2648703,
+      "min_ns": 2577231,
+      "max_ns": 4358154
+    }
+  },
+  "note": "Uncontrolled host frequency/activity; five interleaved fresh runs after warmup.",
+  "production_diff": "diff --git a/crates/lang_driver/src/lib.rs b/crates/lang_driver/src/lib.rs\nindex 2a6fd27..90c77c8 100644\n--- a/crates/lang_driver/src/lib.rs\n+++ b/crates/lang_driver/src/lib.rs\n@@ -955,6 +955,7 @@ impl Session {\n             timed(\"inline\", || lang_mir::inline::inline(&mut prog));\n             // receives whose result is only examined skip building it\n             timed(\"split\", || lang_mir::split::split_receives(&mut prog));\n+            timed(\"niche\", || lang_mir::niche::elide_local_options(&mut prog));\n             for e in lang_mir::verify::verify(&prog) {\n                 self.diagnostics\n                     .push(Diagnostic::error(format!(\"internal compiler error: {e}\")).with_code(\"E9001\"));\ndiff --git a/crates/lang_mir/src/lib.rs b/crates/lang_mir/src/lib.rs\nindex db58ced..db06a50 100644\n--- a/crates/lang_mir/src/lib.rs\n+++ b/crates/lang_mir/src/lib.rs\n@@ -10,6 +10,7 @@ pub mod inline;\n pub mod layout;\n pub mod lower;\n pub mod mir;\n+pub mod niche;\n pub mod roots;\n pub mod serial;\n pub mod split;\n",
+  "production_source_sha256": {
+    "crates/lang_mir/src/niche.rs": "99c26e1bf55448c4093a5cda30a4b6f6fd001cedb5ef0ede462782aeb3d7b453",
+    "crates/lang_mir/src/lib.rs": "a0833b55704dbd891321b389b58a47266842f207eba7d3884d92dfc73fd9550b",
+    "crates/lang_driver/src/lib.rs": "8527864f98646920454e2fe92df94a2742e790ed11450a20b8710284b1159a6a"
+  }
+}

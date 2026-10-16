@@ -1,0 +1,3 @@
+# Preserve compiler dumps verbatim, including unnamed-local spacing.
+*.txt -whitespace
+*.mir -whitespace

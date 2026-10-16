@@ -955,6 +955,7 @@ impl Session {
             timed("inline", || lang_mir::inline::inline(&mut prog));
             // receives whose result is only examined skip building it
             timed("split", || lang_mir::split::split_receives(&mut prog));
+            timed("niche", || lang_mir::niche::elide_local_options(&mut prog));
             for e in lang_mir::verify::verify(&prog) {
                 self.diagnostics
                     .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));

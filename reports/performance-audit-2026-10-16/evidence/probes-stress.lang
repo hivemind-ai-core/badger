@@ -1,0 +1,98 @@
+import std.io
+import std.time
+import std.array
+import std.seq
+
+fn area(r: { w: Int, h: Int }) -> Int { r.w * r.h }
+
+fn helpers(n: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        total = total + area({ w: i % 100, h: 2 })
+    }
+    total
+}
+
+fn options(n: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        let x = Option.some(i % 100)
+        total = total + match x { .some(v) => v, .none => 0 }
+    }
+    total
+}
+
+fn plain_options(n: Int) -> Int {
+    var total = 0
+    for i in 0..n { total = total + i % 100 }
+    total
+}
+
+fn plain_sequence(n: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        let x = i * 2
+        if x % 3 == 0 { total = total + x }
+    }
+    total
+}
+
+fn sequence(n: Int) -> Int {
+    seq.range(0, n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).fold(0, fn(a: Int, x: Int) { a + x })
+}
+
+fn array_reads(n: Int) -> Int {
+    let a = array.build(2048, fn(i: Int) { i })
+    var total = 0
+    for i in 0..n {
+        total = total + a.get(i % 2048).unwrap_or(0)
+    }
+    total
+}
+
+fn comparisons(n: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        let a = { x: i, y: i % 7 }
+        let b = { x: i, y: i % 7 }
+        if a == b { total = total + 1 }
+    }
+    total
+}
+
+fn report(name: String, started: Instant, total: Int) -> Result<Unit, io.Error> {
+    io.println($"{name}: {time.as_nanos(time.now() - started)} ns; check {total}")
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 200
+    var t = time.now()
+    let a = helpers(n)
+    report("helpers", t, a)?
+    t = time.now()
+    let b = options(n)
+    report("options", t, b)?
+    t = time.now()
+    let c = sequence(n)
+    report("sequence", t, c)?
+    t = time.now()
+    let d = array_reads(n)
+    report("array_reads", t, d)?
+    t = time.now()
+    let e = comparisons(n)
+    report("comparisons", t, e)?
+    t = time.now()
+    let f = plain_options(n)
+    report("plain_options", t, f)?
+    t = time.now()
+    let g = plain_sequence(n)
+    report("plain_sequence", t, g)?
+    assert(a == 19800)
+    assert(b == 9900)
+    assert(c == 13266)
+    assert(d == 19900)
+    assert(e == n)
+    assert(f == b)
+    assert(g == c)
+    ok(())
+}

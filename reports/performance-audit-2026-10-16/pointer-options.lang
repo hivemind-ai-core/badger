@@ -1,0 +1,21 @@
+import std.io
+import std.time
+
+fn work(n: Int) -> Int {
+    let item = { value: 7 }
+    var total = 0
+    for i in 0..n {
+        let value = if i % 2 == 0 { Option.some(item) } else { Option.none }
+        total = total + match value { .some(v) => v.value, .none => 0 }
+    }
+    total
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let t = time.now()
+    let result = work(2000000)
+    let ns = time.as_nanos(time.now() - t)
+    assert(result == 7000000)
+    io.println($"pointer_options_ns={ns} check={result}")?
+    ok(())
+}

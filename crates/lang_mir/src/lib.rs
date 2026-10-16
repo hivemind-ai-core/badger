@@ -10,6 +10,7 @@ pub mod inline;
 pub mod layout;
 pub mod lower;
 pub mod mir;
+pub mod niche;
 pub mod roots;
 pub mod serial;
 pub mod split;

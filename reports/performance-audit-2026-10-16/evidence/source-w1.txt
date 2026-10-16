@@ -1,0 +1,6618 @@
+fn 0 probes.main ([]) -> ptr
+  0: ptr env
+  1: i64 n
+  2: i64 
+  3: i64 t
+  4: i64 
+  5: i64 a
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i32 
+  10: ptr 
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: i8 
+  15: i8 
+  16: i64 
+  17: i64 
+  18: i64 b
+  19: i64 
+  20: ptr 
+  21: ptr 
+  22: i32 
+  23: ptr 
+  24: ptr 
+  25: ptr 
+  26: ptr 
+  27: i8 
+  28: i8 
+  29: i64 
+  30: i64 
+  31: i64 c
+  32: i64 
+  33: ptr 
+  34: ptr 
+  35: i32 
+  36: ptr 
+  37: ptr 
+  38: ptr 
+  39: ptr 
+  40: i8 
+  41: i8 
+  42: i64 
+  43: i64 
+  44: i64 d
+  45: i64 
+  46: ptr 
+  47: ptr 
+  48: i32 
+  49: ptr 
+  50: ptr 
+  51: ptr 
+  52: ptr 
+  53: i8 
+  54: i8 
+  55: i64 
+  56: i64 
+  57: i64 e
+  58: i64 
+  59: ptr 
+  60: ptr 
+  61: i32 
+  62: ptr 
+  63: ptr 
+  64: ptr 
+  65: ptr 
+  66: i8 
+  67: i8 
+  68: i64 
+  69: i64 
+  70: i64 f
+  71: i64 
+  72: ptr 
+  73: ptr 
+  74: i32 
+  75: ptr 
+  76: ptr 
+  77: ptr 
+  78: ptr 
+  79: i8 
+  80: i8 
+  81: i64 
+  82: i64 
+  83: i64 g
+  84: i64 
+  85: ptr 
+  86: ptr 
+  87: i32 
+  88: ptr 
+  89: ptr 
+  90: ptr 
+  91: ptr 
+  92: i8 
+  93: i8 
+  94: i64 
+  95: i8 
+  96: i64 
+  97: i64 
+  98: i8 
+  99: i64 
+  100: i64 
+  101: i8 
+  102: i64 
+  103: i64 
+  104: i8 
+  105: i64 
+  106: i64 
+  107: i8 
+  108: i64 
+  109: i64 
+  110: i8 
+  111: i64 
+  112: i64 
+  113: i8 
+  114: i64 
+  115: ptr 
+  116: ptr env
+  117: i64 
+  118: ptr env
+  119: i64 
+  120: ptr env
+  121: i64 
+  122: ptr env
+  123: i64 
+  124: ptr env
+  125: i64 
+  126: ptr env
+  127: i64 
+  128: ptr env
+  129: i64 
+  130: ptr env
+  131: i8 
+  132: i8 value
+  133: i8 
+  134: ptr env
+  135: ptr 
+  136: i64 
+  137: i64 
+  138: ptr name
+  139: i64 started
+  140: i64 total
+  141: i64 
+  142: i64 
+  143: i64 
+  144: i64 
+  145: i8 
+  146: i64 
+  147: i64 
+  148: ptr 
+  149: ptr 
+  150: ptr 
+  151: ptr 
+  152: ptr env
+  153: ptr 
+  154: i64 
+  155: i64 
+  156: ptr name
+  157: i64 started
+  158: i64 total
+  159: i64 
+  160: i64 
+  161: i64 
+  162: i64 
+  163: i8 
+  164: i64 
+  165: i64 
+  166: ptr 
+  167: ptr 
+  168: ptr 
+  169: ptr 
+  170: ptr env
+  171: i64 
+  172: i64 n
+  173: ptr 
+  174: ptr 
+  175: i64 
+  176: i64 
+  177: ptr 
+  178: ptr 
+  179: i64 
+  180: i64 
+  181: ptr 
+  182: ptr 
+  183: i64 
+  184: i64 
+  185: i64 
+  186: ptr env
+  187: ptr 
+  188: i64 
+  189: i64 
+  190: ptr name
+  191: i64 started
+  192: i64 total
+  193: i64 
+  194: i64 
+  195: i64 
+  196: i64 
+  197: i8 
+  198: i64 
+  199: i64 
+  200: ptr 
+  201: ptr 
+  202: ptr 
+  203: ptr 
+  204: ptr env
+  205: ptr 
+  206: i64 
+  207: i64 
+  208: ptr name
+  209: i64 started
+  210: i64 total
+  211: i64 
+  212: i64 
+  213: i64 
+  214: i64 
+  215: i8 
+  216: i64 
+  217: i64 
+  218: ptr 
+  219: ptr 
+  220: ptr 
+  221: ptr 
+  222: ptr env
+  223: i64 
+  224: i64 n
+  225: i64 total
+  226: i64 
+  227: i64 
+  228: i64 
+  229: ptr 
+  230: ptr 
+  231: i64 
+  232: i64 
+  233: i64 
+  234: i64 
+  235: i8 
+  236: i8 
+  237: i8 
+  238: i8 
+  239: i8 
+  240: i64 
+  241: i64 i
+  242: i64 
+  243: i64 
+  244: i64 
+  245: i64 
+  246: i64 
+  247: i8 
+  248: i64 
+  249: i64 
+  250: i64 
+  251: i64 
+  252: i64 
+  253: ptr env
+  254: ptr 
+  255: i64 
+  256: i64 
+  257: ptr name
+  258: i64 started
+  259: i64 total
+  260: i64 
+  261: i64 
+  262: i64 
+  263: i64 
+  264: i8 
+  265: i64 
+  266: i64 
+  267: ptr 
+  268: ptr 
+  269: ptr 
+  270: ptr 
+  271: ptr env
+  272: i64 
+  273: ptr env
+  274: i64 
+  275: i64 d
+  276: ptr env
+  277: i64 
+  278: ptr env
+  279: i64 
+  280: i64 d
+  281: ptr env
+  282: ptr 
+  283: i64 
+  284: i64 
+  285: ptr name
+  286: i64 started
+  287: i64 total
+  288: i64 
+  289: i64 
+  290: i64 
+  291: i64 
+  292: i8 
+  293: i64 
+  294: i64 
+  295: ptr 
+  296: ptr 
+  297: ptr 
+  298: ptr 
+  299: ptr env
+  300: i64 
+  301: i64 
+  302: i64 start
+  303: i64 end
+  304: ptr 
+  305: i64 
+  306: i64 
+  307: ptr 
+  308: ptr 
+  309: ptr env
+  310: i64 
+  311: ptr env
+  312: i64 
+  313: i64 d
+  314: ptr env
+  315: i64 
+  316: ptr env
+  317: i64 
+  318: i64 d
+  319: ptr env
+  320: ptr 
+  321: i64 
+  322: i64 
+  323: ptr name
+  324: i64 started
+  325: i64 total
+  326: i64 
+  327: i64 
+  328: i64 
+  329: i64 
+  330: i8 
+  331: i64 
+  332: i64 
+  333: ptr 
+  334: ptr 
+  335: ptr 
+  336: ptr 
+  337: ptr env
+  338: i64 
+  339: ptr env
+  340: i64 
+  341: i64 d
+  342: ptr env
+  343: i64 
+  344: i64 self
+  345: ptr 
+  346: ptr env
+  347: i64 
+  348: i64 self
+  349: ptr 
+  350: ptr env
+  351: i64 
+  352: ptr env
+  353: i64 
+  354: i64 d
+  355: ptr env
+  356: ptr 
+  357: ptr 
+  358: ptr self
+  359: ptr f
+  360: ptr 
+  361: ptr env
+  362: i64 
+  363: i64 self
+  364: ptr 
+  365: ptr env
+  366: i64 
+  367: i64 self
+  368: ptr 
+  369: ptr env
+  370: i64 
+  371: ptr env
+  372: i64 
+  373: i64 d
+  374: ptr env
+  375: i64 
+  376: i64 self
+  377: ptr 
+  378: ptr env
+  379: i64 
+  380: i64 self
+  381: ptr 
+  382: ptr env
+  383: i64 
+  384: i64 self
+  385: ptr 
+  386: ptr env
+  387: i64 
+  388: i64 self
+  389: ptr 
+  390: ptr env
+  391: ptr 
+  392: ptr 
+  393: ptr self
+  394: ptr keep
+  395: ptr 
+  396: ptr env
+  397: ptr 
+  398: ptr 
+  399: ptr items
+  400: ptr f
+  401: ptr 
+  402: i64 
+  403: i64 
+  404: ptr 
+  405: ptr 
+  406: ptr env
+  407: i64 
+  408: i64 self
+  409: ptr 
+  410: ptr env
+  411: i64 
+  412: i64 self
+  413: ptr 
+  414: ptr env
+  415: i64 
+  416: i64 self
+  417: ptr 
+  418: ptr env
+  419: i64 
+  420: i64 self
+  421: ptr 
+  422: ptr env
+  423: ptr 
+  424: ptr value
+  425: ptr 
+  426: ptr 
+  427: ptr env
+  428: ptr 
+  429: ptr value
+  430: ptr 
+  431: ptr 
+  432: ptr env
+  433: i64 
+  434: i64 self
+  435: ptr 
+  436: ptr env
+  437: ptr 
+  438: i64 
+  439: ptr 
+  440: ptr self
+  441: i64 initial
+  442: ptr f
+  443: i64 
+  444: ptr env
+  445: ptr 
+  446: ptr 
+  447: ptr items
+  448: ptr keep
+  449: ptr 
+  450: i64 
+  451: i64 
+  452: ptr 
+  453: ptr 
+  454: ptr env
+  455: ptr 
+  456: ptr value
+  457: ptr 
+  458: ptr 
+  459: ptr env
+  460: ptr 
+  461: ptr value
+  462: ptr 
+  463: ptr 
+  464: ptr env
+  465: i64 
+  466: i64 self
+  467: ptr 
+  468: ptr env
+  469: ptr 
+  470: ptr value
+  471: ptr 
+  472: ptr 
+  473: ptr env
+  474: ptr 
+  475: ptr self
+  476: ptr env
+  477: ptr 
+  478: ptr self
+  479: ptr env
+  480: ptr 
+  481: ptr value
+  482: ptr 
+  483: ptr 
+  484: ptr env
+  485: ptr 
+  486: i64 
+  487: ptr 
+  488: ptr items
+  489: i64 initial
+  490: ptr f
+  491: i64 acc
+  492: ptr 
+  493: ptr 
+  494: ptr 
+  495: ptr 
+  496: ptr 
+  497: ptr 
+  498: i32 
+  499: i64 
+  500: i64 x
+  501: ptr 
+  502: i64 
+  503: i64 
+  504: i8 
+  505: i64 
+  506: ptr env
+  507: ptr 
+  508: ptr self
+  509: ptr env
+  510: ptr 
+  511: ptr self
+  512: ptr env
+  513: ptr 
+  514: ptr value
+  515: ptr 
+  516: ptr 
+  517: ptr env
+  518: ptr 
+  519: ptr self
+  520: ptr env
+  521: ptr 
+  522: ptr self
+  523: ptr env
+  524: i64 
+  525: i64 
+  526: i64 a
+  527: i64 x
+  528: i64 
+  529: i64 
+  530: ptr env
+  531: ptr 
+  532: ptr it
+  533: i64 
+  534: i8 
+  535: ptr env
+  536: ptr 
+  537: ptr self
+  538: i64 
+  539: i64 
+  540: ptr 
+  541: ptr env
+  542: ptr 
+  543: ptr 
+  544: ptr 
+  545: ptr 
+  546: ptr next
+  547: ptr 
+  548: i64 
+  549: i64 
+  550: ptr 
+  551: ptr env
+  552: ptr 
+  553: ptr 
+  554: ptr outer
+  555: ptr inner
+  556: i64 
+  557: i8 
+  558: i8 
+  559: ptr 
+  560: i64 
+  561: i64 
+  562: i64 
+  563: i8 
+  564: ptr env
+  565: ptr 
+  566: ptr 
+  567: ptr 
+  568: ptr 
+  569: ptr 
+  570: ptr 
+  571: i8 
+  572: i32 
+  573: i64 
+  574: i64 x
+  575: ptr 
+  576: i8 
+  577: i8 
+  578: i64 
+  579: ptr 
+  580: i32 
+  581: i64 
+  582: i64 
+  583: i64 
+  584: ptr 
+  585: ptr 
+ 0:
+    Poll
+    Loc { file: 0, line: 68, col: 5 }
+    Assign(1, Use(Const(Int(200000, I64))))
+    Loc { file: 0, line: 69, col: 5 }
+    Assign(116, Use(Const(Addr(0))))
+    Some(Goto(46))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Assign(15, Load { base: Local(8), offset: 8, repr: I8 })
+    Loc { file: 0, line: 72, col: 5 }
+    Assign(118, Use(Const(Addr(0))))
+    Some(Goto(48))
+ 5:
+    Assign(10, Load { base: Local(8), offset: 8, repr: Ptr })
+    Assign(11, Use(Local(10)))
+    Assign(12, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(12), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(12), offset: 8, repr: Ptr, value: Local(11) }
+    Assign(13, Use(Local(12)))
+    Assign(14, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(8), Local(13), Const(Addr(94742145433024))], ret: I8 })
+    Some(Return(Local(13)))
+ 6:
+    Some(Unreachable)
+ 7:
+    Assign(28, Load { base: Local(21), offset: 8, repr: I8 })
+    Loc { file: 0, line: 75, col: 5 }
+    Assign(120, Use(Const(Addr(0))))
+    Some(Goto(50))
+ 8:
+    Assign(23, Load { base: Local(21), offset: 8, repr: Ptr })
+    Assign(24, Use(Local(23)))
+    Assign(25, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(25), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(25), offset: 8, repr: Ptr, value: Local(24) }
+    Assign(26, Use(Local(25)))
+    Assign(27, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(21), Local(26), Const(Addr(94742144910320))], ret: I8 })
+    Some(Return(Local(26)))
+ 9:
+    Some(Unreachable)
+ 10:
+    Assign(41, Load { base: Local(34), offset: 8, repr: I8 })
+    Loc { file: 0, line: 78, col: 5 }
+    Assign(122, Use(Const(Addr(0))))
+    Some(Goto(52))
+ 11:
+    Assign(36, Load { base: Local(34), offset: 8, repr: Ptr })
+    Assign(37, Use(Local(36)))
+    Assign(38, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(38), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(38), offset: 8, repr: Ptr, value: Local(37) }
+    Assign(39, Use(Local(38)))
+    Assign(40, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(34), Local(39), Const(Addr(94742145378048))], ret: I8 })
+    Some(Return(Local(39)))
+ 12:
+    Some(Unreachable)
+ 13:
+    Assign(54, Load { base: Local(47), offset: 8, repr: I8 })
+    Loc { file: 0, line: 81, col: 5 }
+    Assign(124, Use(Const(Addr(0))))
+    Some(Goto(54))
+ 14:
+    Assign(49, Load { base: Local(47), offset: 8, repr: Ptr })
+    Assign(50, Use(Local(49)))
+    Assign(51, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(51), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(51), offset: 8, repr: Ptr, value: Local(50) }
+    Assign(52, Use(Local(51)))
+    Assign(53, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(47), Local(52), Const(Addr(94742144879856))], ret: I8 })
+    Some(Return(Local(52)))
+ 15:
+    Some(Unreachable)
+ 16:
+    Assign(67, Load { base: Local(60), offset: 8, repr: I8 })
+    Loc { file: 0, line: 84, col: 5 }
+    Assign(126, Use(Const(Addr(0))))
+    Some(Goto(56))
+ 17:
+    Assign(62, Load { base: Local(60), offset: 8, repr: Ptr })
+    Assign(63, Use(Local(62)))
+    Assign(64, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(64), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(64), offset: 8, repr: Ptr, value: Local(63) }
+    Assign(65, Use(Local(64)))
+    Assign(66, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(60), Local(65), Const(Addr(94742144894768))], ret: I8 })
+    Some(Return(Local(65)))
+ 18:
+    Some(Unreachable)
+ 19:
+    Assign(80, Load { base: Local(73), offset: 8, repr: I8 })
+    Loc { file: 0, line: 87, col: 5 }
+    Assign(128, Use(Const(Addr(0))))
+    Some(Goto(58))
+ 20:
+    Assign(75, Load { base: Local(73), offset: 8, repr: Ptr })
+    Assign(76, Use(Local(75)))
+    Assign(77, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(77), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(77), offset: 8, repr: Ptr, value: Local(76) }
+    Assign(78, Use(Local(77)))
+    Assign(79, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(73), Local(78), Const(Addr(94742144563728))], ret: I8 })
+    Some(Return(Local(78)))
+ 21:
+    Some(Unreachable)
+ 22:
+    Assign(93, Load { base: Local(86), offset: 8, repr: I8 })
+    Loc { file: 0, line: 90, col: 5 }
+    Assign(94, Use(Local(5)))
+    Assign(95, Cmp { op: Eq, a: Local(94), b: Const(Int(19800000, I64)), ty: I(64, true) })
+    Some(Branch(Local(95), 24, 25))
+ 23:
+    Assign(88, Load { base: Local(86), offset: 8, repr: Ptr })
+    Assign(89, Use(Local(88)))
+    Assign(90, Alloc { desc: 94742144471792, size: 16 })
+    Store { base: Local(90), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(90), offset: 8, repr: Ptr, value: Local(89) }
+    Assign(91, Use(Local(90)))
+    Assign(92, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(86), Local(91), Const(Addr(94742144599120))], ret: I8 })
+    Some(Return(Local(91)))
+ 24:
+    Loc { file: 0, line: 91, col: 5 }
+    Assign(97, Use(Local(18)))
+    Assign(98, Cmp { op: Eq, a: Local(97), b: Const(Int(9900000, I64)), ty: I(64, true) })
+    Some(Branch(Local(98), 27, 28))
+ 25:
+    Assign(96, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742144591040))], ret: I64 })
+    Some(Unreachable)
+ 26:
+    Some(Unreachable)
+ 27:
+    Loc { file: 0, line: 92, col: 5 }
+    Assign(100, Use(Local(31)))
+    Assign(101, Cmp { op: Eq, a: Local(100), b: Const(Int(13333266666, I64)), ty: I(64, true) })
+    Some(Branch(Local(101), 30, 31))
+ 28:
+    Assign(99, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145066704))], ret: I64 })
+    Some(Unreachable)
+ 29:
+    Some(Unreachable)
+ 30:
+    Loc { file: 0, line: 93, col: 5 }
+    Assign(103, Use(Local(44)))
+    Assign(104, Cmp { op: Eq, a: Local(103), b: Const(Int(204226912, I64)), ty: I(64, true) })
+    Some(Branch(Local(104), 33, 34))
+ 31:
+    Assign(102, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145575216))], ret: I64 })
+    Some(Unreachable)
+ 32:
+    Some(Unreachable)
+ 33:
+    Loc { file: 0, line: 94, col: 5 }
+    Assign(106, Use(Local(57)))
+    Assign(107, Cmp { op: Eq, a: Local(106), b: Local(1), ty: I(64, true) })
+    Some(Branch(Local(107), 36, 37))
+ 34:
+    Assign(105, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145490736))], ret: I64 })
+    Some(Unreachable)
+ 35:
+    Some(Unreachable)
+ 36:
+    Loc { file: 0, line: 95, col: 5 }
+    Assign(109, Use(Local(70)))
+    Assign(110, Cmp { op: Eq, a: Local(109), b: Local(18), ty: I(64, true) })
+    Some(Branch(Local(110), 39, 40))
+ 37:
+    Assign(108, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145061232))], ret: I64 })
+    Some(Unreachable)
+ 38:
+    Some(Unreachable)
+ 39:
+    Loc { file: 0, line: 96, col: 5 }
+    Assign(112, Use(Local(83)))
+    Assign(113, Cmp { op: Eq, a: Local(112), b: Local(31), ty: I(64, true) })
+    Some(Branch(Local(113), 42, 43))
+ 40:
+    Assign(111, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145280512))], ret: I64 })
+    Some(Unreachable)
+ 41:
+    Some(Unreachable)
+ 42:
+    Loc { file: 0, line: 97, col: 5 }
+    Assign(130, Use(Const(Addr(0))))
+    Assign(131, Use(Const(Int(0, I8))))
+    Some(Goto(60))
+ 43:
+    Assign(114, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94742145488480))], ret: I64 })
+    Some(Unreachable)
+ 44:
+    Some(Unreachable)
+ 45:
+    Assign(3, Use(Local(2)))
+    Loc { file: 0, line: 70, col: 5 }
+    Assign(4, Call { callee: Direct(3), args: [Local(1)], ret: I64 })
+    Assign(5, Use(Local(4)))
+    Loc { file: 0, line: 71, col: 5 }
+    Assign(6, Use(Local(3)))
+    Assign(134, Use(Const(Addr(0))))
+    Assign(135, Use(Const(Addr(94742145348288))))
+    Assign(136, Use(Local(6)))
+    Assign(137, Use(Local(5)))
+    Some(Goto(63))
+ 46:
+    Assign(117, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(2, Use(Local(117)))
+    Some(Goto(45))
+ 47:
+    Assign(3, Use(Local(16)))
+    Loc { file: 0, line: 73, col: 5 }
+    Assign(17, Call { callee: Direct(5), args: [Local(1)], ret: I64 })
+    Assign(18, Use(Local(17)))
+    Loc { file: 0, line: 74, col: 5 }
+    Assign(19, Use(Local(3)))
+    Assign(152, Use(Const(Addr(0))))
+    Assign(153, Use(Const(Addr(94742145496464))))
+    Assign(154, Use(Local(19)))
+    Assign(155, Use(Local(18)))
+    Some(Goto(71))
+ 48:
+    Assign(119, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(16, Use(Local(119)))
+    Some(Goto(47))
+ 49:
+    Assign(3, Use(Local(29)))
+    Loc { file: 0, line: 76, col: 5 }
+    Assign(170, Use(Const(Addr(0))))
+    Assign(171, Use(Local(1)))
+    Some(Goto(79))
+ 50:
+    Assign(121, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(29, Use(Local(121)))
+    Some(Goto(49))
+ 51:
+    Assign(3, Use(Local(42)))
+    Loc { file: 0, line: 79, col: 5 }
+    Assign(43, Call { callee: Direct(7), args: [Local(1)], ret: I64 })
+    Assign(44, Use(Local(43)))
+    Loc { file: 0, line: 80, col: 5 }
+    Assign(45, Use(Local(3)))
+    Assign(186, Use(Const(Addr(0))))
+    Assign(187, Use(Const(Addr(94742143998112))))
+    Assign(188, Use(Local(45)))
+    Assign(189, Use(Local(44)))
+    Some(Goto(82))
+ 52:
+    Assign(123, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(42, Use(Local(123)))
+    Some(Goto(51))
+ 53:
+    Assign(3, Use(Local(55)))
+    Loc { file: 0, line: 82, col: 5 }
+    Assign(56, Call { callee: Direct(8), args: [Local(1)], ret: I64 })
+    Assign(57, Use(Local(56)))
+    Loc { file: 0, line: 83, col: 5 }
+    Assign(58, Use(Local(3)))
+    Assign(204, Use(Const(Addr(0))))
+    Assign(205, Use(Const(Addr(94742145110752))))
+    Assign(206, Use(Local(58)))
+    Assign(207, Use(Local(57)))
+    Some(Goto(90))
+ 54:
+    Assign(125, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(55, Use(Local(125)))
+    Some(Goto(53))
+ 55:
+    Assign(3, Use(Local(68)))
+    Loc { file: 0, line: 85, col: 5 }
+    Assign(222, Use(Const(Addr(0))))
+    Assign(223, Use(Local(1)))
+    Some(Goto(98))
+ 56:
+    Assign(127, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(68, Use(Local(127)))
+    Some(Goto(55))
+ 57:
+    Assign(3, Use(Local(81)))
+    Loc { file: 0, line: 88, col: 5 }
+    Assign(82, Call { callee: Direct(10), args: [Local(1)], ret: I64 })
+    Assign(83, Use(Local(82)))
+    Loc { file: 0, line: 89, col: 5 }
+    Assign(84, Use(Local(3)))
+    Assign(253, Use(Const(Addr(0))))
+    Assign(254, Use(Const(Addr(94742145322528))))
+    Assign(255, Use(Local(84)))
+    Assign(256, Use(Local(83)))
+    Some(Goto(108))
+ 58:
+    Assign(129, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(81, Use(Local(129)))
+    Some(Goto(57))
+ 59:
+    Some(Return(Local(115)))
+ 60:
+    Assign(132, Use(Local(131)))
+    Assign(133, Use(Local(132)))
+    Assign(115, Use(Const(Addr(94742144539712))))
+    Some(Goto(59))
+ 61:
+    Some(Unreachable)
+ 62:
+    Assign(8, Use(Local(7)))
+    Assign(9, Tag(Local(8)))
+    Some(Switch(Local(9), [(0, 4)], 5))
+ 63:
+    Assign(138, Use(Local(135)))
+    Assign(139, Use(Local(136)))
+    Assign(140, Use(Local(137)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(271, Use(Const(Addr(0))))
+    Some(Goto(116))
+ 64:
+    Some(Unreachable)
+ 65:
+    Some(Unreachable)
+ 66:
+    Some(Unreachable)
+ 67:
+    Assign(146, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 68:
+    Assign(273, Use(Const(Addr(0))))
+    Assign(274, Use(Local(144)))
+    Some(Goto(118))
+ 69:
+    Some(Unreachable)
+ 70:
+    Assign(21, Use(Local(20)))
+    Assign(22, Tag(Local(21)))
+    Some(Switch(Local(22), [(0, 7)], 8))
+ 71:
+    Assign(156, Use(Local(153)))
+    Assign(157, Use(Local(154)))
+    Assign(158, Use(Local(155)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(276, Use(Const(Addr(0))))
+    Some(Goto(121))
+ 72:
+    Some(Unreachable)
+ 73:
+    Some(Unreachable)
+ 74:
+    Some(Unreachable)
+ 75:
+    Assign(164, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 76:
+    Assign(278, Use(Const(Addr(0))))
+    Assign(279, Use(Local(162)))
+    Some(Goto(123))
+ 77:
+    Some(Unreachable)
+ 78:
+    Assign(31, Use(Local(30)))
+    Loc { file: 0, line: 77, col: 5 }
+    Assign(32, Use(Local(3)))
+    Assign(281, Use(Const(Addr(0))))
+    Assign(282, Use(Const(Addr(94742145219328))))
+    Assign(283, Use(Local(32)))
+    Assign(284, Use(Local(31)))
+    Some(Goto(126))
+ 79:
+    Assign(172, Use(Local(171)))
+    Loc { file: 0, line: 41, col: 5 }
+    Assign(299, Use(Const(Addr(0))))
+    Assign(300, Use(Const(Int(0, I64))))
+    Assign(301, Use(Local(172)))
+    Some(Goto(134))
+ 80:
+    Some(Unreachable)
+ 81:
+    Assign(47, Use(Local(46)))
+    Assign(48, Tag(Local(47)))
+    Some(Switch(Local(48), [(0, 13)], 14))
+ 82:
+    Assign(190, Use(Local(187)))
+    Assign(191, Use(Local(188)))
+    Assign(192, Use(Local(189)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(309, Use(Const(Addr(0))))
+    Some(Goto(138))
+ 83:
+    Some(Unreachable)
+ 84:
+    Some(Unreachable)
+ 85:
+    Some(Unreachable)
+ 86:
+    Assign(198, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 87:
+    Assign(311, Use(Const(Addr(0))))
+    Assign(312, Use(Local(196)))
+    Some(Goto(140))
+ 88:
+    Some(Unreachable)
+ 89:
+    Assign(60, Use(Local(59)))
+    Assign(61, Tag(Local(60)))
+    Some(Switch(Local(61), [(0, 16)], 17))
+ 90:
+    Assign(208, Use(Local(205)))
+    Assign(209, Use(Local(206)))
+    Assign(210, Use(Local(207)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(314, Use(Const(Addr(0))))
+    Some(Goto(143))
+ 91:
+    Some(Unreachable)
+ 92:
+    Some(Unreachable)
+ 93:
+    Some(Unreachable)
+ 94:
+    Assign(216, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 95:
+    Assign(316, Use(Const(Addr(0))))
+    Assign(317, Use(Local(214)))
+    Some(Goto(145))
+ 96:
+    Some(Unreachable)
+ 97:
+    Assign(70, Use(Local(69)))
+    Loc { file: 0, line: 86, col: 5 }
+    Assign(71, Use(Local(3)))
+    Assign(319, Use(Const(Addr(0))))
+    Assign(320, Use(Const(Addr(94742145109408))))
+    Assign(321, Use(Local(71)))
+    Assign(322, Use(Local(70)))
+    Some(Goto(148))
+ 98:
+    Poll
+    Assign(224, Use(Local(223)))
+    Loc { file: 0, line: 26, col: 5 }
+    Assign(225, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 27, col: 5 }
+    Assign(226, Use(Const(Int(0, I64))))
+    Assign(227, Convert { a: Local(226), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(228, Convert { a: Local(224), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(229, Use(Const(Int(0, Ptr))))
+    Assign(250, Use(Local(227)))
+    Assign(251, Use(Local(228)))
+    Assign(252, Use(Const(Int(0, I64))))
+    Assign(230, Use(Const(Int(0, Ptr))))
+    Assign(231, Use(Local(250)))
+    Assign(232, Use(Local(251)))
+    Assign(233, Use(Local(252)))
+    Assign(234, Use(Local(231)))
+    Some(Goto(101))
+ 99:
+    Some(Unreachable)
+ 100:
+    Some(Unreachable)
+ 101:
+    Poll
+    Assign(235, Cmp { op: Lt, a: Local(234), b: Local(232), ty: I(64, true) })
+    Assign(236, Cmp { op: Eq, a: Local(234), b: Local(232), ty: I(64, true) })
+    Assign(237, Convert { a: Local(233), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(238, Bin { op: And, a: Local(236), b: Local(237), ty: I(8, false), loc: 0 })
+    Assign(239, Bin { op: Or, a: Local(235), b: Local(238), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(239), 102, 104))
+ 102:
+    Assign(240, Convert { a: Local(234), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(241, Use(Local(240)))
+    Loc { file: 0, line: 27, col: 21 }
+    Assign(242, Use(Local(225)))
+    Assign(243, Use(Local(242)))
+    Assign(244, Use(Local(241)))
+    Assign(245, Bin { op: Rem, a: Local(244), b: Const(Int(100, I64)), ty: I(64, true), loc: 94742145368448 })
+    Assign(246, Bin { op: Add, a: Local(243), b: Local(245), ty: I(64, true), loc: 94742145155104 })
+    Assign(225, Use(Local(246)))
+    Some(Goto(103))
+ 103:
+    Assign(247, Cmp { op: Eq, a: Local(234), b: Local(232), ty: I(64, true) })
+    Some(Branch(Local(247), 104, 106))
+ 104:
+    Loc { file: 0, line: 28, col: 5 }
+    Assign(249, Use(Local(225)))
+    Assign(69, Use(Local(249)))
+    Some(Goto(97))
+ 105:
+    Some(Unreachable)
+ 106:
+    Assign(248, Bin { op: Add, a: Local(234), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(234, Use(Local(248)))
+    Some(Goto(101))
+ 107:
+    Assign(86, Use(Local(85)))
+    Assign(87, Tag(Local(86)))
+    Some(Switch(Local(87), [(0, 22)], 23))
+ 108:
+    Assign(257, Use(Local(254)))
+    Assign(258, Use(Local(255)))
+    Assign(259, Use(Local(256)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(337, Use(Const(Addr(0))))
+    Some(Goto(156))
+ 109:
+    Some(Unreachable)
+ 110:
+    Some(Unreachable)
+ 111:
+    Some(Unreachable)
+ 112:
+    Assign(265, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 113:
+    Assign(339, Use(Const(Addr(0))))
+    Assign(340, Use(Local(263)))
+    Some(Goto(158))
+ 114:
+    Some(Unreachable)
+ 115:
+    Assign(142, Use(Local(141)))
+    Assign(143, Bin { op: Sub, a: Local(142), b: Local(139), ty: I(64, true), loc: 94742145131968 })
+    Assign(144, Use(Local(143)))
+    Assign(145, Cmp { op: Lt, a: Local(144), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(145), 67, 68))
+ 116:
+    Assign(272, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(141, Use(Local(272)))
+    Some(Goto(115))
+ 117:
+    Assign(342, Use(Const(Addr(0))))
+    Assign(343, Use(Local(147)))
+    Some(Goto(161))
+ 118:
+    Assign(275, Use(Local(274)))
+    Assign(147, Use(Local(275)))
+    Some(Goto(117))
+ 119:
+    Some(Unreachable)
+ 120:
+    Assign(160, Use(Local(159)))
+    Assign(161, Bin { op: Sub, a: Local(160), b: Local(157), ty: I(64, true), loc: 94742145131968 })
+    Assign(162, Use(Local(161)))
+    Assign(163, Cmp { op: Lt, a: Local(162), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(163), 75, 76))
+ 121:
+    Assign(277, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(159, Use(Local(277)))
+    Some(Goto(120))
+ 122:
+    Assign(346, Use(Const(Addr(0))))
+    Assign(347, Use(Local(165)))
+    Some(Goto(164))
+ 123:
+    Assign(280, Use(Local(279)))
+    Assign(165, Use(Local(280)))
+    Some(Goto(122))
+ 124:
+    Some(Unreachable)
+ 125:
+    Assign(34, Use(Local(33)))
+    Assign(35, Tag(Local(34)))
+    Some(Switch(Local(35), [(0, 10)], 11))
+ 126:
+    Assign(285, Use(Local(282)))
+    Assign(286, Use(Local(283)))
+    Assign(287, Use(Local(284)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(350, Use(Const(Addr(0))))
+    Some(Goto(167))
+ 127:
+    Some(Unreachable)
+ 128:
+    Some(Unreachable)
+ 129:
+    Some(Unreachable)
+ 130:
+    Assign(293, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 131:
+    Assign(352, Use(Const(Addr(0))))
+    Assign(353, Use(Local(291)))
+    Some(Goto(169))
+ 132:
+    Some(Unreachable)
+ 133:
+    Assign(174, Alloc { desc: 94742145492720, size: 16 })
+    Assign(175, FuncAddr(28))
+    Assign(176, AdapterAddr(28))
+    Store { base: Local(174), offset: 0, repr: I64, value: Local(175) }
+    Store { base: Local(174), offset: 8, repr: I64, value: Local(176) }
+    Assign(355, Use(Const(Addr(0))))
+    Assign(356, Use(Local(173)))
+    Assign(357, Use(Local(174)))
+    Some(Goto(172))
+ 134:
+    Assign(302, Use(Local(300)))
+    Assign(303, Use(Local(301)))
+    Assign(304, Alloc { desc: 94742145683120, size: 32 })
+    Assign(305, FuncAddr(40))
+    Assign(306, AdapterAddr(40))
+    Store { base: Local(304), offset: 0, repr: I64, value: Local(305) }
+    Store { base: Local(304), offset: 8, repr: I64, value: Local(306) }
+    Store { base: Local(304), offset: 16, repr: I64, value: Local(302) }
+    Store { base: Local(304), offset: 24, repr: I64, value: Local(303) }
+    Assign(307, Use(Local(304)))
+    Assign(308, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(308), offset: 0, repr: Ptr, value: Local(307) }
+    Assign(173, Use(Local(308)))
+    Some(Goto(133))
+ 135:
+    Some(Unreachable)
+ 136:
+    Some(Unreachable)
+ 137:
+    Assign(194, Use(Local(193)))
+    Assign(195, Bin { op: Sub, a: Local(194), b: Local(191), ty: I(64, true), loc: 94742145131968 })
+    Assign(196, Use(Local(195)))
+    Assign(197, Cmp { op: Lt, a: Local(196), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(197), 86, 87))
+ 138:
+    Assign(310, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(193, Use(Local(310)))
+    Some(Goto(137))
+ 139:
+    Assign(361, Use(Const(Addr(0))))
+    Assign(362, Use(Local(199)))
+    Some(Goto(176))
+ 140:
+    Assign(313, Use(Local(312)))
+    Assign(199, Use(Local(313)))
+    Some(Goto(139))
+ 141:
+    Some(Unreachable)
+ 142:
+    Assign(212, Use(Local(211)))
+    Assign(213, Bin { op: Sub, a: Local(212), b: Local(209), ty: I(64, true), loc: 94742145131968 })
+    Assign(214, Use(Local(213)))
+    Assign(215, Cmp { op: Lt, a: Local(214), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(215), 94, 95))
+ 143:
+    Assign(315, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(211, Use(Local(315)))
+    Some(Goto(142))
+ 144:
+    Assign(365, Use(Const(Addr(0))))
+    Assign(366, Use(Local(217)))
+    Some(Goto(179))
+ 145:
+    Assign(318, Use(Local(317)))
+    Assign(217, Use(Local(318)))
+    Some(Goto(144))
+ 146:
+    Some(Unreachable)
+ 147:
+    Assign(73, Use(Local(72)))
+    Assign(74, Tag(Local(73)))
+    Some(Switch(Local(74), [(0, 19)], 20))
+ 148:
+    Assign(323, Use(Local(320)))
+    Assign(324, Use(Local(321)))
+    Assign(325, Use(Local(322)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(369, Use(Const(Addr(0))))
+    Some(Goto(182))
+ 149:
+    Some(Unreachable)
+ 150:
+    Some(Unreachable)
+ 151:
+    Some(Unreachable)
+ 152:
+    Assign(331, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 153:
+    Assign(371, Use(Const(Addr(0))))
+    Assign(372, Use(Local(329)))
+    Some(Goto(184))
+ 154:
+    Some(Unreachable)
+ 155:
+    Assign(261, Use(Local(260)))
+    Assign(262, Bin { op: Sub, a: Local(261), b: Local(258), ty: I(64, true), loc: 94742145131968 })
+    Assign(263, Use(Local(262)))
+    Assign(264, Cmp { op: Lt, a: Local(263), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(264), 112, 113))
+ 156:
+    Assign(338, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(260, Use(Local(338)))
+    Some(Goto(155))
+ 157:
+    Assign(374, Use(Const(Addr(0))))
+    Assign(375, Use(Local(266)))
+    Some(Goto(187))
+ 158:
+    Assign(341, Use(Local(340)))
+    Assign(266, Use(Local(341)))
+    Some(Goto(157))
+ 159:
+    Some(Unreachable)
+ 160:
+    Assign(378, Use(Const(Addr(0))))
+    Assign(379, Use(Local(140)))
+    Some(Goto(190))
+ 161:
+    Assign(344, Use(Local(343)))
+    Assign(345, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(344)], ret: Ptr })
+    Assign(148, Use(Local(345)))
+    Some(Goto(160))
+ 162:
+    Some(Unreachable)
+ 163:
+    Assign(382, Use(Const(Addr(0))))
+    Assign(383, Use(Local(158)))
+    Some(Goto(193))
+ 164:
+    Assign(348, Use(Local(347)))
+    Assign(349, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(348)], ret: Ptr })
+    Assign(166, Use(Local(349)))
+    Some(Goto(163))
+ 165:
+    Some(Unreachable)
+ 166:
+    Assign(289, Use(Local(288)))
+    Assign(290, Bin { op: Sub, a: Local(289), b: Local(286), ty: I(64, true), loc: 94742145131968 })
+    Assign(291, Use(Local(290)))
+    Assign(292, Cmp { op: Lt, a: Local(291), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(292), 130, 131))
+ 167:
+    Assign(351, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(288, Use(Local(351)))
+    Some(Goto(166))
+ 168:
+    Assign(386, Use(Const(Addr(0))))
+    Assign(387, Use(Local(294)))
+    Some(Goto(196))
+ 169:
+    Assign(354, Use(Local(353)))
+    Assign(294, Use(Local(354)))
+    Some(Goto(168))
+ 170:
+    Some(Unreachable)
+ 171:
+    Assign(178, Alloc { desc: 94742145689504, size: 16 })
+    Assign(179, FuncAddr(30))
+    Assign(180, AdapterAddr(30))
+    Store { base: Local(178), offset: 0, repr: I64, value: Local(179) }
+    Store { base: Local(178), offset: 8, repr: I64, value: Local(180) }
+    Assign(390, Use(Const(Addr(0))))
+    Assign(391, Use(Local(177)))
+    Assign(392, Use(Local(178)))
+    Some(Goto(199))
+ 172:
+    Assign(358, Use(Local(356)))
+    Assign(359, Use(Local(357)))
+    Assign(396, Use(Const(Addr(0))))
+    Assign(397, Use(Local(358)))
+    Assign(398, Use(Local(359)))
+    Some(Goto(203))
+ 173:
+    Some(Unreachable)
+ 174:
+    Some(Unreachable)
+ 175:
+    Assign(406, Use(Const(Addr(0))))
+    Assign(407, Use(Local(192)))
+    Some(Goto(207))
+ 176:
+    Assign(363, Use(Local(362)))
+    Assign(364, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(363)], ret: Ptr })
+    Assign(200, Use(Local(364)))
+    Some(Goto(175))
+ 177:
+    Some(Unreachable)
+ 178:
+    Assign(410, Use(Const(Addr(0))))
+    Assign(411, Use(Local(210)))
+    Some(Goto(210))
+ 179:
+    Assign(367, Use(Local(366)))
+    Assign(368, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(367)], ret: Ptr })
+    Assign(218, Use(Local(368)))
+    Some(Goto(178))
+ 180:
+    Some(Unreachable)
+ 181:
+    Assign(327, Use(Local(326)))
+    Assign(328, Bin { op: Sub, a: Local(327), b: Local(324), ty: I(64, true), loc: 94742145131968 })
+    Assign(329, Use(Local(328)))
+    Assign(330, Cmp { op: Lt, a: Local(329), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(330), 152, 153))
+ 182:
+    Assign(370, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(326, Use(Local(370)))
+    Some(Goto(181))
+ 183:
+    Assign(414, Use(Const(Addr(0))))
+    Assign(415, Use(Local(332)))
+    Some(Goto(213))
+ 184:
+    Assign(373, Use(Local(372)))
+    Assign(332, Use(Local(373)))
+    Some(Goto(183))
+ 185:
+    Some(Unreachable)
+ 186:
+    Assign(418, Use(Const(Addr(0))))
+    Assign(419, Use(Local(259)))
+    Some(Goto(216))
+ 187:
+    Assign(376, Use(Local(375)))
+    Assign(377, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(376)], ret: Ptr })
+    Assign(267, Use(Local(377)))
+    Some(Goto(186))
+ 188:
+    Some(Unreachable)
+ 189:
+    Assign(150, Concat([Local(138), Const(Addr(94742145350624)), Local(148), Const(Addr(94742145396464)), Local(149)]))
+    Assign(422, Use(Const(Addr(0))))
+    Assign(423, Use(Local(150)))
+    Some(Goto(219))
+ 190:
+    Assign(380, Use(Local(379)))
+    Assign(381, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(380)], ret: Ptr })
+    Assign(149, Use(Local(381)))
+    Some(Goto(189))
+ 191:
+    Some(Unreachable)
+ 192:
+    Assign(168, Concat([Local(156), Const(Addr(94742145350624)), Local(166), Const(Addr(94742145396464)), Local(167)]))
+    Assign(427, Use(Const(Addr(0))))
+    Assign(428, Use(Local(168)))
+    Some(Goto(222))
+ 193:
+    Assign(384, Use(Local(383)))
+    Assign(385, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(384)], ret: Ptr })
+    Assign(167, Use(Local(385)))
+    Some(Goto(192))
+ 194:
+    Some(Unreachable)
+ 195:
+    Assign(432, Use(Const(Addr(0))))
+    Assign(433, Use(Local(287)))
+    Some(Goto(225))
+ 196:
+    Assign(388, Use(Local(387)))
+    Assign(389, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(388)], ret: Ptr })
+    Assign(295, Use(Local(389)))
+    Some(Goto(195))
+ 197:
+    Some(Unreachable)
+ 198:
+    Assign(182, Use(Const(Int(0, Ptr))))
+    Assign(183, FuncAddr(32))
+    Assign(184, AdapterAddr(32))
+    Assign(538, Use(Local(183)))
+    Assign(539, Use(Local(184)))
+    Assign(436, Use(Const(Addr(0))))
+    Assign(437, Use(Const(Int(0, Ptr))))
+    Assign(438, Use(Const(Int(0, I64))))
+    Assign(439, Use(Const(Int(0, Ptr))))
+    Some(Goto(228))
+ 199:
+    Assign(393, Use(Local(391)))
+    Assign(394, Use(Local(392)))
+    Assign(444, Use(Const(Addr(0))))
+    Assign(445, Use(Local(393)))
+    Assign(446, Use(Local(394)))
+    Some(Goto(233))
+ 200:
+    Some(Unreachable)
+ 201:
+    Some(Unreachable)
+ 202:
+    Assign(177, Use(Local(360)))
+    Some(Goto(171))
+ 203:
+    Assign(399, Use(Local(397)))
+    Assign(400, Use(Local(398)))
+    Assign(401, Alloc { desc: 94742145579504, size: 32 })
+    Assign(402, FuncAddr(49))
+    Assign(403, AdapterAddr(49))
+    Store { base: Local(401), offset: 0, repr: I64, value: Local(402) }
+    Store { base: Local(401), offset: 8, repr: I64, value: Local(403) }
+    Store { base: Local(401), offset: 16, repr: Ptr, value: Local(399) }
+    Store { base: Local(401), offset: 24, repr: Ptr, value: Local(400) }
+    Assign(404, Use(Local(401)))
+    Assign(405, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(405), offset: 0, repr: Ptr, value: Local(404) }
+    Assign(360, Use(Local(405)))
+    Some(Goto(202))
+ 204:
+    Some(Unreachable)
+ 205:
+    Some(Unreachable)
+ 206:
+    Assign(202, Concat([Local(190), Const(Addr(94742145350624)), Local(200), Const(Addr(94742145396464)), Local(201)]))
+    Assign(454, Use(Const(Addr(0))))
+    Assign(455, Use(Local(202)))
+    Some(Goto(237))
+ 207:
+    Assign(408, Use(Local(407)))
+    Assign(409, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(408)], ret: Ptr })
+    Assign(201, Use(Local(409)))
+    Some(Goto(206))
+ 208:
+    Some(Unreachable)
+ 209:
+    Assign(220, Concat([Local(208), Const(Addr(94742145350624)), Local(218), Const(Addr(94742145396464)), Local(219)]))
+    Assign(459, Use(Const(Addr(0))))
+    Assign(460, Use(Local(220)))
+    Some(Goto(240))
+ 210:
+    Assign(412, Use(Local(411)))
+    Assign(413, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(412)], ret: Ptr })
+    Assign(219, Use(Local(413)))
+    Some(Goto(209))
+ 211:
+    Some(Unreachable)
+ 212:
+    Assign(464, Use(Const(Addr(0))))
+    Assign(465, Use(Local(325)))
+    Some(Goto(243))
+ 213:
+    Assign(416, Use(Local(415)))
+    Assign(417, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(416)], ret: Ptr })
+    Assign(333, Use(Local(417)))
+    Some(Goto(212))
+ 214:
+    Some(Unreachable)
+ 215:
+    Assign(269, Concat([Local(257), Const(Addr(94742145350624)), Local(267), Const(Addr(94742145396464)), Local(268)]))
+    Assign(468, Use(Const(Addr(0))))
+    Assign(469, Use(Local(269)))
+    Some(Goto(246))
+ 216:
+    Assign(420, Use(Local(419)))
+    Assign(421, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(420)], ret: Ptr })
+    Assign(268, Use(Local(421)))
+    Some(Goto(215))
+ 217:
+    Some(Unreachable)
+ 218:
+    Assign(7, Use(Local(151)))
+    Some(Goto(62))
+ 219:
+    Assign(424, Use(Local(423)))
+    Assign(473, Use(Const(Addr(0))))
+    Assign(474, Use(Local(424)))
+    Some(Goto(249))
+ 220:
+    Some(Unreachable)
+ 221:
+    Assign(20, Use(Local(169)))
+    Some(Goto(70))
+ 222:
+    Assign(429, Use(Local(428)))
+    Assign(476, Use(Const(Addr(0))))
+    Assign(477, Use(Local(429)))
+    Some(Goto(252))
+ 223:
+    Some(Unreachable)
+ 224:
+    Assign(297, Concat([Local(285), Const(Addr(94742145350624)), Local(295), Const(Addr(94742145396464)), Local(296)]))
+    Assign(479, Use(Const(Addr(0))))
+    Assign(480, Use(Local(297)))
+    Some(Goto(255))
+ 225:
+    Assign(434, Use(Local(433)))
+    Assign(435, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(434)], ret: Ptr })
+    Assign(296, Use(Local(435)))
+    Some(Goto(224))
+ 226:
+    Some(Unreachable)
+ 227:
+    Assign(30, Use(Local(185)))
+    Some(Goto(78))
+ 228:
+    Assign(440, Use(Const(Int(0, Ptr))))
+    Assign(441, Use(Local(438)))
+    Assign(442, Use(Const(Int(0, Ptr))))
+    Assign(484, Use(Const(Addr(0))))
+    Assign(485, Use(Const(Int(0, Ptr))))
+    Assign(486, Use(Local(441)))
+    Assign(487, Use(Const(Int(0, Ptr))))
+    Some(Goto(258))
+ 229:
+    Some(Unreachable)
+ 230:
+    Some(Unreachable)
+ 231:
+    Some(Unreachable)
+ 232:
+    Assign(181, Use(Const(Int(0, Ptr))))
+    Some(Goto(198))
+ 233:
+    Assign(447, Use(Local(445)))
+    Assign(448, Use(Local(446)))
+    Assign(449, Use(Const(Int(0, Ptr))))
+    Assign(450, FuncAddr(52))
+    Assign(451, AdapterAddr(52))
+    Assign(582, Use(Local(450)))
+    Assign(583, Use(Local(451)))
+    Assign(584, Use(Local(447)))
+    Assign(585, Use(Local(448)))
+    Assign(452, Use(Const(Int(0, Ptr))))
+    Assign(453, Use(Const(Int(0, Ptr))))
+    Assign(540, Use(Const(Int(0, Ptr))))
+    Assign(395, Use(Const(Int(0, Ptr))))
+    Some(Goto(232))
+ 234:
+    Some(Unreachable)
+ 235:
+    Some(Unreachable)
+ 236:
+    Assign(46, Use(Local(203)))
+    Some(Goto(81))
+ 237:
+    Assign(456, Use(Local(455)))
+    Assign(506, Use(Const(Addr(0))))
+    Assign(507, Use(Local(456)))
+    Some(Goto(269))
+ 238:
+    Some(Unreachable)
+ 239:
+    Assign(59, Use(Local(221)))
+    Some(Goto(89))
+ 240:
+    Assign(461, Use(Local(460)))
+    Assign(509, Use(Const(Addr(0))))
+    Assign(510, Use(Local(461)))
+    Some(Goto(272))
+ 241:
+    Some(Unreachable)
+ 242:
+    Assign(335, Concat([Local(323), Const(Addr(94742145350624)), Local(333), Const(Addr(94742145396464)), Local(334)]))
+    Assign(512, Use(Const(Addr(0))))
+    Assign(513, Use(Local(335)))
+    Some(Goto(275))
+ 243:
+    Assign(466, Use(Local(465)))
+    Assign(467, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(466)], ret: Ptr })
+    Assign(334, Use(Local(467)))
+    Some(Goto(242))
+ 244:
+    Some(Unreachable)
+ 245:
+    Assign(85, Use(Local(270)))
+    Some(Goto(107))
+ 246:
+    Assign(470, Use(Local(469)))
+    Assign(517, Use(Const(Addr(0))))
+    Assign(518, Use(Local(470)))
+    Some(Goto(278))
+ 247:
+    Some(Unreachable)
+ 248:
+    Assign(426, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(425), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(151, Use(Local(426)))
+    Some(Goto(218))
+ 249:
+    Assign(475, Use(Local(474)))
+    Assign(425, Use(Local(475)))
+    Some(Goto(248))
+ 250:
+    Some(Unreachable)
+ 251:
+    Assign(431, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(430), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(169, Use(Local(431)))
+    Some(Goto(221))
+ 252:
+    Assign(478, Use(Local(477)))
+    Assign(430, Use(Local(478)))
+    Some(Goto(251))
+ 253:
+    Some(Unreachable)
+ 254:
+    Assign(33, Use(Local(298)))
+    Some(Goto(125))
+ 255:
+    Assign(481, Use(Local(480)))
+    Assign(520, Use(Const(Addr(0))))
+    Assign(521, Use(Local(481)))
+    Some(Goto(281))
+ 256:
+    Some(Unreachable)
+ 257:
+    Assign(185, Use(Local(443)))
+    Some(Goto(227))
+ 258:
+    Poll
+    Assign(488, Use(Const(Int(0, Ptr))))
+    Assign(489, Use(Local(486)))
+    Assign(490, Use(Const(Int(0, Ptr))))
+    Assign(491, Use(Local(489)))
+    Assign(492, Use(Const(Int(0, Ptr))))
+    Assign(493, Use(Const(Int(0, Ptr))))
+    Assign(541, Use(Const(Int(0, Ptr))))
+    Some(Goto(294))
+ 259:
+    Some(Unreachable)
+ 260:
+    Some(Unreachable)
+ 261:
+    Some(Unreachable)
+ 262:
+    Some(Unreachable)
+ 263:
+    Poll
+    Assign(564, Use(Local(495)))
+    Some(Goto(304))
+ 264:
+    Assign(499, Load { base: Local(497), offset: 8, repr: I64 })
+    Assign(500, Use(Local(499)))
+    Assign(501, Use(Const(Int(0, Ptr))))
+    Assign(502, Use(Local(491)))
+    Assign(523, Use(Const(Int(0, Ptr))))
+    Assign(524, Use(Local(502)))
+    Assign(525, Use(Local(500)))
+    Some(Goto(284))
+ 265:
+    Some(Goto(263))
+ 266:
+    Assign(530, Use(Const(Addr(0))))
+    Assign(531, Use(Local(495)))
+    Some(Goto(288))
+ 267:
+    Some(Unreachable)
+ 268:
+    Assign(458, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(457), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(203, Use(Local(458)))
+    Some(Goto(236))
+ 269:
+    Assign(508, Use(Local(507)))
+    Assign(457, Use(Local(508)))
+    Some(Goto(268))
+ 270:
+    Some(Unreachable)
+ 271:
+    Assign(463, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(462), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(221, Use(Local(463)))
+    Some(Goto(239))
+ 272:
+    Assign(511, Use(Local(510)))
+    Assign(462, Use(Local(511)))
+    Some(Goto(271))
+ 273:
+    Some(Unreachable)
+ 274:
+    Assign(72, Use(Local(336)))
+    Some(Goto(147))
+ 275:
+    Assign(514, Use(Local(513)))
+    Assign(535, Use(Const(Addr(0))))
+    Assign(536, Use(Local(514)))
+    Some(Goto(291))
+ 276:
+    Some(Unreachable)
+ 277:
+    Assign(472, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(471), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(270, Use(Local(472)))
+    Some(Goto(245))
+ 278:
+    Assign(519, Use(Local(518)))
+    Assign(471, Use(Local(519)))
+    Some(Goto(277))
+ 279:
+    Some(Unreachable)
+ 280:
+    Assign(483, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(482), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(298, Use(Local(483)))
+    Some(Goto(254))
+ 281:
+    Assign(522, Use(Local(521)))
+    Assign(482, Use(Local(522)))
+    Some(Goto(280))
+ 282:
+    Some(Unreachable)
+ 283:
+    Assign(491, Use(Local(503)))
+    Some(Goto(263))
+ 284:
+    Assign(526, Use(Local(524)))
+    Assign(527, Use(Local(525)))
+    Loc { file: 0, line: 41, col: 110 }
+    Assign(528, Use(Local(526)))
+    Assign(529, Bin { op: Add, a: Local(528), b: Local(527), ty: I(64, true), loc: 94742144511712 })
+    Assign(503, Use(Local(529)))
+    Some(Goto(283))
+ 285:
+    Some(Unreachable)
+ 286:
+    Some(Unreachable)
+ 287:
+    Assign(505, Use(Local(491)))
+    Assign(443, Use(Local(505)))
+    Some(Goto(257))
+ 288:
+    Assign(532, Use(Local(531)))
+    Assign(533, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(532)], ret: I64 })
+    Assign(534, FromWord { a: Local(533), to: I8 })
+    Assign(504, Use(Local(534)))
+    Some(Goto(287))
+ 289:
+    Some(Unreachable)
+ 290:
+    Assign(516, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(515), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(336, Use(Local(516)))
+    Some(Goto(274))
+ 291:
+    Assign(537, Use(Local(536)))
+    Assign(515, Use(Local(537)))
+    Some(Goto(290))
+ 292:
+    Some(Unreachable)
+ 293:
+    Assign(495, Use(Local(494)))
+    Some(Goto(263))
+ 294:
+    Assign(542, Use(Local(584)))
+    Assign(543, Use(Local(585)))
+    Assign(544, Load { base: Local(542), offset: 0, repr: Ptr })
+    Assign(545, Call { callee: Closure(Local(544)), args: [], ret: Ptr })
+    Assign(546, Use(Local(545)))
+    Assign(547, Alloc { desc: 94742144564336, size: 32 })
+    Assign(548, FuncAddr(53))
+    Assign(549, AdapterAddr(53))
+    Store { base: Local(547), offset: 0, repr: I64, value: Local(548) }
+    Store { base: Local(547), offset: 8, repr: I64, value: Local(549) }
+    Store { base: Local(547), offset: 16, repr: Ptr, value: Local(546) }
+    Store { base: Local(547), offset: 24, repr: Ptr, value: Local(543) }
+    Assign(551, Use(Const(Addr(0))))
+    Assign(552, Use(Local(547)))
+    Assign(553, Use(Local(546)))
+    Some(Goto(297))
+ 295:
+    Some(Unreachable)
+ 296:
+    Assign(494, Use(Local(550)))
+    Some(Goto(293))
+ 297:
+    Assign(554, Use(Local(552)))
+    Assign(555, Use(Local(553)))
+    Assign(556, Call { callee: Intrinsic { name: "lang_rt_i_iter_has_close", targs: 94742146023920, ret: 94742146021296 }, args: [Local(555)], ret: I64 })
+    Assign(557, FromWord { a: Local(556), to: I8 })
+    Some(Branch(Local(557), 300, 301))
+ 298:
+    Some(Unreachable)
+ 299:
+    Some(Unreachable)
+ 300:
+    Assign(559, Alloc { desc: 94742145239520, size: 24 })
+    Assign(560, FuncAddr(55))
+    Assign(561, AdapterAddr(55))
+    Store { base: Local(559), offset: 0, repr: I64, value: Local(560) }
+    Store { base: Local(559), offset: 8, repr: I64, value: Local(561) }
+    Store { base: Local(559), offset: 16, repr: Ptr, value: Local(555) }
+    Assign(562, Call { callee: Intrinsic { name: "lang_rt_i_iter_on_close", targs: 94742144652064, ret: 94742145115792 }, args: [Local(554), Local(559)], ret: I64 })
+    Assign(563, FromWord { a: Local(562), to: I8 })
+    Some(Goto(302))
+ 301:
+    Some(Goto(302))
+ 302:
+    Assign(550, Use(Local(554)))
+    Some(Goto(296))
+ 303:
+    Assign(497, Use(Local(496)))
+    Assign(498, Tag(Local(497)))
+    Some(Switch(Local(498), [(1, 264)], 266))
+ 304:
+    Poll
+    Assign(565, Load { base: Local(564), offset: 16, repr: Ptr })
+    Assign(566, Load { base: Local(564), offset: 24, repr: Ptr })
+    Some(Goto(305))
+ 305:
+    Poll
+    Assign(568, Use(Local(565)))
+    Assign(569, Call { callee: Closure(Local(568)), args: [], ret: Ptr })
+    Assign(570, Use(Local(569)))
+    Assign(572, Tag(Local(570)))
+    Some(Switch(Local(572), [(1, 309)], 308))
+ 306:
+    Assign(496, Use(Local(567)))
+    Some(Goto(303))
+ 307:
+    Some(Goto(305))
+ 308:
+    Assign(580, Tag(Local(570)))
+    Some(Switch(Local(580), [(0, 315)], 314))
+ 309:
+    Assign(573, Load { base: Local(570), offset: 8, repr: I64 })
+    Assign(574, Use(Local(573)))
+    Assign(575, Use(Local(566)))
+    Assign(576, Call { callee: Closure(Local(575)), args: [Local(574)], ret: I8 })
+    Some(Branch(Local(576), 310, 311))
+ 310:
+    Assign(578, Use(Local(574)))
+    Assign(579, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(579), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(579), offset: 8, repr: I64, value: Local(578) }
+    Assign(496, Use(Local(579)))
+    Some(Goto(303))
+ 311:
+    Some(Goto(312))
+ 312:
+    Assign(571, Use(Const(Int(0, I8))))
+    Some(Goto(307))
+ 313:
+    Some(Unreachable)
+ 314:
+    Assign(581, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742144479600))], ret: I64 })
+    Some(Unreachable)
+ 315:
+    Assign(496, Use(Const(Addr(94742144515888))))
+    Some(Goto(303))
+ 316:
+    Some(Unreachable)
+ 317:
+    Some(Unreachable)
+fn 1 std.prelude.describe_error#1 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr e
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: ptr d
+  8: ptr 
+  9: ptr 
+  10: ptr 
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: ptr 
+  15: ptr 
+  16: ptr out
+  17: i8 first
+  18: ptr 
+  19: ptr 
+  20: i64 
+  21: i64 
+  22: i64 
+  23: i64 
+  24: i64 
+  25: i64 
+  26: i64 
+  27: i8 
+  28: i8 
+  29: ptr 
+  30: ptr 
+  31: i64 
+  32: ptr 
+  33: ptr 
+  34: ptr line
+  35: i8 
+  36: i8 
+  37: ptr 
+  38: ptr 
+  39: i64 
+  40: i64 
+  41: i64 
+  42: ptr 
+  43: ptr 
+  44: ptr 
+  45: ptr 
+  46: i8 
+  47: i32 
+  48: ptr other
+  49: ptr 
+  50: ptr 
+  51: ptr 
+  52: i64 
+  53: ptr 
+  54: ptr env
+  55: ptr 
+  56: ptr self
+  57: ptr 
+  58: ptr env
+  59: ptr 
+  60: ptr self
+  61: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Use(Local(2)))
+    Assign(4, Alloc { desc: 94742145154304, size: 8 })
+    Store { base: Local(4), offset: 0, repr: Ptr, value: Local(3) }
+    Assign(5, Use(Local(4)))
+    Assign(6, Alloc { desc: 94742145479808, size: 40 })
+    Store { base: Local(6), offset: 0, repr: Ptr, value: Local(5) }
+    Store { base: Local(6), offset: 8, repr: Ptr, value: Const(Addr(94742145219728)) }
+    Store { base: Local(6), offset: 16, repr: Ptr, value: Const(Addr(94742144894640)) }
+    Store { base: Local(6), offset: 24, repr: Ptr, value: Const(Addr(94742144506272)) }
+    Store { base: Local(6), offset: 32, repr: Ptr, value: Const(Addr(94742145068624)) }
+    Assign(7, Use(Local(6)))
+    Assign(8, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(9, Load { base: Local(7), offset: 16, repr: Ptr })
+    Assign(10, Call { callee: Closure(Local(9)), args: [Local(8)], ret: Ptr })
+    Assign(54, Use(Const(Addr(0))))
+    Assign(55, Use(Local(10)))
+    Some(Goto(21))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Some(Unreachable)
+ 5:
+    Poll
+    Assign(27, Cmp { op: Lt, a: Local(24), b: Local(21), ty: I(64, true) })
+    Some(Branch(Local(27), 9, 8))
+ 6:
+    Assign(32, Load { base: Local(26), offset: 16, repr: Ptr })
+    Assign(33, Use(Local(32)))
+    Assign(34, Use(Local(33)))
+    Assign(35, Use(Local(17)))
+    Some(Branch(Local(35), 12, 13))
+ 7:
+    Assign(39, Bin { op: Add, a: Local(24), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(24, Use(Local(39)))
+    Assign(40, Bin { op: Add, a: Local(25), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(25, Use(Local(40)))
+    Assign(41, Bin { op: Add, a: Local(26), b: Const(Int(8, I64)), ty: I(64, true), loc: 0 })
+    Assign(26, Use(Local(41)))
+    Some(Goto(5))
+ 8:
+    Assign(42, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(43, Load { base: Local(7), offset: 24, repr: Ptr })
+    Assign(44, Call { callee: Closure(Local(43)), args: [Local(42)], ret: Ptr })
+    Assign(45, Use(Local(44)))
+    Assign(47, Tag(Local(45)))
+    Some(Switch(Local(47), [(0, 17)], 16))
+ 9:
+    Assign(28, Cmp { op: Lt, a: Local(25), b: Local(23), ty: I(64, true) })
+    Some(Branch(Local(28), 6, 10))
+ 10:
+    Assign(29, Call { callee: Runtime("lang_rt_list_page"), args: [Local(19), Local(24)], ret: Ptr })
+    Assign(30, Use(Local(29)))
+    Assign(31, ToWord(Local(30)))
+    Assign(26, Use(Local(31)))
+    Assign(25, Use(Const(Int(0, I64))))
+    Some(Goto(6))
+ 11:
+    Some(Unreachable)
+ 12:
+    Assign(17, Use(Const(Int(0, I8))))
+    Assign(36, Use(Const(Int(0, I8))))
+    Some(Goto(14))
+ 13:
+    Assign(37, Use(Local(16)))
+    Assign(38, Concat([Local(37), Const(Addr(94742145340784)), Local(34)]))
+    Assign(16, Use(Local(38)))
+    Assign(36, Use(Const(Int(0, I8))))
+    Some(Goto(14))
+ 14:
+    Some(Goto(7))
+ 15:
+    Assign(53, Use(Local(16)))
+    Some(Return(Local(53)))
+ 16:
+    Assign(48, Use(Local(45)))
+    Assign(49, Use(Local(16)))
+    Assign(58, Use(Const(Addr(0))))
+    Assign(59, Use(Local(48)))
+    Some(Goto(24))
+ 17:
+    Assign(46, Use(Const(Int(0, I8))))
+    Some(Goto(15))
+ 18:
+    Assign(52, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742144663808))], ret: I64 })
+    Some(Unreachable)
+ 19:
+    Some(Unreachable)
+ 20:
+    Assign(12, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(13, Load { base: Local(7), offset: 32, repr: Ptr })
+    Assign(14, Call { callee: Closure(Local(13)), args: [Local(12)], ret: Ptr })
+    Assign(15, Concat([Const(Addr(94742145722576)), Local(11), Const(Addr(94742145822016)), Local(14)]))
+    Assign(16, Use(Local(15)))
+    Assign(17, Use(Const(Int(1, I8))))
+    Assign(18, Call { callee: Direct(21), args: [Local(7)], ret: Ptr })
+    Assign(19, Use(Local(18)))
+    Assign(20, Call { callee: Runtime("lang_rt_list_len"), args: [Local(19)], ret: I64 })
+    Assign(21, Use(Local(20)))
+    Assign(22, Call { callee: Runtime("lang_rt_list_page_cap"), args: [Local(19)], ret: I64 })
+    Assign(23, Use(Local(22)))
+    Assign(24, Use(Const(Int(0, I64))))
+    Assign(25, Use(Local(23)))
+    Assign(26, Use(Const(Int(0, I64))))
+    Some(Goto(5))
+ 21:
+    Assign(56, Use(Local(55)))
+    Assign(57, Call { callee: Intrinsic { name: "lang_rt_i_symbol_to_string", targs: 94742145590080, ret: 94742145068384 }, args: [Local(56)], ret: Ptr })
+    Assign(11, Use(Local(57)))
+    Some(Goto(20))
+ 22:
+    Some(Unreachable)
+ 23:
+    Assign(51, Concat([Local(49), Const(Addr(94742144905808)), Local(50)]))
+    Assign(16, Use(Local(51)))
+    Assign(46, Use(Const(Int(0, I8))))
+    Some(Goto(15))
+ 24:
+    Assign(60, Use(Local(59)))
+    Assign(61, Call { callee: Intrinsic { name: "lang_rt_i_data_to_string", targs: 94742145590080, ret: 94742145068384 }, args: [Local(60)], ret: Ptr })
+    Assign(50, Use(Local(61)))
+    Some(Goto(23))
+ 25:
+    Some(Unreachable)
+fn 2 std.time.now ([]) -> i64
+  0: ptr env
+  1: i64 
+ 0:
+    Poll
+    Assign(1, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Some(Return(Local(1)))
+fn 3 probes.helpers#3 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 total
+  4: i64 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i64 
+  13: i8 
+  14: i8 
+  15: i8 
+  16: i8 
+  17: i8 
+  18: i64 
+  19: i64 i
+  20: i64 
+  21: i64 
+  22: i64 
+  23: i64 
+  24: i64 
+  25: i64 
+  26: ptr 
+  27: i64 
+  28: i64 
+  29: i8 
+  30: i64 
+  31: i64 
+  32: i64 
+  33: i64 
+  34: i64 
+  35: ptr env
+  36: ptr 
+  37: ptr r
+  38: i64 
+  39: i64 
+  40: i64 
+  41: i64 
+  42: i64 
+  43: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 9, col: 5 }
+    Assign(3, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 10, col: 5 }
+    Assign(4, Use(Const(Int(0, I64))))
+    Assign(5, Convert { a: Local(4), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(6, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(7, Use(Const(Int(0, Ptr))))
+    Assign(32, Use(Local(5)))
+    Assign(33, Use(Local(6)))
+    Assign(34, Use(Const(Int(0, I64))))
+    Assign(8, Use(Const(Int(0, Ptr))))
+    Assign(9, Use(Local(32)))
+    Assign(10, Use(Local(33)))
+    Assign(11, Use(Local(34)))
+    Assign(12, Use(Local(9)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Poll
+    Assign(13, Cmp { op: Lt, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(14, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(15, Convert { a: Local(11), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(16, Bin { op: And, a: Local(14), b: Local(15), ty: I(8, false), loc: 0 })
+    Assign(17, Bin { op: Or, a: Local(13), b: Local(16), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(17), 4, 6))
+ 4:
+    Assign(18, Convert { a: Local(12), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(19, Use(Local(18)))
+    Loc { file: 0, line: 11, col: 9 }
+    Assign(20, Use(Local(3)))
+    Assign(21, Use(Local(20)))
+    Assign(22, Use(Local(19)))
+    Assign(23, Bin { op: Rem, a: Local(22), b: Const(Int(100, I64)), ty: I(64, true), loc: 94742145357328 })
+    Assign(24, Use(Local(23)))
+    Assign(25, Use(Const(Int(2, I64))))
+    Assign(26, Use(Const(Int(0, Ptr))))
+    Assign(42, Use(Local(25)))
+    Assign(43, Use(Local(24)))
+    Assign(35, Use(Const(Addr(0))))
+    Assign(36, Use(Const(Int(0, Ptr))))
+    Some(Goto(10))
+ 5:
+    Assign(29, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Some(Branch(Local(29), 6, 8))
+ 6:
+    Loc { file: 0, line: 13, col: 5 }
+    Assign(31, Use(Local(3)))
+    Some(Return(Local(31)))
+ 7:
+    Some(Unreachable)
+ 8:
+    Assign(30, Bin { op: Add, a: Local(12), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(12, Use(Local(30)))
+    Some(Goto(3))
+ 9:
+    Assign(28, Bin { op: Add, a: Local(21), b: Local(27), ty: I(64, true), loc: 94742145560128 })
+    Assign(3, Use(Local(28)))
+    Some(Goto(5))
+ 10:
+    Assign(37, Use(Const(Int(0, Ptr))))
+    Loc { file: 0, line: 6, col: 41 }
+    Assign(38, Use(Local(43)))
+    Assign(39, Use(Local(38)))
+    Assign(40, Use(Local(42)))
+    Assign(41, Bin { op: Mul, a: Local(39), b: Local(40), ty: I(64, true), loc: 94742145771168 })
+    Assign(27, Use(Local(41)))
+    Some(Goto(9))
+ 11:
+    Some(Unreachable)
+fn 4 probes.report#4 ([1, 2, 3]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: i64 
+  4: ptr name
+  5: i64 started
+  6: i64 total
+  7: i64 
+  8: i64 
+  9: i64 
+  10: i64 
+  11: i8 
+  12: i64 
+  13: i64 
+  14: ptr 
+  15: ptr 
+  16: ptr 
+  17: ptr 
+  18: ptr env
+  19: i64 
+  20: ptr env
+  21: i64 
+  22: i64 d
+  23: ptr env
+  24: i64 
+  25: i64 self
+  26: ptr 
+  27: ptr env
+  28: i64 
+  29: i64 self
+  30: ptr 
+  31: ptr env
+  32: ptr 
+  33: ptr value
+  34: ptr 
+  35: ptr 
+  36: ptr env
+  37: ptr 
+  38: ptr self
+ 0:
+    Poll
+    Assign(4, Use(Local(1)))
+    Assign(5, Use(Local(2)))
+    Assign(6, Use(Local(3)))
+    Loc { file: 0, line: 64, col: 5 }
+    Assign(18, Use(Const(Addr(0))))
+    Some(Goto(8))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Assign(12, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94742145131968))], ret: I64 })
+    Some(Unreachable)
+ 5:
+    Assign(20, Use(Const(Addr(0))))
+    Assign(21, Use(Local(10)))
+    Some(Goto(10))
+ 6:
+    Some(Unreachable)
+ 7:
+    Assign(8, Use(Local(7)))
+    Assign(9, Bin { op: Sub, a: Local(8), b: Local(5), ty: I(64, true), loc: 94742145131968 })
+    Assign(10, Use(Local(9)))
+    Assign(11, Cmp { op: Lt, a: Local(10), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(11), 4, 5))
+ 8:
+    Assign(19, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94742145590080, ret: 94742145329520 }, args: [], ret: I64 })
+    Assign(7, Use(Local(19)))
+    Some(Goto(7))
+ 9:
+    Assign(23, Use(Const(Addr(0))))
+    Assign(24, Use(Local(13)))
+    Some(Goto(13))
+ 10:
+    Assign(22, Use(Local(21)))
+    Assign(13, Use(Local(22)))
+    Some(Goto(9))
+ 11:
+    Some(Unreachable)
+ 12:
+    Assign(27, Use(Const(Addr(0))))
+    Assign(28, Use(Local(6)))
+    Some(Goto(16))
+ 13:
+    Assign(25, Use(Local(24)))
+    Assign(26, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(25)], ret: Ptr })
+    Assign(14, Use(Local(26)))
+    Some(Goto(12))
+ 14:
+    Some(Unreachable)
+ 15:
+    Assign(16, Concat([Local(4), Const(Addr(94742145350624)), Local(14), Const(Addr(94742145396464)), Local(15)]))
+    Assign(31, Use(Const(Addr(0))))
+    Assign(32, Use(Local(16)))
+    Some(Goto(19))
+ 16:
+    Assign(29, Use(Local(28)))
+    Assign(30, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(29)], ret: Ptr })
+    Assign(15, Use(Local(30)))
+    Some(Goto(15))
+ 17:
+    Some(Unreachable)
+ 18:
+    Some(Return(Local(17)))
+ 19:
+    Assign(33, Use(Local(32)))
+    Assign(36, Use(Const(Addr(0))))
+    Assign(37, Use(Local(33)))
+    Some(Goto(22))
+ 20:
+    Some(Unreachable)
+ 21:
+    Assign(35, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(34), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(17, Use(Local(35)))
+    Some(Goto(18))
+ 22:
+    Assign(38, Use(Local(37)))
+    Assign(34, Use(Local(38)))
+    Some(Goto(21))
+ 23:
+    Some(Unreachable)
+fn 5 probes.options#5 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 total
+  4: i64 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i64 
+  13: i8 
+  14: i8 
+  15: i8 
+  16: i8 
+  17: i8 
+  18: i64 
+  19: i64 i
+  20: i64 
+  21: i64 
+  22: i64 
+  23: ptr 
+  24: ptr x
+  25: i64 
+  26: i64 
+  27: ptr 
+  28: i64 
+  29: i32 
+  30: i64 
+  31: i64 v
+  32: i32 
+  33: i64 
+  34: i64 
+  35: i8 
+  36: i64 
+  37: i64 
+  38: i64 
+  39: i64 
+  40: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 17, col: 5 }
+    Assign(3, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 18, col: 5 }
+    Assign(4, Use(Const(Int(0, I64))))
+    Assign(5, Convert { a: Local(4), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(6, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(7, Use(Const(Int(0, Ptr))))
+    Assign(38, Use(Local(5)))
+    Assign(39, Use(Local(6)))
+    Assign(40, Use(Const(Int(0, I64))))
+    Assign(8, Use(Const(Int(0, Ptr))))
+    Assign(9, Use(Local(38)))
+    Assign(10, Use(Local(39)))
+    Assign(11, Use(Local(40)))
+    Assign(12, Use(Local(9)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Poll
+    Assign(13, Cmp { op: Lt, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(14, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(15, Convert { a: Local(11), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(16, Bin { op: And, a: Local(14), b: Local(15), ty: I(8, false), loc: 0 })
+    Assign(17, Bin { op: Or, a: Local(13), b: Local(16), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(17), 4, 6))
+ 4:
+    Assign(18, Convert { a: Local(12), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(19, Use(Local(18)))
+    Loc { file: 0, line: 19, col: 9 }
+    Assign(20, Use(Local(19)))
+    Assign(21, Bin { op: Rem, a: Local(20), b: Const(Int(100, I64)), ty: I(64, true), loc: 94742144514064 })
+    Assign(22, Use(Local(21)))
+    Assign(23, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(23), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(23), offset: 8, repr: I64, value: Local(22) }
+    Assign(24, Use(Local(23)))
+    Loc { file: 0, line: 20, col: 9 }
+    Assign(25, Use(Local(3)))
+    Assign(26, Use(Local(25)))
+    Assign(27, Use(Local(24)))
+    Assign(29, Tag(Local(27)))
+    Some(Switch(Local(29), [(1, 11)], 10))
+ 5:
+    Assign(35, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Some(Branch(Local(35), 6, 15))
+ 6:
+    Loc { file: 0, line: 22, col: 5 }
+    Assign(37, Use(Local(3)))
+    Some(Return(Local(37)))
+ 7:
+    Some(Unreachable)
+ 8:
+    Some(Unreachable)
+ 9:
+    Assign(34, Bin { op: Add, a: Local(26), b: Local(28), ty: I(64, true), loc: 94742144876608 })
+    Assign(3, Use(Local(34)))
+    Some(Goto(5))
+ 10:
+    Assign(32, Tag(Local(27)))
+    Some(Switch(Local(32), [(0, 13)], 12))
+ 11:
+    Assign(30, Load { base: Local(27), offset: 8, repr: I64 })
+    Assign(31, Use(Local(30)))
+    Assign(28, Use(Local(31)))
+    Some(Goto(9))
+ 12:
+    Assign(33, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742145074160))], ret: I64 })
+    Some(Unreachable)
+ 13:
+    Assign(28, Use(Const(Int(0, I64))))
+    Some(Goto(9))
+ 14:
+    Some(Unreachable)
+ 15:
+    Assign(36, Bin { op: Add, a: Local(12), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(12, Use(Local(36)))
+    Some(Goto(3))
+fn 6 probes.sequence#6 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: ptr 
+  4: ptr 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: ptr 
+  12: ptr 
+  13: i64 
+  14: i64 
+  15: i64 
+  16: ptr env
+  17: i64 
+  18: i64 
+  19: i64 start
+  20: i64 end
+  21: ptr 
+  22: i64 
+  23: i64 
+  24: ptr 
+  25: ptr 
+  26: ptr env
+  27: ptr 
+  28: ptr 
+  29: ptr self
+  30: ptr f
+  31: ptr 
+  32: ptr env
+  33: ptr 
+  34: ptr 
+  35: ptr self
+  36: ptr keep
+  37: ptr 
+  38: ptr env
+  39: ptr 
+  40: ptr 
+  41: ptr items
+  42: ptr f
+  43: ptr 
+  44: i64 
+  45: i64 
+  46: ptr 
+  47: ptr 
+  48: ptr env
+  49: ptr 
+  50: i64 
+  51: ptr 
+  52: ptr self
+  53: i64 initial
+  54: ptr f
+  55: i64 
+  56: ptr env
+  57: ptr 
+  58: ptr 
+  59: ptr items
+  60: ptr keep
+  61: ptr 
+  62: i64 
+  63: i64 
+  64: ptr 
+  65: ptr 
+  66: ptr env
+  67: ptr 
+  68: i64 
+  69: ptr 
+  70: ptr items
+  71: i64 initial
+  72: ptr f
+  73: i64 acc
+  74: ptr 
+  75: ptr 
+  76: ptr 
+  77: ptr 
+  78: ptr 
+  79: ptr 
+  80: i32 
+  81: i64 
+  82: i64 x
+  83: ptr 
+  84: i64 
+  85: i64 
+  86: i8 
+  87: i64 
+  88: ptr env
+  89: i64 
+  90: i64 
+  91: i64 a
+  92: i64 x
+  93: i64 
+  94: i64 
+  95: ptr env
+  96: ptr 
+  97: ptr it
+  98: i64 
+  99: i8 
+  100: i64 
+  101: i64 
+  102: ptr 
+  103: ptr env
+  104: ptr 
+  105: ptr 
+  106: ptr 
+  107: ptr 
+  108: ptr next
+  109: ptr 
+  110: i64 
+  111: i64 
+  112: ptr 
+  113: ptr env
+  114: ptr 
+  115: ptr 
+  116: ptr outer
+  117: ptr inner
+  118: i64 
+  119: i8 
+  120: i8 
+  121: ptr 
+  122: i64 
+  123: i64 
+  124: i64 
+  125: i8 
+  126: ptr env
+  127: ptr 
+  128: ptr 
+  129: ptr 
+  130: ptr 
+  131: ptr 
+  132: ptr 
+  133: i8 
+  134: i32 
+  135: i64 
+  136: i64 x
+  137: ptr 
+  138: i8 
+  139: i8 
+  140: i64 
+  141: ptr 
+  142: i32 
+  143: i64 
+  144: i64 
+  145: i64 
+  146: ptr 
+  147: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 41, col: 5 }
+    Assign(16, Use(Const(Addr(0))))
+    Assign(17, Use(Const(Int(0, I64))))
+    Assign(18, Use(Local(2)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Assign(4, Alloc { desc: 94742145492720, size: 16 })
+    Assign(5, FuncAddr(28))
+    Assign(6, AdapterAddr(28))
+    Store { base: Local(4), offset: 0, repr: I64, value: Local(5) }
+    Store { base: Local(4), offset: 8, repr: I64, value: Local(6) }
+    Assign(26, Use(Const(Addr(0))))
+    Assign(27, Use(Local(3)))
+    Assign(28, Use(Local(4)))
+    Some(Goto(7))
+ 3:
+    Assign(19, Use(Local(17)))
+    Assign(20, Use(Local(18)))
+    Assign(21, Alloc { desc: 94742145683120, size: 32 })
+    Assign(22, FuncAddr(40))
+    Assign(23, AdapterAddr(40))
+    Store { base: Local(21), offset: 0, repr: I64, value: Local(22) }
+    Store { base: Local(21), offset: 8, repr: I64, value: Local(23) }
+    Store { base: Local(21), offset: 16, repr: I64, value: Local(19) }
+    Store { base: Local(21), offset: 24, repr: I64, value: Local(20) }
+    Assign(24, Use(Local(21)))
+    Assign(25, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(25), offset: 0, repr: Ptr, value: Local(24) }
+    Assign(3, Use(Local(25)))
+    Some(Goto(2))
+ 4:
+    Some(Unreachable)
+ 5:
+    Some(Unreachable)
+ 6:
+    Assign(8, Alloc { desc: 94742145689504, size: 16 })
+    Assign(9, FuncAddr(30))
+    Assign(10, AdapterAddr(30))
+    Store { base: Local(8), offset: 0, repr: I64, value: Local(9) }
+    Store { base: Local(8), offset: 8, repr: I64, value: Local(10) }
+    Assign(32, Use(Const(Addr(0))))
+    Assign(33, Use(Local(7)))
+    Assign(34, Use(Local(8)))
+    Some(Goto(11))
+ 7:
+    Assign(29, Use(Local(27)))
+    Assign(30, Use(Local(28)))
+    Assign(38, Use(Const(Addr(0))))
+    Assign(39, Use(Local(29)))
+    Assign(40, Use(Local(30)))
+    Some(Goto(15))
+ 8:
+    Some(Unreachable)
+ 9:
+    Some(Unreachable)
+ 10:
+    Assign(12, Use(Const(Int(0, Ptr))))
+    Assign(13, FuncAddr(32))
+    Assign(14, AdapterAddr(32))
+    Assign(100, Use(Local(13)))
+    Assign(101, Use(Local(14)))
+    Assign(48, Use(Const(Addr(0))))
+    Assign(49, Use(Const(Int(0, Ptr))))
+    Assign(50, Use(Const(Int(0, I64))))
+    Assign(51, Use(Const(Int(0, Ptr))))
+    Some(Goto(19))
+ 11:
+    Assign(35, Use(Local(33)))
+    Assign(36, Use(Local(34)))
+    Assign(56, Use(Const(Addr(0))))
+    Assign(57, Use(Local(35)))
+    Assign(58, Use(Local(36)))
+    Some(Goto(24))
+ 12:
+    Some(Unreachable)
+ 13:
+    Some(Unreachable)
+ 14:
+    Assign(7, Use(Local(31)))
+    Some(Goto(6))
+ 15:
+    Assign(41, Use(Local(39)))
+    Assign(42, Use(Local(40)))
+    Assign(43, Alloc { desc: 94742145579504, size: 32 })
+    Assign(44, FuncAddr(49))
+    Assign(45, AdapterAddr(49))
+    Store { base: Local(43), offset: 0, repr: I64, value: Local(44) }
+    Store { base: Local(43), offset: 8, repr: I64, value: Local(45) }
+    Store { base: Local(43), offset: 16, repr: Ptr, value: Local(41) }
+    Store { base: Local(43), offset: 24, repr: Ptr, value: Local(42) }
+    Assign(46, Use(Local(43)))
+    Assign(47, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(47), offset: 0, repr: Ptr, value: Local(46) }
+    Assign(31, Use(Local(47)))
+    Some(Goto(14))
+ 16:
+    Some(Unreachable)
+ 17:
+    Some(Unreachable)
+ 18:
+    Some(Return(Local(15)))
+ 19:
+    Assign(52, Use(Const(Int(0, Ptr))))
+    Assign(53, Use(Local(50)))
+    Assign(54, Use(Const(Int(0, Ptr))))
+    Assign(66, Use(Const(Addr(0))))
+    Assign(67, Use(Const(Int(0, Ptr))))
+    Assign(68, Use(Local(53)))
+    Assign(69, Use(Const(Int(0, Ptr))))
+    Some(Goto(28))
+ 20:
+    Some(Unreachable)
+ 21:
+    Some(Unreachable)
+ 22:
+    Some(Unreachable)
+ 23:
+    Assign(11, Use(Const(Int(0, Ptr))))
+    Some(Goto(10))
+ 24:
+    Assign(59, Use(Local(57)))
+    Assign(60, Use(Local(58)))
+    Assign(61, Use(Const(Int(0, Ptr))))
+    Assign(62, FuncAddr(52))
+    Assign(63, AdapterAddr(52))
+    Assign(144, Use(Local(62)))
+    Assign(145, Use(Local(63)))
+    Assign(146, Use(Local(59)))
+    Assign(147, Use(Local(60)))
+    Assign(64, Use(Const(Int(0, Ptr))))
+    Assign(65, Use(Const(Int(0, Ptr))))
+    Assign(102, Use(Const(Int(0, Ptr))))
+    Assign(37, Use(Const(Int(0, Ptr))))
+    Some(Goto(23))
+ 25:
+    Some(Unreachable)
+ 26:
+    Some(Unreachable)
+ 27:
+    Assign(15, Use(Local(55)))
+    Some(Goto(18))
+ 28:
+    Poll
+    Assign(70, Use(Const(Int(0, Ptr))))
+    Assign(71, Use(Local(68)))
+    Assign(72, Use(Const(Int(0, Ptr))))
+    Assign(73, Use(Local(71)))
+    Assign(74, Use(Const(Int(0, Ptr))))
+    Assign(75, Use(Const(Int(0, Ptr))))
+    Assign(103, Use(Const(Int(0, Ptr))))
+    Some(Goto(46))
+ 29:
+    Some(Unreachable)
+ 30:
+    Some(Unreachable)
+ 31:
+    Some(Unreachable)
+ 32:
+    Some(Unreachable)
+ 33:
+    Poll
+    Assign(126, Use(Local(77)))
+    Some(Goto(56))
+ 34:
+    Assign(81, Load { base: Local(79), offset: 8, repr: I64 })
+    Assign(82, Use(Local(81)))
+    Assign(83, Use(Const(Int(0, Ptr))))
+    Assign(84, Use(Local(73)))
+    Assign(88, Use(Const(Int(0, Ptr))))
+    Assign(89, Use(Local(84)))
+    Assign(90, Use(Local(82)))
+    Some(Goto(39))
+ 35:
+    Some(Goto(33))
+ 36:
+    Assign(95, Use(Const(Addr(0))))
+    Assign(96, Use(Local(77)))
+    Some(Goto(43))
+ 37:
+    Some(Unreachable)
+ 38:
+    Assign(73, Use(Local(85)))
+    Some(Goto(33))
+ 39:
+    Assign(91, Use(Local(89)))
+    Assign(92, Use(Local(90)))
+    Loc { file: 0, line: 41, col: 110 }
+    Assign(93, Use(Local(91)))
+    Assign(94, Bin { op: Add, a: Local(93), b: Local(92), ty: I(64, true), loc: 94742144511712 })
+    Assign(85, Use(Local(94)))
+    Some(Goto(38))
+ 40:
+    Some(Unreachable)
+ 41:
+    Some(Unreachable)
+ 42:
+    Assign(87, Use(Local(73)))
+    Assign(55, Use(Local(87)))
+    Some(Goto(27))
+ 43:
+    Assign(97, Use(Local(96)))
+    Assign(98, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(97)], ret: I64 })
+    Assign(99, FromWord { a: Local(98), to: I8 })
+    Assign(86, Use(Local(99)))
+    Some(Goto(42))
+ 44:
+    Some(Unreachable)
+ 45:
+    Assign(77, Use(Local(76)))
+    Some(Goto(33))
+ 46:
+    Assign(104, Use(Local(146)))
+    Assign(105, Use(Local(147)))
+    Assign(106, Load { base: Local(104), offset: 0, repr: Ptr })
+    Assign(107, Call { callee: Closure(Local(106)), args: [], ret: Ptr })
+    Assign(108, Use(Local(107)))
+    Assign(109, Alloc { desc: 94742144564336, size: 32 })
+    Assign(110, FuncAddr(53))
+    Assign(111, AdapterAddr(53))
+    Store { base: Local(109), offset: 0, repr: I64, value: Local(110) }
+    Store { base: Local(109), offset: 8, repr: I64, value: Local(111) }
+    Store { base: Local(109), offset: 16, repr: Ptr, value: Local(108) }
+    Store { base: Local(109), offset: 24, repr: Ptr, value: Local(105) }
+    Assign(113, Use(Const(Addr(0))))
+    Assign(114, Use(Local(109)))
+    Assign(115, Use(Local(108)))
+    Some(Goto(49))
+ 47:
+    Some(Unreachable)
+ 48:
+    Assign(76, Use(Local(112)))
+    Some(Goto(45))
+ 49:
+    Assign(116, Use(Local(114)))
+    Assign(117, Use(Local(115)))
+    Assign(118, Call { callee: Intrinsic { name: "lang_rt_i_iter_has_close", targs: 94742146023920, ret: 94742146021296 }, args: [Local(117)], ret: I64 })
+    Assign(119, FromWord { a: Local(118), to: I8 })
+    Some(Branch(Local(119), 52, 53))
+ 50:
+    Some(Unreachable)
+ 51:
+    Some(Unreachable)
+ 52:
+    Assign(121, Alloc { desc: 94742145239520, size: 24 })
+    Assign(122, FuncAddr(55))
+    Assign(123, AdapterAddr(55))
+    Store { base: Local(121), offset: 0, repr: I64, value: Local(122) }
+    Store { base: Local(121), offset: 8, repr: I64, value: Local(123) }
+    Store { base: Local(121), offset: 16, repr: Ptr, value: Local(117) }
+    Assign(124, Call { callee: Intrinsic { name: "lang_rt_i_iter_on_close", targs: 94742144652064, ret: 94742145115792 }, args: [Local(116), Local(121)], ret: I64 })
+    Assign(125, FromWord { a: Local(124), to: I8 })
+    Some(Goto(54))
+ 53:
+    Some(Goto(54))
+ 54:
+    Assign(112, Use(Local(116)))
+    Some(Goto(48))
+ 55:
+    Assign(79, Use(Local(78)))
+    Assign(80, Tag(Local(79)))
+    Some(Switch(Local(80), [(1, 34)], 36))
+ 56:
+    Poll
+    Assign(127, Load { base: Local(126), offset: 16, repr: Ptr })
+    Assign(128, Load { base: Local(126), offset: 24, repr: Ptr })
+    Some(Goto(57))
+ 57:
+    Poll
+    Assign(130, Use(Local(127)))
+    Assign(131, Call { callee: Closure(Local(130)), args: [], ret: Ptr })
+    Assign(132, Use(Local(131)))
+    Assign(134, Tag(Local(132)))
+    Some(Switch(Local(134), [(1, 61)], 60))
+ 58:
+    Assign(78, Use(Local(129)))
+    Some(Goto(55))
+ 59:
+    Some(Goto(57))
+ 60:
+    Assign(142, Tag(Local(132)))
+    Some(Switch(Local(142), [(0, 67)], 66))
+ 61:
+    Assign(135, Load { base: Local(132), offset: 8, repr: I64 })
+    Assign(136, Use(Local(135)))
+    Assign(137, Use(Local(128)))
+    Assign(138, Call { callee: Closure(Local(137)), args: [Local(136)], ret: I8 })
+    Some(Branch(Local(138), 62, 63))
+ 62:
+    Assign(140, Use(Local(136)))
+    Assign(141, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(141), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(141), offset: 8, repr: I64, value: Local(140) }
+    Assign(78, Use(Local(141)))
+    Some(Goto(55))
+ 63:
+    Some(Goto(64))
+ 64:
+    Assign(133, Use(Const(Int(0, I8))))
+    Some(Goto(59))
+ 65:
+    Some(Unreachable)
+ 66:
+    Assign(143, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742144479600))], ret: I64 })
+    Some(Unreachable)
+ 67:
+    Assign(78, Use(Const(Addr(94742144515888))))
+    Some(Goto(55))
+ 68:
+    Some(Unreachable)
+ 69:
+    Some(Unreachable)
+fn 7 probes.array_reads#7 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: ptr 
+  4: i64 
+  5: i64 
+  6: ptr 
+  7: ptr a
+  8: i64 total
+  9: i64 
+  10: i64 
+  11: i64 
+  12: ptr 
+  13: ptr 
+  14: i64 
+  15: i64 
+  16: i64 
+  17: i64 
+  18: i8 
+  19: i8 
+  20: i8 
+  21: i8 
+  22: i8 
+  23: i64 
+  24: i64 i
+  25: i64 
+  26: i64 
+  27: i64 
+  28: i64 
+  29: ptr 
+  30: i64 
+  31: i64 
+  32: i8 
+  33: i64 
+  34: i64 
+  35: i64 
+  36: i64 
+  37: i64 
+  38: ptr env
+  39: i64 
+  40: ptr 
+  41: i64 len
+  42: ptr init
+  43: ptr 
+  44: ptr b
+  45: i64 
+  46: i64 
+  47: i64 
+  48: ptr 
+  49: ptr 
+  50: i64 
+  51: i64 
+  52: i64 
+  53: i64 
+  54: i8 
+  55: i8 
+  56: i8 
+  57: i8 
+  58: i8 
+  59: i64 
+  60: i64 i
+  61: ptr 
+  62: i64 
+  63: i64 
+  64: i8 
+  65: i8 
+  66: i64 
+  67: ptr 
+  68: i64 
+  69: i64 
+  70: i64 
+  71: ptr env
+  72: ptr 
+  73: i64 
+  74: ptr self
+  75: i64 index
+  76: ptr 
+  77: ptr env
+  78: i64 
+  79: i64 i
+  80: ptr env
+  81: ptr 
+  82: i64 
+  83: ptr self
+  84: i64 default
+  85: i64 
+  86: ptr env
+  87: ptr 
+  88: i64 
+  89: ptr o
+  90: i64 default
+  91: ptr 
+  92: i64 
+  93: i32 
+  94: i64 
+  95: i64 x
+  96: i32 
+  97: i64 
+  98: i64 
+  99: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 45, col: 5 }
+    Assign(3, Use(Const(Int(0, Ptr))))
+    Assign(4, FuncAddr(34))
+    Assign(5, AdapterAddr(34))
+    Assign(98, Use(Local(4)))
+    Assign(99, Use(Local(5)))
+    Assign(38, Use(Const(Addr(0))))
+    Assign(39, Use(Const(Int(2048, I64))))
+    Assign(40, Use(Const(Int(0, Ptr))))
+    Some(Goto(11))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Poll
+    Assign(18, Cmp { op: Lt, a: Local(17), b: Local(15), ty: I(64, true) })
+    Assign(19, Cmp { op: Eq, a: Local(17), b: Local(15), ty: I(64, true) })
+    Assign(20, Convert { a: Local(16), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(21, Bin { op: And, a: Local(19), b: Local(20), ty: I(8, false), loc: 0 })
+    Assign(22, Bin { op: Or, a: Local(18), b: Local(21), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(22), 5, 7))
+ 5:
+    Assign(23, Convert { a: Local(17), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(24, Use(Local(23)))
+    Loc { file: 0, line: 48, col: 9 }
+    Assign(25, Use(Local(8)))
+    Assign(26, Use(Local(25)))
+    Assign(27, Use(Local(24)))
+    Assign(28, Bin { op: Rem, a: Local(27), b: Const(Int(2048, I64)), ty: I(64, true), loc: 94742144582992 })
+    Assign(71, Use(Const(Addr(0))))
+    Assign(72, Use(Local(7)))
+    Assign(73, Use(Local(28)))
+    Some(Goto(22))
+ 6:
+    Assign(32, Cmp { op: Eq, a: Local(17), b: Local(15), ty: I(64, true) })
+    Some(Branch(Local(32), 7, 9))
+ 7:
+    Loc { file: 0, line: 50, col: 5 }
+    Assign(34, Use(Local(8)))
+    Some(Return(Local(34)))
+ 8:
+    Some(Unreachable)
+ 9:
+    Assign(33, Bin { op: Add, a: Local(17), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(17, Use(Local(33)))
+    Some(Goto(4))
+ 10:
+    Assign(7, Use(Local(6)))
+    Loc { file: 0, line: 46, col: 5 }
+    Assign(8, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 47, col: 5 }
+    Assign(9, Use(Const(Int(0, I64))))
+    Assign(10, Convert { a: Local(9), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(11, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(12, Use(Const(Int(0, Ptr))))
+    Assign(35, Use(Local(10)))
+    Assign(36, Use(Local(11)))
+    Assign(37, Use(Const(Int(0, I64))))
+    Assign(13, Use(Const(Int(0, Ptr))))
+    Assign(14, Use(Local(35)))
+    Assign(15, Use(Local(36)))
+    Assign(16, Use(Local(37)))
+    Assign(17, Use(Local(14)))
+    Some(Goto(4))
+ 11:
+    Poll
+    Assign(41, Use(Local(39)))
+    Assign(42, Use(Const(Int(0, Ptr))))
+    Assign(43, Call { callee: Intrinsic { name: "lang_rt_i_buffer_new", targs: 94742144872400, ret: 94742144558896 }, args: [Local(41)], ret: Ptr })
+    Assign(44, Use(Local(43)))
+    Assign(45, Use(Const(Int(0, I64))))
+    Assign(46, Convert { a: Local(45), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(47, Convert { a: Local(41), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(48, Use(Const(Int(0, Ptr))))
+    Assign(68, Use(Local(46)))
+    Assign(69, Use(Local(47)))
+    Assign(70, Use(Const(Int(0, I64))))
+    Assign(49, Use(Const(Int(0, Ptr))))
+    Assign(50, Use(Local(68)))
+    Assign(51, Use(Local(69)))
+    Assign(52, Use(Local(70)))
+    Assign(53, Use(Local(50)))
+    Some(Goto(15))
+ 12:
+    Some(Unreachable)
+ 13:
+    Some(Unreachable)
+ 14:
+    Some(Unreachable)
+ 15:
+    Poll
+    Assign(54, Cmp { op: Lt, a: Local(53), b: Local(51), ty: I(64, true) })
+    Assign(55, Cmp { op: Eq, a: Local(53), b: Local(51), ty: I(64, true) })
+    Assign(56, Convert { a: Local(52), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(57, Bin { op: And, a: Local(55), b: Local(56), ty: I(8, false), loc: 0 })
+    Assign(58, Bin { op: Or, a: Local(54), b: Local(57), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(58), 16, 18))
+ 16:
+    Assign(59, Convert { a: Local(53), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(60, Use(Local(59)))
+    Assign(61, Use(Const(Int(0, Ptr))))
+    Assign(77, Use(Const(Int(0, Ptr))))
+    Assign(78, Use(Local(60)))
+    Some(Goto(26))
+ 17:
+    Assign(65, Cmp { op: Eq, a: Local(53), b: Local(51), ty: I(64, true) })
+    Some(Branch(Local(65), 18, 20))
+ 18:
+    Assign(67, Call { callee: Intrinsic { name: "lang_rt_i_buffer_freeze", targs: 94742144872400, ret: 94742145643264 }, args: [Local(44)], ret: Ptr })
+    Assign(6, Use(Local(67)))
+    Some(Goto(10))
+ 19:
+    Some(Unreachable)
+ 20:
+    Assign(66, Bin { op: Add, a: Local(53), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(53, Use(Local(66)))
+    Some(Goto(15))
+ 21:
+    Assign(80, Use(Const(Addr(0))))
+    Assign(81, Use(Local(29)))
+    Assign(82, Use(Const(Int(0, I64))))
+    Some(Goto(29))
+ 22:
+    Assign(74, Use(Local(72)))
+    Assign(75, Use(Local(73)))
+    Assign(76, Call { callee: Intrinsic { name: "lang_rt_i_buffer_get", targs: 94742145486448, ret: 94742145486560 }, args: [Local(74), Local(75)], ret: Ptr })
+    Assign(29, Use(Local(76)))
+    Some(Goto(21))
+ 23:
+    Some(Unreachable)
+ 24:
+    Some(Unreachable)
+ 25:
+    Assign(63, Call { callee: Intrinsic { name: "lang_rt_i_buffer_push", targs: 94742144872400, ret: 94742145115792 }, args: [Local(44), Local(62)], ret: I64 })
+    Assign(64, FromWord { a: Local(63), to: I8 })
+    Some(Goto(17))
+ 26:
+    Assign(79, Use(Local(78)))
+    Loc { file: 0, line: 45, col: 44 }
+    Assign(62, Use(Local(79)))
+    Some(Goto(25))
+ 27:
+    Some(Unreachable)
+ 28:
+    Assign(31, Bin { op: Add, a: Local(26), b: Local(30), ty: I(64, true), loc: 94742144579072 })
+    Assign(8, Use(Local(31)))
+    Some(Goto(6))
+ 29:
+    Assign(83, Use(Local(81)))
+    Assign(84, Use(Local(82)))
+    Assign(86, Use(Const(Addr(0))))
+    Assign(87, Use(Local(83)))
+    Assign(88, Use(Local(84)))
+    Some(Goto(33))
+ 30:
+    Some(Unreachable)
+ 31:
+    Some(Unreachable)
+ 32:
+    Assign(30, Use(Local(85)))
+    Some(Goto(28))
+ 33:
+    Assign(89, Use(Local(87)))
+    Assign(90, Use(Local(88)))
+    Assign(91, Use(Local(89)))
+    Assign(93, Tag(Local(91)))
+    Some(Switch(Local(93), [(1, 38)], 37))
+ 34:
+    Some(Unreachable)
+ 35:
+    Some(Unreachable)
+ 36:
+    Assign(85, Use(Local(92)))
+    Some(Goto(32))
+ 37:
+    Assign(96, Tag(Local(91)))
+    Some(Switch(Local(96), [(0, 40)], 39))
+ 38:
+    Assign(94, Load { base: Local(91), offset: 8, repr: I64 })
+    Assign(95, Use(Local(94)))
+    Assign(92, Use(Local(95)))
+    Some(Goto(36))
+ 39:
+    Assign(97, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742145576080))], ret: I64 })
+    Some(Unreachable)
+ 40:
+    Assign(92, Use(Local(90)))
+    Some(Goto(36))
+ 41:
+    Some(Unreachable)
+fn 8 probes.comparisons#8 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 total
+  4: i64 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i64 
+  13: i8 
+  14: i8 
+  15: i8 
+  16: i8 
+  17: i8 
+  18: i64 
+  19: i64 i
+  20: i64 
+  21: i64 
+  22: i64 
+  23: i64 
+  24: ptr 
+  25: ptr a
+  26: i64 
+  27: i64 
+  28: i64 
+  29: i64 
+  30: ptr 
+  31: ptr b
+  32: ptr 
+  33: ptr 
+  34: ptr 
+  35: i8 
+  36: i64 
+  37: i64 
+  38: i8 
+  39: i64 
+  40: i64 
+  41: i8 
+  42: i8 
+  43: i64 
+  44: i64 
+  45: i64 
+  46: i8 
+  47: i64 
+  48: i64 
+  49: i64 
+  50: i64 
+  51: i64 
+  52: i64 
+  53: i64 
+  54: i64 
+  55: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 54, col: 5 }
+    Assign(3, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 55, col: 5 }
+    Assign(4, Use(Const(Int(0, I64))))
+    Assign(5, Convert { a: Local(4), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(6, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(7, Use(Const(Int(0, Ptr))))
+    Assign(49, Use(Local(5)))
+    Assign(50, Use(Local(6)))
+    Assign(51, Use(Const(Int(0, I64))))
+    Assign(8, Use(Const(Int(0, Ptr))))
+    Assign(9, Use(Local(49)))
+    Assign(10, Use(Local(50)))
+    Assign(11, Use(Local(51)))
+    Assign(12, Use(Local(9)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Poll
+    Assign(13, Cmp { op: Lt, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(14, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(15, Convert { a: Local(11), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(16, Bin { op: And, a: Local(14), b: Local(15), ty: I(8, false), loc: 0 })
+    Assign(17, Bin { op: Or, a: Local(13), b: Local(16), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(17), 4, 6))
+ 4:
+    Assign(18, Convert { a: Local(12), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(19, Use(Local(18)))
+    Loc { file: 0, line: 56, col: 9 }
+    Assign(20, Use(Local(19)))
+    Assign(21, Use(Local(19)))
+    Assign(22, Bin { op: Rem, a: Local(21), b: Const(Int(7, I64)), ty: I(64, true), loc: 94742145062720 })
+    Assign(23, Use(Local(22)))
+    Assign(24, Use(Const(Int(0, Ptr))))
+    Assign(52, Use(Local(20)))
+    Assign(53, Use(Local(23)))
+    Assign(25, Use(Const(Int(0, Ptr))))
+    Loc { file: 0, line: 57, col: 9 }
+    Assign(26, Use(Local(19)))
+    Assign(27, Use(Local(19)))
+    Assign(28, Bin { op: Rem, a: Local(27), b: Const(Int(7, I64)), ty: I(64, true), loc: 94742145402592 })
+    Assign(29, Use(Local(28)))
+    Assign(30, Use(Const(Int(0, Ptr))))
+    Assign(54, Use(Local(26)))
+    Assign(55, Use(Local(29)))
+    Assign(31, Use(Const(Int(0, Ptr))))
+    Loc { file: 0, line: 58, col: 9 }
+    Assign(32, Use(Const(Int(0, Ptr))))
+    Assign(33, Use(Const(Int(0, Ptr))))
+    Assign(34, Use(Const(Int(0, Ptr))))
+    Assign(35, Use(Const(Int(0, I8))))
+    Assign(36, Use(Local(52)))
+    Assign(37, Use(Local(54)))
+    Assign(38, Cmp { op: Eq, a: Local(36), b: Local(37), ty: I(64, true) })
+    Some(Branch(Local(38), 11, 10))
+ 5:
+    Assign(46, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Some(Branch(Local(46), 6, 16))
+ 6:
+    Loc { file: 0, line: 60, col: 5 }
+    Assign(48, Use(Local(3)))
+    Some(Return(Local(48)))
+ 7:
+    Some(Unreachable)
+ 8:
+    Some(Unreachable)
+ 9:
+    Some(Unreachable)
+ 10:
+    Some(Branch(Local(35), 13, 14))
+ 11:
+    Assign(39, Use(Local(53)))
+    Assign(40, Use(Local(55)))
+    Assign(41, Cmp { op: Eq, a: Local(39), b: Local(40), ty: I(64, true) })
+    Some(Branch(Local(41), 12, 10))
+ 12:
+    Assign(35, Use(Const(Int(1, I8))))
+    Some(Goto(10))
+ 13:
+    Loc { file: 0, line: 58, col: 21 }
+    Assign(43, Use(Local(3)))
+    Assign(44, Use(Local(43)))
+    Assign(45, Bin { op: Add, a: Local(44), b: Const(Int(1, I64)), ty: I(64, true), loc: 94742144561088 })
+    Assign(3, Use(Local(45)))
+    Some(Goto(15))
+ 14:
+    Some(Goto(15))
+ 15:
+    Some(Goto(5))
+ 16:
+    Assign(47, Bin { op: Add, a: Local(12), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(12, Use(Local(47)))
+    Some(Goto(3))
+fn 9 probes.plain_options#9 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 total
+  4: i64 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i64 
+  13: i8 
+  14: i8 
+  15: i8 
+  16: i8 
+  17: i8 
+  18: i64 
+  19: i64 i
+  20: i64 
+  21: i64 
+  22: i64 
+  23: i64 
+  24: i64 
+  25: i8 
+  26: i64 
+  27: i64 
+  28: i64 
+  29: i64 
+  30: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 26, col: 5 }
+    Assign(3, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 27, col: 5 }
+    Assign(4, Use(Const(Int(0, I64))))
+    Assign(5, Convert { a: Local(4), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(6, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(7, Use(Const(Int(0, Ptr))))
+    Assign(28, Use(Local(5)))
+    Assign(29, Use(Local(6)))
+    Assign(30, Use(Const(Int(0, I64))))
+    Assign(8, Use(Const(Int(0, Ptr))))
+    Assign(9, Use(Local(28)))
+    Assign(10, Use(Local(29)))
+    Assign(11, Use(Local(30)))
+    Assign(12, Use(Local(9)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Poll
+    Assign(13, Cmp { op: Lt, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(14, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(15, Convert { a: Local(11), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(16, Bin { op: And, a: Local(14), b: Local(15), ty: I(8, false), loc: 0 })
+    Assign(17, Bin { op: Or, a: Local(13), b: Local(16), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(17), 4, 6))
+ 4:
+    Assign(18, Convert { a: Local(12), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(19, Use(Local(18)))
+    Loc { file: 0, line: 27, col: 21 }
+    Assign(20, Use(Local(3)))
+    Assign(21, Use(Local(20)))
+    Assign(22, Use(Local(19)))
+    Assign(23, Bin { op: Rem, a: Local(22), b: Const(Int(100, I64)), ty: I(64, true), loc: 94742145368448 })
+    Assign(24, Bin { op: Add, a: Local(21), b: Local(23), ty: I(64, true), loc: 94742145155104 })
+    Assign(3, Use(Local(24)))
+    Some(Goto(5))
+ 5:
+    Assign(25, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Some(Branch(Local(25), 6, 8))
+ 6:
+    Loc { file: 0, line: 28, col: 5 }
+    Assign(27, Use(Local(3)))
+    Some(Return(Local(27)))
+ 7:
+    Some(Unreachable)
+ 8:
+    Assign(26, Bin { op: Add, a: Local(12), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(12, Use(Local(26)))
+    Some(Goto(3))
+fn 10 probes.plain_sequence#10 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 total
+  4: i64 
+  5: i64 
+  6: i64 
+  7: ptr 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i64 
+  13: i8 
+  14: i8 
+  15: i8 
+  16: i8 
+  17: i8 
+  18: i64 
+  19: i64 i
+  20: i64 
+  21: i64 
+  22: i64 x
+  23: i64 
+  24: i64 
+  25: i64 
+  26: i8 
+  27: i8 
+  28: i64 
+  29: i64 
+  30: i64 
+  31: i8 
+  32: i64 
+  33: i64 
+  34: i64 
+  35: i64 
+  36: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 32, col: 5 }
+    Assign(3, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 33, col: 5 }
+    Assign(4, Use(Const(Int(0, I64))))
+    Assign(5, Convert { a: Local(4), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(6, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(7, Use(Const(Int(0, Ptr))))
+    Assign(34, Use(Local(5)))
+    Assign(35, Use(Local(6)))
+    Assign(36, Use(Const(Int(0, I64))))
+    Assign(8, Use(Const(Int(0, Ptr))))
+    Assign(9, Use(Local(34)))
+    Assign(10, Use(Local(35)))
+    Assign(11, Use(Local(36)))
+    Assign(12, Use(Local(9)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Poll
+    Assign(13, Cmp { op: Lt, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(14, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Assign(15, Convert { a: Local(11), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(16, Bin { op: And, a: Local(14), b: Local(15), ty: I(8, false), loc: 0 })
+    Assign(17, Bin { op: Or, a: Local(13), b: Local(16), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(17), 4, 6))
+ 4:
+    Assign(18, Convert { a: Local(12), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(19, Use(Local(18)))
+    Loc { file: 0, line: 34, col: 9 }
+    Assign(20, Use(Local(19)))
+    Assign(21, Bin { op: Mul, a: Local(20), b: Const(Int(2, I64)), ty: I(64, true), loc: 94742144511488 })
+    Assign(22, Use(Local(21)))
+    Loc { file: 0, line: 35, col: 9 }
+    Assign(23, Use(Local(22)))
+    Assign(24, Bin { op: Rem, a: Local(23), b: Const(Int(3, I64)), ty: I(64, true), loc: 94742145673392 })
+    Assign(25, Use(Local(24)))
+    Assign(26, Cmp { op: Eq, a: Local(25), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(26), 9, 10))
+ 5:
+    Assign(31, Cmp { op: Eq, a: Local(12), b: Local(10), ty: I(64, true) })
+    Some(Branch(Local(31), 6, 12))
+ 6:
+    Loc { file: 0, line: 37, col: 5 }
+    Assign(33, Use(Local(3)))
+    Some(Return(Local(33)))
+ 7:
+    Some(Unreachable)
+ 8:
+    Some(Unreachable)
+ 9:
+    Loc { file: 0, line: 35, col: 25 }
+    Assign(28, Use(Local(3)))
+    Assign(29, Use(Local(28)))
+    Assign(30, Bin { op: Add, a: Local(29), b: Local(22), ty: I(64, true), loc: 94742145666096 })
+    Assign(3, Use(Local(30)))
+    Some(Goto(11))
+ 10:
+    Some(Goto(11))
+ 11:
+    Some(Goto(5))
+ 12:
+    Assign(32, Bin { op: Add, a: Local(12), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(12, Use(Local(32)))
+    Some(Goto(3))
+fn 11 std.prelude.ok#11 ([1]) -> ptr
+  0: ptr env
+  1: i8 
+  2: i8 value
+  3: i8 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Use(Local(2)))
+    Some(Return(Const(Addr(94742144539712))))
+ 1:
+    Some(Unreachable)
+fn 12 dyn.Error.std.prelude.Error.cause ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr self
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(3, Use(Const(Addr(94742145825152))))
+    Some(Goto(1))
+fn 13 Error.cause ([1]) -> ptr
+  0: ptr env
+  1: ptr self
+ 0:
+    Some(Return(Const(Addr(94742145825152))))
+fn 14 dyn.Error.std.prelude.Error.code ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Intrinsic { name: "lang_rt_i_error_code", targs: 94742145298272, ret: 94742145121696 }, args: [Local(6)], ret: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 15 std.prelude.code#12 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_error_code", targs: 94742145298272, ret: 94742145121696 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 16 dyn.Error.std.prelude.Error.details ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Intrinsic { name: "lang_rt_i_error_details", targs: 94742145298272, ret: 94742145276832 }, args: [Local(6)], ret: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 17 std.prelude.details#13 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_error_details", targs: 94742145298272, ret: 94742145276832 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 18 dyn.Error.std.prelude.Display.display ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Load { base: Local(6), offset: 8, repr: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 19 std.io.display#14 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Load { base: Local(2), offset: 8, repr: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 20 std.prelude.display#15 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_symbol_to_string", targs: 94742145590080, ret: 94742145068384 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 21 std.prelude.error_chain#16 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr e
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: ptr 
+  8: ptr 
+  9: i8 
+  10: ptr out
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: ptr cur
+  15: i8 
+  16: ptr 
+  17: ptr 
+  18: i8 
+  19: i32 
+  20: ptr 
+  21: ptr c
+  22: ptr 
+  23: ptr 
+  24: ptr 
+  25: ptr 
+  26: ptr 
+  27: ptr 
+  28: ptr 
+  29: ptr 
+  30: i32 
+  31: i64 
+  32: ptr 
+  33: ptr env
+  34: ptr 
+  35: ptr 
+  36: ptr self
+  37: ptr value
+  38: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Load { base: Local(2), offset: 0, repr: Ptr })
+    Assign(4, Load { base: Local(2), offset: 32, repr: Ptr })
+    Assign(5, Call { callee: Closure(Local(4)), args: [Local(3)], ret: Ptr })
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Runtime("lang_rt_list_new"), args: [Const(Addr(94742145271808))], ret: Ptr })
+    Assign(8, Use(Local(7)))
+    Assign(9, Call { callee: Runtime("lang_rt_list_push"), args: [Local(8), Local(6)], ret: I8 })
+    Assign(10, Use(Local(8)))
+    Assign(11, Load { base: Local(2), offset: 0, repr: Ptr })
+    Assign(12, Load { base: Local(2), offset: 8, repr: Ptr })
+    Assign(13, Call { callee: Closure(Local(12)), args: [Local(11)], ret: Ptr })
+    Assign(14, Use(Local(13)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Poll
+    Assign(16, Use(Local(14)))
+    Assign(17, Use(Local(16)))
+    Assign(19, Tag(Local(17)))
+    Some(Switch(Local(19), [(1, 8)], 7))
+ 5:
+    Assign(32, Use(Local(10)))
+    Some(Return(Local(32)))
+ 6:
+    Some(Goto(4))
+ 7:
+    Assign(30, Tag(Local(17)))
+    Some(Switch(Local(30), [(0, 10)], 9))
+ 8:
+    Assign(20, Load { base: Local(17), offset: 8, repr: Ptr })
+    Assign(21, Use(Local(20)))
+    Assign(22, Use(Local(10)))
+    Assign(23, Load { base: Local(21), offset: 0, repr: Ptr })
+    Assign(24, Load { base: Local(21), offset: 32, repr: Ptr })
+    Assign(25, Call { callee: Closure(Local(24)), args: [Local(23)], ret: Ptr })
+    Assign(33, Use(Const(Addr(0))))
+    Assign(34, Use(Local(22)))
+    Assign(35, Use(Local(25)))
+    Some(Goto(14))
+ 9:
+    Assign(31, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742145067648))], ret: I64 })
+    Some(Unreachable)
+ 10:
+    Assign(15, Use(Const(Int(0, I8))))
+    Some(Goto(5))
+ 11:
+    Some(Unreachable)
+ 12:
+    Some(Unreachable)
+ 13:
+    Assign(10, Use(Local(26)))
+    Assign(27, Load { base: Local(21), offset: 0, repr: Ptr })
+    Assign(28, Load { base: Local(21), offset: 8, repr: Ptr })
+    Assign(29, Call { callee: Closure(Local(28)), args: [Local(27)], ret: Ptr })
+    Assign(14, Use(Local(29)))
+    Assign(18, Use(Const(Int(0, I8))))
+    Some(Goto(6))
+ 14:
+    Assign(36, Use(Local(34)))
+    Assign(37, Use(Local(35)))
+    Assign(38, Call { callee: Intrinsic { name: "lang_rt_i_list_append", targs: 94742144646368, ret: 94742145271808 }, args: [Local(36), Local(37)], ret: Ptr })
+    Assign(26, Use(Local(38)))
+    Some(Goto(13))
+ 15:
+    Some(Unreachable)
+ 16:
+    Some(Unreachable)
+fn 22 std.prelude.display#17 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_data_to_string", targs: 94742145590080, ret: 94742145068384 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 23 probes.area#18 ([1]) -> i64
+  0: ptr env
+  1: ptr 
+  2: ptr r
+  3: i64 
+  4: i64 
+  5: i64 
+  6: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 6, col: 41 }
+    Assign(3, Load { base: Local(2), offset: 8, repr: I64 })
+    Assign(4, Use(Local(3)))
+    Assign(5, Load { base: Local(2), offset: 0, repr: I64 })
+    Assign(6, Bin { op: Mul, a: Local(4), b: Local(5), ty: I(64, true), loc: 94742145771168 })
+    Some(Return(Local(6)))
+ 1:
+    Some(Unreachable)
+fn 24 std.time.as_nanos#19 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 d
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Some(Return(Local(2)))
+ 1:
+    Some(Unreachable)
+fn 25 std.prelude.display#20 ([1]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94742144872400, ret: 94742145068384 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 26 std.io.println#21 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr value
+  3: ptr 
+  4: ptr 
+  5: ptr env
+  6: ptr 
+  7: ptr self
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(5, Use(Const(Addr(0))))
+    Assign(6, Use(Local(2)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Assign(4, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94742145590080, ret: 94742144471792 }, args: [Local(3), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Some(Return(Local(4)))
+ 3:
+    Assign(7, Use(Local(6)))
+    Assign(3, Use(Local(7)))
+    Some(Goto(2))
+ 4:
+    Some(Unreachable)
+fn 27 std.seq.range#22 ([1, 2]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 
+  3: i64 start
+  4: i64 end
+  5: ptr 
+  6: i64 
+  7: i64 
+  8: ptr 
+  9: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Alloc { desc: 94742145683120, size: 32 })
+    Assign(6, FuncAddr(40))
+    Assign(7, AdapterAddr(40))
+    Store { base: Local(5), offset: 0, repr: I64, value: Local(6) }
+    Store { base: Local(5), offset: 8, repr: I64, value: Local(7) }
+    Store { base: Local(5), offset: 16, repr: I64, value: Local(3) }
+    Store { base: Local(5), offset: 24, repr: I64, value: Local(4) }
+    Assign(8, Use(Local(5)))
+    Assign(9, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(9), offset: 0, repr: Ptr, value: Local(8) }
+    Some(Return(Local(9)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 28 probes.sequence#6.lambda4282 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 x
+  3: i64 
+  4: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 41, col: 38 }
+    Assign(3, Use(Local(2)))
+    Assign(4, Bin { op: Mul, a: Local(3), b: Const(Int(2, I64)), ty: I(64, true), loc: 94742144522704 })
+    Some(Return(Local(4)))
+ 1:
+    Some(Unreachable)
+fn 29 std.seq.map#23 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr self
+  4: ptr f
+  5: ptr 
+  6: ptr env
+  7: ptr 
+  8: ptr 
+  9: ptr items
+  10: ptr f
+  11: ptr 
+  12: i64 
+  13: i64 
+  14: ptr 
+  15: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(6, Use(Const(Addr(0))))
+    Assign(7, Use(Local(3)))
+    Assign(8, Use(Local(4)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Return(Local(5)))
+ 4:
+    Assign(9, Use(Local(7)))
+    Assign(10, Use(Local(8)))
+    Assign(11, Alloc { desc: 94742145579504, size: 32 })
+    Assign(12, FuncAddr(49))
+    Assign(13, AdapterAddr(49))
+    Store { base: Local(11), offset: 0, repr: I64, value: Local(12) }
+    Store { base: Local(11), offset: 8, repr: I64, value: Local(13) }
+    Store { base: Local(11), offset: 16, repr: Ptr, value: Local(9) }
+    Store { base: Local(11), offset: 24, repr: Ptr, value: Local(10) }
+    Assign(14, Use(Local(11)))
+    Assign(15, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(15), offset: 0, repr: Ptr, value: Local(14) }
+    Assign(5, Use(Local(15)))
+    Some(Goto(3))
+ 5:
+    Some(Unreachable)
+ 6:
+    Some(Unreachable)
+fn 30 probes.sequence#6.lambda4288 ([1]) -> i8
+  0: ptr env
+  1: i64 
+  2: i64 x
+  3: i64 
+  4: i64 
+  5: i64 
+  6: i8 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 41, col: 67 }
+    Assign(3, Use(Local(2)))
+    Assign(4, Bin { op: Rem, a: Local(3), b: Const(Int(3, I64)), ty: I(64, true), loc: 94742144567168 })
+    Assign(5, Use(Local(4)))
+    Assign(6, Cmp { op: Eq, a: Local(5), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Return(Local(6)))
+ 1:
+    Some(Unreachable)
+fn 31 std.seq.filter#24 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr self
+  4: ptr keep
+  5: ptr 
+  6: ptr env
+  7: ptr 
+  8: ptr 
+  9: ptr items
+  10: ptr keep
+  11: ptr 
+  12: i64 
+  13: i64 
+  14: ptr 
+  15: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(6, Use(Const(Addr(0))))
+    Assign(7, Use(Local(3)))
+    Assign(8, Use(Local(4)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Return(Local(5)))
+ 4:
+    Assign(9, Use(Local(7)))
+    Assign(10, Use(Local(8)))
+    Assign(11, Alloc { desc: 94742145575952, size: 32 })
+    Assign(12, FuncAddr(52))
+    Assign(13, AdapterAddr(52))
+    Store { base: Local(11), offset: 0, repr: I64, value: Local(12) }
+    Store { base: Local(11), offset: 8, repr: I64, value: Local(13) }
+    Store { base: Local(11), offset: 16, repr: Ptr, value: Local(9) }
+    Store { base: Local(11), offset: 24, repr: Ptr, value: Local(10) }
+    Assign(14, Use(Local(11)))
+    Assign(15, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(15), offset: 0, repr: Ptr, value: Local(14) }
+    Assign(5, Use(Local(15)))
+    Some(Goto(3))
+ 5:
+    Some(Unreachable)
+ 6:
+    Some(Unreachable)
+fn 32 probes.sequence#6.lambda4297 ([1, 2]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 
+  3: i64 a
+  4: i64 x
+  5: i64 
+  6: i64 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Loc { file: 0, line: 41, col: 110 }
+    Assign(5, Use(Local(3)))
+    Assign(6, Bin { op: Add, a: Local(5), b: Local(4), ty: I(64, true), loc: 94742144511712 })
+    Some(Return(Local(6)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 33 std.seq.fold#25 ([1, 2, 3]) -> i64
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr 
+  4: ptr self
+  5: i64 initial
+  6: ptr f
+  7: i64 
+  8: ptr env
+  9: ptr 
+  10: i64 
+  11: ptr 
+  12: ptr items
+  13: i64 initial
+  14: ptr f
+  15: i64 acc
+  16: ptr 
+  17: ptr 
+  18: ptr 
+  19: ptr 
+  20: ptr 
+  21: ptr 
+  22: i32 
+  23: i64 
+  24: i64 x
+  25: ptr 
+  26: i64 
+  27: i64 
+  28: i8 
+  29: i64 
+  30: ptr env
+  31: ptr 
+  32: ptr it
+  33: i64 
+  34: i8 
+ 0:
+    Poll
+    Assign(4, Use(Local(1)))
+    Assign(5, Use(Local(2)))
+    Assign(6, Use(Local(3)))
+    Assign(8, Use(Const(Addr(0))))
+    Assign(9, Use(Local(4)))
+    Assign(10, Use(Local(5)))
+    Assign(11, Use(Local(6)))
+    Some(Goto(5))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Some(Return(Local(7)))
+ 5:
+    Poll
+    Assign(12, Use(Local(9)))
+    Assign(13, Use(Local(10)))
+    Assign(14, Use(Local(11)))
+    Assign(15, Use(Local(13)))
+    Assign(16, Use(Local(12)))
+    Assign(17, Load { base: Local(16), offset: 0, repr: Ptr })
+    Assign(18, Call { callee: Closure(Local(17)), args: [], ret: Ptr })
+    Assign(19, Use(Local(18)))
+    Some(Goto(10))
+ 6:
+    Some(Unreachable)
+ 7:
+    Some(Unreachable)
+ 8:
+    Some(Unreachable)
+ 9:
+    Some(Unreachable)
+ 10:
+    Poll
+    Assign(20, Call { callee: Closure(Local(19)), args: [], ret: Ptr })
+    Assign(21, Use(Local(20)))
+    Assign(22, Tag(Local(21)))
+    Some(Switch(Local(22), [(1, 11)], 13))
+ 11:
+    Assign(23, Load { base: Local(21), offset: 8, repr: I64 })
+    Assign(24, Use(Local(23)))
+    Assign(25, Use(Local(14)))
+    Assign(26, Use(Local(15)))
+    Assign(27, Call { callee: Closure(Local(25)), args: [Local(26), Local(24)], ret: I64 })
+    Assign(15, Use(Local(27)))
+    Some(Goto(10))
+ 12:
+    Some(Goto(10))
+ 13:
+    Assign(30, Use(Const(Addr(0))))
+    Assign(31, Use(Local(19)))
+    Some(Goto(16))
+ 14:
+    Some(Unreachable)
+ 15:
+    Assign(29, Use(Local(15)))
+    Assign(7, Use(Local(29)))
+    Some(Goto(4))
+ 16:
+    Assign(32, Use(Local(31)))
+    Assign(33, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(32)], ret: I64 })
+    Assign(34, FromWord { a: Local(33), to: I8 })
+    Assign(28, Use(Local(34)))
+    Some(Goto(15))
+ 17:
+    Some(Unreachable)
+fn 34 probes.array_reads#7.lambda4306 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 i
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 45, col: 44 }
+    Some(Return(Local(2)))
+ 1:
+    Some(Unreachable)
+fn 35 std.array.build#26 ([1, 2]) -> ptr
+  0: ptr env
+  1: i64 
+  2: ptr 
+  3: i64 len
+  4: ptr init
+  5: ptr 
+  6: ptr b
+  7: i64 
+  8: i64 
+  9: i64 
+  10: ptr 
+  11: ptr 
+  12: i64 
+  13: i64 
+  14: i64 
+  15: i64 
+  16: i8 
+  17: i8 
+  18: i8 
+  19: i8 
+  20: i8 
+  21: i64 
+  22: i64 i
+  23: ptr 
+  24: i64 
+  25: i64 
+  26: i8 
+  27: i8 
+  28: i64 
+  29: ptr 
+  30: i64 
+  31: i64 
+  32: i64 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Call { callee: Intrinsic { name: "lang_rt_i_buffer_new", targs: 94742144872400, ret: 94742144558896 }, args: [Local(3)], ret: Ptr })
+    Assign(6, Use(Local(5)))
+    Assign(7, Use(Const(Int(0, I64))))
+    Assign(8, Convert { a: Local(7), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(9, Convert { a: Local(3), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(10, Use(Const(Int(0, Ptr))))
+    Assign(30, Use(Local(8)))
+    Assign(31, Use(Local(9)))
+    Assign(32, Use(Const(Int(0, I64))))
+    Assign(11, Use(Const(Int(0, Ptr))))
+    Assign(12, Use(Local(30)))
+    Assign(13, Use(Local(31)))
+    Assign(14, Use(Local(32)))
+    Assign(15, Use(Local(12)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Poll
+    Assign(16, Cmp { op: Lt, a: Local(15), b: Local(13), ty: I(64, true) })
+    Assign(17, Cmp { op: Eq, a: Local(15), b: Local(13), ty: I(64, true) })
+    Assign(18, Convert { a: Local(14), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(19, Bin { op: And, a: Local(17), b: Local(18), ty: I(8, false), loc: 0 })
+    Assign(20, Bin { op: Or, a: Local(16), b: Local(19), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(20), 5, 7))
+ 5:
+    Assign(21, Convert { a: Local(15), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(22, Use(Local(21)))
+    Assign(23, Use(Local(4)))
+    Assign(24, Call { callee: Closure(Local(23)), args: [Local(22)], ret: I64 })
+    Assign(25, Call { callee: Intrinsic { name: "lang_rt_i_buffer_push", targs: 94742144872400, ret: 94742145115792 }, args: [Local(6), Local(24)], ret: I64 })
+    Assign(26, FromWord { a: Local(25), to: I8 })
+    Some(Goto(6))
+ 6:
+    Assign(27, Cmp { op: Eq, a: Local(15), b: Local(13), ty: I(64, true) })
+    Some(Branch(Local(27), 7, 9))
+ 7:
+    Assign(29, Call { callee: Intrinsic { name: "lang_rt_i_buffer_freeze", targs: 94742144872400, ret: 94742145643264 }, args: [Local(6)], ret: Ptr })
+    Some(Return(Local(29)))
+ 8:
+    Some(Unreachable)
+ 9:
+    Assign(28, Bin { op: Add, a: Local(15), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(15, Use(Local(28)))
+    Some(Goto(4))
+fn 36 std.buffer.get#27 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr self
+  4: i64 index
+  5: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Call { callee: Intrinsic { name: "lang_rt_i_buffer_get", targs: 94742145486448, ret: 94742145486560 }, args: [Local(3), Local(4)], ret: Ptr })
+    Some(Return(Local(5)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 37 std.option.unwrap_or#28 ([1, 2]) -> i64
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr self
+  4: i64 default
+  5: i64 
+  6: ptr env
+  7: ptr 
+  8: i64 
+  9: ptr o
+  10: i64 default
+  11: ptr 
+  12: i64 
+  13: i32 
+  14: i64 
+  15: i64 x
+  16: i32 
+  17: i64 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(6, Use(Const(Addr(0))))
+    Assign(7, Use(Local(3)))
+    Assign(8, Use(Local(4)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Return(Local(5)))
+ 4:
+    Assign(9, Use(Local(7)))
+    Assign(10, Use(Local(8)))
+    Assign(11, Use(Local(9)))
+    Assign(13, Tag(Local(11)))
+    Some(Switch(Local(13), [(1, 9)], 8))
+ 5:
+    Some(Unreachable)
+ 6:
+    Some(Unreachable)
+ 7:
+    Assign(5, Use(Local(12)))
+    Some(Goto(3))
+ 8:
+    Assign(16, Tag(Local(11)))
+    Some(Switch(Local(16), [(0, 11)], 10))
+ 9:
+    Assign(14, Load { base: Local(11), offset: 8, repr: I64 })
+    Assign(15, Use(Local(14)))
+    Assign(12, Use(Local(15)))
+    Some(Goto(7))
+ 10:
+    Assign(17, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742145576080))], ret: I64 })
+    Some(Unreachable)
+ 11:
+    Assign(12, Use(Local(10)))
+    Some(Goto(7))
+ 12:
+    Some(Unreachable)
+fn 38 std.list.append#29 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr self
+  4: ptr value
+  5: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Call { callee: Intrinsic { name: "lang_rt_i_list_append", targs: 94742144646368, ret: 94742145271808 }, args: [Local(3), Local(4)], ret: Ptr })
+    Some(Return(Local(5)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 39 std.prelude.display#30 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Some(Return(Local(2)))
+ 1:
+    Some(Unreachable)
+fn 40 std.seq.range#22.lambda925 ([]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 
+  3: ptr 
+  4: ptr i
+  5: ptr 
+  6: i64 
+  7: i64 
+  8: ptr env
+  9: i64 
+  10: i64 value
+  11: i64 
+  12: ptr 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: I64 })
+    Assign(2, Load { base: Local(0), offset: 24, repr: I64 })
+    Assign(8, Use(Const(Addr(0))))
+    Assign(9, Use(Local(1)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Assign(4, Use(Local(3)))
+    Assign(5, Alloc { desc: 94742145573792, size: 32 })
+    Assign(6, FuncAddr(42))
+    Assign(7, AdapterAddr(42))
+    Store { base: Local(5), offset: 0, repr: I64, value: Local(6) }
+    Store { base: Local(5), offset: 8, repr: I64, value: Local(7) }
+    Store { base: Local(5), offset: 16, repr: Ptr, value: Local(4) }
+    Store { base: Local(5), offset: 24, repr: I64, value: Local(2) }
+    Some(Return(Local(5)))
+ 3:
+    Assign(10, Use(Local(9)))
+    Assign(11, Use(Local(10)))
+    Assign(12, Alloc { desc: 94742144557920, size: 8 })
+    Store { base: Local(12), offset: 0, repr: I64, value: Local(11) }
+    Assign(3, Use(Local(12)))
+    Some(Goto(2))
+ 4:
+    Some(Unreachable)
+fn 41 std.prelude.new#31 ([1]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 value
+  3: i64 
+  4: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Use(Local(2)))
+    Assign(4, Alloc { desc: 94742144557920, size: 8 })
+    Store { base: Local(4), offset: 0, repr: I64, value: Local(3) }
+    Some(Return(Local(4)))
+ 1:
+    Some(Unreachable)
+fn 42 std.seq.range#22.lambda925.lambda929 ([]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: i64 
+  4: i64 k
+  5: i64 
+  6: i8 
+  7: ptr 
+  8: i64 
+  9: i64 
+  10: i8 
+  11: i64 
+  12: ptr 
+  13: ptr env
+  14: ptr 
+  15: ptr self
+  16: i64 
+  17: ptr env
+  18: ptr 
+  19: i64 
+  20: ptr self
+  21: i64 value
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Load { base: Local(0), offset: 24, repr: I64 })
+    Assign(13, Use(Const(Addr(0))))
+    Assign(14, Use(Local(1)))
+    Some(Goto(6))
+ 1:
+    Some(Unreachable)
+ 2:
+    Assign(8, Use(Local(4)))
+    Assign(9, Bin { op: Add, a: Local(8), b: Const(Int(1, I64)), ty: I(64, true), loc: 94742144877376 })
+    Assign(17, Use(Const(Addr(0))))
+    Assign(18, Use(Local(1)))
+    Assign(19, Use(Local(9)))
+    Some(Goto(9))
+ 3:
+    Assign(7, Use(Const(Addr(94742144515888))))
+    Some(Goto(4))
+ 4:
+    Some(Return(Local(7)))
+ 5:
+    Assign(4, Use(Local(3)))
+    Assign(5, Use(Local(4)))
+    Assign(6, Cmp { op: Lt, a: Local(5), b: Local(2), ty: I(64, true) })
+    Some(Branch(Local(6), 2, 3))
+ 6:
+    Assign(15, Use(Local(14)))
+    Assign(16, Load { base: Local(15), offset: 0, repr: I64 })
+    Assign(3, Use(Local(16)))
+    Some(Goto(5))
+ 7:
+    Some(Unreachable)
+ 8:
+    Assign(11, Use(Local(4)))
+    Assign(12, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(12), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(12), offset: 8, repr: I64, value: Local(11) }
+    Assign(7, Use(Local(12)))
+    Some(Goto(4))
+ 9:
+    Assign(20, Use(Local(18)))
+    Assign(21, Use(Local(19)))
+    Store { base: Local(20), offset: 0, repr: I64, value: Local(21) }
+    Assign(10, Use(Const(Int(0, I8))))
+    Some(Goto(8))
+ 10:
+    Some(Unreachable)
+ 11:
+    Some(Unreachable)
+fn 43 std.prelude.get#32 ([1]) -> i64
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: i64 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Load { base: Local(2), offset: 0, repr: I64 })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 44 std.prelude.set#33 ([1, 2]) -> i8
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr self
+  4: i64 value
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Store { base: Local(3), offset: 0, repr: I64, value: Local(4) }
+    Some(Return(Const(Int(0, I8))))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 45 std.seq.map#34 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr items
+  4: ptr f
+  5: ptr 
+  6: i64 
+  7: i64 
+  8: ptr 
+  9: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Alloc { desc: 94742145579504, size: 32 })
+    Assign(6, FuncAddr(49))
+    Assign(7, AdapterAddr(49))
+    Store { base: Local(5), offset: 0, repr: I64, value: Local(6) }
+    Store { base: Local(5), offset: 8, repr: I64, value: Local(7) }
+    Store { base: Local(5), offset: 16, repr: Ptr, value: Local(3) }
+    Store { base: Local(5), offset: 24, repr: Ptr, value: Local(4) }
+    Assign(8, Use(Local(5)))
+    Assign(9, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(9), offset: 0, repr: Ptr, value: Local(8) }
+    Some(Return(Local(9)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 46 std.seq.filter#35 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr items
+  4: ptr keep
+  5: ptr 
+  6: i64 
+  7: i64 
+  8: ptr 
+  9: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Alloc { desc: 94742145575952, size: 32 })
+    Assign(6, FuncAddr(52))
+    Assign(7, AdapterAddr(52))
+    Store { base: Local(5), offset: 0, repr: I64, value: Local(6) }
+    Store { base: Local(5), offset: 8, repr: I64, value: Local(7) }
+    Store { base: Local(5), offset: 16, repr: Ptr, value: Local(3) }
+    Store { base: Local(5), offset: 24, repr: Ptr, value: Local(4) }
+    Assign(8, Use(Local(5)))
+    Assign(9, Alloc { desc: 94742145651504, size: 8 })
+    Store { base: Local(9), offset: 0, repr: Ptr, value: Local(8) }
+    Some(Return(Local(9)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+fn 47 std.seq.fold#36 ([1, 2, 3]) -> i64
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr 
+  4: ptr items
+  5: i64 initial
+  6: ptr f
+  7: i64 acc
+  8: ptr 
+  9: ptr 
+  10: ptr 
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: i32 
+  15: i64 
+  16: i64 x
+  17: ptr 
+  18: i64 
+  19: i64 
+  20: i8 
+  21: i64 
+  22: ptr env
+  23: ptr 
+  24: ptr it
+  25: i64 
+  26: i8 
+ 0:
+    Poll
+    Assign(4, Use(Local(1)))
+    Assign(5, Use(Local(2)))
+    Assign(6, Use(Local(3)))
+    Assign(7, Use(Local(5)))
+    Assign(8, Use(Local(4)))
+    Assign(9, Load { base: Local(8), offset: 0, repr: Ptr })
+    Assign(10, Call { callee: Closure(Local(9)), args: [], ret: Ptr })
+    Assign(11, Use(Local(10)))
+    Some(Goto(5))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Some(Unreachable)
+ 5:
+    Poll
+    Assign(12, Call { callee: Closure(Local(11)), args: [], ret: Ptr })
+    Assign(13, Use(Local(12)))
+    Assign(14, Tag(Local(13)))
+    Some(Switch(Local(14), [(1, 6)], 8))
+ 6:
+    Assign(15, Load { base: Local(13), offset: 8, repr: I64 })
+    Assign(16, Use(Local(15)))
+    Assign(17, Use(Local(6)))
+    Assign(18, Use(Local(7)))
+    Assign(19, Call { callee: Closure(Local(17)), args: [Local(18), Local(16)], ret: I64 })
+    Assign(7, Use(Local(19)))
+    Some(Goto(5))
+ 7:
+    Some(Goto(5))
+ 8:
+    Assign(22, Use(Const(Addr(0))))
+    Assign(23, Use(Local(11)))
+    Some(Goto(11))
+ 9:
+    Some(Unreachable)
+ 10:
+    Assign(21, Use(Local(7)))
+    Some(Return(Local(21)))
+ 11:
+    Assign(24, Use(Local(23)))
+    Assign(25, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(24)], ret: I64 })
+    Assign(26, FromWord { a: Local(25), to: I8 })
+    Assign(20, Use(Local(26)))
+    Some(Goto(10))
+ 12:
+    Some(Unreachable)
+fn 48 std.option.unwrap_or#37 ([1, 2]) -> i64
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: ptr o
+  4: i64 default
+  5: ptr 
+  6: i64 
+  7: i32 
+  8: i64 
+  9: i64 x
+  10: i32 
+  11: i64 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Use(Local(3)))
+    Assign(7, Tag(Local(5)))
+    Some(Switch(Local(7), [(1, 5)], 4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Return(Local(6)))
+ 4:
+    Assign(10, Tag(Local(5)))
+    Some(Switch(Local(10), [(0, 7)], 6))
+ 5:
+    Assign(8, Load { base: Local(5), offset: 8, repr: I64 })
+    Assign(9, Use(Local(8)))
+    Assign(6, Use(Local(9)))
+    Some(Goto(3))
+ 6:
+    Assign(11, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742145576080))], ret: I64 })
+    Some(Unreachable)
+ 7:
+    Assign(6, Use(Local(4)))
+    Some(Goto(3))
+ 8:
+    Some(Unreachable)
+fn 49 std.seq.map#34.lambda681 ([]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr 
+  4: ptr 
+  5: ptr next
+  6: ptr 
+  7: i64 
+  8: i64 
+  9: ptr 
+  10: ptr env
+  11: ptr 
+  12: ptr 
+  13: ptr outer
+  14: ptr inner
+  15: i64 
+  16: i8 
+  17: i8 
+  18: ptr 
+  19: i64 
+  20: i64 
+  21: i64 
+  22: i8 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Load { base: Local(0), offset: 24, repr: Ptr })
+    Assign(3, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Call { callee: Closure(Local(3)), args: [], ret: Ptr })
+    Assign(5, Use(Local(4)))
+    Assign(6, Alloc { desc: 94742145179088, size: 32 })
+    Assign(7, FuncAddr(50))
+    Assign(8, AdapterAddr(50))
+    Store { base: Local(6), offset: 0, repr: I64, value: Local(7) }
+    Store { base: Local(6), offset: 8, repr: I64, value: Local(8) }
+    Store { base: Local(6), offset: 16, repr: Ptr, value: Local(5) }
+    Store { base: Local(6), offset: 24, repr: Ptr, value: Local(2) }
+    Assign(10, Use(Const(Addr(0))))
+    Assign(11, Use(Local(6)))
+    Assign(12, Use(Local(5)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Return(Local(9)))
+ 3:
+    Assign(13, Use(Local(11)))
+    Assign(14, Use(Local(12)))
+    Assign(15, Call { callee: Intrinsic { name: "lang_rt_i_iter_has_close", targs: 94742146023920, ret: 94742146021296 }, args: [Local(14)], ret: I64 })
+    Assign(16, FromWord { a: Local(15), to: I8 })
+    Some(Branch(Local(16), 6, 7))
+ 4:
+    Some(Unreachable)
+ 5:
+    Some(Unreachable)
+ 6:
+    Assign(18, Alloc { desc: 94742145239520, size: 24 })
+    Assign(19, FuncAddr(55))
+    Assign(20, AdapterAddr(55))
+    Store { base: Local(18), offset: 0, repr: I64, value: Local(19) }
+    Store { base: Local(18), offset: 8, repr: I64, value: Local(20) }
+    Store { base: Local(18), offset: 16, repr: Ptr, value: Local(14) }
+    Assign(21, Call { callee: Intrinsic { name: "lang_rt_i_iter_on_close", targs: 94742144652064, ret: 94742145115792 }, args: [Local(13), Local(18)], ret: I64 })
+    Assign(22, FromWord { a: Local(21), to: I8 })
+    Some(Goto(8))
+ 7:
+    Some(Goto(8))
+ 8:
+    Assign(9, Use(Local(13)))
+    Some(Goto(2))
+fn 50 std.seq.map#34.lambda681.lambda685 ([]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: i32 
+  8: i64 
+  9: i64 x
+  10: ptr 
+  11: i64 
+  12: i64 
+  13: ptr 
+  14: i32 
+  15: i64 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Load { base: Local(0), offset: 24, repr: Ptr })
+    Assign(3, Use(Local(1)))
+    Assign(4, Call { callee: Closure(Local(3)), args: [], ret: Ptr })
+    Assign(5, Use(Local(4)))
+    Assign(7, Tag(Local(5)))
+    Some(Switch(Local(7), [(1, 3)], 2))
+ 1:
+    Some(Return(Local(6)))
+ 2:
+    Assign(14, Tag(Local(5)))
+    Some(Switch(Local(14), [(0, 5)], 4))
+ 3:
+    Assign(8, Load { base: Local(5), offset: 8, repr: I64 })
+    Assign(9, Use(Local(8)))
+    Assign(10, Use(Local(2)))
+    Assign(11, Call { callee: Closure(Local(10)), args: [Local(9)], ret: I64 })
+    Assign(12, Use(Local(11)))
+    Assign(13, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(13), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(13), offset: 8, repr: I64, value: Local(12) }
+    Assign(6, Use(Local(13)))
+    Some(Goto(1))
+ 4:
+    Assign(15, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742144505984))], ret: I64 })
+    Some(Unreachable)
+ 5:
+    Assign(6, Use(Const(Addr(94742144515888))))
+    Some(Goto(1))
+ 6:
+    Some(Unreachable)
+fn 51 std.seq.link#38 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr outer
+  4: ptr inner
+  5: i64 
+  6: i8 
+  7: i8 
+  8: ptr 
+  9: i64 
+  10: i64 
+  11: i64 
+  12: i8 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Call { callee: Intrinsic { name: "lang_rt_i_iter_has_close", targs: 94742146023920, ret: 94742146021296 }, args: [Local(4)], ret: I64 })
+    Assign(6, FromWord { a: Local(5), to: I8 })
+    Some(Branch(Local(6), 3, 4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Assign(8, Alloc { desc: 94742145239520, size: 24 })
+    Assign(9, FuncAddr(55))
+    Assign(10, AdapterAddr(55))
+    Store { base: Local(8), offset: 0, repr: I64, value: Local(9) }
+    Store { base: Local(8), offset: 8, repr: I64, value: Local(10) }
+    Store { base: Local(8), offset: 16, repr: Ptr, value: Local(4) }
+    Assign(11, Call { callee: Intrinsic { name: "lang_rt_i_iter_on_close", targs: 94742144652064, ret: 94742145115792 }, args: [Local(3), Local(8)], ret: I64 })
+    Assign(12, FromWord { a: Local(11), to: I8 })
+    Some(Goto(5))
+ 4:
+    Some(Goto(5))
+ 5:
+    Some(Return(Local(3)))
+fn 52 std.seq.filter#35.lambda701 ([]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr 
+  4: ptr 
+  5: ptr next
+  6: ptr 
+  7: i64 
+  8: i64 
+  9: ptr 
+  10: ptr env
+  11: ptr 
+  12: ptr 
+  13: ptr outer
+  14: ptr inner
+  15: i64 
+  16: i8 
+  17: i8 
+  18: ptr 
+  19: i64 
+  20: i64 
+  21: i64 
+  22: i8 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Load { base: Local(0), offset: 24, repr: Ptr })
+    Assign(3, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Call { callee: Closure(Local(3)), args: [], ret: Ptr })
+    Assign(5, Use(Local(4)))
+    Assign(6, Alloc { desc: 94742144564336, size: 32 })
+    Assign(7, FuncAddr(53))
+    Assign(8, AdapterAddr(53))
+    Store { base: Local(6), offset: 0, repr: I64, value: Local(7) }
+    Store { base: Local(6), offset: 8, repr: I64, value: Local(8) }
+    Store { base: Local(6), offset: 16, repr: Ptr, value: Local(5) }
+    Store { base: Local(6), offset: 24, repr: Ptr, value: Local(2) }
+    Assign(10, Use(Const(Addr(0))))
+    Assign(11, Use(Local(6)))
+    Assign(12, Use(Local(5)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Return(Local(9)))
+ 3:
+    Assign(13, Use(Local(11)))
+    Assign(14, Use(Local(12)))
+    Assign(15, Call { callee: Intrinsic { name: "lang_rt_i_iter_has_close", targs: 94742146023920, ret: 94742146021296 }, args: [Local(14)], ret: I64 })
+    Assign(16, FromWord { a: Local(15), to: I8 })
+    Some(Branch(Local(16), 6, 7))
+ 4:
+    Some(Unreachable)
+ 5:
+    Some(Unreachable)
+ 6:
+    Assign(18, Alloc { desc: 94742145239520, size: 24 })
+    Assign(19, FuncAddr(55))
+    Assign(20, AdapterAddr(55))
+    Store { base: Local(18), offset: 0, repr: I64, value: Local(19) }
+    Store { base: Local(18), offset: 8, repr: I64, value: Local(20) }
+    Store { base: Local(18), offset: 16, repr: Ptr, value: Local(14) }
+    Assign(21, Call { callee: Intrinsic { name: "lang_rt_i_iter_on_close", targs: 94742144652064, ret: 94742145115792 }, args: [Local(13), Local(18)], ret: I64 })
+    Assign(22, FromWord { a: Local(21), to: I8 })
+    Some(Goto(8))
+ 7:
+    Some(Goto(8))
+ 8:
+    Assign(9, Use(Local(13)))
+    Some(Goto(2))
+fn 53 std.seq.filter#35.lambda701.lambda705 ([]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: i8 
+  8: i32 
+  9: i64 
+  10: i64 x
+  11: ptr 
+  12: i8 
+  13: i8 
+  14: i64 
+  15: ptr 
+  16: i32 
+  17: i64 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Load { base: Local(0), offset: 24, repr: Ptr })
+    Some(Goto(1))
+ 1:
+    Poll
+    Assign(4, Use(Local(1)))
+    Assign(5, Call { callee: Closure(Local(4)), args: [], ret: Ptr })
+    Assign(6, Use(Local(5)))
+    Assign(8, Tag(Local(6)))
+    Some(Switch(Local(8), [(1, 5)], 4))
+ 2:
+    Some(Return(Local(3)))
+ 3:
+    Some(Goto(1))
+ 4:
+    Assign(16, Tag(Local(6)))
+    Some(Switch(Local(16), [(0, 11)], 10))
+ 5:
+    Assign(9, Load { base: Local(6), offset: 8, repr: I64 })
+    Assign(10, Use(Local(9)))
+    Assign(11, Use(Local(2)))
+    Assign(12, Call { callee: Closure(Local(11)), args: [Local(10)], ret: I8 })
+    Some(Branch(Local(12), 6, 7))
+ 6:
+    Assign(14, Use(Local(10)))
+    Assign(15, Alloc { desc: 94742145486560, size: 16 })
+    Store { base: Local(15), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(15), offset: 8, repr: I64, value: Local(14) }
+    Some(Return(Local(15)))
+ 7:
+    Some(Goto(8))
+ 8:
+    Assign(7, Use(Const(Int(0, I8))))
+    Some(Goto(3))
+ 9:
+    Some(Unreachable)
+ 10:
+    Assign(17, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94742144479600))], ret: I64 })
+    Some(Unreachable)
+ 11:
+    Some(Return(Const(Addr(94742144515888))))
+ 12:
+    Some(Unreachable)
+ 13:
+    Some(Unreachable)
+fn 54 std.seq.close_iter#39 ([1]) -> i8
+  0: ptr env
+  1: ptr 
+  2: ptr it
+  3: i64 
+  4: i8 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(2)], ret: I64 })
+    Assign(4, FromWord { a: Local(3), to: I8 })
+    Some(Return(Local(4)))
+ 1:
+    Some(Unreachable)
+fn 55 std.seq.link#38.lambda561 ([]) -> i8
+  0: ptr env
+  1: ptr 
+  2: i64 
+  3: i8 
+ 0:
+    Poll
+    Assign(1, Load { base: Local(0), offset: 16, repr: Ptr })
+    Assign(2, Call { callee: Intrinsic { name: "lang_rt_i_iter_close", targs: 94742146023920, ret: 94742145115792 }, args: [Local(1)], ret: I64 })
+    Assign(3, FromWord { a: Local(2), to: I8 })
+    Some(Return(Local(3)))
+
+; probes.helpers#3 (408 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x28(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+block0:
+  movq %rdx, %r13
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label23; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r12
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r12, %rdi
+  movq %rbx, %r14
+  jmp     label6
+block6:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %r12, %rdi
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  movq %r13, %rsi
+  jmp     label9
+block9:
+  cmpq %rsi, %rbx
+  jl      label11; j label10
+block10:
+  movq %r14, %rax
+  jmp     label20
+block11:
+  jmp     label12
+block12:
+  jmp     label13
+block13:
+  movq %rbx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  leaq (%rdx, %rbx), %rax
+  sarq $0x6, %rax
+  movq %rax, %rcx
+  shrq $0x3f, %rcx
+  leaq (%rax, %rcx), %rax
+  imulq $0x64, %rax, %rcx
+  movq %rbx, %rax
+  subq %rcx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  jo      label22; j label14
+block14:
+  jmp     label15
+block15:
+  movq %r14, %rcx
+  addq %rax, %rcx
+  movq %rcx, %r14
+  seto %al
+  testb %al, %al
+  jnz     label21; j label16
+block16:
+  jmp     label17
+block17:
+  cmpq %rsi, %rbx
+  jz      label18; j label19
+block18:
+  movq %r14, %rax
+  jmp     label20
+block19:
+  leaq 1(%rbx), %rbx
+  movq %r12, %rdi
+  movq %rsi, %r13
+  jmp     label6
+block20:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  movq 0x28(%rsp), %r14
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  movq %r13, %rsi
+  jmp     label9
+block21:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfee6e40, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r12, %rdi
+  call    *%r8
+  ud2
+block22:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adff1a6a0, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r12, %rdi
+  call    *%r8
+  ud2
+block23:
+  movq %rdi, %r12
+  load_ext_name userextname4+0, %r8
+  call    *%r8
+  ud2
+
+; probes.options#5 (448 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x28(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+block0:
+  movq %rdx, %r12
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label24; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r13
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r13, %rdi
+  movq %rbx, %r14
+  jmp     label6
+block6:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %r13, %rdi
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  jmp     label9
+block9:
+  cmpq %r12, %rbx
+  jl      label11; j label10
+block10:
+  movq %r14, %rax
+  jmp     label22
+block11:
+  jmp     label12
+block12:
+  movabsq $0x562adfed4ee0, %rsi
+  movl $0x10, %edx
+  load_ext_name userextname2+0, %r8
+  movq %r13, %rdi
+  call    *%r8
+  movl $0x1, 0x10(%rax)
+  movq %rax, %rdi
+  movq %rbx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  leaq (%rdx, %rbx), %rdx
+  sarq $0x6, %rdx
+  movq %rdx, %rsi
+  shrq $0x3f, %rsi
+  leaq (%rdx, %rsi), %rsi
+  imulq $0x64, %rsi, %rsi
+  movq %rbx, %rcx
+  subq %rsi, %rcx
+  movq %rdi, %rax
+  movq %rcx, 0x18(%rax)
+  movl 0x10(%rax), %esi
+  cmpl $0x1, %esi
+  jz      label16; j label13
+block13:
+  testl %esi, %esi
+  jnz     label15; j label14
+block14:
+  uninit  %rcx
+  xorq %rcx, %rcx
+  movq %r14, %rax
+  jmp     label17
+block16:
+  movq %r14, %rax
+  jmp     label17
+block17:
+  addq %rcx, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label23; j label18
+block18:
+  jmp     label19
+block19:
+  cmpq %r12, %rbx
+  jz      label20; j label21
+block20:
+  jmp     label22
+block21:
+  leaq 1(%rbx), %rbx
+  movq %r13, %rdi
+  movq %rax, %r14
+  jmp     label6
+block22:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  movq 0x28(%rsp), %r14
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r13, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r13, %rdi
+  call    *%rax
+  jmp     label9
+block15:
+  movl $0x4, %esi
+  movabsq $0x562adfe703f0, %rdx
+  load_ext_name userextname1+0, %r9
+  movq %r13, %rdi
+  call    *%r9
+  ud2
+block23:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfe40040, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %r13, %rdi
+  call    *%rax
+  ud2
+block24:
+  movq %rdi, %r13
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.sequence#6 (1638 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 48 }
+  subq $0xf0, %rsp
+  movq %rbx, 0xc0(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0xc8(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0xd0(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0xd8(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+  movq %r15, 0xe0(%rsp)
+  unwind SaveReg { clobber_offset: 32, reg: p15i }
+block0:
+  movq %rdx, %r12
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label59; j label1
+block1:
+  movq (%rdi), %rcx
+  leaq <offset:1>+(%rsp), %rax
+  movq %rcx, <offset:1>+(%rsp)
+  movq $0x15, <offset:1>+8(%rsp)
+  movq $0x0, <offset:1>+0x10(%rsp)
+  movq $0x0, <offset:1>+0x18(%rsp)
+  movq $0x0, <offset:1>+0x20(%rsp)
+  movq $0x0, <offset:1>+0x28(%rsp)
+  movq $0x0, <offset:1>+0x30(%rsp)
+  movq $0x0, <offset:1>+0x38(%rsp)
+  movq $0x0, <offset:1>+0x40(%rsp)
+  movq $0x0, <offset:1>+0x48(%rsp)
+  movq $0x0, <offset:1>+0x50(%rsp)
+  movq $0x0, <offset:1>+0x58(%rsp)
+  movq $0x0, <offset:1>+0x60(%rsp)
+  movq $0x0, <offset:1>+0x68(%rsp)
+  movq $0x0, <offset:1>+0x70(%rsp)
+  movq $0x0, <offset:1>+0x78(%rsp)
+  movq $0x0, <offset:1>+0x80(%rsp)
+  movq $0x0, <offset:1>+0x88(%rsp)
+  movq $0x0, <offset:1>+0x90(%rsp)
+  movq $0x0, <offset:1>+0x98(%rsp)
+  movq $0x0, <offset:1>+0xa0(%rsp)
+  movq $0x0, <offset:1>+0xa8(%rsp)
+  movq $0x0, <offset:1>+0xb0(%rsp)
+  movq %rax, (%rdi)
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r15
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  jmp     label6
+block6:
+  movabsq $0x562adff04eb0, %rsi
+  movl $0x20, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  load_ext_name userextname11+0, %rcx
+  movq %rcx, 0x10(%rax)
+  load_ext_name userextname12+0, %rcx
+  movq %rcx, 0x18(%rax)
+  movq $0x0, 0x20(%rax)
+  movq %r12, %rdx
+  movq %rdx, 0x28(%rax)
+  movq %rax, <offset:1>+0x20(%rsp)
+  movq %rax, %rbx
+  movabsq $0x562adfefd330, %rsi
+  movl $0x8, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  movq %rbx, %rcx
+  movq %rcx, 0x10(%rax)
+  movq %rax, <offset:1>+0x10(%rsp)
+  movq %rax, %rbx
+  jmp     label7
+block7:
+  movabsq $0x562adfed66f0, %rsi
+  movl $0x10, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  load_ext_name userextname9+0, %rcx
+  movq %rcx, 0x10(%rax)
+  load_ext_name userextname10+0, %rcx
+  movq %rcx, 0x18(%rax)
+  jmp     label8
+block8:
+  jmp     label9
+block9:
+  movq %rbx, <offset:1>+0x28(%rsp)
+  movq %rax, <offset:1>+0x30(%rsp)
+  movq %rax, %r12
+  movabsq $0x562adfeeb9f0, %rsi
+  movl $0x20, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  load_ext_name userextname17+0, %rcx
+  movq %rcx, 0x10(%rax)
+  load_ext_name userextname18+0, %rcx
+  movq %rcx, 0x18(%rax)
+  movq %rbx, 0x20(%rax)
+  movq %r12, %rcx
+  movq %rcx, 0x28(%rax)
+  movq %rax, <offset:1>+0x38(%rsp)
+  movq %rax, %rbx
+  movabsq $0x562adfefd330, %rsi
+  movl $0x8, %edx
+  load_ext_name userextname2+0, %rcx
+  movq %r15, %rdi
+  call    *%rcx
+  movq %rax, %rcx
+  movq %rbx, %rax
+  movq %rcx, %rbx
+  movq %rax, 0x10(%rbx)
+  jmp     label10
+block10:
+  movq %rbx, <offset:1>+0x18(%rsp)
+  jmp     label11
+block11:
+  movabsq $0x562adff067a0, %rsi
+  movl $0x10, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  load_ext_name userextname13+0, %rcx
+  movq %rcx, 0x10(%rax)
+  load_ext_name userextname14+0, %rcx
+  movq %rcx, 0x18(%rax)
+  jmp     label12
+block12:
+  jmp     label13
+block13:
+  movq %rbx, <offset:1>+0xa8(%rsp)
+  movq %rbx, %r14
+  movq %rax, <offset:1>+0xb0(%rsp)
+  movq %rax, %r12
+  jmp     label14
+block14:
+  jmp     label15
+block15:
+  jmp     label16
+block16:
+  jmp     label17
+block17:
+  movq %r15, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label19; j label18
+block18:
+  jmp     label20
+block20:
+  jmp     label21
+block21:
+  movq %r12, <offset:1>+0x50(%rsp)
+  movq %r14, %rax
+  movq 0x10(%rax), %rsi
+  movq %rsi, <offset:1>+0x58(%rsp)
+  movq 0x10(%rsi), %rdx
+  movq %r15, %rdi
+  call    *%rdx
+  movq %rax, <offset:1>+0x60(%rsp)
+  movq %rax, %rbx
+  movabsq $0x562adfdf3c70, %rsi
+  movl $0x20, %edx
+  load_ext_name userextname2+0, %r8
+  movq %r15, %rdi
+  call    *%r8
+  movq %rax, %r13
+  load_ext_name userextname21+0, %rsi
+  movq %rsi, 0x10(%rax)
+  load_ext_name userextname22+0, %rsi
+  movq %rsi, 0x18(%rax)
+  movq %rbx, 0x20(%rax)
+  movq %r12, 0x28(%rax)
+  jmp     label22
+block22:
+  movq %r13, %rax
+  movq %rax, <offset:1>+0x68(%rsp)
+  movq %rbx, <offset:1>+0x70(%rsp)
+  movabsq $0x562adff581f0, %rsi
+  movabsq $0x562adff577b0, %rdx
+  load_ext_name userextname7+0, %r10
+  movq %rbx, %rcx
+  movq %r15, %rdi
+  call    *%r10
+  testb %al, %al
+  jnz     label24; j label23
+block23:
+  jmp     label25
+block24:
+  movabsq $0x562adfe989e0, %rsi
+  movl $0x18, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  movq %rax, <offset:1>+0x78(%rsp)
+  load_ext_name userextname23+0, %rcx
+  movq %rcx, 0x10(%rax)
+  load_ext_name userextname24+0, %rcx
+  movq %rcx, 0x18(%rax)
+  movq %rbx, 0x20(%rax)
+  movabsq $0x562adfe09320, %rsi
+  movabsq $0x562adfe7a690, %rdx
+  load_ext_name userextname8+0, %r9
+  movq %rax, %r8
+  movq %r13, %rcx
+  movq %r15, %rdi
+  call    *%r9
+  jmp     label25
+block25:
+  jmp     label26
+block26:
+  jmp     label27
+block27:
+  movq %r13, %rax
+  movq %rax, <offset:1>+0x40(%rsp)
+  uninit  %rax
+  xorq %rax, %rax
+  movq %rax, <offset:1>+0xb8(%rsp)
+  movq %r15, %rdi
+  jmp     label28
+block28:
+  movq %r15, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label30; j label29
+block29:
+  movq %r13, %rbx
+  jmp     label31
+block31:
+  movq %rbx, <offset:1>+0x80(%rsp)
+  jmp     label32
+block32:
+  movq %r15, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label34; j label33
+block33:
+  jmp     label35
+block35:
+  movq 0x20(%rbx), %r12
+  movq %r12, <offset:1>+0x88(%rsp)
+  movq 0x28(%rbx), %r13
+  movq %r13, <offset:1>+0x90(%rsp)
+  movq %r15, %rdi
+  jmp     label36
+block36:
+  movq %r15, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label38; j label37
+block37:
+  jmp     label39
+block39:
+  movq %r12, <offset:1>+0x98(%rsp)
+  movq 0x10(%r12), %rax
+  movq %r12, %rsi
+  movq %r15, %rdi
+  call    *%rax
+  movl 0x10(%rax), %ecx
+  cmpl $0x1, %ecx
+  jz      label43; j label40
+block40:
+  testl %ecx, %ecx
+  jnz     label42; j label41
+block41:
+  movabsq $0x562adfde7f30, %rax
+  jmp     label48
+block43:
+  movq 0x18(%rax), %r14
+  movq %r13, <offset:1>+0xa0(%rsp)
+  movq 0x10(%r13), %rax
+  movq %r14, %rdx
+  movq %r13, %rsi
+  movq %r15, %rdi
+  call    *%rax
+  testb %al, %al
+  jnz     label47; j label44
+block44:
+  jmp     label45
+block45:
+  jmp     label46
+block46:
+  movq %r15, %rdi
+  jmp     label36
+block47:
+  movabsq $0x562adfed4ee0, %rsi
+  movl $0x10, %edx
+  load_ext_name userextname2+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  movl $0x1, 0x10(%rax)
+  movq %r14, 0x18(%rax)
+  jmp     label48
+block48:
+  movl 0x10(%rax), %ecx
+  cmpl $0x1, %ecx
+  jz      label54; j label49
+block49:
+  jmp     label50
+block50:
+  movq %rbx, <offset:1>+0x48(%rsp)
+  movq %rbx, %r13
+  movabsq $0x562adff581f0, %rsi
+  movabsq $0x562adfe7a690, %rdx
+  load_ext_name userextname6+0, %r8
+  movq %r13, %rcx
+  movq %r15, %rdi
+  call    *%r8
+  jmp     label51
+block51:
+  jmp     label52
+block52:
+  jmp     label53
+block53:
+  movq <offset:1>+(%rsp), %rsi
+  movq %r15, %rdi
+  movq %rsi, (%rdi)
+  movq <offset:1>+0xb8(%rsp), %rax
+  movq 0xc0(%rsp), %rbx
+  movq 0xc8(%rsp), %r12
+  movq 0xd0(%rsp), %r13
+  movq 0xd8(%rsp), %r14
+  movq 0xe0(%rsp), %r15
+  addq $0xf0, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block54:
+  movq %rbx, %rcx
+  movq 0x18(%rax), %rdi
+  jmp     label55
+block55:
+  movq <offset:1>+0xb8(%rsp), %rax
+  addq %rdi, %rax
+  seto %r9b
+  testb %r9b, %r9b
+  jnz     label58; j label56
+block56:
+  jmp     label57
+block57:
+  movq %r15, %rdi
+  movq %rcx, %r13
+  movq %rax, <offset:1>+0xb8(%rsp)
+  jmp     label28
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  jmp     label5
+block19:
+  load_ext_name userextname0+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  jmp     label20
+block30:
+  load_ext_name userextname0+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  movq %r13, %rbx
+  jmp     label31
+block34:
+  load_ext_name userextname0+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  jmp     label35
+block38:
+  load_ext_name userextname0+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  jmp     label39
+block42:
+  movl $0x4, %esi
+  movabsq $0x562adfddf170, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  ud2
+block58:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfde6ee0, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %r15, %rdi
+  call    *%rax
+  ud2
+block59:
+  movq %rdi, %r15
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.array_reads#7 (767 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 48 }
+  subq $0x60, %rsp
+  movq %rbx, 0x30(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x38(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x40(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x48(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+  movq %r15, 0x50(%rsp)
+  unwind SaveReg { clobber_offset: 32, reg: p15i }
+block0:
+  movq %rdx, %r13
+  movq 0x20(%rdi), %r8
+  movq    %rsp, %r9
+  cmpq %r8, %r9
+  jb      label47; j label1
+block1:
+  movq (%rdi), %r10
+  leaq <offset:1>+(%rsp), %r9
+  movq %r10, <offset:1>+(%rsp)
+  movq $0x3, <offset:1>+8(%rsp)
+  movq $0x0, <offset:1>+0x10(%rsp)
+  movq $0x0, <offset:1>+0x18(%rsp)
+  movq $0x0, <offset:1>+0x20(%rsp)
+  movq %r9, (%rdi)
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r14
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  jmp     label6
+block6:
+  movq %r14, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  jmp     label9
+block9:
+  movabsq $0x562adfe3efd0, %rsi
+  movabsq $0x562adfdf2730, %rdx
+  movl $0x800, %ecx
+  load_ext_name userextname6+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  movq %rax, <offset:1>+0x18(%rsp)
+  movq %rax, %r12
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r14, %rdi
+  jmp     label10
+block10:
+  movq %r14, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label12; j label11
+block11:
+  jmp     label13
+block13:
+  cmpq $0x800, %rbx
+  jl      label15; j label14
+block14:
+  jmp     label21
+block15:
+  jmp     label16
+block16:
+  jmp     label17
+block17:
+  movabsq $0x562adfe3efd0, %rsi
+  movabsq $0x562adfe7a690, %rdx
+  load_ext_name userextname9+0, %rax
+  movq %r12, %rcx
+  movq %r14, %rdi
+  movq %rbx, %r8
+  call    *%rax
+  jmp     label18
+block18:
+  cmpq $0x800, %rbx
+  jz      label19; j label20
+block19:
+  jmp     label21
+block20:
+  leaq 1(%rbx), %rbx
+  movq %r14, %rdi
+  jmp     label10
+block21:
+  movabsq $0x562adfe3efd0, %rsi
+  movabsq $0x562adfefb300, %rdx
+  load_ext_name userextname7+0, %rax
+  movq %r12, %rcx
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label22
+block22:
+  movq %rax, <offset:1>+0x10(%rsp)
+  movq %rax, %rbx
+  uninit  %r12
+  xorq %r12, %r12
+  movq %r14, %rdi
+  movq %r12, %r15
+  jmp     label23
+block23:
+  movq %r14, %rdi
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label25; j label24
+block24:
+  jmp     label26
+block26:
+  cmpq %r13, %r12
+  jl      label28; j label27
+block27:
+  movq %r15, %rax
+  jmp     label45
+block28:
+  jmp     label29
+block29:
+  jmp     label30
+block30:
+  movq %rbx, <offset:1>+0x20(%rsp)
+  movabsq $0x562adfed4e70, %rsi
+  movabsq $0x562adfed4ee0, %rdx
+  movq %r12, %rax
+  sarq $0xa, %rax
+  shrq $0x35, %rax
+  leaq (%r12, %rax), %rax
+  andq $0xfffffffffffff800, %rax
+  movq %r12, %r8
+  subq %rax, %r8
+  load_ext_name userextname8+0, %rax
+  movq %rbx, %rcx
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label31
+block31:
+  jmp     label32
+block32:
+  jmp     label33
+block33:
+  movl 0x10(%rax), %edx
+  cmpl $0x1, %edx
+  jz      label37; j label34
+block34:
+  testl %edx, %edx
+  jnz     label36; j label35
+block35:
+  uninit  %rcx
+  xorq %rcx, %rcx
+  jmp     label38
+block37:
+  movq 0x18(%rax), %rcx
+  jmp     label38
+block38:
+  jmp     label39
+block39:
+  jmp     label40
+block40:
+  movq %r15, %rax
+  addq %rcx, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label46; j label41
+block41:
+  jmp     label42
+block42:
+  cmpq %r13, %r12
+  jz      label43; j label44
+block43:
+  jmp     label45
+block44:
+  leaq 1(%r12), %r12
+  movq %r14, %rdi
+  movq %rax, %r15
+  jmp     label23
+block45:
+  movq <offset:1>+(%rsp), %rcx
+  movq %r14, %rdi
+  movq %rcx, (%rdi)
+  movq 0x30(%rsp), %rbx
+  movq 0x38(%rsp), %r12
+  movq 0x40(%rsp), %r13
+  movq 0x48(%rsp), %r14
+  movq 0x50(%rsp), %r15
+  addq $0x60, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label9
+block12:
+  load_ext_name userextname0+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label13
+block25:
+  load_ext_name userextname0+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  jmp     label26
+block36:
+  movl $0x4, %esi
+  movabsq $0x562adfeeac90, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r14, %rdi
+  call    *%r8
+  ud2
+block46:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfdf7600, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %r14, %rdi
+  call    *%rax
+  ud2
+block47:
+  movq %rdi, %r14
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.comparisons#8 (319 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x28(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+block0:
+  movq %rdx, %r13
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label26; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r12
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r12, %rdi
+  movq %rbx, %r14
+  jmp     label6
+block6:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %r12, %rdi
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  movq %r13, %rdx
+  jmp     label9
+block9:
+  cmpq %rdx, %rbx
+  jl      label11; j label10
+block10:
+  movq %r14, %rax
+  jmp     label24
+block11:
+  jmp     label12
+block12:
+  jmp     label13
+block13:
+  jmp     label14
+block14:
+  jmp     label15
+block15:
+  movl $0x1, %eax
+  jmp     label16
+block16:
+  testb %al, %al
+  jnz     label18; j label17
+block17:
+  movq %r14, %rax
+  jmp     label20
+block18:
+  movq %r14, %rax
+  addq $0x1, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label25; j label19
+block19:
+  jmp     label20
+block20:
+  jmp     label21
+block21:
+  cmpq %rdx, %rbx
+  jz      label22; j label23
+block22:
+  jmp     label24
+block23:
+  leaq 1(%rbx), %rbx
+  movq %r12, %rdi
+  movq %rdx, %r13
+  movq %rax, %r14
+  jmp     label6
+block24:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  movq 0x28(%rsp), %r14
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  movq %r13, %rdx
+  jmp     label9
+block25:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfdf2fc0, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r12, %rdi
+  call    *%r8
+  ud2
+block26:
+  movq %rdi, %r12
+  load_ext_name userextname4+0, %rsi
+  call    *%rsi
+  ud2
+
+; probes.plain_options#9 (344 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x28(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+block0:
+  movq %rdx, %r13
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label19; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r12
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r12, %rdi
+  movq %rbx, %r14
+  jmp     label6
+block6:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %r12, %rdi
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  movq %r13, %rsi
+  jmp     label9
+block9:
+  cmpq %rsi, %rbx
+  jl      label11; j label10
+block10:
+  movq %r14, %rax
+  jmp     label17
+block11:
+  jmp     label12
+block12:
+  movq %rbx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  leaq (%rdx, %rbx), %rax
+  sarq $0x6, %rax
+  movq %rax, %rcx
+  shrq $0x3f, %rcx
+  leaq (%rax, %rcx), %rax
+  imulq $0x64, %rax, %rax
+  movq %rbx, %rcx
+  subq %rax, %rcx
+  movq %r14, %rax
+  addq %rcx, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label18; j label13
+block13:
+  jmp     label14
+block14:
+  cmpq %rsi, %rbx
+  jz      label15; j label16
+block15:
+  jmp     label17
+block16:
+  leaq 1(%rbx), %rbx
+  movq %r12, %rdi
+  movq %rsi, %r13
+  movq %rax, %r14
+  jmp     label6
+block17:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  movq 0x28(%rsp), %r14
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  movq %r13, %rsi
+  jmp     label9
+block18:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfe84020, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  ud2
+block19:
+  movq %rdi, %r12
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.plain_sequence#10 (408 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+  movq %r14, 0x28(%rsp)
+  unwind SaveReg { clobber_offset: 24, reg: p14i }
+block0:
+  movq %rdx, %r13
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label24; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %r12
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  uninit  %rbx
+  xorq %rbx, %rbx
+  movq %r12, %rdi
+  movq %rbx, %r14
+  jmp     label6
+block6:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %r12, %rdi
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label8; j label7
+block7:
+  movq %r13, %rsi
+  jmp     label9
+block9:
+  cmpq %rsi, %rbx
+  jl      label11; j label10
+block10:
+  movq %r14, %rax
+  jmp     label21
+block11:
+  movq %rbx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  jo      label23; j label12
+block12:
+  jmp     label13
+block13:
+  movq %rax, %rcx
+  imulq (%rip) ;; implicit: %rax, %rdx
+  movq %rdx, %rax
+  shrq $0x3f, %rax
+  leaq (%rdx, %rax), %rax
+  imulq $0x3, %rax, %rax
+  cmpq %rax, %rcx
+  jz      label15; j label14
+block14:
+  movq %r14, %rax
+  jmp     label17
+block15:
+  movq %r14, %rax
+  addq %rcx, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label22; j label16
+block16:
+  jmp     label17
+block17:
+  jmp     label18
+block18:
+  cmpq %rsi, %rbx
+  jz      label19; j label20
+block19:
+  jmp     label21
+block20:
+  leaq 1(%rbx), %rbx
+  movq %r12, %rdi
+  movq %rsi, %r13
+  movq %rax, %r14
+  jmp     label6
+block21:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  movq 0x28(%rsp), %r14
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  jmp     label5
+block8:
+  load_ext_name userextname0+0, %rax
+  movq %r12, %rdi
+  call    *%rax
+  movq %r13, %rsi
+  jmp     label9
+block22:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adff00c30, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r12, %rdi
+  call    *%r8
+  ud2
+block23:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfde6e00, %rdx
+  load_ext_name userextname1+0, %r8
+  movq %r12, %rdi
+  call    *%r8
+  ud2
+block24:
+  movq %rdi, %r12
+  load_ext_name userextname4+0, %r9
+  call    *%r9
+  ud2
+
+; probes.sequence#6.lambda4282 (176 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 16 }
+  subq $0x20, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+block0:
+  movq %rdx, %r12
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label8; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %rbx
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  movq %r12, %rax
+  jmp     label5
+block5:
+  imulq (%rip) ;; implicit: %rax, %rdx
+  jo      label7; j label6
+block6:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  addq $0x20, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %rbx, %rdi
+  call    *%rax
+  movq %r12, %rax
+  jmp     label5
+block7:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfde99d0, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %rbx, %rdi
+  call    *%rax
+  ud2
+block8:
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.sequence#6.lambda4288 (144 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 16 }
+  subq $0x20, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+block0:
+  movq %rdx, %rbx
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label7; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  jmp     label5
+block5:
+  jmp     label6
+block6:
+  movq %rbx, %rcx
+  movq %rcx, %rax
+  imulq (%rip) ;; implicit: %rax, %rdx
+  movq %rdx, %rax
+  shrq $0x3f, %rax
+  leaq (%rdx, %rax), %rax
+  imulq $0x3, %rax, %rax
+  cmpq %rax, %rcx
+  sete %al
+  movq 0x10(%rsp), %rbx
+  addq $0x20, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  call    *%rax
+  jmp     label5
+block7:
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.sequence#6.lambda4297 (189 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 32 }
+  subq $0x30, %rsp
+  movq %rbx, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p3i }
+  movq %r12, 0x18(%rsp)
+  unwind SaveReg { clobber_offset: 8, reg: p12i }
+  movq %r13, 0x20(%rsp)
+  unwind SaveReg { clobber_offset: 16, reg: p13i }
+block0:
+  movq %rcx, %r12
+  movq %rdx, %r13
+  movq 0x20(%rdi), %rax
+  movq    %rsp, %rcx
+  cmpq %rax, %rcx
+  jb      label8; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  movq %rdi, %rbx
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  movq %r12, %rcx
+  movq %r13, %rdx
+  jmp     label5
+block5:
+  movq %rdx, %rax
+  addq %rcx, %rax
+  seto %cl
+  testb %cl, %cl
+  jnz     label7; j label6
+block6:
+  movq 0x10(%rsp), %rbx
+  movq 0x18(%rsp), %r12
+  movq 0x20(%rsp), %r13
+  addq $0x30, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  movq %rbx, %rdi
+  call    *%rax
+  movq %r12, %rcx
+  movq %r13, %rdx
+  jmp     label5
+block7:
+  uninit  %rsi
+  xorq %rsi, %rsi
+  movabsq $0x562adfde6ee0, %rdx
+  load_ext_name userextname1+0, %rax
+  movq %rbx, %rdi
+  call    *%rax
+  ud2
+block8:
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+; probes.array_reads#7.lambda4306 (107 bytes)
+  pushq %rbp
+  unwind PushFrameRegs { offset_upward_to_caller_sp: 16 }
+  movq %rsp, %rbp
+  unwind DefineNewFrame { offset_upward_to_caller_sp: 16, offset_downward_to_clobbers: 16 }
+  subq $0x20, %rsp
+  movq %r12, 0x10(%rsp)
+  unwind SaveReg { clobber_offset: 0, reg: p12i }
+block0:
+  movq %rdx, %r12
+  movq 0x20(%rdi), %r9
+  movq    %rsp, %r10
+  cmpq %r9, %r10
+  jb      label6; j label1
+block1:
+  jmp     label2
+block2:
+  movq 8(%rdi), %rax
+  leaq -1(%rax), %rax
+  movq %rax, 8(%rdi)
+  testq %rax, %rax
+  jl      label4; j label3
+block3:
+  movq %r12, %rax
+  jmp     label5
+block5:
+  movq 0x10(%rsp), %r12
+  addq $0x20, %rsp
+  movq %rbp, %rsp
+  popq %rbp
+  retq
+block4:
+  load_ext_name userextname0+0, %rax
+  call    *%rax
+  movq %r12, %rax
+  jmp     label5
+block6:
+  load_ext_name userextname4+0, %rax
+  call    *%rax
+  ud2
+
+bench: run 15.233 ms (compilation 45.944 ms, not included)
