@@ -1173,3 +1173,13 @@ fn outbound_http() {
         "get 200 hi\npost 200 got ping\nclient 200 hi\nclient post 200 got pong\nredirect 302 moved [content-length=5,connection=close,location=http://example.com/]\nmissing 404 none\nother origin refused (io/permission_denied)\nno slash refused (io/permission_denied)\nbad origin true true\nunreachable refused (io/connection_failed)\n"
     );
 }
+
+/// An inlined lambda reports a defect at its own source position.
+#[test]
+fn inlined_lambda_defect_location() {
+    for flags in [&[][..], &["--release"][..]] {
+        let out = lang().arg("run").args(flags).arg("tests/run/known_closures.lang").output().unwrap();
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("integer overflow at tests/run/known_closures.lang:81:28"), "{flags:?}: {err}");
+    }
+}

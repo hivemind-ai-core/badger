@@ -1,0 +1,85 @@
+// Closures whose lambda is known where they are called (inlined in
+// optimized builds): captured values are those at construction, closures
+// that also escape still work, and higher-order helpers given lambdas
+// behave as when called through the closure.
+import std.io
+import std.list
+import std.text
+
+fn twice(f: fn(Int) -> Int, x: Int) -> Int { f(f(x)) }
+
+fn adder(n: Int) -> fn(Int) -> Int { fn(x) { x + n } }
+
+fn first_negative(xs: List<Int>) -> Option<Int> {
+    let check = fn(x) {
+        if x < 0 {
+            return some(x)
+        }
+        none
+    }
+    for x in xs {
+        match check(x) {
+            .some(v) => return some(v),
+            .none => {},
+        }
+    }
+    none
+}
+
+fn parse_all(xs: List<String>) -> Result<Int, String> {
+    let parse = fn(s: String) -> Result<Int, String> {
+        match text.parse_int(s) {
+            .some(v) => ok(v),
+            .none => err($"bad {s}"),
+        }
+    }
+    var total = 0
+    for s in xs {
+        total = total + parse(s)?
+    }
+    ok(total)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    // the capture is the value when the closure was made
+    var k = 1
+    let f = fn(x: Int) { x * k }
+    k = 10
+    io.println($"snapshot {f(5)} {k}")?
+    // called here and also kept
+    let g = fn(x: Int) { x + 1 }
+    let kept = [g, adder(100)]
+    io.println($"local {g(1)} kept {kept.map(fn(h) { h(1) })}")?
+    // made in a loop, each with its own capture
+    var made: List<fn(Int) -> Int> = []
+    var direct = 0
+    for i in 0..4 {
+        let h = fn(x: Int) { x * i }
+        direct = direct + h(2)
+        made = made.append(h)
+    }
+    io.println($"loop {direct} {made.map(fn(h) { h(3) })}")?
+    // nested lambdas and a lambda calling a captured closure
+    let outer = fn(x: Int) {
+        let inner = fn(y: Int) { y * 2 + x }
+        inner(x) + g(x)
+    }
+    io.println($"nested {outer(3)} twice {twice(g, 5)} {twice(fn(x) { x * 3 }, 2)}")?
+    // early return and `?` inside lambdas
+    io.println($"return {first_negative([3, 1, -4, -1]).unwrap_or(0)} {first_negative([1]).is_some()}")?
+    let bad = match parse_all(["1", "x"]) {
+        .ok(v) => $"{v}",
+        .err(e) => e,
+    }
+    io.println($"try {parse_all(["1", "2", "3"]).unwrap_or(0)} {bad}")?
+    // chained helpers
+    let xs = list.range(0, 20)
+    let m = 3
+    let r = xs.map(fn(x) { x * m }).filter(fn(x) { x % 2 == 0 }).fold(0, fn(a, x) { a + x })
+    io.println($"chain {r}")?
+    // the overflow is reported at the lambda's own line
+    let big = fn(x: Int) { x * 4611686018427387904 }
+    io.println($"{big(1)}")?
+    io.println($"{big(2)}")?
+    ok(())
+}

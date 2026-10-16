@@ -44,7 +44,17 @@ operations run without it.
 Optimized builds also inline small, non-recursive helpers and re-run
 scalar replacement over their callers (codegen audit G2, plan C5), so a
 record built only to be passed to a helper is not allocated
-(`LANG_NO_INLINE=1` turns it off; live dispatch disables it).
+(`LANG_NO_INLINE=1` turns it off; live dispatch disables it). Calls
+through a closure whose lambda is known are inlined as well (codegen audit
+G4), and helpers given such a closure may be larger, so a lambda passed to
+`fold` or `map` runs as a loop around its body and a closure that is only
+called is never allocated:
+
+| Measure (1M elements, 20 rounds) | Before | After |
+|---|---|---|
+| `xs.fold(0, fn(a, x) { a + x * k })` | 83 ms | 27 ms (a hand-written loop: 22 ms) |
+| `xs.map(fn(x) { x + k })` | 214 ms | 190 ms (list building dominates) |
+| a closure made and called per iteration (20M) | 245 ms | 19 ms |
 
 ## Tooling
 
@@ -149,8 +159,11 @@ reproducing programs:
 
 - The global runtime lock still serializes parking, waking, spawning,
   `select`, timers, and collection; removing it needs a lock-free scheduler.
-- Inlining covers small direct helpers only; closure devirtualization and
-  range-based check elimination (codegen audit G4/G5) were not done.
+- Inlining covers small direct helpers and known closures; a closure that
+  arrives through a data structure or a parameter of a function that is not
+  inlined is still called indirectly. Range-based check elimination
+  (codegen audit G5) was not done: checked arithmetic in CPU-bound
+  benchmarks already runs at native speed.
 - Parsing (pest) is now the slowest compiler phase (about 15 us per line).
 - A cancelled REPL/MCP evaluation stops at its next safe point, but blocking
   work it already started (a file read, a subprocess) runs to completion;

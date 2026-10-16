@@ -11,15 +11,29 @@
 //! growing a caller past `MAX_CALLER` statements. Polls, source positions,
 //! and checks inside the callee are kept, so scheduling bounds, debug lines,
 //! and defects are unchanged.
+//!
+//! Calls through a closure whose lambda is known (the closure object was
+//! allocated in the caller, possibly reached through plain copies, with that
+//! lambda's address as its code) are inlined the same way, with the object
+//! as the lambda's environment; if nothing else uses the object, scalar
+//! replacement then removes it. A callee given such a closure as an argument
+//! may be larger (`MAX_HIGHER_ORDER`), so `map`, `filter`, and `fold` become
+//! loops around the lambda's body.
 
 use crate::mir::*;
+use rustc_hash::FxHashMap;
 
 const MAX_CALLEE: usize = 40;
+const MAX_HIGHER_ORDER: usize = 80;
 const MAX_CALLER: usize = 4000;
 const ROUNDS: usize = 2;
 
 fn size(f: &Func) -> usize {
-    f.blocks.iter().map(|b| b.stmts.len() + 1).sum()
+    f.blocks
+        .iter()
+        .filter(|b| !(b.stmts.is_empty() && matches!(b.term, Some(Term::Unreachable))))
+        .map(|b| b.stmts.iter().filter(|s| !matches!(s, Stmt::Loc { .. })).count() + 1)
+        .sum()
 }
 
 fn calls_itself(f: &Func, me: FuncId) -> bool {
@@ -33,7 +47,66 @@ fn calls_itself(f: &Func, me: FuncId) -> bool {
 
 fn inlinable(prog: &Program, id: FuncId) -> bool {
     let f = &prog.funcs[id];
-    f.kind == FuncKind::Normal && !f.is_global && size(f) <= MAX_CALLEE && !calls_itself(f, id)
+    matches!(f.kind, FuncKind::Normal | FuncKind::Lambda)
+        && !f.is_global
+        && size(f) <= MAX_HIGHER_ORDER
+        && !calls_itself(f, id)
+}
+
+/// Locals that certainly hold a closure of a known lambda: a single
+/// allocation whose code word is the lambda's address, and single-definition
+/// copies of it.
+fn known_closures(kinds: &[FuncKind], f: &Func) -> FxHashMap<Local, FuncId> {
+    let mut defs: FxHashMap<Local, (usize, Option<&Rvalue>)> = FxHashMap::default();
+    for b in f.blocks.iter() {
+        for s in &b.stmts {
+            if let Stmt::Assign(l, rv) = s {
+                let e = defs.entry(*l).or_insert((0, None));
+                e.0 += 1;
+                e.1 = Some(rv);
+            }
+        }
+    }
+    let single = |l: &Local| -> Option<&Rvalue> {
+        match defs.get(l) {
+            Some((1, rv)) if !f.params.contains(l) && *l != f.env => *rv,
+            _ => None,
+        }
+    };
+    let mut known: FxHashMap<Local, FuncId> = FxHashMap::default();
+    for b in f.blocks.iter() {
+        for s in &b.stmts {
+            if let Stmt::Store {
+                base: Operand::Local(c),
+                offset: 0,
+                repr: Repr::I64,
+                value: Operand::Local(t),
+            } = s
+                && matches!(single(c), Some(Rvalue::Alloc { .. }))
+                && let Some(Rvalue::FuncAddr(l)) = single(t)
+                && kinds[l.index()] == FuncKind::Lambda
+            {
+                known.insert(*c, *l);
+            }
+        }
+    }
+    loop {
+        let mut grew = false;
+        for (l, (_, rv)) in &defs {
+            if let Some(Rvalue::Use(Operand::Local(src))) = rv
+                && !known.contains_key(l)
+                && single(l).is_some()
+                && let Some(t) = known.get(src).copied()
+            {
+                known.insert(*l, t);
+                grew = true;
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
+    known
 }
 
 fn op_repr(f: &Func, o: &Operand) -> Option<Repr> {
@@ -70,8 +143,8 @@ fn fits(caller: &Func, args: &[Operand], dst: Local, callee: &Func) -> bool {
 }
 
 /// Inline `callee` at statement `at` of block `bi` of `f`, whose call
-/// assigns `dst`.
-fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func) {
+/// assigns `dst`; `env` is the callee's environment.
+fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func, env: Operand) {
     let block = &mut f.blocks[bi];
     let Stmt::Assign(dst, Rvalue::Call { args, .. }) = block.stmts[at].clone() else { return };
     let tail: Vec<Stmt> = block.stmts.split_off(at + 1);
@@ -103,9 +176,9 @@ fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func) {
         });
         f.blocks.push(nb);
     }
-    // bind the parameters (a direct call's environment is null) and enter
+    // bind the environment and the parameters, and enter
     let block = &mut f.blocks[bi];
-    block.stmts.push(Stmt::Assign(lmap[callee.env.index()], Rvalue::Use(Operand::Const(Const::Addr(0)))));
+    block.stmts.push(Stmt::Assign(lmap[callee.env.index()], Rvalue::Use(env)));
     for (a, p) in args.iter().zip(&callee.params) {
         block.stmts.push(Stmt::Assign(lmap[p.index()], Rvalue::Use(*a)));
     }
@@ -174,26 +247,42 @@ pub fn inline(prog: &mut Program) -> usize {
         // callee bodies as they are at the start of the round
         let bodies: Vec<Option<Func>> =
             prog.funcs.iter_enumerated().map(|(id, f)| ok[id.index()].then(|| clone_func(f))).collect();
+        let kinds: Vec<FuncKind> = prog.funcs.iter().map(|f| f.kind).collect();
         let mut round = 0;
         for id in prog.funcs.indices() {
             let f = &mut prog.funcs[id];
             let mut changed = false;
             let mut bi = 0;
+            let mut known = known_closures(&kinds, f);
             while bi < f.blocks.len() && size(f) < MAX_CALLER {
                 let b = BlockId::from_usize(bi);
+                let body = |t: FuncId, args: &[Operand], dst: Local, limit: usize| {
+                    bodies[t.index()].as_ref().filter(|c| size(c) <= limit && fits(f, args, dst, c)).is_some()
+                };
                 let site = f.blocks[b].stmts.iter().enumerate().find_map(|(i, s)| match s {
-                    Stmt::Assign(dst, Rvalue::Call { callee: Callee::Direct(t), args, ret })
-                        if *t != id
-                            && *ret == f.locals[*dst].repr
-                            && bodies[t.index()].as_ref().is_some_and(|c| fits(f, args, *dst, c)) =>
-                    {
-                        Some((i, *t))
+                    Stmt::Assign(dst, Rvalue::Call { callee, args, ret }) if *ret == f.locals[*dst].repr => {
+                        match callee {
+                            Callee::Direct(t) if *t != id => {
+                                // more room when it is given a known closure
+                                let higher = args
+                                    .iter()
+                                    .any(|a| matches!(a, Operand::Local(l) if known.contains_key(l)));
+                                let limit = if higher { MAX_HIGHER_ORDER } else { MAX_CALLEE };
+                                body(*t, args, *dst, limit).then_some((i, *t, Operand::Const(Const::Addr(0))))
+                            }
+                            Callee::Closure(c @ Operand::Local(l)) => known
+                                .get(l)
+                                .filter(|t| **t != id && body(**t, args, *dst, MAX_CALLEE))
+                                .map(|t| (i, *t, *c)),
+                            _ => None,
+                        }
                     }
                     _ => None,
                 });
                 match site {
-                    Some((i, t)) => {
-                        inline_at(f, b, i, bodies[t.index()].as_ref().unwrap());
+                    Some((i, t, env)) => {
+                        inline_at(f, b, i, bodies[t.index()].as_ref().unwrap(), env);
+                        known = known_closures(&kinds, f);
                         changed = true;
                         round += 1;
                         // the rest of this block moved to a new block: keep

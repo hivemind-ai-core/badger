@@ -188,7 +188,8 @@ From the optimization documents, deferred with reasons:
 - **MIR inlining and closure devirtualization (G2, G4, C5)**: the largest
   remaining generated-code opportunity (helper calls and the temporary
   `Option`/record allocations they force), and the largest change; it needs
-  live-reload invalidation and a growth budget.
+  live-reload invalidation and a growth budget. (Since done; see the
+  [closing report](2026-10-16-closing-report.md).)
 - **Range facts for checks (G5), specialized comparisons (G6), tag-aware
   aggregate elimination (G7)**: depend on G2.
 - **Incremental and cached checking (C1 steps 3-5, C3)**: wanted by the LSP

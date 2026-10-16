@@ -1,0 +1,8 @@
+snapshot 5 10
+local 2 kept [2, 101]
+loop 12 [0, 3, 6, 9]
+nested 13 twice 7 18
+return -4 false
+try 6 bad x
+chain 270
+4611686018427387904
