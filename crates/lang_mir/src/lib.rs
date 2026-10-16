@@ -12,6 +12,7 @@ pub mod layout;
 pub mod lower;
 pub mod mir;
 pub mod niche;
+pub mod reach;
 pub mod roots;
 pub mod serial;
 pub mod split;

@@ -89,6 +89,12 @@ fn trace_page(o: *mut Header, f: &mut dyn FnMut(u64)) {
 const DIR_HDR: usize = 16;
 
 fn trace_dir(o: *mut Header, f: &mut dyn FnMut(u64)) {
+    // In a full collection directories contain weak page slots: each
+    // live list marks only its visible pages below. Minor collections
+    // still scan remembered old directories to find newly installed pages.
+    if !gc::is_minor_collection() {
+        return;
+    }
     unsafe {
         let p = (*o).payload();
         let n = (*(p as *const AtomicU64)).load(Ordering::Acquire) as usize;
@@ -153,10 +159,34 @@ fn hdr(w: u64) -> Hdr {
 }
 
 pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
-    let d = unsafe { *((*o).payload() as *const u64).add(1) };
+    let p = unsafe { (*o).payload() as *const u64 };
+    let d = unsafe { *p.add(1) };
     if d != 0 {
         f(d);
+        let len = unsafe { *p as usize };
+        let cap = unsafe { (*p.add(3) & !CONSUMED) as usize };
+        for i in 0..len.div_ceil(cap) {
+            let page = unsafe { *dir_slot(d, i) };
+            debug_assert_ne!(page, 0, "a visible list page must be live");
+            f(page);
+        }
     }
+}
+
+/// Before full sweep, erase weak slots for unmarked pages. Their claimed
+/// count stays unchanged, so an append branches/copies instead of reading
+/// an old version's invisible page. All mutators are stopped.
+pub(crate) fn clear_unmarked_directory_pages() {
+    gc::for_each_object_of(dir_desc(), &mut |dir| {
+        let n = dir_used(dir).load(Ordering::Relaxed) as usize;
+        for i in 0..n {
+            let slot = dir_slot(dir, i);
+            let page = unsafe { *slot };
+            if page != 0 && unsafe { obj(page).meta } & (gc::MARK | gc::IMMORTAL) == 0 {
+                unsafe { *slot = 0 };
+            }
+        }
+    });
 }
 
 /// Create an empty list (or builder) object with descriptor `desc`

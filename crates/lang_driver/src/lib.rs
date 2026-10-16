@@ -957,6 +957,7 @@ impl Session {
             timed("split", || lang_mir::split::split_receives(&mut prog));
             timed("niche", || lang_mir::niche::elide_local_options(&mut prog));
             timed("enums", || lang_mir::enums::scalarize(&mut prog));
+            timed("reach", || lang_mir::reach::prune(&mut prog));
             for e in lang_mir::verify::verify(&prog) {
                 self.diagnostics
                     .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));

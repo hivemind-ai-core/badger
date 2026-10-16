@@ -5,14 +5,15 @@
 //! may collect), string concatenation, and polls. A pointer local needs a
 //! root slot only if its value is live across one of them, or is an
 //! argument of a call (runtime functions read their arguments as raw
-//! words). A pointer converted to a word (`ToWord`) always keeps its slot:
-//! the word copy is not traced. A function none of whose pointer locals
-//! need a slot needs no shadow frame at all.
+//! words). A pointer converted to a word (`ToWord`) stays rooted for the
+//! call: the word copy is not traced. Root slots are packed afresh at each
+//! safe point, so dead pointers disappear and disjoint lifetimes reuse
+//! storage. A function without roots needs no shadow frame at all.
 
 use crate::mir::*;
 
 /// Safe points: statements during which a collection may happen.
-fn is_safepoint(s: &Stmt) -> bool {
+pub fn is_safepoint(s: &Stmt) -> bool {
     match s {
         Stmt::Poll => true,
         Stmt::Assign(_, rv) => matches!(rv, Rvalue::Call { .. } | Rvalue::Alloc { .. } | Rvalue::Concat(_)),
@@ -20,6 +21,7 @@ fn is_safepoint(s: &Stmt) -> bool {
     }
 }
 
+#[derive(Clone)]
 struct Bits(Vec<u64>);
 
 impl Bits {
@@ -43,11 +45,6 @@ impl Bits {
             *a = n;
         }
         changed
-    }
-    fn union_masked(&mut self, o: &Bits, mask: &Bits) {
-        for ((a, b), m) in self.0.iter_mut().zip(&o.0).zip(&mask.0) {
-            *a |= b & m;
-        }
     }
 }
 
@@ -83,9 +80,8 @@ fn local_of(o: &Operand) -> Option<usize> {
     }
 }
 
-/// Backward transfer through block `b`'s statements; `need` (if given)
-/// collects pointer locals live across a safe point.
-fn transfer(f: &Func, b: BlockId, live: &mut Bits, ptr: &Bits, mut need: Option<&mut Bits>) {
+/// Backward liveness transfer through block `b`.
+fn transfer(f: &Func, b: BlockId, live: &mut Bits) {
     let block = &f.blocks[b];
     for o in term_uses(&block.term) {
         if let Some(i) = local_of(o) {
@@ -97,18 +93,6 @@ fn transfer(f: &Func, b: BlockId, live: &mut Bits, ptr: &Bits, mut need: Option<
             live.clear(l.index());
         }
         let uses = stmt_uses(s);
-        if is_safepoint(s)
-            && let Some(need) = need.as_deref_mut()
-        {
-            need.union_masked(live, ptr);
-            for o in &uses {
-                if let Some(i) = local_of(o)
-                    && ptr.get(i)
-                {
-                    need.set(i);
-                }
-            }
-        }
         for o in uses {
             if let Some(i) = local_of(o) {
                 live.set(i);
@@ -118,12 +102,33 @@ fn transfer(f: &Func, b: BlockId, live: &mut Bits, ptr: &Bits, mut need: Option<
 }
 
 /// Pointer locals that need a root slot, in local order.
-pub fn rooted_locals(f: &Func) -> Vec<Local> {
+pub fn safepoint_roots(f: &Func) -> Vec<Vec<Vec<Local>>> {
     let n = f.locals.len();
     let mut ptr = Bits::new(n);
     for (l, d) in f.locals.iter_enumerated() {
         if d.repr == Repr::Ptr {
             ptr.set(l.index());
+        }
+    }
+    // A local whose only producers are null never needs tracing. Parameters
+    // and environments may have an incoming non-null value.
+    let mut non_null = Bits::new(n);
+    non_null.set(f.env.index());
+    for p in &f.params {
+        non_null.set(p.index());
+    }
+    for block in &f.blocks {
+        for s in &block.stmts {
+            if let Stmt::Assign(l, rv) = s
+                && !matches!(rv, Rvalue::Use(Operand::Const(Const::Addr(0) | Const::Int(0, Repr::Ptr))))
+            {
+                non_null.set(l.index());
+            }
+        }
+    }
+    for i in 0..n {
+        if !non_null.get(i) {
+            ptr.clear(i);
         }
     }
     let mut need = Bits::new(n);
@@ -152,19 +157,83 @@ pub fn rooted_locals(f: &Func) -> Vec<Local> {
                     live.union(&live_in[s.index()]);
                 }
             }
-            transfer(f, bid, &mut live, &ptr, None);
+            transfer(f, bid, &mut live);
             changed |= live_in[b].union(&live);
         }
     }
+    let mut points = Vec::with_capacity(nb);
     for b in 0..nb {
-        let bid = BlockId::from_usize(b);
+        let block = &f.blocks[BlockId::from_usize(b)];
         let mut live = Bits::new(n);
-        for s in successors(&f.blocks[bid].term) {
-            if s.index() < nb {
-                live.union(&live_in[s.index()]);
+        for next in successors(&block.term) {
+            live.union(&live_in[next.index()]);
+        }
+        for o in term_uses(&block.term) {
+            if let Some(i) = local_of(o) {
+                live.set(i);
             }
         }
-        transfer(f, bid, &mut live, &ptr, Some(&mut need));
+        let mut roots = vec![vec![]; block.stmts.len()];
+        for (index, s) in block.stmts.iter().enumerate().rev() {
+            if let Stmt::Assign(dst, _) = s {
+                live.clear(dst.index());
+            }
+            for o in stmt_uses(s) {
+                if let Some(i) = local_of(o) {
+                    live.set(i);
+                }
+            }
+            if is_safepoint(s) {
+                roots[index] = f
+                    .locals
+                    .indices()
+                    .filter(|l| ptr.get(l.index()) && (need.get(l.index()) || live.get(l.index())))
+                    .collect();
+            }
+        }
+        points.push(roots);
+    }
+    points
+}
+
+/// Union of the roots used at any safe point (diagnostics and metrics).
+pub fn rooted_locals(f: &Func) -> Vec<Local> {
+    let mut need = Bits::new(f.locals.len());
+    for local in safepoint_roots(f).into_iter().flatten().flatten() {
+        need.set(local.index());
     }
     f.locals.indices().filter(|l| need.get(l.index())).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roots_expire_between_safe_points_but_word_sources_stay_pinned() {
+        let mut f = Func::new("roots".into(), FuncKind::Normal, Repr::I64);
+        let a = f.locals.push(LocalDecl { repr: Repr::Ptr, name: None });
+        let b = f.locals.push(LocalDecl { repr: Repr::Ptr, name: None });
+        let zero = f.locals.push(LocalDecl { repr: Repr::Ptr, name: None });
+        let word = f.locals.push(LocalDecl { repr: Repr::I64, name: None });
+        f.params = vec![a, b];
+        f.blocks.clear();
+        f.blocks.push(Block {
+            stmts: vec![
+                Stmt::Assign(zero, Rvalue::Use(Operand::Const(Const::Addr(0)))),
+                Stmt::Poll,
+                Stmt::Assign(word, Rvalue::Load { base: Operand::Local(a), offset: 0, repr: Repr::I64 }),
+                Stmt::Poll,
+                Stmt::Assign(word, Rvalue::ToWord(Operand::Local(b))),
+                Stmt::Poll,
+                Stmt::Assign(word, Rvalue::ToWord(Operand::Local(zero))),
+            ],
+            term: Some(Term::Return(Operand::Const(Const::Int(0, Repr::I64)))),
+        });
+        let points = safepoint_roots(&f);
+        assert_eq!(points[0][1], vec![a, b]);
+        assert_eq!(points[0][3], vec![b]);
+        assert_eq!(points[0][5], vec![b]);
+        assert_eq!(rooted_locals(&f), vec![a, b]);
+    }
 }

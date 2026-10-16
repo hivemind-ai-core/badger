@@ -5,11 +5,11 @@
 //!
 //! GC roots: a function allocates a shadow-stack frame (`prev`, `len`,
 //! slots) in its native stack frame and links it into `ctx.shadow`, with a
-//! slot for each pointer local live across a safe point (call, allocation,
-//! poll; see `lang_mir::roots`). Every assignment to such a local also
-//! stores the pointer into its slot, so the nonmoving collector sees
-//! precise roots whenever it can run. A function without such locals
-//! links no frame.
+//! capacity for the maximum simultaneous roots at a safe point (call,
+//! allocation, poll; see `lang_mir::roots`). Before each safe point the live
+//! pointers are packed into those slots and `len` is updated. Dead roots
+//! stop retaining objects and disjoint lifetimes share storage. A function
+//! without roots links no frame.
 //!
 //! Closures used as values get a word adapter
 //! `fn(ctx, closure, args: *const u64) -> u64` so the runtime can call them.
@@ -448,7 +448,6 @@ struct FnCx<'p> {
 struct Body<'f> {
     f: &'f Func,
     vars: IndexVec<Local, Variable>,
-    slots: FxHashMap<Local, i32>,
     frame: cranelift_codegen::ir::StackSlot,
     ctx: Value,
     blocks: IndexVec<BlockId, CBlock>,
@@ -649,20 +648,17 @@ impl FnCx<'_> {
         let fe = jit.module.isa().frontend_config();
         // root slots only for pointers live across a safe point; no frame
         // at all when there are none
-        let ptr_locals: Vec<Local> = lang_mir::roots::rooted_locals(f);
-        let framed = !ptr_locals.is_empty();
+        let roots = lang_mir::roots::safepoint_roots(f);
+        let root_count = roots.iter().flatten().map(Vec::len).max().unwrap_or(0);
+        let framed = root_count != 0;
         {
             let mut b = FunctionBuilder::new(&mut jit.ctx.func, &mut jit.fn_ctx);
-            let frame_size = (2 + ptr_locals.len() as u32) * 8;
+            let frame_size = (2 + root_count as u32) * 8;
             let frame =
                 b.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, frame_size, 3));
             let mut vars = IndexVec::new();
             for (_, d) in f.locals.iter_enumerated() {
                 vars.push(b.declare_var(cty(d.repr)));
-            }
-            let mut slots = FxHashMap::default();
-            for (i, l) in ptr_locals.iter().enumerate() {
-                slots.insert(*l, 16 + 8 * i as i32);
             }
             let blocks: IndexVec<BlockId, CBlock> = f.blocks.iter().map(|_| b.create_block()).collect();
             let entry = b.create_block();
@@ -699,10 +695,10 @@ impl FnCx<'_> {
             if framed {
                 let prev = b.ins().load(types::I64, MemFlagsData::trusted(), ctx, 0);
                 b.ins().stack_store(types::I64, prev, frame, 0);
-                let n = b.ins().iconst(types::I64, ptr_locals.len() as i64);
+                let n = b.ins().iconst(types::I64, root_count as i64);
                 b.ins().stack_store(types::I64, n, frame, 8);
                 let zero = b.ins().iconst(types::I64, 0);
-                for i in 0..ptr_locals.len() {
+                for i in 0..root_count {
                     b.ins().stack_store(types::I64, zero, frame, 16 + 8 * i as i32);
                 }
                 let faddr = b.ins().stack_addr(types::I64, frame, 0);
@@ -725,7 +721,6 @@ impl FnCx<'_> {
             let mut body = Body {
                 f,
                 vars,
-                slots,
                 frame,
                 ctx,
                 blocks,
@@ -751,7 +746,19 @@ impl FnCx<'_> {
             for (bid, blk) in f.blocks.iter_enumerated() {
                 b.switch_to_block(body.blocks[bid]);
                 body.fresh.clear();
-                for s in &blk.stmts {
+                for (si, s) in blk.stmts.iter().enumerate() {
+                    if framed && lang_mir::roots::is_safepoint(s) {
+                        // Pack only the values needed at this safe point. Slots
+                        // are reused at the next one; shrinking len drops dead
+                        // roots without clearing the unused tail of the frame.
+                        let point = &roots[bid.index()][si];
+                        for (i, local) in point.iter().enumerate() {
+                            let value = b.use_var(body.vars[*local]);
+                            b.ins().stack_store(types::I64, value, body.frame, 16 + 8 * i as i32);
+                        }
+                        let len = b.ins().iconst(types::I64, point.len() as i64);
+                        b.ins().stack_store(types::I64, len, body.frame, 8);
+                    }
                     self.stmt(&mut b, &mut body, s, &import_refs, &func_refs, &adapter_refs, globals_gv);
                 }
                 match blk.term.as_ref().unwrap_or(&Term::Unreachable) {
@@ -1511,9 +1518,6 @@ impl Body<'_> {
         b.def_var(self.vars[l], v);
         if let (Some(slot), Some(off)) = (self.dbg_slot, self.dbg_offsets.get(&l)) {
             b.ins().stack_store(types::I64, v, slot, *off);
-        }
-        if let Some(&off) = self.slots.get(&l) {
-            b.ins().stack_store(types::I64, v, self.frame, off);
         }
     }
 

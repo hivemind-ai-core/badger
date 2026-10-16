@@ -468,6 +468,7 @@ pub extern "C" fn inspect_heap(_ctx: *mut TaskCtx, _t: Targs, ret: *const TypeDe
         "bytes": bytes,
         "managed_live_bytes": managed_live,
         "external_live_bytes": external_live,
+        "pool_reserved_bytes": crate::gc::pool_reserved_bytes(),
         "collections": collections,
         "pause_total_ns": pause_total,
         "pause_max_ns": pause_max,

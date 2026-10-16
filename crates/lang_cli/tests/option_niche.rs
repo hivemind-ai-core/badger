@@ -100,7 +100,8 @@ pub fn main() -> Int {
     let nested = Option.some(absent)
     assert(nested.is_some())
     match nested { .some(v) => assert(v.is_none()), .none => assert(false) }
-    assert(returned().unwrap_or("") == "payload")
+    let callback = returned
+    assert(callback().unwrap_or("") == "payload")
     0
 }
 "#,
