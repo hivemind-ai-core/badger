@@ -657,3 +657,125 @@ pub fn serve() -> i32 {
     }
     0
 }
+
+/// 1-based line and column (in characters) of byte `offset`.
+fn line_col(text: &str, offset: usize) -> (usize, usize) {
+    let offset = offset.min(text.len());
+    let before = &text[..offset];
+    let line = before.matches('\n').count() + 1;
+    let start = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+    (line, text[start..offset].chars().count() + 1)
+}
+
+/// LSP range JSON (0-based, UTF-16) -> `{file, line, col, end_line, end_col}`
+/// (1-based, characters).
+fn plain_range(file: &str, text: &str, r: &Value) -> Value {
+    let a = offset(text, &r["start"]);
+    let b = offset(text, &r["end"]);
+    let (l, c) = line_col(text, a);
+    let (el, ec) = line_col(text, b);
+    json!({ "file": file, "line": l, "col": c, "end_line": el, "end_col": ec })
+}
+
+/// `lang query`: one question about a program, answered as JSON with
+/// 1-based lines and columns (for scripts, agents, and `std.compiler`).
+pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -> Result<Value, String> {
+    let file = canonical(path);
+    let mut server = Server {
+        docs: HashMap::new(),
+        programs: HashMap::new(),
+        last_good: HashMap::new(),
+        published: HashSet::new(),
+        dirty: HashSet::from([file.clone()]),
+    };
+    server.reanalyze(&mut std::io::sink());
+    let text_of = |p: &str| std::fs::read_to_string(p).unwrap_or_default();
+    let uri = path_to_uri(&file.display().to_string());
+    let text = text_of(&file.display().to_string());
+    let at = || -> Result<Value, String> {
+        let (Some(l), Some(c)) = (line, col) else { return Err(format!("`{kind}` needs --line and --col")) };
+        // characters -> UTF-16 units on that line
+        let line_text = text.lines().nth(l.saturating_sub(1)).unwrap_or("");
+        let units: usize = line_text.chars().take(c.saturating_sub(1)).map(char::len_utf16).sum();
+        Ok(
+            json!({ "textDocument": { "uri": uri }, "position": { "line": l.saturating_sub(1), "character": units } }),
+        )
+    };
+    let loc = |v: &Value| -> Value {
+        let p = uri_to_path(v["uri"].as_str().unwrap_or("")).display().to_string();
+        plain_range(&p, &text_of(&p), &v["range"])
+    };
+    Ok(match kind {
+        "diagnostics" => {
+            let Some(a) = server.analysis_for(&file) else { return Ok(json!([])) };
+            let ds: Vec<Value> = a
+                .diagnostics
+                .iter()
+                .map(|d| {
+                    let t = a.file(&d.path).map(|f| f.text.clone()).unwrap_or_else(|| text_of(&d.path));
+                    let (l, c) = line_col(&t, d.start);
+                    let (el, ec) = line_col(&t, d.end);
+                    json!({
+                        "file": d.path, "line": l, "col": c, "end_line": el, "end_col": ec,
+                        "severity": match d.severity { lang_base::Severity::Error => "error", lang_base::Severity::Warning => "warning", lang_base::Severity::Note => "note" },
+                        "code": d.code, "message": d.message, "notes": d.notes,
+                    })
+                })
+                .collect();
+            json!(ds)
+        }
+        "hover" => {
+            let h = server.hover(&at()?);
+            match h["contents"]["value"].as_str() {
+                Some(v) => json!({ "text": v.trim_start_matches("```lang\n").trim_end_matches("\n```") }),
+                None => Value::Null,
+            }
+        }
+        "definition" => {
+            let d = server.definition(&at()?);
+            if d.is_null() { d } else { loc(&d) }
+        }
+        "references" => json!(
+            server
+                .references(&at()?)
+                .as_array()
+                .map(|v| v.iter().map(loc).collect::<Vec<_>>())
+                .unwrap_or_default()
+        ),
+        "completion" => {
+            let c = server.completion(&at()?);
+            json!(
+                c.as_array()
+                    .map(|v| v
+                        .iter()
+                        .map(|i| json!({ "name": i["label"], "detail": i["detail"] }))
+                        .collect::<Vec<_>>())
+                    .unwrap_or_default()
+            )
+        }
+        "symbols" => {
+            let Some(a) = server.analysis_for(&file) else { return Ok(json!([])) };
+            let Some(f) = a.files.iter().find(|f| canonical(Path::new(&f.path)) == file) else {
+                return Ok(json!([]));
+            };
+            let mut out = vec![];
+            fn walk(s: &SymbolInfo, container: Option<&str>, text: &str, out: &mut Vec<Value>) {
+                let (l, c) = line_col(text, s.name_start);
+                let kind = format!("{:?}", s.kind).to_lowercase();
+                out.push(json!({ "name": s.name, "kind": kind, "detail": s.detail, "line": l, "col": c, "container": container }));
+                for ch in &s.children {
+                    walk(ch, Some(&s.name), text, out);
+                }
+            }
+            for s in &f.symbols {
+                walk(s, None, &f.text, &mut out);
+            }
+            json!(out)
+        }
+        other => {
+            return Err(format!(
+                "unknown query `{other}` (diagnostics, hover, definition, references, completion, symbols)"
+            ));
+        }
+    })
+}

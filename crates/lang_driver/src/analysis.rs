@@ -566,7 +566,13 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
         };
         let detail = match &def.kind {
             DefKind::Impl(_) => String::new(),
-            _ => ix.signature(d),
+            // the type alone (the symbol carries the name)
+            _ => {
+                let sig = ix.signature(d);
+                sig.strip_prefix(&format!("{}: ", s.interner.resolve(def.name)))
+                    .map(str::to_string)
+                    .unwrap_or(sig)
+            }
         };
         let mut end = def.span.end as usize;
         if let DefKind::Fn(f) = &def.kind

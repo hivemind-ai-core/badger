@@ -49,5 +49,6 @@ std_modules![
     "ffi",
     "broadcast",
     "array",
-    "schema"
+    "schema",
+    "compiler"
 ];

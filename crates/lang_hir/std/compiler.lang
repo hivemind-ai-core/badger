@@ -1,0 +1,135 @@
+// Compiler services: diagnostics, types, definitions, references, symbols,
+// and completions of a source file (checked with its project, if any), and
+// diagnostic explanations. Each call runs `lang query` (the language
+// server's analysis) as a subprocess; positions are 1-based lines and
+// columns in characters.
+
+import std.prelude
+import std.io
+import std.env
+import std.fs
+import std.process
+import std.codec
+
+/// A compiler service failed (the tool could not run, or a request was
+/// invalid).
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for Error {}
+
+pub struct Location {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+} derive(Codec, Display)
+
+pub struct Diagnostic {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+    /// `error`, `warning`, or `note`.
+    pub severity: String,
+    pub code: Option<String>,
+    pub message: String,
+    pub notes: List<String>,
+} derive(Codec, Display)
+
+pub struct Symbol {
+    pub name: String,
+    /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, `value`,
+    /// or `impl`.
+    pub kind: String,
+    /// Its type or declared shape.
+    pub detail: String,
+    pub line: Int,
+    pub col: Int,
+    /// The impl a method belongs to.
+    pub container: Option<String>,
+} derive(Codec, Display)
+
+pub struct Completion {
+    pub name: String,
+    pub detail: Option<String>,
+} derive(Codec, Display)
+
+struct Hover {
+    text: String,
+} derive(Codec)
+
+/// The `lang` executable (`LANG_EXE`, set by `lang` itself).
+fn exe() -> String !{Io} { env.get("LANG_EXE").unwrap_or("lang") }
+
+fn ask(args: List<String>) -> Result<String, Error> !{Io, Wait} {
+    match process.run(exe(), args) {
+        .ok(o) => if o.status == 0 { ok(o.stdout) } else { err({ message: o.stderr.trim() }) },
+        .err(e) => err({ message: $"cannot run {exe()}: {e}" }),
+    }
+}
+
+fn decode<T>(text: String) -> Result<T, Error> where T: Codec {
+    match codec.decode_text<T>(text) {
+        .ok(v) => ok(v),
+        .err(e) => err({ message: $"unexpected reply: {e}" }),
+    }
+}
+
+fn at(kind: String, path: String, line: Int, col: Int) -> List<String> {
+    ["query", kind, path, "--line", $"{line}", "--col", $"{col}"]
+}
+
+/// Diagnostics of the program `path` belongs to (empty when it checks).
+pub fn diagnostics(path: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
+    decode(ask(["query", "diagnostics", path])?)
+}
+
+/// Diagnostics of a source text, checked as a file on its own.
+pub fn check_source(source: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
+    let dir = env.get("TMPDIR").unwrap_or("/tmp")
+    let path = $"{dir}/lang-check-{process.id()}.lang"
+    match fs.write_text(path, source) {
+        .ok(_) => {},
+        .err(e) => return err({ message: $"cannot write {path}: {e}" }),
+    }
+    diagnostics(path)
+}
+
+/// The type or signature at a position.
+pub fn hover(path: String, line: Int, col: Int) -> Result<Option<String>, Error> !{Io, Wait} {
+    let h: Option<Hover> = decode(ask(at("hover", path, line, col))?)?
+    ok(h.map(fn(x) { x.text }))
+}
+
+/// Where the name at a position is defined.
+pub fn definition(path: String, line: Int, col: Int) -> Result<Option<Location>, Error> !{Io, Wait} {
+    decode(ask(at("definition", path, line, col))?)
+}
+
+/// Every use and the declaration of the name at a position.
+pub fn references(path: String, line: Int, col: Int) -> Result<List<Location>, Error> !{Io, Wait} {
+    decode(ask(at("references", path, line, col))?)
+}
+
+/// Definitions in a file, with their types.
+pub fn symbols(path: String) -> Result<List<Symbol>, Error> !{Io, Wait} {
+    decode(ask(["query", "symbols", path])?)
+}
+
+/// Names that can be written at a position (after `x.`: members of `x`).
+pub fn completions(path: String, line: Int, col: Int) -> Result<List<Completion>, Error> !{Io, Wait} {
+    decode(ask(at("completion", path, line, col))?)
+}
+
+/// The explanation of a diagnostic code such as `E0301`.
+pub fn explain(code: String) -> Result<String, Error> !{Io, Wait} {
+    ask(["explain", "diagnostic", code])
+}

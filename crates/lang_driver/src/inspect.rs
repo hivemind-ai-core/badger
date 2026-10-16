@@ -227,7 +227,7 @@ fn json_unquote(s: &str) -> String {
     out
 }
 
-fn evaluate(q: &std::sync::Arc<lang_runtime::task::ExternalQueue>, input: String) -> String {
+fn evaluate(q: &std::sync::Arc<lang_runtime::task::ExternalQueue>, input: String, limit: Duration) -> String {
     let started = on_scheduler(q, move || match eval_start(&input) {
         Eval::Done(s) => Ok(s),
         Eval::Running(id) => Err(id),
@@ -241,8 +241,15 @@ fn evaluate(q: &std::sync::Arc<lang_runtime::task::ExternalQueue>, input: String
                 if let Some(Some(r)) = on_scheduler(q, move || eval_poll(id)) {
                     return r;
                 }
-                if start.elapsed() > Duration::from_secs(60) {
-                    return "error: evaluation timed out".into();
+                if start.elapsed() > limit {
+                    // stop it, so the session stays usable
+                    on_scheduler(q, move || {
+                        lang_runtime::task::cancel(id);
+                    });
+                    return format!(
+                        "error: evaluation timed out after {}s and was cancelled",
+                        limit.as_secs_f64()
+                    );
                 }
                 std::thread::sleep(Duration::from_millis(5));
             }
@@ -268,8 +275,14 @@ pub fn serve(addr: &str, entry: PathBuf, optimize: bool) -> Result<(), String> {
                 continue;
             }
             let what = line.trim().to_string();
-            if let Some(input) = what.strip_prefix("eval ") {
-                let reply = evaluate(&q, json_unquote(input));
+            // `eval INPUT`, or `evalt MILLIS INPUT` with a time limit
+            let timed = what.strip_prefix("evalt ").and_then(|r| {
+                let (ms, input) = r.split_once(' ')?;
+                Some((Duration::from_millis(ms.parse().ok()?), input))
+            });
+            let untimed = what.strip_prefix("eval ").map(|i| (Duration::from_secs(60), i));
+            if let Some((limit, input)) = timed.or(untimed) {
+                let reply = evaluate(&q, json_unquote(input), limit);
                 let mut conn = conn;
                 let _ = conn.write_all(reply.as_bytes());
                 continue;
@@ -306,8 +319,20 @@ pub fn request(addr: &str, what: &str) -> Result<String, String> {
 
 /// Evaluate REPL input in a running program.
 pub fn eval(addr: &str, input: &str) -> Result<String, String> {
+    eval_within(addr, input, None)
+}
+
+/// Evaluate REPL input; with a `limit`, the program cancels an evaluation
+/// still running after it.
+pub fn eval_within(addr: &str, input: &str, limit: Option<Duration>) -> Result<String, String> {
     let quoted = lang_runtime::intrinsics_io::json_quote(input);
     let mut s = TcpStream::connect(addr).map_err(|e| format!("cannot connect to {addr}: {e}"))?;
+    if let Some(l) = limit {
+        s.write_all(format!("evalt {} {quoted}\n", l.as_millis()).as_bytes()).map_err(|e| e.to_string())?;
+        let mut out = String::new();
+        s.read_to_string(&mut out).map_err(|e| e.to_string())?;
+        return Ok(out);
+    }
     s.write_all(format!("eval {quoted}\n").as_bytes()).map_err(|e| e.to_string())?;
     let mut out = String::new();
     s.read_to_string(&mut out).map_err(|e| e.to_string())?;

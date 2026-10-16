@@ -1,0 +1,91 @@
+//! `lang mcp`: the tools over the stdio protocol, including code mode with
+//! `std.compiler`, output capture, and a runaway evaluation that is
+//! cancelled without losing the session.
+
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Command, Stdio};
+
+use serde_json::{Value, json};
+
+#[test]
+fn mcp_tools() {
+    let dir = std::env::temp_dir().join(format!("lang-mcp-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.lang");
+    std::fs::write(
+        &file,
+        "import std.io\n\nfn double(x: Int) -> Int { x * 2 }\n\npub fn main() -> Unit {\n    let _ = io.println($\"{double(21)}\")\n}\n",
+    )
+    .unwrap();
+    let path = file.display().to_string();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_lang"))
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut next = 0;
+    let mut req = |method: &str, params: Value| -> Value {
+        next += 1;
+        writeln!(stdin, "{}", json!({ "jsonrpc": "2.0", "id": next, "method": method, "params": params }))
+            .unwrap();
+        stdin.flush().unwrap();
+        loop {
+            let mut line = String::new();
+            stdout.read_line(&mut line).unwrap();
+            let m: Value = serde_json::from_str(&line).unwrap();
+            if m["id"] == json!(next) {
+                return m;
+            }
+        }
+    };
+    let init = req("initialize", json!({ "protocolVersion": "2025-06-18", "capabilities": {} }));
+    assert_eq!(init["result"]["capabilities"]["tools"]["listChanged"], json!(false));
+    let tools = req("tools/list", json!({}));
+    let names: Vec<&str> =
+        tools["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["eval", "check", "query", "run"]);
+    let mut call = |name: &str, args: Value| -> (String, bool) {
+        let r = req("tools/call", json!({ "name": name, "arguments": args }));
+        (
+            r["result"]["content"][0]["text"].as_str().unwrap().to_string(),
+            r["result"]["isError"] == json!(true),
+        )
+    };
+
+    // code mode: definitions accumulate; printed output is returned
+    assert!(!call("eval", json!({ "code": "fn sq(x: Int) -> Int { x * x }" })).1);
+    assert_eq!(call("eval", json!({ "code": "sq(12) + 1" })), ("145".to_string(), false));
+    let (out, err) = call("eval", json!({ "code": "io.println(\"printed\")" }));
+    assert!(!err && out.starts_with("printed\n"), "{out}");
+    let (out, err) = call("eval", json!({ "code": "sq(\"no\")" }));
+    assert!(err && out.contains("E0300"), "{out}");
+    // the compiler from code
+    call("eval", json!({ "code": "import std.compiler" }));
+    let (out, err) = call(
+        "eval",
+        json!({ "code": format!("compiler.symbols(\"{path}\").map(fn(ss) {{ ss.map(fn(s) {{ $\"{{s.name}}: {{s.detail}}\" }}) }})") }),
+    );
+    assert!(!err && out.contains("double: fn(Int) -> Int"), "{out}");
+    // a runaway evaluation is cancelled and the session keeps working
+    let (out, err) = call("eval", json!({ "code": "loop { }", "timeout_secs": 0.5 }));
+    assert!(err && out.contains("cancelled"), "{out}");
+    assert_eq!(call("eval", json!({ "code": "sq(3)" })), ("9".to_string(), false));
+
+    // check, query, run
+    let (out, err) = call("check", json!({ "source": "pub fn main() -> Int { \"x\" }" }));
+    assert!(err && out.contains("E0300"), "{out}");
+    assert_eq!(call("check", json!({ "path": path })), ("no diagnostics: it checks".to_string(), false));
+    let (out, _) = call("query", json!({ "kind": "hover", "path": path, "line": 6, "col": 30 }));
+    assert_eq!(out, "{\"text\":\"double: fn(Int) -> Int\"}");
+    let (out, _) = call("query", json!({ "kind": "module", "name": "list" }));
+    assert!(out.contains("pub fn"), "{out}");
+    let (out, err) = call("run", json!({ "path": path }));
+    assert!(!err && out.contains("42"), "{out}");
+
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
+    let _ = std::fs::remove_dir_all(&dir);
+}

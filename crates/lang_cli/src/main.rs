@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 mod lsp;
+mod mcp;
 use lang_base::diagnostics::json_str;
 use lang_driver::{Outcome, Session};
 
@@ -141,6 +142,21 @@ enum Command {
     /// Language server over stdio (diagnostics, hover, definition,
     /// references, rename, symbols, formatting, completion).
     Lsp,
+    /// Model Context Protocol server over stdio: a persistent REPL session
+    /// ("code mode", with `std.compiler`), checking, queries, and runs.
+    Mcp,
+    /// Answer one question about a program as JSON (1-based positions):
+    /// `diagnostics`, `symbols`, or at `--line`/`--col` `hover`,
+    /// `definition`, `references`, `completion`.
+    Query {
+        kind: String,
+        /// Source file (checked with its project, if any).
+        path: PathBuf,
+        #[arg(long)]
+        line: Option<usize>,
+        #[arg(long)]
+        col: Option<usize>,
+    },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
         /// `diagnostic`, `type`, or `effect`.
@@ -157,6 +173,13 @@ enum Command {
 fn main() -> ExitCode {
     // LANG_PROFILE covers compilation too, not only the program run
     lang_driver::start_profile();
+    // `std.compiler` runs this executable for its queries
+    if std::env::var_os("LANG_EXE").is_none()
+        && let Ok(exe) = std::env::current_exe()
+    {
+        // SAFETY: no other threads exist yet
+        unsafe { std::env::set_var("LANG_EXE", exe) };
+    }
     let mut cli = Cli::parse();
     // a missing path means the current directory's project
     if let Command::Inspect { path, connect: None, .. } = &mut cli.command
@@ -280,6 +303,17 @@ fn main() -> ExitCode {
         }
         // no paths: the current directory's sources
         Command::Lsp => ExitCode::from(lsp::serve() as u8),
+        Command::Mcp => mcp::serve(),
+        Command::Query { kind, path, line, col } => match lsp::query(&kind, &path, line, col) {
+            Ok(v) => {
+                println!("{v}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        },
         Command::Format { paths, check } => {
             format(if paths.is_empty() { vec![PathBuf::from(".")] } else { paths }, check)
         }
@@ -775,7 +809,7 @@ fn depth(s: &str) -> i32 {
 
 /// Leave the process after a program ran: the runtime's task stacks, JIT
 /// image, and heap live for the whole process, so skip their destructors.
-fn exit_now(code: i32) -> ExitCode {
+pub(crate) fn exit_now(code: i32) -> ExitCode {
     lang_driver::finish();
     let _ = std::io::stdout().flush();
     let _ = std::io::stderr().flush();
@@ -784,7 +818,7 @@ fn exit_now(code: i32) -> ExitCode {
     unsafe { libc::_exit(code) }
 }
 
-fn report(session: &Session, json: bool) {
+pub(crate) fn report(session: &Session, json: bool) {
     if json {
         println!("{}", session.diagnostics.render_json(&session.sources));
     } else {

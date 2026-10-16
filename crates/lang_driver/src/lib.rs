@@ -1462,3 +1462,13 @@ pub fn describe_def(
     };
     Some((ty, eff))
 }
+
+/// The source of standard module `std.NAME` (its API and documentation).
+pub fn std_source(name: &str) -> Option<&'static str> {
+    lang_hir::stdlib::STD_MODULES.iter().find(|(n, _)| *n == name).map(|(_, s)| *s)
+}
+
+/// Names of the standard modules.
+pub fn std_modules() -> Vec<&'static str> {
+    lang_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect()
+}

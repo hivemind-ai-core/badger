@@ -373,6 +373,30 @@ while the text being typed does not parse: names in scope, module members
 after `module.`, fields and methods after `value.`. Setup for editors is in
 [docs/editors.md](docs/editors.md).
 
+`lang query KIND PATH [--line L --col C]` answers one of the same
+questions (diagnostics, hover, definition, references, completion, symbols)
+as JSON with 1-based positions. `std.compiler` wraps it for programs: typed
+records (`Diagnostic`, `Location`, `Symbol`, `Completion`) decoded from a
+`lang query` subprocess (`LANG_EXE` names the running executable), plus
+`check_source` and `explain`.
+
+## Agent tooling (MCP)
+
+`lang mcp` is a Model Context Protocol server on stdio
+(`crates/lang_cli/src/mcp.rs`) with four tools. `eval` is code mode: a
+persistent REPL session (the `lang repl` machinery: an in-process session
+program served over the inspection endpoint) where definitions accumulate
+and expressions evaluate; with `import std.compiler` the agent queries and
+post-processes analysis in the language itself instead of through many
+narrow tools. Evaluations have a time limit (`evalt` requests: the
+endpoint cancels the evaluation task when it expires, so the session stays
+usable). `check` (a path or source text), `query` (the `lang query` kinds,
+diagnostic explanations, and standard module sources as API reference) and
+`run` (a program or its tests, with a time limit) run in subprocesses,
+isolated from the session. The session's standard output is redirected to
+a pipe and returned with each evaluation, since stdout carries the
+protocol. Setup in [docs/agents.md](docs/agents.md).
+
 ## Testing
 
 - `tests/run/*.lang` must run and print `NAME.out` (exit code `NAME.exit`),
