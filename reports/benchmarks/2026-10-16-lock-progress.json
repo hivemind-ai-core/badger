@@ -1,0 +1,776 @@
+{
+  "date": "2026-10-16",
+  "revision": "973af401cb582e8ee19be9af46728c1e02abdc49",
+  "dirty": " M README.md\n",
+  "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+  "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+  "logical_cpus": 16,
+  "lang": "/home/dan/orca/projects/language/target/release/lang",
+  "reps": 3,
+  "compiler": {
+    "records": {
+      "wall_ms": {
+        "median": 23.468,
+        "min": 23.466,
+        "runs": [
+          23.468,
+          23.88,
+          23.466
+        ]
+      },
+      "phases_ms": {
+        "parse": 14.414,
+        "resolve": 1.635,
+        "typecheck": 3.793,
+        "lower": 0.441
+      },
+      "source_lines": 52
+    },
+    "collections": {
+      "wall_ms": {
+        "median": 24.297,
+        "min": 23.683,
+        "runs": [
+          23.683,
+          25.068,
+          24.297
+        ]
+      },
+      "phases_ms": {
+        "parse": 14.708,
+        "resolve": 1.672,
+        "typecheck": 3.761,
+        "lower": 0.605
+      },
+      "source_lines": 70
+    },
+    "messages": {
+      "wall_ms": {
+        "median": 28.881,
+        "min": 27.784,
+        "runs": [
+          29.326,
+          28.881,
+          27.784
+        ]
+      },
+      "phases_ms": {
+        "parse": 17.507,
+        "resolve": 1.651,
+        "typecheck": 5.173,
+        "lower": 1.237
+      },
+      "source_lines": 94
+    },
+    "heap": {
+      "wall_ms": {
+        "median": 29.41,
+        "min": 28.2,
+        "runs": [
+          33.423,
+          29.41,
+          28.2
+        ]
+      },
+      "phases_ms": {
+        "parse": 18.357,
+        "resolve": 1.745,
+        "typecheck": 5.112,
+        "lower": 0.887
+      },
+      "source_lines": 70
+    },
+    "runtime": {
+      "wall_ms": {
+        "median": 37.866,
+        "min": 37.486,
+        "runs": [
+          37.486,
+          38.225,
+          37.866
+        ]
+      },
+      "phases_ms": {
+        "parse": 20.284,
+        "resolve": 2.168,
+        "typecheck": 8.048,
+        "lower": 3.391
+      },
+      "source_lines": 116
+    },
+    "parallel": {
+      "wall_ms": {
+        "median": 23.344,
+        "min": 23.022,
+        "runs": [
+          23.022,
+          23.599,
+          23.344
+        ]
+      },
+      "phases_ms": {
+        "parse": 14.637,
+        "resolve": 1.544,
+        "typecheck": 3.991,
+        "lower": 0.449
+      },
+      "source_lines": 32
+    },
+    "independent_channels": {
+      "wall_ms": {
+        "median": 28.199,
+        "min": 27.777,
+        "runs": [
+          28.425,
+          28.199,
+          27.777
+        ]
+      },
+      "phases_ms": {
+        "parse": 17.11,
+        "resolve": 1.707,
+        "typecheck": 5.029,
+        "lower": 0.983
+      },
+      "source_lines": 41
+    },
+    "parallel_alloc": {
+      "wall_ms": {
+        "median": 23.356,
+        "min": 23.236,
+        "runs": [
+          23.356,
+          23.236,
+          24.721
+        ]
+      },
+      "phases_ms": {
+        "parse": 14.403,
+        "resolve": 1.515,
+        "typecheck": 4.054,
+        "lower": 0.706
+      },
+      "source_lines": 27
+    },
+    "synthetic_50": {
+      "wall_ms": {
+        "median": 29.943,
+        "min": 29.068,
+        "runs": [
+          29.068,
+          29.943,
+          30.908
+        ]
+      },
+      "phases_ms": {
+        "parse": 17.718,
+        "resolve": 1.475,
+        "typecheck": 5.507,
+        "lower": 1.661
+      },
+      "source_lines": 357
+    },
+    "synthetic_200": {
+      "wall_ms": {
+        "median": 58.777,
+        "min": 56.511,
+        "runs": [
+          58.777,
+          56.511,
+          60.102
+        ]
+      },
+      "phases_ms": {
+        "parse": 31.83,
+        "resolve": 2.43,
+        "typecheck": 11.983,
+        "lower": 6.565
+      },
+      "source_lines": 1407
+    },
+    "synthetic_800": {
+      "wall_ms": {
+        "median": 177.287,
+        "min": 175.202,
+        "runs": [
+          185.585,
+          177.287,
+          175.202
+        ]
+      },
+      "phases_ms": {
+        "parse": 86.755,
+        "resolve": 7.353,
+        "typecheck": 38.949,
+        "lower": 30.746
+      },
+      "source_lines": 5607
+    },
+    "minimal": {
+      "wall_ms": {
+        "median": 21.24,
+        "min": 20.822,
+        "runs": [
+          20.822,
+          21.24,
+          22.131
+        ]
+      },
+      "phases_ms": {
+        "parse": 13.487,
+        "resolve": 1.505,
+        "typecheck": 3.306,
+        "lower": 0.04
+      },
+      "source_lines": 1
+    }
+  },
+  "binary_mir": {
+    "minimal": {
+      "size_bytes": 693,
+      "load_and_run_ms": {
+        "median": 2.454,
+        "min": 1.541,
+        "runs": [
+          2.454,
+          1.541,
+          2.944
+        ]
+      }
+    },
+    "records": {
+      "size_bytes": 15100,
+      "load_and_run_ms": {
+        "median": 117.821,
+        "min": 117.445,
+        "runs": [
+          117.445,
+          120.43,
+          117.821
+        ]
+      }
+    }
+  },
+  "runtime": {
+    "records_w1": {
+      "run_ms": {
+        "median": 83.614,
+        "min": 83.283,
+        "runs": [
+          85.364,
+          83.283,
+          83.614
+        ]
+      },
+      "output": [
+        "closed record fields: 1008 ps/op (check 250000000)",
+        "row-generic call, 6-field shape: 1178 ps/op (check 610000000)",
+        "struct fields: 1098 ps/op (check 370000000)",
+        "record update (allocates): 889 ps/op (check 59999997)"
+      ]
+    },
+    "records_w2": {
+      "run_ms": {
+        "median": 83.468,
+        "min": 82.406,
+        "runs": [
+          82.406,
+          83.468,
+          88.305
+        ]
+      },
+      "output": [
+        "closed record fields: 1142 ps/op (check 250000000)",
+        "row-generic call, 6-field shape: 1298 ps/op (check 610000000)",
+        "struct fields: 1037 ps/op (check 370000000)",
+        "record update (allocates): 928 ps/op (check 59999997)"
+      ]
+    },
+    "records_w4": {
+      "run_ms": {
+        "median": 82.858,
+        "min": 82.857,
+        "runs": [
+          82.857,
+          82.858,
+          85.729
+        ]
+      },
+      "output": [
+        "closed record fields: 1128 ps/op (check 250000000)",
+        "row-generic call, 6-field shape: 1190 ps/op (check 610000000)",
+        "struct fields: 1029 ps/op (check 370000000)",
+        "record update (allocates): 930 ps/op (check 59999997)"
+      ]
+    },
+    "records_w8": {
+      "run_ms": {
+        "median": 84.518,
+        "min": 83.268,
+        "runs": [
+          83.268,
+          84.518,
+          85.015
+        ]
+      },
+      "output": [
+        "closed record fields: 1020 ps/op (check 250000000)",
+        "row-generic call, 6-field shape: 1188 ps/op (check 610000000)",
+        "struct fields: 1017 ps/op (check 370000000)",
+        "record update (allocates): 1000 ps/op (check 59999997)"
+      ]
+    },
+    "collections_w1": {
+      "run_ms": {
+        "median": 155.354,
+        "min": 154.319,
+        "runs": [
+          155.673,
+          154.319,
+          155.354
+        ]
+      },
+      "output": [
+        "paged list append: 10 ns/op (check 2000000)",
+        "paged list iterate: 1 ns/op (check 1999999000000)",
+        "paged list iterate by chunk: 10 ns/op (check 1999999000000)",
+        "buffer push (contiguous growth): 4 ns/op (check 2000000)",
+        "array iterate: 2 ns/op (check 1999999000000)",
+        "persistent map insert: 433 ns/op (check 200000)",
+        "map lookup: 60 ns/op (check 39999800000)"
+      ]
+    },
+    "collections_w2": {
+      "run_ms": {
+        "median": 162.652,
+        "min": 157.599,
+        "runs": [
+          162.652,
+          157.599,
+          163.868
+        ]
+      },
+      "output": [
+        "paged list append: 10 ns/op (check 2000000)",
+        "paged list iterate: 1 ns/op (check 1999999000000)",
+        "paged list iterate by chunk: 10 ns/op (check 1999999000000)",
+        "buffer push (contiguous growth): 4 ns/op (check 2000000)",
+        "array iterate: 2 ns/op (check 1999999000000)",
+        "persistent map insert: 466 ns/op (check 200000)",
+        "map lookup: 61 ns/op (check 39999800000)"
+      ]
+    },
+    "collections_w4": {
+      "run_ms": {
+        "median": 162.858,
+        "min": 162.667,
+        "runs": [
+          162.858,
+          168.962,
+          162.667
+        ]
+      },
+      "output": [
+        "paged list append: 10 ns/op (check 2000000)",
+        "paged list iterate: 1 ns/op (check 1999999000000)",
+        "paged list iterate by chunk: 10 ns/op (check 1999999000000)",
+        "buffer push (contiguous growth): 3 ns/op (check 2000000)",
+        "array iterate: 2 ns/op (check 1999999000000)",
+        "persistent map insert: 462 ns/op (check 200000)",
+        "map lookup: 63 ns/op (check 39999800000)"
+      ]
+    },
+    "collections_w8": {
+      "run_ms": {
+        "median": 160.077,
+        "min": 155.469,
+        "runs": [
+          160.077,
+          155.469,
+          160.156
+        ]
+      },
+      "output": [
+        "paged list append: 10 ns/op (check 2000000)",
+        "paged list iterate: 1 ns/op (check 1999999000000)",
+        "paged list iterate by chunk: 10 ns/op (check 1999999000000)",
+        "buffer push (contiguous growth): 3 ns/op (check 2000000)",
+        "array iterate: 2 ns/op (check 1999999000000)",
+        "persistent map insert: 436 ns/op (check 200000)",
+        "map lookup: 75 ns/op (check 39999800000)"
+      ]
+    },
+    "messages_w1": {
+      "run_ms": {
+        "median": 25.815,
+        "min": 25.709,
+        "runs": [
+          26.565,
+          25.815,
+          25.709
+        ]
+      },
+      "output": [
+        "prompt channel (capacity 256): 51 ns/message",
+        "batch channel (max_batch 256): 50 ns/message",
+        "prompt round trip: 259 ns/message"
+      ]
+    },
+    "messages_w2": {
+      "run_ms": {
+        "median": 24.752,
+        "min": 23.257,
+        "runs": [
+          24.752,
+          23.257,
+          26.718
+        ]
+      },
+      "output": [
+        "prompt channel (capacity 256): 48 ns/message",
+        "batch channel (max_batch 256): 34 ns/message",
+        "prompt round trip: 503 ns/message"
+      ]
+    },
+    "messages_w4": {
+      "run_ms": {
+        "median": 25.332,
+        "min": 24.013,
+        "runs": [
+          24.013,
+          25.332,
+          25.386
+        ]
+      },
+      "output": [
+        "prompt channel (capacity 256): 50 ns/message",
+        "batch channel (max_batch 256): 37 ns/message",
+        "prompt round trip: 374 ns/message"
+      ]
+    },
+    "messages_w8": {
+      "run_ms": {
+        "median": 26.683,
+        "min": 25.168,
+        "runs": [
+          26.683,
+          26.856,
+          25.168
+        ]
+      },
+      "output": [
+        "prompt channel (capacity 256): 47 ns/message",
+        "batch channel (max_batch 256): 41 ns/message",
+        "prompt round trip: 331 ns/message"
+      ]
+    },
+    "heap_w1": {
+      "run_ms": {
+        "median": 133.492,
+        "min": 132.017,
+        "runs": [
+          133.492,
+          132.017,
+          134.223
+        ]
+      },
+      "output": [
+        "allocate 3000000 records: 37 ns/record",
+        "heap after: {\"bytes\":13194263,\"collections\":15,\"objects\":299356,\"pause_max_ns\":3271834,\"pause_total_ns\":23300539}",
+        "spawn+join: 627 ns/task",
+        "cancel 100 blocked producers: 111 us to settle"
+      ]
+    },
+    "heap_w2": {
+      "run_ms": {
+        "median": 134.333,
+        "min": 132.818,
+        "runs": [
+          134.333,
+          137.529,
+          132.818
+        ]
+      },
+      "output": [
+        "allocate 3000000 records: 36 ns/record",
+        "heap after: {\"bytes\":13194263,\"collections\":15,\"objects\":299356,\"pause_max_ns\":1765027,\"pause_total_ns\":20921476}",
+        "spawn+join: 701 ns/task",
+        "cancel 100 blocked producers: 241 us to settle"
+      ]
+    },
+    "heap_w4": {
+      "run_ms": {
+        "median": 133.057,
+        "min": 131.105,
+        "runs": [
+          133.541,
+          133.057,
+          131.105
+        ]
+      },
+      "output": [
+        "allocate 3000000 records: 35 ns/record",
+        "heap after: {\"bytes\":13194263,\"collections\":15,\"objects\":299356,\"pause_max_ns\":1501558,\"pause_total_ns\":20445541}",
+        "spawn+join: 678 ns/task",
+        "cancel 100 blocked producers: 219 us to settle"
+      ]
+    },
+    "heap_w8": {
+      "run_ms": {
+        "median": 137.265,
+        "min": 135.244,
+        "runs": [
+          135.244,
+          139.049,
+          137.265
+        ]
+      },
+      "output": [
+        "allocate 3000000 records: 37 ns/record",
+        "heap after: {\"bytes\":13194263,\"collections\":15,\"objects\":299356,\"pause_max_ns\":1912701,\"pause_total_ns\":22647087}",
+        "spawn+join: 664 ns/task",
+        "cancel 100 blocked producers: 166 us to settle"
+      ]
+    },
+    "runtime_w1": {
+      "run_ms": {
+        "median": 21.386,
+        "min": 21.383,
+        "runs": [
+          21.531,
+          21.383,
+          21.386
+        ]
+      },
+      "output": [
+        "call, scalar frame: 1648 ps/call",
+        "call, 4 rooted pointers: 2238 ps/call",
+        "recursion depth 20000: 3 ns/frame",
+        "shutdown under failure: defect contained true, 8 halts ran, settled in 145 us"
+      ]
+    },
+    "runtime_w2": {
+      "run_ms": {
+        "median": 22.104,
+        "min": 21.811,
+        "runs": [
+          21.811,
+          22.104,
+          22.557
+        ]
+      },
+      "output": [
+        "call, scalar frame: 1697 ps/call",
+        "call, 4 rooted pointers: 2242 ps/call",
+        "recursion depth 20000: 19 ns/frame",
+        "shutdown under failure: defect contained true, 8 halts ran, settled in 143 us"
+      ]
+    },
+    "runtime_w4": {
+      "run_ms": {
+        "median": 22.784,
+        "min": 22.52,
+        "runs": [
+          23.049,
+          22.784,
+          22.52
+        ]
+      },
+      "output": [
+        "call, scalar frame: 1675 ps/call",
+        "call, 4 rooted pointers: 2225 ps/call",
+        "recursion depth 20000: 20 ns/frame",
+        "shutdown under failure: defect contained true, 8 halts ran, settled in 192 us"
+      ]
+    },
+    "runtime_w8": {
+      "run_ms": {
+        "median": 23.703,
+        "min": 22.963,
+        "runs": [
+          22.963,
+          23.703,
+          25.731
+        ]
+      },
+      "output": [
+        "call, scalar frame: 1747 ps/call",
+        "call, 4 rooted pointers: 2558 ps/call",
+        "recursion depth 20000: 20 ns/frame",
+        "shutdown under failure: defect contained true, 8 halts ran, settled in 173 us"
+      ]
+    },
+    "parallel_w1": {
+      "run_ms": {
+        "median": 656.302,
+        "min": 655.487,
+        "runs": [
+          656.302,
+          659.86,
+          655.487
+        ]
+      },
+      "output": [
+        "1 worker(s): 655 ms (check 2164006)"
+      ]
+    },
+    "parallel_w2": {
+      "run_ms": {
+        "median": 331.577,
+        "min": 330.305,
+        "runs": [
+          331.577,
+          330.305,
+          334.322
+        ]
+      },
+      "output": [
+        "2 worker(s): 334 ms (check 2164006)"
+      ]
+    },
+    "parallel_w4": {
+      "run_ms": {
+        "median": 168.536,
+        "min": 168.457,
+        "runs": [
+          168.457,
+          168.536,
+          169.883
+        ]
+      },
+      "output": [
+        "4 worker(s): 169 ms (check 2164006)"
+      ]
+    },
+    "parallel_w8": {
+      "run_ms": {
+        "median": 169.038,
+        "min": 167.77,
+        "runs": [
+          167.77,
+          169.038,
+          169.395
+        ]
+      },
+      "output": [
+        "8 worker(s): 168 ms (check 2164006)"
+      ]
+    },
+    "independent_channels_w1": {
+      "run_ms": {
+        "median": 10.544,
+        "min": 10.462,
+        "runs": [
+          10.544,
+          10.577,
+          10.462
+        ]
+      },
+      "output": [
+        "four independent pairs: 200000 messages conserved"
+      ]
+    },
+    "independent_channels_w2": {
+      "run_ms": {
+        "median": 6.504,
+        "min": 6.434,
+        "runs": [
+          6.434,
+          6.504,
+          7.653
+        ]
+      },
+      "output": [
+        "four independent pairs: 200000 messages conserved"
+      ]
+    },
+    "independent_channels_w4": {
+      "run_ms": {
+        "median": 6.04,
+        "min": 5.704,
+        "runs": [
+          6.04,
+          6.246,
+          5.704
+        ]
+      },
+      "output": [
+        "four independent pairs: 200000 messages conserved"
+      ]
+    },
+    "independent_channels_w8": {
+      "run_ms": {
+        "median": 6.958,
+        "min": 5.699,
+        "runs": [
+          6.958,
+          7.234,
+          5.699
+        ]
+      },
+      "output": [
+        "four independent pairs: 200000 messages conserved"
+      ]
+    },
+    "parallel_alloc_w1": {
+      "run_ms": {
+        "median": 33.521,
+        "min": 33.343,
+        "runs": [
+          33.343,
+          33.912,
+          33.521
+        ]
+      },
+      "output": [
+        "retained records: 256",
+        "heap: {\"bytes\":10053184,\"collections\":4,\"objects\":209105,\"pause_max_ns\":1488003,\"pause_total_ns\":5075505}"
+      ]
+    },
+    "parallel_alloc_w2": {
+      "run_ms": {
+        "median": 28.125,
+        "min": 27.521,
+        "runs": [
+          28.906,
+          28.125,
+          27.521
+        ]
+      },
+      "output": [
+        "retained records: 256",
+        "heap: {\"bytes\":9892432,\"collections\":4,\"objects\":205756,\"pause_max_ns\":1497400,\"pause_total_ns\":4946694}"
+      ]
+    },
+    "parallel_alloc_w4": {
+      "run_ms": {
+        "median": 25.943,
+        "min": 24.864,
+        "runs": [
+          25.943,
+          26.63,
+          24.864
+        ]
+      },
+      "output": [
+        "retained records: 256",
+        "heap: {\"bytes\":9676912,\"collections\":4,\"objects\":201330,\"pause_max_ns\":1304462,\"pause_total_ns\":5033115}"
+      ]
+    },
+    "parallel_alloc_w8": {
+      "run_ms": {
+        "median": 21.229,
+        "min": 18.448,
+        "runs": [
+          23.287,
+          18.448,
+          21.229
+        ]
+      },
+      "output": [
+        "retained records: 256",
+        "heap: {\"bytes\":9776416,\"collections\":4,\"objects\":203403,\"pause_max_ns\":1725293,\"pause_total_ns\":5740116}"
+      ]
+    }
+  }
+}
