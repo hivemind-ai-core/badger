@@ -1447,3 +1447,19 @@ fn private_struct_update() {
     assert_eq!(text.matches("\"code\":\"E0308\"").count(), 1, "{text}");
     assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
 }
+
+/// Cleanup that never finishes is escalated after one grace period, not
+/// waited for forever (or once per waiter).
+#[test]
+fn stuck_cleanup_is_bounded() {
+    let started = std::time::Instant::now();
+    let out = lang()
+        .args(["run", "tests/cleanup/stuck_timeout.lang"])
+        .env("LANG_CLEANUP_GRACE_MS", "1500")
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(101), "{err}");
+    assert_eq!(err.matches("cleanup exceeded the grace period of 1500ms").count(), 1, "{err}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(20));
+}

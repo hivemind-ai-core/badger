@@ -170,6 +170,9 @@ pub struct Task {
     /// defect raised meanwhile (a failing cleanup) keeps them as notes, so
     /// the original error is not lost.
     pub returning: Vec<String>,
+    /// Its cleanup outlived a grace period (that was reported); later
+    /// waits for its settling do not wait again.
+    pub grace_expired: bool,
     /// A wakeup that arrived while the task was still running (e.g. from
     /// publishing its own staged batch on the way to parking): the next
     /// park returns at once instead of losing it.
@@ -749,6 +752,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         caller_loc: 0,
         contract_site: 0,
         returning: vec![],
+        grace_expired: false,
         early_wake: None,
         select_offer: vec![],
         select_done: None,
@@ -1391,13 +1395,21 @@ pub fn set_cleanup_grace(ms: u64) {
 pub fn await_cancelled(ids: &[TaskId]) {
     let deadline = Instant::now() + Duration::from_millis(GRACE_MS.load(Ordering::SeqCst));
     loop {
-        let pending: Vec<TaskId> =
-            ids.iter().copied().filter(|id| task(*id).is_some_and(|t| t.state != State::Done)).collect();
+        let pending: Vec<TaskId> = ids
+            .iter()
+            .copied()
+            .filter(|id| task(*id).is_some_and(|t| t.state != State::Done && !t.grace_expired))
+            .collect();
         if pending.is_empty() {
             return;
         }
         let now = Instant::now();
         if now >= deadline {
+            for id in &pending {
+                if let Some(t) = task(*id) {
+                    t.grace_expired = true;
+                }
+            }
             let names: Vec<String> = pending
                 .iter()
                 .map(|id| match task(*id) {

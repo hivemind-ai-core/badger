@@ -1,0 +1,23 @@
+// A timed-out task whose cleanup never finishes: the wait for it is
+// bounded by the cleanup grace period, which escalates (a defect) once.
+import std.io
+import std.task
+import std.time
+
+pub fn main() -> Result<Unit, io.Error> {
+    let r = task.timeout(time.millis(20), fn() {
+        let _: Result<Unit, String> = task.scope(fn(s) -> Result<Unit, String> {
+            s.defer(fn() {
+                loop {
+                    task.sleep(time.millis(5))
+                }
+            })
+            loop {
+                task.sleep(time.millis(1))
+            }
+        })
+        1
+    })
+    io.println($"unexpected: {r.is_err()}")?
+    ok(())
+}
