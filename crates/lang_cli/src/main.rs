@@ -150,6 +150,8 @@ enum Command {
 }
 
 fn main() -> ExitCode {
+    // LANG_PROFILE covers compilation too, not only the program run
+    lang_driver::start_profile();
     let mut cli = Cli::parse();
     // a missing path means the current directory's project
     if let Command::Inspect { path, connect: None, .. } = &mut cli.command

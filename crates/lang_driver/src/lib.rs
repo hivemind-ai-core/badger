@@ -77,6 +77,11 @@ pub fn project_entry_points(path: &Path) -> Vec<String> {
     out
 }
 
+/// Start the sampling profiler if `LANG_PROFILE` is set.
+pub fn start_profile() {
+    lang_runtime::profile::start_from_env();
+}
+
 /// Flush trace export and report trace sink overload (at process exit).
 pub fn finish() {
     lang_runtime::intrinsics_codec::report_overload();
