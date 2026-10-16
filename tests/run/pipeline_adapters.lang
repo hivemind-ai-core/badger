@@ -1,0 +1,52 @@
+// Pipeline adapters: a handler (or a whole inner pipeline) with other
+// reply or error types ends a pipeline through `map_handler`, `map_reply`,
+// `map_error`, `nest`, and `adapt`.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+type Ctx = { path: String }
+
+pub enum ApiError {
+    missing(path: String),
+} derive(Error)
+
+fn lookup(c: Ctx) -> Result<Int, String> {
+    if c.path == "/answer" { ok(42) } else { err($"no {c.path}") }
+}
+
+fn logged() -> pipeline.Stage<Ctx, Ctx, String, ApiError> {
+    pipeline.stage({
+        name: :demo/log,
+        leave: fn(c: Ctx, r: String) -> Result<(Ctx, String), ApiError> { pipeline.leave(c, $"[{r}]") },
+    })
+}
+
+fn show<R, E>(r: Result<R, E>) -> String where R: Display, E: Display {
+    match r {
+        .ok(v) => $"ok {v}",
+        .err(e) => $"err {e}",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let api = pipeline.compile(pipeline {
+        logged(),
+        pipeline.map_handler(handle(lookup), fn(n) { $"value {n}" }, fn(m) { ApiError.missing(m) }),
+    })
+    io.println(show(api({ path: "/answer" })))?
+    match api({ path: "/x" }) {
+        .ok(r) => io.println(r)?,
+        .err(e) => io.println($"error {e}")?,
+    }
+    // an inner pipeline with its own types, nested in an outer one
+    let inner = pipeline { handle(lookup) }
+    let outer = pipeline.compile(pipeline {
+        logged(),
+        pipeline.nest(pipeline.adapt(inner, fn(n) { $"inner {n}" }, fn(m) { ApiError.missing(m) })),
+    })
+    io.println(show(outer({ path: "/answer" })))?
+    let errors = pipeline.compile(pipeline { pipeline.map_error(pipeline.map_reply(handle(lookup), fn(n) { n * 2 }), fn(m) { m.len() }) })
+    io.println($"{show(errors({ path: "/answer" }))} {show(errors({ path: "/nope" }))}")?
+    ok(())
+}

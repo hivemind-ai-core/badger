@@ -151,6 +151,9 @@ let handler = pipeline.compile(plan)
 The compiled pipeline has `InputContext -> Result<Reply, E>`. All stages agree
 on the reply and error types through inference or direct adapters. A chain is
 not a homogeneous list: each enter can establish a new context shape.
+Implementation: `pipeline.map_handler`, `map_reply`, and `map_error` adapt a
+handler's reply and error types; `pipeline.adapt` adapts a whole plan and
+`pipeline.nest` runs one pipeline as another's handler.
 
 The helper signatures, expressed schematically, are:
 
