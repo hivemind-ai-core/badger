@@ -182,7 +182,7 @@ impl Diagnostics {
             for (name, sp) in &d.related {
                 if !sp.is_dummy() {
                     let f = sources.get(sp.file);
-                    let (line, col) = line_col(&f.text, sp.start as usize);
+                    let (line, col) = f.line_col(sp.start as usize);
                     notes.push(format!("related: `{name}` declared at {}:{line}:{col}", f.name));
                 }
             }
@@ -239,8 +239,8 @@ impl Diagnostics {
                     out.push(',');
                 }
                 let f = sources.get(l.span.file);
-                let (line, col) = line_col(&f.text, l.span.start as usize);
-                let (eline, ecol) = line_col(&f.text, l.span.end as usize);
+                let (line, col) = f.line_col(l.span.start as usize);
+                let (eline, ecol) = f.line_col(l.span.end as usize);
                 out.push_str(&format!(
                     "{{\"file\":{},\"module\":{},\"start\":{{\"line\":{line},\"column\":{col}}},\"end\":{{\"line\":{eline},\"column\":{ecol}}},\"message\":{}}}",
                     json_str(&f.name),
@@ -267,7 +267,7 @@ impl Diagnostics {
                     out.push(',');
                 }
                 let f = sources.get(sp.file);
-                let (line, col) = line_col(&f.text, sp.start as usize);
+                let (line, col) = f.line_col(sp.start as usize);
                 out.push_str(&format!(
                     "{{\"name\":{},\"file\":{},\"module\":{},\"line\":{line},\"column\":{col}}}",
                     json_str(name),

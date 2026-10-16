@@ -8,6 +8,20 @@ pub struct SourceFile {
     pub text: String,
     /// Dotted module path of this file (`app.orders`, `std.io`), when known.
     pub module: Option<String>,
+    /// Byte offsets where lines start, built on first use.
+    lines: std::sync::OnceLock<Vec<u32>>,
+}
+
+impl SourceFile {
+    /// 1-based line and column (in bytes) of byte `offset`.
+    pub fn line_col(&self, offset: usize) -> (usize, usize) {
+        let offset = offset.min(self.text.len());
+        let lines = self.lines.get_or_init(|| {
+            std::iter::once(0).chain(self.text.match_indices('\n').map(|(i, _)| i as u32 + 1)).collect()
+        });
+        let line = lines.partition_point(|&s| s as usize <= offset);
+        (line, offset - lines[line - 1] as usize + 1)
+    }
 }
 
 /// Owns every source text the compiler has loaded.
@@ -18,7 +32,12 @@ pub struct SourceMap {
 
 impl SourceMap {
     pub fn add(&mut self, name: impl Into<String>, text: impl Into<String>) -> FileId {
-        self.files.alloc(SourceFile { name: name.into(), text: text.into(), module: None })
+        self.files.alloc(SourceFile {
+            name: name.into(),
+            text: text.into(),
+            module: None,
+            lines: Default::default(),
+        })
     }
 
     pub fn set_module(&mut self, id: FileId, module: String) {
@@ -62,5 +81,18 @@ impl Span {
 
     pub fn range(self) -> std::ops::Range<usize> {
         self.start as usize..self.end as usize
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn indexed_line_col_matches_scan() {
+        let mut m = super::SourceMap::default();
+        let text = "ab\n\ncdé\nlast";
+        let f = m.add("t", text);
+        for off in (0..=text.len() + 2).filter(|o| *o > text.len() || text.is_char_boundary(*o)) {
+            assert_eq!(m.get(f).line_col(off), crate::diagnostics::line_col(text, off), "offset {off}");
+        }
     }
 }

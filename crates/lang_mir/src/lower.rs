@@ -495,7 +495,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             "<unknown>".to_string()
         } else {
             let f = self.sources.get(span.file);
-            let (l, c) = lang_base::diagnostics::line_col(&f.text, span.start as usize);
+            let (l, c) = f.line_col(span.start as usize);
             format!("{}:{l}:{c}", f.name)
         };
         let w = lang_runtime::string::immortal_string(&text);
@@ -1794,7 +1794,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     ("<unknown>".to_string(), 0, 0)
                 } else {
                     let f = self.m.sources.get(span.file);
-                    let (l, c) = lang_base::diagnostics::line_col(&f.text, span.start as usize);
+                    let (l, c) = f.line_col(span.start as usize);
                     (display_path(&f.name), l as i64, c as i64)
                 };
                 let v = Operand::Local(self.copy_to_local(args[0], self.repr(&targs[0]), None));
