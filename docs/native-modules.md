@@ -75,7 +75,9 @@ how bundles treat it:
   arguments (the rest are what it sends), filed under a kind (`fetch`
   files a request as `fetch GET https://…`). A recording keeps its result;
   a replay answers it from there, and `--compare` reports a call that
-  sends different content.
+  sends different content. An async call the task stopped waiting for (a
+  timeout cancelled it) is recorded as such, and its replay waits until
+  the task is cancelled again.
 - **pure**: no effect outside the call; recordings and replays run it.
 - otherwise **uncaptured**: a recording notes the limitation, and a
   replay stops (status 3) at the first call rather than run it for real.

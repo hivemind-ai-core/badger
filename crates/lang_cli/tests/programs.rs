@@ -902,6 +902,22 @@ fn native_modules() {
             );
         }
     }
+    // recorded async calls replay, including one abandoned by a timeout
+    let bundle = std::env::temp_dir().join(format!("lang-native-replay-{}.json", std::process::id()));
+    let rec = lang()
+        .args(["run", "--record"])
+        .arg(&bundle)
+        .arg("tests/native/replay_timeout.lang")
+        .output()
+        .unwrap();
+    assert!(rec.status.success(), "{}", String::from_utf8_lossy(&rec.stderr));
+    let started = std::time::Instant::now();
+    let rep = lang().arg("replay").arg(&bundle).output().unwrap();
+    let _ = std::fs::remove_file(&bundle);
+    let err = String::from_utf8_lossy(&rep.stderr);
+    assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
+    assert_eq!(String::from_utf8_lossy(&rep.stdout), "timed out: true\nlater: 2\n");
+    assert!(started.elapsed() < std::time::Duration::from_secs(4), "the replay ran the abandoned call");
     let dir = std::env::temp_dir().join(format!("lang-native-restricted-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(

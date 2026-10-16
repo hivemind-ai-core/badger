@@ -163,7 +163,7 @@ pub static DEF: ModuleDef = ModuleDef {
     ],
     drop_handle: Some(drop_handle),
     cancel: Some(cancel),
-    recorded: &[],
+    recorded: &[("later", "", 1)],
     pure: &[],
 };
 
