@@ -77,6 +77,10 @@ enum Command {
         /// Time the program's execution after all compilation (reported on stderr).
         #[arg(long)]
         bench: bool,
+        /// Register debug information (source lines, locals, unwinding) for
+        /// generated code with a debugger: `gdb --args lang run --debug ...`.
+        #[arg(long)]
+        debug: bool,
         /// Arguments passed to the program (after `--`).
         #[arg(last = true)]
         args: Vec<String>,
@@ -199,6 +203,7 @@ fn main() -> ExitCode {
             workers,
             reconstruct,
             bench,
+            debug,
             args,
         } => {
             let path = match entry {
@@ -222,6 +227,7 @@ fn main() -> ExitCode {
                 workers,
                 reconstruct,
                 bench,
+                debug,
             };
             match session.run(&path, args, &opts) {
                 Ok(code) => {

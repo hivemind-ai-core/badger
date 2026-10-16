@@ -900,3 +900,49 @@ fn eval_in_busy_program() {
     assert!(reply.contains("42"), "{reply}");
     assert!(start.elapsed() < Duration::from_secs(15));
 }
+
+/// `lang run --debug` registers line tables, locals, and unwind information
+/// for generated code: gdb breaks at a source line, shows arguments and
+/// the caller's locals, and steps by line (skipped without gdb).
+#[test]
+fn debugger_sees_generated_code() {
+    if Command::new("gdb").arg("--version").output().is_err() {
+        eprintln!("gdb not found: skipped");
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("lang-gdb-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("dbgprog.lang");
+    std::fs::write(
+        &src,
+        "import std.io\n\nfn area(w: Int, h: Int) -> Int {\n    let a = w * h\n    let b = a + 1\n    b - 1\n}\n\npub fn main() -> Unit {\n    var total = 0\n    for i in 0..3 {\n        let x = area(i, 10)\n        total = total + x\n    }\n    let _ = io.println($\"total {total}\")\n}\n",
+    )
+    .unwrap();
+    let out = Command::new("gdb")
+        .args(["-batch", "-nx", "-ex", "set debuginfod enabled off", "-ex", "set breakpoint pending on"])
+        .args([
+            "-ex",
+            "break dbgprog.lang:5 if w == 2",
+            "-ex",
+            "run",
+            "-ex",
+            "info locals",
+            "-ex",
+            "up",
+            "-ex",
+            "info locals",
+        ])
+        .args(["-ex", "down", "-ex", "next", "-ex", "p b", "-ex", "delete", "-ex", "continue", "--args"])
+        .arg(env!("CARGO_BIN_EXE_lang"))
+        .args(["run", "--debug"])
+        .arg(&src)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(text.contains("dbgprog.area#1 (w=2, h=10)"), "{text}");
+    assert!(text.contains("a = 20"), "{text}");
+    assert!(text.contains("total = 10") && text.contains("i = 2"), "{text}");
+    assert!(text.contains("$1 = 21"), "{text}");
+    assert!(text.contains("total 30"), "{text}");
+}

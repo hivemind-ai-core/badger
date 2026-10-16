@@ -16,7 +16,7 @@ fn is_safepoint(s: &Stmt) -> bool {
     match s {
         Stmt::Poll => true,
         Stmt::Assign(_, rv) => matches!(rv, Rvalue::Call { .. } | Rvalue::Alloc { .. } | Rvalue::Concat(_)),
-        Stmt::Store { .. } | Stmt::GlobalStore { .. } => false,
+        Stmt::Store { .. } | Stmt::GlobalStore { .. } | Stmt::Loc { .. } => false,
     }
 }
 
@@ -72,7 +72,7 @@ fn stmt_uses(s: &Stmt) -> Vec<&Operand> {
         Stmt::Assign(_, rv) => crate::verify::rvalue_operands(rv),
         Stmt::Store { base, value, .. } => vec![base, value],
         Stmt::GlobalStore { value, .. } => vec![value],
-        Stmt::Poll => vec![],
+        Stmt::Poll | Stmt::Loc { .. } => vec![],
     }
 }
 

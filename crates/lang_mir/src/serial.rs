@@ -15,7 +15,7 @@ use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
 /// Layout of the file format; files of another version are refused.
-const FORMAT: u32 = 3;
+const FORMAT: u32 = 4;
 
 /// The toolchain that wrote a file must be the one that loads it: MIR and
 /// the runtime's ABI change together.
@@ -445,6 +445,12 @@ impl Enc<'_> {
                 self.operand(value)?;
             }
             Stmt::Poll => self.w.u8(3),
+            Stmt::Loc { file, line, col } => {
+                self.w.u8(4);
+                self.w.u32(*file);
+                self.w.u32(*line);
+                self.w.u32(*col);
+            }
         }
         Ok(())
     }
@@ -663,6 +669,10 @@ pub fn encode(prog: &Program, meta: &[(String, String)]) -> Result<Vec<u8>, Stri
     for (n, f) in &prog.tests {
         e.w.str(n);
         e.w.u32(f.raw());
+    }
+    e.w.u32(prog.debug_files.len() as u32);
+    for f in &prog.debug_files {
+        e.w.str(f);
     }
     let body = std::mem::take(&mut e.w.out);
     // descriptors reachable from the pool (their fields may add entries)
@@ -908,6 +918,7 @@ impl Dec<'_> {
                 value: self.operand()?,
             },
             2 => Stmt::GlobalStore { slot: self.r.u32()?, value: self.operand()? },
+            4 => Stmt::Loc { file: self.r.u32()?, line: self.r.u32()?, col: self.r.u32()? },
             _ => Stmt::Poll,
         })
     }
@@ -1117,6 +1128,10 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
         let name = dec.r.str()?;
         prog.tests.push((name, dec.fid()?));
     }
+    let n = dec.r.u32()?;
+    for _ in 0..n {
+        prog.debug_files.push(dec.r.str()?);
+    }
     if dec.r.pos != dec.r.b.len() {
         return Err("the compiled program has trailing data".into());
     }
@@ -1182,6 +1197,7 @@ fn validate(prog: &Program) -> Result<(), String> {
                     Stmt::Store { base, value, .. } => op_ok(base) && op_ok(value),
                     Stmt::GlobalStore { slot, value } => *slot < prog.n_globals && op_ok(value),
                     Stmt::Poll => true,
+                    Stmt::Loc { file, .. } => (*file as usize) < prog.debug_files.len(),
                 };
                 if !ok {
                     return bad("an operation with an invalid reference", &f.name);

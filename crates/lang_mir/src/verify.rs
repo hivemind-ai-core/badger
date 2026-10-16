@@ -146,7 +146,7 @@ fn verify_func(prog: &Program, _fid: FuncId, f: &Func, out: &mut Vec<String>) {
                     check_op(value, &mut err);
                 }
                 Stmt::GlobalStore { value, .. } => check_op(value, &mut err),
-                Stmt::Poll => {}
+                Stmt::Poll | Stmt::Loc { .. } => {}
             }
         }
         match &block.term {

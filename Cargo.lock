@@ -732,6 +732,7 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
+ "gimli 0.33.0",
  "index_vec",
  "lang_base",
  "lang_mir",

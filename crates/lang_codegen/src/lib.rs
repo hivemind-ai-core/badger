@@ -33,6 +33,8 @@ use lang_mir::{
 use rustc_hash::FxHashMap;
 
 pub use cranelift_codegen::Context;
+
+pub mod debuginfo;
 pub use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
 #[derive(Debug, thiserror::Error)]
@@ -180,21 +182,40 @@ pub fn compile(prog: &Program, optimize: bool) -> Result<Compiled, CodegenError>
     };
     let mut imports: FxHashMap<String, CFuncId> = FxHashMap::default();
     let mut code = vec![];
+    let mut debug: Vec<(CFuncId, debuginfo::FuncDebug)> = vec![];
     for (id, f) in prog.funcs.iter_enumerated() {
         let mut fx =
             FnCx { prog, funcs: &funcs, adapters: &adapters, imports: &mut imports, globals, call_conv };
-        let size = fx.define(&mut jit, id, f)?;
+        let (size, dbg) = fx.define(&mut jit, id, f)?;
         code.push((funcs[id], size, f.name.clone()));
+        if let Some(d) = dbg {
+            debug.push((funcs[id], d));
+        }
     }
     for (id, f) in prog.funcs.iter_enumerated() {
         if let Some(&aid) = adapters.get(&id) {
-            let size = define_adapter(&mut jit, funcs[id], aid, f)?;
+            let (size, dbg) = define_adapter(&mut jit, funcs[id], aid, f)?;
             code.push((aid, size, format!("{} (adapter)", f.name)));
+            if let Some(d) = dbg {
+                debug.push((aid, d));
+            }
         }
     }
     jit.module.finalize_definitions()?;
     for (id, size, name) in &code {
         lang_runtime::profile::register_code(jit.module.get_finalized_function(*id), *size, name);
+    }
+    if !debug.is_empty() {
+        let funcs: Vec<(debuginfo::FuncDebug, u64)> = debug
+            .into_iter()
+            .map(|(id, d)| {
+                let a = jit.module.get_finalized_function(id) as u64;
+                (d, a)
+            })
+            .collect();
+        if let Err(e) = debuginfo::register(&prog.debug_files, &funcs, jit.module.isa()) {
+            eprintln!("warning: {e}");
+        }
     }
     let compiled = Compiled { jit, funcs, adapters, globals, n_globals: prog.n_globals, code };
     // patch static closures with code and adapter addresses
@@ -238,7 +259,12 @@ fn func_sig(jit: &Jit, f: &Func) -> Signature {
     sig
 }
 
-fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Result<usize, CodegenError> {
+fn define_adapter(
+    jit: &mut Jit,
+    target: CFuncId,
+    aid: CFuncId,
+    f: &Func,
+) -> Result<(usize, Option<debuginfo::FuncDebug>), CodegenError> {
     let mut sig = jit.module.make_signature();
     sig.params.extend([AbiParam::new(types::I64); 3]);
     sig.returns.push(AbiParam::new(types::I64));
@@ -265,13 +291,82 @@ fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Res
     }
     jit.module.define_function(aid, &mut jit.ctx)?;
     let size = code_size(&jit.ctx);
+    // a named frame with unwind information, so backtraces pass through
+    let dbg = debug_info().then(|| debuginfo::FuncDebug {
+        name: format!("{} (adapter)", f.name),
+        size: size as u32,
+        lines: vec![],
+        vars: vec![],
+        unwind: jit.ctx.compiled_code().and_then(|c| c.create_unwind_info(jit.module.isa()).ok().flatten()),
+    });
     jit.module.clear_context(&mut jit.ctx);
-    Ok(size)
+    Ok((size, dbg))
 }
 
 /// `LANG_DUMP_ASM=name,...` selects functions whose name contains `name`.
 fn f_matches(func: &str, pat: &str) -> bool {
     !pat.is_empty() && func.contains(pat)
+}
+
+/// Line rows, named locals' locations, and unwind information of the
+/// function just compiled in `jit.ctx`.
+fn func_debug(
+    jit: &Jit,
+    f: &Func,
+    size: usize,
+    locs: &[(u32, u32, u32)],
+    layout: Option<&(cranelift_codegen::ir::StackSlot, FxHashMap<Local, i32>)>,
+) -> debuginfo::FuncDebug {
+    let isa = jit.module.isa();
+    let Some(code) = jit.ctx.compiled_code() else {
+        return debuginfo::FuncDebug {
+            name: f.name.clone(),
+            size: size as u32,
+            lines: vec![],
+            vars: vec![],
+            unwind: None,
+        };
+    };
+    let mut lines = vec![];
+    for sl in code.buffer.get_srclocs_sorted() {
+        if sl.loc.is_default() {
+            continue;
+        }
+        if let Some(&(file, line, col)) = locs.get(sl.loc.bits() as usize - 1)
+            && lines.last().is_none_or(|l: &(u32, u32, u32, u32)| (l.1, l.2, l.3) != (file, line, col))
+        {
+            lines.push((sl.start, file, line, col));
+        }
+    }
+    // named copies of the parameters, made on entry, stand for them
+    let mut params: Vec<Local> = f.params.clone();
+    if let Some(entry) = f.blocks.iter().next() {
+        for st in &entry.stmts {
+            if let Stmt::Assign(d, Rvalue::Use(Operand::Local(src))) = st
+                && f.params.contains(src)
+            {
+                params.push(*d);
+            }
+        }
+    }
+    // each named local's slot, as an offset from the frame pointer
+    let mut vars = vec![];
+    if let (Some((slot, offsets)), Some(fl)) = (layout, code.buffer.frame_layout()) {
+        let base = fl.stackslots[*slot].offset as i64 - fl.frame_to_fp_offset as i64;
+        for (l, off) in offsets {
+            let decl = &f.locals[*l];
+            let Some(name) = decl.name.clone() else { continue };
+            vars.push(debuginfo::VarDebug {
+                name,
+                repr: decl.repr,
+                param: params.contains(l),
+                fp_offset: base + *off as i64,
+            });
+        }
+    }
+    vars.sort_by_key(|v| (!v.param, v.fp_offset));
+    let unwind = code.create_unwind_info(isa).ok().flatten();
+    debuginfo::FuncDebug { name: f.name.clone(), size: size as u32, lines, vars, unwind }
 }
 
 fn code_size(ctx: &Context) -> usize {
@@ -352,6 +447,26 @@ struct Body<'f> {
     frame: cranelift_codegen::ir::StackSlot,
     ctx: Value,
     blocks: IndexVec<BlockId, CBlock>,
+    /// Debug info: the source positions met (`SourceLoc` n is entry
+    /// n - 1), and a stack slot holding every named local (each
+    /// assignment also stores there), so a debugger finds them at fixed
+    /// frame offsets throughout the function.
+    debug: bool,
+    locs: Vec<(u32, u32, u32)>,
+    dbg_slot: Option<cranelift_codegen::ir::StackSlot>,
+    dbg_offsets: FxHashMap<Local, i32>,
+}
+
+static DEBUG_INFO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Generate debug information (line tables, locals, unwind) and register
+/// it with debuggers (see [`debuginfo`]).
+pub fn set_debug_info(on: bool) {
+    DEBUG_INFO.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn debug_info() -> bool {
+    DEBUG_INFO.load(std::sync::atomic::Ordering::SeqCst) || std::env::var_os("LANG_DEBUG_INFO").is_some()
 }
 
 impl FnCx<'_> {
@@ -375,8 +490,19 @@ impl FnCx<'_> {
         Ok(id)
     }
 
-    fn define(&mut self, jit: &mut Jit, id: FuncId, f: &Func) -> Result<usize, CodegenError> {
+    fn define(
+        &mut self,
+        jit: &mut Jit,
+        id: FuncId,
+        f: &Func,
+    ) -> Result<(usize, Option<debuginfo::FuncDebug>), CodegenError> {
         jit.ctx.func.signature = func_sig(jit, f);
+        let debug = debug_info();
+        if debug {
+            jit.ctx.func.collect_debug_info();
+        }
+        let mut src_locs: Vec<(u32, u32, u32)> = vec![];
+        let dbg_layout: Option<(cranelift_codegen::ir::StackSlot, FxHashMap<Local, i32>)>;
         // pre-declare imports used by this function (needs &mut jit before the builder)
         let mut foreign: FxHashMap<String, cranelift_codegen::ir::FuncRef> = FxHashMap::default();
         let mut used: Vec<(String, usize, bool)> = vec![
@@ -571,7 +697,29 @@ impl FnCx<'_> {
                 let faddr = b.ins().stack_addr(types::I64, frame, 0);
                 b.ins().store(MemFlagsData::trusted(), faddr, ctx, 0);
             }
-            let mut body = Body { f, vars, slots, frame, ctx, blocks };
+            let debug = debug_info();
+            let mut dbg_offsets = FxHashMap::default();
+            let dbg_slot = if debug {
+                for (l, d) in f.locals.iter_enumerated() {
+                    if d.name.is_some() && l != f.env {
+                        dbg_offsets.insert(l, 8 * dbg_offsets.len() as i32);
+                    }
+                }
+                let size = (8 * dbg_offsets.len() as u32).max(8);
+                Some(b.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 3)))
+            } else {
+                None
+            };
+            dbg_layout = dbg_slot.map(|s| (s, dbg_offsets.clone()));
+            let mut body =
+                Body { f, vars, slots, frame, ctx, blocks, debug, locs: vec![], dbg_slot, dbg_offsets };
+            // debug slots start zeroed (a local not yet assigned reads 0)
+            if let Some(slot) = body.dbg_slot {
+                let zero = b.ins().iconst(types::I64, 0);
+                for off in body.dbg_offsets.values() {
+                    b.ins().stack_store(types::I64, zero, slot, *off);
+                }
+            }
             // parameters
             body.set(&mut b, f.env, ps[1]);
             for (i, p) in f.params.iter().enumerate() {
@@ -621,6 +769,7 @@ impl FnCx<'_> {
             }
             b.seal_all_blocks();
             b.finalize(fe);
+            src_locs = std::mem::take(&mut body.locs);
         }
         if std::env::var("LANG_DUMP_CLIF").is_ok() {
             eprintln!("{}", jit.ctx.func.display());
@@ -639,9 +788,10 @@ impl FnCx<'_> {
         {
             eprintln!("; {} ({size} bytes)\n{text}", f.name);
         }
+        let dbg = if debug { Some(func_debug(jit, f, size, &src_locs, dbg_layout.as_ref())) } else { None };
         jit.module.clear_context(&mut jit.ctx);
         let _ = self.call_conv;
-        Ok(size)
+        Ok((size, dbg))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -673,6 +823,12 @@ impl FnCx<'_> {
                 let w = to_word(b, v, Repr::I64);
                 let g = b.ins().symbol_value(types::I64, globals.unwrap());
                 b.ins().store(MemFlagsData::trusted(), w, g, (*slot * 8) as i32);
+            }
+            Stmt::Loc { file, line, col } => {
+                if body.debug {
+                    body.locs.push((*file, *line, *col));
+                    b.set_srcloc(cranelift_codegen::ir::SourceLoc::new(body.locs.len() as u32));
+                }
             }
             Stmt::Poll => {
                 let budget = b.ins().load(types::I64, MemFlagsData::trusted(), body.ctx, 8);
@@ -1292,6 +1448,9 @@ impl FnCx<'_> {
 impl Body<'_> {
     fn set(&mut self, b: &mut FunctionBuilder, l: Local, v: Value) {
         b.def_var(self.vars[l], v);
+        if let (Some(slot), Some(off)) = (self.dbg_slot, self.dbg_offsets.get(&l)) {
+            b.ins().stack_store(types::I64, v, slot, *off);
+        }
         if let Some(&off) = self.slots.get(&l) {
             b.ins().stack_store(types::I64, v, self.frame, off);
         }

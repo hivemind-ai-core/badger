@@ -595,6 +595,9 @@ impl Session {
     /// exit code.
     pub fn run(&mut self, path: &Path, args: Vec<String>, opts: &RunOptions) -> Result<i32, Outcome> {
         let started = std::time::Instant::now();
+        if opts.debug {
+            lang_codegen::set_debug_info(true);
+        }
         // a program saved by `lang compile`
         if path.is_file()
             && let Ok(bytes) = std::fs::read(path)
@@ -1018,6 +1021,8 @@ pub struct RunOptions {
     pub reconstruct: bool,
     /// Time the program's execution (after all compilation) and report it.
     pub bench: bool,
+    /// Register debug information for generated code with debuggers.
+    pub debug: bool,
 }
 
 fn report_exit(exit: lang_runtime::task::Exit, prog: &lang_mir::Program) -> i32 {

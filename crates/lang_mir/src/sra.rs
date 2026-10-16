@@ -126,7 +126,7 @@ pub fn scalar_replace(f: &mut Func) {
                     esc(value, &mut escaped);
                 }
                 Stmt::GlobalStore { value, .. } => esc(value, &mut escaped),
-                Stmt::Poll => {}
+                Stmt::Poll | Stmt::Loc { .. } => {}
             }
         }
         match &b.term {

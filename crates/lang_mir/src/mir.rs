@@ -46,6 +46,8 @@ pub struct Program {
     /// Where each runtime address in the program came from (for saving a
     /// program as a relocatable binary file; see `serial`).
     pub origins: Origins,
+    /// Source files named by `Stmt::Loc`.
+    pub debug_files: Vec<String>,
 }
 
 /// The runtime objects a lowered program refers to by address.
@@ -122,6 +124,13 @@ pub enum Stmt {
     },
     /// Scheduling / cancellation safe point.
     Poll,
+    /// Source position of the code that follows (`Program::debug_files`
+    /// index, 1-based line and column): debug line tables.
+    Loc {
+        file: u32,
+        line: u32,
+        col: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]

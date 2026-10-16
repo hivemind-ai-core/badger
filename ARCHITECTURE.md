@@ -397,6 +397,22 @@ isolated from the session. The session's standard output is redirected to
 a pipe and returned with each evaluation, since stdout carries the
 protocol. Setup in [docs/agents.md](docs/agents.md).
 
+## Debug information
+
+`Stmt::Loc` statements mark source positions in MIR (each statement and
+block result of user code; `Program::debug_files` names the files). With
+`lang run --debug` (`lang_codegen::set_debug_info`) code generation turns
+them into Cranelift source locations, keeps every named local in a stack
+slot (stored on each assignment), and after finalization builds DWARF
+(`crates/lang_codegen/src/debuginfo.rs`): a line program, a subprogram per
+function with parameters and locals at frame-pointer offsets taken from
+Cranelift's frame layout, base types by representation, and `.debug_frame`
+from Cranelift's unwind information. The DWARF goes into an in-memory ELF
+image whose `.text` is `NOBITS` at the code's addresses, registered through
+the GDB JIT interface (`__jit_debug_register_code`), so gdb or lldb set
+breakpoints by source line, step, unwind, and read and watch locals. See
+[docs/debugging.md](docs/debugging.md).
+
 ## Testing
 
 - `tests/run/*.lang` must run and print `NAME.out` (exit code `NAME.exit`),

@@ -33,6 +33,8 @@ pub struct Mono<'g, 'a> {
     globals: FxHashMap<(DefId, Vec<Ty>), FuncId>,
     strings: FxHashMap<String, u64>,
     locs: FxHashMap<Span, u64>,
+    /// Debug file index of each source file named by `Stmt::Loc`.
+    debug_files: FxHashMap<lang_base::FileId, u32>,
     static_closures: FxHashMap<FuncId, u64>,
     ctor_thunks: FxHashMap<(Ty, u32), FuncId>,
     nullary: FxHashMap<(Ty, u32), u64>,
@@ -56,6 +58,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             globals: FxHashMap::default(),
             strings: FxHashMap::default(),
             locs: FxHashMap::default(),
+            debug_files: FxHashMap::default(),
             static_closures: FxHashMap::default(),
             ctor_thunks: FxHashMap::default(),
             nullary: FxHashMap::default(),
@@ -487,6 +490,26 @@ impl<'g, 'a> Mono<'g, 'a> {
         w
     }
 
+    /// `(file index, line, column)` of a span in a user source file.
+    pub fn debug_pos(&mut self, span: Span) -> Option<(u32, u32, u32)> {
+        let f = self.sources.get(span.file);
+        if f.name.starts_with('<') {
+            return None;
+        }
+        let (l, c) = f.line_col(span.start as usize);
+        let name = f.name.clone();
+        let idx = match self.debug_files.get(&span.file) {
+            Some(i) => *i,
+            None => {
+                let i = self.prog.debug_files.len() as u32;
+                self.prog.debug_files.push(name);
+                self.debug_files.insert(span.file, i);
+                i
+            }
+        };
+        Some((idx, l as u32, c as u32))
+    }
+
     pub fn loc(&mut self, span: Span) -> u64 {
         if let Some(&w) = self.locs.get(&span) {
             return w;
@@ -902,6 +925,16 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             _ => None,
         };
         matches!(name, "get" | "set") && matches!(owner, Some("Buffer" | "FixedBuffer"))
+    }
+
+    /// Mark the source position of the code that follows (user code only).
+    fn mark(&mut self, span: Span) {
+        if span.is_dummy() {
+            return;
+        }
+        if let Some((file, line, col)) = self.m.debug_pos(span) {
+            self.emit(Stmt::Loc { file, line, col });
+        }
     }
 
     fn rt(&mut self, name: &'static str, args: Vec<Operand>, ret: Repr) -> Operand {
@@ -1475,6 +1508,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             }
             ExprKind::Block { stmts, tail } => {
                 for s in &stmts {
+                    let at = match s {
+                        HStmt::Let { span, .. } | HStmt::Assign { span, .. } => *span,
+                        HStmt::Expr { expr, .. } => self.hir().exprs[*expr].span,
+                    };
+                    self.mark(at);
                     match s {
                         // a generalized local is built at each use instead
                         HStmt::Let { pat, .. } if matches!(&self.hir().pats[*pat].kind, lang_hir::PatKind::Bind(l) if self.inst.poly_locals.contains_key(l)) =>
@@ -1496,7 +1534,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     }
                 }
                 match tail {
-                    Some(t) => self.lower(t),
+                    Some(t) => {
+                        let at = self.hir().exprs[t].span;
+                        self.mark(at);
+                        self.lower(t)
+                    }
                     None => Some(unit_op()),
                 }
             }
@@ -2319,7 +2361,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     Repr::I64,
                     Rvalue::Load { base: Operand::Local(itl), offset: 16, repr: Repr::I64 },
                 );
-                let i = self.copy_to_local(start, Repr::I64, Some("i".into()));
+                let i = self.copy_to_local(start, Repr::I64, None);
                 // the bounds are the element type's values widened to 64 bits
                 // (unsigned ones zero-extended): compare in its own order
                 let nt = self.m.lay.num_ty(&item_ty).unwrap_or(NumTy::I(64, true));
@@ -2439,7 +2481,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let n = self.copy_to_local(n, Repr::I64, None);
                 let cap = self.rt("lang_rt_list_page_cap", vec![Operand::Local(list)], Repr::I64);
                 let cap = self.copy_to_local(cap, Repr::I64, None);
-                let i = self.copy_to_local(int(0), Repr::I64, Some("i".into()));
+                let i = self.copy_to_local(int(0), Repr::I64, None);
                 // slot within the current page; starts full to fetch page 0
                 let slot = self.copy_to_local(Operand::Local(cap), Repr::I64, None);
                 let cur = self.copy_to_local(int(0), Repr::I64, None);
@@ -2529,7 +2571,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     _ => itl,
                 };
                 let n = self.rt("lang_rt_list_len", vec![Operand::Local(list)], Repr::I64);
-                let i = self.copy_to_local(int(0), Repr::I64, Some("i".into()));
+                let i = self.copy_to_local(int(0), Repr::I64, None);
                 self.term(Term::Goto(head));
                 self.switch(head);
                 self.emit(Stmt::Poll);
