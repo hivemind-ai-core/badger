@@ -55,6 +55,7 @@ pub const RUNTIME_KEYS: &[&str] = &[
     "http_max_body_bytes",
     "http_max_header_bytes",
     "http_max_in_flight",
+    "http_max_stream_buffer_bytes",
     "trace_capacity",
     "trace_overflow",
     "task_stack_bytes",
@@ -68,6 +69,7 @@ pub const RUNTIME_DEFAULTS: &[(&str, &str)] = &[
     ("http_max_body_bytes", "16777216"),
     ("http_max_header_bytes", "65536"),
     ("http_max_in_flight", "1024"),
+    ("http_max_stream_buffer_bytes", "1048576"),
     ("trace_capacity", "1024"),
     ("trace_overflow", "drop_oldest"),
     ("task_stack_bytes", "8388608"),
@@ -94,6 +96,7 @@ pub fn check_runtime(k: &str, v: &str, line: usize) -> Result<(), String> {
             // the smallest value each setting can work with
             let min = match k {
                 "workers" | "blocking_threads" | "http_max_in_flight" | "trace_capacity" => 1,
+                "http_max_stream_buffer_bytes" => 1024,
                 "task_stack_bytes" => 256 << 10,
                 "http_max_header_bytes" => 1024,
                 _ => 0,

@@ -121,6 +121,10 @@ Keep the Ring-style boundary: request/reply values, a typed handler, and a thin
 transport adapter. Standard request metadata is immutable; scoped body readers
 and request task groups retain their lifetime/capability types. Request size,
 concurrency, and stream buffering limits are explicit runtime configuration.
+Implementation: `[runtime] http_max_body_bytes`, `http_max_header_bytes`,
+`http_max_in_flight`, and `http_max_stream_buffer_bytes` (bytes of a
+streamed reply waiting for a slow client; beyond it the streaming task
+waits until the client has taken them).
 
 Routes are inspectable typed descriptions. A route associates method/path,
 parameter/body schemas, a handler/pipeline, and a stable name. Validate conflicts

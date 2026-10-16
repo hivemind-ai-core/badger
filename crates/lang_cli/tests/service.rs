@@ -235,3 +235,53 @@ fn http_limits_and_streaming() {
     assert!(stdout.contains("stream closed after 2 chunks"), "{stdout}");
     assert!(stdout.contains("limits: body 64, in flight 1, rejected 2"), "{stdout}");
 }
+
+/// A streamed reply waits for a client that stops reading instead of
+/// buffering all of it (`http_max_stream_buffer_bytes`).
+#[test]
+fn stream_backpressure() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let port = 20000 + (std::process::id() % 1000) as u16 * 2;
+    let child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "tests/http/backpressure.lang"])
+            .env("BP_PORT", port.to_string())
+            .env("LANG_HTTP_MAX_STREAM_BUFFER_BYTES", "65536")
+            .env("LANG_SHUTDOWN_AFTER_MS", "8000")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let start = Instant::now();
+    while TcpStream::connect(("127.0.0.1", port + 1)).is_err() {
+        assert!(start.elapsed() < Duration::from_secs(20), "server did not start");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let produced = || -> u64 {
+        let body = request(port + 1, "GET", "/count", "").1;
+        body.trim_start_matches("{\"produced\":").trim_end_matches('}').parse().unwrap()
+    };
+    // connect with a small receive buffer and stop reading
+    let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    s.write_all(b"GET /s HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    std::thread::sleep(Duration::from_millis(1500));
+    let stalled = produced();
+    std::thread::sleep(Duration::from_millis(500));
+    assert_eq!(produced(), stalled, "the producer kept going while the client was not reading");
+    assert!(stalled < 1280, "all 1280 chunks were produced without the client reading ({stalled})");
+    // reading resumes: everything arrives
+    let mut total = 0usize;
+    let mut buf = vec![0u8; 1 << 16];
+    loop {
+        let n = s.read(&mut buf).unwrap();
+        if n == 0 {
+            break;
+        }
+        total += n;
+    }
+    assert!(total > 1280 * 16384, "got {total} bytes");
+    assert_eq!(produced(), 1280);
+    drop(child.output());
+}

@@ -34,6 +34,16 @@ pub struct Limits {
 static DEFAULT_BODY: AtomicU64 = AtomicU64::new(16 << 20);
 static DEFAULT_HEADER: AtomicU64 = AtomicU64::new(64 << 10);
 static DEFAULT_IN_FLIGHT: AtomicU64 = AtomicU64::new(1024);
+/// Bytes of a streamed reply that may wait for a slow client before the
+/// streaming task waits (`[runtime] http_max_stream_buffer_bytes`).
+static STREAM_BUFFER: AtomicU64 = AtomicU64::new(1 << 20);
+
+/// A streamed reply's flow control: bytes handed to the connection not yet
+/// written, and whether the connection is gone.
+struct Flow {
+    buffered: std::sync::atomic::AtomicUsize,
+    closed: AtomicBool,
+}
 
 /// Runtime configuration defaults (`[runtime] http_max_body_bytes`,
 /// `http_max_header_bytes`, `http_max_in_flight`).
@@ -42,6 +52,7 @@ pub fn set_default_limit(key: &str, v: u64) -> bool {
         "http_max_body_bytes" => DEFAULT_BODY.store(v, Ordering::SeqCst),
         "http_max_header_bytes" => DEFAULT_HEADER.store(v, Ordering::SeqCst),
         "http_max_in_flight" => DEFAULT_IN_FLIGHT.store(v.max(1), Ordering::SeqCst),
+        "http_max_stream_buffer_bytes" => STREAM_BUFFER.store(v.max(1), Ordering::SeqCst),
         _ => return false,
     }
     true
@@ -79,7 +90,7 @@ struct Server {
 struct Registry {
     next: u64,
     servers: FxHashMap<u64, Server>,
-    conns: FxHashMap<u64, (mpsc::Sender<Out>, u64)>,
+    conns: FxHashMap<u64, (mpsc::Sender<Out>, u64, Arc<Flow>)>,
     shutdown_waiters: Vec<TaskId>,
     signal_installed: bool,
 }
@@ -221,7 +232,9 @@ fn handle_conn(
         return;
     }
     let (tx, rx) = mpsc::channel::<Out>();
-    task::post(&q, task::External::Callback(Box::new(move || admit(server, req, tx))));
+    let flow = Arc::new(Flow { buffered: Default::default(), closed: AtomicBool::new(false) });
+    let f2 = flow.clone();
+    task::post(&q, task::External::Callback(Box::new(move || admit(server, req, tx, f2))));
     match rx.recv_timeout(Duration::from_secs(60)) {
         Ok(Out::Full(resp)) => {
             let _ = s.write_all(&resp);
@@ -233,10 +246,12 @@ fn handle_conn(
             loop {
                 match rx.recv_timeout(Duration::from_secs(60)) {
                     Ok(Out::Part(chunk)) => {
-                        if s.write_all(&chunk).is_err() {
+                        let ok = s.write_all(&chunk).is_ok();
+                        let _ = s.flush();
+                        flow.buffered.fetch_sub(chunk.len(), Ordering::SeqCst);
+                        if !ok {
                             break;
                         }
-                        let _ = s.flush();
                     }
                     Ok(Out::End) => {
                         let _ = s.write_all(b"0\r\n\r\n");
@@ -252,11 +267,12 @@ fn handle_conn(
         }
     }
     let _ = s.flush();
+    flow.closed.store(true, Ordering::SeqCst);
     in_flight.fetch_sub(1, Ordering::SeqCst);
 }
 
 /// Worker side: admit a parsed request as a task in the server's scope.
-fn admit(server: u64, req: RawRequest, tx: mpsc::Sender<Out>) {
+fn admit(server: u64, req: RawRequest, tx: mpsc::Sender<Out>, flow: Arc<Flow>) {
     let r = reg();
     let Some(srv) = r.servers.get(&server) else {
         let _ = tx.send(Out::Full(simple(503, "{\"error\":\"shutting down\"}")));
@@ -269,7 +285,7 @@ fn admit(server: u64, req: RawRequest, tx: mpsc::Sender<Out>) {
     let (serve, req_desc, sc) = (srv.serve, srv.req_desc, srv.scope);
     let conn = r.next;
     r.next += 1;
-    r.conns.insert(conn, (tx, server));
+    r.conns.insert(conn, (tx, server, flow));
     let g = Roots::new();
     let headers_desc = req_desc.field("headers").map(|f| f.desc).unwrap();
     let hm = g.add(map::new(headers_desc));
@@ -425,14 +441,14 @@ http_intrinsics! {
     // Registers a cleanup answering 500 if the request task dies first.
     fn http_begin(ctx, targs, ret, conn) {
         task::push_cleanup(task::Cleanup::Native(Box::new(move |_| {
-            if let Some((tx, _)) = reg().conns.remove(&conn) {
+            if let Some((tx, _, _)) = reg().conns.remove(&conn) {
                 let _ = tx.send(Out::Full(simple(500, "{\"error\":\"internal server error\"}")));
             }
         })))
     }
     fn http_respond(ctx, targs, ret, conn, guard, resp) {
         task::remove_cleanup(guard);
-        if let Some((tx, _)) = reg().conns.remove(&conn) {
+        if let Some((tx, _, _)) = reg().conns.remove(&conn) {
             let _ = tx.send(Out::Full(serialize(resp)));
         }
         0
@@ -442,12 +458,12 @@ http_intrinsics! {
     // dies mid-stream, its cleanup truncates the reply.
     fn http_stream_begin(ctx, targs, ret, conn, guard, status, headers) {
         task::remove_cleanup(guard);
-        if let Some((tx, _)) = reg().conns.get(&conn) {
+        if let Some((tx, _, _)) = reg().conns.get(&conn) {
             let _ = tx.send(Out::Part(head(status, Some(headers), "transfer-encoding: chunked").into_bytes()));
         }
         // a dying stream must not leave the connection waiting
         task::push_cleanup(task::Cleanup::Native(Box::new(move |_| {
-            if let Some((tx, _)) = reg().conns.remove(&conn) {
+            if let Some((tx, _, _)) = reg().conns.remove(&conn) {
                 let _ = tx.send(Out::Full(vec![]));
             }
         })))
@@ -457,17 +473,33 @@ http_intrinsics! {
         if data.is_empty() {
             return 0;
         }
-        if let Some((tx, _)) = reg().conns.get(&conn) {
+        if let Some((tx, _, flow)) = reg().conns.get(&conn) {
             let mut framed = format!("{:x}\r\n", data.len()).into_bytes();
             framed.extend_from_slice(data);
             framed.extend_from_slice(b"\r\n");
+            let (tx, flow) = (tx.clone(), flow.clone());
+            // a slow client: wait (parked) until it has taken enough
+            let limit = STREAM_BUFFER.load(Ordering::SeqCst) as usize;
+            if flow.buffered.load(Ordering::SeqCst) + framed.len() > limit {
+                let f = flow.clone();
+                let n = framed.len();
+                task::run_blocking(move || {
+                    while f.buffered.load(Ordering::SeqCst) > 0
+                        && f.buffered.load(Ordering::SeqCst) + n > limit
+                        && !f.closed.load(Ordering::SeqCst)
+                    {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                });
+            }
+            flow.buffered.fetch_add(framed.len(), Ordering::SeqCst);
             let _ = tx.send(Out::Part(framed));
         }
         0
     }
     fn http_stream_end(ctx, targs, ret, conn, guard) {
         task::remove_cleanup(guard);
-        if let Some((tx, _)) = reg().conns.remove(&conn) {
+        if let Some((tx, _, _)) = reg().conns.remove(&conn) {
             let _ = tx.send(Out::End);
         }
         0
