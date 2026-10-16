@@ -2000,6 +2000,72 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 Some(obj)
             }
+            // a builder's append within its tail page, without a runtime
+            // call (a builder's pages are its own until it is finished);
+            // a new page, or a finished builder, takes the runtime path
+            "list_builder_append" if self.builder_elem(&targs[0]).is_some() => {
+                let repr = self.builder_elem(&targs[0]).unwrap();
+                let size = repr.size() as i64;
+                let cap = lang_runtime::list::page_cap_for(size as usize) as i64;
+                let u = NumTy::I(64, false);
+                let s64 = NumTy::I(64, true);
+                let b = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let v = Operand::Local(self.copy_to_local(args[1], repr, None));
+                let load = |s: &mut Self, base: Operand, offset: i32| {
+                    s.assign(Repr::I64, Rvalue::Load { base, offset, repr: Repr::I64 })
+                };
+                let bin = |s: &mut Self, op: BinOp, a: Operand, b: Operand| {
+                    s.assign(Repr::I64, Rvalue::Bin { op, a, b, ty: u, loc: 0 })
+                };
+                let len = load(self, b, lang_runtime::list::LEN_OFFSET);
+                let capw = load(self, b, lang_runtime::list::CAP_OFFSET);
+                let consumed =
+                    self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Lt, a: capw, b: int(0), ty: s64 });
+                let off = bin(self, BinOp::And, len, int(cap - 1));
+                let new_page =
+                    self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Eq, a: off, b: int(0), ty: s64 });
+                let slow_path = self.assign(
+                    Repr::I8,
+                    Rvalue::Bin { op: BinOp::Or, a: consumed, b: new_page, ty: NumTy::I(8, false), loc: 0 },
+                );
+                let (fast, slow, join) = (self.block(), self.block(), self.block());
+                self.term(Term::Branch(slow_path, slow, fast));
+                self.switch(fast);
+                let dir = load(self, b, lang_runtime::list::DIR_OFFSET);
+                let page_index = bin(self, BinOp::Shr, len, int(cap.trailing_zeros() as i64));
+                let slot_offset = bin(self, BinOp::Shl, page_index, int(3));
+                let slot = bin(self, BinOp::Add, dir, slot_offset);
+                let page = load(self, slot, lang_runtime::list::DIR_PAGES);
+                let elem_offset = bin(self, BinOp::Mul, off, int(size));
+                let at = bin(self, BinOp::Add, page, elem_offset);
+                self.emit(Stmt::Store { base: at, offset: lang_runtime::list::PAGE_ELEMS, repr, value: v });
+                let written = bin(self, BinOp::Add, off, int(1));
+                self.emit(Stmt::Store {
+                    base: page,
+                    offset: lang_runtime::list::PAGE_COUNT,
+                    repr: Repr::I64,
+                    value: written,
+                });
+                let len1 = bin(self, BinOp::Add, len, int(1));
+                self.emit(Stmt::Store {
+                    base: b,
+                    offset: lang_runtime::list::LEN_OFFSET,
+                    repr: Repr::I64,
+                    value: len1,
+                });
+                self.term(Term::Goto(join));
+                self.switch(slow);
+                let tp = self.m.targs_ptr(&targs);
+                let rd = self.m.lay.desc(ret_ty) as *const TypeDesc as u64;
+                self.call(
+                    Callee::Intrinsic { name: "lang_rt_i_list_builder_append".into(), targs: tp, ret: rd },
+                    vec![b, v],
+                    Repr::I64,
+                );
+                self.term(Term::Goto(join));
+                self.switch(join);
+                Some(unit_op())
+            }
             "cell_get" => {
                 let r = self.repr(ret_ty);
                 Some(self.assign(r, Rvalue::Load { base: args[0], offset: 0, repr: r }))
@@ -2841,6 +2907,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         self.term(Term::Goto(join));
         self.switch(join);
         Some(Operand::Local(res))
+    }
+
+    /// The page element representation of `ListBuilder<T>`'s `T` (as
+    /// [`Self::paged_elem`]), for elements with a size.
+    fn builder_elem(&mut self, elem: &Ty) -> Option<Repr> {
+        let r = self.m.lay.desc(elem).repr();
+        (r == self.repr(elem) && r.size() > 0).then_some(r)
     }
 
     fn paged_elem(&mut self, list_ty: &Ty) -> Option<Repr> {

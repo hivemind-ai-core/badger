@@ -42,6 +42,12 @@ pub const fn page_cap_for(size: usize) -> usize {
 pub const LEN_OFFSET: i32 = 0;
 pub const DIR_OFFSET: i32 = 8;
 pub const DIR_PAGES: i32 = DIR_HDR as i32;
+/// A list's capacity word (its top bit marks a consumed builder), and a
+/// page's count of written slots and first element: generated code appends
+/// to a builder's tail page directly.
+pub const CAP_OFFSET: i32 = 24;
+pub const PAGE_COUNT: i32 = 8;
+pub const PAGE_ELEMS: i32 = PAGE_HDR as i32;
 
 /// Set in the capacity word of a builder that `finish` consumed.
 const CONSUMED: u64 = 1 << 63;
