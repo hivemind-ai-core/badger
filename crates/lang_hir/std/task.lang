@@ -47,6 +47,8 @@ pub struct Task<S, T> {
 
 extern "intrinsic" fn scope_open() -> Int
 extern "intrinsic" fn scope_close(scope: Int, cancel: Bool) -> Unit
+extern "intrinsic" fn scope_close_error(scope: Int, error: String) -> Unit
+extern "intrinsic" fn display_value<T>(value: T) -> String
 extern "intrinsic" fn scope_defer(scope: Int, f: fn() -> Unit) -> Unit
 extern "intrinsic" fn task_spawn<T>(scope: Int, f: fn() -> T, captured: Bool) -> Int
 extern "intrinsic" fn task_join<T>(id: Int, captured: Bool) -> T
@@ -61,13 +63,14 @@ extern "intrinsic" fn task_workers() -> Int
 
 /// Run `body` with a fresh scope. `ok` waits for every child; `err` cancels
 /// and settles them before returning the error. A child defect fails the
-/// scope and propagates to the owning task.
+/// scope and propagates to the owning task; so does a failing cleanup, and
+/// when the body was returning an error, the defect keeps it as a note.
 pub fn scope<R, E>(body: for<S: Scope> fn(TaskScope<S>) -> Result<R, E>) -> Result<R, E> !{Wait} {
     let id = scope_open()
     let r = body({ id })
     match r {
         .ok(_) => scope_close(id, false),
-        .err(_) => scope_close(id, true),
+        .err(e) => scope_close_error(id, display_value(e)),
     }
     r
 }

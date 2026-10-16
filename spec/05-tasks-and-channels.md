@@ -79,6 +79,10 @@ Fallible resource helpers declare how cleanup errors enter their typed result;
 system cleanup aggregates them as `system.Error`. An unhandled failure of task
 scope machinery is a task defect. An original error remains attached to any
 escalated cleanup failure rather than being silently replaced or discarded.
+Implementation: a cleanup failing after a defect is a note on the defect
+(`cleanup failed: ...`); one failing (or exceeding the grace period) while
+a scope returns an error is the defect, with the error as a note (`while
+returning the error: ...`).
 
 Timeouts request cancellation at safe points. Cleanup can delay completion and
 foreign calls may remain outstanding. A timed-out caller does not prove its

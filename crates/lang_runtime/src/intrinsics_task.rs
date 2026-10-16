@@ -88,6 +88,19 @@ task_intrinsics! {
     // ---------------------------------------------------------------- scopes & tasks
     fn scope_open(ctx, targs, ret) { scope::open() }
     fn scope_close(ctx, targs, ret, s, cancel) { scope::close(s, cancel & 1 != 0); 0 }
+    // close a scope whose body returned an error (described by `error`): a
+    // cleanup that fails meanwhile keeps the error as a note
+    fn scope_close_error(ctx, targs, ret, s, error) {
+        let e = crate::string::str_of(error).to_string();
+        if let Some(t) = task::current() {
+            t.returning.push(e);
+        }
+        scope::close(s, true);
+        if let Some(t) = task::current() {
+            t.returning.pop();
+        }
+        0
+    }
     fn scope_defer(ctx, targs, ret, s, f) { scope::defer(s, f); 0 }
     fn task_spawn(ctx, targs, ret, s, f, captured) {
         let t = targ(targs, 0);

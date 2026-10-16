@@ -1,0 +1,42 @@
+// A cleanup that fails while a scope is returning an error makes the scope
+// fail, and the failure keeps the original error as a note; a cleanup that
+// fails after a defect is a note on the defect.
+import std.io
+import std.task
+
+fn returning_error() -> Result<Unit, String> {
+    task.scope(fn(s) -> Result<Unit, String> {
+        s.defer(fn() { panic("cleanup boom") })
+        err("the original error")
+    })
+}
+
+fn after_defect() -> Result<Unit, String> {
+    task.scope(fn(s) -> Result<Unit, String> {
+        s.defer(fn() { panic("cleanup boom 2") })
+        let _ = s.spawn(fn() {
+            let xs = [1]
+            xs[9]
+        })
+        task.sleep(1s)
+        ok(())
+    })
+}
+
+fn report(e: task.Exit<Result<Unit, String>>) -> String {
+    match e {
+        .failed(info) => $"failed: {info.message}; notes: {info.notes.map(fn(n) { n.split(" at ").first().unwrap_or(n) })}",
+        .returned(r) => $"returned {r.is_ok()}",
+        .cancelled(_) => "cancelled",
+    }
+}
+
+pub fn main() -> Result<Unit, String> {
+    let lines = task.scope(fn(s) -> Result<String, String> {
+        let a = report(s.capture(fn() { returning_error() }).join())
+        let b = report(s.capture(fn() { after_defect() }).join())
+        ok($"{a}\n{b}")
+    })?
+    let _ = io.println(lines)
+    ok(())
+}

@@ -166,6 +166,10 @@ pub struct Task {
     /// The call site recorded by a direct call of a function with
     /// preconditions (taken by the callee on entry).
     pub contract_site: u64,
+    /// Errors that scopes being closed are returning (innermost last): a
+    /// defect raised meanwhile (a failing cleanup) keeps them as notes, so
+    /// the original error is not lost.
+    pub returning: Vec<String>,
     /// A wakeup that arrived while the task was still running (e.g. from
     /// publishing its own staged batch on the way to parking): the next
     /// park returns at once instead of losing it.
@@ -744,6 +748,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         code_version: crate::live::version(),
         caller_loc: 0,
         contract_site: 0,
+        returning: vec![],
         early_wake: None,
         select_offer: vec![],
         select_done: None,
@@ -1141,7 +1146,8 @@ pub fn panic_current(message: String, location: String) -> ! {
         suspend(Signal::Abandon);
         unreachable!();
     }
-    abandon(Some(Exit::Failed(PanicInfo { message, location, notes: vec![] })))
+    let notes = t.returning.iter().rev().map(|e| format!("while returning the error: {e}")).collect();
+    abandon(Some(Exit::Failed(PanicInfo { message, location, notes })))
 }
 
 /// Register a cleanup for the current task; returns a handle for removal.

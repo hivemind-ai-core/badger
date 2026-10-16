@@ -1,0 +1,2 @@
+failed: cleanup boom; notes: ["while returning the error: the original error"]
+failed: child task failed: index out of bounds: the length is 1 but the index is 9; notes: ["cleanup failed: cleanup boom 2"]
