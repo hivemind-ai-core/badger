@@ -1617,6 +1617,7 @@ fn run_main_multi(entry: u64) -> Exit {
             .name(format!("lang-worker-{w}"))
             .spawn(move || {
                 WORKER.with(|c| c.set(w));
+                crate::profile::start_thread();
                 lock();
                 worker_loop(n);
                 unlock();

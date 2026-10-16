@@ -1,7 +1,7 @@
 //! Sampling profiler and JIT symbol registry.
 //!
-//! `LANG_PROFILE=<file>` samples every running thread at 1 kHz of CPU time
-//! (`SIGPROF`). The handler records the interrupted program counter and the
+//! `LANG_PROFILE=<file>` samples the main thread and every worker at 1 kHz
+//! of each one's own CPU time (`SIGPROF` from per-thread CPU-clock timers). The handler records the interrupted program counter and the
 //! frame-pointer chain above it; frames are read with `process_vm_readv`,
 //! so a broken chain ends the walk instead of faulting. At exit the samples
 //! are symbolized (generated code through the registry below, native code
@@ -70,10 +70,33 @@ pub fn start_from_env() {
         sa.sa_flags = libc::SA_SIGINFO | libc::SA_RESTART;
         libc::sigemptyset(&mut sa.sa_mask);
         libc::sigaction(libc::SIGPROF, &sa, std::ptr::null_mut());
-        let tick = libc::timeval { tv_sec: 0, tv_usec: 1000 };
-        let it = libc::itimerval { it_interval: tick, it_value: tick };
-        libc::setitimer(libc::ITIMER_PROF, &it, std::ptr::null_mut());
         libc::atexit(finish_at_exit);
+    }
+    start_thread();
+}
+
+/// Timers of the sampled threads (to stop them).
+static TIMERS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+
+/// Sample the calling thread: a timer on its own CPU-time clock signals
+/// it every millisecond of CPU it uses (so each thread is sampled in
+/// proportion to its own work; workers call this when they start).
+pub fn start_thread() {
+    if !STARTED.load(Ordering::SeqCst) || OUT.lock().unwrap().is_none() {
+        return;
+    }
+    unsafe {
+        let mut ev: libc::sigevent = std::mem::zeroed();
+        ev.sigev_notify = libc::SIGEV_THREAD_ID;
+        ev.sigev_signo = libc::SIGPROF;
+        ev.sigev_notify_thread_id = libc::gettid();
+        let mut t: libc::timer_t = std::mem::zeroed();
+        if libc::timer_create(libc::CLOCK_THREAD_CPUTIME_ID, &mut ev, &mut t) == 0 {
+            let tick = libc::timespec { tv_sec: 0, tv_nsec: 1_000_000 };
+            let spec = libc::itimerspec { it_interval: tick, it_value: tick };
+            libc::timer_settime(t, 0, &spec, std::ptr::null_mut());
+            TIMERS.lock().unwrap().push(t as usize);
+        }
     }
 }
 
@@ -143,10 +166,8 @@ extern "C" fn finish_at_exit() {
 /// Stop sampling and write the profile (idempotent).
 pub fn finish() {
     let Some(path) = OUT.lock().unwrap().take() else { return };
-    unsafe {
-        let zero = libc::timeval { tv_sec: 0, tv_usec: 0 };
-        let it = libc::itimerval { it_interval: zero, it_value: zero };
-        libc::setitimer(libc::ITIMER_PROF, &it, std::ptr::null_mut());
+    for t in std::mem::take(&mut *TIMERS.lock().unwrap()) {
+        unsafe { libc::timer_delete(t as libc::timer_t) };
     }
     let base = SAMPLES.load(Ordering::SeqCst);
     let taken = NEXT.load(Ordering::SeqCst).min(CAPACITY);
