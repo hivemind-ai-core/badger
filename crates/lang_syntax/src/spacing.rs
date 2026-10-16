@@ -445,7 +445,9 @@ fn respace(line: &str) -> Option<(Vec<Tok>, String)> {
             false
         } else if matches!(p.k, K::Comma | K::Semi | K::Colon) {
             true
-        } else if p.text.ends_with('.') && (t.text.starts_with('.') || (p.text == ".." && t.text.starts_with('='))) {
+        } else if p.text.ends_with('.')
+            && (t.text.starts_with('.') || (p.text == ".." && t.text.starts_with('=')))
+        {
             // tokens that would lex differently joined (`. ..`, `.. =`)
             true
         } else if p.k == K::Dot {
