@@ -1,0 +1,13 @@
+// Decoding scalars in a loop that allocates (collections happen while the
+// decoded word is in flight; it is not an object and must not be rooted).
+import std.io
+import std.codec
+pub fn main() -> Unit {
+    var n = 0
+    var keep: List<String> = []
+    for i in 0..3000 {
+        n = n + codec.decode_text<Int>("8192").unwrap_or(0)
+        keep = keep.append($"{i}")
+    }
+    let _ = io.println($"{n} {keep.len()}")
+}

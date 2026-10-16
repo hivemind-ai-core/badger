@@ -797,7 +797,7 @@ fn batch_receive_under_gc_stress() {
 /// allocation must not trace them as pointers.
 #[test]
 fn module_values_under_gc_stress() {
-    for name in ["consts", "module_destructuring", "ch01_pos"] {
+    for name in ["consts", "module_destructuring", "ch01_pos", "decode_scalars"] {
         let src = root().join(format!("tests/run/{name}.lang"));
         let out = lang().arg("run").arg(&src).env("LANG_GC_STRESS", "1").output().unwrap();
         let expected = std::fs::read_to_string(src.with_extension("out")).unwrap();

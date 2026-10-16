@@ -261,7 +261,9 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         }
         (*p).desc = desc;
         (*p).meta = (payload as u64) << 32;
-        objects(w).push(p);
+        let list = objects(w);
+        list.push(p);
+        COUNTS[w].0.store(list.len(), Ordering::Relaxed);
         ALLOCATED.fetch_add(HEADER + payload, Ordering::Relaxed);
         p as u64
     }
@@ -484,6 +486,9 @@ fn collect_inner() {
             free_cell(0, p, size);
         }
     }
+    for (wl, c) in COUNTS.iter().enumerate() {
+        c.0.store(objects(wl).len(), Ordering::Relaxed);
+    }
     h.live = live;
     ALLOCATED.store(live, Ordering::Relaxed);
     THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
@@ -532,8 +537,16 @@ pub fn trace(w: u64, f: &mut dyn FnMut(u64)) {
 
 pub fn stats() -> (usize, usize, usize) {
     let h = heap();
-    (all_objects().count(), ALLOCATED.load(Ordering::Relaxed), h.collections)
+    let objects = COUNTS.iter().map(|c| c.0.load(Ordering::Relaxed)).sum();
+    (objects, ALLOCATED.load(Ordering::Relaxed), h.collections)
 }
+
+/// Each worker's object count, published by the worker itself (others
+/// must not read a list it is appending to).
+#[repr(align(64))]
+struct Count(std::sync::atomic::AtomicUsize);
+static COUNTS: [Count; crate::task::MAX_WORKERS] =
+    [const { Count(std::sync::atomic::AtomicUsize::new(0)) }; crate::task::MAX_WORKERS];
 
 /// Total and longest collection pause, in nanoseconds.
 pub fn pauses() -> (u64, u64) {

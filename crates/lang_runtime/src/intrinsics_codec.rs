@@ -10,10 +10,9 @@ use crate::{codec, make_record, make_variant};
 fn decode_result(ret: &'static TypeDesc, r: Result<u64, codec::DecodeError>) -> u64 {
     let g = Roots::new();
     match r {
-        Ok(w) => {
-            g.add(w);
-            make_variant(ret, "ok", &[w])
-        }
+        // (`make_variant` roots the payload when it is a managed value; a
+        // decoded scalar is not an object and must not be rooted)
+        Ok(w) => make_variant(ret, "ok", &[w]),
         Err(e) => {
             let err_desc = ret.variant(1).unwrap().fields[0].desc;
             let p = g.add(new_string(&e.path));
@@ -437,11 +436,7 @@ fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix:
         Err((k, m)) => return err(&k, &m),
     };
     match codec::decode(t, &serde_json::Value::Object(obj).to_string()) {
-        Ok(w) => {
-            let _g = Roots::new();
-            _g.add(w);
-            make_variant(ret, "ok", &[w])
-        }
+        Ok(w) => make_variant(ret, "ok", &[w]),
         Err(e) => {
             let key = format!("{pre}{}", e.path.trim_start_matches("$.").to_uppercase());
             err(&key, &e.message)

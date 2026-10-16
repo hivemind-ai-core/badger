@@ -1,0 +1,9 @@
+// An element address past the end is a defect, not a read of memory.
+import std.io
+import std.list
+pub fn main() -> Unit {
+    let b = list.builder<Int>()
+    b.append(1)
+    let _ = io.println($"in range {b.element_address(0) != 0}")
+    let _ = io.println($"{b.element_address(5)}")
+}

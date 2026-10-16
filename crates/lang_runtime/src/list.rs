@@ -182,16 +182,23 @@ pub fn page_read(page: u64, slot: usize, repr: Repr) -> u64 {
     unsafe { repr.load(obj(page).payload().add(PAGE_HDR + slot * repr.size() as usize)) }
 }
 
-/// Address of element `i` (stable while the list is alive).
+/// Address of element `i` (stable while the list is alive); out of range
+/// is a task defect.
 pub fn addr(w: u64, i: usize) -> *mut u8 {
     let h = hdr(w);
+    if i >= h.len() {
+        crate::task::panic_current(
+            format!("index out of bounds: the length is {} but the index is {i}", h.len()),
+            crate::task::caller_location(),
+        );
+    }
     let cap = h.cap();
     unsafe { obj(h.page(i / cap)).payload().add(PAGE_HDR + (i % cap) * h.repr().size() as usize) }
 }
 
 fn new_page(elem: &'static TypeDesc, cap: usize) -> u64 {
     let size = elem.repr().size() as usize;
-    let page = gc::alloc(page_desc(), PAGE_HDR + cap * size.max(8));
+    let page = gc::alloc(page_desc(), PAGE_HDR + cap * size.max(1));
     unsafe { *(obj(page).payload() as *mut *const TypeDesc) = elem };
     page
 }
@@ -312,8 +319,11 @@ pub fn finish(builder: u64, list_desc: &'static TypeDesc) -> u64 {
 
 pub fn from_words(desc: &'static TypeDesc, words: &[u64]) -> u64 {
     let r = gc::Roots::new();
-    for &w in words {
-        r.add(w);
+    // only managed elements are roots (a scalar word is not an object)
+    if matches!(&desc.kind, Kind::List { elem } if elem.is_ptr()) {
+        for &w in words {
+            r.add(w);
+        }
     }
     let l = r.add(new(desc));
     for &w in words {
