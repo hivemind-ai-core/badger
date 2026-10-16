@@ -1420,8 +1420,19 @@ pub fn describe_def(
         lang_hir::DefKind::Fn(f) => gen_names(&f.generics),
         _ => vec![],
     };
+    // a method's scheme numbers its impl's (or protocol's `Self` and)
+    // generics first, then its own
+    let all_generics = match &hir.defs[def].kind {
+        lang_hir::DefKind::Fn(f) => {
+            let (gs, protocol_self) = lang_typeck::program::fn_generics(hir, f);
+            let mut ns: Vec<String> = if protocol_self { vec!["Self".into()] } else { vec![] };
+            ns.extend(gen_names(&gs));
+            ns
+        }
+        _ => vec![],
+    };
     let mut pr = lang_typeck::ty::Printer::new(&names);
-    pr.gen_names = fn_generics.clone();
+    pr.gen_names = all_generics;
     let mut ty = pr.print(&scheme.ty);
     // where-clause constraints on the generic parameters
     let preds: Vec<String> = scheme

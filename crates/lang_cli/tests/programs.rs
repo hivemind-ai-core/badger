@@ -1006,3 +1006,22 @@ fn contract_violations() {
     assert!(!out.status.success());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `lang query api`: a standard module's public functions, types, and
+/// methods with signatures and documentation, and a program's own.
+#[test]
+fn api_export() {
+    let out = lang().args(["query", "api", "std.list"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let api = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(
+        api.contains(r#""name":"List.map","signature":"map: fn<U>(&List<T>, fn(T) -> U) -> List<U>""#),
+        "{api}"
+    );
+    assert!(api.contains(r#""doc":"Collect a sequence into a list.","kind":"function","module":"std.list","name":"collect""#), "{api}");
+    let out = lang().args(["query", "api", "tests/run/contracts.lang"]).output().unwrap();
+    let api = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(api.contains(r#""name":"withdraw""#) && api.contains("requires amount > 0"), "{api}");
+    assert!(api.contains(r#""name":"Range.width""#), "{api}");
+    assert!(!api.contains(r#""name":"abs""#), "private functions are not part of the API: {api}");
+}

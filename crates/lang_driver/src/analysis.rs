@@ -69,6 +69,9 @@ pub struct Item {
     pub name: String,
     pub detail: String,
     pub kind: SymbolKind,
+    /// Its `///` documentation and visibility (module members only).
+    pub doc: String,
+    pub public: bool,
 }
 
 /// A local binding, for completion of names and `name.` members.
@@ -113,6 +116,9 @@ pub struct Analysis {
     pub modules: HashMap<String, Vec<Item>>,
     /// Names visible at the top of every user module (its own items).
     pub globals: HashMap<String, Vec<Item>>,
+    /// Methods of the impls in each module (`Type.method`), by the
+    /// module's name as in `modules`.
+    pub methods: HashMap<String, Vec<Item>>,
     pub graphs: Graphs,
 }
 
@@ -314,6 +320,25 @@ impl Ix<'_> {
             from = at + name.len();
         }
         def.span
+    }
+
+    /// The `///` lines directly above a definition.
+    fn doc(&self, d: lang_hir::DefId) -> String {
+        let sp = self.hir.defs[d].span;
+        if sp.is_dummy() {
+            return String::new();
+        }
+        let text = &self.s.sources.get(sp.file).text;
+        let start = text[..sp.start as usize].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let mut lines: Vec<&str> = vec![];
+        for l in text[..start].lines().rev() {
+            match l.trim().strip_prefix("///") {
+                Some(d) => lines.push(d.strip_prefix(' ').unwrap_or(d)),
+                None => break,
+            }
+        }
+        lines.reverse();
+        lines.join("\n")
     }
 
     fn def_loc(&self, d: lang_hir::DefId) -> Option<Loc> {
@@ -680,6 +705,8 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
             .map(|ms| {
                 ms.iter()
                     .map(|m| Item {
+                        doc: String::new(),
+                        public: true,
                         name: m.name.clone(),
                         detail: m.detail.clone(),
                         kind: if m.method { SymbolKind::Method } else { SymbolKind::Value },
@@ -799,7 +826,13 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
                 if kind == SymbolKind::Impl {
                     return None;
                 }
-                Some(Item { name: s.interner.resolve(*n).to_string(), detail: ix.signature(*d), kind })
+                Some(Item {
+                    name: s.interner.resolve(*n).to_string(),
+                    detail: ix.signature(*d),
+                    kind,
+                    doc: ix.doc(*d),
+                    public: def.is_pub,
+                })
             })
             .collect();
         items.sort_by(|a, b| a.name.cmp(&b.name));
@@ -808,6 +841,30 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
             out.globals.insert(file, items.clone());
         }
         out.modules.insert(s.interner.resolve(*last).to_string(), items);
+    }
+    for (_, def) in hir.defs.iter() {
+        let DefKind::Fn(f) = &def.kind else { continue };
+        let Some(o) = f.owner else { continue };
+        let DefKind::Impl(im) = &hir.defs[o].kind else { continue };
+        let m = &hir.modules[def.module];
+        if m.is_std && !def.is_pub {
+            continue;
+        }
+        let Some(last) = m.path.last() else { continue };
+        let ty = ix.text(im.self_ty.span);
+        let ty = ty.split('<').next().unwrap_or(ty).trim().to_string();
+        let d = hir.defs.iter().find(|(_, x)| std::ptr::eq(*x, def)).map(|(i, _)| i).unwrap();
+        out.methods.entry(s.interner.resolve(*last).to_string()).or_default().push(Item {
+            name: format!("{ty}.{}", s.interner.resolve(def.name)),
+            detail: ix.signature(d),
+            kind: SymbolKind::Method,
+            doc: ix.doc(d),
+            public: def.is_pub,
+        });
+    }
+    for ms in out.methods.values_mut() {
+        ms.sort_by(|a, b| a.name.cmp(&b.name));
+        ms.dedup_by(|a, b| a.name == b.name);
     }
     for f in &user_files {
         let sf = s.sources.get(*f);

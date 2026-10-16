@@ -163,7 +163,8 @@ enum Command {
         std: bool,
     },
     /// Answer one question about a program as JSON (1-based positions):
-    /// `diagnostics`, `symbols`, or at `--line`/`--col` `hover`,
+    /// `diagnostics`, `symbols`, `api` (public interface; PATH may also be a
+    /// standard module such as `std.list`), or at `--line`/`--col` `hover`,
     /// `definition`, `references`, `completion`.
     Query {
         kind: String,

@@ -60,11 +60,11 @@ fn tools() -> Value {
         },
         {
             "name": "query",
-            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references`, `completion` need path, line, col (1-based); `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges.",
+            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references`, `completion` need path, line, col (1-based); `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges; `api` returns the public interface (functions, types, methods with signatures, effects, contracts, and docs) of a standard module (`name`, e.g. `std.list`) or of the program at `path`.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "symbols", "diagnostics", "explain", "module", "graph"] },
+                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "symbols", "diagnostics", "explain", "module", "graph", "api"] },
                     "path": { "type": "string" },
                     "line": { "type": "integer" },
                     "col": { "type": "integer" },
@@ -245,6 +245,17 @@ impl Mcp {
                         },
                         None => text(lang_driver::std_modules().join(", "), false),
                     },
+                    "api" => {
+                        let Some(target) = a["name"].as_str().or(a["path"].as_str()) else {
+                            return text("give `name` (e.g. std.list) or `path`", true);
+                        };
+                        let args = vec!["query".into(), "api".into(), target.to_string()];
+                        match lang(&args, Duration::from_secs(120)) {
+                            Ok((0, out, _)) => text(out.trim(), false),
+                            Ok((_, _, err)) => text(err.trim(), true),
+                            Err(e) => text(e, true),
+                        }
+                    }
                     "graph" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let which = a["name"].as_str().unwrap_or("calls").to_string();

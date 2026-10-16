@@ -680,6 +680,9 @@ fn plain_range(file: &str, text: &str, r: &Value) -> Value {
 /// `lang query`: one question about a program, answered as JSON with
 /// 1-based lines and columns (for scripts, agents, and `std.compiler`).
 pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -> Result<Value, String> {
+    if kind == "api" {
+        return api(path);
+    }
     let file = canonical(path);
     let mut server = Server {
         docs: HashMap::new(),
@@ -778,4 +781,57 @@ pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -
             ));
         }
     })
+}
+
+/// The public interface of a program's modules, or of a standard module
+/// (`std.list`): each item's module, name, kind, signature (with effects
+/// and contracts), and documentation.
+fn api(target: &Path) -> Result<Value, String> {
+    let t = target.display().to_string();
+    let (a, wanted): (Analysis, Option<String>) = match t.strip_prefix("std.") {
+        Some(m) => {
+            if lang_driver::std_source(m).is_none() {
+                return Err(format!("no standard module `{t}`"));
+            }
+            let dir = std::env::temp_dir().join(format!("lang-api-{}", std::process::id()));
+            let _ = std::fs::create_dir_all(&dir);
+            let f = dir.join("api.lang");
+            std::fs::write(&f, format!("import std.{m}\npub fn main() -> Unit {{}}\n"))
+                .map_err(|e| e.to_string())?;
+            let a = analysis::analyze(&f, HashMap::new());
+            let _ = std::fs::remove_dir_all(&dir);
+            (a, Some(m.rsplit('.').next().unwrap_or(m).to_string()))
+        }
+        None => (analysis::analyze(&program_of(&canonical(target)), HashMap::new()), None),
+    };
+    let mut out = vec![];
+    let item = |module: &str, i: &Item| {
+        json!({
+            "module": module, "name": i.name, "kind": format!("{:?}", i.kind).to_lowercase(),
+            "signature": i.detail, "doc": i.doc,
+        })
+    };
+    match wanted {
+        Some(m) => {
+            let items = a.modules.get(&m).ok_or(format!("`std.{m}` has no public items"))?;
+            out.extend(items.iter().filter(|i| i.public).map(|i| item(&format!("std.{m}"), i)));
+            for i in a.methods.get(&m).into_iter().flatten().filter(|i| i.public) {
+                out.push(item(&format!("std.{m}"), i));
+            }
+        }
+        None => {
+            for f in &a.files {
+                let module = f.path.clone();
+                for i in a.globals.get(&f.path).into_iter().flatten().filter(|i| i.public) {
+                    out.push(item(&module, i));
+                }
+                let stem =
+                    std::path::Path::new(&f.path).file_stem().map(|x| x.to_string_lossy().into_owned());
+                for i in stem.and_then(|st| a.methods.get(&st)).into_iter().flatten().filter(|i| i.public) {
+                    out.push(item(&module, i));
+                }
+            }
+        }
+    }
+    Ok(json!(out))
 }
