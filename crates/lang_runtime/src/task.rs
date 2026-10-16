@@ -253,7 +253,7 @@ pub struct Task {
 }
 
 /// Wait reasons of parks without the runtime lock, by `free_wait` number.
-const FREE_WAITS: [&str; 4] = ["", "channel receive", "channel send", "join"];
+const FREE_WAITS: [&str; 5] = ["", "channel receive", "channel send", "join", "reply"];
 
 /// What a task waits for (inspection).
 fn wait_reason(t: &Task) -> &'static str {
@@ -1784,10 +1784,18 @@ pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bo
     let woke = with_task(t, |t| {
         let flags = unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) };
         let state = t.state.get();
-        if flags & FLAG_CANCEL != 0
-            || t.wait_gen.load(Ordering::Acquire) != wait
-            || !matches!(state, State::Parked | State::Parking)
-        {
+        if flags & FLAG_CANCEL != 0 || t.wait_gen.load(Ordering::Acquire) != wait {
+            return None;
+        }
+        if t.pre_park && matches!(state, State::Running) {
+            // registered and about to park: its park returns at once
+            t.delivered = value;
+            t.delivered_is_ptr = is_ptr;
+            t.status = status;
+            t.early_wake = Some(Wake::Normal);
+            return Some(false);
+        }
+        if !matches!(state, State::Parked | State::Parking) {
             return None;
         }
         t.delivered = value;
@@ -2428,6 +2436,14 @@ pub fn join_free(id: TaskId) -> Option<u64> {
         if flags_of(unsafe { &*me }) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
             return None;
         }
+    }
+}
+
+/// Mark the running task about to park (see [`Task::pre_park`]): a wake or
+/// delivery for its current wait before it parks is kept for its park.
+pub fn set_pre_park() {
+    if let Some(t) = current() {
+        with_task(t, |t| t.pre_park = true);
     }
 }
 

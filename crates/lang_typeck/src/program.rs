@@ -977,6 +977,8 @@ pub(crate) fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<
                         | "Receiver"
                         | "BatchSender"
                         | "BatchReceiver"
+                        | "ReplySender"
+                        | "ReplyReceiver"
                         | "Task"
                         | "TaskScope"
                 )

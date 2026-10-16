@@ -8,9 +8,14 @@ pub extern type BatchSender<T>
 pub extern type BatchReceiver<T>
 /// A leased, sealed batch of messages; release it when processed.
 pub extern type Batch<T>
+/// The sending half of a one-shot reply: one value, once.
+pub extern type ReplySender<T>
+/// The receiving half of a one-shot reply.
+pub extern type ReplyReceiver<T>
 
 pub type Endpoints<T> = { sender: Sender<T>, receiver: Receiver<T> }
 pub type BatchEndpoints<T> = { sender: BatchSender<T>, receiver: BatchReceiver<T> }
+pub type ReplyEndpoints<T> = { sender: ReplySender<T>, receiver: ReplyReceiver<T> }
 pub type Options = { capacity: Int, byte_budget: Int }
 pub type BatchOptions = { capacity: Int, max_batch: Int, byte_budget: Int }
 /// Batch disposal and publication policy. `discard_on_close`: staged
@@ -58,6 +63,10 @@ extern "intrinsic" fn chan_try_send<T, C>(ch: C, value: T) -> Result<Unit, SendE
 extern "intrinsic" fn chan_recv<T, C>(ch: C) -> Option<T>
 extern "intrinsic" fn chan_try_recv<T, C>(ch: C) -> TryRecv<T>
 extern "intrinsic" fn chan_close<C>(ch: C) -> Unit
+extern "intrinsic" fn reply_new<T>() -> ReplySender<T>
+extern "intrinsic" fn reply_send<T>(r: ReplySender<T>, value: T) -> Result<Unit, SendError<T>>
+extern "intrinsic" fn reply_recv<T>(r: ReplyReceiver<T>) -> Option<T>
+extern "intrinsic" fn reply_close<T>(r: ReplySender<T>) -> Unit
 extern "intrinsic" fn chan_len<C>(ch: C) -> Int
 extern "intrinsic" fn chan_guard<C>(ch: C) -> Int
 extern "intrinsic" fn chan_unguard<C>(handle: Int, ch: C) -> Unit
@@ -132,6 +141,46 @@ pub fn open_batch<T, R, E>(options: BatchOptions, body: fn(BatchEndpoints<T>) ->
             r
         },
     }
+}
+
+/// A one-shot reply: the receiver waits for the single value the sender
+/// sends (`call` passes the sender along with a request). Much cheaper than
+/// a channel; sending twice is an error, and closing the sender without
+/// sending makes the receiver's `recv` return `none`.
+pub fn reply<T>() -> ReplyEndpoints<T> where T: Transfer {
+    let s = reply_new<T>()
+    { sender: s, receiver: identity(s) }
+}
+
+/// Send a request made with a fresh reply sender and wait for the reply:
+/// `none` if the request cannot be sent, or the replier closes the reply
+/// sender without answering.
+pub fn call<Req, Resp>(to: Sender<Req>, request: fn(ReplySender<Resp>) -> Req) -> Option<Resp> !{Wait} where Req: Transfer, Resp: Transfer {
+    let r = reply<Resp>()
+    match to.send(request(r.sender)) {
+        .ok(_) => r.receiver.recv(),
+        .err(_) => Option.none,
+    }
+}
+
+/// The sender of shard `key` (any integer) among `shards`: requests for one
+/// key always go to one shard, so a sharded actor serves them in order.
+pub fn route<T>(shards: List<Sender<T>>, key: Int) -> Sender<T> {
+    let n = shards.len()
+    shards[((key % n) + n) % n]
+}
+
+impl<T> ReplySender<T> {
+    /// Send the reply (once; a second send, or one after `close`, is an error).
+    pub fn send(self: &Self, value: T) -> Result<Unit, SendError<T>> { reply_send(self, value) }
+    /// Answer with nothing: the receiver's `recv` returns `none`.
+    pub fn close(self: &Self) -> Unit { reply_close(self) }
+}
+
+impl<T> ReplyReceiver<T> {
+    /// Wait for the reply: `none` if the sender closed without one (or it
+    /// was received already).
+    pub fn recv(self: &Self) -> Option<T> !{Wait} { reply_recv(self) }
 }
 
 impl<T> Sender<T> {

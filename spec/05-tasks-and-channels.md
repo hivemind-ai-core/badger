@@ -137,6 +137,40 @@ declared/derived admission size. This is a queue budget, not a universal bound
 on everything the application retains after delivery. Runtime heap and pooled
 page budgets are separate limits.
 
+### Replies and request/response
+
+`channel.reply<T>()` makes a one-shot reply: `{ sender, receiver }`. The
+sender sends one value (a second send, or one after `close`, returns
+`SendError`); `receiver.recv()` waits for it and returns `.none` if the
+sender closed without one. A reply is one small object — no queue — so a
+request carries its own reply sender:
+
+```
+type Lookup = { key: Int, reply: channel.ReplySender<String> }
+let tag = channel.call(lookups, fn(r) { { key: 42, reply: r } })   // Option<String>
+```
+
+`channel.call(to, make)` sends `make(reply_sender)` and waits for the
+reply. To have many requests in flight from one task, send them with
+their own replies first and receive the replies after; no task per
+request is needed.
+
+### Patterns that scale across workers
+
+Each worker runs its own queue; tasks that only talk to each other stay
+on one worker, and independent groups run in parallel. Throughput across
+workers is limited by what is shared:
+
+- A single actor serving every request is a serial bottleneck: shard it
+  by key (`channel.route(shards, key)` picks a shard's sender) so each
+  shard is an independent actor.
+- Prefer replies (`channel.call`, or replies sent ahead) to a task per
+  request when the request itself is the work.
+- Batch small messages (`channel.batch`, or lists) when a consumer does
+  little per message.
+- Keep data a task works on owned by it (send it, don't share it):
+  shared mutable state (`Atom`) serializes its users.
+
 ## Selection and ordering
 
 `channel.select` accepts a runtime list of typed homogeneous operations and

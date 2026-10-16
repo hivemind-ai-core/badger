@@ -1627,6 +1627,11 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_task_join",
     // spawning into a scope (its own table shard and scope-record locks)
     "lang_rt_i_task_spawn",
+    // one-shot replies (their own lock; waits park without the runtime lock)
+    "lang_rt_i_reply_new",
+    "lang_rt_i_reply_send",
+    "lang_rt_i_reply_recv",
+    "lang_rt_i_reply_close",
     // channel fast paths; they take the lock themselves when needed (and
     // prompt sends and receives park without it)
     "lang_rt_i_chan_send",

@@ -1,0 +1,97 @@
+// One-shot replies: `channel.call` against a server that answers or
+// closes, a value sent before the receiver waits, a second send refused,
+// a receiver cancelled while waiting (a later send is harmless), and many
+// replies in flight from one task (no task per request).
+import std.channel
+import std.io
+import std.list
+import std.task
+import std.time
+
+type Req = { n: Int, reply: channel.ReplySender<String> }
+
+pub fn main() -> Result<Unit, String> {
+    let ends = channel.create<Req>({ ..channel.defaults, capacity: 8 }).map_err(fn(_) { "config" })?
+    task.scope(fn(s) -> Result<Unit, String> {
+        let server = s.spawn(fn() {
+            loop {
+                match ends.receiver.recv() {
+                    .some(req) => {
+                        if req.n % 5 == 0 {
+                            req.reply.close()
+                        } else {
+                            let _ = req.reply.send($"answer {req.n * 2}")
+                        }
+                    },
+                    .none => { break },
+                }
+            }
+        })
+        var got = 0
+        var none = 0
+        for i in 0..20 {
+            match channel.call(ends.sender, fn(r) { { n: i, reply: r } }) {
+                .some(a) => {
+                    if a == $"answer {i * 2}" {
+                        got = got + 1
+                    }
+                },
+                .none => { none = none + 1 },
+            }
+        }
+        let _ = io.println($"calls answered {got}, closed {none}")
+
+        // many requests in flight, then their replies
+        let pending = list.collect((1..50).map(fn(i: Int) {
+            let r = channel.reply<String>()
+            let _ = ends.sender.send({ n: i, reply: r.sender })
+            r.receiver
+        }))
+        var answered = 0
+        for p in pending {
+            if p.recv().is_some() {
+                answered = answered + 1
+            }
+        }
+        let _ = io.println($"pipelined replies {answered}")
+
+        // sent before anyone waits; a second send is refused
+        let r = channel.reply<Int>()
+        let first = r.sender.send(1).is_ok()
+        let second = r.sender.send(2).is_ok()
+        let v = r.receiver.recv()
+        let again = r.receiver.recv()
+        let _ = io.println($"first {first} second {second} got {v.unwrap_or(0)} again {again.is_some()}")
+
+        // a waiting receiver cancelled; the late send is harmless
+        let late = channel.reply<String>()
+        let waiter = s.capture(fn() { late.receiver.recv() })
+        time.sleep(2ms)
+        waiter.cancel()
+        let cancelled = match waiter.join() {
+            .cancelled(_) => true,
+            _ => false,
+        }
+        time.sleep(1ms)
+        let sent_late = late.sender.send("too late").is_ok()
+        let _ = io.println($"waiter cancelled {cancelled}; late send accepted {sent_late}")
+
+        // routing by key: one key always reaches one shard
+        let shard_ends = list.collect((0..3).map(fn(_) {
+            match channel.create<Int>({ ..channel.defaults, capacity: 8 }) {
+                .ok(e) => e,
+                .err(_) => panic("channel"),
+            }
+        }))
+        let senders = shard_ends.map(fn(e) { e.sender })
+        for k in [-7, 2, 5, 8, 0, 3] {
+            let _ = channel.route(senders, k).send(k)
+        }
+        let counts = shard_ends.map(fn(e) { e.receiver.len() })
+        let _ = io.println($"routed per shard {counts}")
+
+        ends.sender.close()
+        server.join()
+        ok(())
+    })
+}

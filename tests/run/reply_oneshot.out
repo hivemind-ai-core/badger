@@ -1,0 +1,5 @@
+calls answered 16, closed 4
+pipelined replies 40
+first true second false got 1 again false
+waiter cancelled true; late send accepted true
+routed per shard [2, 0, 4]

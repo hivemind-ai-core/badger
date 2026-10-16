@@ -1444,8 +1444,10 @@ impl Own<'_, '_, '_> {
                         | "FixedBuffer"
                         | "channel.Sender"
                         | "channel.BatchSender"
+                        | "channel.ReplySender"
                         | "Sender"
                         | "BatchSender"
+                        | "ReplySender"
                 )
             }),
             _ => None,

@@ -39,6 +39,7 @@ pub mod live;
 pub mod map;
 pub mod parse;
 pub mod profile;
+pub mod reply;
 pub mod repro;
 pub mod scope;
 pub mod sqlite;

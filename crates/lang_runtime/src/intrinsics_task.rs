@@ -595,6 +595,33 @@ task_intrinsics! {
             RecvResult::Closed => split(ret, "closed", None),
         })
     }
+    // one-shot replies: unlocked entries (a reply has its own lock)
+    fn reply_new(ctx, targs, ret) { crate::reply::new(targ(targs, 0)) }
+    fn reply_send(ctx, targs, ret, r, v) {
+        let roots = Roots::new();
+        roots.add(r);
+        if targ(targs, 0).is_ptr() {
+            roots.add(v);
+        }
+        if crate::reply::send(r, v) {
+            ok_unit(rdesc(ret))
+        } else {
+            send_err(rdesc(ret), v, "channel/closed")
+        }
+    }
+    fn reply_recv(ctx, targs, ret, r) {
+        match crate::reply::recv(r) {
+            Some(v) => {
+                let roots = Roots::new();
+                if targ(targs, 0).is_ptr() {
+                    roots.add(v);
+                }
+                make_variant(rdesc(ret), "some", &[v])
+            }
+            None => make_variant(rdesc(ret), "none", &[]),
+        }
+    }
+    fn reply_close(ctx, targs, ret, r) { crate::reply::close(r); 0 }
     // an unlocked entry: prompt channels close on the fast path
     fn chan_close(ctx, targs, ret, ch) {
         if fast_ok() && channel::close_fast(ch) {
