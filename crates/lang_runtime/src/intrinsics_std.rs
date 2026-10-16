@@ -146,10 +146,17 @@ std_intrinsics! {
         if (i as i64) >= 0 && (i as usize) < n { some(rdesc(ret), list::get(l, i as usize)) } else { none(rdesc(ret)) }
     }
     fn list_builder(ctx, targs, ret) { list::new(rdesc(ret)) }
-    fn list_builder_append(ctx, targs, ret, b, v) { list::push(b, v); 0 }
+    fn list_builder_append(ctx, targs, ret, b, v) {
+        gc::budget_check(8);
+        list::push(b, v);
+        0
+    }
     fn list_builder_len(ctx, targs, ret, b) { list::len(b) as u64 }
     fn list_finish(ctx, targs, ret, b) { list::finish(b, rdesc(ret)) }
-    fn list_append(ctx, targs, ret, l, v) { list::append(l, v, rdesc(ret)) }
+    fn list_append(ctx, targs, ret, l, v) {
+        gc::budget_check(64);
+        list::append(l, v, rdesc(ret))
+    }
     fn list_concat(ctx, targs, ret, a, b) {
         let r = Roots::new();
         r.add(a);
@@ -352,7 +359,10 @@ std_intrinsics! {
 
     // ---------------------------------------------------------------- maps
     fn map_empty(ctx, targs, ret) { map::new(rdesc(ret)) }
-    fn map_insert(ctx, targs, ret, m, k, v) { map::insert(m, k, v) }
+    fn map_insert(ctx, targs, ret, m, k, v) {
+        gc::budget_check(256);
+        map::insert(m, k, v)
+    }
     fn map_remove(ctx, targs, ret, m, k) { map::remove(m, k) }
     fn map_get(ctx, targs, ret, m, k) {
         match map::get(m, k) { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }

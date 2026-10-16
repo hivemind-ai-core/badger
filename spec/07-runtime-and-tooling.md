@@ -142,6 +142,17 @@ explicitly. This standard parsing library is independent of the language's
 own pest grammar. Compile-time grammar optimization may cache a constant grammar
 later, but general macros/evaluation are not prerequisites for the API.
 
+## Memory budget
+
+`[runtime] heap_max_bytes` (default 0: none) bounds live managed data.
+When live data plus new allocation would pass it, a full collection runs
+first; if live data still exceeds it, the task asking for memory fails
+with the defect `heap budget exceeded` (contained like any defect: by
+`capture`, a scope, or supervision), and the process keeps running. The
+budget is checked where compiled code allocates records, strings, list
+elements, and map entries; memory the runtime allocates internally may
+pass it briefly.
+
 ## Project tool and machine interface
 
 The proposed project file is `lang.toml`, with package identity, dependencies,

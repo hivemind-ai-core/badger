@@ -1,0 +1,33 @@
+// Under a heap budget (`heap_max_bytes`), a task whose live data outgrows
+// it fails with a defect; a supervisor (here `capture`) contains it, and
+// the program goes on once that task's data is released.
+import std.io
+import std.list
+import std.task
+
+fn hog() -> Int {
+    let b = list.builder<String>()
+    for i in 0..10000000 {
+        b.append($"retained {i} {i * 7}")
+    }
+    b.finish().len()
+}
+
+pub fn main() -> Result<Unit, String> {
+    let r = task.scope(fn(s) -> Result<String, String> {
+        let t = s.capture(fn() { hog() })
+        ok(match t.join() {
+            .returned(n) => $"finished {n}",
+            .failed(info) => $"failed: {info.message}",
+            .cancelled(_) => "cancelled",
+        })
+    })?
+    let _ = io.println(if r.starts_with("failed: heap budget exceeded") { "hog contained" } else { r })
+    // memory is usable again
+    var n = 0
+    for i in 0..100000 {
+        n = n + $"after {i}".len()
+    }
+    let _ = io.println($"still running {n > 0}")
+    ok(())
+}

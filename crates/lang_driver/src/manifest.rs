@@ -60,6 +60,7 @@ pub const RUNTIME_KEYS: &[&str] = &[
     "trace_overflow",
     "task_stack_bytes",
     "blocking_threads",
+    "heap_max_bytes",
 ];
 
 /// Defaults of the runtime settings (what applies when nothing sets them).
@@ -74,6 +75,7 @@ pub const RUNTIME_DEFAULTS: &[(&str, &str)] = &[
     ("trace_overflow", "drop_oldest"),
     ("task_stack_bytes", "8388608"),
     ("blocking_threads", "16"),
+    ("heap_max_bytes", "0"),
 ];
 
 /// Validate a runtime setting (line 0: from the environment).

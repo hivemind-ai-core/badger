@@ -266,7 +266,8 @@ error. `lang_cli` is the `lang` binary.
   minor collection for a reachable unmarked object (a missed barrier),
   `LANG_GC_STRESS=1` collects at every allocation, and
   `LANG_GC_GENERATIONAL=0` turns generations off. Sweeps run per worker
-  list in parallel.
+  list in parallel. `heap_max_bytes` budgets live data: past it the
+  allocating task fails with a defect after a full collection.
 - **Tasks:** stackful coroutines (corosensei) with cooperative polls,
   timers, parking/waking, cancellation, cleanup ladders, task scopes,
   `capture`/`try_join`/`try_all`/`timeout`, and supervised workers. Blocking

@@ -11,7 +11,7 @@ fn desc(w: u64) -> &'static TypeDesc {
 }
 
 pub extern "C" fn lang_rt_alloc(_ctx: *mut TaskCtx, d: u64, size: u64) -> u64 {
-    gc::alloc(desc(d), size as usize)
+    gc::alloc_checked(desc(d), size as usize)
 }
 
 pub extern "C" fn lang_rt_panic(_ctx: *mut TaskCtx, msg: u64, loc: u64) -> u64 {
@@ -158,6 +158,7 @@ pub extern "C" fn lang_rt_global_done(_ctx: *mut TaskCtx, flag: u64) {
 
 /// Concatenate `n` strings (interpolation).
 pub extern "C" fn lang_rt_concat(_ctx: *mut TaskCtx, parts: *const u64, n: u64) -> u64 {
+    gc::budget_check(64);
     let mut s = String::new();
     for i in 0..n as usize {
         s.push_str(str_of(unsafe { *parts.add(i) }));
@@ -187,6 +188,7 @@ pub extern "C" fn lang_rt_list_new(_ctx: *mut TaskCtx, d: u64) -> u64 {
 }
 
 pub extern "C" fn lang_rt_list_push(_ctx: *mut TaskCtx, list: u64, w: u64) {
+    gc::budget_check(8);
     if crate::buffer::is_buffer(list) {
         crate::buffer::data(list).items.push(w);
         return crate::gc::barrier(list);

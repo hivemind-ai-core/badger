@@ -1071,6 +1071,11 @@ fn apply_runtime_setting(k: &str, v: &str) {
                 lang_runtime::task::set_stack_size(n);
             }
         }
+        "heap_max_bytes" => {
+            if let Ok(n) = v.parse() {
+                lang_runtime::gc::set_heap_max(n);
+            }
+        }
         "trace_capacity" | "trace_overflow" => {
             lang_runtime::intrinsics_codec::set_trace_setting(k, v);
         }

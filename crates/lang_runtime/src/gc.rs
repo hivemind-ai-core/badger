@@ -431,6 +431,61 @@ impl Drop for NoGc {
     }
 }
 
+/// The heap budget (`[runtime] heap_max_bytes`; 0: none).
+static HEAP_MAX: AtomicUsize = AtomicUsize::new(0);
+/// The next full collection runs for the budget, not the schedule.
+static BUDGET_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_heap_max(bytes: usize) {
+    HEAP_MAX.store(bytes, Ordering::Relaxed);
+}
+
+/// An allocation of `payload` bytes by compiled code, under the heap
+/// budget (see [`budget_check`]).
+pub fn alloc_checked(desc: &'static TypeDesc, payload: usize) -> u64 {
+    budget_check(payload);
+    alloc(desc, payload)
+}
+
+/// The heap budget, checked where compiled code asks the runtime for
+/// memory (before an operation changes anything; its arguments are rooted):
+/// when live data and new allocation would pass the budget, a full
+/// collection first; when live data still does, the allocating task fails
+/// (a defect it or its supervisor can contain), rather than the process.
+pub fn budget_check(payload: usize) {
+    let max = HEAP_MAX.load(Ordering::Relaxed);
+    if max > 0 && crate::task::current_id() != 0 {
+        let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
+        // (generational: `ALLOCATED` counts since the last collection; else
+        // it includes the live data)
+        let since = ALLOCATED.load(Ordering::Relaxed) + owed + payload;
+        let used = if generational() { heap_bytes() + since } else { since };
+        if used > max {
+            BUDGET_FULL.store(true, Ordering::Relaxed);
+            let locked = crate::task::holds_lock();
+            if !locked {
+                crate::task::enter_runtime_for(crate::task::reason::GC);
+            }
+            collect();
+            let live = heap_bytes();
+            if !locked {
+                crate::task::leave_runtime();
+            }
+            if live + payload > max {
+                crate::task::panic_current(
+                    format!("heap budget exceeded: {live} bytes live, budget {max} (`heap_max_bytes`)"),
+                    String::new(),
+                );
+            }
+        }
+    }
+}
+
+/// Bytes of live data at the last collection.
+fn heap_bytes() -> usize {
+    if generational() { OLD_BYTES.load(Ordering::Relaxed) } else { heap().live }
+}
+
 /// `LANG_GC_GENERATIONAL=0`: every collection is a full one.
 fn generational() -> bool {
     static G: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -492,7 +547,8 @@ fn collect_inner() {
     // do not pile up between the many minor ones)
     let minor = sticky
         && OLD_BYTES.load(Ordering::Relaxed) < MAJOR_AT.load(Ordering::Relaxed)
-        && !(stress() && h.collections.is_multiple_of(16));
+        && !(stress() && h.collections.is_multiple_of(16))
+        && !BUDGET_FULL.swap(false, Ordering::Relaxed);
     let mut stack: Vec<u64> = Vec::new();
     let checking = verify();
     if sticky && !minor {

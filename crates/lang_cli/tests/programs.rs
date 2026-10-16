@@ -627,6 +627,28 @@ fn deadlock_report_names_waits() {
     assert!(text.contains(r#""code":"E0450""#) && text.contains("comes after this join"), "{text}");
 }
 
+/// Under `heap_max_bytes`, a task outgrowing the budget fails with a
+/// defect its supervisor contains; without a budget it finishes.
+#[test]
+fn heap_budget_contains_a_task() {
+    for workers in ["1", "4"] {
+        let out = lang()
+            .env("LANG_HEAP_MAX_BYTES", "67108864")
+            .args(["run", "--release", "--workers", workers, "tests/runtime/heap_budget.lang"])
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert_eq!(
+            text,
+            "hog contained\nstill running true\n",
+            "{workers} workers: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    let out = lang().args(["run", "--release", "tests/runtime/heap_budget.lang"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).starts_with("finished 10000000"));
+}
+
 /// Name and syntax errors (found before type checking) also report their
 /// module, and name errors their enclosing definition.
 #[test]
