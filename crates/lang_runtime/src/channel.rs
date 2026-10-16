@@ -123,15 +123,18 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     d.send_waiters.iter().for_each(|(_, w, _, _, _)| f(*w));
 }
 
-/// Live channels for inspection: (sequence number, object address).
+/// Live channels for inspection: object address to sequence number (a map:
+/// a collection finalizing many channels removes each in constant time).
 /// (Its own lock: channels are created without the runtime lock.)
-static REGISTRY: std::sync::Mutex<Vec<(u64, u64)>> = std::sync::Mutex::new(Vec::new());
+static REGISTRY: std::sync::Mutex<std::collections::HashMap<u64, u64, rustc_hash::FxBuildHasher>> =
+    std::sync::Mutex::new(std::collections::HashMap::with_hasher(rustc_hash::FxBuildHasher));
 static NEXT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// Inspection snapshot of every live channel (JSON array).
 #[allow(static_mut_refs)]
 pub fn snapshot_json() -> String {
-    let live: Vec<(u64, u64)> = REGISTRY.lock().unwrap().clone();
+    let mut live: Vec<(u64, u64)> = REGISTRY.lock().unwrap().iter().map(|(&w, &seq)| (seq, w)).collect();
+    live.sort_unstable();
     let items: Vec<String> = live
         .iter()
         .map(|&(seq, w)| {
@@ -162,7 +165,7 @@ pub fn snapshot_json() -> String {
 #[allow(static_mut_refs)]
 fn finalize_chan(o: *mut Header) {
     unsafe {
-        REGISTRY.lock().unwrap().retain(|&(_, w)| w != o as u64);
+        REGISTRY.lock().unwrap().remove(&(o as u64));
         (*CLAIMED.0.get()).retain(|w| *w != o as u64);
         let p = (*o).payload() as *mut *mut ChanData;
         if !(*p).is_null() {
@@ -545,7 +548,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
     unsafe { *(obj(w).payload() as *mut *mut ChanData) = Box::into_raw(d) };
     // registered once complete (inspection may read it from another worker)
     let seq = NEXT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    REGISTRY.lock().unwrap().push((seq, w));
+    REGISTRY.lock().unwrap().insert(w, seq);
     w
 }
 
