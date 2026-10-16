@@ -34,6 +34,10 @@ pub fn format(src: &str) -> String {
             blank_run += 1;
             continue;
         }
+        // indentation follows the line as it will be written (spacing can
+        // drop a stray leading separator, exposing a closer)
+        let spaced = crate::spacing::space_line(trimmed);
+        let trimmed = spaced.as_str();
         let closes_first = leading_closers(trimmed);
         let mut indent = if closes_first > 0 && stack.len() >= closes_first {
             stack[stack.len() - closes_first]
@@ -52,7 +56,7 @@ pub fn format(src: &str) -> String {
         for _ in 0..indent {
             out.push_str("    ");
         }
-        out.push_str(&crate::spacing::space_line(trimmed));
+        out.push_str(trimmed);
         out.push('\n');
         let before = stack.len();
         scan(trimmed, &mut stack, indent, &mut in_block_comment, &mut in_raw_string);
