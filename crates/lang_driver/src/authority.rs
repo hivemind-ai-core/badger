@@ -55,7 +55,6 @@ const AMBIENT_INTRINSICS: &[&str] = &[
     "process_run",
     "process_run_input",
     "process_exit",
-    "http_listen",
 ];
 
 /// Standard free functions and module values that reach an ambient

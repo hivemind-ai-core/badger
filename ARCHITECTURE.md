@@ -41,10 +41,11 @@ error. `lang_cli` is the `lang` binary.
 | `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, HTTP server, parsing | corosensei, serde_json, regex, backtrace |
+| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
 | `lang_native` | native module ABI, wire format, helpers for modules in Rust | — |
 | `lang_sqlite` | the `lang_sqlite` native module behind `std.sqlite` | rusqlite |
 | `lang_fetch` | the `lang_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
+| `lang_http` | the `lang_http` native module behind `std.http` (the HTTP/1.1 server) | hyper, tokio |
 | `lang_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
 | `lang_cli` | command-line interface | clap |
 
@@ -358,7 +359,11 @@ error. `lang_cli` is the `lang` binary.
   only parks; a transaction pins one connection from `BEGIN IMMEDIATE`
   until it ends, a cleanup rolls it back if the task is abandoned, and an
   unreachable one is rolled back; a failed rollback is returned with the
-  callback's error as its cause), an HTTP/1.1 server with request
+  callback's error as its cause), an HTTP/1.1 server (the `lang_http`
+  native module, hyper on its own small tokio runtime: it reads requests
+  and enforces the limits, and `std.http` takes admitted ones with an async
+  `accept` in an acceptor task, each request in its own task of a service
+  scope with a cleanup answering 500 if the task dies first) with request
   tasks, explicit limits (413/431, bounded admission with 503), streamed
   chunked replies, request-scoped handlers (`http.scoped`: a fresh request
   region, a region-branded body reader, streams consumed inside the

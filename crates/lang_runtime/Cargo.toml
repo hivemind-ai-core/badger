@@ -8,7 +8,6 @@ license.workspace = true
 [dependencies]
 backtrace = "0.3.76"
 corosensei = "0.3"
-httparse = "1.10"
 lang_native = { path = "../lang_native" }
 libc = "0.2.190"
 regex = "1.13.1"

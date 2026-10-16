@@ -107,7 +107,8 @@ capability rules apply to them as to any value.
 ## Finding modules
 
 A module is either linked into the `lang` executable (the standard library's
-own modules: `lang_sqlite`, behind `std.sqlite`) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
+own modules: `lang_sqlite`, `lang_fetch`, and `lang_http`, behind
+`std.sqlite`, `std.fetch`, and `std.http`) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
 first of these directories that has it:
 
 1. each directory of `LANG_NATIVE_PATH` (separated like `PATH`);

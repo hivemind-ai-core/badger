@@ -63,10 +63,10 @@ fn display(self: &Self) -> String
 ### `Exchange`
 
 ```lang
-struct Exchange { conn: Int, guard: Cell<Int>, sink: Option<Cell<http.Response>> }
+struct Exchange { conn: Option<native.Handle>, sink: Option<Cell<http.Response>> }
 ```
 
-The connection side of one request: a live connection, or an in-process
+The connection side of one request: a live exchange, or an in-process
 sink (`call`).
 
 ### `Handler`
@@ -167,8 +167,11 @@ Proof that a scoped handler produced its reply.
 ### `Server`
 
 ```lang
-struct Server { id: Int }
+struct Server { handle: native.Handle, scope: Int }
 ```
+
+A running server: the module's listener, and the scope of its acceptor
+and request tasks.
 
 ### `Streamed`
 

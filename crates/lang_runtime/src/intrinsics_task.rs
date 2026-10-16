@@ -260,6 +260,14 @@ task_intrinsics! {
         })
     }
 
+    // ---------------------------------------------------------------- service scopes
+    // A scope owned by the current task for long-lived service tasks (a
+    // server's acceptor and its requests): each task's defects are
+    // contained; closing it waits for them; the owner's end cancels them.
+    fn service_scope(ctx, targs, ret) { crate::scope::open() }
+    fn service_spawn(ctx, targs, ret, sc, f) { crate::scope::spawn(sc, f, true, false); 0 }
+    fn service_close(ctx, targs, ret, sc) { crate::scope::close(sc, false); 0 }
+
     // ---------------------------------------------------------------- cleanup
     fn cleanup_push(ctx, targs, ret, f) { task::push_cleanup(Cleanup::Closure(f)) }
     fn cleanup_remove(ctx, targs, ret, h) { task::remove_cleanup(h); 0 }

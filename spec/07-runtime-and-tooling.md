@@ -338,7 +338,8 @@ Native modules are the boundary for libraries that exchange data rather
 than machine words. `extern "native NAME" fn` declares a function of
 module `NAME` (`"native NAME.FUNCTION"` names the module's function when
 the declaration's name differs), linked into the executable or loaded
-from `libNAME.so`; `std.sqlite` is built on the `lang_sqlite` module.
+from `libNAME.so`; `std.sqlite`, `std.fetch`, and `std.http` are built on
+the `lang_sqlite`, `lang_fetch`, and `lang_http` modules.
 Arguments and results cross by copy in a typed wire format, so module code
 never sees managed memory: values of the declared types (primitives,
 text, bytes, `Data`, `native.Handle`, and collections, options, results,

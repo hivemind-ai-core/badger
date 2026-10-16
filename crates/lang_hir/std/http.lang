@@ -4,6 +4,7 @@ import std.prelude
 
 import std.codec
 import std.system
+import std.native
 
 /// Immutable request metadata and body.
 pub type Request = { method: Symbol, path: String, headers: Map<String, String>, body: Bytes }
@@ -41,11 +42,10 @@ enum Reply {
     sent,
 }
 
-/// The connection side of one request: a live connection, or an in-process
+/// The connection side of one request: a live exchange, or an in-process
 /// sink (`call`).
 pub struct Exchange {
-    conn: Int,
-    guard: Cell<Int>,
+    conn: Option<native.Handle>,
     sink: Option<Cell<Response>>,
 }
 
@@ -130,15 +130,15 @@ impl<S: Scope> RequestScope<S> {
                 }
                 cell.set({ status, headers, body })
             },
-            .none => {
-                let ex = self.exchange
-                let g = http_stream_begin(ex.conn, ex.guard.get(), status, headers)
-                ex.guard.set(g)
-                for chunk in chunks {
-                    http_stream_chunk(ex.conn, chunk)
-                }
-                http_stream_end(ex.conn, g)
-                ex.guard.set(-1)
+            .none => match self.exchange.conn {
+                .some(conn) => {
+                    http_stream_begin(conn, status, headers)
+                    for chunk in chunks {
+                        http_stream_chunk(conn, chunk)
+                    }
+                    http_stream_end(conn)
+                },
+                .none => (),
             },
         }
         { status }
@@ -148,9 +148,9 @@ impl<S: Scope> RequestScope<S> {
 fn send_full(ex: Exchange, response: Response) -> Unit {
     match ex.sink {
         .some(cell) => cell.set(response),
-        .none => {
-            http_respond(ex.conn, ex.guard.get(), response)
-            ex.guard.set(-1)
+        .none => match ex.conn {
+            .some(conn) => http_respond(conn, response.status, response.headers, response.body),
+            .none => (),
         },
     }
 }
@@ -193,21 +193,37 @@ pub struct LimitStats {
     pub rejected: Int,
 }
 
+/// A running server: the module's listener, and the scope of its acceptor
+/// and request tasks.
 pub struct Server {
-    id: Int,
+    handle: native.Handle,
+    scope: Int,
 }
 
-extern "intrinsic" fn http_listen<Req>(address: String, port: U16, serve: fn(Req, Int) -> Unit, limits: Limits) -> Result<Int, Error>
-extern "intrinsic" fn http_limits(id: Int) -> LimitStats
+/// An admitted request with its exchange (answered through it).
+type Incoming = { exchange: native.Handle, method: Symbol, path: String, headers: Map<String, String>, body: Bytes }
+
+type ListenLimits = { max_body_bytes: Int, max_header_bytes: Int, max_in_flight: Int, max_stream_buffer_bytes: Int }
+
+// the `lang_http` native module (crates/lang_http)
+extern "native lang_http.listen" fn http_listen(address: String, port: U16, limits: ListenLimits) -> Result<native.Handle, Error> !{Io}
+extern "native lang_http.accept" fn http_accept(server: native.Handle) -> Result<Incoming, Error> !{Io, Wait}
+extern "native lang_http.respond" fn http_respond(exchange: native.Handle, status: Int, headers: Map<String, String>, body: Bytes) -> Unit
+extern "native lang_http.stream_begin" fn http_stream_begin(exchange: native.Handle, status: Int, headers: Map<String, String>) -> Unit
+extern "native lang_http.stream_chunk" fn http_stream_chunk(exchange: native.Handle, chunk: Bytes) -> Unit !{Wait}
+extern "native lang_http.stream_end" fn http_stream_end(exchange: native.Handle) -> Unit
+extern "native lang_http.abort" fn http_abort(exchange: native.Handle) -> Unit
+extern "native lang_http.stop" fn http_stop(server: native.Handle) -> Unit
+extern "native lang_http.port" fn http_port(server: native.Handle) -> Int
+extern "native lang_http.stats" fn http_stats(server: native.Handle) -> LimitStats
 extern "intrinsic" fn http_default_limits() -> Limits
-extern "intrinsic" fn http_stream_begin(conn: Int, guard: Int, status: Int, headers: Map<String, String>) -> Int
-extern "intrinsic" fn http_stream_chunk(conn: Int, chunk: Bytes) -> Unit
-extern "intrinsic" fn http_stream_end(conn: Int, guard: Int) -> Unit
-extern "intrinsic" fn http_stop(id: Int) -> Unit
-extern "intrinsic" fn http_port(id: Int) -> Int
-extern "intrinsic" fn http_begin(conn: Int) -> Int
-extern "intrinsic" fn http_respond(conn: Int, guard: Int, response: Response) -> Unit
+extern "intrinsic" fn http_stream_buffer_default() -> Int
 extern "intrinsic" fn http_body_text(body: Bytes) -> String
+extern "intrinsic" fn service_scope() -> Int
+extern "intrinsic" fn service_spawn(scope: Int, f: fn() -> Unit) -> Unit
+extern "intrinsic" fn service_close(scope: Int) -> Unit
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
 
 /// Package a request callback.
@@ -252,7 +268,7 @@ extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
 /// reply is collected into the body.
 pub fn call(h: Handler, request: Request) -> Response {
     let sink: Cell<Response> = Cell.new(error_response(500, "no reply"))
-    match h.run(request, { conn: -1, guard: Cell.new(-1), sink: Option.some(sink) }) {
+    match h.run(request, { conn: Option.none, sink: Option.some(sink) }) {
         .full(r) => r,
         .sent => sink.get(),
         .stream(s) => {
@@ -300,31 +316,58 @@ pub fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error> !
 
 /// Start serving with explicit limits.
 pub fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error> !{Io} {
-    let id = http_listen<Request>(address, port, fn(request: Request, conn: Int) {
-        let guard = http_begin(conn)
-        let exchange: Exchange = { conn, guard: Cell.new(guard), sink: Option.none }
-        match h.run(request, exchange) {
-            .sent => (),
-            .full(response) => http_respond(conn, guard, response),
-            .stream(s) => {
-                let g = http_stream_begin(conn, guard, s.status, s.headers)
-                for chunk in s.chunks {
-                    http_stream_chunk(conn, chunk)
-                }
-                http_stream_end(conn, g)
-            },
+    let all: ListenLimits = {
+        max_body_bytes: limits.max_body_bytes,
+        max_header_bytes: limits.max_header_bytes,
+        max_in_flight: limits.max_in_flight,
+        max_stream_buffer_bytes: http_stream_buffer_default(),
+    }
+    let handle = http_listen(address, port, all)?
+    let scope = service_scope()
+    service_spawn(scope, fn() { accept_requests(handle, scope, h) })
+    ok({ handle, scope })
+}
+
+/// Take admitted requests until the server stops, each in its own task.
+fn accept_requests(server: native.Handle, scope: Int, h: Handler) -> Unit {
+    loop {
+        match http_accept(server) {
+            .ok(incoming) => service_spawn(scope, fn() { serve(h, incoming) }),
+            .err(_) => break,
         }
-    }, limits)?
-    ok({ id })
+    }
+}
+
+/// One request's task: a defect or cancellation before the reply is sent
+/// answers 500 (or cuts a started stream short).
+fn serve(h: Handler, incoming: Incoming) -> Unit {
+    let conn = incoming.exchange
+    let guard = cleanup_push(fn() { http_abort(conn) })
+    let request: Request = { method: incoming.method, path: incoming.path, headers: incoming.headers, body: incoming.body }
+    match h.run(request, { conn: Option.some(conn), sink: Option.none }) {
+        .sent => (),
+        .full(response) => http_respond(conn, response.status, response.headers, response.body),
+        .stream(s) => {
+            http_stream_begin(conn, s.status, s.headers)
+            for chunk in s.chunks {
+                http_stream_chunk(conn, chunk)
+            }
+            http_stream_end(conn)
+        },
+    }
+    cleanup_remove(guard)
 }
 
 /// Effective limits of a running server and its rejection count.
-pub fn stats(s: Server) -> LimitStats { http_limits(s.id) }
+pub fn stats(s: Server) -> LimitStats { http_stats(s.handle) }
 
 /// Stop admission and settle in-flight requests.
-pub fn stop(s: Server) -> Unit { http_stop(s.id) }
+pub fn stop(s: Server) -> Unit {
+    http_stop(s.handle)
+    service_close(s.scope)
+}
 
-pub fn port(s: Server) -> Int { http_port(s.id) }
+pub fn port(s: Server) -> Int { http_port(s.handle) }
 
 fn server_init(scope: system.InitScope, config: { address: String, port: U16, handler: Handler }) -> Result<Server, Error> {
     let s = listen(config.address, config.port, config.handler)?

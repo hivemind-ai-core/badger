@@ -1,0 +1,18 @@
+[package]
+name = "lang_http"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "The HTTP/1.1 server native module behind std.http (hyper on tokio)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lang_native.workspace = true
+hyper = { version = "1.11", features = ["server", "http1"] }
+hyper-util = { version = "0.1.21", features = ["tokio"] }
+http-body-util = "0.1.5"
+bytes = "1"
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }
