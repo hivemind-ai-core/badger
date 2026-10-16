@@ -20,6 +20,7 @@ serde_json = "1.0.154"
 rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column_metadata"] }
 # native modules linked into every program's executable
 lang_sqlite.workspace = true
+lang_fetch.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

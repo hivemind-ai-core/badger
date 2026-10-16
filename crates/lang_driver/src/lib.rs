@@ -101,6 +101,7 @@ pub fn register_native_modules() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         lang_runtime::native::register_builtin("lang_sqlite", lang_sqlite::native_entry);
+        lang_runtime::native::register_builtin("lang_fetch", lang_fetch::native_entry);
     });
 }
 

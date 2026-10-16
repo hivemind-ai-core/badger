@@ -163,6 +163,8 @@ pub static DEF: ModuleDef = ModuleDef {
     ],
     drop_handle: Some(drop_handle),
     cancel: Some(cancel),
+    recorded: &[],
+    pure: &[],
 };
 
 lang_native::export!("lang_native_demo", DEF);

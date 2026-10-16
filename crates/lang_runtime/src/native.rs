@@ -34,7 +34,9 @@ static HOST: Host = Host { abi_version: nv::ABI_VERSION, args: host_args, comple
 struct Loaded {
     name: String,
     module: &'static Module,
-    fns: FxHashMap<String, (usize, Mode)>,
+    /// Each function's index, mode, and recording (`FnDesc::record`,
+    /// with the kind it is filed under).
+    fns: FxHashMap<String, (usize, Mode, u32, Option<&'static str>)>,
 }
 
 unsafe impl Send for Loaded {}
@@ -124,14 +126,18 @@ fn open(name: &str) -> Loading {
     for i in 0..module.nfns {
         let d = unsafe { &*module.fns.add(i) };
         let n = unsafe { CStr::from_ptr(d.name) }.to_string_lossy().into_owned();
-        fns.insert(n, (i, d.mode));
+        let kind = (!d.record_kind.is_null()).then(|| {
+            let k = unsafe { CStr::from_ptr(d.record_kind) }.to_string_lossy().into_owned();
+            &*Box::leak(k.into_boxed_str())
+        });
+        fns.insert(n, (i, d.mode, d.record, kind));
     }
     Ok(Box::leak(Box::new(Loaded { name: name.to_string(), module, fns })))
 }
 
 /// A call site: its module and function index (by the site's immortal
 /// `"module\0function"` string).
-type Site = (&'static Loaded, usize, Mode);
+type Site = (&'static Loaded, usize, Mode, u32, Option<&'static str>);
 
 fn site(s: u64) -> Result<Site, String> {
     static SITES: Mutex<Option<FxHashMap<u64, Result<Site, String>>>> = Mutex::new(None);
@@ -141,7 +147,7 @@ fn site(s: u64) -> Result<Site, String> {
     let text = str_of(s);
     let (lib, func) = text.split_once('\0').unwrap_or((text, ""));
     let r = load(lib).and_then(|m| match m.fns.get(func) {
-        Some(&(i, mode)) => Ok((m, i, mode)),
+        Some(&(i, mode, record, kind)) => Ok((m, i, mode, record, kind)),
         None => Err(format!("native module `{lib}` has no function `{func}`")),
     });
     SITES.lock().unwrap().get_or_insert_default().insert(s, r.clone());
@@ -218,10 +224,7 @@ fn release_handles(drop: Option<unsafe extern "C" fn(u64)>, bytes: &[u8]) {
 /// Call `site` with `args` (of the declared types `targs`), returning a
 /// value of type `ret`.
 fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
-    let (m, index, mode) = site(s).unwrap_or_else(|e| defect(e));
-    // reproduction bundles do not capture a module's effects: a recording
-    // notes it, and a replay stops here rather than reach the world
-    crate::repro::uncaptured(&format!("native module `{}`", m.name));
+    let (m, index, mode, record, kind) = site(s).unwrap_or_else(|e| defect(e));
     let what = || str_of(s).replace('\0', ".");
     let mut w = Writer::default();
     w.u8(tag::LIST);
@@ -231,8 +234,57 @@ fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
             defect(format!("argument {} of native `{}`: {e}", i + 1, what()));
         }
     }
+    let bytes = if record == nv::PURE {
+        run(m, index, mode, w.buf)
+    } else if record == 0 {
+        // a recording notes that the module's effects are not captured,
+        // and a replay stops here rather than reach the world
+        crate::repro::uncaptured(&format!("native module `{}`", m.name));
+        run(m, index, mode, w.buf)
+    } else {
+        let (kind, prefix) = match kind {
+            Some(k) => (k.to_string(), String::new()),
+            None => ("native".to_string(), what()),
+        };
+        let (key, digest) = identity(&prefix, &w.buf, record as usize - 1);
+        crate::repro::external(&kind, &key, Some(digest), false, || run(m, index, mode, w.buf))
+    };
+    let _r = Roots::new();
+    match decode_result(ret, &bytes, m) {
+        Ok(v) => v,
+        Err(e) => defect(format!("native `{}`: {e}", what())),
+    }
+}
+
+/// A recorded call's identity (`module.function` and its first `k`
+/// arguments, URLs masked as for the runtime's own requests) and a digest
+/// of the rest, which it sends.
+fn identity(name: &str, args: &[u8], k: usize) -> (String, String) {
+    let Ok(nv::Value::List(vs)) = nv::Value::decode(&mut Reader::new(args)) else {
+        return (name.to_string(), crate::repro::digest(args));
+    };
+    let mut key = name.to_string();
+    for v in vs.iter().take(k) {
+        if !key.is_empty() {
+            key.push(' ');
+        }
+        match v {
+            nv::Value::Str(s) | nv::Value::Symbol(s) => key.push_str(&crate::repro::mask_url(s)),
+            other => key.push_str(&format!("{other:?}")),
+        }
+    }
+    let mut rest = Writer::default();
+    for v in vs.iter().skip(k) {
+        v.encode(&mut rest);
+    }
+    (key, crate::repro::digest(&rest.buf))
+}
+
+/// Run function `index` of `m` on encoded `args` by its mode; the encoded
+/// result.
+fn run(m: &'static Loaded, index: usize, mode: Mode, args: Vec<u8>) -> Vec<u8> {
     let st = Arc::new(CallState {
-        args: w.buf,
+        args,
         result: Mutex::new(None),
         state: AtomicU8::new(PENDING),
         waiter: if mode == Mode::Async {
@@ -259,14 +311,7 @@ fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
         Mode::Async => with_lock(|| wait_async(&st, module, raw, index)),
     }
     let result = st.result.lock().unwrap().take();
-    let Some(bytes) = result else {
-        defect(format!("native `{}` returned without completing the call", what()));
-    };
-    let _r = Roots::new();
-    match decode_result(ret, &bytes, m) {
-        Ok(v) => v,
-        Err(e) => defect(format!("native `{}`: {e}", what())),
-    }
+    result.unwrap_or_else(|| nv::defect("the module returned without completing the call"))
 }
 
 fn with_lock<R>(f: impl FnOnce() -> R) -> R {

@@ -32,6 +32,8 @@
 //!     functions: &[("add", Handler::Inline(add))],
 //!     drop_handle: None,
 //!     cancel: None,
+//!     recorded: &[],
+//!     pure: &["add"],
 //! };
 //! lang_native::export!("demo", DEF);
 //! ```
@@ -309,6 +311,9 @@ impl<'a> Reader<'a> {
 
 // ------------------------------------------------------------------ C ABI
 
+/// [`FnDesc::record`] of a function without effects outside the call.
+pub const PURE: u32 = u32::MAX;
+
 /// How the host runs a function.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -341,6 +346,17 @@ pub struct Host {
 pub struct FnDesc {
     pub name: *const c_char,
     pub mode: Mode,
+    /// 0: the call's effects are not captured by reproduction bundles (a
+    /// replay that reaches it stops). `k + 1`: the call is an external
+    /// operation identified by its first `k` arguments (the rest are what
+    /// it sends); a recording keeps its result and a replay answers it
+    /// from there, as for the runtime's own HTTP requests and file reads.
+    /// [`PURE`]: the call has no effect outside it (its result depends only
+    /// on its arguments), so recordings and replays simply run it.
+    pub record: u32,
+    /// The kind of operation a recorded call is filed under in bundles
+    /// (`fetch`), or null for `native MODULE.FUNCTION`.
+    pub record_kind: *const c_char,
 }
 
 /// What a module gives the host.
@@ -508,6 +524,14 @@ pub struct ModuleDef {
     pub functions: &'static [(&'static str, Handler)],
     pub drop_handle: Option<fn(u64)>,
     pub cancel: Option<fn(CallId)>,
+    /// Functions reproduction bundles record (see [`FnDesc::record`]):
+    /// each name, the kind of operation it is filed under (empty for
+    /// `native MODULE.FUNCTION`), and how many leading arguments identify a
+    /// call.
+    pub recorded: &'static [(&'static str, &'static str, u32)],
+    /// Functions without effects outside the call, which reproduction
+    /// bundles need not capture.
+    pub pure: &'static [&'static str],
 }
 
 pub fn encode_outcome(o: &Outcome) -> Vec<u8> {
@@ -619,6 +643,7 @@ pub fn module_table(
         module: Module,
         _fns: Vec<FnDesc>,
         _names: Vec<CString>,
+        _kinds: Vec<Option<CString>>,
     }
     unsafe impl Send for Table {}
     unsafe impl Sync for Table {}
@@ -631,17 +656,34 @@ pub fn module_table(
         .chain(def.functions.iter().map(|(n, _)| *n))
         .map(|n| CString::new(n).expect("module and function names have no NUL"))
         .collect();
+    let kinds: Vec<Option<CString>> = def
+        .functions
+        .iter()
+        .map(|(f, _)| {
+            def.recorded
+                .iter()
+                .find(|(r, k, _)| r == f && !k.is_empty())
+                .map(|(_, k, _)| CString::new(*k).expect("kinds have no NUL"))
+        })
+        .collect();
     let fns: Vec<FnDesc> = def
         .functions
         .iter()
         .zip(&names[1..])
-        .map(|((_, h), n)| FnDesc {
+        .zip(&kinds)
+        .map(|(((f, h), n), kind)| FnDesc {
             name: n.as_ptr(),
             mode: match h {
                 Handler::Inline(_) => Mode::Inline,
                 Handler::Blocking(_) => Mode::Blocking,
                 Handler::Async(_) => Mode::Async,
             },
+            record: if def.pure.contains(f) {
+                PURE
+            } else {
+                def.recorded.iter().find(|(r, _, _)| r == f).map_or(0, |(_, _, k)| k + 1)
+            },
+            record_kind: kind.as_ref().map_or(std::ptr::null(), |k| k.as_ptr()),
         })
         .collect();
     let module = Module {
@@ -653,7 +695,7 @@ pub fn module_table(
         drop_handle: None,
         cancel: None,
     };
-    let t: &'static Table = Box::leak(Box::new(Table { module, _fns: fns, _names: names }));
+    let t: &'static Table = Box::leak(Box::new(Table { module, _fns: fns, _names: names, _kinds: kinds }));
     g.push((def.name, t));
     &t.module
 }

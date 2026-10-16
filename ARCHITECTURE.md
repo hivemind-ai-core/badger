@@ -41,9 +41,10 @@ error. `lang_cli` is the `lang` binary.
 | `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, HTTP server and client, parsing | corosensei, serde_json, regex, backtrace, ureq |
+| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, HTTP server, parsing | corosensei, serde_json, regex, backtrace |
 | `lang_native` | native module ABI, wire format, helpers for modules in Rust | — |
 | `lang_sqlite` | the `lang_sqlite` native module behind `std.sqlite` | rusqlite |
+| `lang_fetch` | the `lang_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
 | `lang_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
 | `lang_cli` | command-line interface | clap |
 
@@ -415,6 +416,10 @@ reporting a deadlock), completes through the external queue, and
 registers a task cleanup that, if the task is abandoned first, withdraws
 it and calls the module's `cancel`. Handle objects carry their module and
 number; their finalizer hands `drop_handle` to a background thread.
+A function a module marks recorded (`FnDesc::record`: identified by its
+first k arguments, filed under a kind such as `fetch`) goes through
+`repro::external` with its encoded result, so bundles capture and replay
+it; one marked pure runs as usual; any other is `repro::uncaptured`.
 `crates/lang_native_demo` is a module for the tests (`tests/native`).
 
 ## Live reload

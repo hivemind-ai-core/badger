@@ -777,6 +777,7 @@ dependencies = [
  "insta",
  "lang_base",
  "lang_codegen",
+ "lang_fetch",
  "lang_hir",
  "lang_mir",
  "lang_runtime",
@@ -788,6 +789,14 @@ dependencies = [
  "serde_json",
  "thiserror",
  "toml",
+]
+
+[[package]]
+name = "lang_fetch"
+version = "0.1.0"
+dependencies = [
+ "lang_native",
+ "ureq",
 ]
 
 [[package]]
@@ -847,7 +856,6 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
- "ureq",
 ]
 
 [[package]]

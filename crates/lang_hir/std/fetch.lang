@@ -7,9 +7,10 @@ import std.time
 
 pub type Reply = { status: Int, headers: List<(String, String)>, body: String }
 
-extern "intrinsic" fn fetch_origin(url: String) -> Result<String, io.Error>
-extern "intrinsic" fn fetch_join(origin: String, path: String) -> Result<String, io.Error>
-extern "intrinsic" fn fetch_request(method: String, url: String, body: String, content_type: String, timeout_ms: Int) -> Result<Reply, io.Error>
+// the `lang_fetch` native module (crates/lang_fetch)
+extern "native lang_fetch.origin" fn fetch_origin(url: String) -> Result<String, io.Error>
+extern "native lang_fetch.join" fn fetch_join(origin: String, path: String) -> Result<String, io.Error>
+extern "native lang_fetch.request" fn fetch_request(method: String, url: String, body: String, content_type: String, timeout_ms: Int) -> Result<Reply, io.Error> !{Io, Wait}
 
 /// `GET url` (30 s limit).
 pub fn get(url: String) -> Result<Reply, io.Error> !{Io, Wait} { fetch_request("GET", url, "", "", 30000) }

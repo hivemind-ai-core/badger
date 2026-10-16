@@ -410,6 +410,8 @@ pub static DEF: ModuleDef = ModuleDef {
     ],
     drop_handle: Some(drop_handle),
     cancel: None,
+    recorded: &[],
+    pure: &[],
 };
 
 lang_native::export!("lang_sqlite", DEF);

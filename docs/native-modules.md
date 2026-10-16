@@ -65,6 +65,21 @@ Each function of a module has a mode:
   loop, a server accepting connections). Cancelling the waiting task tells
   the module (its `cancel` hook) and discards the late completion.
 
+## Reproduction bundles
+
+`lang run --record` captures a program's external operations so a replay
+reproduces it without reaching the world. A module says, per function,
+how bundles treat it:
+
+- **recorded**: an external operation identified by its first *k*
+  arguments (the rest are what it sends), filed under a kind (`fetch`
+  files a request as `fetch GET https://…`). A recording keeps its result;
+  a replay answers it from there, and `--compare` reports a call that
+  sends different content.
+- **pure**: no effect outside the call; recordings and replays run it.
+- otherwise **uncaptured**: a recording notes the limitation, and a
+  replay stops (status 3) at the first call rather than run it for real.
+
 ## Failures
 
 A module reports expected failures as `err` values: a `native.Error` with a
@@ -127,6 +142,8 @@ pub static DEF: ModuleDef = ModuleDef {
     functions: &[("add", Handler::Inline(add))],
     drop_handle: None,
     cancel: None,
+    recorded: &[],   // (function, kind, identifying arguments)
+    pure: &["add"],
 };
 
 lang_native::export!("demo", DEF);
@@ -150,7 +167,12 @@ typedef struct {
     const uint8_t *(*args)(Call *, size_t *len);  /* encoded argument list */
     void (*complete)(Call *, const uint8_t *result, size_t len);  /* once */
 } Host;
-typedef struct { const char *name; uint32_t mode; } FnDesc;  /* 0 inline, 1 blocking, 2 async */
+typedef struct {
+    const char *name;
+    uint32_t mode;         /* 0 inline, 1 blocking, 2 async */
+    uint32_t record;       /* 0 uncaptured; k + 1 recorded by its first k arguments; 0xFFFFFFFF pure */
+    const char *record_kind;  /* bundle kind of a recorded call, or NULL for "native MODULE.FUNCTION" */
+} FnDesc;
 typedef struct {
     uint32_t abi_version;
     const char *name;
