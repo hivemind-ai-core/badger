@@ -2671,6 +2671,10 @@ fn run_main_multi(entry: u64) -> Exit {
             .spawn(move || {
                 // per-worker tables are sized by MAX_WORKERS
                 assert!(w < MAX_WORKERS);
+                // (tests of the internal-error path)
+                if w == 1 && std::env::var_os("LANG_DEBUG_PANIC_WORKER").is_some() {
+                    panic!("requested by LANG_DEBUG_PANIC_WORKER");
+                }
                 WORKER.with(|c| c.set(w));
                 crate::profile::start_thread();
                 lock_for(reason::STARTUP);

@@ -212,7 +212,40 @@ enum Command {
     },
 }
 
+/// Exit status of an internal error (a bug in the compiler or runtime,
+/// not in the program): `EX_SOFTWARE`.
+const INTERNAL_ERROR: i32 = 70;
+
+/// An internal error ends the whole process at once, from whichever thread
+/// it happened on: runtime invariants may no longer hold, and a worker
+/// thread that died alone could leave the others waiting forever (a
+/// supervisor such as systemd restarts the process; the program's own
+/// defects are task failures, not this).
+fn exit_on_internal_errors() {
+    std::panic::set_hook(Box::new(|info| {
+        let msg = info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown".into());
+        let at = info.location().map(|l| format!(" at {}:{}", l.file(), l.line())).unwrap_or_default();
+        let thread = std::thread::current();
+        eprintln!(
+            "internal error: {msg}{at} (thread {})\nthis is a bug in lang, not in the program: please report it",
+            thread.name().unwrap_or("unnamed")
+        );
+        if std::env::var_os("RUST_BACKTRACE").is_some() {
+            eprintln!("{}", std::backtrace::Backtrace::force_capture());
+        } else {
+            eprintln!("(RUST_BACKTRACE=1 shows where)");
+        }
+        std::process::exit(INTERNAL_ERROR);
+    }));
+}
+
 fn main() -> ExitCode {
+    exit_on_internal_errors();
     // LANG_PROFILE covers compilation too, not only the program run
     lang_driver::start_profile();
     // `std.compiler` runs this executable for its queries

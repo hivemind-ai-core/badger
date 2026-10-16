@@ -649,6 +649,23 @@ fn heap_budget_contains_a_task() {
     assert!(String::from_utf8_lossy(&out.stdout).starts_with("finished 10000000"));
 }
 
+/// An internal error on a worker thread ends the process at once with
+/// status 70 and a report, rather than leaving the other workers waiting.
+#[test]
+fn internal_error_exits_promptly() {
+    let out = lang()
+        .env("LANG_DEBUG_PANIC_WORKER", "1")
+        .args(["run", "--workers", "4", "tests/run/rendezvous.lang"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(70));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("internal error: requested by LANG_DEBUG_PANIC_WORKER") && err.contains("please report"),
+        "{err}"
+    );
+}
+
 /// Name and syntax errors (found before type checking) also report their
 /// module, and name errors their enclosing definition.
 #[test]
