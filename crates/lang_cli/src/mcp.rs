@@ -75,7 +75,7 @@ fn tools() -> Value {
         },
         {
             "name": "run",
-            "description": "Run a program (file or project directory) or, with `test: true`, its `test_*` functions, in a fresh process. Returns the exit status, stdout, and stderr.",
+            "description": "Run a program (file or project directory) or, with `test: true`, its `test_*` functions, in a fresh process. Returns the exit status, stdout, and stderr. With `breakpoints` (`file:line`, optionally `file:line if CONDITION`), it runs under gdb with debug information and reports, at each stop, the innermost frames, arguments, and locals (or the gdb `commands` given), up to `max_stops`. With `profile: true`, it also returns a CPU profile (functions by self and total time).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -83,7 +83,11 @@ fn tools() -> Value {
                     "args": { "type": "array", "items": { "type": "string" } },
                     "test": { "type": "boolean" },
                     "release": { "type": "boolean" },
-                    "timeout_secs": { "type": "number", "description": "Kill the process after this long (default 60)." }
+                    "timeout_secs": { "type": "number", "description": "Kill the process after this long (default 60)." },
+                    "breakpoints": { "type": "array", "items": { "type": "string" }, "description": "Stop at `file:line` or `file:line if CONDITION` (gdb syntax)." },
+                    "commands": { "type": "array", "items": { "type": "string" }, "description": "gdb commands at each stop (default: bt, info args, info locals)." },
+                    "max_stops": { "type": "integer", "description": "Stops to report before ending the run (default 10)." },
+                    "profile": { "type": "boolean" }
                 },
                 "required": ["path"]
             }
@@ -97,8 +101,18 @@ fn exe() -> String {
 
 /// Run `lang ARGS` with a time limit: (status, stdout, stderr).
 fn lang(args: &[String], limit: Duration) -> Result<(i32, String, String), String> {
+    lang_env(args, &[], limit)
+}
+
+/// `lang` with extra environment variables for the child.
+fn lang_env(
+    args: &[String],
+    env: &[(&str, String)],
+    limit: Duration,
+) -> Result<(i32, String, String), String> {
     let mut child = std::process::Command::new(exe())
         .args(args)
+        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -262,7 +276,15 @@ impl Mcp {
                     args.push("--".into());
                     args.extend(xs.iter().filter_map(|x| x.as_str().map(str::to_string)));
                 }
-                match lang(&args, secs(&a["timeout_secs"], 60.0)) {
+                if let Some(bps) = a["breakpoints"].as_array().filter(|b| !b.is_empty()) {
+                    return self.debug_run(path, bps, a);
+                }
+                let mut env = vec![];
+                if a["profile"] == json!(true) {
+                    // the summary is printed on stderr
+                    env.push(("LANG_PROFILE", self.scratch.join("profile.folded").display().to_string()));
+                }
+                match lang_env(&args, &env, secs(&a["timeout_secs"], 60.0)) {
                     Ok((status, out, err)) => {
                         let mut t = format!("exit status {status}\n");
                         if !out.is_empty() {
@@ -277,6 +299,54 @@ impl Mcp {
                 }
             }
             other => text(format!("unknown tool `{other}`"), true),
+        }
+    }
+
+    /// Run a program under gdb with breakpoints, reporting each stop.
+    fn debug_run(&self, path: &str, bps: &[Value], a: &Value) -> Value {
+        let commands: Vec<String> = match a["commands"].as_array() {
+            Some(cs) => cs.iter().filter_map(|c| c.as_str().map(str::to_string)).collect(),
+            None => vec!["bt 5".into(), "info args".into(), "info locals".into()],
+        };
+        let max = a["max_stops"].as_u64().unwrap_or(10);
+        let mut script = String::from(
+            "set debuginfod enabled off\nset breakpoint pending on\nset pagination off\nset confirm off\nset $stops = 0\n",
+        );
+        for (i, bp) in bps.iter().filter_map(|b| b.as_str()).enumerate() {
+            script.push_str(&format!("break {bp}\ncommands {}\nset $stops = $stops + 1\n", i + 1));
+            for c in &commands {
+                script.push_str(c);
+                script.push('\n');
+            }
+            script.push_str(&format!("if $stops < {max}\ncontinue\nend\nend\n"));
+        }
+        script.push_str("run\n");
+        let file = self.scratch.join("debug.gdb");
+        if let Err(e) = std::fs::write(&file, script) {
+            return text(format!("cannot write {}: {e}", file.display()), true);
+        }
+        let mut args = vec!["-batch", "-nx", "-x"].into_iter().map(String::from).collect::<Vec<_>>();
+        args.push(file.display().to_string());
+        args.extend(["--args".to_string(), exe(), "run".into(), "--debug".into(), path.into()]);
+        let out = std::process::Command::new("gdb").args(&args).stdin(std::process::Stdio::null()).output();
+        match out {
+            Err(e) => text(format!("cannot run gdb (needed for breakpoints): {e}"), true),
+            Ok(o) => {
+                // keep the debugger's report, not its thread chatter
+                let keep = |l: &&str| {
+                    !(l.starts_with("[New Thread")
+                        || l.starts_with("[Thread")
+                        || l.contains("libthread_db")
+                        || l.starts_with("Using host")
+                        || l.contains("auto-load")
+                        || l.starts_with("of file")
+                        || l.starts_with("Use `info auto-load"))
+                };
+                let out = String::from_utf8_lossy(&o.stdout);
+                let err = String::from_utf8_lossy(&o.stderr);
+                let report: Vec<&str> = out.lines().chain(err.lines()).filter(keep).collect();
+                text(report.join("\n"), false)
+            }
         }
     }
 }
