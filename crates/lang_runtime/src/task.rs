@@ -1121,6 +1121,7 @@ fn enqueue_locked(id: TaskId, slot: bool) -> bool {
     if slot {
         let w = worker_index();
         let prev = std::mem::replace(&mut queue().next[w], id);
+        queue().next_at[w] = now_ns();
         if prev != 0 {
             queue().ready.push_back(prev);
             return true;
@@ -1152,12 +1153,27 @@ struct ReadyQueue {
     /// Several workers: a task woken by a running task, kept to run next on
     /// the waker's worker (0 = none); idle workers steal from these.
     next: [TaskId; MAX_WORKERS],
+    /// When each next slot was filled ([`now_ns`]): another worker may take
+    /// it only after [`STEAL_AFTER_NS`], so a woken partner usually runs on
+    /// the worker whose caches hold the data it was woken for.
+    next_at: [u64; MAX_WORKERS],
+}
+
+const STEAL_AFTER_NS: u64 = 50_000;
+
+/// Monotonic nanoseconds since the runtime started.
+fn now_ns() -> u64 {
+    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    START.get_or_init(Instant::now).elapsed().as_nanos() as u64
 }
 
 struct QueueCell(UnsafeCell<ReadyQueue>);
 unsafe impl Sync for QueueCell {}
-static QUEUE: QueueCell =
-    QueueCell(UnsafeCell::new(ReadyQueue { ready: VecDeque::new(), next: [0; MAX_WORKERS] }));
+static QUEUE: QueueCell = QueueCell(UnsafeCell::new(ReadyQueue {
+    ready: VecDeque::new(),
+    next: [0; MAX_WORKERS],
+    next_at: [0; MAX_WORKERS],
+}));
 
 /// The ready queue (only inside [`sched`]).
 #[allow(clippy::mut_from_ref)]
@@ -1197,7 +1213,38 @@ fn take_ready() -> Option<TaskId> {
         if let Some(t) = chaos_pop() {
             return Some(t);
         }
-        queue().next.iter_mut().find(|t| **t != 0).map(std::mem::take)
+        // another worker's next task, once it has waited there a while
+        let now = now_ns();
+        let q = queue();
+        (0..MAX_WORKERS)
+            .find(|&i| q.next[i] != 0 && now.saturating_sub(q.next_at[i]) >= STEAL_AFTER_NS)
+            .map(|i| std::mem::take(&mut q.next[i]))
+    })
+}
+
+/// Whether this worker has something to run (its next slot, the shared
+/// queue, or another worker's slot it may take), and otherwise how soon
+/// another worker's slot becomes takable.
+fn work_here() -> (bool, Option<Duration>) {
+    sched(|| {
+        let q = queue();
+        let w = worker_index();
+        if q.next[w] != 0 || !q.ready.is_empty() {
+            return (true, None);
+        }
+        let now = now_ns();
+        let mut soonest: Option<u64> = None;
+        for i in 0..MAX_WORKERS {
+            if q.next[i] != 0 {
+                let age = now.saturating_sub(q.next_at[i]);
+                if age >= STEAL_AFTER_NS {
+                    return (true, None);
+                }
+                let left = STEAL_AFTER_NS - age;
+                soonest = Some(soonest.map_or(left, |s: u64| s.min(left)));
+            }
+        }
+        (false, soonest.map(Duration::from_nanos))
     })
 }
 
@@ -2011,8 +2058,9 @@ fn worker_loop(n: usize) -> Option<Exit> {
             take_ready()
         };
         if let Some(id) = pick {
-            // more work than this worker can take: wake another
-            if has_ready() {
+            // more work than this worker can take: wake another (tasks in
+            // workers' next slots are taken by idle workers after a while)
+            if sched(|| !queue().ready.is_empty()) {
                 notify_ready();
             }
             run_one(id);
@@ -2023,12 +2071,8 @@ fn worker_loop(n: usize) -> Option<Exit> {
         run_scheduler_work();
         // (a worker standing aside for controlled scheduling waits instead)
         let aside = worker_index() != 0 && sched_controlled();
-        if has_ready() && !aside {
-            continue;
-        }
-        // (a worker standing aside for controlled scheduling waits instead)
-        let aside = worker_index() != 0 && sched_controlled();
-        if has_ready() && !aside {
+        let (work, steal_in) = work_here();
+        if work && !aside {
             continue;
         }
         let r = rt();
@@ -2063,7 +2107,8 @@ fn worker_loop(n: usize) -> Option<Exit> {
         let wait = next_timer
             .map(|at| at.saturating_duration_since(Instant::now()))
             .unwrap_or(Duration::from_millis(20))
-            .min(Duration::from_millis(20));
+            .min(Duration::from_millis(20))
+            .min(steal_in.unwrap_or(Duration::MAX));
         IDLE.fetch_add(1, Ordering::SeqCst);
         unlock();
         {
