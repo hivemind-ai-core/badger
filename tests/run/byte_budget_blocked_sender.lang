@@ -1,5 +1,6 @@
 // A blocked sender admitted when space opens keeps its byte charge.
 import std.channel
+import std.inspect
 import std.io
 import std.task
 
@@ -8,6 +9,24 @@ pub enum AppError {
     send(source: channel.SendError<String>),
     io(source: io.Error),
 } derive(Error, From)
+
+fn is_sending(t: Data) -> Bool {
+    match t {
+        .object(fields) => match fields.get("wait") {
+            .some(.string(w)) => w == "channel send",
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// Whether some task is parked sending.
+fn sender_blocked() -> Bool !{State} {
+    match inspect.tasks() {
+        .list(items) => items.fold(false, fn(found, t) { found || is_sending(t) }),
+        _ => false,
+    }
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let ends = channel.create<String>({ capacity: 2, byte_budget: 4 })?
@@ -20,7 +39,10 @@ pub fn main() -> Result<Unit, AppError> {
             ok(())
         })
         let _ = ready.receiver.recv()
-        task.sleep(2ms)
+        // wait until the sender is blocked on the full budget
+        while !sender_blocked() {
+            task.sleep(1ms)
+        }
         let _ = ends.receiver.recv()
         // The queue holds "bbbb", which consumes all four budgeted bytes.
         match ends.sender.try_send("cccc") {
