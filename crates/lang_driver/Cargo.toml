@@ -24,6 +24,7 @@ lang_fetch.workspace = true
 lang_http.workspace = true
 lang_formats.workspace = true
 lang_template.workspace = true
+lang_crypto.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

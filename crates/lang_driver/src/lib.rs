@@ -170,6 +170,7 @@ pub fn register_native_modules() {
         lang_runtime::native::register_builtin("lang_http", lang_http::native_entry);
         lang_runtime::native::register_builtin("lang_formats", lang_formats::native_entry);
         lang_runtime::native::register_builtin("lang_template", lang_template::native_entry);
+        lang_runtime::native::register_builtin("lang_crypto", lang_crypto::native_entry);
     });
 }
 

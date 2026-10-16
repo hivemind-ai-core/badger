@@ -1,0 +1,35 @@
+// Hashes, message authentication, constant-time comparison, and secure
+// random bytes. The `lang_crypto` native module computes them;
+// reproduction bundles record random bytes, so a replay repeats them.
+
+extern "native lang_crypto.sha256" fn c_sha256(data: Bytes) -> Bytes
+extern "native lang_crypto.sha512" fn c_sha512(data: Bytes) -> Bytes
+extern "native lang_crypto.hmac_sha256" fn c_hmac_sha256(key: Bytes, message: Bytes) -> Bytes
+extern "native lang_crypto.equal" fn c_equal(a: Bytes, b: Bytes) -> Bool
+extern "native lang_crypto.random_bytes" fn c_random_bytes(count: Int) -> Result<Bytes, Error> !{Io}
+
+/// A failure of the platform's random source, or an invalid argument.
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+/// The SHA-256 digest (32 bytes).
+pub fn sha256(data: Bytes) -> Bytes { c_sha256(data) }
+
+/// The SHA-512 digest (64 bytes).
+pub fn sha512(data: Bytes) -> Bytes { c_sha512(data) }
+
+/// HMAC-SHA256 of `message` under `key` (32 bytes).
+pub fn hmac_sha256(key: Bytes, message: Bytes) -> Bytes { c_hmac_sha256(key, message) }
+
+/// Whether `a` and `b` are equal, in time that depends only on their
+/// lengths (for comparing secrets such as signatures and tokens).
+pub fn equal(a: Bytes, b: Bytes) -> Bool { c_equal(a, b) }
+
+/// `count` bytes from the operating system's secure random source (up to
+/// 1 MiB).
+pub fn random_bytes(count: Int) -> Result<Bytes, Error> !{Io} { c_random_bytes(count) }

@@ -1,0 +1,32 @@
+// Encodings, hashes (known test vectors), HMAC (RFC 4231 case 2),
+// constant-time comparison, random bytes, and UUIDs.
+import std.io
+import std.text
+import std.encoding
+import std.crypto
+import std.uuid
+
+pub fn main() -> Result<Unit, io.Error> {
+    let hello = text.to_bytes("hello world")
+    io.println(encoding.base64(hello))?
+    io.println(encoding.base64_url(text.to_bytes("??>")))?
+    io.println(encoding.from_base64("aGVsbG8gd29ybGQ").map(fn(b) { b == hello }).unwrap_or(false))?
+    io.println(encoding.from_base64("not base64!").is_err())?
+    io.println(encoding.hex(crypto.sha256(text.to_bytes("abc"))))?
+    io.println(encoding.hex(crypto.sha512(text.to_bytes(""))).len())?
+    io.println(encoding.hex(crypto.hmac_sha256(text.to_bytes("Jefe"), text.to_bytes("what do ya want for nothing?"))))?
+    io.println(encoding.from_hex("68656c6c6f").map(fn(b) { b == text.to_bytes("hello") }).unwrap_or(false))?
+    io.println(encoding.from_hex("abc").is_err())?
+    io.println(encoding.url("a b&c=d/é"))?
+    io.println(encoding.from_url("a+b%26c%3Dd").unwrap_or("?"))?
+    io.println($"{crypto.equal(hello, hello)} {crypto.equal(hello, text.to_bytes("hello"))}")?
+    let r = crypto.random_bytes(16).unwrap_or(hello)
+    io.println($"{encoding.hex(r).len()} {r != crypto.random_bytes(16).unwrap_or(hello)}")?
+    let a = uuid.v4()
+    let b = uuid.v7()
+    let c = uuid.v7()
+    io.println($"{a.len()} {a != b} {b < c} {uuid.parse(text.to_upper(a)).unwrap_or("") == a}")?
+    io.println(uuid.parse("{67e55044-10b1-426f-9247-bb680e5fe0c8}").unwrap_or("?"))?
+    io.println(uuid.parse("nope").is_err())?
+    ok(())
+}
