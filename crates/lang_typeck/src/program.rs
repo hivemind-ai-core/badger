@@ -57,6 +57,9 @@ pub struct Global<'a> {
     /// stands for, and the capabilities definitions require of them.
     pub skolem_owner: RefCell<FxHashMap<u32, (DefId, u32)>>,
     pub implied: RefCell<FxHashMap<DefId, Vec<(u32, &'static str)>>>,
+    /// The protocols each declared generic (skolem) is bounded by, kept
+    /// for requirements checked after its function (implied capabilities).
+    pub skolem_bounds: RefCell<FxHashMap<u32, Vec<DefId>>>,
     /// Helpers storing one parameter into another's container (computed
     /// on first use; see `regions::store_summaries`).
     #[allow(clippy::type_complexity)]
@@ -422,6 +425,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         dup_deferred: RefCell::new(vec![]),
         dups_final: std::cell::Cell::new(false),
         skolem_owner: RefCell::new(FxHashMap::default()),
+        skolem_bounds: RefCell::new(FxHashMap::default()),
         implied: RefCell::new(FxHashMap::default()),
         store_summaries: RefCell::new(None),
     };
@@ -1855,6 +1859,7 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
                 inf.self_ty = Some(subst_gen(&imp.self_ty, &args));
             }
             inf.givens = givens_for(inf, f);
+            remember_bounds(inf);
             // a default method body may use its own protocol on `Self`
             if let Some(owner) = f.owner
                 && let DefKind::Protocol(pd) = &hir.defs[owner].kind
@@ -2152,6 +2157,22 @@ pub fn check_instance(g: &Global<'_>, def: DefId, args: &[Ty]) -> Instance {
     inf.default_err_convs();
     inf.solve(true);
     zonk_instance(inf, concrete)
+}
+
+/// Record the current givens on generic parameters by skolem.
+fn remember_bounds(inf: &Infer<'_, '_>) {
+    if inf.mode != Mode::Generic {
+        return;
+    }
+    let mut m = inf.g.skolem_bounds.borrow_mut();
+    for (p, _, subj) in &inf.givens {
+        if let TyKind::Skolem(k) = &**subj {
+            let v = m.entry(*k).or_default();
+            if !v.contains(p) {
+                v.push(*p);
+            }
+        }
+    }
 }
 
 /// Fully resolve all recorded types, defaulting unconstrained variables.

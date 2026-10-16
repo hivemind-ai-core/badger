@@ -1620,7 +1620,13 @@ impl Infer<'_, '_> {
                 let found = self.givens.iter().any(|(p, _, subj)| {
                     matches!(&**subj, TyKind::Skolem(x) if *x == s)
                         && self.lang_name(*p).as_deref() == Some(which)
-                });
+                }) || self.mode == Mode::Generic && {
+                    // a requirement checked after its function (an implied
+                    // capability) still sees the parameter's declared bounds
+                    // (skolem numbers are the generic pass's own)
+                    let bounds = self.g.skolem_bounds.borrow().get(&s).cloned().unwrap_or_default();
+                    bounds.iter().any(|p| self.lang_name(*p).as_deref() == Some(which))
+                };
                 // a region brand is shareable with child tasks, never encodable
                 let region = self.icx.skolems[s as usize].region;
                 // a type parameter sent to another task is required to be

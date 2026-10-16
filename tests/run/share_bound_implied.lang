@@ -1,0 +1,25 @@
+// A generic function's bounds hold for requirements its callees imply
+// (here `Share`, implied by a `dyn` conversion in the callee).
+import std.io
+
+fn b<E>(x: E) -> Int where E: Error, E: Share {
+    let d: dyn Error = x
+    1
+}
+
+fn a<E>(x: E) -> Int where E: Error, E: Share { b(x) }
+
+pub struct Oops {
+    pub n: Int,
+}
+
+impl Display for Oops {
+    fn display(self: &Self) -> String { "oops" }
+}
+
+impl Error for Oops {}
+
+pub fn main() -> Unit {
+    let o: Oops = { n: 1 }
+    let _ = io.println($"{a(o)}")
+}
