@@ -1,0 +1,24 @@
+import std.array
+import std.io
+import std.time
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a = array.build(2048, fn(i: Int) { i })
+    let bytes = array.build(2000000, fn(_: Int) { 42U8 })
+    let words = array.build(2000000, fn(_: Int) { 42U16 })
+    assert(bytes.len() == 2000000)
+    assert(words.len() == 2000000)
+    let t = time.now()
+    var sum = 0
+    for _ in 0..1000 { for x in a { sum = sum + x } }
+    let ns = time.as_nanos(time.now() - t)
+    assert(sum == 2096128000)
+    io.println($"array_iterate: {ns} ns; check {sum}")?
+    let t2 = time.now()
+    var count = 0
+    for x in bytes { if x == 42U8 { count = count + 1 } }
+    let ns2 = time.as_nanos(time.now() - t2)
+    assert(count == 2000000)
+    io.println($"byte_iterate: {ns2} ns; check {count}")?
+    ok(())
+}
