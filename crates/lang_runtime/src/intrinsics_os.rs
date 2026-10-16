@@ -68,7 +68,119 @@ macro_rules! os_intrinsics {
     };
 }
 
+/// `scheme://host[:port]` of an `http` or `https` URL that names only an
+/// origin (an optional `/` after it, no user, path, query, or fragment).
+pub fn origin_of(url: &str) -> Result<String, String> {
+    let (scheme, rest) = url.split_once("://").ok_or_else(|| format!("`{url}` is not an http(s) URL"))?;
+    if scheme != "http" && scheme != "https" {
+        return Err(format!("`{url}`: only http and https are supported"));
+    }
+    let host = rest.strip_suffix('/').unwrap_or(rest);
+    if host.is_empty()
+        || host.contains(['/', '?', '#', '@', '\\', ' '])
+        || host.chars().any(|c| c.is_control())
+    {
+        return Err(format!("`{url}` is not an origin (scheme://host[:port])"));
+    }
+    Ok(format!("{scheme}://{}", host.to_ascii_lowercase()))
+}
+
+/// `origin` + `path`, where the path stays on the origin: it starts with a
+/// single `/` and has no control characters or backslashes.
+pub fn join_origin(origin: &str, path: &str) -> Result<String, String> {
+    if !path.starts_with('/')
+        || path.starts_with("//")
+        || path.contains('\\')
+        || path.chars().any(|c| c.is_control() || c == ' ')
+    {
+        return Err(format!("`{path}` is not a path on {origin} (it must start with a single `/`)"));
+    }
+    Ok(format!("{origin}{path}"))
+}
+
+/// One HTTP request: (status, headers, body). Redirects are not followed.
+fn http_fetch(
+    method: &str,
+    url: &str,
+    body: &str,
+    content_type: &str,
+    timeout_ms: u64,
+) -> Result<(u16, Vec<(String, String)>, String), (String, String)> {
+    let config = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_millis(timeout_ms.max(1))))
+        .max_redirects(0)
+        .http_status_as_error(false)
+        .build();
+    let agent: ureq::Agent = config.into();
+    let fail = |e: ureq::Error| {
+        let kind = match &e {
+            ureq::Error::Timeout(_) => "io/timed_out",
+            ureq::Error::Io(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => {
+                "io/connection_failed"
+            }
+            _ => "io/other",
+        };
+        (kind.to_string(), format!("{method} {url}: {e}"))
+    };
+    let resp = match method {
+        "GET" => agent.get(url).call(),
+        "DELETE" => agent.delete(url).call(),
+        "POST" => agent.post(url).header("content-type", content_type).send(body),
+        "PUT" => agent.put(url).header("content-type", content_type).send(body),
+        other => return Err(("io/invalid_input".into(), format!("unsupported method {other}"))),
+    };
+    let mut resp = resp.map_err(fail)?;
+    let status = resp.status().as_u16();
+    let headers = resp
+        .headers()
+        .iter()
+        .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+        .collect();
+    let text = resp.body_mut().with_config().limit(16 << 20).read_to_string().map_err(fail)?;
+    Ok((status, headers, text))
+}
+
 os_intrinsics! {
+    fn fetch_origin(ctx, targs, ret, url) {
+        match origin_of(str_of(url)) {
+            Ok(o) => { let w = new_string(&o); io_ok(rdesc(ret), w) }
+            Err(m) => io_err_msg(rdesc(ret), "io/invalid_input", &m),
+        }
+    }
+    fn fetch_join(ctx, targs, ret, origin, path) {
+        match join_origin(str_of(origin), str_of(path)) {
+            Ok(u) => { let w = new_string(&u); io_ok(rdesc(ret), w) }
+            Err(m) => io_err_msg(rdesc(ret), "io/permission_denied", &m),
+        }
+    }
+    fn fetch_request(ctx, targs, ret, method, url, body, content_type, timeout_ms) {
+        let (m, u, b, c) = (str_of(method).to_string(), str_of(url).to_string(), str_of(body).to_string(), str_of(content_type).to_string());
+        // the URL must start with a valid http(s) origin
+        let authority_end = u.find("://").map(|k| k + 3).map(|k| k + u[k..].find(['/', '?', '#']).unwrap_or(u.len() - k));
+        if authority_end.is_none_or(|end| origin_of(&u[..end]).is_err()) {
+            return io_err_msg(rdesc(ret), "io/invalid_input", &format!("`{u}` is not an http(s) URL"));
+        }
+        let r = crate::task::run_blocking(move || http_fetch(&m, &u, &b, &c, timeout_ms));
+        match r {
+            Ok((status, headers, text)) => {
+                let g = Roots::new();
+                let rec = rdesc(ret).variant(0).unwrap().fields[0].desc;
+                let list_desc = rec.field("headers").map(|f| f.desc).unwrap();
+                let pair = match &list_desc.kind { crate::desc::Kind::List { elem } => *elem, _ => list_desc };
+                let hl = g.add(list::new(list_desc));
+                for (k, v) in headers {
+                    let kw = g.add(new_string(&k));
+                    let vw = g.add(new_string(&v));
+                    let p = g.add(make_record(pair, &[("0", kw), ("1", vw)]));
+                    list::push(hl, p);
+                }
+                let bw = g.add(new_string(&text));
+                let v = g.add(make_record(rec, &[("status", status as u64), ("headers", hl), ("body", bw)]));
+                io_ok(rdesc(ret), v)
+            }
+            Err((k, msg)) => io_err_msg(rdesc(ret), &k, &msg),
+        }
+    }
     // ---------------------------------------------------------------- path
     fn path_join(ctx, targs, ret, a, b) {
         new_string(&std::path::Path::new(str_of(a)).join(str_of(b)).to_string_lossy())

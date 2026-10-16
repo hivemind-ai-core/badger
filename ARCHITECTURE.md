@@ -41,7 +41,7 @@ error. `lang_cli` is the `lang` binary.
 | `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, SQLite, HTTP, parsing | corosensei, rusqlite, serde_json, regex, backtrace |
+| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, SQLite, HTTP server and client, parsing | corosensei, rusqlite, serde_json, regex, backtrace, ureq |
 | `lang_driver` | sessions, manifests/profiles, test runner, live reload | all of the above |
 | `lang_cli` | command-line interface | clap |
 
@@ -284,7 +284,12 @@ error. `lang_cli` is the `lang` binary.
   Private fields keep both from being made any other way. The ambient
   `fs.read_text`/`write_text` remain, withheld from non-entry modules in
   restricted projects (see Projects); a symlink swapped in between
-  resolution and use is not defended against.
+  resolution and use is not defended against. `std.fetch` makes outbound
+  HTTP(S) requests (ureq with rustls, on the blocking pool; redirects are
+  not followed, every status is a reply); `fetch.client(base)` gives a
+  `Client` bound to one origin, whose request paths must start with a
+  single `/`, and the ambient `fetch.get`/`post` are withheld like the
+  filesystem's.
 - **Channels:** prompt (including capacity-zero rendezvous) and batch channels
   with paged staging, publication on limits/close, byte budgets, leased
   batches, and `select`.

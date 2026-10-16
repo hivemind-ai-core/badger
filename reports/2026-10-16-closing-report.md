@@ -96,7 +96,12 @@ record built only to be passed to a helper is not allocated
   chain of calls or function references; E0170 names the path. Other
   modules work through the capabilities the entry hands them: `fs.Dir` /
   `fs.ReadDir`, `env.Vars` (named variables), `process.Runner` (named
-  programs), and open `sqlite.Pool`s.
+  programs), `fetch.Client` (outbound HTTP to one origin), and open
+  `sqlite.Pool`s.
+- **Outbound HTTP** (`std.fetch`): `fetch.get`/`post` and origin-bound
+  clients (`get`, `post`, `put`, `delete`, per-client time limits) over
+  HTTP and HTTPS; redirects are reported, not followed, so a client cannot
+  be led to another origin.
 
 ## Testing infrastructure
 
@@ -156,9 +161,6 @@ reproducing programs:
 - Contracts are checked at run time only; nothing is proved statically.
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
-export, agent tooling, directory capabilities, and restricted projects are
-done. Not taken up: network capabilities (there is no outbound HTTP client
-yet; restricted modules can serve through handlers the entry installs),
-reproduction bundles,
-durable job state, and typed SQL; these are product work for a pilot
-application.
+export, agent tooling, directory capabilities, restricted projects, and
+network capabilities are done. Not taken up: reproduction bundles, durable
+job state, and typed SQL; these are product work for a pilot application.

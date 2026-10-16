@@ -1,0 +1,36 @@
+// Outbound requests to a local test server (FETCH_BASE): plain calls, an
+// origin-bound client, paths that would leave the origin, a redirect that
+// is not followed, and an unreachable host.
+import std.io
+import std.env
+import std.fetch
+import std.text
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+fn show(r: Result<fetch.Reply, io.Error>) -> String {
+    match r {
+        .ok(reply) => $"{reply.status} {reply.body}",
+        .err(e) => $"refused ({e.kind})",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let base = env.get("FETCH_BASE").unwrap_or("http://127.0.0.1:1")
+    say($"get {show(fetch.get($"{base}/hello"))}")
+    say($"post {show(fetch.post($"{base}/echo", "ping", "text/plain"))}")
+    let c = fetch.client(base)?
+    say($"client {show(c.get("/hello"))}")
+    say($"client post {show(c.post("/echo", "pong", "text/plain"))}")
+    let headers = match c.get("/moved") {
+        .ok(reply) => text.join(reply.headers.map(fn(h) { $"{h.0}={h.1}" }), ","),
+        .err(e) => $"{e}",
+    }
+    say($"redirect {show(c.get("/moved"))} [{headers}]")
+    say($"missing {show(c.get("/nope"))}")
+    say($"other origin {show(c.get("//example.com/x"))}")
+    say($"no slash {show(c.get("hello"))}")
+    say($"bad origin {fetch.client("ftp://x").is_err()} {fetch.client($"{base}/path").is_err()}")
+    say($"unreachable {show(fetch.get("http://127.0.0.1:1/x"))}")
+    ok(())
+}

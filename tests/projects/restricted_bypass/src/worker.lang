@@ -1,5 +1,6 @@
 import std.fs
 import std.env
+import std.fetch
 import main
 
 pub fn direct() -> String { env.get("HOME").unwrap_or("") }
@@ -9,3 +10,8 @@ pub fn indirect() -> String { main.load("/etc/hostname") }
 extern "c" fn getpid() -> I32
 
 pub fn foreign() -> I32 { unsafe { getpid() } }
+
+pub fn fetching() -> Bool !{Io, Wait} { fetch.get("http://127.0.0.1:1/").is_ok() }
+
+// a client handed in is a capability, not ambient authority
+pub fn given(c: fetch.Client) -> Bool !{Io, Wait} { c.get("/").is_ok() }

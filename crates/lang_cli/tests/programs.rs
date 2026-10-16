@@ -1112,5 +1112,64 @@ fn restricted_projects() {
             && text.contains("fn worker.getpid`"),
         "{text}"
     );
-    assert_eq!(text.matches("E0170").count(), 3, "{text}");
+    assert!(text.contains("`worker.fetching` uses ambient authority `fetch.get`"), "{text}");
+    assert_eq!(text.matches("E0170").count(), 4, "{text}");
+}
+
+/// `std.fetch` against a local server: replies of every status, an
+/// origin-bound client that refuses other origins, unfollowed redirects.
+#[test]
+fn outbound_http() {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for conn in listener.incoming().flatten() {
+            let mut conn = conn;
+            // the head, then as much body as it declares
+            let (mut buf, mut chunk) = (vec![], [0u8; 4096]);
+            let req = loop {
+                let n = conn.read(&mut chunk).unwrap_or(0);
+                buf.extend_from_slice(&chunk[..n]);
+                let text = String::from_utf8_lossy(&buf).to_string();
+                let complete = text.split_once("\r\n\r\n").is_some_and(|(head, body)| {
+                    let len = head
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|v| v.trim().parse().unwrap_or(0))
+                        })
+                        .unwrap_or(0);
+                    body.len() >= len
+                });
+                if n == 0 || complete {
+                    break text;
+                }
+            };
+            let path = req.split_whitespace().nth(1).unwrap_or("/").to_string();
+            let body = req.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
+            let (status, text, extra) = match path.as_str() {
+                "/hello" => ("200 OK", "hi".to_string(), ""),
+                "/echo" => ("200 OK", format!("got {body}"), ""),
+                "/moved" => ("302 Found", "moved".to_string(), "Location: http://example.com/\r\n"),
+                _ => ("404 Not Found", "none".to_string(), ""),
+            };
+            let _ = write!(
+                conn,
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n{extra}\r\n{text}",
+                text.len()
+            );
+        }
+    });
+    let out = lang()
+        .args(["run", "tests/net/fetch.lang"])
+        .env("FETCH_BASE", format!("http://127.0.0.1:{port}"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "get 200 hi\npost 200 got ping\nclient 200 hi\nclient post 200 got pong\nredirect 302 moved [content-length=5,connection=close,location=http://example.com/]\nmissing 404 none\nother origin refused (io/permission_denied)\nno slash refused (io/permission_denied)\nbad origin true true\nunreachable refused (io/connection_failed)\n"
+    );
 }

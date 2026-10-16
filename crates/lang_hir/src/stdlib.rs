@@ -50,5 +50,6 @@ std_modules![
     "broadcast",
     "array",
     "schema",
-    "compiler"
+    "compiler",
+    "fetch"
 ];
