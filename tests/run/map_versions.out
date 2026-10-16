@@ -1,0 +1,5 @@
+sizes 300 240
+versions intact true
+drained 0 absent 300
+equal true differs false
+set 500 has1 true has2 false

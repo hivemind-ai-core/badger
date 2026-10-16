@@ -810,6 +810,16 @@ fn module_values_under_gc_stress() {
     }
 }
 
+/// Map and set versions share managed trie nodes: collecting at every
+/// allocation must keep every live version's nodes, keys, and values.
+#[test]
+fn map_versions_under_gc_stress() {
+    let src = root().join("tests/run/map_versions.lang");
+    let out = lang().arg("run").arg(&src).env("LANG_GC_STRESS", "1").output().unwrap();
+    let expected = std::fs::read_to_string(src.with_extension("out")).unwrap();
+    assert_eq!(String::from_utf8_lossy(&out.stdout), expected, "{}", String::from_utf8_lossy(&out.stderr));
+}
+
 /// `LANG_PROFILE=FILE` writes collapsed stacks naming generated functions,
 /// and `LANG_PERF_MAP=1` writes a perf symbol map for them.
 #[test]

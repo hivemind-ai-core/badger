@@ -422,7 +422,6 @@ fn finalize(p: *mut Header) {
     let desc = unsafe { (*p).desc() };
     match &desc.kind {
         Kind::List { .. } => crate::list::finalize(p),
-        Kind::Map { .. } | Kind::Set { .. } => crate::map::finalize(p),
         Kind::Opaque { finalize: Some(f), .. } => f(p),
         _ => {}
     }

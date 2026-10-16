@@ -25,6 +25,7 @@ pub mod codec;
 pub mod desc;
 pub mod ffi;
 pub mod gc;
+pub mod hamt;
 pub mod http;
 pub mod inspect;
 pub mod intrinsics;

@@ -1,0 +1,68 @@
+// Persistent maps and sets: old versions survive later inserts and removals
+// (shared trie nodes), managed keys and values stay reachable, and maps
+// with the same content are equal whatever their history.
+import std.io
+import std.map
+import std.set
+
+fn key(i: Int) -> String { $"k{i}" }
+
+pub fn main() -> Unit {
+    let n = 300
+    var m: Map<String, String> = map.empty()
+    var versions: List<Map<String, String>> = []
+    for i in 0..n {
+        m = m.insert(key(i), $"v{i}")
+        if i % 50 == 0 {
+            versions = versions.append(m)
+        }
+    }
+    // overwrite every third key, remove every fifth
+    var edited = m
+    for i in 0..n {
+        if i % 3 == 0 {
+            edited = edited.insert(key(i), $"w{i}")
+        }
+        if i % 5 == 0 {
+            edited = map.remove(edited, key(i))
+        }
+    }
+    let _ = io.println($"sizes {m.len()} {edited.len()}")
+    var ok = true
+    for i in 0..n {
+        let want = if i % 5 == 0 { "none" } else if i % 3 == 0 { $"w{i}" } else { $"v{i}" }
+        if edited.get(key(i)).unwrap_or("none") != want { ok = false }
+        if m.get(key(i)).unwrap_or("none") != $"v{i}" { ok = false }
+    }
+    var vi = 0
+    for v in versions {
+        let size = vi * 50 + 1
+        if v.len() != size { ok = false }
+        for i in 0..n {
+            let want = if i < size { $"v{i}" } else { "none" }
+            if v.get(key(i)).unwrap_or("none") != want { ok = false }
+        }
+        vi = vi + 1
+    }
+    let _ = io.println($"versions intact {ok}")
+    // removing everything empties the map; removing an absent key is a no-op
+    var drained = m
+    for i in 0..n {
+        drained = map.remove(drained, key(n - 1 - i))
+    }
+    let _ = io.println($"drained {drained.len()} absent {map.remove(m, "zz").len()}")
+    // equality ignores history
+    var back: Map<String, String> = map.empty()
+    for i in 0..n {
+        back = back.insert(key(n - 1 - i), $"v{n - 1 - i}")
+    }
+    let _ = io.println($"equal {back == m} differs {back == edited}")
+    var s = set.empty<Int>()
+    for i in 0..1000 {
+        s = set.insert(s, i * 7919 % 1000)
+    }
+    for i in 0..500 {
+        s = set.remove(s, i * 2)
+    }
+    let _ = io.println($"set {s.len()} has1 {s.contains(1)} has2 {s.contains(2)}")
+}
