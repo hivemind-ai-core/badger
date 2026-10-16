@@ -6,16 +6,10 @@ Embedded SQLite storage with scoped transactions.
 
 ## Types
 
-### `ConnRef`
-
-```lang
-pub extern type ConnRef
-```
-
 ### `Connection`
 
 ```lang
-protocol Connection { connection: fn(&Self) -> sqlite.ConnRef }
+protocol Connection { connection: fn(&Self) -> native.Handle }
 ```
 
 Things SQL can run against: pools and transactions.
@@ -47,7 +41,7 @@ fn display(self: &Self) -> String
 ### `Pool`
 
 ```lang
-pub extern type Pool<S: Scope>
+struct Pool<S> { handle: native.Handle }
 ```
 
 A shareable connection pool, scoped to region `S` (the system or
@@ -57,13 +51,13 @@ callback that opened it). The region may be elided in annotations:
 #### `Pool.connection`
 
 ```lang
-fn connection(self: &Self) -> ConnRef
+fn connection(self: &Self) -> native.Handle
 ```
 
 ### `Tx`
 
 ```lang
-struct Tx<S> { handle: sqlite.TxHandle }
+struct Tx<S> { handle: native.Handle }
 ```
 
 A task-confined transaction, branded with its callback's region.
@@ -71,7 +65,7 @@ A task-confined transaction, branded with its callback's region.
 #### `Tx.connection`
 
 ```lang
-fn connection(self: &Self) -> ConnRef
+fn connection(self: &Self) -> native.Handle
 ```
 
 ## Functions

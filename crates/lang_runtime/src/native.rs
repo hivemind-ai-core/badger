@@ -164,6 +164,8 @@ struct CallState {
     state: AtomicU8,
     /// Async calls: who to wake, and through which queue.
     waiter: Option<(task::TaskId, Arc<task::ExternalQueue>)>,
+    /// The module's release of handles (for a result nobody takes).
+    drop_handle: Option<unsafe extern "C" fn(u64)>,
 }
 
 unsafe extern "C" fn host_args(call: *mut Call, len: *mut usize) -> *const u8 {
@@ -177,11 +179,39 @@ unsafe extern "C" fn host_complete(call: *mut Call, result: *const u8, len: usiz
     let st = unsafe { Arc::from_raw(call as *const CallState) };
     let bytes =
         if result.is_null() { vec![] } else { unsafe { std::slice::from_raw_parts(result, len) }.to_vec() };
-    *st.result.lock().unwrap() = Some(bytes);
-    if st.state.compare_exchange(PENDING, DONE, Ordering::AcqRel, Ordering::Acquire).is_ok()
-        && let Some((t, q)) = &st.waiter
-    {
-        task::post_completion(q, *t, Box::new(()));
+    match st.state.compare_exchange(PENDING, DONE, Ordering::AcqRel, Ordering::Acquire) {
+        Ok(_) => {
+            *st.result.lock().unwrap() = Some(bytes);
+            if let Some((t, q)) = &st.waiter {
+                task::post_completion(q, *t, Box::new(()));
+            }
+        }
+        // the task stopped waiting: release what the result names
+        Err(_) => release_handles(st.drop_handle, &bytes),
+    }
+}
+
+/// Release every handle in an encoded result nobody will receive.
+fn release_handles(drop: Option<unsafe extern "C" fn(u64)>, bytes: &[u8]) {
+    let Some(drop) = drop else { return };
+    let mut r = Reader::new(bytes);
+    if r.u8() != Ok(status::VALUE) {
+        return;
+    }
+    fn walk(v: &nv::Value, out: &mut Vec<u64>) {
+        match v {
+            nv::Value::Handle(h) => out.push(*h),
+            nv::Value::List(xs) | nv::Value::Variant(_, xs) => xs.iter().for_each(|x| walk(x, out)),
+            nv::Value::Map(fs) => fs.iter().for_each(|(_, x)| walk(x, out)),
+            _ => {}
+        }
+    }
+    let mut hs = vec![];
+    if let Ok(v) = nv::Value::decode(&mut r) {
+        walk(&v, &mut hs);
+    }
+    for h in hs {
+        queue_drop(drop, h);
     }
 }
 
@@ -189,6 +219,9 @@ unsafe extern "C" fn host_complete(call: *mut Call, result: *const u8, len: usiz
 /// value of type `ret`.
 fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
     let (m, index, mode) = site(s).unwrap_or_else(|e| defect(e));
+    // reproduction bundles do not capture a module's effects: a recording
+    // notes it, and a replay stops here rather than reach the world
+    crate::repro::uncaptured(&format!("native module `{}`", m.name));
     let what = || str_of(s).replace('\0', ".");
     let mut w = Writer::default();
     w.u8(tag::LIST);
@@ -207,6 +240,7 @@ fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
         } else {
             None
         },
+        drop_handle: m.module.drop_handle,
     });
     let raw = Arc::into_raw(st.clone()) as *mut Call;
     let module = m.module;
@@ -260,6 +294,9 @@ fn wait_async(st: &Arc<CallState>, module: &'static Module, raw: *mut Call, inde
                 if let Some(c) = cancel {
                     unsafe { c(raw as *mut Call) };
                 }
+            } else if let Some(bytes) = st.result.lock().unwrap().take() {
+                // completed, but the task stopped before taking the result
+                release_handles(st.drop_handle, &bytes);
             }
         })))
     };
@@ -337,7 +374,13 @@ fn finalize_handle(o: *mut Header) {
         let p = (*o).payload() as *const u64;
         (*p as *const Loaded, *p.add(1))
     };
-    let Some(drop) = (unsafe { (*m).module.drop_handle }) else { return };
+    if let Some(drop) = unsafe { (*m).module.drop_handle } {
+        queue_drop(drop, id);
+    }
+}
+
+/// Call a module's `drop_handle` on the release thread.
+fn queue_drop(drop: unsafe extern "C" fn(u64), id: u64) {
     static DROPS: std::sync::OnceLock<Option<std::sync::mpsc::Sender<(usize, u64)>>> =
         std::sync::OnceLock::new();
     let tx = DROPS.get_or_init(|| {

@@ -22,6 +22,7 @@ pub mod inspect;
 pub mod live;
 pub mod manifest;
 pub mod sql;
+pub mod sqlcheck;
 
 #[derive(Default)]
 pub struct Session {
@@ -94,6 +95,15 @@ pub fn finish() {
     lang_runtime::intrinsics_os::cleanup_at_exit();
 }
 
+/// The standard library's native modules, linked into the executable (a
+/// library of the same name on the search path is not loaded for them).
+pub fn register_native_modules() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        lang_runtime::native::register_builtin("lang_sqlite", lang_sqlite::native_entry);
+    });
+}
+
 /// The key an overlay (unsaved or proposed file content) is stored under:
 /// the canonical path, or for a file that does not exist yet, its
 /// directory's canonical path and its name.
@@ -133,6 +143,7 @@ pub fn private_temp_dir(prefix: &str) -> std::io::Result<PathBuf> {
 
 impl Session {
     pub fn new() -> Self {
+        register_native_modules();
         Self::default()
     }
 

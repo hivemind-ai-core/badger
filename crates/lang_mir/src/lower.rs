@@ -1839,8 +1839,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 // the host converts by the declared types; the site names
                 // the module and function
                 let DefKind::Fn(fd) = &hir.defs[def].kind else { unreachable!() };
-                let lib = fd.native.clone().unwrap_or_default();
-                let name = self.m.sym(hir.defs[def].name).to_string();
+                let spelled = fd.native.clone().unwrap_or_default();
+                let decl_name = self.m.sym(hir.defs[def].name).to_string();
+                let (lib, name) = match spelled.split_once('.') {
+                    Some((m, f)) => (m.to_string(), f.to_string()),
+                    None => (spelled.clone(), decl_name),
+                };
                 let fty = self.m.g.scheme(def).map(|s| lang_typeck::ground_resolved(&s.ty));
                 let params: Vec<Ty> = match fty.as_deref() {
                     Some(TyKind::Fn(f)) => f.params.clone(),

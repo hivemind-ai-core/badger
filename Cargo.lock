@@ -780,9 +780,11 @@ dependencies = [
  "lang_hir",
  "lang_mir",
  "lang_runtime",
+ "lang_sqlite",
  "lang_syntax",
  "lang_typeck",
  "pretty_assertions",
+ "rusqlite",
  "serde_json",
  "thiserror",
  "toml",
@@ -842,11 +844,19 @@ dependencies = [
  "lang_native",
  "libc",
  "regex",
- "rusqlite",
  "rustc-hash",
  "serde",
  "serde_json",
  "ureq",
+]
+
+[[package]]
+name = "lang_sqlite"
+version = "0.1.0"
+dependencies = [
+ "lang_native",
+ "rusqlite",
+ "serde_json",
 ]
 
 [[package]]

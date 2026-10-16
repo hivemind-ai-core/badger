@@ -610,15 +610,22 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         FnAbi::C
                     }
                     "native" => {
+                        // `MODULE`, or `MODULE.FUNCTION` for a function the
+                        // declaration names differently
                         let lib = words.next().unwrap_or("");
-                        let valid =
-                            !lib.is_empty() && lib.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+                        let ident = |x: &str| {
+                            !x.is_empty() && x.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                        };
+                        let valid = match lib.split_once('.') {
+                            Some((m, f)) => ident(m) && ident(f),
+                            None => ident(lib),
+                        };
                         if !valid {
                             self.err(
                                 "E0115",
                                 decl.name.span,
-                                "a native function names its module: `extern \"native NAME\"`",
-                                "the module name is letters, digits, and `_`",
+                                "a native function names its module: `extern \"native NAME\"` or `extern \"native NAME.FUNCTION\"`",
+                                "names are letters, digits, and `_`",
                             );
                         } else if let Some(w) = words.next() {
                             self.err(

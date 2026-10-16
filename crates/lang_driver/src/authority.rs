@@ -55,7 +55,6 @@ const AMBIENT_INTRINSICS: &[&str] = &[
     "process_run",
     "process_run_input",
     "process_exit",
-    "sql_open",
     "http_listen",
     "fetch_request",
 ];
@@ -209,7 +208,7 @@ pub fn check(hir: &Hir, types: &lang_typeck::TypeIndex, interner: &Interner) -> 
                     }
                     DefKind::Fn(x) if x.abi == lang_hir::FnAbi::Native => Some(format!(
                         "extern \"native {}\" fn {}",
-                        x.native.as_deref().unwrap_or(""),
+                        x.native.as_deref().unwrap_or("").split('.').next().unwrap_or(""),
                         name(*t)
                     )),
                     _ => None,

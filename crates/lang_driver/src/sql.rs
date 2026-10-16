@@ -12,9 +12,9 @@
 //! each field has a column, a column that can be NULL is an `Option`, and
 //! a declared column type fits the field (E0182).
 
+use crate::sqlcheck::{Db, Prepared, split};
 use lang_base::{Diagnostic, Interner, Span};
 use lang_hir::{DefId, DefKind, ExprId, ExprKind, HTyKind, Hir, Lit};
-use lang_runtime::sqlite::check::{Db, Prepared, split};
 use std::collections::HashMap as FxHashMap;
 use std::path::Path;
 

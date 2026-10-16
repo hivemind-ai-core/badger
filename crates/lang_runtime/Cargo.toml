@@ -12,7 +12,6 @@ httparse = "1.10"
 lang_native = { path = "../lang_native" }
 libc = "0.2.190"
 regex = "1.13.1"
-rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column_metadata"] }
 rustc-hash.workspace = true
 serde = "1.0.229"
 serde_json = "1.0.154"

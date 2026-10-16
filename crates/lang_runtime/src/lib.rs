@@ -43,7 +43,6 @@ pub mod profile;
 pub mod reply;
 pub mod repro;
 pub mod scope;
-pub mod sqlite;
 pub mod string;
 pub mod task;
 pub mod value;

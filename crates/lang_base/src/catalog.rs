@@ -98,7 +98,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0115",
         "unknown ABI",
-        "Foreign functions use `extern \"c\"` (with optional `blocking` or `pinned`), and native module functions `extern \"native NAME\"`, which are not generic.",
+        "Foreign functions use `extern \"c\"` (with optional `blocking` or `pinned`), and native module functions `extern \"native NAME\"` or `extern \"native NAME.FUNCTION\"`, which are not generic.",
     ),
     (
         "E0116",

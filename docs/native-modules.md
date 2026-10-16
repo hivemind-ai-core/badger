@@ -16,7 +16,10 @@ HTTP, compression, a vendor SDK) without changing the runtime. Use
 
 ## Declaring native functions
 
-`extern "native NAME" fn` declares a function of module `NAME`. Its
+`extern "native NAME" fn f` declares function `f` of module `NAME`;
+`extern "native NAME.g" fn f` declares the module's function `g` under
+the name `f` (as `std.sqlite` declares `lang_sqlite.open` as `sql_open`
+beside its public `open`). Its
 parameter and result types are the contract: the host copies each argument
 into the module's wire format and each result back, checking it against
 the declared type.
@@ -89,7 +92,7 @@ capability rules apply to them as to any value.
 ## Finding modules
 
 A module is either linked into the `lang` executable (the standard library's
-own modules) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
+own modules: `lang_sqlite`, behind `std.sqlite`) or loaded from `libNAME.so` (`libNAME.dylib` on macOS) in the
 first of these directories that has it:
 
 1. each directory of `LANG_NATIVE_PATH` (separated like `PATH`);

@@ -34,7 +34,6 @@ macro_rules! intrinsics {
             v.extend(crate::intrinsics_codec::symbols());
             v.extend(crate::intrinsics_codec::extra_symbols());
             v.extend(crate::intrinsics_codec::inspect_symbols());
-            v.extend(crate::sqlite::all_symbols());
             v.extend(crate::native::symbols());
             v.extend(crate::http::symbols());
             v.extend(crate::intrinsics_os::symbols());

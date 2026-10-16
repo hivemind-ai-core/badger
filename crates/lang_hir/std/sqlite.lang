@@ -4,6 +4,7 @@ import std.prelude
 
 import std.system
 import std.codec
+import std.native
 
 pub struct Error {
     pub code: Symbol,
@@ -24,56 +25,70 @@ impl prelude.Error for Error {
 /// A shareable connection pool, scoped to region `S` (the system or
 /// callback that opened it). The region may be elided in annotations:
 /// `sqlite.Pool` means `sqlite.Pool<_>`.
-pub extern type Pool<S: Scope>
-extern type TxHandle
-pub extern type ConnRef
+pub struct Pool<S: Scope> {
+    handle: native.Handle,
+}
 
 /// A task-confined transaction, branded with its callback's region.
 pub struct Tx<S> {
-    handle: TxHandle,
+    handle: native.Handle,
 }
 
 /// Things SQL can run against: pools and transactions.
 pub protocol Connection {
-    fn connection(self: &Self) -> ConnRef
+    fn connection(self: &Self) -> native.Handle
 }
 
-extern "intrinsic" fn identity<A, B>(value: A) -> B
-extern "intrinsic" fn sql_open<S>(path: String) -> Result<Pool<S>, Error>
-extern "intrinsic" fn sql_close<S>(pool: Pool<S>) -> Unit
-extern "intrinsic" fn sql_is_closed<S>(pool: Pool<S>) -> Bool
-extern "intrinsic" fn sql_execute(conn: ConnRef, sql: String, params: List<Data>) -> Result<Int, Error>
-extern "intrinsic" fn sql_query(conn: ConnRef, sql: String, params: List<Data>) -> Result<List<Data>, Error>
-extern "intrinsic" fn sql_query_one(conn: ConnRef, sql: String, params: List<Data>) -> Result<Data, Error>
-extern "intrinsic" fn sql_begin<S>(pool: Pool<S>) -> Result<TxHandle, Error>
-extern "intrinsic" fn sql_finish(tx: TxHandle, commit: Bool) -> Result<Unit, Error>
-extern "intrinsic" fn tx_guard(tx: TxHandle) -> Int
-extern "intrinsic" fn tx_unguard(handle: Int, tx: TxHandle) -> Unit
+// the `lang_sqlite` native module (crates/lang_sqlite): every statement
+// runs on a connection's own thread while the calling task waits
+extern "native lang_sqlite.open" fn sql_open(path: String) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native lang_sqlite.close" fn sql_close(pool: native.Handle) -> Unit
+extern "native lang_sqlite.is_closed" fn sql_is_closed(pool: native.Handle) -> Bool
+extern "native lang_sqlite.execute" fn sql_execute(conn: native.Handle, sql: String, params: List<Data>) -> Result<Int, native.Error> !{Io, Wait}
+extern "native lang_sqlite.query" fn sql_query(conn: native.Handle, sql: String, params: List<Data>) -> Result<List<Data>, native.Error> !{Io, Wait}
+extern "native lang_sqlite.query_one" fn sql_query_one(conn: native.Handle, sql: String, params: List<Data>) -> Result<Data, native.Error> !{Io, Wait}
+extern "native lang_sqlite.begin" fn sql_begin(pool: native.Handle) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native lang_sqlite.finish" fn sql_finish(tx: native.Handle, commit: Bool) -> Result<Unit, native.Error> !{Io, Wait}
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+
+/// A native module's error as an `Error`.
+fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: e.kind, message: e.message, cause: Option.none }),
+    }
+}
 
 impl<S> Connection for Pool<S> {
-    fn connection(self: &Self) -> ConnRef { identity(self) }
+    fn connection(self: &Self) -> native.Handle { self.handle }
 }
 
 impl<S> Connection for Tx<S> {
-    fn connection(self: &Self) -> ConnRef { identity(self.handle) }
+    fn connection(self: &Self) -> native.Handle { self.handle }
 }
 
-pub fn open<S: Scope>(path: String) -> Result<Pool<S>, Error> !{Io, Wait} { sql_open(path) }
-pub fn close<S: Scope>(pool: Pool<S>) -> Unit { sql_close(pool) }
-pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { sql_is_closed(pool) }
+pub fn open<S: Scope>(path: String) -> Result<Pool<S>, Error> !{Io, Wait} {
+    let h = lift(sql_open(path))?
+    let p: Pool<S> = { handle: h }
+    ok(p)
+}
+
+pub fn close<S: Scope>(pool: Pool<S>) -> Unit { sql_close(pool.handle) }
+pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { sql_is_closed(pool.handle) }
 
 /// Execute a statement with bound parameters; returns the changed row count.
 pub fn execute<C>(conn: C, sql: String, params: List<Data>) -> Result<Int, Error> !{Io, Wait} where C: Connection {
-    sql_execute(conn.connection(), sql, params)
+    lift(sql_execute(conn.connection(), sql, params))
 }
 
 pub fn query<C>(conn: C, sql: String, params: List<Data>) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection {
-    sql_query(conn.connection(), sql, params)
+    lift(sql_query(conn.connection(), sql, params))
 }
 
 /// Exactly one row as `Data`; zero or several rows are an error.
 pub fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Error> !{Io, Wait} where C: Connection {
-    sql_query_one(conn.connection(), sql, params)
+    lift(sql_query_one(conn.connection(), sql, params))
 }
 
 fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
@@ -89,7 +104,7 @@ fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
 /// against `T`.
 pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection {
     var out: List<T> = []
-    for row in sql_query(conn.connection(), sql, params)? {
+    for row in lift(sql_query(conn.connection(), sql, params))? {
         out = out.append(decode_row(row)?)
     }
     ok(out)
@@ -97,7 +112,7 @@ pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T
 
 /// Exactly one row, as `T` (see `query_as`).
 pub fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection {
-    decode_row(sql_query_one(conn.connection(), sql, params)?)
+    decode_row(lift(sql_query_one(conn.connection(), sql, params))?)
 }
 
 /// Run `body` in a transaction: commit after `ok`, roll back after `err`,
@@ -106,18 +121,19 @@ pub fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T,
 /// `:sqlite/rollback_failed` error whose `cause` is the body's error, so
 /// neither failure is discarded.
 pub fn transaction<P: Scope, R, E>(pool: Pool<P>, body: for<S: Scope> fn(Tx<S>) -> Result<R, E>) -> Result<R, E> !{Io, Wait} where E: From<Error>, E: prelude.Error {
-    match sql_begin(pool) {
+    match lift(sql_begin(pool.handle)) {
         .err(e) => err(E.from(e)),
         .ok(h) => {
-            let guard = tx_guard(h)
+            // a defect or cancellation in the body rolls back
+            let guard = cleanup_push(fn() { let _ = sql_finish(h, false) })
             let r = body({ handle: h })
-            tx_unguard(guard, h)
+            cleanup_remove(guard)
             match r {
-                .ok(v) => match sql_finish(h, true) {
+                .ok(v) => match lift(sql_finish(h, true)) {
                     .ok(_) => ok(v),
                     .err(e) => err(E.from(e)),
                 },
-                .err(e) => match sql_finish(h, false) {
+                .err(e) => match lift(sql_finish(h, false)) {
                     .ok(_) => err(e),
                     .err(re) => {
                         let cause: dyn prelude.Error = e

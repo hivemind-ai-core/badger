@@ -41,8 +41,10 @@ error. `lang_cli` is the `lang` binary.
 | `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, SQLite, HTTP server and client, parsing | corosensei, rusqlite, serde_json, regex, backtrace, ureq |
-| `lang_driver` | sessions, manifests/profiles, test runner, live reload | all of the above |
+| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, HTTP server and client, parsing | corosensei, serde_json, regex, backtrace, ureq |
+| `lang_native` | native module ABI, wire format, helpers for modules in Rust | — |
+| `lang_sqlite` | the `lang_sqlite` native module behind `std.sqlite` | rusqlite |
+| `lang_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
 | `lang_cli` | command-line interface | clap |
 
 ## Front end
@@ -349,8 +351,13 @@ error. `lang_cli` is the `lang` binary.
   offer `try_append`/`try_send`, `recv`, and `try_recv`. Plain `select` and `on_send` drop an unsent payload, so
   they require `T: Share`; `select_keep` and `on_send_keep` return an
   affine payload to the caller.
-- **Services:** SQLite (scoped transactions; a failed rollback is returned
-  with the callback's error as its cause), an HTTP/1.1 server with request
+- **Services:** SQLite (the `lang_sqlite` native module, `crates/lang_sqlite`:
+  each pool has up to four connections, each on its own thread, and every
+  statement is an async native call, so a task waiting for a connection
+  only parks; a transaction pins one connection from `BEGIN IMMEDIATE`
+  until it ends, a cleanup rolls it back if the task is abandoned, and an
+  unreachable one is rolled back; a failed rollback is returned with the
+  callback's error as its cause), an HTTP/1.1 server with request
   tasks, explicit limits (413/431, bounded admission with 503), streamed
   chunked replies, request-scoped handlers (`http.scoped`: a fresh request
   region, a region-branded body reader, streams consumed inside the
@@ -363,7 +370,7 @@ error. `lang_cli` is the `lang` binary.
   driver finds calls of `sqlite.execute/query/query_one/query_as/
   query_one_as` with a literal SQL argument, loads the `[database] schema`
   file and the program's literal DDL into an in-memory SQLite, and prepares
-  each statement (`lang_runtime::sqlite::check`, with SQLite's column
+  each statement (`lang_driver::sqlcheck`, with SQLite's column
   declared-type and NOT NULL metadata). Row types come from the recorded
   type of the call. The checks run in `lang check`, `lang run`, and the
   language server.
@@ -386,8 +393,8 @@ error. `lang_cli` is the `lang` binary.
   single atomic load otherwise. Standard output is kept with the bundle;
   the driver adds the program identity and checks it before a replay, and
   `repro::finish` writes the bundle or compares the outcome on every exit
-  path (return, error, defect, `process.exit`). SQLite and the HTTP server
-  are marked uncaptured.
+  path (return, error, defect, `process.exit`). Native module calls
+  (SQLite among them) and the HTTP server are marked uncaptured.
 
 ## Native modules
 

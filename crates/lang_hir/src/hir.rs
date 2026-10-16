@@ -122,7 +122,9 @@ pub struct FnDef {
     pub has_self: bool,
     /// Declared adapter contract of an `extern "c"` function.
     pub ffi: FfiContract,
-    /// The native module of an `extern "native NAME"` function.
+    /// The native module of an `extern "native NAME"` function, with the
+    /// module's function name after a `.` when it differs from the
+    /// declaration's (`"native NAME.FUNCTION"`).
     pub native: Option<String>,
     /// `ensures` clauses: checked on every return, with `result` (the
     /// local below) bound to the value returned. (`requires` clauses are
