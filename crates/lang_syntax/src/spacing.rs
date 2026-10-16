@@ -445,6 +445,9 @@ fn respace(line: &str) -> Option<(Vec<Tok>, String)> {
             false
         } else if matches!(p.k, K::Comma | K::Semi | K::Colon) {
             true
+        } else if p.text.ends_with('.') && (t.text.starts_with('.') || (p.text == ".." && t.text.starts_with('='))) {
+            // tokens that would lex differently joined (`. ..`, `.. =`)
+            true
         } else if p.k == K::Dot {
             false
         } else if t.k == K::Dot {
@@ -541,6 +544,9 @@ mod tests {
                 "fn spawn<T, Eff>(f: fn() -> T !Eff) -> Task<T> where fn() -> T !Eff: Transfer {",
             ),
             ("let s = \"\"\"", "let s = \"\"\""),
+            // joined, these would lex as other tokens
+            ("import std. ..R", "import std. ..R"),
+            ("a.. .b", "a.. .b"),
         ];
         for (src, want) in cases {
             assert_eq!(space_line(src), want, "{src}");
