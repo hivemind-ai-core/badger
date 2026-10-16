@@ -1,0 +1,16 @@
+// Bytes from a consumed byte buffer and from a list of bytes.
+import std.io
+import std.buffer
+import std.bytes
+
+pub fn main() -> Result<Unit, io.Error> {
+    var b = buffer.new<Byte>()
+    for c in [104, 105, 33] {
+        b.push(Byte.try_from(c).unwrap_or(0U8))
+    }
+    let frozen = bytes.freeze(b)
+    io.println($"{frozen.len()} {bytes.hex(frozen)} {bytes.to_text(frozen).unwrap_or("?")}")?
+    let listed = bytes.from_list([0, 255, 16].map(fn(x) { Byte.try_from(x).unwrap_or(0U8) }))
+    io.println($"{bytes.hex(listed)} {bytes.to_list(listed)}")?
+    ok(())
+}

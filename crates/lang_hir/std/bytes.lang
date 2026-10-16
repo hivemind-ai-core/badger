@@ -7,6 +7,8 @@ extern "intrinsic" fn bytes_to_list(b: Bytes) -> List<Byte>
 extern "intrinsic" fn bytes_hex(b: Bytes) -> String
 extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+extern "intrinsic" fn bytes_from_buffer(buffer: Buffer<Byte>) -> Bytes
+extern "intrinsic" fn bytes_from_list(list: List<Byte>) -> Bytes
 
 pub fn len(b: Bytes) -> Int { bytes_len(b) }
 /// Checked byte slice.
@@ -18,6 +20,9 @@ pub fn hex(b: Bytes) -> String { bytes_hex(b) }
 pub fn from_text(s: String) -> Bytes { text_to_bytes(s) }
 /// Validate UTF-8.
 pub fn to_text(b: Bytes) -> Result<String, String> { text_from_bytes(b) }
+/// Consume a byte buffer into immutable bytes.
+pub fn freeze(buffer: Buffer<Byte>) -> Bytes { bytes_from_buffer(buffer) }
+pub fn from_list(list: List<Byte>) -> Bytes { bytes_from_list(list) }
 
 impl Bytes {
     pub fn len(self: &Self) -> Int { bytes_len(self) }

@@ -237,6 +237,18 @@ std_intrinsics! {
     fn buffer_capacity(ctx, targs, ret, b) { crate::buffer::data(b).items.capacity() as u64 }
     fn buffer_address(ctx, targs, ret, b) { crate::buffer::data(b).items.as_ptr() as u64 }
     fn buffer_freeze(ctx, targs, ret, b) { crate::buffer::data(b).frozen = true; b }
+    fn bytes_from_buffer(ctx, targs, ret, b) {
+        let d = crate::buffer::data(b);
+        let v: Vec<u8> = d.items.iter().map(|w| *w as u8).collect();
+        // the buffer was consumed: its storage is released now
+        d.items = Vec::new();
+        d.frozen = true;
+        crate::string::new_bytes(&v)
+    }
+    fn bytes_from_list(ctx, targs, ret, l) {
+        let v: Vec<u8> = list::to_vec(l).into_iter().map(|w| w as u8).collect();
+        crate::string::new_bytes(&v)
+    }
     fn buffer_to_list(ctx, targs, ret, b) {
         let r = Roots::new();
         r.add(b);
