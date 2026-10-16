@@ -20,7 +20,10 @@ machine and method as the 2026-10-15 baseline).
 | Measure | Baseline | Final |
 |---|---|---|
 | Check an empty program | 126 ms | 21 ms |
-| Check a 5,600-line program | 591 ms | 185 ms |
+| Check a 5,600-line program | 591 ms | 177 ms |
+| Function call, scalar / 4 rooted pointers | 3.5 / 7.0 ns | 1.9 / 2.6 ns |
+| Row-generic record call | 2.8 ns | 1.2 ns |
+| `records` / `runtime` benchmarks | 118 / 53 ms | 84 / 22 ms |
 | Paged list iteration | 6 ns/element | 1 ns/element |
 | Persistent map insert / lookup | 2,201 / 152 ns | 452 / 68 ns |
 | Allocation-heavy loop | 105 ns/record | 39 ns/record |
@@ -37,6 +40,11 @@ communicating or allocating benchmark did). The global runtime lock remains
 for parking, waking, spawning, `select`, timers, and the collector's
 stop-the-world; all allocation, list, map/set, and uncontended channel
 operations run without it.
+
+Optimized builds also inline small, non-recursive helpers and re-run
+scalar replacement over their callers (codegen audit G2, plan C5), so a
+record built only to be passed to a helper is not allocated
+(`LANG_NO_INLINE=1` turns it off; live dispatch disables it).
 
 ## Tooling
 
@@ -122,8 +130,8 @@ reproducing programs:
 
 - The global runtime lock still serializes parking, waking, spawning,
   `select`, timers, and collection; removing it needs a lock-free scheduler.
-- MIR inlining, closure devirtualization, and range-based check elimination
-  (the largest remaining generated-code opportunities) were not done.
+- Inlining covers small direct helpers only; closure devirtualization and
+  range-based check elimination (codegen audit G4/G5) were not done.
 - Parsing (pest) is now the slowest compiler phase (about 15 us per line).
 - A cancelled REPL/MCP evaluation stops at its next safe point, but blocking
   work it already started (a file read, a subprocess) runs to completion;
