@@ -124,13 +124,16 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
 }
 
 /// Live channels for inspection: (sequence number, object address).
-static mut REGISTRY: Vec<(u64, u64)> = Vec::new();
-static mut NEXT_SEQ: u64 = 1;
+/// (Its own lock: channels are created without the runtime lock.)
+static REGISTRY: std::sync::Mutex<Vec<(u64, u64)>> = std::sync::Mutex::new(Vec::new());
+static NEXT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// Inspection snapshot of every live channel (JSON array).
 #[allow(static_mut_refs)]
 pub fn snapshot_json() -> String {
-    let items: Vec<String> = unsafe { REGISTRY.iter() }
+    let live: Vec<(u64, u64)> = REGISTRY.lock().unwrap().clone();
+    let items: Vec<String> = live
+        .iter()
         .map(|&(seq, w)| {
             let d = data(w);
             let staged: usize = d.staging.values().map(Vec::len).sum();
@@ -159,7 +162,7 @@ pub fn snapshot_json() -> String {
 #[allow(static_mut_refs)]
 fn finalize_chan(o: *mut Header) {
     unsafe {
-        REGISTRY.retain(|&(_, w)| w != o as u64);
+        REGISTRY.lock().unwrap().retain(|&(_, w)| w != o as u64);
         (*CLAIMED.0.get()).retain(|w| *w != o as u64);
         let p = (*o).payload() as *mut *mut ChanData;
         if !(*p).is_null() {
@@ -400,10 +403,6 @@ fn admit_sender_fast(d: &mut ChanData) {
 #[allow(static_mut_refs)]
 pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: bool) -> u64 {
     let w = gc::alloc(chan_desc(), 8);
-    unsafe {
-        REGISTRY.push((NEXT_SEQ, w));
-        NEXT_SEQ += 1;
-    }
     let d = Box::new(ChanData {
         state: std::sync::atomic::AtomicU8::new(0),
         elem,
@@ -432,6 +431,9 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         staged_at: FxHashMap::default(),
     });
     unsafe { *(obj(w).payload() as *mut *mut ChanData) = Box::into_raw(d) };
+    // registered once complete (inspection may read it from another worker)
+    let seq = NEXT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    REGISTRY.lock().unwrap().push((seq, w));
     w
 }
 
@@ -746,6 +748,29 @@ pub fn close(ch: u64) {
     for t in std::mem::take(&mut d.recv_watchers) {
         task::wake(t, task::Wake::Normal);
     }
+}
+
+/// Unlocked close of a prompt channel no selection watches: parked
+/// receivers wake to find it closed, parked senders get their values back
+/// as closed. `false`: the locked path must close it.
+pub fn close_fast(ch: u64) -> bool {
+    let d = raw(ch);
+    if !try_fast(d) {
+        return false;
+    }
+    let ok =
+        !d.batched && d.recv_watchers.is_empty() && d.space_waiters.is_empty() && d.cap_waiters.is_empty();
+    if ok {
+        d.closed = true;
+        for (_, wait, p) in std::mem::take(&mut d.recv_waiters) {
+            task::deliver(p, wait, 0, false, 0);
+        }
+        for (_, _, _, wait, p) in std::mem::take(&mut d.send_waiters) {
+            task::deliver(p, wait, 0, false, 2);
+        }
+    }
+    end_fast(d);
+    ok
 }
 
 /// Close from the consumer side: no further messages are accepted, and

@@ -1541,6 +1541,18 @@ pub const UNLOCKED: &[&str] = &[
     // it releases them; release changes the channel and stays locked)
     "lang_rt_i_batch_len",
     "lang_rt_i_batch_get",
+    // task-local or self-synchronized: the running task's own fields, the
+    // clocks (their own locks), immutable worker counts, a fresh channel
+    // (registered under its own lock)
+    "lang_rt_caller_loc",
+    "lang_rt_i_time_now",
+    "lang_rt_i_time_wall_nanos",
+    "lang_rt_i_task_id",
+    "lang_rt_i_task_worker",
+    "lang_rt_i_task_workers",
+    "lang_rt_i_select_seq",
+    "lang_rt_i_chan_new",
+    "lang_rt_i_chan_close",
     // the payload a split receive left with the task
     "lang_rt_take_aux",
     "lang_rt_i_chan_recv_split",

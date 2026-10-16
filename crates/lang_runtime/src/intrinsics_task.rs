@@ -526,7 +526,14 @@ task_intrinsics! {
             RecvResult::Closed => split(ret, "closed", None),
         })
     }
-    fn chan_close(ctx, targs, ret, ch) { channel::close(ch); 0 }
+    // an unlocked entry: prompt channels close on the fast path
+    fn chan_close(ctx, targs, ret, ch) {
+        if fast_ok() && channel::close_fast(ch) {
+            return 0;
+        }
+        locked(|| channel::close(ch));
+        0
+    }
     fn chan_len(ctx, targs, ret, ch) {
         let d = channel::data(ch);
         (d.queue.len() + d.batches.iter().map(std::collections::VecDeque::len).sum::<usize>()) as u64
