@@ -106,6 +106,129 @@ pub fn show_ty(g: &Global<'_>, t: &Ty) -> String {
 /// Result of checking a whole program.
 pub struct Checked<'a> {
     pub g: Global<'a>,
+    /// Types and resolutions of user code, when requested
+    /// ([`set_record_types`]).
+    pub types: Option<TypeIndex>,
+}
+
+static RECORD_TYPES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Make [`check_program`] record a [`TypeIndex`] (editor tooling).
+pub fn set_record_types(on: bool) {
+    RECORD_TYPES.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// The printed types and resolved targets of user (non-library) code, as
+/// checked generically, for hover, navigation, and completion.
+#[derive(Default, Debug)]
+pub struct TypeIndex {
+    pub exprs: FxHashMap<ExprId, String>,
+    pub locals: FxHashMap<LocalId, String>,
+    /// The definition an expression names or calls (function, method,
+    /// constructor's enum, conversion or display implementation).
+    pub targets: FxHashMap<ExprId, DefId>,
+    /// Fields and methods of each local's type.
+    pub members: FxHashMap<LocalId, Vec<Member>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Member {
+    pub name: String,
+    /// Field type or method signature.
+    pub detail: String,
+    pub method: bool,
+    pub def: Option<DefId>,
+}
+
+fn record_types(inf: &mut Infer<'_, '_>) -> TypeIndex {
+    let g = inf.g;
+    let hir = g.hir;
+    let std_files: FxHashSet<lang_base::FileId> =
+        hir.modules.iter().filter(|(_, m)| m.is_std).map(|(_, m)| m.file).collect();
+    let user = |sp: Span| !sp.is_dummy() && !std_files.contains(&sp.file);
+    let skolems = inf.icx.skolems.clone();
+    let names = Names { g, skolems: &skolems };
+    let mut idx = TypeIndex::default();
+    for (e, t) in inf.exprs.clone() {
+        if user(hir.exprs[e].span) {
+            let t = inf.icx.resolve(&t);
+            idx.exprs.insert(e, Printer::new(&names).print(&t));
+        }
+    }
+    for (l, t) in inf.locals.clone() {
+        if user(hir.locals[l].span) {
+            let t = inf.icx.resolve(&t);
+            idx.locals.insert(l, Printer::new(&names).print(&t));
+            idx.members.insert(l, members_of(g, &t, &names));
+        }
+    }
+    for (e, r) in &inf.res {
+        if !user(hir.exprs[*e].span) {
+            continue;
+        }
+        let d = match r {
+            Res::Callee { def, .. } => Some(*def),
+            Res::Ctor { enum_def, .. } => Some(*enum_def),
+            Res::Method(Target::Fn { def, .. })
+            | Res::OpFn(Target::Fn { def, .. })
+            | Res::Display(Target::Fn { def, .. })
+            | Res::Try(Some(Target::Fn { def, .. })) => Some(*def),
+            Res::Method(Target::Dyn { protocol, method }) => protocol_method(g, *protocol, *method),
+            _ => None,
+        };
+        if let Some(d) = d {
+            idx.targets.insert(*e, d);
+        }
+    }
+    idx
+}
+
+/// Fields (records and structs) and methods (impls on the type's head) of
+/// a type, sorted by name.
+fn members_of(g: &Global<'_>, t: &Ty, names: &Names<'_, '_>) -> Vec<Member> {
+    let mut out: Vec<Member> = vec![];
+    let show = |t: &Ty| Printer::new(names).print(t);
+    match &**t {
+        TyKind::Record(row) => {
+            for (l, ft) in row_fields(row).0 {
+                out.push(Member {
+                    name: g.interner.resolve(l).to_string(),
+                    detail: show(&ft),
+                    method: false,
+                    def: None,
+                });
+            }
+        }
+        TyKind::Con(d, args) => {
+            if let Some(si) = g.env.structs.get(d) {
+                for (l, ft, _) in &si.fields {
+                    out.push(Member {
+                        name: g.interner.resolve(*l).to_string(),
+                        detail: show(&subst_gen(ft, args)),
+                        method: false,
+                        def: None,
+                    });
+                }
+            }
+            for &i in g.env.impls_by_head.get(d).map(|v| v.as_slice()).unwrap_or(&[]) {
+                if let ImplMethods::Defs(ms) = &g.env.impls[i].methods {
+                    for (n, md) in ms {
+                        let detail = g.scheme(*md).map(|s| show(&s.ty)).unwrap_or_default();
+                        out.push(Member {
+                            name: g.interner.resolve(*n).to_string(),
+                            detail,
+                            method: true,
+                            def: Some(*md),
+                        });
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out.dedup_by(|a, b| a.name == b.name);
+    out
 }
 
 /// Concrete typing of one definition instance, for code generation.
@@ -424,6 +547,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     }
     let sccs = petgraph::algo::tarjan_scc(&graph);
     let mut inf_diags = vec![];
+    let mut types = None;
     // resolved call targets, for the effect fixpoint below
     let mut call_targets: FxHashMap<ExprId, Vec<DefId>> = FxHashMap::default();
     {
@@ -476,6 +600,9 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             }
         }
         inf_diags.append(&mut inf.diags);
+        if RECORD_TYPES.load(std::sync::atomic::Ordering::SeqCst) {
+            types = Some(record_types(&mut inf));
+        }
         for (e, r) in &inf.res {
             let t = match r {
                 Res::Callee { def, .. } => Some(*def),
@@ -571,7 +698,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             );
         }
     }
-    (Checked { g }, diags)
+    (Checked { g, types }, diags)
 }
 
 fn g_insert(_g: &Global, _d: DefId, _s: Scheme) {}

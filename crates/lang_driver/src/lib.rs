@@ -15,6 +15,7 @@ use lang_base::{Diagnostic, Diagnostics, FileId, Interner, SourceMap, Symbol};
 use lang_hir::{Hir, ParsedModule};
 use lang_syntax::ast;
 
+pub mod analysis;
 pub mod deps;
 pub mod inspect;
 pub mod live;
@@ -27,6 +28,8 @@ pub struct Session {
     pub diagnostics: Diagnostics,
     /// Source appended to the entry module (remote REPL definitions).
     pub entry_suffix: String,
+    /// Unsaved editor buffers, by canonical path: read instead of the file.
+    pub overlays: std::collections::HashMap<PathBuf, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,6 +214,16 @@ impl Session {
 
     /// Load and parse the standard library and every user module reachable
     /// from `path`.
+    /// A source file's text: its unsaved editor buffer, if any, else the file.
+    fn read_source(&self, path: &Path) -> std::io::Result<String> {
+        if !self.overlays.is_empty()
+            && let Some(t) = std::fs::canonicalize(path).ok().and_then(|p| self.overlays.get(&p))
+        {
+            return Ok(t.clone());
+        }
+        std::fs::read_to_string(path)
+    }
+
     pub fn load(&mut self, path: &Path) -> Option<Loaded> {
         let (entry_file, root, package) = match Self::entry_of(path) {
             Ok(x) => x,
@@ -238,7 +251,7 @@ impl Session {
             .collect();
         let mut modules = vec![];
         let std_sym = self.sym("std");
-        let text = match std::fs::read_to_string(&entry_file) {
+        let text = match self.read_source(&entry_file) {
             Ok(t) => t,
             Err(e) => {
                 self.diagnostics.push(
@@ -324,7 +337,7 @@ impl Session {
                     Some(fs) => packages[target].1.join(fs.join("/") + ".lang"),
                     None => deps[target - 1].entry.clone(),
                 };
-                let Ok(text) = std::fs::read_to_string(&fpath) else { continue };
+                let Ok(text) = self.read_source(&fpath) else { continue };
                 let file = self.sources.add(fpath.display().to_string(), text);
                 let mname: Vec<String> = p.iter().map(|s| self.interner.resolve(*s).to_string()).collect();
                 self.sources.set_module(file, mname.join("."));
@@ -509,7 +522,7 @@ impl Session {
     /// Give each diagnostic without one a readable scope: the innermost
     /// enclosing definition (`fn app.main`, `fn app.Point.norm`,
     /// `let app.settings`), and record each file's module path.
-    fn annotate_scopes(&mut self, hir: &lang_hir::Hir) {
+    pub(crate) fn annotate_scopes(&mut self, hir: &lang_hir::Hir) {
         annotate_scopes(&self.interner, &mut self.sources, &mut self.diagnostics, hir)
     }
 }
@@ -1162,168 +1175,7 @@ impl Session {
         let entry = hir.entry?;
         let sym = self.interner.intern(name);
         let def = hir.modules[entry].items.get(&sym).copied()?;
-        let names = lang_typeck::program::Names { g: &checked.g, skolems: &[] };
-        let gen_names = |gs: &[lang_hir::GenericId]| -> Vec<String> {
-            gs.iter().map(|g| self.interner.resolve(hir.generics[*g].name).to_string()).collect()
-        };
-        let gen_list =
-            |ns: &[String]| if ns.is_empty() { String::new() } else { format!("<{}>", ns.join(", ")) };
-        // type definitions: their declared shape
-        match &hir.defs[def].kind {
-            lang_hir::DefKind::Struct(sd) => {
-                let gn = gen_names(&sd.generics);
-                let mut pr = lang_typeck::ty::Printer::new(&names);
-                pr.gen_names = gn.clone();
-                let info = checked.g.env.structs.get(&def)?;
-                let fields: Vec<String> = info
-                    .fields
-                    .iter()
-                    .map(|(n, t, public)| {
-                        format!(
-                            "{}{}: {}",
-                            if *public { "pub " } else { "" },
-                            self.interner.resolve(*n),
-                            pr.print(t)
-                        )
-                    })
-                    .collect();
-                let derives: Vec<String> = sd
-                    .derives
-                    .iter()
-                    .map(|d| self.interner.resolve(hir.defs[d.protocol].name).to_string())
-                    .collect();
-                let der = if derives.is_empty() {
-                    String::new()
-                } else {
-                    format!(" derive({})", derives.join(", "))
-                };
-                return Some((
-                    format!("struct {name}{} {{ {} }}{der}", gen_list(&gn), fields.join(", ")),
-                    "(a type)".into(),
-                ));
-            }
-            lang_hir::DefKind::Enum(ed) => {
-                let gn = gen_names(&ed.generics);
-                let mut pr = lang_typeck::ty::Printer::new(&names);
-                pr.gen_names = gn.clone();
-                let info = checked.g.env.enums.get(&def)?;
-                let vs: Vec<String> = info
-                    .variants
-                    .iter()
-                    .map(|v| {
-                        let n = self.interner.resolve(v.name).to_string();
-                        if v.fields.is_empty() {
-                            return n;
-                        }
-                        let fs: Vec<String> = v
-                            .fields
-                            .iter()
-                            .map(|(l, t)| match l {
-                                Some(l) => format!("{}: {}", self.interner.resolve(*l), pr.print(t)),
-                                None => pr.print(t),
-                            })
-                            .collect();
-                        format!("{n}({})", fs.join(", "))
-                    })
-                    .collect();
-                return Some((
-                    format!("enum {name}{} {{ {} }}", gen_list(&gn), vs.join(", ")),
-                    "(a type)".into(),
-                ));
-            }
-            lang_hir::DefKind::Protocol(pd) => {
-                let info = checked.g.env.protocols.get(&def)?;
-                let mut pg = vec!["Self".to_string()];
-                pg.extend(gen_names(&pd.generics));
-                let mut ms: Vec<String> = info
-                    .methods
-                    .iter()
-                    .filter_map(|(n, m)| {
-                        let sc = checked.g.scheme(*m)?;
-                        let mut pr = lang_typeck::ty::Printer::new(&names);
-                        pr.gen_names = pg.clone();
-                        Some(format!("{}: {}", self.interner.resolve(*n), pr.print(&sc.ty)))
-                    })
-                    .collect();
-                ms.sort();
-                let supers: Vec<String> = info
-                    .supers
-                    .iter()
-                    .map(|d| self.interner.resolve(hir.defs[*d].name).to_string())
-                    .collect();
-                let sup = if supers.is_empty() { String::new() } else { format!(": {}", supers.join(" + ")) };
-                return Some((
-                    format!("protocol {name}{sup} {{ {} }}", ms.join(", ")),
-                    "(a protocol)".into(),
-                ));
-            }
-            lang_hir::DefKind::Alias(_) | lang_hir::DefKind::Opaque(_) => {
-                // the declaration's source line(s), whitespace-normalized
-                let m = &hir.modules[hir.defs[def].module];
-                let text = &self.sources.get(m.file).text;
-                let sp = hir.defs[def].span.range();
-                let start = text[..sp.start].rfind('\n').map(|i| i + 1).unwrap_or(0);
-                let end = text[sp.end..].find('\n').map(|i| sp.end + i).unwrap_or(text.len());
-                let src = text[start..end].split_whitespace().collect::<Vec<_>>().join(" ");
-                return Some((src, "(a type)".into()));
-            }
-            _ => {}
-        }
-        let scheme = checked.g.scheme(def)?;
-        let fn_generics = match &hir.defs[def].kind {
-            lang_hir::DefKind::Fn(f) => gen_names(&f.generics),
-            _ => vec![],
-        };
-        let mut pr = lang_typeck::ty::Printer::new(&names);
-        pr.gen_names = fn_generics.clone();
-        let mut ty = pr.print(&scheme.ty);
-        // where-clause constraints on the generic parameters
-        let preds: Vec<String> = scheme
-            .constraints
-            .iter()
-            .filter_map(|c| match c {
-                lang_typeck::solve::Constraint::Impl { proto, args, ty, .. } => {
-                    let pn = self.interner.resolve(hir.defs[*proto].name).to_string();
-                    let a = if args.is_empty() {
-                        String::new()
-                    } else {
-                        format!("<{}>", args.iter().map(|x| pr.print(x)).collect::<Vec<_>>().join(", "))
-                    };
-                    Some(format!("{}: {pn}{a}", pr.print(ty)))
-                }
-                _ => None,
-            })
-            .collect();
-        if !fn_generics.is_empty() && ty.starts_with("fn(") {
-            ty = format!("fn{}{}", gen_list(&fn_generics), &ty[2..]);
-        }
-        if !preds.is_empty() {
-            ty = format!("{ty} where {}", preds.join(", "));
-        }
-        let eff = match &*scheme.ty {
-            lang_typeck::TyKind::Fn(f) => {
-                let (labels, tail) = lang_typeck::ty::row_fields(&f.eff);
-                let mut ls: Vec<String> = labels
-                    .iter()
-                    .map(|(l, _)| self.interner.resolve(*l).to_string())
-                    .filter(|l| !l.starts_with('%'))
-                    .collect();
-                ls.sort();
-                // the effects of functions passed in are charged to the caller
-                let _ = tail;
-                let open = f
-                    .params
-                    .iter()
-                    .any(|p| lang_typeck::ty::ty_any(p, &mut |k| matches!(k, lang_typeck::TyKind::Fn(_))));
-                format!(
-                    "!{{{}}}{}",
-                    ls.join(", "),
-                    if open { " plus the effects of its callbacks" } else { "" }
-                )
-            }
-            _ => "(not a function)".to_string(),
-        };
-        Some((ty, eff))
+        describe_def(&checked.g, &hir, &self.interner, &self.sources, def)
     }
 
     /// System plans in the entry module: node keys, providers, references.
@@ -1456,4 +1308,157 @@ fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
 /// `lang_typeck::set_repl_session`).
 pub fn set_repl_session() {
     lang_typeck::set_repl_session();
+}
+
+/// A definition's declared shape (types, protocols) or type and effects
+/// (functions and values), as `lang explain` and editor hovers show it.
+pub fn describe_def(
+    g: &lang_typeck::Global<'_>,
+    hir: &lang_hir::Hir,
+    interner: &Interner,
+    sources: &SourceMap,
+    def: lang_hir::DefId,
+) -> Option<(String, String)> {
+    let name = interner.resolve(hir.defs[def].name).to_string();
+    let name = name.as_str();
+    let names = lang_typeck::program::Names { g, skolems: &[] };
+    let gen_names = |gs: &[lang_hir::GenericId]| -> Vec<String> {
+        gs.iter().map(|g| interner.resolve(hir.generics[*g].name).to_string()).collect()
+    };
+    let gen_list = |ns: &[String]| if ns.is_empty() { String::new() } else { format!("<{}>", ns.join(", ")) };
+    // type definitions: their declared shape
+    match &hir.defs[def].kind {
+        lang_hir::DefKind::Struct(sd) => {
+            let gn = gen_names(&sd.generics);
+            let mut pr = lang_typeck::ty::Printer::new(&names);
+            pr.gen_names = gn.clone();
+            let info = g.env.structs.get(&def)?;
+            let fields: Vec<String> = info
+                .fields
+                .iter()
+                .map(|(n, t, public)| {
+                    format!("{}{}: {}", if *public { "pub " } else { "" }, interner.resolve(*n), pr.print(t))
+                })
+                .collect();
+            let derives: Vec<String> =
+                sd.derives.iter().map(|d| interner.resolve(hir.defs[d.protocol].name).to_string()).collect();
+            let der =
+                if derives.is_empty() { String::new() } else { format!(" derive({})", derives.join(", ")) };
+            return Some((
+                format!("struct {name}{} {{ {} }}{der}", gen_list(&gn), fields.join(", ")),
+                "(a type)".into(),
+            ));
+        }
+        lang_hir::DefKind::Enum(ed) => {
+            let gn = gen_names(&ed.generics);
+            let mut pr = lang_typeck::ty::Printer::new(&names);
+            pr.gen_names = gn.clone();
+            let info = g.env.enums.get(&def)?;
+            let vs: Vec<String> = info
+                .variants
+                .iter()
+                .map(|v| {
+                    let n = interner.resolve(v.name).to_string();
+                    if v.fields.is_empty() {
+                        return n;
+                    }
+                    let fs: Vec<String> = v
+                        .fields
+                        .iter()
+                        .map(|(l, t)| match l {
+                            Some(l) => format!("{}: {}", interner.resolve(*l), pr.print(t)),
+                            None => pr.print(t),
+                        })
+                        .collect();
+                    format!("{n}({})", fs.join(", "))
+                })
+                .collect();
+            return Some((
+                format!("enum {name}{} {{ {} }}", gen_list(&gn), vs.join(", ")),
+                "(a type)".into(),
+            ));
+        }
+        lang_hir::DefKind::Protocol(pd) => {
+            let info = g.env.protocols.get(&def)?;
+            let mut pg = vec!["Self".to_string()];
+            pg.extend(gen_names(&pd.generics));
+            let mut ms: Vec<String> = info
+                .methods
+                .iter()
+                .filter_map(|(n, m)| {
+                    let sc = g.scheme(*m)?;
+                    let mut pr = lang_typeck::ty::Printer::new(&names);
+                    pr.gen_names = pg.clone();
+                    Some(format!("{}: {}", interner.resolve(*n), pr.print(&sc.ty)))
+                })
+                .collect();
+            ms.sort();
+            let supers: Vec<String> =
+                info.supers.iter().map(|d| interner.resolve(hir.defs[*d].name).to_string()).collect();
+            let sup = if supers.is_empty() { String::new() } else { format!(": {}", supers.join(" + ")) };
+            return Some((format!("protocol {name}{sup} {{ {} }}", ms.join(", ")), "(a protocol)".into()));
+        }
+        lang_hir::DefKind::Alias(_) | lang_hir::DefKind::Opaque(_) => {
+            // the declaration's source line(s), whitespace-normalized
+            let m = &hir.modules[hir.defs[def].module];
+            let text = &sources.get(m.file).text;
+            let sp = hir.defs[def].span.range();
+            let start = text[..sp.start].rfind('\n').map(|i| i + 1).unwrap_or(0);
+            let end = text[sp.end..].find('\n').map(|i| sp.end + i).unwrap_or(text.len());
+            let src = text[start..end].split_whitespace().collect::<Vec<_>>().join(" ");
+            return Some((src, "(a type)".into()));
+        }
+        _ => {}
+    }
+    let scheme = g.scheme(def)?;
+    let fn_generics = match &hir.defs[def].kind {
+        lang_hir::DefKind::Fn(f) => gen_names(&f.generics),
+        _ => vec![],
+    };
+    let mut pr = lang_typeck::ty::Printer::new(&names);
+    pr.gen_names = fn_generics.clone();
+    let mut ty = pr.print(&scheme.ty);
+    // where-clause constraints on the generic parameters
+    let preds: Vec<String> = scheme
+        .constraints
+        .iter()
+        .filter_map(|c| match c {
+            lang_typeck::solve::Constraint::Impl { proto, args, ty, .. } => {
+                let pn = interner.resolve(hir.defs[*proto].name).to_string();
+                let a = if args.is_empty() {
+                    String::new()
+                } else {
+                    format!("<{}>", args.iter().map(|x| pr.print(x)).collect::<Vec<_>>().join(", "))
+                };
+                Some(format!("{}: {pn}{a}", pr.print(ty)))
+            }
+            _ => None,
+        })
+        .collect();
+    if !fn_generics.is_empty() && ty.starts_with("fn(") {
+        ty = format!("fn{}{}", gen_list(&fn_generics), &ty[2..]);
+    }
+    if !preds.is_empty() {
+        ty = format!("{ty} where {}", preds.join(", "));
+    }
+    let eff = match &*scheme.ty {
+        lang_typeck::TyKind::Fn(f) => {
+            let (labels, tail) = lang_typeck::ty::row_fields(&f.eff);
+            let mut ls: Vec<String> = labels
+                .iter()
+                .map(|(l, _)| interner.resolve(*l).to_string())
+                .filter(|l| !l.starts_with('%'))
+                .collect();
+            ls.sort();
+            // the effects of functions passed in are charged to the caller
+            let _ = tail;
+            let open = f
+                .params
+                .iter()
+                .any(|p| lang_typeck::ty::ty_any(p, &mut |k| matches!(k, lang_typeck::TyKind::Fn(_))));
+            format!("!{{{}}}{}", ls.join(", "), if open { " plus the effects of its callbacks" } else { "" })
+        }
+        _ => "(not a function)".to_string(),
+    };
+    Some((ty, eff))
 }

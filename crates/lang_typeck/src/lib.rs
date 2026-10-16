@@ -20,7 +20,7 @@ pub mod ty;
 
 pub use infer::{Coercion, IndexKind, IterKind, Res, Target};
 pub use program::{
-    Checked, Global, Instance, Scheme, check_instance, check_program, ground, ground_resolved,
-    set_repl_session, show_ty, subst_instance,
+    Checked, Global, Instance, Member, Scheme, TypeIndex, check_instance, check_program, ground,
+    ground_resolved, set_record_types, set_repl_session, show_ty, subst_instance,
 };
 pub use ty::{FnTy, InferCtxt, Ty, TyKind, TyVid, UnifyError};
