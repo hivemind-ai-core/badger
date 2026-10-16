@@ -1,10 +1,62 @@
-// Regular expressions.
+// Regular expressions (the Rust `regex` syntax; no backreferences or
+// lookaround, and matching takes linear time).
+//
+// `compile` checks a pattern and reports an invalid one as an `Error`; the
+// functions taking a pattern string treat an invalid pattern as a defect of
+// the caller. Compiled patterns are cached.
 
+import std.prelude
+
+extern "intrinsic" fn regex_check(pattern: String) -> Result<Unit, String>
 extern "intrinsic" fn regex_is_match(pattern: String, text: String) -> Bool
 extern "intrinsic" fn regex_captures(pattern: String, text: String) -> Result<List<String>, String>
 extern "intrinsic" fn regex_replace_all(pattern: String, text: String, replacement: String) -> String
 extern "intrinsic" fn regex_find_all(pattern: String, text: String) -> List<String>
 
+/// A pattern that does not compile.
+pub struct Error {
+    pub pattern: String,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"invalid regular expression `{self.pattern}`: {self.message}" }
+}
+
+impl prelude.Error for Error {}
+
+/// A pattern known to compile.
+pub struct Regex {
+    pattern: String,
+}
+
+/// Compile `pattern`, or say why it does not compile.
+pub fn compile(pattern: String) -> Result<Regex, Error> {
+    match regex_check(pattern) {
+        .ok(_) => {
+            let r: Regex = { pattern: pattern }
+            ok(r)
+        },
+        .err(m) => err({ pattern: pattern, message: m }),
+    }
+}
+
+impl Regex {
+    pub fn pattern(self: &Self) -> String { self.pattern }
+    pub fn is_match(self: &Self, text: String) -> Bool { regex_is_match(self.pattern, text) }
+    /// Capture groups of the first match (group 0 is the whole match;
+    /// empty when nothing matches).
+    pub fn captures(self: &Self, text: String) -> List<String> {
+        match regex_captures(self.pattern, text) {
+            .ok(groups) => groups,
+            .err(_) => [],
+        }
+    }
+    pub fn replace_all(self: &Self, text: String, replacement: String) -> String { regex_replace_all(self.pattern, text, replacement) }
+    pub fn find_all(self: &Self, text: String) -> List<String> { regex_find_all(self.pattern, text) }
+}
+
+/// Whether `pattern` matches somewhere in `text`.
 pub fn is_match(pattern: String, text: String) -> Bool { regex_is_match(pattern, text) }
 /// Capture groups of the first match (group 0 is the whole match); an
 /// invalid pattern is an error.

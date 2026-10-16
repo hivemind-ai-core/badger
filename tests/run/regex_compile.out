@@ -1,0 +1,5 @@
+invalid regular expression `(`: regex parse error:
+    (
+    ^
+error: unclosed group
+true ["job-42", "job", "42"] ["a-1", "b-2"] x

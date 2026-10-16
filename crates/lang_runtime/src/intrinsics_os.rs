@@ -68,6 +68,36 @@ macro_rules! os_intrinsics {
     };
 }
 
+/// A compiled pattern, from a bounded cache (patterns are usually literals
+/// used again and again).
+fn compiled(p: &str) -> Result<regex::Regex, String> {
+    static CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, regex::Regex>>> =
+        std::sync::Mutex::new(None);
+    let mut g = CACHE.lock().unwrap();
+    let cache = g.get_or_insert_with(Default::default);
+    if let Some(r) = cache.get(p) {
+        return Ok(r.clone());
+    }
+    let r = regex::Regex::new(p).map_err(|e| e.to_string())?;
+    if cache.len() >= 256 {
+        cache.clear();
+    }
+    cache.insert(p.to_string(), r.clone());
+    Ok(r)
+}
+
+/// A pattern that must compile: an invalid one is a defect of the caller
+/// (`regex.compile` reports it as an error instead).
+fn pattern(p: u64) -> regex::Regex {
+    match compiled(str_of(p)) {
+        Ok(r) => r,
+        Err(e) => crate::task::panic_current(
+            format!("invalid regular expression: {e}"),
+            crate::task::caller_location(),
+        ),
+    }
+}
+
 /// `scheme://host[:port]` of an `http` or `https` URL that names only an
 /// origin (an optional `/` after it, no user, path, query, or fragment).
 pub fn origin_of(url: &str) -> Result<String, String> {
@@ -314,12 +344,17 @@ os_intrinsics! {
     }
 
     // ---------------------------------------------------------------- regex
-    fn regex_is_match(ctx, targs, ret, pat, s) {
-        match regex::Regex::new(str_of(pat)) { Ok(r) => r.is_match(str_of(s)) as u64, Err(_) => 0 }
+    // Result<Unit, String>: whether a pattern compiles
+    fn regex_check(ctx, targs, ret, pat) {
+        match compiled(str_of(pat)) {
+            Ok(_) => make_variant(rdesc(ret), "ok", &[0]),
+            Err(e) => { let m = new_string(&e); make_variant(rdesc(ret), "err", &[m]) }
+        }
     }
+    fn regex_is_match(ctx, targs, ret, pat, s) { (pattern(pat).is_match(str_of(s))) as u64 }
     // Result<List<String>, String>: capture groups of the first match
     fn regex_captures(ctx, targs, ret, pat, s) {
-        match regex::Regex::new(str_of(pat)) {
+        match compiled(str_of(pat)) {
             Ok(r) => {
                 let g = Roots::new();
                 let list_desc = rdesc(ret).variant(0).unwrap().fields[0].desc;
@@ -330,20 +365,12 @@ os_intrinsics! {
                 let l = g.add(strings(list_desc, caps));
                 make_variant(rdesc(ret), "ok", &[l])
             }
-            Err(e) => { let m = new_string(&e.to_string()); make_variant(rdesc(ret), "err", &[m]) }
+            Err(e) => { let m = new_string(&e); make_variant(rdesc(ret), "err", &[m]) }
         }
     }
-    fn regex_replace_all(ctx, targs, ret, pat, s, rep) {
-        match regex::Regex::new(str_of(pat)) {
-            Ok(r) => new_string(&r.replace_all(str_of(s), str_of(rep))),
-            Err(_) => s,
-        }
-    }
+    fn regex_replace_all(ctx, targs, ret, pat, s, rep) { new_string(&pattern(pat).replace_all(str_of(s), str_of(rep))) }
     fn regex_find_all(ctx, targs, ret, pat, s) {
-        let v = match regex::Regex::new(str_of(pat)) {
-            Ok(r) => r.find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect(),
-            Err(_) => vec![],
-        };
+        let v = pattern(pat).find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect();
         strings(rdesc(ret), v)
     }
 

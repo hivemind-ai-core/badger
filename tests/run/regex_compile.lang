@@ -1,0 +1,17 @@
+// Patterns are checked: `regex.compile` reports an invalid one as an error;
+// the functions taking a pattern string treat it as a defect.
+import std.io
+import std.regex
+
+pub fn main() -> Result<Unit, io.Error> {
+    match regex.compile("(") {
+        .ok(_) => io.println("compiled?")?,
+        .err(e) => io.println($"{e}")?,
+    }
+    match regex.compile("([a-z]+)-([0-9]+)") {
+        .ok(r) => io.println($"{r.is_match("job-42")} {r.captures("job-42")} {r.find_all("a-1 b-2")} {r.replace_all("a-1", "x")}")?,
+        .err(e) => io.println($"{e}")?,
+    }
+    io.println($"{regex.is_match("[", "x")}")?
+    ok(())
+}

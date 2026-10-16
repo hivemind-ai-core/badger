@@ -283,8 +283,10 @@ error. `lang_cli` is the `lang` binary.
   and none needs a finalizer; small objects come from per-worker 16-byte
   size-class pools refilled by the sweep),
   strings/bytes/symbols, JSON codecs and `Data` with versioned wire names and
-  JSON Schema output, regular expressions, and an Earley parser library
-  (grammar strings or productions, packed forests, bounded tree enumeration
+  JSON Schema output, regular expressions (`regex.compile` reports invalid
+  patterns; pattern-string functions treat them as defects; compiled
+  patterns are cached), and an Earley parser library (grammar strings or
+  productions, packed forests, bounded tree enumeration
   with cycle reports, error recovery).
 - **Authority:** `fs.root(path)` returns a `Dir`, a capability over one
   directory tree. Its paths are relative, and absolute paths, `..`, and
