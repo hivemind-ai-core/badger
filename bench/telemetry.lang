@@ -1,0 +1,312 @@
+// Application workload for the actual language task/channel runtime.
+// See telemetry.md; TELEMETRY_CONFIG is a complete JSON Config override.
+import std.buffer
+import std.channel
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.map
+import std.task
+import std.time
+
+pub type Config = {
+    events: Int, generators: Int, parsers: Int, batch_size: Int,
+    ingest_capacity: Int, shards: Int, shard_capacity: Int, cache_capacity: Int,
+    sink_capacity: Int, enrich_every: Int, miss_yields: Int, flush_every: Int,
+    sample_every: Int, hash_rounds: Int, seed: U64,
+}
+type RawEvent = { id: Int, source_ip: Int, payload: Array<U64> }
+type Batch = { started: Instant, events: Array<RawEvent> }
+type Parsed = { id: Int, source_ip: Int, hash: U64 }
+type Event = { id: Int, source_ip: Int, checksum: U64, started: Instant }
+type Request = { source_ip: Int, reply: channel.Sender<U64> }
+type Summary = { shard: Int, count: Int, id_sum: Int, checksum: U64 }
+type ShardStats = { shard: Int, histogram: Array<Int>, samples: Int, max_ns: Int, windows: Int, max_window_keys: Int, alerts: Int }
+type CacheStats = { requests: Int, misses: Int, keys: Int }
+
+fn must<T, E>(r: Result<T, E>) -> T {
+    match r {
+        .ok(v) => v,
+        .err(e) => panic(inspect.show(e)),
+    }
+}
+fn queue<T>(capacity: Int) -> channel.Endpoints<T> where T: Transfer {
+    must(channel.create<T>({ ..channel.defaults, capacity }))
+}
+fn send<T>(s: channel.Sender<T>, value: T) -> Unit {
+    let _ = must(s.send(value))
+}
+fn config() -> Config {
+    match env.get("TELEMETRY_CONFIG") {
+        .some(text) => must(codec.decode_text<Config>(text)),
+        .none => {
+            events: 65536, generators: 4, parsers: 8, batch_size: 64,
+            ingest_capacity: 128, shards: 8, shard_capacity: 256, cache_capacity: 128,
+            sink_capacity: 16, enrich_every: 8, miss_yields: 1, flush_every: 10000,
+            sample_every: 16, hash_rounds: 1, seed: 20261016U64,
+        },
+    }
+}
+// SplitMix64's stateless mixing step. All arithmetic is explicitly modular.
+fn mix(value: U64) -> U64 {
+    let a = (value ^ (value >> 30)).wrapping_mul(13787848793156543929U64)
+    let b = (a ^ (a >> 27)).wrapping_mul(10723151780598845931U64)
+    b ^ (b >> 31)
+}
+fn source_ip(id: Int, seed: U64) -> Int {
+    let h = mix(U64.try_from(id).unwrap_or(0U64).wrapping_add(seed))
+    // 80% in a 64-key hot set, 20% in a disjoint 4096-key cold set.
+    Int.try_from(if h % 10U64 < 8U64 { h % 64U64 } else { 64U64 + h % 4096U64 }).unwrap_or(0)
+}
+fn raw_event(id: Int, c: Config) -> RawEvent {
+    // Array elements occupy words in this runtime: 32 words = 256 bytes.
+    var words = buffer.with_capacity<U64>(32)
+    var state = mix(U64.try_from(id).unwrap_or(0U64).wrapping_add(c.seed)).wrapping_add(1U64)
+    for _ in 0..32 {
+        // XorShift64, per event so generation is independent of task scheduling.
+        state = state ^ (state << 13)
+        state = state ^ (state >> 7)
+        state = state ^ (state << 17)
+        words.push(state)
+    }
+    { id, source_ip: source_ip(id, c.seed), payload: words.freeze() }
+}
+fn parse(e: RawEvent, rounds: Int) -> Parsed {
+    var hash = 14695981039346656037U64
+    for _ in 0..rounds {
+        for word in e.payload {
+            for k in 0..8 {
+                let byte = (word >> (k * 8)) & 255U64
+                hash = (hash ^ byte).wrapping_mul(1099511628211U64)
+            }
+        }
+    }
+    { id: e.id, source_ip: e.source_ip, hash }
+}
+fn generate(g: Int, c: Config, ingest: channel.Sender<Batch>) -> Unit {
+    // Striped batches cover every ID exactly once, including a partial last batch.
+    var first = g * c.batch_size
+    while first < c.events {
+        let started = time.now()
+        var events = buffer.with_capacity<RawEvent>(c.batch_size)
+        for id in first..(first + c.batch_size).min(c.events) {
+            events.push(raw_event(id, c))
+        }
+        send(ingest, { started, events: events.freeze() })
+        first = first + c.generators * c.batch_size
+    }
+}
+fn cache_actor(c: Config, requests: channel.Receiver<Request>) -> CacheStats {
+    var cache: Map<Int, { tag: U64, accesses: Int }> = map.empty()
+    var misses = 0
+    var count = 0
+    loop {
+        match requests.recv() {
+            .none => { break },
+            .some(req) => {
+                let entry = match cache.get(req.source_ip) {
+                    .some(v) => v,
+                    .none => {
+                        misses = misses + 1
+                        for _ in 0..c.miss_yields {
+                            task.yield_now()
+                        }
+                        { tag: mix(U64.try_from(req.source_ip).unwrap_or(0U64)), accesses: 0 }
+                    },
+                }
+                cache = cache.insert(req.source_ip, { ..entry, accesses: entry.accesses + 1 })
+                count = count + 1
+                task.yield_now()
+                send(req.reply, entry.tag)
+                req.reply.close()
+            },
+        }
+    }
+    assert(map.to_list(cache).fold(0, fn(n: Int, e) { n + e.1.accesses }) == count)
+    { requests: count, misses, keys: cache.len() }
+}
+fn enrich(ip: Int, requests: channel.Sender<Request>) -> U64 {
+    let reply = queue<U64>(1)
+    send(requests, { source_ip: ip, reply: reply.sender })
+    match reply.receiver.recv() {
+        .some(tag) => tag,
+        .none => panic("cache closed without a reply"),
+    }
+}
+fn parser(c: Config, ingest: channel.Receiver<Batch>, requests: channel.Sender<Request>, shards: List<channel.Sender<Event>>) -> Unit {
+    loop {
+        match ingest.recv() {
+            .none => { break },
+            .some(batch) => {
+                // A scope per batch bounds retained child tasks and reply channels.
+                let _ = must(task.scope(fn(s) -> Result<Unit, io.Error> {
+                    let parsed = batch.events.to_list().map(fn(e: RawEvent) { parse(e, c.hash_rounds) })
+                    var children = []
+                    for e in parsed {
+                        if e.id % c.enrich_every == 0 {
+                            children = children.append((e.id, s.spawn(fn() { enrich(e.source_ip, requests) })))
+                        }
+                    }
+                    var tags: Map<Int, U64> = map.empty()
+                    for (id, child) in children {
+                        tags = tags.insert(id, child.join())
+                    }
+                    // All enrichment replies have joined before routing this batch.
+                    for e in parsed {
+                        let shard = Int.try_from(e.hash % U64.try_from(c.shards).unwrap_or(1U64)).unwrap_or(0)
+                        send(shards[shard], {
+                            id: e.id, source_ip: e.source_ip, started: batch.started,
+                            checksum: e.hash ^ tags.get(e.id).unwrap_or(0U64),
+                        })
+                    }
+                    ok(())
+                }))
+            },
+        }
+    }
+}
+fn zeros() -> Buffer<Int> {
+    var b = buffer.with_capacity<Int>(512)
+    for _ in 0..512 {
+        b.push(0)
+    }
+    b
+}
+// 1us bins initially, then 16 subdivisions per power of two (<=6.25% width).
+fn latency_bucket(ns: Int) -> Int {
+    var us = ns / 1000
+    var group = 0
+    while us >= 32 {
+        us = us / 2
+        group = group + 1
+    }
+    (group * 16 + us).min(511)
+}
+fn aggregate(shard: Int, c: Config, input: channel.Receiver<Event>, sink: channel.Sender<Summary>) -> ShardStats {
+    var current: Map<Int, Int> = map.empty()
+    var previous: Map<Int, Int> = map.empty()
+    var histogram = zeros()
+    var samples = 0
+    var max_ns = 0
+    var windows = 0
+    var alerts = 0
+    var max_window_keys = 0
+    var count = 0
+    var id_sum = 0
+    var checksum = 0U64
+    loop {
+        match input.recv() {
+            .none => { break },
+            .some(e) => {
+                let hits = current.get(e.source_ip).unwrap_or(0) + 1
+                current = current.insert(e.source_ip, hits)
+                // Consult both buckets, modelling a rolling alert window.
+                let window_hits = hits + previous.get(e.source_ip).unwrap_or(0)
+                if window_hits >= 32 {
+                    alerts = alerts + 1
+                }
+                count = count + 1
+                id_sum = id_sum + e.id
+                checksum = checksum.wrapping_add(e.checksum)
+                if e.id % c.sample_every == 0 {
+                    let ns = time.as_nanos(time.now() - e.started)
+                    let bucket = latency_bucket(ns)
+                    histogram.set(bucket, histogram.get(bucket).unwrap_or(0) + 1)
+                    samples = samples + 1
+                    max_ns = max_ns.max(ns)
+                }
+                if count == c.flush_every {
+                    assert(map.to_list(current).fold(0, fn(n: Int, e) { n + e.1 }) == count)
+                    max_window_keys = max_window_keys.max(current.len() + previous.len())
+                    send(sink, { shard, count, id_sum, checksum })
+                    previous = current
+                    current = map.empty()
+                    count = 0
+                    id_sum = 0
+                    checksum = 0U64
+                    windows = windows + 1
+                }
+            },
+        }
+    }
+    if count > 0 {
+        assert(map.to_list(current).fold(0, fn(n: Int, e) { n + e.1 }) == count)
+        send(sink, { shard, count, id_sum, checksum })
+        windows = windows + 1
+    }
+    max_window_keys = max_window_keys.max(current.len() + previous.len())
+    { shard, histogram: histogram.freeze(), samples, max_ns, windows, max_window_keys, alerts }
+}
+fn consume(c: Config, input: channel.Receiver<Summary>) -> List<Summary> {
+    var counts = zeros()
+    var sums = zeros()
+    var checks = buffer.with_capacity<U64>(c.shards)
+    for _ in 0..c.shards {
+        checks.push(0U64)
+    }
+    loop {
+        match input.recv() {
+            .none => { break },
+            .some(v) => {
+                counts.set(v.shard, counts.get(v.shard).unwrap_or(0) + v.count)
+                sums.set(v.shard, sums.get(v.shard).unwrap_or(0) + v.id_sum)
+                checks.set(v.shard, checks.get(v.shard).unwrap_or(0U64).wrapping_add(v.checksum))
+            },
+        }
+    }
+    (0..c.shards).map(fn(shard: Int) -> Summary {
+        { shard, count: counts.get(shard).unwrap_or(0), id_sum: sums.get(shard).unwrap_or(0), checksum: checks.get(shard).unwrap_or(0U64) }
+    }).collect()
+}
+pub fn main() -> Result<Unit, io.Error> {
+    let c = config()
+    assert(c.events > 0 && c.generators > 0 && c.parsers > 0 && c.batch_size > 0)
+    assert(c.shards > 0 && c.shards <= 512 && c.hash_rounds > 0)
+    assert(c.sample_every > 0 && c.enrich_every > 0 && c.flush_every > 0 && c.miss_yields >= 0)
+    let heap_before = inspect.heap()
+    let started = time.now()
+    let result = task.scope(fn(s) -> Result<_, io.Error> {
+        let ingest = queue<Batch>(c.ingest_capacity)
+        let cache = queue<Request>(c.cache_capacity)
+        let sink = queue<Summary>(c.sink_capacity)
+        let shard_queues = (0..c.shards).map(fn(_: Int) { queue<Event>(c.shard_capacity) }).collect()
+        let shard_senders = shard_queues.map(fn(q) { q.sender })
+        let sink_task = s.spawn(fn() { consume(c, sink.receiver) })
+        let cache_task = s.spawn(fn() { cache_actor(c, cache.receiver) })
+        let aggregators = (0..c.shards).map(fn(i: Int) {
+            s.spawn(fn() { aggregate(i, c, shard_queues[i].receiver, sink.sender) })
+        }).collect()
+        let parsers = (0..c.parsers).map(fn(_: Int) {
+            s.spawn(fn() { parser(c, ingest.receiver, cache.sender, shard_senders) })
+        }).collect()
+        let generators = (0..c.generators).map(fn(g: Int) {
+            s.spawn(fn() { generate(g, c, ingest.sender) })
+        }).collect()
+        for g in generators {
+            g.join()
+        }
+        ingest.sender.close()
+        for p in parsers {
+            p.join()
+        }
+        cache.sender.close()
+        let cache_stats = cache_task.join()
+        for q in shard_queues {
+            q.sender.close()
+        }
+        let shard_stats = aggregators.map(fn(a) { a.join() })
+        sink.sender.close()
+        let totals = sink_task.join()
+        ok({ cache: cache_stats, shards: shard_stats, totals })
+    })?
+    let elapsed_ns = time.as_nanos(time.now() - started)
+    assert(result.totals.fold(0, fn(n: Int, v: Summary) { n + v.count }) == c.events)
+    assert(result.totals.fold(0, fn(n: Int, v: Summary) { n + v.id_sum }) == c.events * (c.events - 1) / 2)
+    assert(result.cache.requests == (c.events - 1) / c.enrich_every + 1)
+    io.println(codec.encode_text({
+        schema: 1, workload: "telemetry", workers: task.worker_count(), config: c, elapsed_ns,
+        result, heap_before, heap_after: inspect.heap(),
+    }))?
+    ok(())
+}
