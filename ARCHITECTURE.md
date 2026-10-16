@@ -265,7 +265,8 @@ error. `lang_cli` is the `lang` binary.
   (list headers, page directories, pages, and CHAMP trie nodes are all
   managed objects: versions share them, a contested directory slot or tail
   page slot is claimed atomically by one version and copied by the others,
-  and none needs a finalizer),
+  and none needs a finalizer; small objects come from per-worker 16-byte
+  size-class pools refilled by the sweep),
   strings/bytes/symbols, JSON codecs and `Data` with versioned wire names and
   JSON Schema output, regular expressions, and an Earley parser library
   (grammar strings or productions, packed forests, bounded tree enumeration

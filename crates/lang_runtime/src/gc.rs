@@ -131,6 +131,76 @@ fn layout(payload: usize) -> Layout {
     Layout::from_size_align(HEADER + payload.max(8), 8).unwrap()
 }
 
+/// Small objects (header and payload up to `SMALL_MAX` bytes) live in
+/// 16-byte size classes carved from 256 KiB chunks; each worker keeps free
+/// lists per class, filled by the sweep of its own object list, and
+/// allocates from them without the lock (like its object list). Small
+/// cells are reused, not returned to the system. Larger objects use the
+/// system allocator.
+const SMALL_MAX: usize = 256;
+const CLASSES: usize = SMALL_MAX / 16;
+const CHUNK: usize = 256 << 10;
+
+struct Pool {
+    free: [*mut u8; CLASSES],
+    bump: *mut u8,
+    left: usize,
+}
+
+struct Pools([UnsafeCell<Pool>; crate::task::MAX_WORKERS]);
+unsafe impl Sync for Pools {}
+static POOLS: Pools = Pools(
+    [const { UnsafeCell::new(Pool { free: [std::ptr::null_mut(); CLASSES], bump: std::ptr::null_mut(), left: 0 }) };
+        crate::task::MAX_WORKERS],
+);
+
+fn cell_size(payload: usize) -> usize {
+    (HEADER + payload.max(8) + 15) & !15
+}
+
+/// A zeroed cell for an object with `payload` bytes, owned by worker `w`.
+fn alloc_cell(w: usize, payload: usize) -> *mut Header {
+    let size = cell_size(payload);
+    if size > SMALL_MAX {
+        return unsafe { alloc_zeroed(layout(payload)) as *mut Header };
+    }
+    let pool = unsafe { &mut *POOLS.0[w].get() };
+    let class = size / 16 - 1;
+    let p = pool.free[class];
+    if !p.is_null() {
+        unsafe {
+            pool.free[class] = *(p as *mut *mut u8);
+            std::ptr::write_bytes(p, 0, size);
+        }
+        return p as *mut Header;
+    }
+    if pool.left < size {
+        let chunk = unsafe { alloc_zeroed(Layout::from_size_align(CHUNK, 16).unwrap()) };
+        if chunk.is_null() {
+            return chunk as *mut Header;
+        }
+        pool.bump = chunk;
+        pool.left = CHUNK;
+    }
+    let p = pool.bump;
+    pool.bump = unsafe { p.add(size) };
+    pool.left -= size;
+    p as *mut Header
+}
+
+/// Return the cell of a dead object with `payload` bytes to worker `w`'s
+/// pool (only while the world is stopped).
+fn free_cell(w: usize, p: *mut Header, payload: usize) {
+    let size = cell_size(payload);
+    if size > SMALL_MAX {
+        return unsafe { dealloc(p as *mut u8, layout(payload)) };
+    }
+    let pool = unsafe { &mut *POOLS.0[w].get() };
+    let class = size / 16 - 1;
+    unsafe { *(p as *mut *mut u8) = pool.free[class] };
+    pool.free[class] = p as *mut u8;
+}
+
 /// `LANG_GC_STRESS=1`: collect before every allocation (a debugging aid
 /// that turns missing roots into deterministic failures).
 fn stress() -> bool {
@@ -183,14 +253,15 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         }
     }
     unsafe {
-        let p = alloc_zeroed(layout(payload)) as *mut Header;
+        let w = crate::task::worker_index();
+        let p = alloc_cell(w, payload);
         if p.is_null() {
             eprintln!("fatal: out of memory");
             std::process::abort();
         }
         (*p).desc = desc;
         (*p).meta = (payload as u64) << 32;
-        objects(crate::task::worker_index()).push(p);
+        objects(w).push(p);
         ALLOCATED.fetch_add(HEADER + payload, Ordering::Relaxed);
         p as u64
     }
@@ -398,7 +469,7 @@ fn collect_inner() {
                     h.quarantine.push_back((p, was));
                     h.quarantine_bytes += HEADER + size;
                 } else {
-                    dealloc(p as *mut u8, layout((*p).payload_size()));
+                    free_cell(wl, p, (*p).payload_size());
                 }
                 false
             }
@@ -410,7 +481,7 @@ fn collect_inner() {
             let size = (*p).payload_size();
             h.quarantine_bytes -= HEADER + size;
             h.freed.remove(&(p as usize));
-            dealloc(p as *mut u8, layout(size));
+            free_cell(0, p, size);
         }
     }
     h.live = live;
