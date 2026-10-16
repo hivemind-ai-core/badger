@@ -45,10 +45,12 @@ pub fn panic_info_record(desc: &'static TypeDesc, p: &task::PanicInfo) -> u64 {
     }
 }
 
-/// Whether a channel fast path may run: several workers, and the caller
-/// does not hold the runtime lock (it was called as an unlocked entry).
+/// Whether a channel fast path may run: one worker (nothing runs
+/// concurrently), or several and the caller does not hold the runtime lock
+/// (it was called as an unlocked entry; a holder may have claimed the
+/// channel).
 fn fast_ok() -> bool {
-    task::multi() && !task::holds_lock()
+    !task::multi() || !task::holds_lock()
 }
 
 /// Run `f` holding the runtime lock, taking it if this unlocked entry was

@@ -118,15 +118,23 @@ pub fn make_enum(desc: &'static TypeDesc, tag: u32, fields: &[u64]) -> u64 {
 /// The one shared value of variant `tag` when its payload is all unit (so
 /// every instance is equal and none needs allocating). `err` variants are
 /// excluded: error origins are tracked by the error value's identity.
+/// `TypeDesc::unit_variants` entry of a variant that has no shared value.
+const NOT_SHARED: u64 = 1;
+
 fn shared_unit_variant(desc: &'static TypeDesc, tag: u32) -> Option<u64> {
     use std::sync::atomic::Ordering;
     let slot = desc.unit_variants.get(tag as usize)?;
     let w = slot.load(Ordering::Acquire);
+    // 1: known not to be shareable (it has a payload, or is an error)
+    if w == NOT_SHARED {
+        return None;
+    }
     if w != 0 {
         return Some(w);
     }
     let v = desc.variant(tag)?;
     if v.name == "err" || !v.fields.iter().all(|f| matches!(f.desc.kind, desc::Kind::Unit)) {
+        slot.store(NOT_SHARED, Ordering::Release);
         return None;
     }
     let locked = task::holds_lock();
