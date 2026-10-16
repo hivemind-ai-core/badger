@@ -181,7 +181,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0203",
         "ambiguous derive(From)",
-        "Two variants have the same single payload type, so a conversion target would be ambiguous. Map that error explicitly.",
+        "A warning: two variants have the same single payload type, so `derive(From)` cannot choose between them and derives no conversion for that type (the other variants still convert). Map that source type explicitly where it is needed.",
     ),
     ("E0204", "underivable protocol", "Supported derivations: Eq, Hash, Display, Codec, From, Error."),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),

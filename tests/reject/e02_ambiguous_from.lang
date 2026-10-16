@@ -1,7 +1,21 @@
-// E02: two From-derived variants accept the same source error.
-// expect-error: E0203
+// E02: two From-derived variants accept the same source error: they get
+// no derived conversion (a warning), so `?` from that type needs an
+// explicit mapping; the other variants still convert.
+// expect-error: E0333
 pub enum AppError {
     a(source: Int),
     b(source: Int),
+    c(source: String),
 } derive(Error, From)
+
+fn number() -> Result<Unit, Int> { err(1) }
+
+fn text() -> Result<Unit, String> { err("x") }
+
+fn both() -> Result<Unit, AppError> {
+    text()?
+    number()?
+    ok(())
+}
+
 pub fn main() -> Unit {}

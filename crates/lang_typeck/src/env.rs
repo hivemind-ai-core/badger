@@ -887,12 +887,12 @@ impl TypeEnv {
                                 let a = interner.resolve(names[*vj as usize].name);
                                 let b = interner.resolve(names[*vi as usize].name);
                                 diags.push(
-                                    Diagnostic::error(format!(
-                                        "ambiguous `derive(From)` for `{ename}`: variants `{a}` and `{b}` accept the same source type"
+                                    Diagnostic::warning(format!(
+                                        "`derive(From)` for `{ename}` converts to neither `{a}` nor `{b}`: they accept the same source type"
                                     ))
                                     .with_code("E0203")
                                     .with_label(d.span, "derived here")
-                                    .with_note("duplicate source types require an explicit conversion"),
+                                    .with_note("the other variants convert; map this source type explicitly where it is needed"),
                                 );
                                 continue;
                             }
