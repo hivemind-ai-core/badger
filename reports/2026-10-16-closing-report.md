@@ -56,6 +56,12 @@ called is never allocated:
 | `xs.map(fn(x) { x + k })` | 214 ms | 190 ms (list building dominates) |
 | a closure made and called per iteration (20M) | 245 ms | 19 ms |
 
+Indexing a list (`xs[i]`) is inlined (codegen audit G3): a bounds check
+against the length, then the page and slot by shift and mask (page
+capacities are powers of two), with the runtime reporting out-of-range
+defects as before: 0.73 to 0.15 ns per `Int` element, 7.9 to 1.3 ns per
+`U8` element (including its widening).
+
 ## Tooling
 
 - **Language server** (`lang lsp`, [docs/editors.md](../docs/editors.md)):

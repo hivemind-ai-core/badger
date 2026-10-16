@@ -190,6 +190,11 @@ error. `lang_cli` is the `lang` binary.
 - Records use a canonical layout (fields ordered by label, aligned), enums a
   tag plus payload, closures a code pointer, word adapter, and captures.
   `dyn Protocol` values carry a method dictionary.
+- `xs[i]` on a `List` whose storage representation matches its element is
+  lowered inline: a length load and unsigned bounds check (the runtime
+  call reports a failure), then the directory slot `i >> log2(cap)` and
+  page slot `i & (cap - 1)` (`list::page_cap_for` is a power of two for
+  every element size, shared with the runtime).
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
 - Inlining (optimized builds without live dispatch; `lang_mir::inline`):

@@ -1353,6 +1353,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     _ => {
                         let i = self.lower(index)?;
                         let l = self.loc(span);
+                        if let Some(v) = self.inline_list_index(&bt, b, i, l, &ty) {
+                            return Some(v);
+                        }
                         let w = self.rt(
                             "lang_rt_list_get",
                             vec![b, i, Operand::Const(Const::Addr(l))],
@@ -2703,6 +2706,71 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
 
     /// The page element representation of a `List<T>` iterated page by
     /// page (the runtime's representation of `T`, which pages store).
+    /// `list[i]` without a runtime call: a bounds check against the length,
+    /// then the page (directory slot `i / cap`) and the slot `i % cap`, with
+    /// shifts and masks (page capacities are powers of two). Out of range,
+    /// the runtime reports the defect as before.
+    fn inline_list_index(
+        &mut self,
+        list_ty: &Ty,
+        list: Operand,
+        i: Operand,
+        loc: u64,
+        ty: &Ty,
+    ) -> Option<Operand> {
+        let repr = self.paged_elem(list_ty)?;
+        let size = repr.size() as usize;
+        let i_repr = match i {
+            Operand::Local(x) => self.func.locals[x].repr,
+            Operand::Const(Const::Int(_, r)) => r,
+            _ => return None,
+        };
+        if size == 0 || i_repr != Repr::I64 {
+            return None;
+        }
+        let cap = lang_runtime::list::page_cap_for(size);
+        let u = NumTy::I(64, false);
+        let int = |n: i64| Operand::Const(Const::Int(n, Repr::I64));
+        let bin = |s: &mut Self, op: BinOp, a: Operand, b: Operand| {
+            s.assign(Repr::I64, Rvalue::Bin { op, a, b, ty: u, loc: 0 })
+        };
+        let res = self.fresh(repr, None);
+        let (fast, slow, join) = (self.block(), self.block(), self.block());
+        let len = self.assign(
+            Repr::I64,
+            Rvalue::Load { base: list, offset: lang_runtime::list::LEN_OFFSET, repr: Repr::I64 },
+        );
+        let inside = self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Lt, a: i, b: len, ty: u });
+        self.term(Term::Branch(inside, fast, slow));
+        self.switch(slow);
+        let w = self.rt("lang_rt_list_get", vec![list, i, Operand::Const(Const::Addr(loc))], Repr::I64);
+        let v = self.from_word(w, ty);
+        self.emit(Stmt::Assign(res, Rvalue::Use(v)));
+        self.term(Term::Goto(join));
+        self.switch(fast);
+        // the list (rooted as `list`) keeps its directory and pages alive
+        let dir = self.assign(
+            Repr::I64,
+            Rvalue::Load { base: list, offset: lang_runtime::list::DIR_OFFSET, repr: Repr::I64 },
+        );
+        let page_index = bin(self, BinOp::Shr, i, int(cap.trailing_zeros() as i64));
+        let slot_offset = bin(self, BinOp::Shl, page_index, int(3));
+        let slot = bin(self, BinOp::Add, dir, slot_offset);
+        let page = self.assign(
+            Repr::I64,
+            Rvalue::Load { base: slot, offset: lang_runtime::list::DIR_PAGES, repr: Repr::I64 },
+        );
+        let within = bin(self, BinOp::And, i, int(cap as i64 - 1));
+        let elem_offset = bin(self, BinOp::Shl, within, int(size.trailing_zeros() as i64));
+        let at = bin(self, BinOp::Add, page, elem_offset);
+        let v =
+            self.assign(repr, Rvalue::Load { base: at, offset: lang_runtime::list::PAGE_HDR as i32, repr });
+        self.emit(Stmt::Assign(res, Rvalue::Use(v)));
+        self.term(Term::Goto(join));
+        self.switch(join);
+        Some(Operand::Local(res))
+    }
+
     fn paged_elem(&mut self, list_ty: &Ty) -> Option<Repr> {
         if !self.m.lay.is_std(list_ty, "List") {
             return None;

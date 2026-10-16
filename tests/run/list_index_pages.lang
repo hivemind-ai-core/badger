@@ -1,0 +1,46 @@
+// Indexing lists of every element width at and around page boundaries
+// (pages hold 4096 bytes), in persistent versions that share pages, and
+// slices, agrees with checked `get`; an index out of range is a defect.
+import std.io
+import std.list
+
+fn check<T>(name: String, xs: List<T>, at: List<Int>) -> Result<Unit, io.Error> where T: Display {
+    var good = true
+    var shown: List<String> = []
+    for i in at {
+        let direct = xs[i]
+        let same = match xs.get(i) {
+            .some(v) => $"{v}" == $"{direct}",
+            .none => false,
+        }
+        good = good && same
+        shown = shown.append($"{direct}")
+    }
+    io.println($"{name} {xs.len()} {good} {shown}")?
+    ok(())
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 9000
+    let edges = [0, 1, 511, 512, 513, 1023, 1024, 2047, 2048, 4095, 4096, 8191, 8192, 8999]
+    let ints = list.range(0, n)
+    check("Int", ints, edges)?
+    check("U8", ints.map(fn(x) { U8.try_from(x % 251).unwrap_or(0) }), edges)?
+    check("I16", ints.map(fn(x) { I16.try_from(x - 4500).unwrap_or(0) }), edges)?
+    check("I32", ints.map(fn(x) { I32.try_from(x * 3).unwrap_or(0) }), edges)?
+    check("Float", ints.map(fn(x) { Float.try_from(x).unwrap_or(0.0) / 4.0 }), edges)?
+    check("Bool", ints.map(fn(x) { x % 3 == 0 }), edges)?
+    check("String", ints.map(fn(x) { $"s{x}" }), edges)?
+    // versions sharing pages, and a slice
+    var grown = list.range(0, 510)
+    let base = grown
+    for i in 0..5 {
+        grown = grown.append(1000 + i)
+    }
+    let other = base.append(-1)
+    check("grown", grown, [0, 509, 510, 511, 512, 514])?
+    check("other", other, [0, 509, 510])?
+    check("slice", ints.slice(500, 1600), [0, 11, 12, 524, 1099])?
+    io.println($"{grown[-1]}")?
+    ok(())
+}

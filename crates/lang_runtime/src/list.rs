@@ -23,6 +23,26 @@ use crate::gc::{self, Header, obj};
 
 const PAGE_BYTES: usize = 4096;
 
+/// Elements per page for an element size: a power of two for every element
+/// size (1, 2, 4, 8 bytes), which generated code relies on to index pages
+/// with shifts and masks.
+pub const fn page_cap_for(size: usize) -> usize {
+    let c = PAGE_BYTES / if size == 0 { 1 } else { size };
+    if c < 16 {
+        16
+    } else if c > 4096 {
+        4096
+    } else {
+        c
+    }
+}
+
+/// Payload offsets that generated code reads directly: a list's length and
+/// page directory, and the first page pointer in a directory.
+pub const LEN_OFFSET: i32 = 0;
+pub const DIR_OFFSET: i32 = 8;
+pub const DIR_PAGES: i32 = DIR_HDR as i32;
+
 /// Set in the capacity word of a builder that `finish` consumed.
 const CONSUMED: u64 = 1 << 63;
 
@@ -139,7 +159,7 @@ pub fn new(desc: &'static TypeDesc) -> u64 {
         _ => crate::desc::builtin::unit(),
     };
     let size = elem.repr().size() as usize;
-    let page_cap = (PAGE_BYTES / size.max(1)).clamp(16, 4096);
+    let page_cap = page_cap_for(size);
     let w = gc::alloc(desc, 32);
     unsafe {
         let p = obj(w).payload() as *mut u64;
