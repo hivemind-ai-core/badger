@@ -1345,6 +1345,20 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_list_slice",
     "lang_rt_i_list_contains",
     "lang_rt_i_list_to_array",
+    // persistent maps and sets: immutable tries, fresh nodes, structural
+    // key equality and hashing
+    "lang_rt_i_map_empty",
+    "lang_rt_i_map_insert",
+    "lang_rt_i_map_remove",
+    "lang_rt_i_map_get",
+    "lang_rt_i_map_contains",
+    "lang_rt_i_map_len",
+    "lang_rt_i_map_entries",
+    "lang_rt_i_map_insert_mut",
+    "lang_rt_i_set_insert",
+    "lang_rt_i_set_insert_mut",
+    "lang_rt_i_set_remove",
+    "lang_rt_i_set_items",
     // channel fast paths; they take the lock themselves when needed
     "lang_rt_i_chan_send",
     "lang_rt_i_chan_try_send",
