@@ -188,7 +188,7 @@ fn verify_func(prog: &Program, _fid: FuncId, f: &Func, out: &mut Vec<String>) {
     }
 }
 
-fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
+pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
     match rv {
         Rvalue::Use(a) | Rvalue::Not(a) | Rvalue::ToWord(a) | Rvalue::Tag(a) => vec![a],
         Rvalue::Neg { a, .. }

@@ -205,8 +205,9 @@ error. `lang_cli` is the `lang` binary.
 - `?` records where an error started propagating; a `main` that returns an
   `Error` is reported with its code, causal chain, details, and that
   location.
-- Code generation keeps every managed pointer in a shadow-stack frame (precise
-  roots), inserts scheduling/cancellation polls at function entries and loop
+- Code generation keeps every managed pointer that is live across a safe
+  point (call, allocation, poll) in a shadow-stack frame (precise roots;
+  `lang_mir::roots`; functions without such pointers link no frame), inserts scheduling/cancellation polls at function entries and loop
   back-edges, checks the stack pointer against the task's stack limit in each
   prologue (overflow is a task defect), and emits word adapters for
   first-class calls.

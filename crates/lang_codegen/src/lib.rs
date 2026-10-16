@@ -3,11 +3,13 @@
 //! Calling convention for every compiled function:
 //! `fn(ctx: *mut TaskCtx, env: closure-or-null, params...) -> ret`.
 //!
-//! GC roots: each function allocates a shadow-stack frame (`prev`, `len`,
-//! slots) in its native stack frame and links it into `ctx.shadow`. Every
-//! assignment to a pointer-typed local also stores the pointer into that
-//! local's slot, so the nonmoving collector sees precise roots at every
-//! allocation (the only collection point).
+//! GC roots: a function allocates a shadow-stack frame (`prev`, `len`,
+//! slots) in its native stack frame and links it into `ctx.shadow`, with a
+//! slot for each pointer local live across a safe point (call, allocation,
+//! poll; see `lang_mir::roots`). Every assignment to such a local also
+//! stores the pointer into its slot, so the nonmoving collector sees
+//! precise roots whenever it can run. A function without such locals
+//! links no frame.
 //!
 //! Closures used as values get a word adapter
 //! `fn(ctx, closure, args: *const u64) -> u64` so the runtime can call them.
@@ -507,7 +509,10 @@ impl FnCx<'_> {
         }
         let globals_gv = self.globals.map(|d| jit.module.declare_data_in_func(d, &mut jit.ctx.func));
         let fe = jit.module.isa().frontend_config();
-        let ptr_locals: Vec<Local> = f.locals.indices().filter(|l| f.locals[*l].repr == Repr::Ptr).collect();
+        // root slots only for pointers live across a safe point; no frame
+        // at all when there are none
+        let ptr_locals: Vec<Local> = lang_mir::roots::rooted_locals(f);
+        let framed = !ptr_locals.is_empty();
         {
             let mut b = FunctionBuilder::new(&mut jit.ctx.func, &mut jit.fn_ctx);
             let frame_size = (2 + ptr_locals.len() as u32) * 8;
@@ -553,16 +558,18 @@ impl FnCx<'_> {
                 b.seal_block(cont);
             }
             // link the shadow frame
-            let prev = b.ins().load(types::I64, MemFlagsData::trusted(), ctx, 0);
-            b.ins().stack_store(types::I64, prev, frame, 0);
-            let n = b.ins().iconst(types::I64, ptr_locals.len() as i64);
-            b.ins().stack_store(types::I64, n, frame, 8);
-            let zero = b.ins().iconst(types::I64, 0);
-            for i in 0..ptr_locals.len() {
-                b.ins().stack_store(types::I64, zero, frame, 16 + 8 * i as i32);
+            if framed {
+                let prev = b.ins().load(types::I64, MemFlagsData::trusted(), ctx, 0);
+                b.ins().stack_store(types::I64, prev, frame, 0);
+                let n = b.ins().iconst(types::I64, ptr_locals.len() as i64);
+                b.ins().stack_store(types::I64, n, frame, 8);
+                let zero = b.ins().iconst(types::I64, 0);
+                for i in 0..ptr_locals.len() {
+                    b.ins().stack_store(types::I64, zero, frame, 16 + 8 * i as i32);
+                }
+                let faddr = b.ins().stack_addr(types::I64, frame, 0);
+                b.ins().store(MemFlagsData::trusted(), faddr, ctx, 0);
             }
-            let faddr = b.ins().stack_addr(types::I64, frame, 0);
-            b.ins().store(MemFlagsData::trusted(), faddr, ctx, 0);
             let mut body = Body { f, vars, slots, frame, ctx, blocks };
             // parameters
             body.set(&mut b, f.env, ps[1]);
@@ -600,8 +607,10 @@ impl FnCx<'_> {
                     Term::Return(v) => {
                         let x = body.op(&mut b, v);
                         let x = coerce(&mut b, x, cty(f.ret));
-                        let prev = b.ins().stack_load(types::I64, types::I64, body.frame, 0);
-                        b.ins().store(MemFlagsData::trusted(), prev, body.ctx, 0);
+                        if framed {
+                            let prev = b.ins().stack_load(types::I64, types::I64, body.frame, 0);
+                            b.ins().store(MemFlagsData::trusted(), prev, body.ctx, 0);
+                        }
                         b.ins().return_(&[x]);
                     }
                     Term::Unreachable => {
