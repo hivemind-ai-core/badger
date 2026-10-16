@@ -230,30 +230,106 @@ fn check_call(
     }
     if matches!(s.kind, Call::QueryAs | Call::QueryOneAs)
         && rows
-        && let Some(def) = row_type(hir, types, interner, s)
+        && let Some((name, fields)) = row_type(hir, types, interner, s)
     {
-        out.extend(check_row(hir, interner, s, def, p));
+        out.extend(check_row(&name, &fields, s, p));
     }
     out
 }
 
+/// A row type's field: its name, whether it is an `Option`, the type name
+/// (inside the `Option`) when known, and where it is declared.
+struct Field {
+    name: String,
+    optional: bool,
+    base: Option<String>,
+    span: Option<Span>,
+}
+
+/// The fields of a record type written out (`{a: Int, b: Option<String>}`).
+fn record_fields(text: &str) -> Option<Vec<Field>> {
+    let inner = text.trim().strip_prefix('{')?.strip_suffix('}')?;
+    let mut parts = vec![];
+    let (mut depth, mut cur) = (0i32, String::new());
+    for c in inner.chars() {
+        match c {
+            '<' | '{' | '(' | '[' => depth += 1,
+            '>' | '}' | ')' | ']' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(std::mem::take(&mut cur));
+                continue;
+            }
+            _ => {}
+        }
+        cur.push(c);
+    }
+    parts.push(cur);
+    let mut out = vec![];
+    for p in parts.iter().map(|p| p.trim()).filter(|p| !p.is_empty()) {
+        let (name, ty) = p.split_once(':')?;
+        let ty = ty.trim();
+        let (optional, base) = match ty.strip_prefix("Option<").and_then(|t| t.strip_suffix('>')) {
+            Some(t) => (true, t),
+            None => (false, ty),
+        };
+        let base =
+            base.split('<').next().unwrap_or(base).rsplit('.').next().unwrap_or(base).trim().to_string();
+        out.push(Field { name: name.trim().to_string(), optional, base: Some(base), span: None });
+    }
+    Some(out)
+}
+
 /// The row type `T` of a `query_as`/`query_one_as` call, from its type
-/// (`Result<List<T>, Error>` or `Result<T, Error>`).
-fn row_type(hir: &Hir, types: &lang_typeck::TypeIndex, interner: &Interner, s: &Site) -> Option<DefId> {
+/// (`Result<List<T>, Error>` or `Result<T, Error>`): a struct, or a record
+/// type written out. Returns its name and fields.
+fn row_type(
+    hir: &Hir,
+    types: &lang_typeck::TypeIndex,
+    interner: &Interner,
+    s: &Site,
+) -> Option<(String, Vec<Field>)> {
     let ty = types.exprs.get(&s.call)?;
     let inner = ty.strip_prefix("Result<")?;
     let inner = if s.kind == Call::QueryAs { inner.strip_prefix("List<")? } else { inner };
+    if inner.starts_with('{') {
+        // up to the matching brace
+        let mut depth = 0;
+        let end = inner.char_indices().find_map(|(i, c)| {
+            match c {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(i + 1);
+                    }
+                }
+                _ => {}
+            }
+            None
+        })?;
+        return Some(("the row record".into(), record_fields(&inner[..end])?));
+    }
     let end = inner.find([',', '<', '>']).unwrap_or(inner.len());
     let path: Vec<&str> = inner[..end].trim().split('.').collect();
     let (name, module) = path.split_last()?;
-    hir.defs.iter().find_map(|(d, def)| {
+    let def = hir.defs.iter().find_map(|(d, def)| {
         let DefKind::Struct(_) = &def.kind else { return None };
         if interner.resolve(def.name) != *name {
             return None;
         }
         let m: Vec<&str> = hir.modules[def.module].path.iter().map(|x| interner.resolve(*x)).collect();
         (module.is_empty() || m.ends_with(module)).then_some(d)
-    })
+    })?;
+    let DefKind::Struct(st) = &hir.defs[def].kind else { return None };
+    let fields = st
+        .fields
+        .iter()
+        .map(|f| {
+            let (optional, base) = field_type(hir, interner, &f.ty);
+            Field { name: interner.resolve(f.name).to_string(), optional, base, span: Some(f.span) }
+        })
+        .collect();
+    Some((format!("`{}`", interner.resolve(hir.defs[def].name)), fields))
 }
 
 /// A field's type: its outer name, whether it is an `Option`, and the
@@ -303,54 +379,54 @@ fn fits(field: &str, affinity: &str) -> bool {
     }
 }
 
-fn check_row(hir: &Hir, interner: &Interner, s: &Site, def: DefId, p: &Prepared) -> Vec<Diagnostic> {
-    let DefKind::Struct(st) = &hir.defs[def].kind else { return vec![] };
-    let tname = interner.resolve(hir.defs[def].name);
+fn check_row(tname: &str, fields: &[Field], s: &Site, p: &Prepared) -> Vec<Diagnostic> {
     let columns: Vec<&str> = p.columns.iter().map(|c| c.name.as_str()).collect();
     let mut out = vec![];
-    for f in &st.fields {
-        let fname = interner.resolve(f.name);
-        let (optional, base) = field_type(hir, interner, &f.ty);
-        let shown = match (&base, optional) {
+    let at = |d: Diagnostic, f: &Field| {
+        let d = d.with_code("E0182").with_label(s.span, "the statement");
+        match f.span {
+            Some(sp) => d.with_label(sp, "this field"),
+            None => d,
+        }
+    };
+    for f in fields {
+        let fname = f.name.as_str();
+        let shown = match (&f.base, f.optional) {
             (Some(b), true) => format!("Option<{b}>"),
             (Some(b), false) => b.clone(),
             (None, _) => "its type".into(),
         };
         let Some(c) = p.columns.iter().find(|c| c.name == fname) else {
-            out.push(
-                Diagnostic::error(format!("the result has no column `{fname}` for field `{tname}.{fname}`"))
-                    .with_code("E0182")
-                    .with_label(s.span, "the statement")
-                    .with_label(f.span, "this field")
-                    .with_note(format!("the columns are: {}", columns.join(", "))),
-            );
+            out.push(at(
+                Diagnostic::error(format!(
+                    "the result has no column `{fname}` for field `{fname}` of {tname}"
+                ))
+                .with_note(format!("the columns are: {}", columns.join(", "))),
+                f,
+            ));
             continue;
         };
-        if c.nullable == Some(true) && !optional {
-            out.push(
+        if c.nullable == Some(true) && !f.optional {
+            out.push(at(
                 Diagnostic::error(format!(
-                    "column `{fname}` can be NULL, but `{tname}.{fname}` is `{shown}`"
+                    "column `{fname}` can be NULL, but field `{fname}` of {tname} is `{shown}`"
                 ))
-                .with_code("E0182")
-                .with_label(s.span, "the statement")
-                .with_label(f.span, "this field")
                 .with_note(format!(
                     "declare the field `Option<{}>`, or the column NOT NULL",
-                    base.as_deref().unwrap_or("...")
+                    f.base.as_deref().unwrap_or("...")
                 )),
-            );
+                f,
+            ));
         }
-        if let (Some(decl), Some(b)) = (&c.decl, &base) {
+        if let (Some(decl), Some(b)) = (&c.decl, &f.base) {
             let a = affinity(decl);
             if !fits(b, a) {
-                out.push(
+                out.push(at(
                     Diagnostic::error(format!(
-                        "column `{fname}` is {decl}, which does not fit `{tname}.{fname}: {shown}`"
-                    ))
-                    .with_code("E0182")
-                    .with_label(s.span, "the statement")
-                    .with_label(f.span, "this field"),
-                );
+                        "column `{fname}` is {decl}, which does not fit field `{fname}: {shown}` of {tname}"
+                    )),
+                    f,
+                ));
             }
         }
     }

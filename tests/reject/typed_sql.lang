@@ -25,6 +25,8 @@ pub fn main() -> Result<Unit, sqlite.Error> {
     sqlite.query(db, "SELEC id FROM users", [])?
     sqlite.query(db, "SELECT id FROM users; SELECT 1", [])?
     let users = sqlite.query_as<User>(db, "SELECT id, name, email, age FROM users", [])?
-    let _ = io.println($"{users.len()}")
+    // a record type written out is checked too
+    let pairs = sqlite.query_as<{ id: Int, missing: Int }>(db, "SELECT id FROM users", [])?
+    let _ = io.println($"{users.len()} {pairs.len()}")
     ok(())
 }
