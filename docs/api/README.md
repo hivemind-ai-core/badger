@@ -27,6 +27,7 @@
 | [`std.toml`](toml.md) | TOML documents, as `Data` or typed values (records decoded by their |
 | [`std.yaml`](yaml.md) | YAML documents, as `Data` or typed values (records decoded by their |
 | [`std.csv`](csv.md) | CSV: rows of text fields, or records keyed by the header row, and back. |
+| [`std.template`](template.md) | Templates in Jinja syntax (`{{ value }}`, `{% for x in xs %}`, `{% if %}`, |
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |

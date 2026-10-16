@@ -34,6 +34,7 @@ std_modules![
     "toml",
     "yaml",
     "csv",
+    "template",
     "codec",
     "config",
     "system",
