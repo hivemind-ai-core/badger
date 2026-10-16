@@ -1,0 +1,36 @@
+// A provider that fails to start: the system error keeps the provider's
+// own error as its cause (with its code and details).
+import std.io
+import std.system
+import std.system.{component}
+
+pub enum StartError {
+    unavailable(port: Int),
+} derive(Error)
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+let flaky = system.provider({
+    name: :demo/flaky,
+    init: fn(scope, config: { port: Int }) -> Result<Int, StartError> { err(StartError.unavailable(config.port)) },
+})
+
+pub fn main() -> Unit {
+    let plan = system { server: component(flaky, { port: 8080 }) }
+    match system.run(plan, fn(running) -> Result<Unit, AppError> { ok(()) }) {
+        .ok(_) => { let _ = io.println("started?") },
+        .err(e) => {
+            match e {
+                .system(se) => match se.cause {
+                    .some(c) => { let _ = io.println($"provider code {c.code}, details {c.details}") },
+                    .none => { let _ = io.println("no cause") },
+                },
+            }
+            for line in error_chain(e) {
+                let _ = io.println(line.split(" (provider").first().unwrap_or(line))
+            }
+        },
+    }
+}

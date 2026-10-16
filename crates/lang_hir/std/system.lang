@@ -22,6 +22,25 @@ pub struct Error {
     pub message: String,
     pub notes: List<String>,
     pub original: Option<String>,
+    /// The provider's own error, when a provider failed to start.
+    pub cause: Option<ProviderError>,
+}
+
+/// A provider's error, kept as data (its code, message, and details), so a
+/// system error never holds application values.
+pub struct ProviderError {
+    pub code: Symbol,
+    pub message: String,
+    pub details: Data,
+}
+
+impl Display for ProviderError {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for ProviderError {
+    fn code(self: &Self) -> Symbol { self.code }
+    fn details(self: &Self) -> Data { self.details }
 }
 
 impl Display for Error {
@@ -37,6 +56,15 @@ impl Display for Error {
 
 impl prelude.Error for Error {
     fn code(self: &Self) -> Symbol { self.node }
+    fn cause(self: &Self) -> Option<dyn prelude.Error> {
+        match self.cause {
+            .some(c) => {
+                let d: dyn prelude.Error = c
+                Option.some(d)
+            },
+            .none => Option.none,
+        }
+    }
 }
 
 /// Initialization scope of one node: registers halt callbacks and owns the
@@ -101,10 +129,13 @@ fn supervise<E>(name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.P
 impl InitScope<Unit> {
     /// Register a one-shot, possibly fallible cleanup; halts run in reverse
     /// registration order, after the node's workers have settled.
-    pub fn on_halt<E>(self: &Self, f: fn() -> Result<Unit, E>) -> Unit where E: prelude.Error {
+    pub fn on_halt<E>(self: &Self, f: once fn() -> Result<Unit, E>) -> Unit where E: prelude.Error {
+        // stored as an ordinary function: `halt_all` removes each callback
+        // before running it, so it runs at most once
+        let run: fn() -> Result<Unit, E> = identity(f)
         let hs = self.halts
         hs.set(list.append(hs.get(), fn() {
-            match f() {
+            match run() {
                 .ok(_) => Option.none,
                 .err(e) => Option.some(e.display()),
             }
@@ -201,7 +232,10 @@ fn erased_node<C, O, E>(label: Symbol, index: Int, deps: List<Int>, provider: Pr
         start: fn(scope, outputs) {
             match provider.init(scope, config(outputs)) {
                 .ok(v) => ok(box_erase(v)),
-                .err(e) => err({ node: label, message: $"{e} (provider {pname}, node at {at})", notes: [], original: Option.none }),
+                .err(e) => {
+                    let cause: ProviderError = { code: e.code(), message: e.display(), details: e.details() }
+                    err({ node: label, message: $"{e} (provider {pname}, node at {at})", notes: [], original: Option.none, cause: Option.some(cause) })
+                },
             }
         },
         config: box_erase(config),
@@ -257,7 +291,7 @@ impl<Os: Row> SystemPlan<Os> {
 /// configuration and output contract: the output type is checked statically
 /// (the compiler supplies `pick`), the configuration type at run time.
 pub fn replace<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provider: Provider<C, O, E>) -> Result<SystemPlan<Os>, Error> where E: prelude.Error {
-    err({ node: key, message: "system.replace takes a literal key", notes: [], original: Option.none })
+    err({ node: key, message: "system.replace takes a literal key", notes: [], original: Option.none, cause: Option.none })
 }
 
 pub fn replace_node<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provider: Provider<C, O, E>, pick: fn({ ..Os }) -> O) -> Result<SystemPlan<Os>, Error> where E: prelude.Error {
@@ -267,7 +301,7 @@ pub fn replace_node<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provide
         if n.label == key {
             found = true
             if n.config_type != type_id<C>() {
-                return err({ node: key, message: "the replacement provider takes a different configuration type", notes: [], original: Option.none })
+                return err({ node: key, message: "the replacement provider takes a different configuration type", notes: [], original: Option.none, cause: Option.none })
             }
             let config: fn(Outputs) -> C = box_unerase(n.config)
             nodes = list.append(nodes, erased_node(n.label, n.index, n.deps, provider, config, n.at))
@@ -276,7 +310,7 @@ pub fn replace_node<Os: Row, C, O, E>(plan: SystemPlan<Os>, key: Symbol, provide
         }
     }
     if !found {
-        return err({ node: key, message: "no such plan key", notes: [], original: Option.none })
+        return err({ node: key, message: "no such plan key", notes: [], original: Option.none, cause: Option.none })
     }
     let _ = pick
     ok({ nodes, view: plan.view })
@@ -447,14 +481,14 @@ pub fn run<Os: Row, R, E>(plan: SystemPlan<Os>, body: for<S: Scope> fn(Running<S
         .ok(v) => if list.len(notes) == 0 {
             ok(v)
         } else {
-            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.none }
+            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.none, cause: Option.none }
             err(E.from(failure))
         },
         // a cleanup failure after a failed body keeps the original attached
         .err(e) => if list.len(notes) == 0 {
             err(e)
         } else {
-            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.some(e.display()) }
+            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.some(e.display()), cause: Option.none }
             err(E.from(failure))
         },
     }
