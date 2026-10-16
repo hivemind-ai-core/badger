@@ -160,6 +160,9 @@ the path). Other modules are given capabilities by the entry, such as
 `jobs.Store`, or an open `sqlite.Pool`, so their parameter types state what
 they may touch.
 Capabilities have private fields and are made only by their providers.
+Clocks and random sources are not ambient authority: they reach nothing
+outside the program, their use is visible as `Io`/`State` effects, and
+reproduction bundles record them.
 
 Target commands:
 

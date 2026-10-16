@@ -47,6 +47,11 @@ Clock and random-source access are explicit dependencies and appear as `Io` or
 `State` according to the provider. Mutation of a unique local builder alone
 does not introduce externally observable `State`. Scope cleanup contributes
 the effects of the cleanup operation.
+Implementation: `time.now`, `time.timestamp`, and `random.system` carry
+`Io` / `State`, tests control them (`std.test` clocks, `random.seeded`),
+and reproduction bundles record them; they are not ambient authority in
+restricted projects (chapter 07), since they reach nothing outside the
+program.
 
 ```lang
 fn double(value: Int) -> Int !{} {

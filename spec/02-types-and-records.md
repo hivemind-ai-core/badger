@@ -135,7 +135,11 @@ fields are private unless individually `pub`; its defining module may
 construct it using a contextual record literal. Outside that module, literal
 construction, struct update (`{ ..value, field: x }`, which constructs a new
 value), or record coercion requires all fields to be public and no
-restricted construction contract. A constructor is an ordinary lowercase
+restricted construction contract. A struct with any private field has a
+restricted construction contract: only its defining module constructs it
+(by literal, coercion, or update, E0308); other modules obtain values
+through that module's functions, which establish its invariants (as
+`fs.root` does for `fs.Dir`). A constructor is an ordinary lowercase
 function; there is no required repeated same-name constructor declaration.
 
 `Job.import_file(path)` and `Job.shutdown` construct variants. Variant
