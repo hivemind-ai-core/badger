@@ -328,6 +328,11 @@ impl Infer<'_, '_> {
     /// bodies: they cannot be refined by any later use, so literals default
     /// and ambiguities are decided now instead of leaking into a scheme.
     pub fn solve_internal(&mut self, visible: &[Ty]) {
+        // nothing to partition (and resolving every visible type, including
+        // all module values still being inferred, would cost O(groups x values))
+        if self.pending.is_empty() {
+            return;
+        }
         let mut seen: rustc_hash::FxHashSet<TyVid> = Default::default();
         // module values still being inferred are visible to every function
         let globals: Vec<Ty> = self.g.pending_schemes.borrow().values().map(|s| s.ty.clone()).collect();
