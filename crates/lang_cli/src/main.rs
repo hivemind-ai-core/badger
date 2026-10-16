@@ -190,7 +190,8 @@ enum Command {
     /// checked; with `--overlays`, of proposed contents), `symbols`, `api`
     /// (public interface; PATH may also be a standard module such as
     /// `std.list`), or at `--line`/`--col` `hover`, `definition`,
-    /// `references`, `completion`.
+    /// `references`, `completion`, `rename` (with `--name`: the edits, not
+    /// applied).
     Query {
         kind: String,
         /// Source file (checked with its project, if any).
@@ -203,6 +204,9 @@ enum Command {
         /// (`-` reads it from standard input).
         #[arg(long)]
         source: Option<String>,
+        /// The new name, for `rename` (the edits are returned, not applied).
+        #[arg(long)]
+        name: Option<String>,
         /// Proposed file contents to check in place of the files on disk: a
         /// JSON object from path (relative to the program's directory) to
         /// text, in this file (`-` reads standard input). Nothing is written.
@@ -457,7 +461,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Command::Query { kind, path, line, col, source, overlays } => match source
+        Command::Query { kind, path, line, col, source, name, overlays } => match source
             .map(|src| {
                 let src = if src == "-" {
                     let mut t = String::new();
@@ -478,7 +482,7 @@ fn main() -> ExitCode {
                     Some(spec) => lsp::read_overlays(spec, &p)?,
                     None => Default::default(),
                 };
-                lsp::query(&kind, &p, line, col, o)
+                lsp::query(&kind, &p, line, col, name.as_deref(), o)
             }) {
             Ok(v) => {
                 println!("{v}");

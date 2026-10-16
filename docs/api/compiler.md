@@ -10,6 +10,14 @@ columns in characters.
 
 ## Types
 
+### `ApiItem`
+
+```lang
+struct ApiItem { pub module: String, pub name: String, pub kind: String, pub signature: String, pub declaration: String, pub doc: String } derive(Codec, Display)
+```
+
+A public item of a module's interface.
+
 ### `Check`
 
 ```lang
@@ -36,6 +44,20 @@ struct Declaration { pub name: String, pub file: String, pub line: Int, pub col:
 struct Diagnostic { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub severity: String, pub code: Option<String>, pub message: String, pub notes: List<String>, pub label: String, pub expected: Option<String>, pub actual: Option<String>, pub scope: Option<String>, pub related: List<compiler.Related>, pub declarations: List<compiler.Declaration> } derive(Codec, Display)
 ```
 
+### `Edge`
+
+```lang
+struct Edge { pub from: String, pub to: String } derive(Codec, Display)
+```
+
+### `Edit`
+
+```lang
+struct Edit { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub text: String } derive(Codec, Display)
+```
+
+A replacement of the text between two positions.
+
 ### `Error`
 
 ```lang
@@ -50,6 +72,14 @@ invalid).
 ```lang
 fn display(self: &Self) -> String
 ```
+
+### `Graph`
+
+```lang
+struct Graph { pub nodes: List<String>, pub edges: List<compiler.Edge> } derive(Codec, Display)
+```
+
+Program structure: named nodes and directed edges.
 
 ### `Input`
 
@@ -97,6 +127,15 @@ Where a task is spawned (`spawn` or `capture`), and the function
 containing it.
 
 ## Functions
+
+### `api`
+
+```lang
+fn api(target: String) -> Result<List<ApiItem>, Error> !{Io, Wait}
+```
+
+The public interface of a standard module (`std.list`) or of the
+program at `path`: each item with its signature and documentation.
 
 ### `check_project`
 
@@ -150,6 +189,14 @@ fn explain(code: String) -> Result<String, Error> !{Io, Wait}
 
 The explanation of a diagnostic code such as `E0301`.
 
+### `graph`
+
+```lang
+fn graph(kind: String, path: String) -> Result<Graph, Error> !{Io, Wait}
+```
+
+The program's `calls`, `modules`, `types`, or `systems` graph.
+
 ### `hover`
 
 ```lang
@@ -165,6 +212,16 @@ fn references(path: String, line: Int, col: Int) -> Result<List<Location>, Error
 ```
 
 Every use and the declaration of the name at a position.
+
+### `rename`
+
+```lang
+fn rename(path: String, line: Int, col: Int, name: String) -> Result<List<Edit>, Error> !{Io, Wait}
+```
+
+The edits renaming what is at a position to `name`, everywhere it is
+used (in every entry point and task of a project). Nothing is written:
+apply the edits, or check them first with `check_project`.
 
 ### `symbols`
 

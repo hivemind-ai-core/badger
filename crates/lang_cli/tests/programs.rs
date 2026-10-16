@@ -627,6 +627,65 @@ fn query_check_overlays() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
+/// `lang query rename` returns edits (not applied) for every use, in each
+/// of a project's entry points and tasks; inputs a query cannot answer are
+/// errors rather than empty results.
+#[test]
+fn query_rename_and_unsupported_inputs() {
+    let q = |args: &[&str]| {
+        let out = lang().arg("query").args(args).output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let files = |out: &str| -> Vec<String> {
+        let v: serde_json::Value = serde_json::from_str(out).unwrap();
+        let mut f: Vec<String> = v["edits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["file"].as_str().unwrap().rsplit('/').next().unwrap().to_string())
+            .collect();
+        f.sort();
+        f
+    };
+    let all = vec!["jobs.lang".to_string(), "report.lang".into(), "shapes.lang".into()];
+    // from the definition, from the task-only module, and from the main entry's module
+    for (file, line, col) in [("shapes.lang", "3", "8"), ("jobs.lang", "5", "40"), ("report.lang", "3", "62")]
+    {
+        let p = format!("tests/projects/overlay/src/{file}");
+        let (ok, out, err) = q(&["rename", &p, "--line", line, "--col", col, "--name", "surface"]);
+        assert!(ok, "{err}");
+        assert_eq!(files(&out), all, "{file}: {out}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(root().join("tests/projects/overlay/src/shapes.lang"))
+            .unwrap()
+            .matches("area")
+            .count(),
+        1
+    );
+    let (ok, _, err) = q(&[
+        "rename",
+        "tests/projects/overlay/src/shapes.lang",
+        "--line",
+        "3",
+        "--col",
+        "8",
+        "--name",
+        "Surface",
+    ]);
+    assert!(!ok && err.contains("cannot replace"), "{err}");
+    let (ok, _, err) = q(&["symbols", "tests/projects/overlay"]);
+    assert!(!ok && err.contains("needs a source file"), "{err}");
+    let (ok, _, err) = q(&["hover", "tests/projects/overlay/src/nope.lang", "--line", "1", "--col", "1"]);
+    assert!(!ok && err.contains("no such file"), "{err}");
+    let (ok, _, err) = q(&["bogus", "tests/projects/overlay"]);
+    assert!(!ok && err.contains("unknown query `bogus` (diagnostics, check,"), "{err}");
+}
+
 /// Project tooling: optional paths (the current project), named entries,
 /// user tasks, runtime settings with profile overrides, the bounded trace
 /// sink's overload report, and strict manifest keys.

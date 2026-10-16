@@ -108,6 +108,24 @@ fn mcp_tools() {
         json!({ "code": format!("compiler.check_project(\"{project}\", map.from_list([(\"src/shapes.lang\", \"pub fn area(w: Int) -> Int {{ w }}\")])).map(fn(c) {{ $\"{{c.ok}} {{c.diagnostics.len()}} {{c.roots.len()}}\" }})") }),
     );
     assert!(!err && out.contains("false 2 2"), "{out}");
+    let (out, err) = call(
+        "query",
+        json!({ "kind": "rename", "path": format!("{project}/src/jobs.lang"), "line": 5, "col": 40, "name": "surface" }),
+    );
+    assert!(!err && out.matches("\"text\":\"surface\"").count() == 3, "{out}");
+    let (out, err) =
+        call("eval", json!({ "code": "compiler.api(\"std.option\").map(fn(xs) { xs.len() > 0 })" }));
+    assert!(!err && out.contains("true"), "{out}");
+    let (out, err) = call(
+        "eval",
+        json!({ "code": format!("compiler.graph(\"calls\", \"{project}\").map(fn(g) {{ g.edges.len() }})") }),
+    );
+    assert!(!err && out.contains("2"), "{out}");
+    let (out, err) = call(
+        "eval",
+        json!({ "code": format!("compiler.rename(\"{project}/src/shapes.lang\", 3, 8, \"surface\").map(fn(es) {{ es.len() }})") }),
+    );
+    assert!(!err && out.contains("3"), "{out}");
     let (out, _) = call("query", json!({ "kind": "hover", "path": path, "line": 6, "col": 30 }));
     assert_eq!(out, "{\"text\":\"double: fn(Int) -> Int\"}");
     let (out, _) = call("query", json!({ "kind": "module", "name": "list" }));

@@ -19,8 +19,12 @@ or in a client's JSON configuration:
 |---|---|---|
 | `eval` | `code`, optional `timeout_secs` (default 30) | Output printed by the code, then the value of an expression. Items (`fn`, `struct`, `enum`, `import`, module-level `let`) join the session and replace earlier ones of the same name. |
 | `check` | `path` (file or project directory) or `source`; optional `files` | Diagnostics as JSON; an empty list means it checks. A project is checked as `lang check` checks it: the main entry, each `[entries]` module, and each `[tasks]` module. With `files` (path, relative to the program's directory, to proposed text), the project is checked with those contents in place of the files on disk, and nothing is written; see [Checking proposed edits](#checking-proposed-edits). |
-| `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references`, `completion`, `symbols`, `diagnostics`; `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list; `graph` with `name` `calls`, `modules`, `types`, or `systems` (JSON nodes and edges); `api` for the public interface (signatures with effects and contracts, and docs) of `name` (a standard module such as `std.list`) or of the program at `path`. |
-| `run` | `path`, optional `args`, `test`, `release`, `timeout_secs` | Exit status, stdout, and stderr of `lang run` or `lang test`. |
+| `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references` (every use, in all of a project's entry points and tasks), `completion`, `symbols`, `diagnostics`; `rename` with the new name in `name` (the edits, not applied); `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list; `graph` with `name` `calls`, `modules`, `types`, or `systems` (JSON nodes and edges); `api` for the public interface (signatures with effects and contracts, and docs) of `name` (a standard module such as `std.list`) or of the program at `path`. |
+| `run` | `path`, optional `args`, `test`, `release`, `timeout_secs`, `breakpoints`, `commands`, `max_stops`, `profile` | Exit status, stdout, and stderr of `lang run` or `lang test`. With `breakpoints` (`file:line`, optionally `if CONDITION`) it runs under gdb and reports the frames, arguments, and locals at each stop (see [debugging](debugging.md)); with `profile: true` it adds a CPU profile (functions by self and total time). |
+
+A query that cannot answer its input fails with a message (a missing
+file, a directory where a source file is needed, a file that does not
+parse for `symbols`) instead of returning an empty result.
 
 ## Code mode
 
@@ -51,6 +55,9 @@ compiler.symbols("src/main.lang").map(fn(ss) {
 | `references(path, line, col)` | `Result<List<Location>, Error>` |
 | `symbols(path)` | `Result<List<Symbol>, Error>` |
 | `completions(path, line, col)` | `Result<List<Completion>, Error>` |
+| `api(target)` | `Result<List<ApiItem>, Error>` (`std.list`, or a program path) |
+| `graph(kind, path)` | `Result<Graph, Error>` (`calls`, `modules`, `types`, `systems`) |
+| `rename(path, line, col, name)` | `Result<List<Edit>, Error>` (not applied) |
 | `explain(code)` | `Result<String, Error>` |
 
 A diagnostic has its location (`file`, `line`, `col`, `end_line`,

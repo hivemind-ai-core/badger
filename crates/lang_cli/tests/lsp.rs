@@ -3,6 +3,7 @@
 //! answer from the checker.
 
 use std::io::{BufRead, BufReader, Read, Write};
+use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use serde_json::{Value, json};
@@ -254,4 +255,47 @@ fn language_server_robustness() {
     c.notify("exit", Value::Null);
     assert!(c.child.wait().unwrap().success());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A project's other entry points count: references and a rename from a
+/// module reachable only from a `[tasks]` function cover the main entry's
+/// modules too, and the other way around.
+#[test]
+fn language_server_project_entries() {
+    let dir =
+        std::fs::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/overlay"))
+            .unwrap();
+    let jobs = dir.join("src/jobs.lang");
+    let shapes = dir.join("src/shapes.lang");
+    let uri = |p: &Path| format!("file://{}", p.display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    let src = std::fs::read_to_string(&jobs).unwrap();
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri(&jobs), "languageId": "lang", "version": 1, "text": src } }),
+    );
+    assert!(c.diagnostics(&uri(&jobs)).is_empty());
+    // `shapes.area(1, 1)` in the task module
+    let rn = c.request(
+        "textDocument/rename",
+        pos(&uri(&jobs), 4, 39)
+            .as_object()
+            .cloned()
+            .map(|mut o| {
+                o.insert("newName".into(), json!("surface"));
+                Value::Object(o)
+            })
+            .unwrap(),
+    );
+    let changes = rn["result"]["changes"].as_object().unwrap();
+    let mut files: Vec<&str> = changes.keys().map(|k| k.rsplit('/').next().unwrap()).collect();
+    files.sort();
+    assert_eq!(files, vec!["jobs.lang", "report.lang", "shapes.lang"], "{rn}");
+    let refs = c.request("textDocument/references", pos(&uri(&shapes), 2, 7));
+    let n = refs["result"].as_array().map(|v| v.len()).unwrap_or(0);
+    assert_eq!(n, 3, "{refs}");
+    c.request("shutdown", Value::Null);
+    c.notify("exit", Value::Null);
+    assert!(c.child.wait().unwrap().success());
 }

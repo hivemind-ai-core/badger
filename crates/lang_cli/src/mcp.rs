@@ -61,11 +61,11 @@ fn tools() -> Value {
         },
         {
             "name": "query",
-            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references`, `completion` need path, line, col (1-based); `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges; `api` returns the public interface (functions, types, methods with signatures, effects, contracts, and docs) of a standard module (`name`, e.g. `std.list`) or of the program at `path`.",
+            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references` (every use, across all of a project's entry points and tasks), `completion` need path, line, col (1-based); `rename` also takes the new name in `name` and returns the edits (file, line, col, end_line, end_col, text) without applying them; `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges; `api` returns the public interface (functions, types, methods with signatures, effects, contracts, and docs) of a standard module (`name`, e.g. `std.list`) or of the program at `path`. Inputs a kind cannot answer (a missing file, a directory where a source file is needed, a file that does not parse for `symbols`) are errors, not empty results.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "symbols", "diagnostics", "explain", "module", "graph", "api"] },
+                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "rename", "symbols", "diagnostics", "explain", "module", "graph", "api"] },
                     "path": { "type": "string" },
                     "line": { "type": "integer" },
                     "col": { "type": "integer" },
@@ -307,7 +307,7 @@ impl Mcp {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let which = a["name"].as_str().unwrap_or("calls").to_string();
                         let args =
-                            vec!["graph".into(), which, path.to_string(), "--format".into(), "json".into()];
+                            vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
                         match lang(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),
                             Ok((_, _, err)) => text(err.trim(), true),
@@ -322,6 +322,11 @@ impl Mcp {
                                 args.push(format!("--{k}"));
                                 args.push(v.to_string());
                             }
+                        }
+                        if kind == "rename"
+                            && let Some(n) = a["name"].as_str()
+                        {
+                            args.push(format!("--name={n}"));
                         }
                         match lang(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),

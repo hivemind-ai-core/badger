@@ -489,6 +489,12 @@ with proposed file contents overlaid on the files on disk, the way the
 language server checks unsaved buffers: every entry point and task, as
 `lang check` does, reporting the inputs checked and the roots covered.
 
+References and rename consider every entry point of a project: the
+server also analyses each `[entries]` and `[tasks]` program (when first
+asked, until the next change) and looks the definition up in each, so a
+module reachable only from a task is renamed with the rest. `lang query
+rename` returns the edits without applying them.
+
 `lang doc std --out docs/api` writes the standard library reference
 (`crates/lang_cli/src/doc.rs`) from the `api` query: declarations and `///`
 documentation of each module's public types, methods, and functions, with

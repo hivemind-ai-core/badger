@@ -15,7 +15,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-use lang_driver::analysis::{self, Analysis, FileIndex, Item, Key, SymbolInfo, SymbolKind};
+use lang_driver::analysis::{self, Analysis, FileIndex, Item, SymbolInfo, SymbolKind};
 use serde_json::{Value, json};
 
 const KEYWORDS: &[&str] = &[
@@ -205,10 +205,27 @@ struct Server {
     /// The program whose analysis covers each file.
     owner: HashMap<PathBuf, PathBuf>,
     dirty: HashSet<PathBuf>,
+    /// For a project with `[entries]` or `[tasks]`, the analysis of each
+    /// other entry point (made when references or a rename first need
+    /// them, dropped at the next change): a module reachable only from a
+    /// task still has its uses found and renamed.
+    entries: HashMap<PathBuf, Vec<Analysis>>,
 }
 
 impl Server {
-    fn analysis_for(&mut self, file: &Path) -> Option<&Analysis> {
+    fn new() -> Server {
+        Server {
+            docs: HashMap::new(),
+            programs: HashMap::new(),
+            last_good: HashMap::new(),
+            published: HashSet::new(),
+            owner: HashMap::new(),
+            dirty: HashSet::new(),
+            entries: HashMap::new(),
+        }
+    }
+
+    fn analysis_for(&self, file: &Path) -> Option<&Analysis> {
         let prog = match self.owner.get(file) {
             Some(p) => p.clone(),
             None => self.program_path(file),
@@ -231,6 +248,9 @@ impl Server {
 
     fn reanalyze(&mut self, out: &mut impl Write) {
         let dirty: Vec<PathBuf> = self.dirty.drain().collect();
+        if !dirty.is_empty() {
+            self.entries.clear();
+        }
         let mut done: HashSet<PathBuf> = HashSet::new();
         for file in dirty {
             let mut prog = program_of(&file);
@@ -373,36 +393,111 @@ impl Server {
         json!({ "uri": path_to_uri(&t.path), "range": range(&text, t.start, t.end) })
     }
 
-    /// The key under the cursor and every location referring to it.
-    fn occurrences(&mut self, params: &Value) -> Option<(Key, Vec<analysis::Loc>)> {
-        let (file, path, off) = self.locate(params)?;
-        let a = self.analysis_for(&file)?;
-        let key = a
-            .file(&path)?
+    /// For a project with `[entries]` or `[tasks]`: analyse each other
+    /// entry point (once per change), and the main one too when only a
+    /// module on its own was analysed.
+    fn ensure_entries(&mut self, prog: &Path) {
+        if prog.is_dir() && !self.entries.contains_key(prog) {
+            let mut v = vec![];
+            if !self.programs.contains_key(prog) {
+                v.push(analysis::analyze(prog, self.docs.clone()));
+            }
+            for sel in lang_driver::project_entry_points(prog) {
+                lang_driver::select_entry(Some(sel));
+                v.push(analysis::analyze(prog, self.docs.clone()));
+            }
+            lang_driver::select_entry(None);
+            self.entries.insert(prog.to_path_buf(), v);
+        }
+    }
+
+    /// The key under the cursor in `a` (whose index of the file is `path`):
+    /// every location referring to it, and its declaration.
+    fn occurrences_in(
+        a: &Analysis,
+        path: &str,
+        off: usize,
+    ) -> Option<(Vec<analysis::Loc>, Option<analysis::Loc>)> {
+        let r = a
+            .file(path)?
             .refs
             .iter()
             .filter(|r| r.start <= off && off <= r.end && r.key.is_some())
-            .min_by_key(|r| r.end - r.start)?
-            .key?;
-        Some((key, a.references(key)))
+            .min_by_key(|r| r.end - r.start)?;
+        Some((a.references(r.key?), r.target.clone()))
     }
 
-    fn loc_json(&mut self, file: &Path, l: &analysis::Loc) -> Value {
-        let text =
-            self.analysis_for(file).and_then(|a| a.file(&l.path)).map(|f| f.text.clone()).unwrap_or_default();
+    /// What is under the cursor, in each analysis that knows it: those
+    /// covering the file (its program's, or the file alone, and each entry
+    /// point reaching it), then every other entry point's program holding
+    /// its declaration (uses of a definition from modules this file's
+    /// program does not reach). Each with the locations referring to it.
+    fn per_analysis(&mut self, params: &Value) -> Vec<(&Analysis, Vec<analysis::Loc>)> {
+        let Some((file, _, off)) = self.locate(params) else { return vec![] };
+        let prog = program_of(&file);
+        self.ensure_entries(&prog);
+        let index_of = |a: &Analysis, p: &Path| {
+            a.files.iter().find(|f| canonical(Path::new(&f.path)) == p).map(|f| f.path.clone())
+        };
+        let mut all: Vec<&Analysis> = self.analysis_for(&file).into_iter().collect();
+        if let Some(a) = self.programs.get(&prog)
+            && !all.iter().any(|x| std::ptr::eq(*x, a))
+        {
+            all.push(a);
+        }
+        all.extend(self.entries.get(&prog).into_iter().flatten());
+        let mut out: Vec<(&Analysis, Vec<analysis::Loc>)> = vec![];
+        let mut decl: Option<analysis::Loc> = None;
+        for a in &all {
+            let Some(path) = index_of(a, &file) else { continue };
+            if let Some((locs, d)) = Self::occurrences_in(a, &path, off) {
+                decl = decl.or(d);
+                out.push((a, locs));
+            }
+        }
+        let Some(d) = decl.filter(|d| !d.path.starts_with('<')) else { return out };
+        let dfile = canonical(Path::new(&d.path));
+        for a in all {
+            if out.iter().any(|(x, _)| std::ptr::eq(*x, a)) {
+                continue;
+            }
+            let Some(path) = index_of(a, &dfile) else { continue };
+            if let Some((locs, _)) = Self::occurrences_in(a, &path, d.start) {
+                out.push((a, locs));
+            }
+        }
+        out
+    }
+
+    /// Every location referring to what is under the cursor, in every
+    /// entry point's program.
+    fn occurrences(&mut self, params: &Value) -> Option<Vec<analysis::Loc>> {
+        let mut out: Vec<analysis::Loc> = vec![];
+        for (_, locs) in self.per_analysis(params) {
+            for l in locs {
+                if !out.contains(&l) {
+                    out.push(l);
+                }
+            }
+        }
+        if out.is_empty() { None } else { Some(out) }
+    }
+
+    fn loc_json(&mut self, _file: &Path, l: &analysis::Loc) -> Value {
+        let text = self.text(&canonical(Path::new(&l.path)));
         json!({ "uri": path_to_uri(&l.path), "range": range(&text, l.start, l.end) })
     }
 
     fn references(&mut self, params: &Value) -> Value {
         let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
-        let Some((_, locs)) = self.occurrences(params) else { return json!([]) };
+        let Some(locs) = self.occurrences(params) else { return json!([]) };
         let v: Vec<Value> = locs.iter().map(|l| self.loc_json(&file, l)).collect();
         json!(v)
     }
 
     fn highlights(&mut self, params: &Value) -> Value {
         let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
-        let Some((_, locs)) = self.occurrences(params) else { return json!([]) };
+        let Some(locs) = self.occurrences(params) else { return json!([]) };
         let text = self.text(&file);
         let v: Vec<Value> = locs
             .iter()
@@ -412,16 +507,32 @@ impl Server {
         json!(v)
     }
 
-    /// Occurrences spelled exactly as the name (a path like `io.println`
-    /// is not renamed as a whole).
     /// The name under the cursor and the exact ranges spelling it, each
-    /// with whether it is a record-field shorthand (`{ name }`). Qualified
-    /// uses (`util.helper`, `util.Point`) contribute their last segment;
-    /// library definitions are not renamed.
+    /// with whether it is a record-field shorthand (`{ name }`), in every
+    /// entry point's program. Qualified uses (`util.helper`, `util.Point`)
+    /// contribute their last segment, so a path like `io.println` is not
+    /// renamed as a whole; library definitions are not renamed.
     fn renamable(&mut self, params: &Value) -> Option<(String, Vec<(analysis::Loc, bool)>)> {
-        let (_, locs) = self.occurrences(params)?;
-        let (file, _, _) = self.locate(params)?;
-        let a = self.analysis_for(&file)?;
+        let mut name: Option<String> = None;
+        let mut out: Vec<(analysis::Loc, bool)> = vec![];
+        for (a, locs) in self.per_analysis(params) {
+            let Some((n, found)) = Self::spelled(a, locs) else { continue };
+            if name.as_ref().is_some_and(|m| *m != n) {
+                continue;
+            }
+            name = Some(n);
+            for x in found {
+                if !out.iter().any(|(y, _)| *y == x.0) {
+                    out.push(x);
+                }
+            }
+        }
+        Some((name?, out))
+    }
+
+    /// In analysis `a`: the declared name `locs` refer to (found at its
+    /// declaration) and the ranges spelling it.
+    fn spelled(a: &Analysis, locs: Vec<analysis::Loc>) -> Option<(String, Vec<(analysis::Loc, bool)>)> {
         let decl = locs.iter().find(|l| {
             a.file(&l.path).is_some_and(|f| {
                 f.refs.iter().any(|r| {
@@ -643,14 +754,7 @@ pub fn serve() -> i32 {
     });
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    let mut server = Server {
-        docs: HashMap::new(),
-        programs: HashMap::new(),
-        last_good: HashMap::new(),
-        published: HashSet::new(),
-        owner: HashMap::new(),
-        dirty: HashSet::new(),
-    };
+    let mut server = Server::new();
     *CLIENT_URIS.lock().unwrap() = Some(HashMap::new());
     let mut shutdown = false;
     while let Ok(first) = rx.recv() {
@@ -781,20 +885,38 @@ pub fn query(
     path: &Path,
     line: Option<usize>,
     col: Option<usize>,
+    name: Option<&str>,
     overlays: HashMap<PathBuf, String>,
 ) -> Result<Value, String> {
     if kind == "api" {
         return api(path);
     }
+    const KINDS: &[&str] = &[
+        "diagnostics",
+        "check",
+        "hover",
+        "definition",
+        "references",
+        "completion",
+        "rename",
+        "symbols",
+        "api",
+    ];
+    if !KINDS.contains(&kind) {
+        return Err(format!("unknown query `{kind}` ({})", KINDS.join(", ")));
+    }
+    // inputs a kind cannot answer are errors, not empty answers (a check
+    // reports an unreadable program as a diagnostic)
+    let positional = matches!(kind, "hover" | "definition" | "references" | "completion" | "rename");
+    let exists = path.exists() || overlays.contains_key(&lang_driver::overlay_key(path));
+    if (positional || kind == "symbols") && !exists {
+        return Err(format!("no such file or directory: {}", path.display()));
+    }
+    if (positional || kind == "symbols") && path.is_dir() {
+        return Err(format!("`{kind}` needs a source file, not a directory"));
+    }
     let file = canonical(path);
-    let mut server = Server {
-        docs: overlays.clone(),
-        programs: HashMap::new(),
-        last_good: HashMap::new(),
-        published: HashSet::new(),
-        owner: HashMap::new(),
-        dirty: HashSet::from([file.clone()]),
-    };
+    let mut server = Server { docs: overlays.clone(), dirty: HashSet::from([file.clone()]), ..Server::new() };
     if !matches!(kind, "diagnostics" | "check") {
         server.reanalyze(&mut std::io::sink());
     }
@@ -835,6 +957,29 @@ pub fn query(
                 .map(|v| v.iter().map(loc).collect::<Vec<_>>())
                 .unwrap_or_default()
         ),
+        "rename" => {
+            let Some(new) = name else { return Err("`rename` needs --name NEW".into()) };
+            let mut params = at()?;
+            params["newName"] = json!(new);
+            let r = server.rename(&params)?;
+            let mut edits = vec![];
+            for (u, es) in r["changes"].as_object().into_iter().flatten() {
+                let p = uri_to_path(u).display().to_string();
+                let t = text_of(&p);
+                for e in es.as_array().into_iter().flatten() {
+                    let mut v = plain_range(&p, &t, &e["range"]);
+                    v["text"] = e["newText"].clone();
+                    edits.push(v);
+                }
+            }
+            edits.sort_by(|a, b| {
+                let k = |v: &Value| {
+                    (v["file"].as_str().unwrap_or("").to_string(), v["line"].as_u64(), v["col"].as_u64())
+                };
+                k(a).cmp(&k(b))
+            });
+            json!({ "edits": edits })
+        }
         "completion" => {
             let c = server.completion(&at()?);
             json!(
@@ -847,9 +992,15 @@ pub fn query(
             )
         }
         "symbols" => {
-            let Some(a) = server.analysis_for(&file) else { return Ok(json!([])) };
+            let unindexed = || {
+                format!(
+                    "{} was not indexed: it does not parse and resolve (see `diagnostics`)",
+                    path.display()
+                )
+            };
+            let Some(a) = server.analysis_for(&file) else { return Err(unindexed()) };
             let Some(f) = a.files.iter().find(|f| canonical(Path::new(&f.path)) == file) else {
-                return Ok(json!([]));
+                return Err(unindexed());
             };
             let mut out = vec![];
             fn walk(s: &SymbolInfo, container: Option<&str>, text: &str, out: &mut Vec<Value>) {
@@ -865,11 +1016,7 @@ pub fn query(
             }
             json!(out)
         }
-        other => {
-            return Err(format!(
-                "unknown query `{other}` (diagnostics, check, hover, definition, references, completion, symbols, api)"
-            ));
-        }
+        _ => unreachable!("checked against KINDS"),
     })
 }
 
