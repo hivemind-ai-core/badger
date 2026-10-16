@@ -402,6 +402,15 @@ error. `lang_cli` is the `lang` binary.
   path (return, error, defect, `process.exit`). Native module calls
   (SQLite among them) and the HTTP server are marked uncaptured.
 
+## Logs
+
+`std.log` writes structured records (`crates/lang_runtime/src/telemetry.rs`):
+a level check against `[runtime] log_level` is one atomic load; a record
+encodes its fields through their schema, merges the task's `log.with`
+context (copied to tasks it spawns), and is written to standard error as
+text or a JSON line (`log_format`), and kept in a bounded buffer while an
+exporter is attached.
+
 ## Native modules
 
 `crates/lang_native` defines the native module ABI and wire format, and

@@ -73,6 +73,8 @@ pub const RUNTIME_KEYS: &[&str] = &[
     "http_max_stream_buffer_bytes",
     "trace_capacity",
     "trace_overflow",
+    "log_level",
+    "log_format",
     "task_stack_bytes",
     "blocking_threads",
     "heap_max_bytes",
@@ -88,6 +90,8 @@ pub const RUNTIME_DEFAULTS: &[(&str, &str)] = &[
     ("http_max_stream_buffer_bytes", "1048576"),
     ("trace_capacity", "1024"),
     ("trace_overflow", "drop_oldest"),
+    ("log_level", "info"),
+    ("log_format", "text"),
     ("task_stack_bytes", "8388608"),
     ("blocking_threads", "16"),
     ("heap_max_bytes", "0"),
@@ -106,6 +110,13 @@ pub fn check_runtime(k: &str, v: &str, line: usize) -> Result<(), String> {
             Err(format!("line {line}: trace_overflow must be drop_newest or drop_oldest"))
         }
         "trace_overflow" => Ok(()),
+        "log_level" if !matches!(v, "trace" | "debug" | "info" | "warn" | "error" | "off") => {
+            Err(format!("line {line}: log_level must be trace, debug, info, warn, error, or off"))
+        }
+        "log_format" if !matches!(v, "text" | "json" | "none") => {
+            Err(format!("line {line}: log_format must be text, json, or none"))
+        }
+        "log_level" | "log_format" => Ok(()),
         _ => {
             let Ok(n) = v.parse::<u64>() else {
                 return Err(format!("line {line}: runtime setting `{k}` must be a non-negative integer"));

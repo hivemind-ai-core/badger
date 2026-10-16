@@ -29,6 +29,7 @@ an HTTP framework on a CLI program.
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
+| `std.log` | Structured logs: levels, schema-encoded fields, task-inherited context, text or JSON lines |
 | `std.inspect` | Runtime snapshots of tasks, channels, systems, and the heap |
 | `std.compiler` | Compiler services from code: diagnostics, project checks of proposed edits, hover, definitions, references, symbols |
 | `std.ffi` | The C boundary: raw pointers, C memory, C strings |

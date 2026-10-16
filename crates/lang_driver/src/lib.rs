@@ -1229,6 +1229,9 @@ fn apply_runtime_setting(k: &str, v: &str) {
         "trace_capacity" | "trace_overflow" => {
             lang_runtime::intrinsics_codec::set_trace_setting(k, v);
         }
+        "log_level" | "log_format" => {
+            lang_runtime::telemetry::configure(k, v);
+        }
         _ if k.starts_with("http_") => {
             if let Ok(n) = v.parse() {
                 lang_runtime::http::set_default_limit(k, n);

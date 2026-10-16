@@ -21,6 +21,7 @@
 | [`std.records`](records.md) | Typed record operations. |
 | [`std.pipeline`](pipeline.md) | Typed interceptor pipelines. |
 | [`std.trace`](trace.md) | Structured runtime events. Events are encoded through the value's derived |
+| [`std.log`](log.md) | Structured logs. Each record has a level, a message, and fields (any |
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |

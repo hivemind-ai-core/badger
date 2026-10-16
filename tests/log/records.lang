@@ -1,0 +1,17 @@
+// Structured logs: levels, fields, context from `log.with` inherited by
+// spawned tasks (checked by `structured_logs` in programs.rs).
+import std.log
+import std.task
+
+pub fn main() -> Unit {
+    log.debug("hidden by default", {})
+    log.info("starting", { version: "1.0", workers: 4 })
+    log.with({ request: 7 }, fn() {
+        log.warn("slow query", { ms: 120, sql: "select 1" })
+        let _ = task.scope(fn(s) -> Result<Unit, String> {
+            let t = s.spawn(fn() { log.info("in child", { step: 2 }) })
+            ok(t.join())
+        })
+    })
+    log.error("done", {})
+}

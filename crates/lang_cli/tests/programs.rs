@@ -463,6 +463,46 @@ fn dependencies() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Structured logs on standard error: the level threshold, text and JSON
+/// lines with fields in order, and `log.with` context inherited by a
+/// spawned task.
+#[test]
+fn structured_logs() {
+    let run = |env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/log/records.lang"]);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        assert!(out.status.success());
+        String::from_utf8_lossy(&out.stderr).to_string()
+    };
+    let text = run(&[]);
+    let lines: Vec<&str> = text.lines().map(|l| l.split_once(' ').map(|x| x.1).unwrap_or(l)).collect();
+    assert_eq!(
+        lines,
+        vec![
+            "INFO  starting version=1.0 workers=4",
+            "WARN  slow query request=7 ms=120 sql=\"select 1\"",
+            "INFO  in child request=7 step=2",
+            "ERROR done",
+        ],
+        "{text}"
+    );
+    let json = run(&[("LANG_LOG_LEVEL", "debug"), ("LANG_LOG_FORMAT", "json")]);
+    let recs: Vec<serde_json::Value> = json.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    assert_eq!(recs.len(), 5, "{json}");
+    assert_eq!(recs[0]["level"], "debug");
+    assert_eq!(
+        (recs[3]["msg"].as_str(), recs[3]["request"].as_i64(), recs[3]["step"].as_i64()),
+        (Some("in child"), Some(7), Some(2))
+    );
+    assert_ne!(recs[3]["task"], recs[0]["task"]);
+    assert!(json.lines().nth(2).unwrap().starts_with("{\"ts\":"), "{json}");
+    assert!(run(&[("LANG_LOG_LEVEL", "off")]).is_empty());
+}
+
 /// Configuration from the environment: `[env] dotenv` files load before
 /// the program starts (variables already set win), and `${NAME}` /
 /// `${NAME:-default}` in `[config]` values read the environment.

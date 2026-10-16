@@ -1552,6 +1552,11 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_i_native_call6",
     "lang_rt_i_native_call7",
     "lang_rt_i_native_call8",
+    // logging: a level check, or a record written under its own locks
+    "lang_rt_i_log_enabled",
+    "lang_rt_i_log_emit",
+    "lang_rt_i_log_push",
+    "lang_rt_i_log_pop",
     "lang_rt_alloc",
     "lang_rt_concat",
     "lang_rt_eq",

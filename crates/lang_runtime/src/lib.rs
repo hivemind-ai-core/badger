@@ -45,6 +45,7 @@ pub mod repro;
 pub mod scope;
 pub mod string;
 pub mod task;
+pub mod telemetry;
 pub mod value;
 
 pub use desc::{Field, Kind, Repr, TypeDesc, Variant};

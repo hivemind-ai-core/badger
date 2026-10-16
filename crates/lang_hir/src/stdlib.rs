@@ -28,6 +28,7 @@ std_modules![
     "records",
     "pipeline",
     "trace",
+    "log",
     "codec",
     "config",
     "system",

@@ -233,6 +233,9 @@ pub struct Task {
     pub publishing: bool,
     /// Pipeline stages the task is inside, outermost first.
     pub stages: Vec<String>,
+    /// `log.with` context: JSON objects merged into each log record
+    /// (copied from the spawning task).
+    pub log_ctx: Vec<String>,
     /// A wake that arrived while the task was [`State::Parking`] (written
     /// and read under the scheduler queue lock).
     pending_wake: Option<Wake>,
@@ -1070,6 +1073,7 @@ pub fn spawn_with_args(
         select_done: None,
         publishing: false,
         stages: vec![],
+        log_ctx: current().map(|t| t.log_ctx.clone()).unwrap_or_default(),
         pending_wake: None,
         free_resume: false,
         tlock: AtomicBool::new(false),
