@@ -85,6 +85,11 @@ record built only to be passed to a helper is not allocated
   checks, and tools show them with signatures.
 - Library structs and enums that derive `Codec` are data (they can be
   encoded and decoded like user types).
+- **Directory capabilities** (`REAL_WORLD_USE.md` section 4): `fs.root`
+  returns a `Dir` confined to one tree (absolute paths, `..`, and symlinks
+  out of it are refused); `Dir.sub` narrows it and `Dir.reader` gives a
+  read-only `ReadDir`, so a function's parameter types state what it may
+  touch. Private fields keep them from being forged.
 
 ## Testing infrastructure
 
@@ -94,6 +99,8 @@ record built only to be passed to a helper is not allocated
 - Protocol-level tests of the language server and the MCP server, including
   hostile input; tests for queries, graphs, the API export, contracts, the
   profiler, and debugging under gdb.
+- The formatter property test found a non-idempotent case (a stray leading
+  separator before a closer), now fixed.
 - A guard that kills test servers when a test fails (orphaned processes were
   found from earlier failed runs).
 - ThreadSanitizer was attempted and is not usable here: the standard library
@@ -141,6 +148,9 @@ reproducing programs:
   nothing; a file that does not exist on disk yet is not analysed.
 - Contracts are checked at run time only; nothing is proved statically.
 
-The `REAL_WORLD_USE.md` directions not taken up here (capability-scoped
-authority APIs, reproduction bundles, durable job state, typed SQL) remain
-product work for a pilot application.
+Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
+export, agent tooling, and a first capability (directories) are done. Not
+taken up: a restricted mode that withholds the ambient filesystem, network,
+and process APIs (without it, capabilities are a discipline rather than a
+guarantee), network capabilities, reproduction bundles, durable job state,
+and typed SQL; these are product work for a pilot application.
