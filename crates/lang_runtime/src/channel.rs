@@ -275,16 +275,15 @@ fn end_fast(d: &ChanData) {
 /// means the locked path must decide.
 pub fn send_fast(ch: u64, v: u64) -> bool {
     let d = raw(ch);
+    // a byte budget (fixed at creation) charges the message's size, which
+    // depends only on the value: measured before taking the channel
+    let size = if d.byte_budget > 0 { admission_size(d.elem, v) } else { 0 };
     if !try_fast(d) {
         return false;
     }
     let mut ok = false;
-    if !d.closed
-        && !d.batched
-        && d.byte_budget == 0
-        && d.recv_watchers.is_empty()
-        && d.send_waiters.is_empty()
-    {
+    let fits = d.byte_budget == 0 || (size <= d.byte_budget && d.bytes + size <= d.byte_budget);
+    if !d.closed && !d.batched && fits && d.recv_watchers.is_empty() && d.send_waiters.is_empty() {
         // hand off to a parked receiver (the channel is held, so the
         // receiver cannot finish and leave it meanwhile)
         while let Some((_, wait, p)) = d.recv_waiters.pop_front() {
@@ -295,7 +294,8 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
         }
         if !ok && d.capacity > 0 && d.queue.len() < d.capacity {
             d.queue.push_back(v);
-            d.sizes.push_back(0);
+            d.bytes += size;
+            d.sizes.push_back(size);
             ok = true;
         }
     }
