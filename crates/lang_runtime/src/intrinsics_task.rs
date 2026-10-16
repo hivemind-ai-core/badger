@@ -184,10 +184,15 @@ task_intrinsics! {
             return t as u64;
         }
         let s = START.get_or_init(std::time::Instant::now);
+        if crate::repro::active() {
+            return crate::repro::external("clock", "", None, false, || s.elapsed().as_nanos() as u64);
+        }
         s.elapsed().as_nanos() as u64
     }
     fn time_wall_nanos(ctx, targs, ret) {
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0)
+        crate::repro::external("wall clock", "", None, false, || {
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0)
+        })
     }
 
     // ---------------------------------------------------------------- cleanup

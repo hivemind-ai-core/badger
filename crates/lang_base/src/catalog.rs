@@ -49,6 +49,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A path dependency could not be resolved, does not satisfy its version requirement, or differs from `lang.lock`. Run `lang update` after intended dependency changes.",
     ),
     (
+        "E0016",
+        "reproduction bundle",
+        "`lang replay` could not use the bundle: it is unreadable or not a bundle of this format, or the program is not the one it recorded (a source file, the toolchain, or the configuration changed). `lang replay --compare` runs a changed program against the recording and reports how the operations and the outcome differ.",
+    ),
+    (
         "E0101",
         "lowercase type name",
         "Every named type starts uppercase, including primitives and type parameters: `type Person = ...`.",

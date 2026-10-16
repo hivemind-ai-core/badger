@@ -635,6 +635,13 @@ impl Session {
                 );
                 return Err(Outcome::Errors);
             }
+            if opts.record.is_some() || opts.replay.is_some() {
+                self.diagnostics.push(
+                    Diagnostic::error("reproduction bundles record and replay programs from their sources")
+                        .with_code("E0013"),
+                );
+                return Err(Outcome::Errors);
+            }
             return self.run_binary(&bytes, args, opts, started);
         }
         // an invalid manifest is a project error (as `lang check` reports it)
@@ -644,10 +651,12 @@ impl Session {
             self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
             return Err(Outcome::Errors);
         }
+        let mut config: Vec<(String, String)> = vec![];
         match Self::effective_config(path, opts.profile.as_deref()) {
-            Ok(entries) => lang_runtime::intrinsics_codec::set_profile(
-                entries.into_iter().map(|(k, v, _)| (k, v)).collect(),
-            ),
+            Ok(entries) => {
+                config = entries.into_iter().map(|(k, v, _)| (k, v)).collect();
+                lang_runtime::intrinsics_codec::set_profile(config.clone())
+            }
             Err(e) => {
                 self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
                 return Err(Outcome::Errors);
@@ -663,6 +672,53 @@ impl Session {
         for (k, v) in Self::runtime_settings(path, opts.profile.as_deref()) {
             if k != "workers" {
                 apply_runtime_setting(&k, &v);
+            }
+        }
+        if opts.record.is_some() || opts.replay.is_some() {
+            if opts.tests || opts.watch || opts.inspect.is_some() {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "`--record` and replays run a program once, without tests, `--watch`, or `--inspect`",
+                    )
+                    .with_code("E0013"),
+                );
+                return Err(Outcome::Errors);
+            }
+            // one worker, so the interleaving of tasks is the scheduler's
+            // own and not the machine's
+            lang_runtime::task::set_workers(1);
+            let identity = program_identity(path, &built.files, &args, opts.profile.as_deref(), &config);
+            if let Some(file) = &opts.record {
+                lang_runtime::repro::start_record(file.clone(), identity);
+            } else if let Some((file, compare)) = &opts.replay {
+                let bundle = match load_bundle(file) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        self.diagnostics.push(Diagnostic::error(e).with_code("E0016"));
+                        return Err(Outcome::Errors);
+                    }
+                };
+                let changes = identity_changes(&bundle["program"], &identity);
+                if !changes.is_empty() && !compare {
+                    let mut d = Diagnostic::error(format!(
+                        "the program is not the one {} recorded, so it cannot be replayed exactly",
+                        file.display()
+                    ))
+                    .with_code("E0016")
+                    .with_note("`lang replay --compare` runs the changed program against the recording");
+                    for c in changes {
+                        d = d.with_note(c);
+                    }
+                    self.diagnostics.push(d);
+                    return Err(Outcome::Errors);
+                }
+                for c in &changes {
+                    eprintln!("comparison: {c}");
+                }
+                if let Err(e) = lang_runtime::repro::start_replay(file.clone(), &bundle, *compare) {
+                    self.diagnostics.push(Diagnostic::error(e).with_code("E0016"));
+                    return Err(Outcome::Errors);
+                }
             }
         }
         lang_runtime::intrinsics_io::set_args(args);
@@ -713,7 +769,8 @@ fn run_entry(built: Built, bench: Option<std::time::Duration>) -> i32 {
         }
         let exit = lang_codegen::run_main(&built.compiled, &built.prog);
         let ran = run_start.elapsed();
-        let code = report_exit(exit, &built.prog);
+        let (code, failure) = report_exit(exit, &built.prog);
+        let code = lang_runtime::repro::finish(code, failure);
         if let Some(compile) = bench {
             eprintln!(
                 "bench: run {:.3} ms (compilation {:.3} ms, not included)",
@@ -1060,9 +1117,111 @@ pub struct RunOptions {
     pub bench: bool,
     /// Register debug information for generated code with debuggers.
     pub debug: bool,
+    /// Record a reproduction bundle to this file.
+    pub record: Option<PathBuf>,
+    /// Replay this reproduction bundle (with `true`: compare a changed
+    /// program against it).
+    pub replay: Option<(PathBuf, bool)>,
 }
 
-fn report_exit(exit: lang_runtime::task::Exit, prog: &lang_mir::Program) -> i32 {
+/// Read a reproduction bundle written by `lang run --record`.
+pub fn load_bundle(path: &Path) -> Result<serde_json::Value, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let v: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("{} is not a reproduction bundle: {e}", path.display()))?;
+    if v["format"] != lang_runtime::repro::FORMAT {
+        return Err(format!(
+            "{} is not a reproduction bundle of this toolchain (format {}, expected {})",
+            path.display(),
+            v["format"],
+            lang_runtime::repro::FORMAT
+        ));
+    }
+    Ok(v)
+}
+
+/// What identifies a recorded program: the toolchain, every user source
+/// file, the arguments, and the effective configuration (as a digest).
+fn program_identity(
+    entry: &Path,
+    files: &[PathBuf],
+    args: &[String],
+    profile: Option<&str>,
+    config: &[(String, String)],
+) -> serde_json::Value {
+    use lang_runtime::repro::digest;
+    let exe = std::env::current_exe().ok().and_then(|p| std::fs::read(p).ok()).map(|b| digest(&b));
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let mut sources: Vec<serde_json::Value> = files
+        .iter()
+        .map(|f| {
+            let shown = f.strip_prefix(&cwd).unwrap_or(f).to_string_lossy().into_owned();
+            let d = std::fs::read(f).map(|b| digest(&b)).unwrap_or_default();
+            serde_json::json!({ "path": shown, "digest": d })
+        })
+        .collect();
+    sources.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
+    let mut cfg: Vec<String> = config.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    cfg.sort();
+    serde_json::json!({
+        "toolchain": { "version": env!("CARGO_PKG_VERSION"), "executable": exe },
+        "entry": entry.to_string_lossy(),
+        "selected": *ENTRY.lock().unwrap(),
+        "sources": sources,
+        "args": args,
+        "profile": profile,
+        "config": digest(cfg.join("\n").as_bytes()),
+    })
+}
+
+/// How the program now differs from the one a bundle recorded.
+fn identity_changes(recorded: &serde_json::Value, now: &serde_json::Value) -> Vec<String> {
+    let mut out = vec![];
+    if recorded["toolchain"] != now["toolchain"] {
+        out.push(format!(
+            "the toolchain differs (recorded {} {}, now {} {})",
+            recorded["toolchain"]["version"],
+            recorded["toolchain"]["executable"],
+            now["toolchain"]["version"],
+            now["toolchain"]["executable"]
+        ));
+    }
+    let files = |v: &serde_json::Value| -> Vec<(String, String)> {
+        v["sources"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|s| {
+                        (
+                            s["path"].as_str().unwrap_or("").to_string(),
+                            s["digest"].as_str().unwrap_or("").to_string(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let (was, is) = (files(recorded), files(now));
+    for (p, d) in &is {
+        match was.iter().find(|(q, _)| q == p) {
+            Some((_, e)) if e == d => {}
+            Some(_) => out.push(format!("{p} changed")),
+            None => out.push(format!("{p} was not part of the recorded program")),
+        }
+    }
+    for (p, _) in &was {
+        if !is.iter().any(|(q, _)| q == p) {
+            out.push(format!("{p} is no longer part of the program"));
+        }
+    }
+    if recorded["config"] != now["config"] {
+        out.push("the effective configuration differs".into());
+    }
+    out
+}
+
+/// Report how a program ended; returns its exit code and what failed.
+fn report_exit(exit: lang_runtime::task::Exit, prog: &lang_mir::Program) -> (i32, Option<String>) {
     use lang_runtime::task::Exit;
     match exit {
         Exit::Returned(w) => {
@@ -1092,28 +1251,31 @@ fn report_exit(exit: lang_runtime::task::Exit, prog: &lang_mir::Program) -> i32 
                         )
                     });
                     eprintln!("{msg}");
+                    let mut failure = msg;
                     if let Some(at) = origin {
                         eprintln!("  at {at}");
+                        failure = format!("{failure} at {at}");
                     }
-                    return 1;
+                    return (1, Some(failure));
                 }
             }
-            0
+            (0, None)
         }
         Exit::Failed(p) => {
-            if p.location.is_empty() {
-                eprintln!("panic: {}", p.message);
+            let failure = if p.location.is_empty() {
+                format!("panic: {}", p.message)
             } else {
-                eprintln!("panic: {} at {}", p.message, p.location);
-            }
+                format!("panic: {} at {}", p.message, p.location)
+            };
+            eprintln!("{failure}");
             for n in p.notes {
                 eprintln!("  note: {n}");
             }
-            101
+            (101, Some(failure))
         }
         Exit::Cancelled => {
             eprintln!("main task cancelled");
-            101
+            (101, Some("main task cancelled".into()))
         }
     }
 }

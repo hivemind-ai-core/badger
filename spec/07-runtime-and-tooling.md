@@ -126,7 +126,8 @@ Target commands:
 
 ```text
 lang check [path] [--json]
-lang run [entry] [--profile name] [-- args...]
+lang run [entry] [--profile name] [--record bundle] [-- args...]
+lang replay bundle [--compare]
 lang test [filter] [--json]
 lang format [path] [--check]
 lang repl [--connect endpoint]
@@ -150,6 +151,30 @@ project; entry and task functions take no parameters or `List<String>`. `inspect
 `lang repl --connect`. `lang run --watch` performs compatible live
 replacement from source changes; `--reconstruct` adds controlled
 reconstruction for incompatible changes.
+
+`lang run --record FILE` writes a reproduction bundle: the program's
+identity (toolchain version and executable digest, every source file's
+digest, arguments, a digest of the effective configuration), the outcome of
+every external operation (HTTP requests, subprocesses, file reads, writes,
+listings, and directory resolution, environment variables, both clocks, and
+OS-seeded random sources) keyed by kind and identity, a digest of what each
+write or request sends, the program's output, and how it ended (exit code,
+failure, and the failing source line). The run uses one worker. Values of
+environment variables whose names look like credentials (`TOKEN`, `SECRET`,
+`PASSWORD`, `API_KEY`, `AUTH`, ...) and credential-like URL query values
+are not stored. `lang replay FILE` runs the same program with every
+operation answered from the bundle: nothing is requested, run, or written,
+and an operation the bundle does not hold (or that sends different content,
+or needs a redacted value, a database, or an HTTP server) ends the replay
+with status 3 instead of reaching the world. Operations match by identity in
+recorded order per identity, so tasks may interleave differently. The
+replay exits 0 when the recorded outcome (exit code, output, failure) is
+reproduced and 1 when it differs. A program that differs from the recorded
+one is refused (E0016); `--compare` runs it against the recording, reports
+differing payloads and operations it no longer performs, compares the
+outcome, and exits with the program's code. Bundles reproduce the managed
+computation from recorded inputs, not the external world's current state
+or arbitrary multicore interleavings.
 
 Structured diagnostics contain stable codes, severity, module/source spans,
 expected/actual shapes, ownership/scope paths, and related definitions. Render

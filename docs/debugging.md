@@ -61,6 +61,21 @@ functions.
 `LANG_PERF_MAP=1` writes `/tmp/perf-PID.map` so `perf record` / `perf
 report` name generated functions.
 
+## Reproducing a failure
+
+`lang run --record bug.json app.lang` keeps everything the run took from
+outside (HTTP replies and errors, subprocess results, files read, the
+environment, clocks, random seeds), its output, and how it ended, in one
+JSON file. `lang replay bug.json` runs it again offline with those
+outcomes: requests, subprocesses, and writes are not performed, so an
+intermittent timeout or a bad reply becomes a deterministic failure under
+a debugger (`gdb --args lang replay --release bug.json` works like any run).
+After fixing the code, `lang replay --compare bug.json` runs the fix
+against the same inputs and reports how the outcome and the operations
+changed; anything the recording cannot answer stops the run (status 3)
+rather than reaching the world. Credentials in the environment are not
+stored; a replay that needs one says so.
+
 ## From agents (MCP)
 
 The `run` tool of `lang mcp` takes `breakpoints` (`file:line`, optionally

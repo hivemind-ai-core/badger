@@ -26,6 +26,19 @@ pub fn io_err_msg(ret: &'static TypeDesc, kind: &str, msg: &str) -> u64 {
     make_variant(ret, "err", &[e])
 }
 
+/// An I/O error as (kind, message), as recorded in reproduction bundles.
+pub fn io_pair(e: &std::io::Error) -> (String, String) {
+    (kind_name(e.kind()), e.to_string())
+}
+
+/// `Result<T, io.Error>` from a recorded outcome.
+pub fn io_result(ret: &'static TypeDesc, r: Result<u64, (String, String)>) -> u64 {
+    match r {
+        Ok(v) => io_ok(ret, v),
+        Err((k, m)) => io_err_msg(ret, &k, &m),
+    }
+}
+
 fn kind_name(k: std::io::ErrorKind) -> String {
     use std::io::ErrorKind::*;
     match k {
@@ -48,6 +61,9 @@ pub extern "C" fn write_out(
     stderr: u64,
 ) -> u64 {
     let text = str_of(s);
+    if stderr == 0 {
+        crate::repro::output(text, newline & 1 != 0);
+    }
     let r = if stderr != 0 {
         let mut e = std::io::stderr().lock();
         e.write_all(text.as_bytes()).and_then(|_| if newline & 1 != 0 { e.write_all(b"\n") } else { Ok(()) })

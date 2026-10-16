@@ -82,9 +82,30 @@ enum Command {
         /// generated code with a debugger: `gdb --args lang run --debug ...`.
         #[arg(long)]
         debug: bool,
+        /// Write a reproduction bundle: the program's identity, the outcome
+        /// of every external operation (HTTP, subprocesses, files, the
+        /// environment, clocks, random seeds), its output, and how it ended
+        /// (`lang replay FILE` runs it again offline). Runs on one worker.
+        #[arg(long, value_name = "FILE")]
+        record: Option<PathBuf>,
         /// Arguments passed to the program (after `--`).
         #[arg(last = true)]
         args: Vec<String>,
+    },
+    /// Run a program again from a reproduction bundle (`lang run --record`):
+    /// every external operation is answered from the bundle, nothing is
+    /// requested, run, or written, and an operation the bundle does not hold
+    /// ends the replay (exit 3). Exits 0 when the recorded outcome (exit
+    /// code, output, failure) is reproduced and 1 when it differs.
+    Replay {
+        bundle: PathBuf,
+        /// Run a changed program against the recording: report differing
+        /// operations instead of stopping, and exit with the program's code.
+        #[arg(long)]
+        compare: bool,
+        /// Optimize generated code.
+        #[arg(long)]
+        release: bool,
     },
     /// Run the entry module's `test_*` functions: `lang test [path] [filter]`
     /// (path defaults to the current project).
@@ -221,6 +242,7 @@ fn main() -> ExitCode {
             reconstruct,
             bench,
             debug,
+            record,
             args,
         } => {
             let path = match entry {
@@ -245,6 +267,45 @@ fn main() -> ExitCode {
                 reconstruct,
                 bench,
                 debug,
+                record,
+                replay: None,
+            };
+            match session.run(&path, args, &opts) {
+                Ok(code) => {
+                    report(&session, false);
+                    exit_now(code)
+                }
+                Err(_) => {
+                    report(&session, false);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Replay { bundle, compare, release } => {
+            let b = match lang_driver::load_bundle(&bundle) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let program = &b["program"];
+            if let Some(name) = program["selected"].as_str() {
+                match name.strip_prefix("task:") {
+                    Some(t) => lang_driver::select_task(t),
+                    None => lang_driver::select_entry(Some(name.to_string())),
+                }
+            }
+            let path = PathBuf::from(program["entry"].as_str().unwrap_or("."));
+            let args: Vec<String> = program["args"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                .unwrap_or_default();
+            let opts = lang_driver::RunOptions {
+                optimize: release,
+                profile: program["profile"].as_str().map(str::to_string),
+                replay: Some((bundle, compare)),
+                ..Default::default()
             };
             match session.run(&path, args, &opts) {
                 Ok(code) => {

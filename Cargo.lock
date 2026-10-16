@@ -782,6 +782,7 @@ dependencies = [
  "lang_syntax",
  "lang_typeck",
  "pretty_assertions",
+ "serde_json",
  "thiserror",
  "toml",
 ]
@@ -830,6 +831,7 @@ dependencies = [
  "regex",
  "rusqlite",
  "rustc-hash",
+ "serde",
  "serde_json",
  "ureq",
 ]

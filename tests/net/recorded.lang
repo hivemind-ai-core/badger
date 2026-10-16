@@ -1,0 +1,25 @@
+// External operations of every kind a reproduction bundle captures: an
+// OS-seeded random source, the clocks, a subprocess, a file write and
+// read, environment variables (one credential), and `process.exit`.
+import std.io
+import std.env
+import std.fs
+import std.process
+import std.random
+import std.time
+
+pub fn main() -> Result<Unit, io.Error> {
+    let started = time.now()
+    let roll = random.system().int(0, 1000000)
+    let _ = time.timestamp()
+    let echoed = process.run("echo", ["hi"])?.stdout.trim()
+    let out = env.get("OUT").unwrap_or("/dev/null")
+    fs.write_text(out, $"{roll}")?
+    let back = fs.read_text(out)?
+    let spent = time.as_nanos(time.now() - started)
+    io.println($"{roll} {back == $"{roll}"} {spent} {echoed}")?
+    if env.get("VERBOSE").is_some() {
+        io.println($"token set: {env.get("API_TOKEN").is_some()}")?
+    }
+    process.exit(4)
+}

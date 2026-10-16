@@ -1116,10 +1116,9 @@ fn restricted_projects() {
     assert_eq!(text.matches("E0170").count(), 4, "{text}");
 }
 
-/// `std.fetch` against a local server: replies of every status, an
-/// origin-bound client that refuses other origins, unfollowed redirects.
-#[test]
-fn outbound_http() {
+/// A local HTTP server answering each request with `reply(method, path,
+/// body) -> (status line, extra headers, body)`; returns its port.
+fn http_server(reply: impl Fn(&str, &str, &str) -> (String, String, String) + Send + 'static) -> u16 {
     use std::io::{Read, Write};
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -1147,20 +1146,33 @@ fn outbound_http() {
                     break text;
                 }
             };
-            let path = req.split_whitespace().nth(1).unwrap_or("/").to_string();
+            let mut words = req.split_whitespace();
+            let (method, path) =
+                (words.next().unwrap_or("").to_string(), words.next().unwrap_or("/").to_string());
             let body = req.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
-            let (status, text, extra) = match path.as_str() {
-                "/hello" => ("200 OK", "hi".to_string(), ""),
-                "/echo" => ("200 OK", format!("got {body}"), ""),
-                "/moved" => ("302 Found", "moved".to_string(), "Location: http://example.com/\r\n"),
-                _ => ("404 Not Found", "none".to_string(), ""),
-            };
+            let (status, extra, text) = reply(&method, &path, &body);
             let _ = write!(
                 conn,
                 "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n{extra}\r\n{text}",
                 text.len()
             );
         }
+    });
+    port
+}
+
+/// `std.fetch` against a local server: replies of every status, an
+/// origin-bound client that refuses other origins, unfollowed redirects.
+#[test]
+fn outbound_http() {
+    let port = http_server(|_, path, body| {
+        let (status, text, extra) = match path {
+            "/hello" => ("200 OK", "hi".to_string(), ""),
+            "/echo" => ("200 OK", format!("got {body}"), ""),
+            "/moved" => ("302 Found", "moved".to_string(), "Location: http://example.com/\r\n"),
+            _ => ("404 Not Found", "none".to_string(), ""),
+        };
+        (status.to_string(), extra.to_string(), text)
     });
     let out = lang()
         .args(["run", "tests/net/fetch.lang"])
@@ -1182,4 +1194,123 @@ fn inlined_lambda_defect_location() {
         let err = String::from_utf8_lossy(&out.stderr);
         assert!(err.contains("integer overflow at tests/run/known_closures.lang:81:28"), "{flags:?}: {err}");
     }
+}
+
+/// Reproduction bundles (`lang run --record`, `lang replay`): an injected
+/// timeout is reproduced offline, an exact replay refuses changed code, a
+/// fixed transformation is compared against the recording without writing,
+/// a changed operation sequence diverges, and credentials are not stored.
+#[test]
+fn reproduction_bundles() {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
+    let requests = Arc::new(AtomicUsize::new(0));
+    let slow = Arc::new(AtomicBool::new(false));
+    let orders = Arc::new(Mutex::new("10, 20, x30".to_string()));
+    let (r, sl, o) = (requests.clone(), slow.clone(), orders.clone());
+    let port = http_server(move |_, path, _| {
+        r.fetch_add(1, Ordering::SeqCst);
+        match path {
+            "/orders" => {
+                if sl.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                }
+                ("200 OK".into(), String::new(), o.lock().unwrap().clone())
+            }
+            "/report" => ("201 Created".into(), String::new(), "ok".into()),
+            _ => ("404 Not Found".into(), String::new(), String::new()),
+        }
+    });
+    let base = format!("http://127.0.0.1:{port}");
+    let dir = std::env::temp_dir().join(format!("lang-repro-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = std::fs::read_to_string(root().join("tests/net/reconcile.lang")).unwrap();
+    std::fs::write(dir.join("reconcile.lang"), &source).unwrap();
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_lang"));
+        c.current_dir(&dir).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.code(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    // a run with a bug in its transformation, recorded
+    let (code, out, err) = run(&["run", "--record", "bug.json", "reconcile.lang"], &[("FETCH_BASE", &base)]);
+    assert_eq!((code, out.as_str()), (Some(0), "total 30\nreported 201\n"), "{err}");
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    // replayed exactly: the same outcome, and nothing reaches the server
+    let (code, out, err) = run(&["replay", "bug.json"], &[]);
+    assert_eq!((code, out.as_str()), (Some(0), "total 30\nreported 201\n"), "{err}");
+    assert!(err.contains("reproduced the recorded outcome (exit 0)"), "{err}");
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    // fixed: an exact replay refuses the changed program; a comparison runs
+    // it against the recording, still without writing
+    let fixed =
+        source.replace("text.parse_int(s.trim())", "text.parse_int(text.replace(s.trim(), \"x\", \"\"))");
+    assert_ne!(fixed, source);
+    std::fs::write(dir.join("reconcile.lang"), &fixed).unwrap();
+    let (code, _, err) = run(&["replay", "bug.json"], &[]);
+    assert_eq!(code, Some(1), "{err}");
+    assert!(err.contains("E0016") && err.contains("reconcile.lang changed"), "{err}");
+    let (code, out, err) = run(&["replay", "--compare", "bug.json"], &[]);
+    assert_eq!((code, out.as_str()), (Some(0), "total 60\nreported 201\n"), "{err}");
+    assert!(
+        err.contains("`fetch POST http://127.0.0.1:") && err.contains("sends different content"),
+        "{err}"
+    );
+    assert!(err.contains("the outcome differs from the recording"), "{err}");
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    // a changed operation sequence diverges instead of reaching the network
+    std::fs::write(dir.join("reconcile.lang"), fixed.replace("\"/orders\"", "\"/orders/all\"")).unwrap();
+    let (code, _, err) = run(&["replay", "--compare", "bug.json"], &[]);
+    assert_eq!(code, Some(3), "{err}");
+    assert!(
+        err.contains("replay diverged: `fetch GET http://127.0.0.1:")
+            && err.contains("/orders/all` was not recorded"),
+        "{err}"
+    );
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    // an injected timeout, recorded, reproduces offline
+    std::fs::write(dir.join("reconcile.lang"), &source).unwrap();
+    slow.store(true, Ordering::SeqCst);
+    let (code, _, err) =
+        run(&["run", "--record", "timeout.json", "reconcile.lang"], &[("FETCH_BASE", &base)]);
+    assert_eq!(code, Some(1), "{err}");
+    assert!(err.contains("io/timed_out"), "{err}");
+    let bundle = std::fs::read_to_string(dir.join("timeout.json")).unwrap();
+    assert!(bundle.contains("let reply = c.get(\\\"/orders\\\")?"), "the failing line is kept: {bundle}");
+    let before = requests.load(Ordering::SeqCst);
+    let (code, _, err) = run(&["replay", "timeout.json"], &[]);
+    assert_eq!(code, Some(0), "{err}");
+    assert!(
+        err.contains("reproduced the recorded outcome (exit 1)") && err.contains("io/timed_out"),
+        "{err}"
+    );
+    assert_eq!(requests.load(Ordering::SeqCst), before, "the replay does not reach the server");
+    // other operations: random seeds, clocks, a subprocess, files, exit
+    let recorded = std::fs::read_to_string(root().join("tests/net/recorded.lang")).unwrap();
+    std::fs::write(dir.join("recorded.lang"), recorded).unwrap();
+    let (code, first, err) = run(&["run", "--record", "ops.json", "recorded.lang"], &[("OUT", "out.txt")]);
+    assert_eq!(code, Some(4), "{err}");
+    std::fs::remove_file(dir.join("out.txt")).unwrap();
+    let (code, again, err) = run(&["replay", "ops.json"], &[]);
+    assert_eq!((code, again), (Some(0), first), "{err}");
+    assert!(!dir.join("out.txt").exists(), "a replay does not write files");
+    // credentials are not stored, and a replay that needs one stops
+    let (code, _, err) = run(
+        &["run", "--record", "token.json", "recorded.lang"],
+        &[("VERBOSE", "1"), ("API_TOKEN", "s3cret-value")],
+    );
+    assert_eq!(code, Some(4), "{err}");
+    assert!(!std::fs::read_to_string(dir.join("token.json")).unwrap().contains("s3cret-value"));
+    let (code, _, err) = run(&["replay", "token.json"], &[]);
+    assert_eq!(code, Some(3), "{err}");
+    assert!(err.contains("`env API_TOKEN` was redacted"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
 }

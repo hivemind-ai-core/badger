@@ -3,7 +3,7 @@
 use crate::desc::TypeDesc;
 use crate::gc::Roots;
 use crate::intrinsics::{Targs, rdesc};
-use crate::intrinsics_io::{io_err, io_err_msg, io_ok};
+use crate::intrinsics_io::{io_err_msg, io_ok};
 use crate::string::{bytes_of, new_bytes, new_string, str_of};
 use crate::task::TaskCtx;
 use crate::{list, make_record, make_variant};
@@ -160,7 +160,11 @@ os_intrinsics! {
         if authority_end.is_none_or(|end| origin_of(&u[..end]).is_err()) {
             return io_err_msg(rdesc(ret), "io/invalid_input", &format!("`{u}` is not an http(s) URL"));
         }
-        let r = crate::task::run_blocking(move || http_fetch(&m, &u, &b, &c, timeout_ms));
+        let key = format!("{m} {}", crate::repro::mask_url(&u));
+        let sends = (m == "POST" || m == "PUT").then(|| crate::repro::digest(format!("{c}\n{b}").as_bytes()));
+        let r = crate::repro::external("fetch", &key, sends, false, move || {
+            crate::task::run_blocking(move || http_fetch(&m, &u, &b, &c, timeout_ms))
+        });
         match r {
             Ok((status, headers, text)) => {
                 let g = Roots::new();
@@ -201,12 +205,15 @@ os_intrinsics! {
     fn fs_list_dir(ctx, targs, ret, p) {
         // Result<List<String>, io.Error>
         let path = str_of(p).to_string();
-        let r = crate::task::run_blocking(move || {
-            std::fs::read_dir(&path).map(|it| {
-                let mut v: Vec<String> = it.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
-                v.sort();
-                v
+        let r = crate::repro::external("list", &path.clone(), None, false, move || {
+            crate::task::run_blocking(move || {
+                std::fs::read_dir(&path).map(|it| {
+                    let mut v: Vec<String> = it.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+                    v.sort();
+                    v
+                })
             })
+            .map_err(|e| crate::intrinsics_io::io_pair(&e))
         });
         match r {
             Ok(v) => {
@@ -215,7 +222,7 @@ os_intrinsics! {
                 let l = g.add(strings(list_desc, v));
                 io_ok(rdesc(ret), l)
             }
-            Err(e) => io_err(rdesc(ret), &e),
+            Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
         }
     }
 
@@ -225,18 +232,25 @@ os_intrinsics! {
     fn process_run(ctx, targs, ret, program, args) {
         let prog = str_of(program).to_string();
         let argv: Vec<String> = list::to_vec(args).into_iter().map(|w| str_of(w).to_string()).collect();
-        let r = crate::task::run_blocking(move || std::process::Command::new(&prog).args(&argv).output());
+        let key = std::iter::once(&prog).chain(&argv).map(|a| format!("{a:?}")).collect::<Vec<_>>().join(" ");
+        let r = crate::repro::external("process", &key, None, false, move || {
+            crate::task::run_blocking(move || std::process::Command::new(&prog).args(&argv).output())
+                .map(|out| {
+                    let text = |b: &[u8]| String::from_utf8_lossy(b).into_owned();
+                    (out.status.code().unwrap_or(-1) as i64, text(&out.stdout), text(&out.stderr))
+                })
+                .map_err(|e| crate::intrinsics_io::io_pair(&e))
+        });
         match r {
-            Ok(out) => {
+            Ok((code, stdout, stderr)) => {
                 let g = Roots::new();
                 let rec = rdesc(ret).variant(0).unwrap().fields[0].desc;
-                let so = g.add(new_string(&String::from_utf8_lossy(&out.stdout)));
-                let se = g.add(new_string(&String::from_utf8_lossy(&out.stderr)));
-                let code = out.status.code().unwrap_or(-1) as i64 as u64;
-                let v = g.add(make_record(rec, &[("status", code), ("stdout", so), ("stderr", se)]));
+                let so = g.add(new_string(&stdout));
+                let se = g.add(new_string(&stderr));
+                let v = g.add(make_record(rec, &[("status", code as u64), ("stdout", so), ("stderr", se)]));
                 io_ok(rdesc(ret), v)
             }
-            Err(e) => io_err(rdesc(ret), &e),
+            Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
         }
     }
     fn process_exit(ctx, targs, ret, code) {
@@ -248,10 +262,11 @@ os_intrinsics! {
             );
         }
         let _ = std::io::stdout().flush();
+        let code = crate::repro::finish(code as i32, None);
         run_exit_hook();
         crate::profile::finish();
         cleanup_at_exit();
-        unsafe { libc::_exit(code as i32) }
+        unsafe { libc::_exit(code) }
     }
     fn process_id(ctx, targs, ret) { std::process::id() as u64 }
 
@@ -287,7 +302,9 @@ os_intrinsics! {
         (g.len() - 1) as u64
     }
     fn random_os(ctx, targs, ret) {
-        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7) ^ (std::process::id() as u64) << 32;
+        let seed = crate::repro::external("random", "", None, false, || {
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7) ^ (std::process::id() as u64) << 32
+        });
         let mut g = RNGS.lock().unwrap();
         g.push(Rng(seed | 1));
         (g.len() - 1) as u64

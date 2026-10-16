@@ -108,6 +108,16 @@ called is never allocated:
   `fs.ReadDir`, `env.Vars` (named variables), `process.Runner` (named
   programs), `fetch.Client` (outbound HTTP to one origin), and open
   `sqlite.Pool`s.
+- **Reproduction bundles** (`REAL_WORLD_USE.md` section 6): `lang run
+  --record FILE` keeps the program's identity, every external outcome
+  (HTTP, subprocesses, files, environment, clocks, random seeds), its
+  output, and its failure with the failing source line; `lang replay FILE`
+  reproduces the run offline, failing closed (status 3) on any operation
+  the bundle cannot answer, and refuses changed code unless `--compare` is
+  given, which runs a fix against the recording without writing anywhere.
+  Verified end to end: an injected timeout reproduces without the server, a
+  fixed transformation is compared without its write reaching the server, a
+  changed request diverges, and credentials stay out of the bundle.
 - **Outbound HTTP** (`std.fetch`): `fetch.get`/`post` and origin-bound
   clients (`get`, `post`, `put`, `delete`, per-client time limits) over
   HTTP and HTTPS; redirects are reported, not followed, so a client cannot
@@ -175,5 +185,7 @@ reproducing programs:
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
 export, agent tooling, directory capabilities, restricted projects, and
-network capabilities are done. Not taken up: reproduction bundles, durable
-job state, and typed SQL; these are product work for a pilot application.
+network capabilities, and reproduction bundles are done. Not taken up:
+durable job state and typed SQL; these are product work for a pilot
+application. Bundles do not capture databases or served HTTP (a replay
+that reaches them stops), and they reproduce one worker's schedule.

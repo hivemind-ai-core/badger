@@ -264,6 +264,7 @@ macro_rules! sql_intrinsics {
 
 sql_intrinsics! {
     fn sql_open(ctx, targs, ret, path) {
+        crate::repro::uncaptured("a SQLite database");
         let p = str_of(path).to_string();
         let p2 = p.clone();
         match task::run_blocking(move || open_conn(&p2).map_err(|e| e.to_string())) {

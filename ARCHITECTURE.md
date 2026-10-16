@@ -320,6 +320,17 @@ error. `lang_cli` is the `lang` binary.
   output;
   environment and profile configuration; a bounded trace sink whose overload
   is reported separately.
+- **Reproduction bundles** (`crates/lang_runtime/src/repro.rs`): external
+  intrinsics (fetch, process, fs, env, clocks, OS random seeds) go through
+  `repro::external(kind, key, digest, redact, real)`, which in record mode
+  performs the operation and keeps its outcome as JSON (serde), in replay
+  mode answers from the bundle by identity and ends the process (status 3)
+  on anything unrecorded, redacted, or sending different content, and is a
+  single atomic load otherwise. Standard output is kept with the bundle;
+  the driver adds the program identity and checks it before a replay, and
+  `repro::finish` writes the bundle or compares the outcome on every exit
+  path (return, error, defect, `process.exit`). SQLite and the HTTP server
+  are marked uncaptured.
 
 ## Live reload
 

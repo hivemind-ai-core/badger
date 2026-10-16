@@ -343,6 +343,7 @@ fn http_err(ret: &'static TypeDesc, msg: &str) -> u64 {
 http_intrinsics! {
     // Start listening; `serve(request, conn)` handles one request.
     fn http_listen(ctx, targs, ret, address, port, serve, limits) {
+        crate::repro::uncaptured("serving HTTP");
         let addr = format!("{}:{}", str_of(address), port & 0xffff);
         let listener = match TcpListener::bind(&addr) {
             Ok(l) => l,
