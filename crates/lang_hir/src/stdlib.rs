@@ -1,5 +1,5 @@
-//! Embedded standard-library sources. Every module is always loaded; `import`
-//! only binds a name for it.
+//! Embedded standard-library sources. A program loads the core modules
+//! and those it imports (directly or through other standard modules).
 
 macro_rules! std_modules {
     ($($name:literal),* $(,)?) => {

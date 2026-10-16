@@ -65,9 +65,13 @@ error. `lang_cli` is the `lang` binary.
   `ref(:key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [:keys])` (a typed output projection).
 - **Standard library.** `crates/lang_hir/std/*.lang` (40 modules) are ordinary
-  language modules compiled with every program. Runtime operations are
-  `extern "intrinsic"` declarations implemented in `lang_runtime` or
-  expanded inline by MIR lowering.
+  language modules. A program loads the core modules (the prelude,
+  collections, text, numbers, options and results, codecs, records:
+  implementations on prelude types and items the compiler uses without an
+  import) plus the modules it imports, closed over the standard modules' own
+  imports; `system { }` and `pipeline { }` syntax brings in its module.
+  Runtime operations are `extern "intrinsic"` declarations implemented in
+  `lang_runtime` or expanded inline by MIR lowering.
 
 ## Types and checks
 

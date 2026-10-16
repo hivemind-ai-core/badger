@@ -232,14 +232,6 @@ impl Session {
             .collect();
         let mut modules = vec![];
         let std_sym = self.sym("std");
-        for (name, src) in lang_hir::stdlib::STD_MODULES {
-            let file = self.sources.add(format!("<std>/{name}.lang"), *src);
-            if let Some(ast) = self.parse(file) {
-                let mut mpath = vec![std_sym];
-                mpath.extend(name.split('/').map(|s| self.sym(s)));
-                modules.push(ParsedModule { path: mpath, file, ast, is_std: true });
-            }
-        }
         let text = match std::fs::read_to_string(&entry_file) {
             Ok(t) => t,
             Err(e) => {
@@ -338,7 +330,75 @@ impl Session {
             }
             i += 1;
         }
-        Some(Loaded { modules, entry, root })
+        // the standard library: the modules the program can reach (imported
+        // directly or by other standard modules) and the core modules whose
+        // implementations apply to prelude types; std modules come first
+        let std_mods = self.load_std(&modules);
+        let n = std_mods.len();
+        let mut all = std_mods;
+        all.extend(modules);
+        Some(Loaded { modules: all, entry: entry + n, root })
+    }
+
+    /// Parse the standard-library modules a program needs.
+    fn load_std(&mut self, user: &[ParsedModule]) -> Vec<ParsedModule> {
+        // implementations on prelude types and items the compiler uses
+        // without an import (`Data` conversion, record operations)
+        const CORE: &[&str] = &[
+            "prelude", "list", "seq", "text", "map", "set", "option", "result", "num", "bytes", "buffer",
+            "array", "codec", "records",
+        ];
+        let std_sym = self.sym("std");
+        let names: Vec<&str> = lang_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect();
+        let mut wanted: Vec<String> = CORE.iter().map(|s| s.to_string()).collect();
+        let add_imports = |ast: &ast::Ast, text: &str, wanted: &mut Vec<String>, interner: &Interner| {
+            for it in &ast.items {
+                if let ast::ItemKind::Import(imp) = &it.kind
+                    && imp.path.first().map(|n| n.sym) == Some(std_sym)
+                    && let Some(m) = imp.path.get(1)
+                {
+                    let m = interner.resolve(m.sym).to_string();
+                    if !wanted.contains(&m) {
+                        wanted.push(m);
+                    }
+                }
+            }
+            // `system { ... }` and `pipeline { ... }` expand into their modules
+            for (kw, m) in [("system", "system"), ("pipeline", "pipeline")] {
+                let mut rest = text;
+                while let Some(i) = rest.find(kw) {
+                    let after = rest[i + kw.len()..].trim_start();
+                    let word_start =
+                        i == 0 || !rest[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.');
+                    if word_start && after.starts_with('{') && !wanted.iter().any(|w| w == m) {
+                        wanted.push(m.to_string());
+                    }
+                    rest = &rest[i + kw.len()..];
+                }
+            }
+        };
+        for m in user {
+            let text = self.sources.get(m.file).text.clone();
+            add_imports(&m.ast, &text, &mut wanted, &self.interner);
+        }
+        // close over the standard modules' own imports
+        let mut parsed: Vec<(usize, ParsedModule)> = vec![];
+        let mut done: Vec<String> = vec![];
+        while let Some(name) = wanted.iter().find(|w| !done.contains(w)).cloned() {
+            done.push(name.clone());
+            let Some(idx) = names.iter().position(|n| *n == name) else { continue };
+            let src = lang_hir::stdlib::STD_MODULES[idx].1;
+            let file = self.sources.add(format!("<std>/{name}.lang"), src);
+            if let Some(ast) = self.parse(file) {
+                add_imports(&ast, src, &mut wanted, &self.interner);
+                let mut mpath = vec![std_sym];
+                mpath.extend(name.split('/').map(|s| self.sym(s)));
+                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true }));
+            }
+        }
+        // in the library's own order
+        parsed.sort_by_key(|(i, _)| *i);
+        parsed.into_iter().map(|(_, m)| m).collect()
     }
 
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {
