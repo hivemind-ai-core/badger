@@ -1525,6 +1525,7 @@ fn spawn_main(entry: u64) -> TaskId {
 
 /// Run the scheduler until the main task finishes. Returns its exit.
 pub fn run_main(entry: u64) -> Exit {
+    crate::profile::start_from_env();
     if multi() {
         return run_main_multi(entry);
     }

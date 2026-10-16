@@ -37,6 +37,7 @@ pub mod list;
 pub mod live;
 pub mod map;
 pub mod parse;
+pub mod profile;
 pub mod scope;
 pub mod sqlite;
 pub mod string;

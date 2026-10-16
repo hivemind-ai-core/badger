@@ -131,6 +131,7 @@ os_intrinsics! {
         use std::io::Write;
         let _ = std::io::stdout().flush();
         run_exit_hook();
+        crate::profile::finish();
         unsafe { libc::_exit(code as i32) }
     }
     fn process_id(ctx, targs, ret) { std::process::id() as u64 }

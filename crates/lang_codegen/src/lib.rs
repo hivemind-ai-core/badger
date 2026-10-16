@@ -61,6 +61,8 @@ impl Jit {
         flags.set("use_colocated_libcalls", "false")?;
         flags.set("is_pic", "false")?;
         flags.set("opt_level", if optimize { "speed" } else { "none" })?;
+        // frame-pointer chains for profilers and debuggers
+        flags.set("preserve_frame_pointers", "true")?;
         let isa = cranelift_native::builder()
             .map_err(|e| CodegenError::Host(e.to_string()))?
             .finish(settings::Flags::new(flags))
@@ -81,6 +83,8 @@ pub struct Compiled {
     pub adapters: FxHashMap<FuncId, CFuncId>,
     pub globals: Option<DataId>,
     pub n_globals: u32,
+    /// Code size and display name of each defined function.
+    pub code: Vec<(CFuncId, usize, String)>,
 }
 
 impl Compiled {
@@ -172,18 +176,24 @@ pub fn compile(prog: &Program, optimize: bool) -> Result<Compiled, CodegenError>
         None
     };
     let mut imports: FxHashMap<String, CFuncId> = FxHashMap::default();
+    let mut code = vec![];
     for (id, f) in prog.funcs.iter_enumerated() {
         let mut fx =
             FnCx { prog, funcs: &funcs, adapters: &adapters, imports: &mut imports, globals, call_conv };
-        fx.define(&mut jit, id, f)?;
+        let size = fx.define(&mut jit, id, f)?;
+        code.push((funcs[id], size, f.name.clone()));
     }
     for (id, f) in prog.funcs.iter_enumerated() {
         if let Some(&aid) = adapters.get(&id) {
-            define_adapter(&mut jit, funcs[id], aid, f)?;
+            let size = define_adapter(&mut jit, funcs[id], aid, f)?;
+            code.push((aid, size, format!("{} (adapter)", f.name)));
         }
     }
     jit.module.finalize_definitions()?;
-    let compiled = Compiled { jit, funcs, adapters, globals, n_globals: prog.n_globals };
+    for (id, size, name) in &code {
+        lang_runtime::profile::register_code(jit.module.get_finalized_function(*id), *size, name);
+    }
+    let compiled = Compiled { jit, funcs, adapters, globals, n_globals: prog.n_globals, code };
     // patch static closures with code and adapter addresses
     for &(obj, fid) in &prog.static_closures {
         let code = compiled.func_ptr(fid) as u64;
@@ -225,7 +235,7 @@ fn func_sig(jit: &Jit, f: &Func) -> Signature {
     sig
 }
 
-fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Result<(), CodegenError> {
+fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Result<usize, CodegenError> {
     let mut sig = jit.module.make_signature();
     sig.params.extend([AbiParam::new(types::I64); 3]);
     sig.returns.push(AbiParam::new(types::I64));
@@ -251,8 +261,13 @@ fn define_adapter(jit: &mut Jit, target: CFuncId, aid: CFuncId, f: &Func) -> Res
         b.finalize(fe);
     }
     jit.module.define_function(aid, &mut jit.ctx)?;
+    let size = code_size(&jit.ctx);
     jit.module.clear_context(&mut jit.ctx);
-    Ok(())
+    Ok(size)
+}
+
+fn code_size(ctx: &Context) -> usize {
+    ctx.compiled_code().map_or(0, |c| c.code_info().total_size as usize)
 }
 
 fn from_word(b: &mut FunctionBuilder, w: Value, r: Repr) -> Value {
@@ -352,7 +367,7 @@ impl FnCx<'_> {
         Ok(id)
     }
 
-    fn define(&mut self, jit: &mut Jit, id: FuncId, f: &Func) -> Result<(), CodegenError> {
+    fn define(&mut self, jit: &mut Jit, id: FuncId, f: &Func) -> Result<usize, CodegenError> {
         jit.ctx.func.signature = func_sig(jit, f);
         // pre-declare imports used by this function (needs &mut jit before the builder)
         let mut foreign: FxHashMap<String, cranelift_codegen::ir::FuncRef> = FxHashMap::default();
@@ -598,9 +613,10 @@ impl FnCx<'_> {
         jit.module
             .define_function(self.funcs[id], &mut jit.ctx)
             .map_err(|e| CodegenError::Module(format!("{}: {e:?}\n{}", f.name, jit.ctx.func.display())))?;
+        let size = code_size(&jit.ctx);
         jit.module.clear_context(&mut jit.ctx);
         let _ = self.call_conv;
-        Ok(())
+        Ok(size)
     }
 
     #[allow(clippy::too_many_arguments)]

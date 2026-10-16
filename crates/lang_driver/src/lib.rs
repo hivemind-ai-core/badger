@@ -80,6 +80,7 @@ pub fn project_entry_points(path: &Path) -> Vec<String> {
 /// Flush trace export and report trace sink overload (at process exit).
 pub fn finish() {
     lang_runtime::intrinsics_codec::report_overload();
+    lang_runtime::profile::finish();
 }
 
 impl Session {

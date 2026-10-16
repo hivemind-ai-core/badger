@@ -385,6 +385,14 @@ collections at random allocations; reproducible on one worker),
 entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
 (seeded scheduling in tests), `LANG_DUMP_CLIF`, and `lang run --dump-mir`.
 
+Profiling: `LANG_PROFILE=FILE` samples CPU time at 1 kHz (`SIGPROF`; the
+handler walks frame pointers with fault-tolerant reads) and writes
+collapsed stacks to `FILE` (flamegraph/speedscope input) plus a self/total
+summary on stderr. Generated code keeps frame pointers and is symbolized by
+source function name; build with `RUSTFLAGS="-C force-frame-pointers=yes"`
+to also see callers of runtime functions. `LANG_PERF_MAP=1` writes
+`/tmp/perf-PID.map` so external profilers attribute generated code.
+
 ## Scope notes
 
 Programs deploy from source; dependencies are path dependencies with a

@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+backtrace = "0.3.76"
 corosensei = "0.3"
 httparse = "1.10"
 libc = "0.2.190"

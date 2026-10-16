@@ -809,3 +809,43 @@ fn module_values_under_gc_stress() {
         );
     }
 }
+
+/// `LANG_PROFILE=FILE` writes collapsed stacks naming generated functions,
+/// and `LANG_PERF_MAP=1` writes a perf symbol map for them.
+#[test]
+fn sampling_profile() {
+    let dir = std::env::temp_dir().join(format!("lang-profile-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("spin.lang");
+    std::fs::write(
+        &src,
+        "import std.time\n\
+         fn spin(start: Instant) -> Int {\n\
+         \x20   var n = 0\n\
+         \x20   while time.now() - start < 300ms { n = n + 1 }\n\
+         \x20   n\n\
+         }\n\
+         pub fn main() -> Unit { let _ = spin(time.now()) }\n",
+    )
+    .unwrap();
+    let folded = dir.join("spin.folded");
+    let child = lang()
+        .args(["run", "--release"])
+        .arg(&src)
+        .env("LANG_PROFILE", &folded)
+        .env("LANG_PERF_MAP", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let perf_map = std::path::PathBuf::from(format!("/tmp/perf-{}.map", child.id()));
+    let out = child.wait_with_output().unwrap();
+    let symbols = std::fs::read_to_string(&perf_map).unwrap_or_default();
+    let _ = std::fs::remove_file(&perf_map);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(symbols.lines().any(|l| l.contains(" spin.spin")), "{symbols}");
+    let stacks = std::fs::read_to_string(&folded).unwrap();
+    assert!(stacks.lines().any(|l| l.contains("spin.spin")), "{stacks}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("[profile]"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
