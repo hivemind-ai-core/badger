@@ -1,0 +1,6 @@
+// A contract clause cannot propagate an error.
+// expect-error: E0140
+fn check(x: Int) -> Result<Bool, String> { ok(x > 0) }
+requires check(x)?
+fn f(x: Int) -> Result<Int, String> { ok(x) }
+pub fn main() -> Unit { let _ = f(5) }

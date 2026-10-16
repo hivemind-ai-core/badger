@@ -1,0 +1,6 @@
+// `result` is bound for postconditions only, wherever they are written.
+// expect-error: E0127
+ensures true
+requires result > 0
+fn f(x: Int) -> Int { x }
+pub fn main() -> Unit { let _ = f(1) }

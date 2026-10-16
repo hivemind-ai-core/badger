@@ -1,0 +1,6 @@
+// A contract clause cannot leave the function.
+// expect-error: E0140
+ensures { if result > 0 { return 42 }
+    true }
+fn f(n: Int) -> Int { n }
+pub fn main() -> Unit { let _ = f(5) }

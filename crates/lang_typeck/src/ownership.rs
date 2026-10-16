@@ -143,6 +143,20 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     for p in &posts {
         o.expr(*p, Mode::Borrow, &mut st);
     }
+    // the function returns `result` after its postconditions: they may
+    // read it, not consume it
+    if let DefKind::Fn(f) = &hir.defs[d].kind
+        && let Some(r) = f.result
+        && let Some(sp) = st.get(&r).copied()
+    {
+        o.report(
+            Diagnostic::error("a postcondition consumes `result`, which the function then returns")
+                .with_code("E0404")
+                .with_label(sp, "`result` is moved here")
+                .with_note("a postcondition can read the returned value but not take it; borrow it instead"),
+            sp,
+        );
+    }
     o.check_escape(body, true);
     o.unused_tasks(body);
     o.check_consuming_result(body);

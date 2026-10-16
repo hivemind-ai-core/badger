@@ -254,6 +254,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`const` initializers are evaluated when the program is checked; integer arithmetic in them that overflows its type, divides by zero, or shifts out of range is reported then.",
     ),
     (
+        "E0140",
+        "contract clause",
+        "`requires` and `ensures` clauses state conditions on a function that has a body: they cannot `return` or propagate errors with `?` (a closure inside a clause may), and a protocol method's signature cannot carry them (put them on each implementation's method).",
+    ),
+    (
         "E0220",
         "implementation signature",
         "An implementation method has the signature its protocol declares, with `Self` and the protocol's type arguments replaced by the implementation's.",

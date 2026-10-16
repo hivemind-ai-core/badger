@@ -1,0 +1,7 @@
+// Contracts belong on methods with bodies.
+// expect-error: E0140
+protocol Shape {
+    requires k > 0
+    fn area(self: &Self, k: Int) -> Int
+}
+pub fn main() -> Unit {}

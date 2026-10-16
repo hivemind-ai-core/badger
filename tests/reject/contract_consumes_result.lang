@@ -1,0 +1,7 @@
+// A postcondition may read `result`, not consume it.
+// expect-error: E0404
+import std.list
+fn take(b: ListBuilder<Int>) -> Bool { b.finish().len() >= 0 }
+ensures take(result)
+fn make() -> ListBuilder<Int> { list.builder<Int>() }
+pub fn main() -> Unit { let _ = make() }

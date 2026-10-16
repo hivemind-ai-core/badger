@@ -138,9 +138,12 @@ pub fn withdraw(account: Account, amount: Int) -> Result<Account, BankError> { .
 and `?` propagation alike), with `result` bound to the value being returned.
 Conditions are `Bool` expressions over the parameters (and `result`), checked
 by the ordinary type, effect, and ownership rules: a postcondition runs after
-the body, so it cannot read a value the body moved. Parameters are immutable
-values, so a postcondition reads them as they were on entry. The optional
-string explains the clause.
+the body, so it cannot read a value the body moved, and it can read `result`
+but not consume it. Parameters passed by value are immutable, so a
+postcondition reads them as they were on entry; a `&mut` parameter is read as
+the function leaves it. A clause cannot `return` or propagate with `?`
+(E0140), and contracts belong on functions with bodies (a protocol method's
+implementations carry their own). The optional string explains the clause.
 
 A failed clause is a task defect, like a failed assertion. A failed
 precondition is reported at the call site (the caller broke the contract) and

@@ -454,6 +454,8 @@ struct BodyCx<'c, 'a> {
     /// Active system configuration context: node locals by plan label.
     system: Option<FxHashMap<Symbol, LocalId>>,
     system_outputs: Option<LocalId>,
+    /// Lowering a contract clause (which cannot return from the function).
+    in_contract: bool,
 }
 
 impl<'c, 'a> BodyCx<'c, 'a> {
@@ -470,6 +472,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             cur_def: None,
             system: None,
             system_outputs: None,
+            in_contract: false,
         }
     }
 
@@ -763,8 +766,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let mut result = None;
         let mut caller_local = None;
         let mut contracts = vec![];
-        for c in &f.contracts {
-            contracts.push(c.text.clone());
+        if f.body.is_none() && !f.contracts.is_empty() {
+            self.err(
+                "E0140",
+                f.contracts[0].span,
+                "contracts need a function body",
+                "put them on each implementation's method",
+            );
+        }
+        // preconditions first: `result` is bound for postconditions only
+        let mut ordered: Vec<&ast::Contract> = f.contracts.iter().filter(|c| !c.ensures).collect();
+        ordered.extend(f.contracts.iter().filter(|c| c.ensures));
+        self.in_contract = true;
+        contracts.extend(f.contracts.iter().filter(|_| f.body.is_some()).map(|c| c.text.clone()));
+        for c in ordered {
+            if f.body.is_none() {
+                break;
+            }
             let cond_text = &c.cond_text;
             let what = if c.ensures { "postcondition" } else { "precondition" };
             let mut message = format!("{what} of `{fname}` failed: {cond_text}");
@@ -805,6 +823,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 checks.push(Stmt::Expr { expr: check, semi: true });
             }
         }
+        self.in_contract = false;
         if !checks.is_empty()
             && let Some(b) = body
         {
@@ -1134,7 +1153,17 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
                 return self.lower_call(*callee, type_args, args, span, None);
             }
-            ast::ExprKind::Try(inner) => ExprKind::Try(self.lower_expr(*inner)),
+            ast::ExprKind::Try(inner) => {
+                if self.in_contract && matches!(self.owners.last().map(|o| o.owner), Some(Owner::Fn(_))) {
+                    self.err(
+                        "E0140",
+                        span,
+                        "a contract clause cannot propagate an error with `?`",
+                        "inside this clause",
+                    );
+                }
+                ExprKind::Try(self.lower_expr(*inner))
+            }
             // `-<literal>` is one literal, so `-128I8` and `i64` minimums fit
             ast::ExprKind::Unary { op: ast::UnOp::Neg, operand }
                 if matches!(
@@ -1237,6 +1266,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 ExprKind::Block { stmts, tail }
             }
             ast::ExprKind::Return(v) => {
+                if self.in_contract && matches!(self.owners.last().map(|o| o.owner), Some(Owner::Fn(_))) {
+                    self.err("E0140", span, "a contract clause cannot `return`", "inside this clause");
+                }
                 let value = v.map(|v| self.lower_expr(v));
                 let target = self.owners.last().map(|o| o.owner);
                 match target {

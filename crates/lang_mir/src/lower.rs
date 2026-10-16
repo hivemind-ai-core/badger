@@ -1385,11 +1385,15 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     ops.push(self.lower(*a)?);
                 }
                 // checked buffer element access reports the caller's location
-                if let Target::Fn { def, .. } = &target
-                    && (self.is_checked_element_access(*def, span) || self.has_requires(*def))
-                {
-                    let l = self.loc(span);
-                    self.rt("lang_rt_caller_loc", vec![Operand::Const(Const::Addr(l))], Repr::I8);
+                if let Target::Fn { def, .. } = &target {
+                    if self.is_checked_element_access(*def, span) {
+                        let l = self.loc(span);
+                        self.rt("lang_rt_caller_loc", vec![Operand::Const(Const::Addr(l))], Repr::I8);
+                    }
+                    if self.has_requires(*def) {
+                        let l = self.loc(span);
+                        self.rt("lang_rt_contract_site", vec![Operand::Const(Const::Addr(l))], Repr::I8);
+                    }
                 }
                 self.call_target(&target, ops, &rt, &ty, span)
             }
@@ -2046,11 +2050,15 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 for a in args {
                     ops.push(self.lower(*a)?);
                 }
-                // test assertions, and functions with preconditions, report
-                // their caller's location
-                if self.is_test_helper(*def, span) || self.has_requires(*def) {
+                // test assertions report their caller's location, and
+                // functions with preconditions blame their call site
+                if self.is_test_helper(*def, span) {
                     let l = self.loc(span);
                     self.rt("lang_rt_caller_loc", vec![Operand::Const(Const::Addr(l))], Repr::I8);
+                }
+                if self.has_requires(*def) {
+                    let l = self.loc(span);
+                    self.rt("lang_rt_contract_site", vec![Operand::Const(Const::Addr(l))], Repr::I8);
                 }
                 let r = self.call_def(*def, targs, ops, ty, span)?;
                 // a user `err(...)` is where an error starts

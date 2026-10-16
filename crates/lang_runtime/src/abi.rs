@@ -182,6 +182,11 @@ pub extern "C" fn lang_rt_list_len(_ctx: *mut TaskCtx, list: u64) -> u64 {
     crate::list::len(list) as u64
 }
 
+/// A direct call of a function with preconditions records its site.
+pub extern "C" fn lang_rt_contract_site(_ctx: *mut TaskCtx, loc: u64) {
+    task::set_contract_site(loc);
+}
+
 /// A precondition of a function failed: blame the call site (`caller`,
 /// when the caller recorded it), naming the clause's location (`clause`).
 pub extern "C" fn lang_rt_precondition(_ctx: *mut TaskCtx, msg: u64, caller: u64, clause: u64) -> u64 {
@@ -266,6 +271,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_list_push", lang_rt_list_push as *const u8),
         ("lang_rt_list_len", lang_rt_list_len as *const u8),
         ("lang_rt_precondition", lang_rt_precondition as *const u8),
+        ("lang_rt_contract_site", lang_rt_contract_site as *const u8),
         ("lang_rt_list_page_cap", lang_rt_list_page_cap as *const u8),
         ("lang_rt_list_page", lang_rt_list_page as *const u8),
         ("lang_rt_list_get", lang_rt_list_get as *const u8),

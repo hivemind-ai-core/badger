@@ -163,6 +163,9 @@ pub struct Task {
     pub code_version: u32,
     /// Location of the latest call to a test helper (a static string).
     pub caller_loc: u64,
+    /// The call site recorded by a direct call of a function with
+    /// preconditions (taken by the callee on entry).
+    pub contract_site: u64,
     /// A wakeup that arrived while the task was still running (e.g. from
     /// publishing its own staged batch on the way to parking): the next
     /// park returns at once instead of losing it.
@@ -740,6 +743,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         name,
         code_version: crate::live::version(),
         caller_loc: 0,
+        contract_site: 0,
         early_wake: None,
         select_offer: vec![],
         select_done: None,
@@ -954,6 +958,11 @@ fn notify_ready() {
         if WAKING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
             return;
         }
+        // the idle worker may have left meanwhile: nobody would clear it
+        if IDLE.load(Ordering::SeqCst) == 0 {
+            WAKING.store(false, Ordering::SeqCst);
+            return;
+        }
         stat(|w| &w.notifies, 1);
         let q = rt().external.clone();
         let _g = q.queue.lock().unwrap();
@@ -1092,14 +1101,18 @@ pub fn abandon(exit: Option<Exit>) -> ! {
 
 /// The user-code location recorded by the last `lang_rt_caller_loc` (empty
 /// when none was recorded).
-/// The recorded call site, cleared (a function with preconditions reads it
-/// on entry).
-pub fn take_caller_location() -> String {
-    let l = caller_location();
+/// The call site a direct call recorded for a function with
+/// preconditions, cleared (the function reads it on entry).
+pub fn take_contract_site() -> String {
+    let Some(t) = current() else { return String::new() };
+    let l = std::mem::take(&mut t.contract_site);
+    if l == 0 { String::new() } else { crate::string::str_of(l).to_string() }
+}
+
+pub fn set_contract_site(loc: u64) {
     if let Some(t) = current() {
-        t.caller_loc = 0;
+        t.contract_site = loc;
     }
-    l
 }
 
 pub fn caller_location() -> String {
