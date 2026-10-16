@@ -2037,6 +2037,17 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let slot = bin(self, BinOp::Add, dir, slot_offset);
                 let page = load(self, slot, lang_runtime::list::DIR_PAGES);
                 let elem_offset = bin(self, BinOp::Mul, off, int(size));
+                // a small first page that is full grows on the runtime path:
+                // room is the page's payload size (header meta, top 32 bits)
+                // past its header
+                let meta = load(self, page, -8);
+                let payload = bin(self, BinOp::Shr, meta, int(32));
+                let end =
+                    bin(self, BinOp::Add, elem_offset, int(size + lang_runtime::list::PAGE_ELEMS as i64));
+                let full = self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Gt, a: end, b: payload, ty: u });
+                let room = self.block();
+                self.term(Term::Branch(full, slow, room));
+                self.switch(room);
                 let at = bin(self, BinOp::Add, page, elem_offset);
                 self.emit(Stmt::Store { base: at, offset: lang_runtime::list::PAGE_ELEMS, repr, value: v });
                 if repr == Repr::Ptr {

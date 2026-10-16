@@ -207,6 +207,10 @@ std_intrinsics! {
         if i as usize >= len {
             crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", len, i as i64), String::new());
         }
+        // a stable reference: the element's page must not move
+        let r = Roots::new();
+        r.add(l);
+        list::stabilize(l, i as usize);
         list::page(l, i as usize / list::page_cap(l))
     }
     fn list_slot(ctx, targs, ret, l, i) { (i as usize % list::page_cap(l)) as u64 }

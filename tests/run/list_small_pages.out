@@ -1,0 +1,6 @@
+lengths 15 115 115
+a ends a14; x a14 x0 x99; y y0 y99
+shared prefix intact true
+big 5000 sum 24995000 at 4999 9998 at 600 1200
+reference q; grown q g39; tiny 2
+small [1, 2, 3] more [1, 2, 3, 4, 5, 6]

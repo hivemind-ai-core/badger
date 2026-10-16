@@ -1,0 +1,49 @@
+// Lists start with a small first page that grows by copying as they grow.
+// Versions sharing a small page each grow privately: none sees another's
+// elements, and every version keeps its own.
+import std.io
+import std.list
+
+pub fn main() -> Unit {
+    let b = list.builder<String>()
+    for i in 0..15 {
+        b.append($"a{i}")
+    }
+    let a = b.finish()
+    // two versions extend the same small page, then grow past it
+    var x = a.append("x0")
+    var y = a.append("y0")
+    for i in 1..100 {
+        x = x.append($"x{i}")
+        y = y.append($"y{i}")
+    }
+    let _ = io.println($"lengths {a.len()} {x.len()} {y.len()}")
+    let _ = io.println($"a ends {a[14]}; x {x[14]} {x[15]} {x[114]}; y {y[15]} {y[114]}")
+    var same = true
+    for i in 0..15 {
+        same = same && a[i] == x[i] && a[i] == y[i]
+    }
+    let _ = io.println($"shared prefix intact {same}")
+    // a large builder: past the first page into full pages
+    let big = list.builder<Int>()
+    for i in 0..5000 {
+        big.append(i * 2)
+    }
+    let l = big.finish()
+    var sum = 0
+    for v in l {
+        sum = sum + v
+    }
+    let _ = io.println($"big {l.len()} sum {sum} at 4999 {l[4999]} at 600 {l[600]}")
+    // a stable reference into a small list, then versions grow past it
+    let tiny = ["p", "q"]
+    let r = tiny.element_ref(1)
+    var grown = tiny
+    for i in 0..40 {
+        grown = grown.append($"g{i}")
+    }
+    let _ = io.println($"reference {r.get()}; grown {grown[1]} {grown[41]}; tiny {tiny.len()}")
+    let small = [1, 2, 3]
+    let more = small.concat([4, 5]).append(6)
+    let _ = io.println($"small {small} more {more}")
+}

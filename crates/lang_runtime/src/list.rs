@@ -77,7 +77,8 @@ fn trace_page(o: *mut Header, f: &mut dyn FnMut(u64)) {
         if !elem.is_ptr() {
             return;
         }
-        let n = (*(p.add(8) as *const AtomicU64)).load(Ordering::Acquire) as usize;
+        // (a frozen small page keeps its count under the flag)
+        let n = ((*(p.add(8) as *const AtomicU64)).load(Ordering::Acquire) & !FROZEN) as usize;
         for i in 0..n {
             f(*(p.add(PAGE_HDR + i * 8) as *const u64));
         }
@@ -212,6 +213,9 @@ pub fn page_read(page: u64, slot: usize, repr: Repr) -> u64 {
 /// Address of element `i` (stable while the list is alive); out of range
 /// is a task defect.
 pub fn addr(w: u64, i: usize) -> *mut u8 {
+    if i < len(w) {
+        stabilize(w, i);
+    }
     let h = hdr(w);
     if i >= h.len() {
         crate::task::panic_current(
@@ -221,6 +225,70 @@ pub fn addr(w: u64, i: usize) -> *mut u8 {
     }
     let cap = h.cap();
     unsafe { obj(h.page(i / cap)).payload().add(PAGE_HDR + (i % cap) * h.repr().size() as usize) }
+}
+
+/// Slots of a list's first page when it is made: small lists take a small
+/// page (from the collector's small-object pools), which grows by copying,
+/// fourfold up to the full page capacity, as the list grows. Later pages
+/// are full. Indexing is unaffected (page `i / cap`, slot `i % cap`): the
+/// first page is grown before an index can pass its end.
+const FIRST_PAGE_SLOTS: usize = 16;
+
+/// The slots a page object holds (its physical capacity: the page
+/// capacity, or less for a small first page).
+fn slots(page: u64, size: usize) -> usize {
+    (unsafe { obj(page) }.payload_size() - PAGE_HDR) / size.max(1)
+}
+
+/// Set in a small first page's written-slot count when it is replaced by a
+/// full page (see [`stabilize`]): appends can no longer claim its slots.
+const FROZEN: u64 = 1 << 62;
+
+/// Before an element's address or stable reference is handed out: if it is
+/// in a small first page, replace that page (in its directory slot) with a
+/// full-size copy, which never moves, so the address stays valid while the
+/// list grows. The small page is frozen first, so an append racing with
+/// this (on a version sharing it) fails its claim and copies privately.
+/// `w` is rooted.
+pub fn stabilize(w: u64, i: usize) {
+    let h = hdr(w);
+    let (cap, elem) = (h.cap(), h.elem());
+    let size = elem.repr().size() as usize;
+    if i / cap != 0 || h.dir() == 0 {
+        return;
+    }
+    let dir = h.dir();
+    let small = unsafe { *dir_slot(dir, 0) };
+    if slots(small, size) >= cap {
+        return;
+    }
+    let count = unsafe { &*(obj(small).payload().add(8) as *const AtomicU64) };
+    let mut c = count.load(Ordering::Acquire);
+    loop {
+        if c & FROZEN != 0 {
+            // another promotion is under way: wait for its full page
+            while unsafe { std::ptr::read_volatile(dir_slot(dir, 0)) } == small {
+                std::hint::spin_loop();
+            }
+            return;
+        }
+        match count.compare_exchange(c, c | FROZEN, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => break,
+            Err(now) => c = now,
+        }
+    }
+    let r = gc::Roots::new();
+    r.add(w);
+    r.add(small);
+    let full = r.add(new_page(elem, cap));
+    unsafe {
+        let dst = obj(full).payload();
+        let src = obj(small).payload();
+        std::ptr::copy_nonoverlapping(src.add(PAGE_HDR), dst.add(PAGE_HDR), c as usize * size);
+        (*(dst.add(8) as *const AtomicU64)).store(c, Ordering::Release);
+        (*(dir_slot(dir, 0) as *const AtomicU64)).store(full, Ordering::Release);
+    }
+    gc::barrier(dir);
 }
 
 fn new_page(elem: &'static TypeDesc, cap: usize) -> u64 {
@@ -275,7 +343,8 @@ pub fn push(w: u64, v: u64) {
         if elem.is_ptr() {
             r.add(v);
         }
-        let page = r.add(new_page(elem, cap));
+        let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS) } else { cap };
+        let page = r.add(new_page(elem, slots));
         unsafe {
             let p = obj(page).payload();
             elem.repr().store(p.add(PAGE_HDR), v);
@@ -286,6 +355,11 @@ pub fn push(w: u64, v: u64) {
         return;
     }
     let page = h.page(len / cap);
+    if off >= slots(page, size) {
+        // a full small first page: a private copy with room
+        copy_tail(w);
+        return push(w, v);
+    }
     // a fresh list's tail page is its own, but claim it like `append` so
     // a version sharing it cannot have written there
     let count = unsafe { &*(obj(page).payload().add(8) as *const AtomicU64) };
@@ -310,7 +384,9 @@ fn copy_tail(w: u64) {
     let (len, cap, elem) = (h.len(), h.cap(), h.elem());
     let size = elem.repr().size() as usize;
     let (p, used) = (len / cap, len % cap);
-    let copy = r.add(new_page(elem, cap));
+    // a first page grows fourfold (later pages are full-size)
+    let slots = if p == 0 { (used * 4).clamp(FIRST_PAGE_SLOTS.min(cap), cap) } else { cap };
+    let copy = r.add(new_page(elem, slots));
     let h = hdr(w);
     unsafe {
         let dst = obj(copy).payload();
