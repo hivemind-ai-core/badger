@@ -94,6 +94,20 @@ pub fn finish() {
     lang_runtime::intrinsics_os::cleanup_at_exit();
 }
 
+/// The key an overlay (unsaved or proposed file content) is stored under:
+/// the canonical path, or for a file that does not exist yet, its
+/// directory's canonical path and its name.
+pub fn overlay_key(path: &Path) -> PathBuf {
+    if let Ok(p) = std::fs::canonicalize(path) {
+        return p;
+    }
+    let abs = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    match (abs.parent().and_then(|d| std::fs::canonicalize(d).ok()), abs.file_name()) {
+        (Some(d), Some(n)) => d.join(n),
+        _ => abs,
+    }
+}
+
 /// A new temporary directory only this user can use, with an
 /// unpredictable name (never an existing directory or a symlink), removed
 /// when the process exits.
@@ -238,18 +252,19 @@ impl Session {
         m.effective(profile)
     }
 
-    /// Load and parse the standard library and every user module reachable
-    /// from `path`.
-    /// A source file's text: its unsaved editor buffer, if any, else the file.
+    /// A source file's text: its unsaved editor buffer or proposed content,
+    /// if any, else the file.
     fn read_source(&self, path: &Path) -> std::io::Result<String> {
         if !self.overlays.is_empty()
-            && let Some(t) = std::fs::canonicalize(path).ok().and_then(|p| self.overlays.get(&p))
+            && let Some(t) = self.overlays.get(&overlay_key(path))
         {
             return Ok(t.clone());
         }
         std::fs::read_to_string(path)
     }
 
+    /// Load and parse the standard library and every user module reachable
+    /// from `path`.
     pub fn load(&mut self, path: &Path) -> Option<Loaded> {
         let (entry_file, root, package) = match Self::entry_of(path) {
             Ok(x) => x,

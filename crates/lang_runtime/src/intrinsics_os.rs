@@ -283,6 +283,55 @@ os_intrinsics! {
             Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
         }
     }
+    // the same, writing `input` to the program's standard input
+    fn process_run_input(ctx, targs, ret, program, args, input) {
+        let prog = str_of(program).to_string();
+        let argv: Vec<String> = list::to_vec(args).into_iter().map(|w| str_of(w).to_string()).collect();
+        let input = str_of(input).to_string();
+        let key = std::iter::once(&prog)
+            .chain(&argv)
+            .map(|a| format!("{a:?}"))
+            .chain([format!("<stdin {:?}>", input)])
+            .collect::<Vec<_>>()
+            .join(" ");
+        let r = crate::repro::external("process", &key, None, false, move || {
+            crate::task::run_blocking(move || {
+                use std::io::Write;
+                use std::process::Stdio;
+                let mut child = std::process::Command::new(&prog)
+                    .args(&argv)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()?;
+                // written from its own thread: a program that writes before
+                // reading all of its input cannot block on a full pipe
+                let mut stdin = child.stdin.take().expect("piped stdin");
+                let writer = std::thread::spawn(move || {
+                    let _ = stdin.write_all(input.as_bytes());
+                });
+                let out = child.wait_with_output();
+                let _ = writer.join();
+                out
+            })
+            .map(|out| {
+                let text = |b: &[u8]| String::from_utf8_lossy(b).into_owned();
+                (out.status.code().unwrap_or(-1) as i64, text(&out.stdout), text(&out.stderr))
+            })
+            .map_err(|e| crate::intrinsics_io::io_pair(&e))
+        });
+        match r {
+            Ok((code, stdout, stderr)) => {
+                let g = Roots::new();
+                let rec = rdesc(ret).variant(0).unwrap().fields[0].desc;
+                let so = g.add(new_string(&stdout));
+                let se = g.add(new_string(&stderr));
+                let v = g.add(make_record(rec, &[("status", code as u64), ("stdout", so), ("stderr", se)]));
+                io_ok(rdesc(ret), v)
+            }
+            Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
+        }
+    }
     fn process_exit(ctx, targs, ret, code) {
         use std::io::Write;
         if EXIT_FORBIDDEN.load(std::sync::atomic::Ordering::Relaxed) {

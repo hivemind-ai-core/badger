@@ -133,6 +133,21 @@ pub struct Analysis {
     /// module's name as in `modules`.
     pub methods: HashMap<String, Vec<Item>>,
     pub graphs: Graphs,
+    pub roots: Roots,
+}
+
+/// What a check covered: where the program starts and the code that runs
+/// as its own task, by qualified name.
+#[derive(Debug, Default, Clone)]
+pub struct Roots {
+    /// The entry module (`app`) and its `main`, if it has one.
+    pub entry: Option<String>,
+    pub main: Option<String>,
+    /// Tests declared in user modules.
+    pub tests: Vec<String>,
+    /// Each `spawn`/`capture` of a task: the enclosing function and the
+    /// call's location.
+    pub tasks: Vec<(String, Loc)>,
 }
 
 /// Program structure as directed graphs (`from`, `to`), named by
@@ -846,6 +861,40 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
     }
     calls.sort();
     out.graphs.calls = calls;
+    // roots: the entry and its `main`, tests, and task spawns
+    if let Some(m) = hir.entry {
+        let module = &hir.modules[m];
+        out.roots.entry =
+            Some(module.path.iter().map(|x| s.interner.resolve(*x)).collect::<Vec<_>>().join("."));
+        out.roots.main = module
+            .items
+            .iter()
+            .find(|(n, d)| {
+                s.interner.resolve(**n) == crate::entry_fn() && matches!(hir.defs[**d].kind, DefKind::Fn(_))
+            })
+            .map(|(_, d)| qual(*d));
+    }
+    for (_, m) in hir.modules.iter().filter(|(_, m)| !m.is_std) {
+        out.roots.tests.extend(m.tests.iter().map(|d| qual(*d)));
+    }
+    for (e, target) in &types.targets {
+        let t = qual(*target);
+        if !is_std(*target) || !(t.ends_with("TaskScope.spawn") || t.ends_with("TaskScope.capture")) {
+            continue;
+        }
+        let sp = hir.exprs[*e].span;
+        let caller = fn_ranges
+            .iter()
+            .filter(|(f, a, b, _)| *f == sp.file && *a <= sp.start && sp.end <= *b)
+            .min_by_key(|(_, a, b, _)| b - a)
+            .map(|r| qual(r.3));
+        if let Some(c) = caller {
+            out.roots
+                .tasks
+                .push((c, Loc { path: ix.path(sp), start: sp.start as usize, end: sp.end as usize }));
+        }
+    }
+    out.roots.tasks.sort_by(|a, b| (&a.1.path, a.1.start).cmp(&(&b.1.path, b.1.start)));
     let mut tys: Vec<(String, String, bool)> = vec![];
     fn named(t: &HTy, out: &mut Vec<lang_hir::DefId>) {
         match &t.kind {

@@ -1,6 +1,6 @@
 // Compiler services: diagnostics, types, definitions, references, symbols,
-// and completions of a source file (checked with its project, if any), and
-// diagnostic explanations. Each call runs `lang query` (the language
+// and completions of a source file (checked with its project, if any),
+// checks of proposed edits in their project, and diagnostic explanations. Each call runs `lang query` (the language
 // server's analysis) as a subprocess; positions are 1-based lines and
 // columns in characters.
 
@@ -9,6 +9,7 @@ import std.io
 import std.env
 import std.process
 import std.codec
+import std.map
 
 /// A compiler service failed (the tool could not run, or a request was
 /// invalid).
@@ -91,6 +92,47 @@ pub struct Completion {
     pub detail: Option<String>,
 } derive(Codec, Display)
 
+/// A file a check read: whether it was proposed content (rather than the
+/// file on disk), its size in bytes, and a hash of its text.
+pub struct Input {
+    pub file: String,
+    pub proposed: Bool,
+    pub bytes: Int,
+    pub hash: String,
+} derive(Codec, Display)
+
+/// An entry point a check covered: `main`, an `[entries]` name, or
+/// `task:NAME`, with its module and function when they resolved.
+pub struct Root {
+    pub entry: String,
+    pub module: Option<String>,
+    pub function: Option<String>,
+} derive(Codec, Display)
+
+/// Where a task is spawned (`spawn` or `capture`), and the function
+/// containing it.
+pub struct TaskSite {
+    pub function: String,
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+} derive(Codec, Display)
+
+/// The result of checking a project with proposed file contents.
+pub struct Check {
+    /// No errors (warnings may remain).
+    pub ok: Bool,
+    pub diagnostics: List<Diagnostic>,
+    /// Every file checked, the project's `lang.toml` included.
+    pub inputs: List<Input>,
+    /// Proposed files no checked module imports (a typo, or a module not
+    /// yet imported).
+    pub unused_overlays: List<String>,
+    pub roots: List<Root>,
+    pub tests: List<String>,
+    pub tasks: List<TaskSite>,
+} derive(Codec, Display)
+
 struct Hover {
     text: String,
 } derive(Codec)
@@ -98,8 +140,15 @@ struct Hover {
 /// The `lang` executable (`LANG_EXE`, set by `lang` itself).
 fn exe() -> String !{Io} { env.get("LANG_EXE").unwrap_or("lang") }
 
-fn ask(args: List<String>) -> Result<String, Error> !{Io, Wait} {
-    match process.run(exe(), args) {
+fn ask(args: List<String>) -> Result<String, Error> !{Io, Wait} { reply(process.run(exe(), args)) }
+
+/// `ask` with `input` as the tool's standard input.
+fn ask_input(args: List<String>, input: String) -> Result<String, Error> !{Io, Wait} {
+    reply(process.run_input(exe(), args, input))
+}
+
+fn reply(r: Result<process.Output, io.Error>) -> Result<String, Error> !{Io} {
+    match r {
         .ok(o) => if o.status == 0 { ok(o.stdout) } else { err({ message: o.stderr.trim() }) },
         .err(e) => err({ message: $"cannot run {exe()}: {e}" }),
     }
@@ -123,7 +172,16 @@ pub fn diagnostics(path: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} 
 
 /// Diagnostics of a source text, checked as a file on its own.
 pub fn check_source(source: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
-    decode(ask(["query", "diagnostics", "--source", source])?)
+    decode(ask_input(["query", "diagnostics", "--source", "-"], source)?)
+}
+
+/// Check the program `path` belongs to (each entry point and task, as
+/// `lang check` does) with `files` (path, relative to the program's
+/// directory, to proposed text) in place of the files on disk. Nothing is
+/// written: check an interface change and its consumers together before
+/// saving any of them.
+pub fn check_project(path: String, files: Map<String, String>) -> Result<Check, Error> !{Io, Wait} {
+    decode(ask_input(["query", "check", path, "--overlays", "-"], codec.encode_text(files))?)
 }
 
 /// The type or signature at a position.

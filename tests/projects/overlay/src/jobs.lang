@@ -1,0 +1,6 @@
+import std.io
+import shapes
+
+pub fn summary() -> Result<Unit, io.Error> {
+    io.println($"unit area {shapes.area(1, 1)}")
+}

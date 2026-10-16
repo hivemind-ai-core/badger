@@ -523,6 +523,110 @@ fn explain_types() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("show_all: !{}"));
 }
 
+/// Checking proposed edits in their project (`lang query check
+/// --overlays`): an interface change and two consumers together, a failing
+/// import and an incompatible signature, without touching the files on
+/// disk; the result agrees with checking the same edits saved.
+#[test]
+fn query_check_overlays() {
+    let dir = root().join("tests/projects/overlay");
+    let files = [
+        ("src/shapes.lang", "pub fn area(w: Int, h: Int, d: Int) -> Int { w * h * d }\n"),
+        (
+            "src/report.lang",
+            "import shapes\nimport missing_mod\n\npub fn line(w: Int, h: Int) -> String { $\"{w}x{h} = {shapes.area(w, h, 1)}\" }\n",
+        ),
+        ("src/unreached.lang", "pub fn x() -> Int { 1 }\n"),
+    ];
+    let before: Vec<String> = ["src/shapes.lang", "src/report.lang", "src/jobs.lang", "src/main.lang"]
+        .iter()
+        .map(|f| std::fs::read_to_string(dir.join(f)).unwrap())
+        .collect();
+    let overlays: serde_json::Map<String, serde_json::Value> =
+        files.iter().map(|(k, v)| (k.to_string(), serde_json::Value::from(*v))).collect();
+    let check = |path: &std::path::Path, overlays: Option<&str>| -> serde_json::Value {
+        let mut c = lang();
+        c.args(["query", "check"]).arg(path);
+        if let Some(o) = overlays {
+            c.args(["--overlays", "-"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped());
+            let mut child = c.spawn().unwrap();
+            std::io::Write::write_all(&mut child.stdin.take().unwrap(), o.as_bytes()).unwrap();
+            let out = child.wait_with_output().unwrap();
+            assert!(out.status.success());
+            return serde_json::from_slice(&out.stdout).unwrap();
+        }
+        let out = c.output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        serde_json::from_slice(&out.stdout).unwrap()
+    };
+    let r = check(&dir, Some(&serde_json::Value::Object(overlays).to_string()));
+    let found: Vec<(String, String)> = r["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| {
+            let f = d["file"].as_str().unwrap();
+            (f.rsplit('/').next().unwrap().to_string(), d["code"].as_str().unwrap_or("").to_string())
+        })
+        .collect();
+    assert_eq!(
+        found,
+        vec![
+            ("report.lang".to_string(), "E0114".to_string()),
+            ("jobs.lang".to_string(), "E0309".to_string())
+        ],
+        "{r:#}"
+    );
+    assert_eq!(r["ok"], false);
+    let proposed: Vec<&str> = r["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["proposed"] == true)
+        .map(|i| i["file"].as_str().unwrap().rsplit('/').next().unwrap())
+        .collect();
+    assert_eq!(proposed, vec!["report.lang", "shapes.lang"]);
+    let unused = r["unused_overlays"].as_array().unwrap();
+    assert!(unused.len() == 1 && unused[0].as_str().unwrap().ends_with("src/unreached.lang"), "{r:#}");
+    let entries: Vec<&str> =
+        r["roots"].as_array().unwrap().iter().map(|x| x["entry"].as_str().unwrap()).collect();
+    assert_eq!(entries, vec!["main", "task:summary"]);
+    // nothing written
+    let after: Vec<String> = ["src/shapes.lang", "src/report.lang", "src/jobs.lang", "src/main.lang"]
+        .iter()
+        .map(|f| std::fs::read_to_string(dir.join(f)).unwrap())
+        .collect();
+    assert_eq!(before, after);
+    assert!(!dir.join("src/unreached.lang").exists());
+    // the same edits saved in a copy check the same
+    let copy = std::env::temp_dir().join(format!("lang-overlay-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&copy);
+    std::fs::create_dir_all(copy.join("src")).unwrap();
+    std::fs::copy(dir.join("lang.toml"), copy.join("lang.toml")).unwrap();
+    for f in ["src/shapes.lang", "src/report.lang", "src/jobs.lang", "src/main.lang"] {
+        std::fs::copy(dir.join(f), copy.join(f)).unwrap();
+    }
+    for (f, t) in &files[..2] {
+        std::fs::write(copy.join(f), t).unwrap();
+    }
+    let saved = check(&copy, None);
+    let strip = |v: &serde_json::Value, base: &std::path::Path| -> String {
+        let b = std::fs::canonicalize(base).unwrap().display().to_string();
+        v["diagnostics"].to_string().replace(&b, "")
+    };
+    assert_eq!(strip(&r, &dir), strip(&saved, &copy));
+    let hashes = |v: &serde_json::Value| -> Vec<String> {
+        v["inputs"].as_array().unwrap().iter().map(|i| i["hash"].as_str().unwrap().to_string()).collect()
+    };
+    assert_eq!(hashes(&r), hashes(&saved));
+    // the saved project without edits checks, and `lang check` agrees
+    assert_eq!(check(&dir, None)["ok"], true);
+    assert!(!lang().arg("check").arg(&copy).output().unwrap().status.success());
+    let _ = std::fs::remove_dir_all(&copy);
+}
+
 /// Project tooling: optional paths (the current project), named entries,
 /// user tasks, runtime settings with profile overrides, the bounded trace
 /// sink's overload report, and strict manifest keys.

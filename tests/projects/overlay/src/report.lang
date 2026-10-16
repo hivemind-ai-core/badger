@@ -1,0 +1,3 @@
+import shapes
+
+pub fn line(w: Int, h: Int) -> String { $"{w}x{h} = {shapes.area(w, h)}" }

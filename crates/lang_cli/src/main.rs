@@ -195,9 +195,15 @@ enum Command {
         line: Option<usize>,
         #[arg(long)]
         col: Option<usize>,
-        /// Ask about this source text (checked on its own) instead of a file.
+        /// Ask about this source text (checked on its own) instead of a file
+        /// (`-` reads it from standard input).
         #[arg(long)]
         source: Option<String>,
+        /// Proposed file contents to check in place of the files on disk: a
+        /// JSON object from path (relative to the program's directory) to
+        /// text, in this file (`-` reads standard input). Nothing is written.
+        #[arg(long)]
+        overlays: Option<String>,
     },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
@@ -435,16 +441,29 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Command::Query { kind, path, line, col, source } => match source
+        Command::Query { kind, path, line, col, source, overlays } => match source
             .map(|src| {
+                let src = if src == "-" {
+                    let mut t = String::new();
+                    std::io::Read::read_to_string(&mut std::io::stdin(), &mut t)
+                        .map_err(|e| format!("standard input: {e}"))?;
+                    t
+                } else {
+                    src
+                };
                 let dir = lang_driver::private_temp_dir("lang-check").map_err(|e| e.to_string())?;
                 let f = dir.join("source.lang");
                 std::fs::write(&f, src).map_err(|e| e.to_string())?;
                 Ok(f)
             })
             .unwrap_or_else(|| path.ok_or_else(|| "give a PATH or --source".to_string()))
-            .and_then(|p| lsp::query(&kind, &p, line, col))
-        {
+            .and_then(|p| {
+                let o = match &overlays {
+                    Some(spec) => lsp::read_overlays(spec, &p)?,
+                    None => Default::default(),
+                };
+                lsp::query(&kind, &p, line, col, o)
+            }) {
             Ok(v) => {
                 println!("{v}");
                 ExitCode::SUCCESS

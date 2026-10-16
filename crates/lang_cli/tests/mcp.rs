@@ -72,6 +72,7 @@ fn mcp_tools() {
     call("eval", json!({ "code": "import std.process" }));
     // the compiler from code
     call("eval", json!({ "code": "import std.compiler" }));
+    call("eval", json!({ "code": "import std.map" }));
     let (out, err) = call(
         "eval",
         json!({ "code": format!("compiler.symbols(\"{path}\").map(fn(ss) {{ ss.map(fn(s) {{ $\"{{s.name}}: {{s.detail}}\" }}) }})") }),
@@ -95,6 +96,18 @@ fn mcp_tools() {
     let (out, err) = call("check", json!({ "source": "pub fn main() -> Int { \"x\" }" }));
     assert!(err && out.contains("E0300"), "{out}");
     assert_eq!(call("check", json!({ "path": path })), ("no diagnostics: it checks".to_string(), false));
+    // proposed edits checked in their project, nothing written
+    let project = format!("{}/../../tests/projects/overlay", env!("CARGO_MANIFEST_DIR"));
+    let files = json!({ "src/shapes.lang": "pub fn area(w: Int, h: Int, d: Int) -> Int { w * h * d }\n" });
+    let (out, err) = call("check", json!({ "path": project, "files": files }));
+    assert!(err && out.contains("E0309") && out.contains("\"proposed\":true"), "{out}");
+    let (out, err) = call("check", json!({ "path": project, "files": {} }));
+    assert!(!err && out.starts_with("no diagnostics: it checks\n"), "{out}");
+    let (out, err) = call(
+        "eval",
+        json!({ "code": format!("compiler.check_project(\"{project}\", map.from_list([(\"src/shapes.lang\", \"pub fn area(w: Int) -> Int {{ w }}\")])).map(fn(c) {{ $\"{{c.ok}} {{c.diagnostics.len()}} {{c.roots.len()}}\" }})") }),
+    );
+    assert!(!err && out.contains("false 2 2"), "{out}");
     let (out, _) = call("query", json!({ "kind": "hover", "path": path, "line": 6, "col": 30 }));
     assert_eq!(out, "{\"text\":\"double: fn(Int) -> Int\"}");
     let (out, _) = call("query", json!({ "kind": "module", "name": "list" }));

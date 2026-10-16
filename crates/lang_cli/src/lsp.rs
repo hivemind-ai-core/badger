@@ -776,21 +776,29 @@ fn plain_range(file: &str, text: &str, r: &Value) -> Value {
 
 /// `lang query`: one question about a program, answered as JSON with
 /// 1-based lines and columns (for scripts, agents, and `std.compiler`).
-pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -> Result<Value, String> {
+pub fn query(
+    kind: &str,
+    path: &Path,
+    line: Option<usize>,
+    col: Option<usize>,
+    overlays: HashMap<PathBuf, String>,
+) -> Result<Value, String> {
     if kind == "api" {
         return api(path);
     }
     let file = canonical(path);
     let mut server = Server {
-        docs: HashMap::new(),
+        docs: overlays.clone(),
         programs: HashMap::new(),
         last_good: HashMap::new(),
         published: HashSet::new(),
         owner: HashMap::new(),
         dirty: HashSet::from([file.clone()]),
     };
-    server.reanalyze(&mut std::io::sink());
-    let text_of = |p: &str| std::fs::read_to_string(p).unwrap_or_default();
+    if !matches!(kind, "diagnostics" | "check") {
+        server.reanalyze(&mut std::io::sink());
+    }
+    let text_of = |p: &str| overlay_text(&overlays, p);
     let uri = path_to_uri(&file.display().to_string());
     let text = text_of(&file.display().to_string());
     let at = || -> Result<Value, String> {
@@ -807,50 +815,8 @@ pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -
         plain_range(&p, &text_of(&p), &v["range"])
     };
     Ok(match kind {
-        "diagnostics" => {
-            let Some(a) = server.analysis_for(&file) else { return Ok(json!([])) };
-            let ds: Vec<Value> = a
-                .diagnostics
-                .iter()
-                .map(|d| {
-                    let t = a.file(&d.path).map(|f| f.text.clone()).unwrap_or_else(|| text_of(&d.path));
-                    let (l, c) = line_col(&t, d.start);
-                    let (el, ec) = line_col(&t, d.end);
-                    let at = |l: &lang_driver::analysis::Loc| {
-                        let t = text_of(&l.path);
-                        let (sl, sc) = line_col(&t, l.start);
-                        let (el, ec) = line_col(&t, l.end);
-                        json!({ "file": l.path, "line": sl, "col": sc, "end_line": el, "end_col": ec })
-                    };
-                    let related: Vec<Value> = d
-                        .related
-                        .iter()
-                        .map(|(l, m)| {
-                            let mut v = at(l);
-                            v["message"] = json!(m);
-                            v
-                        })
-                        .collect();
-                    let declarations: Vec<Value> = d
-                        .declarations
-                        .iter()
-                        .map(|(n, l)| {
-                            let mut v = at(l);
-                            v["name"] = json!(n);
-                            v
-                        })
-                        .collect();
-                    json!({
-                        "file": d.path, "line": l, "col": c, "end_line": el, "end_col": ec,
-                        "severity": match d.severity { lang_base::Severity::Error => "error", lang_base::Severity::Warning => "warning", lang_base::Severity::Note => "note" },
-                        "code": d.code, "message": d.message, "notes": d.notes,
-                        "label": d.label, "expected": d.expected, "actual": d.actual, "scope": d.scope,
-                        "related": related, "declarations": declarations,
-                    })
-                })
-                .collect();
-            json!(ds)
-        }
+        "diagnostics" => json!(check_report(path, &overlays)["diagnostics"]),
+        "check" => check_report(path, &overlays),
         "hover" => {
             let h = server.hover(&at()?);
             match h["contents"]["value"].as_str() {
@@ -901,9 +867,180 @@ pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -
         }
         other => {
             return Err(format!(
-                "unknown query `{other}` (diagnostics, hover, definition, references, completion, symbols)"
+                "unknown query `{other}` (diagnostics, check, hover, definition, references, completion, symbols, api)"
             ));
         }
+    })
+}
+
+/// A file's text: its proposed content, if any, else the file on disk.
+fn overlay_text(overlays: &HashMap<PathBuf, String>, p: &str) -> String {
+    match overlays.get(&lang_driver::overlay_key(Path::new(p))) {
+        Some(t) => t.clone(),
+        None => std::fs::read_to_string(p).unwrap_or_default(),
+    }
+}
+
+/// Proposed file contents for `lang query --overlays`: a JSON object from
+/// path to text, read from `spec` (a file, or `-` for standard input).
+/// Relative paths are relative to the program's directory (`path` itself
+/// for a project directory, else the file's directory).
+pub fn read_overlays(spec: &str, path: &Path) -> Result<HashMap<PathBuf, String>, String> {
+    let text = if spec == "-" {
+        let mut t = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut t)
+            .map_err(|e| format!("standard input: {e}"))?;
+        t
+    } else {
+        std::fs::read_to_string(spec).map_err(|e| format!("cannot read {spec}: {e}"))?
+    };
+    let v: Value = serde_json::from_str(&text).map_err(|e| format!("overlays: {e}"))?;
+    let Some(obj) = v.as_object() else {
+        return Err("overlays: expected an object from path to text".into());
+    };
+    let base = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent().unwrap_or(Path::new(".")).to_path_buf()
+    };
+    let mut out = HashMap::new();
+    for (k, t) in obj {
+        let Some(t) = t.as_str() else { return Err(format!("overlays: `{k}` is not a string")) };
+        let p = Path::new(k);
+        let p = if p.is_absolute() { p.to_path_buf() } else { base.join(p) };
+        out.insert(lang_driver::overlay_key(&p), t.to_string());
+    }
+    Ok(out)
+}
+
+fn fnv(text: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in text.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("fnv1a64:{h:016x}")
+}
+
+/// One diagnostic as JSON, with 1-based lines and columns.
+fn diagnostic_json(a: &Analysis, d: &analysis::FileDiag, text_of: &dyn Fn(&str) -> String) -> Value {
+    let t = a.file(&d.path).map(|f| f.text.clone()).unwrap_or_else(|| text_of(&d.path));
+    let (l, c) = line_col(&t, d.start);
+    let (el, ec) = line_col(&t, d.end);
+    let at = |l: &lang_driver::analysis::Loc| {
+        let t = a.file(&l.path).map(|f| f.text.clone()).unwrap_or_else(|| text_of(&l.path));
+        let (sl, sc) = line_col(&t, l.start);
+        let (el, ec) = line_col(&t, l.end);
+        json!({ "file": l.path, "line": sl, "col": sc, "end_line": el, "end_col": ec })
+    };
+    let related: Vec<Value> = d
+        .related
+        .iter()
+        .map(|(l, m)| {
+            let mut v = at(l);
+            v["message"] = json!(m);
+            v
+        })
+        .collect();
+    let declarations: Vec<Value> = d
+        .declarations
+        .iter()
+        .map(|(n, l)| {
+            let mut v = at(l);
+            v["name"] = json!(n);
+            v
+        })
+        .collect();
+    json!({
+        "file": d.path, "line": l, "col": c, "end_line": el, "end_col": ec,
+        "severity": match d.severity { lang_base::Severity::Error => "error", lang_base::Severity::Warning => "warning", lang_base::Severity::Note => "note" },
+        "code": d.code, "message": d.message, "notes": d.notes,
+        "label": d.label, "expected": d.expected, "actual": d.actual, "scope": d.scope,
+        "related": related, "declarations": declarations,
+    })
+}
+
+/// Check a program as `lang check` does (a project's main entry, its
+/// `[entries]`, and its `[tasks]`) with `overlays` in place of the files
+/// they name, without writing anything. The report: diagnostics, the
+/// inputs checked (path, whether proposed, size, and hash), overlays no
+/// checked module reached, and the roots covered (each entry point, the
+/// tests, and the task spawns).
+fn check_report(path: &Path, overlays: &HashMap<PathBuf, String>) -> Value {
+    let file = canonical(path);
+    let mut prog = program_of(&file);
+    let text_of = |p: &str| overlay_text(overlays, p);
+    let mut selections: Vec<Option<String>> = vec![None];
+    selections.extend(lang_driver::project_entry_points(&prog).into_iter().map(Some));
+    let mut diagnostics: Vec<Value> = vec![];
+    let mut inputs: std::collections::BTreeMap<String, Value> = Default::default();
+    let mut roots: Vec<Value> = vec![];
+    let mut tests: Vec<String> = vec![];
+    let mut tasks: Vec<Value> = vec![];
+    let mut errors = false;
+    let mut i = 0;
+    while i < selections.len() {
+        let sel = selections[i].clone();
+        lang_driver::select_entry(sel.clone());
+        let mut a = analysis::analyze(&prog, overlays.clone());
+        if i == 0
+            && prog != file
+            && file.is_file()
+            && !a.files.iter().any(|f| canonical(Path::new(&f.path)) == file)
+        {
+            // not reachable from the project's entry: a module on its own
+            prog = file.clone();
+            selections.truncate(1);
+            a = analysis::analyze(&prog, overlays.clone());
+        }
+        for d in &a.diagnostics {
+            errors |= d.severity == lang_base::Severity::Error;
+            let v = diagnostic_json(&a, d, &text_of);
+            if !diagnostics.contains(&v) {
+                diagnostics.push(v);
+            }
+        }
+        for f in &a.files {
+            inputs.entry(f.path.clone()).or_insert_with(|| {
+                let proposed = overlays.contains_key(&lang_driver::overlay_key(Path::new(&f.path)));
+                json!({ "file": f.path, "proposed": proposed, "bytes": f.text.len(), "hash": fnv(&f.text) })
+            });
+        }
+        roots.push(json!({
+            "entry": sel.unwrap_or_else(|| "main".into()),
+            "module": a.roots.entry, "function": a.roots.main,
+        }));
+        for t in &a.roots.tests {
+            if !tests.contains(t) {
+                tests.push(t.clone());
+            }
+        }
+        for (f, l) in &a.roots.tasks {
+            let (line, col) = line_col(&text_of(&l.path), l.start);
+            let v = json!({ "function": f, "file": l.path, "line": line, "col": col });
+            if !tasks.contains(&v) {
+                tasks.push(v);
+            }
+        }
+        i += 1;
+    }
+    lang_driver::select_entry(None);
+    if prog.is_dir() {
+        let m = prog.join("lang.toml");
+        let t = text_of(&m.display().to_string());
+        let proposed = overlays.contains_key(&lang_driver::overlay_key(&m));
+        inputs.insert(
+            m.display().to_string(),
+            json!({ "file": m.display().to_string(), "proposed": proposed, "bytes": t.len(), "hash": fnv(&t) }),
+        );
+    }
+    let checked: HashSet<PathBuf> = inputs.keys().map(|p| lang_driver::overlay_key(Path::new(p))).collect();
+    let mut unused: Vec<String> =
+        overlays.keys().filter(|k| !checked.contains(*k)).map(|k| k.display().to_string()).collect();
+    unused.sort();
+    json!({
+        "ok": !errors, "diagnostics": diagnostics, "inputs": inputs.into_values().collect::<Vec<_>>(),
+        "unused_overlays": unused, "roots": roots, "tests": tests, "tasks": tasks,
     })
 }
 

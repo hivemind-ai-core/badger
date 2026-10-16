@@ -5,11 +5,18 @@ import std.io
 pub type Output = { status: Int, stdout: String, stderr: String }
 
 extern "intrinsic" fn process_run(program: String, args: List<String>) -> Result<Output, io.Error>
+extern "intrinsic" fn process_run_input(program: String, args: List<String>, input: String) -> Result<Output, io.Error>
 extern "intrinsic" fn process_exit(code: Int) -> Never
 extern "intrinsic" fn process_id() -> Int
 
 /// Run a program to completion, capturing its output.
 pub fn run(program: String, args: List<String>) -> Result<Output, io.Error> !{Io, Wait} { process_run(program, args) }
+
+/// Run a program to completion with `input` as its standard input,
+/// capturing its output.
+pub fn run_input(program: String, args: List<String>, input: String) -> Result<Output, io.Error> !{Io, Wait} {
+    process_run_input(program, args, input)
+}
 
 /// Exit the process immediately with `code`.
 pub fn exit(code: Int) -> Never !{Io} { process_exit(code) }
@@ -35,7 +42,20 @@ impl Runner {
         if self.programs.contains(program) {
             process_run(program, args)
         } else {
-            err({ kind: :io/permission_denied, message: $"running `{program}` is not allowed by this capability" })
+            denied(program)
         }
     }
+
+    /// Run an allowed program with `input` as its standard input.
+    pub fn run_input(self: &Self, program: String, args: List<String>, input: String) -> Result<Output, io.Error> !{Io, Wait} {
+        if self.programs.contains(program) {
+            process_run_input(program, args, input)
+        } else {
+            denied(program)
+        }
+    }
+}
+
+fn denied(program: String) -> Result<Output, io.Error> {
+    err({ kind: :io/permission_denied, message: $"running `{program}` is not allowed by this capability" })
 }

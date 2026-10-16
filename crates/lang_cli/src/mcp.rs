@@ -49,12 +49,13 @@ fn tools() -> Value {
         },
         {
             "name": "check",
-            "description": "Type-check a file or project directory (`path`) or a source text (`source`), returning diagnostics as JSON (file, line, col, severity, code, message, notes). An empty list means it checks.",
+            "description": "Type-check a file or project directory (`path`) or a source text (`source`), returning diagnostics as JSON (file, line, col, severity, code, message, notes, label, expected, actual, scope, related, declarations). An empty list means it checks. A project is checked as `lang check` does: its main entry, `[entries]`, and `[tasks]`. With `files` (an object from path, relative to the program's directory, to proposed text) the project is checked with those contents in place of the files on disk, without writing anything, and the result also lists the inputs checked (file, proposed, bytes, hash), proposed files no module reached (`unused_overlays`), and the roots covered (entry points, tests, task spawns).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "path": { "type": "string" },
-                    "source": { "type": "string" }
+                    "source": { "type": "string" },
+                    "files": { "type": "object", "additionalProperties": { "type": "string" } }
                 }
             }
         },
@@ -206,6 +207,36 @@ impl Mcp {
                         text(out, failed)
                     }
                     Err(e) => text(format!("{printed}evaluation did not finish: {e}"), true),
+                }
+            }
+            "check" if a["files"].is_object() => {
+                let Some(path) = a["path"].as_str() else {
+                    return text("`files` needs the project's `path`", true);
+                };
+                let p = self.scratch.join("overlays.json");
+                if let Err(e) = std::fs::write(&p, a["files"].to_string()) {
+                    return text(format!("cannot write {}: {e}", p.display()), true);
+                }
+                let args = [
+                    "query".into(),
+                    "check".into(),
+                    arg_path(path),
+                    "--overlays".into(),
+                    p.display().to_string(),
+                ];
+                match lang(&args, Duration::from_secs(120)) {
+                    Ok((0, out, _)) => {
+                        let r: Value = serde_json::from_str(&out).unwrap_or(Value::Null);
+                        let n = r["diagnostics"].as_array().map(|d| d.len()).unwrap_or(0);
+                        let summary = if n == 0 {
+                            "no diagnostics: it checks".to_string()
+                        } else {
+                            format!("{n} diagnostic(s)")
+                        };
+                        text(format!("{summary}\n{out}"), !r["ok"].as_bool().unwrap_or(false))
+                    }
+                    Ok((_, _, err)) => text(err, true),
+                    Err(e) => text(e, true),
                 }
             }
             "check" => {
