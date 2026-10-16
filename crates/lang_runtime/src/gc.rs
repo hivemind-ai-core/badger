@@ -189,7 +189,8 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
 }
 
 /// Return the cell of a dead object with `payload` bytes to worker `w`'s
-/// pool (only while the world is stopped).
+/// pool (only while the world is stopped, by the sweep of `w`'s own object
+/// list: a pool is otherwise touched only by its worker's allocations).
 fn free_cell(w: usize, p: *mut Header, payload: usize) {
     let size = cell_size(payload);
     if size > SMALL_MAX {
@@ -235,7 +236,16 @@ fn freed_use(w: u64, by: &str) -> ! {
 }
 
 /// Allocate a zeroed object with `payload` bytes. May collect first.
+struct Finalized;
+
+impl Drop for Finalized {
+    fn drop(&mut self) {
+        FINALIZING.store(false, Ordering::Relaxed);
+    }
+}
+
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
+    debug_assert!(!FINALIZING.load(Ordering::Relaxed), "a finalizer allocated");
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
     let due = || ALLOCATED.load(Ordering::Relaxed) > THRESHOLD.load(Ordering::Relaxed);
     if (due() || stress() || chaos) && DISABLED.load(Ordering::Relaxed) == 0 {
@@ -578,8 +588,14 @@ fn sweep_parallel(lists: &[usize]) -> usize {
     live
 }
 
+/// Finalizers run inside a collection: they release native resources and
+/// must not allocate (checked in debug builds).
+static FINALIZING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn finalize(p: *mut Header) {
     let desc = unsafe { (*p).desc() };
+    FINALIZING.store(true, Ordering::Relaxed);
+    let _done = Finalized;
     if let Kind::Opaque { finalize: Some(f), .. } = &desc.kind {
         f(p)
     }

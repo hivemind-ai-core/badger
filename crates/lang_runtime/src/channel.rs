@@ -21,6 +21,12 @@ pub struct Batch {
     pub released: bool,
 }
 
+/// A channel's state. Every field except `state` and the creation-time
+/// constants (`elem`, `capacity`, `max_batch`, `batched`, `byte_budget`) is
+/// read and written only by the channel's current owner: an unlocked fast
+/// path holding it (`try_fast`), or runtime-lock code that claimed it
+/// ([`data`]). The two never overlap, so no counter or queue is shared
+/// between them unsynchronized.
 pub struct ChanData {
     /// Ownership with several workers: 0 free, 1 held by an unlocked fast
     /// path, 2 claimed by code holding the runtime lock (until it releases

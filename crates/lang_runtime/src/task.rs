@@ -2218,6 +2218,8 @@ fn run_main_multi(entry: u64) -> Exit {
         let h = std::thread::Builder::new()
             .name(format!("lang-worker-{w}"))
             .spawn(move || {
+                // per-worker tables are sized by MAX_WORKERS
+                assert!(w < MAX_WORKERS);
                 WORKER.with(|c| c.set(w));
                 crate::profile::start_thread();
                 lock_for(reason::STARTUP);
@@ -2242,6 +2244,11 @@ fn worker_loop(n: usize) -> Option<Exit> {
     loop {
         if SHUTDOWN.load(Ordering::SeqCst) {
             return None;
+        }
+        // due timers and posted events first: with tasks always ready, the
+        // idle path below (which also harvests) might never be reached
+        if events_due() {
+            harvest_events();
         }
         let main = rt().main.unwrap();
         if is_done(main) && restart_main() {

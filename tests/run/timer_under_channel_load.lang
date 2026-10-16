@@ -1,0 +1,45 @@
+// A due timer wakes its task while every worker is kept busy by tasks that
+// only hand messages back and forth (they park and wake, never idle).
+import std.channel
+import std.io
+import std.list
+import std.task
+
+fn ping_pong(rounds: Int) -> Result<Unit, String> {
+    let ping = channel.create<Int>({ ..channel.defaults, capacity: 0 }).map_err(fn(_) { "config" })?
+    let pong = channel.create<Int>({ ..channel.defaults, capacity: 0 }).map_err(fn(_) { "config" })?
+    task.scope(fn(s) -> Result<Unit, String> {
+        let echo = s.spawn(fn() -> Result<Unit, String> {
+            for _ in 0..rounds {
+                match ping.receiver.recv() {
+                    .some(v) => { let _ = pong.sender.send(v + 1) },
+                    .none => { break },
+                }
+            }
+            ok(())
+        })
+        for i in 0..rounds {
+            let _ = ping.sender.send(i)
+            let _ = pong.receiver.recv()
+        }
+        echo.join()?
+        ok(())
+    })
+}
+
+pub fn main() -> Result<Unit, String> {
+    task.scope(fn(s) -> Result<Unit, String> {
+        let timer = s.spawn(fn() -> Result<Unit, String> {
+            task.sleep(1ms)
+            let _ = io.println("timer fired")
+            ok(())
+        })
+        let pairs = list.collect((0..8).map(fn(_) { s.spawn(fn() { ping_pong(20000) }) }))
+        timer.join()?
+        for p in pairs {
+            p.join()?
+        }
+        let _ = io.println("ping-pong done")
+        ok(())
+    })
+}

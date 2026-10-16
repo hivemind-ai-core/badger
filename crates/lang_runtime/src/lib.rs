@@ -141,16 +141,21 @@ fn shared_unit_variant(desc: &'static TypeDesc, tag: u32) -> Option<u64> {
     if !locked {
         task::enter_runtime_for(task::reason::CONSTANT);
     }
-    let w = gc::alloc_immortal(desc, desc.payload_size() as usize);
-    unsafe { *(gc::obj(w).payload() as *mut u32) = tag };
+    // made under the runtime lock: a racing worker made it first, or this
+    // one makes it (no second immortal copy)
+    let w = match slot.load(Ordering::Acquire) {
+        0 => {
+            let w = gc::alloc_immortal(desc, desc.payload_size() as usize);
+            unsafe { *(gc::obj(w).payload() as *mut u32) = tag };
+            slot.store(w, Ordering::Release);
+            w
+        }
+        w => w,
+    };
     if !locked {
         task::leave_runtime();
     }
-    // a racing worker's value wins; this one stays immortal and unused
-    Some(match slot.compare_exchange(0, w, Ordering::AcqRel, Ordering::Acquire) {
-        Ok(_) => w,
-        Err(won) => won,
-    })
+    Some(w)
 }
 
 /// Construct `Result.ok(value)` / `Option.some(value)` style values by
