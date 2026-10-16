@@ -89,6 +89,9 @@ pub unsafe fn call_closure_returning(ctx: *mut TaskCtx, closure: u64, args: &[u6
 
 /// Construct an enum value `desc` with variant `tag` and field words.
 pub fn make_enum(desc: &'static TypeDesc, tag: u32, fields: &[u64]) -> u64 {
+    if let Some(w) = shared_unit_variant(desc, tag) {
+        return w;
+    }
     let _r = gc::Roots::new();
     // only pointer-typed payload words are roots
     if let Some(v) = desc.variant(tag) {
@@ -109,6 +112,36 @@ pub fn make_enum(desc: &'static TypeDesc, tag: u32, fields: &[u64]) -> u64 {
         }
     }
     w
+}
+
+/// The one shared value of variant `tag` when its payload is all unit (so
+/// every instance is equal and none needs allocating). `err` variants are
+/// excluded: error origins are tracked by the error value's identity.
+fn shared_unit_variant(desc: &'static TypeDesc, tag: u32) -> Option<u64> {
+    use std::sync::atomic::Ordering;
+    let slot = desc.unit_variants.get(tag as usize)?;
+    let w = slot.load(Ordering::Acquire);
+    if w != 0 {
+        return Some(w);
+    }
+    let v = desc.variant(tag)?;
+    if v.name == "err" || !v.fields.iter().all(|f| matches!(f.desc.kind, desc::Kind::Unit)) {
+        return None;
+    }
+    let locked = task::holds_lock();
+    if !locked {
+        task::enter_runtime();
+    }
+    let w = gc::alloc_immortal(desc, desc.payload_size() as usize);
+    unsafe { *(gc::obj(w).payload() as *mut u32) = tag };
+    if !locked {
+        task::leave_runtime();
+    }
+    // a racing worker's value wins; this one stays immortal and unused
+    Some(match slot.compare_exchange(0, w, Ordering::AcqRel, Ordering::Acquire) {
+        Ok(_) => w,
+        Err(won) => won,
+    })
 }
 
 /// Construct `Result.ok(value)` / `Option.some(value)` style values by

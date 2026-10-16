@@ -933,6 +933,14 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         let desc = self.m.lay.desc(ty);
         let (_, vs) = self.m.lay.enum_variants(ty);
+        // every value of a variant whose payload is all unit (`ok(())`) is
+        // the same: share one static object (not `err`: error origins are
+        // tracked by the error value's identity)
+        let (name, fls) = &vs[idx as usize];
+        if name != "err" && fls.iter().all(|f| matches!(&*f.ty, TyKind::Tuple(ts) if ts.is_empty())) {
+            let w = self.m.nullary_variant(ty, idx);
+            return Operand::Const(Const::Addr(w));
+        }
         let obj = self
             .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: desc.payload_size() });
         self.emit(Stmt::Store {

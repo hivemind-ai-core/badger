@@ -5,7 +5,7 @@
 //! encoding. The compiler creates one descriptor per concrete type and leaks
 //! it (`&'static`); the runtime creates descriptors for its own objects.
 
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicU64, AtomicUsize, Ordering};
 
 use crate::gc::Header;
 
@@ -154,6 +154,9 @@ pub struct TypeDesc {
     pub display: AtomicPtr<()>,
     /// Unique id (used for hashing descriptors and debugging).
     pub id: usize,
+    /// Shared immortal values of the first enum variants whose payload is
+    /// all unit (`ok(())` and the like), made on first use.
+    pub unit_variants: [AtomicU64; 4],
 }
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -165,6 +168,7 @@ impl TypeDesc {
             kind,
             display: AtomicPtr::new(std::ptr::null_mut()),
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            unit_variants: Default::default(),
         }
     }
 
