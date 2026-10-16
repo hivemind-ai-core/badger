@@ -463,6 +463,107 @@ fn dependencies() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Workspaces and git dependencies: members share one `lang.lock`; a git
+/// dependency builds from its locked commit (a changed `rev` is refused
+/// until `lang update`, which resolves it again); `lang check` and
+/// `lang test` at the root cover every member; a library and a workspace
+/// root are not run.
+#[test]
+fn workspaces_and_git_dependencies() {
+    if Command::new("git").arg("--version").output().is_err() {
+        eprintln!("skipped: no git");
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("lang-ws-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let write = |p: &str, text: &str| {
+        let p = dir.join(p);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, text).unwrap();
+    };
+    let git = |args: &[&str]| {
+        let ok = Command::new("git")
+            .args(["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "init.defaultBranch=main"])
+            .args(args)
+            .current_dir(dir.join("repo"))
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(ok, "git {args:?}");
+    };
+    write(
+        "repo/lang.toml",
+        "[package]\nname = \"shout\"\nversion = \"1.0.0\"\nkind = \"library\"\nentry = \"src/lib.lang\"\n",
+    );
+    write("repo/src/lib.lang", "pub fn shout(s: String) -> String { $\"{s}!\" }\n");
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "v1"]);
+    git(&["tag", "v1"]);
+    write("repo/src/lib.lang", "pub fn shout(s: String) -> String { $\"{s}!!\" }\n");
+    git(&["commit", "-qam", "v2"]);
+    git(&["tag", "v2"]);
+    write("ws/lang.toml", "[workspace]\nmembers = [\n    \"app\",\n    \"libs/*\",\n]\n");
+    write(
+        "ws/libs/util/lang.toml",
+        "[package]\nname = \"util\"\nkind = \"library\"\nentry = \"src/lib.lang\"\n",
+    );
+    write(
+        "ws/libs/util/src/lib.lang",
+        "pub fn twice(n: Int) -> Int { n * 2 }\n\npub fn test_twice() -> Unit { assert(twice(2) == 4) }\n",
+    );
+    write(
+        "ws/app/lang.toml",
+        "[package]\nname = \"app\"\nentry = \"src/main.lang\"\n\n[dependencies]\nutil = { path = \"../libs/util\" }\nshout = { git = \"../../repo\", rev = \"v1\" }\n",
+    );
+    write(
+        "ws/app/src/main.lang",
+        "import std.io\nimport util\nimport shout\n\npub fn main() -> Result<Unit, io.Error> {\n    io.println(shout.shout($\"{util.twice(21)}\"))\n}\n\npub fn test_app() -> Unit { assert(util.twice(1) == 2) }\n",
+    );
+    let ws = dir.join("ws");
+    let run = |args: &[&str]| {
+        let out = lang().current_dir(&ws).args(args).env("LANG_HOME", dir.join("cache")).output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let (ok, _, err) = run(&["check", "."]);
+    assert!(ok, "{err}");
+    let (ok, out, err) = run(&["run", "app"]);
+    assert!(ok && out == "42!\n", "{out}{err}");
+    let lock = std::fs::read_to_string(ws.join("lang.lock")).unwrap();
+    assert!(
+        lock.contains("shout 1.0.0 git+")
+            && lock.contains("?rev=v1@")
+            && lock.contains("util 0.0.0 libs/util"),
+        "{lock}"
+    );
+    assert!(!ws.join("app/lang.lock").exists(), "members share the workspace lockfile");
+    let (ok, out, err) = run(&["test", "."]);
+    assert!(ok && out.contains("test_twice") && out.contains("test_app"), "{out}{err}");
+    let (ok, _, err) = run(&["run", "libs/util"]);
+    assert!(!ok && err.contains("is a library"), "{err}");
+    let (ok, _, err) = run(&["run", "."]);
+    assert!(!ok && err.contains("is a workspace") && err.contains("app, libs/util"), "{err}");
+    // a changed `rev` is refused until the lockfile is updated
+    let m = std::fs::read_to_string(ws.join("app/lang.toml")).unwrap();
+    std::fs::write(ws.join("app/lang.toml"), m.replace("rev = \"v1\"", "rev = \"v2\"")).unwrap();
+    let (ok, _, err) = run(&["run", "app"]);
+    assert!(!ok && err.contains("E0015") && err.contains("run `lang update`"), "{err}");
+    let (ok, _, err) = run(&["update", "."]);
+    assert!(ok, "{err}");
+    let (ok, out, err) = run(&["run", "app"]);
+    assert!(ok && out == "42!!\n", "{out}{err}");
+    // the checkout is cached: the repository can go
+    std::fs::remove_dir_all(dir.join("repo")).unwrap();
+    let (ok, out, err) = run(&["run", "app"]);
+    assert!(ok && out == "42!!\n", "{out}{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Scenario 16, incompatible layout: with `--watch --reconstruct` a changed
 /// type definition cancels the running program (its resource halts) and
 /// restarts it on the new version with freshly built values.

@@ -4,8 +4,13 @@
 //! `[config]` holds base configuration data and `[profile.NAME]` tables
 //! overlay it; `lang run --profile NAME` selects one, and
 //! `lang inspect config` prints the effective result. `[dependencies]`
-//! lists path dependencies as inline tables:
-//! `textutil = { path = "../textutil", version = "0.1" }`.
+//! lists dependencies as inline tables, by path or by git repository:
+//! `textutil = { path = "../textutil", version = "0.1" }`,
+//! `json = { git = "https://example.com/json.git", rev = "v1.2", subdir = "lib" }`.
+//! `[workspace] members = ["app", "libs/*"]` makes a directory a workspace
+//! of packages sharing one `lang.lock`; its `lang.toml` may also describe a
+//! package of its own. `[package] kind = "library"` marks a package that
+//! is used by others and has no `main`.
 //!
 //! `[runtime]` holds runtime settings (workers, cleanup grace, HTTP
 //! limits, trace sink policy) and `[profile.NAME.runtime]` overrides them.
@@ -46,6 +51,13 @@ pub struct Manifest {
     /// `[database] schema`: SQL file the program's literal statements are
     /// checked against (relative to the project root).
     pub schema: Option<String>,
+    /// `[package] kind = "library"`: used by other packages, not run.
+    pub library: bool,
+    /// Whether the manifest has a `[package]` (a workspace root may not).
+    pub has_package: bool,
+    /// `[workspace] members`: member directories (a final `*` names every
+    /// package directory below that path).
+    pub workspace: Option<Vec<String>>,
 }
 
 /// Runtime settings accepted in `[runtime]` / `[profile.NAME.runtime]`.
@@ -123,8 +135,15 @@ pub fn check_runtime(k: &str, v: &str, line: usize) -> Result<(), String> {
 #[derive(Debug, Clone)]
 pub struct Dependency {
     pub name: String,
+    /// A package directory, relative to the depending package.
     pub path: String,
     pub version: Option<String>,
+    /// A git repository (URL or local path) instead of `path`, at `rev` (a
+    /// tag, branch, or commit; the default branch otherwise), with the
+    /// package in `subdir` of it.
+    pub git: Option<String>,
+    pub rev: Option<String>,
+    pub subdir: Option<String>,
 }
 
 /// The toolchain language accepted by this implementation.
@@ -148,11 +167,33 @@ impl Manifest {
         let m = Self::parse_entries(text)?;
         // exact TOML as well: syntax, duplicate keys, and conflicting tables
         // (a key and a table of one name, inline tables extended later)
-        if let Err(e) = text.parse::<toml::Table>() {
-            let line =
-                e.span().map(|r| text[..r.start.min(text.len())].matches('\n').count() + 1).unwrap_or(1);
-            let msg = e.message().trim_end_matches('\n').to_string();
-            return Err(format!("line {line}: {msg}"));
+        let table = match text.parse::<toml::Table>() {
+            Ok(t) => t,
+            Err(e) => {
+                let line =
+                    e.span().map(|r| text[..r.start.min(text.len())].matches('\n').count() + 1).unwrap_or(1);
+                let msg = e.message().trim_end_matches('\n').to_string();
+                return Err(format!("line {line}: {msg}"));
+            }
+        };
+        let mut m = m;
+        if let Some(ws) = table.get("workspace") {
+            let Some(ws) = ws.as_table() else { return Err("`workspace` must be a table".into()) };
+            for k in ws.keys() {
+                if k != "members" {
+                    return Err(format!("unknown workspace key `{k}` (known: members)"));
+                }
+            }
+            let members = ws
+                .get("members")
+                .and_then(|v| v.as_array())
+                .ok_or("`[workspace] members` must be a list of directories")?
+                .iter()
+                .map(|v| {
+                    v.as_str().map(str::to_string).ok_or("`[workspace] members` must be a list of strings")
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            m.workspace = Some(members);
         }
         Ok(m)
     }
@@ -175,6 +216,9 @@ impl Manifest {
             tasks: vec![],
             restricted: false,
             schema: None,
+            library: false,
+            has_package: false,
+            workspace: None,
         };
         // TOML forbids defining a table or a key twice
         let mut sections_seen: Vec<String> = vec![];
@@ -200,10 +244,14 @@ impl Manifest {
                         | "tasks"
                         | "config"
                         | "database"
+                        | "workspace"
                 ) || section.starts_with("config.")
                     || section.starts_with("profile.");
                 if !known {
                     return Err(format!("line {}: unknown section `[{section}]`", i + 1));
+                }
+                if section == "package" {
+                    m.has_package = true;
                 }
                 // `[profile.NAME]` and `[profile.NAME.table]`
                 if let Some(rest) = section.strip_prefix("profile.") {
@@ -212,6 +260,10 @@ impl Manifest {
                         m.profiles.push((p.to_string(), vec![]));
                     }
                 }
+                continue;
+            }
+            // `[workspace]` is read from the exact TOML (arrays may span lines)
+            if section == "workspace" {
                 continue;
             }
             let Some((k, v)) = line.split_once('=') else {
@@ -254,9 +306,18 @@ impl Manifest {
                         _ => return Err(format!("line {}: `restricted` is `true` or `false`", i + 1)),
                     }
                 }
+                ("package", "kind") => {
+                    m.library = match s.as_str() {
+                        "library" => true,
+                        "application" => false,
+                        _ => {
+                            return Err(format!("line {}: `kind` is \"application\" or \"library\"", i + 1));
+                        }
+                    }
+                }
                 ("package", other) => {
                     return Err(format!(
-                        "line {}: unknown package key `{other}` (known: name, entry, version, edition, restricted)",
+                        "line {}: unknown package key `{other}` (known: name, entry, version, edition, kind, restricted)",
                         i + 1
                     ));
                 }
@@ -292,7 +353,14 @@ impl Manifest {
                                 i + 1
                             )
                         })?;
-                    let mut dep = Dependency { name: k.to_string(), path: String::new(), version: None };
+                    let mut dep = Dependency {
+                        name: k.to_string(),
+                        path: String::new(),
+                        version: None,
+                        git: None,
+                        rev: None,
+                        subdir: None,
+                    };
                     for part in table.split(',').map(str::trim).filter(|p| !p.is_empty()) {
                         let Some((dk, dv)) = part.split_once('=') else {
                             return Err(format!(
@@ -304,16 +372,46 @@ impl Manifest {
                         match dk.trim() {
                             "path" => dep.path = dv,
                             "version" => dep.version = Some(dv),
+                            "git" => dep.git = Some(dv),
+                            "rev" => dep.rev = Some(dv),
+                            "subdir" => dep.subdir = Some(dv),
                             other => {
                                 return Err(format!(
-                                    "line {}: unknown dependency key `{other}` (only path dependencies are supported)",
+                                    "line {}: unknown dependency key `{other}` (known: path, git, rev, subdir, version)",
                                     i + 1
                                 ));
                             }
                         }
                     }
-                    if dep.path.is_empty() {
-                        return Err(format!("line {}: dependency `{k}` needs a `path`", i + 1));
+                    match (dep.path.is_empty(), &dep.git) {
+                        (true, None) => {
+                            return Err(format!(
+                                "line {}: dependency `{k}` needs a `path` or a `git` repository",
+                                i + 1
+                            ));
+                        }
+                        (false, Some(_)) => {
+                            return Err(format!(
+                                "line {}: dependency `{k}` has both a `path` and a `git` repository",
+                                i + 1
+                            ));
+                        }
+                        (false, None) if dep.rev.is_some() || dep.subdir.is_some() => {
+                            return Err(format!(
+                                "line {}: `rev` and `subdir` go with a `git` dependency",
+                                i + 1
+                            ));
+                        }
+                        _ => {}
+                    }
+                    if dep.git.as_deref().is_some_and(|g| g.starts_with('-') || g.is_empty()) {
+                        return Err(format!(
+                            "line {}: dependency `{k}` has an invalid git repository",
+                            i + 1
+                        ));
+                    }
+                    if dep.rev.as_deref().is_some_and(|r| r.starts_with('-') || r.is_empty()) {
+                        return Err(format!("line {}: dependency `{k}` has an invalid `rev`", i + 1));
                     }
                     m.dependencies.push(dep);
                 }
@@ -359,7 +457,7 @@ impl Manifest {
                 _ => {}
             }
         }
-        if m.name.is_empty() {
+        if m.name.is_empty() && !sections_seen.iter().any(|s| s == "workspace") {
             return Err("missing [package] name".into());
         }
         Ok(m)

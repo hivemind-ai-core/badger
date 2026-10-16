@@ -452,7 +452,16 @@ reinterpreted as a new type.
 the toolchain language (`draft-0`), `[runtime]` settings with
 `[profile.NAME.runtime]` overrides, `[config]` with `[profile.NAME]` overlays,
 named `[entries]`, user `[tasks]` (typed functions run by `lang task`), and
-`[dependencies]` as path inline tables with an optional version prefix.
+`[dependencies]` as inline tables with an optional version prefix: a
+`path`, or a `git` repository with `rev` and `subdir`
+(`crates/lang_driver/src/deps.rs`: the repository is cloned bare into the
+cache, `$LANG_HOME` or `~/.cache/lang`, and each commit used is checked
+out into its own directory; `lang.lock` records the requested `rev` and
+the commit, and a build uses the locked commit while the manifest asks for
+the same `rev`). `[workspace] members` (with `dir/*` patterns) groups
+packages that share the lockfile at the workspace root; `lang check` and
+`lang test` there cover every member. `[package] kind = "library"` marks a
+package without `main`.
 `[package] restricted = true` confines ambient authority to the entry module
 (`crates/lang_driver/src/authority.rs`: a reachability check over resolved
 calls and function references, reporting the path to the ambient function;

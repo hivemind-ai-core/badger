@@ -169,7 +169,14 @@ pass it briefly.
 
 The project file is `lang.toml`, with package identity, dependencies,
 entry modules, toolchain version, and runtime profiles. Resolve dependencies with
-a lockfile and content/version verification. Configuration cannot run arbitrary
+a lockfile and content/version verification. **Implementation:** a
+dependency is a directory (`path`) or a git repository (`git`, with `rev`
+and `subdir`), cloned once into a cache and checked out per commit; the
+lockfile pins each git dependency's commit, and `lang update` resolves
+revisions again. `[workspace] members` groups packages sharing one
+lockfile (`lang check`, `lang test`, and `lang update` at the root cover
+them all), and `[package] kind = "library"` marks a package that others
+import and nothing runs. Configuration cannot run arbitrary
 code during import. User tasks are explicit typed functions invoked by the tool.
 Profile merging produces inspectable effective configuration before execution.
 

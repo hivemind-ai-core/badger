@@ -71,6 +71,18 @@ fn entry_fn() -> String {
     ENTRY_FN.lock().unwrap().clone().unwrap_or_else(|| "main".into())
 }
 
+/// The packages a command at `path` covers: every package of the
+/// workspace whose root `path` is, else `path` itself.
+pub fn packages_of(path: &Path) -> Vec<PathBuf> {
+    if path.is_dir()
+        && let Ok(m) = manifest::Manifest::load(&path.join("lang.toml"))
+        && m.workspace.is_some()
+    {
+        return deps::workspace_packages(path, &m);
+    }
+    vec![path.to_path_buf()]
+}
+
 /// Entry selections besides the main entry: `[entries]` names and
 /// `task:NAME` for `[tasks]` (empty for a single file).
 pub fn project_entry_points(path: &Path) -> Vec<String> {
@@ -497,8 +509,23 @@ impl Session {
         hir
     }
 
-    /// Front end + static analysis only.
+    /// Front end + static analysis only (every package, for a workspace
+    /// root).
     pub fn check(&mut self, path: &Path) -> Outcome {
+        let packages = packages_of(path);
+        if packages.len() != 1 || packages[0] != path {
+            let mut outcome = Outcome::Ok;
+            for p in packages {
+                if self.check_package(&p) == Outcome::Errors {
+                    outcome = Outcome::Errors;
+                }
+            }
+            return outcome;
+        }
+        self.check_package(path)
+    }
+
+    fn check_package(&mut self, path: &Path) -> Outcome {
         // a project: its main entry, every `[entries]` module, and every
         // `[tasks]` module
         let others = project_entry_points(path);
@@ -537,8 +564,11 @@ impl Session {
             let name = ENTRY_FN.lock().unwrap().clone().unwrap_or_else(|| "main".into());
             let file = self.sources.get(hir.modules[entry].file).name.clone();
             match hir.modules[entry].items.get(&self.interner.intern(&name)).copied() {
-                // a single file need not be a program (a library module)
+                // a single file need not be a program (a library module),
+                // and a library package has no `main`
                 None if !path.is_dir() => {}
+                None if name == "main"
+                    && manifest::Manifest::load(&path.join("lang.toml")).is_ok_and(|m| m.library) => {}
                 None => self
                     .diagnostics
                     .push(Diagnostic::error(format!("no `{name}` function in {file}")).with_code("E0012")),
@@ -674,11 +704,44 @@ impl Session {
             return self.run_binary(&bytes, args, opts, started);
         }
         // an invalid manifest is a project error (as `lang check` reports it)
-        if path.is_dir()
-            && let Err(e) = manifest::Manifest::load(&path.join("lang.toml"))
-        {
-            self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
-            return Err(Outcome::Errors);
+        if path.is_dir() {
+            match manifest::Manifest::load(&path.join("lang.toml")) {
+                Err(e) => {
+                    self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
+                    return Err(Outcome::Errors);
+                }
+                Ok(m) if !m.has_package => {
+                    let members: Vec<String> = deps::workspace_packages(path, &m)
+                        .iter()
+                        .map(|p| {
+                            p.strip_prefix(std::fs::canonicalize(path).unwrap_or_default())
+                                .unwrap_or(p)
+                                .display()
+                                .to_string()
+                        })
+                        .collect();
+                    self.diagnostics.push(
+                        Diagnostic::error(format!(
+                            "{} is a workspace, not a package: run one of its packages ({})",
+                            path.display(),
+                            members.join(", ")
+                        ))
+                        .with_code("E0010"),
+                    );
+                    return Err(Outcome::Errors);
+                }
+                Ok(m) if m.library && !opts.tests => {
+                    self.diagnostics.push(
+                        Diagnostic::error(format!(
+                            "`{}` is a library: it has no `main` to run (`lang test` runs its tests)",
+                            m.name
+                        ))
+                        .with_code("E0010"),
+                    );
+                    return Err(Outcome::Errors);
+                }
+                Ok(_) => {}
+            }
         }
         let mut config: Vec<(String, String)> = vec![];
         match Self::effective_config(path, opts.profile.as_deref()) {

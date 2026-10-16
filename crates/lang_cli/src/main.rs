@@ -422,18 +422,23 @@ fn main() -> ExitCode {
                 None => (PathBuf::from("."), None),
             };
             let opts = lang_driver::RunOptions { tests: true, filter, json, ..Default::default() };
-            if session.run(&path, vec![], &opts).is_err() {
-                report(&session, json);
-                return ExitCode::FAILURE;
-            }
-            report(&session, false);
-            // a project's other entry points: tests in modules they reach
-            for sel in lang_driver::project_entry_points(&path) {
-                lang_driver::select_entry(Some(sel));
-                let mut s = Session::new();
-                if s.run(&path, vec![], &opts).is_err() {
+            // every package of a workspace, else the one program
+            for (i, pkg) in lang_driver::packages_of(&path).into_iter().enumerate() {
+                let mut s = if i == 0 { std::mem::take(&mut session) } else { Session::new() };
+                lang_driver::select_entry(None);
+                if s.run(&pkg, vec![], &opts).is_err() {
                     report(&s, json);
                     return ExitCode::FAILURE;
+                }
+                report(&s, false);
+                // a project's other entry points: tests in modules they reach
+                for sel in lang_driver::project_entry_points(&pkg) {
+                    lang_driver::select_entry(Some(sel));
+                    let mut s = Session::new();
+                    if s.run(&pkg, vec![], &opts).is_err() {
+                        report(&s, json);
+                        return ExitCode::FAILURE;
+                    }
                 }
             }
             exit_now(lang_driver::finish_tests(json))
