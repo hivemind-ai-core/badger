@@ -1,7 +1,7 @@
 //! Collection, text, environment, and filesystem intrinsics (uniform ABI).
 
 use crate::desc::{Kind, TypeDesc};
-use crate::gc::Roots;
+use crate::gc::{self, Roots};
 use crate::intrinsics::{Targs, rdesc, targ};
 use crate::intrinsics_io::io_ok;
 use crate::string::{new_string, str_of};
@@ -127,11 +127,18 @@ std_intrinsics! {
         loop {
             let cur = atomic_load(r, p);
             if atomic_cas(r, p, cur, v) {
+                gc::barrier(a);
                 return 0;
             }
         }
     }
-    fn atom_cas(ctx, targs, ret, a, old, new) { bool_w(atomic_cas(targ(targs, 0).repr(), atom_field(a), old, new)) }
+    fn atom_cas(ctx, targs, ret, a, old, new) {
+        let ok = atomic_cas(targ(targs, 0).repr(), atom_field(a), old, new);
+        if ok {
+            gc::barrier(a);
+        }
+        bool_w(ok)
+    }
     // ---------------------------------------------------------------- lists
     fn list_len(ctx, targs, ret, l) { list::len(l) as u64 }
     fn list_get(ctx, targs, ret, l, i) {
@@ -216,7 +223,11 @@ std_intrinsics! {
 
     // ---------------------------------------------------------------- buffers
     fn buffer_new(ctx, targs, ret, cap) { crate::buffer::new(targ(targs, 0), cap as usize) }
-    fn buffer_push(ctx, targs, ret, b, v) { crate::buffer::data(b).items.push(v); 0 }
+    fn buffer_push(ctx, targs, ret, b, v) {
+        crate::buffer::data(b).items.push(v);
+        gc::barrier(b);
+        0
+    }
     fn buffer_pop(ctx, targs, ret, b) {
         match crate::buffer::data(b).items.pop() { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }
     }
@@ -229,7 +240,7 @@ std_intrinsics! {
             crate::task::panic_current("write to a frozen buffer".into(), crate::task::caller_location());
         }
         match d.items.get_mut(i as usize) {
-            Some(slot) => { *slot = v; 0 }
+            Some(slot) => { *slot = v; gc::barrier(b); 0 }
             None => crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", d.items.len(), i as i64), crate::task::caller_location()),
         }
     }

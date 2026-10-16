@@ -2039,6 +2039,30 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let elem_offset = bin(self, BinOp::Mul, off, int(size));
                 let at = bin(self, BinOp::Add, page, elem_offset);
                 self.emit(Stmt::Store { base: at, offset: lang_runtime::list::PAGE_ELEMS, repr, value: v });
+                if repr == Repr::Ptr {
+                    // the write barrier for the page (it may predate a
+                    // collection): see `gc::barrier`
+                    let meta = load(self, page, -8);
+                    let mask = (lang_runtime::gc::MARK
+                        | lang_runtime::gc::IMMORTAL
+                        | lang_runtime::gc::REMEMBERED) as i64;
+                    let bits = bin(self, BinOp::And, meta, int(mask));
+                    let old = self.assign(
+                        Repr::I8,
+                        Rvalue::Cmp {
+                            op: CmpOp::Eq,
+                            a: bits,
+                            b: int(lang_runtime::gc::MARK as i64),
+                            ty: s64,
+                        },
+                    );
+                    let (remember, after) = (self.block(), self.block());
+                    self.term(Term::Branch(old, remember, after));
+                    self.switch(remember);
+                    self.rt("lang_rt_barrier", vec![page], Repr::I8);
+                    self.term(Term::Goto(after));
+                    self.switch(after);
+                }
                 let written = bin(self, BinOp::Add, off, int(1));
                 self.emit(Stmt::Store {
                     base: page,

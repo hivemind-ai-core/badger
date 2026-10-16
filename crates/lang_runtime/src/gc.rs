@@ -35,8 +35,13 @@ pub struct Header {
 }
 
 pub const HEADER: usize = std::mem::size_of::<Header>();
-const MARK: u64 = 1;
-const IMMORTAL: u64 = 2;
+/// Header meta bits. With generational collection a survivor keeps its
+/// mark: marked objects are the old generation, which a minor collection
+/// neither traces through nor sweeps; an old object written with a pointer
+/// is remembered (see [`barrier`]) so its children are traced.
+pub const MARK: u64 = 1;
+pub const IMMORTAL: u64 = 2;
+pub const REMEMBERED: u64 = 4;
 
 impl Header {
     pub fn desc(&self) -> &'static TypeDesc {
@@ -426,6 +431,47 @@ impl Drop for NoGc {
     }
 }
 
+/// `LANG_GC_GENERATIONAL=0`: every collection is a full one.
+fn generational() -> bool {
+    static G: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *G.get_or_init(|| std::env::var_os("LANG_GC_GENERATIONAL").is_none_or(|v| v != "0"))
+}
+
+/// Old objects written with a pointer since the last collection, per
+/// worker (only that worker pushes; the collector reads them all while
+/// the world is stopped).
+struct Remembered([UnsafeCell<Vec<u64>>; crate::task::MAX_WORKERS]);
+unsafe impl Sync for Remembered {}
+static REMEMBER: Remembered = Remembered([const { UnsafeCell::new(Vec::new()) }; crate::task::MAX_WORKERS]);
+
+/// Where each worker's objects allocated since the last collection start
+/// in its object list (the young generation).
+static YOUNG_START: [AtomicUsize; crate::task::MAX_WORKERS] =
+    [const { AtomicUsize::new(0) }; crate::task::MAX_WORKERS];
+
+/// Bytes in the old generation, and the size at which the next collection
+/// is a full one.
+static OLD_BYTES: AtomicUsize = AtomicUsize::new(0);
+static MAJOR_AT: AtomicUsize = AtomicUsize::new(64 << 20);
+
+/// The write barrier: call after storing a managed pointer into object
+/// `o` (any store into an object that may predate the last collection;
+/// generated code and runtime containers do). An old object is
+/// remembered, once, so the next minor collection traces its children.
+#[inline]
+pub fn barrier(o: u64) {
+    if o == 0 {
+        return;
+    }
+    let meta = unsafe { &*((o as *const u8).add(8) as *const std::sync::atomic::AtomicU64) };
+    if meta.load(Ordering::Relaxed) & (MARK | IMMORTAL | REMEMBERED) != MARK {
+        return;
+    }
+    if meta.fetch_or(REMEMBERED, Ordering::Relaxed) & REMEMBERED == 0 {
+        unsafe { (*REMEMBER.0[crate::task::worker_index()].get()).push(o) };
+    }
+}
+
 pub fn collect() {
     let started = std::time::Instant::now();
     // several workers: wait until none executes compiled code
@@ -441,8 +487,24 @@ pub fn collect() {
 fn collect_inner() {
     let h = heap();
     h.collections += 1;
+    let sticky = generational();
+    // (collection stress: a full collection every 16th, so dead old objects
+    // do not pile up between the many minor ones)
+    let minor = sticky
+        && OLD_BYTES.load(Ordering::Relaxed) < MAJOR_AT.load(Ordering::Relaxed)
+        && !(stress() && h.collections.is_multiple_of(16));
     let mut stack: Vec<u64> = Vec::new();
     let checking = verify();
+    if sticky && !minor {
+        // a full collection: every object is unmarked (young) again
+        for p in all_objects() {
+            unsafe { (*p).meta &= !(MARK | REMEMBERED) };
+        }
+    }
+    // remembered old objects: their children are traced (a full collection
+    // reaches them anyway)
+    let remembered: Vec<u64> =
+        REMEMBER.0.iter().flat_map(|r| std::mem::take(unsafe { &mut *r.get() })).collect();
     let live: FxHashSet<usize> =
         if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };
     // a referenced word must be a live or immortal object
@@ -493,6 +555,15 @@ fn collect_inner() {
         check(w, &|| "a task root (stack frame, entry, result, or held value)".into());
         mark(w, &mut stack)
     });
+    for &o in &remembered {
+        unsafe { (*(o as *mut Header)).meta &= !REMEMBERED };
+        if minor {
+            trace(o, &mut |c| {
+                check(c, &|| format!("a remembered `{}` object", unsafe { obj(o) }.desc().name));
+                mark(c, &mut stack);
+            });
+        }
+    }
     // trace: children are marked as they are visited (no per-object
     // scratch storage during the pause)
     while let Some(w) = stack.pop() {
@@ -503,20 +574,33 @@ fn collect_inner() {
         });
         stack = pending;
     }
-    // sweep each worker's list in place
+    // (under collection stress, a sample: a missed barrier also shows as a
+    // use of a poisoned freed object)
+    if minor && checking && (!stress() || h.collections.is_multiple_of(64)) {
+        verify_minor(h);
+    }
+    // sweep each worker's list in place: a minor collection only its young
+    // objects; survivors keep their marks (old) when collection is
+    // generational
+    let from =
+        |w: usize| if minor { YOUNG_START[w].load(Ordering::Relaxed).min(objects(w).len()) } else { 0 };
     let mut live = 0usize;
-    let lists: Vec<usize> = (0..crate::task::MAX_WORKERS).filter(|&w| !objects(w).is_empty()).collect();
-    let total: usize = lists.iter().map(|&w| objects(w).len()).sum();
+    let lists: Vec<usize> = (0..crate::task::MAX_WORKERS).filter(|&w| objects(w).len() > from(w)).collect();
+    let total: usize = lists.iter().map(|&w| objects(w).len() - from(w)).sum();
     if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
-        live = sweep_parallel(&lists);
+        let starts: Vec<usize> = lists.iter().map(|&w| from(w)).collect();
+        live = sweep_parallel(&lists, &starts, sticky);
     } else {
         for wl in lists {
-            objects(wl).retain(|&p| unsafe {
-                if (*p).meta & MARK != 0 {
-                    (*p).meta &= !MARK;
+            let start = from(wl);
+            sweep_from(
+                objects(wl),
+                start,
+                sticky,
+                |p| unsafe {
                     live += HEADER + (*p).payload_size();
-                    true
-                } else {
+                },
+                |p| unsafe {
                     finalize(p);
                     if checking {
                         // poison and keep: a later use is reported, not reused
@@ -530,10 +614,12 @@ fn collect_inner() {
                     } else {
                         free_cell(wl, p, (*p).payload_size());
                     }
-                    false
-                }
-            });
+                },
+            );
         }
+    }
+    for (w, start) in YOUNG_START.iter().enumerate() {
+        start.store(objects(w).len(), Ordering::Relaxed);
     }
     while h.quarantine_bytes > QUARANTINE_BYTES {
         let Some((p, _)) = h.quarantine.pop_front() else { break };
@@ -547,13 +633,106 @@ fn collect_inner() {
     for (wl, c) in COUNTS.iter().enumerate() {
         c.0.store(objects(wl).len(), Ordering::Relaxed);
     }
-    h.live = live;
     // every worker is stopped: their unpublished debt is part of `live`
     for d in &DEBT {
         d.0.store(0, Ordering::Relaxed);
     }
-    ALLOCATED.store(live, Ordering::Relaxed);
-    THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
+    if sticky {
+        // `live`: the survivors swept (all of them in a full collection,
+        // the young ones in a minor one); old objects that died since are
+        // found by the next full collection, when the old generation has
+        // doubled
+        let old = if minor { OLD_BYTES.load(Ordering::Relaxed) + live } else { live };
+        OLD_BYTES.store(old, Ordering::Relaxed);
+        if !minor {
+            MAJOR_AT.store((old * 2).max(64 << 20), Ordering::Relaxed);
+        }
+        h.live = old;
+        // the young generation's budget: a minor collection after this much
+        // allocation (its cost is the young survivors, not the heap)
+        ALLOCATED.store(0, Ordering::Relaxed);
+        THRESHOLD.store((old / 2).clamp(16 << 20, 256 << 20), Ordering::Relaxed);
+    } else {
+        h.live = live;
+        ALLOCATED.store(live, Ordering::Relaxed);
+        THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
+    }
+}
+
+/// Sweep `list[start..]` in place: marked objects survive (`keep`; their
+/// marks stay when `sticky`), the others are handed to `free`.
+fn sweep_from(
+    list: &mut Vec<*mut Header>,
+    start: usize,
+    sticky: bool,
+    mut keep: impl FnMut(*mut Header),
+    mut free: impl FnMut(*mut Header),
+) {
+    let mut j = start;
+    for i in start..list.len() {
+        let p = list[i];
+        unsafe {
+            if (*p).meta & MARK != 0 {
+                if !sticky {
+                    (*p).meta &= !MARK;
+                }
+                keep(p);
+                list[j] = p;
+                j += 1;
+            } else {
+                free(p);
+            }
+        }
+    }
+    list.truncate(j);
+}
+
+/// Verification after a minor collection's marking: every object reachable
+/// from the roots must be marked (old, or young and found); an unmarked
+/// one means an old object was written without the write barrier.
+fn verify_minor(h: &Heap) {
+    let mut seen: FxHashSet<u64> = FxHashSet::default();
+    let mut stack: Vec<(u64, u64)> = vec![];
+    let root = |w: u64, stack: &mut Vec<(u64, u64)>| {
+        if w != 0 && w.is_multiple_of(8) && w >= 4096 {
+            stack.push((w, 0));
+        }
+    };
+    for &g in &h.globals {
+        root(unsafe { *g }, &mut stack);
+    }
+    for &r in h.temp_roots.iter().chain(&h.pinned) {
+        root(r, &mut stack);
+    }
+    crate::task::for_each_root(&mut |w| root(w, &mut stack));
+    while let Some((w, parent)) = stack.pop() {
+        if !seen.insert(w) {
+            continue;
+        }
+        let o = w as *mut Header;
+        let meta = unsafe { (*o).meta };
+        if meta & IMMORTAL != 0 {
+            continue;
+        }
+        if meta & MARK == 0 {
+            let by = if parent == 0 {
+                "a root".to_string()
+            } else {
+                format!("a `{}` object at {parent:#x}", unsafe { obj(parent) }.desc().name)
+            };
+            eprintln!(
+                "fatal: heap verification: a reachable `{}` object {w:#x} was not marked by a minor collection: {by} holds it (a write without the barrier)",
+                unsafe { obj(w) }.desc().name
+            );
+            eprintln!("{}", std::backtrace::Backtrace::force_capture());
+            std::process::abort();
+        }
+        trace(w, &mut |c| {
+            if c != 0 {
+                stack.push((c, w));
+            }
+        });
+    }
 }
 
 /// Heaps with at least this many objects (spread over several workers'
@@ -565,31 +744,34 @@ const PARALLEL_SWEEP: usize = 32 << 10;
 /// thread frees only into its list's own pool). Dead objects with a
 /// finalizer are finalized and freed afterwards on this thread, in list
 /// order: finalizers touch shared runtime state. Returns the live bytes.
-fn sweep_parallel(lists: &[usize]) -> usize {
+fn sweep_parallel(lists: &[usize], starts: &[usize], sticky: bool) -> usize {
     struct Send<T>(T);
     unsafe impl<T> std::marker::Send for Send<T> {}
-    let sweep = |wl: usize| -> (usize, Vec<*mut Header>) {
+    let sweep = |wl: usize, start: usize| -> (usize, Vec<*mut Header>) {
         let mut live = 0usize;
         let mut fin = vec![];
-        objects(wl).retain(|&p| unsafe {
-            if (*p).meta & MARK != 0 {
-                (*p).meta &= !MARK;
-                live += HEADER + (*p).payload_size();
-                true
-            } else {
+        sweep_from(
+            objects(wl),
+            start,
+            sticky,
+            |p| live += HEADER + unsafe { (*p).payload_size() },
+            |p| unsafe {
                 if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
                     fin.push(p);
                 } else {
                     free_cell(wl, p, (*p).payload_size());
                 }
-                false
-            }
-        });
+            },
+        );
         (live, fin)
     };
     let results: Vec<(usize, Vec<*mut Header>)> = std::thread::scope(|sc| {
-        let handles: Vec<_> = lists[1..].iter().map(|&wl| sc.spawn(move || Send(sweep(wl)))).collect();
-        let mut out = vec![sweep(lists[0])];
+        let handles: Vec<_> = lists[1..]
+            .iter()
+            .zip(&starts[1..])
+            .map(|(&wl, &st)| sc.spawn(move || Send(sweep(wl, st))))
+            .collect();
+        let mut out = vec![sweep(lists[0], starts[0])];
         out.extend(handles.into_iter().map(|h| h.join().expect("sweep thread").0));
         out
     });

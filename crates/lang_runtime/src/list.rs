@@ -127,6 +127,7 @@ impl Hdr {
     }
     fn set_dir(&self, d: u64) {
         unsafe { *self.0.add(1) = d }
+        gc::barrier(self.0 as u64 - gc::HEADER as u64);
     }
     fn elem(&self) -> &'static TypeDesc {
         unsafe { &*(*self.0.add(2) as *const TypeDesc) }
@@ -243,6 +244,7 @@ fn put_page(w: u64, p: usize, page: u64) {
     let dir = hdr(w).dir();
     if dir != 0 && p < dir_cap(dir) && claim(dir_used(dir), p) {
         unsafe { *dir_slot(dir, p) = page };
+        gc::barrier(dir);
         return;
     }
     let cap = (p * 2).max(4);
@@ -289,6 +291,9 @@ pub fn push(w: u64, v: u64) {
     let count = unsafe { &*(obj(page).payload().add(8) as *const AtomicU64) };
     if claim(count, off) {
         unsafe { elem.repr().store(obj(page).payload().add(PAGE_HDR + off * size), v) };
+        if elem.is_ptr() {
+            gc::barrier(page);
+        }
         h.set_len(len + 1);
         return;
     }

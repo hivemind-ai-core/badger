@@ -110,6 +110,8 @@ pub fn insert_mut(m: u64, k: u64, v: u64) {
     root_args(&r, m, k, v);
     let (t, n) = inserted(m, k, v);
     set(m, t, n);
+    // (a builder's map may predate a collection)
+    gc::barrier(m);
 }
 
 pub fn remove(m: u64, k: u64) -> u64 {

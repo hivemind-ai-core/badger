@@ -188,7 +188,8 @@ pub extern "C" fn lang_rt_list_new(_ctx: *mut TaskCtx, d: u64) -> u64 {
 
 pub extern "C" fn lang_rt_list_push(_ctx: *mut TaskCtx, list: u64, w: u64) {
     if crate::buffer::is_buffer(list) {
-        return crate::buffer::data(list).items.push(w);
+        crate::buffer::data(list).items.push(w);
+        return crate::gc::barrier(list);
     }
     crate::list::push(list, w)
 }
@@ -216,6 +217,11 @@ pub extern "C" fn lang_rt_precondition(_ctx: *mut TaskCtx, msg: u64, caller: u64
 }
 
 /// Elements per page of a list (paged iteration in generated code).
+/// The write barrier for generated code (see `gc::barrier`).
+pub extern "C" fn lang_rt_barrier(_ctx: *mut TaskCtx, o: u64) {
+    crate::gc::barrier(o)
+}
+
 /// A cursor over a map's or set's entries (`for` loops).
 pub extern "C" fn lang_rt_map_cursor(_ctx: *mut TaskCtx, m: u64) -> u64 {
     crate::map::cursor(m)
@@ -304,6 +310,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_contract_site", lang_rt_contract_site as *const u8),
         ("lang_rt_list_page_cap", lang_rt_list_page_cap as *const u8),
         ("lang_rt_map_cursor", lang_rt_map_cursor as *const u8),
+        ("lang_rt_barrier", lang_rt_barrier as *const u8),
         ("lang_rt_map_next", lang_rt_map_next as *const u8),
         ("lang_rt_list_page", lang_rt_list_page as *const u8),
         ("lang_rt_list_get", lang_rt_list_get as *const u8),

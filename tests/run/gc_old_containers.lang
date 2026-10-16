@@ -1,0 +1,108 @@
+// Containers that survive collections (so they are old) and are then
+// written with fresh values: the values must survive later collections
+// (the write barrier remembers the containers). Covers channels, buffers,
+// list and map builders, cells set from closures, and atoms.
+import std.buffer
+import std.channel
+import std.env
+import std.io
+import std.list
+import std.map
+import std.task
+
+// enough allocation to pass the young generation's budget (under
+// LANG_GC_STRESS or LANG_CHAOS collections are frequent already)
+fn churn() -> Int {
+    let frequent = env.get("LANG_GC_STRESS").is_some() || env.get("LANG_CHAOS").is_some()
+    let rounds = if frequent { 600 } else { 450000 }
+    var n = 0
+    for i in 0..rounds {
+        let s = $"churn {i} {i * 3}"
+        n = n + s.len()
+    }
+    n
+}
+
+// one write per function: when it returns, the container is the fresh
+// value's only holder (the frame that made it is gone)
+fn put_msg(sender: channel.Sender<String>, i: Int) -> Unit { let _ = sender.send($"msg {i}") }
+fn put_buf(buf: &mut Buffer<String>, i: Int) -> Unit { buf.push($"buf {i}") }
+fn put_list(lb: &mut ListBuilder<String>, i: Int) -> Unit { lb.append($"list {i}") }
+fn put_map(mb: &mut map.MapBuilder<Int, String>, i: Int) -> Unit { mb.insert(i, $"map {i}") }
+fn put_cell(c: Cell<String>, i: Int) -> Unit { c.set($"captured {i}") }
+fn put_atom(a: Atom<String>, i: Int) -> Unit { a.set($"atom {i}") }
+
+pub fn main() -> Unit {
+    let ends = match channel.create<String>({ ..channel.defaults, capacity: 64 }) {
+        .ok(e) => e,
+        .err(_) => panic("channel"),
+    }
+    var buf: Buffer<String> = buffer.new()
+    let lb = list.builder<String>()
+    var mb = map.builder<Int, String>()
+    let captured = Cell.new("start")
+    let atom = Atom.new("start")
+    let _ = churn()
+    // every container is old now: write fresh values into each (from a
+    // function whose frame is gone when the next collection runs, so the
+    // containers are the values' only holders)
+    for i in 0..8 {
+        put_msg(ends.sender, i)
+        let _ = churn()
+        put_buf(&mut buf, i)
+        let _ = churn()
+        put_list(&mut lb, i)
+        let _ = churn()
+        put_map(&mut mb, i)
+        let _ = churn()
+        put_cell(captured, i)
+        let _ = churn()
+        put_atom(atom, i)
+        let _ = churn()
+    }
+    ends.sender.close()
+    let _ = churn()
+    var msgs = 0
+    var intact = true
+    loop {
+        match ends.receiver.recv() {
+            .some(m) => {
+                intact = intact && m == $"msg {msgs}"
+                msgs = msgs + 1
+            },
+            .none => { break },
+        }
+    }
+    for i in 0..8 {
+        intact = intact && buf.get(i).unwrap_or("") == $"buf {i}"
+    }
+    let l = lb.finish()
+    for i in 0..8 {
+        intact = intact && l[i] == $"list {i}"
+    }
+    let m = mb.finish()
+    for i in 0..8 {
+        intact = intact && m.get(i).unwrap_or("") == $"map {i}"
+    }
+    let _ = io.println($"messages {msgs}; intact {intact}; {captured.get()}; {atom.get()}")
+    // the same across tasks on several workers
+    let r = task.scope(fn(s) -> Result<Bool, String> {
+        let ts = list.collect((0..4).map(fn(t: Int) {
+            s.spawn(fn() -> Bool {
+                let b = list.builder<String>()
+                for i in 0..5 {
+                    b.append($"t{t} {i}")
+                    let _ = churn()
+                }
+                let done = b.finish()
+                var good = true
+                for i in 0..5 {
+                    good = good && done[i] == $"t{t} {i}"
+                }
+                good
+            })
+        }))
+        ok(ts.fold(true, fn(a: Bool, t) { a && t.join() }))
+    })
+    let _ = io.println($"tasks intact {r.unwrap_or(false)}")
+}

@@ -311,6 +311,7 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
         }
         if !ok && d.capacity > 0 && d.queue.len() < d.capacity {
             d.queue.push_back(v);
+            gc::barrier(ch);
             d.bytes += size;
             d.sizes.push_back(size);
             ok = true;
@@ -336,6 +337,7 @@ pub fn append_fast(ch: u64, v: u64) -> bool {
         && d.staging.get(&me).is_some_and(|st| st.len() + 1 < d.max_batch);
     if ok {
         d.staging.get_mut(&me).expect("staging").push(v);
+        gc::barrier(ch);
         d.accepted += 1;
     }
     end_fast(d);
@@ -479,6 +481,7 @@ pub fn send_free(ch: u64, v: u64) -> Free {
     }
     if d.capacity > 0 && d.queue.len() < d.capacity && d.send_waiters.is_empty() {
         d.queue.push_back(v);
+        gc::barrier(ch);
         d.sizes.push_back(0);
         end_fast(d);
         return Free::Done(0);
@@ -493,6 +496,7 @@ pub fn send_free(ch: u64, v: u64) -> Free {
         _r.add(v);
     }
     d.send_waiters.push_back((task::current_id(), v, 0, task::begin_wait(), task::current_ptr()));
+    gc::barrier(ch);
     let added = note_waiting(ch);
     end_fast(d);
     task::park_free();
@@ -706,6 +710,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         }
         if d.queue.len() < d.capacity && fits {
             d.queue.push_back(v);
+            gc::barrier(ch);
             d.bytes += size;
             d.sizes.push_back(size);
             for t in std::mem::take(&mut d.recv_watchers) {
@@ -720,6 +725,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Full;
         }
         d.send_waiters.push_back((me, v, size, task::begin_wait(), task::current_ptr()));
+        gc::barrier(ch);
         let added = note_waiting(ch);
         task::park_for("channel send");
         let (_, status) = task::take_delivered();
@@ -1027,6 +1033,7 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
             d.staged_at.entry(me).or_insert_with(std::time::Instant::now);
             let st = d.staging.entry(me).or_insert(page);
             st.push(v);
+            gc::barrier(ch);
             d.accepted += 1;
             let full = st.len() >= d.max_batch;
             if let Some(t) = task::current()
@@ -1077,6 +1084,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
                 *(p.add(8) as *mut u64) = ch;
             }
             data(ch).leases.push((task::current_id(), b));
+            gc::barrier(ch);
             let _ = note_waiting(ch);
             return Some(b);
         }

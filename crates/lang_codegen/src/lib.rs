@@ -141,6 +141,7 @@ fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
         "lang_rt_display" => (2, true),
         "lang_rt_list_new" | "lang_rt_list_len" | "lang_rt_map_new" | "lang_rt_list_page_cap" => (1, true),
         "lang_rt_map_cursor" | "lang_rt_map_next" => (1, true),
+        "lang_rt_barrier" => (1, false),
         "lang_rt_list_page" => (2, true),
         "lang_rt_list_push" => (2, false),
         "lang_rt_list_get" | "lang_rt_map_index" => (3, true),
@@ -459,6 +460,10 @@ struct Body<'f> {
     locs: Vec<(u32, u32, u32)>,
     dbg_slot: Option<cranelift_codegen::ir::StackSlot>,
     dbg_offsets: FxHashMap<Local, i32>,
+    /// Objects allocated in the current block since its last safe point:
+    /// young whatever a collection did, so storing into them needs no write
+    /// barrier.
+    fresh: rustc_hash::FxHashSet<Local>,
 }
 
 static DEBUG_INFO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -515,6 +520,7 @@ impl FnCx<'_> {
             ("lang_rt_alloc".into(), 2, true),
             ("lang_rt_concat".into(), 2, true),
             ("lang_rt_stack_overflow".into(), 0, true),
+            ("lang_rt_barrier".into(), 1, false),
         ];
         if self.prog.workers > 1 {
             used.push(("lang_rt_enter".into(), 1, false));
@@ -716,8 +722,19 @@ impl FnCx<'_> {
                 None
             };
             dbg_layout = dbg_slot.map(|s| (s, dbg_offsets.clone()));
-            let mut body =
-                Body { f, vars, slots, frame, ctx, blocks, debug, locs: vec![], dbg_slot, dbg_offsets };
+            let mut body = Body {
+                f,
+                vars,
+                slots,
+                frame,
+                ctx,
+                blocks,
+                debug,
+                locs: vec![],
+                dbg_slot,
+                dbg_offsets,
+                fresh: Default::default(),
+            };
             // debug slots start zeroed (a local not yet assigned reads 0)
             if let Some(slot) = body.dbg_slot {
                 let zero = b.ins().iconst(types::I64, 0);
@@ -733,6 +750,7 @@ impl FnCx<'_> {
             b.ins().jump(body.blocks[BlockId::new(0)], &[]);
             for (bid, blk) in f.blocks.iter_enumerated() {
                 b.switch_to_block(body.blocks[bid]);
+                body.fresh.clear();
                 for s in &blk.stmts {
                     self.stmt(&mut b, &mut body, s, &import_refs, &func_refs, &adapter_refs, globals_gv);
                 }
@@ -816,12 +834,47 @@ impl FnCx<'_> {
                 let v = self.rvalue(b, body, rv, ty, imports, funcs, adapters, globals);
                 let v = coerce(b, v, ty);
                 body.set(b, *l, v);
+                // a safe point may age every object allocated before it
+                match rv {
+                    Rvalue::Alloc { .. } => {
+                        body.fresh.clear();
+                        body.fresh.insert(*l);
+                    }
+                    Rvalue::Call { .. } | Rvalue::Concat(_) => body.fresh.clear(),
+                    Rvalue::Use(Operand::Local(src)) if body.fresh.contains(src) => {
+                        body.fresh.insert(*l);
+                    }
+                    _ => {
+                        body.fresh.remove(l);
+                    }
+                }
             }
             Stmt::Store { base, offset, repr, value } => {
                 let p = body.op(b, base);
                 let v = body.op(b, value);
                 let v = coerce(b, v, cty(*repr));
                 b.ins().store(MemFlagsData::trusted(), v, p, HDR + offset);
+                // the write barrier: an object that may be old (not
+                // allocated in this block since its last safe point) is
+                // remembered when written with a pointer
+                let into_object = matches!(base, Operand::Local(bl)
+                    if body.f.locals[*bl].repr == Repr::Ptr && !body.fresh.contains(bl));
+                if *repr == Repr::Ptr && into_object {
+                    let meta = b.ins().load(types::I64, MemFlagsData::trusted(), p, 8);
+                    let bits = b.ins().band_imm_u(
+                        meta,
+                        (lang_runtime::gc::MARK | lang_runtime::gc::IMMORTAL | lang_runtime::gc::REMEMBERED)
+                            as i64,
+                    );
+                    let old = b.ins().icmp_imm_u(IntCC::Equal, bits, lang_runtime::gc::MARK as i64);
+                    let (cold, cont) = (b.create_block(), b.create_block());
+                    b.set_cold_block(cold);
+                    b.ins().brif(old, cold, &[], cont, &[]);
+                    b.switch_to_block(cold);
+                    b.ins().call(imports["lang_rt_barrier"], &[body.ctx, p]);
+                    b.ins().jump(cont, &[]);
+                    b.switch_to_block(cont);
+                }
             }
             Stmt::GlobalStore { slot, value } => {
                 let v = body.op(b, value);
@@ -836,6 +889,7 @@ impl FnCx<'_> {
                 }
             }
             Stmt::Poll => {
+                body.fresh.clear();
                 let budget = b.ins().load(types::I64, MemFlagsData::trusted(), body.ctx, 8);
                 let nb = b.ins().iadd_imm_s(budget, -1);
                 b.ins().store(MemFlagsData::trusted(), nb, body.ctx, 8);
@@ -1495,6 +1549,8 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_list_len",
     "lang_rt_list_get",
     "lang_rt_list_page_cap",
+    // the write barrier (remembers an old object; never collects)
+    "lang_rt_barrier",
     // map iteration: a fresh cursor, a walk over an immutable trie
     "lang_rt_map_cursor",
     "lang_rt_map_next",
