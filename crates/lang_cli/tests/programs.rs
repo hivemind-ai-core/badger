@@ -2,6 +2,8 @@
 //! (exit code `NAME.exit`, default 0); `tests/reject/*.lang` must fail to
 //! check with every diagnostic code listed in `// expect-error: CODE` lines.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -253,12 +255,14 @@ fn live_reload() {
     let file = dir.join("live.lang");
     let src = |name: &str| std::fs::read_to_string(root().join("tests/live").join(name)).unwrap();
     std::fs::write(&file, src("reload_v1.lang")).unwrap();
-    let mut child = lang()
-        .args(["run", "--watch", file.to_str().unwrap()])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = common::Reaped::new(
+        lang()
+            .args(["run", "--watch", file.to_str().unwrap()])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let out = Arc::new(Mutex::new(String::new()));
     let err = Arc::new(Mutex::new(String::new()));
     let (o2, e2) = (out.clone(), err.clone());
@@ -329,11 +333,13 @@ fn inspect_running_program() {
     use std::time::{Duration, Instant};
     let port = 21000 + (std::process::id() % 1000) as u16;
     let addr = format!("127.0.0.1:{port}");
-    let mut child = lang()
-        .args(["run", "--inspect", &addr, "tests/inspect/running.lang"])
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = common::Reaped::new(
+        lang()
+            .args(["run", "--inspect", &addr, "tests/inspect/running.lang"])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let ask = |what: &str| {
         let out = lang().args(["inspect", what, "--connect", &addr, "--json"]).output().unwrap();
         String::from_utf8_lossy(&out.stdout).to_string()
@@ -470,19 +476,21 @@ fn live_reconstruct() {
         let src = |name: &str| std::fs::read_to_string(root().join("tests/live").join(name)).unwrap();
         std::fs::write(&file, src("reconstruct_v1.lang")).unwrap();
         let out_path = dir.join("out.txt");
-        let child = lang()
-            .args(["run", "--workers", workers, "--watch", "--reconstruct", file.to_str().unwrap()])
-            .stdout(std::fs::File::create(&out_path).unwrap())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .unwrap();
+        let child = common::Reaped::new(
+            lang()
+                .args(["run", "--workers", workers, "--watch", "--reconstruct", file.to_str().unwrap()])
+                .stdout(std::fs::File::create(&out_path).unwrap())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .unwrap(),
+        );
         let start = Instant::now();
         while !std::fs::read_to_string(&out_path).unwrap_or_default().contains("v1 point 1") {
             assert!(start.elapsed() < Duration::from_secs(20), "version 1 never started");
             std::thread::sleep(Duration::from_millis(20));
         }
         std::fs::write(&file, src("reconstruct_v2.lang")).unwrap();
-        let out = child.wait_with_output().unwrap();
+        let out = child.output();
         let text = std::fs::read_to_string(&out_path).unwrap();
         let err = String::from_utf8_lossy(&out.stderr);
         let _ = std::fs::remove_dir_all(&dir);
@@ -660,16 +668,18 @@ fn test_runner_simulation() {
 #[test]
 fn local_repl_session() {
     use std::io::Write;
-    let mut child = lang()
-        .arg("repl")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = common::Reaped::new(
+        lang()
+            .arg("repl")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let input = "let counter = Atom.new(0)\ncounter.set(5)\ncounter.get()\nlet r = { a: 1, b: \"s\" }\nr\nfn f(n: Int) -> Int { n * 2 }\nf(counter.get())\nstruct P { x: Int }\nlet p: P = { x: 3 }\np\nstruct Q { a: Int }\nstruct Q { a: Int, b: Int }\n:q\n";
     child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
-    let out = child.wait_with_output().unwrap();
+    let out = child.output();
     let text = String::from_utf8_lossy(&out.stdout);
     assert_eq!(
         text.lines().take(4).collect::<Vec<_>>(),
@@ -839,17 +849,19 @@ fn sampling_profile() {
     )
     .unwrap();
     let folded = dir.join("spin.folded");
-    let child = lang()
-        .args(["run", "--release"])
-        .arg(&src)
-        .env("LANG_PROFILE", &folded)
-        .env("LANG_PERF_MAP", "1")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
+    let child = common::Reaped::new(
+        lang()
+            .args(["run", "--release"])
+            .arg(&src)
+            .env("LANG_PROFILE", &folded)
+            .env("LANG_PERF_MAP", "1")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let perf_map = std::path::PathBuf::from(format!("/tmp/perf-{}.map", child.id()));
-    let out = child.wait_with_output().unwrap();
+    let out = child.output();
     let symbols = std::fs::read_to_string(&perf_map).unwrap_or_default();
     let _ = std::fs::remove_file(&perf_map);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -876,7 +888,7 @@ fn eval_in_busy_program() {
     .unwrap();
     let port = 25000 + (std::process::id() % 1000) as u16;
     let addr = format!("127.0.0.1:{port}");
-    let mut child = lang().args(["run", "--inspect", &addr]).arg(&src).spawn().unwrap();
+    let mut child = common::Reaped::new(lang().args(["run", "--inspect", &addr]).arg(&src).spawn().unwrap());
     let start = Instant::now();
     let mut reply = String::new();
     while start.elapsed() < Duration::from_secs(15) {

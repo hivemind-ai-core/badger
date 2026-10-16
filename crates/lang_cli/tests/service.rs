@@ -1,5 +1,7 @@
 //! The HTTP/SQLite service design example, driven by a real HTTP client.
 
+mod common;
+
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
@@ -25,16 +27,18 @@ fn orders_service() {
     let db = dir.join("orders.db");
     let _ = std::fs::remove_file(&db);
     let port = 18000 + (std::process::id() % 1000) as u16;
-    let mut child = Command::new(env!("CARGO_BIN_EXE_lang"))
-        .current_dir(&root)
-        .args(["run", "examples/design/service"])
-        .env("ORDERS_DATABASE_PATH", &db)
-        .env("ORDERS_ADDRESS", "127.0.0.1")
-        .env("ORDERS_PORT", port.to_string())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "examples/design/service"])
+            .env("ORDERS_DATABASE_PATH", &db)
+            .env("ORDERS_ADDRESS", "127.0.0.1")
+            .env("ORDERS_PORT", port.to_string())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let start = Instant::now();
     while TcpStream::connect(("127.0.0.1", port)).is_err() {
         assert!(start.elapsed() < Duration::from_secs(20), "service did not start");
@@ -77,19 +81,21 @@ fn orders_service_concurrent() {
     let db = dir.join("orders.db");
     let _ = std::fs::remove_file(&db);
     let port = 21000 + (std::process::id() % 1000) as u16;
-    let child = Command::new(env!("CARGO_BIN_EXE_lang"))
-        .current_dir(&root)
-        .args(["run", "--workers", "4", "examples/design/service"])
-        .env("ORDERS_DATABASE_PATH", &db)
-        .env("ORDERS_ADDRESS", "127.0.0.1")
-        .env("ORDERS_PORT", port.to_string())
-        .env("LANG_CHAOS", "11")
-        .env("LANG_GC_VERIFY", "1")
-        .env("LANG_TRACE", "1")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "--workers", "4", "examples/design/service"])
+            .env("ORDERS_DATABASE_PATH", &db)
+            .env("ORDERS_ADDRESS", "127.0.0.1")
+            .env("ORDERS_PORT", port.to_string())
+            .env("LANG_CHAOS", "11")
+            .env("LANG_GC_VERIFY", "1")
+            .env("LANG_TRACE", "1")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let start = Instant::now();
     while TcpStream::connect(("127.0.0.1", port)).is_err() {
         assert!(start.elapsed() < Duration::from_secs(30), "service did not start");
@@ -119,7 +125,7 @@ fn orders_service_concurrent() {
     }
     if !failed.is_empty() {
         unsafe { libc_kill(child.id() as i32, 15) };
-        let out = child.wait_with_output().unwrap();
+        let out = child.output();
         let err = String::from_utf8_lossy(&out.stderr);
         let lines: Vec<&str> = err
             .lines()
@@ -136,7 +142,7 @@ fn orders_service_concurrent() {
     ids.sort_unstable();
     assert_eq!(ids, (1..=200).collect::<Vec<u64>>(), "ids lost or duplicated");
     unsafe { libc_kill(child.id() as i32, 15) };
-    let out = child.wait_with_output().unwrap();
+    let out = child.output();
     assert!(out.status.success(), "service exit: {:?}\n{}", out.status, String::from_utf8_lossy(&out.stderr));
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -145,14 +151,16 @@ fn orders_service_concurrent() {
 fn request_isolation() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let port = 19000 + (std::process::id() % 1000) as u16;
-    let mut child = Command::new(env!("CARGO_BIN_EXE_lang"))
-        .current_dir(&root)
-        .args(["run", "--workers", "4", "tests/http/isolation.lang"])
-        .env("ISO_PORT", port.to_string())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let mut child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "--workers", "4", "tests/http/isolation.lang"])
+            .env("ISO_PORT", port.to_string())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let start = Instant::now();
     while TcpStream::connect(("127.0.0.1", port)).is_err() {
         assert!(start.elapsed() < Duration::from_secs(20), "server did not start");
@@ -183,15 +191,17 @@ unsafe extern "C" {
 fn http_limits_and_streaming() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let port = 20000 + (std::process::id() % 1000) as u16 * 3;
-    let child = Command::new(env!("CARGO_BIN_EXE_lang"))
-        .current_dir(&root)
-        .args(["run", "tests/http/limits.lang"])
-        .env("LIM_PORT", port.to_string())
-        .env("LANG_SHUTDOWN_AFTER_MS", "4000")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_lang"))
+            .current_dir(&root)
+            .args(["run", "tests/http/limits.lang"])
+            .env("LIM_PORT", port.to_string())
+            .env("LANG_SHUTDOWN_AFTER_MS", "4000")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
     let start = Instant::now();
     while TcpStream::connect(("127.0.0.1", port + 1)).is_err() {
         assert!(start.elapsed() < Duration::from_secs(20), "server did not start");
@@ -219,7 +229,7 @@ fn http_limits_and_streaming() {
     let mut out = String::new();
     s.read_to_string(&mut out).unwrap();
     assert!(out.contains("chunk 0\n") && out.contains("chunk 1\n") && out.ends_with("0\r\n\r\n"), "{out}");
-    let output = child.wait_with_output().unwrap();
+    let output = child.output();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("stream closed after 3 chunks"), "{stdout}");
     assert!(stdout.contains("stream closed after 2 chunks"), "{stdout}");
