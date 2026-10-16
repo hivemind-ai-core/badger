@@ -24,6 +24,9 @@
 | [`std.log`](log.md) | Structured logs. Each record has a level, a message, and fields (any |
 | [`std.metrics`](metrics.md) | Metrics: counters, gauges, and histograms (OpenTelemetry's default |
 | [`std.otel`](otel.md) | OpenTelemetry export: logs (`std.log`), spans (`trace.span`), and metrics |
+| [`std.toml`](toml.md) | TOML documents, as `Data` or typed values (records decoded by their |
+| [`std.yaml`](yaml.md) | YAML documents, as `Data` or typed values (records decoded by their |
+| [`std.csv`](csv.md) | CSV: rows of text fields, or records keyed by the header row, and back. |
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |

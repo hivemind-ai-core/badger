@@ -1,0 +1,44 @@
+// TOML, YAML, and CSV: parsed to `Data`, decoded to typed records, and
+// encoded back; malformed input is an error value.
+import std.io
+import std.toml
+import std.yaml
+import std.csv
+
+pub struct Server {
+    pub host: String,
+    pub port: Int,
+    pub tags: List<String>,
+}
+
+pub struct Config {
+    pub name: String,
+    pub server: Server,
+    pub debug: Option<Bool>,
+}
+
+pub struct Person {
+    pub name: String,
+    pub city: String,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let text = "name = \"orders\"\n\n[server]\nhost = \"0.0.0.0\"\nport = 8080\ntags = [\"a\", \"b\"]\n"
+    match toml.decode<Config>(text) {
+        .ok(c) => io.println($"toml: {c.name} {c.server.host}:{c.server.port} {c.server.tags.len()} debug={c.debug.is_none()}")?,
+        .err(e) => io.println($"toml error: {e}")?,
+    }
+    let back = toml.encode<Config>({ name: "x", server: { host: "h", port: 1, tags: [] }, debug: Option.some(true) })
+    io.println($"round trip: {toml.decode<Config>(back.unwrap_or("")).map(fn(c) { c.server.port }).unwrap_or(-1)}")?
+    io.println($"bad toml: {toml.parse("a = ").is_err()}")?
+    let y = "name: orders\nserver:\n  host: localhost\n  port: 9\n  tags: [x]\n"
+    io.println($"yaml: {yaml.decode<Config>(y).map(fn(c) { $"{c.server.host}:{c.server.port}" }).unwrap_or("?")}")?
+    io.println($"yaml data: {yaml.parse("[1, two, {k: v}]").unwrap_or(Data.null)}")?
+    let rows = csv.rows("a,b\n1,\"x, y\"\n2,\"say \"\"hi\"\"\"\n").unwrap_or([])
+    io.println($"csv rows: {rows.len()} {rows[1][1]} {rows[2][1]}")?
+    let people = csv.decode<Person>("name,city\nAda,London\nGrace,Arlington\n").unwrap_or([])
+    io.println($"csv records: {people.len()} {people[1].name}/{people[1].city}")?
+    io.println($"csv encode: {csv.encode([["a", "b,c"], ["1", "q\"q"]]).unwrap_or("?")}")?
+    io.println($"bad csv: {csv.decode<Person>("name,city\nAda\n").is_err()}")?
+    ok(())
+}

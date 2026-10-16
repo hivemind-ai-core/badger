@@ -601,7 +601,7 @@ fn encode_data(v: u64, w: &mut Writer) -> Result<(), String> {
                 encode_data(list::get(vals[0], i), w)?;
             }
         }
-        "map" => {
+        "object" => {
             let es = map::entries(vals[0]);
             w.u8(tag::MAP);
             w.u32(es.len() as u32);

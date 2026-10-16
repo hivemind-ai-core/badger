@@ -1,0 +1,11 @@
+toml: orders 0.0.0.0:8080 2 debug=true
+round trip: 1
+bad toml: true
+yaml: localhost:9
+yaml data: [1,"two",{"k":"v"}]
+csv rows: 3 x, y say "hi"
+csv records: 2 Grace/Arlington
+csv encode: a,"b,c"
+1,"q""q"
+
+bad csv: true

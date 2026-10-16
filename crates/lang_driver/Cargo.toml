@@ -22,6 +22,7 @@ rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column
 lang_sqlite.workspace = true
 lang_fetch.workspace = true
 lang_http.workspace = true
+lang_formats.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
