@@ -8,9 +8,11 @@
 //! result must have exactly the representations of its parameters and
 //! return (no conversion is implied by the call). Inlining runs in rounds
 //! over the callees' bodies as they were before the round, and stops
-//! growing a caller past `MAX_CALLER` statements. Polls, source positions,
-//! and checks inside the callee are kept, so scheduling bounds, debug lines,
-//! and defects are unchanged.
+//! growing a caller past `MAX_CALLER` statements. Source positions and
+//! checks inside the callee are kept, so debug lines and defects are
+//! unchanged; a callee's polls are kept when it loops, and dropped when its
+//! body has no cycle (its work is bounded, between the caller's own polls),
+//! so an inlined helper adds no budget bookkeeping to its caller's loop.
 //!
 //! Calls through a closure whose lambda is known (the closure object was
 //! allocated in the caller, possibly reached through plain copies, with that
@@ -160,8 +162,10 @@ fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func, env: Operand) 
         Operand::Local(l) => Operand::Local(lmap[l.index()]),
         c => *c,
     };
+    let bounded = !has_cycle(callee);
     for cb in callee.blocks.iter() {
-        let mut nb = Block { stmts: cb.stmts.iter().map(|s| remap_stmt(s, &lmap)).collect(), term: None };
+        let stmts = cb.stmts.iter().filter(|s| !(bounded && matches!(s, Stmt::Poll)));
+        let mut nb = Block { stmts: stmts.map(|s| remap_stmt(s, &lmap)).collect(), term: None };
         nb.term = cb.term.as_ref().map(|t| match t {
             Term::Goto(x) => Term::Goto(bmap(*x)),
             Term::Branch(c, x, y) => Term::Branch(lop(c), bmap(*x), bmap(*y)),
@@ -183,6 +187,38 @@ fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func, env: Operand) 
         block.stmts.push(Stmt::Assign(lmap[p.index()], Rvalue::Use(*a)));
     }
     block.term = Some(Term::Goto(bmap(BlockId::new(0))));
+}
+
+/// Whether `f`'s control flow has a cycle (a loop) among the blocks
+/// reachable from its entry.
+fn has_cycle(f: &Func) -> bool {
+    // 0: unvisited, 1: on the current path, 2: done
+    let mut state = vec![0u8; f.blocks.len()];
+    let mut stack: Vec<(BlockId, usize)> = vec![(BlockId::new(0), 0)];
+    state[0] = 1;
+    while let Some((b, i)) = stack.pop() {
+        let succ: Vec<BlockId> = match &f.blocks[b].term {
+            Some(Term::Goto(x)) => vec![*x],
+            Some(Term::Branch(_, x, y)) => vec![*x, *y],
+            Some(Term::Switch(_, cases, d)) => cases.iter().map(|c| c.1).chain([*d]).collect(),
+            _ => vec![],
+        };
+        if i < succ.len() {
+            stack.push((b, i + 1));
+            let n = succ[i];
+            match state[n.index()] {
+                1 => return true,
+                0 => {
+                    state[n.index()] = 1;
+                    stack.push((n, 0));
+                }
+                _ => {}
+            }
+        } else {
+            state[b.index()] = 2;
+        }
+    }
+    false
 }
 
 fn remap_stmt(s: &Stmt, lmap: &[Local]) -> Stmt {

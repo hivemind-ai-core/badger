@@ -2628,7 +2628,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 };
                 self.term(Term::Goto(head));
                 self.switch(head);
-                self.emit(Stmt::Poll);
+                // a short constant inner loop needs no poll of its own: its
+                // work between the enclosing loop's (or function's) polls is
+                // bounded
+                if !self.short_inner_loop(iter, body) {
+                    self.emit(Stmt::Poll);
+                }
                 let lt = self
                     .assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Lt, a: Operand::Local(i), b: end, ty: wide });
                 let eq = self.assign(
@@ -2915,6 +2920,30 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         self.switch(exit);
         Some(())
+    }
+
+    /// A range of integer literals with at most 64 values, iterated by a
+    /// body that has no loop of its own (calls poll on entry).
+    fn short_inner_loop(&self, iter: ExprId, body: ExprId) -> bool {
+        let hir = self.hir();
+        let ExprKind::Binary { op, lhs, rhs } = &hir.exprs[iter].kind else { return false };
+        let lit = |x: ExprId| match &hir.exprs[x].kind {
+            ExprKind::Lit(lang_hir::Lit::Int { value, .. }) => Some(*value),
+            _ => None,
+        };
+        let (Some(a), Some(b)) = (lit(*lhs), lit(*rhs)) else { return false };
+        let n = b.saturating_sub(a) + (*op == HBin::RangeIncl) as u128;
+        if !matches!(op, HBin::Range | HBin::RangeIncl) || n > 64 {
+            return false;
+        }
+        let mut looping = false;
+        lang_typeck::program::walk_exprs(hir, body, &mut |e| {
+            looping |= matches!(
+                hir.exprs[e].kind,
+                ExprKind::For { .. } | ExprKind::While { .. } | ExprKind::Loop { .. }
+            );
+        });
+        !looping
     }
 
     /// `map.to_list(m)` / `set.to_list(s)`: the iteration kind of `m` / `s`
