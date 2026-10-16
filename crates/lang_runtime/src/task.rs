@@ -238,6 +238,8 @@ pub struct Task {
     pending_wake: Option<Wake>,
     /// It suspended without the runtime lock, so it resumes without it.
     free_resume: bool,
+    /// The task's own lock (see [`with_task`]).
+    tlock: AtomicBool,
     /// What it waits for while parked without the runtime lock (see
     /// [`FREE_WAITS`]; 0: nothing). Atomic: inspection reads it under the
     /// lock while the task runs.
@@ -686,7 +688,19 @@ fn unlock() {
 }
 
 /// Workers currently executing compiled code (outside the runtime lock).
-static IN_COMPILED: AtomicIsize = AtomicIsize::new(0);
+static IN_COMPILED: [Counter; MAX_WORKERS] = [const { Counter(AtomicIsize::new(0)) }; MAX_WORKERS];
+
+/// One worker thread's count, on its own cache line: a compiled-code
+/// interval starts and ends on one thread (tasks change threads only while
+/// suspended inside the runtime), so each thread updates only its own
+/// slot, and switching tasks never writes a line other workers write.
+#[repr(align(128))]
+struct Counter(AtomicIsize);
+
+/// This worker thread's [`IN_COMPILED`] slot.
+fn in_compiled() -> &'static AtomicIsize {
+    &IN_COMPILED[worker_index()].0
+}
 /// Set while a collection waits for every worker to reach a safe point.
 static STOP: AtomicBool = AtomicBool::new(false);
 /// Most worker threads (per-worker tables are sized by it).
@@ -759,14 +773,14 @@ fn chaos_jitter() {
 
 /// Compiled code is about to call into the runtime (a safe point).
 pub extern "C" fn lang_rt_enter(_ctx: *mut TaskCtx, why: u64) {
-    IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+    in_compiled().fetch_sub(1, Ordering::SeqCst);
     chaos_jitter();
     lock_for(why as u16);
 }
 
 /// Compiled code continues after a runtime call.
 pub extern "C" fn lang_rt_leave(_ctx: *mut TaskCtx) {
-    IN_COMPILED.fetch_add(1, Ordering::SeqCst);
+    in_compiled().fetch_add(1, Ordering::SeqCst);
     unlock();
     chaos_jitter();
 }
@@ -774,14 +788,14 @@ pub extern "C" fn lang_rt_leave(_ctx: *mut TaskCtx) {
 /// A foreign call from compiled code: it cannot touch managed memory, so it
 /// does not hold up a collection.
 pub extern "C" fn lang_rt_safe_begin(_ctx: *mut TaskCtx) {
-    IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+    in_compiled().fetch_sub(1, Ordering::SeqCst);
 }
 
 pub extern "C" fn lang_rt_safe_end(_ctx: *mut TaskCtx) {
     // increments only under the lock, so a collection in progress (which
     // holds the lock) finishes first
     lock_for(reason::SAFE_END);
-    IN_COMPILED.fetch_add(1, Ordering::SeqCst);
+    in_compiled().fetch_add(1, Ordering::SeqCst);
     unlock();
 }
 
@@ -826,7 +840,7 @@ pub fn stop_the_world() {
         return;
     }
     STOP.store(true, Ordering::SeqCst);
-    while IN_COMPILED.load(Ordering::SeqCst) > 0 {
+    while IN_COMPILED.iter().map(|c| c.0.load(Ordering::SeqCst)).sum::<isize>() > 0 {
         std::hint::spin_loop();
         std::thread::yield_now();
     }
@@ -981,6 +995,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         stages: vec![],
         pending_wake: None,
         free_resume: false,
+        tlock: AtomicBool::new(false),
         free_wait: AtomicU8::new(0),
     });
     r.tasks.insert(id, t);
@@ -1131,12 +1146,11 @@ fn flags_of(t: &Task) -> u64 {
 /// (so no waker takes the registration before the task is parking): mark
 /// it parking, waiting for `why` (an index into [`FREE_WAITS`]). `false`
 /// (cancellation or a failure is pending): it must not park; the locked
-/// path decides instead. The flags are read under the scheduler queue
-/// lock, which a canceller's wake takes after setting them.
+/// path decides instead. The flags are read under the task's own lock,
+/// which a canceller's wake takes after setting them.
 pub fn begin_park_free(why: u8) -> bool {
     let p = current().expect("park outside a task") as *mut Task;
-    sched(|| {
-        let t = unsafe { &mut *p };
+    with_task(p, |t| {
         if flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
             return false;
         }
@@ -1194,11 +1208,11 @@ pub fn yield_free() {
 /// it among [`IN_COMPILED`], waiting out a collection stopping the world.
 fn gc_enter() {
     loop {
-        IN_COMPILED.fetch_add(1, Ordering::SeqCst);
+        in_compiled().fetch_add(1, Ordering::SeqCst);
         if !STOP.load(Ordering::SeqCst) {
             return;
         }
-        IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
+        in_compiled().fetch_sub(1, Ordering::SeqCst);
         while STOP.load(Ordering::SeqCst) {
             std::hint::spin_loop();
             std::thread::yield_now();
@@ -1246,25 +1260,31 @@ fn wake_slot() -> bool {
     multi() && current_raw() != 0 && !chaotic_skip && !sched_controlled()
 }
 
-/// Queue a ready task (into this worker's next slot when `slot`); returns
-/// whether idle workers should be told. Takes the scheduler queue lock.
+/// Queue a ready task on this worker (into its next slot when `slot`);
+/// returns whether idle workers should be told (they may steal it). One
+/// worker or controlled scheduling: the shared queue.
 fn enqueue(e: Entry, slot: bool) -> bool {
-    sched(|| enqueue_locked(e, slot))
-}
-
-fn enqueue_locked(e: Entry, slot: bool) -> bool {
-    if slot {
-        let w = worker_index();
-        let prev = std::mem::replace(&mut queue().next[w], e);
-        queue().next_at[w] = now_ns();
-        if prev.0 != 0 {
-            queue().ready.push_back(prev);
-            return true;
-        }
-        return false;
+    if !multi() || sched_controlled() {
+        sched(|| queue().ready.push_back(e));
+        GLOBAL_LEN.fetch_add(1, Ordering::Release);
+        return true;
     }
-    queue().ready.push_back(e);
-    true
+    let q = local(worker_index());
+    q.with(|l| {
+        if slot {
+            let prev = std::mem::replace(&mut l.next, e);
+            q.next_at.store(now_ns(), Ordering::Relaxed);
+            if prev.0 == 0 {
+                q.len.fetch_add(1, Ordering::Release);
+                return false;
+            }
+            l.deque.push_back(prev);
+        } else {
+            l.deque.push_back(e);
+        }
+        q.len.fetch_add(1, Ordering::Release);
+        true
+    })
 }
 
 /// Queue a ready task in the shared queue and tell idle workers (runtime
@@ -1276,12 +1296,134 @@ fn push_ready(id: TaskId) {
     }
 }
 
-/// The scheduler queue lock: the ready queue, the workers' next slots, and
-/// a parked task's transition to ready (with a delivered value). Taken
-/// inside the runtime lock, or by a channel fast path holding its channel;
-/// nothing is waited for while holding it, and no other lock is taken
-/// under it.
+/// The shared ready queue's lock (one worker, controlled scheduling, and
+/// tasks left from before scheduling became controlled). Nothing is
+/// waited for while holding it, and no other lock is taken under it.
 static SCHED_Q: AtomicBool = AtomicBool::new(false);
+/// Entries in the shared ready queue (read without its lock).
+static GLOBAL_LEN: AtomicUsize = AtomicUsize::new(0);
+
+/// A worker's ready tasks: its next slot and its queue, under its own lock
+/// (taken by the worker, by wakers running on it, and by idle workers
+/// stealing). Independent workers never touch each other's.
+#[repr(align(128))]
+struct LocalQueue {
+    lock: AtomicBool,
+    /// Tasks here (the next slot counts), read without the lock.
+    len: AtomicUsize,
+    /// When the next slot was filled ([`now_ns`]): another worker may take
+    /// it only after [`STEAL_AFTER_NS`], so a woken partner usually runs on
+    /// the worker whose caches hold the data it was woken for.
+    next_at: AtomicU64,
+    q: UnsafeCell<Local>,
+}
+
+struct Local {
+    /// A task woken by a task running here, to run next here (0 = none).
+    next: Entry,
+    deque: VecDeque<Entry>,
+}
+
+unsafe impl Sync for LocalQueue {}
+
+impl LocalQueue {
+    fn with<R>(&self, f: impl FnOnce(&mut Local) -> R) -> R {
+        while self.lock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+            std::hint::spin_loop();
+        }
+        let r = f(unsafe { &mut *self.q.get() });
+        self.lock.store(false, Ordering::Release);
+        r
+    }
+
+    /// Take its next task (`slot`: the next slot first), adjusting `len`.
+    fn pop(&self, slot: bool) -> Option<Entry> {
+        if self.len.load(Ordering::Acquire) == 0 {
+            return None;
+        }
+        let e = self.with(|l| {
+            if slot && l.next.0 != 0 {
+                return Some(std::mem::take(&mut l.next));
+            }
+            if chaos().is_some() && l.deque.len() > 1 {
+                let i = (chaos_next() % l.deque.len() as u64) as usize;
+                return l.deque.remove(i);
+            }
+            l.deque.pop_front()
+        });
+        if e.is_some() {
+            self.len.fetch_sub(1, Ordering::Release);
+        }
+        e
+    }
+
+    /// Take its next-slot task if it has waited there [`STEAL_AFTER_NS`].
+    fn steal_next(&self, now: u64) -> Option<Entry> {
+        if self.len.load(Ordering::Acquire) == 0
+            || now.saturating_sub(self.next_at.load(Ordering::Relaxed)) < STEAL_AFTER_NS
+        {
+            return None;
+        }
+        let e = self.with(|l| (l.next.0 != 0).then(|| std::mem::take(&mut l.next)));
+        if e.is_some() {
+            self.len.fetch_sub(1, Ordering::Release);
+        }
+        e
+    }
+
+    fn queued(&self) -> usize {
+        self.len.load(Ordering::Acquire)
+    }
+}
+
+static LOCAL: [LocalQueue; MAX_WORKERS] = [const {
+    LocalQueue {
+        lock: AtomicBool::new(false),
+        len: AtomicUsize::new(0),
+        next_at: AtomicU64::new(0),
+        q: UnsafeCell::new(Local { next: (0, 0), deque: VecDeque::new() }),
+    }
+}; MAX_WORKERS];
+
+fn local(w: usize) -> &'static LocalQueue {
+    &LOCAL[w]
+}
+
+/// Move every worker's queued tasks to the shared queue (scheduling became
+/// controlled: worker 0 then picks among all of them).
+fn drain_locals() {
+    for q in &LOCAL {
+        if q.queued() == 0 {
+            continue;
+        }
+        let moved: Vec<Entry> = q.with(|l| {
+            let mut v: Vec<Entry> = l.deque.drain(..).collect();
+            if l.next.0 != 0 {
+                v.insert(0, std::mem::take(&mut l.next));
+            }
+            v
+        });
+        q.len.fetch_sub(moved.len(), Ordering::Release);
+        GLOBAL_LEN.fetch_add(moved.len(), Ordering::Release);
+        sched(|| queue().ready.extend(moved));
+    }
+}
+
+/// A task's own lock: its parked/parking/ready transitions and the values
+/// delivered with them (wakers on any worker, the parking task, and its
+/// worker take it; no lock is taken under it).
+fn with_task<R>(t: *mut Task, f: impl FnOnce(&mut Task) -> R) -> R {
+    let t = unsafe { &mut *t };
+    if !multi() {
+        return f(t);
+    }
+    while t.tlock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        std::hint::spin_loop();
+    }
+    let r = f(t);
+    t.tlock.store(false, Ordering::Release);
+    r
+}
 
 /// A ready task and its record (so a worker without the runtime lock can
 /// resume it without looking it up).
@@ -1291,13 +1433,6 @@ type Entry = (TaskId, usize);
 /// runtime lock's holder borrows).
 struct ReadyQueue {
     ready: VecDeque<Entry>,
-    /// Several workers: a task woken by a running task, kept to run next on
-    /// the waker's worker (0 = none); idle workers steal from these.
-    next: [Entry; MAX_WORKERS],
-    /// When each next slot was filled ([`now_ns`]): another worker may take
-    /// it only after [`STEAL_AFTER_NS`], so a woken partner usually runs on
-    /// the worker whose caches hold the data it was woken for.
-    next_at: [u64; MAX_WORKERS],
 }
 
 const STEAL_AFTER_NS: u64 = 50_000;
@@ -1332,11 +1467,7 @@ fn events_due() -> bool {
 
 struct QueueCell(UnsafeCell<ReadyQueue>);
 unsafe impl Sync for QueueCell {}
-static QUEUE: QueueCell = QueueCell(UnsafeCell::new(ReadyQueue {
-    ready: VecDeque::new(),
-    next: [(0, 0); MAX_WORKERS],
-    next_at: [0; MAX_WORKERS],
-}));
+static QUEUE: QueueCell = QueueCell(UnsafeCell::new(ReadyQueue { ready: VecDeque::new() }));
 
 /// The ready queue (only inside [`sched`]).
 #[allow(clippy::mut_from_ref)]
@@ -1356,59 +1487,76 @@ fn sched<R>(f: impl FnOnce() -> R) -> R {
     r
 }
 
-/// Whether any task waits to run (the shared queue or a worker's next slot).
+/// Whether any task waits to run (a worker's queue or the shared queue).
 fn has_ready() -> bool {
-    sched(|| {
-        let q = queue();
-        !q.ready.is_empty() || q.next.iter().any(|t| t.0 != 0)
-    })
+    GLOBAL_LEN.load(Ordering::Acquire) > 0 || LOCAL.iter().any(|q| q.queued() > 0)
 }
 
-/// This worker's next task, else the shared queue, else another worker's
-/// next task.
+/// Pop from the shared queue.
+fn pop_global() -> Option<Entry> {
+    if GLOBAL_LEN.load(Ordering::Acquire) == 0 {
+        return None;
+    }
+    let e = sched(chaos_pop);
+    if e.is_some() {
+        GLOBAL_LEN.fetch_sub(1, Ordering::Release);
+    }
+    e
+}
+
+/// This worker's next task, else its queue, else the shared queue, else a
+/// task stolen from another worker's queue, else another worker's next
+/// task once it has waited there a while.
 fn take_ready() -> Option<Entry> {
-    sched(|| {
-        let w = worker_index();
-        let mine = std::mem::take(&mut queue().next[w]);
-        if mine.0 != 0 {
-            return Some(mine);
+    let w = worker_index();
+    if let Some(e) = local(w).pop(true) {
+        return Some(e);
+    }
+    if let Some(e) = pop_global() {
+        return Some(e);
+    }
+    let n = workers().min(MAX_WORKERS);
+    for k in 1..n {
+        if let Some(e) = local((w + k) % n).pop(false) {
+            return Some(e);
         }
-        if let Some(t) = chaos_pop() {
-            return Some(t);
-        }
-        // another worker's next task, once it has waited there a while
-        let now = now_ns();
-        let q = queue();
-        (0..MAX_WORKERS)
-            .find(|&i| q.next[i].0 != 0 && now.saturating_sub(q.next_at[i]) >= STEAL_AFTER_NS)
-            .map(|i| std::mem::take(&mut q.next[i]))
-    })
+    }
+    let now = now_ns();
+    (1..n).find_map(|k| local((w + k) % n).steal_next(now))
 }
 
-/// Whether this worker has something to run (its next slot, the shared
-/// queue, or another worker's slot it may take), and otherwise how soon
-/// another worker's slot becomes takable.
+/// Whether this worker has something to run (its own tasks, the shared
+/// queue, another worker's queue, or another worker's slot it may take),
+/// and otherwise how soon another worker's slot becomes takable.
 fn work_here() -> (bool, Option<Duration>) {
-    sched(|| {
-        let q = queue();
-        let w = worker_index();
-        if q.next[w].0 != 0 || !q.ready.is_empty() {
+    if GLOBAL_LEN.load(Ordering::Acquire) > 0 {
+        return (true, None);
+    }
+    let w = worker_index();
+    let now = now_ns();
+    let mut soonest: Option<u64> = None;
+    for (i, q) in LOCAL.iter().enumerate() {
+        let n = q.queued();
+        if n == 0 {
+            continue;
+        }
+        if i == w {
             return (true, None);
         }
-        let now = now_ns();
-        let mut soonest: Option<u64> = None;
-        for i in 0..MAX_WORKERS {
-            if q.next[i].0 != 0 {
-                let age = now.saturating_sub(q.next_at[i]);
-                if age >= STEAL_AFTER_NS {
-                    return (true, None);
-                }
-                let left = STEAL_AFTER_NS - age;
-                soonest = Some(soonest.map_or(left, |s: u64| s.min(left)));
-            }
+        let (has_next, deque) = q.with(|l| (l.next.0 != 0, l.deque.len()));
+        if deque > 0 {
+            return (true, None);
         }
-        (false, soonest.map(Duration::from_nanos))
-    })
+        if has_next {
+            let age = now.saturating_sub(q.next_at.load(Ordering::Relaxed));
+            if age >= STEAL_AFTER_NS {
+                return (true, None);
+            }
+            let left = STEAL_AFTER_NS - age;
+            soonest = Some(soonest.map_or(left, |s: u64| s.min(left)));
+        }
+    }
+    (false, soonest.map(Duration::from_nanos))
 }
 
 pub fn wake(id: TaskId, reason: Wake) {
@@ -1421,22 +1569,19 @@ fn wake_waiting(id: TaskId, reason: Wake) {
     let Some(t) = task(id) else { return };
     let t = t as *mut Task;
     let slot = wake_slot();
-    let notify = sched(|| {
-        let t = unsafe { &mut *t };
-        match t.state.get() {
-            State::Parked => {
-                t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
-                t.wake = reason;
-                enqueue_locked((t.id, t as *mut Task as usize), slot)
-            }
-            State::Parking => {
-                t.pending_wake = Some(reason);
-                false
-            }
-            _ => false,
+    let ready = with_task(t, |t| match t.state.get() {
+        State::Parked => {
+            t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
+            t.wake = reason;
+            true
         }
+        State::Parking => {
+            t.pending_wake = Some(reason);
+            false
+        }
+        _ => false,
     });
-    if notify {
+    if ready && enqueue((unsafe { (*t).id }, t as usize), slot) {
         notify_ready();
     }
 }
@@ -1446,8 +1591,7 @@ fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>)
     let Some(t) = task(id) else { return };
     let t = t as *mut Task;
     let slot = wake_slot();
-    let notify = sched(|| {
-        let t = unsafe { &mut *t };
+    let ready = with_task(t, |t| {
         if let Some((value, is_ptr, status)) = delivery {
             t.delivered = value;
             t.delivered_is_ptr = is_ptr;
@@ -1456,7 +1600,7 @@ fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>)
         if t.state.get() == State::Parked {
             t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
             t.wake = reason;
-            enqueue_locked((t.id, t as *mut Task as usize), slot)
+            true
         } else if t.state.get() == State::Parking {
             // its worker queues it once it has left its stack
             t.pending_wake = Some(reason);
@@ -1469,7 +1613,7 @@ fn wake_delivering(id: TaskId, reason: Wake, delivery: Option<(u64, bool, u64)>)
             false
         }
     });
-    if notify {
+    if ready && enqueue((unsafe { (*t).id }, t as usize), slot) {
         notify_ready();
     }
 }
@@ -1487,8 +1631,7 @@ pub fn current_ptr() -> usize {
 pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bool {
     let t = t as *mut Task;
     let slot = wake_slot();
-    let woke = sched(|| {
-        let t = unsafe { &mut *t };
+    let woke = with_task(t, |t| {
         let flags = unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) };
         let state = t.state.get();
         if flags & FLAG_CANCEL != 0
@@ -1507,11 +1650,11 @@ pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bo
         }
         t.state.set(if t.in_cleanup { State::Cleaning } else { State::Ready });
         t.wake = Wake::Normal;
-        Some(enqueue_locked((t.id, t as *mut Task as usize), slot))
+        Some(true)
     });
     match woke {
-        Some(notify) => {
-            if notify {
+        Some(ready) => {
+            if ready && enqueue((unsafe { (*t).id }, t as usize), slot) {
                 notify_ready();
             }
             true
@@ -2090,6 +2233,9 @@ pub fn refresh_controlled(c: &SchedControl) {
 
 /// Pick the next ready task: FIFO unless scheduling is controlled.
 fn next_ready() -> Option<Entry> {
+    if multi() {
+        drain_locals();
+    }
     let n = sched(|| queue().ready.len()) as u64;
     if n == 0 {
         return None;
@@ -2097,7 +2243,7 @@ fn next_ready() -> Option<Entry> {
     let mut c = SCHED.lock().unwrap();
     if c.seed.is_none() && c.replay.is_empty() && !c.record {
         drop(c);
-        return sched(chaos_pop);
+        return pop_global();
     }
     let idx = if let Some(i) = c.replay.pop_front() {
         (i as u64).min(n - 1)
@@ -2116,7 +2262,11 @@ fn next_ready() -> Option<Entry> {
     }
     refresh_controlled(&c);
     drop(c);
-    sched(|| queue().ready.remove(idx as usize))
+    let e = sched(|| queue().ready.remove(idx as usize));
+    if e.is_some() {
+        GLOBAL_LEN.fetch_sub(1, Ordering::Release);
+    }
+    e
 }
 
 /// The next ready task: FIFO, or a random one under chaos.
@@ -2271,7 +2421,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         if let Some(id) = pick {
             // more work than this worker can take: wake another (tasks in
             // workers' next slots are taken by idle workers after a while)
-            if sched(|| !queue().ready.is_empty()) {
+            if local(worker_index()).queued() > 0 || GLOBAL_LEN.load(Ordering::Acquire) > 0 {
                 notify_ready();
             }
             if is_free(id) && !sched_controlled() {
@@ -2390,28 +2540,24 @@ fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
     let p = e.1 as *mut Task;
     let notify = match res {
         CoroutineResult::Yield(Signal::ParkFree) => {
-            IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
-            sched(|| {
-                let t = unsafe { &mut *p };
-                match t.pending_wake.take() {
-                    Some(w) => {
-                        t.wake = w;
-                        t.state.set(State::Ready);
-                        enqueue_locked(e, false)
-                    }
-                    None => {
-                        t.state.set(State::Parked);
-                        false
-                    }
+            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            let ready = with_task(p, |t| match t.pending_wake.take() {
+                Some(w) => {
+                    t.wake = w;
+                    t.state.set(State::Ready);
+                    true
                 }
-            })
+                None => {
+                    t.state.set(State::Parked);
+                    false
+                }
+            });
+            ready && enqueue(e, false)
         }
         CoroutineResult::Yield(Signal::YieldFree) => {
-            IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
-            sched(|| {
-                unsafe { &*p }.state.set(State::Ready);
-                enqueue_locked(e, false)
-            })
+            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            with_task(p, |t| t.state.set(State::Ready));
+            enqueue(e, false)
         }
         _ => return false,
     };
@@ -2455,7 +2601,7 @@ fn run_free(mut e: Entry, cycle: bool) {
         }
         chaos_jitter();
         let Some(n) = take_ready() else { break };
-        if sched(|| !queue().ready.is_empty()) {
+        if local(worker_index()).queued() > 0 {
             notify_ready();
         }
         if !is_free(n) {
