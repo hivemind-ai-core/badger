@@ -244,17 +244,24 @@ pub fn data_elem(ch: u64) -> &'static TypeDesc {
 }
 
 /// Take a channel for an unlocked fast path, if nothing else holds it.
-/// Another fast path holds a channel for a few instructions: wait it out
-/// briefly. A claim by the runtime lock's holder lasts until that lock is
-/// released: give up (the locked path then decides).
+/// Another fast path holds a channel for a few instructions, and a claim by
+/// the runtime lock's holder lasts until it releases that lock: wait for
+/// either briefly, with backoff, rather than falling back to the runtime
+/// lock (one fallback would claim the channel and make every other
+/// operation on it fall back too). The wait is bounded: the lock's holder
+/// may be a collection waiting for this worker to reach a safe point, which
+/// the fallback is.
 fn try_fast(d: &ChanData) -> bool {
     use std::sync::atomic::Ordering;
-    for _ in 0..128 {
-        match d.state.compare_exchange_weak(0, 1, Ordering::Acquire, Ordering::Relaxed) {
-            Ok(_) => return true,
-            Err(2) => return false,
-            Err(_) => std::hint::spin_loop(),
+    let mut spins = 1u32;
+    for _ in 0..24 {
+        if d.state.compare_exchange_weak(0, 1, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+            return true;
         }
+        for _ in 0..spins {
+            std::hint::spin_loop();
+        }
+        spins = (spins * 2).min(256);
     }
     false
 }
