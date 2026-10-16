@@ -1,0 +1,64 @@
+// Native modules: calls into `lang_native_demo` (crates/lang_native_demo)
+// in every mode, with every value shape, expected errors, and handles.
+import std.io
+import std.native
+import std.task
+import std.text
+import std.bytes
+
+pub struct Point {
+    pub x: Int,
+    pub y: Int,
+}
+
+pub enum Shape {
+    circle(r: Float),
+    square(side: Float),
+}
+
+extern "native lang_native_demo" fn add(a: Int, b: Int) -> Int
+extern "native lang_native_demo" fn greet(name: String) -> String
+extern "native lang_native_demo" fn echo(value: Data) -> Data
+extern "native lang_native_demo" fn point(x: Int, y: Int) -> { x: Int, y: Int }
+extern "native lang_native_demo" fn scale(p: Point, k: Int) -> Point
+extern "native lang_native_demo" fn divide(a: Int, b: Int) -> Result<Int, native.Error>
+extern "native lang_native_demo" fn sum(xs: List<Int>) -> Int !{Wait}
+extern "native lang_native_demo" fn reverse(b: Bytes) -> Bytes
+extern "native lang_native_demo" fn maybe(n: Int) -> Option<String>
+extern "native lang_native_demo" fn area(s: Shape) -> Float
+extern "native lang_native_demo" fn shapes() -> List<Shape>
+extern "native lang_native_demo" fn later(ms: Int, value: Int) -> Int !{Wait}
+extern "native lang_native_demo" fn cancels() -> Int
+extern "native lang_native_demo" fn counter() -> native.Handle
+extern "native lang_native_demo" fn bump(c: native.Handle) -> Int
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"add {add(40, 2)}; {greet("native")}")?
+    let d = echo(Data.list([Data.int(1), Data.string("two"), Data.null]))
+    io.println($"echo {d}")?
+    let p = point(3, 4)
+    let q = scale({ x: 1, y: 2 }, 10)
+    io.println($"point {p.x},{p.y}; scaled {q.x},{q.y}")?
+    match divide(7, 0) {
+        .ok(v) => io.println($"7/0 = {v}")?,
+        .err(e) => io.println($"7/0: {e}")?,
+    }
+    io.println($"7/2 = {divide(7, 2).unwrap_or(-1)}")?
+    io.println($"sum {sum([1, 2, 3, 4])}")?
+    io.println($"reverse {bytes.to_text(reverse(text.to_bytes("abc"))).unwrap_or("?")}")?
+    io.println($"maybe {maybe(0).unwrap_or("none")} {maybe(5).unwrap_or("none")}")?
+    io.println($"areas {area(Shape.circle(1.0))} {area(Shape.square(3.0))} {shapes().len()}")?
+    io.println($"later {later(5, 9)}")?
+    // a cancelled async call: the module hears of it
+    let before = cancels()
+    let r = task.scope(fn(s) -> Result<Unit, String> {
+        let _ = s.spawn(fn() -> Int { later(10000, 1) })
+        task.sleep(20ms)
+        err("stop")
+    })
+    io.println($"cancelled {r.is_err()}, module told {cancels() - before}")?
+    let c = counter()
+    let _ = bump(c)
+    io.println($"counter {bump(c)}")?
+    ok(())
+}

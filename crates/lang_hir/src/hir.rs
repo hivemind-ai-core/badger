@@ -94,7 +94,7 @@ pub enum DefKind {
     Pending,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FnAbi {
     /// Ordinary language function with a body.
     Lang,
@@ -102,6 +102,9 @@ pub enum FnAbi {
     Intrinsic,
     /// Foreign C function (`extern "c"`).
     C,
+    /// Function of a native module (`extern "native NAME"`), named in
+    /// [`FnDef::native`].
+    Native,
 }
 
 #[derive(Debug)]
@@ -119,6 +122,8 @@ pub struct FnDef {
     pub has_self: bool,
     /// Declared adapter contract of an `extern "c"` function.
     pub ffi: FfiContract,
+    /// The native module of an `extern "native NAME"` function.
+    pub native: Option<String>,
     /// `ensures` clauses: checked on every return, with `result` (the
     /// local below) bound to the value returned. (`requires` clauses are
     /// checks at the start of `body`.)

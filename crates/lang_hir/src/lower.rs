@@ -585,6 +585,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::ItemKind::Extern { abi, decl } => {
                 let mut words = abi.split_whitespace();
                 let mut contract = crate::hir::FfiContract::default();
+                let mut native = None;
                 let abi = match words.next().unwrap_or("") {
                     "intrinsic" => FnAbi::Intrinsic,
                     "c" => {
@@ -608,12 +609,34 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         }
                         FnAbi::C
                     }
+                    "native" => {
+                        let lib = words.next().unwrap_or("");
+                        let valid =
+                            !lib.is_empty() && lib.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+                        if !valid {
+                            self.err(
+                                "E0115",
+                                decl.name.span,
+                                "a native function names its module: `extern \"native NAME\"`",
+                                "the module name is letters, digits, and `_`",
+                            );
+                        } else if let Some(w) = words.next() {
+                            self.err(
+                                "E0115",
+                                decl.name.span,
+                                format!("unexpected `{w}` after the native module's name"),
+                                "the module declares how each of its functions runs",
+                            );
+                        }
+                        native = Some(lib.to_string());
+                        FnAbi::Native
+                    }
                     other => {
                         self.err(
                             "E0115",
                             decl.name.span,
                             format!("unknown extern ABI `{other}`"),
-                            "expected \"c\"",
+                            "expected \"c\" or \"native NAME\"",
                         );
                         FnAbi::C
                     }
@@ -628,6 +651,15 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
                 let mut f = self.lower_fn(decl, def, None, abi);
                 f.ffi = contract;
+                if abi == FnAbi::Native && !f.generics.is_empty() {
+                    self.err(
+                        "E0115",
+                        decl.name.span,
+                        "a native function cannot be generic",
+                        "its argument and result types are fixed by the module",
+                    );
+                }
+                f.native = native;
                 DefKind::Fn(f)
             }
             ast::ItemKind::Global { kind, pat, ty, value } => {
@@ -876,6 +908,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             owner,
             has_self,
             ffi: Default::default(),
+            native: None,
             ensures,
             result,
             contracts,

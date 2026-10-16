@@ -1835,6 +1835,42 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 };
                 Some(self.call(Callee::Foreign { name, params, ret: ret_ffi, contract }, args, ret))
             }
+            FnAbi::Native => {
+                // the host converts by the declared types; the site names
+                // the module and function
+                let DefKind::Fn(fd) = &hir.defs[def].kind else { unreachable!() };
+                let lib = fd.native.clone().unwrap_or_default();
+                let name = self.m.sym(hir.defs[def].name).to_string();
+                let fty = self.m.g.scheme(def).map(|s| lang_typeck::ground_resolved(&s.ty));
+                let params: Vec<Ty> = match fty.as_deref() {
+                    Some(TyKind::Fn(f)) => f.params.clone(),
+                    _ => vec![],
+                };
+                if args.len() > 8 {
+                    self.m.errors.push(format!("native function `{name}` takes more than 8 arguments"));
+                    return Some(unit_op());
+                }
+                let site = self.m.str_const(&format!("{lib}\0{name}"));
+                let tp = self.m.targs_ptr(&params);
+                let rd = self.m.lay.desc(ret_ty) as *const TypeDesc as u64;
+                let wr = if self.repr(ret_ty) == Repr::Ptr { Repr::Ptr } else { Repr::I64 };
+                let mut all = vec![Operand::Const(Const::Addr(site))];
+                all.extend(args);
+                let w = self.call(
+                    Callee::Intrinsic {
+                        name: format!("lang_rt_i_native_call{}", all.len() - 1),
+                        targs: tp,
+                        ret: rd,
+                    },
+                    all,
+                    wr,
+                );
+                if self.is_never(ret_ty) {
+                    self.dead();
+                    return None;
+                }
+                Some(self.from_word(w, ret_ty))
+            }
         }
     }
 

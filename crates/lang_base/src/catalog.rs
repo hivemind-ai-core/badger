@@ -95,7 +95,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "unknown module",
         "No standard or project module has this path; project modules live under the entry directory (`src/a/b.lang` is `a.b`).",
     ),
-    ("E0115", "unknown ABI", "Foreign functions use `extern \"c\"`."),
+    (
+        "E0115",
+        "unknown ABI",
+        "Foreign functions use `extern \"c\"` (with optional `blocking` or `pinned`), and native module functions `extern \"native NAME\"`, which are not generic.",
+    ),
     (
         "E0116",
         "intrinsic outside std",
@@ -447,6 +451,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0409",
         "not an FFI type",
         "Foreign functions exchange primitives, raw pointers (`ffi.Ptr<T>`), and `repr c` structs. Managed values (strings, lists, records, closures) need an adapter such as `ffi.with_cstring`.",
+    ),
+    (
+        "E0410",
+        "cannot cross a native boundary",
+        "Native module functions exchange values by copy: primitives, `String`, `Bytes`, `Symbol`, `Data`, `native.Handle`, and lists, sets, arrays, maps with string keys, `Option`, `Result`, tuples, records, structs, and enums made of them. Closures, references, cells, channels, tasks, raw pointers, and other runtime objects stay in the program.",
     ),
     (
         "E0406",

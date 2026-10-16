@@ -1,0 +1,34 @@
+// Native modules: functions implemented outside the language (in Rust, or
+// anything with a C ABI) and declared with `extern "native NAME" fn`. The
+// module `NAME` is linked into the executable or loaded from
+// `libNAME.so` (searched in `LANG_NATIVE_PATH`, then next to the `lang`
+// executable). Values cross by copy, as their declared types say:
+// primitives, `String`, `Bytes`, `Symbol`, `Data`, `Handle`, and lists,
+// sets, arrays, string-keyed maps, options, results, tuples, records,
+// structs, and enums of them. The module decides whether a function runs
+// on the worker, on the blocking pool, or completes asynchronously; a
+// waiting task can be cancelled. A module's failure that is not an
+// expected error (a panic, a result of the wrong type) fails the calling
+// task as a defect.
+
+import std.prelude
+
+/// Module-owned state (a connection, a server) named by the program. The
+/// module releases it once the program can no longer reach it, or when a
+/// module function closes it.
+pub extern type Handle
+
+/// An expected failure reported by a native module: a `kind` such as
+/// `:sqlite/constraint`, and a message.
+pub struct Error {
+    pub kind: Symbol,
+    pub message: String,
+} derive(Codec)
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.kind}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.kind }
+}

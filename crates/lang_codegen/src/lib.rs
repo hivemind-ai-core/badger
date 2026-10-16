@@ -1540,6 +1540,18 @@ impl Body<'_> {
 /// call back into compiled code, or mutate shared objects (a shared list
 /// tail is extended by an atomic slot claim); a defect takes the lock.
 pub const UNLOCKED: &[&str] = &[
+    // native module calls: an inline function runs without the lock (its
+    // arguments and result are copies); blocking and async calls take it
+    // to wait
+    "lang_rt_i_native_call0",
+    "lang_rt_i_native_call1",
+    "lang_rt_i_native_call2",
+    "lang_rt_i_native_call3",
+    "lang_rt_i_native_call4",
+    "lang_rt_i_native_call5",
+    "lang_rt_i_native_call6",
+    "lang_rt_i_native_call7",
+    "lang_rt_i_native_call8",
     "lang_rt_alloc",
     "lang_rt_concat",
     "lang_rt_eq",

@@ -2276,6 +2276,35 @@ fn run_on<T: Send + 'static>(
     }
 }
 
+/// An operation outside the scheduler (a native module's async call)
+/// starts for the current task: until it completes or is withdrawn, the
+/// scheduler waits for it rather than reporting a deadlock. Lock held.
+pub fn begin_external() {
+    rt().outstanding += 1;
+}
+
+/// The current task stopped waiting for an external operation that has
+/// not completed (it was cancelled). Lock held.
+pub fn withdraw_external() {
+    rt().outstanding -= 1;
+}
+
+/// Complete an external operation for `task`, from any thread, through
+/// the queue [`external_queue`] gave (on the worker): the task is woken
+/// and [`take_completion`] returns `value`.
+pub fn post_completion(q: &ExternalQueue, task: TaskId, value: Box<dyn std::any::Any + Send>) {
+    let mut g = q.queue.lock().unwrap();
+    g.push_back(External::Complete { task, value });
+    EVENTS.store(true, Ordering::SeqCst);
+    q.cond.notify_one();
+}
+
+/// The current task's completed external operation, if it arrived. Lock
+/// held.
+pub fn take_completion() -> Option<Box<dyn std::any::Any + Send>> {
+    rt().completions.remove(&current_id())
+}
+
 /// Post an event from any thread.
 /// The scheduler's external event queue (for threads that post callbacks).
 pub fn external_queue() -> Arc<ExternalQueue> {
@@ -3139,6 +3168,10 @@ fn finish(id: TaskId) {
         h(id, &objs);
     }
     crate::channel::task_finished(id);
+    // a completion that arrived after the task stopped waiting for it
+    if !rt().completions.is_empty() {
+        rt().completions.remove(&id);
+    }
     let t = task(id).unwrap();
     t.exit = t.pending_exit.take().or(t.exit.take()).or(Some(Exit::Cancelled));
     t.ctx.shadow = std::ptr::null_mut();

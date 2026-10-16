@@ -1,0 +1,8 @@
+// expect-error: E0115
+// A native function names its module, takes no contract words (the module
+// declares how each function runs), and is not generic.
+extern "native" fn nameless() -> Int
+extern "native demo blocking" fn worded() -> Int
+extern "native demo" fn generic<T>(x: T) -> T
+
+pub fn main() -> Unit {}

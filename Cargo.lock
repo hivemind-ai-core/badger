@@ -745,6 +745,7 @@ dependencies = [
  "clap",
  "lang_base",
  "lang_driver",
+ "lang_native_demo",
  "lang_syntax",
  "libc",
  "serde_json",
@@ -821,12 +822,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "lang_native"
+version = "0.1.0"
+
+[[package]]
+name = "lang_native_demo"
+version = "0.1.0"
+dependencies = [
+ "lang_native",
+]
+
+[[package]]
 name = "lang_runtime"
 version = "0.1.0"
 dependencies = [
  "backtrace",
  "corosensei",
  "httparse",
+ "lang_native",
  "libc",
  "regex",
  "rusqlite",

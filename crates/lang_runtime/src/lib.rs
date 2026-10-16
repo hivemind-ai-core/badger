@@ -37,6 +37,7 @@ pub mod intrinsics_task;
 pub mod list;
 pub mod live;
 pub mod map;
+pub mod native;
 pub mod parse;
 pub mod profile;
 pub mod reply;

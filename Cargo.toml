@@ -19,6 +19,7 @@ lang_mir = { path = "crates/lang_mir" }
 lang_codegen = { path = "crates/lang_codegen" }
 lang_runtime = { path = "crates/lang_runtime" }
 lang_driver = { path = "crates/lang_driver" }
+lang_native = { path = "crates/lang_native" }
 
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"

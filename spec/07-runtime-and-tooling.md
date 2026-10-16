@@ -334,6 +334,23 @@ dedicated OS thread (thread affinity). Both move calls as machine words
 `extern "c"` calls run inline on the worker and must return promptly. C code
 cannot call back into the language: the `callbacks` contract is rejected.
 
+Native modules are the boundary for libraries that exchange data rather
+than machine words. `extern "native NAME" fn` declares a function of
+module `NAME`, linked into the executable or loaded from `libNAME.so`.
+Arguments and results cross by copy in a typed wire format, so module code
+never sees managed memory: values of the declared types (primitives,
+text, bytes, `Data`, `native.Handle`, and collections, options, results,
+records, structs, and enums of them; E0410 otherwise), checked again when
+they return. The module declares each function's mode: inline (on the
+worker, without the runtime lock), blocking (on the blocking pool, with
+the task waiting and cancellation waiting for it), or async (completed
+from any thread; cancelling the waiting task tells the module and discards
+the completion). A module's panic, a malformed result, or a result that
+does not fit the declared type is a defect of the calling task. Handles
+name module-owned state, released when unreachable. Native functions are
+ambient authority in restricted projects. [docs/native-modules.md](../docs/native-modules.md)
+describes the ABI and the Rust crate (`lang_native`) for writing modules.
+
 ## Compiler and runtime obligations
 
 1. Lex uppercase type roles and preserve source identity through desugaring.

@@ -444,6 +444,9 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
                     );
                 }
                 let s = declared_scheme(&g, id, f, &mut diags);
+                if f.abi == FnAbi::Native {
+                    check_native_signature(&g, id, &s.ty, &mut diags);
+                }
                 if f.abi == FnAbi::C {
                     check_ffi_signature(&g, id, &s.ty, &mut diags);
                     if f.ffi.blocking || f.ffi.pinned {
@@ -755,6 +758,88 @@ pub fn fn_generics(hir: &Hir, f: &FnDef) -> (Vec<GenericId>, bool) {
 
 /// Only primitive, raw-pointer (`ffi.Ptr<T>`), and `repr c` types cross the
 /// C boundary; managed values go through adapters such as `ffi.with_cstring`.
+/// The parameter and result types of a native module function: values the
+/// host copies to and from the wire format (see E0410).
+fn check_native_signature(g: &Global, id: DefId, t: &Ty, diags: &mut Vec<Diagnostic>) {
+    fn ok(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> bool {
+        match &**t {
+            TyKind::Tuple(ts) => ts.iter().all(|x| ok(g, x, seen)),
+            TyKind::Record(row) => {
+                let mut r = row.clone();
+                loop {
+                    match &*r.clone() {
+                        TyKind::RowEmpty => break true,
+                        TyKind::RowExt(_, x, rest) => {
+                            if !ok(g, x, seen) {
+                                break false;
+                            }
+                            r = rest.clone();
+                        }
+                        _ => break false,
+                    }
+                }
+            }
+            TyKind::Con(d, args) => {
+                let def = &g.hir.defs[*d];
+                let name = g.interner.resolve(def.name);
+                if g.hir.modules[def.module].is_std {
+                    let module = g.hir.modules[def.module].path.last().map(|s| g.interner.resolve(*s));
+                    match name {
+                        "Bool" | "I8" | "I16" | "I32" | "I64" | "U8" | "U16" | "U32" | "U64" | "F32"
+                        | "F64" | "Char" | "Symbol" | "String" | "Bytes" | "Duration" | "Instant"
+                        | "Timestamp" | "Data" => return true,
+                        "Handle" => return module == Some("native"),
+                        "List" | "Set" | "Array" | "Option" | "Result" => {
+                            return args.iter().all(|a| ok(g, a, seen));
+                        }
+                        "Map" => {
+                            let key_ok = matches!(&*args[0], TyKind::Con(k, _)
+                                if matches!(g.interner.resolve(g.hir.defs[*k].name), "String" | "Symbol"));
+                            return key_ok && ok(g, &args[1], seen);
+                        }
+                        // shared mutable state stays in the program
+                        "Cell" | "Atom" => return false,
+                        // other standard structs and enums are data
+                        _ => {}
+                    }
+                }
+                if seen.contains(d) {
+                    return true;
+                }
+                seen.push(*d);
+                match &def.kind {
+                    DefKind::Struct(_) => g.env.struct_fields(*d, args).iter().all(|f| ok(g, &f.1, seen)),
+                    DefKind::Enum(_) => {
+                        let n = g.env.enums.get(d).map(|e| e.variants.len()).unwrap_or(0);
+                        (0..n as u32)
+                            .all(|v| g.env.variant_fields(*d, v, args).iter().all(|(_, f)| ok(g, f, seen)))
+                    }
+                    DefKind::Alias(_) => true,
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+    let TyKind::Fn(f) = &**t else { return };
+    let span = g.hir.defs[id].span;
+    let mut check = |t: &Ty, what: String| {
+        if !ok(g, t, &mut vec![]) {
+            let shown = crate::program::show_ty(g, t);
+            diags.push(
+                Diagnostic::error(format!("`{shown}` cannot cross a native boundary"))
+                    .with_code("E0410")
+                    .with_label(span, what)
+                    .with_note("native functions exchange copies of data: primitives, text, bytes, `Data`, `native.Handle`, and collections, options, results, records, structs, and enums of them"),
+            );
+        }
+    };
+    for (i, p) in f.params.iter().enumerate() {
+        check(p, format!("parameter {} of this native function", i + 1));
+    }
+    check(&f.ret, "the result of this native function".into());
+}
+
 fn check_ffi_signature(g: &Global, id: DefId, t: &Ty, diags: &mut Vec<Diagnostic>) {
     fn ok(g: &Global, t: &Ty, ret: bool, depth: usize) -> bool {
         if depth > 8 {

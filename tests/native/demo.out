@@ -1,0 +1,12 @@
+add 42; hello, native!
+echo [1,"two",null]
+point 3,4; scaled 10,20
+7/0: demo/division_by_zero: cannot divide by zero
+7/2 = 3
+sum 10
+reverse cba
+maybe none #5
+areas 3.0 9.0 2
+later 9
+cancelled true, module told 1
+counter 2

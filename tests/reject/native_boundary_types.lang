@@ -1,0 +1,10 @@
+// expect-error: E0410
+// Closures, cells, and channels stay in the program: they cannot cross a
+// native module's boundary (values cross by copy).
+import std.channel
+
+extern "native demo" fn call_back(f: fn(Int) -> Int) -> Int
+extern "native demo" fn share(c: Cell<Int>) -> Unit
+extern "native demo" fn chan() -> channel.Sender<Int>
+
+pub fn main() -> Unit {}

@@ -389,6 +389,27 @@ error. `lang_cli` is the `lang` binary.
   path (return, error, defect, `process.exit`). SQLite and the HTTP server
   are marked uncaptured.
 
+## Native modules
+
+`crates/lang_native` defines the native module ABI and wire format, and
+helpers for writing modules in Rust; `crates/lang_runtime/src/native.rs`
+is the host. `extern "native NAME" fn` lowers to intrinsic
+`native_callN` (N arguments) whose first argument names the site
+(`"NAME\0function"`, an immortal string) and whose type arguments are the
+parameter types: the host resolves the site once (a module linked in with
+`native::register_builtin`, else `libNAME.so` by `dlopen` from
+`LANG_NATIVE_PATH`, the executable's directory, or `lib/lang` next to it),
+encodes the arguments by their descriptors, runs the function by its
+mode, and decodes the result by the result descriptor. The calls are
+unlocked entries: an inline function runs on the worker without the
+runtime lock; a blocking one goes through `run_blocking`; an async one
+counts as outstanding external work (so the scheduler waits rather than
+reporting a deadlock), completes through the external queue, and
+registers a task cleanup that, if the task is abandoned first, withdraws
+it and calls the module's `cancel`. Handle objects carry their module and
+number; their finalizer hands `drop_handle` to a background thread.
+`crates/lang_native_demo` is a module for the tests (`tests/native`).
+
 ## Live reload
 
 `lang run --watch` keeps the program running while it polls the sources. On

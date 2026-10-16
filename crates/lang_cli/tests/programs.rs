@@ -627,6 +627,53 @@ fn query_check_overlays() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
+/// Native modules (`tests/native`, calling `crates/lang_native_demo`, which
+/// cargo builds as a dev-dependency into `deps` next to the executable):
+/// every mode, value shapes, defects, and handles, on one worker and four;
+/// in a restricted project only the entry module may declare and call one.
+#[test]
+fn native_modules() {
+    for f in files("tests/native") {
+        let want = std::fs::read_to_string(f.with_extension("out")).unwrap();
+        for flags in [&[][..], &["--release", "--workers", "4"][..]] {
+            let out = lang().arg("run").args(flags).arg(&f).output().unwrap();
+            assert_eq!(
+                String::from_utf8_lossy(&out.stdout),
+                want,
+                "{} {flags:?}: {}",
+                f.display(),
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("lang-native-restricted-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("lang.toml"),
+        "[package]\nname = \"r\"\nentry = \"src/main.lang\"\nrestricted = true\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/main.lang"),
+        "import helper\n\npub fn main() -> Unit {\n    let _ = helper.twice(2)\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/helper.lang"),
+        "extern \"native lang_native_demo\" fn add(a: Int, b: Int) -> Int\n\npub fn twice(x: Int) -> Int { add(x, x) }\n",
+    )
+    .unwrap();
+    let out = lang().arg("check").arg(&dir).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success()
+            && err.contains("E0170")
+            && err.contains("extern \"native lang_native_demo\" fn helper.add"),
+        "{err}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `lang query rename` returns edits (not applied) for every use, in each
 /// of a project's entry points and tasks; inputs a query cannot answer are
 /// errors rather than empty results.

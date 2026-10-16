@@ -47,6 +47,7 @@ std_modules![
     "parse",
     "num",
     "ffi",
+    "native",
     "broadcast",
     "array",
     "schema",

@@ -40,6 +40,7 @@
 | [`std.parse`](parse.md) | Grammar parsers with source spans and structured failures. |
 | [`std.num`](num.md) | Numeric conversions and explicit checked/wrapping arithmetic. |
 | [`std.ffi`](ffi.md) | The C boundary: raw pointers, C memory, and C strings. |
+| [`std.native`](native.md) | Native modules: functions implemented outside the language (in Rust, or |
 | [`std.broadcast`](broadcast.md) | Broadcast: every subscriber receives each message published after it |
 | [`std.array`](array.md) | Immutable contiguous arrays: fixed length chosen at construction. |
 | [`std.schema`](schema.md) | Typed schemas and versioned wire contracts. |

@@ -1,0 +1,14 @@
+[package]
+name = "lang_native_demo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "A native module exercising the native ABI (used by the tests)"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lang_native.workspace = true

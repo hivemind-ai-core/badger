@@ -1,0 +1,53 @@
+// Native module failures are defects of the calling task, never undefined
+// behavior: a panic, a result of the wrong type, an expected error where
+// none was declared, a missing module or function, and a handle given to
+// another module.
+import std.io
+import std.task
+import std.native
+
+extern "native lang_native_demo" fn boom() -> Int
+extern "native lang_native_demo" fn wrong_type() -> Int
+extern "native lang_native_demo" fn divide(a: Int, b: Int) -> Int
+extern "native lang_native_demo" fn counter() -> native.Handle
+extern "native lang_native_demo" fn drops() -> Int
+extern "native no_such_module" fn missing() -> Int
+extern "native lang_native_demo" fn no_such_function() -> Int
+
+fn show(name: String, f: fn() -> Int) -> Result<Unit, io.Error> {
+    let r = task.scope(fn(s) -> Result<task.Exit<Int>, String> {
+        ok(s.capture(f).join())
+    })
+    match r {
+        // (without the directories searched, which differ between machines)
+        .ok(.failed(p)) => io.println($"{name}: {p.message.split(" (")[0]}"),
+        .ok(.returned(v)) => io.println($"{name}: returned {v}"),
+        .ok(.cancelled(_)) => io.println($"{name}: cancelled"),
+        .err(e) => io.println($"{name}: {e}"),
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    show("panic", fn() { boom() })?
+    show("wrong type", fn() { wrong_type() })?
+    show("undeclared error", fn() { divide(1, 0) })?
+    show("missing module", fn() { missing() })?
+    show("missing function", fn() { no_such_function() })?
+    // handles the program drops are released
+    for _ in 0..2000 {
+        let _ = counter()
+    }
+    var n = 0
+    var garbage: List<String> = []
+    for i in 0..2000000 {
+        garbage = if garbage.len() > 1000 { [$"{i}"] } else { garbage.append($"{i}") }
+        if i % 1000 == 0 {
+            n = drops()
+            if n > 0 {
+                break
+            }
+        }
+    }
+    io.println($"handles released: {n > 0}")?
+    ok(())
+}

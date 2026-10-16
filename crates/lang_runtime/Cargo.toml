@@ -9,6 +9,7 @@ license.workspace = true
 backtrace = "0.3.76"
 corosensei = "0.3"
 httparse = "1.10"
+lang_native = { path = "../lang_native" }
 libc = "0.2.190"
 regex = "1.13.1"
 rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column_metadata"] }

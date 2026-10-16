@@ -105,9 +105,10 @@ pub fn std_ambient(hir: &Hir, interner: &Interner) -> FxHashSet<DefId> {
     let mut ambient: FxHashSet<DefId> = FxHashSet::default();
     for (d, def) in hir.defs.iter() {
         if let DefKind::Fn(f) = &def.kind
-            && f.abi == lang_hir::FnAbi::Intrinsic
             && std_def(d)
-            && AMBIENT_INTRINSICS.contains(&interner.resolve(def.name))
+            && (f.abi == lang_hir::FnAbi::Native
+                || f.abi == lang_hir::FnAbi::Intrinsic
+                    && AMBIENT_INTRINSICS.contains(&interner.resolve(def.name)))
         {
             ambient.insert(d);
         }
@@ -201,13 +202,19 @@ pub fn check(hir: &Hir, types: &lang_typeck::TypeIndex, interner: &Interner) -> 
             }
             for (t, sp) in edges.get(&d).map(|v| v.as_slice()).unwrap_or(&[]) {
                 let site = if d == f { *sp } else { first };
-                // a foreign (C) function can do anything
-                let foreign = matches!(&hir.defs[*t].kind, DefKind::Fn(x) if x.abi == lang_hir::FnAbi::C);
-                if let Some(s) = sinks
-                    .get(t)
-                    .map(|s| s.to_string())
-                    .or(foreign.then(|| format!("extern \"c\" fn {}", name(*t))))
-                {
+                // a foreign (C) or native module function can do anything
+                let foreign = match &hir.defs[*t].kind {
+                    DefKind::Fn(x) if x.abi == lang_hir::FnAbi::C => {
+                        Some(format!("extern \"c\" fn {}", name(*t)))
+                    }
+                    DefKind::Fn(x) if x.abi == lang_hir::FnAbi::Native => Some(format!(
+                        "extern \"native {}\" fn {}",
+                        x.native.as_deref().unwrap_or(""),
+                        name(*t)
+                    )),
+                    _ => None,
+                };
+                if let Some(s) = sinks.get(t).map(|s| s.to_string()).or(foreign) {
                     found = Some((path.clone(), s, site));
                     break;
                 }
@@ -234,7 +241,7 @@ pub fn check(hir: &Hir, types: &lang_typeck::TypeIndex, interner: &Interner) -> 
                 Diagnostic::error(format!("`{}` uses ambient authority `{sink}`{via}", name(f)))
                     .with_code("E0170")
                     .with_label(site, "reaches it here")
-                    .with_note("this project is restricted (`[package] restricted = true`): only the entry module may use the filesystem, processes, the environment, databases, or the network directly; give this function a capability instead, such as an `fs.Dir` or `fs.ReadDir` for files"),
+                    .with_note("this project is restricted (`[package] restricted = true`): only the entry module may use the filesystem, processes, the environment, databases, the network, or foreign and native code directly; give this function a capability instead, such as an `fs.Dir` or `fs.ReadDir` for files"),
             );
         }
     }
