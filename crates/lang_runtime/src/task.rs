@@ -947,13 +947,22 @@ pub fn wake(id: TaskId, reason: Wake) {
 /// Let idle workers see newly ready tasks.
 fn notify_ready() {
     if multi() && IDLE.load(Ordering::SeqCst) > 0 {
-        stat(|w| &w.notifies, 1);
         READY_SEQ.fetch_add(1, Ordering::SeqCst);
+        // wake one idle worker, unless a woken one is still on its way: it
+        // wakes the next if it finds more ready work (no thundering herd
+        // on the runtime lock)
+        if WAKING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            return;
+        }
+        stat(|w| &w.notifies, 1);
         let q = rt().external.clone();
         let _g = q.queue.lock().unwrap();
-        q.cond.notify_all();
+        q.cond.notify_one();
     }
 }
+
+/// A worker was woken for ready work and has not yet looked for it.
+static WAKING: AtomicBool = AtomicBool::new(false);
 
 /// Wake a parked task, delivering a value (`is_ptr`: managed pointer).
 pub fn wake_with(id: TaskId, value: u64, is_ptr: bool, status: u64) {
@@ -1637,6 +1646,10 @@ fn worker_loop(n: usize) -> Option<Exit> {
             take_ready()
         };
         if let Some(id) = pick {
+            // more work than this worker can take: wake another
+            if has_ready() {
+                notify_ready();
+            }
             run_one(id);
             run_scheduler_work();
             continue;
@@ -1695,6 +1708,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
                 let _ = q.cond.wait_timeout(g, wait).unwrap();
             }
         }
+        WAKING.store(false, Ordering::SeqCst);
         lock();
         IDLE.fetch_sub(1, Ordering::SeqCst);
     }
