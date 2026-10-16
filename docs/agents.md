@@ -52,5 +52,11 @@ compiler.symbols("src/main.lang").map(fn(ss) {
 | `completions(path, line, col)` | `Result<List<Completion>, Error>` |
 | `explain(code)` | `Result<String, Error>` |
 
+A diagnostic has its location (`file`, `line`, `col`, `end_line`,
+`end_col`), `severity`, `code`, `message`, and `notes`, and the same
+structured facts as `lang check --json`: the primary `label`, `expected`
+and `actual` shapes, the enclosing `scope`, secondary `related` locations,
+and `declarations` (related definitions, by name and location).
+
 The same answers are available without MCP from the command line:
 `lang query hover src/main.lang --line 12 --col 8`.

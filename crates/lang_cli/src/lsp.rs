@@ -280,7 +280,7 @@ impl Server {
                 message.push('\n');
                 message.push_str(n);
             }
-            let related: Vec<Value> = d
+            let mut related: Vec<Value> = d
                 .related
                 .iter()
                 .map(|(l, m)| {
@@ -290,6 +290,13 @@ impl Server {
                     })
                 })
                 .collect();
+            // related declarations (a called function, the expected type)
+            related.extend(d.declarations.iter().map(|(n, l)| {
+                json!({
+                    "location": { "uri": path_to_uri(&l.path), "range": range(&text_of(&l.path), l.start, l.end) },
+                    "message": format!("`{n}` is declared here"),
+                })
+            }));
             let mut v = json!({
                 "range": range(&text, d.start, d.end),
                 "severity": match d.severity { lang_base::Severity::Error => 1, lang_base::Severity::Warning => 2, lang_base::Severity::Note => 3 },
@@ -809,10 +816,36 @@ pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -
                     let t = a.file(&d.path).map(|f| f.text.clone()).unwrap_or_else(|| text_of(&d.path));
                     let (l, c) = line_col(&t, d.start);
                     let (el, ec) = line_col(&t, d.end);
+                    let at = |l: &lang_driver::analysis::Loc| {
+                        let t = text_of(&l.path);
+                        let (sl, sc) = line_col(&t, l.start);
+                        let (el, ec) = line_col(&t, l.end);
+                        json!({ "file": l.path, "line": sl, "col": sc, "end_line": el, "end_col": ec })
+                    };
+                    let related: Vec<Value> = d
+                        .related
+                        .iter()
+                        .map(|(l, m)| {
+                            let mut v = at(l);
+                            v["message"] = json!(m);
+                            v
+                        })
+                        .collect();
+                    let declarations: Vec<Value> = d
+                        .declarations
+                        .iter()
+                        .map(|(n, l)| {
+                            let mut v = at(l);
+                            v["name"] = json!(n);
+                            v
+                        })
+                        .collect();
                     json!({
                         "file": d.path, "line": l, "col": c, "end_line": el, "end_col": ec,
                         "severity": match d.severity { lang_base::Severity::Error => "error", lang_base::Severity::Warning => "warning", lang_base::Severity::Note => "note" },
                         "code": d.code, "message": d.message, "notes": d.notes,
+                        "label": d.label, "expected": d.expected, "actual": d.actual, "scope": d.scope,
+                        "related": related, "declarations": declarations,
                     })
                 })
                 .collect();

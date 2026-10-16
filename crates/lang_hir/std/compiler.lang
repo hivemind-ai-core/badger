@@ -41,6 +41,36 @@ pub struct Diagnostic {
     pub code: Option<String>,
     pub message: String,
     pub notes: List<String>,
+    /// The primary label's text (also part of `message`).
+    pub label: String,
+    /// Expected and actual shapes (types, effects, field sets), when known.
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    /// The enclosing definition (`fn app.main`).
+    pub scope: Option<String>,
+    /// Secondary locations with their labels.
+    pub related: List<Related>,
+    /// Related definitions (a called function, the expected type) and where
+    /// they are declared.
+    pub declarations: List<Declaration>,
+} derive(Codec, Display)
+
+pub struct Related {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+    pub message: String,
+} derive(Codec, Display)
+
+pub struct Declaration {
+    pub name: String,
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
 } derive(Codec, Display)
 
 pub struct Symbol {

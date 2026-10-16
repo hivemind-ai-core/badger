@@ -108,6 +108,16 @@ pub struct FileDiag {
     /// Secondary labels and notes, already rendered.
     pub related: Vec<(Loc, String)>,
     pub notes: Vec<String>,
+    /// The primary label's text (also appended to `message`).
+    pub label: String,
+    /// Expected and actual shapes (types, effects, field sets), as the
+    /// compiler reported them (`notes` also says them in prose).
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    /// The enclosing definition (`fn app.main`).
+    pub scope: Option<String>,
+    /// Related definitions: a name and where it is declared.
+    pub declarations: Vec<(String, Loc)>,
 }
 
 #[derive(Debug, Default)]
@@ -242,6 +252,11 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
                 message: d.message.clone(),
                 related: vec![],
                 notes: d.notes.clone(),
+                label: String::new(),
+                expected: d.expected.clone(),
+                actual: d.actual.clone(),
+                scope: d.scope.clone(),
+                declarations: vec![],
             });
             continue;
         };
@@ -251,10 +266,12 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
             Loc { path: f.name.clone(), start: sp.start as usize, end: sp.end as usize }
         };
         let mut message = d.message.clone();
+        let mut label = String::new();
         if let Some(l) = d.labels.iter().find(|l| l.span == p)
             && !l.message.is_empty()
         {
             message = format!("{message}: {}", l.message);
+            label = l.message.clone();
         }
         let mut notes = d.notes.clone();
         if let (Some(e), Some(a)) = (&d.expected, &d.actual) {
@@ -274,6 +291,16 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
                 .map(|l| (loc(l.span), l.message.clone()))
                 .collect(),
             notes,
+            label,
+            expected: d.expected.clone(),
+            actual: d.actual.clone(),
+            scope: d.scope.clone(),
+            declarations: d
+                .related
+                .iter()
+                .filter(|(_, sp)| !sp.is_dummy())
+                .map(|(n, sp)| (n.clone(), loc(*sp)))
+                .collect(),
         });
     }
     // module imports (known once parsed)

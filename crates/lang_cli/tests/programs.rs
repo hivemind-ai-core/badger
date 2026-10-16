@@ -601,6 +601,19 @@ fn structured_diagnostics() {
     let out = lang().arg("check").arg(&file).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(err.contains("in fn structured.Point.norm") && err.contains("expected: Int"), "{err}");
+    // the query interface (MCP `check`, std.compiler) carries the same facts
+    let out = lang().args(["query", "diagnostics"]).arg(&file).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    for want in [
+        r#""scope":"fn structured.main""#,
+        r#""expected":"Point""#,
+        r#""actual":"Int""#,
+        r#""scope":"fn structured.Point.norm""#,
+        r#""declarations":[{"#,
+        r#""name":"Point""#,
+    ] {
+        assert!(text.contains(want), "query diagnostics lacks {want} in {text}");
+    }
 }
 
 /// A deadlock report names each blocked task and what it waits for.
