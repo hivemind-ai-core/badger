@@ -7,8 +7,10 @@
 //!   updates, iteration, `?` conversions)
 //! - [`program`]: binding groups, generalization, and per-instance re-checking
 //! - [`exhaust`], [`ownership`]: match exhaustiveness and affine use checks
+//! - [`concurrency`]: task/channel patterns that always deadlock
 #![allow(clippy::type_complexity)]
 
+pub mod concurrency;
 pub mod env;
 pub mod exhaust;
 pub mod infer;

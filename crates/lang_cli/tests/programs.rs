@@ -621,6 +621,10 @@ fn deadlock_report_names_waits() {
             assert!(err.contains(want), "missing {want:?} ({workers} workers) in {err}");
         }
     }
+    // the pattern is also found statically: a warning at the join
+    let out = lang().args(["check", "--json", "tests/runtime/deadlock_report.lang"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains(r#""code":"E0450""#) && text.contains("comes after this join"), "{text}");
 }
 
 /// Name and syntax errors (found before type checking) also report their

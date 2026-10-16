@@ -1627,6 +1627,7 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
         node_vars.insert(d, crate::exhaust::check_system_nodes(inf, d, &visible));
         crate::exhaust::check_row_labels(inf, d);
         crate::ownership::check_def(inf, d);
+        crate::concurrency::check_def(inf, d);
     }
     // user code only: the standard library's own region plumbing is trusted
     if defs.iter().any(|d| !hir.modules[hir.defs[*d].module].is_std) {

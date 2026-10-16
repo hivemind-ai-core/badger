@@ -238,6 +238,30 @@ backpressure handle imbalance. A partially filled page may be published; the
 consumer must not wait for it to become full. Fair draining prevents one large
 batch from monopolizing the runtime.
 
+## Static concurrency safety
+
+What the compiler guarantees:
+
+- **No data races.** Values are immutable; a value sent to another task
+  (spawned closures, channel payloads) must be `Transfer`, and shared
+  mutable state exists only as explicit `Cell` (one task) and `Atom`
+  (atomic, shareable) values. A borrow cannot be stored into a container
+  that may outlive it.
+- **No lock-order deadlocks.** There are no locks; tasks coordinate by
+  channels, replies, joins, and atoms.
+- **Children cannot leak.** Every task belongs to a scope, which waits
+  for (or cancels) its children before it ends.
+
+What it reports (warnings, for patterns that deadlock on every run):
+
+- **E0450 join before close:** a task that receives from a channel until
+  it is closed is joined before that channel's sender is closed, later in
+  the same block.
+
+At run time, when every task is blocked, the program fails with
+`deadlock: all tasks are blocked` and a note per task naming what it
+waits for (channel, join, reply, ...).
+
 ## Minimal worker supervision
 
 Managed workers are component descriptions with a restartable factory and an

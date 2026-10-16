@@ -394,6 +394,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`match` must cover every value; guarded arms do not count toward exhaustiveness.",
     ),
     (
+        "E0450",
+        "join before close",
+        "A task that receives from a channel until it is closed was joined before the channel's sender is closed, so the join waits forever (warning). Close the sender first.",
+    ),
+    (
         "E0401",
         "region escape",
         "A value carrying a scope brand (transaction, task handle, running system, or a closure capturing one) would outlive the callback that introduced the scope.",
