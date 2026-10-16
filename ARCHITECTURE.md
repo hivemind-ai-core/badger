@@ -458,6 +458,17 @@ breakpoints by source line, step, unwind, and read and watch locals. See
 - Unit tests cover the formatter (spacing and indentation), layout, and
   unification; `crates/lang_syntax/tests/format_repo.rs` formats every
   repository source.
+- `crates/lang_cli/tests/fuzz.rs` mutates corpus programs (deleted ranges,
+  inserted tokens, duplicated and swapped lines, truncation) and requires
+  `lang check` (and `lang compile` when they check) to answer with
+  diagnostics, never a panic or signal; `LANG_FUZZ_SECS=N` soaks, and a
+  failing input is saved. It also checks that the formatter never panics
+  and is idempotent on mutants, and that reformatting every corpus program
+  leaves its diagnostics unchanged.
+- `tests/lsp.rs` and `tests/mcp.rs` drive the language server and the MCP
+  server over their protocols; `programs.rs` also covers `lang query`,
+  `lang graph`, contracts, the sampling profiler, and (when gdb is
+  installed) debugging generated code.
 
 Debug switches: `LANG_GC_STRESS=1` (collect before every allocation, to
 expose missing roots), `LANG_GC_VERIFY=1` (check every root and traced
