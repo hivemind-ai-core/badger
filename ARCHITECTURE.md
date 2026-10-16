@@ -403,6 +403,18 @@ isolated from the session. The session's standard output is redirected to
 a pipe and returned with each evaluation, since stdout carries the
 protocol. Setup in [docs/agents.md](docs/agents.md).
 
+## Contracts
+
+`requires` / `ensures` lines before a function parse into `FnDecl::contracts`.
+HIR lowering turns each `requires` into a check at the start of the body
+(`contract_caller()` reads, once on entry, the call site that direct and
+method calls of such functions record with `lang_rt_caller_loc`;
+`precondition_failed` reports there, naming the clause) and keeps `ensures`
+clauses on `FnDef` with a `result` local. Type checking checks postconditions
+as `Bool` after the body (with `result` of the return type), the ownership
+pass walks them after the body, and MIR lowering routes every return (the
+body's value, `return`, and `?`) through one epilogue that checks them.
+
 ## Debug information
 
 `Stmt::Loc` statements mark source positions in MIR (each statement and

@@ -1,0 +1,8 @@
+withdrew: 70
+refused: overdrawn: 400
+twice: 20
+twice refused: overdrawn: 20
+abs 7 3
+largest 9
+factorial 3628800
+width 7

@@ -128,10 +128,21 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         o.mark_once_holders(&ls);
         o.params.extend(ls);
     }
+    // postconditions run after the body, reading what it leaves
+    let posts: Vec<ExprId> = match &hir.defs[d].kind {
+        DefKind::Fn(f) => f.ensures.iter().map(|p| p.cond).collect(),
+        _ => vec![],
+    };
     o.collect_uses(body);
+    for p in &posts {
+        o.collect_uses(*p);
+    }
     let mut st = State::default();
     let m = o.mode_into(o.ret_ty.clone());
     o.expr(body, m, &mut st);
+    for p in &posts {
+        o.expr(*p, Mode::Borrow, &mut st);
+    }
     o.check_escape(body, true);
     o.unused_tasks(body);
     o.check_consuming_result(body);

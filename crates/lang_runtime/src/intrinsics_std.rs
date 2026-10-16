@@ -359,6 +359,7 @@ std_intrinsics! {
     }
 
     // ---------------------------------------------------------------- text
+    fn contract_caller(ctx, targs, ret) { new_string(&crate::task::take_caller_location()) }
     fn text_lines(ctx, targs, ret, s) {
         let v: Vec<String> = str_of(s).lines().map(str::to_string).collect();
         strings_to_list(rdesc(ret), v)

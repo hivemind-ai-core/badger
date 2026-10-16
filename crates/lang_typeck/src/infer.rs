@@ -2626,6 +2626,19 @@ impl<'g, 'a> Infer<'g, 'a> {
         let eff = self.icx.fresh_row();
         self.fns.push(FnCtx { owner, ret: ret.clone(), eff: eff.clone(), eff_sites: vec![], bound });
         self.check(body, ret);
+        // postconditions: Bool, reading `result` (the returned value)
+        let g = self.g;
+        if let Owner::Fn(d) = owner
+            && let lang_hir::DefKind::Fn(f) = &g.hir.defs[d].kind
+        {
+            if let Some(r) = f.result {
+                self.locals.insert(r, ret.clone());
+            }
+            for pc in &f.ensures {
+                let b = self.bool_ty();
+                self.check(pc.cond, &b);
+            }
+        }
         let ctx = self.fns.pop().unwrap();
         self.solve_some();
         self.finish_effects(&ctx);

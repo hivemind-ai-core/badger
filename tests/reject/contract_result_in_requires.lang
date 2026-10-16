@@ -1,0 +1,5 @@
+// `result` names the returned value in `ensures` only.
+// expect-error: E0127
+requires result > 0
+fn f(x: Int) -> Int { x }
+pub fn main() -> Unit { let _ = f(1) }

@@ -151,6 +151,22 @@ pub struct FnDecl {
     pub where_preds: Vec<WherePred>,
     pub body: Option<ExprId>,
     pub span: Span,
+    /// `requires` / `ensures` clauses written before the function.
+    pub contracts: Vec<Contract>,
+}
+
+/// A function contract clause: `requires COND` is checked on entry,
+/// `ensures COND` (with `result` bound to the return value) on every return.
+#[derive(Debug, Clone)]
+pub struct Contract {
+    pub ensures: bool,
+    pub cond: ExprId,
+    pub message: Option<String>,
+    pub span: Span,
+    /// Source text of the clause and of its condition (whitespace
+    /// collapsed), for messages and tools.
+    pub text: String,
+    pub cond_text: String,
 }
 
 #[derive(Debug, Clone)]

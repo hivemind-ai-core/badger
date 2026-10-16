@@ -119,6 +119,21 @@ pub struct FnDef {
     pub has_self: bool,
     /// Declared adapter contract of an `extern "c"` function.
     pub ffi: FfiContract,
+    /// `ensures` clauses: checked on every return, with `result` (the
+    /// local below) bound to the value returned. (`requires` clauses are
+    /// checks at the start of `body`.)
+    pub ensures: Vec<Postcondition>,
+    pub result: Option<LocalId>,
+    /// Source text of every contract clause, for tools.
+    pub contracts: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Postcondition {
+    pub cond: ExprId,
+    /// The defect message when it does not hold.
+    pub message: String,
+    pub span: Span,
 }
 
 /// Contract words after `c` in an extern ABI string, e.g.

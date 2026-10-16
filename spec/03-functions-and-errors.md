@@ -123,6 +123,31 @@ Error diagnostics include a stable code, message, source span, causal chain,
 and typed or explicitly encoded context. Codecs may render that context as
 `Data`. A programmer-defined error does not require arbitrary dynamic fields.
 
+## Contracts
+
+A function or method may state contract clauses on the lines before it:
+
+```text
+requires amount > 0, "withdraw a positive amount"
+ensures result.is_err() || result.unwrap_or(account).balance == account.balance - amount
+pub fn withdraw(account: Account, amount: Int) -> Result<Account, BankError> { ... }
+```
+
+`requires COND` is checked when the function is entered, before its body;
+`ensures COND` is checked whenever it returns (falling off the end, `return`,
+and `?` propagation alike), with `result` bound to the value being returned.
+Conditions are `Bool` expressions over the parameters (and `result`), checked
+by the ordinary type, effect, and ownership rules: a postcondition runs after
+the body, so it cannot read a value the body moved. Parameters are immutable
+values, so a postcondition reads them as they were on entry. The optional
+string explains the clause.
+
+A failed clause is a task defect, like a failed assertion. A failed
+precondition is reported at the call site (the caller broke the contract) and
+names the clause; a failed postcondition is reported at the clause (the
+function broke it). Contracts are checked in every build, like overflow
+checks. Tools show a function's clauses with its signature.
+
 ## Task defects and cancellation
 
 Checked overflow, bounds violations, failed assertions, and explicit `panic`

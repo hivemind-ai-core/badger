@@ -1092,6 +1092,16 @@ pub fn abandon(exit: Option<Exit>) -> ! {
 
 /// The user-code location recorded by the last `lang_rt_caller_loc` (empty
 /// when none was recorded).
+/// The recorded call site, cleared (a function with preconditions reads it
+/// on entry).
+pub fn take_caller_location() -> String {
+    let l = caller_location();
+    if let Some(t) = current() {
+        t.caller_loc = 0;
+    }
+    l
+}
+
 pub fn caller_location() -> String {
     current()
         .map(|t| t.caller_loc)

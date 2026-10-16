@@ -297,7 +297,11 @@ impl Ix<'_> {
         let def = &self.hir.defs[d];
         let name = self.s.interner.resolve(def.name);
         let text = self.text(def.span);
-        let mut from = 0;
+        // a function's span starts with its contract clauses
+        let mut from = match &def.kind {
+            DefKind::Fn(f) if !f.contracts.is_empty() => text.find("fn ").unwrap_or(0),
+            _ => 0,
+        };
         while let Some(i) = text[from..].find(name) {
             let at = from + i;
             let before = text[..at].chars().next_back();
@@ -329,6 +333,10 @@ impl Ix<'_> {
         let sig = match crate::describe_def(&self.checked.g, self.hir, &self.s.interner, &self.s.sources, d) {
             // a function type already shows its effects
             Some((ty, _)) => match &def.kind {
+                // a function's contract clauses follow its type
+                DefKind::Fn(f) if !f.contracts.is_empty() => {
+                    format!("{name}: {ty}\n{}", f.contracts.join("\n"))
+                }
                 DefKind::Fn(_) | DefKind::Global(_) => format!("{name}: {ty}"),
                 _ => ty,
             },

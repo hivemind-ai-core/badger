@@ -130,6 +130,7 @@ fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
     Some(match name {
         "lang_rt_alloc" => (2, true),
         "lang_rt_panic" | "lang_rt_defect" => (2, true),
+        "lang_rt_precondition" => (3, true),
         "lang_rt_poll" => (0, false),
         "lang_rt_global_init" => (1, true),
         "lang_rt_global_done" => (1, false),
@@ -701,7 +702,7 @@ impl FnCx<'_> {
             let mut dbg_offsets = FxHashMap::default();
             let dbg_slot = if debug {
                 for (l, d) in f.locals.iter_enumerated() {
-                    if d.name.is_some() && l != f.env {
+                    if d.name.as_ref().is_some_and(|n| !n.starts_with('$')) && l != f.env {
                         dbg_offsets.insert(l, 8 * dbg_offsets.len() as i32);
                     }
                 }

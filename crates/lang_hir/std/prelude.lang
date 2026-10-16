@@ -253,6 +253,10 @@ pub fn err<T, E>(error: E) -> Result<T, E> {
 
 /// Terminate the current task with a defect.
 pub extern "intrinsic" fn panic(message: String) -> Never
+// function contracts: where the contracted function was called from (read
+// once, on entry), and a failed precondition blamed on that call
+extern "intrinsic" fn contract_caller() -> String
+extern "intrinsic" fn precondition_failed(message: String, caller: String) -> Never
 
 /// Terminate the current task with a defect if `condition` is false.
 pub extern "intrinsic" fn assert(condition: Bool) -> Unit

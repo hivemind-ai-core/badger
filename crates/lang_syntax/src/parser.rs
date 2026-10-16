@@ -293,6 +293,11 @@ impl Lower<'_> {
         let inner = p.into_inner().next().unwrap();
         let rule = inner.as_rule();
         let mut parts = inner.into_inner().peekable();
+        let mut contracts = vec![];
+        while parts.peek().is_some_and(|q| q.as_rule() == Rule::contract) {
+            let c = parts.next().unwrap();
+            contracts.push(self.contract(c));
+        }
         let is_pub = parts.peek().is_some_and(|q| q.as_rule() == Rule::pub_kw);
         if is_pub {
             parts.next();
@@ -435,6 +440,7 @@ impl Lower<'_> {
             Rule::fn_decl => {
                 let mut d = self.fn_decl_parts(parts, span);
                 d.is_pub = is_pub;
+                d.contracts = std::mem::take(&mut contracts);
                 if d.body.is_none() {
                     self.error(
                         "E0002",
@@ -498,13 +504,32 @@ impl Lower<'_> {
     fn fn_decl(&mut self, p: Pair<'_, Rule>) -> FnDecl {
         let span = self.span(&p);
         let mut parts = p.into_inner().peekable();
+        let mut contracts = vec![];
+        while parts.peek().is_some_and(|q| q.as_rule() == Rule::contract) {
+            let c = parts.next().unwrap();
+            contracts.push(self.contract(c));
+        }
         let is_pub = parts.peek().is_some_and(|q| q.as_rule() == Rule::pub_kw);
         if is_pub {
             parts.next();
         }
         let mut d = self.fn_decl_parts(parts, span);
         d.is_pub = is_pub;
+        d.contracts = contracts;
         d
+    }
+
+    fn contract(&mut self, p: Pair<'_, Rule>) -> Contract {
+        let span = self.span(&p);
+        let squash = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+        let text = squash(p.as_str());
+        let mut parts = p.into_inner();
+        let ensures = parts.next().is_some_and(|k| k.as_rule() == Rule::ensures_kw);
+        let cond_pair = parts.next().unwrap();
+        let cond_text = squash(cond_pair.as_str());
+        let cond = self.expr(cond_pair);
+        let message = parts.next().map(|m| self.string_content(m));
+        Contract { ensures, cond, message, span, text, cond_text }
     }
 
     fn fn_decl_parts<'i>(&mut self, parts: impl Iterator<Item = Pair<'i, Rule>>, span: Span) -> FnDecl {
@@ -520,6 +545,7 @@ impl Lower<'_> {
             where_preds: vec![],
             body: None,
             span,
+            contracts: vec![],
         };
         for q in parts {
             match q.as_rule() {

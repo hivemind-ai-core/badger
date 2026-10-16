@@ -1,0 +1,5 @@
+// A contract condition is a Bool.
+// expect-error: E0300
+requires x + 1
+fn f(x: Int) -> Int { x }
+pub fn main() -> Unit { let _ = f(1) }

@@ -754,7 +754,63 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         }
         let ret = f.ret.map(|t| self.lower_ty(t));
         let effect = f.effect.as_ref().map(|e| self.lower_effect(e));
-        let body = f.body.map(|b| self.lower_expr(b));
+        let mut body = f.body.map(|b| self.lower_expr(b));
+        // contracts: `requires` become checks at the start of the body;
+        // `ensures` read `result`, bound for them alone
+        let fname = self.sym(f.name.sym).to_string();
+        let mut checks = vec![];
+        let mut ensures = vec![];
+        let mut result = None;
+        let mut caller_local = None;
+        let mut contracts = vec![];
+        for c in &f.contracts {
+            contracts.push(c.text.clone());
+            let cond_text = &c.cond_text;
+            let what = if c.ensures { "postcondition" } else { "precondition" };
+            let mut message = format!("{what} of `{fname}` failed: {cond_text}");
+            if let Some(m) = &c.message {
+                message = format!("{message} ({m})");
+            }
+            if c.ensures {
+                let r = *result.get_or_insert_with(|| {
+                    let r = self.new_local("result", c.span);
+                    let sym = self.intern("result");
+                    self.locals.last_mut().unwrap().insert(sym, r);
+                    r
+                });
+                let _ = r;
+                let cond = self.lower_expr(c.cond);
+                ensures.push(Postcondition { cond, message, span: c.span });
+            } else {
+                // the call site, recorded by the caller (read before
+                // anything else can record another)
+                let caller = *caller_local.get_or_insert_with(|| {
+                    let l = self.new_local("$caller", c.span);
+                    let site = self.call_lang("contract_caller", vec![], c.span);
+                    let pat = self.alloc_pat(PatKind::Bind(l), c.span);
+                    checks.push(Stmt::Let { pat, ty: None, init: site, span: c.span });
+                    l
+                });
+                // `if !(cond) { precondition_failed(message, caller) }`
+                let cond = self.lower_expr(c.cond);
+                let not = self.alloc(ExprKind::Unary { op: UnOp::Not, operand: cond }, c.span);
+                let msg = self.alloc(ExprKind::Lit(Lit::Str(message)), c.span);
+                let at = self.alloc(ExprKind::Local(caller), c.span);
+                let fail = self.call_lang("precondition_failed", vec![msg, at], c.span);
+                let then = self.alloc(
+                    ExprKind::Block { stmts: vec![Stmt::Expr { expr: fail, semi: true }], tail: None },
+                    c.span,
+                );
+                let check = self.alloc(ExprKind::If { cond: not, then, els: None }, c.span);
+                checks.push(Stmt::Expr { expr: check, semi: true });
+            }
+        }
+        if !checks.is_empty()
+            && let Some(b) = body
+        {
+            let span = self.cx.hir.exprs[b].span;
+            body = Some(self.alloc(ExprKind::Block { stmts: checks, tail: Some(b) }, span));
+        }
         self.locals.pop();
         self.owners.pop();
         self.generics.pop();
@@ -801,6 +857,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             owner,
             has_self,
             ffi: Default::default(),
+            ensures,
+            result,
+            contracts,
         }
     }
 

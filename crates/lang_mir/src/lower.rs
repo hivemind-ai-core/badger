@@ -410,9 +410,37 @@ impl<'g, 'a> Mono<'g, 'a> {
                 for (l, pat, t) in params {
                     fl.bind_irrefutable(pat, Operand::Local(l), &t);
                 }
+                if !f.ensures.is_empty() {
+                    let rl = fl.fresh(fl.func.ret, Some("result".into()));
+                    let epi = fl.block();
+                    fl.epilogue = Some((epi, rl));
+                }
                 let v = fl.lower(body);
                 if let Some(v) = v {
-                    fl.term(Term::Return(v));
+                    fl.ret(v);
+                }
+                // postconditions, on every return path
+                if let Some((epi, rl)) = fl.epilogue.take() {
+                    fl.switch(epi);
+                    if let Some(r) = f.result {
+                        fl.locals.insert(r, rl);
+                    }
+                    for pc in &f.ensures {
+                        let Some(c) = fl.lower(pc.cond) else { continue };
+                        let (ok, bad) = (fl.block(), fl.block());
+                        fl.term(Term::Branch(c, ok, bad));
+                        fl.switch(bad);
+                        let msg = fl.m.str_const(&pc.message);
+                        let l = fl.loc(pc.span);
+                        fl.rt(
+                            "lang_rt_panic",
+                            vec![Operand::Const(Const::Addr(msg)), Operand::Const(Const::Addr(l))],
+                            Repr::I64,
+                        );
+                        fl.dead();
+                        fl.switch(ok);
+                    }
+                    fl.term(Term::Return(Operand::Local(rl)));
                 }
                 fl.finish();
             }
@@ -745,6 +773,9 @@ pub struct FnLower<'m, 'g, 'a> {
     loops: Vec<LoopCtx>,
     ret_ty: Ty,
     owner: Owner,
+    /// With postconditions: every return stores its value in the local and
+    /// jumps to the block that checks them.
+    epilogue: Option<(BlockId, Local)>,
 }
 
 fn unit_op() -> Operand {
@@ -772,6 +803,18 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             loops: vec![],
             ret_ty,
             owner,
+            epilogue: None,
+        }
+    }
+
+    /// Return `v` from the function (through its postconditions, if any).
+    fn ret(&mut self, v: Operand) {
+        match self.epilogue {
+            Some((b, l)) => {
+                self.emit(Stmt::Assign(l, Rvalue::Use(v)));
+                self.term(Term::Goto(b));
+            }
+            None => self.term(Term::Return(v)),
         }
     }
 
@@ -894,6 +937,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             && m.path.len() == 2
             && self.m.g.interner.resolve(m.path[1]) == "prelude"
             && self.m.g.interner.resolve(hir.defs[def].name) == "err"
+    }
+
+    /// A function with `requires` clauses (its failures blame the caller).
+    fn has_requires(&self, def: DefId) -> bool {
+        matches!(&self.hir().defs[def].kind, DefKind::Fn(f) if f.contracts.iter().any(|c| c.starts_with("requires")))
     }
 
     /// A `std.test` function called from outside `std.test`.
@@ -1317,7 +1365,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 // checked buffer element access reports the caller's location
                 if let Target::Fn { def, .. } = &target
-                    && self.is_checked_element_access(*def, span)
+                    && (self.is_checked_element_access(*def, span) || self.has_requires(*def))
                 {
                     let l = self.loc(span);
                     self.rt("lang_rt_caller_loc", vec![Operand::Const(Const::Addr(l))], Repr::I8);
@@ -1548,7 +1596,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     None => unit_op(),
                 };
                 self.close_iters(0);
-                self.term(Term::Return(v));
+                self.ret(v);
                 self.dead();
                 None
             }
@@ -1782,6 +1830,16 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.dead();
                 None
             }
+            "precondition_failed" => {
+                let l = self.loc(span);
+                self.rt(
+                    "lang_rt_precondition",
+                    vec![args[0], args[1], Operand::Const(Const::Addr(l))],
+                    Repr::I64,
+                );
+                self.dead();
+                None
+            }
             "assert" => {
                 let (ok, fail) = (self.block(), self.block());
                 self.term(Term::Branch(args[0], ok, fail));
@@ -1967,8 +2025,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 for a in args {
                     ops.push(self.lower(*a)?);
                 }
-                // test assertions report their caller's location
-                if self.is_test_helper(*def, span) {
+                // test assertions, and functions with preconditions, report
+                // their caller's location
+                if self.is_test_helper(*def, span) || self.has_requires(*def) {
                     let l = self.loc(span);
                     self.rt("lang_rt_caller_loc", vec![Operand::Const(Const::Addr(l))], Repr::I8);
                 }
@@ -2070,7 +2129,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             );
         }
         self.close_iters(0);
-        self.term(Term::Return(Operand::Local(ol)));
+        self.ret(Operand::Local(ol));
         self.switch(okb);
         let (v, _) = self.variant_field(&rt, 0, 0, Operand::Local(rl));
         Some(v)

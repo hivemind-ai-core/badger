@@ -90,9 +90,13 @@ impl_decl     = { K_impl ~ generic_params? ~ type_expr ~ impl_for? ~ where_claus
 impl_for      = { K_for ~ type_expr }
 assoc_type    = { K_type ~ name ~ ("=" ~ type_expr)? }
 
-fn_decl  = { pub_kw? ~ K_fn ~ name ~ generic_params? ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ where_clause? ~ block? }
+fn_decl  = { (contract ~ sep+)* ~ pub_kw? ~ K_fn ~ name ~ generic_params? ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ where_clause? ~ block? }
+// `requires COND` / `ensures COND`, optionally `, "message"`, on lines before a function
+contract     = { (requires_kw | ensures_kw) ~ expr ~ ("," ~ (string | raw_string))? }
+requires_kw  = @{ "requires" ~ !ident_char }
+ensures_kw   = @{ "ensures" ~ !ident_char }
 // methods are members: a keyword may name one (`s.match()`)
-method_decl = { pub_kw? ~ K_fn ~ member ~ generic_params? ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ where_clause? ~ block? }
+method_decl = { (contract ~ sep+)* ~ pub_kw? ~ K_fn ~ member ~ generic_params? ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ where_clause? ~ block? }
 ret_type = { "->" ~ type_expr }
 params   = { (param ~ ("," ~ param)* ~ ","?)? }
 param    = { pattern ~ (":" ~ type_expr)? }

@@ -182,6 +182,16 @@ pub extern "C" fn lang_rt_list_len(_ctx: *mut TaskCtx, list: u64) -> u64 {
     crate::list::len(list) as u64
 }
 
+/// A precondition of a function failed: blame the call site (`caller`,
+/// when the caller recorded it), naming the clause's location (`clause`).
+pub extern "C" fn lang_rt_precondition(_ctx: *mut TaskCtx, msg: u64, caller: u64, clause: u64) -> u64 {
+    let (m, at, c) = (str_of(msg).to_string(), str_of(caller).to_string(), str_of(clause).to_string());
+    if at.is_empty() {
+        task::panic_current(m, c)
+    }
+    task::panic_current(format!("{m}; contract at {c}, violated by the call"), at)
+}
+
 /// Elements per page of a list (paged iteration in generated code).
 pub extern "C" fn lang_rt_list_page_cap(_ctx: *mut TaskCtx, list: u64) -> u64 {
     crate::list::page_cap(list) as u64
@@ -255,6 +265,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_list_new", lang_rt_list_new as *const u8),
         ("lang_rt_list_push", lang_rt_list_push as *const u8),
         ("lang_rt_list_len", lang_rt_list_len as *const u8),
+        ("lang_rt_precondition", lang_rt_precondition as *const u8),
         ("lang_rt_list_page_cap", lang_rt_list_page_cap as *const u8),
         ("lang_rt_list_page", lang_rt_list_page as *const u8),
         ("lang_rt_list_get", lang_rt_list_get as *const u8),

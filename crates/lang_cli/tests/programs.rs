@@ -975,3 +975,34 @@ fn program_graphs() {
     assert!(modules.starts_with("graph LR\n") && modules.contains("std.io"), "{modules}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A failed precondition blames the call site and names the contract; a
+/// failed postcondition is the function's own defect.
+#[test]
+fn contract_violations() {
+    let dir = std::env::temp_dir().join(format!("lang-contracts-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("acct.lang");
+    let program = |call: &str| {
+        format!(
+            "requires amount > 0, \"a positive amount\"\nfn withdraw(balance: Int, amount: Int) -> Int {{ balance - amount }}\n\nensures result == x + 1\nfn inc(x: Int) -> Int {{ x + 2 }}\n\npub fn main() -> Unit {{\n    let _ = {call}\n}}\n"
+        )
+    };
+    std::fs::write(&src, program("withdraw(10, -5)")).unwrap();
+    let out = lang().arg("run").arg(&src).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr).to_string();
+    assert_eq!(out.status.code(), Some(101), "{err}");
+    assert!(err.contains("precondition of `withdraw` failed: amount > 0 (a positive amount)"), "{err}");
+    assert!(err.contains("acct.lang:1:1, violated by the call") && err.contains("acct.lang:8:13"), "{err}");
+    std::fs::write(&src, program("inc(1)")).unwrap();
+    let out = lang().arg("run").arg(&src).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(
+        err.contains("postcondition of `inc` failed: result == x + 1") && err.contains("acct.lang:4:1"),
+        "{err}"
+    );
+    std::fs::write(&src, program("withdraw(10, 5) + inc(-2) * 0")).unwrap();
+    let out = lang().arg("run").arg(&src).output().unwrap();
+    assert!(!out.status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -1,0 +1,6 @@
+// A postcondition runs after the body: it cannot read what the body moved.
+// expect-error: E0404
+import std.buffer
+ensures b.len() == 0
+fn f(b: Buffer<Int>) -> Array<Int> { b.freeze() }
+pub fn main() -> Unit { let _ = f(buffer.with_capacity<Int>(1)) }

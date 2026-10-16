@@ -44,12 +44,13 @@ protocol_decl    = visibility, "protocol", type_name, [ generic_params ],
                    "{", { method_decl | type_decl | separator }, "}" ;
 impl_decl        = "impl", [ generic_params ], type_expr, "for", type_expr,
                    [ where_clause ], "{", { method_decl | type_decl | separator }, "}" ;
-method_decl      = "fn", value_name, [ generic_params ], "(", typed_params,
+method_decl      = { contract }, "fn", value_name, [ generic_params ], "(", typed_params,
                    ")", "->", type_expr, [ effect ], [ where_clause ],
                    ( block | separator ) ;
-function_decl    = visibility, "fn", value_name, [ generic_params ],
+function_decl    = { contract }, visibility, "fn", value_name, [ generic_params ],
                    "(", params, ")", [ "->", type_expr ], [ effect ],
                    [ where_clause ], block ;
+contract         = ( "requires" | "ensures" ), expr, [ ",", STRING ], separator ;
 extern_decl      = visibility, "extern", STRING, "fn", value_name,
                    "(", typed_params, ")", "->", type_expr, separator ;
 global_binding   = [ "pub" ], ("let" | "const"), pattern,

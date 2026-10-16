@@ -1,0 +1,85 @@
+// Function contracts: `requires` is checked on entry and `ensures` on every
+// return (falling off the end, `return`, and `?`), with `result` bound to
+// the value returned. Contracts that hold are invisible.
+import std.io
+import std.list
+
+pub struct Account { pub owner: String, pub balance: Int }
+
+pub enum BankError { overdrawn(needed: Int) } derive(Error)
+
+requires amount > 0, "withdraw a positive amount"
+ensures result.is_err() || result.unwrap_or(account).balance == account.balance - amount
+pub fn withdraw(account: Account, amount: Int) -> Result<Account, BankError> {
+    if amount > account.balance {
+        return err(BankError.overdrawn(amount - account.balance))
+    }
+    ok({ ..account, balance: account.balance - amount })
+}
+
+// `?` leaves through the postcondition too
+ensures result.is_err() || result.unwrap_or(account).balance == account.balance - 2 * amount
+fn withdraw_twice(account: Account, amount: Int) -> Result<Account, BankError> {
+    let first = withdraw(account, amount)?
+    withdraw(first, amount)
+}
+
+ensures result >= 0
+fn abs(x: Int) -> Int {
+    if x < 0 {
+        return -x
+    }
+    x
+}
+
+requires xs.len() > 0
+ensures xs.contains(result)
+fn largest(xs: List<Int>) -> Int {
+    var best = xs.get(0).unwrap_or(0)
+    for x in xs {
+        if x > best { best = x }
+    }
+    best
+}
+
+requires n >= 0
+ensures result >= 1
+fn factorial(n: Int) -> Int {
+    if n <= 1 { 1 } else { n * factorial(n - 1) }
+}
+
+pub struct Range { pub lo: Int, pub hi: Int }
+
+impl Range {
+    requires lo <= hi, "an empty range"
+    pub fn new(lo: Int, hi: Int) -> Range { { lo: lo, hi: hi } }
+
+    ensures result >= 0
+    pub fn width(self: &Self) -> Int { self.hi - self.lo }
+}
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+pub fn main() -> Unit {
+    let a: Account = { owner: "ann", balance: 100 }
+    match withdraw(a, 30) {
+        .ok(b) => say($"withdrew: {b.balance}"),
+        .err(e) => say($"error {e}"),
+    }
+    match withdraw(a, 500) {
+        .ok(_) => say("unexpected"),
+        .err(e) => say($"refused: {e}"),
+    }
+    match withdraw_twice(a, 40) {
+        .ok(b) => say($"twice: {b.balance}"),
+        .err(e) => say($"error {e}"),
+    }
+    match withdraw_twice(a, 60) {
+        .ok(_) => say("unexpected"),
+        .err(e) => say($"twice refused: {e}"),
+    }
+    say($"abs {abs(-7)} {abs(3)}")
+    say($"largest {largest([3, 9, 2])}")
+    say($"factorial {factorial(10)}")
+    say($"width {Range.new(2, 9).width()}")
+}
