@@ -1,0 +1,23 @@
+// `Data` objects are keyed by strings or symbols: a symbol-keyed map
+// encodes as an object and decodes back (from text and from `Data`).
+import std.codec
+import std.io
+import std.map
+
+type Config = { limits: Map<Symbol, Int> }
+
+pub fn main() -> Unit {
+    let m: Map<Symbol, Int> = map.empty().insert(:alpha, 1).insert(:beta, 2)
+    let _ = io.println($"{codec.to_data(m)}")
+    let text = codec.encode_text({ limits: m })
+    let _ = io.println(text)
+    match codec.decode_text<Config>(text) {
+        .ok(c) => { let _ = io.println($"beta from text: {c.limits.get(:beta).unwrap_or(0)}") },
+        .err(e) => { let _ = io.println($"error {e}") },
+    }
+    let d = codec.to_data(m)
+    match codec.from_data<Map<Symbol, Int>>(d) {
+        .ok(back) => { let _ = io.println($"alpha from data: {back.get(:alpha).unwrap_or(0)}") },
+        .err(e) => { let _ = io.println($"error {e}") },
+    }
+}
