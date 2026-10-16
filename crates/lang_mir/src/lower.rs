@@ -2427,6 +2427,91 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     self.call(Callee::Direct(f), vec![Operand::Local(l)], r);
                 }
             }
+            IterKind::List if self.paged_elem(&it_ty).is_some() => {
+                // page by page: one runtime call per page, then direct
+                // loads of the page's elements (pages never move and a
+                // version's elements never change; the page stays rooted
+                // through its word conversion)
+                let repr = self.paged_elem(&it_ty).unwrap();
+                let size = repr.size() as i64;
+                let list = itl;
+                let n = self.rt("lang_rt_list_len", vec![Operand::Local(list)], Repr::I64);
+                let n = self.copy_to_local(n, Repr::I64, None);
+                let cap = self.rt("lang_rt_list_page_cap", vec![Operand::Local(list)], Repr::I64);
+                let cap = self.copy_to_local(cap, Repr::I64, None);
+                let i = self.copy_to_local(int(0), Repr::I64, Some("i".into()));
+                // slot within the current page; starts full to fetch page 0
+                let slot = self.copy_to_local(Operand::Local(cap), Repr::I64, None);
+                let cur = self.copy_to_local(int(0), Repr::I64, None);
+                let (check, fetch) = (self.block(), self.block());
+                self.term(Term::Goto(head));
+                self.switch(head);
+                self.emit(Stmt::Poll);
+                let more = self.assign(
+                    Repr::I8,
+                    Rvalue::Cmp {
+                        op: CmpOp::Lt,
+                        a: Operand::Local(i),
+                        b: Operand::Local(n),
+                        ty: NumTy::I(64, true),
+                    },
+                );
+                self.term(Term::Branch(more, check, exit));
+                self.switch(check);
+                let in_page = self.assign(
+                    Repr::I8,
+                    Rvalue::Cmp {
+                        op: CmpOp::Lt,
+                        a: Operand::Local(slot),
+                        b: Operand::Local(cap),
+                        ty: NumTy::I(64, true),
+                    },
+                );
+                self.term(Term::Branch(in_page, bodyb, fetch));
+                self.switch(fetch);
+                let page =
+                    self.rt("lang_rt_list_page", vec![Operand::Local(list), Operand::Local(i)], Repr::Ptr);
+                let page = self.copy_to_local(page, Repr::Ptr, None);
+                let w = self.assign(Repr::I64, Rvalue::ToWord(Operand::Local(page)));
+                self.emit(Stmt::Assign(cur, Rvalue::Use(w)));
+                self.emit(Stmt::Assign(slot, Rvalue::Use(int(0))));
+                self.term(Term::Goto(bodyb));
+                self.switch(bodyb);
+                let x = self.assign(
+                    repr,
+                    Rvalue::Load {
+                        base: Operand::Local(cur),
+                        offset: lang_runtime::list::PAGE_HDR as i32,
+                        repr,
+                    },
+                );
+                let x = if repr == Repr::Ptr {
+                    Operand::Local(self.copy_to_local(x, Repr::Ptr, None))
+                } else {
+                    x
+                };
+                self.bind_irrefutable(pat, x, &item_ty);
+                self.loops.push(LoopCtx { expr: e, cont: step, brk: exit, result: None, close: None });
+                if self.lower(body).is_some() {
+                    self.term(Term::Goto(step));
+                }
+                self.loops.pop();
+                self.switch(step);
+                for (l, d) in [(i, 1), (slot, 1), (cur, size)] {
+                    let nx = self.assign(
+                        Repr::I64,
+                        Rvalue::Bin {
+                            op: BinOp::Add,
+                            a: Operand::Local(l),
+                            b: int(d),
+                            ty: NumTy::I(64, true),
+                            loc: 0,
+                        },
+                    );
+                    self.emit(Stmt::Assign(l, Rvalue::Use(nx)));
+                }
+                self.term(Term::Goto(head));
+            }
             _ => {
                 // lists and list-backed collections; maps/sets via to_list
                 let list = match kind {
@@ -2484,6 +2569,17 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         self.switch(exit);
         Some(())
+    }
+
+    /// The page element representation of a `List<T>` iterated page by
+    /// page (the runtime's representation of `T`, which pages store).
+    fn paged_elem(&mut self, list_ty: &Ty) -> Option<Repr> {
+        if !self.m.lay.is_std(list_ty, "List") {
+            return None;
+        }
+        let elem = self.m.lay.args(list_ty).first()?.clone();
+        let r = self.m.lay.desc(&elem).repr();
+        (r == self.repr(&elem)).then_some(r)
     }
 
     // ------------------------------------------------------------ patterns

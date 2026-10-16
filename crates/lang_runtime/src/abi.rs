@@ -182,6 +182,18 @@ pub extern "C" fn lang_rt_list_len(_ctx: *mut TaskCtx, list: u64) -> u64 {
     crate::list::len(list) as u64
 }
 
+/// Elements per page of a list (paged iteration in generated code).
+pub extern "C" fn lang_rt_list_page_cap(_ctx: *mut TaskCtx, list: u64) -> u64 {
+    crate::list::page_cap(list) as u64
+}
+
+/// The page object holding element `i` (below the length) of a list;
+/// generated code reads the page's elements directly (pages never move and
+/// a version's elements never change).
+pub extern "C" fn lang_rt_list_page(_ctx: *mut TaskCtx, list: u64, i: u64) -> u64 {
+    crate::list::page(list, i as usize / crate::list::page_cap(list))
+}
+
 /// Checked element access; `loc` reports the defect location.
 pub extern "C" fn lang_rt_list_get(_ctx: *mut TaskCtx, list: u64, i: u64, loc: u64) -> u64 {
     if crate::buffer::is_buffer(list) {
@@ -243,6 +255,8 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_list_new", lang_rt_list_new as *const u8),
         ("lang_rt_list_push", lang_rt_list_push as *const u8),
         ("lang_rt_list_len", lang_rt_list_len as *const u8),
+        ("lang_rt_list_page_cap", lang_rt_list_page_cap as *const u8),
+        ("lang_rt_list_page", lang_rt_list_page as *const u8),
         ("lang_rt_list_get", lang_rt_list_get as *const u8),
         ("lang_rt_list_finish", lang_rt_list_finish as *const u8),
         ("lang_rt_map_new", lang_rt_map_new as *const u8),

@@ -1,0 +1,66 @@
+// `for` over lists reads pages directly: every element width, across page
+// boundaries, with allocation (and so collection) in the body, early exit,
+// skipped elements, empty lists, and diverged versions sharing pages.
+import std.io
+import std.list
+
+fn build<T>(n: Int, f: fn(Int) -> T) -> List<T> {
+    let b = list.builder<T>()
+    for i in 0..n {
+        b.append(f(i))
+    }
+    b.finish()
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let n = 5000
+    let bytes = build(n, fn(i) -> U8 { U8.try_from(i % 256).unwrap_or(0U8) })
+    let shorts = build(n, fn(i) -> I16 { I16.try_from(i % 30000 - 15000).unwrap_or(0I16) })
+    let words = build(n, fn(i) -> I32 { I32.try_from(i - 2500).unwrap_or(0I32) })
+    let floats = build(n, fn(i) -> Float { Float.try_from(i).unwrap_or(0.0) * 0.5 })
+    let singles = build(n, fn(i) -> F32 { if i % 2 == 0 { 1.5F32 } else { 0.25F32 } })
+    let flags = build(n, fn(i) -> Bool { i % 3 == 0 })
+    var sb = 0
+    var ss = 0
+    var sw = 0
+    var sf = 0.0
+    var s32 = 0.0
+    var nf = 0
+    for x in bytes { sb = sb + Int.from(x) }
+    for x in shorts { ss = ss + Int.from(x) }
+    for x in words { sw = sw + Int.from(x) }
+    for x in floats { sf = sf + x }
+    for x in singles { s32 = s32 + Float.try_from(x).unwrap_or(0.0) }
+    for x in flags { if x { nf = nf + 1 } }
+    io.println($"sums {sb} {ss} {sw} {sf} {s32} {nf}")?
+    // managed elements with allocation in the body
+    let names = build(n, fn(i) -> String { $"n{i}" })
+    var joined: List<String> = []
+    var total = 0
+    for s in names {
+        let t = $"{s}!"
+        joined = joined.append(t)
+        total = total + t.len()
+    }
+    io.println($"strings {joined.len()} {total} {joined.get(4999).unwrap_or("")}")?
+    // break, continue, nested loops over shared versions
+    let base = build(1024, fn(i) -> Int { i })
+    let a = base.append(1)
+    let b = base.append(2)
+    var pairs = 0
+    for x in a {
+        if x % 100 != 0 { continue }
+        for y in b {
+            if y > 3 { break }
+            pairs = pairs + 1
+        }
+    }
+    var tail = 0
+    for x in b { tail = x }
+    io.println($"pairs {pairs} tails {tail} {a.len()}")?
+    let empty: List<Int> = []
+    var seen = 0
+    for _ in empty { seen = seen + 1 }
+    io.println($"empty {seen}")?
+    ok(())
+}

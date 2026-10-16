@@ -42,7 +42,7 @@ fn dir_desc() -> &'static TypeDesc {
 }
 
 /// Page payload: `elem desc ptr`, written-slot count, then element storage.
-const PAGE_HDR: usize = 16;
+pub const PAGE_HDR: usize = 16;
 
 fn trace_page(o: *mut Header, f: &mut dyn FnMut(u64)) {
     unsafe {
