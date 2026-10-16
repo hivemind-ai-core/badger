@@ -720,6 +720,7 @@ dependencies = [
  "lang_driver",
  "lang_syntax",
  "libc",
+ "serde_json",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ lang_base.workspace = true
 lang_syntax.workspace = true
 clap.workspace = true
 libc = "0.2"
+serde_json = "1.0.154"
 
 [[bin]]
 name = "lang"

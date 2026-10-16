@@ -351,6 +351,28 @@ module-level values are computed once and keep their identity. Redefining
 a definition with another type or effect is rejected; new types may be
 added.
 
+## Editor support
+
+`lang lsp` is a language server on stdio (`crates/lang_cli/src/lsp.rs`).
+Each edit re-checks the program the document belongs to (its project, or
+the file alone when no `lang.toml` encloses it or the project's module graph
+does not reach it) with every open buffer overlaid (`Session::overlays`);
+a burst of edits is checked once. The check is the ordinary one, so
+diagnostics are exactly `lang check`'s; with `set_record_types` the checker
+also returns a `TypeIndex` (printed types of user expressions and locals,
+resolved call/method/constructor targets, and the fields and methods of each
+local's type). `lang_driver::analysis` turns that and the HIR into owned
+per-file data: references (span, definition target, a key identifying the
+referent, hover text from `describe_def`, the same rendering as
+`lang explain`), document symbols, and locals with their scopes. Hover,
+definition, references, highlights, rename (occurrences spelled as the name;
+library definitions are not renamed), document and workspace symbols,
+formatting (the canonical formatter), and completion are answered from it.
+Completion uses the last analysis that indexed the file, so it keeps working
+while the text being typed does not parse: names in scope, module members
+after `module.`, fields and methods after `value.`. Setup for editors is in
+[docs/editors.md](docs/editors.md).
+
 ## Testing
 
 - `tests/run/*.lang` must run and print `NAME.out` (exit code `NAME.exit`),

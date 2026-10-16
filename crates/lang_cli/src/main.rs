@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+
+mod lsp;
 use lang_base::diagnostics::json_str;
 use lang_driver::{Outcome, Session};
 
@@ -136,6 +138,9 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
+    /// Language server over stdio (diagnostics, hover, definition,
+    /// references, rename, symbols, formatting, completion).
+    Lsp,
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
         /// `diagnostic`, `type`, or `effect`.
@@ -274,6 +279,7 @@ fn main() -> ExitCode {
             }
         }
         // no paths: the current directory's sources
+        Command::Lsp => ExitCode::from(lsp::serve() as u8),
         Command::Format { paths, check } => {
             format(if paths.is_empty() { vec![PathBuf::from(".")] } else { paths }, check)
         }
