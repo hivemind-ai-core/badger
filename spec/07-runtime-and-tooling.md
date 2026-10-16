@@ -176,7 +176,9 @@ lockfile pins each git dependency's commit, and `lang update` resolves
 revisions again. `[workspace] members` groups packages sharing one
 lockfile (`lang check`, `lang test`, and `lang update` at the root cover
 them all), and `[package] kind = "library"` marks a package that others
-import and nothing runs. Configuration cannot run arbitrary
+import and nothing runs. `[env] dotenv` loads environment files before a
+program starts (set variables win), and `[config]` values may read the
+environment with `${NAME}` or `${NAME:-default}`. Configuration cannot run arbitrary
 code during import. User tasks are explicit typed functions invoked by the tool.
 Profile merging produces inspectable effective configuration before execution.
 

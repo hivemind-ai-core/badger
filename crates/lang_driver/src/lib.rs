@@ -71,6 +71,59 @@ fn entry_fn() -> String {
     ENTRY_FN.lock().unwrap().clone().unwrap_or_else(|| "main".into())
 }
 
+/// Load the project's `[env] dotenv` files into the environment, before
+/// the program (and its runtime threads) start: `NAME=value` lines, with
+/// `#` comments, an optional `export ` prefix, and quoted values (`"..."`
+/// with `\n` escapes, or `'...'` taken literally). A variable already set
+/// keeps its value; a listed file that does not exist is skipped.
+pub fn load_dotenv(project: &Path) -> Result<(), String> {
+    let Ok(m) = manifest::Manifest::load(&project.join("lang.toml")) else { return Ok(()) };
+    for f in &m.dotenv {
+        let p = project.join(f);
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        for (k, v) in parse_dotenv(&text).map_err(|e| format!("{}: {e}", p.display()))? {
+            if std::env::var_os(&k).is_none() {
+                // SAFETY: before the program starts, while this process
+                // runs no other threads that read the environment
+                unsafe { std::env::set_var(&k, &v) };
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `NAME=value` pairs of a dotenv file.
+pub fn parse_dotenv(text: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out = vec![];
+    for (i, raw) in text.lines().enumerate() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let line = line.strip_prefix("export ").unwrap_or(line);
+        let Some((k, v)) = line.split_once('=') else {
+            return Err(format!("line {}: expected NAME=value", i + 1));
+        };
+        let k = k.trim();
+        if k.is_empty() || !k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(format!("line {}: `{k}` is not a variable name", i + 1));
+        }
+        let v = v.trim();
+        let v = if let Some(q) = v.strip_prefix('"') {
+            let Some(end) = q.rfind('"') else { return Err(format!("line {}: unclosed quote", i + 1)) };
+            q[..end].replace("\\n", "\n").replace("\\\"", "\"")
+        } else if let Some(q) = v.strip_prefix('\'') {
+            let Some(end) = q.rfind('\'') else { return Err(format!("line {}: unclosed quote", i + 1)) };
+            q[..end].to_string()
+        } else {
+            // an unquoted value ends at a ` #` comment
+            v.split(" #").next().unwrap_or(v).trim().to_string()
+        };
+        out.push((k.to_string(), v));
+    }
+    Ok(out)
+}
+
 /// The packages a command at `path` covers: every package of the
 /// workspace whose root `path` is, else `path` itself.
 pub fn packages_of(path: &Path) -> Vec<PathBuf> {
@@ -744,6 +797,12 @@ impl Session {
             }
         }
         let mut config: Vec<(String, String)> = vec![];
+        if path.is_dir()
+            && let Err(e) = load_dotenv(path)
+        {
+            self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
+            return Err(Outcome::Errors);
+        }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => {
                 config = entries.into_iter().map(|(k, v, _)| (k, v)).collect();

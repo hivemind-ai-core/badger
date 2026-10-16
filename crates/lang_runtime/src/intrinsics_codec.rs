@@ -379,7 +379,8 @@ fn config_object(
         let (key, raw) = match std::env::var(&env_key) {
             Ok(v) => (env_key, Ok(v)),
             Err(e) => match profile_data.iter().find(|(k, _)| *k == path) {
-                Some((k, v)) => (k.clone(), Ok(v.clone())),
+                // `${NAME}` and `${NAME:-default}` in a configured value
+                Some((k, v)) => (k.clone(), Ok(expand_env(v).map_err(|m| (k.clone(), m))?)),
                 None => (env_key, Err(e)),
             },
         };
@@ -414,6 +415,43 @@ fn config_object(
         obj.insert(f.name.clone(), j);
     }
     Ok(obj)
+}
+
+/// A configured value with `${NAME}` (an environment variable, which must
+/// be set) and `${NAME:-default}` (or the default when unset or empty)
+/// replaced; `$${` is a literal `${`.
+pub fn expand_env(v: &str) -> Result<String, String> {
+    if !v.contains("${") {
+        return Ok(v.to_string());
+    }
+    let mut out = String::new();
+    let mut rest = v;
+    while let Some(i) = rest.find("${") {
+        if rest[..i].ends_with('$') {
+            out.push_str(&rest[..i - 1]);
+            out.push_str("${");
+            rest = &rest[i + 2..];
+            continue;
+        }
+        out.push_str(&rest[..i]);
+        let Some(end) = rest[i..].find('}') else { return Err(format!("unclosed `${{` in `{v}`")) };
+        let inner = &rest[i + 2..i + end];
+        let (name, default) = match inner.split_once(":-") {
+            Some((n, d)) => (n, Some(d)),
+            None => (inner, None),
+        };
+        if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(format!("`${{{inner}}}` does not name an environment variable"));
+        }
+        match (std::env::var(name).ok().filter(|x| !x.is_empty() || default.is_none()), default) {
+            (Some(x), _) => out.push_str(&x),
+            (None, Some(d)) => out.push_str(d),
+            (None, None) => return Err(format!("environment variable `{name}` is not set")),
+        }
+        rest = &rest[i + end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
 }
 
 fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64, profile: bool) -> u64 {

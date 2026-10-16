@@ -58,6 +58,9 @@ pub struct Manifest {
     /// `[workspace] members`: member directories (a final `*` names every
     /// package directory below that path).
     pub workspace: Option<Vec<String>>,
+    /// `[env] dotenv`: files of `NAME=value` lines loaded into the
+    /// environment before the program starts (variables already set win).
+    pub dotenv: Vec<String>,
 }
 
 /// Runtime settings accepted in `[runtime]` / `[profile.NAME.runtime]`.
@@ -195,6 +198,29 @@ impl Manifest {
                 .collect::<Result<Vec<_>, _>>()?;
             m.workspace = Some(members);
         }
+        if let Some(env) = table.get("env") {
+            let Some(env) = env.as_table() else { return Err("`env` must be a table".into()) };
+            for (k, v) in env {
+                match k.as_str() {
+                    "dotenv" => {
+                        let files = match v {
+                            toml::Value::String(s) => vec![s.clone()],
+                            toml::Value::Array(xs) => xs
+                                .iter()
+                                .map(|x| {
+                                    x.as_str()
+                                        .map(str::to_string)
+                                        .ok_or("`[env] dotenv` must list file names")
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                            _ => return Err("`[env] dotenv` is a file name or a list of them".into()),
+                        };
+                        m.dotenv = files;
+                    }
+                    other => return Err(format!("unknown env key `{other}` (known: dotenv)")),
+                }
+            }
+        }
         Ok(m)
     }
 
@@ -219,6 +245,7 @@ impl Manifest {
             library: false,
             has_package: false,
             workspace: None,
+            dotenv: vec![],
         };
         // TOML forbids defining a table or a key twice
         let mut sections_seen: Vec<String> = vec![];
@@ -245,6 +272,7 @@ impl Manifest {
                         | "config"
                         | "database"
                         | "workspace"
+                        | "env"
                 ) || section.starts_with("config.")
                     || section.starts_with("profile.");
                 if !known {
@@ -262,8 +290,9 @@ impl Manifest {
                 }
                 continue;
             }
-            // `[workspace]` is read from the exact TOML (arrays may span lines)
-            if section == "workspace" {
+            // `[workspace]` and `[env]` are read from the exact TOML (arrays
+            // may span lines)
+            if section == "workspace" || section == "env" {
                 continue;
             }
             let Some((k, v)) = line.split_once('=') else {

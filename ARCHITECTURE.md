@@ -461,7 +461,10 @@ the commit, and a build uses the locked commit while the manifest asks for
 the same `rev`). `[workspace] members` (with `dir/*` patterns) groups
 packages that share the lockfile at the workspace root; `lang check` and
 `lang test` there cover every member. `[package] kind = "library"` marks a
-package without `main`.
+package without `main`. `[env] dotenv` lists files of `NAME=value` lines
+the driver loads into the environment before a source run starts
+(variables already set win), and `${NAME}` / `${NAME:-default}` in
+`[config]` values read the environment when `config.load` decodes them.
 `[package] restricted = true` confines ambient authority to the entry module
 (`crates/lang_driver/src/authority.rs`: a reachability check over resolved
 calls and function references, reporting the path to the ambient function;

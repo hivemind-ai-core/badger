@@ -463,6 +463,51 @@ fn dependencies() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Configuration from the environment: `[env] dotenv` files load before
+/// the program starts (variables already set win), and `${NAME}` /
+/// `${NAME:-default}` in `[config]` values read the environment.
+#[test]
+fn dotenv_and_env_references() {
+    let dir = std::env::temp_dir().join(format!("lang-dotenv-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("lang.toml"),
+        "[package]\nname = \"envdemo\"\n\n[env]\ndotenv = [\".env\", \".env.local\"]\n\n[config]\nurl = \"${DATABASE_URL}\"\nport = \"${PORT:-8080}\"\ngreeting = \"hi $${literal}\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(".env"),
+        "# local settings\nexport DATABASE_URL=\"postgres://u@h/db\"\nSECRET=abc # trailing\nQUOTED='a b'\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/main.lang"),
+        "import std.io\nimport std.config\nimport std.env\n\npub fn main() -> Result<Unit, String> {\n    let c = config.load<{ url: String, port: Int, greeting: String }>(\"APP_\").map_err(fn(e) { e.display() })?\n    let secret = env.get(\"SECRET\").unwrap_or(\"-\")\n    let quoted = env.get(\"QUOTED\").unwrap_or(\"-\")\n    let _ = io.println($\"{c.url} {c.port} {c.greeting} {secret} {quoted}\")\n    ok(())\n}\n",
+    )
+    .unwrap();
+    let run = |env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.arg("run")
+            .arg(&dir)
+            .env_remove("DATABASE_URL")
+            .env_remove("PORT")
+            .env_remove("SECRET")
+            .env_remove("QUOTED");
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (String::from_utf8_lossy(&out.stdout).to_string(), String::from_utf8_lossy(&out.stderr).to_string())
+    };
+    assert_eq!(run(&[]).0, "postgres://u@h/db 8080 hi ${literal} abc a b\n");
+    assert_eq!(run(&[("PORT", "9"), ("DATABASE_URL", "real")]).0, "real 9 hi ${literal} abc a b\n");
+    std::fs::remove_file(dir.join(".env")).unwrap();
+    let (out, err) = run(&[]);
+    assert!(out.is_empty() && err.contains("url: environment variable `DATABASE_URL` is not set"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Workspaces and git dependencies: members share one `lang.lock`; a git
 /// dependency builds from its locked commit (a changed `rev` is refused
 /// until `lang update`, which resolves it again); `lang check` and

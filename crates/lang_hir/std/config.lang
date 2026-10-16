@@ -25,4 +25,7 @@ extern "intrinsic" fn config_load<T>(prefix: String) -> Result<T, Error>
 /// Decode the effective configuration: the project's `[config]` table merged
 /// with the selected `[profile.NAME]` (`lang run --profile NAME`), overlaid
 /// by prefixed environment variables (`PREFIX` + upper-cased field name).
+/// A configured value may read the environment: `"${NAME}"` (which must be
+/// set) or `"${NAME:-default}"`; `$${` is a literal `${`. The project's
+/// `[env] dotenv` files are loaded before the program starts.
 pub fn load<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec { config_load(prefix) }
