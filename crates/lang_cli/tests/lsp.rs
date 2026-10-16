@@ -206,3 +206,52 @@ fn language_server() {
     assert!(c.child.wait().unwrap().success());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Hostile and unusual input does not stop the server: bad framing and
+/// JSON are skipped, an inverted edit range replaces nothing, completion
+/// next to multi-byte text works, and renames keep the program valid
+/// (qualified uses rename their last segment, record shorthand keeps its
+/// label, invalid names are refused).
+#[test]
+fn language_server_robustness() {
+    let dir = std::env::temp_dir().join(format!("lang-lsp-robust-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("r.lang");
+    let src = "import std.io\n\nfn make(name: String, n: Int) -> { name: String, n: Int } {\n    { name, n }\n}\n\n// a→b\npub fn main() -> Unit {\n    let r = make(\"x\", 1)\n    let _ = io.println(r.name)\n}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    // garbage first: no length, bad JSON, an oversized length marker
+    write!(c.stdin, "X-Junk: 1\r\n\r\n").unwrap();
+    write!(c.stdin, "Content-Length: 5\r\n\r\n{{oops").unwrap();
+    c.stdin.flush().unwrap();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "lang", "version": 1, "text": src } }),
+    );
+    assert!(c.diagnostics(&uri).is_empty());
+    // completion right after a multi-byte character
+    let cm = c.request("textDocument/completion", pos(&uri, 6, 7));
+    assert!(cm["error"].is_null(), "{cm}");
+    // an inverted range in an incremental edit
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 2 }, "contentChanges": [{ "range": { "start": { "line": 3, "character": 5 }, "end": { "line": 3, "character": 1 } }, "text": "" }] }),
+    );
+    assert!(c.diagnostics(&uri).is_empty());
+    // renaming a parameter used as a record shorthand keeps the field label
+    let rn = c.request("textDocument/rename", json!({ "textDocument": { "uri": uri }, "position": { "line": 2, "character": 9 }, "newName": "label" }));
+    let edits = rn["result"]["changes"][&uri].as_array().unwrap().clone();
+    let texts: Vec<&str> = edits.iter().map(|e| e["newText"].as_str().unwrap()).collect();
+    assert!(texts.contains(&"label") && texts.contains(&"name: label"), "{rn}");
+    // invalid replacement names are refused
+    for bad in ["fn", "9x", "Label"] {
+        let rn = c.request("textDocument/rename", json!({ "textDocument": { "uri": uri }, "position": { "line": 2, "character": 9 }, "newName": bad }));
+        assert!(!rn["error"].is_null(), "{bad}: {rn}");
+    }
+    c.request("shutdown", Value::Null);
+    c.notify("exit", Value::Null);
+    assert!(c.child.wait().unwrap().success());
+    let _ = std::fs::remove_dir_all(&dir);
+}

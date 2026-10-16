@@ -62,6 +62,14 @@ fn mcp_tools() {
     assert!(!err && out.starts_with("printed\n"), "{out}");
     let (out, err) = call("eval", json!({ "code": "sq(\"no\")" }));
     assert!(err && out.contains("E0300"), "{out}");
+    // a second impl of a protocol for another type keeps the first
+    call("eval", json!({ "code": "struct A { v: Int }" }));
+    call("eval", json!({ "code": "struct B { v: Int }" }));
+    call("eval", json!({ "code": "impl Display for A { fn display(self: &Self) -> String { \"a\" } }" }));
+    call("eval", json!({ "code": "impl Display for B { fn display(self: &Self) -> String { \"b\" } }" }));
+    let (out, err) = call("eval", json!({ "code": "let a: A = { v: 1 }\nlet b: B = { v: 2 }\n$\"{a}{b}\"" }));
+    assert!(!err && out.contains("ab"), "{out}");
+    call("eval", json!({ "code": "import std.process" }));
     // the compiler from code
     call("eval", json!({ "code": "import std.compiler" }));
     let (out, err) = call(
@@ -73,6 +81,15 @@ fn mcp_tools() {
     let (out, err) = call("eval", json!({ "code": "loop { }", "timeout_secs": 0.5 }));
     assert!(err && out.contains("cancelled"), "{out}");
     assert_eq!(call("eval", json!({ "code": "sq(3)" })), ("9".to_string(), false));
+
+    // values that look like errors are values; failures are failures
+    assert_eq!(call("eval", json!({ "code": "[1, 2, 3]" })), ("[1, 2, 3]".to_string(), false));
+    let (out, err) = call("eval", json!({ "code": "1 / 0" }));
+    assert!(err && out.contains("division by zero"), "{out}");
+    // the session outlives code that tries to end the process
+    let (out, err) = call("eval", json!({ "code": "process.exit(3)" }));
+    assert!(err, "{out}");
+    assert_eq!(call("eval", json!({ "code": "sq(4)" })), ("16".to_string(), false));
 
     // check, query, run
     let (out, err) = call("check", json!({ "source": "pub fn main() -> Int { \"x\" }" }));

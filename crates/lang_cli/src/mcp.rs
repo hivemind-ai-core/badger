@@ -110,14 +110,23 @@ fn lang_env(
     env: &[(&str, String)],
     limit: Duration,
 ) -> Result<(i32, String, String), String> {
-    let mut child = std::process::Command::new(exe())
-        .args(args)
-        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
+    let mut cmd = std::process::Command::new(exe());
+    cmd.args(args).envs(env.iter().map(|(k, v)| (*k, v.as_str())));
+    run_limited(cmd, limit)
+}
+
+/// Run a command to completion within `limit` (killed after it).
+fn run_limited(mut cmd: std::process::Command, limit: Duration) -> Result<(i32, String, String), String> {
+    use std::os::unix::process::CommandExt;
+    let program = cmd.get_program().to_string_lossy().into_owned();
+    // its own process group, so a time limit stops whatever it started
+    cmd.process_group(0);
+    let mut child = cmd
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("cannot start lang: {e}"))?;
+        .map_err(|e| format!("cannot start {program}: {e}"))?;
     let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
     let ro = std::thread::spawn(move || {
         let mut s = String::new();
@@ -135,6 +144,7 @@ fn lang_env(
             break st.code().unwrap_or(-1);
         }
         if start.elapsed() > limit {
+            unsafe { libc::killpg(child.id() as i32, libc::SIGKILL) };
             let _ = child.kill();
             let _ = child.wait();
             return Err(format!("timed out after {}s", limit.as_secs_f64()));
@@ -142,6 +152,11 @@ fn lang_env(
         std::thread::sleep(Duration::from_millis(5));
     };
     Ok((status, ro.join().unwrap_or_default(), re.join().unwrap_or_default()))
+}
+
+/// A path argument for a subprocess (never read as an option).
+fn arg_path(p: &str) -> String {
+    if p.starts_with('-') { format!("./{p}") } else { p.to_string() }
 }
 
 fn text(t: impl Into<String>, is_error: bool) -> Value {
@@ -175,8 +190,9 @@ impl Mcp {
                     String::from_utf8_lossy(&std::mem::take(&mut *self.output.lock().unwrap())).into_owned();
                 match reply {
                     Ok(r) => {
+                        let (status, r) = r.split_once('\n').unwrap_or((r.as_str(), ""));
+                        let failed = status != "ok";
                         let r = r.trim_end();
-                        let failed = r.starts_with("error") || r.contains("\nerror") || r.starts_with('[');
                         let mut out = printed;
                         if !r.is_empty() {
                             if !out.is_empty() && !out.ends_with('\n') {
@@ -194,7 +210,7 @@ impl Mcp {
             }
             "check" => {
                 let path = match (a["path"].as_str(), a["source"].as_str()) {
-                    (Some(p), _) => p.to_string(),
+                    (Some(p), _) => arg_path(p),
                     (None, Some(src)) => {
                         let p = self.scratch.join("check.lang");
                         if let Err(e) = std::fs::write(&p, src) {
@@ -249,7 +265,7 @@ impl Mcp {
                         let Some(target) = a["name"].as_str().or(a["path"].as_str()) else {
                             return text("give `name` (e.g. std.list) or `path`", true);
                         };
-                        let args = vec!["query".into(), "api".into(), target.to_string()];
+                        let args = vec!["query".into(), "api".into(), arg_path(target)];
                         match lang(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),
                             Ok((_, _, err)) => text(err.trim(), true),
@@ -269,7 +285,7 @@ impl Mcp {
                     }
                     _ => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
-                        let mut args = vec!["query".to_string(), kind.to_string(), path.to_string()];
+                        let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {
                             if let Some(v) = a[k].as_u64() {
                                 args.push(format!("--{k}"));
@@ -291,7 +307,7 @@ impl Mcp {
                 if a["release"] == json!(true) && args[0] == "run" {
                     args.push("--release".into());
                 }
-                args.push(path.into());
+                args.push(arg_path(path));
                 if let Some(xs) = a["args"].as_array()
                     && args[0] == "run"
                 {
@@ -349,11 +365,20 @@ impl Mcp {
         }
         let mut args = vec!["-batch", "-nx", "-x"].into_iter().map(String::from).collect::<Vec<_>>();
         args.push(file.display().to_string());
-        args.extend(["--args".to_string(), exe(), "run".into(), "--debug".into(), path.into()]);
-        let out = std::process::Command::new("gdb").args(&args).stdin(std::process::Stdio::null()).output();
-        match out {
-            Err(e) => text(format!("cannot run gdb (needed for breakpoints): {e}"), true),
-            Ok(o) => {
+        args.extend(["--args".to_string(), exe(), "run".into(), "--debug".into()]);
+        if a["release"] == json!(true) {
+            args.push("--release".into());
+        }
+        args.push(arg_path(path));
+        if let Some(xs) = a["args"].as_array() {
+            args.push("--".into());
+            args.extend(xs.iter().filter_map(|x| x.as_str().map(str::to_string)));
+        }
+        let mut cmd = std::process::Command::new("gdb");
+        cmd.args(&args);
+        match run_limited(cmd, secs(&a["timeout_secs"], 60.0)) {
+            Err(e) => text(format!("debugging with gdb: {e}"), true),
+            Ok((_, out, err)) => {
                 // keep the debugger's report, not its thread chatter
                 let keep = |l: &&str| {
                     !(l.starts_with("[New Thread")
@@ -364,8 +389,6 @@ impl Mcp {
                         || l.starts_with("of file")
                         || l.starts_with("Use `info auto-load"))
                 };
-                let out = String::from_utf8_lossy(&o.stdout);
-                let err = String::from_utf8_lossy(&o.stderr);
                 let report: Vec<&str> = out.lines().chain(err.lines()).filter(keep).collect();
                 text(report.join("\n"), false)
             }
@@ -401,14 +424,21 @@ pub fn serve() -> std::process::ExitCode {
                 if o.len() > 1 << 20 {
                     let cut = o.len() - (1 << 19);
                     o.drain(..cut);
+                    let mark = b"[earlier output dropped]\n";
+                    o.splice(0..0, mark.iter().copied());
                 }
                 o.extend_from_slice(&buf[..n]);
             }
         });
         (std::fs::File::from_raw_fd(proto), output)
     };
-    let dir = std::env::temp_dir().join(format!("lang-mcp-{}", std::process::id()));
-    let _ = std::fs::create_dir_all(&dir);
+    let dir = match lang_driver::private_temp_dir("lang-mcp") {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("error: cannot create a session directory: {e}");
+            return std::process::ExitCode::FAILURE;
+        }
+    };
     let file = dir.join("session.lang");
     let session = "// MCP session program\nimport std.io\nimport std.task\n\npub fn main() -> Unit {\n    loop {\n        task.sleep(3600s)\n    }\n}\n";
     if std::fs::write(&file, session).is_err() {
@@ -438,8 +468,10 @@ pub fn serve() -> std::process::ExitCode {
             }
             std::thread::sleep(Duration::from_millis(10));
         }
-        for line in std::io::stdin().lock().lines() {
+        // lines as bytes: invalid UTF-8 is an unparsable request, not the end
+        for line in std::io::stdin().lock().split(b'\n') {
             let Ok(line) = line else { break };
+            let line = String::from_utf8_lossy(&line).into_owned();
             if line.trim().is_empty() {
                 continue;
             }
@@ -475,6 +507,7 @@ pub fn serve() -> std::process::ExitCode {
         crate::exit_now(0)
     });
     lang_driver::set_repl_session();
+    lang_driver::forbid_exit();
     let mut s = lang_driver::Session::new();
     let opts = lang_driver::RunOptions { inspect: Some(addr), ..Default::default() };
     match s.run(&file, vec![], &opts) {

@@ -7,7 +7,6 @@
 import std.prelude
 import std.io
 import std.env
-import std.fs
 import std.process
 import std.codec
 
@@ -94,13 +93,7 @@ pub fn diagnostics(path: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} 
 
 /// Diagnostics of a source text, checked as a file on its own.
 pub fn check_source(source: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
-    let dir = env.get("TMPDIR").unwrap_or("/tmp")
-    let path = $"{dir}/lang-check-{process.id()}.lang"
-    match fs.write_text(path, source) {
-        .ok(_) => {},
-        .err(e) => return err({ message: $"cannot write {path}: {e}" }),
-    }
-    diagnostics(path)
+    decode(ask(["query", "diagnostics", "--source", source])?)
 }
 
 /// The type or signature at a position.

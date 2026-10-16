@@ -89,6 +89,30 @@ pub fn start_profile() {
 pub fn finish() {
     lang_runtime::intrinsics_codec::report_overload();
     lang_runtime::profile::finish();
+    lang_runtime::intrinsics_os::cleanup_at_exit();
+}
+
+/// A new temporary directory only this user can use, with an
+/// unpredictable name (never an existing directory or a symlink), removed
+/// when the process exits.
+pub fn private_temp_dir(prefix: &str) -> std::io::Result<PathBuf> {
+    use std::io::Read;
+    use std::os::unix::fs::DirBuilderExt;
+    for _ in 0..16 {
+        let mut b = [0u8; 8];
+        std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
+        let suffix: String = b.iter().map(|x| format!("{x:02x}")).collect();
+        let dir = std::env::temp_dir().join(format!("{prefix}-{suffix}"));
+        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+            Ok(()) => {
+                lang_runtime::intrinsics_os::remove_at_exit(dir.clone());
+                return Ok(dir);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    Err(std::io::Error::other("cannot create a private temporary directory"))
 }
 
 impl Session {
@@ -1313,6 +1337,12 @@ fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
 /// `lang_typeck::set_repl_session`).
 pub fn set_repl_session() {
     lang_typeck::set_repl_session();
+}
+
+/// A session serving others (`lang mcp`): `process.exit` in evaluated code
+/// is a defect instead of ending the process.
+pub fn forbid_exit() {
+    lang_runtime::intrinsics_os::forbid_exit();
 }
 
 /// A definition's declared shape (types, protocols) or type and effects

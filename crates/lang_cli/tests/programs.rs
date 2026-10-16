@@ -874,7 +874,7 @@ fn eval_in_busy_program() {
         "import std.time\npub fn main() -> Unit {\n    let start = time.now()\n    var n = 0\n    while time.now() - start < 20s { n = n + 1 }\n}\n",
     )
     .unwrap();
-    let port = 23000 + (std::process::id() % 1000) as u16;
+    let port = 25000 + (std::process::id() % 1000) as u16;
     let addr = format!("127.0.0.1:{port}");
     let mut child = lang().args(["run", "--inspect", &addr]).arg(&src).spawn().unwrap();
     let start = Instant::now();
@@ -1024,4 +1024,22 @@ fn api_export() {
     assert!(api.contains(r#""name":"withdraw""#) && api.contains("requires amount > 0"), "{api}");
     assert!(api.contains(r#""name":"Range.width""#), "{api}");
     assert!(!api.contains(r#""name":"abs""#), "private functions are not part of the API: {api}");
+}
+
+/// Diagnostics never disappear: a missing file, and a module its project
+/// does not import, are still reported by `lang query diagnostics`.
+#[test]
+fn query_reports_unloadable_and_unreachable_files() {
+    let out = lang().args(["query", "diagnostics", "/nonexistent/x.lang"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.contains("E0011"), "{text}");
+    let dir = std::env::temp_dir().join(format!("lang-orphan-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("lang.toml"), "[package]\nname = \"orph\"\nversion = \"0.1.0\"\n").unwrap();
+    std::fs::write(dir.join("src/main.lang"), "pub fn main() -> Unit {}\n").unwrap();
+    std::fs::write(dir.join("src/orphan.lang"), "fn lonely() -> Int { \"s\" }\n").unwrap();
+    let out = lang().args(["query", "diagnostics"]).arg(dir.join("src/orphan.lang")).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.contains("E0300"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
 }

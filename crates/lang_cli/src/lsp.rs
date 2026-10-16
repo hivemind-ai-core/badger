@@ -24,24 +24,37 @@ const KEYWORDS: &[&str] = &[
     "false", "unsafe", "extern", "dyn", "once", "system", "pipeline",
 ];
 
-fn read_message(r: &mut impl BufRead) -> Option<Value> {
+/// The largest message accepted (bigger ones are skipped).
+const MAX_MESSAGE: usize = 64 << 20;
+
+/// The next message: `None` at the end of input, `Some(None)` for one that
+/// cannot be used (no length, too large, not JSON), which is skipped.
+fn read_message(r: &mut impl BufRead) -> Option<Option<Value>> {
     let mut len = None;
     loop {
-        let mut line = String::new();
-        if r.read_line(&mut line).ok()? == 0 {
+        let mut line = Vec::new();
+        if r.read_until(b'\n', &mut line).ok()? == 0 {
             return None;
         }
+        let line = String::from_utf8_lossy(&line);
         let line = line.trim_end();
         if line.is_empty() {
             break;
         }
-        if let Some(v) = line.strip_prefix("Content-Length:") {
+        if let Some((k, v)) = line.split_once(':')
+            && k.trim().eq_ignore_ascii_case("content-length")
+        {
             len = v.trim().parse::<usize>().ok();
         }
     }
-    let mut buf = vec![0; len?];
+    let Some(len) = len else { return Some(None) };
+    if len > MAX_MESSAGE {
+        let _ = std::io::copy(&mut std::io::Read::take(&mut *r, len as u64), &mut std::io::sink());
+        return Some(None);
+    }
+    let mut buf = vec![0; len];
     r.read_exact(&mut buf).ok()?;
-    serde_json::from_slice(&buf).ok()
+    Some(serde_json::from_slice(&buf).ok())
 }
 
 fn send(out: &mut impl Write, v: &Value) {
@@ -59,7 +72,8 @@ fn uri_to_path(uri: &str) -> PathBuf {
     while i < bytes.len() {
         if bytes[i] == b'%'
             && i + 2 < bytes.len()
-            && let Ok(b) = u8::from_str_radix(&p[i + 1..i + 3], 16)
+            && let Ok(h) = std::str::from_utf8(&bytes[i + 1..i + 3])
+            && let Ok(b) = u8::from_str_radix(h, 16)
         {
             out.push(b);
             i += 3;
@@ -71,8 +85,14 @@ fn uri_to_path(uri: &str) -> PathBuf {
     PathBuf::from(String::from_utf8_lossy(&out).into_owned())
 }
 
+/// The URI the client opened each file by (it may name a symlink).
+static CLIENT_URIS: std::sync::Mutex<Option<HashMap<PathBuf, String>>> = std::sync::Mutex::new(None);
+
 fn path_to_uri(p: &str) -> String {
     let abs = std::fs::canonicalize(p).unwrap_or_else(|_| PathBuf::from(p));
+    if let Some(u) = CLIENT_URIS.lock().unwrap().as_ref().and_then(|m| m.get(&abs)) {
+        return u.clone();
+    }
     let mut s = String::from("file://");
     for b in abs.to_string_lossy().bytes() {
         if b.is_ascii_alphanumeric() || b"/-_.~".contains(&b) {
@@ -86,7 +106,10 @@ fn path_to_uri(p: &str) -> String {
 
 /// Byte offset -> LSP position (line, UTF-16 column).
 fn position(text: &str, offset: usize) -> Value {
-    let offset = offset.min(text.len());
+    let mut offset = offset.min(text.len());
+    while !text.is_char_boundary(offset) {
+        offset -= 1;
+    }
     let before = &text[..offset];
     let line = before.matches('\n').count();
     let start = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
@@ -149,6 +172,9 @@ fn completion_kind(k: SymbolKind) -> u32 {
 /// The program a document belongs to: the nearest enclosing project
 /// directory (with `lang.toml`), else the file itself.
 fn program_of(path: &Path) -> PathBuf {
+    if path.is_dir() && path.join("lang.toml").exists() {
+        return path.to_path_buf();
+    }
     let mut dir = path.parent();
     while let Some(d) = dir {
         if d.join("lang.toml").exists() {
@@ -176,12 +202,17 @@ struct Server {
     last_good: HashMap<PathBuf, Indexed>,
     /// Files that were sent diagnostics (to clear them when fixed).
     published: HashSet<String>,
+    /// The program whose analysis covers each file.
+    owner: HashMap<PathBuf, PathBuf>,
     dirty: HashSet<PathBuf>,
 }
 
 impl Server {
     fn analysis_for(&mut self, file: &Path) -> Option<&Analysis> {
-        let prog = self.program_path(file);
+        let prog = match self.owner.get(file) {
+            Some(p) => p.clone(),
+            None => self.program_path(file),
+        };
         self.programs.get(&prog)
     }
 
@@ -207,7 +238,10 @@ impl Server {
                 continue;
             }
             let mut a = analysis::analyze(&prog, self.docs.clone());
-            if prog != file && !a.files.iter().any(|f| canonical(Path::new(&f.path)) == file) {
+            if prog != file
+                && file.is_file()
+                && !a.files.iter().any(|f| canonical(Path::new(&f.path)) == file)
+            {
                 // not reachable from the project's entry: a module on its own
                 prog = file.clone();
                 a = analysis::analyze(&prog, self.docs.clone());
@@ -220,6 +254,10 @@ impl Server {
                         .insert(canonical(Path::new(&f.path)), (f.clone(), a.modules.clone(), globals));
                 }
             }
+            for f in &a.files {
+                self.owner.insert(canonical(Path::new(&f.path)), prog.clone());
+            }
+            self.owner.insert(file.clone(), prog.clone());
             self.programs.insert(prog, a);
         }
     }
@@ -317,6 +355,10 @@ impl Server {
         let Some((file, path, off)) = self.locate(params) else { return Value::Null };
         let Some(a) = self.analysis_for(&file) else { return Value::Null };
         let Some(t) = a.ref_at(&path, off).and_then(|r| r.target.clone()) else { return Value::Null };
+        // library sources are not files
+        if t.path.starts_with('<') {
+            return Value::Null;
+        }
         let text = a
             .file(&t.path)
             .map(|f| f.text.clone())
@@ -365,9 +407,13 @@ impl Server {
 
     /// Occurrences spelled exactly as the name (a path like `io.println`
     /// is not renamed as a whole).
-    fn renamable(&mut self, params: &Value) -> Option<(String, Vec<analysis::Loc>)> {
-        let (key, locs) = self.occurrences(params)?;
-        let (file, path, _) = self.locate(params)?;
+    /// The name under the cursor and the exact ranges spelling it, each
+    /// with whether it is a record-field shorthand (`{ name }`). Qualified
+    /// uses (`util.helper`, `util.Point`) contribute their last segment;
+    /// library definitions are not renamed.
+    fn renamable(&mut self, params: &Value) -> Option<(String, Vec<(analysis::Loc, bool)>)> {
+        let (_, locs) = self.occurrences(params)?;
+        let (file, _, _) = self.locate(params)?;
         let a = self.analysis_for(&file)?;
         let decl = locs.iter().find(|l| {
             a.file(&l.path).is_some_and(|f| {
@@ -378,27 +424,54 @@ impl Server {
                 })
             })
         })?;
-        let name = a.file(&decl.path)?.text.get(decl.start..decl.end)?.to_string();
-        let _ = (key, path);
-        let locs: Vec<analysis::Loc> = locs
-            .into_iter()
-            .filter(|l| a.file(&l.path).is_some_and(|f| f.text.get(l.start..l.end) == Some(name.as_str())))
-            .collect();
-        Some((name, locs))
+        let name = a.file(&decl.path)?.text.get(decl.start..decl.end)?.trim().to_string();
+        let ident = |c: char| c.is_alphanumeric() || c == '_';
+        let mut out: Vec<(analysis::Loc, bool)> = vec![];
+        for l in locs {
+            let Some(f) = a.file(&l.path) else { continue };
+            let Some(t) = f.text.get(l.start..l.end) else { continue };
+            let t = t.trim_end();
+            let start = if t == name {
+                l.start
+            } else if t.ends_with(&format!(".{name}")) {
+                l.start + t.len() - name.len()
+            } else if t.starts_with(&name) && !t[name.len()..].starts_with(ident) {
+                // a type with arguments: `Point<T>`
+                l.start
+            } else {
+                continue;
+            };
+            let loc = analysis::Loc { path: l.path.clone(), start, end: start + name.len() };
+            let shorthand = f.shorthand.contains(&(loc.start, loc.end));
+            if !out.iter().any(|(x, _)| *x == loc) {
+                out.push((loc, shorthand));
+            }
+        }
+        Some((name, out))
     }
 
     fn rename(&mut self, params: &Value) -> Result<Value, String> {
         let new = params["newName"].as_str().unwrap_or("");
-        if new.is_empty() || !new.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return Err(format!("`{new}` is not a name"));
+        let Some((old, locs)) = self.renamable(params) else { return Err("nothing to rename here".into()) };
+        let valid = new.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && new.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !KEYWORDS.contains(&new);
+        // types are capitalized, values are not
+        let class = |n: &str| n.chars().next().is_some_and(|c| c.is_ascii_uppercase());
+        if !valid || class(new) != class(&old) {
+            return Err(format!("`{new}` cannot replace `{old}`"));
         }
-        let Some((_, locs)) = self.renamable(params) else { return Err("nothing to rename here".into()) };
+        // only where prepareRename would offer it
+        let Some((_, path, off)) = self.locate(params) else { return Err("nothing to rename here".into()) };
+        if !locs.iter().any(|(l, _)| l.path == path && l.start <= off && off <= l.end) {
+            return Err("nothing to rename here".into());
+        }
         let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
         let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
-        for l in &locs {
+        for (l, shorthand) in &locs {
             let mut e = self.loc_json(&file, l);
             let uri = e["uri"].as_str().unwrap_or("").to_string();
-            e["newText"] = json!(new);
+            e["newText"] = json!(if *shorthand { format!("{old}: {new}") } else { new.to_string() });
             e.as_object_mut().map(|o| o.remove("uri"));
             changes.entry(uri).or_default().push(e);
         }
@@ -410,8 +483,8 @@ impl Server {
         let Some((_, path, off)) = self.locate(params) else { return Value::Null };
         let Some((name, locs)) = self.renamable(params) else { return Value::Null };
         let text = self.text(&file);
-        match locs.iter().find(|l| l.path == path && l.start <= off && off <= l.end) {
-            Some(l) => json!({ "range": range(&text, l.start, l.end), "placeholder": name }),
+        match locs.iter().find(|(l, _)| l.path == path && l.start <= off && off <= l.end) {
+            Some((l, _)) => json!({ "range": range(&text, l.start, l.end), "placeholder": name }),
             None => Value::Null,
         }
     }
@@ -474,7 +547,11 @@ impl Server {
         let line_start = text[..off].rfind('\n').map(|i| i + 1).unwrap_or(0);
         let before = &text[line_start..off];
         let ident = |c: char| c.is_alphanumeric() || c == '_';
-        let word_start = before.rfind(|c: char| !ident(c)).map(|i| i + 1).unwrap_or(0);
+        // byte index after the last non-identifier character
+        let after_last = |s: &str| {
+            s.char_indices().rev().find(|(_, c)| !ident(*c)).map(|(i, c)| i + c.len_utf8()).unwrap_or(0)
+        };
+        let word_start = after_last(before);
         let prefix = &before[word_start..];
         let Some((index, modules, globals)) = self.last_good.get(&file).cloned() else {
             return json!(KEYWORDS.iter().map(|k| json!({"label": k, "kind": 14})).collect::<Vec<_>>());
@@ -483,8 +560,12 @@ impl Server {
         // `receiver.`: module members, or fields and methods of a local
         if before[..word_start].ends_with('.') {
             let recv_end = word_start - 1;
-            let recv_start = before[..recv_end].rfind(|c: char| !ident(c)).map(|i| i + 1).unwrap_or(0);
+            let recv_start = after_last(&before[..recv_end]);
             let recv = &before[recv_start..recv_end];
+            // a member of a member, a call's result, a literal: not known here
+            if recv.is_empty() || before[..recv_start].ends_with('.') {
+                return json!([]);
+            }
             if let Some(ms) = modules.get(recv)
                 && !index.locals.iter().any(|l| l.name == recv)
             {
@@ -546,7 +627,9 @@ pub fn serve() -> i32 {
         let stdin = std::io::stdin();
         let mut r = stdin.lock();
         while let Some(m) = read_message(&mut r) {
-            if tx.send(m).is_err() {
+            if let Some(m) = m
+                && tx.send(m).is_err()
+            {
                 break;
             }
         }
@@ -558,8 +641,10 @@ pub fn serve() -> i32 {
         programs: HashMap::new(),
         last_good: HashMap::new(),
         published: HashSet::new(),
+        owner: HashMap::new(),
         dirty: HashSet::new(),
     };
+    *CLIENT_URIS.lock().unwrap() = Some(HashMap::new());
     let mut shutdown = false;
     while let Ok(first) = rx.recv() {
         // take everything already queued, apply edits, then check once
@@ -573,7 +658,11 @@ pub fn serve() -> i32 {
             let params = &m["params"];
             match method.as_str() {
                 "textDocument/didOpen" => {
-                    let p = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+                    let uri = params["textDocument"]["uri"].as_str().unwrap_or("");
+                    let p = canonical(&uri_to_path(uri));
+                    if let Some(m) = CLIENT_URIS.lock().unwrap().as_mut() {
+                        m.insert(p.clone(), uri.to_string());
+                    }
                     server
                         .docs
                         .insert(p.clone(), params["textDocument"]["text"].as_str().unwrap_or("").to_string());
@@ -587,7 +676,8 @@ pub fn serve() -> i32 {
                             if c.get("range").is_some_and(|r| !r.is_null()) {
                                 let (a, b) =
                                     (offset(text, &c["range"]["start"]), offset(text, &c["range"]["end"]));
-                                text.replace_range(a..b, c["text"].as_str().unwrap_or(""));
+                                // an inverted range replaces nothing
+                                text.replace_range(a..b.max(a), c["text"].as_str().unwrap_or(""));
                             } else {
                                 *text = c["text"].as_str().unwrap_or("").to_string();
                             }
@@ -689,6 +779,7 @@ pub fn query(kind: &str, path: &Path, line: Option<usize>, col: Option<usize>) -
         programs: HashMap::new(),
         last_good: HashMap::new(),
         published: HashSet::new(),
+        owner: HashMap::new(),
         dirty: HashSet::from([file.clone()]),
     };
     server.reanalyze(&mut std::io::sink());
@@ -793,8 +884,7 @@ fn api(target: &Path) -> Result<Value, String> {
             if lang_driver::std_source(m).is_none() {
                 return Err(format!("no standard module `{t}`"));
             }
-            let dir = std::env::temp_dir().join(format!("lang-api-{}", std::process::id()));
-            let _ = std::fs::create_dir_all(&dir);
+            let dir = lang_driver::private_temp_dir("lang-api").map_err(|e| e.to_string())?;
             let f = dir.join("api.lang");
             std::fs::write(&f, format!("import std.{m}\npub fn main() -> Unit {{}}\n"))
                 .map_err(|e| e.to_string())?;

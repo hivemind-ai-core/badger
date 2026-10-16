@@ -169,11 +169,14 @@ enum Command {
     Query {
         kind: String,
         /// Source file (checked with its project, if any).
-        path: PathBuf,
+        path: Option<PathBuf>,
         #[arg(long)]
         line: Option<usize>,
         #[arg(long)]
         col: Option<usize>,
+        /// Ask about this source text (checked on its own) instead of a file.
+        #[arg(long)]
+        source: Option<String>,
     },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
@@ -336,7 +339,16 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Command::Query { kind, path, line, col } => match lsp::query(&kind, &path, line, col) {
+        Command::Query { kind, path, line, col, source } => match source
+            .map(|src| {
+                let dir = lang_driver::private_temp_dir("lang-check").map_err(|e| e.to_string())?;
+                let f = dir.join("source.lang");
+                std::fs::write(&f, src).map_err(|e| e.to_string())?;
+                Ok(f)
+            })
+            .unwrap_or_else(|| path.ok_or_else(|| "give a PATH or --source".to_string()))
+            .and_then(|p| lsp::query(&kind, &p, line, col))
+        {
             Ok(v) => {
                 println!("{v}");
                 ExitCode::SUCCESS
@@ -778,8 +790,13 @@ fn repl_loop(addr: &str, prompt_text: &str) -> i32 {
 /// module-level `let` values are computed once and keep their identity;
 /// expressions evaluate inside the session.
 fn repl() -> ExitCode {
-    let dir = std::env::temp_dir().join(format!("lang-repl-{}", std::process::id()));
-    let _ = std::fs::create_dir_all(&dir);
+    let dir = match lang_driver::private_temp_dir("lang-repl") {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("error: cannot create a session directory: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
     let file = dir.join("session.lang");
     let session = "// REPL session program\nimport std.io\nimport std.task\n\npub fn main() -> Unit {\n    loop {\n        task.sleep(3600s)\n    }\n}\n";
     if std::fs::write(&file, session).is_err() {

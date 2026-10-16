@@ -129,9 +129,16 @@ os_intrinsics! {
     }
     fn process_exit(ctx, targs, ret, code) {
         use std::io::Write;
+        if EXIT_FORBIDDEN.load(std::sync::atomic::Ordering::Relaxed) {
+            crate::task::panic_current(
+                "process.exit is not available here (the process is a shared session)".into(),
+                crate::task::caller_location(),
+            );
+        }
         let _ = std::io::stdout().flush();
         run_exit_hook();
         crate::profile::finish();
+        cleanup_at_exit();
         unsafe { libc::_exit(code as i32) }
     }
     fn process_id(ctx, targs, ret) { std::process::id() as u64 }
@@ -286,6 +293,28 @@ static EXIT_HOOK: std::sync::Mutex<Option<Box<dyn Fn() + Send>>> = std::sync::Mu
 
 pub fn set_exit_hook(f: Box<dyn Fn() + Send>) {
     *EXIT_HOOK.lock().unwrap() = Some(f);
+}
+
+static EXIT_FORBIDDEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Make `process.exit` a task defect (a session that serves others, such
+/// as `lang mcp`, outlives the code it runs).
+pub fn forbid_exit() {
+    EXIT_FORBIDDEN.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+static REMOVE_AT_EXIT: std::sync::Mutex<Vec<std::path::PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Remove `dir` (a private temporary directory) when the process exits.
+pub fn remove_at_exit(dir: std::path::PathBuf) {
+    REMOVE_AT_EXIT.lock().unwrap().push(dir);
+}
+
+/// Remove the directories registered with [`remove_at_exit`].
+pub fn cleanup_at_exit() {
+    for d in std::mem::take(&mut *REMOVE_AT_EXIT.lock().unwrap()) {
+        let _ = std::fs::remove_dir_all(d);
+    }
 }
 
 fn run_exit_hook() {

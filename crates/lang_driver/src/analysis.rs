@@ -92,6 +92,9 @@ pub struct FileIndex {
     pub symbols: Vec<SymbolInfo>,
     pub refs: Vec<Ref>,
     pub locals: Vec<LocalInfo>,
+    /// Ranges of record fields written as shorthand (`{ name }`): the name
+    /// is both the field's label and a variable's use.
+    pub shorthand: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, Clone)]
@@ -210,8 +213,26 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
         s.annotate_scopes(hir);
     }
     s.diagnostics.dedupe(&s.sources);
+    // diagnostics about the program as a whole (unreadable files, a missing
+    // entry) belong to its entry file, or to the path itself
+    let whole = loaded
+        .as_ref()
+        .map(|l| s.sources.get(l.modules[l.entry].file).name.clone())
+        .unwrap_or_else(|| path.display().to_string());
     for d in s.diagnostics.iter() {
-        let Some(p) = d.primary() else { continue };
+        let Some(p) = d.primary() else {
+            out.diagnostics.push(FileDiag {
+                path: whole.clone(),
+                start: 0,
+                end: 0,
+                severity: d.severity,
+                code: d.code.map(str::to_string),
+                message: d.message.clone(),
+                related: vec![],
+                notes: d.notes.clone(),
+            });
+            continue;
+        };
         let f = s.sources.get(p.file);
         let loc = |sp: Span| {
             let f = s.sources.get(sp.file);
@@ -440,6 +461,7 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
         hir.modules.iter().filter(|(_, m)| !m.is_std).map(|(_, m)| m.file).collect();
     let user = |sp: Span| !sp.is_dummy() && user_files.contains(&sp.file);
     let mut refs: HashMap<String, Vec<Ref>> = HashMap::new();
+    let mut shorthand: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
 
     // expressions
     for (e, ex) in hir.exprs.iter() {
@@ -501,6 +523,16 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
                 };
                 ix.add_ref(&mut refs, *name_span, Ref { start: 0, end: 0, target, key, hover });
                 ix.add_ref(&mut refs, ex.span, Ref { start: 0, end: 0, target: None, key: None, hover: ty });
+            }
+            ExprKind::Record { fields, .. } => {
+                for (_, lspan, v) in fields {
+                    if hir.exprs[*v].span == *lspan && !lspan.is_dummy() {
+                        shorthand
+                            .entry(ix.path(*lspan))
+                            .or_default()
+                            .push((lspan.start as usize, lspan.end as usize));
+                    }
+                }
             }
             ExprKind::Field { label, label_span, .. } => {
                 let hover = format!("{}: {ty}", s.interner.resolve(*label));
@@ -876,6 +908,7 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
             symbols: symbols.remove(&sf.name).unwrap_or_default(),
             refs: r,
             locals: locals.remove(&sf.name).unwrap_or_default(),
+            shorthand: shorthand.remove(&sf.name).unwrap_or_default(),
         });
     }
 }

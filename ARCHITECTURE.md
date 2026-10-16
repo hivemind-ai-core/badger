@@ -335,6 +335,12 @@ it and `lang update` rewrites it.
 ## Inspection and remote REPL
 
 `lang run --inspect ADDR` serves a line protocol on a local TCP address.
+Every request carries the endpoint's token, a random secret made at start,
+kept in memory for in-process clients (the local REPL, `lang mcp`) and
+written for the user's other processes to a 0600 file in a 0700 per-user
+directory (`$XDG_RUNTIME_DIR/lang-inspect`, else `~/.cache/lang-inspect`);
+other local users cannot inspect or evaluate. Each connection is served
+on its own thread with a read timeout; evaluations run one at a time.
 Snapshot requests (`tasks` with state, wait reason, owner scope, the code
 version the task started on, and the pipeline stages it is inside;
 `channels` with capacity, queued/staged/leased messages, closure, and waiters;
