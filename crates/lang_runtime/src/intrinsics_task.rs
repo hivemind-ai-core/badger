@@ -9,7 +9,7 @@ use crate::task::{self, Cleanup, Exit, TaskCtx};
 use crate::{make_record, make_variant, scope};
 
 fn exit_word(id: u64) -> Option<Exit> {
-    task::exit_of(id as u32)
+    task::exit_of(id)
 }
 
 /// `SendError<T>` result for an unsent value.
@@ -138,7 +138,7 @@ task_intrinsics! {
         if captured & 1 != 0 {
             return task_exit(ctx, targs, ret, id);
         }
-        task::await_task(id as u32, false);
+        task::await_task(id, false);
         match exit_word(id) {
             Some(Exit::Returned(w)) => w,
             Some(Exit::Failed(p)) => task::panic_current(format!("joined task failed: {}", p.message), p.location),
@@ -146,7 +146,7 @@ task_intrinsics! {
         }
     }
     fn task_exit(ctx, targs, ret, id) {
-        task::await_task(id as u32, false);
+        task::await_task(id, false);
         let ret = rdesc(ret);
         match exit_word(id) {
             Some(Exit::Returned(w)) => make_variant(ret, "returned", &[w]),
@@ -157,7 +157,7 @@ task_intrinsics! {
                 make_variant(ret, "failed", &[info])
             }
             _ => {
-                let reason = task::task(id as u32).map(|t| t.cancel_reason).unwrap_or(task::CancelReason::Requested);
+                let reason = task::task(id).map(|t| t.cancel_reason).unwrap_or(task::CancelReason::Requested);
                 let vi = ret.variant_index("cancelled").unwrap();
                 let rdesc_ = ret.variant(vi).unwrap().fields[0].desc;
                 let r = Roots::new();
@@ -169,7 +169,7 @@ task_intrinsics! {
     // Wait for fallible tasks in any order; on the first `err`, cancel and
     // settle every unfinished sibling and return the failing index (else -1).
     fn task_try_join_all(ctx, targs, ret, ids) {
-        let ids: Vec<u32> = (0..crate::list::len(ids)).map(|i| crate::list::get(ids, i) as u32).collect();
+        let ids: Vec<u64> = (0..crate::list::len(ids)).map(|i| crate::list::get(ids, i)).collect();
         loop {
             for (i, &id) in ids.iter().enumerate() {
                 if let Some(Exit::Returned(w)) = task::exit_of(id) {
@@ -201,16 +201,16 @@ task_intrinsics! {
             task::park_for("join");
         }
     }
-    fn task_done(ctx, targs, ret, id) { task::is_done(id as u32) as u64 }
+    fn task_done(ctx, targs, ret, id) { task::is_done(id) as u64 }
     // attach a cleanup failure to the current task's primary defect
     fn attach_note(ctx, targs, ret, note) {
         task::attach_note(crate::string::str_of(note).to_string());
         0
     }
     fn type_id(ctx, targs, ret) { targ(targs, 0) as *const TypeDesc as u64 }
-    fn task_cancel_timeout(ctx, targs, ret, id) { task::cancel_with(id as u32, task::CancelReason::Timeout); 0 }
-    fn task_cancel(ctx, targs, ret, id) { task::cancel(id as u32); 0 }
-    fn task_settle(ctx, targs, ret, id) { task::await_task(id as u32, true); 0 }
+    fn task_cancel_timeout(ctx, targs, ret, id) { task::cancel_with(id, task::CancelReason::Timeout); 0 }
+    fn task_cancel(ctx, targs, ret, id) { task::cancel(id); 0 }
+    fn task_settle(ctx, targs, ret, id) { task::await_task(id, true); 0 }
     // an unlocked entry, like a poll
     fn task_yield(ctx, targs, ret) {
         if task::multi() && !task::holds_lock() {

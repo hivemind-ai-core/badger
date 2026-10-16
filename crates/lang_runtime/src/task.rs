@@ -29,7 +29,7 @@ use rustc_hash::FxHashMap;
 
 use crate::desc::TypeDesc;
 
-pub type TaskId = u32;
+pub type TaskId = u64;
 
 /// Per-task context passed to all compiled code. Field offsets are part of
 /// the code generator's ABI.
@@ -948,7 +948,7 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         shadow: std::ptr::null_mut(),
         budget: task_budget(),
         flags: 0,
-        task: id as u64,
+        task: id,
         stack_limit: 0,
     });
     let t = Box::new(Task {
@@ -2178,6 +2178,13 @@ pub fn await_task(id: TaskId, shielded: bool) {
             park_for("join")
         };
     }
+}
+
+/// Start numbering new tasks at `n` (tests of long-running programs: ids
+/// are never reused, so numbering must survive passing 32 bits).
+#[doc(hidden)]
+pub fn set_next_task_id(n: TaskId) {
+    rt().next_id = n.max(1);
 }
 
 pub fn remove_task(id: TaskId) {
