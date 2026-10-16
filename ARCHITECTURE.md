@@ -276,6 +276,15 @@ error. `lang_cli` is the `lang` binary.
   JSON Schema output, regular expressions, and an Earley parser library
   (grammar strings or productions, packed forests, bounded tree enumeration
   with cycle reports, error recovery).
+- **Authority:** `fs.root(path)` returns a `Dir`, a capability over one
+  directory tree. Its paths are relative, and absolute paths, `..`, and
+  symlinks leading out of the tree are refused (the deepest existing part of
+  a path is canonicalized and must stay under the root). `Dir.sub` narrows
+  it, and `Dir.reader` gives a `ReadDir`, which has no writing operations.
+  Private fields keep both from being made any other way. The ambient
+  `fs.read_text`/`write_text` remain; a restricted mode that withholds them
+  is future work, and a symlink swapped in between resolution and use is
+  not defended against.
 - **Channels:** prompt (including capacity-zero rendezvous) and batch channels
   with paged staging, publication on limits/close, byte budgets, leased
   batches, and `select`.

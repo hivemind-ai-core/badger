@@ -435,6 +435,75 @@ std_intrinsics! {
         match crate::task::run_blocking(move || std::fs::write(p, t)) { Ok(()) => io_ok(rdesc(ret), 0), Err(e) => io_err(rdesc(ret), &e) }
     }
     fn fs_exists(ctx, targs, ret, path) { bool_w(std::path::Path::new(str_of(path)).exists()) }
+    fn fs_root(ctx, targs, ret, path) {
+        let p = str_of(path).to_string();
+        match std::fs::canonicalize(&p) {
+            Ok(c) if c.is_dir() => { let w = new_string(&c.to_string_lossy()); io_ok(rdesc(ret), w) }
+            Ok(_) => crate::intrinsics_io::io_err_msg(rdesc(ret), "io/invalid_input", &format!("{p} is not a directory")),
+            Err(e) => io_err(rdesc(ret), &e),
+        }
+    }
+    fn fs_within(ctx, targs, ret, root, path) {
+        match resolve_within(str_of(root), str_of(path)) {
+            Ok(p) => { let w = new_string(&p.to_string_lossy()); io_ok(rdesc(ret), w) }
+            Err(m) => crate::intrinsics_io::io_err_msg(rdesc(ret), "io/permission_denied", &m),
+        }
+    }
+    fn fs_list(ctx, targs, ret, path) {
+        let p = str_of(path).to_string();
+        let r = crate::task::run_blocking(move || -> std::io::Result<Vec<String>> {
+            let mut names: Vec<String> = std::fs::read_dir(p)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+            names.sort();
+            Ok(names)
+        });
+        match r {
+            Ok(names) => {
+                let list_desc = match &rdesc(ret).kind { Kind::Enum { .. } => rdesc(ret).variant(0).unwrap().fields[0].desc, _ => rdesc(ret) };
+                let w = strings_to_list(list_desc, names);
+                let g = Roots::new();
+                g.add(w);
+                io_ok(rdesc(ret), w)
+            }
+            Err(e) => io_err(rdesc(ret), &e),
+        }
+    }
+}
+
+/// `path` inside the directory tree `root` (a canonical directory): no
+/// absolute paths or `..`, and the deepest part that exists must resolve
+/// (following symlinks) inside the tree. The result is that canonical
+/// part with the rest appended.
+fn resolve_within(root: &str, path: &str) -> Result<std::path::PathBuf, String> {
+    use std::path::{Component, Path};
+    let rel = Path::new(path);
+    if rel.is_absolute() {
+        return Err(format!("`{path}` is absolute; a directory capability takes paths inside it"));
+    }
+    if rel.components().any(|c| !matches!(c, Component::Normal(_) | Component::CurDir)) {
+        return Err(format!("`{path}` leaves the directory"));
+    }
+    let root = Path::new(root);
+    let full = root.join(rel);
+    let mut existing = full.clone();
+    let mut rest: Vec<std::ffi::OsString> = vec![];
+    while std::fs::symlink_metadata(&existing).is_err() {
+        match (existing.file_name().map(|n| n.to_os_string()), existing.parent()) {
+            (Some(n), Some(p)) => {
+                rest.push(n);
+                existing = p.to_path_buf();
+            }
+            _ => return Err(format!("`{path}` cannot be resolved")),
+        }
+    }
+    let canon = std::fs::canonicalize(&existing).map_err(|e| format!("`{path}`: {e}"))?;
+    if !canon.starts_with(root) {
+        return Err(format!("`{path}` resolves outside the directory"));
+    }
+    let mut out = canon;
+    for n in rest.into_iter().rev() {
+        out.push(n);
+    }
+    Ok(out)
 }
 
 /// JSON description of a schema descriptor.

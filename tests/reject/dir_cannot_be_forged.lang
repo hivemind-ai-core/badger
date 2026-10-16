@@ -1,0 +1,6 @@
+// A `Dir` is made only by `fs.root` and `Dir.sub`: its field is private.
+// expect-error: E0315
+import std.fs
+pub fn main() -> Unit {
+    let d: fs.Dir = { root: "/" }
+}

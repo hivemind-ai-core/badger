@@ -1,0 +1,10 @@
+read ok alpha
+nested ok beta
+parent refused (io/permission_denied)
+absolute refused (io/permission_denied)
+symlink out refused (io/permission_denied)
+missing refused (io/not_found)
+sub ok beta refused (io/permission_denied)
+exists true false
+reader ["a.txt", "escape", "sub"]
+write ok written

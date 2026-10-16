@@ -6,7 +6,82 @@ import std.io
 extern "intrinsic" fn fs_read_text(path: String) -> Result<String, io.Error>
 extern "intrinsic" fn fs_write_text(path: String, text: String) -> Result<Unit, io.Error>
 extern "intrinsic" fn fs_exists(path: String) -> Bool
+extern "intrinsic" fn fs_root(path: String) -> Result<String, io.Error>
+extern "intrinsic" fn fs_within(root: String, path: String) -> Result<String, io.Error>
+extern "intrinsic" fn fs_list(path: String) -> Result<List<String>, io.Error>
 
 pub fn read_text(path: String) -> Result<String, io.Error> !{Io, Wait} { fs_read_text(path) }
 pub fn write_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_write_text(path, text) }
 pub fn exists(path: String) -> Bool !{Io} { fs_exists(path) }
+/// The names in a directory, sorted.
+pub fn list(path: String) -> Result<List<String>, io.Error> !{Io, Wait} { fs_list(path) }
+
+/// Authority over one directory tree: paths are relative to it, and none
+/// (absolute, `..`, or through a symlink) reaches outside it. Only `root`
+/// and `Dir.sub` make one, so a function given a `Dir` can touch that tree
+/// and nothing else through it; `reader` narrows it to reading.
+pub struct Dir {
+    root: String,
+}
+
+/// Read-only authority over one directory tree (see `Dir`).
+pub struct ReadDir {
+    root: String,
+}
+
+/// The directory tree at `path`, which must exist.
+pub fn root(path: String) -> Result<Dir, io.Error> !{Io} {
+    let d: Dir = { root: fs_root(path)? }
+    ok(d)
+}
+
+impl Dir {
+    /// The tree's absolute path.
+    pub fn path(self: &Self) -> String { self.root }
+    pub fn read_text(self: &Self, path: String) -> Result<String, io.Error> !{Io, Wait} {
+        fs_read_text(fs_within(self.root, path)?)
+    }
+    pub fn write_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} {
+        fs_write_text(fs_within(self.root, path)?, text)
+    }
+    pub fn exists(self: &Self, path: String) -> Bool !{Io} {
+        match fs_within(self.root, path) {
+            .ok(p) => fs_exists(p),
+            .err(_) => false,
+        }
+    }
+    /// The names in a directory of the tree (`"."` for its top), sorted.
+    pub fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} {
+        fs_list(fs_within(self.root, path)?)
+    }
+    /// A narrower tree inside this one.
+    pub fn sub(self: &Self, path: String) -> Result<Dir, io.Error> !{Io} {
+        let d: Dir = { root: fs_root(fs_within(self.root, path)?)? }
+        ok(d)
+    }
+    /// The same tree, for reading only.
+    pub fn reader(self: &Self) -> ReadDir {
+        let r: ReadDir = { root: self.root }
+        r
+    }
+}
+
+impl ReadDir {
+    pub fn path(self: &Self) -> String { self.root }
+    pub fn read_text(self: &Self, path: String) -> Result<String, io.Error> !{Io, Wait} {
+        fs_read_text(fs_within(self.root, path)?)
+    }
+    pub fn exists(self: &Self, path: String) -> Bool !{Io} {
+        match fs_within(self.root, path) {
+            .ok(p) => fs_exists(p),
+            .err(_) => false,
+        }
+    }
+    pub fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} {
+        fs_list(fs_within(self.root, path)?)
+    }
+    pub fn sub(self: &Self, path: String) -> Result<ReadDir, io.Error> !{Io} {
+        let d: ReadDir = { root: fs_root(fs_within(self.root, path)?)? }
+        ok(d)
+    }
+}

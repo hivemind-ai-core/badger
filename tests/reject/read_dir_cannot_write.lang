@@ -1,0 +1,6 @@
+// A `ReadDir` grants reading only: writing through it does not check.
+// expect-error: E0312
+import std.io
+import std.fs
+fn tamper(d: fs.ReadDir) -> Result<Unit, io.Error> { d.write_text("x.txt", "no") }
+pub fn main() -> Unit {}
