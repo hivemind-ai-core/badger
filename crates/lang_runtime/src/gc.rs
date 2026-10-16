@@ -239,6 +239,7 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
     let due = || ALLOCATED.load(Ordering::Relaxed) > THRESHOLD.load(Ordering::Relaxed);
     if (due() || stress() || chaos) && DISABLED.load(Ordering::Relaxed) == 0 {
+        debt_flush();
         if crate::task::holds_lock() {
             collect();
         } else {
@@ -264,8 +265,33 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         let list = objects(w);
         list.push(p);
         COUNTS[w].0.store(list.len(), Ordering::Relaxed);
-        ALLOCATED.fetch_add(HEADER + payload, Ordering::Relaxed);
+        // collection pressure is published in blocks: every worker adding
+        // to one shared counter per allocation would contend on it
+        let d = &DEBT[w].0;
+        let owed = d.load(Ordering::Relaxed) + HEADER + payload;
+        if owed >= DEBT_BLOCK {
+            d.store(0, Ordering::Relaxed);
+            ALLOCATED.fetch_add(owed, Ordering::Relaxed);
+        } else {
+            d.store(owed, Ordering::Relaxed);
+        }
         p as u64
+    }
+}
+
+/// Bytes a worker allocated but has not yet added to `ALLOCATED` (only that
+/// worker writes its slot, except the collector while the world is stopped).
+/// The collection threshold may be overshot by at most one block per worker.
+static DEBT: [Count; crate::task::MAX_WORKERS] =
+    [const { Count(std::sync::atomic::AtomicUsize::new(0)) }; crate::task::MAX_WORKERS];
+const DEBT_BLOCK: usize = 64 << 10;
+
+/// Publish this worker's allocation debt (before deciding to collect).
+fn debt_flush() {
+    let d = &DEBT[crate::task::worker_index()].0;
+    let owed = d.swap(0, Ordering::Relaxed);
+    if owed > 0 {
+        ALLOCATED.fetch_add(owed, Ordering::Relaxed);
     }
 }
 
@@ -490,6 +516,10 @@ fn collect_inner() {
         c.0.store(objects(wl).len(), Ordering::Relaxed);
     }
     h.live = live;
+    // every worker is stopped: their unpublished debt is part of `live`
+    for d in &DEBT {
+        d.0.store(0, Ordering::Relaxed);
+    }
     ALLOCATED.store(live, Ordering::Relaxed);
     THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
 }
@@ -538,7 +568,8 @@ pub fn trace(w: u64, f: &mut dyn FnMut(u64)) {
 pub fn stats() -> (usize, usize, usize) {
     let h = heap();
     let objects = COUNTS.iter().map(|c| c.0.load(Ordering::Relaxed)).sum();
-    (objects, ALLOCATED.load(Ordering::Relaxed), h.collections)
+    let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
+    (objects, ALLOCATED.load(Ordering::Relaxed) + owed, h.collections)
 }
 
 /// Each worker's object count, published by the worker itself (others
