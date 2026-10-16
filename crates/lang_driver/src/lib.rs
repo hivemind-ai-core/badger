@@ -799,6 +799,18 @@ impl Session {
             return Err(Outcome::Errors);
         }
         prog.workers = opts.workers.or(runtime_workers).unwrap_or(1).clamp(1, 64);
+        // optimized builds inline small helpers (not under live dispatch,
+        // where each function stays replaceable)
+        if opts.optimize && !prog.live && std::env::var_os("LANG_NO_INLINE").is_none() {
+            timed("inline", || lang_mir::inline::inline(&mut prog));
+            for e in lang_mir::verify::verify(&prog) {
+                self.diagnostics
+                    .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
+            }
+            if self.diagnostics.has_errors() {
+                return Err(Outcome::Errors);
+            }
+        }
         if opts.dump_mir {
             eprintln!("{}", lang_mir::mir::dump(&prog));
         }

@@ -6,6 +6,7 @@
 //! - [`mir`]: the IR itself (locals, blocks, statements, terminators)
 #![allow(clippy::type_complexity, clippy::wrong_self_convention)]
 
+pub mod inline;
 pub mod layout;
 pub mod lower;
 pub mod mir;

@@ -867,7 +867,8 @@ fn sampling_profile() {
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(symbols.lines().any(|l| l.contains(" spin.spin")), "{symbols}");
     let stacks = std::fs::read_to_string(&folded).unwrap();
-    assert!(stacks.lines().any(|l| l.contains("spin.spin")), "{stacks}");
+    // (optimized code may inline `spin` into `main`)
+    assert!(stacks.lines().any(|l| l.contains("spin.spin") || l.contains("spin.main")), "{stacks}");
     assert!(String::from_utf8_lossy(&out.stderr).contains("[profile]"));
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1053,5 +1054,35 @@ fn query_reports_unloadable_and_unreachable_files() {
     let out = lang().args(["query", "diagnostics"]).arg(dir.join("src/orphan.lang")).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(text.contains("E0300"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Optimized builds inline small helpers and then remove the record built
+/// only to be passed to one (`LANG_NO_INLINE=1` keeps the call).
+#[test]
+fn inlining_removes_helper_calls_and_allocations() {
+    let dir = std::env::temp_dir().join(format!("lang-inline-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("inl.lang");
+    std::fs::write(
+        &src,
+        "import std.io\n\nfn area(r: { w: Int, h: Int }) -> Int { r.w * r.h }\n\npub fn main() -> Unit {\n    var total = 0\n    for i in 0..1000 {\n        total = total + area({ w: i, h: 2 })\n    }\n    let _ = io.println($\"{total}\")\n}\n",
+    )
+    .unwrap();
+    let main_mir = |inline: bool| {
+        let mut c = lang();
+        c.args(["run", "--release", "--dump-mir"]).arg(&src);
+        if !inline {
+            c.env("LANG_NO_INLINE", "1");
+        }
+        let out = c.output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "999000\n");
+        let mir = String::from_utf8_lossy(&out.stderr).to_string();
+        mir.split("\nfn 1 ").next().unwrap_or("").to_string()
+    };
+    let plain = main_mir(false);
+    assert!(plain.contains("Alloc {") && plain.contains("Direct(1)"), "{plain}");
+    let inlined = main_mir(true);
+    assert!(!inlined.contains("Alloc {") && !inlined.contains("Direct(1)"), "{inlined}");
     let _ = std::fs::remove_dir_all(&dir);
 }

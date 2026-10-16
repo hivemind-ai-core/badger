@@ -192,6 +192,11 @@ error. `lang_cli` is the `lang` binary.
   `dyn Protocol` values carry a method dictionary.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
+- Inlining (optimized builds without live dispatch; `lang_mir::inline`):
+  small, non-recursive direct callees whose argument and result
+  representations match are copied into their callers (two rounds, with a
+  growth cap), then scalar replacement runs again, so a record built only
+  to pass to a helper is not allocated. `LANG_NO_INLINE=1` disables it.
 - Scalar replacement: an object used only through field loads and stores in
   its function (records, tuples, ranges — possibly through copies of the
   reference) is not heap-allocated; its fields become locals.
