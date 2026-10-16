@@ -207,6 +207,8 @@ fn stress_soak() {
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         z ^ (z >> 31)
     };
+    let start_seed = seed;
+    eprintln!("stress soak: LANG_STRESS_SEED={seed}");
     let deadline = Instant::now() + Duration::from_secs(secs);
     let progs = programs();
     let mut failures = vec![];
@@ -230,7 +232,7 @@ fn stress_soak() {
     }
     assert!(
         failures.is_empty(),
-        "{} soak failure(s) in {runs} runs:\n\n{}",
+        "{} soak failure(s) in {runs} runs (LANG_STRESS_SEED={start_seed}):\n\n{}",
         failures.len(),
         failures.join("\n\n")
     );
