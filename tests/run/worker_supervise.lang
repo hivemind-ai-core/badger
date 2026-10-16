@@ -1,0 +1,36 @@
+// Let it crash: `worker.supervise` restarts work that fails (an error or a
+// defect) within its restart budget, and fails its caller past the budget.
+import std.io
+import std.task
+import std.worker
+
+pub enum Failure { always } derive(Error)
+
+pub fn main() -> Result<Unit, String> {
+    let attempts = Atom.new(0)
+    task.scope(fn(s) -> Result<Unit, String> {
+        let t = s.spawn(fn() {
+            worker.supervise(:flaky, fn() -> Result<Unit, Failure> {
+                let n = attempts.update(fn(x: Int) -> Int { x + 1 })
+                if n < 3 {
+                    panic($"crash {n}")
+                }
+                ok(())
+            }, worker.on_failure({ ..worker.defaults, backoff: 1ms }))
+        })
+        t.join()
+        ok(())
+    })?
+    let _ = io.println($"attempts {attempts.get()}")
+    let over = task.scope(fn(s) -> Result<String, String> {
+        let t = s.capture(fn() {
+            worker.supervise(:doomed, fn() -> Result<Unit, Failure> { err(Failure.always) }, worker.on_failure({ max_restarts: 2, window: 10s, backoff: 1ms }))
+        })
+        ok(match t.join() {
+            .failed(info) => info.message,
+            _ => "unexpected",
+        })
+    })?
+    let _ = io.println(over)
+    ok(())
+}

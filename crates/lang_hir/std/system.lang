@@ -95,37 +95,6 @@ extern "intrinsic" fn type_id<T>() -> Int
 extern "intrinsic" fn scope_open() -> Int
 extern "intrinsic" fn scope_close(scope: Int, cancel: Bool) -> Unit
 
-/// Run a worker under its restart policy. Normal completion ends it; a
-/// failure (error or defect) restarts it within budget or escalates.
-fn supervise<E>(name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy) -> Unit where E: prelude.Error {
-    var failures: List<Instant> = []
-    loop {
-        let outcome = task.scope(fn(s) -> Result<task.Exit<Result<Unit, E>>, String> {
-            let t = s.capture(factory)
-            ok(t.join())
-        })
-        let reason = match outcome {
-            .ok(.returned(.ok(_))) => { return () },
-            .ok(.returned(.err(e))) => e.display(),
-            .ok(.failed(info)) => info.display(),
-            .ok(.cancelled(_)) => { return () },
-            .err(m) => m,
-        }
-        match policy {
-            .never => panic($"worker {name} failed: {reason}"),
-            .on_failure(max, window, backoff) => {
-                let now = time.now()
-                failures = list.append(list.filter(failures, fn(t) { now - t < window }), now)
-                if list.len(failures) > max {
-                    panic($"worker {name} exceeded its restart budget: {reason}")
-                }
-                trace.event(:worker/restart, { worker: name, reason })
-                task.sleep(backoff)
-            },
-        }
-    }
-}
-
 impl InitScope<Unit> {
     /// Register a one-shot, possibly fallible cleanup; halts run in reverse
     /// registration order, after the node's workers have settled.
@@ -151,7 +120,7 @@ impl InitScope<Unit> {
 
     /// `worker` with an explicit name and shutdown policy.
     pub fn worker_with<E>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error {
-        let id = task_spawn(self.tasks, fn() { supervise(name, factory, policy) }, false)
+        let id = task_spawn(self.tasks, fn() { worker.supervise(name, factory, policy) }, false)
         let ws = self.workers
         ws.set(list.append(ws.get(), (id, shutdown)))
     }

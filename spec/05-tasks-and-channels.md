@@ -238,6 +238,19 @@ backpressure handle imbalance. A partially filled page may be published; the
 consumer must not wait for it to become full. Fair draining prevents one large
 batch from monopolizing the runtime.
 
+## Defects and internal errors
+
+A defect (failed check, `panic`, overflow, stack overflow, exceeded heap
+budget) fails its task: cleanups run, the task's scope sees the failure
+(siblings are cancelled and the owner fails, unless the child was
+`capture`d), and supervision decides about restarts. A defect cannot be
+caught inside the task that raised it: containment is per task, as in
+Erlang.
+
+An internal error (a bug in the compiler or runtime rather than in the
+program) ends the process at once with exit status 70 and a report, on
+whichever thread it happened, since runtime invariants may no longer hold.
+
 ## Static concurrency safety
 
 What the compiler guarantees:
@@ -271,6 +284,9 @@ error or task defect is available to its declared restart policy.
 
 Start with `never` and `on_failure` policy constructors. `on_failure` specifies
 a restart budget/window, bounded backoff, and escalation to its owning scope.
+`worker.supervise(name, factory, policy)` runs a factory this way in any
+task (systems run their workers through it): each attempt is a fresh
+task; a failure past the budget, or under `never`, fails the caller.
 A restart rebuilds worker-local resources through its factory; it does not
 replay requests or recover an already-consumed in-memory job. Durable jobs need
 a storage acknowledgment protocol. Policies may keep a parent-owned queue, but

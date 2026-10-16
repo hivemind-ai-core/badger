@@ -1,4 +1,11 @@
-// Worker restart policies.
+// Worker restart policies, and running work under one (let it crash: a
+// failure restarts the work, within a budget).
+
+import std.list
+import std.prelude
+import std.task
+import std.time
+import std.trace
 
 /// Restart policy of a managed worker.
 pub enum Policy {
@@ -30,3 +37,37 @@ pub enum Shutdown {
 pub fn cancel() -> Shutdown { Shutdown.cancel }
 
 pub fn drain(timeout: Duration) -> Shutdown { Shutdown.drain(timeout) }
+
+/// Run `factory` as a worker under `policy`, in a fresh task each time: it
+/// ends when the work returns `ok` or is cancelled; a failure (an error or
+/// a defect) restarts it within the policy's budget (after its backoff),
+/// and past the budget, or under `never`, fails the caller. Usable in any
+/// task (systems run their workers this way).
+pub fn supervise<E>(name: Symbol, factory: fn() -> Result<Unit, E>, policy: Policy) -> Unit where E: prelude.Error {
+    var failures: List<Instant> = []
+    loop {
+        let outcome = task.scope(fn(s) -> Result<task.Exit<Result<Unit, E>>, String> {
+            let t = s.capture(factory)
+            ok(t.join())
+        })
+        let reason = match outcome {
+            .ok(.returned(.ok(_))) => { return () },
+            .ok(.returned(.err(e))) => e.display(),
+            .ok(.failed(info)) => info.display(),
+            .ok(.cancelled(_)) => { return () },
+            .err(m) => m,
+        }
+        match policy {
+            .never => panic($"worker {name} failed: {reason}"),
+            .on_failure(max, window, backoff) => {
+                let now = time.now()
+                failures = list.append(list.filter(failures, fn(t) { now - t < window }), now)
+                if list.len(failures) > max {
+                    panic($"worker {name} exceeded its restart budget: {reason}")
+                }
+                trace.event(:worker/restart, { worker: name, reason })
+                task.sleep(backoff)
+            },
+        }
+    }
+}
