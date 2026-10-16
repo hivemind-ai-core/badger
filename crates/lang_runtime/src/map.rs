@@ -59,6 +59,14 @@ pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
     }
 }
 
+/// A cursor over map or set `m`'s entries (see [`hamt::cursor`]).
+pub fn cursor(m: u64) -> u64 {
+    let (kd, vd) = descs(m);
+    let r = gc::Roots::new();
+    r.add(m);
+    hamt::cursor(root(m), flags(kd, vd))
+}
+
 /// New empty map/set for descriptor `desc` (`Kind::Map` or `Kind::Set`).
 pub fn new(desc: &'static TypeDesc) -> u64 {
     gc::alloc(desc, 16)

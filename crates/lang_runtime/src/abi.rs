@@ -216,6 +216,17 @@ pub extern "C" fn lang_rt_precondition(_ctx: *mut TaskCtx, msg: u64, caller: u64
 }
 
 /// Elements per page of a list (paged iteration in generated code).
+/// A cursor over a map's or set's entries (`for` loops).
+pub extern "C" fn lang_rt_map_cursor(_ctx: *mut TaskCtx, m: u64) -> u64 {
+    crate::map::cursor(m)
+}
+
+/// Advance a map cursor: 1 at an entry (its key and value at fixed
+/// offsets), 0 at the end.
+pub extern "C" fn lang_rt_map_next(_ctx: *mut TaskCtx, c: u64) -> u64 {
+    crate::hamt::cursor_next(c)
+}
+
 pub extern "C" fn lang_rt_list_page_cap(_ctx: *mut TaskCtx, list: u64) -> u64 {
     crate::list::page_cap(list) as u64
 }
@@ -292,6 +303,8 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_precondition", lang_rt_precondition as *const u8),
         ("lang_rt_contract_site", lang_rt_contract_site as *const u8),
         ("lang_rt_list_page_cap", lang_rt_list_page_cap as *const u8),
+        ("lang_rt_map_cursor", lang_rt_map_cursor as *const u8),
+        ("lang_rt_map_next", lang_rt_map_next as *const u8),
         ("lang_rt_list_page", lang_rt_list_page as *const u8),
         ("lang_rt_list_get", lang_rt_list_get as *const u8),
         ("lang_rt_list_finish", lang_rt_list_finish as *const u8),

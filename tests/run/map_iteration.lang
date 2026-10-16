@@ -1,0 +1,89 @@
+// `for` over a map or set (and over `map.to_list(m)` / `set.to_list(s)`)
+// walks it directly in the order its entry list has; `(k, v)` patterns,
+// whole entries, break, continue, nesting, and empty maps.
+import std.io
+import std.map
+import std.set
+
+pub fn main() -> Unit {
+    var m: Map<String, Int> = map.empty()
+    for i in 0..3000 {
+        m = m.insert($"k{i % 900}", i)
+    }
+    let entries = map.to_list(m)
+    var want = ""
+    for (k, v) in entries {
+        want = $"{want}{k}={v};"
+    }
+    var direct = ""
+    for (k, v) in m {
+        direct = $"{direct}{k}={v};"
+    }
+    var fused = ""
+    for (k, v) in map.to_list(m) {
+        fused = $"{fused}{k}={v};"
+    }
+    var whole = ""
+    for e in m {
+        whole = $"{whole}{e.0}={e.1};"
+    }
+    let _ = io.println($"map order: {direct == want} {fused == want} {whole == want} ({m.len()} entries)")
+
+    // break and continue
+    var seen = 0
+    var odd = 0
+    for (_, v) in m {
+        if v % 2 == 0 {
+            continue
+        }
+        odd = odd + 1
+        seen = seen + 1
+        if seen == 100 {
+            break
+        }
+    }
+    let _ = io.println($"stopped after {seen} odd values ({odd})")
+
+    // nested walks of one map
+    var small: Map<Int, Int> = map.empty()
+    for i in 0..20 {
+        small = small.insert(i, i * i)
+    }
+    var pairs = 0
+    for (a, x) in small {
+        for (b, y) in small {
+            if a < b && x < y {
+                pairs = pairs + 1
+            }
+        }
+    }
+    let _ = io.println($"ordered pairs: {pairs}")
+
+    // sets
+    var s: Set<Int> = set.empty()
+    for i in 0..700 {
+        s = set.insert(s, i * 7 % 401)
+    }
+    let items = set.to_list(s)
+    var swant = ""
+    for x in items {
+        swant = $"{swant}{x},"
+    }
+    var sdirect = ""
+    for x in s {
+        sdirect = $"{sdirect}{x},"
+    }
+    var sfused = ""
+    for x in set.to_list(s) {
+        sfused = $"{sfused}{x},"
+    }
+    let _ = io.println($"set order: {sdirect == swant} {sfused == swant}")
+
+    // empty
+    var none: Map<Int, String> = map.empty()
+    var n = 0
+    for (k, _) in none {
+        n = n + k + 1
+    }
+    let _ = io.println($"empty map entries: {n}")
+}

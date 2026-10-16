@@ -348,6 +348,108 @@ fn remove_at(w: u64, hash: u64, key: u64, shift: u32, eq: &dyn Fn(u64, u64) -> b
     }
 }
 
+/// A walk over a trie's entries in [`for_each`]'s order, one step at a
+/// time (`for` loops over maps and sets: no list of entries is built). A
+/// cursor object's payload is
+///
+/// ```text
+/// key word | value word | flags u32 | depth u32 | (node, position) * MAX_DEPTH
+/// ```
+///
+/// where a position counts a node's entries, then its children. The
+/// current key and value sit at fixed offsets ([`CURSOR_KEY`],
+/// [`CURSOR_VAL`]) for generated code to load after [`cursor_next`].
+pub const CURSOR_KEY: i32 = 0;
+pub const CURSOR_VAL: i32 = 8;
+/// Trie levels: 64 hash bits in 5-bit chunks (13), then a collision bucket.
+const MAX_DEPTH: usize = 14;
+const CURSOR_STACK: usize = 24;
+
+fn cursor_desc() -> &'static TypeDesc {
+    static D: std::sync::OnceLock<&'static TypeDesc> = std::sync::OnceLock::new();
+    D.get_or_init(|| {
+        TypeDesc::new("MapCursor", Kind::Opaque { trace: Some(trace_cursor), finalize: None, args: vec![] })
+            .leak()
+    })
+}
+
+fn trace_cursor(o: *mut Header, f: &mut dyn FnMut(u64)) {
+    let p = unsafe { (*o).payload() };
+    let w = |off: usize| unsafe { *(p.add(off) as *const u64) };
+    let flags = unsafe { *(p.add(16) as *const u32) };
+    let depth = unsafe { *(p.add(20) as *const u32) } as usize;
+    if flags & KEY_PTR != 0 {
+        f(w(CURSOR_KEY as usize));
+    }
+    if flags & VAL_PTR != 0 {
+        f(w(CURSOR_VAL as usize));
+    }
+    for i in 0..depth {
+        f(w(CURSOR_STACK + i * 16));
+    }
+}
+
+/// A cursor at the start of the trie `root` (0: empty) whose entries'
+/// keys and values are managed pointers as `flags` say. The caller keeps
+/// the trie reachable until the cursor exists (it then keeps the nodes it
+/// will visit).
+pub fn cursor(root: u64, flags: u32) -> u64 {
+    let r = gc::Roots::new();
+    if root != 0 {
+        r.add(root);
+    }
+    let c = gc::alloc(cursor_desc(), CURSOR_STACK + MAX_DEPTH * 16);
+    unsafe {
+        let p = obj(c).payload();
+        *(p.add(16) as *mut u32) = flags;
+        if root != 0 {
+            *(p.add(20) as *mut u32) = 1;
+            *(p.add(CURSOR_STACK) as *mut u64) = root;
+        }
+    }
+    c
+}
+
+/// Advance cursor `c` to the next entry: 1 when there is one (its key and
+/// value are then at [`CURSOR_KEY`] and [`CURSOR_VAL`]), 0 at the end.
+/// Allocates nothing.
+pub fn cursor_next(c: u64) -> u64 {
+    unsafe {
+        let p = obj(c).payload();
+        let depth = &mut *(p.add(20) as *mut u32);
+        loop {
+            if *depth == 0 {
+                *(p as *mut u64) = 0;
+                *(p.add(8) as *mut u64) = 0;
+                return 0;
+            }
+            let top = CURSOR_STACK + (*depth as usize - 1) * 16;
+            let node = *(p.add(top) as *const u64);
+            let pos = &mut *(p.add(top + 8) as *mut u64);
+            let n = Node::of(node);
+            let (ne, nc) = (n.entries() as u64, n.children() as u64);
+            if *pos < ne {
+                let e = n.entry(*pos as usize);
+                *pos += 1;
+                *(p as *mut u64) = e.key;
+                *(p.add(8) as *mut u64) = e.val;
+                return 1;
+            }
+            if *pos < ne + nc {
+                let child = n.child((*pos - ne) as usize);
+                *pos += 1;
+                let next = CURSOR_STACK + *depth as usize * 16;
+                debug_assert!((*depth as usize) < MAX_DEPTH);
+                *(p.add(next) as *mut u64) = child;
+                *(p.add(next + 8) as *mut u64) = 0;
+                *depth += 1;
+                continue;
+            }
+            *depth -= 1;
+        }
+    }
+}
+
 /// Visit every entry (no allocation may happen during the walk).
 pub fn for_each(root: u64, f: &mut dyn FnMut(Entry)) {
     if root == 0 {

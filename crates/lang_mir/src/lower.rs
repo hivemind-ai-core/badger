@@ -2433,6 +2433,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             Some(Res::Iter(k)) => *k,
             _ => IterKind::List,
         };
+        // `for p in map.to_list(m)` (or `set.to_list(s)`) walks `m` itself:
+        // the list would be a temporary nobody else sees, built only to be
+        // consumed in the trie's order, which the walk follows
+        let (kind, iter) = match self.to_list_of(iter) {
+            Some((k, m)) => (k, m),
+            None => (kind, iter),
+        };
         let it = self.lower(iter)?;
         let it_ty = self.ty(iter);
         let itl = self.copy_to_local(it, Repr::Ptr, None);
@@ -2645,22 +2652,69 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 self.term(Term::Goto(head));
             }
-            _ => {
-                // lists and list-backed collections; maps/sets via to_list
-                let list = match kind {
-                    IterKind::Map | IterKind::Set => {
-                        let name = if kind == IterKind::Map { "map.to_list" } else { "set.to_list" };
-                        let args = self.m.lay.args(&it_ty).to_vec();
-                        match self.m.lang_fn(name, args) {
-                            Some(f) => {
-                                let r = self.call(Callee::Direct(f), vec![Operand::Local(itl)], Repr::Ptr);
-                                self.copy_to_local(r, Repr::Ptr, None)
+            IterKind::Map | IterKind::Set => {
+                // a walk over the trie: no list of entries is built, and a
+                // `(key, value)` pattern binds both without a tuple
+                let args = self.m.lay.args(&it_ty).to_vec();
+                let cur = self.rt("lang_rt_map_cursor", vec![Operand::Local(itl)], Repr::Ptr);
+                let cur = self.copy_to_local(cur, Repr::Ptr, None);
+                self.term(Term::Goto(head));
+                self.switch(head);
+                self.emit(Stmt::Poll);
+                let more = self.rt("lang_rt_map_next", vec![Operand::Local(cur)], Repr::I64);
+                let c = self.assign(
+                    Repr::I8,
+                    Rvalue::Cmp { op: CmpOp::Ne, a: more, b: int(0), ty: NumTy::I(64, true) },
+                );
+                self.term(Term::Branch(c, bodyb, exit));
+                self.switch(bodyb);
+                let word = |s: &mut Self, offset: i32| {
+                    s.assign(Repr::I64, Rvalue::Load { base: Operand::Local(cur), offset, repr: Repr::I64 })
+                };
+                let kw = word(self, lang_runtime::hamt::CURSOR_KEY);
+                let k = self.from_word(kw, &args[0]);
+                if kind == IterKind::Set {
+                    self.bind_irrefutable(pat, k, &item_ty);
+                } else {
+                    let vw = word(self, lang_runtime::hamt::CURSOR_VAL);
+                    let v = self.from_word(vw, &args[1]);
+                    match self.hir().pats[pat].kind.clone() {
+                        PatKind::Tuple(ps) if ps.len() == 2 => {
+                            self.bind_irrefutable(ps[0], k, &args[0]);
+                            self.bind_irrefutable(ps[1], v, &args[1]);
+                        }
+                        _ => {
+                            // the entry as a tuple value
+                            let layout = self.m.lay.record(&item_ty);
+                            let desc = self.m.lay.desc(&item_ty);
+                            let obj = self.assign(
+                                Repr::Ptr,
+                                Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size },
+                            );
+                            let obj = Operand::Local(self.copy_to_local(obj, Repr::Ptr, None));
+                            for (fl, x) in layout.fields.iter().zip([k, v]) {
+                                self.emit(Stmt::Store {
+                                    base: obj,
+                                    offset: fl.offset,
+                                    repr: fl.repr,
+                                    value: x,
+                                });
                             }
-                            None => itl,
+                            self.bind_irrefutable(pat, obj, &item_ty);
                         }
                     }
-                    _ => itl,
-                };
+                }
+                self.loops.push(LoopCtx { expr: e, cont: head, brk: exit, result: None, close: None });
+                if self.lower(body).is_some() {
+                    self.term(Term::Goto(head));
+                }
+                self.loops.pop();
+                self.switch(step);
+                self.term(Term::Goto(head));
+            }
+            _ => {
+                // lists and list-backed collections
+                let list = itl;
                 let n = self.rt("lang_rt_list_len", vec![Operand::Local(list)], Repr::I64);
                 let i = self.copy_to_local(int(0), Repr::I64, None);
                 self.term(Term::Goto(head));
@@ -2702,6 +2756,24 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         self.switch(exit);
         Some(())
+    }
+
+    /// `map.to_list(m)` / `set.to_list(s)`: the iteration kind of `m` / `s`
+    /// and that argument.
+    fn to_list_of(&self, x: ExprId) -> Option<(IterKind, ExprId)> {
+        let hir = self.hir();
+        let ExprKind::Call { callee, args } = &hir.exprs[x].kind else { return None };
+        let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
+        if args.len() != 1 {
+            return None;
+        }
+        if hir.try_lang("map.to_list") == Some(*def) {
+            Some((IterKind::Map, args[0]))
+        } else if hir.try_lang("set.to_list") == Some(*def) {
+            Some((IterKind::Set, args[0]))
+        } else {
+            None
+        }
     }
 
     /// The page element representation of a `List<T>` iterated page by

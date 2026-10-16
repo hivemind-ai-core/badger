@@ -140,6 +140,7 @@ fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
         "lang_rt_eq" | "lang_rt_cmp" => (3, true),
         "lang_rt_display" => (2, true),
         "lang_rt_list_new" | "lang_rt_list_len" | "lang_rt_map_new" | "lang_rt_list_page_cap" => (1, true),
+        "lang_rt_map_cursor" | "lang_rt_map_next" => (1, true),
         "lang_rt_list_page" => (2, true),
         "lang_rt_list_push" => (2, false),
         "lang_rt_list_get" | "lang_rt_map_index" => (3, true),
@@ -1494,6 +1495,9 @@ pub const UNLOCKED: &[&str] = &[
     "lang_rt_list_len",
     "lang_rt_list_get",
     "lang_rt_list_page_cap",
+    // map iteration: a fresh cursor, a walk over an immutable trie
+    "lang_rt_map_cursor",
+    "lang_rt_map_next",
     "lang_rt_contract_site",
     "lang_rt_list_page",
     "lang_rt_list_finish",
