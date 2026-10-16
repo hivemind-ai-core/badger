@@ -69,6 +69,18 @@ fn locked_for<R>(why: u16, f: impl FnOnce() -> R) -> R {
     r
 }
 
+/// A split result (see `lang_mir::split`): the variant `name`'s tag of the
+/// result type, with its payload `v` left with the running task.
+fn split(ret: *const TypeDesc, name: &str, v: Option<(u64, bool)>) -> u64 {
+    if let Some((v, is_ptr)) = v
+        && let Some(t) = task::current()
+    {
+        t.aux = v;
+        t.aux_is_ptr = is_ptr;
+    }
+    rdesc(ret).variant_index(name).unwrap_or(0) as u64
+}
+
 fn send_result(ret: *const TypeDesc, v: u64, r: SendResult) -> u64 {
     match r {
         SendResult::Sent => ok_unit(rdesc(ret)),
@@ -460,6 +472,58 @@ task_intrinsics! {
             RecvResult::Value(v) => make_variant(rdesc(ret), "value", &[v]),
             RecvResult::Empty => make_variant(rdesc(ret), "empty", &[]),
             RecvResult::Closed => make_variant(rdesc(ret), "closed", &[]),
+        })
+    }
+    // split forms of the receives (`lang_mir::split`): the result's tag,
+    // with the message left for `lang_rt_take_aux`
+    fn chan_recv_split(ctx, targs, ret, ch) {
+        let p = channel::data_elem(ch).is_ptr();
+        if fast_ok()
+            && let Some(v) = channel::recv_fast(ch)
+        {
+            return split(ret, "some", Some((v, p)));
+        }
+        locked(|| match channel::recv(ch, true) {
+            RecvResult::Value(v) => split(ret, "some", Some((v, p))),
+            _ => split(ret, "none", None),
+        })
+    }
+    fn chan_try_recv_split(ctx, targs, ret, ch) {
+        let p = channel::data_elem(ch).is_ptr();
+        if fast_ok()
+            && let Some(v) = channel::recv_fast(ch)
+        {
+            return split(ret, "value", Some((v, p)));
+        }
+        locked(|| match channel::recv(ch, false) {
+            RecvResult::Value(v) => split(ret, "value", Some((v, p))),
+            RecvResult::Empty => split(ret, "empty", None),
+            RecvResult::Closed => split(ret, "closed", None),
+        })
+    }
+    fn batch_recv_one_split(ctx, targs, ret, ch) {
+        let p = channel::data_elem(ch).is_ptr();
+        if fast_ok()
+            && let Some(v) = channel::recv_one_fast(ch)
+        {
+            return split(ret, "some", Some((v, p)));
+        }
+        locked_for(task::reason::BATCH_SLOW, || match channel::recv_one(ch, true) {
+            RecvResult::Value(v) => split(ret, "some", Some((v, p))),
+            _ => split(ret, "none", None),
+        })
+    }
+    fn batch_try_recv_split(ctx, targs, ret, ch) {
+        let p = channel::data_elem(ch).is_ptr();
+        if fast_ok()
+            && let Some(v) = channel::recv_one_fast(ch)
+        {
+            return split(ret, "value", Some((v, p)));
+        }
+        locked_for(task::reason::BATCH_SLOW, || match channel::recv_one(ch, false) {
+            RecvResult::Value(v) => split(ret, "value", Some((v, p))),
+            RecvResult::Empty => split(ret, "empty", None),
+            RecvResult::Closed => split(ret, "closed", None),
         })
     }
     fn chan_close(ctx, targs, ret, ch) { channel::close(ch); 0 }

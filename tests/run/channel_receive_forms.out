@@ -1,0 +1,3 @@
+floats 1.25, trues 1, strings abc, bytes 262
+kept [3, 4, -1]
+rendezvous xyz

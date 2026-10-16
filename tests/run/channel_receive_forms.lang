@@ -1,0 +1,101 @@
+// Receives whose results are only examined (split in optimized builds, no
+// result object), and ones whose results escape, of every element shape:
+// the same messages either way.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send_f(source: channel.SendError<Float>),
+    send_b(source: channel.SendError<Bool>),
+    send_s(source: channel.SendError<String>),
+    send_u(source: channel.SendError<U8>),
+    send_i(source: channel.SendError<Int>),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let floats = channel.create<Float>({ ..channel.defaults, capacity: 4 })?
+    let bools = channel.create<Bool>({ ..channel.defaults, capacity: 4 })?
+    let strings = channel.create<String>({ ..channel.defaults, capacity: 4 })?
+    let bytes = channel.create<U8>({ ..channel.defaults, capacity: 4 })?
+    floats.sender.send(1.5)?
+    floats.sender.send(-0.25)?
+    floats.sender.close()
+    bools.sender.send(true)?
+    bools.sender.send(false)?
+    bools.sender.close()
+    strings.sender.send("a")?
+    strings.sender.send("bc")?
+    strings.sender.close()
+    bytes.sender.send(7U8)?
+    bytes.sender.send(255U8)?
+    bytes.sender.close()
+    var total = 0.0
+    loop {
+        match floats.receiver.recv() {
+            .some(x) => { total = total + x },
+            .none => { break },
+        }
+    }
+    var trues = 0
+    while true {
+        match bools.receiver.recv() {
+            .some(b) => {
+                if b {
+                    trues = trues + 1
+                }
+            },
+            .none => { break },
+        }
+    }
+    var joined = ""
+    loop {
+        match strings.receiver.try_recv() {
+            .value(s) => { joined = $"{joined}{s}" },
+            .empty => { break },
+            .closed => { break },
+        }
+    }
+    var sum = 0
+    loop {
+        match bytes.receiver.recv() {
+            .some(b) => { sum = sum + I64.from(b) },
+            .none => { break },
+        }
+    }
+    io.println($"floats {total}, trues {trues}, strings {joined}, bytes {sum}")?
+    // a result that escapes (kept in a list) is an ordinary value
+    let ints = channel.create<Int>({ ..channel.defaults, capacity: 4 })?
+    ints.sender.send(3)?
+    ints.sender.send(4)?
+    ints.sender.close()
+    var kept: List<Option<Int>> = []
+    for i in 0..3 {
+        kept = kept.append(ints.receiver.recv())
+    }
+    io.println($"kept {kept.map(fn(o) { o.unwrap_or(-1) })}")?
+    // across tasks, under a rendezvous
+    let rv = channel.create<String>({ ..channel.defaults, capacity: 0 })?
+    let got = task.scope(fn(s) -> Result<String, AppError> {
+        let p = s.spawn(fn() -> Result<Unit, AppError> {
+            for w in ["x", "y", "z"] {
+                rv.sender.send(w)?
+            }
+            rv.sender.close()
+            ok(())
+        })
+        var acc = ""
+        loop {
+            match rv.receiver.recv() {
+                .some(w) => { acc = $"{acc}{w}" },
+                .none => { break },
+            }
+        }
+        p.join()?
+        ok(acc)
+    })?
+    io.println($"rendezvous {got}")?
+    ok(())
+}

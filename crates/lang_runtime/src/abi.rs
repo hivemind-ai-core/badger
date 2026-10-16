@@ -86,6 +86,18 @@ pub extern "C" fn lang_rt_caller_loc(_ctx: *mut TaskCtx, loc: u64) {
     }
 }
 
+/// The payload a split intrinsic (`*_split`: returns only the variant tag
+/// of its result) left with the running task; clears it.
+pub extern "C" fn lang_rt_take_aux(_ctx: *mut TaskCtx) -> u64 {
+    match task::current() {
+        Some(t) => {
+            t.aux_is_ptr = false;
+            std::mem::take(&mut t.aux)
+        }
+        None => 0,
+    }
+}
+
 pub extern "C" fn lang_rt_poll(_ctx: *mut TaskCtx) {
     task::yield_now();
 }
@@ -257,6 +269,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_panic", lang_rt_panic as *const u8),
         ("lang_rt_defect", lang_rt_defect as *const u8),
         ("lang_rt_poll", lang_rt_poll as *const u8),
+        ("lang_rt_take_aux", lang_rt_take_aux as *const u8),
         ("lang_rt_caller_loc", lang_rt_caller_loc as *const u8),
         ("lang_rt_stack_overflow", lang_rt_stack_overflow as *const u8),
         ("lang_rt_ffi_call", lang_rt_ffi_call as *const u8),

@@ -166,6 +166,10 @@ pub struct Task {
     /// Value delivered by the waker (e.g. a received message).
     pub delivered: u64,
     pub delivered_is_ptr: bool,
+    /// A split result's payload (see `abi::lang_rt_take_aux`), traced while
+    /// it waits to be taken.
+    pub aux: u64,
+    pub aux_is_ptr: bool,
     /// Status word set by the waker (non-pointer).
     pub status: u64,
     /// Whether this task's result word is a managed pointer.
@@ -834,6 +838,9 @@ pub fn for_each_root(f: &mut dyn FnMut(u64)) {
         if t.delivered_is_ptr {
             f(t.delivered);
         }
+        if t.aux_is_ptr {
+            f(t.aux);
+        }
         if t.result_is_ptr {
             if let Some(Exit::Returned(w)) = &t.exit {
                 f(*w);
@@ -911,6 +918,8 @@ pub fn spawn_typed(entry: u64, scope: Option<u64>, name: String, result_is_ptr: 
         chan_regs: vec![],
         delivered: 0,
         delivered_is_ptr: false,
+        aux: 0,
+        aux_is_ptr: false,
         wait: "",
         cancel_reason: CancelReason::Requested,
         sleep_seq: 0,

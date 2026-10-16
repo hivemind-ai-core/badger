@@ -195,6 +195,12 @@ error. `lang_cli` is the `lang` binary.
   call reports a failure), then the directory slot `i >> log2(cap)` and
   page slot `i & (cap - 1)` (`list::page_cap_for` is a power of two for
   every element size, shared with the runtime).
+- Split receives (`lang_mir::split`, optimized builds after inlining): a
+  channel receive whose `Option`/`TryRecv` result is only examined (tag
+  read, payload loaded, through copies) calls a split form returning the
+  tag, with the payload taken from the task right after
+  (`lang_rt_take_aux`; a pointer payload is taken as a pointer, so it is
+  rooted), and no result object is allocated.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
 - Inlining (optimized builds without live dispatch; `lang_mir::inline`):

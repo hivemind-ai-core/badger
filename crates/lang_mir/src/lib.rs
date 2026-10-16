@@ -12,6 +12,7 @@ pub mod lower;
 pub mod mir;
 pub mod roots;
 pub mod serial;
+pub mod split;
 pub mod sra;
 pub mod verify;
 

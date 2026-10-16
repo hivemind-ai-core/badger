@@ -76,7 +76,9 @@ fn verify_func(prog: &Program, _fid: FuncId, f: &Func, out: &mut Vec<String>) {
                                     l.index()
                                 ));
                             }
+                            // (a split receive returns its result's tag only)
                             if let Callee::Intrinsic { name, ret: rd, .. } = callee
+                                && !name.ends_with("_split")
                                 && *rd != 0
                                 && unsafe { &*(*rd as *const lang_runtime::TypeDesc) }.is_ptr()
                                 && dest != Repr::Ptr

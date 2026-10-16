@@ -133,6 +133,7 @@ fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
         "lang_rt_precondition" => (3, true),
         "lang_rt_contract_site" => (1, false),
         "lang_rt_poll" => (0, false),
+        "lang_rt_take_aux" => (0, true),
         "lang_rt_global_init" => (1, true),
         "lang_rt_global_done" => (1, false),
         "lang_rt_concat" => (2, true),
@@ -1540,6 +1541,12 @@ pub const UNLOCKED: &[&str] = &[
     // it releases them; release changes the channel and stays locked)
     "lang_rt_i_batch_len",
     "lang_rt_i_batch_get",
+    // the payload a split receive left with the task
+    "lang_rt_take_aux",
+    "lang_rt_i_chan_recv_split",
+    "lang_rt_i_chan_try_recv_split",
+    "lang_rt_i_batch_recv_one_split",
+    "lang_rt_i_batch_try_recv_split",
     // channel fast paths; they take the lock themselves when needed
     "lang_rt_i_chan_send",
     "lang_rt_i_chan_try_send",
