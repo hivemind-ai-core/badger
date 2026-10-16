@@ -1,13 +1,15 @@
 # Types and records
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Primitive and composite types
 
 The initial primitives are `Unit`, `Never`, `Bool`, `I8`, `I16`, `I32`, `I64`,
 `U8`, `U16`, `U32`, `U64`, `F32`, `F64`, `Char`, and `Symbol`. `Int` aliases
-`I64`, `Float` aliases `F64`, `Byte` aliases `U8`, and `Size` is the target's
-unsigned pointer-width integer. `String` is an immutable UTF-8 managed value.
+`I64`, `Float` aliases `F64`, `Byte` aliases `U8`, and `Size` is an unsigned
+size type (**Implementation:** it aliases `U64`; every supported target is
+64-bit). `String` is an immutable UTF-8 managed value.
 `Bytes` is immutable byte storage. `Duration`, `Instant`, and `Timestamp` are
 distinct nominal standard-library types.
 
@@ -48,7 +50,7 @@ The literal has the closed shape `{name: String, age: Int,
 needs_glasses: Bool}`. A function's accesses constrain its parameter. `greet`
 accepts `{name: T, ..Rest}` with `T: Display`; annotating `name: String` or
 calling a string-only operation restricts it to `String`. `birthday` requires
-an integer `age` and preserves its entire remaining row. Numeric types resolve
+a numeric `age` and preserves its entire remaining row. Numeric types resolve
 from call constraints or public annotations; a genuinely unresolved overloaded
 numeric type requires an annotation rather than silently becoming `Any`.
 
@@ -75,7 +77,7 @@ concrete representation and do not project or erase unknown fields.
 Ordinary labels are lowercase identifiers. Qualified symbol labels allow
 library-specific extensions without unrelated name collisions:
 
-```lang
+```lang fragment
 let authenticated = { ..request, [:auth/user]: user }
 let current_user = authenticated[:auth/user]
 let { name, age, .. } = person
@@ -92,7 +94,7 @@ and may change a field's type. Two explicit occurrences of the same label are
 errors, even if their types match. The result is a new value; observed aliases
 to the old record are preserved.
 
-```lang
+```lang fragment
 let changed = { ..person, age: 37 }
 let extended = { ..person, email: "ada@example.test" }
 let relocated = { ..person, address.city: "Cork" }

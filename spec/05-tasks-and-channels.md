@@ -18,7 +18,7 @@ Spawn checks both closure captures and returned values for safe transfer, with
 scope bounds retained. A task-local value cannot be smuggled back to the parent
 through `join` just because it was created inside a child task.
 
-Use stackful native tasks for the first implementation, with bounded guarded
+Tasks are stackful native tasks, with bounded guarded
 stack reservations, demand-backed storage where supported, explicit root
 tracking, and compiler-generated budget/cancellation polls. This preserves
 ordinary direct calls across suspension. Memory per task is measured, including
@@ -39,7 +39,7 @@ Uninstrumented foreign code has a separate contract.
 
 ## Scopes, children, and results
 
-```lang
+```lang fragment
 use scope <- task.scope()
 let first = scope.spawn(fn() { load_first() })
 let second = scope.spawn(fn() { load_second() })
@@ -103,8 +103,9 @@ distribute messages, rather than broadcast them. Each delivered message has one
 consumer. Broadcast is a separate library abstraction with its own retention
 policy. Payload `T` must be transferable, with any region bound preserved.
 
-Constructor functions take complete options records, usually by updating
-`channel.defaults` or `channel.batch_defaults`. Construction validates limits
+Constructor functions (`channel.create`, `channel.batch`, and
+`channel.batch_with_policy`) take complete options records, usually by
+updating `channel.defaults` or `channel.batch_defaults`. Construction validates limits
 and returns `Result<Endpoints<T>, channel.ConfigError>`. `channel.open<T>` and
 `channel.open_batch<T>` are scoped helpers that close and account for pending
 data when their callback ends. Unscoped queue values are managed allocations;
@@ -145,7 +146,7 @@ sender sends one value (a second send, or one after `close`, returns
 sender closed without one. A reply is one small object — no queue — so a
 request carries its own reply sender:
 
-```
+```lang fragment
 type Lookup = { key: Int, reply: channel.ReplySender<String> }
 let tag = channel.call(lookups, fn(r) { { key: 42, reply: r } })   // Option<String>
 ```
@@ -157,8 +158,9 @@ request is needed.
 
 ### Patterns that scale across workers
 
-Each worker runs its own queue; tasks that only talk to each other stay
-on one worker, and independent groups run in parallel. Throughput across
+Each worker runs its own queue; a woken task prefers its waker's worker,
+so tasks that only talk to each other tend to stay on one worker, while
+idle workers steal from busy ones and independent groups run in parallel. Throughput across
 workers is limited by what is shared:
 
 - A single actor serving every request is a serial bottleneck: shard it
@@ -181,9 +183,9 @@ Selection reserves and commits exactly one operation; losers release capacity
 and retain their ownership. Dropping a losing send must not consume its payload.
 The default selection policy rotates fairly; explicit priority is opt-in.
 
-Implementation note: plain `channel.select` send operations and
-`channel.on_send` require `T: Share`, so a losing send leaves the caller's
-shareable value untouched. Affine payloads use `channel.select_keep` or
+Implementation note: plain `channel.select` (whose operations may include
+sends) and `channel.on_send` require `T: Share`, so a losing send leaves the
+caller's shareable value untouched. Affine payloads use `channel.select_keep` or
 `channel.on_send_keep`, which hand a losing payload back to the caller. A
 send operation on a closed channel resolves `select` as `.closed(index)`
 (nothing is sent; the value stays with the caller) and drops out of `choose`;
@@ -203,8 +205,10 @@ endpoint does not grant a total ordering across concurrently used clones.
 ## Paged batches and scheduling boundaries
 
 A producer appends into an exclusively writable page chain. Pages and capacity
-credits are acquired from bounded pools. Its append fast path uses ordinary
-local writes; a published descriptor transfers a sealed chain. Multicore
+credits are acquired from bounded pools; a published descriptor transfers a
+sealed chain. **Implementation:** each producer task's staging lives in the
+channel and is written under the channel's lock (a short critical section,
+not a worker-local buffer), so migrating a task needs no detach step. Multicore
 publication uses release/acquire-equivalent synchronization and a tested
 receiver registration/wakeup protocol. It is not synchronization-free.
 
@@ -227,8 +231,7 @@ deadlock a sender with a receiver that sees no work. Publication does not make
 a whole application operation atomic across channels or other effects.
 
 Thread-local allocator caches are permitted; persistent producer ownership is
-task/endpoint-aware. Detach/seal a worker-local buffer before task migration.
-Yielding does not invalidate aliases. The type system prevents retained mutable
+task/endpoint-aware. Yielding does not invalidate aliases. The type system prevents retained mutable
 references into sealed data. Pool reuse waits for every leased view to end;
 leased page bytes remain charged to the page budget. Small values may move into
 a slot once; in-place slot construction avoids that when required.
@@ -304,4 +307,5 @@ Precedents: [runtime-managed tasks](https://docs.rs/tokio/latest/tokio/task/),
 [bounded channels](https://docs.rs/tokio/latest/tokio/sync/mpsc/),
 [stackful suspension](https://docs.rs/corosensei/latest/corosensei/), and
 [OTP restart budgets](https://www.erlang.org/doc/system/sup_princ.html).
-The exact contracts above are this language's proposed design.
+The exact contracts above are this language's own design, and the toolchain
+implements them.

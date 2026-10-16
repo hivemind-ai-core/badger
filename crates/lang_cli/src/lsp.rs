@@ -1047,7 +1047,7 @@ fn check_report(path: &Path, overlays: &HashMap<PathBuf, String>) -> Value {
 /// The public interface of a program's modules, or of a standard module
 /// (`std.list`): each item's module, name, kind, signature (with effects
 /// and contracts), and documentation.
-fn api(target: &Path) -> Result<Value, String> {
+pub fn api(target: &Path) -> Result<Value, String> {
     let t = target.display().to_string();
     let (a, wanted): (Analysis, Option<String>) = match t.strip_prefix("std.") {
         Some(m) => {
@@ -1068,7 +1068,7 @@ fn api(target: &Path) -> Result<Value, String> {
     let item = |module: &str, i: &Item| {
         json!({
             "module": module, "name": i.name, "kind": format!("{:?}", i.kind).to_lowercase(),
-            "signature": i.detail, "doc": i.doc,
+            "signature": i.detail, "declaration": i.decl, "doc": i.doc,
         })
     };
     match wanted {

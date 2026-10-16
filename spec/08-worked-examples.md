@@ -160,30 +160,33 @@ The [benchmarks](../bench/README.md) measure field access and row
 specialization, paged versus contiguous iteration, map operations, prompt
 versus batch messaging, allocation and collection pauses, task spawn cost,
 cancellation latency under backpressure, stack/root overhead, and shutdown
-under failure. One run (release toolchain,
-`--release`, AMD Ryzen 7 8745HS) measured:
+under failure. One run (commit `1de4c0e`, 2026-10-16, `lang run --release`,
+AMD Ryzen 7 8745HS) measured:
 
 | Measurement | Result |
 |---|---|
-| Closed record / struct field read in a loop | ≈2.4 ns per iteration |
-| Row-generic reader called with a 6-field shape | ≈5.2 ns per call |
-| Paged list append / iterate | 14 / 6 ns per element |
-| Buffer push / array iterate | 9 / 4 ns per element |
-| Persistent map insert (200k entries) / lookup | ≈3.5 µs / ≈0.29 µs |
-| Prompt / batch channel throughput | 131 / 146 ns per message |
-| Prompt round trip | ≈0.5 µs |
-| Record allocation with a retained window | ≈150 ns per record; longest pause ≈16 ms |
-| Task spawn and join | ≈15 µs per task |
-| Cancelling 100 producers blocked on a full channel | ≈75 µs to settle |
-| Four CPU-bound tasks (`bench/parallel.lang`), 1 / 2 / 4 workers | 684 / 353 / 175 ms |
-| Call with a scalar frame / call holding 4 rooted pointers that makes one more call (`bench/runtime.lang`) | ≈6 / ≈12 ns |
-| Recursion 20,000 frames deep on a fresh task stack | ≈8–40 ns per frame (first-touch page faults dominate) |
-| Shutdown under failure: body defect with 200 parked tasks and 8 resources | settled, all 8 halts run, in ≈0.1–0.3 ms |
+| Closed record / struct field read in a loop | ≈1.0 ns per iteration |
+| Row-generic reader called with a 6-field shape | ≈1.1 ns per call |
+| Paged list append / iterate | 5 / 1 ns per element |
+| Buffer push / array iterate | 4 / 2 ns per element |
+| Persistent map insert (200k entries) / lookup | ≈410 ns / ≈93 ns |
+| Prompt / batch channel throughput | 22 / 31 ns per message |
+| Prompt round trip | ≈0.21 µs |
+| Record allocation with a retained window | ≈39 ns per record; longest pause ≈2.9 ms |
+| Task spawn and join | ≈0.56 µs per task |
+| Cancelling 100 producers blocked on a full channel | ≈0.9 ms to settle |
+| Four CPU-bound tasks (`bench/parallel.lang`), 1 / 2 / 4 workers | 684 / 344 / 174 ms |
+| Call with a scalar frame / call holding 4 rooted pointers that makes one more call (`bench/runtime.lang`) | ≈2 / ≈1.8 ns |
+| Recursion 20,000 frames deep on a fresh task stack | ≈4 ns per frame |
+| Shutdown under failure: body defect with 200 parked tasks and 8 resources | settled, all 8 halts run, in ≈0.8 ms |
 
 These are single-run indications, not tuned results: stack sizes, page sizes,
 collector thresholds, and scheduling budgets remain measured engineering
-choices. Batch publication is not yet faster than prompt sends per message.
+choices. `python3 bench/compare/run.py` compares workloads with other
+languages, and `bench/telemetry.py` measures scaling across workers.
 
 The original draft validation also checked that all local links resolve,
 fenced code blocks balance, and every example parses against the reference EBNF
-with an independent recognizer.
+with an independent recognizer. The test suite now checks every `lang`
+code block in the specification and guides (`crates/lang_cli/tests/docs.rs`;
+excerpts are fenced `lang fragment`).

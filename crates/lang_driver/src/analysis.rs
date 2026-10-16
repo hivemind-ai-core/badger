@@ -72,6 +72,9 @@ pub struct Item {
     /// Its `///` documentation and visibility (module members only).
     pub doc: String,
     pub public: bool,
+    /// A function's declaration as written, without its body (module
+    /// members only; empty for other kinds).
+    pub decl: String,
 }
 
 /// A local binding, for completion of names and `name.` members.
@@ -371,6 +374,21 @@ impl Ix<'_> {
 
     fn text(&self, sp: Span) -> &str {
         self.s.sources.get(sp.file).text.get(sp.range()).unwrap_or("")
+    }
+
+    /// A function's header as written, up to its body, on one line (empty
+    /// for other definitions).
+    fn declaration(&self, d: lang_hir::DefId) -> String {
+        let def = &self.hir.defs[d];
+        let src = &self.s.sources.get(def.span.file).text;
+        match &def.kind {
+            DefKind::Fn(f) => {
+                let end = f.body.map(|b| self.hir.exprs[b].span.start).unwrap_or(def.span.end);
+                let t = src.get(def.span.start as usize..end.max(def.span.start) as usize).unwrap_or("");
+                format!("fn {}", t.split_whitespace().collect::<Vec<_>>().join(" "))
+            }
+            _ => String::new(),
+        }
     }
 
     /// The span of a definition's name inside its declaration.
@@ -792,6 +810,7 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
                 ms.iter()
                     .map(|m| Item {
                         doc: String::new(),
+                        decl: String::new(),
                         public: true,
                         name: m.name.clone(),
                         detail: m.detail.clone(),
@@ -951,6 +970,7 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
                     detail: ix.signature(*d),
                     kind,
                     doc: ix.doc(*d),
+                    decl: ix.declaration(*d),
                     public: def.is_pub,
                 })
             })
@@ -979,6 +999,7 @@ fn index(s: &Session, hir: &lang_hir::Hir, checked: &lang_typeck::Checked<'_>, o
             detail: ix.signature(d),
             kind: SymbolKind::Method,
             doc: ix.doc(d),
+            decl: ix.declaration(d),
             public: def.is_pub,
         });
     }

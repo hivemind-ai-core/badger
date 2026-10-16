@@ -1,6 +1,7 @@
 # Functions, effects, errors, and protocols
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Function values and capture
 
@@ -54,6 +55,8 @@ restricted projects (chapter 07), since they reach nothing outside the
 program.
 
 ```lang
+import std.io
+
 fn double(value: Int) -> Int !{} {
     value * 2
 }
@@ -111,6 +114,9 @@ erase to `Data`, invent a union, or catch task failure. `Option` must be matched
 or converted explicitly with a missing-value error.
 
 ```lang
+import std.codec
+import std.sqlite as db
+
 pub enum AppError {
     decode(source: codec.DecodeError),
     database(source: db.Error),
@@ -161,7 +167,7 @@ checks. Tools show a function's clauses with its signature.
 Checked overflow, bounds violations, failed assertions, and explicit `panic`
 terminate the current task through its failure boundary. They are not expected
 `Result` errors and are not silently caught by ordinary interceptors. A task
-capture boundary can report a typed `Exit<T>` to a parent or supervisor.
+capture boundary can report a typed `task.Exit<T>` to a parent or supervisor.
 Cancellation is its own exit reason and is observed at supported safe points.
 
 All language exit paths run registered scope cleanup. Cleanup can suspend under
@@ -181,6 +187,8 @@ callback returns, so callers must preserve the helper's result.
 pub protocol Display {
     fn display(self: &Self) -> String
 }
+
+pub struct UserId { value: U64 }
 
 impl Display for UserId {
     fn display(self: &Self) -> String {
@@ -215,4 +223,5 @@ properties, not protocols that arbitrary safe code may implement dishonestly.
 Unsafe runtime/FFI extensions require an audited declaration and remain explicit.
 
 The continuation syntax is informed by [Gleam's `use`](https://tour.gleam.run/advanced-features/use/).
-All error, effect, and protocol rules above are this draft's own proposal.
+The error, effect, and protocol rules above are this draft's own design, and
+the toolchain implements them.

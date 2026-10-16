@@ -483,7 +483,17 @@ questions (diagnostics, hover, definition, references, completion, symbols)
 as JSON with 1-based positions. `std.compiler` wraps it for programs: typed
 records (`Diagnostic`, `Location`, `Symbol`, `Completion`) decoded from a
 `lang query` subprocess (`LANG_EXE` names the running executable), plus
-`check_source` and `explain`.
+`check_source` and `explain`. `lang query check PATH --overlays FILE`
+(`std.compiler.check_project`, MCP `check` with `files`) checks a project
+with proposed file contents overlaid on the files on disk, the way the
+language server checks unsaved buffers: every entry point and task, as
+`lang check` does, reporting the inputs checked and the roots covered.
+
+`lang doc std --out docs/api` writes the standard library reference
+(`crates/lang_cli/src/doc.rs`) from the `api` query: declarations and `///`
+documentation of each module's public types, methods, and functions, with
+the module's leading comment as its introduction. `tests/docs.rs` keeps it
+current and checks every `lang` code block in the specification and guides.
 
 `lang graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
 [--std]` draws program structure from the same analysis: calls from each
@@ -501,7 +511,7 @@ and expressions evaluate; with `import std.compiler` the agent queries and
 post-processes analysis in the language itself instead of through many
 narrow tools. Evaluations have a time limit (`evalt` requests: the
 endpoint cancels the evaluation task when it expires, so the session stays
-usable). `check` (a path or source text), `query` (the `lang query` kinds,
+usable). `check` (a path or source text, or a project with proposed `files`), `query` (the `lang query` kinds,
 diagnostic explanations, and standard module sources as API reference) and
 `run` (a program or its tests, with a time limit) run in subprocesses,
 isolated from the session. The session's standard output is redirected to

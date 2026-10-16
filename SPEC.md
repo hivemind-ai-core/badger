@@ -1,8 +1,8 @@
 # Language specification, draft 0
 
-This is the proposed complete language design for review and implementation.
-The language is temporarily called `lang`; source files use `.lang`. It is a
-native application language for services and automation.
+This is the language design, implemented by the compiler and runtime in this
+repository. The language is temporarily called `lang`; source files use
+`.lang`. It is a native application language for services and automation.
 
 The user's accepted decisions are authoritative. Additional decisions below
 are the selected defaults of this draft, not claims of subsequent user approval.
@@ -34,14 +34,31 @@ and its scope notes.
 | Errors | `Result<T, E>`, `?`, coherent direct `From` conversions; no implicit general unions |
 | Effects | Inferred summaries; ordinary functions can suspend; no `async` function category |
 | Memory | Managed immutable values; affine builders; task-confined mutable cells; inferred scoped borrows |
-| Initial collector | Precise nonmoving tracing heap; explicit scopes own external resources |
+| Collector | Precise nonmoving tracing heap, generational with sticky mark bits; explicit scopes own external resources |
 | Collections | Paged frozen `List<T>` and unique `ListBuilder<T>`; contiguous `Buffer<T>` and `Array<T>` |
 | Communication | Typed bounded `Channel<T>` and explicitly buffered `BatchChannel<T>` |
 | Application graphs | Typed `system { ... }` descriptions, compiler-assisted reference checking, blessed lifecycle runtime |
 | Processing | Typed `pipeline { ... }` descriptions; forward context changes and prefix-limited live views during unwind |
 | Recovery | Ordinary task scopes; opt-in managed worker restart policy |
-| First execution strategy | Stackful native tasks and compiler safe points; one worker first, multicore later |
+| Execution | Stackful native tasks and compiler safe points on work-stealing workers (`--workers N`) |
 | Reflection | Derived typed schemas and explicit `Data` boundaries; no general macros in draft 0 |
+
+## How to read this specification
+
+Each chapter distinguishes three kinds of statement:
+
+- Plain text is **normative**: the language's semantics, which the
+  toolchain implements.
+- **Implementation:** paragraphs and notes describe this toolchain's
+  choices and limits (representations, defaults, diagnostics codes) that
+  another implementation could make differently.
+- **Proposed:** marks additions that are designed but not implemented.
+
+Code blocks fenced `lang` are complete modules that the test suite checks
+with the current toolchain; blocks fenced `lang fragment` are excerpts. The
+[standard library reference](docs/api/README.md) is generated from the
+checked interfaces (`lang doc std --out docs/api`), and `lang query api
+std.NAME` gives the same facts as JSON.
 
 ## Reading order
 
@@ -54,15 +71,18 @@ and its scope notes.
 7. [Standard library, tooling, and implementation](spec/07-runtime-and-tooling.md)
 8. [Worked programs and semantic acceptance cases](spec/08-worked-examples.md)
 
-[Reference EBNF](spec/grammar.ebnf) accompanies the prose syntax rules. It is
-not a replacement for the currently implemented placeholder grammar.
+[Reference EBNF](spec/grammar.ebnf) accompanies the prose syntax rules. The
+grammar the compiler accepts is the pest grammar in
+[crates/lang_syntax/src/grammar.pest](crates/lang_syntax/src/grammar.pest);
+where the two differ, the pest grammar is authoritative.
 
 [DESIGN.md](DESIGN.md) retains the earlier reasoning and alternatives. When it
 conflicts with this draft, this draft states the current proposal. The original
 [research notes](researxh/README.md) are reference material, not language rules.
 
-The crucial implementation experiments are row inference, same-layout record
-construction, scope escape checking, typed reverse pipeline execution, precise
-roots on suspended native stacks, and cancellation-safe page publication.
-Allocator sizes, scheduling budgets, and tuning constants require measurement;
-they are not additional user-facing language semantics.
+[ARCHITECTURE.md](ARCHITECTURE.md) describes how the implementation does
+row inference, same-layout record construction, scope escape checking,
+typed reverse pipeline execution, precise roots on suspended native stacks,
+and cancellation-safe page publication. Allocator sizes, scheduling budgets,
+and tuning constants are measured engineering choices, not user-facing
+language semantics.

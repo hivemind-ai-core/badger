@@ -1,13 +1,14 @@
 # Systems, resources, and typed interceptor pipelines
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Core support and standard policy
 
 The language supports typed records, scope brands, `use`, and the compiler-checked
 description forms `system { ... }` and `pipeline { ... }`. The standard library
-owns provider execution, lifecycle policy, HTTP adapters, tracing, and worker
-restart behavior. These are first-class inspectable descriptions, not general
+owns provider execution, lifecycle policy, HTTP adapters, structured events
+(`std.trace`), and worker restart behavior. These are first-class inspectable descriptions, not general
 macros or opaque framework annotations. Their compiler hooks are explicit parts
 of the specification.
 
@@ -17,7 +18,7 @@ or mandatory component object is required.
 
 ## Typed system descriptions
 
-```lang
+```lang fragment
 let plan = system {
     database: component(sqlite.pool, { path: config.database_path }),
     api: component(api.provider, { database: ref(:database) }),
@@ -52,7 +53,7 @@ provider cannot return an unbranded dangling raw handle and call it a resource.
 
 `system.run` initializes the dependency closure in order inside child scopes.
 Draft 0 uses deterministic sequential startup, with source label order breaking
-ties; parallel startup may be an explicit later policy. If startup fails,
+ties. **Proposed:** parallel startup as an explicit policy. If startup fails,
 already initialized nodes halt in reverse order. A failing initializer's own
 scope releases partial acquisitions. Cleanup attempts continue after errors,
 retaining the initial failure and attaching cleanup failures.
@@ -66,8 +67,8 @@ Callback-scoped running values cannot escape `system.run`.
 
 A provider has a typed configuration schema and an acquisition operation run
 with an initialization scope. It may register halt behavior there. Pure value
-providers register no cleanup. Additional suspend/resume hooks are optional
-and distinct from halt/init; retaining a resource across reload must be explicit.
+providers register no cleanup. Retaining a resource across reload must be
+explicit. **Proposed:** suspend/resume hooks, distinct from halt/init.
 Provider IDs and source locations are retained for inspection and diagnostics.
 
 The initializer's `InitScope<S>` has these checked operations:
@@ -89,9 +90,10 @@ contract. General safe code cannot manufacture an untracked scoped handle.
 Configurations are ordinary typed values after validation. Profiles and
 environment overlays merge explicit configuration data, then decode/validate
 before acquisition. There are no hidden environment reads during imports.
-Only explicitly registered providers can be selected from external data.
-Dynamic provider choice uses a typed output interface and runtime graph/schema
-validation; it cannot introduce a new statically unknown output shape.
+**Proposed:** selecting among explicitly registered providers from external
+data. Dynamic provider choice would use a typed output interface and runtime
+graph/schema validation; it could not introduce a new statically unknown
+output shape.
 
 `system.select(plan, keys)` takes the dependency closure of selected roots.
 Replacing a provider for tests preserves its declared configuration/output
@@ -138,7 +140,7 @@ to forwarding. A terminal handler is required. Replies travel separately from
 context fields, so earlier stages can always observe/transform a reply without
 pretending that a later-added `response` field existed on their input.
 
-```lang
+```lang fragment
 let plan = pipeline {
     tracing(),
     authentication(database),
@@ -241,4 +243,4 @@ static chains require compatible branch contracts or explicit sum types.
 
 Precedents: [Integrant's data-driven lifecycle](https://github.com/weavejester/integrant)
 and [Pedestal's enter/leave/error traversal](https://pedestal.io/pedestal/0.7/reference/interceptors.html).
-Prefix-visible live views are the design refined in this conversation.
+Prefix-visible live views are this language's own design.

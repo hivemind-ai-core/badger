@@ -1,6 +1,7 @@
 # Memory, ownership, and collections
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Values and access capabilities
 
@@ -69,20 +70,28 @@ just because a child has a shorter lifetime. Captures and returned records keep
 their region constraints; boxing, `Data`, protocols, and channels cannot erase
 them. External-resource ownership never depends on eventual GC finalization.
 
-## Initial heap strategy
+## Heap strategy
 
-Choose a precise, nonmoving tracing heap for the first application runtime.
-Ordinary heap objects and collection pages keep their addresses while alive.
-Stack/scalar allocation remains available when escape analysis proves it safe.
-Inline records do not receive a per-object dynamic map or mandatory heap box.
+The runtime uses a precise, nonmoving tracing heap. Ordinary heap objects and
+collection pages keep their addresses while alive. Scalar replacement removes
+the allocation of records that do not escape. Records do not receive a
+per-object dynamic map.
 
-The initial collector stops workers at compiler/runtime safe points, traces
-typed roots, and reclaims unreachable allocations. Allocation and fairness
-checks provide rendezvous opportunities. Suspended task stacks, channels,
-pending batches, closure environments, and registered foreign roots are traced.
-Use a shadow root stack initially rather than depending on unimplemented native
-stack walking. Published managed references need proper cross-worker memory
-ordering even though their payload is immutable.
+The collector traces typed roots and reclaims unreachable allocations.
+Suspended task stacks, channels, pending batches, closure environments, and
+registered foreign roots are traced. Published managed references need proper
+cross-worker memory ordering even though their payload is immutable.
+
+**Implementation:** a collection starts once no worker is running compiled
+code (workers stop at allocation and poll safe points). Roots are per-task
+shadow-stack frames, module-level pointer slots, and pinned runtime roots;
+there is no native stack walking. The collector is generational without
+moving objects: mark bits are sticky, so a minor collection traces only
+from objects written since the last one (a write barrier records them).
+Each worker sweeps its own pages in parallel. Records are heap objects with
+a descriptor header unless scalar replacement removes them; list elements
+of record type are references to such objects. `[runtime] heap_max_bytes`
+bounds live data ([memory budget](07-runtime-and-tooling.md#memory-budget)).
 
 This choice handles cyclic closures and explicit mutable cells without requiring
 reference-count operations on every shared value. It costs collector metadata,
@@ -91,7 +100,8 @@ not a real-time promise. Collector policy may evolve while preserving language
 semantics and address-stability contracts.
 
 Unique buffers and page pools may reclaim storage earlier when exclusivity and
-outstanding views permit it. A pool retains only a configured bounded reserve.
+outstanding views permit it. A pool retains only a bounded reserve
+(**Implementation:** four pages per channel).
 Managed page views retain their backing allocation. Raw FFI borrows require
 explicit rooting and cannot survive an unregistered lifetime boundary.
 
@@ -101,7 +111,7 @@ explicit rooting and cannot survive an unregistered lifetime boundary.
 builder. List literals and `list.collect` construct through a unique builder and
 then freeze. `finish` transfers the page directory without moving elements.
 
-```lang
+```lang fragment
 let builder = list.builder<Event>()
 for event in source {
     builder.append(event)
@@ -115,8 +125,9 @@ Growing a builder may relocate directory metadata, never existing page elements.
 Type size/alignment and configured byte budgets determine page capacity; it is
 not a language-visible magic number. Pages are stable through append growth.
 
-Element iteration hides page boundaries. `chunks()` exposes read-only contiguous
-page views. A managed stable-element reference is available for `T: Share` and
+Element iteration hides page boundaries. `chunks()` returns each page as
+a frozen contiguous `Array` (**Implementation:** a copy of the page;
+zero-copy views are proposed). A managed stable-element reference is available for `T: Share` and
 retains its page; appending can continue because initialized slots cannot be
 modified. References into affine elements instead use ordinary checked borrows
 and do not grant simultaneous mutation or transfer rights. Clearing/recycling a
@@ -138,8 +149,9 @@ requires shareable elements.
 ## Buffers, arrays, maps, and sequences
 
 `Buffer<T>` owns contiguous mutable storage, grows by relocation, and is affine.
-`buffer.freeze` consumes a supported buffer into an immutable representation;
-freezing `Buffer<Byte>` into `Bytes` can reuse the allocation. It requires no
+`buffer.freeze` consumes a buffer into an immutable `Array<T>`, and
+`bytes.freeze` a `Buffer<Byte>` into `Bytes` (**Implementation:** both copy;
+reusing the allocation is proposed). It requires no
 surviving mutable borrow. Capacity hints are advisory unless a fixed-capacity
 constructor is chosen; a full fixed-capacity append returns a checked error.
 
@@ -180,8 +192,9 @@ that does not change how production records are stored.
 
 ## Channel page ownership
 
-Message pages use the same allocator/page concepts as list builders, with a
-different public lifetime contract. A page is uniquely writable while open,
+Message pages follow the same page concepts as list builders, with a
+different public lifetime contract (**Implementation:** a channel holds its
+pages as runtime vectors of element words, not list pages). A page is uniquely writable while open,
 sealed at publication, rooted by the runtime while queued/read, and reusable only
 after every view is released. Appending an already-created inline value may move
 its fields once; an in-place reservation initializes a slot directly when that

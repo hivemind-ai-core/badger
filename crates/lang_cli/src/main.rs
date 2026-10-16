@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod doc;
 mod graph;
 mod lsp;
 mod mcp;
@@ -145,8 +146,9 @@ enum Command {
     },
     /// Inspect program structure.
     Inspect {
-        /// `plans` (system graphs) or `config` (effective project
-        /// configuration) of PATH; or, with `--connect`, `tasks`, `channels`,
+        /// `plans` (system graphs), `config` (effective project
+        /// configuration), or `runtime` (effective runtime settings and their
+        /// sources) of PATH; or, with `--connect`, `tasks`, `channels`,
         /// `system`, `heap`, `code`, or `all` of a running program.
         what: String,
         path: Option<PathBuf>,
@@ -184,9 +186,11 @@ enum Command {
         std: bool,
     },
     /// Answer one question about a program as JSON (1-based positions):
-    /// `diagnostics`, `symbols`, `api` (public interface; PATH may also be a
-    /// standard module such as `std.list`), or at `--line`/`--col` `hover`,
-    /// `definition`, `references`, `completion`.
+    /// `diagnostics`, `check` (diagnostics with the inputs and roots
+    /// checked; with `--overlays`, of proposed contents), `symbols`, `api`
+    /// (public interface; PATH may also be a standard module such as
+    /// `std.list`), or at `--line`/`--col` `hover`, `definition`,
+    /// `references`, `completion`.
     Query {
         kind: String,
         /// Source file (checked with its project, if any).
@@ -204,6 +208,18 @@ enum Command {
         /// text, in this file (`-` reads standard input). Nothing is written.
         #[arg(long)]
         overlays: Option<String>,
+    },
+    /// Reference documentation in Markdown from checked interfaces: `std`
+    /// (every standard module, one page each plus an index), a standard
+    /// module (`std.list`), or the program at a path.
+    Doc {
+        target: String,
+        /// Write the pages into this directory instead of printing them.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Compare with the pages in `--out` and fail if any differ.
+        #[arg(long)]
+        check: bool,
     },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
@@ -468,6 +484,13 @@ fn main() -> ExitCode {
                 println!("{v}");
                 ExitCode::SUCCESS
             }
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Doc { target, out, check } => match doc::run(&target, out.as_deref(), check) {
+            Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("error: {e}");
                 ExitCode::FAILURE

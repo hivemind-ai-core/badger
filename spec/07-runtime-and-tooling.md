@@ -1,6 +1,7 @@
 # Standard library, tooling, and implementation
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Blessed application facilities
 
@@ -9,16 +10,17 @@ modules are ordinary imports and can be replaced at declared interfaces. The
 runtime supplies scheduling, memory, I/O, and inspection; it does not impose
 an HTTP framework on a CLI program.
 
-| Module | Initial responsibility |
+| Module | Responsibility |
 |---|---|
+| `std.prelude` | Primitive types, `Option`, `Result`, common protocols, cells, assertions (imported implicitly) |
 | `std.result`, `std.option` | Expected failure, absence, transformations, explicit conversions |
 | `std.records` | Typed removal, merge, projection, shape reflection |
 | `std.list`, `std.buffer`, `std.array`, `std.map`, `std.set` | Collections and builders |
 | `std.seq`, `std.stream` | Typed lazy iteration and suspending streams |
-| `std.task`, `std.channel` | Scoped concurrency, joins, bounded queues, batches |
+| `std.task`, `std.channel`, `std.broadcast` | Scoped concurrency, joins, bounded queues, batches, one-shot replies, broadcast |
 | `std.system`, `std.worker`, `std.pipeline` | Lifecycle graphs, worker policy, typed interceptors |
 | `std.io`, `std.fs`, `std.path`, `std.process`, `std.env` | OS interaction and subprocesses |
-| `std.text`, `std.bytes` | Unicode text, byte views, and decoding |
+| `std.text`, `std.bytes`, `std.num` | Unicode text, byte views and decoding, numeric conversions and checked/wrapping arithmetic |
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |
 | `std.http`, `std.route` | Request/reply adapters, interceptors, typed routing descriptions |
 | `std.sqlite` | A blessed embedded storage adapter and scoped transactions |
@@ -27,6 +29,14 @@ an HTTP framework on a CLI program.
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
+| `std.inspect` | Runtime snapshots of tasks, channels, systems, and the heap |
+| `std.compiler` | Compiler services from code: diagnostics, project checks of proposed edits, hover, definitions, references, symbols |
+| `std.ffi` | The C boundary: raw pointers, C memory, C strings |
+
+The [standard library reference](../docs/api/README.md) lists every public
+type, function, and method with its declaration and documentation; it is
+generated from the checked interfaces (`lang doc std --out docs/api`) and
+the test suite keeps it current.
 
 The prelude provides primitive types, `Option`, `Result`, common protocols,
 `ok`, `err`, `some`, `none`, `schema`, `panic`, and assertions. Other modules
@@ -35,8 +45,9 @@ or process-global dependency lookup.
 
 ## Reference API contracts used by worked examples
 
-These are proposed standard-library contracts, not existing implementations.
-Region/effect parameters not written here are retained by the actual signature.
+These standard-library contracts are implemented; the
+[reference](../docs/api/README.md) has their exact signatures. Region/effect
+parameters not written here are retained by the actual signature.
 
 - `env.args()` returns arguments excluding the executable as `List<String>`.
 - `config.from_env<T>(prefix)` decodes required schema fields from prefixed
@@ -44,7 +55,8 @@ Region/effect parameters not written here are retained by the actual signature.
   failed numeric conversions are structured errors. Defaults are explicit
   schema/configuration values, not omitted record fields.
 - `fs.read_text(path)` returns `Result<String, io.Error>`; `text.lines`,
-  `text.trim`, and `text.is_empty` supply typed string views/operations.
+  `text.trim`, and `text.is_empty` supply typed string operations (`lines`
+returns a lazy `Seq<String>`).
 - `io.println(value)` returns `Result<Unit, io.Error>` and requires `Display`.
 - `codec.decode<T>(bytes)` decodes JSON bytes using `Codec`; `codec.from_data<T>`
   validates a `Data` value. Both return `codec.DecodeError` on failure.
@@ -155,7 +167,7 @@ pass it briefly.
 
 ## Project tool and machine interface
 
-The proposed project file is `lang.toml`, with package identity, dependencies,
+The project file is `lang.toml`, with package identity, dependencies,
 entry modules, toolchain version, and runtime profiles. Resolve dependencies with
 a lockfile and content/version verification. Configuration cannot run arbitrary
 code during import. User tasks are explicit typed functions invoked by the tool.
@@ -179,17 +191,26 @@ Clocks and random sources are not ambient authority: they reach nothing
 outside the program, their use is visible as `Io`/`State` effects, and
 reproduction bundles record them.
 
-Target commands:
+Commands:
 
 ```text
 lang check [path] [--json]
 lang run [entry] [--profile name] [--record bundle] [-- args...]
 lang replay bundle [--compare]
 lang test [filter] [--json]
+lang task name [-- args...]
+lang compile [path] [-o out]
 lang format [path] [--check]
 lang repl [--connect endpoint]
-lang inspect [system|tasks|channels|plans] [--json]
+lang inspect [plans|config|runtime] [path] [--json]
+lang inspect [system|tasks|channels|heap|code|all] --connect addr [--json]
 lang explain [type|effect|diagnostic] target [--json]
+lang query kind [path] [--line l --col c] [--overlays file]
+lang graph [calls|modules|types|systems] [path]
+lang doc [std|std.module|path] [--out dir] [--check]
+lang update [path]
+lang lsp
+lang mcp
 ```
 
 All of these commands are implemented; a missing path means the current
@@ -268,18 +289,24 @@ in debug profiles, but runtime assertions do not replace the static contracts.
 ## Native execution, reload, and deployment
 
 Compile modules into typed HIR, explicit MIR, specialized layouts, and Cranelift
-code. Initial deployment uses source or a validated typed-code cache plus a
-versioned runtime. Native machine-code cache keys include target/ISA, compiler,
-runtime ABI, dependencies, and source/interface hashes. A standalone AOT backend
-is a separate future output mode, not an inherent property of the current JIT.
+code. Deployment uses source, or a checked program saved as binary MIR
+(`lang compile`; only code generation remains when it runs), plus a
+versioned runtime. **Proposed:** a native machine-code cache keyed by
+target/ISA, compiler, runtime ABI, dependencies, and source/interface
+hashes, and a standalone AOT backend as a separate output mode (not an
+inherent property of the JIT).
 
 A REPL can evaluate new typed definitions in an explicit session. Code versions
 remain alive while tasks/closures use them. Compatible function replacement
 changes new dispatches; existing stacks keep their code version. Changing a
 record shape, effect/ownership contract, or resource layout requires rechecking
 and controlled reconstruction/migration. Failed checks leave the old running
-system intact. Resource reload coordinates explicit suspend/resume or restart
-of an affected dependency group; it does not reinterpret live bytes as a new type.
+system intact. Reload never reinterprets live bytes as a new type.
+**Implementation:** `lang run --watch` replaces compatible functions;
+`--reconstruct` cancels the running `main` (its scopes settle and halt
+their resources in reverse order) and starts the new version.
+**Proposed:** resource reload that suspends and resumes, or restarts, only
+the affected dependency group.
 
 Native host FFI is explicit `extern "c" fn` over approved primitive, pointer,
 and `repr c` types. Managed/scoped values need a rooting/ownership adapter. Raw
@@ -321,12 +348,14 @@ cannot call back into the language: the `callbacks` contract is rejected.
    arithmetic/access operations. Trace suspended stacks and runtime pending data.
 8. Register code/shape metadata and retain it for active tasks, values, and tools.
 
-An initial single-worker prototype may precede multicore support, but cannot be
-called conforming if it omits declared cancellation, fairness, cleanup, or
-publication semantics. Work should land in vertical slices with executable
-acceptance cases from [the worked examples](08-worked-examples.md).
+An implementation cannot be called conforming if it omits declared
+cancellation, fairness, cleanup, or publication semantics, on one worker or
+many. Work lands in vertical slices with executable acceptance cases from
+[the worked examples](08-worked-examples.md).
 
 ## Implementation order
+
+The implementation landed in this order:
 
 1. Literals, declarations, functions, immutable records, basic enums, diagnostics.
 2. Row inference/update/projection, matching, `Result`/`?`, coherent conversions.
@@ -336,7 +365,7 @@ acceptance cases from [the worked examples](08-worked-examples.md).
 6. Typed systems and live-prefix pipelines, SQLite/HTTP reference application.
 7. Structured inspection, controlled tests, REPL and versioned live replacement.
 
-Library breadth grows alongside these slices. General CFG parsing and advanced
+Library breadth grew alongside these slices. General CFG parsing and advanced
 routing follow the typed core rather than blocking the first useful service.
 Benchmark gates cover native record access, paged versus contiguous collection
 workloads, stack/root overhead, queue latency/throughput, collection pauses, and

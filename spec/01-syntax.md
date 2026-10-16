@@ -1,6 +1,7 @@
 # Syntax and control flow
 
-Status: draft 0 proposal. See [the specification index](../SPEC.md).
+Status: draft 0, implemented by this repository's toolchain except where marked
+**Proposed:**. See [the specification index](../SPEC.md) for how to read it.
 
 ## Names, modules, and visibility
 
@@ -16,7 +17,7 @@ lowercase; `http.Request` names a type, and `http.listen` names a function.
 `Result.ok` accesses a constructor through the type namespace; `Result` itself
 remains a type identifier, not an ordinary value.
 
-```lang
+```lang fragment
 import std.http
 import std.result.{Result, ok, err}
 import app.orders as orders
@@ -44,9 +45,11 @@ are exempt.
 Keywords include `import`, `as`, `pub`, `type`, `struct`, `enum`, `protocol`,
 `impl`, `for`, `where`, `derive`, `fn`, `once`, `let`, `var`, `const`, `if`,
 `else`, `match`, `while`, `loop`, `in`, `break`, `continue`, `return`, `use`,
-`system`, `pipeline`, `ref`, `map`, `set`, `unsafe`, `extern`, `dyn`, and `repr`.
+`system`, `pipeline`, `ref`, `map`, `set`, `unsafe`, `extern`, `dyn`, `repr`,
+`requires`, and `ensures`.
 `true` and `false` are boolean literals. `mut` is reserved for exclusive borrows.
-`system`, `pipeline`, `ref`, `map`, `set`, `derive`, and `repr` are contextual:
+`system`, `pipeline`, `ref`, `map`, `set`, `derive`, `repr`, `requires`, and
+`ensures` are contextual:
 their special syntax is recognized in the corresponding form, while module
 paths such as `std.system` and calls such as `pipeline.compile` remain valid.
 Keywords after a dot can name a declared member; ordinary declarations still
@@ -65,7 +68,7 @@ Within an aggregate literal/type or plan description, surrounding newlines are
 layout and commas separate entries. A nested lambda/control-flow block restores
 statement boundaries even when it occurs inside a call's parentheses.
 
-```lang
+```lang fragment
 let count = 42
 let ratio = 0.5
 let mask = 0xFFU32
@@ -91,14 +94,15 @@ suffixes `ns`, `us`, `ms`, `s`, `min`, and `h`; these are literal units, not typ
 identifiers. Negative durations require explicit signed arithmetic helpers.
 
 Strings are immutable UTF-8. Characters are Unicode scalar values. Escapes
-include `\n`, `\r`, `\t`, `\\`, `\"`, `\'`, and `\u{...}`. Interpolation uses
+include `\n`, `\r`, `\t`, `\0`, `\\`, `\"`, `\'`, and `\u{...}`. Interpolation uses
 `$"...{expression}..."`; `{{` and `}}` escape interpolation braces. Interpolated
 values need a `Display` implementation. Triple-quoted strings preserve raw
 multiline text without escape processing; a `$` prefix enables interpolation.
 Symbols are interned qualified names, distinct from strings and enum variants.
 
-`{}` is an empty record. A brace expression beginning with a field label or
-spread is a record; other expression braces form a block. Records allow one
+`{}` is an empty record. A brace expression beginning with a field label, a
+spread, or shorthand fields (`{ name }`, `{ a, b }`, meaning `{ name: name }`)
+is a record; other expression braces form a block. Records allow one
 spread, first. Lists, records, maps, sets, parameter lists, and match arms allow
 trailing commas. A tuple of one item requires `(item,)`.
 
@@ -126,7 +130,7 @@ resolution is type-directed, and receiver borrowing follows its signature.
 There is no unrestricted search for extension functions with matching names.
 Ordinary module functions compose through calls and pipelines.
 
-```lang
+```lang fragment
 events
     |> seq.filter(fn(event) { event.enabled })
     |> seq.map(fn(event) { event.name })
@@ -136,7 +140,9 @@ events
 `x |> f(a, b)` means `f(x, a, b)`. Pipe evaluation is left to right, with the
 left side evaluated once. There are no implicit placeholders or alternative
 last-argument pipes. The pipe operator has lower precedence than comparisons
-and arithmetic and higher precedence than assignment.
+and arithmetic and higher precedence than assignment. Postfix `?` binds
+tighter than `|>`, so `x |> f(a)?` applies `?` to `f(a)`; write
+`(x |> f(a))?` to propagate the pipeline's error.
 
 ## Bindings and control flow
 
@@ -146,7 +152,7 @@ preserves the binding's type. Mutable containers have separate ownership rules.
 `const` permits literal/constructor aggregates and supported pure constant
 operators; arbitrary function evaluation is not part of draft 0.
 
-```lang
+```lang fragment
 var completed = 0
 for job in jobs {
     process(job)?
@@ -171,7 +177,7 @@ records, and enum variants. Record patterns may use `..` to ignore other fields;
 closed patterns require an exact shape. A refutable pattern belongs in `match`,
 not plain `let` or a function parameter.
 
-```lang
+```lang fragment
 match result {
     .ok(order) => order.id,
     .err(error) => report(error),
@@ -188,16 +194,16 @@ expressions use `Enum.variant(...)`, or an imported ordinary helper such as
 the nearest function/lambda, using an authorized direct error conversion. It
 does not unwrap `Option`, panic, or skip cleanup.
 
-```lang
-use tx <- database.transaction(pool)
+```lang fragment
+use tx <- sqlite.transaction(pool)
 let order = insert_order(tx, input)?
 ok(order)
 ```
 
 This lowers to:
 
-```lang
-database.transaction(pool, fn(tx) {
+```lang fragment
+sqlite.transaction(pool, fn(tx) {
     let order = insert_order(tx, input)?
     ok(order)
 })
@@ -217,8 +223,10 @@ From strongest to weakest: calls/field/index/`?`; unary `-`, `!`, borrow;
 `* / %`; `+ -`; integer shifts; bitwise `&`, then `^`, then `|`; ranges;
 comparisons; `&&`; `||`; `|>`; assignment. Comparisons do not chain.
 Operands, arguments, and record fields evaluate left to right. `&&` and `||`
-short-circuit. All other evaluation is eager. Assignment is not permitted
-inside a larger value expression.
+short-circuit. All other evaluation is eager. Assignment is a statement, not
+permitted inside a larger value expression; its target is a `var` binding, a
+field of one (`r.a = 2`), or an index (`b[i] = v` calls the collection's
+`set` method, as on a `Buffer`; frozen lists have none).
 
 Numeric arithmetic, comparisons, indexing, and errors are specified in
 [types](02-types-and-records.md) and [functions](03-functions-and-errors.md).
