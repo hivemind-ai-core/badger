@@ -410,6 +410,113 @@ pub fn stat(f: impl Fn(&WorkerStats) -> &AtomicU64, n: u64) {
     }
 }
 
+// ------------------------------------------------- lock attribution
+
+/// Why the runtime lock was taken: a runtime function generated code calls
+/// (interned names, from `FIRST_ENTRY`) or one of the internal reasons.
+pub mod reason {
+    pub const OTHER: u16 = 0;
+    pub const CHANNEL_SLOW: u16 = 1;
+    pub const BATCH_SLOW: u16 = 2;
+    pub const CALLBACK_RETURN: u16 = 3;
+    pub const SAFE_END: u16 = 4;
+    pub const GC: u16 = 5;
+    pub const DEFECT: u16 = 6;
+    pub const SCHEDULER: u16 = 7;
+    pub const STARTUP: u16 = 8;
+    pub const CONSTANT: u16 = 9;
+    pub const FIRST_ENTRY: u16 = 16;
+    pub const NAMES: [&str; 10] = [
+        "other",
+        "channel slow path",
+        "batch slow path",
+        "return from compiled callback",
+        "end of foreign call",
+        "collection",
+        "defect",
+        "scheduler (park, wake, idle)",
+        "worker startup",
+        "shared constant",
+    ];
+}
+
+const REASONS: usize = 512;
+
+/// Per worker, per reason: acquisitions and sampled hold nanoseconds (every
+/// 64th acquisition is timed; the total is scaled).
+#[repr(align(128))]
+struct ReasonStats {
+    count: [AtomicU64; REASONS],
+    hold_ns: [AtomicU64; REASONS],
+}
+
+static BY_REASON: [ReasonStats; MAX_WORKERS] = [const {
+    ReasonStats {
+        count: [const { AtomicU64::new(0) }; REASONS],
+        hold_ns: [const { AtomicU64::new(0) }; REASONS],
+    }
+}; MAX_WORKERS];
+
+static ENTRY_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// The attribution id of runtime function `name` (generated code passes it
+/// to `lang_rt_enter`).
+pub fn lock_reason_id(name: &str) -> u16 {
+    let mut v = ENTRY_NAMES.lock().unwrap();
+    let i = match v.iter().position(|n| n == name) {
+        Some(i) => i,
+        None => {
+            v.push(name.to_string());
+            v.len() - 1
+        }
+    };
+    (reason::FIRST_ENTRY as usize + i).min(REASONS - 1) as u16
+}
+
+fn reason_name(r: usize) -> String {
+    if r < reason::NAMES.len() {
+        return reason::NAMES[r].to_string();
+    }
+    let i = r.saturating_sub(reason::FIRST_ENTRY as usize);
+    ENTRY_NAMES.lock().unwrap().get(i).cloned().unwrap_or_else(|| format!("reason {r}"))
+}
+
+thread_local! {
+    /// The reason of the lock this thread holds, and when its hold started
+    /// (sampled acquisitions only).
+    static HOLD: Cell<(u16, Option<Instant>)> = const { Cell::new((0, None)) };
+}
+
+fn note_acquired(r: u16) {
+    let w = &BY_REASON[worker_index()];
+    let n = w.count[r as usize].fetch_add(1, Ordering::Relaxed);
+    let started = n.is_multiple_of(64).then(Instant::now);
+    HOLD.with(|h| h.set((r, started)));
+}
+
+fn note_released() {
+    let (r, started) = HOLD.with(|h| h.replace((0, None)));
+    if let Some(t) = started {
+        BY_REASON[worker_index()].hold_ns[r as usize]
+            .fetch_add(t.elapsed().as_nanos() as u64 * 64, Ordering::Relaxed);
+    }
+}
+
+fn print_reasons() {
+    let mut rows: Vec<(u64, u64, usize)> = (0..REASONS)
+        .map(|r| {
+            let c = BY_REASON.iter().map(|w| w.count[r].load(Ordering::Relaxed)).sum();
+            let h = BY_REASON.iter().map(|w| w.hold_ns[r].load(Ordering::Relaxed)).sum();
+            (c, h, r)
+        })
+        .filter(|x| x.0 > 0)
+        .collect();
+    rows.sort_by_key(|a| std::cmp::Reverse(a.0));
+    for (c, h, r) in rows.iter().take(15) {
+        eprintln!("[runtime stats]   {c:>9} x {:<40} ~{:.3} ms held", reason_name(*r), *h as f64 / 1e6);
+    }
+}
+
 pub fn print_stats() {
     if !stats_on() {
         return;
@@ -427,6 +534,7 @@ pub fn print_stats() {
         sum(&|w| &w.idle_waits),
         sum(&|w| &w.notifies),
     );
+    print_reasons();
 }
 
 fn try_lock() -> bool {
@@ -444,7 +552,14 @@ pub fn holds_lock() -> bool {
     !multi() || OWNER.load(Ordering::Relaxed) == worker_index() + 1
 }
 
-fn lock() {
+fn lock_for(r: u16) {
+    lock_inner();
+    if stats_on() {
+        note_acquired(r);
+    }
+}
+
+fn lock_inner() {
     if try_lock() {
         stat(|w| &w.lock_fast, 1);
         return;
@@ -470,6 +585,9 @@ fn lock() {
 }
 
 fn unlock() {
+    if stats_on() {
+        note_released();
+    }
     crate::channel::release_claims();
     OWNER.store(0, Ordering::Relaxed);
     LOCKED.store(false, Ordering::Release);
@@ -552,10 +670,10 @@ fn chaos_jitter() {
 }
 
 /// Compiled code is about to call into the runtime (a safe point).
-pub extern "C" fn lang_rt_enter(_ctx: *mut TaskCtx) {
+pub extern "C" fn lang_rt_enter(_ctx: *mut TaskCtx, why: u64) {
     IN_COMPILED.fetch_sub(1, Ordering::SeqCst);
     chaos_jitter();
-    lock();
+    lock_for(why as u16);
 }
 
 /// Compiled code continues after a runtime call.
@@ -574,7 +692,7 @@ pub extern "C" fn lang_rt_safe_begin(_ctx: *mut TaskCtx) {
 pub extern "C" fn lang_rt_safe_end(_ctx: *mut TaskCtx) {
     // increments only under the lock, so a collection in progress (which
     // holds the lock) finishes first
-    lock();
+    lock_for(reason::SAFE_END);
     IN_COMPILED.fetch_add(1, Ordering::SeqCst);
     unlock();
 }
@@ -587,8 +705,13 @@ pub fn leave_runtime() {
 }
 
 pub fn enter_runtime() {
+    enter_runtime_for(reason::OTHER)
+}
+
+/// [`enter_runtime`], attributed to `why` (see [`reason`]).
+pub fn enter_runtime_for(why: u16) {
     if multi() {
-        lang_rt_enter(std::ptr::null_mut());
+        lang_rt_enter(std::ptr::null_mut(), why as u64);
     }
 }
 
@@ -600,7 +723,7 @@ pub fn enter_runtime_holding(w: u64) {
         // the task may have moved to another worker while it ran
         let slot = &RETURNED[worker_index()];
         slot.store(w, Ordering::SeqCst);
-        lang_rt_enter(std::ptr::null_mut());
+        lang_rt_enter(std::ptr::null_mut(), reason::CALLBACK_RETURN as u64);
         slot.store(0, Ordering::SeqCst);
     }
 }
@@ -1143,7 +1266,7 @@ pub fn panic_current(message: String, location: String) -> ! {
     // a defect raised by runtime code running without the lock (an unlocked
     // entry called by generated code) takes it, as a locked call would
     if !holds_lock() {
-        enter_runtime();
+        enter_runtime_for(reason::DEFECT);
     }
     let t = current().expect("panic outside of a task");
     if t.state == State::Cleaning {
@@ -1646,7 +1769,7 @@ fn run_main_multi(entry: u64) -> Exit {
         let _ = h.join();
     }
     SHUTDOWN.store(false, Ordering::SeqCst);
-    lock();
+    lock_for(reason::STARTUP);
     let main = spawn_main(entry);
     rt().main = Some(main);
     let n = workers().min(MAX_WORKERS);
@@ -1656,7 +1779,7 @@ fn run_main_multi(entry: u64) -> Exit {
             .spawn(move || {
                 WORKER.with(|c| c.set(w));
                 crate::profile::start_thread();
-                lock();
+                lock_for(reason::STARTUP);
                 worker_loop(n);
                 unlock();
             })
@@ -1761,7 +1884,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
             }
         }
         WAKING.store(false, Ordering::SeqCst);
-        lock();
+        lock_for(reason::SCHEDULER);
         IDLE.fetch_sub(1, Ordering::SeqCst);
     }
 }

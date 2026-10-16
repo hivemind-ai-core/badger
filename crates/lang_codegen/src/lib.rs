@@ -515,7 +515,8 @@ impl FnCx<'_> {
             ("lang_rt_stack_overflow".into(), 0, true),
         ];
         if self.prog.workers > 1 {
-            for n in ["lang_rt_enter", "lang_rt_leave", "lang_rt_safe_begin", "lang_rt_safe_end"] {
+            used.push(("lang_rt_enter".into(), 1, false));
+            for n in ["lang_rt_leave", "lang_rt_safe_begin", "lang_rt_safe_end"] {
                 used.push((n.into(), 0, false));
             }
         }
@@ -1323,7 +1324,9 @@ impl FnCx<'_> {
     ) -> cranelift_codegen::ir::Inst {
         let multi = self.prog.workers > 1 && !UNLOCKED.contains(&name);
         if multi {
-            b.ins().call(imports["lang_rt_enter"], &[ctx]);
+            // attributed to the runtime function (`LANG_RUNTIME_STATS`)
+            let why = b.ins().iconst(types::I64, lang_runtime::task::lock_reason_id(name) as i64);
+            b.ins().call(imports["lang_rt_enter"], &[ctx, why]);
         }
         let call = b.ins().call(imports[name], args);
         if multi {

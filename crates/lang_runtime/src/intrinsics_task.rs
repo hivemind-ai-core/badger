@@ -54,10 +54,14 @@ fn fast_ok() -> bool {
 /// Run `f` holding the runtime lock, taking it if this unlocked entry was
 /// called without it.
 fn locked<R>(f: impl FnOnce() -> R) -> R {
+    locked_for(task::reason::CHANNEL_SLOW, f)
+}
+
+fn locked_for<R>(why: u16, f: impl FnOnce() -> R) -> R {
     if task::holds_lock() {
         return f();
     }
-    task::enter_runtime();
+    task::enter_runtime_for(why);
     let r = f();
     task::leave_runtime();
     r
@@ -466,7 +470,7 @@ task_intrinsics! {
         if fast_ok() && channel::append_fast(ch, v) {
             return ok_unit(rdesc(ret));
         }
-        locked(|| match channel::append(ch, v, true) {
+        locked_for(task::reason::BATCH_SLOW, || match channel::append(ch, v, true) {
             SendResult::Sent => ok_unit(rdesc(ret)),
             SendResult::TooLarge => send_err(rdesc(ret), v, "channel/too_large"),
             _ => send_err(rdesc(ret), v, "channel/closed"),
@@ -476,7 +480,7 @@ task_intrinsics! {
         if fast_ok() && channel::append_fast(ch, v) {
             return ok_unit(rdesc(ret));
         }
-        locked(|| match channel::append(ch, v, false) {
+        locked_for(task::reason::BATCH_SLOW, || match channel::append(ch, v, false) {
             SendResult::Sent => ok_unit(rdesc(ret)),
             SendResult::TooLarge => send_err(rdesc(ret), v, "channel/too_large"),
             SendResult::Full => send_err(rdesc(ret), v, "channel/full"),
@@ -493,7 +497,7 @@ task_intrinsics! {
             }
             return make_variant(rdesc(ret), "some", &[v]);
         }
-        locked(|| match channel::recv_one(ch, true) {
+        locked_for(task::reason::BATCH_SLOW, || match channel::recv_one(ch, true) {
             RecvResult::Value(v) => make_variant(rdesc(ret), "some", &[v]),
             _ => make_variant(rdesc(ret), "none", &[]),
         })
@@ -508,7 +512,7 @@ task_intrinsics! {
             }
             return make_variant(rdesc(ret), "value", &[v]);
         }
-        locked(|| match channel::recv_one(ch, false) {
+        locked_for(task::reason::BATCH_SLOW, || match channel::recv_one(ch, false) {
             RecvResult::Value(v) => make_variant(rdesc(ret), "value", &[v]),
             RecvResult::Empty => make_variant(rdesc(ret), "empty", &[]),
             RecvResult::Closed => make_variant(rdesc(ret), "closed", &[]),

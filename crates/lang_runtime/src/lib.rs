@@ -82,7 +82,7 @@ pub unsafe fn call_closure_returning(ctx: *mut TaskCtx, closure: u64, args: &[u6
         if ptr_result && r != 0 {
             task::enter_runtime_holding(r);
         } else {
-            task::enter_runtime();
+            task::enter_runtime_for(task::reason::CALLBACK_RETURN);
         }
         r
     }
@@ -131,7 +131,7 @@ fn shared_unit_variant(desc: &'static TypeDesc, tag: u32) -> Option<u64> {
     }
     let locked = task::holds_lock();
     if !locked {
-        task::enter_runtime();
+        task::enter_runtime_for(task::reason::CONSTANT);
     }
     let w = gc::alloc_immortal(desc, desc.payload_size() as usize);
     unsafe { *(gc::obj(w).payload() as *mut u32) = tag };

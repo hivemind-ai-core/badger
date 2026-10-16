@@ -245,7 +245,7 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
             // generated code allocating without the runtime lock: take it
             // (this is a safe point: its pointers are rooted) and collect
             // unless another worker just did
-            crate::task::enter_runtime();
+            crate::task::enter_runtime_for(crate::task::reason::GC);
             if due() || stress() || chaos {
                 collect();
             }
