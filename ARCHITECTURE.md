@@ -409,7 +409,14 @@ a level check against `[runtime] log_level` is one atomic load; a record
 encodes its fields through their schema, merges the task's `log.with`
 context (copied to tasks it spawns), and is written to standard error as
 text or a JSON line (`log_format`), and kept in a bounded buffer while an
-exporter is attached.
+exporter is attached. `trace.span` sets the task's current span (trace and
+span ids, inherited by spawned tasks, and stamped on log records inside
+it); a task cleanup ends it as failed on a defect or cancellation.
+`std.metrics` aggregates counters, gauges, and histograms (OpenTelemetry's
+default bounds) by name and attributes. `std.otel` is written in the
+language: a background task in a service scope drains the buffers every
+interval (and once more when stopped) into OTLP/HTTP JSON bodies the
+runtime builds, and posts them with `std.fetch`.
 
 ## Native modules
 

@@ -503,6 +503,76 @@ fn structured_logs() {
     assert!(run(&[("LANG_LOG_LEVEL", "off")]).is_empty());
 }
 
+/// OpenTelemetry export: a span, a log record inside it (with its trace
+/// and span ids), and a counter reach an OTLP/HTTP collector as JSON.
+#[test]
+fn otel_export() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let collector = std::thread::spawn(move || {
+        let mut got: Vec<(String, serde_json::Value)> = vec![];
+        // never wait forever: report what arrived
+        listener.set_nonblocking(true).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while got.len() < 3 && std::time::Instant::now() < deadline {
+            let Ok((mut s, _)) = listener.accept() else {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                continue;
+            };
+            s.set_nonblocking(false).unwrap();
+            s.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+            let mut r = BufReader::new(s.try_clone().unwrap());
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            let path = line.split(' ').nth(1).unwrap_or("").to_string();
+            let mut len = 0usize;
+            loop {
+                let mut h = String::new();
+                r.read_line(&mut h).unwrap();
+                if h.trim().is_empty() {
+                    break;
+                }
+                if let Some(v) = h.to_ascii_lowercase().strip_prefix("content-length:") {
+                    len = v.trim().parse().unwrap();
+                }
+            }
+            let mut body = vec![0u8; len];
+            r.read_exact(&mut body).unwrap();
+            s.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}").unwrap();
+            got.push((path, serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null)));
+        }
+        got
+    });
+    let out = lang()
+        .args(["run", "tests/log/otel.lang"])
+        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env("OTEL_SERVICE_NAME", "svc")
+        // records are exported, not written
+        .env("LANG_LOG_FORMAT", "none")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success() && String::from_utf8_lossy(&out.stdout) == "done\n",
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got = collector.join().unwrap();
+    let paths: Vec<&str> = got.iter().map(|(p, _)| p.as_str()).collect();
+    assert_eq!(paths, vec!["/v1/traces", "/v1/logs", "/v1/metrics"]);
+    let span = &got[0].1["resourceSpans"][0]["scopeSpans"][0]["spans"][0];
+    assert_eq!(span["name"], "work");
+    assert_eq!(got[0].1["resourceSpans"][0]["resource"]["attributes"][0]["value"]["stringValue"], "svc");
+    let log = &got[1].1["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0];
+    assert_eq!(log["body"]["stringValue"], "working");
+    assert_eq!((&log["traceId"], &log["spanId"]), (&span["traceId"], &span["spanId"]));
+    let metric = &got[2].1["resourceMetrics"][0]["scopeMetrics"][0]["metrics"][0];
+    assert_eq!(
+        (&metric["name"], &metric["sum"]["dataPoints"][0]["asDouble"]),
+        (&serde_json::json!("jobs"), &serde_json::json!(1.0))
+    );
+}
+
 /// Configuration from the environment: `[env] dotenv` files load before
 /// the program starts (variables already set win), and `${NAME}` /
 /// `${NAME:-default}` in `[config]` values read the environment.

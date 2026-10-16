@@ -1,0 +1,44 @@
+// Spans nest and end (the outer span is current again), a spawned task
+// continues the trace, `traceparent` round-trips, and metrics aggregate
+// by name and attributes.
+import std.io
+import std.trace
+import std.metrics
+import std.task
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"outside: {trace.traceparent().is_none()}")?
+    let ids = trace.span("outer", { n: 1 }, fn() {
+        let outer = trace.traceparent().unwrap_or("")
+        let inner = trace.span("inner", {}, fn() { trace.traceparent().unwrap_or("") })
+        let again = trace.traceparent().unwrap_or("")
+        let child = task.scope(fn(s) -> Result<String, String> {
+            let t = s.spawn(fn() { trace.traceparent().unwrap_or("") })
+            ok(t.join())
+        }).unwrap_or("")
+        (outer, inner, again, child)
+    })
+    let (outer, inner, again, child) = ids
+    let trace_of = fn(tp: String) { tp.split("-")[1] }
+    io.println($"format: {outer.len() == 55 && outer.starts_with("00-") && text.ends_with(outer, "-01")}")?
+    io.println($"inner shares the trace: {trace_of(inner) == trace_of(outer)}, another span: {inner != outer}")?
+    io.println($"outer current again: {again == outer}; child continues: {child == outer}")?
+    io.println($"adopted: {trace.continue_trace("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")} {trace.traceparent().unwrap_or("")}")?
+    io.println($"malformed: {trace.continue_trace("nope")}")?
+    for v in [1.0, 7.0, 7.5, 2000.0] {
+        metrics.observe("latency", v, { route: "/a" })
+    }
+    metrics.count("hits", { route: "/a" })
+    metrics.count("hits", { route: "/a" })
+    metrics.count("hits", { route: "/b" })
+    metrics.gauge("depth", 4.0, {})
+    metrics.gauge("depth", 2.0, {})
+    for m in metrics.snapshot() {
+        match m {
+            .object(f) => io.println($"{f.get("name").unwrap_or(Data.null)} {f.get("attributes").unwrap_or(Data.null)} {f.get("value").unwrap_or(f.get("buckets").unwrap_or(Data.null))}")?,
+            _ => (),
+        }
+    }
+    ok(())
+}

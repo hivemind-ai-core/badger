@@ -22,6 +22,15 @@ exported because the sink was overloaded, and the overflow policy.
 
 ## Functions
 
+### `continue_trace`
+
+```lang
+fn continue_trace(traceparent: String) -> Bool
+```
+
+Continue the trace a `traceparent` header names: later spans of this
+task are its children. `false` if the value is malformed.
+
 ### `count`
 
 ```lang
@@ -44,9 +53,38 @@ fn last(name: Symbol) -> Option<String>
 
 JSON payload of the most recent event named `name`.
 
+### `span`
+
+```lang
+fn span<T, R>(name: String, attrs: T, body: fn() -> R) -> R where T: Codec
+```
+
+Run `body` as the span `name` with attributes `attrs` (a `Codec`
+record): a child of the task's current span, or the root of a new
+trace. Tasks it spawns continue the trace, and log records inside it
+carry its trace and span ids. A defect or cancellation in `body` ends
+the span as failed.
+
+### `span_result`
+
+```lang
+fn span_result<T, R, E>(name: String, attrs: T, body: fn() -> Result<R, E>) -> Result<R, E> where T: Codec
+```
+
+`span` for a fallible `body`: an `err` result ends it as failed.
+
 ### `stats`
 
 ```lang
 fn stats() -> Stats
 ```
+
+### `traceparent`
+
+```lang
+fn traceparent() -> Option<String>
+```
+
+The task's current span as a W3C `traceparent` header value, to pass
+the trace to another service.
 

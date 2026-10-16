@@ -1,0 +1,17 @@
+// OpenTelemetry export to a collector (checked by `otel_export` in
+// programs.rs, which plays the collector).
+import std.io
+import std.log
+import std.trace
+import std.metrics
+import std.otel
+
+pub fn main() -> Result<Unit, io.Error> {
+    let e = otel.start(otel.from_env())?
+    trace.span("work", { job: 1 }, fn() {
+        log.info("working", { step: 1 })
+        metrics.count("jobs", {})
+    })
+    otel.stop(e)
+    io.println("done")
+}

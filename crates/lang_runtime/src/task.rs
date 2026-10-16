@@ -236,6 +236,9 @@ pub struct Task {
     /// `log.with` context: JSON objects merged into each log record
     /// (copied from the spawning task).
     pub log_ctx: Vec<String>,
+    /// The current span (`trace.span`): trace id and span id, 0 for none
+    /// (copied from the spawning task, so its work continues the trace).
+    pub span: (u128, u64),
     /// A wake that arrived while the task was [`State::Parking`] (written
     /// and read under the scheduler queue lock).
     pending_wake: Option<Wake>,
@@ -1074,6 +1077,7 @@ pub fn spawn_with_args(
         publishing: false,
         stages: vec![],
         log_ctx: current().map(|t| t.log_ctx.clone()).unwrap_or_default(),
+        span: current().map(|t| t.span).unwrap_or((0, 0)),
         pending_wake: None,
         free_resume: false,
         tlock: AtomicBool::new(false),

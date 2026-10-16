@@ -30,6 +30,7 @@ an HTTP framework on a CLI program.
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
 | `std.log` | Structured logs: levels, schema-encoded fields, task-inherited context, text or JSON lines |
+| `std.metrics`, `std.otel` | Counters, gauges, and histograms; OpenTelemetry export of logs, spans (`trace.span`), and metrics over OTLP/HTTP |
 | `std.inspect` | Runtime snapshots of tasks, channels, systems, and the heap |
 | `std.compiler` | Compiler services from code: diagnostics, project checks of proposed edits, hover, definitions, references, symbols |
 | `std.ffi` | The C boundary: raw pointers, C memory, C strings |

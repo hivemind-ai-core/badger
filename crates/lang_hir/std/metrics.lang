@@ -1,0 +1,35 @@
+// Metrics: counters, gauges, and histograms (OpenTelemetry's default
+// bucket bounds), aggregated in the runtime by name and attributes (a
+// `Codec` record, such as `{ route: "/orders", status: 200 }`). Recording
+// never fails; `snapshot` reads the cumulative values, and `std.otel`
+// exports them.
+
+import std.codec
+
+extern "intrinsic" fn metric_add_i<T>(name: String, value: Float, attrs: T) -> Unit
+extern "intrinsic" fn metric_set_i<T>(name: String, value: Float, attrs: T) -> Unit
+extern "intrinsic" fn metric_observe_i<T>(name: String, value: Float, attrs: T) -> Unit
+extern "intrinsic" fn metrics_snapshot_i() -> List<String>
+
+/// Add one to the counter `name`.
+pub fn count<T>(name: String, attrs: T) -> Unit where T: Codec { metric_add_i(name, 1.0, attrs) }
+
+/// Add `value` to the counter `name`.
+pub fn add<T>(name: String, value: Float, attrs: T) -> Unit where T: Codec { metric_add_i(name, value, attrs) }
+
+/// Set the gauge `name` to `value`.
+pub fn gauge<T>(name: String, value: Float, attrs: T) -> Unit where T: Codec { metric_set_i(name, value, attrs) }
+
+/// Record `value` in the histogram `name`.
+pub fn observe<T>(name: String, value: Float, attrs: T) -> Unit where T: Codec { metric_observe_i(name, value, attrs) }
+
+/// Every metric's cumulative value: `name`, `kind` (`counter`, `gauge`,
+/// `histogram`), `attributes`, and `value`, or for a histogram `count`,
+/// `sum`, `min`, `max`, `bounds`, and `buckets`.
+pub fn snapshot() -> List<Data> {
+    var out: List<Data> = []
+    for m in metrics_snapshot_i() {
+        out = out.append(codec.decode_text<Data>(m).unwrap_or(Data.null))
+    }
+    out
+}

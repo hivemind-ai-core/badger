@@ -1,0 +1,10 @@
+outside: true
+format: true
+inner shares the trace: true, another span: true
+outer current again: true; child continues: true
+adopted: true 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+malformed: false
+"latency" {"route":"/a"} [0,1,2,0,0,0,0,0,0,0,0,1,0,0,0,0]
+"hits" {"route":"/a"} 2.0
+"hits" {"route":"/b"} 1.0
+"depth" {} 2.0

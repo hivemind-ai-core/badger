@@ -29,6 +29,8 @@ std_modules![
     "pipeline",
     "trace",
     "log",
+    "metrics",
+    "otel",
     "codec",
     "config",
     "system",
