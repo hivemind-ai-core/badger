@@ -264,6 +264,21 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "In a project with `[package] restricted = true`, only the entry module may call the standard functions that reach the filesystem, processes, the environment, databases, or the network by name (`fs.read_text`, `process.run`, `env.get`, `sqlite.open`, `http.listen`, ...), directly or through other functions. Other modules receive capabilities from it, such as an `fs.Dir` (or a read-only `fs.ReadDir`) for one directory tree, so their parameters state what they may touch.",
     ),
     (
+        "E0180",
+        "SQL statement",
+        "A literal SQL statement passed to `std.sqlite` does not compile against the program's schema (the project's `[database] schema` file plus the program's literal CREATE/ALTER statements; without either, only syntax is checked), or does not suit the call: `query` and `query_one` run one statement, `execute` with parameters fails on a statement that returns rows, and `query_one` needs one that returns a row.",
+    ),
+    (
+        "E0181",
+        "SQL parameter count",
+        "The parameters given as a list literal do not match the number of `?` placeholders in the statement.",
+    ),
+    (
+        "E0182",
+        "SQL row type",
+        "The row type of `sqlite.query_as` / `query_one_as` does not match the statement's result: every field needs a column of its name, a column that can be NULL needs an `Option` field, and a declared column type must fit the field (INTEGER for integers and `Bool`, TEXT for `String`, REAL for floats).",
+    ),
+    (
         "E0140",
         "contract clause",
         "`requires` and `ensures` clauses state conditions on a function that has a body: they cannot `return` or propagate errors with `?` (a closure inside a clause may), and a protocol method's signature cannot carry them (put them on each implementation's method).",

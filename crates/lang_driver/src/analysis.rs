@@ -213,6 +213,13 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
         {
             s.diagnostics.extend(crate::authority::check(hir, t, &s.interner));
         }
+        if crate::sql::wanted(hir)
+            && !s.diagnostics.has_errors()
+            && let Some(t) = &checked.types
+        {
+            let schema = crate::database_schema(path);
+            s.diagnostics.extend(crate::sql::check(hir, t, &s.interner, schema.as_deref()));
+        }
         index(&s, hir, &checked, &mut out);
         drop(checked);
         s.annotate_scopes(hir);

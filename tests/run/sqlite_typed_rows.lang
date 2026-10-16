@@ -1,0 +1,38 @@
+// Rows decoded as records (`sqlite.query_as`, `query_one_as`), with the
+// statements and the row types checked when the program is checked.
+import std.io
+import std.sqlite
+
+struct User {
+    id: Int,
+    name: String,
+    email: Option<String>,
+} derive(Codec)
+
+struct Total {
+    n: Int,
+    newest: Option<String>,
+} derive(Codec)
+
+pub enum AppError {
+    database(source: sqlite.Error),
+    output(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT)", [])?
+    sqlite.execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", [Data.string("ann"), Data.null])?
+    sqlite.execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", [Data.string("bo"), Data.string("bo@example.com")])?
+    for u in sqlite.query_as<User>(db, "SELECT id, name, email FROM users ORDER BY id", [])? {
+        io.println($"{u.id} {u.name} {u.email.unwrap_or("-")}")?
+    }
+    let t: Total = sqlite.query_one_as(db, "SELECT count(*) AS n, max(name) AS newest FROM users", [])?
+    io.println($"{t.n} users, last {t.newest.unwrap_or("-")}")?
+    // a row that does not decode is an error, not a defect
+    match sqlite.query_one_as<User>(db, "SELECT 'x' AS id, name, email FROM users WHERE id = ?", [Data.int(1)]) {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"{e.code}")?,
+    }
+    ok(())
+}

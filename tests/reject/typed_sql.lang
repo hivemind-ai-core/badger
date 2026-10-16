@@ -1,0 +1,30 @@
+// expect-error: E0180
+// expect-error: E0181
+// expect-error: E0182
+// Literal SQL is checked against the program's own CREATE statements:
+// unknown columns, syntax, one statement per query, rows from execute,
+// parameter counts, and row types against the result's columns.
+import std.io
+import std.sqlite
+
+struct User {
+    id: Int,
+    name: String,
+    email: String,
+    age: String,
+    nick: Option<String>,
+} derive(Codec)
+
+pub fn main() -> Result<Unit, sqlite.Error> {
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT, age INTEGER NOT NULL)", [])?
+    sqlite.execute(db, "INSERT INTO users (name, emial) VALUES (?, ?)", [Data.string("ann"), Data.null])?
+    sqlite.execute(db, "INSERT INTO users (name, email, age) VALUES (?, ?, ?)", [Data.string("ann"), Data.null])?
+    sqlite.execute(db, "SELECT * FROM users WHERE id = ?", [Data.int(1)])?
+    sqlite.query_one(db, "DELETE FROM users", [])?
+    sqlite.query(db, "SELEC id FROM users", [])?
+    sqlite.query(db, "SELECT id FROM users; SELECT 1", [])?
+    let users = sqlite.query_as<User>(db, "SELECT id, name, email, age FROM users", [])?
+    let _ = io.println($"{users.len()}")
+    ok(())
+}

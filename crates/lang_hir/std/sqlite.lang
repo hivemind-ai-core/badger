@@ -3,6 +3,7 @@
 import std.prelude
 
 import std.system
+import std.codec
 
 pub struct Error {
     pub code: Symbol,
@@ -73,6 +74,30 @@ pub fn query<C>(conn: C, sql: String, params: List<Data>) -> Result<List<Data>, 
 /// Exactly one row as `Data`; zero or several rows are an error.
 pub fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Error> !{Io, Wait} where C: Connection {
     sql_query_one(conn.connection(), sql, params)
+}
+
+fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
+    match codec.from_data<T>(row) {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: :sqlite/decode, message: $"a row does not decode: {e}", cause: Option.none }),
+    }
+}
+
+/// Rows as `T`, a record whose fields are named like the result's columns
+/// (an `Option` field for a column that can be NULL). In a project with
+/// `[database] schema`, `lang check` checks a literal statement's columns
+/// against `T`.
+pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection {
+    var out: List<T> = []
+    for row in sql_query(conn.connection(), sql, params)? {
+        out = out.append(decode_row(row)?)
+    }
+    ok(out)
+}
+
+/// Exactly one row, as `T` (see `query_as`).
+pub fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection {
+    decode_row(sql_query_one(conn.connection(), sql, params)?)
 }
 
 /// Run `body` in a transaction: commit after `ok`, roll back after `err`,

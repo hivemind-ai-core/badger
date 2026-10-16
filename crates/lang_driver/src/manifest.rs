@@ -43,6 +43,9 @@ pub struct Manifest {
     /// `[package] restricted`: only the entry module may use ambient
     /// authority (see `authority`).
     pub restricted: bool,
+    /// `[database] schema`: SQL file the program's literal statements are
+    /// checked against (relative to the project root).
+    pub schema: Option<String>,
 }
 
 /// Runtime settings accepted in `[runtime]` / `[profile.NAME.runtime]`.
@@ -166,6 +169,7 @@ impl Manifest {
             entries: vec![],
             tasks: vec![],
             restricted: false,
+            schema: None,
         };
         // TOML forbids defining a table or a key twice
         let mut sections_seen: Vec<String> = vec![];
@@ -183,7 +187,14 @@ impl Manifest {
                 sections_seen.push(section.clone());
                 let known = matches!(
                     section.as_str(),
-                    "package" | "toolchain" | "runtime" | "dependencies" | "entries" | "tasks" | "config"
+                    "package"
+                        | "toolchain"
+                        | "runtime"
+                        | "dependencies"
+                        | "entries"
+                        | "tasks"
+                        | "config"
+                        | "database"
                 ) || section.starts_with("config.")
                     || section.starts_with("profile.");
                 if !known {
@@ -253,6 +264,10 @@ impl Manifest {
                 ("toolchain", "language") => {}
                 ("toolchain", other) => {
                     return Err(format!("line {}: unknown toolchain key `{other}` (known: language)", i + 1));
+                }
+                ("database", "schema") => m.schema = Some(s),
+                ("database", other) => {
+                    return Err(format!("line {}: unknown database key `{other}` (known: schema)", i + 1));
                 }
                 ("entries", name) => m.entries.push((name.to_string(), s)),
                 ("tasks", name) => {

@@ -57,6 +57,19 @@ Region/effect parameters not written here are retained by the actual signature.
   cancellation. Its result includes begin/commit/rollback failures without
   discarding the callback's error. The callback error accepts direct conversions
   from `sqlite.Error`. Concurrent operations on one transaction are not implied.
+- Typed SQL: `sqlite.query_as<T>` and `query_one_as<T>` decode rows as a
+  `Codec` record. Literal statements given to `execute`, `query`,
+  `query_one`, and the typed forms are prepared (not run) when the program
+  is checked, against the project's `[database] schema` SQL file and the
+  program's own literal `CREATE`/`ALTER` statements in source order:
+  statements that do not compile (unknown tables or columns, syntax),
+  several statements where one runs, `execute` with parameters on a
+  statement that returns rows, and `query_one` on one that returns none
+  are E0180; a parameter list literal of the wrong length is E0181; and a
+  row type with a field that has no column, a non-`Option` field for a
+  nullable column, or a field type that does not fit the declared column
+  type is E0182. Without a schema file or literal DDL only syntax is
+  checked; statements built at run time are not checked.
 - `jobs.open(path)` opens a job store in a SQLite file. `submit(kind, event,
   version, state, max_attempts)` ingests an event once per key (`created` or
   `duplicate`) as job `kind:event` with a `Codec` state. `claim(kind,

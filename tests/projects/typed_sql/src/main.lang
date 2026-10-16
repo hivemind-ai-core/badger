@@ -1,0 +1,29 @@
+// A program whose statements are checked against the project's
+// `[database] schema` file (it contains no CREATE statements itself).
+import std.io
+import std.fs
+import std.sqlite
+
+struct Account {
+    id: Int,
+    owner: String,
+    balance: Int,
+    note: Option<String>,
+} derive(Codec)
+
+pub enum AppError {
+    database(source: sqlite.Error),
+    output(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    // stands in for an existing database
+    sqlite.execute(db, fs.read_text("tests/projects/typed_sql/schema.sql")?, [])?
+    sqlite.execute(db, "INSERT INTO accounts (owner, balance) VALUES (?, ?)", [Data.string("ann"), Data.int(10)])?
+    sqlite.execute(db, "UPDATE accounts SET balance = balance + ? WHERE owner = ?", [Data.int(5), Data.string("ann")])?
+    for a in sqlite.query_as<Account>(db, "SELECT id, owner, balance, note FROM accounts", [])? {
+        io.println($"{a.owner} {a.balance} {a.note.unwrap_or("-")}")?
+    }
+    ok(())
+}

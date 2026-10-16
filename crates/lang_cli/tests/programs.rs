@@ -1400,3 +1400,38 @@ fn durable_jobs_survive_crashes() {
     assert_eq!(ok(run(&["dispatch"])), "");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Typed SQL against a project's `[database] schema` file: literal
+/// statements and row types are checked when the program is.
+#[test]
+fn typed_sql_schema() {
+    let out = lang().args(["run", "tests/projects/typed_sql"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "ann 15 -\n");
+    // a copy whose statements no longer match the schema
+    let dir = std::env::temp_dir().join(format!("lang-typed-sql-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    let src = root().join("tests/projects/typed_sql");
+    for f in ["lang.toml", "schema.sql"] {
+        std::fs::copy(src.join(f), dir.join(f)).unwrap();
+    }
+    let main = std::fs::read_to_string(src.join("src/main.lang")).unwrap();
+    let broken = main
+        .replace("SET balance = balance + ?", "SET balanse = balanse + ?")
+        .replace("note: Option<String>,", "note: String,")
+        .replace("a.note.unwrap_or(\"-\")", "a.note");
+    assert_ne!(broken, main);
+    std::fs::write(dir.join("src/main.lang"), broken).unwrap();
+    let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(!out.status.success(), "{text}");
+    assert!(text.contains("E0180") && text.contains("no such column: balanse"), "{text}");
+    assert!(text.contains("E0182") && text.contains("column `note` can be NULL"), "{text}");
+    // a schema that is missing is reported
+    std::fs::remove_file(dir.join("schema.sql")).unwrap();
+    let out = lang().args(["check"]).arg(&dir).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+    assert!(err.contains("cannot read the database schema"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

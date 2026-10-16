@@ -21,6 +21,7 @@ pub mod deps;
 pub mod inspect;
 pub mod live;
 pub mod manifest;
+pub mod sql;
 
 #[derive(Default)]
 pub struct Session {
@@ -1708,21 +1709,35 @@ pub fn restricted(path: &Path) -> bool {
     manifest::Manifest::load(&root.join("lang.toml")).is_ok_and(|m| m.restricted)
 }
 
-/// Type-check, adding the ambient-authority check of restricted projects.
+/// The `[database] schema` file of the project `path` belongs to.
+pub(crate) fn database_schema(path: &Path) -> Option<PathBuf> {
+    let root = if path.is_dir() { path.to_path_buf() } else { Session::entry_of(path).ok()?.1 };
+    let m = manifest::Manifest::load(&root.join("lang.toml")).ok()?;
+    m.schema.map(|s| root.join(s))
+}
+
+/// Type-check, adding the ambient-authority check of restricted projects
+/// and the checks of literal SQL.
 fn check_typed<'a>(
     path: &Path,
     hir: &'a lang_hir::Hir,
     interner: &'a Interner,
 ) -> (lang_typeck::Checked<'a>, Vec<Diagnostic>) {
     let restricted = restricted(path);
-    if restricted {
+    let sql = sql::wanted(hir);
+    if restricted || sql {
         lang_typeck::set_record_types(true);
     }
     let (checked, mut diags) = lang_typeck::check_program(hir, interner);
-    if restricted {
+    if restricted || sql {
         lang_typeck::set_record_types(false);
         if let Some(t) = &checked.types {
-            diags.extend(authority::check(hir, t, interner));
+            if restricted {
+                diags.extend(authority::check(hir, t, interner));
+            }
+            if sql && !diags.iter().any(|d| d.severity == lang_base::Severity::Error) {
+                diags.extend(sql::check(hir, t, interner, database_schema(path).as_deref()));
+            }
         }
     }
     (checked, diags)

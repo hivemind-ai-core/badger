@@ -108,6 +108,13 @@ called is never allocated:
   `fs.ReadDir`, `env.Vars` (named variables), `process.Runner` (named
   programs), `fetch.Client` (outbound HTTP to one origin), and open
   `sqlite.Pool`s.
+- **Typed SQL**: `sqlite.query_as<T>` / `query_one_as<T>` decode rows as
+  records, and every literal statement is compiled against the project's
+  `[database] schema` (or the program's own CREATE statements) when the
+  program is checked: unknown tables and columns, syntax errors, wrong
+  parameter counts, statements unsuited to the call, and row types that
+  do not match the result's columns, nullability, or declared types are
+  compile errors (E0180-E0182). No false positives across the corpus.
 - **Durable jobs** (`std.jobs`, `REAL_WORLD_USE.md` section 7): SQLite
   job store with deduplicated ingestion, typed versioned state and explicit
   step transitions committed together with outbox operations, leases with
@@ -196,7 +203,7 @@ reproducing programs:
 
 Of the `REAL_WORLD_USE.md` directions, contracts, analysis graphs, the API
 export, agent tooling, directory capabilities, restricted projects,
-network capabilities, reproduction bundles, and durable jobs are done. Not
-taken up: typed SQL (queries checked against a schema at compile time).
-Bundles do not capture databases or served HTTP (a replay that reaches them
-stops), and they reproduce one worker's schedule.
+network capabilities, reproduction bundles, durable jobs, and typed SQL
+are done. SQL built at run time is not checked. Bundles do not capture
+databases or served HTTP (a replay that reaches them stops), and they
+reproduce one worker's schedule.

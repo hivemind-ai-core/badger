@@ -320,6 +320,14 @@ error. `lang_cli` is the `lang` binary.
   output;
   environment and profile configuration; a bounded trace sink whose overload
   is reported separately.
+- **Typed SQL** (`crates/lang_driver/src/sql.rs`): after type checking, the
+  driver finds calls of `sqlite.execute/query/query_one/query_as/
+  query_one_as` with a literal SQL argument, loads the `[database] schema`
+  file and the program's literal DDL into an in-memory SQLite, and prepares
+  each statement (`lang_runtime::sqlite::check`, with SQLite's column
+  declared-type and NOT NULL metadata). Row types come from the recorded
+  type of the call. The checks run in `lang check`, `lang run`, and the
+  language server.
 - **Durable jobs** (`crates/lang_hir/std/jobs.lang`, written in the language
   over `std.sqlite`): tables for jobs (state as `Codec` JSON with a version,
   status, step, attempts, run-at time, owner, lease deadline, fence),
