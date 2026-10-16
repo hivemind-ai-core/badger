@@ -160,7 +160,7 @@ The [benchmarks](../bench/README.md) measure field access and row
 specialization, paged versus contiguous iteration, map operations, prompt
 versus batch messaging, allocation and collection pauses, task spawn cost,
 cancellation latency under backpressure, stack/root overhead, and shutdown
-under failure. One run (commit `1de4c0e`, 2026-10-16, `lang run --release`,
+under failure. One run (2026-10-16, `lang run --release`,
 AMD Ryzen 7 8745HS) measured:
 
 | Measurement | Result |
@@ -174,11 +174,11 @@ AMD Ryzen 7 8745HS) measured:
 | Prompt round trip | ≈0.21 µs |
 | Record allocation with a retained window | ≈39 ns per record; longest pause ≈2.9 ms |
 | Task spawn and join | ≈0.56 µs per task |
-| Cancelling 100 producers blocked on a full channel | ≈0.9 ms to settle |
+| Cancelling 100 producers blocked on a full channel | ≈0.13 ms to settle (≈0.6 ms right after the allocation and spawn measurements) |
 | Four CPU-bound tasks (`bench/parallel.lang`), 1 / 2 / 4 workers | 684 / 344 / 174 ms |
 | Call with a scalar frame / call holding 4 rooted pointers that makes one more call (`bench/runtime.lang`) | ≈2 / ≈1.8 ns |
 | Recursion 20,000 frames deep on a fresh task stack | ≈4 ns per frame |
-| Shutdown under failure: body defect with 200 parked tasks and 8 resources | settled, all 8 halts run, in ≈0.8 ms |
+| Shutdown under failure: body defect with 200 parked tasks and 8 resources | settled, all 8 halts run, in ≈0.2 ms |
 
 These are single-run indications, not tuned results: stack sizes, page sizes,
 collector thresholds, and scheduling budgets remain measured engineering

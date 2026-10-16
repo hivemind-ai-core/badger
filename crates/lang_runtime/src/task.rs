@@ -1102,6 +1102,83 @@ thread_local! {
 }
 const STACK_POOL_MAX: usize = 64;
 
+/// Stacks beyond a worker's own pool, shared by every worker: a stack
+/// freed on one worker serves a spawn on another (tasks spawned on one
+/// worker and finished on others), and a burst of finishing or cancelled
+/// tasks keeps its stacks for the next burst instead of unmapping them.
+static SPARE_STACKS: std::sync::Mutex<Vec<DefaultStack>> = std::sync::Mutex::new(Vec::new());
+const SPARE_STACKS_MAX: usize = 256;
+
+/// A stack for a new coroutine: the worker's pool, else the shared spares
+/// (taking a batch for later spawns), else a fresh mapping.
+fn take_stack() -> DefaultStack {
+    if let Some(s) = STACK_POOL.with(|p| p.borrow_mut().pop()) {
+        return s;
+    }
+    let batch: Vec<DefaultStack> = {
+        let mut g = SPARE_STACKS.lock().unwrap();
+        let n = g.len().min(STACK_POOL_MAX / 2);
+        let at = g.len() - n;
+        g.drain(at..).collect()
+    };
+    let mut batch = batch.into_iter();
+    match batch.next() {
+        Some(s) => {
+            STACK_POOL.with(|p| p.borrow_mut().extend(batch));
+            s
+        }
+        None => DefaultStack::new(STACK_SIZE.load(Ordering::Relaxed)).expect("task stack"),
+    }
+}
+
+/// Keep a finished coroutine's stack for reuse. Beyond the pools it is
+/// unmapped on a background thread: unmapping costs microseconds (page
+/// release and cross-CPU TLB flushes) that would otherwise delay the
+/// worker, such as a scope settling many cancelled tasks.
+fn release_stack(s: DefaultStack) {
+    let Some(s) = STACK_POOL.with(|p| {
+        let mut p = p.borrow_mut();
+        if p.len() < STACK_POOL_MAX {
+            p.push(s);
+            None
+        } else {
+            Some(s)
+        }
+    }) else {
+        return;
+    };
+    let s = {
+        let mut g = SPARE_STACKS.lock().unwrap();
+        if g.len() < SPARE_STACKS_MAX {
+            g.push(s);
+            return;
+        }
+        s
+    };
+    static REAPER: std::sync::OnceLock<Option<std::sync::mpsc::Sender<DefaultStack>>> =
+        std::sync::OnceLock::new();
+    let reaper = REAPER.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<DefaultStack>();
+        std::thread::Builder::new()
+            .name("lang-stack-reaper".into())
+            .spawn(move || {
+                for s in rx {
+                    drop(s);
+                }
+            })
+            .ok()
+            .map(|_| tx)
+    });
+    match reaper {
+        Some(tx) => {
+            if let Err(e) = tx.send(s) {
+                drop(e.0);
+            }
+        }
+        None => drop(s),
+    }
+}
+
 fn make_coroutine(id: TaskId, body: Body) -> Co {
     let p = task(id).map_or(std::ptr::null_mut(), |t| t as *mut Task);
     make_coroutine_for(id, p, body)
@@ -1110,11 +1187,7 @@ fn make_coroutine(id: TaskId, body: Body) -> Co {
 /// [`make_coroutine`] for a task whose record is known (no table lookup:
 /// also without the runtime lock, for an entry body).
 fn make_coroutine_for(id: TaskId, p: *mut Task, body: Body) -> Co {
-    let pooled = STACK_POOL.with(|p| p.borrow_mut().pop());
-    let stack = match pooled {
-        Some(s) => s,
-        None => DefaultStack::new(STACK_SIZE.load(Ordering::Relaxed)).expect("task stack"),
-    };
+    let stack = take_stack();
     use corosensei::stack::Stack;
     let limit = stack.limit().get() as u64 + STACK_RESERVE as u64;
     if !p.is_null() {
@@ -3047,19 +3120,14 @@ fn start_cleanup(id: TaskId) {
 }
 
 fn drop_reset(co: Option<Co>) {
-    if let Some(mut c) = co {
-        if c.done() {
-            let full = STACK_POOL.with(|p| p.borrow().len() >= STACK_POOL_MAX);
-            if !full {
-                let s = c.into_stack();
-                STACK_POOL.with(|p| p.borrow_mut().push(s));
-                return;
-            }
-        } else if c.started() {
-            unsafe { c.force_reset() };
-        }
-        drop(c);
+    let Some(mut c) = co else { return };
+    if !c.done() {
+        // a suspended task's frames hold nothing that needs `Drop` (its
+        // language-level cleanups run on their own coroutine), and an
+        // unstarted body captures only plain words
+        unsafe { c.force_reset() };
     }
+    release_stack(c.into_stack());
 }
 
 fn finish(id: TaskId) {
