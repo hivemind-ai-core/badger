@@ -253,7 +253,7 @@ pub struct Task {
 }
 
 /// Wait reasons of parks without the runtime lock, by `free_wait` number.
-const FREE_WAITS: [&str; 3] = ["", "channel receive", "channel send"];
+const FREE_WAITS: [&str; 4] = ["", "channel receive", "channel send", "join"];
 
 /// What a task waits for (inspection).
 fn wait_reason(t: &Task) -> &'static str {
@@ -520,8 +520,9 @@ pub mod reason {
     pub const STARTUP: u16 = 8;
     pub const CONSTANT: u16 = 9;
     pub const POLL: u16 = 10;
+    pub const JOIN: u16 = 11;
     pub const FIRST_ENTRY: u16 = 16;
-    pub const NAMES: [&str; 11] = [
+    pub const NAMES: [&str; 12] = [
         "other",
         "channel slow path",
         "batch slow path",
@@ -533,6 +534,7 @@ pub mod reason {
         "worker startup",
         "shared constant",
         "yield (poll or task.yield_now)",
+        "task join (slow path)",
     ];
 }
 
@@ -1853,7 +1855,9 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
     // tasks waiting for it now wait under the cleanup grace period
     let joiners = with_task(t, |t| t.joiners.clone());
     for j in joiners {
-        if task(j).is_some_and(|x| x.state.get() == State::Parked && x.wait == "join") {
+        if task(j).is_some_and(|x| {
+            matches!(x.state.get(), State::Parked | State::Parking) && wait_reason(x) == "join"
+        }) {
             wake(j, Wake::Normal);
         }
     }
@@ -2317,6 +2321,65 @@ pub fn join_register(id: TaskId) -> bool {
         }
         true
     })
+}
+
+/// Without the runtime lock: wait for task `id` to finish and return its
+/// result word if it returned. `None`: the locked path decides (it failed
+/// or was cancelled, it is being cancelled (the wait is then bounded by
+/// the cleanup grace period), this task is being cancelled, or a free
+/// wait is not possible here). The record of a joined task is removed
+/// only by its scope, which the joining task owns, so it stays while this
+/// runs.
+pub fn join_free(id: TaskId) -> Option<u64> {
+    if !can_suspend_free() {
+        return None;
+    }
+    let child = with_table(|| rt().tasks.get_mut(&id).map(|b| b.as_mut() as *mut Task))?;
+    let me = current().unwrap() as *mut Task;
+    loop {
+        let c = unsafe { &*child };
+        if flags_of(c) & FLAG_CANCEL != 0 || c.state.get() == State::Cleaning {
+            return None;
+        }
+        with_task(me, |t| t.pre_park = true);
+        let me_id = unsafe { (*me).id };
+        let done = with_task(child, |c| {
+            if c.state.get() == State::Done {
+                return true;
+            }
+            if !c.joiners.contains(&me_id) {
+                c.joiners.push(me_id);
+            }
+            false
+        });
+        if done {
+            with_task(me, |t| t.pre_park = false);
+            // fixed once it is done
+            return match &unsafe { &*child }.exit {
+                Some(Exit::Returned(w)) => Some(*w),
+                _ => None,
+            };
+        }
+        // park, unless its finish (or a cancellation) already woke this
+        let park = with_task(me, |t| {
+            t.pre_park = false;
+            if t.early_wake.take().is_some() || flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+                return false;
+            }
+            t.free_wait.store(3, Ordering::Release);
+            t.wake = Wake::Normal;
+            t.pending_wake = None;
+            t.free_resume = true;
+            t.state.set(State::Parking);
+            true
+        });
+        if park {
+            park_free();
+        }
+        if flags_of(unsafe { &*me }) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+            return None;
+        }
+    }
 }
 
 /// The running task will not park after [`join_register`].

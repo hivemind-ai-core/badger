@@ -69,6 +69,21 @@ fn locked_for<R>(why: u16, f: impl FnOnce() -> R) -> R {
     r
 }
 
+/// `task.join` holding the runtime lock.
+fn task_join_locked(ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, id: u64, captured: u64) -> u64 {
+    if captured & 1 != 0 {
+        return task_exit(ctx, targs, ret, id);
+    }
+    task::await_task(id, false);
+    match exit_word(id) {
+        Some(Exit::Returned(w)) => w,
+        Some(Exit::Failed(p)) => {
+            task::panic_current(format!("joined task failed: {}", p.message), p.location)
+        }
+        _ => task::panic_current("joined a cancelled task".into(), String::new()),
+    }
+}
+
 /// Under the runtime lock, after a wait without it on `ch` ended without
 /// completing (`woken`): withdraw the registration and honor a pending
 /// cancellation or failure (as a locked wait does when it wakes).
@@ -134,16 +149,16 @@ task_intrinsics! {
         let t = targ(targs, 0);
         scope::spawn(s, f, captured & 1 != 0, t.is_ptr()) as u64
     }
+    // an unlocked entry: a join of a task that returned (or returns while
+    // this waits) completes without the runtime lock
     fn task_join(ctx, targs, ret, id, captured) {
-        if captured & 1 != 0 {
-            return task_exit(ctx, targs, ret, id);
+        if captured & 1 == 0
+            && fast_ok()
+            && let Some(w) = task::join_free(id)
+        {
+            return w;
         }
-        task::await_task(id, false);
-        match exit_word(id) {
-            Some(Exit::Returned(w)) => w,
-            Some(Exit::Failed(p)) => task::panic_current(format!("joined task failed: {}", p.message), p.location),
-            _ => task::panic_current("joined a cancelled task".into(), String::new()),
-        }
+        locked_for(task::reason::JOIN, || task_join_locked(ctx, targs, ret, id, captured))
     }
     fn task_exit(ctx, targs, ret, id) {
         task::await_task(id, false);

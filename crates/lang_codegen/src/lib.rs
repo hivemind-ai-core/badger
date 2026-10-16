@@ -1563,6 +1563,8 @@ pub const UNLOCKED: &[&str] = &[
     // themselves otherwise)
     "lang_rt_poll",
     "lang_rt_i_task_yield",
+    // joins of tasks that returned
+    "lang_rt_i_task_join",
     // channel fast paths; they take the lock themselves when needed (and
     // prompt sends and receives park without it)
     "lang_rt_i_chan_send",
