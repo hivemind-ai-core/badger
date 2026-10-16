@@ -1,0 +1,14 @@
+// A struct with a private field, updated inside its module only.
+pub struct Closed {
+    pub a: Int,
+    secret: Int,
+}
+
+pub struct Open {
+    pub a: Int,
+    pub b: Int,
+}
+
+pub fn closed() -> Closed { { a: 1, secret: 42 } }
+
+pub fn bump(c: Closed) -> Closed { { ..c, a: c.a + 1 } }

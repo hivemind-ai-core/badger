@@ -133,7 +133,8 @@ pub enum Job {
 An alias introduces no new identity. A `struct` has nominal identity. Its
 fields are private unless individually `pub`; its defining module may
 construct it using a contextual record literal. Outside that module, literal
-construction or record coercion requires all fields to be public and no
+construction, struct update (`{ ..value, field: x }`, which constructs a new
+value), or record coercion requires all fields to be public and no
 restricted construction contract. A constructor is an ordinary lowercase
 function; there is no required repeated same-name constructor declaration.
 

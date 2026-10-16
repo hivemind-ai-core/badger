@@ -1437,3 +1437,13 @@ fn typed_sql_schema() {
     assert!(err.contains("cannot read the database schema"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Updating a struct outside its module needs every field to be public.
+#[test]
+fn private_struct_update() {
+    let out = lang().args(["check", "--json", "tests/projects/private_update"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(!out.status.success());
+    assert_eq!(text.matches("\"code\":\"E0308\"").count(), 1, "{text}");
+    assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
+}

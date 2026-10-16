@@ -1,0 +1,15 @@
+// A struct update outside the defining module is construction: allowed for
+// a struct whose fields are all public, rejected (E0308) when one is private.
+import std.io
+import private_update.ids
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c = ids.closed()
+    let o: ids.Open = { a: 1, b: 2 }
+    let o2 = { ..o, b: 3 }
+    let c2 = ids.bump(c)
+    io.println($"{o2.b} {c2.a}")?
+    let bad = { ..c, a: 5 }
+    io.println($"{bad.a}")?
+    ok(())
+}

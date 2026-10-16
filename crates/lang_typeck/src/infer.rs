@@ -1844,20 +1844,21 @@ impl<'g, 'a> Infer<'g, 'a> {
                     // struct update keeps the nominal type; fields keep their types
                     let sf = self.g.env.struct_fields(*d, args);
                     let outside = Some(self.g.env.structs[d].module) != self.module;
+                    // an update constructs a new value: outside the defining
+                    // module every field must be public, or private
+                    // invariants could be carried into an unchecked value
+                    if outside && let Some((l, _, _)) = sf.iter().find(|f| !f.2) {
+                        let ls = self.label_str(*l);
+                        self.error(
+                            "E0308",
+                            span,
+                            format!("cannot update a value of this type outside its module: field `{ls}` is private"),
+                            "an update constructs a new value, which needs every field to be public here",
+                        );
+                    }
                     for ((l, t), (_, lspan, _)) in fs.iter().zip(fields) {
                         match sf.iter().find(|f| f.0 == *l) {
-                            Some((_, ft, is_pub)) => {
-                                if outside && !is_pub {
-                                    let ls = self.label_str(*l);
-                                    self.error(
-                                        "E0308",
-                                        *lspan,
-                                        format!("field `{ls}` is private"),
-                                        "an update outside the defining module may change only `pub` fields",
-                                    );
-                                }
-                                self.expect(*lspan, ft, t)
-                            }
+                            Some((_, ft, _)) => self.expect(*lspan, ft, t),
                             None => {
                                 let ls = self.label_str(*l);
                                 self.error(
