@@ -1,0 +1,36 @@
+{
+  "browser": "Chromium 152.0.7977.64 Arch Linux",
+  "checks": [
+    {
+      "width": 1440,
+      "checks": [
+        "22 verified CPU chart bars",
+        "full-run report",
+        "16 handoff chart bars; unsupported ports excluded",
+        "measurement control",
+        "baseline ratios",
+        "unsupported baseline has no ratios",
+        "no page-level horizontal overflow"
+      ]
+    },
+    {
+      "width": 500,
+      "checks": [
+        "22 verified CPU chart bars",
+        "full-run report",
+        "16 handoff chart bars; unsupported ports excluded",
+        "measurement control",
+        "baseline ratios",
+        "unsupported baseline has no ratios",
+        "no page-level horizontal overflow"
+      ]
+    }
+  ],
+  "benchmark_summary": {
+    "failures": 0,
+    "ok": 98,
+    "missing": 0
+  },
+  "report_sha256": "a28f1f74c30e822efa43c135a7d82c0055c105daf30a9614cb10e22a5577ad65",
+  "screenshot_sha256": "799a38069720e56709473550d8724f041a5a6caf030edaa8edfe0e9449317292"
+}

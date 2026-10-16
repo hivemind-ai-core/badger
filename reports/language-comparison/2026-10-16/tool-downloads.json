@@ -1,0 +1,53 @@
+{
+  "note": "Optional distributions were extracted under the ignored bench/compare/.tools directory. Jank continuous URL may change; recorded hash identifies this run.",
+  "downloads": [
+    {
+      "file": "babashka-1.13.226-linux-amd64-static.tar.gz",
+      "url": "https://github.com/babashka/babashka/releases/download/v1.13.226/babashka-1.13.226-linux-amd64-static.tar.gz",
+      "bytes": 26445152,
+      "sha256": "bf89e909c4025edf2d669921c81107435b7244840d8f4306f58439c328a342f9"
+    },
+    {
+      "file": "OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "bytes": 207473347,
+      "sha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94"
+    },
+    {
+      "file": "jank.tar.gz",
+      "url": "https://cache.jank-lang.org/arch/jank-arch-x86-64.tar.gz",
+      "bytes": 115208617,
+      "sha256": "4896e55eeb19d778e3344aad86777711146b5f331a013b2465e5e6b4b356d477"
+    },
+    {
+      "file": "clojure/clojure-1.12.6.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/clojure/clojure/1.12.6/clojure-1.12.6.jar",
+      "bytes": 4229040,
+      "sha256": "21b578db389a8e74b286ce79c4a7f86ec641e26d88b12f18d69030916b0e18ca"
+    },
+    {
+      "file": "clojure/core.specs.alpha-0.4.74.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/clojure/core.specs.alpha/0.4.74/core.specs.alpha-0.4.74.jar",
+      "bytes": 4306,
+      "sha256": "eb73ac08cf49ba840c88ba67beef11336ca554333d9408808d78946e0feb9ddb"
+    },
+    {
+      "file": "clojure/spec.alpha-0.5.238.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/clojure/spec.alpha/0.5.238/spec.alpha-0.5.238.jar",
+      "bytes": 636643,
+      "sha256": "94cd99b6ea639641f37af4860a643b6ed399ee5a8be5d717cff0b663c8d75077"
+    }
+  ],
+  "jank_headers": {
+    "Server": "nginx/1.28.3 (Ubuntu)",
+    "Date": "Fri, 16 Oct 2026 10:32:43 GMT",
+    "Content-Type": "application/octet-stream",
+    "Content-Length": "115208617",
+    "Last-Modified": "Thu, 15 Oct 2026 21:44:08 GMT",
+    "Connection": "close",
+    "ETag": "\"6ad14928-6ddf1a9\"",
+    "Accept-Ranges": "bytes",
+    "url": "https://cache.jank-lang.org/arch/jank-arch-x86-64.tar.gz",
+    "sha256": "4896e55eeb19d778e3344aad86777711146b5f331a013b2465e5e6b4b356d477"
+  }
+}

@@ -6,6 +6,10 @@ standalone **HTML report with interactive SVG charts and tables**, plus a JSON
 evidence file. There are no Python package or browser-network dependencies.
 This suite lives separately from the existing language-only microbenchmarks.
 
+The [2026-10-16 retained comparison](../../reports/language-comparison/2026-10-16/README.md)
+includes the interactive report, raw evidence, tool download identities, and
+interpretation of the first complete run against all requested runtimes.
+
 ```sh
 cargo build --release --locked
 python3 bench/compare/run.py --list
