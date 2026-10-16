@@ -1,11 +1,15 @@
-// The entry holds ambient authority and hands a read-only capability for
-// one directory to the module that does the work.
+// The entry holds ambient authority and hands narrow capabilities to the
+// module that does the work: one directory (read only), one environment
+// variable, one program.
 import std.io
 import std.fs
+import std.env
+import std.process
 import inventory
 
 pub fn main() -> Result<Unit, io.Error> {
     let data = fs.root("tests/projects/restricted/data")?
     io.println(inventory.report(data.reader()))?
+    io.println(inventory.labelled(env.vars(["INVENTORY_LABEL"]), process.allow(["echo"])))?
     ok(())
 }

@@ -116,7 +116,9 @@ name (`fs.read_text`, `process.run`, `env.get`, `sqlite.open`,
 `http.listen`, ...), directly or through any chain of calls or function
 references (E0170, with the path). Other modules are given capabilities by
 the entry, such as `fs.Dir` (a directory tree; `Dir.reader` narrows it to a
-read-only `fs.ReadDir`), so their parameter types state what they may touch.
+read-only `fs.ReadDir`), `env.Vars` (named environment variables),
+`process.Runner` (named programs), or an open `sqlite.Pool`, so their
+parameter types state what they may touch.
 Capabilities have private fields and are made only by their providers.
 
 Target commands:

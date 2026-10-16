@@ -1,9 +1,23 @@
-// Reads only what it is given: a read-only directory.
+// Uses only what it is given: a read-only directory, one variable, and
+// permission to run one program.
 import std.fs
+import std.env
+import std.process
 
 pub fn report(d: fs.ReadDir) -> String {
     match d.read_text("stock.txt") {
         .ok(t) => $"stock: {t.trim()}",
         .err(e) => $"no stock ({e.kind})",
     }
+}
+
+pub fn labelled(vars: env.Vars, runner: process.Runner) -> String {
+    let label = vars.get("INVENTORY_LABEL").unwrap_or("unlabelled")
+    let home = vars.get("HOME").is_some()
+    let echoed = match runner.run("echo", [label]) {
+        .ok(o) => o.stdout.trim(),
+        .err(e) => $"{e}",
+    }
+    let refused = runner.run("ls", []).is_err()
+    $"label {echoed}, other variables {home}, other programs refused {refused}"
 }

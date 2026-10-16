@@ -15,3 +15,27 @@ pub fn run(program: String, args: List<String>) -> Result<Output, io.Error> !{Io
 pub fn exit(code: Int) -> Never !{Io} { process_exit(code) }
 
 pub fn id() -> Int { process_id() }
+
+/// Permission to run the named programs, and no others: a capability the
+/// entry module of a restricted project can hand out.
+pub struct Runner {
+    programs: List<String>,
+}
+
+/// A capability running only `programs` (compared by the name given to
+/// `run`, so allow `"git"` or `"/usr/bin/git"` as it will be called).
+pub fn allow(programs: List<String>) -> Runner !{Io} {
+    let r: Runner = { programs: programs }
+    r
+}
+
+impl Runner {
+    /// Run an allowed program to completion, capturing its output.
+    pub fn run(self: &Self, program: String, args: List<String>) -> Result<Output, io.Error> !{Io, Wait} {
+        if self.programs.contains(program) {
+            process_run(program, args)
+        } else {
+            err({ kind: :io/permission_denied, message: $"running `{program}` is not allowed by this capability" })
+        }
+    }
+}
