@@ -5,3 +5,7 @@ import main
 pub fn direct() -> String { env.get("HOME").unwrap_or("") }
 
 pub fn indirect() -> String { main.load("/etc/hostname") }
+
+extern "c" fn getpid() -> I32
+
+pub fn foreign() -> I32 { unsafe { getpid() } }

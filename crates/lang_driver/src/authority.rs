@@ -5,6 +5,7 @@
 //! The check follows calls and function references through user code, so a
 //! wrapper (in any module, the entry's included) does not hide an ambient
 //! use; it reports the path from the restricted function to the ambient one.
+//! Foreign (`extern "c"`) functions count as ambient authority too.
 
 use lang_base::{Diagnostic, Interner, Span};
 use lang_hir::{DefId, DefKind, ExprKind, Hir};
@@ -91,8 +92,14 @@ pub fn check(hir: &Hir, types: &lang_typeck::TypeIndex, interner: &Interner) -> 
             }
             for (t, sp) in edges.get(&d).map(|v| v.as_slice()).unwrap_or(&[]) {
                 let site = if d == f { *sp } else { first };
-                if let Some(s) = sinks.get(t) {
-                    found = Some((path.clone(), *s, site));
+                // a foreign (C) function can do anything
+                let foreign = matches!(&hir.defs[*t].kind, DefKind::Fn(x) if x.abi == lang_hir::FnAbi::C);
+                if let Some(s) = sinks
+                    .get(t)
+                    .map(|s| s.to_string())
+                    .or(foreign.then(|| format!("extern \"c\" fn {}", name(*t))))
+                {
+                    found = Some((path.clone(), s, site));
                     break;
                 }
                 if user(*t) {

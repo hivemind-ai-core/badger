@@ -1103,5 +1103,10 @@ fn restricted_projects() {
         text.contains("`worker.indirect` uses ambient authority `fs.read_text` through `main.load`"),
         "{text}"
     );
-    assert_eq!(text.matches("E0170").count(), 2, "{text}");
+    assert!(
+        text.contains("`worker.foreign` uses ambient authority `extern")
+            && text.contains("fn worker.getpid`"),
+        "{text}"
+    );
+    assert_eq!(text.matches("E0170").count(), 3, "{text}");
 }
