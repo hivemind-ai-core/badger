@@ -1954,9 +1954,25 @@ impl Infer<'_, '_> {
 
     /// `S: Extends<T>`: every field of record `T` is present in record `S`
     /// with the same type (a typed projection target).
+    /// A struct whose fields are all public, as the closed record of its
+    /// fields (projections may read and build it like that record).
+    fn struct_view(&self, t: &Ty) -> Option<Ty> {
+        let TyKind::Con(d, args) = &**t else { return None };
+        if !self.g.env.structs.contains_key(d) {
+            return None;
+        }
+        let fields = self.g.env.struct_fields(*d, args);
+        if fields.iter().any(|f| !f.2) {
+            return None;
+        }
+        Some(record(fields.into_iter().map(|(l, t, _)| (l, t)), row_empty()))
+    }
+
     fn extends(&mut self, s: &Ty, t: &Ty, final_: bool) -> Option<bool> {
         let s = self.deref(s);
         let t = self.deref(t);
+        let s = self.struct_view(&s).unwrap_or(s);
+        let t = self.struct_view(&t).unwrap_or(t);
         let (TyKind::Record(sr), TyKind::Record(tr)) = (&*s, &*t) else {
             return match (&*s, &*t) {
                 (TyKind::Var(_), _) | (_, TyKind::Var(_)) => {

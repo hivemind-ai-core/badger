@@ -1,0 +1,25 @@
+// `records.project` to and from structs whose fields are public.
+import std.io
+import std.records
+
+pub struct Point {
+    pub x: Int,
+    pub y: Int,
+}
+
+pub struct Labelled {
+    pub x: Int,
+    pub y: Int,
+    pub label: String,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let wide = { x: 1, y: 2, label: "a", extra: true }
+    let p = records.project<Point>(wide)
+    io.println($"{p.x} {p.y}")?
+    let l: Labelled = { x: 3, y: 4, label: "b" }
+    let q = records.project<Point>(l)
+    let r = records.project<{ x: Int }>(l)
+    io.println($"{q.x} {q.y} {r.x}")?
+    ok(())
+}
