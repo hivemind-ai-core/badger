@@ -368,26 +368,24 @@ fn collect_inner() {
         check(w, &|| "a task root (stack frame, entry, result, or held value)".into());
         mark(w, &mut stack)
     });
-    // trace
+    // trace: children are marked as they are visited (no per-object
+    // scratch storage during the pause)
     while let Some(w) = stack.pop() {
-        let mut children = Vec::new();
-        trace(w, &mut |c| children.push(c));
-        for c in children {
+        let mut pending = std::mem::take(&mut stack);
+        trace(w, &mut |c| {
             check(c, &|| format!("a `{}` object", unsafe { obj(w) }.desc().name));
-            mark(c, &mut stack);
-        }
+            mark(c, &mut pending);
+        });
+        stack = pending;
     }
-    // sweep
+    // sweep each worker's list in place
     let mut live = 0usize;
-    let mut kept = Vec::with_capacity(all_objects().count());
-    let lists: Vec<Vec<*mut Header>> =
-        (0..crate::task::MAX_WORKERS).map(|w| std::mem::take(objects(w))).collect();
-    for &p in lists.iter().flatten() {
-        unsafe {
+    for wl in 0..crate::task::MAX_WORKERS {
+        objects(wl).retain(|&p| unsafe {
             if (*p).meta & MARK != 0 {
                 (*p).meta &= !MARK;
                 live += HEADER + (*p).payload_size();
-                kept.push(p);
+                true
             } else {
                 finalize(p);
                 if checking {
@@ -402,8 +400,9 @@ fn collect_inner() {
                 } else {
                     dealloc(p as *mut u8, layout((*p).payload_size()));
                 }
+                false
             }
-        }
+        });
     }
     while h.quarantine_bytes > QUARANTINE_BYTES {
         let Some((p, _)) = h.quarantine.pop_front() else { break };
@@ -414,8 +413,6 @@ fn collect_inner() {
             dealloc(p as *mut u8, layout(size));
         }
     }
-    // survivors stay on worker 0's list (it does not matter which)
-    *objects(0) = kept;
     h.live = live;
     ALLOCATED.store(live, Ordering::Relaxed);
     THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
