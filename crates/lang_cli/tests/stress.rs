@@ -200,6 +200,8 @@ fn stress_soak() {
         std::env::var("LANG_STRESS_SEED").ok().and_then(|v| v.parse().ok()).unwrap_or_else(|| {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
         });
+    let start_seed = seed;
+    eprintln!("stress soak: LANG_STRESS_SEED={seed}");
     let mut next = || {
         seed = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = seed;
@@ -207,8 +209,6 @@ fn stress_soak() {
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         z ^ (z >> 31)
     };
-    let start_seed = seed;
-    eprintln!("stress soak: LANG_STRESS_SEED={seed}");
     let deadline = Instant::now() + Duration::from_secs(secs);
     let progs = programs();
     let mut failures = vec![];
