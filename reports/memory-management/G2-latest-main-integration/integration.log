@@ -1,0 +1,114 @@
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+   Compiling badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+   Compiling badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 55.75s
+     Running tests/gc_retention.rs (/tmp/language-gc-profile-target/release/deps/gc_retention-befdf317fe285299)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.58s
+
+     Running tests/programs.rs (/tmp/language-gc-profile-target/release/deps/programs-1269cfa99a2e1f55)
+
+running 64 tests
+test conflicting_imports_are_reported ... ok
+test diagnostics_early_phases ... ok
+wrote /tmp/badger-mir-3935149/dyn_protocol.bdgmir (14684 bytes)
+test contract_report ... ok
+test contract_test_report ... ok
+test batch_receive_under_gc_stress ... ok
+wrote /tmp/badger-mir-3935149/broadcast.bdgmir (40954 bytes)
+test api_export ... ok
+test eval_in_busy_program ... ok
+test dependencies ... ok
+test dotenv_and_env_references ... ok
+wrote /tmp/badger-mir-3935149/multicore.bdgmir (38962 bytes)
+test deadlock_report_names_waits ... ok
+test contract_violations ... ok
+test debugger_sees_generated_code ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test internal_error_exits_promptly ... ok
+test inlined_lambda_defect_location ... ok
+wrote /tmp/badger-mir-3935149/multicore2.bdgmir (38962 bytes)
+test deep_nesting_is_refused_cleanly ... ok
+test compiled_programs_run ... ok
+test main_error_report ... ok
+test multicore_migration ... ok
+test map_versions_under_gc_stress ... ok
+test example_projects_check ... ok
+test otel_export ... ok
+test outbound_http ... ok
+test private_struct_update ... ok
+test explain_types ... ok
+test outbound_http_send ... ok
+test module_values_under_gc_stress ... ok
+test profiles ... ok
+test bench_programs_check ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test program_graphs ... ok
+test release_starts_without_sources ... ok
+test live_reconstruct ... ok
+test query_check_overlays ... ok
+test live_reload ... ok
+test run_bench_reports_execution_time ... ok
+test query_rename_and_unsupported_inputs ... ok
+test restricted_projects ... ok
+test inspect_running_program ... ok
+test native_modules ... ok
+test project_tooling ... ok
+test sql_generation_sqlite ... ok
+test remote_repl ... ok
+test standard_input ... ok
+test sampling_profile ... ok
+test examples_run ... ok
+test test_runner_controlled_clock ... ok
+test structured_logs ... ok
+test structured_diagnostics ... ok
+test test_runner_simulation ... ok
+test grace_escalation_keeps_resources ... ok
+test typed_sql_schema ... ok
+test local_repl_session ... ok
+test warning_programs ... ok
+test reproduction_bundles ... ok
+test stuck_cleanup_is_bounded ... ok
+test workspaces_and_git_dependencies ... ok
+test heap_budget_contains_a_task ... ok
+test durable_jobs_survive_crashes ... ok
+test run_programs ... ok
+test run_programs_release ... ok
+test run_programs_compiled ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.49s
+
+     Running tests/transient_maps.rs (/tmp/language-gc-profile-target/release/deps/transient_maps-ec5dabe215483373)
+
+running 3 tests
+test finished_builder_maps_survive_saved_mir ... ok
+test pool_boundary_strings_survive_task_handoff_and_later_collections ... ok
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/badger_driver-a29c1364f419e5cd)
+
+running 7 tests
+test manifest::tests::duplicate_keys_and_sections_are_errors ... ok
+test sqlgen::tests::parses_named_queries ... ok
+test sqlgen::tests::maps_types ... ok
+test sqlgen::tests::rewrites_parameters ... ok
+test manifest::value_tests::toml_values ... ok
+test manifest::tests::toml_semantics ... ok
+test sqlgen::tests::generates_sqlite ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

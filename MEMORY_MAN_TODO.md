@@ -499,3 +499,16 @@ The new automated boundary-handoff regression passes in 16 combinations (both
 collection modes, 1/2/4/8 workers, optimized/unoptimized language code) with GC
 stress, verification and chaos. Together with the earlier merged-tree checks,
 68 distinct CLI/program/retention/builder tests pass. Formatting remains clean.
+
+### G2 publication and next slice
+
+At the user's request, integrated newer main `35bf751` (including `c3d4bd9`)
+without conflicts at `b00ea24` before publishing G1a/G2 back to main. The combined
+tree passes 7 ordinary and 9 diagnostic runtime tests, 68 CLI/retention/builder
+tests and 7 driver tests. Logs are in `G2-latest-main-integration/` beneath the
+report directory. Existing G2 performance claims remain pinned to the earlier
+matched `0958059` pair; new experiments start from the integrated revision.
+
+Next slice: profile the distribution of swept work and native helper-thread
+creation before selecting a G3 scheduling/bookkeeping change. Preserve the
+current stop-world and finalizer-order contracts.
