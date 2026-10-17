@@ -206,6 +206,35 @@ pub fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)> {
     }
 }
 
+/// Fold in order, stopping at the first error; a scoped source is closed
+/// either way.
+pub fn try_fold<T, A, E>(items: Seq<T>, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> {
+    var acc = initial
+    for x in items {
+        acc = f(acc, x)?
+    }
+    ok(acc)
+}
+
+/// Run `f` on each item, stopping at the first error (closing a scoped
+/// source).
+pub fn try_each<T, E>(items: Seq<T>, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> {
+    for x in items {
+        f(x)?
+    }
+    ok(())
+}
+
+/// The items of a sequence of results, or the first error (the rest are
+/// not produced, and a scoped source is closed).
+pub fn try_collect<T, E>(items: Seq<Result<T, E>>) -> Result<List<T>, E> {
+    let b = list.builder<T>()
+    for r in items {
+        b.append(r?)
+    }
+    ok(b.finish())
+}
+
 pub fn fold<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> A {
     var acc = initial
     for x in items {
@@ -257,6 +286,8 @@ impl<T> Seq<T> {
     pub fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U>) -> Seq<U> { flat_map(self, f) }
     pub fn zip<U>(self: &Self, other: Seq<U>) -> Seq<(T, U)> { zip(self, other) }
     pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
+    pub fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> { try_fold(self, initial, f) }
+    pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> { try_each(self, f) }
     pub fn count(self: &Self) -> Int { count(self) }
     pub fn collect(self: &Self) -> List<T> { list.collect(self) }
     pub fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }

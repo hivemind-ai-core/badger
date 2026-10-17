@@ -24,6 +24,14 @@ fn get(self: &Self) -> T
 
 ## Functions
 
+### `all_ok`
+
+```lang
+fn all_ok<T, E>(results: List<Result<T, E>>) -> Result<List<T>, E>
+```
+
+The values of all-successful results, or the first error.
+
 ### `append`
 
 ```lang
@@ -88,6 +96,14 @@ fn of<T>(list: List<T>) -> Seq<T>
 
 A lazy sequence over a list.
 
+### `partition_results`
+
+```lang
+fn partition_results<T, E>(results: List<Result<T, E>>) -> (List<T>, List<E>)
+```
+
+The successes and the failures, each in order.
+
 ### `range`
 
 ```lang
@@ -111,6 +127,39 @@ fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T>
 ```lang
 fn sort<T>(list: List<T>) -> List<T>
 ```
+
+### `try_each`
+
+```lang
+fn try_each<T, E>(list: List<T>, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+```
+
+Run `f` on each item in order, stopping at the first error.
+
+### `try_fold`
+
+```lang
+fn try_fold<T, A, E>(list: List<T>, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
+```
+
+Fold in order, stopping at the first error.
+
+### `try_map`
+
+```lang
+fn try_map<T, U, E>(list: List<T>, f: fn(T) -> Result<U, E>) -> Result<List<U>, E>
+```
+
+`f` over each item in order, stopping at the first error.
+
+### `validate`
+
+```lang
+fn validate<T, U, E>(list: List<T>, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>>
+```
+
+Validation: `f` over every item, collecting every error (in order)
+rather than stopping at the first.
 
 ## Methods on other types
 
@@ -241,6 +290,30 @@ fn to_array(self: &Self) -> Array<T>
 ```
 
 Explicit contiguous collection: copies the elements into an array.
+
+### `List.try_each`
+
+```lang
+fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+```
+
+### `List.try_fold`
+
+```lang
+fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
+```
+
+### `List.try_map`
+
+```lang
+fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, E>
+```
+
+### `List.validate`
+
+```lang
+fn validate<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>>
+```
 
 ### `ListBuilder.append`
 

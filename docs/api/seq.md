@@ -93,6 +93,33 @@ iterating task exits by defect or cancellation.
 fn take<T>(items: Seq<T>, n: Int) -> Seq<T>
 ```
 
+### `try_collect`
+
+```lang
+fn try_collect<T, E>(items: Seq<Result<T, E>>) -> Result<List<T>, E>
+```
+
+The items of a sequence of results, or the first error (the rest are
+not produced, and a scoped source is closed).
+
+### `try_each`
+
+```lang
+fn try_each<T, E>(items: Seq<T>, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+```
+
+Run `f` on each item, stopping at the first error (closing a scoped
+source).
+
+### `try_fold`
+
+```lang
+fn try_fold<T, A, E>(items: Seq<T>, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
+```
+
+Fold in order, stopping at the first error; a scoped source is closed
+either way.
+
 ### `zip`
 
 ```lang
@@ -147,6 +174,18 @@ fn map<U>(self: &Self, f: fn(T) -> U) -> Seq<U>
 
 ```lang
 fn take(self: &Self, n: Int) -> Seq<T>
+```
+
+### `Seq.try_each`
+
+```lang
+fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+```
+
+### `Seq.try_fold`
+
+```lang
+fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
 ```
 
 ### `Seq.zip`

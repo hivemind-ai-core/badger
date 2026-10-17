@@ -1,0 +1,64 @@
+// Fallible collection processing: fail fast, or collect every error.
+import std.io
+import std.list
+import std.seq
+import std.text
+
+type Order = { id: Int, total: Int }
+
+fn decode_order(row: String) -> Result<Order, String> {
+    let parts = row.split(",")
+    match (parts.get(0), parts.get(1)) {
+        (.some(id), .some(total)) => match (text.parse_int(id), text.parse_int(total)) {
+            (.some(i), .some(t)) => ok({ id: i, total: t }),
+            _ => err($"bad numbers in `{row}`"),
+        },
+        _ => err($"bad row `{row}`"),
+    }
+}
+
+fn add_total(sum: Int, o: Order) -> Result<Int, String> {
+    if o.total < 0 { err($"order {o.id} is negative") } else { ok(sum + o.total) }
+}
+
+fn show<T>(r: Result<T, String>) -> String where T: Display {
+    match r {
+        .ok(v) => $"ok {v}",
+        .err(e) => $"err {e}",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let rows = ["1,10", "2,20", "3,30"]
+    let orders = list.try_map(rows, decode_order)
+    io.println(show(orders.map(fn(os) => os.len())))?
+    io.println(show(list.try_fold(orders.unwrap_or([]), 0, add_total)))?
+    io.println(show(["1,10", "x", "3,30", "y,1"].try_map(decode_order).map(fn(os) => os.len())))?
+    // the first error stops the fold; later items are not visited
+    let visited = Cell.new(0)
+    let r = [1, -2, 3].try_fold(0, fn(acc, n) -> Result<Int, String> {
+        visited.set(visited.get() + 1)
+        if n < 0 { err($"{n}") } else { ok(acc + n) }
+    })
+    io.println($"{show(r)} after {visited.get()} item(s)")?
+    io.println(show([1, 2].try_each(fn(n) -> Result<Unit, String> => if n > 5 { err("big") } else { ok(()) }).map(fn(_u) => 0)))?
+    // all errors, not just the first
+    match ["1,10", "x", "3,30", "y,1"].validate(decode_order) {
+        .ok(os) => io.println($"valid {os.len()}")?,
+        .err(es) => io.println($"{es.len()} errors: {es}")?,
+    }
+    let results: List<Result<Int, String>> = [ok(1), err("a"), ok(2), err("b")]
+    let (good, bad) = list.partition_results(results)
+    io.println($"partition {good} {bad} all_ok {show(list.all_ok([ok(1), ok(2)]).map(fn(xs: List<Int>) => xs.len()))}")?
+    // a scoped source closes on the first error
+    let closed = Cell.new(0)
+    let src = seq.scoped(fn() { Cell.new(0) }, fn(c: Cell<Int>) {
+        let k = c.get()
+        c.set(k + 1)
+        if k < 5 { Option.some(k) } else { Option.none }
+    }, fn(_c: Cell<Int>) { closed.set(closed.get() + 1) })
+    let parsed: Result<List<Int>, String> = seq.try_collect(src.map(fn(k) => if k == 2 { err("two") } else { ok(k) }))
+    io.println($"{show(parsed.map(fn(xs) => xs.len()))}, source closed {closed.get()} time(s)")?
+    io.println(show(seq.range(0, 4).try_fold(0, fn(acc, n) -> Result<Int, String> => ok(acc + n))))?
+    ok(())
+}
