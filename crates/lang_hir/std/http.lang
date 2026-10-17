@@ -170,7 +170,7 @@ fn send_full(ex: Exchange, response: Response) -> Unit {
 /// Package a request-scoped callback: it runs under a fresh request region
 /// `S`, may capture longer-lived values (a system's pool), and replies
 /// through its scope (`respond` or `stream`). Errors become 500 replies.
-pub fn scoped<E>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E>) -> Handler where E: Display {
+pub fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer {
     {
         run: fn(request, exchange) {
             let scope: RequestScope<Unit> = { brand: identity<Int, system.Brand<Unit>>(0), request, exchange }
@@ -243,7 +243,7 @@ extern "intrinsic" fn task_cancel(id: Int) -> Unit
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
 
 /// Package a request callback.
-pub fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Display {
+pub fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Response, E> !Eff: Transfer {
     {
         run: fn(request, _exchange) {
             match f(request) {
@@ -259,7 +259,7 @@ pub fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Dis
 
 /// Package a streaming request callback; an error before streaming starts
 /// becomes a 500 reply.
-pub fn streaming_handler<E>(f: fn(Request) -> Result<Streamed, E>) -> Handler where E: Display {
+pub fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Streamed, E> !Eff: Transfer {
     {
         run: fn(request, _exchange) {
             match f(request) {
@@ -291,7 +291,7 @@ pub fn is_websocket(request: Request) -> Bool {
 /// Package a WebSocket session callback: each upgrade request runs it in
 /// its own task (see `RequestScope.websocket`); other requests are
 /// answered 426 (Upgrade Required).
-pub fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display {
+pub fn websocket_handler<E, Eff>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E> !Eff) -> Handler where E: Display, fn(Request, websocket.WebSocket) -> Result<Unit, E> !Eff: Transfer {
     {
         run: fn(request, exchange) {
             let _ = run_websocket(exchange, request, fn(ws: websocket.WebSocket) -> Result<Unit, E> { session(request, ws) })

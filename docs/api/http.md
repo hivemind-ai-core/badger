@@ -299,7 +299,7 @@ stops too and its cleanups run.
 ### `handler`
 
 ```lang
-fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Display
+fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Response, E> !Eff: Transfer
 ```
 
 Package a request callback.
@@ -387,7 +387,7 @@ A request value for `call`.
 ### `scoped`
 
 ```lang
-fn scoped<E>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E>) -> Handler where E: Display
+fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer
 ```
 
 Package a request-scoped callback: it runs under a fresh request region
@@ -430,7 +430,7 @@ A streamed reply of `chunks` with the given status and content type.
 ### `streaming_handler`
 
 ```lang
-fn streaming_handler<E>(f: fn(Request) -> Result<Streamed, E>) -> Handler where E: Display
+fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Streamed, E> !Eff: Transfer
 ```
 
 Package a streaming request callback; an error before streaming starts
@@ -445,7 +445,7 @@ fn text(status: Int, body: String) -> Result<Response, Error>
 ### `websocket_handler`
 
 ```lang
-fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display
+fn websocket_handler<E, Eff>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E> !Eff) -> Handler where E: Display, fn(Request, websocket.WebSocket) -> Result<Unit, E> !Eff: Transfer
 ```
 
 Package a WebSocket session callback: each upgrade request runs it in

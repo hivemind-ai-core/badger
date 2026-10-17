@@ -1553,8 +1553,12 @@ fn declared_scheme(g: &Global, id: DefId, f: &FnDef, diags: &mut Vec<Diagnostic>
         }
     };
     // an omitted effect of a function in the result (not tied to a
-    // parameter) cannot be chosen by the caller: it may be any effect
-    {
+    // parameter) cannot be chosen by the caller: it may be any effect.
+    // The standard library's signatures use the omission for "the caller's
+    // choice" (`pipeline.compile` returns the plan's handler with the
+    // stages' effects): a trusted convention until those signatures name
+    // their effect variables.
+    if !hir.modules[hir.defs[id].module].is_std {
         let mut pvars = vec![];
         for p in &params {
             icx.free_vars(p, &mut pvars);
@@ -1959,7 +1963,8 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
             // as in the declared scheme: a function in the result whose
             // effect is omitted (and not tied to a parameter) may perform any
             // effect, so the body cannot return a closure the type cannot track
-            if f.ret.is_some() {
+            // (the standard library's convention: see `declared_scheme`)
+            if f.ret.is_some() && !hir.modules[hir.defs[d].module].is_std {
                 let mut pvars = vec![];
                 for p in &params {
                     let p = inf.icx.resolve(p);

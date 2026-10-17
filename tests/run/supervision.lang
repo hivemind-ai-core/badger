@@ -23,7 +23,8 @@ fn say(s: String) -> Unit {
 let flaky = system.provider({
     name: :test/flaky,
     init: fn(scope, cfg) -> Result<Unit, Boom> {
-        let attempts = Cell.new(0)
+        // shared with the worker's task: an Atom, not a task-confined Cell
+        let attempts = Atom.new(0)
         scope.worker_with(:test/flaky_worker, fn() -> Result<Unit, Boom> {
             attempts.set(attempts.get() + 1)
             say($"flaky attempt {attempts.get()}")

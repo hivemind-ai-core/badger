@@ -186,6 +186,26 @@ fn warning_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Every example project checks (they are not all run, so a checking
+/// regression would otherwise go unnoticed).
+#[test]
+fn example_projects_check() {
+    let mut failures = vec![];
+    for dir in ["examples/design", "tests/sqlgen"] {
+        for e in std::fs::read_dir(root().join(dir)).unwrap().flatten() {
+            let p = e.path();
+            if !p.join("lang.toml").is_file() {
+                continue;
+            }
+            let out = lang().arg("check").arg(&p).output().unwrap();
+            if !out.status.success() {
+                failures.push(format!("{}:\n{}", p.display(), String::from_utf8_lossy(&out.stderr)));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 /// Every example program runs and prints the expected output.
 #[test]
 fn examples_run() {

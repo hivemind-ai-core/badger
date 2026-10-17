@@ -90,7 +90,7 @@ registration order, after the node's workers have settled.
 #### `InitScope.worker`
 
 ```lang
-fn worker<E>(self: &Self, factory: fn() -> Result<Unit, E>, policy: worker.Policy) -> Unit where E: prelude.Error
+fn worker<E, Eff>(self: &Self, factory: fn() -> Result<Unit, E> !Eff, policy: worker.Policy) -> Unit where E: prelude.Error, fn() -> Result<Unit, E> !Eff: Transfer
 ```
 
 Start a managed worker owned by this node (named after the node),
@@ -100,7 +100,7 @@ the node's halt callbacks run; an escalated failure fails the system.
 #### `InitScope.worker_with`
 
 ```lang
-fn worker_with<E>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error
+fn worker_with<E, Eff>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E> !Eff, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error, fn() -> Result<Unit, E> !Eff: Transfer
 ```
 
 `worker` with an explicit name and shutdown policy.

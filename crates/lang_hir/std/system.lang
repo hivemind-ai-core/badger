@@ -114,12 +114,12 @@ impl InitScope<Unit> {
     /// Start a managed worker owned by this node (named after the node),
     /// with a restart policy. Halting the node cancels and settles it before
     /// the node's halt callbacks run; an escalated failure fails the system.
-    pub fn worker<E>(self: &Self, factory: fn() -> Result<Unit, E>, policy: worker.Policy) -> Unit where E: prelude.Error {
+    pub fn worker<E, Eff>(self: &Self, factory: fn() -> Result<Unit, E> !Eff, policy: worker.Policy) -> Unit where E: prelude.Error, fn() -> Result<Unit, E> !Eff: Transfer {
         self.worker_with(self.node, factory, policy, worker.cancel())
     }
 
     /// `worker` with an explicit name and shutdown policy.
-    pub fn worker_with<E>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E>, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error {
+    pub fn worker_with<E, Eff>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, E> !Eff, policy: worker.Policy, shutdown: worker.Shutdown) -> Unit where E: prelude.Error, fn() -> Result<Unit, E> !Eff: Transfer {
         let id = task_spawn(self.tasks, fn() { worker.supervise(name, factory, policy) }, false)
         let ws = self.workers
         ws.set(list.append(ws.get(), (id, shutdown)))

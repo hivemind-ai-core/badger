@@ -1,0 +1,16 @@
+// A request handler runs on each request's task: one capturing a
+// task-confined Cell cannot be transferred (it was accepted while the
+// spawn helpers had no Transfer bound).
+// expect-error: E0402
+import std.io
+import std.http
+
+pub fn main() -> Result<Unit, http.Error> {
+    let hits = Cell.new(0)
+    let h = http.handler(fn(req) {
+        hits.set(hits.get() + 1)
+        http.text(200, $"hit {hits.get()}")
+    })
+    let server = http.listen("127.0.0.1", 0, h)?
+    ok(())
+}
