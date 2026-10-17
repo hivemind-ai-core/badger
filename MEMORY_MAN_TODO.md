@@ -67,6 +67,9 @@ negative results; do not mark architectural sketches as implemented.
     throughput, pauses, peak RSS and retention; retain unsuccessful experiments.
   - [ ] G2c: Bound larger-cell pool reservation/refill; compare targeted classes
     or pages and burst/idle/post-major memory, preserving reuse and quarantine.
+    - [x] Evaluate smaller global refill chunks with sparse-survivor coverage;
+      retain 2 MiB default after diagnostic throughput regressions.
+    - [ ] Evaluate targeted classes/pages without losing large-chunk benefits.
 - [ ] G3: Reduce sweep bookkeeping and repeated helper-thread/scratch allocation;
   preserve finalizers, stable addresses, and bounded collection coordination.
   - [x] G3a: Measure worker sweep skew and evaluate bounded native helper reuse;
@@ -79,6 +82,9 @@ negative results; do not mark architectural sketches as implemented.
   a larger fixed nursery is not an accepted substitute.
 - [ ] G5: Reuse task/TaskCtx/queue metadata and owned buffers where lifetimes are
   explicit. Bound retained pool capacity and account for native resources.
+  - [ ] G5a: Embed Buffer/Array metadata in its stable managed cell, eliminating
+    a native Box allocation/free per buffer while preserving tracing and the
+    generated access layout. Compare native/managed bytes and applications.
 - [ ] G6: Shorten unnecessary shadow-root retention, including pointer provenance
   through word-based runtime calls, with stress coverage for hidden aliases.
 
@@ -607,3 +613,21 @@ but raised application RSS, and each post-first worker chunk currently reserves
 Next compare diagnostic refill sizes, then an ordinary candidate only if the
 measurements support one. Native-buffer attribution and allocation elimination
 follow; arena integration still requires the ownership/escape groundwork.
+
+### G2c evaluation — keep 2 MiB refills; targeted pages remain open
+
+Fresh ordinary baselines saved before production changes: 24 sparse-burst and
+32 application runs. The diagnostic selection compares 256/512/2048 KiB refills
+in 162 oracle-checked measurements at 1/8 workers, with three repetitions. All
+54 full-size burst policy runs include a verified post-burst major collection.
+Sixteen scattered survivors leave 34.25/24.25/20.25 MiB reserved for
+2048/512/256 KiB refills, but allocation-heavy cases and most application cells
+slow down. Diagnostic perturbation/shared-host variation applies; no ordinary
+smaller-refill candidate is selected. Preserve the 2 MiB default and its
+huge-page support; targeted classes/pages remain open. See
+[G2c evaluation](reports/memory-management/G2c-summary.md) for all ranges,
+RSS tradeoffs, major-collection checks, raw data and exact provenance.
+
+Next priority G5a: remove the separate native Buffer/Array metadata Box by
+embedding it in the already stable managed cell, preserving generated access
+offsets and precise tracing. This attacks allocation churn directly.

@@ -1,0 +1,1202 @@
+policy rep=-1 cpu w8 refill512
+policy rep=-1 cpu w1 refill512
+policy rep=-1 balanced w8 refill512
+policy rep=-1 fanout w1 refill256
+policy rep=-1 cpu w1 refill256
+policy rep=-1 cpu w8 refill256
+policy rep=-1 cpu w1 refill2048
+policy rep=-1 fanout w1 refill512
+policy rep=-1 balanced w1 refill512
+policy rep=-1 backpressure w8 refill2048
+policy rep=-1 backpressure w1 refill256
+policy rep=-1 cpu w8 refill2048
+policy rep=-1 backpressure w1 refill512
+policy rep=-1 balanced w1 refill2048
+policy rep=-1 backpressure w8 refill256
+policy rep=-1 backpressure w8 refill512
+policy rep=-1 fanout w8 refill2048
+policy rep=-1 fanout w8 refill512
+policy rep=-1 fanout w8 refill256
+policy rep=-1 balanced w8 refill256
+policy rep=-1 balanced w8 refill2048
+policy rep=-1 fanout w1 refill2048
+policy rep=-1 balanced w1 refill256
+policy rep=-1 backpressure w1 refill2048
+policy rep=0 cpu w8 refill2048
+policy rep=0 cpu w8 refill512
+policy rep=0 balanced w1 refill512
+policy rep=0 cpu w1 refill2048
+policy rep=0 fanout w8 refill256
+policy rep=0 backpressure w8 refill256
+policy rep=0 fanout w1 refill256
+policy rep=0 balanced w8 refill256
+policy rep=0 fanout w8 refill512
+policy rep=0 fanout w1 refill512
+policy rep=0 backpressure w1 refill512
+policy rep=0 fanout w1 refill2048
+policy rep=0 backpressure w1 refill2048
+policy rep=0 backpressure w1 refill256
+policy rep=0 cpu w1 refill512
+policy rep=0 backpressure w8 refill2048
+policy rep=0 balanced w1 refill2048
+policy rep=0 fanout w8 refill2048
+policy rep=0 cpu w8 refill256
+policy rep=0 balanced w8 refill2048
+policy rep=0 backpressure w8 refill512
+policy rep=0 balanced w1 refill256
+policy rep=0 balanced w8 refill512
+policy rep=0 cpu w1 refill256
+policy rep=1 cpu w8 refill2048
+policy rep=1 balanced w1 refill512
+policy rep=1 backpressure w1 refill2048
+policy rep=1 fanout w1 refill2048
+policy rep=1 balanced w8 refill256
+policy rep=1 cpu w1 refill512
+policy rep=1 backpressure w1 refill512
+policy rep=1 backpressure w1 refill256
+policy rep=1 fanout w8 refill256
+policy rep=1 cpu w8 refill256
+policy rep=1 fanout w8 refill2048
+policy rep=1 fanout w8 refill512
+policy rep=1 backpressure w8 refill512
+policy rep=1 cpu w1 refill2048
+policy rep=1 balanced w1 refill256
+policy rep=1 fanout w1 refill256
+policy rep=1 fanout w1 refill512
+policy rep=1 cpu w8 refill512
+policy rep=1 balanced w8 refill2048
+policy rep=1 cpu w1 refill256
+policy rep=1 balanced w8 refill512
+policy rep=1 balanced w1 refill2048
+policy rep=1 backpressure w8 refill2048
+policy rep=1 backpressure w8 refill256
+policy rep=2 cpu w8 refill512
+policy rep=2 fanout w1 refill512
+policy rep=2 backpressure w1 refill256
+policy rep=2 backpressure w1 refill2048
+policy rep=2 cpu w1 refill2048
+policy rep=2 cpu w1 refill512
+policy rep=2 cpu w1 refill256
+policy rep=2 fanout w8 refill512
+policy rep=2 cpu w8 refill2048
+policy rep=2 fanout w1 refill2048
+policy rep=2 backpressure w1 refill512
+policy rep=2 backpressure w8 refill512
+policy rep=2 balanced w1 refill512
+policy rep=2 balanced w8 refill2048
+policy rep=2 fanout w8 refill2048
+policy rep=2 fanout w1 refill256
+policy rep=2 balanced w8 refill256
+policy rep=2 balanced w1 refill2048
+policy rep=2 balanced w8 refill512
+policy rep=2 backpressure w8 refill2048
+policy rep=2 cpu w8 refill256
+policy rep=2 fanout w8 refill256
+policy rep=2 backpressure w8 refill256
+policy rep=2 balanced w1 refill256
+[
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 453.053378,
+      "min": 443.174344,
+      "max": 499.743578,
+      "runs": [
+        443.174344,
+        499.743578,
+        453.053378
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59512,
+      "min": 58120,
+      "max": 59876,
+      "runs": [
+        59876,
+        58120,
+        59512
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 73.416136,
+      "min": 71.275509,
+      "max": 83.888659,
+      "runs": [
+        71.275509,
+        83.888659,
+        73.416136
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 502.557732,
+      "min": 433.77812,
+      "max": 544.32034,
+      "runs": [
+        433.77812,
+        544.32034,
+        502.557732
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57728,
+      "min": 57528,
+      "max": 58164,
+      "runs": [
+        57728,
+        57528,
+        58164
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 83.601484,
+      "min": 67.060203,
+      "max": 90.964848,
+      "runs": [
+        67.060203,
+        90.964848,
+        83.601484
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 467.133951,
+      "min": 439.441475,
+      "max": 521.991177,
+      "runs": [
+        439.441475,
+        521.991177,
+        467.133951
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57864,
+      "min": 57668,
+      "max": 57920,
+      "runs": [
+        57920,
+        57668,
+        57864
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 77.341488,
+      "min": 66.68223,
+      "max": 87.179219,
+      "runs": [
+        66.68223,
+        87.179219,
+        77.341488
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 147.651165,
+      "min": 125.48053,
+      "max": 908.172647,
+      "runs": [
+        125.48053,
+        908.172647,
+        147.651165
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 85660,
+      "min": 80820,
+      "max": 104772,
+      "runs": [
+        80820,
+        104772,
+        85660
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 45.278949,
+      "min": 39.319277,
+      "max": 196.44733,
+      "runs": [
+        39.319277,
+        196.44733,
+        45.278949
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 141.860484,
+      "min": 125.255184,
+      "max": 801.796588,
+      "runs": [
+        125.255184,
+        801.796588,
+        141.860484
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 76712,
+      "min": 69004,
+      "max": 95300,
+      "runs": [
+        76712,
+        95300,
+        69004
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 44.706047,
+      "min": 37.361203,
+      "max": 183.843074,
+      "runs": [
+        37.361203,
+        183.843074,
+        44.706047
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 144.328288,
+      "min": 129.561817,
+      "max": 145.767458,
+      "runs": [
+        129.561817,
+        145.767458,
+        144.328288
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 73228,
+      "min": 72524,
+      "max": 75964,
+      "runs": [
+        72524,
+        73228,
+        75964
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 44.871852,
+      "min": 39.811581,
+      "max": 46.435055,
+      "runs": [
+        39.811581,
+        46.435055,
+        44.871852
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 455.222512,
+      "min": 421.162486,
+      "max": 1067.885434,
+      "runs": [
+        421.162486,
+        1067.885434,
+        455.222512
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 87676,
+      "min": 87656,
+      "max": 87944,
+      "runs": [
+        87656,
+        87944,
+        87676
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 84.071025,
+      "min": 76.906609,
+      "max": 163.827004,
+      "runs": [
+        76.906609,
+        163.827004,
+        84.071025
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 491.954792,
+      "min": 466.4224,
+      "max": 499.999701,
+      "runs": [
+        491.954792,
+        499.999701,
+        466.4224
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 86980,
+      "min": 86896,
+      "max": 87068,
+      "runs": [
+        86896,
+        86980,
+        87068
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 93.995348,
+      "min": 82.253485,
+      "max": 95.684059,
+      "runs": [
+        93.995348,
+        95.684059,
+        82.253485
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 496.251184,
+      "min": 445.869978,
+      "max": 538.346927,
+      "runs": [
+        445.869978,
+        538.346927,
+        496.251184
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 87288,
+      "min": 86912,
+      "max": 87344,
+      "runs": [
+        86912,
+        87288,
+        87344
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 95.878241,
+      "min": 78.695525,
+      "max": 101.217575,
+      "runs": [
+        78.695525,
+        101.217575,
+        95.878241
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 142.387364,
+      "min": 133.639497,
+      "max": 143.929153,
+      "runs": [
+        133.639497,
+        143.929153,
+        142.387364
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 110380,
+      "min": 105732,
+      "max": 110444,
+      "runs": [
+        110380,
+        110444,
+        105732
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 55.988432,
+      "min": 51.635023,
+      "max": 57.579752,
+      "runs": [
+        51.635023,
+        57.579752,
+        55.988432
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 147.871284,
+      "min": 136.156983,
+      "max": 179.904617,
+      "runs": [
+        136.156983,
+        179.904617,
+        147.871284
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 100496,
+      "min": 99940,
+      "max": 105236,
+      "runs": [
+        99940,
+        105236,
+        100496
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 57.709093,
+      "min": 51.784599,
+      "max": 72.344475,
+      "runs": [
+        51.784599,
+        72.344475,
+        57.709093
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 147.0611,
+      "min": 145.602235,
+      "max": 717.050786,
+      "runs": [
+        145.602235,
+        717.050786,
+        147.0611
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 107520,
+      "min": 105680,
+      "max": 118124,
+      "runs": [
+        107520,
+        118124,
+        105680
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 57.835598,
+      "min": 57.067003,
+      "max": 259.090019,
+      "runs": [
+        57.067003,
+        259.090019,
+        57.835598
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 888.225646,
+      "min": 836.16232,
+      "max": 899.143157,
+      "runs": [
+        836.16232,
+        888.225646,
+        899.143157
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83124,
+      "min": 82924,
+      "max": 83852,
+      "runs": [
+        83852,
+        82924,
+        83124
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 84.713722,
+      "min": 74.135366,
+      "max": 84.902002,
+      "runs": [
+        74.135366,
+        84.713722,
+        84.902002
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 966.623779,
+      "min": 930.020775,
+      "max": 1480.451897,
+      "runs": [
+        966.623779,
+        1480.451897,
+        930.020775
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 81204,
+      "min": 81032,
+      "max": 81328,
+      "runs": [
+        81032,
+        81204,
+        81328
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 98.527439,
+      "min": 89.75719,
+      "max": 161.71377,
+      "runs": [
+        98.527439,
+        161.71377,
+        89.75719
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 938.491713,
+      "min": 839.444727,
+      "max": 1007.691871,
+      "runs": [
+        839.444727,
+        1007.691871,
+        938.491713
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 81388,
+      "min": 81244,
+      "max": 81432,
+      "runs": [
+        81244,
+        81388,
+        81432
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 89.349733,
+      "min": 74.882162,
+      "max": 101.497381,
+      "runs": [
+        74.882162,
+        101.497381,
+        89.349733
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 358.433305,
+      "min": 300.438204,
+      "max": 397.29953,
+      "runs": [
+        300.438204,
+        397.29953,
+        358.433305
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 136428,
+      "min": 127892,
+      "max": 138276,
+      "runs": [
+        127892,
+        136428,
+        138276
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 66.129905,
+      "min": 54.829191,
+      "max": 77.002478,
+      "runs": [
+        54.829191,
+        77.002478,
+        66.129905
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 408.485216,
+      "min": 379.691943,
+      "max": 441.594175,
+      "runs": [
+        379.691943,
+        441.594175,
+        408.485216
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 136412,
+      "min": 134428,
+      "max": 136940,
+      "runs": [
+        134428,
+        136940,
+        136412
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 107.739399,
+      "min": 96.162868,
+      "max": 115.682657,
+      "runs": [
+        96.162868,
+        115.682657,
+        107.739399
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 415.170122,
+      "min": 370.349489,
+      "max": 1064.455876,
+      "runs": [
+        370.349489,
+        415.170122,
+        1064.455876
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 133896,
+      "min": 123168,
+      "max": 135612,
+      "runs": [
+        133896,
+        135612,
+        123168
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 111.267281,
+      "min": 99.3869,
+      "max": 227.115775,
+      "runs": [
+        99.3869,
+        111.267281,
+        227.115775
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1267.032013,
+      "min": 1073.129058,
+      "max": 1641.000093,
+      "runs": [
+        1073.129058,
+        1641.000093,
+        1267.032013
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 90836,
+      "min": 90712,
+      "max": 91008,
+      "runs": [
+        90836,
+        91008,
+        90712
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 207.690487,
+      "min": 188.413559,
+      "max": 246.701511,
+      "runs": [
+        188.413559,
+        246.701511,
+        207.690487
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1315.383953,
+      "min": 1169.849706,
+      "max": 1370.573291,
+      "runs": [
+        1169.849706,
+        1370.573291,
+        1315.383953
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 91492,
+      "min": 89764,
+      "max": 91848,
+      "runs": [
+        91492,
+        89764,
+        91848
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 245.47441,
+      "min": 221.024336,
+      "max": 255.381329,
+      "runs": [
+        221.024336,
+        255.381329,
+        245.47441
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1310.086282,
+      "min": 1136.601472,
+      "max": 2346.09658,
+      "runs": [
+        1136.601472,
+        1310.086282,
+        2346.09658
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 91464,
+      "min": 89660,
+      "max": 91576,
+      "runs": [
+        91464,
+        89660,
+        91576
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 218.0651,
+      "min": 196.544872,
+      "max": 310.955036,
+      "runs": [
+        196.544872,
+        218.0651,
+        310.955036
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "refill2048",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 804.639649,
+      "min": 769.211263,
+      "max": 867.326001,
+      "runs": [
+        769.211263,
+        867.326001,
+        804.639649
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 107216,
+      "min": 106548,
+      "max": 111264,
+      "runs": [
+        111264,
+        106548,
+        107216
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 42,
+      "runs": [
+        41,
+        41,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 143.805344,
+      "min": 129.679078,
+      "max": 163.05358,
+      "runs": [
+        129.679078,
+        163.05358,
+        143.805344
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "refill256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 826.124354,
+      "min": 783.717992,
+      "max": 866.204452,
+      "runs": [
+        783.717992,
+        866.204452,
+        826.124354
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 103684,
+      "min": 102256,
+      "max": 107124,
+      "runs": [
+        102256,
+        107124,
+        103684
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 41,
+      "runs": [
+        41,
+        41,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 154.069162,
+      "min": 138.639134,
+      "max": 160.193924,
+      "runs": [
+        138.639134,
+        160.193924,
+        154.069162
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "refill512",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 832.331737,
+      "min": 820.302739,
+      "max": 840.45892,
+      "runs": [
+        820.302739,
+        840.45892,
+        832.331737
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 105448,
+      "min": 102372,
+      "max": 108056,
+      "runs": [
+        108056,
+        105448,
+        102372
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 42,
+      "runs": [
+        41,
+        42,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 148.568374,
+      "min": 147.848853,
+      "max": 160.272016,
+      "runs": [
+        148.568374,
+        160.272016,
+        147.848853
+      ]
+    }
+  }
+]
