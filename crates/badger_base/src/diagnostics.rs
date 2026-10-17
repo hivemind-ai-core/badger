@@ -181,8 +181,14 @@ impl Diagnostics {
             }
             notes.extend(d.notes.iter().cloned());
             if anchor.is_none() {
-                let code = d.code.map(|c| format!("[{c}] ")).unwrap_or_default();
-                writeln!(out, "{kind:?}: {code}{}", d.message)?;
+                // the CLI's own errors read `error: ...` too
+                let severity = match d.severity {
+                    Severity::Error => "error",
+                    Severity::Warning => "warning",
+                    Severity::Note => "note",
+                };
+                let code = d.code.map(|c| format!("[{c}]")).unwrap_or_default();
+                writeln!(out, "{severity}{code}: {}", d.message)?;
                 for n in &notes {
                     writeln!(out, "  note: {n}")?;
                 }

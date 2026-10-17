@@ -248,7 +248,7 @@ you accept the change:
 
 ```text
 $ badger run
-Error: [E0015] dependency `textkit` changed since badger.lock was written (locked `textkit 1.2.0 ../textkit fnv1a64:3fadcb6998ecd8f7`, found `textkit 1.2.0 ../textkit fnv1a64:1230a8cd5600bc1e`); run `badger update`
+error[E0015]: dependency `textkit` changed since badger.lock was written (locked `textkit 1.2.0 ../textkit fnv1a64:3fadcb6998ecd8f7`, found `textkit 1.2.0 ../textkit fnv1a64:1230a8cd5600bc1e`); run `badger update`
 $ badger update
 locked textkit 1.2.0 (fnv1a64:1230a8cd5600bc1e)
 ```
