@@ -30,6 +30,20 @@ pub(crate) fn none(ret: &'static TypeDesc) -> u64 {
     crate::make_variant(ret, "none", &[])
 }
 
+/// Lookup's Option tag, with a separately rooted payload for the immediately
+/// following `badger_rt_take_aux`. No allocation/safe point occurs before the
+/// payload is published. Keeping a separate tag permits `some(0)`, including
+/// dynamic null and zero-valued scalars. A miss clears any inactive payload.
+pub(crate) fn split_option(ret: &TypeDesc, value: Option<u64>) -> u64 {
+    let tag = ret.variant_index(if value.is_some() { "some" } else { "none" }).expect("lookup Option");
+    let is_ptr = value.is_some()
+        && ret.variant(tag).and_then(|v| v.fields.first()).is_some_and(|f| f.repr == crate::Repr::Ptr);
+    let task = crate::task::current().expect("split lookup outside task");
+    task.aux = value.unwrap_or(0);
+    task.aux_is_ptr = is_ptr;
+    tag as u64
+}
+
 /// A `List<String>` (of descriptor `list`) of `items`.
 pub(crate) fn strings<S: AsRef<str>>(list: &'static TypeDesc, items: impl IntoIterator<Item = S>) -> u64 {
     let r = crate::gc::Roots::new();

@@ -2,7 +2,7 @@
 
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::{self, Roots};
-use crate::intrinsics::{rdesc, targ};
+use crate::intrinsics::{rdesc, split_option, targ};
 use crate::intrinsics_io::io_ok;
 use crate::string::{new_string, str_of};
 use crate::{list, make_variant, map};
@@ -119,6 +119,11 @@ define_intrinsics! {
     fn list_get(ctx, targs, ret, l, i) {
         let n = list::len(l);
         if (i as i64) >= 0 && (i as usize) < n { some(rdesc(ret), list::get(l, i as usize)) } else { none(rdesc(ret)) }
+    }
+    fn list_get_split(ctx, targs, ret, l, i) {
+        let n = list::len(l);
+        let value = if (i as i64) >= 0 && (i as usize) < n { Some(list::get(l, i as usize)) } else { None };
+        split_option(rdesc(ret), value)
     }
     fn list_builder(ctx, targs, ret) { list::new(rdesc(ret)) }
     fn list_builder_append(ctx, targs, ret, b, v) {
@@ -334,6 +339,7 @@ define_intrinsics! {
     fn map_get(ctx, targs, ret, m, k) {
         match map::get(m, k) { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }
     }
+    fn map_get_split(ctx, targs, ret, m, k) { split_option(rdesc(ret), map::get(m, k)) }
     fn map_contains(ctx, targs, ret, m, k) { bool_w(map::get(m, k).is_some()) }
     fn map_len(ctx, targs, ret, m) { map::len(m) as u64 }
     fn map_entries(ctx, targs, ret, m) {
