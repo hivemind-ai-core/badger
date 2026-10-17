@@ -248,6 +248,23 @@ the enclosing block's value, so helper-level commit/cleanup errors are retained.
 The callback's call count, ownership, and lifetime follow the helper's type;
 `use` itself promises neither cleanup nor a one-shot invocation.
 
+To end a `use` scope early, put it in a block: the block's value is the
+helper's whole result (a commit failure included), and the resource is
+released before the code after the block runs.
+
+```lang fragment
+let count = {
+    use tx <- sqlite.transaction(pool)
+    let count = insert_notes(tx, notes)?
+    ok(count)
+}?
+
+print_summary(count)?
+```
+
+Inside the block, `return` and `?` still belong to the continuation
+callback; the `?` after the block propagates the helper's result.
+
 ## Operator precedence and evaluation
 
 From strongest to weakest: calls/field/index/`?`; unary `-`, `!`, borrow;
