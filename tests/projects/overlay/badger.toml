@@ -1,0 +1,6 @@
+[package]
+name = "overlay"
+entry = "src/main.bdg"
+
+[tasks]
+summary = "src/jobs.bdg#summary"

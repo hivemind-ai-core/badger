@@ -1,6 +1,6 @@
 # Concurrent Telemetry Indexer
 
-This application benchmark runs compiled `.lang` code against the project's actual
+This application benchmark runs compiled `.bdg` code against the project's actual
 task scheduler, collector, and typed channels. It complements the small channel
 and spawn benchmarks with a complete, deterministic ingestion service. It makes
 no external network, filesystem, timer, or random-provider calls inside the timed
@@ -38,13 +38,13 @@ fresh runtime pools; the separate warmup primarily warms host/compiler caches. I
 Markdown report. A `.partial.json` checkpoint survives failure. Each process has
 a deadline and its process group is killed on timeout.
 
-`--lang /absolute/path/to/lang` selects a different build for a revision comparison.
+`--lang /absolute/path/to/badger` selects a different build for a revision comparison.
 Run the same runner, workload, config, and host conditions against both builds.
 The report records the executable hash, workload/runner hashes, checkout revision
 and dirtiness, CPU model, allowed CPUs, exact configs, and run order. The revision
 identifies the harness checkout; the executable hash identifies the selected
 build. Build provenance for an external `--lang` binary must be recorded by the
-caller. All inherited `LANG_*` instrumentation/configuration variables are removed.
+caller. All inherited `BADGER_*` instrumentation/configuration variables are removed.
 
 For a performance run, finish other builds and test runs first. Use the same CPU
 affinity, governor/power settings, and machine load for comparisons. For example,
@@ -80,7 +80,7 @@ should be described as such; the runner records affinity rather than pinning it.
 
 The complete configuration can also be passed directly to the program as a JSON
 object in `TELEMETRY_CONFIG`; all fields are required and listed in `Config` in
-`telemetry.lang`. The runner owns this variable for its child processes. Zero
+`telemetry.bdg`. The runner owns this variable for its child processes. Zero
 capacities select rendezvous behavior and are exercised in smoke tests. Counts,
 intervals, and CPU rounds must be positive; shards must be at most 512.
 
@@ -180,7 +180,7 @@ this benchmark targets the streaming topology in the supplied specification.
   `process_including_jit`. They are not task suspension counts. The CLI's separate
   compilation/run times are retained for comparison with pipeline timing.
 * **Optional diagnostics:** `--runtime-stats` runs a separate extra pass with
-  `LANG_RUNTIME_STATS=1`; lock/scheduler attribution is preserved on stderr in the
+  `BADGER_RUNTIME_STATS=1`; lock/scheduler attribution is preserved on stderr in the
   JSON. `--perf` similarly runs an extra `perf stat` pass for task-clock, switches,
   migrations, cycles, instructions, cache misses, LLC loads and misses. The JSON also computes
   instructions/cycles as IPC and LLC load misses/loads as miss ratio when supported.

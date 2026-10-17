@@ -10,9 +10,9 @@ under the same sanitizer.
 ```sh
 RUSTFLAGS="-Zsanitizer=thread" CARGO_TARGET_DIR=target/tsan \
   cargo +nightly build -Zbuild-std --target x86_64-unknown-linux-gnu \
-  -p lang_cli --release --features tsan
+  -p badger_cli --release --features tsan
 TSAN_OPTIONS="halt_on_error=0 report_thread_leaks=0" \
-  target/tsan/x86_64-unknown-linux-gnu/release/lang run --workers 4 PROGRAM
+  target/tsan/x86_64-unknown-linux-gnu/release/badger run --workers 4 PROGRAM
 ```
 
 The `tsan` feature makes each coroutine a TSan fiber
@@ -31,8 +31,8 @@ by the type system's `Share`/`Transfer` rules).
 ```sh
 RUSTFLAGS="-Zsanitizer=address" CARGO_TARGET_DIR=target/asan \
   cargo +nightly build -Zbuild-std --target x86_64-unknown-linux-gnu \
-  -p lang_cli --release --features asan
-ASAN_OPTIONS=detect_leaks=0 target/asan/x86_64-unknown-linux-gnu/release/lang run PROGRAM
+  -p badger_cli --release --features asan
+ASAN_OPTIONS=detect_leaks=0 target/asan/x86_64-unknown-linux-gnu/release/badger run PROGRAM
 ```
 
 A task cancelled or failed in the middle of its frames is abandoned

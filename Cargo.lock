@@ -190,6 +190,287 @@ dependencies = [
 ]
 
 [[package]]
+name = "badger_base"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "la-arena",
+ "lasso",
+ "rustc-hash",
+ "smol_str",
+ "thiserror",
+]
+
+[[package]]
+name = "badger_cli"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_driver",
+ "badger_native_demo",
+ "badger_syntax",
+ "clap",
+ "libc",
+ "serde_json",
+]
+
+[[package]]
+name = "badger_codegen"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_mir",
+ "badger_runtime",
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "cranelift-native",
+ "gimli 0.33.0",
+ "index_vec",
+ "rustc-hash",
+ "slotmap",
+ "thiserror",
+]
+
+[[package]]
+name = "badger_compress"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "flate2",
+ "zstd",
+]
+
+[[package]]
+name = "badger_crypto"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "base64 0.22.1",
+ "getrandom 0.3.4",
+ "hmac 0.12.1",
+ "percent-encoding",
+ "sha2 0.10.9",
+ "uuid",
+]
+
+[[package]]
+name = "badger_datetime"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "jiff",
+]
+
+[[package]]
+name = "badger_driver"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_codegen",
+ "badger_compress",
+ "badger_crypto",
+ "badger_datetime",
+ "badger_fetch",
+ "badger_formats",
+ "badger_fs",
+ "badger_hir",
+ "badger_http",
+ "badger_mir",
+ "badger_postgres",
+ "badger_runtime",
+ "badger_sqlite",
+ "badger_syntax",
+ "badger_template",
+ "badger_typeck",
+ "badger_valkey",
+ "insta",
+ "pretty_assertions",
+ "rusqlite",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "badger_fetch"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "ureq",
+]
+
+[[package]]
+name = "badger_formats"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "csv",
+ "pulldown-cmark",
+ "serde_json",
+ "serde_yaml_ng",
+ "toml",
+]
+
+[[package]]
+name = "badger_fs"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+]
+
+[[package]]
+name = "badger_hir"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_syntax",
+ "bumpalo",
+ "index_vec",
+ "indexmap",
+ "insta",
+ "la-arena",
+ "petgraph",
+ "rustc-hash",
+ "smallvec",
+]
+
+[[package]]
+name = "badger_http"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "bytes",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
+name = "badger_mir"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_hir",
+ "badger_runtime",
+ "badger_typeck",
+ "bumpalo",
+ "index_vec",
+ "insta",
+ "la-arena",
+ "petgraph",
+ "rustc-hash",
+ "smallvec",
+]
+
+[[package]]
+name = "badger_native"
+version = "0.1.0"
+
+[[package]]
+name = "badger_native_demo"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+]
+
+[[package]]
+name = "badger_postgres"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "bytes",
+ "deadpool-postgres",
+ "fallible-iterator 0.2.0",
+ "postgres-protocol",
+ "rustls",
+ "serde_json",
+ "tokio",
+ "tokio-postgres",
+ "tokio-postgres-rustls",
+ "webpki-roots 1.0.9",
+]
+
+[[package]]
+name = "badger_runtime"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "badger_native",
+ "corosensei",
+ "libc",
+ "regex",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "badger_sqlite"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
+name = "badger_syntax"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "insta",
+ "la-arena",
+ "pest",
+ "pest_derive",
+ "pretty_assertions",
+ "smallvec",
+ "smol_str",
+ "thiserror",
+]
+
+[[package]]
+name = "badger_template"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "minijinja",
+ "serde_json",
+]
+
+[[package]]
+name = "badger_typeck"
+version = "0.1.0"
+dependencies = [
+ "badger_base",
+ "badger_hir",
+ "ena",
+ "index_vec",
+ "insta",
+ "itertools",
+ "la-arena",
+ "petgraph",
+ "rustc-hash",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
+name = "badger_valkey"
+version = "0.1.0"
+dependencies = [
+ "badger_native",
+ "futures-util",
+ "redis",
+ "tokio",
+]
+
+[[package]]
 name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1455,287 +1736,6 @@ name = "la-arena"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3752f229dcc5a481d60f385fa479ff46818033d881d2d801aa27dffcfb5e8306"
-
-[[package]]
-name = "lang_base"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "la-arena",
- "lasso",
- "rustc-hash",
- "smol_str",
- "thiserror",
-]
-
-[[package]]
-name = "lang_cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "lang_base",
- "lang_driver",
- "lang_native_demo",
- "lang_syntax",
- "libc",
- "serde_json",
-]
-
-[[package]]
-name = "lang_codegen"
-version = "0.1.0"
-dependencies = [
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "cranelift-native",
- "gimli 0.33.0",
- "index_vec",
- "lang_base",
- "lang_mir",
- "lang_runtime",
- "rustc-hash",
- "slotmap",
- "thiserror",
-]
-
-[[package]]
-name = "lang_compress"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "lang_native",
- "zstd",
-]
-
-[[package]]
-name = "lang_crypto"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "getrandom 0.3.4",
- "hmac 0.12.1",
- "lang_native",
- "percent-encoding",
- "sha2 0.10.9",
- "uuid",
-]
-
-[[package]]
-name = "lang_datetime"
-version = "0.1.0"
-dependencies = [
- "jiff",
- "lang_native",
-]
-
-[[package]]
-name = "lang_driver"
-version = "0.1.0"
-dependencies = [
- "insta",
- "lang_base",
- "lang_codegen",
- "lang_compress",
- "lang_crypto",
- "lang_datetime",
- "lang_fetch",
- "lang_formats",
- "lang_fs",
- "lang_hir",
- "lang_http",
- "lang_mir",
- "lang_postgres",
- "lang_runtime",
- "lang_sqlite",
- "lang_syntax",
- "lang_template",
- "lang_typeck",
- "lang_valkey",
- "pretty_assertions",
- "rusqlite",
- "serde_json",
- "sha2 0.10.9",
- "thiserror",
- "toml",
-]
-
-[[package]]
-name = "lang_fetch"
-version = "0.1.0"
-dependencies = [
- "lang_native",
- "ureq",
-]
-
-[[package]]
-name = "lang_formats"
-version = "0.1.0"
-dependencies = [
- "csv",
- "lang_native",
- "pulldown-cmark",
- "serde_json",
- "serde_yaml_ng",
- "toml",
-]
-
-[[package]]
-name = "lang_fs"
-version = "0.1.0"
-dependencies = [
- "lang_native",
-]
-
-[[package]]
-name = "lang_hir"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "index_vec",
- "indexmap",
- "insta",
- "la-arena",
- "lang_base",
- "lang_syntax",
- "petgraph",
- "rustc-hash",
- "smallvec",
-]
-
-[[package]]
-name = "lang_http"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures-util",
- "http-body-util",
- "hyper",
- "hyper-util",
- "lang_native",
- "tokio",
- "tokio-tungstenite",
-]
-
-[[package]]
-name = "lang_mir"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "index_vec",
- "insta",
- "la-arena",
- "lang_base",
- "lang_hir",
- "lang_runtime",
- "lang_typeck",
- "petgraph",
- "rustc-hash",
- "smallvec",
-]
-
-[[package]]
-name = "lang_native"
-version = "0.1.0"
-
-[[package]]
-name = "lang_native_demo"
-version = "0.1.0"
-dependencies = [
- "lang_native",
-]
-
-[[package]]
-name = "lang_postgres"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "deadpool-postgres",
- "fallible-iterator 0.2.0",
- "lang_native",
- "postgres-protocol",
- "rustls",
- "serde_json",
- "tokio",
- "tokio-postgres",
- "tokio-postgres-rustls",
- "webpki-roots 1.0.9",
-]
-
-[[package]]
-name = "lang_runtime"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "corosensei",
- "lang_native",
- "libc",
- "regex",
- "rustc-hash",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lang_sqlite"
-version = "0.1.0"
-dependencies = [
- "lang_native",
- "rusqlite",
- "serde_json",
-]
-
-[[package]]
-name = "lang_syntax"
-version = "0.1.0"
-dependencies = [
- "insta",
- "la-arena",
- "lang_base",
- "pest",
- "pest_derive",
- "pretty_assertions",
- "smallvec",
- "smol_str",
- "thiserror",
-]
-
-[[package]]
-name = "lang_template"
-version = "0.1.0"
-dependencies = [
- "lang_native",
- "minijinja",
- "serde_json",
-]
-
-[[package]]
-name = "lang_typeck"
-version = "0.1.0"
-dependencies = [
- "ena",
- "index_vec",
- "insta",
- "itertools",
- "la-arena",
- "lang_base",
- "lang_hir",
- "petgraph",
- "rustc-hash",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "lang_valkey"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "lang_native",
- "redis",
- "tokio",
-]
 
 [[package]]
 name = "lasso"

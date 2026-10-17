@@ -1,0 +1,206 @@
+// Structured concurrency: task scopes own every child they spawn.
+
+/// How a captured task finished.
+pub enum Exit<T> {
+    returned(value: T),
+    failed(info: PanicInfo),
+    cancelled(reason: CancelReason),
+}
+
+/// Why a task was cancelled.
+pub enum CancelReason {
+    /// `task.cancel()` was called.
+    requested,
+    /// `task.timeout` expired.
+    timeout,
+    /// The owning scope ended (its body returned an error, or it halted).
+    scope_exited,
+    /// A sibling task failed with a defect.
+    sibling_failed,
+    /// A sibling joined with `try_join`/`try_all` returned an error.
+    sibling_error,
+} derive(Display, Eq)
+
+pub struct PanicInfo {
+    pub message: String,
+    pub location: String,
+    /// Failures of cleanup that ran after the defect (attached, never lost).
+    pub notes: List<String>,
+}
+
+impl Display for PanicInfo {
+    fn display(self: &Self) -> String { $"{self.message} at {self.location}" }
+}
+
+impl Error for PanicInfo {}
+
+/// A task scope branded with region `S`; its tasks cannot outlive it.
+pub struct TaskScope<S> {
+    id: Int,
+}
+
+/// A child task of scope `S` producing `T`.
+pub struct Task<S, T> {
+    id: Int,
+    captured: Bool,
+}
+
+extern "intrinsic" fn scope_open() -> Int
+extern "intrinsic" fn scope_close(scope: Int, cancel: Bool) -> Unit
+extern "intrinsic" fn scope_close_error(scope: Int, error: String) -> Unit
+extern "intrinsic" fn display_value<T>(value: T) -> String
+extern "intrinsic" fn scope_defer(scope: Int, f: fn() -> Unit) -> Unit
+extern "intrinsic" fn task_spawn<T>(scope: Int, f: fn() -> T, captured: Bool) -> Int
+extern "intrinsic" fn task_join<T>(id: Int, captured: Bool) -> T
+extern "intrinsic" fn task_try_join_all(ids: List<Int>) -> Int
+extern "intrinsic" fn task_cancel_timeout(id: Int) -> Unit
+extern "intrinsic" fn task_cancel(id: Int) -> Unit
+extern "intrinsic" fn task_yield() -> Unit
+extern "intrinsic" fn task_sleep(d: Duration) -> Unit
+extern "intrinsic" fn task_id() -> Int
+extern "intrinsic" fn task_worker() -> Int
+extern "intrinsic" fn task_workers() -> Int
+
+/// Run `body` with a fresh scope. `ok` waits for every child; `err` cancels
+/// and settles them before returning the error. A child defect fails the
+/// scope and propagates to the owning task; so does a failing cleanup, and
+/// when the body was returning an error, the defect keeps it as a note.
+pub fn scope<R, E>(body: for<S: Scope> fn(TaskScope<S>) -> Result<R, E>) -> Result<R, E> !{Wait} {
+    let id = scope_open()
+    let r = body({ id })
+    match r {
+        .ok(_) => scope_close(id, false),
+        .err(e) => scope_close_error(id, display_value(e)),
+    }
+    r
+}
+
+impl<S> TaskScope<S> {
+    /// Register deterministic cleanup: `f` runs when the scope closes,
+    /// after its children have settled, in reverse registration order (also
+    /// when the scope fails).
+    pub fn defer(self: &Self, f: fn() -> Unit) -> Unit { scope_defer(self.id, f) }
+
+    /// Spawn a child task. The closure (and its captures) must be transferable.
+    pub fn spawn<T, Eff>(self: &Self, f: fn() -> T !Eff) -> Task<S, T> where fn() -> T !Eff: Transfer, T: Transfer {
+        { id: task_spawn(self.id, f, false), captured: false }
+    }
+
+    /// Spawn a child whose defects are contained: joining yields `Exit<T>`.
+    pub fn capture<T, Eff>(self: &Self, f: fn() -> T !Eff) -> Task<S, Exit<T>> where fn() -> T !Eff: Transfer, T: Transfer {
+        { id: task_spawn(self.id, f, true), captured: true }
+    }
+
+    /// Wait for two fallible tasks. On the first error (in completion
+    /// order), the other task is cancelled and settled before the error is
+    /// returned. The errors may differ when `E` converts from both.
+    pub fn try_join<A, B, E1, E2, E>(self: &Self, a: Task<S, Result<A, E1>>, b: Task<S, Result<B, E2>>) -> Result<(A, B), E> !{Wait} where E: From<E1>, E: From<E2> {
+        let failed = task_try_join_all([a.id, b.id])
+        if failed == 0 {
+            let ra: Result<A, E1> = task_join(a.id, false)
+            match ra {
+                .err(e) => { return err(E.from(e)) },
+                .ok(_) => (),
+            }
+        }
+        if failed == 1 {
+            let rb: Result<B, E2> = task_join(b.id, false)
+            match rb {
+                .err(e) => { return err(E.from(e)) },
+                .ok(_) => (),
+            }
+        }
+        let ra: Result<A, E1> = task_join(a.id, false)
+        let rb: Result<B, E2> = task_join(b.id, false)
+        match ra {
+            .err(e) => err(E.from(e)),
+            .ok(x) => match rb {
+                .err(e) => err(E.from(e)),
+                .ok(y) => ok((x, y)),
+            },
+        }
+    }
+
+    /// Wait for homogeneous fallible tasks. The first error (in completion
+    /// order) cancels and settles the unfinished rest; on success the values
+    /// come back in task order.
+    pub fn try_all<T, E>(self: &Self, tasks: List<Task<S, Result<T, E>>>) -> Result<List<T>, E> !{Wait} {
+        let ids = list_builder()
+        for t in tasks {
+            list_builder_append(ids, t.id)
+        }
+        let failed = task_try_join_all(list_finish(ids))
+        if failed >= 0 {
+            let r: Result<T, E> = task_join(tasks[failed].id, false)
+            match r {
+                .err(e) => { return err(e) },
+                .ok(_) => (),
+            }
+        }
+        let out = list_builder()
+        for t in tasks {
+            let r: Result<T, E> = task_join(t.id, false)
+            match r {
+                .ok(x) => list_builder_append(out, x),
+                .err(e) => { return err(e) },
+            }
+        }
+        ok(list_finish(out))
+    }
+}
+
+extern "intrinsic" fn list_builder<T>() -> ListBuilder<T>
+extern "intrinsic" fn list_builder_append<T>(builder: ListBuilder<T>, value: T) -> Unit
+extern "intrinsic" fn list_finish<T>(builder: ListBuilder<T>) -> List<T>
+
+impl<S, T> Task<S, T> {
+    /// Wait for the task and return its value (a captured task yields `Exit`).
+    pub fn join(self: &Self) -> T !{Wait} { task_join(self.id, self.captured) }
+    /// Request cancellation; observed at the task's next safe point.
+    pub fn cancel(self: &Self) -> Unit { task_cancel(self.id) }
+}
+
+pub fn sleep(d: Duration) -> Unit !{Wait} { task_sleep(d) }
+
+/// The work did not finish within its time limit and was cancelled.
+pub struct TimedOut {
+    pub limit: Duration,
+}
+
+impl Display for TimedOut {
+    fn display(self: &Self) -> String { $"timed out after {self.limit}" }
+}
+
+impl Error for TimedOut {}
+
+/// Run `f` as a child task; if it has not finished after `limit`, request
+/// its cancellation (observed at its next safe point), wait for its cleanup,
+/// and return `TimedOut`. A defect in `f` still propagates.
+pub fn timeout<T, Eff>(limit: Duration, f: fn() -> T !Eff) -> Result<T, TimedOut> !{Wait} where fn() -> T !Eff: Transfer, T: Transfer {
+    scope(fn(s) -> Result<T, TimedOut> {
+        let work = s.capture(f)
+        let timer = s.spawn(fn() {
+            sleep(limit)
+            task_cancel_timeout(work.id)
+        })
+        let exit = work.join()
+        timer.cancel()
+        match exit {
+            .returned(v) => ok(v),
+            .cancelled(_) => err({ limit }),
+            .failed(info) => panic(info.message),
+        }
+    })
+}
+
+/// Offer the worker to other ready tasks.
+pub fn yield_now() -> Unit !{Wait} { task_yield() }
+
+pub fn current_id() -> Int { task_id() }
+
+/// Index of the worker thread running the current task (tasks may move
+/// between workers when they suspend).
+pub fn worker_index() -> Int !{State} { task_worker() }
+
+/// Number of worker threads (`[runtime] workers` / `badger run --workers`).
+pub fn worker_count() -> Int { task_workers() }

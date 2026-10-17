@@ -1,0 +1,214 @@
+// Standard input/output.
+
+import std.prelude
+
+import std.bytes
+
+/// An I/O failure: a stable kind symbol and a message.
+pub struct Error {
+    pub kind: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for Error {}
+
+extern "intrinsic" fn write_out(text: String, newline: Bool, stderr: Bool) -> Result<Unit, Error>
+extern "intrinsic" fn fs_read_text(path: String) -> Result<String, Error>
+
+/// Read a whole UTF-8 file (the same operation as `fs.read_text`).
+pub fn read_text(path: String) -> Result<String, Error> !{Io, Wait} { fs_read_text(path) }
+
+/// Print a value and a newline to standard output.
+pub fn println<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), true, false)
+}
+
+pub fn print<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), false, false)
+}
+
+pub fn eprintln<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
+    write_out(value.display(), true, true)
+}
+
+// ---------------------------------------------------------------- byte streams
+
+/// A source of bytes read in pieces: files, standard input, sockets,
+/// decompressors, and in-memory data share this one model.
+pub protocol Reader {
+    /// Up to `max` bytes (at least one unless at the end); `none` once the
+    /// source is exhausted.
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
+}
+
+/// A sink of bytes written in pieces.
+pub protocol Writer {
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State}
+    /// Push anything buffered to the destination.
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State}
+}
+
+extern "intrinsic" fn bytes_len(b: Bytes) -> Int
+extern "intrinsic" fn bytes_slice(b: Bytes, start: Int, end: Int) -> Option<Bytes>
+extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
+extern "intrinsic" fn bytes_find(b: Bytes, needle: Bytes, from: Int) -> Option<Int>
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+extern "native badger_fs.stdin_read" fn stdin_read(max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
+extern "native badger_fs.stdin_line" fn stdin_line() -> Result<Option<String>, Error> !{Io, Wait, State}
+
+/// The size `copy` and `read_all` read in.
+pub let chunk_size: Int = 65536
+
+/// Standard input.
+pub struct Stdin {}
+
+pub fn stdin() -> Stdin { {} }
+
+impl Reader for Stdin {
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State} { stdin_read(max) }
+}
+
+impl Stdin {
+    /// The next line, without its line break; `none` at the end of input.
+    pub fn read_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State} { stdin_line() }
+    /// Everything left, as text.
+    pub fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait, State} { utf8(read_all(self)?) }
+}
+
+/// Standard output or error, as a `Writer` (text: bytes must be UTF-8).
+pub struct Console {
+    err: Bool,
+}
+
+pub fn stdout() -> Console { { err: false } }
+pub fn stderr() -> Console { { err: true } }
+
+impl Writer for Console {
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} { write_out(utf8(data)?, false, self.err) }
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} { ok(()) }
+}
+
+fn utf8(b: Bytes) -> Result<String, Error> {
+    match text_from_bytes(b) {
+        .ok(t) => ok(t),
+        .err(e) => err({ kind: :io/invalid_data, message: $"not UTF-8 text: {e}" }),
+    }
+}
+
+/// A `Reader` over bytes in memory.
+pub struct BytesReader {
+    data: Bytes,
+    at: Cell<Int>,
+}
+
+pub fn bytes_reader(data: Bytes) -> BytesReader { { data, at: Cell.new(0) } }
+
+impl Reader for BytesReader {
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State} {
+        let i = self.at.get()
+        let n = bytes_len(self.data)
+        if i >= n {
+            return ok(Option.none)
+        }
+        let j = if max < 1 { i + 1 } else if i + max > n { n } else { i + max }
+        self.at.set(j)
+        ok(bytes_slice(self.data, i, j))
+    }
+}
+
+/// A `Writer` collecting what is written in memory.
+pub struct MemoryWriter {
+    parts: Cell<List<Bytes>>,
+}
+
+pub fn memory_writer() -> MemoryWriter { { parts: Cell.new([]) } }
+
+impl Writer for MemoryWriter {
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} {
+        self.parts.set(self.parts.get().append(data))
+        ok(())
+    }
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} { ok(()) }
+}
+
+impl MemoryWriter {
+    /// Everything written so far.
+    pub fn bytes(self: &Self) -> Bytes { bytes.join(self.parts.get(), text_to_bytes("")) }
+    pub fn text(self: &Self) -> Result<String, Error> { utf8(self.bytes()) }
+}
+
+/// Copy everything from `from` to `to` (then flush); the number of bytes.
+pub fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait, State} where R: Reader, W: Writer {
+    var total = 0
+    loop {
+        match from.read(chunk_size)? {
+            .some(b) => {
+                to.write(b)?
+                total = total + bytes_len(b)
+            },
+            .none => { break },
+        }
+    }
+    to.flush()?
+    ok(total)
+}
+
+/// Everything left in `from`.
+pub fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait, State} where R: Reader {
+    let sink = memory_writer()
+    let _ = copy(from, sink)?
+    ok(sink.bytes())
+}
+
+/// Lines of text read from a `Reader`, buffered.
+pub struct LineReader<R> {
+    source: R,
+    pending: Cell<Bytes>,
+    done: Cell<Bool>,
+}
+
+/// Read `from` line by line (`\n`, or `\r\n`, ends a line).
+pub fn lines<R>(from: R) -> LineReader<R> where R: Reader { { source: from, pending: Cell.new(text_to_bytes("")), done: Cell.new(false) } }
+
+impl<R> LineReader<R> {
+    /// The next line without its break; `none` at the end.
+    pub fn next_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State} where R: Reader {
+        let newline = text_to_bytes("\n")
+        loop {
+            let buf = self.pending.get()
+            match bytes_find(buf, newline, 0) {
+                .some(i) => {
+                    let line = bytes_slice(buf, 0, i).unwrap_or(buf)
+                    self.pending.set(bytes_slice(buf, i + 1, bytes_len(buf)).unwrap_or(text_to_bytes("")))
+                    return ok(Option.some(strip_cr(utf8(line)?)))
+                },
+                .none => {
+                    if self.done.get() {
+                        if bytes_len(buf) == 0 {
+                            return ok(Option.none)
+                        }
+                        self.pending.set(text_to_bytes(""))
+                        return ok(Option.some(strip_cr(utf8(buf)?)))
+                    }
+                    match self.source.read(chunk_size)? {
+                        .some(more) => self.pending.set(bytes_concat(buf, more)),
+                        .none => self.done.set(true),
+                    }
+                },
+            }
+        }
+    }
+}
+
+extern "intrinsic" fn text_ends_with(text: String, part: String) -> Bool
+extern "intrinsic" fn text_len(text: String) -> Int
+extern "intrinsic" fn text_slice(text: String, start: Int, end: Int) -> Option<String>
+
+fn strip_cr(s: String) -> String {
+    if text_ends_with(s, "\r") { text_slice(s, 0, text_len(s) - 1).unwrap_or(s) } else { s }
+}

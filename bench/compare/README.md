@@ -78,7 +78,7 @@ proof that arbitrary programs or concurrency runtimes are correct.
 
 | Family | Execution modes | Queue implementation |
 | --- | --- | --- |
-| Lang | Source and saved `.langmir`, each at 1 and 4 workers; optimized JIT in every mode | Standard channel and scoped task; fixed immutable-list batches |
+| Lang | Source and saved `.bdgmir`, each at 1 and 4 workers; optimized JIT in every mode | Standard channel and scoped task; fixed immutable-list batches |
 | Python | `.py` and explicit `.pyc` | `queue.Queue` and `threading.Thread` |
 | Node | Source, ordinary V8 JIT | Async producer/consumer on object-mode `PassThrough` with backpressure |
 | Go | `go run` and native `go build` | Buffered channels, goroutine; `GOMAXPROCS=4` |
@@ -91,11 +91,11 @@ proof that arbitrary programs or concurrency runtimes are correct.
 | Babashka | SCI source execution | Same Clojure port as JVM |
 | jank | Source JIT and native static AOT, `-O2` | Unsupported: no Java bounded queue; same unmodified core Clojure workloads |
 
-`.pyc` and `.langmir` are **not native executables**. Python bytecode skips
+`.pyc` and `.bdgmir` are **not native executables**. Python bytecode skips
 parsing; saved MIR skips parsing/type checking but still invokes Cranelift.
-**Current compiler-mode limit:** `lang compile` has no `--release` switch and
+**Current compiler-mode limit:** `badger compile` has no `--release` switch and
 saves MIR without the release-only inlining/receive-splitting passes applied by
-`lang run --release SOURCE`. Artifact launch does not rerun those passes. Both
+`badger run --release SOURCE`. Artifact launch does not rerun those passes. Both
 ports use optimized Cranelift code generation, but the MIR input differs. These
 are the real public execution modes, not a controlled comparison of identical
 optimized MIR; a slower saved-MIR workload must not be blamed on artifact loading.
@@ -106,7 +106,7 @@ reported without inventing an interpreter or compilation mode.
 
 The common batch test deliberately uses explicit fixed lists, not the
 language's adaptive `open_batch` API: adaptive flush boundaries would change
-the work. See `bench/messages.lang` for the specialized API benchmark.
+the work. See `bench/messages.bdg` for the specialized API benchmark.
 
 Concurrency compares the **application contract**, not identical schedulers.
 OS threads, goroutines, virtual threads, futures, and async streams have
@@ -156,7 +156,7 @@ Source hashes, compiler source hashes, revision, dirty status, tool versions,
 commands, explicit runtime environment overrides, machine/CPU/affinity, and
 host load before/after are retained. Source changes during a run fail the run.
 jank JIT and AOT use separate target directories to prevent AOT objects being
-loaded in place of source JIT compilation. `LANG_*` profiling/tuning variables and
+loaded in place of source JIT compilation. `BADGER_*` profiling/tuning variables and
 common runtime option injection variables are removed from child environments.
 Other inherited OS configuration remains part of the recorded machine context.
 For publishable measurements, stop unrelated builds/workloads and use a stable
@@ -171,7 +171,7 @@ actually Babashka rather than a different executable with that name.
 
 | Override | Meaning |
 | --- | --- |
-| `COMPARE_LANG` | Release `lang` binary; defaults to this worktree's `target/release/lang` |
+| `COMPARE_LANG` | Release `badger` binary; defaults to this worktree's `target/release/badger` |
 | `COMPARE_PYTHON`, `COMPARE_NODE`, `COMPARE_GO`, `COMPARE_RUSTC`, `COMPARE_CXX` | Runtime/compiler executable paths |
 | `COMPARE_LUA`, `COMPARE_LUAC`, `COMPARE_LUAJIT` | Matching Lua runtime/bytecode compiler paths |
 | `COMPARE_CC`, `COMPARE_LUA_INCLUDE`, `COMPARE_LUAJIT_INCLUDE` | C compiler and Lua header directories for clock module |

@@ -1,4 +1,4 @@
--- Queries over users (`lang generate sql queries.sql` writes queries.lang).
+-- Queries over users (`badger generate sql queries.sql` writes queries.bdg).
 
 -- name: create_user :one
 -- Add a user; returns its id.

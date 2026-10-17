@@ -1,4 +1,0 @@
-[package]
-name = "restricted"
-entry = "src/main.lang"
-restricted = true

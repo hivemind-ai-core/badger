@@ -1,0 +1,4 @@
+[package]
+name = "restricted_bypass"
+entry = "src/main.bdg"
+restricted = true

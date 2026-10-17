@@ -11,7 +11,7 @@ All of them check and run with the implementation in this repository.
 
 ### CLI normalization
 
-[normalize.lang](../examples/design/normalize.lang) reads an argument and file,
+[normalize.bdg](../examples/design/normalize.bdg) reads an argument and file,
 constructs a lazy sequence of nonempty trimmed lines, collects into a paged
 list, and prints each line. Expected I/O errors are returned as `AppError`;
 absence of an argument is an explicit domain error. No runtime lookup of record
@@ -19,7 +19,7 @@ field types or custom application lifecycle class is required.
 
 ### Batch communication
 
-[batch_jobs.lang](../examples/design/batch_jobs.lang) owns a channel and two
+[batch_jobs.bdg](../examples/design/batch_jobs.bdg) owns a channel and two
 child tasks. Producer messages are accepted into paged staging and published
 on limits/scheduling boundaries. Explicit close flushes accepted messages and
 ends the consumer after drain. The consumer processes leased pages before
@@ -34,7 +34,7 @@ close/disposal policy. In-memory acceptance is not durable job acknowledgment.
 
 ### Prefix-visible interceptor state
 
-[prefix_views.lang](../examples/design/prefix_views.lang) adds `verified: Bool`
+[prefix_views.bdg](../examples/design/prefix_views.bdg) adds `verified: Bool`
 in an early stage, updates it later, and checks the updated value in the early
 leave. The later `token: String` is unavailable to that early stage. A terminal
 failure after the later update would expose the same updated `verified` to its
@@ -43,7 +43,7 @@ the later enter failed before committing. It does not assume the update happened
 
 ### Service with a scoped transaction
 
-[service/src/main.lang](../examples/design/service/src/main.lang) loads typed
+[service/src/main.bdg](../examples/design/service/src/main.bdg) loads typed
 configuration, starts SQLite, constructs a typed interceptor handler, and then
 starts HTTP. Input decode/validation adds `input: OrderInput`; an earlier timer
 stage cannot access that later-only field. The terminal function starts a
@@ -136,19 +136,19 @@ its own task.
 
 | Cases | Executable evidence |
 |---|---|
-| N01, N02, R02, R03, R06, R08, R09, O01, O03–O05, P02, P03, S01–S03, E02, E03 | `tests/reject/*.lang` (each must fail with its code) |
-| N03, R01, R04, R05, R07, E01, P01, P04, P05 | `tests/run/acceptance_static.lang` |
-| O02 | `tests/run/o02_shared_after_send.lang` |
-| Scenarios 1–4 | `tests/run/live_views.lang`, `tests/run/prefix_views.lang` |
-| Scenario 5 | `tests/run/scenario05_startup_failure.lang` |
-| Scenario 6 | `tests/http/isolation.lang`, driven by `crates/lang_cli/tests/service.rs` |
-| Scenario 7 | `tests/run/scenario07_commit_failure.lang`, `tests/run/sqlite_rollback_failure.lang` (a failed rollback is returned with the callback's error as its cause) |
-| Scenario 8 | `tests/run/scenario08_try_join_cancel.lang` |
-| Scenario 9 | `tests/run/scenario09_fairness.lang`; foreign blocking work: `tests/run/ffi_contracts.lang` |
-| Scenarios 10–12 | `tests/run/scenario10_publication.lang`, `tests/run/batch_jobs.lang` |
-| Scenarios 13–14 | `tests/run/scenario13_storage.lang` |
+| N01, N02, R02, R03, R06, R08, R09, O01, O03–O05, P02, P03, S01–S03, E02, E03 | `tests/reject/*.bdg` (each must fail with its code) |
+| N03, R01, R04, R05, R07, E01, P01, P04, P05 | `tests/run/acceptance_static.bdg` |
+| O02 | `tests/run/o02_shared_after_send.bdg` |
+| Scenarios 1–4 | `tests/run/live_views.bdg`, `tests/run/prefix_views.bdg` |
+| Scenario 5 | `tests/run/scenario05_startup_failure.bdg` |
+| Scenario 6 | `tests/http/isolation.bdg`, driven by `crates/badger_cli/tests/service.rs` |
+| Scenario 7 | `tests/run/scenario07_commit_failure.bdg`, `tests/run/sqlite_rollback_failure.bdg` (a failed rollback is returned with the callback's error as its cause) |
+| Scenario 8 | `tests/run/scenario08_try_join_cancel.bdg` |
+| Scenario 9 | `tests/run/scenario09_fairness.bdg`; foreign blocking work: `tests/run/ffi_contracts.bdg` |
+| Scenarios 10–12 | `tests/run/scenario10_publication.bdg`, `tests/run/batch_jobs.bdg` |
+| Scenarios 13–14 | `tests/run/scenario13_storage.bdg` |
 | Scenario 15 | `multicore_migration` (`tests/projects/multicore`, four workers); all `tests/run` programs also run with `--workers 4` |
-| Scenario 16 | `live_reload` (compatible replacement, old frames keep their code, incompatible type and effect changes rejected) and `live_reconstruct` (explicit reconstruction on one and four workers) in `crates/lang_cli/tests/programs.rs` (`tests/live`) |
+| Scenario 16 | `live_reload` (compatible replacement, old frames keep their code, incompatible type and effect changes rejected) and `live_reconstruct` (explicit reconstruction on one and four workers) in `crates/badger_cli/tests/programs.rs` (`tests/live`) |
 
 The worked programs run in `examples_run` and `orders_service`. Live-prefix
 writeback is exercised across different concrete layouts, including early
@@ -160,7 +160,7 @@ The [benchmarks](../bench/README.md) measure field access and row
 specialization, paged versus contiguous iteration, map operations, prompt
 versus batch messaging, allocation and collection pauses, task spawn cost,
 cancellation latency under backpressure, stack/root overhead, and shutdown
-under failure. One run (2026-10-16, `lang run --release`,
+under failure. One run (2026-10-16, `badger run --release`,
 AMD Ryzen 7 8745HS) measured:
 
 | Measurement | Result |
@@ -175,8 +175,8 @@ AMD Ryzen 7 8745HS) measured:
 | Record allocation with a retained window | ≈39 ns per record; longest pause ≈2.9 ms |
 | Task spawn and join | ≈0.56 µs per task |
 | Cancelling 100 producers blocked on a full channel | ≈0.13 ms to settle (≈0.6 ms right after the allocation and spawn measurements) |
-| Four CPU-bound tasks (`bench/parallel.lang`), 1 / 2 / 4 workers | 684 / 344 / 174 ms |
-| Call with a scalar frame / call holding 4 rooted pointers that makes one more call (`bench/runtime.lang`) | ≈2 / ≈1.8 ns |
+| Four CPU-bound tasks (`bench/parallel.bdg`), 1 / 2 / 4 workers | 684 / 344 / 174 ms |
+| Call with a scalar frame / call holding 4 rooted pointers that makes one more call (`bench/runtime.bdg`) | ≈2 / ≈1.8 ns |
 | Recursion 20,000 frames deep on a fresh task stack | ≈4 ns per frame |
 | Shutdown under failure: body defect with 200 parked tasks and 8 resources | settled, all 8 halts run, in ≈0.2 ms |
 
@@ -187,6 +187,6 @@ languages, and `bench/telemetry.py` measures scaling across workers.
 
 The original draft validation also checked that all local links resolve,
 fenced code blocks balance, and every example parses against the reference EBNF
-with an independent recognizer. The test suite now checks every `lang`
-code block in the specification and guides (`crates/lang_cli/tests/docs.rs`;
-excerpts are fenced `lang fragment`).
+with an independent recognizer. The test suite now checks every `badger`
+code block in the specification and guides (`crates/badger_cli/tests/docs.rs`;
+excerpts are fenced `badger fragment`).

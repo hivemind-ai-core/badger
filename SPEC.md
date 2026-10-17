@@ -1,8 +1,8 @@
-# Language specification, draft 0
+# Badger language specification, draft 0
 
-This is the language design, implemented by the compiler and runtime in this
-repository. The language is temporarily called `lang`; source files use
-`.lang`. It is a native application language for services and automation.
+This is the design of Badger, implemented by the compiler and runtime in this
+repository. Source files use `.bdg`. It is a native application language for
+services and automation.
 
 The user's accepted decisions are authoritative. Additional decisions below
 are the selected defaults of this draft, not claims of subsequent user approval.
@@ -54,10 +54,10 @@ Each chapter distinguishes three kinds of statement:
   another implementation could make differently.
 - **Proposed:** marks additions that are designed but not implemented.
 
-Code blocks fenced `lang` are complete modules that the test suite checks
-with the current toolchain; blocks fenced `lang fragment` are excerpts. The
+Code blocks fenced `badger` are complete modules that the test suite checks
+with the current toolchain; blocks fenced `badger fragment` are excerpts. The
 [standard library reference](docs/api/README.md) is generated from the
-checked interfaces (`lang doc std --out docs/api`), and `lang query api
+checked interfaces (`badger doc std --out docs/api`), and `badger query api
 std.NAME` gives the same facts as JSON.
 
 ## Reading order
@@ -73,7 +73,7 @@ std.NAME` gives the same facts as JSON.
 
 [Reference EBNF](spec/grammar.ebnf) accompanies the prose syntax rules. The
 grammar the compiler accepts is the pest grammar in
-[crates/lang_syntax/src/grammar.pest](crates/lang_syntax/src/grammar.pest);
+[crates/badger_syntax/src/grammar.pest](crates/badger_syntax/src/grammar.pest);
 where the two differ, the pest grammar is authoritative.
 
 [DESIGN.md](DESIGN.md) retains the earlier reasoning and alternatives. When it

@@ -134,7 +134,7 @@ def locate(variable, name, candidates=()):
 
 
 def variants():
-    lang = locate('COMPARE_LANG', 'lang', [ROOT / 'target/release/lang'])
+    lang = locate('COMPARE_LANG', 'lang', [ROOT / 'target/release/badger'])
     python = locate('COMPARE_PYTHON', 'python3')
     node = locate('COMPARE_NODE', 'node')
     go = locate('COMPARE_GO', 'go')
@@ -156,15 +156,15 @@ def variants():
     result = []
     for workers in (1, 4):
         for saved in (False, True):
-            artifact = BUILD / 'workload.langmir'
+            artifact = BUILD / 'workload.bdgmir'
             result.append(Variant(
                 f'lang-{"mir" if saved else "source"}-w{workers}', 'lang',
                 f'Lang {"saved MIR" if saved else "source"} · {workers} worker(s)',
-                [lang, 'run', '--release', '--workers', str(workers), artifact if saved else PROGRAMS / 'workload.lang', '--'],
+                [lang, 'run', '--release', '--workers', str(workers), artifact if saved else PROGRAMS / 'workload.bdg', '--'],
                 [lang, '--version'],
-                [[lang, 'compile', PROGRAMS / 'workload.lang', '-o', artifact]] if saved else [],
+                [[lang, 'compile', PROGRAMS / 'workload.bdg', '-o', artifact]] if saved else [],
                 [artifact] if saved else [],
-                note=('Release Cranelift JIT. Current lang compile saves MIR without release-only inlining/receive-splitting; artifact launch does not rerun those passes.'
+                note=('Release Cranelift JIT. Current badger compile saves MIR without release-only inlining/receive-splitting; artifact launch does not rerun those passes.'
                       if saved else 'Release MIR inlining/receive-splitting plus Cranelift JIT; source frontend runs at each launch.'),
                 missing='' if lang else 'Build the release compiler: cargo build --release --locked'))
     pyc = BUILD / 'workload.pyc'
@@ -239,7 +239,7 @@ def variants():
 
 def environment(variant):
     # Ambient compiler profiling and runtime tuning would contaminate measurements.
-    env = {k: v for k, v in os.environ.items() if not k.startswith('LANG_')}
+    env = {k: v for k, v in os.environ.items() if not k.startswith('BADGER_')}
     for name in ('JAVA_TOOL_OPTIONS', 'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS', 'NODE_OPTIONS', 'PYTHONPATH', 'PYTHONSTARTUP', 'LUA_INIT', 'LUA_INIT_5_5'):
         env.pop(name, None)
     env.update(variant.env)
@@ -264,7 +264,7 @@ def artifact_bytes(paths):
 
 def metadata(args):
     files = [*PROGRAMS.glob('*'), HERE / 'run.py', HERE / 'report.py']
-    compiler = [ROOT / 'Cargo.lock', ROOT / 'Cargo.toml', *sorted((ROOT / 'crates').rglob('*.rs')), *sorted((ROOT / 'crates').rglob('*.lang'))]
+    compiler = [ROOT / 'Cargo.lock', ROOT / 'Cargo.toml', *sorted((ROOT / 'crates').rglob('*.rs')), *sorted((ROOT / 'crates').rglob('*.bdg'))]
     sources = {str(p.relative_to(ROOT)): digest(p) for p in files + compiler if p.is_file()}
     cpu = Path('/proc/cpuinfo')
     model = next((line.split(':', 1)[1].strip() for line in cpu.read_text().splitlines() if line.startswith('model name')), platform.processor()) if cpu.exists() else platform.processor()
@@ -273,7 +273,7 @@ def metadata(args):
                 cpu=model, logical_cpus=os.cpu_count(), affinity=sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
                 load_average=os.getloadavg() if hasattr(os, 'getloadavg') else None,
                 arguments=vars(args), source_sha256=sources,
-                excluded_environment_names=sorted(k for k in os.environ if k.startswith('LANG_')))
+                excluded_environment_names=sorted(k for k in os.environ if k.startswith('BADGER_')))
 
 
 def main():

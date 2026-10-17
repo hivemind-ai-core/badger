@@ -1,0 +1,4 @@
+[package]
+name = "restricted"
+entry = "src/main.bdg"
+restricted = true

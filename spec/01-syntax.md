@@ -17,7 +17,7 @@ lowercase; `http.Request` names a type, and `http.listen` names a function.
 `Result.ok` accesses a constructor through the type namespace; `Result` itself
 remains a type identifier, not an ordinary value.
 
-```lang fragment
+```badger fragment
 import std.http
 import std.result.{Result, ok, err}
 import app.orders as orders
@@ -30,7 +30,7 @@ pub fn order_total(order: Order) -> Int {
 ```
 
 A file is one module; its path inside `src` determines its module path.
-`src/orders/store.lang` is `orders.store`. Import cycles involving value
+`src/orders/store.bdg` is `orders.store`. Import cycles involving value
 initialization are rejected. Pure type/function cycles may form one checked
 module group. Declarations are private unless marked `pub`. Module initialization
 can define pure immutable values; acquisition and other effects belong in
@@ -68,7 +68,7 @@ Within an aggregate literal/type or plan description, surrounding newlines are
 layout and commas separate entries. A nested lambda/control-flow block restores
 statement boundaries even when it occurs inside a call's parentheses.
 
-```lang fragment
+```badger fragment
 let count = 42
 let ratio = 0.5
 let mask = 0xFFU32
@@ -108,7 +108,7 @@ trailing commas. A tuple of one item requires `(item,)`.
 
 ## Functions and calls
 
-```lang
+```badger
 fn identity<T>(value: T) -> T {
     value
 }
@@ -138,7 +138,7 @@ resolution is type-directed, and receiver borrowing follows its signature.
 There is no unrestricted search for extension functions with matching names.
 Ordinary module functions compose through calls and pipelines.
 
-```lang fragment
+```badger fragment
 events
     |> seq.filter(fn(event) => event.enabled)
     |> seq.map(fn(event) => event.name)
@@ -163,7 +163,7 @@ preserves the binding's type. Mutable containers have separate ownership rules.
 `const` permits literal/constructor aggregates and supported pure constant
 operators; arbitrary function evaluation is not part of draft 0.
 
-```lang fragment
+```badger fragment
 var completed = 0
 for job in jobs {
     process(job)?
@@ -188,7 +188,7 @@ records, and enum variants. Record patterns may use `..` to ignore other fields;
 closed patterns require an exact shape. A refutable pattern belongs in `match`,
 not plain `let` or a function parameter.
 
-```lang fragment
+```badger fragment
 match result {
     .ok(order) => order.id,
     .err(error) => report(error),
@@ -202,7 +202,7 @@ expression runs once per test; names bind only inside the matching
 block; `else if let` chains. `break` and `continue` in a `while let`
 body act on that loop.
 
-```lang fragment
+```badger fragment
 while let .some(job) = receiver.recv() {
     process(job)?
 }
@@ -225,7 +225,7 @@ expressions use `Enum.variant(...)`, or an imported ordinary helper such as
 the nearest function/lambda, using an authorized direct error conversion. It
 does not unwrap `Option`, panic, or skip cleanup.
 
-```lang fragment
+```badger fragment
 use tx <- sqlite.transaction(pool)
 let order = insert_order(tx, input)?
 ok(order)
@@ -233,7 +233,7 @@ ok(order)
 
 This lowers to:
 
-```lang fragment
+```badger fragment
 sqlite.transaction(pool, fn(tx) {
     let order = insert_order(tx, input)?
     ok(order)
@@ -252,7 +252,7 @@ To end a `use` scope early, put it in a block: the block's value is the
 helper's whole result (a commit failure included), and the resource is
 released before the code after the block runs.
 
-```lang fragment
+```badger fragment
 let count = {
     use tx <- sqlite.transaction(pool)
     let count = insert_notes(tx, notes)?

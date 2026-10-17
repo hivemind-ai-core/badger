@@ -1,0 +1,183 @@
+// PostgreSQL with pooled connections and scoped transactions; the same
+// shape as `std.sqlite`. Statements use `$1`, `$2`, ... parameters, given
+// as `Data` and parsed by the server as the parameter's type. Rows are
+// `Data` objects by column name, or records (`query_as`).
+
+import std.prelude
+
+import std.system
+import std.codec
+import std.native
+import std.list
+
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+    /// The callback error a failed rollback happened after, if any.
+    pub cause: Option<dyn prelude.Error>,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.code}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+    fn cause(self: &Self) -> Option<dyn prelude.Error> { self.cause }
+}
+
+/// A shareable connection pool, scoped to region `S` (the system or
+/// callback that opened it). Each statement takes a connection of its own.
+pub struct Pool<S: Scope> {
+    handle: native.Handle,
+}
+
+/// A task-confined transaction, branded with its callback's region; it
+/// holds one connection until it ends.
+pub struct Tx<S> {
+    handle: native.Handle,
+}
+
+/// Things SQL can run against: pools and transactions.
+pub protocol Connection {
+    fn connection(self: &Self) -> native.Handle
+}
+
+impl<S> Connection for Pool<S> {
+    fn connection(self: &Self) -> native.Handle { self.handle }
+}
+
+impl<S> Connection for Tx<S> {
+    fn connection(self: &Self) -> native.Handle { self.handle }
+}
+
+/// Pool options.
+pub type Options = { max_connections: Int }
+
+/// The default options (16 connections).
+pub let defaults: Options = { max_connections: 16 }
+
+/// A statement's parameter types and result columns, as the server
+/// describes them. `nullable` is known for a column read straight from a
+/// table (`some(false)` for a `NOT NULL` one), unknown for an expression.
+pub type Description = {
+    params: List<String>,
+    columns: List<{ name: String, sql_type: String, nullable: Option<Bool> }>,
+}
+
+// the `badger_postgres` native module (crates/badger_postgres)
+extern "native badger_postgres.connect" fn pg_connect(url: String, max_connections: Int) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native badger_postgres.close" fn pg_close(pool: native.Handle) -> Unit
+extern "native badger_postgres.is_closed" fn pg_is_closed(pool: native.Handle) -> Bool
+extern "native badger_postgres.execute" fn pg_execute(conn: native.Handle, sql: String, params: List<Data>) -> Result<Int, native.Error> !{Io, Wait}
+extern "native badger_postgres.query" fn pg_query(conn: native.Handle, sql: String, params: List<Data>) -> Result<List<Data>, native.Error> !{Io, Wait}
+extern "native badger_postgres.query_one" fn pg_query_one(conn: native.Handle, sql: String, params: List<Data>) -> Result<Data, native.Error> !{Io, Wait}
+extern "native badger_postgres.begin" fn pg_begin(pool: native.Handle) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native badger_postgres.finish" fn pg_finish(tx: native.Handle, commit: Bool) -> Result<Unit, native.Error> !{Io, Wait}
+extern "native badger_postgres.describe" fn pg_describe(pool: native.Handle, sql: String) -> Result<Description, native.Error> !{Io, Wait}
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+
+fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: e.kind, message: e.message, cause: Option.none }),
+    }
+}
+
+/// A pool for `url` (`postgres://user:password@host:port/db`, or
+/// key=value settings; `sslmode=disable` for a server without TLS). One
+/// connection opens now, so a bad address or credentials fail here.
+pub fn connect<S: Scope>(url: String) -> Result<Pool<S>, Error> !{Io, Wait} { connect_with(url, defaults) }
+
+pub fn connect_with<S: Scope>(url: String, options: Options) -> Result<Pool<S>, Error> !{Io, Wait} {
+    let h = lift(pg_connect(url, options.max_connections))?
+    let p: Pool<S> = { handle: h }
+    ok(p)
+}
+
+pub fn close<S: Scope>(pool: Pool<S>) -> Unit { pg_close(pool.handle) }
+pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { pg_is_closed(pool.handle) }
+
+/// Execute a statement with bound parameters; returns the changed row
+/// count. Without parameters, several `;`-separated statements may run
+/// together (a schema script); the count is the last one's.
+pub fn execute<C>(conn: C, sql: String, params: List<Data>) -> Result<Int, Error> !{Io, Wait} where C: Connection {
+    lift(pg_execute(conn.connection(), sql, params))
+}
+
+pub fn query<C>(conn: C, sql: String, params: List<Data>) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection {
+    lift(pg_query(conn.connection(), sql, params))
+}
+
+/// Exactly one row as `Data`; zero or several rows are an error.
+pub fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Error> !{Io, Wait} where C: Connection {
+    lift(pg_query_one(conn.connection(), sql, params))
+}
+
+fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
+    match codec.from_data<T>(row) {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: :postgres/decode, message: $"a row does not decode: {e}", cause: Option.none }),
+    }
+}
+
+/// Rows as `T`, a record whose fields are named like the result's columns
+/// (an `Option` field for a column that can be NULL).
+pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection {
+    list.try_map(lift(pg_query(conn.connection(), sql, params))?, decode_row)
+}
+
+/// Exactly one row, as `T` (see `query_as`).
+pub fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection {
+    decode_row(lift(pg_query_one(conn.connection(), sql, params))?)
+}
+
+/// What the server says `sql` takes and returns (without running it).
+pub fn describe<S: Scope>(pool: Pool<S>, sql: String) -> Result<Description, Error> !{Io, Wait} {
+    lift(pg_describe(pool.handle, sql))
+}
+
+/// Run `body` in a transaction: commit after `ok`, roll back after `err`,
+/// defect, or cancellation. A failed begin or commit is returned even when
+/// the body succeeded; so is a commit after a statement in the body failed
+/// (the server aborted the transaction: `:postgres/tx_aborted`). A failed
+/// rollback after a body error is returned as a
+/// `:postgres/rollback_failed` error whose `cause` is the body's error.
+pub fn transaction<P: Scope, R, E>(pool: Pool<P>, body: for<S: Scope> fn(Tx<S>) -> Result<R, E>) -> Result<R, E> !{Io, Wait} where E: From<Error>, E: prelude.Error {
+    match lift(pg_begin(pool.handle)) {
+        .err(e) => err(E.from(e)),
+        .ok(h) => {
+            // a defect or cancellation in the body rolls back
+            let guard = cleanup_push(fn() { let _ = pg_finish(h, false) })
+            let r = body({ handle: h })
+            cleanup_remove(guard)
+            match r {
+                .ok(v) => match lift(pg_finish(h, true)) {
+                    .ok(_) => ok(v),
+                    .err(e) => err(E.from(e)),
+                },
+                .err(e) => match lift(pg_finish(h, false)) {
+                    .ok(_) => err(e),
+                    .err(re) => {
+                        let cause: dyn prelude.Error = e
+                        let failure: Error = { code: :postgres/rollback_failed, message: $"rollback failed: {re.message}", cause: Option.some(cause) }
+                        err(E.from(failure))
+                    },
+                },
+            }
+        },
+    }
+}
+
+fn pool_init<S: Scope>(scope: system.InitScope, config: { url: String }) -> Result<Pool<S>, Error> {
+    let p = connect(config.url)?
+    scope.on_halt(fn() -> Result<Unit, Error> {
+        close(p)
+        ok(())
+    })
+    ok(p)
+}
+
+/// Provider of a pool for `{url: String}`, closed when the system halts.
+pub let pool = system.provider({ name: :postgres/pool, init: pool_init })

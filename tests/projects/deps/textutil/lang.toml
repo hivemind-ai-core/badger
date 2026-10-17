@@ -1,7 +1,0 @@
-[package]
-name = "textutil"
-version = "0.2.1"
-entry = "src/lib.lang"
-
-[dependencies]
-mathlib = { path = "../mathlib" }

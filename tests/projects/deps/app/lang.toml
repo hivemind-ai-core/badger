@@ -1,9 +1,0 @@
-[package]
-name = "app"
-entry = "src/main.lang"
-
-[toolchain]
-language = "draft-0"
-
-[dependencies]
-textutil = { path = "../textutil", version = "0.2" }

@@ -3,26 +3,26 @@ audit. They measure local scalar enums (`compute/options`), range/map/filter/fol
 versus direct loops (`compute/sequence`), typed array access and iteration
 (`compute/array_reads`, `arrays`), bounded ASCII/Unicode slices (`text`), buffer
 storage/list prefix/pool/old-generation retention (runtime `opportunities`), and
-unreferenced generated functions (saved MIR plus `mir_audit`). `lifetimes.lang`
+unreferenced generated functions (saved MIR plus `mir_audit`). `lifetimes.bdg`
 captures heap snapshots after an array's last use and subsequent allocation churn.
 
 Baseline production revision: `babfdab` (pointer Option niches already included).
 Benchmark additions contain no production changes. Build each revision separately:
 
 ```
-cargo build --release --offline -p lang_cli
-cargo build --release --offline -p lang_runtime --example opportunities
-cargo build --release --offline -p lang_codegen --example mir_audit
+cargo build --release --offline -p badger_cli
+cargo build --release --offline -p badger_runtime --example opportunities
+cargo build --release --offline -p badger_codegen --example mir_audit
 ```
 
-Copy `target/release/lang`, `target/release/examples/opportunities`, and
+Copy `target/release/badger`, `target/release/examples/opportunities`, and
 `target/release/examples/mir_audit` into an immutable directory per revision. Run:
 
 ```
 python3 bench/opportunities/run.py --bin-dir /tmp/opportunity-before --out /tmp/opportunity-baseline
 ```
 
-The runner validates fixture checksums, clears inherited `LANG_*` settings, warms
+The runner validates fixture checksums, clears inherited `BADGER_*` settings, warms
 each cell, shuffles five repetitions, records raw ranges, source/binary hashes,
 1/2/4/8 worker configurations, per-process peak RSS, and generated code/MIR sizes.
 GC probes run both generational modes in fresh processes. Pool RSS is current RSS;

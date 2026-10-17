@@ -142,21 +142,21 @@ A feature exposes a small typed interface and receives explicit dependencies. It
 Recommended starting layout:
 
 ```text
-src/main.lang                  # composition root
-src/orders/api.lang            # public input/output/error/service contracts
-src/orders/service.lang        # domain/application implementation
-src/orders/provider.lang       # lifecycle integration
-src/orders/http.lang           # HTTP bindings, if needed
-src/orders/cli.lang            # CLI bindings, if needed
-src/orders/jobs.lang           # durable/worker bindings, if needed
-src/orders/tests.lang          # focused feature tests
+src/main.bdg                  # composition root
+src/orders/api.bdg            # public input/output/error/service contracts
+src/orders/service.bdg        # domain/application implementation
+src/orders/provider.bdg       # lifecycle integration
+src/orders/http.bdg           # HTTP bindings, if needed
+src/orders/cli.bdg            # CLI bindings, if needed
+src/orders/jobs.bdg           # durable/worker bindings, if needed
+src/orders/tests.bdg          # focused feature tests
 ```
 
 Small pure features can use one file. Avoid generating empty files for unused capabilities. Reusable features can later move into packages with the same public interface.
 
 The executable baseline uses these actual current-language contracts:
 
-```lang fragment
+```badger fragment
 pub type CreateOrder = { title: String }
 pub type Order = { id: Int, title: String }
 
@@ -195,13 +195,13 @@ Startup sequence:
 5. Open transport admission only after required dependencies are ready.
 6. Mark the application ready and serve until shutdown or escalation.
 
-No provider initializer runs simply to discover its type. Configuration expansion is an explicit bounded planning operation over given data; it cannot discover new static output types through environment-dependent execution. Ordinary `lang check` must not run arbitrary package initializers. Framework plan inspection either reads compiler-produced descriptions or uses a separately requested planning command with restricted capabilities and execution limits.
+No provider initializer runs simply to discover its type. Configuration expansion is an explicit bounded planning operation over given data; it cannot discover new static output types through environment-dependent execution. Ordinary `badger check` must not run arbitrary package initializers. Framework plan inspection either reads compiler-produced descriptions or uses a separately requested planning command with restricted capabilities and execution limits.
 
 The initial composition root remains an ordinary `system { ... }`. A proposed `app.run` helper may combine configuration, signal handling, health, and `system.run`, but must preserve its callback-scoped resource contract. It cannot return a running service whose dependencies have already closed.
 
 For example, a generated composition root could have this shape. The feature/adapter providers are application or future framework code; the `system`/`component`/`ref` syntax itself is current language syntax:
 
-```lang fragment
+```badger fragment
 let plan = system {
     database: component(sqlite.pool, { path: settings.database_path }),
     store: component(order_store.provider, { database: ref(:database) }),
@@ -250,7 +250,7 @@ Use distinct factories rather than implicit function/plan overloading: `operatio
 
 This is a proposed library fragment, not runnable with today's imports. `Store`, `CreateError`, `validate_create`, and `can_create` are domain contracts/functions; `operation`, `validation`, and `authorization` are future library modules:
 
-```lang fragment
+```badger fragment
 fn build_operations(store: Store) {
     let create = operation.from_pipeline(
         { id: :orders/create, version: 1 },
@@ -500,16 +500,16 @@ Proposed commands should be implemented through shared semantic services, not in
 
 ```text
 lang new service NAME
-lang generate module FEATURE
-lang generate operation FEATURE.OPERATION
-lang generate endpoint FEATURE.OPERATION
-lang generate worker FEATURE.WORKER
-lang generate interceptor NAME
+badger generate module FEATURE
+badger generate operation FEATURE.OPERATION
+badger generate endpoint FEATURE.OPERATION
+badger generate worker FEATURE.WORKER
+badger generate interceptor NAME
 lang app describe PATH --json
 lang app check PATH --json
 ```
 
-These are proposed commands. Existing `lang check/test/query/inspect/graph/doc` remain the current mechanisms; final command organization can use those existing verbs where clearer.
+These are proposed commands. Existing `badger check/test/query/inspect/graph/doc` remain the current mechanisms; final command organization can use those existing verbs where clearer.
 
 A module generator creates the public contract, implementation factory, provider, fake, tests, and explicit composition registration. An endpoint generator binds an existing typed operation, generates transport mapping/schema tests, and updates route registration. A worker generator asks for ownership, queue/durability, restart, and shutdown policy. Generate named incomplete implementation sites rather than fabricated successful business results.
 
@@ -534,18 +534,18 @@ Only add compiler hooks for a demonstrated general requirement. Schema derivatio
 [examples/design/framework](examples/design/framework/README.md) is a current-language prototype accompanying this design. It contains public feature contracts, an injected isolated fake store, typed provider values/configuration, validation and audit interceptors, explicit lifecycle logs, and a worker-policy example.
 
 ```text
-target/release/lang check examples/design/framework
-target/release/lang run examples/design/framework
-target/release/lang test examples/design/framework --json
+target/release/badger check examples/design/framework
+target/release/badger run examples/design/framework
+target/release/badger test examples/design/framework --json
 ```
 
 The service normalizes a title, persists an in-memory order, and exposes the public interface through a system. Its audit stage observes the validator's update to an established context field. Startup and shutdown logs establish dependency ordering, including partial-start and operation-error cleanup cases.
 
 Seven accompanying tests exercise fake-backed creation, validation with no store write, fake isolation, normal lifecycle ordering, partial-start cleanup, operation-error cleanup, and a bounded worker-factory retry. This validates composition on the available release executable. It does not implement `app.*`, a server, durable storage/outbox, authentication, deadline/admission machinery, full crash recovery, or the framework's eventual streaming/scoping contract.
 
-Verification on 2026-10-16: `lang_cli 0.1.0` from the available release executable checked and ran the restricted-mode project, its seven tests passed with the default one worker and with `LANG_WORKERS=4`, and its sources passed canonical formatting checks. No fresh compiler build or full repository test run was performed for this design task; compiler/runtime/native-adapter work was changing concurrently.
+Verification on 2026-10-16: `badger_cli 0.1.0` from the available release executable checked and ran the restricted-mode project, its seven tests passed with the default one worker and with `BADGER_WORKERS=4`, and its sources passed canonical formatting checks. No fresh compiler build or full repository test run was performed for this design task; compiler/runtime/native-adapter work was changing concurrently.
 
-The existing [HTTP/SQLite service](examples/design/service/src/main.lang) is another useful baseline for transport and transactions. Keep its tested implementation claims separate from new framework proposals and active native-adapter extraction.
+The existing [HTTP/SQLite service](examples/design/service/src/main.bdg) is another useful baseline for transport and transactions. Keep its tested implementation claims separate from new framework proposals and active native-adapter extraction.
 
 ## 25. Delivery slices and acceptance proof
 

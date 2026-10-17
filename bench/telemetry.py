@@ -213,12 +213,12 @@ def parse_perf(raw):
 
 
 def run_one(lang, config, workers, timeout, expected, perf=False, runtime_stats=False):
-    env = {k: v for k, v in os.environ.items() if not k.startswith("LANG_") and k != "TELEMETRY_CONFIG"}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_") and k != "TELEMETRY_CONFIG"}
     env["TELEMETRY_CONFIG"] = json.dumps(config, sort_keys=True)
     env["LC_ALL"] = "C"
     if runtime_stats:
-        env["LANG_RUNTIME_STATS"] = "1"
-    command = [str(lang), "run", "--release", "--bench", "--workers", str(workers), "bench/telemetry.lang"]
+        env["BADGER_RUNTIME_STATS"] = "1"
+    command = [str(lang), "run", "--release", "--bench", "--workers", str(workers), "bench/telemetry.bdg"]
     with tempfile.TemporaryDirectory(prefix="telemetry-perf-") as tmp:
         perf_file = Path(tmp) / "perf.csv"
         if perf:
@@ -313,7 +313,7 @@ def positive(text):
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, required=True, help="output prefix (.json and .md)")
-    ap.add_argument("--lang", type=Path, default=ROOT / "target/release/lang")
+    ap.add_argument("--lang", type=Path, default=ROOT / "target/release/badger")
     ap.add_argument("--profiles", nargs="+", choices=PROFILES, default=list(PROFILES))
     ap.add_argument("--workers", nargs="+", type=positive, default=[1, 2, 4, 8])
     ap.add_argument("--events", type=positive, default=DEFAULT["events"])
@@ -324,7 +324,7 @@ def parse_args(argv=None):
     ap.add_argument("--warmups", type=int, default=1)
     ap.add_argument("--timeout", type=positive, default=300)
     ap.add_argument("--perf", action="store_true", help="separate diagnostic pass with process-wide perf stat")
-    ap.add_argument("--runtime-stats", action="store_true", help="separate pass with LANG_RUNTIME_STATS=1")
+    ap.add_argument("--runtime-stats", action="store_true", help="separate pass with BADGER_RUNTIME_STATS=1")
     ap.add_argument("--smoke", action="store_true", help="small edge cases, worker counts 1/2/4; no performance claims")
     args = ap.parse_args(argv)
     if not 0 <= args.seed <= MASK or args.warmups < 0:
@@ -350,7 +350,7 @@ def main(argv=None):
                   platform=platform.platform(), cpu=cpu, affinity=affinity,
                   lang=str(args.lang), binary_sha256=hashlib.sha256(args.lang.read_bytes()).hexdigest(),
                   source_sha256={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                                 for p in [ROOT / "bench/telemetry.lang", Path(__file__).resolve()]},
+                                 for p in [ROOT / "bench/telemetry.bdg", Path(__file__).resolve()]},
                   arguments={k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
                   warmups=[], runs=[], diagnostics=[])
     if args.smoke:

@@ -1,0 +1,21 @@
+// A small integration job: fetch order amounts, total them, and report the
+// total. Used to test reproduction bundles (`badger run --record`, `lang
+// replay`).
+import std.io
+import std.env
+import std.fetch
+import std.text
+import std.time
+
+fn amount(s: String) -> Int { text.parse_int(s.trim()).unwrap_or(0) }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let base = env.get("FETCH_BASE").unwrap_or("http://127.0.0.1:1")
+    let c = fetch.client(base)?.timeout(time.millis(300))
+    let reply = c.get("/orders")?
+    let total = reply.body.split(",").fold(0, fn(a, s) { a + amount(s) })
+    io.println($"total {total}")?
+    let posted = c.post("/report", $"{total}", "text/plain")?
+    io.println($"reported {posted.status}")?
+    ok(())
+}

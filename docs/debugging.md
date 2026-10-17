@@ -2,19 +2,19 @@
 
 ## Debugging with gdb (or any DWARF debugger)
 
-`lang run --debug` registers debug information for the generated code
+`badger run --debug` registers debug information for the generated code
 through the GDB JIT interface: source line tables, one function per
 definition, every named local and parameter (kept in a stack slot, so it is
 readable anywhere in its function and can be watched), and unwind tables,
 so backtraces pass from generated frames into the runtime.
 
 ```sh
-gdb --args lang run --debug app.lang
+gdb --args badger run --debug app.bdg
 (gdb) set breakpoint pending on       # the code exists once compiled
-(gdb) break app.lang:12               # by file and line
-(gdb) break app.lang:20 if total > 100
+(gdb) break app.bdg:12               # by file and line
+(gdb) break app.bdg:20 if total > 100
 (gdb) run
-(gdb) bt                              # app.area#1 (w=2, h=10) at app.lang:5 ...
+(gdb) bt                              # app.area#1 (w=2, h=10) at app.bdg:5 ...
 (gdb) info args
 (gdb) info locals
 (gdb) next / step / finish            # by source line; into and out of calls
@@ -34,10 +34,10 @@ With the C/C++ extension's GDB support, a launch configuration:
 
 ```json
 {
-  "name": "lang: debug",
+  "name": "badger: debug",
   "type": "cppdbg",
   "request": "launch",
-  "program": "/path/to/lang",
+  "program": "/path/to/badger",
   "args": ["run", "--debug", "${file}"],
   "cwd": "${workspaceFolder}",
   "MIMode": "gdb",
@@ -45,12 +45,12 @@ With the C/C++ extension's GDB support, a launch configuration:
 }
 ```
 
-Breakpoints set in `.lang` files in the editor then bind once the program
+Breakpoints set in `.bdg` files in the editor then bind once the program
 is compiled.
 
 ## Profiling
 
-`LANG_PROFILE=out.folded lang run --release app.lang` samples CPU time at
+`BADGER_PROFILE=out.folded badger run --release app.bdg` samples CPU time at
 1 kHz and writes collapsed stacks (`outer;...;leaf count`) for flamegraph
 tools (`inferno-flamegraph < out.folded > out.svg`, or speedscope), and
 prints the hottest functions by self and total time. It covers compilation
@@ -58,19 +58,19 @@ too. Generated functions keep frame pointers; build the toolchain with
 `RUSTFLAGS="-C force-frame-pointers=yes"` to also see who calls runtime
 functions.
 
-`LANG_PERF_MAP=1` writes `/tmp/perf-PID.map` so `perf record` / `perf
+`BADGER_PERF_MAP=1` writes `/tmp/perf-PID.map` so `perf record` / `perf
 report` name generated functions.
 
 ## Reproducing a failure
 
-`lang run --record bug.json app.lang` keeps everything the run took from
+`badger run --record bug.json app.bdg` keeps everything the run took from
 outside (HTTP replies and errors, subprocess results, files read, the
 environment, clocks, random seeds), its output, and how it ended, in one
-JSON file. `lang replay bug.json` runs it again offline with those
+JSON file. `badger replay bug.json` runs it again offline with those
 outcomes: requests, subprocesses, and writes are not performed, so an
 intermittent timeout or a bad reply becomes a deterministic failure under
-a debugger (`gdb --args lang replay --release bug.json` works like any run).
-After fixing the code, `lang replay --compare bug.json` runs the fix
+a debugger (`gdb --args badger replay --release bug.json` works like any run).
+After fixing the code, `badger replay --compare bug.json` runs the fix
 against the same inputs and reports how the outcome and the operations
 changed; anything the recording cannot answer stops the run (status 3)
 rather than reaching the world. Credentials in the environment are not
@@ -78,7 +78,7 @@ stored; a replay that needs one says so.
 
 ## From agents (MCP)
 
-The `run` tool of `lang mcp` takes `breakpoints` (`file:line`, optionally
+The `run` tool of `badger mcp` takes `breakpoints` (`file:line`, optionally
 `if CONDITION`) and reports each stop's frames, arguments, and locals (or
 the gdb `commands` given), up to `max_stops`; and `profile: true` adds the
 CPU profile summary. See [agents.md](agents.md).

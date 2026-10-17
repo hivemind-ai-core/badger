@@ -1,0 +1,43 @@
+[package]
+name = "badger_driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+badger_base.workspace = true
+badger_syntax.workspace = true
+badger_hir.workspace = true
+badger_typeck.workspace = true
+badger_mir.workspace = true
+badger_codegen.workspace = true
+badger_runtime.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+serde_json = "1.0.154"
+# release manifests record file digests
+sha2 = "0.10.9"
+# compile-time SQL checks prepare statements against the schema
+rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column_metadata"] }
+# native modules linked into every program's executable
+badger_sqlite.workspace = true
+badger_fetch.workspace = true
+badger_http.workspace = true
+badger_formats.workspace = true
+badger_template.workspace = true
+badger_crypto.workspace = true
+badger_valkey.workspace = true
+badger_postgres.workspace = true
+badger_datetime.workspace = true
+badger_compress.workspace = true
+badger_fs.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+pretty_assertions.workspace = true
+
+[features]
+# ThreadSanitizer fiber annotations (see badger_runtime)
+tsan = ["badger_runtime/tsan"]
+asan = ["badger_runtime/asan"]

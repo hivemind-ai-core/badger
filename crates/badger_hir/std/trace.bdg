@@ -1,0 +1,68 @@
+// Structured runtime events. Events are encoded through the value's derived
+// schema into a bounded sink; set `BADGER_TRACE=1` to also export them to
+// standard error. When the sink is full, the configured overflow policy
+// (`[runtime] trace_capacity`, `trace_overflow = "drop_oldest" |
+// "drop_newest"`) decides which event is lost; losses never block or fail
+// the caller and are reported separately (`stats`, and on stderr at exit).
+
+extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
+
+pub fn event<T>(name: Symbol, data: T) -> Unit where T: Codec {
+    trace_event(name, data)
+}
+
+extern "intrinsic" fn trace_count(name: Symbol) -> Int
+extern "intrinsic" fn trace_last(name: Symbol) -> Option<String>
+
+/// Number of recorded events named `name` (bounded in-memory sink).
+pub fn count(name: Symbol) -> Int { trace_count(name) }
+
+/// JSON payload of the most recent event named `name`.
+pub fn last(name: Symbol) -> Option<String> { trace_last(name) }
+
+/// Sink state: capacity, events recorded, events not retained or not
+/// exported because the sink was overloaded, and the overflow policy.
+pub type Stats = { capacity: Int, recorded: Int, dropped: Int, export_dropped: Int, policy: Symbol }
+
+extern "intrinsic" fn trace_stats() -> Stats
+
+pub fn stats() -> Stats { trace_stats() }
+
+extern "intrinsic" fn span_begin_i<T>(name: String, attrs: T) -> Int
+extern "intrinsic" fn span_end_i(handle: Int, ok: Bool) -> Unit
+extern "intrinsic" fn span_traceparent() -> Option<String>
+extern "intrinsic" fn span_adopt(traceparent: String) -> Bool
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+
+/// Run `body` as the span `name` with attributes `attrs` (a `Codec`
+/// record): a child of the task's current span, or the root of a new
+/// trace. Tasks it spawns continue the trace, and log records inside it
+/// carry its trace and span ids. A defect or cancellation in `body` ends
+/// the span as failed.
+pub fn span<T, R>(name: String, attrs: T, body: fn() -> R) -> R where T: Codec {
+    let h = span_begin_i(name, attrs)
+    let guard = cleanup_push(fn() { span_end_i(h, false) })
+    let r = body()
+    cleanup_remove(guard)
+    span_end_i(h, true)
+    r
+}
+
+/// `span` for a fallible `body`: an `err` result ends it as failed.
+pub fn span_result<T, R, E>(name: String, attrs: T, body: fn() -> Result<R, E>) -> Result<R, E> where T: Codec {
+    let h = span_begin_i(name, attrs)
+    let guard = cleanup_push(fn() { span_end_i(h, false) })
+    let r = body()
+    cleanup_remove(guard)
+    span_end_i(h, r.is_ok())
+    r
+}
+
+/// The task's current span as a W3C `traceparent` header value, to pass
+/// the trace to another service.
+pub fn traceparent() -> Option<String> { span_traceparent() }
+
+/// Continue the trace a `traceparent` header names: later spans of this
+/// task are its children. `false` if the value is malformed.
+pub fn continue_trace(traceparent: String) -> Bool { span_adopt(traceparent) }

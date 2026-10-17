@@ -1,0 +1,6 @@
+[package]
+name = "typed_sql"
+entry = "src/main.bdg"
+
+[database]
+schema = "schema.sql"

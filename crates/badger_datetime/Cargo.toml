@@ -1,0 +1,14 @@
+[package]
+name = "badger_datetime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Calendar dates, times, and time zones for std.datetime (jiff)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+badger_native.workspace = true
+jiff = { version = "0.2.38", features = ["tzdb-bundle-always"] }

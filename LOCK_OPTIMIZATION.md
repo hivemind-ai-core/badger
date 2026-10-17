@@ -15,19 +15,19 @@ memory access should not acquire an exclusive collector lock.
 
 Current implementation anchors:
 
-- [Runtime and scheduler](crates/lang_runtime/src/task.rs): `LOCKED`,
-  `lang_rt_enter`, `lang_rt_leave`, `Runtime`, `park`, `wake_with`, `make_ready`,
+- [Runtime and scheduler](crates/badger_runtime/src/task.rs): `LOCKED`,
+  `badger_rt_enter`, `badger_rt_leave`, `Runtime`, `park`, `wake_with`, `make_ready`,
   `worker_loop`, `finish`, and `SCHED`.
-- [Channels](crates/lang_runtime/src/channel.rs): `ChanData`, `try_fast`,
+- [Channels](crates/badger_runtime/src/channel.rs): `ChanData`, `try_fast`,
   `claim`, `send`, `recv`, selection commits, batching and task cleanup.
-- [Channel intrinsics](crates/lang_runtime/src/intrinsics_task.rs): unlocked
+- [Channel intrinsics](crates/badger_runtime/src/intrinsics_task.rs): unlocked
   entry wrappers, `locked`, selection registration and completion.
-- [Collector](crates/lang_runtime/src/gc.rs): worker-local pools/object lists,
+- [Collector](crates/badger_runtime/src/gc.rs): worker-local pools/object lists,
   shared heap metadata, roots, `NoGc`, `alloc` and `collect`.
-- [Code generator](crates/lang_codegen/src/lib.rs): `rt_call`, `UNLOCKED`,
+- [Code generator](crates/badger_codegen/src/lib.rs): `rt_call`, `UNLOCKED`,
   allocation lowering and poll lowering.
-- [Scopes](crates/lang_runtime/src/scope.rs): registry, child completion,
-  cancellation and release. [Output](crates/lang_runtime/src/intrinsics_io.rs):
+- [Scopes](crates/badger_runtime/src/scope.rs): registry, child completion,
+  cancellation and release. [Output](crates/badger_runtime/src/intrinsics_io.rs):
   `write_out` performs synchronous writes and flushing.
 
 The global runtime lock currently protects scheduler state, channel slow paths,
@@ -231,7 +231,7 @@ concurrent collection is a separate project requiring its own barriers and
 finalizer design. Finalizers touching channel registries must work while
 mutators are stopped, without depending on a parked worker releasing a lock.
 
-Update `lang_rt_enter`/`leave`, foreign-call begin/end, callback entry/return,
+Update `badger_rt_enter`/`leave`, foreign-call begin/end, callback entry/return,
 allocation-triggered collection and poll lowering together. Classify entries
 as immutable/task-owned, local-resource mutation, scheduler mutation or
 outside-managed blocking work. Extend `UNLOCKED` only after the new contract
@@ -486,7 +486,7 @@ multi-party completion is involved. Retain reproducing seeds, worker counts,
 source/binary hashes and failing traces. Do not weaken assertions to hide a race.
 
 Use existing self-checking [stress programs](tests/stress) and
-[stress runner](crates/lang_cli/tests/stress.rs), extending them with:
+[stress runner](crates/badger_cli/tests/stress.rs), extending them with:
 
 - Buffered and capacity-zero channels; prompt and batch operations; tiny,
   medium and large pointer-bearing messages; many independent pairs and one
@@ -504,17 +504,17 @@ Use existing self-checking [stress programs](tests/stress) and
 Run 1/2/3/4/8 workers and oversubscription separately; the existing quick matrix
 is a starting point, not the complete cross-product. Combine optimized JIT,
 verification, forced GC and binary MIR explicitly. A default `stress_soak`
-without `LANG_STRESS_SECS` does not run a soak.
+without `BADGER_STRESS_SECS` does not run a soak.
 
 Useful existing commands for future implementation work:
 
 ```sh
 cargo build --release --locked --offline
-cargo test -p lang_runtime --locked --offline
-cargo test -p lang_cli --test stress stress_programs --locked --offline -- --nocapture
-LANG_STRESS_SECS=300 LANG_STRESS_SEED=1 cargo test -p lang_cli --test stress stress_soak --locked --offline -- --nocapture
+cargo test -p badger_runtime --locked --offline
+cargo test -p badger_cli --test stress stress_programs --locked --offline -- --nocapture
+BADGER_STRESS_SECS=300 BADGER_STRESS_SEED=1 cargo test -p badger_cli --test stress stress_soak --locked --offline -- --nocapture
 python3 bench/baseline.py --out reports/benchmarks/lock-before --reps 5
-LANG_RUNTIME_STATS=1 target/release/lang run --release --bench --workers 4 bench/independent_channels.lang
+BADGER_RUNTIME_STATS=1 target/release/badger run --release --bench --workers 4 bench/independent_channels.bdg
 git diff --check
 ```
 

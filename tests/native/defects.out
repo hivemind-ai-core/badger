@@ -1,6 +1,6 @@
-panic: native `lang_native_demo.boom`: panicked: the demo module exploded
-wrong type: native `lang_native_demo.wrong_type`: returned a string where a value of type `I64` was declared
-undeclared error: native `lang_native_demo.divide`: failed: demo/division_by_zero: cannot divide by zero
+panic: native `badger_native_demo.boom`: panicked: the demo module exploded
+wrong type: native `badger_native_demo.wrong_type`: returned a string where a value of type `I64` was declared
+undeclared error: native `badger_native_demo.divide`: failed: demo/division_by_zero: cannot divide by zero
 missing module: native module `no_such_module` not found
-missing function: native module `lang_native_demo` has no function `no_such_function`
+missing function: native module `badger_native_demo` has no function `no_such_function`
 handles released: true

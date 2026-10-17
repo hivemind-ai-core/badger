@@ -1,0 +1,146 @@
+import std.channel
+import std.env
+import std.io
+import std.list
+import std.map
+import std.task
+import std.text
+import std.time
+
+type Event = { id: Int, value: Int, active: Bool }
+
+fn must<T, E>(r: Result<T, E>) -> T {
+    match r {
+        .ok(v) => v,
+        .err(_) => panic("benchmark operation failed"),
+    }
+}
+
+fn cpu(n: Int, seed: Int) -> Int {
+    var total = 0
+    for i in 0..n {
+        var x = (i + seed) % 1000003
+        for _ in 0..8 {
+            x = (x * 17 + 23) % 1000003
+        }
+        total = total + x
+    }
+    total
+}
+
+fn records(n: Int, seed: Int) -> Int {
+    let builder = list.builder<Event>()
+    for id in 0..n {
+        builder.append({ id, value: (id + seed) % 1000, active: id % 3 != 0 })
+    }
+    let original = builder.finish()
+    let enriched = original.map(fn(e) { { ..e, value: e.value * 3 + 7 } })
+    var total = 0
+    for e in enriched {
+        if e.active {
+            total = total + e.value
+        }
+    }
+    for e in original {
+        total = total + e.value
+    }
+    total
+}
+
+fn snapshots(n: Int, seed: Int) -> Int {
+    var current: Map<Int, Int> = map.empty()
+    let versions = list.builder<Map<Int, Int>>()
+    for i in 0..n {
+        current = current.insert(i % 256, i + seed)
+        if (i + 1) % 64 == 0 {
+            versions.append(current)
+        }
+    }
+    versions.append(current)
+    var total = 0
+    for version in versions.finish() {
+        for (k, v) in map.to_list(version) {
+            total = total + (k + 1) * v
+        }
+    }
+    total
+}
+
+fn handoff(n: Int, seed: Int) -> Int {
+    let ends = must(channel.create<Int>({ ..channel.defaults, capacity: 256 }))
+    must(task.scope(fn(s) -> Result<Int, Never> {
+        let producer = s.spawn(fn() {
+            for i in 0..n {
+                must(ends.sender.send(i + seed))
+            }
+            ends.sender.close()
+        })
+        var total = 0
+        loop {
+            match ends.receiver.recv() {
+                .some(v) => { total = total + v },
+                .none => { break },
+            }
+        }
+        producer.join()
+        ok(total)
+    }))
+}
+
+fn batches(n: Int, seed: Int) -> Int {
+    // Explicit 64-item immutable lists: identical batch boundaries to peers.
+    // The built-in adaptive batch channel is measured separately by bench/messages.bdg.
+    let ends = must(channel.create<List<Int>>({ ..channel.defaults, capacity: 4 }))
+    must(task.scope(fn(s) -> Result<Int, Never> {
+        let producer = s.spawn(fn() {
+            var start = 0
+            while start < n {
+                let b = list.builder<Int>()
+                for offset in 0..64 {
+                    if start + offset < n {
+                        b.append(start + offset + seed)
+                    }
+                }
+                must(ends.sender.send(b.finish()))
+                start = start + 64
+            }
+            ends.sender.close()
+        })
+        var total = 0
+        loop {
+            match ends.receiver.recv() {
+                .some(values) => {
+                    for v in values {
+                        total = total + v
+                    }
+                },
+                .none => { break },
+            }
+        }
+        producer.join()
+        ok(total)
+    }))
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let args = env.args()
+    let name = args[0]
+    let n = text.parse_int(args[1]).unwrap_or(0)
+    let seed = text.parse_int(args[2]).unwrap_or(0)
+    let warmups = text.parse_int(args[3]).unwrap_or(0)
+    let repeats = text.parse_int(args[4]).unwrap_or(0)
+    for iteration in 0..warmups + repeats {
+        let started = time.now()
+        let checksum = match name {
+            "cpu" => cpu(n, seed),
+            "records" => records(n, seed),
+            "snapshots" => snapshots(n, seed),
+            "handoff" => handoff(n, seed),
+            "batches" => batches(n, seed),
+            _ => panic("unknown workload"),
+        }
+        let elapsed = time.as_nanos(time.now() - started)
+        io.println($"BENCH {iteration} {elapsed} {checksum}")?
+    }
+    ok(())
+}

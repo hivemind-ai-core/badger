@@ -1,0 +1,69 @@
+// The cancellation contract across resource kinds: a timeout around work
+// that would run for seconds returns at its deadline, the resource behind
+// it stays usable, and nothing is left running. Subprocesses are killed,
+// SQLite queries interrupted, a blocked file read abandoned (its result
+// dropped when it ends), and channel waits withdrawn.
+import std.channel
+import std.fs
+import std.io
+import std.path
+import std.process
+import std.sqlite
+import std.task
+import std.time
+
+fn say(s: String) -> Unit {
+    let _ = io.println(s)
+}
+
+fn within(label: String, r: Result<Bool, task.TimedOut>, t0: Instant) -> Unit {
+    let took = time.now() - t0
+    say($"{label}: timed out {r.is_err()}, promptly {took < time.millis(1500)}")
+}
+
+fn text<T, E>(r: Result<T, E>) -> Result<T, String> where E: Display { r.map_err(fn(e) { e.display() }) }
+
+pub fn main() -> Result<Unit, String> {
+    let limit = time.millis(100)
+    // a subprocess is killed
+    let t0 = time.now()
+    let r = task.timeout(limit, fn() { process.run("sleep", ["4.321"]).is_ok() })
+    within("subprocess", r, t0)
+    // this program's own children (copies of it may run side by side)
+    let left = text(process.run("sh", ["-c", $"pgrep -P {process.id()} -x sleep | wc -l"]))?
+    say($"  sleeping children left: {left.stdout.trim()}")
+    // a SQLite query is interrupted, and the pool still answers
+    let pool = text(sqlite.open(":memory:"))?
+    let slow = "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 1000000000) SELECT count(*) FROM c"
+    let t0 = time.now()
+    let r = task.timeout(limit, fn() { sqlite.query(pool, slow, []).is_ok() })
+    within("sqlite query", r, t0)
+    let again = text(sqlite.query(pool, "SELECT 6 * 7 AS n", []))?
+    say($"  pool afterwards: {again}")
+    // a file read blocked on a FIFO with no writer is abandoned
+    let fifo = path.join(fs.temp_dir(), $"lang-cancel-{process.id()}.fifo")
+    let _ = text(process.run("mkfifo", [fifo]))?
+    let t0 = time.now()
+    let r = task.timeout(limit, fn() { fs.read_bytes(fifo).is_ok() })
+    within("blocked file read", r, t0)
+    // a channel receive is withdrawn; the channel still delivers
+    let ch = text(channel.create<Int>({ ..channel.defaults, capacity: 1 }))?
+    let t0 = time.now()
+    let r = task.timeout(limit, fn() { ch.receiver.recv().is_some() })
+    within("channel receive", r, t0)
+    let _ = ch.sender.send(5)
+    say($"  channel afterwards: {ch.receiver.recv()}")
+    // completion and cancellation racing: every outcome is a whole one
+    var done = 0
+    for i in 0..60 {
+        let r = task.timeout(time.nanos(i * 50000), fn() { process.run("true", []).is_ok() })
+        match r {
+            .ok(true) => { done = done + 1 },
+            .ok(false) => panic("a raced subprocess failed"),
+            .err(_) => (),
+        }
+    }
+    say($"races settled (some completed: {done > 0})")
+    let _ = fs.remove_file(fifo)
+    ok(())
+}

@@ -1,58 +1,58 @@
 # Editor setup
 
-`lang lsp` speaks the Language Server Protocol on stdin/stdout. It provides
-diagnostics (as `lang check` reports them), hover (types and signatures),
+`badger lsp` speaks the Language Server Protocol on stdin/stdout. It provides
+diagnostics (as `badger check` reports them), hover (types and signatures),
 go to definition, find references, document highlights, rename, document
 and workspace symbols, formatting, and completion (triggered by `.`). It
-needs no configuration: a file inside a directory with `lang.toml` is
+needs no configuration: a file inside a directory with `badger.toml` is
 checked as part of that project; any other file is checked on its own.
 
 ## Neovim (0.11+)
 
 ```lua
-vim.filetype.add({ extension = { lang = "lang" } })
-vim.lsp.config("lang", {
-  cmd = { "lang", "lsp" },
-  filetypes = { "lang" },
-  root_markers = { "lang.toml", ".git" },
+vim.filetype.add({ extension = { bdg = "badger" } })
+vim.lsp.config("badger", {
+  cmd = { "badger", "lsp" },
+  filetypes = { "badger" },
+  root_markers = { "badger.toml", ".git" },
 })
-vim.lsp.enable("lang")
+vim.lsp.enable("badger")
 ```
 
 ## Helix (`languages.toml`)
 
 ```toml
-[language-server.lang]
-command = "lang"
+[language-server.badger]
+command = "badger"
 args = ["lsp"]
 
 [[language]]
-name = "lang"
-scope = "source.lang"
-file-types = ["lang"]
-roots = ["lang.toml"]
+name = "badger"
+scope = "source.badger"
+file-types = ["bdg"]
+roots = ["badger.toml"]
 comment-token = "//"
 indent = { tab-width = 4, unit = "    " }
-language-servers = ["lang"]
+language-servers = ["badger"]
 ```
 
 ## Emacs (eglot)
 
 ```elisp
-(define-derived-mode lang-mode prog-mode "Lang")
-(add-to-list 'auto-mode-alist '("\\.lang\\'" . lang-mode))
+(define-derived-mode badger-mode prog-mode "Badger")
+(add-to-list 'auto-mode-alist '("\\.bdg\\'" . badger-mode))
 (with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(lang-mode "lang" "lsp")))
+  (add-to-list 'eglot-server-programs '(badger-mode "badger" "lsp")))
 ```
 
 ## VS Code
 
-Any generic LSP client extension can start `lang lsp` for `*.lang` files;
+Any generic LSP client extension can start `badger lsp` for `*.bdg` files;
 for example, with a minimal extension's `extension.js`:
 
 ```js
 const { LanguageClient } = require("vscode-languageclient/node");
-exports.activate = () => new LanguageClient("lang", "lang",
-  { command: "lang", args: ["lsp"] },
-  { documentSelector: [{ scheme: "file", pattern: "**/*.lang" }] }).start();
+exports.activate = () => new LanguageClient("badger", "badger",
+  { command: "badger", args: ["lsp"] },
+  { documentSelector: [{ scheme: "file", pattern: "**/*.bdg" }] }).start();
 ```

@@ -1,3 +1,0 @@
-// An interface two modules use (`lang query check --overlays` tests
-// propose changes to it and its consumers together).
-pub fn area(w: Int, h: Int) -> Int { w * h }

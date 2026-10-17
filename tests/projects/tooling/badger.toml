@@ -1,0 +1,19 @@
+[package]
+name = "tooling"
+entry = "src/main.bdg"
+
+[runtime]
+trace_capacity = 4
+trace_overflow = "drop_oldest"
+cleanup_grace_ms = 2000
+
+[profile.strict.runtime]
+trace_capacity = 2
+trace_overflow = "drop_newest"
+
+[entries]
+admin = "src/admin.bdg"
+
+[tasks]
+seed = "src/tasks.bdg#seed"
+greet = "src/tasks.bdg#greet"

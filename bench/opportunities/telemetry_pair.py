@@ -32,7 +32,7 @@ def main():
                   timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   affinity=sorted(os.sched_getaffinity(0)),
                   binaries={k: dict(path=str(p), sha256=sha(p)) for k, p in binaries.items()},
-                  sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
+                  sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), ROOT / "bench/telemetry.bdg", ROOT / "bench/telemetry.py"]},
                   events=args.events, repetitions=args.reps, warmups_per_cell=1, runs=[])
     cells = [(mode, name, w) for mode in binaries for name in configs for w in [1, 2, 4, 8]]
     rng = random.Random(20261016)

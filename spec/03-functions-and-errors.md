@@ -54,7 +54,7 @@ and reproduction bundles record them; they are not ambient authority in
 restricted projects (chapter 07), since they reach nothing outside the
 program.
 
-```lang
+```badger
 import std.io
 
 fn double(value: Int) -> Int !{} {
@@ -102,7 +102,7 @@ or arbitrary control-flow interception. No handler syntax is added in draft 0.
 
 The prelude contains:
 
-```lang
+```badger
 enum Option<T> {
     none,
     some(value: T),
@@ -125,7 +125,7 @@ direct `From<E1>` implementation for `E2`. It does not search conversion chains,
 erase to `Data`, invent a union, or catch task failure. `Option` must be matched
 or converted explicitly with a missing-value error.
 
-```lang
+```badger
 import std.codec
 import std.sqlite as db
 
@@ -187,10 +187,10 @@ with the same code. A clause it proves is compiled
 out: a postcondition proven at every return (including `?` exits), and a
 precondition proven at every call of a function that is only called
 directly (not used as a value). Everything else is checked at run time as
-above. `lang contracts PATH` lists each clause with its status
+above. `badger contracts PATH` lists each clause with its status
 (`proven`, `refuted`, or `runtime`) and why; `--json` gives it to tools.
 
-Tests and contracts inform each other. `lang contracts --tests PATH` runs
+Tests and contracts inform each other. `badger contracts --tests PATH` runs
 the tests with the program observed: each clause reports how often the
 tests evaluated it and how often it held (a clause no test reaches is a
 gap), and integer arguments and results whose every observed value fit a
@@ -220,7 +220,7 @@ callback returns, so callers must preserve the helper's result.
 
 ## Protocols and coherent extension
 
-```lang
+```badger
 pub protocol Display {
     fn display(self: &Self) -> String
 }

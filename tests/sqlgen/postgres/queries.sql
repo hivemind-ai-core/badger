@@ -1,4 +1,4 @@
--- Typed queries over authors and posts (`lang generate sql --database ...`).
+-- Typed queries over authors and posts (`badger generate sql --database ...`).
 
 -- name: create_author :one
 INSERT INTO authors (name, bio) VALUES (:name, :bio?) RETURNING id;
