@@ -2245,13 +2245,22 @@ fn config_env_replays() {
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&rec.stdout), "a:1\n", "{}", String::from_utf8_lossy(&rec.stderr));
-    let rep = lang().current_dir(&dir).args(["replay", "b.json"]).env("DEMO_PORT", "2").env_remove("DEMO_NAME").output().unwrap();
+    let rep = lang()
+        .current_dir(&dir)
+        .args(["replay", "b.json"])
+        .env("DEMO_PORT", "2")
+        .env_remove("DEMO_NAME")
+        .output()
+        .unwrap();
     let err = String::from_utf8_lossy(&rep.stderr).to_string();
     let _ = std::fs::remove_dir_all(&dir);
     assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
     assert_eq!(String::from_utf8_lossy(&rep.stdout), "a:1\n");
     // a recording runs on one worker: asking for more is refused, not ignored
-    let many = lang().args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"]).output().unwrap();
+    let many = lang()
+        .args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"])
+        .output()
+        .unwrap();
     assert!(!many.status.success() && String::from_utf8_lossy(&many.stderr).contains("run on one worker"));
 }
 

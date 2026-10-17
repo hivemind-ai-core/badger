@@ -259,7 +259,9 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
         Kind::Unit => Ok(0),
         Kind::Bool => match j {
             J::Bool(b) => Ok(*b as u64),
-            J::Number(n) if INT_BOOLS.with(|c| c.get()) && (n.as_i64() == Some(0) || n.as_i64() == Some(1)) => {
+            J::Number(n)
+                if INT_BOOLS.with(|c| c.get()) && (n.as_i64() == Some(0) || n.as_i64() == Some(1)) =>
+            {
                 Ok(n.as_i64().unwrap() as u64)
             }
             _ => fail(path, "expected a boolean"),

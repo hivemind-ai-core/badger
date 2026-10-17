@@ -453,9 +453,11 @@ impl Cx<'_> {
                     } else {
                         let span = self.hir.defs[def].span;
                         self.diags.push(
-                            Diagnostic::warning(format!("`{name}` takes parameters, so `badger test` does not run it"))
-                                .with_code("E0142")
-                                .with_label(span, "a test takes no parameters"),
+                            Diagnostic::warning(format!(
+                                "`{name}` takes parameters, so `badger test` does not run it"
+                            ))
+                            .with_code("E0142")
+                            .with_label(span, "a test takes no parameters"),
                         );
                     }
                 }

@@ -411,7 +411,10 @@ impl Mcp {
                     }
                 }
                 if debugging && a["profile"] == json!(true) {
-                    return text("`profile` cannot be used with `breakpoints`: a debugged run is not profiled", true);
+                    return text(
+                        "`profile` cannot be used with `breakpoints`: a debugged run is not profiled",
+                        true,
+                    );
                 }
                 if a["test"] == json!(true) {
                     for (opt, why) in [

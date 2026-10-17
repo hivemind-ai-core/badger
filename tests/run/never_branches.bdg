@@ -11,7 +11,7 @@ fn pick_lit2(m: Bool) -> Int {
     d
 }
 fn fail(msg) { panic(msg) }
-fn forever() { loop { } }
+fn forever() { loop {} }
 fn pick(n: Int) -> String {
     let s = match n { 0 => fail("zero"), 1 => "one", _ => "many" }
     s

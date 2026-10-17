@@ -696,7 +696,11 @@ fn command(mut cli: Cli) -> ExitCode {
             match graph::graph(&kind, &path.unwrap_or_else(|| PathBuf::from(".")), &format, std) {
                 Ok(g) => {
                     // every format ends with a newline
-                    if g.ends_with('\n') { print!("{g}") } else { println!("{g}") }
+                    if g.ends_with('\n') {
+                        print!("{g}")
+                    } else {
+                        println!("{g}")
+                    }
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
@@ -750,7 +754,9 @@ fn command(mut cli: Cli) -> ExitCode {
                 return ExitCode::FAILURE;
             }
             if files.is_empty() {
-                eprintln!("error: `badger generate sql` needs one or more SQL files (`badger generate sql queries/*.sql`)");
+                eprintln!(
+                    "error: `badger generate sql` needs one or more SQL files (`badger generate sql queries/*.sql`)"
+                );
                 return ExitCode::from(2);
             }
             let database = database.or_else(|| std::env::var("DATABASE_URL").ok());
@@ -791,7 +797,10 @@ fn command(mut cli: Cli) -> ExitCode {
         Command::Inspect { what, json, connect: Some(addr), .. } => {
             const REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
             if !REMOTE.contains(&what.as_str()) {
-                eprintln!("error: `{what}` is not a snapshot of a running program (one of: {})", REMOTE.join(", "));
+                eprintln!(
+                    "error: `{what}` is not a snapshot of a running program (one of: {})",
+                    REMOTE.join(", ")
+                );
                 return ExitCode::from(2);
             }
             match badger_driver::inspect::request(&addr, &what) {
