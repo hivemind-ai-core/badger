@@ -128,7 +128,15 @@ pub struct BufData {
     pub frozen: bool,
 }
 
-// Actual offsets in the native box (unlike MIR Load offsets, which add HEADER).
+/// The first word preserves the generated array-access ABI. Metadata lives
+/// beside it in the stable managed cell, so there is no separate native Box.
+#[repr(C)]
+struct BufferObject {
+    data: *mut BufData,
+    inline: BufData,
+}
+
+// Actual offsets in BufData (unlike MIR Load offsets, which add HEADER).
 pub const DATA_OFFSET: i32 = 0;
 pub const ITEMS_PTR: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, ptr)) as i32;
 pub const ITEMS_LEN: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, len)) as i32;
@@ -150,8 +158,7 @@ fn finalize(o: *mut Header) {
     unsafe {
         let p = (*o).payload() as *mut *mut BufData;
         if !(*p).is_null() {
-            drop(Box::from_raw(*p));
-            gc::external_free(std::mem::size_of::<BufData>());
+            std::ptr::drop_in_place(*p);
             *p = std::ptr::null_mut();
         }
     }
@@ -160,11 +167,15 @@ pub fn is_buffer(w: u64) -> bool {
     std::ptr::eq(unsafe { obj(w).desc() }, desc())
 }
 pub fn new(elem: &'static TypeDesc, cap: usize) -> u64 {
-    gc::budget_check(gc::HEADER + 8 + std::mem::size_of::<BufData>() + bytes(cap, elem.repr()));
-    let w = gc::alloc(desc(), 8);
-    let d = Box::new(BufData { elem, items: Items::new(elem.repr(), cap), frozen: false });
-    gc::external_alloc(std::mem::size_of::<BufData>());
-    unsafe { *(obj(w).payload() as *mut *mut BufData) = Box::into_raw(d) };
+    gc::budget_check(gc::HEADER + std::mem::size_of::<BufferObject>() + bytes(cap, elem.repr()));
+    let w = gc::alloc(desc(), std::mem::size_of::<BufferObject>());
+    let d = BufData { elem, items: Items::new(elem.repr(), cap), frozen: false };
+    unsafe {
+        let p = obj(w).payload() as *mut BufferObject;
+        let inline = std::ptr::addr_of_mut!((*p).inline);
+        inline.write(d);
+        std::ptr::addr_of_mut!((*p).data).write(inline);
+    }
     w
 }
 pub fn data<'a>(w: u64) -> &'a mut BufData {
@@ -201,7 +212,7 @@ pub fn items<'a>(w: u64) -> &'a Items {
     unsafe { &(**(obj(w).payload() as *const *const BufData)).items }
 }
 pub fn frozen(elem: &'static TypeDesc, words: Vec<u64>) -> u64 {
-    gc::budget_check(gc::HEADER + 8 + std::mem::size_of::<BufData>() + bytes(words.capacity(), elem.repr()));
+    gc::budget_check(gc::HEADER + std::mem::size_of::<BufferObject>() + bytes(words.capacity(), elem.repr()));
     let w = new(elem, 0);
     let d = data(w);
     d.items = Items::from_words(elem.repr(), words);
@@ -218,6 +229,91 @@ pub fn elem_of(d: &'static TypeDesc) -> &'static TypeDesc {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn inline_metadata_traces_grows_and_reclaims_native_storage() {
+        use super::*;
+        if std::env::var_os("BADGER_BUFFER_TEST_CHILD").is_none() {
+            for generational in ["0", "1"] {
+                let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+                for (key, _) in std::env::vars_os() {
+                    if key.to_string_lossy().starts_with("BADGER_") {
+                        command.env_remove(key);
+                    }
+                }
+                let output = command
+                    .args([
+                        "--exact",
+                        "buffer::tests::inline_metadata_traces_grows_and_reclaims_native_storage",
+                    ])
+                    .env("BADGER_BUFFER_TEST_CHILD", "1")
+                    .env("BADGER_GC_GENERATIONAL", generational)
+                    .env("BADGER_GC_VERIFY", "1")
+                    .output()
+                    .unwrap();
+                assert!(
+                    output.status.success(),
+                    "generational{generational}: {} {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            return;
+        }
+        let external_before = gc::memory_bytes().1;
+        {
+            let roots = gc::Roots::new();
+            let empty = roots.add(new(crate::desc::builtin::int(), 0));
+            assert_eq!(gc::memory_bytes().1, external_before);
+            let scalars = roots.add(frozen(crate::desc::builtin::int(), vec![10, 20, 30]));
+            let pointers = roots.add(new(crate::desc::builtin::string(), 0));
+            for i in 0..64 {
+                let value = crate::string::new_string(&format!("before {i}"));
+                push(pointers, value);
+            }
+            for _ in 0..9 {
+                gc::collect();
+            }
+            // Mutate a promoted buffer with young strings; growth must retain
+            // its metadata address, and the barrier must keep the children.
+            let address = data(pointers) as *mut BufData;
+            for i in 64..512 {
+                let value = crate::string::new_string(&format!("after {i}"));
+                push(pointers, value);
+            }
+            gc::collect();
+            assert_eq!(data(pointers) as *mut BufData, address);
+            assert!(data(empty).items.is_empty());
+            assert_eq!(items(scalars).iter().collect::<Vec<_>>(), vec![10, 20, 30]);
+            for (i, value) in items(pointers).iter().enumerate() {
+                let prefix = if i < 64 { "before" } else { "after" };
+                assert_eq!(crate::string::str_of(value), format!("{prefix} {i}"));
+            }
+            // The exact native charge is element capacity alone, including
+            // the Vec adoption path; there is no metadata Box charge.
+            assert_eq!(
+                gc::memory_bytes().1 - external_before,
+                items(scalars).capacity_bytes() + items(pointers).capacity_bytes()
+            );
+            unsafe {
+                // Exercise the same pointer and length offsets read by JIT.
+                let d = *(obj(pointers).payload().add(DATA_OFFSET as usize) as *const *const u8);
+                assert_eq!(*(d.add(ITEMS_PTR as usize) as *const *const u8), items(pointers).as_ptr());
+                assert_eq!(*(d.add(ITEMS_LEN as usize) as *const usize), 512);
+                assert!((d as usize) >= obj(pointers).payload() as usize);
+                assert!(
+                    (d as usize) + std::mem::size_of::<BufData>()
+                        <= obj(pointers).payload() as usize + std::mem::size_of::<BufferObject>()
+                );
+            }
+        }
+        // A full collection must drop element storage exactly once, even in
+        // verification mode where the managed cells stay quarantined.
+        for _ in 0..9 {
+            gc::collect();
+        }
+        assert_eq!(gc::memory_bytes().1, external_before);
+    }
+
     #[test]
     fn packed_words_roundtrip_bits_at_every_width() {
         use crate::desc::Repr;
