@@ -1,0 +1,12 @@
+take 3: [1, 2, 3]
+batches: [[1, 2, 3], [4, 5, 6], [7]]
+fold: 28
+drain: 3
+at most 10: some([1, 2, 3, 4, 5, 6, 7])
+at most 3: none
+each: 28
+head [1, 2], rest [3, 4, 5, 6, 7]
+parsed: err(bad item 4)
+producer stopped early: true
+consumer total 15
+try_each: err(stop at 3)
