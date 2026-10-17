@@ -313,15 +313,10 @@ impl Session {
                 }
             }
         }
-        for key in manifest::RUNTIME_KEYS {
-            let var = format!("BADGER_{}", key.to_uppercase());
-            if let Ok(v) = std::env::var(&var) {
-                manifest::check_runtime(key, &v, 0)
-                    .map_err(|e| format!("{var}: {}", e.trim_start_matches("line 0: ")))?;
-                if let Some(e) = out.iter_mut().find(|e| e.0 == *key) {
-                    e.1 = v;
-                    e.2 = "env".into();
-                }
+        for (key, v) in env_runtime_settings()? {
+            if let Some(e) = out.iter_mut().find(|e| e.0 == key) {
+                e.1 = v;
+                e.2 = "env".into();
             }
         }
         Ok(out)
@@ -588,13 +583,19 @@ impl Session {
     /// Check `path` and report each contract clause and what the static
     /// analysis decided about it (`badger contracts`).
     pub fn contract_report(&mut self, path: &Path) -> (Outcome, Vec<contracts::Clause>) {
+        // every package and entry point the check covers
+        contracts::collect_reports(true);
         let outcome = self.check(path);
         let mut clauses = contracts::last_report();
+        contracts::collect_reports(false);
         for c in &mut clauses {
             let f = self.sources.get(c.span.file);
             c.file = f.name.clone();
             c.line = f.line_col(c.span.start as usize).0;
         }
+        // a module checked in several programs reports its clauses once
+        let mut seen = std::collections::HashSet::new();
+        clauses.retain(|c| seen.insert((c.file.clone(), c.line, c.function.clone(), c.kind, c.text.clone())));
         (outcome, clauses)
     }
 
@@ -1086,12 +1087,8 @@ impl Session {
             .into_iter()
             .find(|(k, _)| k == "workers")
             .and_then(|(_, v)| v.parse().ok());
-        if let Some(w) = opts.workers
-            && !(1..=64).contains(&w)
-        {
-            self.diagnostics.push(
-                Diagnostic::error(format!("--workers must be between 1 and 64 (got {w})")).with_code("E0013"),
-            );
+        if let Some(d) = workers_error(opts.workers) {
+            self.diagnostics.push(d);
             return Err(Outcome::Errors);
         }
         prog.workers = opts.workers.or(runtime_workers).unwrap_or(1).clamp(1, 64);
@@ -1167,7 +1164,7 @@ impl Session {
             Ok(bytes) => Ok(bytes),
             Err(e) => {
                 self.diagnostics
-                    .push(Diagnostic::error(format!("cannot save the program: {e}")).with_code("E9002"));
+                    .push(Diagnostic::error(format!("cannot save the program: {e}")).with_code("E9001"));
                 Err(Outcome::Errors)
             }
         }
@@ -1215,37 +1212,25 @@ impl Session {
             .iter()
             .filter_map(|(k, v)| k.strip_prefix("runtime.").map(|k| (k.to_string(), v.clone())))
             .collect();
-        for key in manifest::RUNTIME_KEYS {
-            let var = format!("BADGER_{}", key.to_uppercase());
-            if let Ok(v) = std::env::var(&var) {
-                if let Err(e) = manifest::check_runtime(key, &v, 0) {
-                    self.diagnostics.push(
-                        Diagnostic::error(format!("{var}: {}", e.trim_start_matches("line 0: ")))
-                            .with_code("E0013"),
-                    );
-                    return Err(Outcome::Errors);
-                }
-                match settings.iter_mut().find(|s| s.0 == *key) {
-                    Some(s) => s.1 = v,
-                    None => settings.push((key.to_string(), v)),
-                }
+        let overrides = match env_runtime_settings() {
+            Ok(o) => o,
+            Err(e) => {
+                self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
+                return Err(Outcome::Errors);
+            }
+        };
+        for (key, v) in overrides {
+            match settings.iter_mut().find(|s| s.0 == key) {
+                Some(s) => s.1 = v,
+                None => settings.push((key, v)),
             }
         }
         let saved_workers = settings.iter().find(|s| s.0 == "workers").and_then(|s| s.1.parse().ok());
-        if let Some(w) = opts.workers
-            && !(1..=64).contains(&w)
-        {
-            self.diagnostics.push(
-                Diagnostic::error(format!("--workers must be between 1 and 64 (got {w})")).with_code("E0013"),
-            );
+        if let Some(d) = workers_error(opts.workers) {
+            self.diagnostics.push(d);
             return Err(Outcome::Errors);
         }
-        prog.workers = opts
-            .workers
-            .or(saved_workers)
-            .or_else(|| meta.iter().find(|m| m.0 == "workers").and_then(|m| m.1.parse().ok()))
-            .unwrap_or(1)
-            .clamp(1, 64);
+        prog.workers = opts.workers.or(saved_workers).unwrap_or(1).clamp(1, 64);
         if opts.dump_mir {
             eprintln!("{}", badger_mir::mir::dump(&prog));
         }
@@ -1977,6 +1962,27 @@ pub fn restricted(path: &Path) -> bool {
     project_root(path)
         .and_then(|root| manifest::Manifest::load(&root.join("badger.toml")).ok())
         .is_some_and(|m| m.restricted)
+}
+
+/// `--workers` is 1 to 64.
+fn workers_error(workers: Option<usize>) -> Option<Diagnostic> {
+    let w = workers.filter(|w| !(1..=64).contains(w))?;
+    Some(Diagnostic::error(format!("--workers must be between 1 and 64 (got {w})")).with_code("E0013"))
+}
+
+/// Runtime settings given as `BADGER_<SETTING>` environment variables,
+/// checked as the manifest's are.
+fn env_runtime_settings() -> Result<Vec<(String, String)>, String> {
+    let mut out = vec![];
+    for key in manifest::RUNTIME_KEYS {
+        let var = format!("BADGER_{}", key.to_uppercase());
+        if let Ok(v) = std::env::var(&var) {
+            manifest::check_runtime(key, &v, 0)
+                .map_err(|e| format!("{var}: {}", e.trim_start_matches("line 0: ")))?;
+            out.push((key.to_string(), v));
+        }
+    }
+    Ok(out)
 }
 
 /// The `[database] schema` file of the project `path` belongs to.

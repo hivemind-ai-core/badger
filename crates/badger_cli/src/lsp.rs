@@ -18,10 +18,13 @@ use std::sync::mpsc;
 use badger_driver::analysis::{self, Analysis, FileIndex, Item, SymbolInfo, SymbolKind};
 use serde_json::{Value, json};
 
+/// Keywords offered as completions: the reserved words and the ones that
+/// open their own constructs.
 const KEYWORDS: &[&str] = &[
     "fn", "let", "var", "const", "if", "else", "match", "for", "in", "while", "loop", "break", "continue",
-    "return", "struct", "enum", "protocol", "impl", "import", "pub", "type", "where", "derive", "true",
-    "false", "unsafe", "extern", "dyn", "once", "system", "pipeline",
+    "return", "struct", "enum", "protocol", "impl", "import", "as", "pub", "type", "where", "derive", "true",
+    "false", "unsafe", "extern", "dyn", "once", "use", "mut", "requires", "ensures", "system", "pipeline",
+    "map", "set", "ref",
 ];
 
 /// The largest message accepted (bigger ones are skipped).
@@ -573,7 +576,7 @@ impl Server {
         let Some((old, locs)) = self.renamable(params) else { return Err("nothing to rename here".into()) };
         let valid = new.chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
             && new.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-            && !KEYWORDS.contains(&new);
+            && !badger_syntax::RESERVED.contains(&new);
         // types are capitalized, values are not
         let class = |n: &str| n.chars().next().is_some_and(|c| c.is_ascii_uppercase());
         if !valid || class(new) != class(&old) {
@@ -1212,7 +1215,18 @@ pub fn api(target: &Path) -> Result<Value, String> {
             let _ = std::fs::remove_dir_all(&dir);
             (a, Some(m.rsplit('.').next().unwrap_or(m).to_string()))
         }
-        None => (analysis::analyze(&program_of(&canonical(target)), HashMap::new()), None),
+        None => {
+            if !target.exists() {
+                return Err(format!("no such file or directory: {t}"));
+            }
+            let a = analysis::analyze(&program_of(&canonical(target)), HashMap::new());
+            // an interface is the checked program's (not of one that fails)
+            let errors = a.diagnostics.iter().filter(|d| d.severity == badger_base::Severity::Error).count();
+            if errors > 0 {
+                return Err(format!("{t} does not check ({errors} error(s)): run `badger check {t}`"));
+            }
+            (a, None)
+        }
     };
     let mut out = vec![];
     let item = |module: &str, i: &Item| {

@@ -93,13 +93,23 @@ fn pages(target: &str) -> Result<Vec<(String, String)>, String> {
     for i in items {
         by_module.entry(i["module"].as_str().unwrap_or("").to_string()).or_default().push(i);
     }
+    // pages named by module path (`a/util.bdg` -> `a.util`), relative to the
+    // directory holding all the program's files (two `util.bdg` differ)
+    let dirs: Vec<PathBuf> =
+        by_module.keys().filter_map(|f| Path::new(f).parent().map(Path::to_path_buf)).collect();
+    let mut root = dirs.first().cloned().unwrap_or_default();
+    while !dirs.iter().all(|d| d.starts_with(&root)) && root.pop() {}
     Ok(by_module
         .into_iter()
         .map(|(file, items)| {
-            let stem =
-                Path::new(&file).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            let rel = Path::new(&file).strip_prefix(&root).unwrap_or(Path::new(&file)).with_extension("");
+            let name = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join(".");
             let intro = std::fs::read_to_string(&file).map(|s| intro(&s)).unwrap_or_default();
-            (format!("{stem}.md"), page(&stem, &intro, &items, target))
+            (format!("{name}.md"), page(&name, &intro, &items, target))
         })
         .collect())
 }

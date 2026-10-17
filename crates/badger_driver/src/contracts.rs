@@ -975,11 +975,24 @@ impl Clause {
 
 thread_local! {
     static LAST: std::cell::RefCell<Vec<Clause>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// Collecting: every program checked adds its clauses (a workspace's
+    /// packages, a project's entry points), instead of replacing them.
+    static COLLECT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// The clauses of the program checked last on this thread.
+/// The clauses of the program checked last on this thread (of every program
+/// checked since [`collect_reports`] began collecting).
 pub fn last_report() -> Vec<Clause> {
     LAST.with(|l| l.borrow().clone())
+}
+
+/// Start (`true`, clearing what was kept) or stop collecting the clauses of
+/// every program checked on this thread.
+pub fn collect_reports(on: bool) {
+    COLLECT.with(|c| c.set(on));
+    if on {
+        LAST.with(|l| l.borrow_mut().clear());
+    }
 }
 
 /// Check the program's contracts; the diagnostics, and the checks proven
@@ -990,7 +1003,9 @@ pub fn check(
     interner: &Interner,
 ) -> (Vec<Diagnostic>, badger_mir::lower::Elided) {
     let (diags, elided, report) = analyze(hir, types, interner);
-    LAST.with(|l| *l.borrow_mut() = report);
+    LAST.with(|l| {
+        if COLLECT.with(|c| c.get()) { l.borrow_mut().extend(report) } else { *l.borrow_mut() = report }
+    });
     (diags, elided)
 }
 

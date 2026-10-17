@@ -25,10 +25,6 @@ use std::path::Path;
 pub struct Manifest {
     pub name: String,
     pub entry: String,
-    pub workers: usize,
-    /// `[runtime] cleanup_grace_ms`: how long cancelled tasks may take to
-    /// finish cleanup before the waiting owner escalates.
-    pub cleanup_grace_ms: Option<u64>,
     /// Base `[config]` entries (raw values, strings unquoted).
     pub config: Vec<(String, String)>,
     /// `[profile.NAME]` overlays, in file order.
@@ -241,8 +237,6 @@ impl Manifest {
         let mut m = Manifest {
             name: String::new(),
             entry: "src/main.bdg".into(),
-            workers: 1,
-            cleanup_grace_ms: None,
             config: vec![],
             profiles: vec![],
             version: "0.0.0".into(),
@@ -457,11 +451,6 @@ impl Manifest {
                 }
                 ("runtime", key) => {
                     check_runtime(key, &s, i + 1)?;
-                    match key {
-                        "workers" => m.workers = s.parse().unwrap(),
-                        "cleanup_grace_ms" => m.cleanup_grace_ms = Some(s.parse().unwrap()),
-                        _ => {}
-                    }
                     set(&mut m.runtime, key, s);
                 }
                 // `[config]`, `[config.table]`, inline tables: dotted keys
@@ -621,7 +610,9 @@ mod tests {
         assert!(p("[config]\na = 1\na.b = 2\n").is_err());
         assert!(p("[config]\na = { b = 1 }\n[config.a]\nc = 2\n").is_err());
         // single-quoted keys name the same key
-        assert_eq!(p("[runtime]\n'workers' = 3\n").unwrap().workers, 3);
+        assert!(
+            p("[runtime]\n'workers' = 3\n").unwrap().runtime.iter().any(|(k, v)| k == "workers" && v == "3")
+        );
         // a quoted key with `.` is not a path of names
         assert!(p("[config]\n\"a.b\" = 1\n").unwrap_err().contains("contains `.`"));
         assert!(p("[config\nx = 1\n").unwrap_err().contains("line 3"));

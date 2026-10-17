@@ -270,7 +270,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0180",
         "SQL statement",
-        "A literal SQL statement passed to `std.sqlite` does not compile against the program's schema (the project's `[database] schema` file plus the program's literal CREATE/ALTER statements; without either, only syntax is checked), or does not suit the call: `query` and `query_one` run one statement, `execute` with parameters fails on a statement that returns rows, and `query_one` needs one that returns a row.",
+        "A literal SQL statement passed to `std.sqlite` does not compile against the program's schema (the project's `[database] schema` file plus the program's literal CREATE/ALTER statements; without either, only syntax is checked), or does not suit the call: `query` and `query_one` run one statement, `execute` with parameters fails on a statement that returns rows, and `query_one` needs one that returns a row. It is also reported when the `[database] schema` file cannot be read or does not load.",
     ),
     (
         "E0181",
@@ -534,7 +534,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E9001",
         "internal compiler error",
-        "Monomorphization reached an unexpected state. Please report it with the program.",
+        "The compiler reached a state it does not expect (in specialization, or saving a program as binary MIR). Please report it with the program.",
     ),
     (
         "E9002",
