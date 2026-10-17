@@ -1,0 +1,295 @@
+// Typed command-line arguments: a record type is the interface.
+//
+//     type Options = { port: Int, verbose: Bool, name: Option<String>, tag: List<String>, args: List<String> }
+//     let opts = cli.parse<Options>(env.args())?
+//
+// Each field is an option, spelled in kebab case (`dry_run` is
+// `--dry-run`): `--port 8080` or `--port=8080`. A `Bool` field is a flag
+// (`--verbose`, `--no-verbose`; absent is false); an `Option` field may
+// be left out; a `List` field may repeat (`--tag a --tag b`; absent is
+// empty); an enum field takes one of its variant names. A field named
+// `args` (`List<String>`) collects the positional arguments, and `--`
+// ends the options. `-h`/`--help` returns a `:cli/help` error whose
+// `usage` is the help text; other problems are `:cli/unknown`,
+// `:cli/missing`, and `:cli/invalid` errors that carry it too.
+
+import std.prelude
+
+import std.codec
+import std.list
+import std.schema
+import std.text as texts
+
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+    /// The interface's help text.
+    pub usage: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String {
+        if self.code == :cli/help { self.usage } else { $"{self.message}\n\n{self.usage}" }
+    }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+}
+
+/// One option: its field, how it is spelled, and what it takes.
+type Opt = { field: String, flag: String, kind: String, item: String, choices: List<String>, optional: Bool }
+
+fn get(d: Data, key: String) -> Data {
+    match d {
+        .object(fields) => fields.get(key).unwrap_or(Data.null),
+        _ => Data.null,
+    }
+}
+
+fn strings(d: Data) -> List<String> {
+    match d {
+        .list(items) => items.map(fn(x: Data) -> String {
+            match x {
+                .string(s) => s,
+                _ => "",
+            }
+        }),
+        _ => [],
+    }
+}
+
+/// A field schema's kind (`boolean`, `integer`, `number`, `string`,
+/// `enum`, `array`), element kind, choices, and whether it may be absent.
+fn describe(spec: Data) -> (String, String, List<String>, Bool) {
+    match get(spec, "anyOf") {
+        .list(alts) => {
+            for alt in alts {
+                if get(alt, "type") != Data.string("null") {
+                    let (k, i, c, _) = describe(alt)
+                    return (k, i, c, true)
+                }
+            }
+            ("string", "", [], true)
+        },
+        _ => {
+            let choices = strings(get(spec, "enum"))
+            match get(spec, "type") {
+                .string(t) => {
+                    if t == "array" {
+                        let (k, _, c, _) = describe(get(spec, "items"))
+                        ("array", k, c, false)
+                    } else if !choices.is_empty() {
+                        ("enum", "", choices, false)
+                    } else {
+                        (t, "", [], false)
+                    }
+                },
+                _ => ("string", "", choices, false),
+            }
+        },
+    }
+}
+
+fn options<T>() -> List<Opt> where T: Codec {
+    let s = codec.parse_data(schema.json_schema(schema.of<T>())).unwrap_or(Data.null)
+    var out: List<Opt> = []
+    match get(s, "properties") {
+        .object(fields) => {
+            // in name order, for a stable help text
+            var names: List<String> = []
+            for (name, _) in fields {
+                names = names.append(name)
+            }
+            for name in names.sort() {
+                let (kind, item, choices, optional) = describe(fields.get(name).unwrap_or(Data.null))
+                out = out.append({ field: name, flag: texts.replace(name, "_", "-"), kind, item, choices, optional })
+            }
+        },
+        _ => (),
+    }
+    out
+}
+
+fn placeholder(o: Opt) -> String {
+    let kind = if o.kind == "array" { o.item } else { o.kind }
+    if !o.choices.is_empty() {
+        return $"<{texts.join(o.choices, "|")}>"
+    }
+    $"<{kind}>"
+}
+
+fn usage_of(program: String, opts: List<Opt>) -> String {
+    let positional = opts.filter(fn(o: Opt) -> Bool { o.field == "args" })
+    var head = if program == "" { "usage: [options]" } else { $"usage: {program} [options]" }
+    if !positional.is_empty() {
+        head = $"{head} [args...]"
+    }
+    var lines = [head, "", "options:"]
+    for o in opts {
+        if o.field == "args" {
+            continue
+        }
+        let spelled = if o.kind == "boolean" { $"--{o.flag}" } else { $"--{o.flag} {placeholder(o)}" }
+        let note = if o.kind == "array" {
+            "repeatable"
+        } else if o.kind == "boolean" || o.optional {
+            ""
+        } else {
+            "required"
+        }
+        var line = $"  {spelled}"
+        if note != "" {
+            while texts.len(line) < 32 {
+                line = $"{line} "
+            }
+            line = $"{line} ({note})"
+        }
+        lines = lines.append(line)
+    }
+    lines = lines.append("  -h, --help")
+    texts.join(lines, "\n")
+}
+
+/// The help text for the interface `T`.
+pub fn usage<T>(program: String) -> String where T: Codec { usage_of(program, options<T>()) }
+
+fn convert(kind: String, choices: List<String>, raw: String) -> Result<Data, String> {
+    if kind == "integer" {
+        return match texts.parse_int(raw) {
+            .some(n) => ok(Data.int(n)),
+            .none => err($"`{raw}` is not an integer"),
+        }
+    }
+    if kind == "number" {
+        return match texts.parse_float(raw) {
+            .some(f) => ok(Data.float(f)),
+            .none => err($"`{raw}` is not a number"),
+        }
+    }
+    if kind == "boolean" {
+        return if raw == "true" { ok(Data.bool(true)) } else if raw == "false" { ok(Data.bool(false)) } else { err($"`{raw}` is not true or false") }
+    }
+    if !choices.is_empty() && !choices.contains(raw) {
+        return err($"`{raw}` is not one of {texts.join(choices, ", ")}")
+    }
+    ok(Data.string(raw))
+}
+
+/// Parse `args` (as `env.args()` gives them) into `T`.
+pub fn parse<T>(args: List<String>) -> Result<T, Error> where T: Codec { parse_from<T>("", args, map {}) }
+
+/// `parse`, naming the program in the help text.
+pub fn parse_program<T>(program: String, args: List<String>) -> Result<T, Error> where T: Codec { parse_from<T>(program, args, map {}) }
+
+/// Parse `args` into `T`, taking fields not given from `defaults`.
+pub fn parse_or<T>(args: List<String>, defaults: T) -> Result<T, Error> where T: Codec {
+    var base: Map<String, Data> = map {}
+    for (k, v) in schema.fields(defaults) {
+        base = base.insert(k, v)
+    }
+    parse_from<T>("", args, base)
+}
+
+fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -> Result<T, Error> where T: Codec {
+    let opts = options<T>()
+    let usage = usage_of(program, opts)
+    let fail = fn(code: Symbol, message: String) -> Error { { code, message, usage } }
+    var values = base
+    var lists: Map<String, List<Data>> = map {}
+    var positional: List<String> = []
+    var only_positional = false
+    var i = 0
+    while i < args.len() {
+        let a = args.get(i).unwrap_or("")
+        i = i + 1
+        if only_positional || !texts.starts_with(a, "-") || a == "-" {
+            positional = positional.append(a)
+            continue
+        }
+        if a == "--" {
+            only_positional = true
+            continue
+        }
+        if a == "--help" || a == "-h" {
+            return err(fail(:cli/help, "help"))
+        }
+        if !texts.starts_with(a, "--") {
+            return err(fail(:cli/unknown, $"unknown option `{a}`"))
+        }
+        let body = texts.slice(a, 2, texts.len(a)).unwrap_or("")
+        let parts = texts.split(body, "=")
+        let name = parts.first().unwrap_or("")
+        let inline: Option<String> = if parts.len() > 1 { Option.some(texts.join(parts.slice(1, parts.len()), "=")) } else { Option.none }
+        let spelled = texts.replace(name, "_", "-")
+        let found = opts.filter(fn(o: Opt) -> Bool { o.flag == spelled && o.field != "args" })
+        // `--no-flag` turns a flag off
+        let negated = opts.filter(fn(o: Opt) -> Bool { o.kind == "boolean" && $"no-{o.flag}" == spelled })
+        match found.first() {
+            .some(o) => {
+                if o.kind == "boolean" {
+                    let v = match inline {
+                        .some(raw) => match convert("boolean", [], raw) {
+                            .ok(d) => d,
+                            .err(m) => { return err(fail(:cli/invalid, $"--{o.flag}: {m}")) },
+                        },
+                        .none => Data.bool(true),
+                    }
+                    values = values.insert(o.field, v)
+                    continue
+                }
+                let raw = match inline {
+                    .some(r) => r,
+                    .none => {
+                        if i >= args.len() {
+                            return err(fail(:cli/missing, $"--{o.flag} needs a value"))
+                        }
+                        i = i + 1
+                        args.get(i - 1).unwrap_or("")
+                    },
+                }
+                let kind = if o.kind == "array" { o.item } else { o.kind }
+                let v = match convert(kind, o.choices, raw) {
+                    .ok(d) => d,
+                    .err(m) => { return err(fail(:cli/invalid, $"--{o.flag}: {m}")) },
+                }
+                if o.kind == "array" {
+                    lists = lists.insert(o.field, lists.get(o.field).unwrap_or([]).append(v))
+                } else {
+                    values = values.insert(o.field, v)
+                }
+            },
+            .none => match negated.first() {
+                .some(o) => { values = values.insert(o.field, Data.bool(false)) },
+                .none => { return err(fail(:cli/unknown, $"unknown option `--{name}`")) },
+            },
+        }
+    }
+    for o in opts {
+        if o.field == "args" {
+            values = values.insert("args", Data.list(positional.map(fn(p: String) -> Data { Data.string(p) })))
+        } else if o.kind == "array" {
+            match lists.get(o.field) {
+                .some(items) => { values = values.insert(o.field, Data.list(items)) },
+                .none => if values.get(o.field).is_none() {
+                    values = values.insert(o.field, Data.list([]))
+                },
+            }
+        } else if values.get(o.field).is_none() {
+            if o.kind == "boolean" {
+                values = values.insert(o.field, Data.bool(false))
+            } else if o.optional {
+                values = values.insert(o.field, Data.null)
+            } else {
+                return err(fail(:cli/missing, $"--{o.flag} is required"))
+            }
+        }
+    }
+    if !positional.is_empty() && opts.filter(fn(o: Opt) -> Bool { o.field == "args" }).is_empty() {
+        return err(fail(:cli/unknown, $"unexpected argument `{positional.first().unwrap_or("")}`"))
+    }
+    match codec.from_data<T>(Data.object(values)) {
+        .ok(v) => ok(v),
+        .err(e) => err(fail(:cli/invalid, $"{e}")),
+    }
+}

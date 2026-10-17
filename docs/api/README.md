@@ -10,6 +10,7 @@
 | [`std.seq`](seq.md) | Typed lazy sequences. A `Seq<T>` is a reusable description: each |
 | [`std.text`](text.md) | Unicode text operations. |
 | [`std.env`](env.md) | Process environment. |
+| [`std.cli`](cli.md) | Typed command-line arguments: a record type is the interface. |
 | [`std.fs`](fs.md) | Filesystem access. Operations run on the blocking pool and park the |
 | [`std.map`](map.md) | Persistent maps with value semantics. |
 | [`std.set`](set.md) | Persistent sets. |

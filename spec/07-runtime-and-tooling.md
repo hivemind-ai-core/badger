@@ -20,6 +20,7 @@ an HTTP framework on a CLI program.
 | `std.task`, `std.channel`, `std.broadcast` | Scoped concurrency, joins, bounded queues, batches, one-shot replies, broadcast |
 | `std.system`, `std.worker`, `std.pipeline` | Lifecycle graphs, worker policy, typed interceptors |
 | `std.io`, `std.fs`, `std.path`, `std.process`, `std.env` | OS interaction and subprocesses |
+| `std.cli` | Typed command-line arguments: a record type is the interface, with generated help |
 | `std.text`, `std.bytes`, `std.num` | Unicode text, byte views and decoding, numeric conversions and checked/wrapping arithmetic |
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |
 | `std.datetime` | Calendar dates, times, time zones, calendar arithmetic, `strftime`/`strptime`, RFC 3339 |

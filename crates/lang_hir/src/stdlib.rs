@@ -17,6 +17,7 @@ std_modules![
     "seq",
     "text",
     "env",
+    "cli",
     "fs",
     "map",
     "set",
