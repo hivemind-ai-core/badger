@@ -164,7 +164,7 @@ fn layout(payload: usize) -> Layout {
 /// allocates from them without the lock (like its object list). Small
 /// cells are reused, not returned to the system. Larger objects use the
 /// system allocator.
-const SMALL_MAX: usize = 256;
+const SMALL_MAX: usize = 512;
 // Diagnostic builds can compare larger classes without changing their binary.
 const CLASSES: usize = if cfg!(feature = "gc-profile") { 1024 / 16 } else { SMALL_MAX / 16 };
 fn small_max() -> usize {

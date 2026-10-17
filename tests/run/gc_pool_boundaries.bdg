@@ -1,0 +1,37 @@
+// Strings cross 256/512/1024-byte total cell boundaries and escape their task.
+import std.array
+import std.io
+import std.task
+import std.text
+
+fn build(seed: Int) -> Array<String> {
+    let sizes = [0, 1, 231, 232, 233, 487, 488, 489, 999, 1000, 1001, 4096]
+    let fill = if seed % 2 == 0 { "x" } else { "y" }
+    array.build(sizes.len(), fn(i: Int) { text.repeat(fill, sizes[i] + seed) })
+}
+
+fn check(values: Array<String>, seed: Int) -> Unit {
+    let sizes = [0, 1, 231, 232, 233, 487, 488, 489, 999, 1000, 1001, 4096]
+    let fill = if seed % 2 == 0 { "x" } else { "y" }
+    assert(values.len() == sizes.len())
+    for i in 0..sizes.len() {
+        assert(values[i] == text.repeat(fill, sizes[i] + seed))
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = task.scope(fn(s) -> Result<Unit, io.Error> {
+        let a = s.spawn(fn() { build(0) })
+        let b = s.spawn(fn() { build(1) })
+        let first = a.join()
+        let second = b.join()
+        for seed in 2..10 {
+            check(build(seed), seed)
+            check(first, 0)
+            check(second, 1)
+        }
+        ok(())
+    })?
+    io.println("gc pool boundaries: ok")?
+    ok(())
+}

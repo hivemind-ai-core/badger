@@ -325,7 +325,14 @@ mod tests {
 
     #[test]
     fn bytes_follow_actual_small_pool_and_large_layout_boundaries() {
-        for (payload, requested, cell) in [(0, 16, 32), (1, 17, 32), (240, 256, 256), (241, 257, 257)] {
+        for (payload, requested, cell) in [
+            (0, 16, 32),
+            (1, 17, 32),
+            (240, 256, 256),
+            (241, 257, if small_max() >= 512 { 272 } else { 257 }),
+            (497, 513, if small_max() >= 1024 { 528 } else { 513 }),
+            (1009, 1025, 1025),
+        ] {
             let volume = Volume::object(payload);
             assert_eq!(volume.objects, 1);
             assert_eq!(volume.requested_bytes, requested);

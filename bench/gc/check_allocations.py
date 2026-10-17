@@ -17,10 +17,13 @@ def main():
     parser.add_argument("--diagnostic", type=Path, required=True)
     parser.add_argument("--ordinary", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--pool-max", type=int, choices=[256, 512, 1024])
     args = parser.parse_args()
     binaries = {name: path.resolve() for name, path in
                 [("diagnostic", args.diagnostic), ("ordinary", args.ordinary)]}
     env = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_")}
+    if args.pool_max is not None:
+        env["BADGER_GC_POOL_MAX"] = str(args.pool_max)
     rows = []
     with tempfile.TemporaryDirectory(prefix="badger-allocation-check-") as directory:
         census = Path(directory) / "census.json"
@@ -37,11 +40,24 @@ def main():
                 assert result.stdout == "transient maps: ok\n", result
                 profile = json.loads(census.read_text())
                 validate_allocations(profile)
+                if args.pool_max is not None:
+                    assert len(profile["allocation_sizes"]["small_pool_classes"]) == args.pool_max // 16
                 assert profile["totals"]["first_survival"]["objects"] > 0
                 assert profile["totals"]["reclaimed_before_survival"]["objects"] > 0
                 assert profile["totals"]["reclaimed_after_survival"]["objects"] > 0
                 rows.append(dict(generational=generation, workers=workers, profile=profile,
                                  stderr=result.stderr))
+                census.unlink()
+                # Retain strings near every boundary across task handoff and
+                # later collections, independently of the map fixture above.
+                boundary = subprocess.run(command[:-1] + ["tests/run/gc_pool_boundaries.bdg"],
+                                          cwd=ROOT, env=settings, capture_output=True,
+                                          text=True, timeout=180, check=True)
+                assert boundary.stdout == "gc pool boundaries: ok\n", boundary
+                boundary_profile = json.loads(census.read_text())
+                validate_allocations(boundary_profile)
+                rows.append(dict(fixture="gc_pool_boundaries", generational=generation,
+                                 workers=workers, profile=boundary_profile, stderr=boundary.stderr))
                 census.unlink()
                 print(f"census stress/verify: generation={generation} workers={workers}: ok", flush=True)
         result = subprocess.run([str(binaries["ordinary"]), "run", "--release",
@@ -56,6 +72,8 @@ def main():
     report = dict(binaries={name: dict(path=str(path), sha256=sha(path))
                             for name, path in binaries.items()},
                   fixture_sha256=sha(ROOT / "tests/run/transient_maps.bdg"), runs=rows,
+                  boundary_fixture_sha256=sha(ROOT / "tests/run/gc_pool_boundaries.bdg"),
+                  pool_max=args.pool_max,
                   ordinary_profile_absent=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(gzip.compress((json.dumps(report, indent=2) + "\n").encode(), mtime=0))
