@@ -177,7 +177,7 @@ pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
 /// count stays unchanged, so an append branches/copies instead of reading
 /// an old version's invisible page. All mutators are stopped.
 pub(crate) fn clear_unmarked_directory_pages() {
-    gc::for_each_object_of(dir_desc(), &mut |dir| {
+    gc::for_each_object_of_stopped(dir_desc(), &mut |dir| {
         let n = dir_used(dir).load(Ordering::Relaxed) as usize;
         for i in 0..n {
             let slot = dir_slot(dir, i);

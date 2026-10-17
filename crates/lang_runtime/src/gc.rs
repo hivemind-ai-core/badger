@@ -998,12 +998,18 @@ fn finalize(p: *mut Header) {
 /// stops the world while it looks; inspection only).
 pub fn for_each_object_of(desc: &'static TypeDesc, f: &mut dyn FnMut(u64)) {
     crate::task::stop_the_world();
+    for_each_object_of_stopped(desc, f);
+    crate::task::resume_the_world();
+}
+
+/// Collector-internal inspection: the caller already stopped the world.
+/// Never resume it here; the collector still has marking/sweeping to do.
+pub(crate) fn for_each_object_of_stopped(desc: &'static TypeDesc, f: &mut dyn FnMut(u64)) {
     for p in all_objects() {
         if std::ptr::eq(unsafe { (*p).desc }, desc) {
             f(p as u64);
         }
     }
-    crate::task::resume_the_world();
 }
 
 /// Every managed object (while the world is stopped or under the lock in

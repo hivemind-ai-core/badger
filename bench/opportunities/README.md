@@ -31,6 +31,18 @@ compiler's generated function sizes; MIR dumps and pre-optimization CLIF alone
 are not evidence of final machine-code costs. Execution timers exclude JIT;
 process resource numbers include it. No CPU affinity/frequency isolation is imposed.
 
+After implementation, interleave the original immutable binary with the new one:
+
+```
+python3 bench/opportunities/run.py --bin-dir /tmp/opportunity-after --peer-bin-dir /tmp/opportunity-before --out /tmp/opportunity-comparison
+python3 bench/opportunities/compare.py /tmp/opportunity-comparison/measurements.json
+```
+
+`current` labels the optimized binary and `baseline` labels the original binary.
+The final run measures both versions again in shuffled order; initial baseline
+results are retained separately. Runtime/compilation diagnostics in the final
+run use `current`, so compare those with the initial baseline diagnostics.
+
 For application workloads run the existing independently checked telemetry suite
 against the same immutable binary, using all four profiles, fixed eight parsers,
 and workers 1/2/4/8. Keep input settings identical across revisions:
