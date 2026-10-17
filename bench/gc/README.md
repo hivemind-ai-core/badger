@@ -129,6 +129,9 @@ Map cases execute on one task even when the runtime has several workers.
 ordinary persistent maps. They complement builder-only and string/snapshot
 cases and isolate path-copy churn at different trie shapes. Final validation
 checks every key and its last inserted value.
+The `persistent-64-major`, `persistent-4096-major` and `snapshots-major` cases
+extend allocation volume to exercise major collection and pool retirement, which
+short runs can miss. Retained snapshots also expose pool fragmentation costs.
 
 `messages-int`, `messages-int-slow`, `messages-int-retained` and
 `messages-int-fanout` mirror the original `U64` message workloads using signed

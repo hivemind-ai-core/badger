@@ -37,6 +37,9 @@ COVERAGE = {
     "snapshots": dict(mode="snapshots", n=65536, rounds=1, payload=96, retain=32),
     **{f"persistent-{size}": dict(mode="persistent-int", n=131072, rounds=1, payload=1, retain=size)
        for size in [64, 256, 4096]},
+    **{f"persistent-{size}-major": dict(mode="persistent-int", n=524288, rounds=1, payload=1, retain=size)
+       for size in [64, 4096]},
+    "snapshots-major": dict(mode="snapshots", n=262144, rounds=1, payload=96, retain=32),
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
        for name in ["visible", "stored", "collected", "eager"]},
 }
