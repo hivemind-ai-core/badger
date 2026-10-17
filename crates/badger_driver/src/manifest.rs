@@ -289,6 +289,14 @@ impl Manifest {
                 // `[profile.NAME]` and `[profile.NAME.table]`
                 if let Some(rest) = section.strip_prefix("profile.") {
                     let p = rest.split('.').next().unwrap_or(rest);
+                    // a profile overlays `[config]` itself: `[profile.dev.config]`
+                    // would be a configuration table named `config`
+                    if rest.split('.').nth(1) == Some("config") {
+                        return Err(format!(
+                            "line {}: `[{section}]`: a profile overlays `[config]` directly; put these keys in `[profile.{p}]`",
+                            i + 1
+                        ));
+                    }
                     if !m.profiles.iter().any(|(n, _)| n == p) {
                         m.profiles.push((p.to_string(), vec![]));
                     }
@@ -613,6 +621,16 @@ mod tests {
             Manifest::parse("[package]\nname = \"a\"\n[config]\na.b = 1\n[config.a]\nb = 2\n").unwrap_err();
         assert!(dotted.contains("key `b` is defined twice"), "{dotted}");
         assert!(Manifest::parse("[package]\nname = \"a\"\n[runtime]\n\"workers\" = 2\n").is_ok());
+    }
+
+    /// `[profile.NAME.config]` reads like a profile's `[config]` but would be
+    /// a configuration table named `config`: refused with the fix.
+    #[test]
+    fn profile_config_table_is_an_error() {
+        let e = Manifest::parse("[package]\nname = \"a\"\n[profile.dev.config]\nport = 2\n").unwrap_err();
+        assert!(e.contains("put these keys in `[profile.dev]`"), "{e}");
+        let ok = Manifest::parse("[package]\nname = \"a\"\n[profile.dev]\nport = 2\n[profile.dev.db]\nurl = \"x\"\n");
+        assert!(ok.is_ok());
     }
 
     #[test]
