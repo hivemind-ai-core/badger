@@ -1355,6 +1355,15 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                         let fid = self.m.instance(def, args);
                         Some(Operand::Const(Const::Addr(self.m.static_closure(fid))))
                     }
+                    // `Error.from` of `derive(From)`: the variant's constructor
+                    Some(Res::Method(Target::Derived {
+                        imp: DerivedImplPub::FromVariant { variant, .. },
+                        ..
+                    })) if matches!(&*ty, TyKind::Fn(_)) => {
+                        let TyKind::Fn(f) = &*ty else { unreachable!() };
+                        let fid = self.m.ctor_thunk(&f.ret.clone(), variant);
+                        Some(Operand::Const(Const::Addr(self.m.static_closure(fid))))
+                    }
                     _ => {
                         self.m.errors.push("unsupported associated function value".into());
                         Some(unit_op())
