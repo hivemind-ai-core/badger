@@ -43,6 +43,7 @@ std_modules![
     "system",
     "sqlite",
     "valkey",
+    "postgres",
     "http",
     "buffer",
     "worker",

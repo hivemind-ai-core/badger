@@ -26,6 +26,7 @@ lang_formats.workspace = true
 lang_template.workspace = true
 lang_crypto.workspace = true
 lang_valkey.workspace = true
+lang_postgres.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

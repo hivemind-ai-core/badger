@@ -353,11 +353,12 @@ Native modules are the boundary for libraries that exchange data rather
 than machine words. `extern "native NAME" fn` declares a function of
 module `NAME` (`"native NAME.FUNCTION"` names the module's function when
 the declaration's name differs), linked into the executable or loaded
-from `libNAME.so`; `std.sqlite`, `std.fetch`, `std.http`, `std.valkey`,
-the formats (`std.toml`, `std.yaml`, `std.csv`), `std.template`, and
-`std.encoding`/`std.crypto`/`std.uuid` are built on the `lang_sqlite`,
-`lang_fetch`, `lang_http`, `lang_valkey`, `lang_formats`,
-`lang_template`, and `lang_crypto` modules.
+from `libNAME.so`; `std.sqlite`, `std.postgres`, `std.fetch`, `std.http`,
+`std.valkey`, the formats (`std.toml`, `std.yaml`, `std.csv`),
+`std.template`, and `std.encoding`/`std.crypto`/`std.uuid` are built on
+the `lang_sqlite`, `lang_postgres`, `lang_fetch`, `lang_http`,
+`lang_valkey`, `lang_formats`, `lang_template`, and `lang_crypto`
+modules.
 Arguments and results cross by copy in a typed wire format, so module code
 never sees managed memory: values of the declared types (primitives,
 text, bytes, `Data`, `native.Handle`, and collections, options, results,

@@ -172,6 +172,7 @@ pub fn register_native_modules() {
         lang_runtime::native::register_builtin("lang_template", lang_template::native_entry);
         lang_runtime::native::register_builtin("lang_crypto", lang_crypto::native_entry);
         lang_runtime::native::register_builtin("lang_valkey", lang_valkey::native_entry);
+        lang_runtime::native::register_builtin("lang_postgres", lang_postgres::native_entry);
     });
 }
 

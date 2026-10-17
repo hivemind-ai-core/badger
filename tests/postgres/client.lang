@@ -1,0 +1,112 @@
+// std.postgres against a live server at $POSTGRES_URL (a database the test
+// may change): schema scripts, typed parameters and results, records,
+// errors, transactions, describe, cancellation, and a shared pool.
+import std.env
+import std.io
+import std.postgres
+import std.task
+import std.time
+
+type Item = { id: Int, name: String, price: String, tags: List<String>, note: Option<String> }
+
+pub enum AppError {
+    io(source: io.Error),
+    postgres(source: postgres.Error),
+} derive(Error, From)
+
+fn code<T>(r: Result<T, postgres.Error>) -> String {
+    match r {
+        .ok(_) => "ok",
+        .err(e) => $"{e.code}",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let url = env.get("POSTGRES_URL").unwrap_or("postgres://localhost/postgres")
+    let db = postgres.connect(url)?
+    let _ = postgres.execute(db, """DROP TABLE IF EXISTS items; DROP TYPE IF EXISTS mood;
+        CREATE TYPE mood AS ENUM ('happy', 'sad');
+        CREATE TABLE items (
+            id bigserial PRIMARY KEY,
+            name text NOT NULL UNIQUE,
+            price numeric(10, 2) NOT NULL,
+            tags text[] NOT NULL DEFAULT '{}',
+            note text,
+            meta jsonb,
+            mood mood,
+            made timestamptz,
+            uid uuid
+        )""", [])?
+    let n = postgres.execute(db, "INSERT INTO items (name, price, tags, meta, mood, made, uid) VALUES ($1, $2, $3, $4, $5, $6, $7)", [
+        Data.string("pen"), Data.float(1.5), Data.list([Data.string("office"), Data.string("a \"quoted\", tag")]),
+        Data.object(map { "color" => Data.string("blue"), "sizes" => Data.list([Data.int(1), Data.int(2)]) }),
+        Data.string("happy"), Data.string("2026-10-16 12:30:00+00"), Data.string("67e55044-10b1-426f-9247-bb680e5fe0c8"),
+    ])?
+    io.println($"inserted {n}")?
+    let _ = postgres.execute(db, "INSERT INTO items (name, price, note) VALUES ($1, $2, $3)", [Data.string("ink"), Data.int(12), Data.null])?
+    let row = postgres.query_one(db, "SELECT name, price, tags, meta, mood, made, uid, note, 2 + 2 AS four, 0.1::float8 AS f, true AS yes FROM items WHERE name = $1", [Data.string("pen")])?
+    io.println($"row: {row}")?
+    let items = postgres.query_as<Item>(db, "SELECT id, name, price::text AS price, tags, note FROM items ORDER BY id", [])?
+    for it in items {
+        io.println($"item {it.id} {it.name} {it.price} {it.tags.len()} {it.note.unwrap_or("-")}")?
+    }
+    // errors are values with kinds
+    io.println($"duplicate: {code(postgres.execute(db, "INSERT INTO items (name, price) VALUES ('pen', 1)", []))}")?
+    io.println($"not null: {code(postgres.execute(db, "INSERT INTO items (name, price) VALUES ($1, NULL)", [Data.string("x")]))}")?
+    io.println($"syntax: {code(postgres.query(db, "SELEC 1", []))}")?
+    io.println($"no table: {code(postgres.query(db, "SELECT * FROM nope", []))}")?
+    io.println($"parameters: {code(postgres.query(db, "SELECT $1::int", []))}")?
+    io.println($"two rows: {code(postgres.query_one(db, "SELECT * FROM items", []))}")?
+    // transactions
+    let committed = postgres.transaction(db, fn(tx) -> Result<Int, postgres.Error> {
+        let n = postgres.execute(tx, "UPDATE items SET note = 'sold' WHERE name = $1", [Data.string("ink")])?
+        ok(n)
+    })
+    io.println($"commit: {code(committed)} note {postgres.query_one(db, "SELECT note FROM items WHERE name = 'ink'", [])?}")?
+    let rolled = postgres.transaction(db, fn(tx) -> Result<Int, postgres.Error> {
+        let _ = postgres.execute(tx, "DELETE FROM items", [])?
+        err({ code: :app/changed_mind, message: "no", cause: Option.none })
+    })
+    io.println($"rollback: {code(rolled)} rows {postgres.query_one(db, "SELECT count(*) AS n FROM items", [])?}")?
+    let aborted = postgres.transaction(db, fn(tx) -> Result<Int, postgres.Error> {
+        let _ = postgres.execute(tx, "DELETE FROM items WHERE name = 'ink'", [])?
+        // a failed statement the body ignores still aborts the transaction
+        let _ = postgres.execute(tx, "INSERT INTO items (name, price) VALUES ('pen', 1)", [])
+        ok(0)
+    })
+    io.println($"aborted: {code(aborted)} rows {postgres.query_one(db, "SELECT count(*) AS n FROM items", [])?}")?
+    // describe
+    let d = postgres.describe(db, "SELECT id, note, price * 2 AS double FROM items WHERE name = $1 AND price > $2")?
+    io.println($"params: {d.params}")?
+    for c in d.columns {
+        io.println($"column {c.name} {c.sql_type} nullable={c.nullable.map(fn(b: Bool) -> String { $"{b}" }).unwrap_or("unknown")}")?
+    }
+    // a statement abandoned by a timeout is cancelled on the server
+    let started = time.now()
+    let slow = task.timeout(time.millis(100), fn() { postgres.query(db, "SELECT pg_sleep(5)", []) })
+    io.println($"timed out: {slow.is_err()}")?
+    let _ = postgres.query(db, "SELECT 1", [])?
+    io.println($"fast after cancel: {time.as_millis(time.now() - started) < 2000}")?
+    // many tasks share the pool
+    let total = task.scope(fn(s) -> Result<Int, postgres.Error> {
+        var tasks = []
+        for i in 0..20 {
+            tasks = tasks.append(s.spawn(fn() { postgres.query_one(db, "SELECT $1::int * 2 AS v", [Data.int(i)]) }))
+        }
+        var sum = 0
+        for t in tasks {
+            match t.join()? {
+                .object(fields) => match fields.get("v") {
+                    .some(.int(v)) => { sum = sum + v },
+                    _ => (),
+                },
+                _ => (),
+            }
+        }
+        ok(sum)
+    })?
+    io.println($"pool sum: {total}")?
+    postgres.close(db)
+    io.println($"closed: {postgres.is_closed(db)}")?
+    ok(())
+}
