@@ -74,6 +74,11 @@ impl Collection {
             self.fields.insert(name, json!(value));
         }
     }
+    pub fn snapshot_counts(&mut self, name: &'static str, values: impl Iterator<Item = usize>) {
+        if self.clock.is_some() {
+            self.fields.insert(name, json!(values.collect::<Vec<_>>()));
+        }
+    }
     pub fn finish(self) {
         if self.clock.is_some() {
             RECORDS.lock().unwrap().push(json!({"phases_ns": self.phases, "heap": self.fields}));

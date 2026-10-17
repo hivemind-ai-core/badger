@@ -94,6 +94,20 @@ def validate_coverage(record, config):
         raise ValueError("invalid elapsed time")
 
 
+def validate_sweep(profile):
+    for collection in profile["collections"]:
+        heap = collection["heap"]
+        if "sweep_work_per_worker" not in heap:
+            continue
+        work, helpers = heap["sweep_work_per_worker"], heap["sweep_work_per_helper"]
+        if (not work or any(type(n) is not int or n < 0 for n in work + helpers)
+                or sum(work) != heap["swept"]
+                or len(helpers) != heap["sweep_helpers"]
+                or len(helpers) > max(0, sum(n > 0 for n in work) - 1)
+                or any(n == 0 for n in helpers) or sum(helpers) > sum(work)):
+            raise ValueError("invalid sweep work/helper accounting")
+
+
 def validate_allocations(profile):
     """Check byte and object conservation, not just successful JSON output."""
     if profile["schema"] != 1 or profile["scope"] != "process-managed-allocations":
@@ -264,6 +278,8 @@ def main():
                 t.validate(record, config, workers, oracles[name])
             before, after = (record["before"], record["after"]) if coverage else (record["heap_before"], record["heap_after"])
             phases = json.loads(gc_path.read_text()) if gc_path.exists() else None
+            if phases is not None:
+                validate_sweep(phases)
             if "BADGER_GC_POOL_MAX" in settings:
                 if phases is None or phases["policy"].get("pool_max_bytes") != int(settings["BADGER_GC_POOL_MAX"]):
                     raise ValueError("diagnostic binary did not apply the pool-size policy")

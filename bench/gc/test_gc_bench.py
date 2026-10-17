@@ -48,6 +48,21 @@ class CoverageOracle(unittest.TestCase):
             run.validate_coverage(good | dict(config=c | dict(n=8)), c)
 
 
+class SweepAccounting(unittest.TestCase):
+    def test_work_and_helper_conservation(self):
+        heap = dict(swept=100, sweep_work_per_worker=[95, 5, 0],
+                    sweep_helpers=1, sweep_work_per_helper=[5])
+        run.validate_sweep(dict(collections=[dict(heap=heap)]))
+        for patch in [dict(swept=99), dict(sweep_work_per_worker=[95, -5, 10]),
+                      dict(sweep_helpers=2), dict(sweep_work_per_helper=[0]),
+                      dict(sweep_work_per_helper=[101]),
+                      dict(sweep_helpers=2, sweep_work_per_helper=[5, 95])]:
+            with self.assertRaises(ValueError):
+                run.validate_sweep(dict(collections=[dict(heap=heap | patch)]))
+        run.validate_sweep(dict(collections=[dict(heap=heap | dict(sweep_helpers=0,
+                                                                  sweep_work_per_helper=[]))]))
+
+
 class ChildRss(unittest.TestCase):
     def test_native_launcher_excludes_runner_memory(self):
         import os

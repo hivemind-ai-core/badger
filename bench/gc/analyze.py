@@ -5,18 +5,23 @@ import collections
 import gzip
 import json
 from pathlib import Path
+import statistics
 
 from run import t
 
 
-def phase_totals(run):
+def workload_collections(run):
     before, after = ((run["record"]["before"], run["record"]["after"]) if "before" in run["record"]
                      else (run["record"]["heap_before"], run["record"]["heap_after"]))
-    result = collections.Counter()
     if run["gc"]:
-        for c in run["gc"]["collections"]:
-            if before["collections"] < c["heap"]["collection"] <= after["collections"]:
-                result.update(c["phases_ns"])
+        yield from (c for c in run["gc"]["collections"]
+                    if before["collections"] < c["heap"]["collection"] <= after["collections"])
+
+
+def phase_totals(run):
+    result = collections.Counter()
+    for c in workload_collections(run):
+        result.update(c["phases_ns"])
     return result
 
 
@@ -89,6 +94,24 @@ def main():
     for key, counts in sorted(groups.items()):
         if counts:
             lines.append(f"- {key}: " + ", ".join(f"{k} {v/1e6:.3f} ms" for k, v in counts.most_common()))
+    sweep_groups = collections.defaultdict(list)
+    for run in d["runs"]:
+        for c in workload_collections(run):
+            if "sweep_work_per_worker" in c["heap"]:
+                sweep_groups[(run["case"], run["workers"], run["variant"])].append(c["heap"])
+    if sweep_groups:
+        lines += ["", "Sweep work distribution (workload collections only):", "",
+                  "Small helper jobs count actual thread launches with fewer than 4,096 objects;",
+                  "these counts alone do not measure thread-startup cost.", "",
+                  "| Case | Workers | Variant | Collections / parallel | Helper launches | Small helper jobs | Median helper objects | Median largest-list share in parallel collections |",
+                  "|---|---:|---|---:|---:|---:|---:|---:|"]
+        for (case, workers, variant), heaps in sorted(sweep_groups.items()):
+            parallel = [h for h in heaps if h["sweep_helpers"]]
+            jobs = [n for h in heaps for n in h["sweep_work_per_helper"]]
+            shares = [max(h["sweep_work_per_worker"]) / h["swept"] for h in parallel]
+            median = f"{statistics.median(jobs):.0f}" if jobs else "n/a"
+            share = f"{100 * statistics.median(shares):.1f}%" if shares else "n/a"
+            lines.append(f"| {case} | {workers} | {variant} | {len(heaps)} / {len(parallel)} | {len(jobs)} | {sum(n < 4096 for n in jobs)} | {median} | {share} |")
     for path in sorted(args.directory.glob("*.folded")):
         if path.stem.endswith("--1"):
             continue

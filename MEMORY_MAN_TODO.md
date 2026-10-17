@@ -512,3 +512,16 @@ matched `0958059` pair; new experiments start from the integrated revision.
 Next slice: profile the distribution of swept work and native helper-thread
 creation before selecting a G3 scheduling/bookkeeping change. Preserve the
 current stop-world and finalizer-order contracts.
+
+### G3 measurement checkpoint
+
+Published G1a/G2 to main at `5d25647` with all 236 current dirty/untracked paths
+and the complete staged diff preserved. New work continues on this branch.
+The ordinary G3 application baseline at that revision is saved in `G3-baseline/`:
+48 oracle-checked runs, three repetitions plus a warmup, 262,144 events/profile,
+all four profiles and 1/2/4/8 workers. No G3 production policy has changed yet.
+
+Diagnostic builds now record per-worker swept-object counts and actual helper
+job sizes/launches. The runner checks count conservation; the analyzer reports
+small helper jobs and skew, filtered to workload collections. These diagnostic
+counts are evidence for selecting a sweep policy, not thread-startup timing.

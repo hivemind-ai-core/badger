@@ -787,6 +787,13 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     profile.snapshot("swept", total);
     #[cfg(feature = "gc-profile")]
     {
+        profile.snapshot_counts(
+            "sweep_work_per_worker",
+            (0..crate::task::MAX_WORKERS).map(|w| objects(w).len() - from(w)),
+        );
+        let helpers = if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP { &lists[1..] } else { &[] };
+        profile.snapshot("sweep_helpers", helpers.len());
+        profile.snapshot_counts("sweep_work_per_helper", helpers.iter().map(|&w| objects(w).len() - from(w)));
         // Observe marks before either serial or parallel sweep clears them.
         // The profiler compacts its side metadata in the same order as sweep.
         for &w in &lists {
