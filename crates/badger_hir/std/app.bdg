@@ -1,0 +1,168 @@
+// Application operations: a feature's significant entry points as typed
+// values with a stable identity, and the invocation metadata that travels
+// along a call chain (FRAMEWORK_DESIGN.md §7).
+//
+//     let create = app.from_fn({ id: #orders/create, version: 1, doc: "Create an order." },
+//         fn(call, input: CreateOrder) -> Result<Order, Error> { store.insert(input) })
+//     let order = create.call(app.call(), { title: "first" })?
+//
+// An operation is built only by `from_fn` or `from_pipeline`; it keeps the
+// input, output, error, and effect types of what it wraps, so typed
+// callers call it directly. `index` collects operations' metadata (for
+// routing, documentation, and tools) without erasing their types.
+import std.list
+import std.prelude
+import std.pipeline
+import std.text
+import std.time
+import std.uuid
+
+/// Who a call acts for, once an identity adapter has verified it.
+pub type Actor = { id: String, roles: List<String> }
+
+/// Invocation metadata: small and immutable. A call has its own identity, a
+/// correlation shared by the whole chain, the call it was made from, the
+/// operation it entered, an optional deadline, and an optional verified
+/// actor. It carries no dependencies: those are typed parameters.
+pub struct Call {
+    pub id: String,
+    pub correlation: String,
+    pub parent: Option<String>,
+    pub operation: Option<Symbol>,
+    pub deadline: Option<Instant>,
+    pub actor: Option<Actor>,
+}
+
+/// A new root call (no parent, no deadline, no actor).
+pub fn call() -> Call !{Io} {
+    let id = uuid.v4()
+    { id, correlation: id, parent: Option.none, operation: Option.none, deadline: Option.none, actor: Option.none }
+}
+
+/// A root call that must finish within `limit`.
+pub fn call_within(limit: Duration) -> Call !{Io} {
+    call().within(limit)
+}
+
+impl Call {
+    /// The call a nested invocation of `operation` makes: a new identity,
+    /// this call as its parent, and the same correlation, deadline, and actor.
+    pub fn child(self: &Self, operation: Symbol) -> Call !{Io} {
+        { ..self, id: uuid.v4(), parent: Option.some(self.id), operation: Option.some(operation) }
+    }
+
+    /// The call with a deadline `limit` from now, unless it already has an
+    /// earlier one: a deadline can be shortened, never extended.
+    pub fn within(self: &Self, limit: Duration) -> Call !{Io} {
+        let candidate = time.now() + limit
+        let deadline = match self.deadline {
+            .some(d) => if d < candidate { d } else { candidate },
+            .none => candidate,
+        }
+        { ..self, deadline: Option.some(deadline) }
+    }
+
+    /// The time left before the deadline (`none` without one).
+    pub fn remaining(self: &Self) -> Option<Duration> !{Io} {
+        match self.deadline {
+            .some(d) => {
+                let now = time.now()
+                Option.some(if d > now { d - now } else { 0ms })
+            }
+            .none => Option.none,
+        }
+    }
+
+    /// Has the deadline passed?
+    pub fn expired(self: &Self) -> Bool !{Io} {
+        match self.deadline {
+            .some(d) => time.now() >= d,
+            .none => false,
+        }
+    }
+
+    /// The call acting for a verified actor (for identity adapters).
+    pub fn acting_for(self: &Self, actor: Actor) -> Call {
+        { ..self, actor: Option.some(actor) }
+    }
+}
+
+/// An operation's stable identity and documentation.
+pub type Info = { id: Symbol, version: Int, doc: String }
+
+/// A typed operation: `invoke` receives the call (with this operation as
+/// its `operation`) and the input.
+pub struct Operation<I, O, E, Eff: Effect> {
+    pub info: Info,
+    invoke: fn(Call, I) -> Result<O, E> !Eff,
+}
+
+/// An operation from a function of the call and the input.
+pub fn from_fn<I, O, E, Eff>(info: Info, f: fn(Call, I) -> Result<O, E> !Eff) -> Operation<I, O, E, Eff> {
+    { info, invoke: f }
+}
+
+/// An operation from a pipeline whose input context is `{ call, input }`:
+/// its stages see both, and its handler's reply is the operation's output.
+pub fn from_pipeline<I, O, E, Eff>(info: Info, plan: pipeline.Plan<{ call: Call, input: I }, O, E, Eff>) -> Operation<I, O, E, Eff> {
+    let run = pipeline.compile(plan)
+    { info, invoke: fn(call: Call, input: I) { run({ call, input }) } }
+}
+
+impl<I, O, E, Eff> Operation<I, O, E, Eff> {
+    /// Invoke the operation as a nested call of `caller`, in the caller's task.
+    pub fn call(self: &Self, caller: Call, input: I) -> Result<O, E> !{Io, Eff} {
+        let f = self.invoke
+        f(caller.child(self.info.id), input)
+    }
+}
+
+/// A problem with operation metadata.
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String {
+        self.message
+    }
+}
+
+impl prelude.Error for Error {}
+
+/// Validated metadata of a set of operations: identities unique, versions
+/// positive, documentation present. Typed operations stay with the features
+/// that export them; the index refers to them by identity.
+pub struct Index {
+    entries: List<Info>,
+}
+
+pub fn index(infos: List<Info>) -> Result<Index, Error> {
+    var seen: List<Symbol> = []
+    for info in infos {
+        if seen.contains(info.id) {
+            return err({ code: #app/duplicate_operation, message: $"operation #{info.id} is registered twice" })
+        }
+        if info.version < 1 {
+            return err({ code: #app/invalid_operation, message: $"operation #{info.id} has version {info.version}; versions start at 1" })
+        }
+        if text.trim(info.doc) == "" {
+            return err({ code: #app/invalid_operation, message: $"operation #{info.id} has no documentation" })
+        }
+        seen = seen.append(info.id)
+    }
+    ok({ entries: infos })
+}
+
+impl Index {
+    /// Every operation's metadata, in registration order.
+    pub fn operations(self: &Self) -> List<Info> {
+        self.entries
+    }
+
+    /// The metadata of the operation `id`.
+    pub fn find(self: &Self, id: Symbol) -> Option<Info> {
+        list.find(self.entries, fn(i) { i.id == id })
+    }
+}

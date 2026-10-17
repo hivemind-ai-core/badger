@@ -45,6 +45,7 @@ std_modules![
     "codec",
     "config",
     "system",
+    "app",
     "sqlite",
     "valkey",
     "postgres",

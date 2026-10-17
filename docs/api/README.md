@@ -38,6 +38,7 @@
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |
+| [`std.app`](app.md) | Application operations: a feature's significant entry points as typed |
 | [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions. |
 | [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |
 | [`std.postgres`](postgres.md) | PostgreSQL with pooled connections and scoped transactions; the same |
