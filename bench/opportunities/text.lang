@@ -1,0 +1,20 @@
+import std.io
+import std.time
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    for kind in ["é", "a"] {
+        for n in [1000, 10000, 100000, 1000000] {
+            let s = text.repeat(kind, n)
+            let t = time.now()
+            var total = 0
+            for _ in 0..100 {
+                total = total + text.slice(s, 0, 1).unwrap_or("").len()
+            }
+            let elapsed = time.as_nanos(time.now() - t)
+            assert(total == 100)
+            io.println($"kind={kind} chars={n} repetitions=100 slice_ns={elapsed} check={total}")?
+        }
+    }
+    ok(())
+}

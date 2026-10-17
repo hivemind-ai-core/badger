@@ -21,11 +21,12 @@ fn bool_w(b: bool) -> u64 {
 }
 
 /// Descriptor of `List<String>` style results: the `ret` itself.
-fn strings_to_list(ret: &'static TypeDesc, items: impl IntoIterator<Item = String>) -> u64 {
+fn strings_to_list<S: AsRef<str>>(ret: &'static TypeDesc, items: impl IntoIterator<Item = S>) -> u64 {
     let r = Roots::new();
     let l = r.add(list::new(ret));
     for s in items {
-        let w = r.add(new_string(&s));
+        let item = Roots::new();
+        let w = item.add(new_string(s.as_ref()));
         list::push(l, w);
     }
     l
@@ -226,34 +227,28 @@ std_intrinsics! {
         let r = Roots::new();
         r.add(l);
         let items = list::to_vec(l);
-        let b = crate::buffer::new(targ(targs, 0), items.len());
-        crate::buffer::data(b).items.extend(items);
-        crate::buffer::data(b).frozen = true;
-        b
+        crate::buffer::frozen(targ(targs, 0), items)
     }
 
     // ---------------------------------------------------------------- buffers
     fn buffer_new(ctx, targs, ret, cap) { crate::buffer::new(targ(targs, 0), cap as usize) }
     fn buffer_push(ctx, targs, ret, b, v) {
-        crate::buffer::data(b).items.push(v);
-        gc::barrier(b);
+        crate::buffer::push(b, v);
         0
     }
     fn buffer_pop(ctx, targs, ret, b) {
         match crate::buffer::data(b).items.pop() { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }
     }
     fn buffer_get(ctx, targs, ret, b, i) {
-        match crate::buffer::data(b).items.get(i as usize) { Some(v) => some(rdesc(ret), *v), None => none(rdesc(ret)) }
+        match crate::buffer::data(b).items.get(i as usize) { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }
     }
     fn buffer_set(ctx, targs, ret, b, i, v) {
         let d = crate::buffer::data(b);
         if d.frozen {
             crate::task::panic_current("write to a frozen buffer".into(), crate::task::caller_location());
         }
-        match d.items.get_mut(i as usize) {
-            Some(slot) => { *slot = v; gc::barrier(b); 0 }
-            None => crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", d.items.len(), i as i64), crate::task::caller_location()),
-        }
+        if d.items.set(i as usize, v) { gc::barrier(b); 0 }
+        else { crate::task::panic_current(format!("index out of bounds: the length is {} but the index is {}", d.items.len(), i as i64), crate::task::caller_location()) }
     }
     fn buffer_len(ctx, targs, ret, b) { crate::buffer::data(b).items.len() as u64 }
     fn buffer_capacity(ctx, targs, ret, b) { crate::buffer::data(b).items.capacity() as u64 }
@@ -261,9 +256,9 @@ std_intrinsics! {
     fn buffer_freeze(ctx, targs, ret, b) { crate::buffer::data(b).frozen = true; b }
     fn bytes_from_buffer(ctx, targs, ret, b) {
         let d = crate::buffer::data(b);
-        let v: Vec<u8> = d.items.iter().map(|w| *w as u8).collect();
+        let v: Vec<u8> = d.items.iter().map(|w| w as u8).collect();
         // the buffer was consumed: its storage is released now
-        d.items = Vec::new();
+        d.items = crate::buffer::Items::new(d.elem.repr(), 0);
         d.frozen = true;
         crate::string::new_bytes(&v)
     }
@@ -275,15 +270,13 @@ std_intrinsics! {
         let r = Roots::new();
         r.add(b);
         let out = r.add(list::new(rdesc(ret)));
-        for v in crate::buffer::data(b).items.clone() {
-            list::push(out, v);
-        }
+        for v in crate::buffer::items(b).iter() { list::push(out, v); }
         out
     }
 
     fn buffer_to_bytes(ctx, targs, ret, b) {
         let items = &crate::buffer::data(b).items;
-        let bytes: Vec<u8> = items.iter().map(|w| *w as u8).collect();
+        let bytes: Vec<u8> = items.iter().map(|w| w as u8).collect();
         crate::string::new_bytes(&bytes)
     }
     fn bytes_get(ctx, targs, ret, b, i) {
@@ -398,12 +391,10 @@ std_intrinsics! {
     // ---------------------------------------------------------------- text
     fn contract_caller(ctx, targs, ret) { new_string(&crate::task::take_contract_site()) }
     fn text_lines(ctx, targs, ret, s) {
-        let v: Vec<String> = str_of(s).lines().map(str::to_string).collect();
-        strings_to_list(rdesc(ret), v)
+        strings_to_list(rdesc(ret), str_of(s).lines())
     }
     fn text_split(ctx, targs, ret, s, sep) {
-        let v: Vec<String> = str_of(s).split(str_of(sep)).map(str::to_string).collect();
-        strings_to_list(rdesc(ret), v)
+        strings_to_list(rdesc(ret), str_of(s).split(str_of(sep)))
     }
     fn text_trim(ctx, targs, ret, s) { new_string(str_of(s).trim()) }
     fn text_len(ctx, targs, ret, s) { str_of(s).chars().count() as u64 }
@@ -454,8 +445,7 @@ std_intrinsics! {
     fn text_trim_start(ctx, targs, ret, s) { new_string(str_of(s).trim_start()) }
     fn text_trim_end(ctx, targs, ret, s) { new_string(str_of(s).trim_end()) }
     fn text_split_whitespace(ctx, targs, ret, s) {
-        let v: Vec<String> = str_of(s).split_whitespace().map(str::to_string).collect();
-        strings_to_list(rdesc(ret), v)
+        strings_to_list(rdesc(ret), str_of(s).split_whitespace())
     }
     // Remove the indentation every non-blank line shares (spaces and
     // tabs, counted as characters); blank lines become empty.
@@ -482,21 +472,10 @@ std_intrinsics! {
         // character-indexed slice; returns Option<String> (one pass, no
         // index table)
         let st = str_of(s);
-        let (a, b) = (a as i64, b as i64);
-        if a < 0 || b < a {
+        let Some(range) = crate::string::char_range(st, a as i64, b as i64) else {
             return none(rdesc(ret));
-        }
-        let mut bounds = st.char_indices().map(|(i, _)| i).chain(std::iter::once(st.len()));
-        let Some(start) = bounds.nth(a as usize) else { return none(rdesc(ret)) };
-        let end = if b == a {
-            start
-        } else {
-            match bounds.nth((b - a - 1) as usize) {
-                Some(e) => e,
-                None => return none(rdesc(ret)),
-            }
         };
-        let w = new_string(&st[start..end]);
+        let w = new_string(&st[range]);
         some(rdesc(ret), w)
     }
     fn text_parse_int(ctx, targs, ret, s) {

@@ -1,0 +1,3 @@
+    Checking lang_driver v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_driver)
+    Checking lang_cli v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.71s

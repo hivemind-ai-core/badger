@@ -52,6 +52,32 @@ pub fn str_of<'a>(w: u64) -> &'a str {
     unsafe { std::str::from_utf8_unchecked(bytes_of(w)) }
 }
 
+/// Byte boundaries for a checked Unicode-scalar slice. Only scan up to
+/// `end`; a small prefix does not build an index of the whole input.
+pub fn char_range(s: &str, start: i64, end: i64) -> Option<std::ops::Range<usize>> {
+    if start < 0 || end < start {
+        return None;
+    }
+    let (start, end) = (start as usize, end as usize);
+    if end <= s.len() && s.as_bytes()[..end].is_ascii() {
+        return Some(start..end);
+    }
+    let mut chars = s.char_indices();
+    let from = if start == 0 {
+        0
+    } else {
+        let (i, c) = chars.nth(start - 1)?;
+        i + c.len_utf8()
+    };
+    let to = if end == start {
+        from
+    } else {
+        let (i, c) = chars.nth(end - start - 1)?;
+        i + c.len_utf8()
+    };
+    Some(from..to)
+}
+
 static SYMBOLS: Mutex<Option<FxHashMap<String, u64>>> = Mutex::new(None);
 
 /// Interned symbol: an immortal string object, unique per name.
@@ -69,4 +95,25 @@ pub fn symbol(name: &str) -> u64 {
     }
     m.insert(name.to_string(), w);
     w
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn scalar_slice_matches_character_reference() {
+        for input in ["", "abc", "éλ🦀z", "a\u{301}b", "\r\n", "aéz"] {
+            let chars: Vec<_> = input.chars().collect();
+            for a in -1..=chars.len() as i64 + 1 {
+                for b in -1..=chars.len() as i64 + 1 {
+                    let expected = if a >= 0 && b >= a && b as usize <= chars.len() {
+                        Some(chars[a as usize..b as usize].iter().collect::<String>())
+                    } else {
+                        None
+                    };
+                    let actual = super::char_range(input, a, b).map(|r| input[r].to_string());
+                    assert_eq!(actual, expected, "{input:?} [{a}, {b})");
+                }
+            }
+        }
+    }
 }

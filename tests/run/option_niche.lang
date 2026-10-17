@@ -1,0 +1,57 @@
+import std.text
+import std.list
+import std.task
+
+fn produce() -> Option<String> { Option.some("returned") }
+
+fn accept(value: Option<String>) -> Int {
+    match value { .some(s) => s.len(), .none => 0 }
+}
+
+fn exercise(seed: Int) -> Int {
+    var total = 0
+    for i in 0..24 {
+        let s = text.repeat("x", (i + seed) % 7)
+        var value: Option<String> = Option.none
+        if i % 3 != 0 { value = Option.some(s) }
+        // Both GC and suspension must keep the unwrapped payload alive.
+        task.yield_now()
+        let garbage = list.range(0, 16)
+        match value {
+            .some(v) => {
+                assert(i % 3 != 0)
+                assert(v == s)
+                total = total + v.len()
+            },
+            .none => assert(i % 3 == 0),
+        }
+        assert(garbage.len() == 16)
+    }
+    total
+}
+
+pub fn main() -> Unit {
+    assert(Option.some("").is_some())
+    assert(Option.some(0).is_some())
+    assert(Option.some(0).unwrap_or(99) == 0)
+    let absent: Option<String> = Option.none
+    let nested = Option.some(absent)
+    assert(nested.is_some())
+    match nested { .some(inner) => assert(inner.is_none()), .none => assert(false) }
+    let stored = Cell.new(Option.some("stored"))
+    task.yield_now()
+    assert(stored.get().unwrap_or("") == "stored")
+    assert(accept(produce()) == 8)
+    let result = task.scope(fn(scope) -> Result<Unit, String> {
+        let a = scope.spawn(fn() { exercise(0) })
+        let b = scope.spawn(fn() { exercise(1) })
+        let c = scope.spawn(fn() { exercise(2) })
+        let d = scope.spawn(fn() { exercise(3) })
+        assert(a.join() > 0)
+        assert(b.join() > 0)
+        assert(c.join() > 0)
+        assert(d.join() > 0)
+        ok(())
+    })
+    assert(result.is_ok())
+}

@@ -21,6 +21,8 @@ use rustc_hash::FxHashMap;
 use crate::layout::Layouts;
 use crate::mir::*;
 
+mod fusion;
+
 pub struct Mono<'g, 'a> {
     pub g: &'g Global<'a>,
     pub lay: Layouts<'g, 'a>,
@@ -40,6 +42,7 @@ pub struct Mono<'g, 'a> {
     nullary: FxHashMap<(Ty, u32), u64>,
     targs: FxHashMap<Vec<Ty>, u64>,
     pub errors: Vec<String>,
+    fuse_sequences: bool,
     /// The instance whose body is being lowered (polymorphic recursion is
     /// a request for the same definition at a deeper type).
     current: Option<(DefId, Vec<Ty>)>,
@@ -64,6 +67,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             nullary: FxHashMap::default(),
             targs: FxHashMap::default(),
             errors: vec![],
+            fuse_sequences: false,
             current: None,
         }
     }
@@ -1258,6 +1262,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let span = hir.exprs[e].span;
         let kind = hir.exprs[e].kind.clone();
         let ty = self.ty(e);
+        if self.m.fuse_sequences
+            && let Some(plan) = self.fused_terminal(e)
+        {
+            return self.lower_fused(e, plan);
+        }
         match kind {
             ExprKind::Lit(l) => Some(self.lit(&l, &ty)),
             ExprKind::Interp(parts) => {
@@ -2031,6 +2040,38 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Some(obj)
             }
             "identity" => Some(args[0]),
+            "buffer_len"
+                if self.m.lay.is_std(&targs[0], "Array") || self.m.lay.is_std(&targs[0], "Buffer") =>
+            {
+                let data = self.buffer_data(args[0]);
+                Some(self.buffer_len(data))
+            }
+            "buffer_get"
+                if targs
+                    .get(1)
+                    .is_some_and(|t| self.m.lay.is_std(t, "Array") || self.m.lay.is_std(t, "Buffer")) =>
+            {
+                let data = self.buffer_data(args[0]);
+                let len = self.buffer_len(data);
+                let inside = self.assign(
+                    Repr::I8,
+                    Rvalue::Cmp { op: CmpOp::Lt, a: args[1], b: len, ty: NumTy::I(64, false) },
+                );
+                let (yes, no, join) = (self.block(), self.block(), self.block());
+                let result = self.fresh(Repr::Ptr, None);
+                self.term(Term::Branch(inside, yes, no));
+                self.switch(yes);
+                let value = self.buffer_load(data, args[1], self.repr(&targs[0]));
+                let some = self.alloc_enum(ret_ty, 1, vec![value]);
+                self.emit(Stmt::Assign(result, Rvalue::Use(some)));
+                self.term(Term::Goto(join));
+                self.switch(no);
+                let none = self.alloc_enum(ret_ty, 0, vec![]);
+                self.emit(Stmt::Assign(result, Rvalue::Use(none)));
+                self.term(Term::Goto(join));
+                self.switch(join);
+                Some(Operand::Local(result))
+            }
             // box a value of any type behind an opaque pointer (traced precisely
             // through the box's own descriptor)
             "box_erase" => {
@@ -2685,6 +2726,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             Some(Res::Iter(k)) => *k,
             _ => IterKind::List,
         };
+        if self.m.fuse_sequences
+            && kind == IterKind::Seq
+            && let Some(plan) = self.fused_for(iter, pat, body)
+        {
+            self.lower_fused(e, plan)?;
+            return Some(());
+        }
         // `for p in map.to_list(m)` (or `set.to_list(s)`) walks `m` itself:
         // the list would be a temporary nobody else sees, built only to be
         // consumed in the trie's order, which the walk follows
@@ -2969,6 +3017,43 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.switch(step);
                 self.term(Term::Goto(head));
             }
+            IterKind::Array => {
+                let data = self.buffer_data(Operand::Local(itl));
+                let n = self.buffer_len(data);
+                let i = self.copy_to_local(int(0), Repr::I64, None);
+                self.term(Term::Goto(head));
+                self.switch(head);
+                self.emit(Stmt::Poll);
+                let c = self.assign(
+                    Repr::I8,
+                    Rvalue::Cmp { op: CmpOp::Lt, a: Operand::Local(i), b: n, ty: NumTy::I(64, false) },
+                );
+                self.term(Term::Branch(c, bodyb, exit));
+                self.switch(bodyb);
+                // Reload through the owner in the loop so its managed root
+                // stays live across body calls, polls and suspension.
+                let data = self.buffer_data(Operand::Local(itl));
+                let x = self.buffer_load(data, Operand::Local(i), self.repr(&item_ty));
+                self.bind_irrefutable(pat, x, &item_ty);
+                self.loops.push(LoopCtx { expr: e, cont: step, brk: exit, result: None, close: None });
+                if self.lower(body).is_some() {
+                    self.term(Term::Goto(step));
+                }
+                self.loops.pop();
+                self.switch(step);
+                let next = self.assign(
+                    Repr::I64,
+                    Rvalue::Bin {
+                        op: BinOp::Add,
+                        a: Operand::Local(i),
+                        b: int(1),
+                        ty: NumTy::I(64, false),
+                        loc: 0,
+                    },
+                );
+                self.emit(Stmt::Assign(i, Rvalue::Use(next)));
+                self.term(Term::Goto(head));
+            }
             _ => {
                 // lists and list-backed collections
                 let list = itl;
@@ -3013,6 +3098,50 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         self.switch(exit);
         Some(())
+    }
+
+    fn buffer_data(&mut self, owner: Operand) -> Operand {
+        self.assign(
+            Repr::I64,
+            Rvalue::Load { base: owner, offset: lang_runtime::buffer::DATA_OFFSET, repr: Repr::I64 },
+        )
+    }
+
+    fn buffer_len(&mut self, data: Operand) -> Operand {
+        self.assign(
+            Repr::I64,
+            Rvalue::Load {
+                base: data,
+                offset: lang_runtime::buffer::ITEMS_LEN - lang_runtime::gc::HEADER as i32,
+                repr: Repr::I64,
+            },
+        )
+    }
+
+    fn buffer_load(&mut self, data: Operand, index: Operand, repr: Repr) -> Operand {
+        let ptr = self.assign(
+            Repr::I64,
+            Rvalue::Load {
+                base: data,
+                offset: lang_runtime::buffer::ITEMS_PTR - lang_runtime::gc::HEADER as i32,
+                repr: Repr::I64,
+            },
+        );
+        let offset = self.assign(
+            Repr::I64,
+            Rvalue::Bin {
+                op: BinOp::Mul,
+                a: index,
+                b: int(repr.size() as i64),
+                ty: NumTy::I(64, false),
+                loc: 0,
+            },
+        );
+        let ptr = self.assign(
+            Repr::I64,
+            Rvalue::Bin { op: BinOp::Add, a: ptr, b: offset, ty: NumTy::I(64, false), loc: 0 },
+        );
+        self.assign(repr, Rvalue::Load { base: ptr, offset: -(lang_runtime::gc::HEADER as i32), repr })
     }
 
     /// A range of integer literals with at most 64 values, iterated by a
@@ -3350,7 +3479,19 @@ pub fn lower_program<'g, 'a>(
     tests: bool,
     entry_fn: &str,
 ) -> (Program, Vec<String>) {
+    lower_program_optimized(g, sources, tests, entry_fn, false)
+}
+
+/// Lower with sequence fusion when optimized, non-live code is requested.
+pub fn lower_program_optimized<'g, 'a>(
+    g: &'g Global<'a>,
+    sources: &'g SourceMap,
+    tests: bool,
+    entry_fn: &str,
+    fuse_sequences: bool,
+) -> (Program, Vec<String>) {
     let mut m = Mono::new(g, sources);
+    m.fuse_sequences = fuse_sequences;
     let hir = g.hir;
     if let Some(entry) = hir.entry {
         let main = hir.modules[entry].items.get(&g.interner.intern(entry_fn)).copied();

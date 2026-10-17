@@ -1,0 +1,897 @@
+fn 0 pointer-options.main ([]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 t
+  3: i64 
+  4: i64 result
+  5: i64 
+  6: i64 
+  7: i64 
+  8: i64 
+  9: i8 
+  10: i64 
+  11: i64 
+  12: i64 ns
+  13: i64 
+  14: i8 
+  15: i64 
+  16: ptr 
+  17: ptr 
+  18: ptr 
+  19: ptr 
+  20: ptr 
+  21: i32 
+  22: ptr 
+  23: ptr 
+  24: ptr 
+  25: ptr 
+  26: i8 
+  27: i8 
+  28: ptr 
+  29: ptr env
+  30: i64 
+  31: ptr env
+  32: i64 
+  33: i64 d
+  34: ptr env
+  35: i64 
+  36: i64 self
+  37: ptr 
+  38: ptr env
+  39: i8 
+  40: i8 value
+  41: i8 
+  42: ptr env
+  43: i64 
+  44: ptr env
+  45: i64 
+  46: i64 self
+  47: ptr 
+  48: ptr env
+  49: ptr 
+  50: ptr value
+  51: ptr 
+  52: ptr 
+  53: ptr env
+  54: ptr 
+  55: ptr self
+ 0:
+    Poll
+    Loc { file: 0, line: 15, col: 5 }
+    Assign(29, Use(Const(Addr(0))))
+    Some(Goto(13))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Assign(10, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(8, I64)), Const(Addr(94383531824400))], ret: I64 })
+    Some(Unreachable)
+ 4:
+    Assign(31, Use(Const(Addr(0))))
+    Assign(32, Use(Local(8)))
+    Some(Goto(15))
+ 5:
+    Some(Unreachable)
+ 6:
+    Some(Unreachable)
+ 7:
+    Loc { file: 0, line: 19, col: 5 }
+    Assign(34, Use(Const(Addr(0))))
+    Assign(35, Use(Local(12)))
+    Some(Goto(18))
+ 8:
+    Assign(15, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(3, I64)), Const(Addr(94383529986688))], ret: I64 })
+    Some(Unreachable)
+ 9:
+    Some(Unreachable)
+ 10:
+    Assign(27, Load { base: Local(20), offset: 8, repr: I8 })
+    Loc { file: 0, line: 20, col: 5 }
+    Assign(38, Use(Const(Addr(0))))
+    Assign(39, Use(Const(Int(0, I8))))
+    Some(Goto(21))
+ 11:
+    Assign(22, Load { base: Local(20), offset: 8, repr: Ptr })
+    Assign(23, Use(Local(22)))
+    Assign(24, Alloc { desc: 94383533236272, size: 16 })
+    Store { base: Local(24), offset: 0, repr: I32, value: Const(Int(1, I32)) }
+    Store { base: Local(24), offset: 8, repr: Ptr, value: Local(23) }
+    Assign(25, Use(Local(24)))
+    Assign(26, Call { callee: Runtime("lang_rt_err_origin"), args: [Local(20), Local(25), Const(Addr(94383530397808))], ret: I8 })
+    Some(Return(Local(25)))
+ 12:
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 16, col: 5 }
+    Assign(3, Call { callee: Direct(3), args: [Const(Int(2000000, I64))], ret: I64 })
+    Assign(4, Use(Local(3)))
+    Loc { file: 0, line: 17, col: 5 }
+    Assign(42, Use(Const(Addr(0))))
+    Some(Goto(24))
+ 13:
+    Assign(30, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94383532212272, ret: 94383531782048 }, args: [], ret: I64 })
+    Assign(1, Use(Local(30)))
+    Some(Goto(12))
+ 14:
+    Assign(12, Use(Local(11)))
+    Loc { file: 0, line: 18, col: 5 }
+    Assign(13, Use(Local(4)))
+    Assign(14, Cmp { op: Eq, a: Local(13), b: Const(Int(7000000, I64)), ty: I(64, true) })
+    Some(Branch(Local(14), 7, 8))
+ 15:
+    Assign(33, Use(Local(32)))
+    Assign(11, Use(Local(33)))
+    Some(Goto(14))
+ 16:
+    Some(Unreachable)
+ 17:
+    Assign(44, Use(Const(Addr(0))))
+    Assign(45, Use(Local(4)))
+    Some(Goto(26))
+ 18:
+    Assign(36, Use(Local(35)))
+    Assign(37, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94383531830352, ret: 94383531835616 }, args: [Local(36)], ret: Ptr })
+    Assign(16, Use(Local(37)))
+    Some(Goto(17))
+ 19:
+    Some(Unreachable)
+ 20:
+    Some(Return(Local(28)))
+ 21:
+    Assign(40, Use(Local(39)))
+    Assign(41, Use(Local(40)))
+    Assign(28, Use(Const(Addr(94383531777232))))
+    Some(Goto(20))
+ 22:
+    Some(Unreachable)
+ 23:
+    Assign(6, Use(Local(5)))
+    Assign(7, Bin { op: Sub, a: Local(6), b: Local(2), ty: I(64, true), loc: 94383531824400 })
+    Assign(8, Use(Local(7)))
+    Assign(9, Cmp { op: Lt, a: Local(8), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(9), 3, 4))
+ 24:
+    Assign(43, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94383532212272, ret: 94383531782048 }, args: [], ret: I64 })
+    Assign(5, Use(Local(43)))
+    Some(Goto(23))
+ 25:
+    Assign(18, Concat([Const(Addr(94383532262384)), Local(16), Const(Addr(94383531775264)), Local(17)]))
+    Assign(48, Use(Const(Addr(0))))
+    Assign(49, Use(Local(18)))
+    Some(Goto(29))
+ 26:
+    Assign(46, Use(Local(45)))
+    Assign(47, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94383531830352, ret: 94383531835616 }, args: [Local(46)], ret: Ptr })
+    Assign(17, Use(Local(47)))
+    Some(Goto(25))
+ 27:
+    Some(Unreachable)
+ 28:
+    Assign(20, Use(Local(19)))
+    Assign(21, Tag(Local(20)))
+    Some(Switch(Local(21), [(0, 10)], 11))
+ 29:
+    Assign(50, Use(Local(49)))
+    Assign(53, Use(Const(Addr(0))))
+    Assign(54, Use(Local(50)))
+    Some(Goto(32))
+ 30:
+    Some(Unreachable)
+ 31:
+    Assign(52, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94383532212272, ret: 94383533236272 }, args: [Local(51), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Assign(19, Use(Local(52)))
+    Some(Goto(28))
+ 32:
+    Assign(55, Use(Local(54)))
+    Assign(51, Use(Local(55)))
+    Some(Goto(31))
+ 33:
+    Some(Unreachable)
+fn 1 std.prelude.describe_error#1 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr e
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: ptr d
+  8: ptr 
+  9: ptr 
+  10: ptr 
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: ptr 
+  15: ptr 
+  16: ptr out
+  17: i8 first
+  18: ptr 
+  19: ptr 
+  20: i64 
+  21: i64 
+  22: i64 
+  23: i64 
+  24: i64 
+  25: i64 
+  26: i64 
+  27: i8 
+  28: i8 
+  29: ptr 
+  30: ptr 
+  31: i64 
+  32: ptr 
+  33: ptr 
+  34: ptr line
+  35: i8 
+  36: i8 
+  37: ptr 
+  38: ptr 
+  39: i64 
+  40: i64 
+  41: i64 
+  42: ptr 
+  43: ptr 
+  44: ptr 
+  45: ptr 
+  46: i8 
+  47: i32 
+  48: ptr other
+  49: ptr 
+  50: ptr 
+  51: ptr 
+  52: i64 
+  53: ptr 
+  54: ptr env
+  55: ptr 
+  56: ptr self
+  57: ptr 
+  58: ptr env
+  59: ptr 
+  60: ptr self
+  61: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Use(Local(2)))
+    Assign(4, Alloc { desc: 94383531787440, size: 8 })
+    Store { base: Local(4), offset: 0, repr: Ptr, value: Local(3) }
+    Assign(5, Use(Local(4)))
+    Assign(6, Alloc { desc: 94383531780144, size: 40 })
+    Store { base: Local(6), offset: 0, repr: Ptr, value: Local(5) }
+    Store { base: Local(6), offset: 8, repr: Ptr, value: Const(Addr(94383530112064)) }
+    Store { base: Local(6), offset: 16, repr: Ptr, value: Const(Addr(94383531985408)) }
+    Store { base: Local(6), offset: 24, repr: Ptr, value: Const(Addr(94383532325408)) }
+    Store { base: Local(6), offset: 32, repr: Ptr, value: Const(Addr(94383532185200)) }
+    Assign(7, Use(Local(6)))
+    Assign(8, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(9, Load { base: Local(7), offset: 16, repr: Ptr })
+    Assign(10, Call { callee: Closure(Local(9)), args: [Local(8)], ret: Ptr })
+    Assign(54, Use(Const(Addr(0))))
+    Assign(55, Use(Local(10)))
+    Some(Goto(21))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Some(Unreachable)
+ 5:
+    Poll
+    Assign(27, Cmp { op: Lt, a: Local(24), b: Local(21), ty: I(64, true) })
+    Some(Branch(Local(27), 9, 8))
+ 6:
+    Assign(32, Load { base: Local(26), offset: 16, repr: Ptr })
+    Assign(33, Use(Local(32)))
+    Assign(34, Use(Local(33)))
+    Assign(35, Use(Local(17)))
+    Some(Branch(Local(35), 12, 13))
+ 7:
+    Assign(39, Bin { op: Add, a: Local(24), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(24, Use(Local(39)))
+    Assign(40, Bin { op: Add, a: Local(25), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(25, Use(Local(40)))
+    Assign(41, Bin { op: Add, a: Local(26), b: Const(Int(8, I64)), ty: I(64, true), loc: 0 })
+    Assign(26, Use(Local(41)))
+    Some(Goto(5))
+ 8:
+    Assign(42, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(43, Load { base: Local(7), offset: 24, repr: Ptr })
+    Assign(44, Call { callee: Closure(Local(43)), args: [Local(42)], ret: Ptr })
+    Assign(45, Use(Local(44)))
+    Assign(47, Tag(Local(45)))
+    Some(Switch(Local(47), [(0, 17)], 16))
+ 9:
+    Assign(28, Cmp { op: Lt, a: Local(25), b: Local(23), ty: I(64, true) })
+    Some(Branch(Local(28), 6, 10))
+ 10:
+    Assign(29, Call { callee: Runtime("lang_rt_list_page"), args: [Local(19), Local(24)], ret: Ptr })
+    Assign(30, Use(Local(29)))
+    Assign(31, ToWord(Local(30)))
+    Assign(26, Use(Local(31)))
+    Assign(25, Use(Const(Int(0, I64))))
+    Some(Goto(6))
+ 11:
+    Some(Unreachable)
+ 12:
+    Assign(17, Use(Const(Int(0, I8))))
+    Assign(36, Use(Const(Int(0, I8))))
+    Some(Goto(14))
+ 13:
+    Assign(37, Use(Local(16)))
+    Assign(38, Concat([Local(37), Const(Addr(94383532535536)), Local(34)]))
+    Assign(16, Use(Local(38)))
+    Assign(36, Use(Const(Int(0, I8))))
+    Some(Goto(14))
+ 14:
+    Some(Goto(7))
+ 15:
+    Assign(53, Use(Local(16)))
+    Some(Return(Local(53)))
+ 16:
+    Assign(48, Use(Local(45)))
+    Assign(49, Use(Local(16)))
+    Assign(58, Use(Const(Addr(0))))
+    Assign(59, Use(Local(48)))
+    Some(Goto(24))
+ 17:
+    Assign(46, Use(Const(Int(0, I8))))
+    Some(Goto(15))
+ 18:
+    Assign(52, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94383531788720))], ret: I64 })
+    Some(Unreachable)
+ 19:
+    Some(Unreachable)
+ 20:
+    Assign(12, Load { base: Local(7), offset: 0, repr: Ptr })
+    Assign(13, Load { base: Local(7), offset: 32, repr: Ptr })
+    Assign(14, Call { callee: Closure(Local(13)), args: [Local(12)], ret: Ptr })
+    Assign(15, Concat([Const(Addr(94383532421104)), Local(11), Const(Addr(94383532071280)), Local(14)]))
+    Assign(16, Use(Local(15)))
+    Assign(17, Use(Const(Int(1, I8))))
+    Assign(18, Call { callee: Direct(17), args: [Local(7)], ret: Ptr })
+    Assign(19, Use(Local(18)))
+    Assign(20, Call { callee: Runtime("lang_rt_list_len"), args: [Local(19)], ret: I64 })
+    Assign(21, Use(Local(20)))
+    Assign(22, Call { callee: Runtime("lang_rt_list_page_cap"), args: [Local(19)], ret: I64 })
+    Assign(23, Use(Local(22)))
+    Assign(24, Use(Const(Int(0, I64))))
+    Assign(25, Use(Local(23)))
+    Assign(26, Use(Const(Int(0, I64))))
+    Some(Goto(5))
+ 21:
+    Assign(56, Use(Local(55)))
+    Assign(57, Call { callee: Intrinsic { name: "lang_rt_i_symbol_to_string", targs: 94383532212272, ret: 94383531835616 }, args: [Local(56)], ret: Ptr })
+    Assign(11, Use(Local(57)))
+    Some(Goto(20))
+ 22:
+    Some(Unreachable)
+ 23:
+    Assign(51, Concat([Local(49), Const(Addr(94383531990736)), Local(50)]))
+    Assign(16, Use(Local(51)))
+    Assign(46, Use(Const(Int(0, I8))))
+    Some(Goto(15))
+ 24:
+    Assign(60, Use(Local(59)))
+    Assign(61, Call { callee: Intrinsic { name: "lang_rt_i_data_to_string", targs: 94383532212272, ret: 94383531835616 }, args: [Local(60)], ret: Ptr })
+    Assign(50, Use(Local(61)))
+    Some(Goto(23))
+ 25:
+    Some(Unreachable)
+fn 2 std.time.now ([]) -> i64
+  0: ptr env
+  1: i64 
+ 0:
+    Poll
+    Assign(1, Call { callee: Intrinsic { name: "lang_rt_i_time_now", targs: 94383532212272, ret: 94383531782048 }, args: [], ret: I64 })
+    Some(Return(Local(1)))
+fn 3 pointer-options.work#3 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 n
+  3: i64 
+  4: ptr 
+  5: ptr item
+  6: i64 total
+  7: i64 
+  8: i64 
+  9: i64 
+  10: ptr 
+  11: ptr 
+  12: i64 
+  13: i64 
+  14: i64 
+  15: i64 
+  16: i8 
+  17: i8 
+  18: i8 
+  19: i8 
+  20: i8 
+  21: i64 
+  22: i64 i
+  23: i64 
+  24: i64 
+  25: i64 
+  26: i8 
+  27: ptr 
+  28: ptr 
+  29: ptr 
+  30: ptr value
+  31: i64 
+  32: i64 
+  33: ptr 
+  34: i64 
+  35: i32 
+  36: ptr 
+  37: ptr v
+  38: i64 
+  39: i32 
+  40: i64 
+  41: i64 
+  42: i8 
+  43: i64 
+  44: i64 
+  45: i64 
+  46: i64 
+  47: i64 
+  48: i8 
+  49: i8 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Loc { file: 0, line: 5, col: 5 }
+    Assign(3, Use(Const(Int(7, I64))))
+    Assign(4, Alloc { desc: 94383532066544, size: 8 })
+    Store { base: Local(4), offset: 0, repr: I64, value: Local(3) }
+    Assign(5, Use(Local(4)))
+    Loc { file: 0, line: 6, col: 5 }
+    Assign(6, Use(Const(Int(0, I64))))
+    Loc { file: 0, line: 7, col: 5 }
+    Assign(7, Use(Const(Int(0, I64))))
+    Assign(8, Convert { a: Local(7), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(9, Convert { a: Local(2), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(10, Use(Const(Int(0, Ptr))))
+    Assign(45, Use(Local(8)))
+    Assign(46, Use(Local(9)))
+    Assign(47, Use(Const(Int(0, I64))))
+    Assign(11, Use(Const(Int(0, Ptr))))
+    Assign(12, Use(Local(45)))
+    Assign(13, Use(Local(46)))
+    Assign(14, Use(Local(47)))
+    Assign(15, Use(Local(12)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Poll
+    Assign(16, Cmp { op: Lt, a: Local(15), b: Local(13), ty: I(64, true) })
+    Assign(17, Cmp { op: Eq, a: Local(15), b: Local(13), ty: I(64, true) })
+    Assign(18, Convert { a: Local(14), from: I(64, false), to: I(8, false), checked: false, loc: 0 })
+    Assign(19, Bin { op: And, a: Local(17), b: Local(18), ty: I(8, false), loc: 0 })
+    Assign(20, Bin { op: Or, a: Local(16), b: Local(19), ty: I(8, false), loc: 0 })
+    Some(Branch(Local(20), 5, 7))
+ 5:
+    Assign(21, Convert { a: Local(15), from: I(64, true), to: I(64, true), checked: false, loc: 0 })
+    Assign(22, Use(Local(21)))
+    Loc { file: 0, line: 8, col: 9 }
+    Assign(23, Use(Local(22)))
+    Assign(24, Bin { op: Rem, a: Local(23), b: Const(Int(2, I64)), ty: I(64, true), loc: 94383531822624 })
+    Assign(25, Use(Local(24)))
+    Assign(26, Cmp { op: Eq, a: Local(25), b: Const(Int(0, I64)), ty: I(64, true) })
+    Some(Branch(Local(26), 9, 10))
+ 6:
+    Assign(42, Cmp { op: Eq, a: Local(15), b: Local(13), ty: I(64, true) })
+    Some(Branch(Local(42), 7, 19))
+ 7:
+    Loc { file: 0, line: 11, col: 5 }
+    Assign(44, Use(Local(6)))
+    Some(Return(Local(44)))
+ 8:
+    Some(Unreachable)
+ 9:
+    Loc { file: 0, line: 8, col: 37 }
+    Assign(28, Use(Local(5)))
+    Assign(29, Use(Local(28)))
+    Assign(27, Use(Local(29)))
+    Some(Goto(11))
+ 10:
+    Loc { file: 0, line: 8, col: 64 }
+    Assign(27, Use(Const(Int(0, Ptr))))
+    Some(Goto(11))
+ 11:
+    Assign(30, Use(Local(27)))
+    Loc { file: 0, line: 9, col: 9 }
+    Assign(31, Use(Local(6)))
+    Assign(32, Use(Local(31)))
+    Assign(33, Use(Local(30)))
+    Assign(48, Cmp { op: Ne, a: Local(33), b: Const(Int(0, Ptr)), ty: I(64, false) })
+    Assign(35, Convert { a: Local(48), from: I(8, false), to: I(32, false), checked: false, loc: 0 })
+    Some(Switch(Local(35), [(1, 15)], 14))
+ 12:
+    Some(Unreachable)
+ 13:
+    Assign(41, Bin { op: Add, a: Local(32), b: Local(34), ty: I(64, true), loc: 94383531967232 })
+    Assign(6, Use(Local(41)))
+    Some(Goto(6))
+ 14:
+    Assign(49, Cmp { op: Ne, a: Local(33), b: Const(Int(0, Ptr)), ty: I(64, false) })
+    Assign(39, Convert { a: Local(49), from: I(8, false), to: I(32, false), checked: false, loc: 0 })
+    Some(Switch(Local(39), [(0, 17)], 16))
+ 15:
+    Assign(36, Use(Local(33)))
+    Assign(37, Use(Local(36)))
+    Assign(38, Load { base: Local(37), offset: 0, repr: I64 })
+    Assign(34, Use(Local(38)))
+    Some(Goto(13))
+ 16:
+    Assign(40, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94383531985792))], ret: I64 })
+    Some(Unreachable)
+ 17:
+    Assign(34, Use(Const(Int(0, I64))))
+    Some(Goto(13))
+ 18:
+    Some(Unreachable)
+ 19:
+    Assign(43, Bin { op: Add, a: Local(15), b: Const(Int(1, I64)), ty: I(64, true), loc: 0 })
+    Assign(15, Use(Local(43)))
+    Some(Goto(4))
+fn 4 std.time.as_nanos#4 ([1]) -> i64
+  0: ptr env
+  1: i64 
+  2: i64 d
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Some(Return(Local(2)))
+ 1:
+    Some(Unreachable)
+fn 5 std.prelude.display#5 ([1]) -> ptr
+  0: ptr env
+  1: i64 
+  2: i64 self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_int_to_string", targs: 94383531830352, ret: 94383531835616 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 6 std.io.println#6 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr value
+  3: ptr 
+  4: ptr 
+  5: ptr env
+  6: ptr 
+  7: ptr self
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(5, Use(Const(Addr(0))))
+    Assign(6, Use(Local(2)))
+    Some(Goto(3))
+ 1:
+    Some(Unreachable)
+ 2:
+    Assign(4, Call { callee: Intrinsic { name: "lang_rt_i_write_out", targs: 94383532212272, ret: 94383533236272 }, args: [Local(3), Const(Int(1, I8)), Const(Int(0, I8))], ret: Ptr })
+    Some(Return(Local(4)))
+ 3:
+    Assign(7, Use(Local(6)))
+    Assign(3, Use(Local(7)))
+    Some(Goto(2))
+ 4:
+    Some(Unreachable)
+fn 7 std.prelude.ok#7 ([1]) -> ptr
+  0: ptr env
+  1: i8 
+  2: i8 value
+  3: i8 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Use(Local(2)))
+    Some(Return(Const(Addr(94383531777232))))
+ 1:
+    Some(Unreachable)
+fn 8 dyn.Error.std.prelude.Error.cause ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr self
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(3, Use(Const(Addr(94383530111872))))
+    Some(Goto(1))
+fn 9 Error.cause ([1]) -> ptr
+  0: ptr env
+  1: ptr self
+ 0:
+    Some(Return(Const(Addr(94383530111872))))
+fn 10 dyn.Error.std.prelude.Error.code ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Intrinsic { name: "lang_rt_i_error_code", targs: 94383532326768, ret: 94383531824544 }, args: [Local(6)], ret: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 11 std.prelude.code#8 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_error_code", targs: 94383532326768, ret: 94383531824544 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 12 dyn.Error.std.prelude.Error.details ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Intrinsic { name: "lang_rt_i_error_details", targs: 94383532326768, ret: 94383532024288 }, args: [Local(6)], ret: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 13 std.prelude.details#9 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_error_details", targs: 94383532326768, ret: 94383532024288 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 14 dyn.Error.std.prelude.Display.display ([1]) -> ptr
+  0: ptr env
+  1: ptr data
+  2: ptr self
+  3: ptr 
+  4: ptr env
+  5: ptr 
+  6: ptr self
+  7: ptr 
+ 0:
+    Assign(2, Load { base: Local(1), offset: 0, repr: Ptr })
+    Assign(4, Use(Const(Addr(0))))
+    Assign(5, Use(Local(2)))
+    Some(Goto(2))
+ 1:
+    Some(Return(Local(3)))
+ 2:
+    Assign(6, Use(Local(5)))
+    Assign(7, Load { base: Local(6), offset: 8, repr: Ptr })
+    Assign(3, Use(Local(7)))
+    Some(Goto(1))
+ 3:
+    Some(Unreachable)
+fn 15 std.io.display#10 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Load { base: Local(2), offset: 8, repr: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 16 std.prelude.display#11 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_symbol_to_string", targs: 94383532212272, ret: 94383531835616 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 17 std.prelude.error_chain#12 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr e
+  3: ptr 
+  4: ptr 
+  5: ptr 
+  6: ptr 
+  7: ptr 
+  8: ptr 
+  9: i8 
+  10: ptr out
+  11: ptr 
+  12: ptr 
+  13: ptr 
+  14: ptr cur
+  15: i8 
+  16: ptr 
+  17: ptr 
+  18: i8 
+  19: i32 
+  20: ptr 
+  21: ptr c
+  22: ptr 
+  23: ptr 
+  24: ptr 
+  25: ptr 
+  26: ptr 
+  27: ptr 
+  28: ptr 
+  29: ptr 
+  30: i32 
+  31: i64 
+  32: ptr 
+  33: ptr env
+  34: ptr 
+  35: ptr 
+  36: ptr self
+  37: ptr value
+  38: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Load { base: Local(2), offset: 0, repr: Ptr })
+    Assign(4, Load { base: Local(2), offset: 32, repr: Ptr })
+    Assign(5, Call { callee: Closure(Local(4)), args: [Local(3)], ret: Ptr })
+    Assign(6, Use(Local(5)))
+    Assign(7, Call { callee: Runtime("lang_rt_list_new"), args: [Const(Addr(94383531438560))], ret: Ptr })
+    Assign(8, Use(Local(7)))
+    Assign(9, Call { callee: Runtime("lang_rt_list_push"), args: [Local(8), Local(6)], ret: I8 })
+    Assign(10, Use(Local(8)))
+    Assign(11, Load { base: Local(2), offset: 0, repr: Ptr })
+    Assign(12, Load { base: Local(2), offset: 8, repr: Ptr })
+    Assign(13, Call { callee: Closure(Local(12)), args: [Local(11)], ret: Ptr })
+    Assign(14, Use(Local(13)))
+    Some(Goto(4))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+ 3:
+    Some(Unreachable)
+ 4:
+    Poll
+    Assign(16, Use(Local(14)))
+    Assign(17, Use(Local(16)))
+    Assign(19, Tag(Local(17)))
+    Some(Switch(Local(19), [(1, 8)], 7))
+ 5:
+    Assign(32, Use(Local(10)))
+    Some(Return(Local(32)))
+ 6:
+    Some(Goto(4))
+ 7:
+    Assign(30, Tag(Local(17)))
+    Some(Switch(Local(30), [(0, 10)], 9))
+ 8:
+    Assign(20, Load { base: Local(17), offset: 8, repr: Ptr })
+    Assign(21, Use(Local(20)))
+    Assign(22, Use(Local(10)))
+    Assign(23, Load { base: Local(21), offset: 0, repr: Ptr })
+    Assign(24, Load { base: Local(21), offset: 32, repr: Ptr })
+    Assign(25, Call { callee: Closure(Local(24)), args: [Local(23)], ret: Ptr })
+    Assign(33, Use(Const(Addr(0))))
+    Assign(34, Use(Local(22)))
+    Assign(35, Use(Local(25)))
+    Some(Goto(14))
+ 9:
+    Assign(31, Call { callee: Runtime("lang_rt_defect"), args: [Const(Int(4, I64)), Const(Addr(94383531911600))], ret: I64 })
+    Some(Unreachable)
+ 10:
+    Assign(15, Use(Const(Int(0, I8))))
+    Some(Goto(5))
+ 11:
+    Some(Unreachable)
+ 12:
+    Some(Unreachable)
+ 13:
+    Assign(10, Use(Local(26)))
+    Assign(27, Load { base: Local(21), offset: 0, repr: Ptr })
+    Assign(28, Load { base: Local(21), offset: 8, repr: Ptr })
+    Assign(29, Call { callee: Closure(Local(28)), args: [Local(27)], ret: Ptr })
+    Assign(14, Use(Local(29)))
+    Assign(18, Use(Const(Int(0, I8))))
+    Some(Goto(6))
+ 14:
+    Assign(36, Use(Local(34)))
+    Assign(37, Use(Local(35)))
+    Assign(38, Call { callee: Intrinsic { name: "lang_rt_i_list_append", targs: 94383532211184, ret: 94383531438560 }, args: [Local(36), Local(37)], ret: Ptr })
+    Assign(26, Use(Local(38)))
+    Some(Goto(13))
+ 15:
+    Some(Unreachable)
+ 16:
+    Some(Unreachable)
+fn 18 std.prelude.display#13 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+  3: ptr 
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Assign(3, Call { callee: Intrinsic { name: "lang_rt_i_data_to_string", targs: 94383532212272, ret: 94383531835616 }, args: [Local(2)], ret: Ptr })
+    Some(Return(Local(3)))
+ 1:
+    Some(Unreachable)
+fn 19 std.prelude.display#14 ([1]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr self
+ 0:
+    Poll
+    Assign(2, Use(Local(1)))
+    Some(Return(Local(2)))
+ 1:
+    Some(Unreachable)
+fn 20 std.list.append#15 ([1, 2]) -> ptr
+  0: ptr env
+  1: ptr 
+  2: ptr 
+  3: ptr self
+  4: ptr value
+  5: ptr 
+ 0:
+    Poll
+    Assign(3, Use(Local(1)))
+    Assign(4, Use(Local(2)))
+    Assign(5, Call { callee: Intrinsic { name: "lang_rt_i_list_append", targs: 94383532211184, ret: 94383531438560 }, args: [Local(3), Local(4)], ret: Ptr })
+    Some(Return(Local(5)))
+ 1:
+    Some(Unreachable)
+ 2:
+    Some(Unreachable)
+

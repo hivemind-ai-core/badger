@@ -1032,8 +1032,18 @@ impl Session {
             lang_mir::lower::set_observe(Default::default());
         }
         let entry_fn = entry_fn();
-        let (mut prog, errors) =
-            timed("lower", || lang_mir::lower_program(&checked.g, &self.sources, opts.tests, &entry_fn));
+        let (mut prog, errors) = timed("lower", || {
+            lang_mir::lower_program_optimized(
+                &checked.g,
+                &self.sources,
+                opts.tests,
+                &entry_fn,
+                opts.optimize
+                    && !opts.watch
+                    && opts.inspect.is_none()
+                    && std::env::var_os("LANG_NO_INLINE").is_none(),
+            )
+        });
         for e in errors {
             self.diagnostics
                 .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
@@ -1080,6 +1090,9 @@ impl Session {
             timed("inline", || lang_mir::inline::inline(&mut prog));
             // receives whose result is only examined skip building it
             timed("split", || lang_mir::split::split_receives(&mut prog));
+            timed("niche", || lang_mir::niche::elide_local_options(&mut prog));
+            timed("enums", || lang_mir::enums::scalarize(&mut prog));
+            timed("reach", || lang_mir::reach::prune(&mut prog));
             for e in lang_mir::verify::verify(&prog) {
                 self.diagnostics
                     .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));

@@ -1,0 +1,16 @@
+import std.array
+import std.io
+import std.inspect
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    let temporary = array.build(100000, fn(i: Int) { $"temporary-{i}" })
+    assert(temporary.len() == 100000)
+    io.println($"live: {inspect.heap()}")?
+    for i in 0..2000000 {
+        let scratch = text.repeat("x", i % 32)
+        assert(scratch.len() == i % 32)
+    }
+    io.println($"after_last_use: {inspect.heap()}")?
+    ok(())
+}

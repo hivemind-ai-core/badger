@@ -1509,7 +1509,8 @@ fn sampling_profile() {
     let symbols = std::fs::read_to_string(&perf_map).unwrap_or_default();
     let _ = std::fs::remove_file(&perf_map);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert!(symbols.lines().any(|l| l.contains(" spin.spin")), "{symbols}");
+    // Inlining followed by reachability pruning may remove spin's body.
+    assert!(symbols.lines().any(|l| l.ends_with(" spin.spin") || l.ends_with(" spin.main")), "{symbols}");
     let stacks = std::fs::read_to_string(&folded).unwrap();
     // (optimized code may inline `spin` into `main`)
     assert!(stacks.lines().any(|l| l.contains("spin.spin") || l.contains("spin.main")), "{stacks}");

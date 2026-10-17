@@ -1,0 +1,27 @@
+{
+  "audit_revision": "ef8d846a3515bd7c8d5bbe46a5e3602bb051c013",
+  "current_main_at_final_check": "76fc40b4db1ccdcf4936c16ccf0ec524938f5d96",
+  "workspace_tests": {
+    "command": "cargo test --release --offline --workspace",
+    "exit_code": 0,
+    "test_targets": 39,
+    "passed": 107,
+    "ignored": 1,
+    "sandbox_retry": "MCP test requires loopback port access"
+  },
+  "focused_option_tests": {
+    "passed": 3,
+    "exit_code": 0
+  },
+  "clippy": {
+    "command": "cargo clippy --offline -p lang_mir -p lang_driver -- -D warnings",
+    "exit_code": 0
+  },
+  "audit_micro_samples": 30,
+  "audit_text_samples": 10,
+  "telemetry_oracle_runs": 48,
+  "option_comparison_samples": 40,
+  "document_links": "pass",
+  "source_and_baseline_binary_hashes": "pass",
+  "main_boundary": "No edits from this task outside its isolated worktree. Main advanced concurrently; initial dirty-file hashes do not all match."
+}

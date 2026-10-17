@@ -197,7 +197,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 if i > 0 {
                     o.push(',');
                 }
-                enc(elem, *x, o);
+                enc(elem, x, o);
             }
             o.push(']');
         }

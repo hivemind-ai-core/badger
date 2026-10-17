@@ -1,0 +1,1536 @@
+{
+  "revision": "ef8d846a3515bd7c8d5bbe46a5e3602bb051c013",
+  "date_utc": "2026-10-16T21:41:24Z",
+  "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+  "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+  "binary_sha256": "ea838d3cd17ddfcbd0f80ae7fa564833199841b966562ce95715d169626f21c7",
+  "runtime_probe_sha256": "b96a9f5e0aab57432e9c0621c81b99f119b458d1c87475e9e481e4ed3ff47ee6",
+  "mir_probe_sha256": "5f90dd2b0aa327293ba3d69419b9e770da0759ca29ddebc4fa1a6e0eb3e095cc",
+  "compile": {
+    "command": [
+      "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+      "compile",
+      "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang",
+      "-o",
+      "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+    ],
+    "extra_env": {
+      "LANG_TIMINGS": "1"
+    },
+    "exit_code": 0,
+    "wall_ms": 31.568337930366397,
+    "stdout": "wrote /tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir (51442 bytes)\n",
+    "stderr": "[timings] parse: 17.648 ms\n[timings] resolve: 1.757 ms\n[timings] typecheck: 5.204 ms\n[timings] lower: 0.920 ms\n[timings] inline: 1.621 ms\n[timings] split: 0.041 ms\n"
+  },
+  "samples": [
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 56.14136904478073,
+      "stdout": "helpers: 3101077 ns; check 19800000\noptions: 2440761 ns; check 9900000\nsequence: 7482141 ns; check 13333266666\narray_reads: 5314888 ns; check 204226912\ncomparisons: 236880 ns; check 200000\nplain_options: 228564 ns; check 9900000\nplain_sequence: 241388 ns; check 13333266666\n",
+      "stderr": "bench: run 19.322 ms (compilation 32.929 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 3101077,
+        "options": 2440761,
+        "sequence": 7482141,
+        "array_reads": 5314888,
+        "comparisons": 236880,
+        "plain_options": 228564,
+        "plain_sequence": 241388
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 56.6394638735801,
+      "stdout": "helpers: 250896 ns; check 19800000\noptions: 2740969 ns; check 9900000\nsequence: 7434372 ns; check 13333266666\narray_reads: 3163052 ns; check 204226912\ncomparisons: 233774 ns; check 200000\nplain_options: 205832 ns; check 9900000\nplain_sequence: 288977 ns; check 13333266666\n",
+      "stderr": "bench: run 14.505 ms (compilation 38.556 ms, not included)\n",
+      "mode": "source",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 250896,
+        "options": 2740969,
+        "sequence": 7434372,
+        "array_reads": 3163052,
+        "comparisons": 233774,
+        "plain_options": 205832,
+        "plain_sequence": 288977
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 59.03036193922162,
+      "stdout": "helpers: 242480 ns; check 19800000\noptions: 2739737 ns; check 9900000\nsequence: 7324008 ns; check 13333266666\narray_reads: 3055462 ns; check 204226912\ncomparisons: 233714 ns; check 200000\nplain_options: 195713 ns; check 9900000\nplain_sequence: 273077 ns; check 13333266666\n",
+      "stderr": "bench: run 14.249 ms (compilation 40.873 ms, not included)\n",
+      "mode": "source",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 242480,
+        "options": 2739737,
+        "sequence": 7324008,
+        "array_reads": 3055462,
+        "comparisons": 233714,
+        "plain_options": 195713,
+        "plain_sequence": 273077
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 56.14920402877033,
+      "stdout": "helpers: 268288 ns; check 19800000\noptions: 3015217 ns; check 9900000\nsequence: 7879529 ns; check 13333266666\narray_reads: 3033782 ns; check 204226912\ncomparisons: 217073 ns; check 200000\nplain_options: 186526 ns; check 9900000\nplain_sequence: 200752 ns; check 13333266666\n",
+      "stderr": "bench: run 15.005 ms (compilation 37.687 ms, not included)\n",
+      "mode": "source",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 268288,
+        "options": 3015217,
+        "sequence": 7879529,
+        "array_reads": 3033782,
+        "comparisons": 217073,
+        "plain_options": 186526,
+        "plain_sequence": 200752
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 55.622325045987964,
+      "stdout": "helpers: 271564 ns; check 19800000\noptions: 2744075 ns; check 9900000\nsequence: 7282280 ns; check 13333266666\narray_reads: 2995761 ns; check 204226912\ncomparisons: 216402 ns; check 200000\nplain_options: 183771 ns; check 9900000\nplain_sequence: 202406 ns; check 13333266666\n",
+      "stderr": "bench: run 14.075 ms (compilation 38.443 ms, not included)\n",
+      "mode": "source",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 271564,
+        "options": 2744075,
+        "sequence": 7282280,
+        "array_reads": 2995761,
+        "comparisons": 216402,
+        "plain_options": 183771,
+        "plain_sequence": 202406
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 31.62579401396215,
+      "stdout": "helpers: 241288 ns; check 19800000\noptions: 2532562 ns; check 9900000\nsequence: 7201860 ns; check 13333266666\narray_reads: 2967419 ns; check 204226912\ncomparisons: 216181 ns; check 200000\nplain_options: 186126 ns; check 9900000\nplain_sequence: 262418 ns; check 13333266666\n",
+      "stderr": "bench: run 13.761 ms (compilation 14.589 ms, not included)\n",
+      "mode": "saved",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 241288,
+        "options": 2532562,
+        "sequence": 7201860,
+        "array_reads": 2967419,
+        "comparisons": 216181,
+        "plain_options": 186126,
+        "plain_sequence": 262418
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 35.32507293857634,
+      "stdout": "helpers: 295068 ns; check 19800000\noptions: 2481968 ns; check 9900000\nsequence: 9245706 ns; check 13333266666\narray_reads: 4173969 ns; check 204226912\ncomparisons: 220439 ns; check 200000\nplain_options: 186757 ns; check 9900000\nplain_sequence: 306839 ns; check 13333266666\n",
+      "stderr": "bench: run 17.064 ms (compilation 15.125 ms, not included)\n",
+      "mode": "saved",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 295068,
+        "options": 2481968,
+        "sequence": 9245706,
+        "array_reads": 4173969,
+        "comparisons": 220439,
+        "plain_options": 186757,
+        "plain_sequence": 306839
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 30.468967044726014,
+      "stdout": "helpers: 271975 ns; check 19800000\noptions: 2482639 ns; check 9900000\nsequence: 7188697 ns; check 13333266666\narray_reads: 3016471 ns; check 204226912\ncomparisons: 225018 ns; check 200000\nplain_options: 184803 ns; check 9900000\nplain_sequence: 203487 ns; check 13333266666\n",
+      "stderr": "bench: run 13.734 ms (compilation 13.718 ms, not included)\n",
+      "mode": "saved",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 271975,
+        "options": 2482639,
+        "sequence": 7188697,
+        "array_reads": 3016471,
+        "comparisons": 225018,
+        "plain_options": 184803,
+        "plain_sequence": 203487
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 55.87902199476957,
+      "stdout": "helpers: 263028 ns; check 19800000\noptions: 2815907 ns; check 9900000\nsequence: 7288872 ns; check 13333266666\narray_reads: 3010309 ns; check 204226912\ncomparisons: 388912 ns; check 200000\nplain_options: 284708 ns; check 9900000\nplain_sequence: 321357 ns; check 13333266666\n",
+      "stderr": "bench: run 14.550 ms (compilation 38.068 ms, not included)\n",
+      "mode": "source",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 263028,
+        "options": 2815907,
+        "sequence": 7288872,
+        "array_reads": 3010309,
+        "comparisons": 388912,
+        "plain_options": 284708,
+        "plain_sequence": 321357
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 57.27188684977591,
+      "stdout": "helpers: 3181967 ns; check 19800000\noptions: 2501945 ns; check 9900000\nsequence: 7481850 ns; check 13333266666\narray_reads: 5042923 ns; check 204226912\ncomparisons: 179894 ns; check 200000\nplain_options: 217874 ns; check 9900000\nplain_sequence: 218085 ns; check 13333266666\n",
+      "stderr": "bench: run 18.974 ms (compilation 34.323 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 3181967,
+        "options": 2501945,
+        "sequence": 7481850,
+        "array_reads": 5042923,
+        "comparisons": 179894,
+        "plain_options": 217874,
+        "plain_sequence": 218085
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 58.816605946049094,
+      "stdout": "helpers: 268378 ns; check 19800000\noptions: 2846395 ns; check 9900000\nsequence: 7189828 ns; check 13333266666\narray_reads: 3044012 ns; check 204226912\ncomparisons: 231600 ns; check 200000\nplain_options: 196034 ns; check 9900000\nplain_sequence: 222834 ns; check 13333266666\n",
+      "stderr": "bench: run 14.187 ms (compilation 41.018 ms, not included)\n",
+      "mode": "source",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 268378,
+        "options": 2846395,
+        "sequence": 7189828,
+        "array_reads": 3044012,
+        "comparisons": 231600,
+        "plain_options": 196034,
+        "plain_sequence": 222834
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 30.909745022654533,
+      "stdout": "helpers: 265563 ns; check 19800000\noptions: 2509930 ns; check 9900000\nsequence: 7321603 ns; check 13333266666\narray_reads: 3102160 ns; check 204226912\ncomparisons: 237922 ns; check 200000\nplain_options: 196414 ns; check 9900000\nplain_sequence: 217613 ns; check 13333266666\n",
+      "stderr": "bench: run 14.001 ms (compilation 13.861 ms, not included)\n",
+      "mode": "saved",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 265563,
+        "options": 2509930,
+        "sequence": 7321603,
+        "array_reads": 3102160,
+        "comparisons": 237922,
+        "plain_options": 196414,
+        "plain_sequence": 217613
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 35.48512002453208,
+      "stdout": "helpers: 247540 ns; check 19800000\noptions: 2601620 ns; check 9900000\nsequence: 8542069 ns; check 13333266666\narray_reads: 3003466 ns; check 204226912\ncomparisons: 240266 ns; check 200000\nplain_options: 186166 ns; check 9900000\nplain_sequence: 262387 ns; check 13333266666\n",
+      "stderr": "bench: run 15.388 ms (compilation 16.326 ms, not included)\n",
+      "mode": "saved",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 247540,
+        "options": 2601620,
+        "sequence": 8542069,
+        "array_reads": 3003466,
+        "comparisons": 240266,
+        "plain_options": 186166,
+        "plain_sequence": 262387
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 55.66070694476366,
+      "stdout": "helpers: 3285910 ns; check 19800000\noptions: 2530318 ns; check 9900000\nsequence: 7628031 ns; check 13333266666\narray_reads: 5304638 ns; check 204226912\ncomparisons: 190794 ns; check 200000\nplain_options: 255695 ns; check 9900000\nplain_sequence: 235568 ns; check 13333266666\n",
+      "stderr": "bench: run 19.574 ms (compilation 32.030 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 3285910,
+        "options": 2530318,
+        "sequence": 7628031,
+        "array_reads": 5304638,
+        "comparisons": 190794,
+        "plain_options": 255695,
+        "plain_sequence": 235568
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 69.96974209323525,
+      "stdout": "helpers: 279078 ns; check 19800000\noptions: 2819795 ns; check 9900000\nsequence: 7293811 ns; check 13333266666\narray_reads: 3251076 ns; check 204226912\ncomparisons: 243652 ns; check 200000\nplain_options: 209569 ns; check 9900000\nplain_sequence: 224386 ns; check 13333266666\n",
+      "stderr": "bench: run 14.533 ms (compilation 51.536 ms, not included)\n",
+      "mode": "source",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 279078,
+        "options": 2819795,
+        "sequence": 7293811,
+        "array_reads": 3251076,
+        "comparisons": 243652,
+        "plain_options": 209569,
+        "plain_sequence": 224386
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 55.95891992561519,
+      "stdout": "helpers: 3226370 ns; check 19800000\noptions: 2590138 ns; check 9900000\nsequence: 7427730 ns; check 13333266666\narray_reads: 5491605 ns; check 204226912\ncomparisons: 188580 ns; check 200000\nplain_options: 240146 ns; check 9900000\nplain_sequence: 241028 ns; check 13333266666\n",
+      "stderr": "bench: run 19.550 ms (compilation 32.541 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 3226370,
+        "options": 2590138,
+        "sequence": 7427730,
+        "array_reads": 5491605,
+        "comparisons": 188580,
+        "plain_options": 240146,
+        "plain_sequence": 241028
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 56.731624994426966,
+      "stdout": "helpers: 243723 ns; check 19800000\noptions: 2806911 ns; check 9900000\nsequence: 7030643 ns; check 13333266666\narray_reads: 3232802 ns; check 204226912\ncomparisons: 233795 ns; check 200000\nplain_options: 203478 ns; check 9900000\nplain_sequence: 289437 ns; check 13333266666\n",
+      "stderr": "bench: run 14.242 ms (compilation 38.811 ms, not included)\n",
+      "mode": "source",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 243723,
+        "options": 2806911,
+        "sequence": 7030643,
+        "array_reads": 3232802,
+        "comparisons": 233795,
+        "plain_options": 203478,
+        "plain_sequence": 289437
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 55.02296215854585,
+      "stdout": "helpers: 3186035 ns; check 19800000\noptions: 2476929 ns; check 9900000\nsequence: 7716356 ns; check 13333266666\narray_reads: 5468172 ns; check 204226912\ncomparisons: 188611 ns; check 200000\nplain_options: 239525 ns; check 9900000\nplain_sequence: 234215 ns; check 13333266666\n",
+      "stderr": "bench: run 19.652 ms (compilation 32.027 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 3186035,
+        "options": 2476929,
+        "sequence": 7716356,
+        "array_reads": 5468172,
+        "comparisons": 188611,
+        "plain_options": 239525,
+        "plain_sequence": 234215
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 54.771164897829294,
+      "stdout": "helpers: 3279359 ns; check 19800000\noptions: 2442775 ns; check 9900000\nsequence: 7560677 ns; check 13333266666\narray_reads: 5491315 ns; check 204226912\ncomparisons: 238583 ns; check 200000\nplain_options: 232572 ns; check 9900000\nplain_sequence: 250595 ns; check 13333266666\n",
+      "stderr": "bench: run 19.792 ms (compilation 30.775 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 3279359,
+        "options": 2442775,
+        "sequence": 7560677,
+        "array_reads": 5491315,
+        "comparisons": 238583,
+        "plain_options": 232572,
+        "plain_sequence": 250595
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 32.66868111677468,
+      "stdout": "helpers: 267947 ns; check 19800000\noptions: 2594397 ns; check 9900000\nsequence: 7359733 ns; check 13333266666\narray_reads: 3198638 ns; check 204226912\ncomparisons: 265733 ns; check 200000\nplain_options: 199781 ns; check 9900000\nplain_sequence: 288035 ns; check 13333266666\n",
+      "stderr": "bench: run 14.351 ms (compilation 14.920 ms, not included)\n",
+      "mode": "saved",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 267947,
+        "options": 2594397,
+        "sequence": 7359733,
+        "array_reads": 3198638,
+        "comparisons": 265733,
+        "plain_options": 199781,
+        "plain_sequence": 288035
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 53.77883184701204,
+      "stdout": "helpers: 3132846 ns; check 19800000\noptions: 2471789 ns; check 9900000\nsequence: 7463096 ns; check 13333266666\narray_reads: 5334273 ns; check 204226912\ncomparisons: 193099 ns; check 200000\nplain_options: 235898 ns; check 9900000\nplain_sequence: 235688 ns; check 13333266666\n",
+      "stderr": "bench: run 19.218 ms (compilation 31.492 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 3132846,
+        "options": 2471789,
+        "sequence": 7463096,
+        "array_reads": 5334273,
+        "comparisons": 193099,
+        "plain_options": 235898,
+        "plain_sequence": 235688
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 58.97720390930772,
+      "stdout": "helpers: 3110845 ns; check 19800000\noptions: 2398152 ns; check 9900000\nsequence: 7618033 ns; check 13333266666\narray_reads: 5421645 ns; check 204226912\ncomparisons: 235157 ns; check 200000\nplain_options: 252478 ns; check 9900000\nplain_sequence: 245565 ns; check 13333266666\n",
+      "stderr": "bench: run 19.536 ms (compilation 35.278 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 3110845,
+        "options": 2398152,
+        "sequence": 7618033,
+        "array_reads": 5421645,
+        "comparisons": 235157,
+        "plain_options": 252478,
+        "plain_sequence": 245565
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 57.27175693027675,
+      "stdout": "helpers: 3192176 ns; check 19800000\noptions: 2412670 ns; check 9900000\nsequence: 7580423 ns; check 13333266666\narray_reads: 5476297 ns; check 204226912\ncomparisons: 235166 ns; check 200000\nplain_options: 242610 ns; check 9900000\nplain_sequence: 248471 ns; check 13333266666\n",
+      "stderr": "bench: run 19.674 ms (compilation 33.393 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 3192176,
+        "options": 2412670,
+        "sequence": 7580423,
+        "array_reads": 5476297,
+        "comparisons": 235166,
+        "plain_options": 242610,
+        "plain_sequence": 248471
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 56.620398070663214,
+      "stdout": "helpers: 246768 ns; check 19800000\noptions: 2944748 ns; check 9900000\nsequence: 7387495 ns; check 13333266666\narray_reads: 3215751 ns; check 204226912\ncomparisons: 252770 ns; check 200000\nplain_options: 200913 ns; check 9900000\nplain_sequence: 281142 ns; check 13333266666\n",
+      "stderr": "bench: run 14.750 ms (compilation 37.975 ms, not included)\n",
+      "mode": "source",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 246768,
+        "options": 2944748,
+        "sequence": 7387495,
+        "array_reads": 3215751,
+        "comparisons": 252770,
+        "plain_options": 200913,
+        "plain_sequence": 281142
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 56.10968009568751,
+      "stdout": "helpers: 261135 ns; check 19800000\noptions: 2732543 ns; check 9900000\nsequence: 7275808 ns; check 13333266666\narray_reads: 2992125 ns; check 204226912\ncomparisons: 225117 ns; check 200000\nplain_options: 187147 ns; check 9900000\nplain_sequence: 261746 ns; check 13333266666\n",
+      "stderr": "bench: run 14.127 ms (compilation 38.449 ms, not included)\n",
+      "mode": "source",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 261135,
+        "options": 2732543,
+        "sequence": 7275808,
+        "array_reads": 2992125,
+        "comparisons": 225117,
+        "plain_options": 187147,
+        "plain_sequence": 261746
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/probes.lang"
+      ],
+      "extra_env": {
+        "LANG_NO_INLINE": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 57.332940865308046,
+      "stdout": "helpers: 3152163 ns; check 19800000\noptions: 2436263 ns; check 9900000\nsequence: 7553774 ns; check 13333266666\narray_reads: 5360753 ns; check 204226912\ncomparisons: 231078 ns; check 200000\nplain_options: 231189 ns; check 9900000\nplain_sequence: 244233 ns; check 13333266666\n",
+      "stderr": "bench: run 19.492 ms (compilation 33.742 ms, not included)\n",
+      "mode": "no_inline",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 3152163,
+        "options": 2436263,
+        "sequence": 7553774,
+        "array_reads": 5360753,
+        "comparisons": 231078,
+        "plain_options": 231189,
+        "plain_sequence": 244233
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 32.88107505068183,
+      "stdout": "helpers: 285640 ns; check 19800000\noptions: 3466115 ns; check 9900000\nsequence: 8244316 ns; check 13333266666\narray_reads: 3144107 ns; check 204226912\ncomparisons: 231319 ns; check 200000\nplain_options: 200493 ns; check 9900000\nplain_sequence: 221341 ns; check 13333266666\n",
+      "stderr": "bench: run 15.975 ms (compilation 13.819 ms, not included)\n",
+      "mode": "saved",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 285640,
+        "options": 3466115,
+        "sequence": 8244316,
+        "array_reads": 3144107,
+        "comparisons": 231319,
+        "plain_options": 200493,
+        "plain_sequence": 221341
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 33.01310003735125,
+      "stdout": "helpers: 248662 ns; check 19800000\noptions: 2640572 ns; check 9900000\nsequence: 7302137 ns; check 13333266666\narray_reads: 3207926 ns; check 204226912\ncomparisons: 241709 ns; check 200000\nplain_options: 202877 ns; check 9900000\nplain_sequence: 282705 ns; check 13333266666\n",
+      "stderr": "bench: run 14.408 ms (compilation 14.640 ms, not included)\n",
+      "mode": "saved",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 248662,
+        "options": 2640572,
+        "sequence": 7302137,
+        "array_reads": 3207926,
+        "comparisons": 241709,
+        "plain_options": 202877,
+        "plain_sequence": 282705
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 33.1805320456624,
+      "stdout": "helpers: 256496 ns; check 19800000\noptions: 2636585 ns; check 9900000\nsequence: 7455862 ns; check 13333266666\narray_reads: 3151542 ns; check 204226912\ncomparisons: 235146 ns; check 200000\nplain_options: 201354 ns; check 9900000\nplain_sequence: 285671 ns; check 13333266666\n",
+      "stderr": "bench: run 14.398 ms (compilation 14.750 ms, not included)\n",
+      "mode": "saved",
+      "workers": 4,
+      "cases_ns": {
+        "helpers": 256496,
+        "options": 2636585,
+        "sequence": 7455862,
+        "array_reads": 3151542,
+        "comparisons": 235146,
+        "plain_options": 201354,
+        "plain_sequence": 285671
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--bench",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/evidence/probes.langmir"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 31.413880875334144,
+      "stdout": "helpers: 268659 ns; check 19800000\noptions: 2545056 ns; check 9900000\nsequence: 7491027 ns; check 13333266666\narray_reads: 3154717 ns; check 204226912\ncomparisons: 239274 ns; check 200000\nplain_options: 219768 ns; check 9900000\nplain_sequence: 220349 ns; check 13333266666\n",
+      "stderr": "bench: run 14.287 ms (compilation 13.739 ms, not included)\n",
+      "mode": "saved",
+      "workers": 1,
+      "cases_ns": {
+        "helpers": 268659,
+        "options": 2545056,
+        "sequence": 7491027,
+        "array_reads": 3154717,
+        "comparisons": 239274,
+        "plain_options": 219768,
+        "plain_sequence": 220349
+      }
+    }
+  ],
+  "summaries": {
+    "source-w1": {
+      "helpers": {
+        "median_ns": 268378,
+        "min_ns": 263028,
+        "max_ns": 279078
+      },
+      "options": {
+        "median_ns": 2819795,
+        "min_ns": 2744075,
+        "max_ns": 3015217
+      },
+      "sequence": {
+        "median_ns": 7288872,
+        "min_ns": 7189828,
+        "max_ns": 7879529
+      },
+      "array_reads": {
+        "median_ns": 3033782,
+        "min_ns": 2995761,
+        "max_ns": 3251076
+      },
+      "comparisons": {
+        "median_ns": 231600,
+        "min_ns": 216402,
+        "max_ns": 388912
+      },
+      "plain_options": {
+        "median_ns": 196034,
+        "min_ns": 183771,
+        "max_ns": 284708
+      },
+      "plain_sequence": {
+        "median_ns": 222834,
+        "min_ns": 200752,
+        "max_ns": 321357
+      }
+    },
+    "source-w4": {
+      "helpers": {
+        "median_ns": 246768,
+        "min_ns": 242480,
+        "max_ns": 261135
+      },
+      "options": {
+        "median_ns": 2740969,
+        "min_ns": 2732543,
+        "max_ns": 2944748
+      },
+      "sequence": {
+        "median_ns": 7324008,
+        "min_ns": 7030643,
+        "max_ns": 7434372
+      },
+      "array_reads": {
+        "median_ns": 3163052,
+        "min_ns": 2992125,
+        "max_ns": 3232802
+      },
+      "comparisons": {
+        "median_ns": 233774,
+        "min_ns": 225117,
+        "max_ns": 252770
+      },
+      "plain_options": {
+        "median_ns": 200913,
+        "min_ns": 187147,
+        "max_ns": 205832
+      },
+      "plain_sequence": {
+        "median_ns": 281142,
+        "min_ns": 261746,
+        "max_ns": 289437
+      }
+    },
+    "no_inline-w1": {
+      "helpers": {
+        "median_ns": 3186035,
+        "min_ns": 3132846,
+        "max_ns": 3285910
+      },
+      "options": {
+        "median_ns": 2501945,
+        "min_ns": 2471789,
+        "max_ns": 2590138
+      },
+      "sequence": {
+        "median_ns": 7481850,
+        "min_ns": 7427730,
+        "max_ns": 7716356
+      },
+      "array_reads": {
+        "median_ns": 5334273,
+        "min_ns": 5042923,
+        "max_ns": 5491605
+      },
+      "comparisons": {
+        "median_ns": 188611,
+        "min_ns": 179894,
+        "max_ns": 193099
+      },
+      "plain_options": {
+        "median_ns": 239525,
+        "min_ns": 217874,
+        "max_ns": 255695
+      },
+      "plain_sequence": {
+        "median_ns": 235568,
+        "min_ns": 218085,
+        "max_ns": 241028
+      }
+    },
+    "no_inline-w4": {
+      "helpers": {
+        "median_ns": 3152163,
+        "min_ns": 3101077,
+        "max_ns": 3279359
+      },
+      "options": {
+        "median_ns": 2436263,
+        "min_ns": 2398152,
+        "max_ns": 2442775
+      },
+      "sequence": {
+        "median_ns": 7560677,
+        "min_ns": 7482141,
+        "max_ns": 7618033
+      },
+      "array_reads": {
+        "median_ns": 5421645,
+        "min_ns": 5314888,
+        "max_ns": 5491315
+      },
+      "comparisons": {
+        "median_ns": 235166,
+        "min_ns": 231078,
+        "max_ns": 238583
+      },
+      "plain_options": {
+        "median_ns": 232572,
+        "min_ns": 228564,
+        "max_ns": 252478
+      },
+      "plain_sequence": {
+        "median_ns": 245565,
+        "min_ns": 241388,
+        "max_ns": 250595
+      }
+    },
+    "saved-w1": {
+      "helpers": {
+        "median_ns": 271975,
+        "min_ns": 265563,
+        "max_ns": 295068
+      },
+      "options": {
+        "median_ns": 2509930,
+        "min_ns": 2481968,
+        "max_ns": 3466115
+      },
+      "sequence": {
+        "median_ns": 7491027,
+        "min_ns": 7188697,
+        "max_ns": 9245706
+      },
+      "array_reads": {
+        "median_ns": 3144107,
+        "min_ns": 3016471,
+        "max_ns": 4173969
+      },
+      "comparisons": {
+        "median_ns": 231319,
+        "min_ns": 220439,
+        "max_ns": 239274
+      },
+      "plain_options": {
+        "median_ns": 196414,
+        "min_ns": 184803,
+        "max_ns": 219768
+      },
+      "plain_sequence": {
+        "median_ns": 220349,
+        "min_ns": 203487,
+        "max_ns": 306839
+      }
+    },
+    "saved-w4": {
+      "helpers": {
+        "median_ns": 248662,
+        "min_ns": 241288,
+        "max_ns": 267947
+      },
+      "options": {
+        "median_ns": 2601620,
+        "min_ns": 2532562,
+        "max_ns": 2640572
+      },
+      "sequence": {
+        "median_ns": 7359733,
+        "min_ns": 7201860,
+        "max_ns": 8542069
+      },
+      "array_reads": {
+        "median_ns": 3151542,
+        "min_ns": 2967419,
+        "max_ns": 3207926
+      },
+      "comparisons": {
+        "median_ns": 240266,
+        "min_ns": 216181,
+        "max_ns": 265733
+      },
+      "plain_options": {
+        "median_ns": 199781,
+        "min_ns": 186126,
+        "max_ns": 202877
+      },
+      "plain_sequence": {
+        "median_ns": 282705,
+        "min_ns": 262387,
+        "max_ns": 288035
+      }
+    }
+  },
+  "runtime": {
+    "buffer-generational-0": {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/examples/performance_audit",
+        "buffer"
+      ],
+      "extra_env": {
+        "LANG_GC_GENERATIONAL": "0"
+      },
+      "exit_code": 0,
+      "wall_ms": 6.938091013580561,
+      "stdout": "before: objects=0 pressure_bytes=0 collections=0 rss_kib=2376\n8m_byte_elements: objects=1 pressure_bytes=24 collections=0 rss_kib=64900\n",
+      "stderr": ""
+    },
+    "prefix-generational-0": {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/examples/performance_audit",
+        "prefix"
+      ],
+      "extra_env": {
+        "LANG_GC_GENERATIONAL": "0"
+      },
+      "exit_code": 0,
+      "wall_ms": 1.2995221186429262,
+      "stdout": "prefix_len=512 retained_strings=2048\nafter_drop_prefix: objects=0 pressure_bytes=0 collections=2 rss_kib=2816\n",
+      "stderr": ""
+    },
+    "pool-generational-0": {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/examples/performance_audit",
+        "pool"
+      ],
+      "extra_env": {
+        "LANG_GC_GENERATIONAL": "0"
+      },
+      "exit_code": 0,
+      "wall_ms": 12.065951013937593,
+      "stdout": "before: objects=0 pressure_bytes=0 collections=0 rss_kib=2416\nlive_peak: objects=500000 pressure_bytes=24000000 collections=1 rss_kib=35396\nafter_collection: objects=0 pressure_bytes=0 collections=2 rss_kib=35396\n",
+      "stderr": ""
+    },
+    "old-generational-0": {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/examples/performance_audit",
+        "old"
+      ],
+      "extra_env": {
+        "LANG_GC_GENERATIONAL": "0"
+      },
+      "exit_code": 0,
+      "wall_ms": 3.90626210719347,
+      "stdout": "promoted: objects=100000 pressure_bytes=3300000 collections=1 rss_kib=10644\nafter_drop_and_five_collections: objects=0 pressure_bytes=0 collections=6 rss_kib=10644\n",
+      "stderr": ""
+    },
+    "old-generational-1": {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/examples/performance_audit",
+        "old"
+      ],
+      "extra_env": {
+        "LANG_GC_GENERATIONAL": "1"
+      },
+      "exit_code": 0,
+      "wall_ms": 3.429437056183815,
+      "stdout": "promoted: objects=100000 pressure_bytes=0 collections=1 rss_kib=10580\nafter_drop_and_five_collections: objects=100000 pressure_bytes=0 collections=6 rss_kib=10580\n",
+      "stderr": ""
+    }
+  },
+  "text": [
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 167.9603059310466,
+      "stdout": "chars=1000 repetitions=100 slice_ns=137956 check=100\nchars=10000 repetitions=100 slice_ns=1062232 check=100\nchars=100000 repetitions=100 slice_ns=10894546 check=100\nchars=1000000 repetitions=100 slice_ns=119616523 check=100\n",
+      "stderr": "",
+      "workers": 1,
+      "sizes_ns": {
+        "1000": 137956,
+        "10000": 1062232,
+        "100000": 10894546,
+        "1000000": 119616523
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 303.8319961633533,
+      "stdout": "chars=1000 repetitions=100 slice_ns=217694 check=100\nchars=10000 repetitions=100 slice_ns=1829546 check=100\nchars=100000 repetitions=100 slice_ns=16868217 check=100\nchars=1000000 repetitions=100 slice_ns=182576611 check=100\n",
+      "stderr": "",
+      "workers": 1,
+      "sizes_ns": {
+        "1000": 217694,
+        "10000": 1829546,
+        "100000": 16868217,
+        "1000000": 182576611
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 271.4155849535018,
+      "stdout": "chars=1000 repetitions=100 slice_ns=238011 check=100\nchars=10000 repetitions=100 slice_ns=2221424 check=100\nchars=100000 repetitions=100 slice_ns=21565287 check=100\nchars=1000000 repetitions=100 slice_ns=194539591 check=100\n",
+      "stderr": "",
+      "workers": 1,
+      "sizes_ns": {
+        "1000": 238011,
+        "10000": 2221424,
+        "100000": 21565287,
+        "1000000": 194539591
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 266.5664120577276,
+      "stdout": "chars=1000 repetitions=100 slice_ns=217153 check=100\nchars=10000 repetitions=100 slice_ns=1919634 check=100\nchars=100000 repetitions=100 slice_ns=19632498 check=100\nchars=1000000 repetitions=100 slice_ns=178740830 check=100\n",
+      "stderr": "",
+      "workers": 1,
+      "sizes_ns": {
+        "1000": 217153,
+        "10000": 1919634,
+        "100000": 19632498,
+        "1000000": 178740830
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 286.26286797225475,
+      "stdout": "chars=1000 repetitions=100 slice_ns=203698 check=100\nchars=10000 repetitions=100 slice_ns=1903353 check=100\nchars=100000 repetitions=100 slice_ns=18143434 check=100\nchars=1000000 repetitions=100 slice_ns=187984220 check=100\n",
+      "stderr": "",
+      "workers": 1,
+      "sizes_ns": {
+        "1000": 203698,
+        "10000": 1903353,
+        "100000": 18143434,
+        "1000000": 187984220
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 312.87393416278064,
+      "stdout": "chars=1000 repetitions=100 slice_ns=214768 check=100\nchars=10000 repetitions=100 slice_ns=1966350 check=100\nchars=100000 repetitions=100 slice_ns=17661910 check=100\nchars=1000000 repetitions=100 slice_ns=221226396 check=100\n",
+      "stderr": "",
+      "workers": 4,
+      "sizes_ns": {
+        "1000": 214768,
+        "10000": 1966350,
+        "100000": 17661910,
+        "1000000": 221226396
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 268.68114806711674,
+      "stdout": "chars=1000 repetitions=100 slice_ns=284018 check=100\nchars=10000 repetitions=100 slice_ns=2073379 check=100\nchars=100000 repetitions=100 slice_ns=18687524 check=100\nchars=1000000 repetitions=100 slice_ns=165252939 check=100\n",
+      "stderr": "",
+      "workers": 4,
+      "sizes_ns": {
+        "1000": 284018,
+        "10000": 2073379,
+        "100000": 18687524,
+        "1000000": 165252939
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 242.4269758630544,
+      "stdout": "chars=1000 repetitions=100 slice_ns=209178 check=100\nchars=10000 repetitions=100 slice_ns=2026031 check=100\nchars=100000 repetitions=100 slice_ns=17119392 check=100\nchars=1000000 repetitions=100 slice_ns=175130777 check=100\n",
+      "stderr": "",
+      "workers": 4,
+      "sizes_ns": {
+        "1000": 209178,
+        "10000": 2026031,
+        "100000": 17119392,
+        "1000000": 175130777
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 258.16451292485,
+      "stdout": "chars=1000 repetitions=100 slice_ns=231589 check=100\nchars=10000 repetitions=100 slice_ns=1857298 check=100\nchars=100000 repetitions=100 slice_ns=18351591 check=100\nchars=1000000 repetitions=100 slice_ns=176210091 check=100\n",
+      "stderr": "",
+      "workers": 4,
+      "sizes_ns": {
+        "1000": 231589,
+        "10000": 1857298,
+        "100000": 18351591,
+        "1000000": 176210091
+      }
+    },
+    {
+      "command": [
+        "/tmp/language-performance-audit-2026-10-16/target/release/lang",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/language-performance-audit-2026-10-16/reports/performance-audit-2026-10-16/text.lang"
+      ],
+      "extra_env": {},
+      "exit_code": 0,
+      "wall_ms": 270.1822849921882,
+      "stdout": "chars=1000 repetitions=100 slice_ns=224587 check=100\nchars=10000 repetitions=100 slice_ns=2424070 check=100\nchars=100000 repetitions=100 slice_ns=20752187 check=100\nchars=1000000 repetitions=100 slice_ns=192011857 check=100\n",
+      "stderr": "",
+      "workers": 4,
+      "sizes_ns": {
+        "1000": 224587,
+        "10000": 2424070,
+        "100000": 20752187,
+        "1000000": 192011857
+      }
+    }
+  ],
+  "input_sha256": {
+    "Cargo.lock": "bd5634ec0ef9cc332df39ad127c229d885eb64f31c1b9c1d9f7a062008ef2bae",
+    "Cargo.toml": "aab925b87b4a544b0dbe4483c912c0647b63728e58068182821758e0c13b3d68",
+    "crates/lang_base/Cargo.toml": "61a7168f8447be83e40e2cbafb815dcc58fddaa9a1d0615c3aca7f2d9aef6031",
+    "crates/lang_base/src/catalog.rs": "4d6951c5c3a20eaf628e531180916b5bfd2e91e9c3a71f33336aa9d3b10f5ded",
+    "crates/lang_base/src/diagnostics.rs": "af8f11528ac9cd071dc76b627c4930ec7902f5ce7c836d88dfab7c267dce543f",
+    "crates/lang_base/src/intern.rs": "24b8156678ef4bf5f9568e9fa3d8811e7f996f78ed6731f2062974869a5b7d18",
+    "crates/lang_base/src/lib.rs": "13e2e6f5196b993625c20ccf252206caf85e49c02704f507938fe95b2e2ff2a5",
+    "crates/lang_base/src/source.rs": "4929f86392a9b9ebd4d174833c62a638c9b989463dcb44a818cd577331c96d54",
+    "crates/lang_cli/Cargo.toml": "1939606e621856336c0d27e408d1b7908527e15439e834796e25d8f276f1ab87",
+    "crates/lang_cli/src/doc.rs": "6439509186a5bdcc565f332e603c6744ccc1df11358efa920dcaafc3e21e25e5",
+    "crates/lang_cli/src/graph.rs": "6232553d4bbba7ce266ab1cdce85cb2aa318856ac133665bb5238a5a3023f19e",
+    "crates/lang_cli/src/lsp.rs": "73534e21ed1a6eba06950b5540436ccb4250b35103e86e6df2863b9e38c1f8dd",
+    "crates/lang_cli/src/main.rs": "3d48b1efbf3d5018e4f6e0c631c4fb7340bd381780686b46475e1743b587c13a",
+    "crates/lang_cli/src/mcp.rs": "382269f6a45f6c2af46bc1637425f75793c854794b45dd6252d343e1ee7870f5",
+    "crates/lang_cli/tests/adversarial.rs": "a0c551eb08b49425fc5ba79d76fdc1f09ba9b326f84c45f4b12e96546baaf27b",
+    "crates/lang_cli/tests/common/mod.rs": "247bce6866631223954a88c4ca8aaae7b56ba58f6e39c872bbbdbfb61f9fd057",
+    "crates/lang_cli/tests/docs.rs": "cee1301606fdeef93ea58b3ee4595a3f64453c2409970d6aef9cf00ee705b498",
+    "crates/lang_cli/tests/fuzz.rs": "dc79356f1d8f5d7e8bb1376da21763d177d0927302b2a52cd49748107b2dde20",
+    "crates/lang_cli/tests/lsp.rs": "b5b169753b47cf606d76f119a34c63e92a1c99d82c8772da576d10c67a7ab3bd",
+    "crates/lang_cli/tests/mcp.rs": "5edc355468a0b53d9ea2bf9cf2ec886b9bd5d1c622cb2e5a59a86f50a7b51a58",
+    "crates/lang_cli/tests/programs.rs": "18425c7d990999e925b14214131ab548f7d831c8605d4535654fd2ce0941e5ce",
+    "crates/lang_cli/tests/service.rs": "ac908b384fd26e5e80ea2591d84b10246408e759a10f906193b1efaf72d2bf65",
+    "crates/lang_cli/tests/stress.rs": "7c5902acc7981c4c474cd0cf6fbae90beb65c1b191d8f6c6f210efc09abee29a",
+    "crates/lang_codegen/Cargo.toml": "f5fd13484b44abf4b78cfbdaf7c64ec6f8f6f3190ffe96e5fb08b178d556f133",
+    "crates/lang_codegen/src/debuginfo.rs": "bc2880729c5b5e0d6f9c2f753a4d6725da9de17ef4e87ee04fa5927ad99d1793",
+    "crates/lang_codegen/src/lib.rs": "fe4a8645ae072b2b2306f74117292894fcac34aae3407c93e802229ddbfc7900",
+    "crates/lang_driver/Cargo.toml": "753a47443b644f9e36e0a702078b070089481ce4b3a01ad083f7bf6a087a9423",
+    "crates/lang_driver/src/analysis.rs": "39e7177efed3a1a8ef3a3223680bf3b1da34801ea9597adc3259417a8e7b59ca",
+    "crates/lang_driver/src/authority.rs": "f486a502bcfbefeedea11014428b2e698b5ea047ebd36fc78b726732b37f2ac1",
+    "crates/lang_driver/src/deps.rs": "5f889d4d6769fd1ff72b50c571f91a383109e56b70ffed836d48ee2750d54ea5",
+    "crates/lang_driver/src/inspect.rs": "4fc211c7acee8bea2e0acf0688c0a238879b7b7d9debbf07ee83c21b2d9fb17e",
+    "crates/lang_driver/src/lib.rs": "34d45c861c47c5a51977422d50dfa80081bf2131c35ca7b944c070d98522fe4b",
+    "crates/lang_driver/src/live.rs": "4d53af7ad9368c98f5f373a9bca49a100d3486498fdb3ebc5b83ece450bb2f87",
+    "crates/lang_driver/src/manifest.rs": "a876c03eedb6ac4429448f134e34b6009e27e7d40e1f89ec8c85c63ae8f6cf21",
+    "crates/lang_driver/src/sql.rs": "9d0e5499ccf1d8567b850283d5ffdc34cc11f5ac39c327091732654fb7df698e",
+    "crates/lang_driver/src/sqlcheck.rs": "8982e3131108a1e997b34b6c0d2197eeda0fe04c413233e995f1158c56172b41",
+    "crates/lang_fetch/Cargo.toml": "aa7ea3b18af48be7ee29f3f9bfec4efca1f89c97bc0c71d0ac1c412bd3cf6ca2",
+    "crates/lang_fetch/src/lib.rs": "4701f5b10c06ec121f07ef3097a38d9d8206d3702b3b501437c9a5089e4fa1a6",
+    "crates/lang_hir/Cargo.toml": "54693c806faae9c5fcd2e70a0b0ba33ff190ce2f147090531bf03e9992221005",
+    "crates/lang_hir/src/hir.rs": "eda0e84d39900dd5eeb05e42ab6af5a8b4c6b481362a946be47dd28236175440",
+    "crates/lang_hir/src/lib.rs": "afa2c24675c9cbb8ab07348e84cc5c20c7fa67996570cf2ddddedf3957b23c33",
+    "crates/lang_hir/src/lower.rs": "350e440852d0fea3e4ca6e2b743573c184ef7b95368dd9f2aec94413ad549def",
+    "crates/lang_hir/src/stdlib.rs": "63f3341732466dea6fcd2262b1545e64357e11ad4ec588404c7154ef67b2edc7",
+    "crates/lang_hir/std/array.lang": "0172e4ca7868f0796f3e673b95988d7eea07394ea24d2b1b85a6f0c7f80ac9e8",
+    "crates/lang_hir/std/broadcast.lang": "cb57abde0db7fc0c389cfcd51a69a49c344a0499efbc3e8672318b4d591f23f9",
+    "crates/lang_hir/std/buffer.lang": "8fc01114079723978cc5febf641ca900483291f2ab0956fedbf2ccaf6108a4cc",
+    "crates/lang_hir/std/bytes.lang": "af839203b75f6aa793d917f19ca9706a5c3d949c4ab93b57ee4e009180b20537",
+    "crates/lang_hir/std/channel.lang": "8084804ff87daf6999b4027be673734123c0964f936e77f01fe3481b99684854",
+    "crates/lang_hir/std/codec.lang": "7061973143618f85e386a5e146655722285df504b26af978f15c51e6dd4e7f3c",
+    "crates/lang_hir/std/compiler.lang": "57a2849e3fb8a9c9e3b7dbf7ac1ac8d5581caf0e8d84c141565b8090c43a63f6",
+    "crates/lang_hir/std/config.lang": "8486a3bd99d345150c9e82f78bc609f35097a3d13aedd2b95bead7bc29bbf946",
+    "crates/lang_hir/std/env.lang": "503aa9549d5b18ede0e29ec087859960a1a011412020d8987afaf2f941a78e33",
+    "crates/lang_hir/std/fetch.lang": "a960d4cc281d7c9a92fdad2d8f16a0e92b29d47920e7f41d3e667ed2f395d221",
+    "crates/lang_hir/std/ffi.lang": "fb467342d3a9427ab81f61d8e6e21fa3abdee0b6e90d9030ce5f90c3e0f23c15",
+    "crates/lang_hir/std/fs.lang": "7960242acc96916ade286bef864bb13376ea708deb01e35dec26351dee14305b",
+    "crates/lang_hir/std/http.lang": "6b6ce6aed5468d5bdddd32dbdf415b7c201ee34b90b66371610b85af44df2f46",
+    "crates/lang_hir/std/inspect.lang": "4b73cfb301fb69a4c2b4d21e7e3a29ae6a0404a97bddb3c0ab1cfa15107b2343",
+    "crates/lang_hir/std/io.lang": "6924ebab4cf3b6d9164d0ab92a7d3439497a92d0fdf8d271c86f328b71a8fa5a",
+    "crates/lang_hir/std/jobs.lang": "173a8e1066ce2fc0644669232d24054c42c6a44a79a5890ac0a70a126dc9d609",
+    "crates/lang_hir/std/list.lang": "af26fd571e6fd45414447f3c96c10814aa620b703631909a067b11365c49653a",
+    "crates/lang_hir/std/map.lang": "eb205fc132100fdf279bcdcc676ade0b4c25bf58f421a2966eb0db232d09075e",
+    "crates/lang_hir/std/native.lang": "ddac833e681c87b55fedf57fedb1ac234509ad257196e191b92fae3b370b794e",
+    "crates/lang_hir/std/num.lang": "3c63d681203c70a9e16076c40d0e0ba8be933d16a5aef9813de78b0a90f030a7",
+    "crates/lang_hir/std/option.lang": "5cff0f2f27f58ba582b81a8ef34f5831fbd35b69e135f5da3a77088eceededbe",
+    "crates/lang_hir/std/parse.lang": "aaeb997e31056ca70fceddd65b8c16953a5df419a4429960e43c758793e314cf",
+    "crates/lang_hir/std/path.lang": "df2f9ffea1bed57b0eabe9eed3ad5fd101a7e25ddce370f280df004631c640f1",
+    "crates/lang_hir/std/pipeline.lang": "296e03e875e1f4f23c648f6d44f5b4e6ea3a20f2c85bd8d5636f05ce19c0cbdc",
+    "crates/lang_hir/std/prelude.lang": "fae00af94f04e38692cbe01a1cd72021f97d39d9df1afc35005a42a2e1ab0a5a",
+    "crates/lang_hir/std/process.lang": "b68010c0936fadac887c32330730c966e75bdddec4a0023b7d66fda6a12678ce",
+    "crates/lang_hir/std/random.lang": "492e23c802c2517d248cb586cb7e8e404581910b97f5e68750d231cfd8d87714",
+    "crates/lang_hir/std/records.lang": "4b04d798168bdc77182089152c5e149592ee6f037c764b3b2c54a944b6321753",
+    "crates/lang_hir/std/regex.lang": "186cae3a947266afa79bdfcce5419473434ec2edd45c1bb6d07c4a9caa880990",
+    "crates/lang_hir/std/result.lang": "c2b91e0248fbf9ad7b839093877b0072e60962b1e141325961f05722c4b8b5d5",
+    "crates/lang_hir/std/route.lang": "78339562663c429662a04e63cdb5679c49965a313151dbef0673f0c1c4a3f642",
+    "crates/lang_hir/std/schema.lang": "ce81c3d84208c9a5f8519234490ed1391445e6d7ee9cfa2c811c0d4d1f597ae8",
+    "crates/lang_hir/std/seq.lang": "2a01dd636570d320bdd3e7229a070fd790a4b80ee0220120af5ecc0133759b95",
+    "crates/lang_hir/std/set.lang": "22fc60ee6e71a1186213d55b029a79654253d21b5cfda049c9e54c0a50ce53fa",
+    "crates/lang_hir/std/sqlite.lang": "6053e5cb30f560cd51471957720d05e6b16a1a05fc973c760bbdc95ec8b90974",
+    "crates/lang_hir/std/stream.lang": "2592a32137177e8a728d381fd42baa1e4ab3c0be33b7c6118fec1a4f5dd8ae65",
+    "crates/lang_hir/std/system.lang": "ed1c6f761925711fc211ce3fe4b1e6cab14ce9cefb10e8a8a651a168ff9e3174",
+    "crates/lang_hir/std/task.lang": "4d53a383ab92a1419610b68e1ea1368c4c9d66f61d2ef62634d8ce91c1fedfb8",
+    "crates/lang_hir/std/test.lang": "18cbb5c052be25883e50dfa9c1b7e51b9a0cfa6d2b55dc8baafcf9fdea00f7c4",
+    "crates/lang_hir/std/text.lang": "2e074ed6cdf903115c176667e24390a50f4727dff0d2e93bcdce840303e094ec",
+    "crates/lang_hir/std/time.lang": "447cd7a85efab1dbeb9766ab497205a2b3593d7f09a85d20f8b8847dc6147d7c",
+    "crates/lang_hir/std/trace.lang": "8e6802b1701c4cfcd48aba80a41f7ce0bdc6f3d22c9535726c9bec5e9741cb61",
+    "crates/lang_hir/std/worker.lang": "5fb5004c3f674ee8bb5ce6d99393cfbd0437d4b5379aebeca3fc7ee81efac9e3",
+    "crates/lang_http/Cargo.toml": "5062fde3bf4636b3d7aabc7ccec95e80a86a2070f913701e678ef5b83b53572f",
+    "crates/lang_http/src/lib.rs": "3c17c238e10654f3839f3e352da12a35514f4e63a4ac42a48fac8e0f2ac676ea",
+    "crates/lang_mir/Cargo.toml": "4078dac827ce3b2b7b686428557f1a0c2a3b340ea33527acbfe77769c7b2b50a",
+    "crates/lang_mir/src/inline.rs": "725b052b3f0c854eb000f157e5ff509b6d53b695eb74a06f8c6110199cdb3608",
+    "crates/lang_mir/src/layout.rs": "21ab5fe85559327a83009676965f6ee1cb4b2e7a98850c2648c2e602cd525932",
+    "crates/lang_mir/src/lib.rs": "26f70b1f913b9c6b2c52c3c36faae5d76f8cd39713795fd40d2970a087aed2d6",
+    "crates/lang_mir/src/lower.rs": "41c590a369abe39b8e93826020d2b45871adfafe500908c6d86639cbb4c9b0f1",
+    "crates/lang_mir/src/mir.rs": "56cb41adccc26ad798fc72e52a85dc62cc4b1e5dd2c00ffe632fbcc8a001a5e8",
+    "crates/lang_mir/src/roots.rs": "cadbd2f58200d408fff46af4ac00ac230f279b807b269db6cf47656e8da87060",
+    "crates/lang_mir/src/serial.rs": "e64f7e0a8f66991c56634d7545f47cb2126023c3daaaa72904be94475c3ac52e",
+    "crates/lang_mir/src/split.rs": "594a0cb45f66f5a58a6daaf5435323131a9418e6994661d462d88a98985580f4",
+    "crates/lang_mir/src/sra.rs": "f57412dec41336c697ad914012f3dbb653d90240618de95dce3d5d69bacb04d0",
+    "crates/lang_mir/src/verify.rs": "467e074bf3384d7c9014f814a25a564dacb6dc0630ba1cb5774a520949b731a0",
+    "crates/lang_native/Cargo.toml": "cfc7d7121e74d513b2bec4c2632b9cd5b536d013009c0d3f7668bf0f5de927f8",
+    "crates/lang_native/src/lib.rs": "56cca5ac1a560384ab1f52d21ec3a47c146e68ab6667127ed147d5b9c85aae0e",
+    "crates/lang_native_demo/Cargo.toml": "c8a6ab7e3f2f8fed44582ed47fc9bd6666443526b69a2c057f0aa9bfa0893b7e",
+    "crates/lang_native_demo/src/lib.rs": "0d57db1c399ab32b15a44c20900b3b464393533c41fb027aeba25c1499832ee8",
+    "crates/lang_runtime/Cargo.toml": "0e4eda73e60953bdef065a882b722f1d3a436758bedcc4549a4bf63fe4ccdf46",
+    "crates/lang_runtime/src/abi.rs": "4dcfdd09bfba919cc70924e2adbb312d5ff440a352a438392b357a9b04d42fc6",
+    "crates/lang_runtime/src/buffer.rs": "15c2ece2dad099683f09e5efa6c9451ce7357402e0e25180fbdd3313aebc1275",
+    "crates/lang_runtime/src/channel.rs": "62ea557580e008e90880f08660a059b803be35bb3b3bc2a9cbdbaf536b63ad8c",
+    "crates/lang_runtime/src/codec.rs": "0fc18c5760b19a382949d4bbb5b816a135327e59d224ed965fcc72f6e660b899",
+    "crates/lang_runtime/src/desc.rs": "8ac6114f19df79fdccefefa7409f6dc879e5e45357a69db8a408ea5881a532cf",
+    "crates/lang_runtime/src/ffi.rs": "086a45420db7939d10e550e19354727663f2f99a9a96f6149c1e6e1675970f43",
+    "crates/lang_runtime/src/gc.rs": "1f21e2cf8a9b1f3019e20e9600362aad75e366f38ff974e7b62b977a96bb8b8b",
+    "crates/lang_runtime/src/hamt.rs": "cddf56250a4a43cf2e9880f83f8b95f5803acb61574888ec42d61eab75394ab1",
+    "crates/lang_runtime/src/http.rs": "634211824015cf35c92ec110deaabef6c71e0ac17037d2014df7c633ccd05cf5",
+    "crates/lang_runtime/src/inspect.rs": "5edd7cb9026b36e6bcf5c7953bcfd4284efaa1e50dc111403653fb84de47cbda",
+    "crates/lang_runtime/src/intrinsics.rs": "b2306a4383df9152a84cac35a3931fab28f96ad2eeb187d5adb8933299341d22",
+    "crates/lang_runtime/src/intrinsics_codec.rs": "7c1f30fb5b07cd71e98c71c581fd4a5de9933834c298e7698d0035d4a14e192e",
+    "crates/lang_runtime/src/intrinsics_io.rs": "73c9911284f1af8864f9ab97c5173870404efe00649f61514c643c085dd5bc8d",
+    "crates/lang_runtime/src/intrinsics_os.rs": "1795bc81040792a1263b533863006fb36c555b94e02f5dcad1dd8c4d529a1e66",
+    "crates/lang_runtime/src/intrinsics_std.rs": "c80fb5af0b4654ab01e9eccfb74e5120deabe7299e5f83021df38a8bd21edd92",
+    "crates/lang_runtime/src/intrinsics_task.rs": "62c96d5c3ae65b6776b9794d3c60238c048b00e4d9e2d53b0ca6d5db9cb30506",
+    "crates/lang_runtime/src/lib.rs": "e0e69e04aa615e6061ee488b65d71943de6479f189f810ad88e7f4eba260352c",
+    "crates/lang_runtime/src/list.rs": "b38e82fd7810d457b5a382f29584f8708eb8e332ea3d8c0485ee23360995311f",
+    "crates/lang_runtime/src/live.rs": "87316ecde2ba4d21333d9f713acf1f19dd62a612b86ad585f945f369a8a1b58e",
+    "crates/lang_runtime/src/map.rs": "7afbfb242c8a5d45151f5428bd61702b063823a2686cae2becf3881d40c24075",
+    "crates/lang_runtime/src/native.rs": "3493e0b1c17569a80f39988a7bb84284461cb28b7dc4b99eef5ac1f000c31a02",
+    "crates/lang_runtime/src/parse.rs": "ac5d534d72d119a250b1581dae7936f4a8c030cb7d86bdfa97f7c9dd7758a8bc",
+    "crates/lang_runtime/src/profile.rs": "ed5e0aeb65ab038fe6d7b7dabf36778ad7bbc8d9830e4f2d503a608b4501ebdc",
+    "crates/lang_runtime/src/reply.rs": "578f1ff50cc2e9b8a9a5b0e1eea2a1dd06e19ccf42ba49f05861c0a74221ac9d",
+    "crates/lang_runtime/src/repro.rs": "16443793a31cb482e02c517297b646b639c907e7d4b4d8d785123ffe24f64651",
+    "crates/lang_runtime/src/scope.rs": "1ab8f89abd7af062608ae874351c6252b546baaaf4fdf60bfbd92a4c6aea7eba",
+    "crates/lang_runtime/src/string.rs": "5411836a30f64220a3effdd79235fb8f8a7c5c5fe483be0e0d92fe181a891d0d",
+    "crates/lang_runtime/src/task.rs": "bba7c905a74724d4a1690b5b5ff91ff9b8b0520a6cee257d5c70053b76633db7",
+    "crates/lang_runtime/src/value.rs": "b0e586f47fe64b9933c3946fc8530dd5029f0806d730bace3c2b49d7f3c11329",
+    "crates/lang_runtime/tests/cancelled_waiters.rs": "0810ffaa25c86e33d9abb6b848ab322f76e28d855064acb958c6e5dc06567a66",
+    "crates/lang_runtime/tests/task_ids.rs": "45647eb939a08e1d9d8d2a6e83bdc373f4eece33e852401d59153ab7b5e266a5",
+    "crates/lang_sqlite/Cargo.toml": "7aa5f597a1b28565eb01487e56113421b67955e4d45aa76b3076b3d50e8c0987",
+    "crates/lang_sqlite/src/lib.rs": "4f46bf039b97f072f72589105bdd11624e6fb9946c66d9172b1e291ee5929b17",
+    "crates/lang_syntax/Cargo.toml": "7862039ceed0d6a185b3f93d5b47324b939e0afa5fed6e3a02a308782b8d8b0f",
+    "crates/lang_syntax/src/ast.rs": "2e5207a15fe287e04d4b7cf79c596614fa27639ca02fef3c02e4c7155c8d48f7",
+    "crates/lang_syntax/src/format.rs": "18eb42b637c13b336bfcbca297f65c80dcbc472328bf3ca0901a87d51938a5b7",
+    "crates/lang_syntax/src/grammar.pest": "0b139c5a2b360d274cab342b8f8612d831da49ab0df259716b4bd4e5065caadc",
+    "crates/lang_syntax/src/layout.rs": "1d8ee6d1a6df8db01d4cd19f85ef95dd76d518cfec2c045917bdc4792fab0f32",
+    "crates/lang_syntax/src/lib.rs": "f1f56cc06b1da23f0bf44926096a8fc94b304806015d1a01084ed372f4f5a91c",
+    "crates/lang_syntax/src/parser.rs": "ad9f1fbcb1c580e1deb2615f03da109850c8cabed97ab54df994d5b9f7b17922",
+    "crates/lang_syntax/src/spacing.rs": "9c9f624d1b6f784514d17250ef42aea8f0e14f6c1f9cb17eee888adc905d5658",
+    "crates/lang_syntax/tests/format_repo.rs": "8ede6487c7c897671ebd360d4f4092585f0a4e012b1bb6263e6e9f387d02d278",
+    "crates/lang_typeck/Cargo.toml": "1f03166b20f2400f47c68b8e5d4fb62a5937f8ac7b7182dd044671c4dc76697e",
+    "crates/lang_typeck/src/concurrency.rs": "2691250c13eb16fe10680fd72469e365b81dd64e1c790e34a5dba7f77c4432cd",
+    "crates/lang_typeck/src/env.rs": "a9772137dbb380678a134cf33d1e068fb77d39c347f447ace9bdcefbec951a5b",
+    "crates/lang_typeck/src/exhaust.rs": "0f6a68f90b54c25dc37a1c05f9eed21fd3b6aca7b3ea33a6667e6a23e350fcaa",
+    "crates/lang_typeck/src/infer.rs": "bd08d64563a80743de2a630916aa79a1689e1fb80e2509d916de622c73a1497b",
+    "crates/lang_typeck/src/lib.rs": "5c725a799da9542ab6870ad36fc596453bdffdbadf45f3c9588e9c831eb988fd",
+    "crates/lang_typeck/src/ownership.rs": "449d95d9fc526f1820c6017dba64b750d3772ab5c1e7c7d106f041c0b8c6f89c",
+    "crates/lang_typeck/src/program.rs": "36022f7a9f5ee607d4d423ece32a61df4b6c2c7ff1452e1f2e1242780529a113",
+    "crates/lang_typeck/src/regions.rs": "a00d91cab83b39fa5a5f36c33cf8abd45496f4ad7d00c497054f862643adff8f",
+    "crates/lang_typeck/src/solve.rs": "fe9002a4caba459006887d3e5ffe3afb56b0329fc0475928b8a44a87e4beb0a5",
+    "crates/lang_typeck/src/ty.rs": "6ae4fcb941a1d87a2c14e70a10266c9857673d897a79042818847c1585daadfa"
+  },
+  "audit_sha256": {
+    "reports/performance-audit-2026-10-16/probes.lang": "b88291e96d3c2b72f3555502747c59502abd675410abcb65104278f3733afd52",
+    "reports/performance-audit-2026-10-16/text.lang": "c8d53bde7366a5c83594d99b5e009d677982357749b1fb6423c86cc880e46ec1",
+    "reports/performance-audit-2026-10-16/run.py": "6ff74a12039d3f517597d5fd37f74761d6609754052b0d73d284b6ea51ec468c",
+    "crates/lang_runtime/examples/performance_audit.rs": "2bc8b2adb75268508fe1a0d8c99b3c6948353ca6d4750b24099899150140a413",
+    "crates/lang_codegen/examples/mir_audit.rs": "6fab83faf43a3952d8cc42da31feab1d1300f7d10b0718d25225fc27f563205a"
+  }
+}

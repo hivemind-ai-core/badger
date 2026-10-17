@@ -1,0 +1,27 @@
+{
+  "before_production_revision": "babfdab",
+  "baseline_benchmark_revision": "60a9b91717c803dbc89a36568a5afc11c2b92632",
+  "after_revision": "3927dcc0f5e0ac3bfaec1d096763a0459cc764fa",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+  "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+  "binaries": {
+    "current": {
+      "mir_audit": "c3fc48779de3b12940d50a19294a759422523639e1b947b3e63e52541d8fc38d",
+      "opportunities": "70d07208bdb529ba60c93de59113490332f45531b276435cd9a5cff82d414632",
+      "lang": "571d01e8edcd92e9b2a5653f08b7af59c7d2cc8a2817aabaa3285fccc28a0f15"
+    },
+    "baseline": {
+      "mir_audit": "ab4454e815ead90af40225eeb80c0d993581cae248eaa8fe833f4ecbfbfe7f07",
+      "opportunities": "502b7fbd60f0817c9469a557bf9c07ef8a78a3b8518405150a297ff536888df9",
+      "lang": "8990fb7b8d4f80dc88b45b732ab57414bbd49cf02b179321175a2030a52b7e50"
+    }
+  },
+  "fixtures_identical": true,
+  "validation": {
+    "passed": 121,
+    "failed": 0,
+    "ignored": 1,
+    "targets": 44
+  }
+}

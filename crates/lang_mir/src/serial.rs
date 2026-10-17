@@ -15,7 +15,7 @@ use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
 /// Layout of the file format; files of another version are refused.
-const FORMAT: u32 = 4;
+const FORMAT: u32 = 5;
 
 /// The toolchain that wrote a file must be the one that loads it: MIR and
 /// the runtime's ABI change together.

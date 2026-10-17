@@ -83,6 +83,7 @@ pub struct Heap {
     temp_roots: Vec<u64>,
     pinned: Vec<u64>,
     pub collections: usize,
+    minor_collections: usize,
     /// Stop-the-world pause times (nanoseconds).
     pub pause_total: u64,
     pub pause_max: u64,
@@ -103,6 +104,7 @@ static HEAP: HeapCell = HeapCell(UnsafeCell::new(Heap {
     temp_roots: Vec::new(),
     pinned: Vec::new(),
     collections: 0,
+    minor_collections: 0,
     pause_total: 0,
     pause_max: 0,
     quarantine: VecDeque::new(),
@@ -135,6 +137,17 @@ fn objects(w: usize) -> &'static mut Vec<*mut Header> {
 static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
 static THRESHOLD: AtomicUsize = AtomicUsize::new(16 << 20);
 static DISABLED: AtomicUsize = AtomicUsize::new(0);
+static EXTERNAL_LIVE: AtomicUsize = AtomicUsize::new(0);
+static EXTERNAL_PRESSURE: AtomicUsize = AtomicUsize::new(0);
+static MINOR_COLLECTION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub const MAX_CONSECUTIVE_MINORS: usize = 8;
+pub(crate) fn is_minor_collection() -> bool {
+    MINOR_COLLECTION.load(Ordering::Relaxed)
+}
+static POOL_RESERVED: AtomicUsize = AtomicUsize::new(0);
+pub fn pool_reserved_bytes() -> usize {
+    POOL_RESERVED.load(Ordering::Relaxed)
+}
 
 fn layout(payload: usize) -> Layout {
     Layout::from_size_align(HEADER + payload.max(8), 8).unwrap()
@@ -154,11 +167,19 @@ const CHUNK: usize = 256 << 10;
 /// instead of 512 (a small program keeps its small first chunk).
 const BIG_CHUNK: usize = 2 << 20;
 
+#[derive(Clone, Copy)]
+struct Chunk {
+    base: *mut u8,
+    bytes: usize,
+    align: usize,
+}
+
 struct Pool {
     free: [*mut u8; CLASSES],
     bump: *mut u8,
     left: usize,
-    chunks: usize,
+    chunks: Vec<Chunk>,
+    active: *mut u8,
 }
 
 struct Pools([UnsafeCell<Pool>; crate::task::MAX_WORKERS]);
@@ -169,7 +190,8 @@ static POOLS: Pools = Pools(
             free: [std::ptr::null_mut(); CLASSES],
             bump: std::ptr::null_mut(),
             left: 0,
-            chunks: 0,
+            chunks: Vec::new(),
+            active: std::ptr::null_mut(),
         })
     }; crate::task::MAX_WORKERS],
 );
@@ -195,7 +217,7 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         return p as *mut Header;
     }
     if pool.left < size {
-        let (bytes, align) = if pool.chunks == 0 { (CHUNK, 16) } else { (BIG_CHUNK, BIG_CHUNK) };
+        let (bytes, align) = if pool.chunks.is_empty() { (CHUNK, 16) } else { (BIG_CHUNK, BIG_CHUNK) };
         let chunk = unsafe { alloc_zeroed(Layout::from_size_align(bytes, align).unwrap()) };
         if chunk.is_null() {
             return chunk as *mut Header;
@@ -204,7 +226,9 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         if bytes == BIG_CHUNK && !cfg!(miri) {
             unsafe { libc::madvise(chunk as *mut libc::c_void, bytes, libc::MADV_HUGEPAGE) };
         }
-        pool.chunks += 1;
+        pool.chunks.push(Chunk { base: chunk, bytes, align });
+        pool.active = chunk;
+        POOL_RESERVED.fetch_add(bytes, Ordering::Relaxed);
         pool.bump = chunk;
         pool.left = bytes;
     }
@@ -222,6 +246,22 @@ fn free_cell(w: usize, p: *mut Header, payload: usize) {
     if size > SMALL_MAX {
         return unsafe { dealloc(p as *mut u8, layout(payload)) };
     }
+    // Quarantine drains on the collector thread, possibly for a different
+    // worker. Return each cell to its owning chunk's pool.
+    let w = if verify() {
+        POOLS
+            .0
+            .iter()
+            .position(|pool| {
+                unsafe { &*pool.get() }.chunks.iter().any(|c| {
+                    let address = p as usize;
+                    address >= c.base as usize && address < c.base as usize + c.bytes
+                })
+            })
+            .expect("quarantined pool cell has an owner")
+    } else {
+        w
+    };
     let pool = unsafe { &mut *POOLS.0[w].get() };
     let class = size / 16 - 1;
     unsafe { *(p as *mut *mut u8) = pool.free[class] };
@@ -273,7 +313,10 @@ impl Drop for Finalized {
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     debug_assert!(!FINALIZING.load(Ordering::Relaxed), "a finalizer allocated");
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
-    let due = || ALLOCATED.load(Ordering::Relaxed) > THRESHOLD.load(Ordering::Relaxed);
+    let due = || {
+        ALLOCATED.load(Ordering::Relaxed).saturating_add(EXTERNAL_PRESSURE.load(Ordering::Relaxed))
+            > THRESHOLD.load(Ordering::Relaxed)
+    };
     if (due() || stress() || chaos) && DISABLED.load(Ordering::Relaxed) == 0 {
         debt_flush();
         if crate::task::holds_lock() {
@@ -334,7 +377,17 @@ fn debt_flush() {
 /// Count memory owned outside the heap by a just-allocated object (map
 /// tries, buffers) toward the next collection.
 pub fn add_pressure(bytes: usize) {
-    ALLOCATED.fetch_add(bytes, Ordering::Relaxed);
+    EXTERNAL_PRESSURE.fetch_add(bytes, Ordering::Relaxed);
+}
+pub fn external_alloc(bytes: usize) {
+    EXTERNAL_LIVE.fetch_add(bytes, Ordering::Relaxed);
+    add_pressure(bytes);
+}
+pub fn external_free(bytes: usize) {
+    EXTERNAL_LIVE.fetch_sub(bytes, Ordering::Relaxed);
+}
+pub fn memory_bytes() -> (usize, usize) {
+    (heap().live, EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
 /// Allocate an object that is never collected (literals, static closures).
@@ -470,8 +523,12 @@ pub fn budget_check(payload: usize) {
         let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
         // (generational: `ALLOCATED` counts since the last collection; else
         // it includes the live data)
-        let since = ALLOCATED.load(Ordering::Relaxed) + owed + payload;
-        let used = if generational() { heap_bytes() + since } else { since };
+        let since = ALLOCATED.load(Ordering::Relaxed).saturating_add(owed).saturating_add(payload);
+        let used = if generational() {
+            heap_bytes().saturating_add(since)
+        } else {
+            since.saturating_add(EXTERNAL_LIVE.load(Ordering::Relaxed))
+        };
         if used > max {
             BUDGET_FULL.store(true, Ordering::Relaxed);
             let locked = crate::task::holds_lock();
@@ -483,7 +540,7 @@ pub fn budget_check(payload: usize) {
             if !locked {
                 crate::task::leave_runtime();
             }
-            if live + payload > max {
+            if live.saturating_add(payload) > max {
                 crate::task::panic_current(
                     format!("heap budget exceeded: {live} bytes live, budget {max} (`heap_max_bytes`)"),
                     String::new(),
@@ -495,7 +552,8 @@ pub fn budget_check(payload: usize) {
 
 /// Bytes of live data at the last collection.
 fn heap_bytes() -> usize {
-    if generational() { OLD_BYTES.load(Ordering::Relaxed) } else { heap().live }
+    (if generational() { OLD_BYTES.load(Ordering::Relaxed) } else { heap().live })
+        .saturating_add(EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
 /// `LANG_GC_GENERATIONAL=0`: every collection is a full one.
@@ -554,13 +612,18 @@ pub fn collect() {
 fn collect_inner() {
     let h = heap();
     h.collections += 1;
+    EXTERNAL_PRESSURE.store(0, Ordering::Relaxed);
     let sticky = generational();
     // (collection stress: a full collection every 16th, so dead old objects
     // do not pile up between the many minor ones)
+    let budget_full = BUDGET_FULL.swap(false, Ordering::Relaxed);
     let minor = sticky
+        && h.minor_collections < MAX_CONSECUTIVE_MINORS
         && OLD_BYTES.load(Ordering::Relaxed) < MAJOR_AT.load(Ordering::Relaxed)
         && !(stress() && h.collections.is_multiple_of(16))
-        && !BUDGET_FULL.swap(false, Ordering::Relaxed);
+        && !budget_full;
+    h.minor_collections = if minor { h.minor_collections + 1 } else { 0 };
+    MINOR_COLLECTION.store(minor, Ordering::Relaxed);
     let mut stack: Vec<u64> = Vec::new();
     let checking = verify();
     if sticky && !minor {
@@ -646,6 +709,9 @@ fn collect_inner() {
         });
         stack = pending;
     }
+    if !minor {
+        crate::list::clear_unmarked_directory_pages();
+    }
     // (under collection stress, a sample: a missed barrier also shows as a
     // use of a poisoned freed object)
     if minor && checking && (!stress() || h.collections.is_multiple_of(64)) {
@@ -705,6 +771,18 @@ fn collect_inner() {
     for (wl, c) in COUNTS.iter().enumerate() {
         c.0.store(objects(wl).len(), Ordering::Relaxed);
     }
+    if !minor {
+        trim_empty_chunks(h);
+        if h.temp_roots.capacity() > h.temp_roots.len().max(4096) * 4 {
+            h.temp_roots.shrink_to(h.temp_roots.len().max(4096));
+        }
+        for w in 0..crate::task::MAX_WORKERS {
+            let list = objects(w);
+            if list.capacity() > list.len().max(4096) * 4 {
+                list.shrink_to(list.len().max(4096));
+            }
+        }
+    }
     // every worker is stopped: their unpublished debt is part of `live`
     for d in &DEBT {
         d.0.store(0, Ordering::Relaxed);
@@ -728,6 +806,63 @@ fn collect_inner() {
         h.live = live;
         ALLOCATED.store(live, Ordering::Relaxed);
         THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
+    }
+    MINOR_COLLECTION.store(false, Ordering::Relaxed);
+}
+
+/// Whole chunks with neither live nor quarantined cells can be released.
+/// Purge every free-list link before deallocating any retired chunk.
+fn trim_empty_chunks(h: &Heap) {
+    let mut occupied: Vec<usize> =
+        all_objects().map(|p| p as usize).chain(h.quarantine.iter().map(|(p, _)| *p as usize)).collect();
+    occupied.sort_unstable();
+    let mut retired = vec![];
+    for pool in &POOLS.0 {
+        let pool = unsafe { &mut *pool.get() };
+        for chunk in std::mem::take(&mut pool.chunks) {
+            let start = chunk.base as usize;
+            let i = occupied.partition_point(|p| *p < start);
+            if i == occupied.len() || occupied[i] >= start + chunk.bytes {
+                if pool.active == chunk.base {
+                    pool.active = std::ptr::null_mut();
+                    pool.bump = std::ptr::null_mut();
+                    pool.left = 0;
+                }
+                retired.push(chunk);
+            } else {
+                pool.chunks.push(chunk);
+            }
+        }
+    }
+    if retired.is_empty() {
+        return;
+    }
+    let mut ranges: Vec<_> = retired.iter().map(|c| (c.base as usize, c.base as usize + c.bytes)).collect();
+    ranges.sort_unstable();
+    let released = |p: *mut u8| {
+        let i = ranges.partition_point(|r| r.0 <= p as usize);
+        i > 0 && (p as usize) < ranges[i - 1].1
+    };
+    for pool in &POOLS.0 {
+        let pool = unsafe { &mut *pool.get() };
+        for head in &mut pool.free {
+            let mut link: *mut *mut u8 = head;
+            unsafe {
+                while !(*link).is_null() {
+                    let cell = *link;
+                    let next = *(cell as *mut *mut u8);
+                    if released(cell) {
+                        *link = next;
+                    } else {
+                        link = cell as *mut *mut u8;
+                    }
+                }
+            }
+        }
+    }
+    for c in retired {
+        unsafe { dealloc(c.base, Layout::from_size_align(c.bytes, c.align).unwrap()) };
+        POOL_RESERVED.fetch_sub(c.bytes, Ordering::Relaxed);
     }
 }
 
@@ -875,12 +1010,18 @@ fn finalize(p: *mut Header) {
 /// stops the world while it looks; inspection only).
 pub fn for_each_object_of(desc: &'static TypeDesc, f: &mut dyn FnMut(u64)) {
     crate::task::stop_the_world();
+    for_each_object_of_stopped(desc, f);
+    crate::task::resume_the_world();
+}
+
+/// Collector-internal inspection: the caller already stopped the world.
+/// Never resume it here; the collector still has marking/sweeping to do.
+pub(crate) fn for_each_object_of_stopped(desc: &'static TypeDesc, f: &mut dyn FnMut(u64)) {
     for p in all_objects() {
         if std::ptr::eq(unsafe { (*p).desc }, desc) {
             f(p as u64);
         }
     }
-    crate::task::resume_the_world();
 }
 
 /// Every managed object (while the world is stopped or under the lock in
@@ -921,7 +1062,11 @@ pub fn stats() -> (usize, usize, usize) {
     let h = heap();
     let objects = COUNTS.iter().map(|c| c.0.load(Ordering::Relaxed)).sum();
     let owed: usize = DEBT.iter().map(|d| d.0.load(Ordering::Relaxed)).sum();
-    (objects, ALLOCATED.load(Ordering::Relaxed) + owed, h.collections)
+    (
+        objects,
+        ALLOCATED.load(Ordering::Relaxed) + owed + EXTERNAL_PRESSURE.load(Ordering::Relaxed),
+        h.collections,
+    )
 }
 
 /// Each worker's object count, published by the worker itself (others

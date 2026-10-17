@@ -1,0 +1,43 @@
+import std.array
+import std.buffer
+import std.codec
+import std.task
+import std.text
+
+fn check() -> Unit {
+    let bytes = array.from_list([0U8, 255U8, 1U8])
+    assert(bytes.get(-1).is_none())
+    assert(bytes.get(3).is_none())
+    assert(bytes.get(1).unwrap_or(0U8) == 255U8)
+    let signed = array.from_list([-128I8, -1I8, 127I8])
+    assert(signed.get(0).unwrap_or(0I8) == -128I8)
+    assert(signed.get(1).unwrap_or(0I8) == -1I8)
+    // Structural ordering must read packed values at their element width.
+    let ordered = [array.from_list([1I8]), signed, array.from_list([-128I8])].sort()
+    assert(ordered[0] == array.from_list([-128I8]))
+    assert(ordered[1] == signed)
+    assert(ordered[2] == array.from_list([1I8]))
+    let wide = array.from_list([65535U16, 0U16])
+    assert(wide.get(0).unwrap_or(0U16) == 65535U16)
+    let floats = array.from_list([1.5F32, -2.25F32])
+    assert(floats.get(1).unwrap_or(0F32) == -2.25F32)
+    let x = codec.decode<Array<U8>>(codec.encode(bytes))
+    match x { .ok(a) => assert(a == bytes), .err(_) => assert(false) }
+    var b = buffer.with_capacity<I16>(1)
+    for _ in 0..64 { b.push(-17I16) }
+    assert(b.pop().unwrap_or(0I16) == -17I16)
+    b.set(1, -31I16)
+    let a = b.freeze()
+    assert(a.get(1).unwrap_or(0I16) == -31I16)
+    let refs = array.build(16, fn(i: Int) { text.repeat("x", i) })
+    var sum = 0
+    for s in refs {
+        task.yield_now()
+        let garbage = array.from_list([1, 2, 3])
+        sum = sum + s.len()
+        assert(garbage.len() == 3)
+    }
+    assert(sum == 120)
+}
+
+pub fn main() -> Unit { check() }
