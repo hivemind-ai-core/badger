@@ -52,6 +52,8 @@ const AMBIENT_INTRINSICS: &[&str] = &[
     "env_args",
     "config_from_env",
     "config_load",
+    "config_resolve",
+    "config_provenance",
     "process_run",
     "process_run_input",
     "process_exit",

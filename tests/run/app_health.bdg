@@ -1,0 +1,102 @@
+// std.app health and bootstrap: `app.run` marks the application ready once
+// every node started and stopping before the nodes halt; readiness checks
+// (required or optional, bounded) make it unready or degraded; startup
+// failure never makes it ready and still cleans up; describing a plan
+// acquires nothing. std.endpoint serves the liveness and readiness routes.
+import std.app
+import std.codec
+import std.endpoint
+import std.http
+import std.io
+import std.route
+import std.system
+import std.task
+
+pub enum AppError {
+    io(source: io.Error),
+    system(source: system.Error),
+    route(source: route.RouteError),
+    failed,
+} derive(Error, From)
+
+provider store(config: { log: Atom<List<String>>, fail: Bool }) -> Result<Atom<Int>, AppError> {
+    let log = config.log
+    let _ = log.update(fn(l) { l.append("store.start") })
+    if config.fail {
+        return err(AppError.failed)
+    }
+    ok(Atom.new(0))
+}
+
+fn get(api: http.Handler, path: String) -> String {
+    let response = http.call(api, http.request(#get, path, ""))
+    $"{response.status} {response.body.to_text().unwrap_or("?")}"
+}
+
+// Records the application's phase when the node halts.
+provider witness(scope, config: { health: app.Health, seen: Atom<Symbol> }) -> Result<Unit, AppError> {
+    let health = config.health
+    let seen = config.seen
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        seen.set(health.phase())
+        ok(())
+    })
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let log: Atom<List<String>> = Atom.new([])
+    let database_up = Atom.new(true)
+    let health = app.health([
+        app.check(#db, fn() { if database_up.get() { ok(()) } else { err("connection refused") } }),
+        { ..app.check(#mail, fn() { err("no relay") }), required: false },
+    ])
+    let api = route.table(endpoint.health(health))?
+    io.println(get(api, "/health/live"))?
+    io.println(get(api, "/health/ready"))?
+
+    // planning: describing the plan starts nothing
+    let at_halt = Atom.new(#none)
+    let plan = system {
+        store: store({ log, fail: false }),
+        witness: witness({ health, seen: at_halt }),
+    }
+    io.println(plan.describe().len())?
+    io.println(log.get().len())?
+
+    let seen = app.run(plan, health, fn(running) -> Result<Int, AppError> {
+        let _ = running.store.update(fn(n) { n + 1 })
+        io.println(get(api, "/health/ready"))?
+        database_up.set(false)
+        io.println(get(api, "/health/ready"))?
+        ok(running.store.get())
+    })?
+    io.println(seen)?
+    // unready while the nodes halt, stopped after
+    io.println(at_halt.get())?
+    io.println(health.phase())?
+    io.println(get(api, "/health/ready"))?
+
+    // a probe past its limit fails
+    let slow = app.health([{ ..app.check(#slow, fn() {
+        task.sleep(200ms)
+        ok(())
+    }), limit: 10ms }])
+    let quiet = system {}
+    let _ = app.run(quiet, slow, fn(_running) -> Result<Unit, AppError> {
+        io.println(codec.encode_text(slow.report()))?
+        ok(())
+    })?
+
+    // startup failure: never ready
+    let broken = app.health([])
+    let failing = system {
+        store: store({ log, fail: true }),
+    }
+    match app.run(failing, broken, fn(_running) -> Result<Unit, AppError> { ok(()) }) {
+        .err(e) => io.println($"startup failed: {e}")?,
+        .ok(_) => io.println("unexpected")?,
+    }
+    io.println(broken.phase())?
+    ok(())
+}

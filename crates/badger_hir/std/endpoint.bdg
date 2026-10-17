@@ -95,3 +95,34 @@ pub fn bind<P, B, I, O, E, Eff>(binding: {
         },
     }
 }
+
+/// Health routes: `GET /health/live` answers 200 while the process serves
+/// at all; `GET /health/ready` answers the health report, 200 when the
+/// application accepts work and 503 otherwise (starting, stopping, or a
+/// required check failing).
+pub fn health(h: app.Health) -> List<route.Route> {
+    let live: route.Route = {
+        method: #get,
+        path: "/health/live",
+        name: #health/live,
+        summary: Option.some("Whether the process is running."),
+        params: Option.none,
+        body: Option.none,
+        reply: Option.none,
+        run: fn(_request, _params) { reply(200, "", { status: "live" }) },
+    }
+    let ready: route.Route = {
+        method: #get,
+        path: "/health/ready",
+        name: #health/ready,
+        summary: Option.some("Whether the application accepts work, with each readiness check."),
+        params: Option.none,
+        body: Option.none,
+        reply: Option.some(schema.json_schema(schema.of<app.Report>())),
+        run: fn(_request, _params) {
+            let report = h.report()
+            reply(if report.ready { 200 } else { 503 }, "", report)
+        },
+    }
+    [live, ready]
+}

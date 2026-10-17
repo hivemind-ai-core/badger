@@ -62,3 +62,14 @@ correlation when the request carries `x-correlation-id`.
 fn failure(status: Int, code: Symbol, message: String) -> Failure
 ```
 
+### `health`
+
+```badger
+fn health(h: app.Health) -> List<route.Route>
+```
+
+Health routes: `GET /health/live` answers 200 while the process serves
+at all; `GET /health/ready` answers the health report, 200 when the
+application accepts work and 503 otherwise (starting, stopping, or a
+required check failing).
+

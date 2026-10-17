@@ -398,6 +398,8 @@ hi: port 9000, database notes.db
 |---|---|
 | `config.from_env<T>(prefix)` | Environment variables only: `PREFIX` + upper-cased field name |
 | `config.load<T>(prefix)` | `[config]`, merged with `[profile.NAME]` (`--profile NAME`), then prefixed environment variables |
+| `config.resolve<T>(prefix, overrides)` | Like `load`, then `key=value` overrides; strict, and reports where each value came from |
+| `config.resolve_or<T>(prefix, overrides, defaults)` | `resolve` with typed defaults as the lowest layer |
 
 - A field without a value is an error (`config.Error` names the key). There
   are no implicit defaults; write them in `[config]` or with
@@ -407,6 +409,47 @@ hi: port 9000, database notes.db
 - `[env] dotenv` files load before the program starts.
 - `badger inspect config [--profile NAME]` prints the effective values and
   where each came from.
+
+`config.resolve` is the framework form. Its layers, lowest first, are typed
+defaults, `[config]`, the profile, `PREFIX_*` variables (nested fields
+`_`-joined: `NOTES_DB_PATH` for `db.path`), and overrides such as the
+program's arguments (`badger run -- port=9000 db.path=x.db`). A
+`[config]` or profile key, a prefixed variable, or an override that names
+no field is an error, not ignored. The result's `settings` give each
+setting's source (`#default`, `#config`, `#profile`, `#env`, `#override`),
+origin, value, and the sources it overrode:
+
+```badger
+import std.config
+import std.io
+
+type Settings = { port: Int, token: config.Secret }
+
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let defaults: Settings = { port: 8080, token: config.secret("dev") }
+    let resolved = config.resolve_or<Settings>("NOTES_", ["port=9000"], defaults)?
+    io.println($"port {resolved.value.port}, token {resolved.value.token}")?
+    for s in resolved.settings {
+        io.println($"{s.key} = {s.value} ({s.source} {s.origin})")?
+    }
+    ok(())
+}
+```
+
+```text
+port 9000, token [redacted]
+port = 9000 (override port=9000)
+token = [redacted] (default token)
+```
+
+A `config.Secret` is configured like a string but displays, encodes as
+JSON, and appears in provenance as `[redacted]`; `secret.reveal()` gives
+the value to the code that needs it.
 
 Runtime settings (`[runtime]`, `[profile.NAME.runtime]`) are separate.
 Each can be overridden by `BADGER_<SETTING>`, for example

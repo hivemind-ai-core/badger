@@ -4,9 +4,11 @@
 //     curl -X POST localhost:8080/tasks -d '{"title": "Write the docs"}'
 //     curl localhost:8080/tasks
 //     curl -X POST localhost:8080/tasks/1/done
+//     curl localhost:8080/health/ready
 import std.app
 import std.command
 import std.config
+import std.env
 import std.http
 import std.io
 import std.log
@@ -28,14 +30,19 @@ pub enum AppError {
 type Settings = { address: String, port: U16 }
 
 pub fn main() -> Result<Unit, AppError> {
-    let settings = config.load<Settings>("TASKS_")?
+    // [config] < profile < TASKS_* variables < `key=value` arguments; an
+    // unknown key or variable is an error
+    let settings = config.resolve<Settings>("TASKS_", env.args())?.value
+    let health = app.health([])
     let plan = system {
         store: memory.store({ first_id: 1 }),
         tasks: service.tasks({ store: ref(#store), max_title: 80 }),
-        api: web.api({ tasks: ref(#tasks) }),
+        api: web.api({ tasks: ref(#tasks), health }),
         server: http.server({ address: settings.address, port: settings.port, handler: ref(#api) }),
     }
-    use running <- system.run(plan)
+    // ready (GET /health/ready) once every node started; unready while
+    // stopping
+    use running <- app.run(plan, health)
     log.info("serving", { address: settings.address, port: settings.port })
     running.wait_for_shutdown()?
     ok(())
@@ -52,7 +59,7 @@ fn test_create_list_complete() -> Result<Unit, AppError> {
     let plan = system {
         store: memory.store({ first_id: 1 }),
         tasks: service.tasks({ store: ref(#store), max_title: 80 }),
-        api: web.api({ tasks: ref(#tasks) }),
+        api: web.api({ tasks: ref(#tasks), health: app.health([]) }),
     }
     use running <- system.run(plan)
     let api = running.api
@@ -66,7 +73,7 @@ fn test_errors_become_replies() -> Result<Unit, AppError> {
     let plan = system {
         store: memory.store({ first_id: 1 }),
         tasks: service.tasks({ store: ref(#store), max_title: 10 }),
-        api: web.api({ tasks: ref(#tasks) }),
+        api: web.api({ tasks: ref(#tasks), health: app.health([]) }),
     }
     use running <- system.run(plan)
     let api = running.api
@@ -109,5 +116,19 @@ fn test_descriptions() -> Result<Unit, AppError> {
     assert(route.url(routes, #tasks/complete, map { "id" => "4" })? == "/tasks/4/done")
     let doc = route.openapi(routes, "Tasks", "1")?
     assert(text.contains(doc, "\"operationId\":\"tasks/create\",\"summary\":\"Add a task.\""))
+    ok(())
+}
+
+// Readiness follows the application's phase.
+fn test_health() -> Result<Unit, AppError> {
+    let health = app.health([])
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks), health }),
+    }
+    use running <- app.run(plan, health)
+    assert(call(running.api, #get, "/health/live", "").0 == 200)
+    assert(call(running.api, #get, "/health/ready", "") == (200, "{\"checks\":[],\"ready\":true,\"status\":\"ready\"}"))
     ok(())
 }

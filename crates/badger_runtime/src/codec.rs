@@ -36,6 +36,23 @@ pub fn with_wire<R>(w: WireNames, f: impl FnOnce() -> R) -> R {
     r
 }
 
+/// The descriptor name of `config.Secret`: decoded from a string, encoded
+/// as `"[redacted]"` (except by `encode_revealed`).
+pub const SECRET: &str = "std.Secret";
+
+thread_local! {
+    static REVEAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// `encode`, with secrets' values (configuration defaults, which are given
+/// in source and resolved in-process).
+pub fn encode_revealed(d: &TypeDesc, w: u64) -> String {
+    let prev = REVEAL.with(|c| c.replace(true));
+    let s = encode(d, w);
+    REVEAL.with(|c| c.set(prev));
+    s
+}
+
 /// The wire name of member `member` of type `ty`.
 pub fn wire_name(ty: &str, member: &str) -> String {
     WIRE.with(|c| match &*c.borrow() {
@@ -99,6 +116,14 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
         Kind::Symbol | Kind::String => o.push_str(&json_quote(str_of(w))),
         Kind::Bytes => o.push_str(&json_quote(&String::from_utf8_lossy(bytes_of(w)))),
         Kind::Duration | Kind::Instant | Kind::Timestamp => o.push_str(&(w as i64).to_string()),
+        Kind::Record { fields, .. } if d.name == SECRET => {
+            if REVEAL.with(|c| c.get()) {
+                let p = unsafe { obj(w).payload() };
+                enc(fields[0].desc, unsafe { fields[0].repr.load(p.add(fields[0].offset as usize)) }, o)
+            } else {
+                o.push_str("\"[redacted]\"")
+            }
+        }
         Kind::Record { fields, tuple, .. } => {
             let p = unsafe { obj(w).payload() };
             if *tuple {
@@ -301,6 +326,13 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
         },
         Kind::Duration | Kind::Instant | Kind::Timestamp => {
             j.as_i64().map(|v| v as u64).ok_or(()).or_else(|_| fail(path, "expected an integer"))
+        }
+        Kind::Record { fields, size, .. } if d.name == SECRET => {
+            let Some(text) = j.as_str() else { return fail(path, "expected a string") };
+            let v = root(new_string(text));
+            let w = root(gc::alloc(d, *size as usize));
+            unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
+            Ok(w)
         }
         Kind::Record { fields, tuple, size, .. } => {
             let mut vals = vec![];

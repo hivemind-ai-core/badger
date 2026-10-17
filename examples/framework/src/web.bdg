@@ -1,6 +1,7 @@
 // The HTTP binding of the tasks feature: each operation bound to a method
 // and path (typed parameters, body, and reply; explicit replies for the
-// feature's errors), behind an access-log stage.
+// feature's errors), and the health routes, behind an access-log stage.
+import std.app
 import std.endpoint
 import std.http
 import std.log
@@ -63,8 +64,9 @@ pub fn routes(tasks: model.Tasks) -> List<route.Route> {
     ]
 }
 
-pub provider api(config: { tasks: model.Tasks }) -> Result<http.Handler, Error> {
-    let table = route.table(routes(config.tasks))?
+// The feature's routes and the application's health routes.
+pub provider api(config: { tasks: model.Tasks, health: app.Health }) -> Result<http.Handler, Error> {
+    let table = route.table(routes(config.tasks).concat(endpoint.health(config.health)))?
     let process = pipeline.compile(pipeline {
         access_log(),
         handle(fn(ctx) -> Result<http.Response, Error> { ok(http.call(table, ctx.request)) }),

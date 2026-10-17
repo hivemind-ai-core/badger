@@ -895,8 +895,26 @@ impl Session {
         }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => {
-                config = entries.into_iter().map(|(k, v, _)| (k, v)).collect();
-                badger_runtime::intrinsics_codec::set_profile(config.clone())
+                config = entries.iter().map(|(k, v, _)| (k.clone(), v.clone())).collect();
+                let layers = if path.is_dir() {
+                    manifest::Manifest::in_dir(path)
+                        .and_then(|m| m.layers(opts.profile.as_deref()))
+                        .unwrap_or(entries)
+                } else {
+                    entries
+                };
+                badger_runtime::intrinsics_codec::set_profile_sources(
+                    layers
+                        .into_iter()
+                        .map(|(k, v, s)| {
+                            let p = match s {
+                                manifest::Source::Base => String::new(),
+                                manifest::Source::Profile(p) => p,
+                            };
+                            (k, v, p)
+                        })
+                        .collect(),
+                )
             }
             Err(e) => {
                 self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));

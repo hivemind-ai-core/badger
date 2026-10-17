@@ -10,9 +10,15 @@
 // input, output, error, and effect types of what it wraps, so typed
 // callers call it directly. `index` collects operations' metadata (for
 // routing, documentation, and tools) without erasing their types.
+//
+// `Health` tracks an application's phase and readiness checks, and `run`
+// runs a system with it: ready once every node started, stopping (so
+// unready) before the nodes halt (FRAMEWORK_DESIGN.md §6, §12).
 import std.list
 import std.prelude
 import std.pipeline
+import std.system
+import std.task
 import std.text
 import std.time
 import std.uuid
@@ -165,4 +171,100 @@ impl Index {
     pub fn find(self: &Self, id: Symbol) -> Option<Info> {
         list.find(self.entries, fn(i) { i.id == id })
     }
+}
+
+/// A readiness check: a bounded probe of a capability the application
+/// serves. A failing `required` check makes the application unready; a
+/// failing optional one only degrades it. Probes should not write merely to
+/// test connectivity; one that runs past `limit` fails.
+pub type Check = { name: Symbol, required: Bool, limit: Duration, probe: fn() -> Result<Unit, String> !{Io, Wait, State} }
+
+/// One check's result in a report.
+pub type Probe = { name: Symbol, required: Bool, ok: Bool, message: String }
+
+/// A health report: `status` is `#starting`, `#ready`, `#degraded` (an
+/// optional check fails), `#unready` (a required check fails), `#stopping`,
+/// or `#stopped`; `ready` is whether the application accepts work.
+pub type Report = { status: Symbol, ready: Bool, checks: List<Probe> }
+
+/// An application's health: its phase (`#starting`, `#ready`, `#stopping`,
+/// `#stopped`)
+/// and readiness checks. Liveness is that the process answers at all;
+/// readiness is not a substitute for admission control.
+pub struct Health {
+    phase: Atom<Symbol>,
+    checks: Atom<List<Check>>,
+}
+
+pub fn health(checks: List<Check>) -> Health {
+    { phase: Atom.new(#starting), checks: Atom.new(checks) }
+}
+
+/// A required check with a one-second limit.
+pub fn check(name: Symbol, probe: fn() -> Result<Unit, String> !{Io, Wait, State}) -> Check {
+    { name, required: true, limit: 1s, probe }
+}
+
+impl Health {
+    /// Add a check (a provider can register its own while starting).
+    pub fn add(self: &Self, check: Check) -> Unit !{Io, Wait, State} {
+        self.checks.set(self.checks.get().append(check))
+    }
+
+    pub fn phase(self: &Self) -> Symbol {
+        self.phase.get()
+    }
+
+    /// Mark the application ready (after startup).
+    pub fn mark_ready(self: &Self) -> Unit {
+        self.phase.set(#ready)
+    }
+
+    /// Mark the application stopping: it stays live but is no longer ready.
+    pub fn mark_stopping(self: &Self) -> Unit {
+        self.phase.set(#stopping)
+    }
+
+    /// Run the checks (once ready) and report.
+    pub fn report(self: &Self) -> Report !{Io, Wait, State} {
+        let phase = self.phase.get()
+        if phase != #ready {
+            return { status: phase, ready: false, checks: [] }
+        }
+        var probes: List<Probe> = []
+        var unready = false
+        var degraded = false
+        for c in self.checks.get() {
+            let probe = c.probe
+            let outcome = match task.timeout(c.limit, probe) {
+                .ok(r) => r,
+                .err(_) => err($"no answer within {c.limit}"),
+            }
+            let ok = outcome.is_ok()
+            if !ok {
+                if c.required { unready = true } else { degraded = true }
+            }
+            probes = probes.append({ name: c.name, required: c.required, ok, message: match outcome {
+                .ok(_) => "",
+                .err(m) => m,
+            } })
+        }
+        let status = if unready { #unready } else if degraded { #degraded } else { #ready }
+        { status, ready: !unready, checks: probes }
+    }
+}
+
+/// Run a system with `health`: the application is ready once every node
+/// started and `body` begins, stopping before the nodes halt, and stopped
+/// once they have (also after a startup failure, never having been ready). Like
+/// `system.run`, the running system is only available inside `body`.
+pub fn run<Os: Row, Cs: Row, R, E>(plan: system.SystemPlan<Os, Cs>, health: Health, body: for<S: Scope> fn(system.Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait, State} where E: From<system.Error>, E: Display {
+    let result = system.run(plan, fn(running) {
+        health.mark_ready()
+        let r = body(running)
+        health.mark_stopping()
+        r
+    })
+    health.phase.set(#stopped)
+    result
 }

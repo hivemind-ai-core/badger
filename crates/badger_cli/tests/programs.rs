@@ -238,7 +238,7 @@ fn framework_example() {
     let out = lang().arg("test").arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(
-        out.status.success() && text.contains("4 passed; 0 failed"),
+        out.status.success() && text.contains("5 passed; 0 failed"),
         "{text}{}",
         String::from_utf8_lossy(&out.stderr)
     );
@@ -378,6 +378,57 @@ fn profiles() {
         .unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains(r#"{"key":"database","value":":memory:","source":"profile.test"}"#), "{text}");
+}
+
+/// `config.resolve`: typed defaults < `[config]` < profile < environment <
+/// overrides, with per-setting provenance; unknown keys, variables, and
+/// overrides fail; a `config.Secret` is redacted in display, JSON, and
+/// provenance.
+#[test]
+fn config_resolve() {
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/projects/settings"]).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let (ok, out, err) = run(&[], &[]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "127.0.0.1:8080 token=[redacted] (9 chars) db=app.db/2\n\
+         {\"address\":\"127.0.0.1\",\"db\":{\"path\":\"app.db\",\"pool\":2},\"port\":8080,\"token\":\"[redacted]\"}\n\
+         address = 127.0.0.1  (default address)\n\
+         db.path = app.db  (config db.path over default)\n\
+         db.pool = 2  (default db.pool)\n\
+         port = 8080  (config port over default)\n\
+         token = [redacted]  (config token over default)\n"
+    );
+    let (_, out, _) = run(
+        &["--profile", "prod", "--", "port=81"],
+        &[("SETTINGS_DB_POOL", "9"), ("SETTINGS_TOKEN", "s3cret")],
+    );
+    assert!(out.contains("port = 81  (override port=81 over default, config, profile)"), "{out}");
+    assert!(out.contains("db.pool = 9  (env SETTINGS_DB_POOL over default)"), "{out}");
+    assert!(out.contains("token = [redacted]  (env SETTINGS_TOKEN over default, config)"), "{out}");
+    assert!(out.contains("(6 chars)") && !out.contains("s3cret"), "{out}");
+    for (args, env, want) in [
+        (&[][..], &[("SETTINGS_PROT", "1")][..], "no configuration field reads `SETTINGS_PROT`"),
+        (&["--", "bogus=1"][..], &[][..], "unknown setting in override `bogus=1`"),
+        (&["--", "port"][..], &[][..], "an override is `key=value`"),
+        (&[][..], &[("SETTINGS_PORT", "x")][..], "SETTINGS_PORT: expected an integer, found `x`"),
+        (&["--profile", "typo"][..], &[][..], "unknown setting in [profile.typo]"),
+    ] {
+        let (ok, _, err) = run(args, env);
+        assert!(!ok && err.contains(want), "{args:?} {env:?}: {err}");
+    }
 }
 
 /// Scenario 16: `badger run --watch` replaces compatible functions while the

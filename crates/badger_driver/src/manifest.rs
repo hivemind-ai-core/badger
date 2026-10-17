@@ -528,6 +528,22 @@ impl Manifest {
         out
     }
 
+    /// `[config]` followed by the selected profile's entries, unmerged
+    /// (later entries take precedence), for per-setting provenance.
+    pub fn layers(&self, profile: Option<&str>) -> Result<Vec<(String, String, Source)>, String> {
+        self.effective(profile)?;
+        let mut out: Vec<(String, String, Source)> =
+            self.config.iter().map(|(k, v)| (k.clone(), v.clone(), Source::Base)).collect();
+        if let Some(name) = profile
+            && let Some((_, entries)) = self.profiles.iter().find(|(n, _)| n == name)
+        {
+            out.extend(
+                entries.iter().map(|(k, v)| (k.clone(), v.clone(), Source::Profile(name.to_string()))),
+            );
+        }
+        Ok(out)
+    }
+
     /// Merge `[config]` with the selected profile.
     pub fn effective(&self, profile: Option<&str>) -> Result<Vec<(String, String, Source)>, String> {
         let mut out: Vec<(String, String, Source)> =

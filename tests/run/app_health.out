@@ -1,0 +1,13 @@
+200 {"status":"live"}
+503 {"checks":[],"ready":false,"status":"starting"}
+2
+0
+200 {"checks":[{"message":"","name":"db","ok":true,"required":true},{"message":"no relay","name":"mail","ok":false,"required":false}],"ready":true,"status":"degraded"}
+503 {"checks":[{"message":"connection refused","name":"db","ok":false,"required":true},{"message":"no relay","name":"mail","ok":false,"required":false}],"ready":false,"status":"unready"}
+1
+stopping
+stopped
+503 {"checks":[],"ready":false,"status":"stopped"}
+{"checks":[{"message":"no answer within 10.000ms","name":"slow","ok":false,"required":true}],"ready":false,"status":"unready"}
+startup failed: system: system node store: failed (provider app_health/store, node at tests/run/app_health.bdg:94:9)
+stopped

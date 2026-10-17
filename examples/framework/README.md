@@ -22,6 +22,7 @@ Run them from this directory:
 ```sh
 badger run                                   # serve on 127.0.0.1:8080 ([config] in badger.toml)
 TASKS_PORT=9000 badger run                   # configuration from the environment
+badger run -- port=9000                      # or an override (unknown keys are errors)
 badger run cli -- add --title "Write the docs"
 badger run cli -- help                       # the commands, from the operations' documentation
 badger run worker
@@ -35,6 +36,7 @@ With the service running:
 curl -X POST localhost:8080/tasks -d '{"title": "Write the docs"}'
 curl localhost:8080/tasks
 curl -X POST localhost:8080/tasks/1/done
+curl localhost:8080/health/ready                       # 200 once every node started
 curl -X POST localhost:8080/tasks -d '{"title": ""}'    # 400 {"error":"tasks/invalid_title",...}
 ```
 
@@ -53,7 +55,12 @@ What to notice:
   operations' identities and documentation.
 - The CLI and the worker select a smaller plan (no server); the tests run
   the service's plan without its server and call the handler directly.
-- Leaving `system.run` halts every node in reverse order, also on an error.
+- `app.run` is `system.run` with health: the service is ready once every
+  node started and unready while it stops. Leaving it halts every node in
+  reverse order, also on an error.
+- Settings come from `config.resolve`: `[config]`, a profile, `TASKS_*`
+  variables, and `key=value` arguments, in that order; a misspelled key or
+  variable is an error.
 
 See [chapter 8 of the guide](../../docs/guide/08-systems-and-pipelines.md)
 for systems, providers, and stages, and

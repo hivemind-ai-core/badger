@@ -15,6 +15,10 @@ input, output, error, and effect types of what it wraps, so typed
 callers call it directly. `index` collects operations' metadata (for
 routing, documentation, and tools) without erasing their types.
 
+`Health` tracks an application's phase and readiness checks, and `run`
+runs a system with it: ready once every node started, stopping (so
+unready) before the nodes halt (FRAMEWORK_DESIGN.md §6, §12).
+
 ## Types
 
 ### `Actor`
@@ -78,6 +82,17 @@ fn within(self: &Self, limit: Duration) -> Call !{Io}
 The call with a deadline `limit` from now, unless it already has an
 earlier one: a deadline can be shortened, never extended.
 
+### `Check`
+
+```badger
+pub type Check = { name: Symbol, required: Bool, limit: Duration, probe: fn() -> Result<Unit, String> !{Io, Wait, State} }
+```
+
+A readiness check: a bounded probe of a capability the application
+serves. A failing `required` check makes the application unready; a
+failing optional one only degrades it. Probes should not write merely to
+test connectivity; one that runs past `limit` fails.
+
 ### `Error`
 
 ```badger
@@ -91,6 +106,55 @@ A problem with operation metadata.
 ```badger
 fn display(self: &Self) -> String
 ```
+
+### `Health`
+
+```badger
+struct Health { phase: Atom<Symbol>, checks: Atom<List<{name: Symbol, required: Bool, limit: Duration, probe: fn() -> Result<Unit, String> !{Io, Wait, State}}>> }
+```
+
+An application's health: its phase (`#starting`, `#ready`, `#stopping`,
+`#stopped`)
+and readiness checks. Liveness is that the process answers at all;
+readiness is not a substitute for admission control.
+
+#### `Health.add`
+
+```badger
+fn add(self: &Self, check: Check) -> Unit !{Io, Wait, State}
+```
+
+Add a check (a provider can register its own while starting).
+
+#### `Health.mark_ready`
+
+```badger
+fn mark_ready(self: &Self) -> Unit
+```
+
+Mark the application ready (after startup).
+
+#### `Health.mark_stopping`
+
+```badger
+fn mark_stopping(self: &Self) -> Unit
+```
+
+Mark the application stopping: it stays live but is no longer ready.
+
+#### `Health.phase`
+
+```badger
+fn phase(self: &Self) -> Symbol
+```
+
+#### `Health.report`
+
+```badger
+fn report(self: &Self) -> Report !{Io, Wait, State}
+```
+
+Run the checks (once ready) and report.
 
 ### `Index`
 
@@ -143,6 +207,24 @@ fn call(self: &Self, caller: Call, input: I) -> Result<O, E> !{Io, Eff}
 
 Invoke the operation as a nested call of `caller`, in the caller's task.
 
+### `Probe`
+
+```badger
+pub type Probe = { name: Symbol, required: Bool, ok: Bool, message: String }
+```
+
+One check's result in a report.
+
+### `Report`
+
+```badger
+pub type Report = { status: Symbol, ready: Bool, checks: List<Probe> }
+```
+
+A health report: `status` is `#starting`, `#ready`, `#degraded` (an
+optional check fails), `#unready` (a required check fails), `#stopping`,
+or `#stopped`; `ready` is whether the application accepts work.
+
 ## Functions
 
 ### `call`
@@ -161,6 +243,14 @@ fn call_within(limit: Duration) -> Call !{Io}
 
 A root call that must finish within `limit`.
 
+### `check`
+
+```badger
+fn check(name: Symbol, probe: fn() -> Result<Unit, String> !{Io, Wait, State}) -> Check
+```
+
+A required check with a one-second limit.
+
 ### `from_fn`
 
 ```badger
@@ -178,9 +268,26 @@ fn from_pipeline<I, O, E, Eff>(info: Info, plan: pipeline.Plan<{ call: Call, inp
 An operation from a pipeline whose input context is `{ call, input }`:
 its stages see both, and its handler's reply is the operation's output.
 
+### `health`
+
+```badger
+fn health(checks: List<Check>) -> Health
+```
+
 ### `index`
 
 ```badger
 fn index(infos: List<Info>) -> Result<Index, Error>
 ```
+
+### `run`
+
+```badger
+fn run<Os: Row, Cs: Row, R, E>(plan: system.SystemPlan<Os, Cs>, health: Health, body: for<S: Scope> fn(system.Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait, State} where E: From<system.Error>, E: Display
+```
+
+Run a system with `health`: the application is ready once every node
+started and `body` begins, stopping before the nodes halt, and stopped
+once they have (also after a startup failure, never having been ready). Like
+`system.run`, the running system is only available inside `body`.
 

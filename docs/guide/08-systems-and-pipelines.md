@@ -583,6 +583,29 @@ output, standard error) without printing, for tests; `command.main` prints
 it and returns the exit status, for `main -> Int`. Each request is a new
 call, joined to the caller's `x-correlation-id` when the request has one.
 
+### Health and bootstrap
+
+`app.health(checks)` tracks an application's phase and readiness checks
+(`app.check(name, probe)` is a required check with a one-second limit; set
+`required: false` for one that only degrades). `app.run(plan, health,
+body)` is `system.run` with the phases: ready once every node started,
+stopping (so unready) before the nodes halt, stopped after, and never
+ready when startup fails. It keeps `system.run`'s contract: the running
+system does not leave `body`. `endpoint.health(health)` adds `GET
+/health/live` (200 while the process serves) and `GET /health/ready` (the
+report: 200 when ready or degraded, 503 when starting, stopping, or a
+required check fails).
+
+```badger fragment
+let health = app.health([app.check(#db, fn() { pool.ping() })])
+let plan = system {
+    api: web.api({ health }),
+    server: http.server({ address, port, handler: ref(#api) }),
+}
+use running <- app.run(plan, health)
+running.wait_for_shutdown()?
+```
+
 `app.index(infos)` validates a set of operations' metadata (unique ids,
 versions from 1, documentation) without erasing their types.
 [`examples/framework`](../../examples/framework) is a small application

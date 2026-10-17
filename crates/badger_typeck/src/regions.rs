@@ -200,6 +200,14 @@ impl Regions<'_, '_, '_> {
         let opaque = self.opaque(&t);
         match &hir.exprs[e].kind {
             ExprKind::Local(l) => self.tainted.get(l).copied().unwrap_or(false) && opaque,
+            // a `for<S>` callback's result was checked where the callback
+            // was written: it cannot reach a value of the scope it is given
+            ExprKind::Call { callee, .. }
+                if self.ty(*callee).is_some_and(|t| matches!(&*t, TyKind::Forall(..)))
+                    && !self.tainted(*callee) =>
+            {
+                false
+            }
             ExprKind::Call { callee, args } => {
                 opaque && (self.tainted(*callee) || args.clone().into_iter().any(|a| self.tainted(a)))
             }
