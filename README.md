@@ -39,6 +39,8 @@ Every command and flag is in the [CLI reference](docs/reference/cli.md).
 - [Semantic acceptance cases](spec/08-worked-examples.md) and their test status.
 - [Compiler architecture and implementation status](ARCHITECTURE.md).
 - [Benchmarks](bench/README.md) for the specification's measurement gates.
+- [Real-world use and differentiation notes](REAL_WORLD_USE.md): candidate applications,
+  AI-assisted development, practical gaps, and a proposed sequence of improvements.
 - [Earlier design discussion](DESIGN.md) and [library research](research/README.md).
 
 ## Status
