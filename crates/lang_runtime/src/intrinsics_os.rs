@@ -235,6 +235,22 @@ os_intrinsics! {
 
     // ---------------------------------------------------------------- bytes
     fn bytes_len(ctx, targs, ret, b) { bytes_of(b).len() as u64 }
+    // The index of the first occurrence of `needle` at or after `from`.
+    fn bytes_find(ctx, targs, ret, b, needle, from) {
+        let (hay, n) = (bytes_of(b), bytes_of(needle));
+        let from = (from as i64).clamp(0, hay.len() as i64) as usize;
+        let found = if n.is_empty() { Some(0) } else { hay[from..].windows(n.len()).position(|w| w == n) };
+        match found {
+            Some(i) => some(rdesc(ret), (from + i) as u64),
+            None => none(rdesc(ret)),
+        }
+    }
+    fn bytes_at(ctx, targs, ret, b, i) {
+        match bytes_of(b).get(i as usize) {
+            Some(x) if (i as i64) >= 0 => some(rdesc(ret), *x as u64),
+            _ => none(rdesc(ret)),
+        }
+    }
     fn bytes_slice(ctx, targs, ret, b, s, e) {
         let bs = bytes_of(b);
         let (s, e) = (s as usize, e as usize);

@@ -1,0 +1,22 @@
+index_of 3 last 9 count 2 missing true
+split_once key | value=more
+rsplit_once key=value | more
+unicode index 6 é
+words ["one", "two", "three"] trim [x  ] [  x]
+strip 1.2 file true
+pad [007] [ab..] [long]
+replace_first a+b-c replace a+b+c blank true false
+parse 42 2.5 true ends true
+dedent:
+first
+  nested
+
+last
+|
+indent:
+> a
+
+> b
+bytes split 4 first GET /x HTTP/1.1 index 17
+bytes starts true ends true get 71 join a, b
+build [1, 4, 9, 16] 2 4

@@ -1,0 +1,84 @@
+# Collections: choosing and costs
+
+Which collection to use, what each operation costs, and the idioms that
+keep transformations within clear memory bounds. The representations are
+specified in [memory and collections](../spec/04-memory-and-collections.md);
+every function is listed in the [API reference](api/README.md).
+
+## Which collection
+
+| Need | Use | Why |
+|---|---|---|
+| An immutable sequence you index, iterate, share | `List<T>` | Paged and frozen: constant-time indexing, cheap to share between tasks, structural sharing on `append`/`concat` |
+| Building a list item by item | `list.build` / `ListBuilder<T>` | One allocation path, no intermediate snapshots; `finish` freezes in place |
+| A fixed-length contiguous block | `Array<T>` | Contiguous, immutable; what FFI and bulk numeric code want |
+| Contiguous mutable storage | `Buffer<T>` | Affine, grows by relocation; freeze into an `Array` (or `Bytes`) when done |
+| Lookup by key | `Map<K, V>` | Persistent: `insert`/`remove` give new maps sharing structure with the old |
+| Membership | `Set<T>` | A map without values |
+| A pipeline over items, possibly large or infinite | `Seq<T>` | Lazy: nothing runs until consumed; early exits close scoped sources |
+| Items arriving over time from other tasks | `Stream<T>`, channels | Suspending: a consumer parks until the next item |
+
+Rules of thumb:
+
+- Build with a builder (or `list.build`, `map.build`, `set.build`), not by
+  repeated `append`/`insert` on snapshots. A loop of `xs = xs.append(x)`
+  is correct but may copy a partial page each time.
+- Keep pipelines lazy (`Seq`) until you need a list, then `collect()`
+  once. A `Seq` over a scoped resource must be consumed inside the
+  resource's scope.
+- Iteration order of `Map` and `Set` is unspecified (stable for one
+  value, not across inserts). Sort explicitly (`keys().sort()`,
+  `sort_by`) for stable output.
+
+## Costs
+
+`n` is the collection's length, `k` the size of the other argument.
+
+| Operation | Cost | Notes |
+|---|---|---|
+| `list.get(i)`, `len`, `first`, `last` | O(1) | A page lookup plus an offset |
+| `append`, `concat` (snapshots) | O(page) amortized | Shares complete pages; copies a partial tail page |
+| builder `append` | O(1) amortized | Pages never move; the directory may grow |
+| `map`, `filter`, `filter_map`, `flat_map`, `enumerate`, `scan`, `zip` (lists) | O(n) | One pass into a builder |
+| `take`, `skip`, `slice`, `take_while`, `skip_while` (lists) | O(result) | A new list of the kept items |
+| `find`, `position`, `any`, `all`, `find_map` | O(position found) | Stop at the first match |
+| `count`, `sum`, `fold`, `min_by`, `max_by` | O(n) | `min_by`/`max_by` keep the first item on ties |
+| `sort`, `sort_by`, `sort_with` | O(n log n) | Stable; `sort_by` computes each key once |
+| `dedup` | O(n) | Consecutive duplicates only |
+| `unique`, `group_by` | O(n) expected | Hash-based; each group keeps input order |
+| `chunks_of`, `partition` | O(n) | |
+| `try_map`, `try_fold`, `try_each` | O(position of the first error) | Stop at the first error |
+| `validate` | O(n) | Visits every item, collecting every error |
+| `map.get`, `contains`, `insert`, `remove`, `update` | O(log n) | Persistent hash trie; `insert` and `remove` share structure |
+| `map.keys`, `values`, `entries`, `map_values`, `filter` | O(n) | |
+| `merge`, `merge_with` | O(n + k) | Copies both maps' entries |
+| `set.union` | O(n + k) | |
+| `set.intersection`, `difference`, `is_subset` | O(n) lookups in the other set | |
+| `Seq` adapters (`map`, `filter`, `skip`, `chunks`, ...) | O(1) to build | The work happens during iteration |
+
+### Text and bytes
+
+`String` is UTF-8. Operations counted in **characters** (`len`, `slice`,
+`index_of`, `char_at`, `pad_start`) walk the text: O(n). Byte operations
+(`byte_len`, `bytes.slice`, `bytes.index_of`) are O(1) or O(n) in bytes
+without decoding. `split`, `lines`, `words`, `replace`, and `join` are one
+pass. Repeated `$"{acc}{piece}"` concatenation in a loop is quadratic:
+collect the pieces and `text.join` them once.
+
+## Ordering and equality
+
+`<`, `sort`, `sort_by`, `min_by`, and `max_by` use one order: numbers,
+characters, text (by bytes, so by code point), durations, instants, and
+timestamps as you expect; `false < true`; tuples by position; records
+field by field in label order; lists and arrays lexicographically
+(a prefix first); `Option` and `Result` by variant, then payload.
+`unique`, `dedup`, set membership, and map keys use structural equality
+(`Hash` for maps, sets, `unique`, and `group_by`).
+
+## Fallible processing
+
+Fail fast with `try_map`, `try_fold`, and `try_each` (lists and
+sequences) or `all_ok`; the first error stops the pass and, for a
+sequence over a scoped source, closes it. Collect every problem instead
+with `validate`, which returns all the errors in order. Do not drop
+failures with `filter_map` when they matter.

@@ -9,6 +9,78 @@ extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
 extern "intrinsic" fn bytes_from_buffer(buffer: Buffer<Byte>) -> Bytes
 extern "intrinsic" fn bytes_from_list(list: List<Byte>) -> Bytes
+extern "intrinsic" fn bytes_find(b: Bytes, needle: Bytes, from: Int) -> Option<Int>
+extern "intrinsic" fn bytes_at(b: Bytes, index: Int) -> Option<Byte>
+
+import std.list
+
+/// The byte at `index`.
+pub fn get(b: Bytes, index: Int) -> Option<Byte> { bytes_at(b, index) }
+
+/// The index of the first `needle` at or after `from`.
+pub fn index_of(b: Bytes, needle: Bytes, from: Int) -> Option<Int> { bytes_find(b, needle, from) }
+
+pub fn starts_with(b: Bytes, prefix: Bytes) -> Bool {
+    match bytes_slice(b, 0, bytes_len(prefix)) {
+        .some(head) => head == prefix,
+        .none => false,
+    }
+}
+
+pub fn ends_with(b: Bytes, suffix: Bytes) -> Bool {
+    let n = bytes_len(b)
+    let k = bytes_len(suffix)
+    if k > n {
+        return false
+    }
+    match bytes_slice(b, n - k, n) {
+        .some(tail) => tail == suffix,
+        .none => false,
+    }
+}
+
+/// The pieces between occurrences of `sep` (a non-empty separator).
+pub fn split(b: Bytes, sep: Bytes) -> List<Bytes> {
+    let out = list.builder<Bytes>()
+    let n = bytes_len(b)
+    let k = bytes_len(sep)
+    if k == 0 {
+        out.append(b)
+        return out.finish()
+    }
+    var start = 0
+    loop {
+        match bytes_find(b, sep, start) {
+            .some(i) => {
+                out.append(bytes_slice(b, start, i).unwrap_or(b))
+                start = i + k
+            },
+            .none => {
+                out.append(bytes_slice(b, start, n).unwrap_or(b))
+                break
+            },
+        }
+    }
+    out.finish()
+}
+
+/// The parts with `sep` between them, in one copy.
+pub fn join(parts: List<Bytes>, sep: Bytes) -> Bytes {
+    let out = list.builder<Byte>()
+    var first = true
+    for p in parts {
+        if !first {
+            for x in bytes_to_list(sep) {
+                out.append(x)
+            }
+        }
+        first = false
+        for x in bytes_to_list(p) {
+            out.append(x)
+        }
+    }
+    bytes_from_list(out.finish())
+}
 
 pub fn len(b: Bytes) -> Int { bytes_len(b) }
 /// Checked byte slice.
@@ -26,4 +98,14 @@ pub fn from_list(list: List<Byte>) -> Bytes { bytes_from_list(list) }
 
 impl Bytes {
     pub fn len(self: &Self) -> Int { bytes_len(self) }
+    pub fn is_empty(self: &Self) -> Bool { bytes_len(self) == 0 }
+    pub fn get(self: &Self, index: Int) -> Option<Byte> { bytes_at(self, index) }
+    pub fn slice(self: &Self, start: Int, end: Int) -> Option<Bytes> { bytes_slice(self, start, end) }
+    pub fn index_of(self: &Self, needle: Bytes) -> Option<Int> { bytes_find(self, needle, 0) }
+    pub fn starts_with(self: &Self, prefix: Bytes) -> Bool { starts_with(self, prefix) }
+    pub fn ends_with(self: &Self, suffix: Bytes) -> Bool { ends_with(self, suffix) }
+    pub fn split(self: &Self, sep: Bytes) -> List<Bytes> { split(self, sep) }
+    pub fn concat(self: &Self, other: Bytes) -> Bytes { bytes_concat(self, other) }
+    pub fn hex(self: &Self) -> String { bytes_hex(self) }
+    pub fn to_text(self: &Self) -> Result<String, String> { text_from_bytes(self) }
 }

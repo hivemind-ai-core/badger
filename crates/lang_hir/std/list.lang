@@ -116,6 +116,14 @@ pub fn builder<T>() -> ListBuilder<T> {
     list_builder()
 }
 
+/// A list built by `fill`, which appends to a builder that is finished
+/// when it returns (it cannot escape `fill`).
+pub fn build<T>(fill: once fn(&mut ListBuilder<T>) -> Unit) -> List<T> {
+    var b = list_builder()
+    fill(&mut b)
+    list_finish(b)
+}
+
 pub fn empty<T>() -> List<T> {
     list_finish(list_builder())
 }

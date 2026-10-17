@@ -18,6 +18,14 @@ impl<T> SetBuilder<T> {
 
 pub fn builder<T>() -> SetBuilder<T> where T: Hash { { set: empty() } }
 
+/// A set built by `fill`, which inserts into a builder that is finished
+/// when it returns.
+pub fn build<T>(fill: once fn(&mut SetBuilder<T>) -> Unit) -> Set<T> where T: Hash {
+    var b: SetBuilder<T> = { set: empty() }
+    fill(&mut b)
+    b.finish()
+}
+
 pub fn from_list<T>(items: List<T>) -> Set<T> where T: Hash {
     let s = empty()
     for x in items {

@@ -12,6 +12,12 @@ Immutable byte storage.
 fn concat(a: Bytes, b: Bytes) -> Bytes
 ```
 
+### `ends_with`
+
+```lang
+fn ends_with(b: Bytes, suffix: Bytes) -> Bool
+```
+
 ### `freeze`
 
 ```lang
@@ -34,11 +40,35 @@ fn from_text(s: String) -> Bytes
 
 UTF-8 encoding of a string.
 
+### `get`
+
+```lang
+fn get(b: Bytes, index: Int) -> Option<Byte>
+```
+
+The byte at `index`.
+
 ### `hex`
 
 ```lang
 fn hex(b: Bytes) -> String
 ```
+
+### `index_of`
+
+```lang
+fn index_of(b: Bytes, needle: Bytes, from: Int) -> Option<Int>
+```
+
+The index of the first `needle` at or after `from`.
+
+### `join`
+
+```lang
+fn join(parts: List<Bytes>, sep: Bytes) -> Bytes
+```
+
+The parts with `sep` between them, in one copy.
 
 ### `len`
 
@@ -53,6 +83,20 @@ fn slice(b: Bytes, start: Int, end: Int) -> Option<Bytes>
 ```
 
 Checked byte slice.
+
+### `split`
+
+```lang
+fn split(b: Bytes, sep: Bytes) -> List<Bytes>
+```
+
+The pieces between occurrences of `sep` (a non-empty separator).
+
+### `starts_with`
+
+```lang
+fn starts_with(b: Bytes, prefix: Bytes) -> Bool
+```
 
 ### `to_list`
 
@@ -70,9 +114,69 @@ Validate UTF-8.
 
 ## Methods on other types
 
+### `Bytes.concat`
+
+```lang
+fn concat(self: &Self, other: Bytes) -> Bytes
+```
+
+### `Bytes.ends_with`
+
+```lang
+fn ends_with(self: &Self, suffix: Bytes) -> Bool
+```
+
+### `Bytes.get`
+
+```lang
+fn get(self: &Self, index: Int) -> Option<Byte>
+```
+
+### `Bytes.hex`
+
+```lang
+fn hex(self: &Self) -> String
+```
+
+### `Bytes.index_of`
+
+```lang
+fn index_of(self: &Self, needle: Bytes) -> Option<Int>
+```
+
+### `Bytes.is_empty`
+
+```lang
+fn is_empty(self: &Self) -> Bool
+```
+
 ### `Bytes.len`
 
 ```lang
 fn len(self: &Self) -> Int
+```
+
+### `Bytes.slice`
+
+```lang
+fn slice(self: &Self, start: Int, end: Int) -> Option<Bytes>
+```
+
+### `Bytes.split`
+
+```lang
+fn split(self: &Self, sep: Bytes) -> List<Bytes>
+```
+
+### `Bytes.starts_with`
+
+```lang
+fn starts_with(self: &Self, prefix: Bytes) -> Bool
+```
+
+### `Bytes.to_text`
+
+```lang
+fn to_text(self: &Self) -> Result<String, String>
 ```
 

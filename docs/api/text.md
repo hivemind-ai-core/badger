@@ -12,6 +12,14 @@ Unicode text operations.
 fn byte_len(text: String) -> Int
 ```
 
+### `char_at`
+
+```lang
+fn char_at(text: String, index: Int) -> Option<Char>
+```
+
+The character at `index`.
+
 ### `chars`
 
 ```lang
@@ -30,6 +38,23 @@ fn concat(a: String, b: String) -> String
 fn contains(text: String, part: String) -> Bool
 ```
 
+### `count`
+
+```lang
+fn count(text: String, part: String) -> Int
+```
+
+How many non-overlapping `part`s there are.
+
+### `dedent`
+
+```lang
+fn dedent(text: String) -> String
+```
+
+The common indentation of the non-blank lines removed (for multiline
+literals); blank lines become empty.
+
 ### `ends_with`
 
 ```lang
@@ -42,6 +67,30 @@ fn ends_with(text: String, part: String) -> Bool
 fn from_bytes(bytes: Bytes) -> Result<String, String>
 ```
 
+### `indent`
+
+```lang
+fn indent(text: String, prefix: String) -> String
+```
+
+Each non-blank line prefixed with `prefix`.
+
+### `index_of`
+
+```lang
+fn index_of(text: String, part: String) -> Option<Int>
+```
+
+The character index of the first `part`.
+
+### `is_blank`
+
+```lang
+fn is_blank(text: String) -> Bool
+```
+
+Only whitespace (or empty).
+
 ### `is_empty`
 
 ```lang
@@ -53,6 +102,14 @@ fn is_empty(text: String) -> Bool
 ```lang
 fn join(parts: List<String>, sep: String) -> String
 ```
+
+### `last_index_of`
+
+```lang
+fn last_index_of(text: String, part: String) -> Option<Int>
+```
+
+The character index of the last `part`.
 
 ### `len`
 
@@ -69,6 +126,22 @@ fn lines(text: String) -> Seq<String>
 ```
 
 Lines of a text as a lazy sequence.
+
+### `pad_end`
+
+```lang
+fn pad_end(text: String, width: Int, fill: Char) -> String
+```
+
+Padded on the right with `fill` to `width` characters.
+
+### `pad_start`
+
+```lang
+fn pad_start(text: String, width: Int, fill: Char) -> String
+```
+
+Padded on the left with `fill` to `width` characters.
 
 ### `parse_float`
 
@@ -94,6 +167,20 @@ fn repeat(text: String, n: Int) -> String
 fn replace(text: String, from: String, to: String) -> String
 ```
 
+### `replace_first`
+
+```lang
+fn replace_first(text: String, from: String, to: String) -> String
+```
+
+### `rsplit_once`
+
+```lang
+fn rsplit_once(text: String, sep: String) -> Option<(String, String)>
+```
+
+The text before and after the last `sep`.
+
 ### `slice`
 
 ```lang
@@ -108,11 +195,35 @@ Checked character slice.
 fn split(text: String, sep: String) -> List<String>
 ```
 
+### `split_once`
+
+```lang
+fn split_once(text: String, sep: String) -> Option<(String, String)>
+```
+
+The text before and after the first `sep` (`none` if there is none).
+
 ### `starts_with`
 
 ```lang
 fn starts_with(text: String, part: String) -> Bool
 ```
+
+### `strip_prefix`
+
+```lang
+fn strip_prefix(text: String, prefix: String) -> Option<String>
+```
+
+The text without `prefix`, if it starts with it.
+
+### `strip_suffix`
+
+```lang
+fn strip_suffix(text: String, suffix: String) -> Option<String>
+```
+
+The text without `suffix`, if it ends with it.
 
 ### `to_bytes`
 
@@ -138,12 +249,86 @@ fn to_upper(text: String) -> String
 fn trim(text: String) -> String
 ```
 
+### `trim_end`
+
+```lang
+fn trim_end(text: String) -> String
+```
+
+### `trim_start`
+
+```lang
+fn trim_start(text: String) -> String
+```
+
+### `words`
+
+```lang
+fn words(text: String) -> List<String>
+```
+
+The words: runs of non-whitespace.
+
 ## Methods on other types
+
+### `String.byte_len`
+
+```lang
+fn byte_len(self: &Self) -> Int
+```
+
+### `String.char_at`
+
+```lang
+fn char_at(self: &Self, index: Int) -> Option<Char>
+```
+
+### `String.chars`
+
+```lang
+fn chars(self: &Self) -> List<Char>
+```
 
 ### `String.contains`
 
 ```lang
 fn contains(self: &Self, part: String) -> Bool
+```
+
+### `String.count`
+
+```lang
+fn count(self: &Self, part: String) -> Int
+```
+
+### `String.dedent`
+
+```lang
+fn dedent(self: &Self) -> String
+```
+
+### `String.ends_with`
+
+```lang
+fn ends_with(self: &Self, part: String) -> Bool
+```
+
+### `String.indent`
+
+```lang
+fn indent(self: &Self, prefix: String) -> String
+```
+
+### `String.index_of`
+
+```lang
+fn index_of(self: &Self, part: String) -> Option<Int>
+```
+
+### `String.is_blank`
+
+```lang
+fn is_blank(self: &Self) -> Bool
 ```
 
 ### `String.is_empty`
@@ -152,10 +337,76 @@ fn contains(self: &Self, part: String) -> Bool
 fn is_empty(self: &Self) -> Bool
 ```
 
+### `String.last_index_of`
+
+```lang
+fn last_index_of(self: &Self, part: String) -> Option<Int>
+```
+
 ### `String.len`
 
 ```lang
 fn len(self: &Self) -> Int
+```
+
+### `String.lines`
+
+```lang
+fn lines(self: &Self) -> List<String>
+```
+
+### `String.pad_end`
+
+```lang
+fn pad_end(self: &Self, width: Int, fill: Char) -> String
+```
+
+### `String.pad_start`
+
+```lang
+fn pad_start(self: &Self, width: Int, fill: Char) -> String
+```
+
+### `String.parse_float`
+
+```lang
+fn parse_float(self: &Self) -> Option<Float>
+```
+
+### `String.parse_int`
+
+```lang
+fn parse_int(self: &Self) -> Option<Int>
+```
+
+### `String.repeat`
+
+```lang
+fn repeat(self: &Self, n: Int) -> String
+```
+
+### `String.replace`
+
+```lang
+fn replace(self: &Self, from: String, to: String) -> String
+```
+
+### `String.replace_first`
+
+```lang
+fn replace_first(self: &Self, from: String, to: String) -> String
+```
+
+### `String.rsplit_once`
+
+```lang
+fn rsplit_once(self: &Self, sep: String) -> Option<(String, String)>
+```
+
+### `String.slice`
+
+```lang
+fn slice(self: &Self, start: Int, end: Int) -> Option<String>
 ```
 
 ### `String.split`
@@ -164,10 +415,34 @@ fn len(self: &Self) -> Int
 fn split(self: &Self, sep: String) -> List<String>
 ```
 
+### `String.split_once`
+
+```lang
+fn split_once(self: &Self, sep: String) -> Option<(String, String)>
+```
+
 ### `String.starts_with`
 
 ```lang
 fn starts_with(self: &Self, part: String) -> Bool
+```
+
+### `String.strip_prefix`
+
+```lang
+fn strip_prefix(self: &Self, prefix: String) -> Option<String>
+```
+
+### `String.strip_suffix`
+
+```lang
+fn strip_suffix(self: &Self, suffix: String) -> Option<String>
+```
+
+### `String.to_bytes`
+
+```lang
+fn to_bytes(self: &Self) -> Bytes
 ```
 
 ### `String.to_lower`
@@ -186,5 +461,23 @@ fn to_upper(self: &Self) -> String
 
 ```lang
 fn trim(self: &Self) -> String
+```
+
+### `String.trim_end`
+
+```lang
+fn trim_end(self: &Self) -> String
+```
+
+### `String.trim_start`
+
+```lang
+fn trim_start(self: &Self) -> String
+```
+
+### `String.words`
+
+```lang
+fn words(self: &Self) -> List<String>
 ```
 

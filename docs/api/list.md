@@ -50,6 +50,15 @@ fn any<T>(list: List<T>, test: fn(T) -> Bool) -> Bool
 fn append<T>(list: List<T>, value: T) -> List<T>
 ```
 
+### `build`
+
+```lang
+fn build<T>(fill: once fn(&mut ListBuilder<T>) -> Unit) -> List<T>
+```
+
+A list built by `fill`, which appends to a builder that is finished
+when it returns (it cannot escape `fill`).
+
 ### `builder`
 
 ```lang

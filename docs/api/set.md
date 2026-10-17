@@ -34,6 +34,15 @@ fn len(self: &Self) -> Int
 
 ## Functions
 
+### `build`
+
+```lang
+fn build<T>(fill: once fn(&mut SetBuilder<T>) -> Unit) -> Set<T> where T: Hash
+```
+
+A set built by `fill`, which inserts into a builder that is finished
+when it returns.
+
 ### `builder`
 
 ```lang

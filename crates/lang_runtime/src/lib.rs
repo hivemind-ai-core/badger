@@ -258,3 +258,16 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
     ]);
     v
 }
+
+#[cfg(test)]
+mod symbol_tests {
+    /// Two runtime functions with one name: the JIT would bind one of them
+    /// silently (as when a new `bytes_get` shadowed the index operator's).
+    #[test]
+    fn runtime_symbols_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        let dups: Vec<&str> =
+            super::symbols().into_iter().map(|(n, _)| n).filter(|n| !seen.insert(*n)).collect();
+        assert!(dups.is_empty(), "duplicate runtime symbols: {dups:?}");
+    }
+}

@@ -23,6 +23,14 @@ extern "intrinsic" fn text_parse_int(text: String) -> Option<Int>
 extern "intrinsic" fn text_parse_float(text: String) -> Option<Float>
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
 extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+extern "intrinsic" fn text_find(text: String, part: String) -> Option<Int>
+extern "intrinsic" fn text_rfind(text: String, part: String) -> Option<Int>
+extern "intrinsic" fn text_count(text: String, part: String) -> Int
+extern "intrinsic" fn text_replace_first(text: String, from: String, to: String) -> String
+extern "intrinsic" fn text_trim_start(text: String) -> String
+extern "intrinsic" fn text_trim_end(text: String) -> String
+extern "intrinsic" fn text_split_whitespace(text: String) -> List<String>
+extern "intrinsic" fn text_dedent(text: String) -> String
 
 /// Lines of a text as a lazy sequence.
 pub fn lines(text: String) -> Seq<String> { list.of(text_lines(text)) }
@@ -49,7 +57,108 @@ pub fn parse_float(text: String) -> Option<Float> { text_parse_float(text) }
 pub fn from_bytes(bytes: Bytes) -> Result<String, String> { text_from_bytes(bytes) }
 pub fn to_bytes(text: String) -> Bytes { text_to_bytes(text) }
 
+// ---------------------------------------------------------------- searching and splitting
+
+/// The character index of the first `part`.
+pub fn index_of(text: String, part: String) -> Option<Int> { text_find(text, part) }
+/// The character index of the last `part`.
+pub fn last_index_of(text: String, part: String) -> Option<Int> { text_rfind(text, part) }
+/// How many non-overlapping `part`s there are.
+pub fn count(text: String, part: String) -> Int { text_count(text, part) }
+
+fn cut(text: String, at: Option<Int>, width: Int) -> Option<(String, String)> {
+    match at {
+        .some(i) => {
+            let n = text_len(text)
+            match (text_slice(text, 0, i), text_slice(text, i + width, n)) {
+                (.some(a), .some(b)) => Option.some((a, b)),
+                _ => Option.none,
+            }
+        },
+        .none => Option.none,
+    }
+}
+
+/// The text before and after the first `sep` (`none` if there is none).
+pub fn split_once(text: String, sep: String) -> Option<(String, String)> { cut(text, text_find(text, sep), text_len(sep)) }
+/// The text before and after the last `sep`.
+pub fn rsplit_once(text: String, sep: String) -> Option<(String, String)> { cut(text, text_rfind(text, sep), text_len(sep)) }
+/// The words: runs of non-whitespace.
+pub fn words(text: String) -> List<String> { text_split_whitespace(text) }
+pub fn trim_start(text: String) -> String { text_trim_start(text) }
+pub fn trim_end(text: String) -> String { text_trim_end(text) }
+pub fn replace_first(text: String, from: String, to: String) -> String { text_replace_first(text, from, to) }
+
+/// The text without `prefix`, if it starts with it.
+pub fn strip_prefix(text: String, prefix: String) -> Option<String> {
+    if text_starts_with(text, prefix) { text_slice(text, text_len(prefix), text_len(text)) } else { Option.none }
+}
+
+/// The text without `suffix`, if it ends with it.
+pub fn strip_suffix(text: String, suffix: String) -> Option<String> {
+    if text_ends_with(text, suffix) { text_slice(text, 0, text_len(text) - text_len(suffix)) } else { Option.none }
+}
+
+/// Padded on the left with `fill` to `width` characters.
+pub fn pad_start(text: String, width: Int, fill: Char) -> String {
+    let n = text_len(text)
+    if n >= width { text } else { text_concat(text_repeat($"{fill}", width - n), text) }
+}
+
+/// Padded on the right with `fill` to `width` characters.
+pub fn pad_end(text: String, width: Int, fill: Char) -> String {
+    let n = text_len(text)
+    if n >= width { text } else { text_concat(text, text_repeat($"{fill}", width - n)) }
+}
+
+/// Only whitespace (or empty).
+pub fn is_blank(text: String) -> Bool { text_is_empty(text_trim(text)) }
+
+/// The common indentation of the non-blank lines removed (for multiline
+/// literals); blank lines become empty.
+pub fn dedent(text: String) -> String { text_dedent(text) }
+
+/// Each non-blank line prefixed with `prefix`.
+pub fn indent(text: String, prefix: String) -> String {
+    let lines = text_split(text, "\n")
+    let out = list.builder<String>()
+    for line in lines {
+        out.append(if text_is_empty(text_trim(line)) { line } else { text_concat(prefix, line) })
+    }
+    text_join(out.finish(), "\n")
+}
+
+/// The character at `index`.
+pub fn char_at(text: String, index: Int) -> Option<Char> { text_chars(text).get(index) }
+
 impl String {
+    pub fn byte_len(self: &Self) -> Int { text_byte_len(self) }
+    pub fn trim_start(self: &Self) -> String { text_trim_start(self) }
+    pub fn trim_end(self: &Self) -> String { text_trim_end(self) }
+    pub fn ends_with(self: &Self, part: String) -> Bool { text_ends_with(self, part) }
+    pub fn replace(self: &Self, from: String, to: String) -> String { text_replace(self, from, to) }
+    pub fn replace_first(self: &Self, from: String, to: String) -> String { text_replace_first(self, from, to) }
+    pub fn repeat(self: &Self, n: Int) -> String { text_repeat(self, n) }
+    pub fn chars(self: &Self) -> List<Char> { text_chars(self) }
+    pub fn lines(self: &Self) -> List<String> { text_lines(self) }
+    pub fn words(self: &Self) -> List<String> { text_split_whitespace(self) }
+    pub fn slice(self: &Self, start: Int, end: Int) -> Option<String> { text_slice(self, start, end) }
+    pub fn parse_int(self: &Self) -> Option<Int> { text_parse_int(self) }
+    pub fn parse_float(self: &Self) -> Option<Float> { text_parse_float(self) }
+    pub fn to_bytes(self: &Self) -> Bytes { text_to_bytes(self) }
+    pub fn index_of(self: &Self, part: String) -> Option<Int> { text_find(self, part) }
+    pub fn last_index_of(self: &Self, part: String) -> Option<Int> { text_rfind(self, part) }
+    pub fn count(self: &Self, part: String) -> Int { text_count(self, part) }
+    pub fn split_once(self: &Self, sep: String) -> Option<(String, String)> { split_once(self, sep) }
+    pub fn rsplit_once(self: &Self, sep: String) -> Option<(String, String)> { rsplit_once(self, sep) }
+    pub fn strip_prefix(self: &Self, prefix: String) -> Option<String> { strip_prefix(self, prefix) }
+    pub fn strip_suffix(self: &Self, suffix: String) -> Option<String> { strip_suffix(self, suffix) }
+    pub fn pad_start(self: &Self, width: Int, fill: Char) -> String { pad_start(self, width, fill) }
+    pub fn pad_end(self: &Self, width: Int, fill: Char) -> String { pad_end(self, width, fill) }
+    pub fn is_blank(self: &Self) -> Bool { is_blank(self) }
+    pub fn dedent(self: &Self) -> String { text_dedent(self) }
+    pub fn indent(self: &Self, prefix: String) -> String { indent(self, prefix) }
+    pub fn char_at(self: &Self, index: Int) -> Option<Char> { char_at(self, index) }
     pub fn len(self: &Self) -> Int { text_len(self) }
     pub fn is_empty(self: &Self) -> Bool { text_is_empty(self) }
     pub fn trim(self: &Self) -> String { text_trim(self) }

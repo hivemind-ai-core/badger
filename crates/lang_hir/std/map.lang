@@ -25,6 +25,14 @@ impl<K, V> MapBuilder<K, V> {
 
 pub fn builder<K, V>() -> MapBuilder<K, V> where K: Hash { { map: map_empty() } }
 
+/// A map built by `fill`, which inserts into a builder that is finished
+/// when it returns.
+pub fn build<K, V>(fill: once fn(&mut MapBuilder<K, V>) -> Unit) -> Map<K, V> where K: Hash {
+    var b: MapBuilder<K, V> = { map: map_empty() }
+    fill(&mut b)
+    b.finish()
+}
+
 /// Bulk construction from entries (later duplicates win).
 pub fn from_list<K, V>(entries: List<(K, V)>) -> Map<K, V> where K: Hash {
     let m = map_empty()

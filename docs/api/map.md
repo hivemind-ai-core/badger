@@ -36,6 +36,15 @@ fn len(self: &Self) -> Int
 
 ## Functions
 
+### `build`
+
+```lang
+fn build<K, V>(fill: once fn(&mut MapBuilder<K, V>) -> Unit) -> Map<K, V> where K: Hash
+```
+
+A map built by `fill`, which inserts into a builder that is finished
+when it returns.
+
 ### `builder`
 
 ```lang
