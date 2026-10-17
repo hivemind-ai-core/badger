@@ -29,3 +29,22 @@ class CoverageOracle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChildRss(unittest.TestCase):
+    def test_native_launcher_excludes_runner_memory(self):
+        import os
+        from pathlib import Path
+        import re
+        import subprocess
+        import tempfile
+        import telemetry
+        with tempfile.TemporaryDirectory() as directory:
+            helper = Path(directory) / "rss-spawn"
+            subprocess.run(["cc", "-O2", str(Path(__file__).with_name("rss_spawn.c")), "-o", str(helper)], check=True)
+            ballast = bytearray(64 << 20)
+            _, _, direct = telemetry.run_process(["/bin/true"], os.environ.copy(), 10)
+            _, err, _ = telemetry.run_process([str(helper), "/bin/true"], os.environ.copy(), 10)
+            child_rss = int(re.search(r"\[gc-bench child rss\] (\d+)", err)[1])
+            self.assertLess(child_rss, direct["peak_rss_kib"] // 2)
+            self.assertEqual(len(ballast), 64 << 20)
