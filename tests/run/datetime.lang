@@ -1,0 +1,40 @@
+// Calendar dates, times, and zones (std.datetime).
+import std.datetime
+import std.io
+
+pub fn main() -> Result<Unit, datetime.Error> {
+    let d = datetime.date(2026, 1, 31)?
+    let _ = io.println($"{d} + 1 month = {d.add_months(1)?}; + 30 days = {d.add_days(30)?}")
+    let _ = io.println($"invalid: {datetime.date(2026, 2, 30).is_err()}")
+    let leap = datetime.parse_date("2028-02-29")?
+    let _ = io.println($"{leap} weekday {leap.weekday()} day {leap.day_of_year()} leap {leap.in_leap_year()} month days {leap.days_in_month()}")
+    let _ = io.println($"days: {d.days_until(leap)} {leap.days_until(d)}; compare {d.compare(leap)} {leap.compare(d)} {d.compare(d)}")
+    let _ = io.println($"format: {leap.format("%A, %B %-d %Y")?}")
+    let t = datetime.parse_time("09:05:03.25")?
+    let _ = io.println($"time {t} {datetime.time(23, 59, 59)?} invalid {datetime.time(24, 0, 0).is_err()}")
+    let dt = datetime.parse_datetime("2026-03-29 01:30")?
+    let _ = io.println($"datetime {dt} + 90 minutes = {dt.add(datetime.minutes(90))?}")
+    // zones: across the spring DST change in Berlin
+    let z = dt.in_zone("Europe/Berlin")?
+    let _ = io.println($"zoned {z} offset {z.offset_seconds}")
+    let later = z.add(datetime.hours(1))?
+    let _ = io.println($"+1 hour {later} offset {later.offset_seconds}")
+    let next_day = z.add(datetime.days(1))?
+    let _ = io.println($"+1 day {next_day} ({z.nanos_until(next_day) / 3600000000000} hours)")
+    // a skipped wall-clock time moves forward
+    let skipped = datetime.parse_datetime("2026-03-29T02:30:00")?.in_zone("Europe/Berlin")?
+    let _ = io.println($"skipped {skipped}")
+    let ny = z.in_zone("America/New_York")?
+    let _ = io.println($"same instant {ny} = {datetime.rfc3339(ny.timestamp())}")
+    let parsed = datetime.parse_zoned("2026-10-16T12:30:00+05:30")?
+    let _ = io.println($"offset only {parsed} zone {parsed.zone}")
+    let ts = datetime.parse_timestamp("2026-10-16T10:30:00Z")?
+    let utc = datetime.in_zone(ts, "UTC")?
+    let _ = io.println($"timestamp {datetime.rfc3339(ts)} in UTC {utc.format("%Y-%m-%d %H:%M %Z")?}")
+    let read = datetime.parse_datetime_with("%d/%m/%Y %H:%M", "16/10/2026 08:15")?
+    let _ = io.println($"strptime {read}")
+    let _ = io.println($"bad zone: {datetime.zone("Mars/Olympus").is_err()} utc: {datetime.zone("UTC")?}")
+    let span = datetime.plus(datetime.weeks(1), datetime.days(2))
+    let _ = io.println($"span {d.add(span)?} back {d.add(span)?.add(datetime.negate(span))?}")
+    ok(())
+}

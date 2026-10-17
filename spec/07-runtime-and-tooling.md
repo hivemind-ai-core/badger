@@ -22,11 +22,16 @@ an HTTP framework on a CLI program.
 | `std.io`, `std.fs`, `std.path`, `std.process`, `std.env` | OS interaction and subprocesses |
 | `std.text`, `std.bytes`, `std.num` | Unicode text, byte views and decoding, numeric conversions and checked/wrapping arithmetic |
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |
-| `std.http`, `std.route` | Request/reply adapters, interceptors, typed routing descriptions |
+| `std.datetime` | Calendar dates, times, time zones, calendar arithmetic, `strftime`/`strptime`, RFC 3339 |
+| `std.http`, `std.route` | Request/reply adapters, streaming and server-sent events, websocket upgrades, interceptors, typed routing descriptions |
+| `std.websocket` | WebSocket clients and the sockets of upgraded requests |
 | `std.sqlite` | A blessed embedded storage adapter and scoped transactions |
+| `std.postgres`, `std.valkey` | PostgreSQL pools and transactions; a Valkey/Redis client with pub/sub |
 | `std.jobs` | Durable single-host jobs on SQLite: deduplicated ingestion, fenced step transitions with an outbox, receipts, explicit uncertainty |
 | `std.fetch` | Outbound HTTP(S) requests and origin-bound clients |
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
+| `std.toml`, `std.yaml`, `std.csv`, `std.template` | Data formats and Jinja-syntax templates |
+| `std.encoding`, `std.crypto`, `std.uuid` | Base64/hex/URL encoding, hashes and HMAC, secure random bytes, UUIDs |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
 | `std.log` | Structured logs: levels, schema-encoded fields, task-inherited context, text or JSON lines |

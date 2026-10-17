@@ -25,6 +25,7 @@ std_modules![
     "task",
     "channel",
     "time",
+    "datetime",
     "records",
     "pipeline",
     "trace",

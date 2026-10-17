@@ -18,6 +18,7 @@
 | [`std.task`](task.md) | Structured concurrency: task scopes own every child they spawn. |
 | [`std.channel`](channel.md) | Typed bounded channels and batch channels. |
 | [`std.time`](time.md) | Clocks and durations. |
+| [`std.datetime`](datetime.md) | Calendar dates, wall-clock times, and time zones (the `lang_datetime` |
 | [`std.records`](records.md) | Typed record operations. |
 | [`std.pipeline`](pipeline.md) | Typed interceptor pipelines. |
 | [`std.trace`](trace.md) | Structured runtime events. Events are encoded through the value's derived |

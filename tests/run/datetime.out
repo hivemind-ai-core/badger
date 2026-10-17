@@ -1,0 +1,17 @@
+2026-01-31 + 1 month = 2026-02-28; + 30 days = 2026-03-02
+invalid: true
+2028-02-29 weekday 2 day 60 leap true month days 29
+days: 759 -759; compare -1 1 0
+format: Tuesday, February 29 2028
+time 09:05:03.25 23:59:59 invalid true
+datetime 2026-03-29T01:30:00 + 90 minutes = 2026-03-29T03:00:00
+zoned 2026-03-29T01:30:00+01:00[Europe/Berlin] offset 3600
++1 hour 2026-03-29T03:30:00+02:00[Europe/Berlin] offset 7200
++1 day 2026-03-30T01:30:00+02:00[Europe/Berlin] (23 hours)
+skipped 2026-03-29T03:30:00+02:00[Europe/Berlin]
+same instant 2026-03-28T20:30:00-04:00[America/New_York] = 2026-03-29T00:30:00Z
+offset only 2026-10-16T12:30:00+05:30 zone +05:30
+timestamp 2026-10-16T10:30:00Z in UTC 2026-10-16 10:30 UTC
+strptime 2026-10-16T08:15:00
+bad zone: true utc: UTC
+span 2026-02-09 back 2026-01-31
