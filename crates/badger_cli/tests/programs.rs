@@ -2248,6 +2248,9 @@ fn config_env_replays() {
     let _ = std::fs::remove_dir_all(&dir);
     assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
     assert_eq!(String::from_utf8_lossy(&rep.stdout), "a:1\n");
+    // a recording runs on one worker: asking for more is refused, not ignored
+    let many = lang().args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"]).output().unwrap();
+    assert!(!many.status.success() && String::from_utf8_lossy(&many.stderr).contains("run on one worker"));
 }
 
 /// Inherent methods are private to their module unless `pub`, by method

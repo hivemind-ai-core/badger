@@ -898,6 +898,15 @@ impl Session {
             }
             // one worker, so the interleaving of tasks is the scheduler's
             // own and not the machine's
+            if opts.workers.is_some_and(|w| w > 1) {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "`--record` and replays run on one worker (the recorded interleaving is the scheduler's): drop `--workers`",
+                    )
+                    .with_code("E0013"),
+                );
+                return Err(Outcome::Errors);
+            }
             badger_runtime::task::set_workers(1);
             let identity = program_identity(path, &built.files, &args, opts.profile.as_deref(), &config);
             if let Some(file) = &opts.record {
