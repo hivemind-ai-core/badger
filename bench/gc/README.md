@@ -41,7 +41,9 @@ python3 -m unittest discover -s bench/gc -p 'test_*.py'
 
 Each cell gets a warmup followed by shuffled fresh processes; the runner clears
 inherited LANG settings, fixes parser topology, saves binary/source hashes and
-raw runs in gzip JSON, and fails on oracle errors or timeout. `baseline` and
+raw runs in gzip JSON, and fails on oracle errors or timeout. Oracle outputs
+are cached beside output directories by input and oracle-source hash; delete
+the `oracles` directory to regenerate them. `baseline` and
 `diagnostic-off` calibrate diagnostic build overhead; `diagnostic-off` versus
 `diagnostic` additionally calibrate phase counters. Sampling plus lock statistics
 is a separate perturbed diagnostic suite, not a throughput comparison. The

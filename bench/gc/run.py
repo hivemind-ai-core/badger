@@ -101,7 +101,17 @@ def main():
         for c in cases.values():
             c.update(n=257, rounds=2, payload=17, retain=4)
     # Calculate oracles once, outside subprocess measurements.
-    oracles = {} if coverage else {k: t.oracle(c) for k, c in cases.items()}
+    oracles = {}
+    if not coverage:
+        cache = args.out.parent / "oracles"
+        cache.mkdir(exist_ok=True)
+        oracle_source = hashlib.sha256((ROOT / "bench/telemetry.py").read_bytes()).hexdigest()
+        for name, config in cases.items():
+            key = hashlib.sha256(json.dumps([oracle_source, config], sort_keys=True).encode()).hexdigest()
+            path = cache / f"{key}.json"
+            if not path.exists():
+                path.write_text(json.dumps(t.oracle(config), sort_keys=True))
+            oracles[name] = json.loads(path.read_text())
     cells = [(name, w, v) for name in cases for w in args.workers for v in variants]
     rng = random.Random(20261017)
     runs = []
