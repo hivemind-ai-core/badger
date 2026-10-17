@@ -1000,7 +1000,10 @@ fn analyze(
     interner: &Interner,
 ) -> (Vec<Diagnostic>, lang_mir::lower::Elided, Vec<Clause>) {
     let targets: HashMap<ExprId, DefId> = types.targets.iter().map(|(k, v)| (*k, *v)).collect();
-    let mut assigned = HashSet::new();
+    // locals whose value can change: every `var` (assigned, or changed
+    // through a `&mut` borrow), and anything assigned
+    let mut assigned: HashSet<LocalId> =
+        hir.locals.iter().filter(|(_, l)| l.mutable).map(|(id, _)| id).collect();
     for (_, ex) in hir.exprs.iter() {
         if let ExprKind::Block { stmts, .. } = &ex.kind {
             for s in stmts {
