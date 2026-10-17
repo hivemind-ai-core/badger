@@ -69,6 +69,11 @@ negative results; do not mark architectural sketches as implemented.
     or pages and burst/idle/post-major memory, preserving reuse and quarantine.
 - [ ] G3: Reduce sweep bookkeeping and repeated helper-thread/scratch allocation;
   preserve finalizers, stable addresses, and bounded collection coordination.
+  - [x] G3a: Measure worker sweep skew and evaluate bounded native helper reuse;
+    retain scoped helpers in ordinary builds after the CPU application regression.
+    Reusable helpers remain a diagnostic-only experiment with regression tests.
+  - [ ] G3b: Investigate sweep/finalizer scratch reuse and cheaper helper
+    publication/completion; require broader wins before changing the default.
 - [ ] G4: Prototype adaptive nursery sizing and major cadence using survival,
   external bytes, memory limits and pause goals. Compare throughput/RSS/pauses;
   a larger fixed nursery is not an accepted substitute.
@@ -544,12 +549,13 @@ cleared marks, exact collector-thread finalizer order, reuse, joining, repeated
 shutdown and scoped fallback. Default/diagnostic runtime and harness tests pass.
 
 The five-repeat diagnostic policy comparison (`G3-helper-policies/`, 160 runs)
-reduces eight-worker native helper creation from roughly 147–294 to 7 per
+reduces eight-worker native helper creation from 154–287 to 7 per
 process. GC medians improve about 3–9% there, while elapsed results remain mixed.
 This selects a candidate, not an ordinary-build performance claim. Integrated
 main's new archive cleanup `36091e7` at `b3602ac` before the ordinary comparison;
 a separate clean main checkout supplies its fixed baseline. The normal-build
-cached-helper candidate is pending full integration and performance acceptance.
+cached-helper candidate was selected for ordinary integration/performance tests;
+the final policy decision is recorded below.
 
 Added two fixed-eight-task coverage cases, `parallel-maps` and
 `parallel-snapshots`, since existing collection cases run on one task. Parallel
@@ -563,3 +569,30 @@ Clippy, 68 CLI/retention/builder tests, 11 harness tests and formatting. A procf
 behavior probe checks independent final maps and GC activity, observes 0 versus
 3 cached helpers, and rejects diagnostic-feature binaries. Baseline/candidate
 runtime artifacts were explicitly cleaned/rebuilt across source checkouts.
+
+### G3a decision: retain scoped helpers; keep reuse diagnostic-only
+
+Saved 1,440 oracle-checked measurements: the 48-run initial application baseline,
+144-run work census/build controls, 160-run diagnostic policies, 24-run stronger
+parallel baseline, 224-run ordinary application matrix, 720-run ordinary coverage
+matrix, and 120-run application follow-up. Full evidence and interpretation are
+in [G3 results](reports/memory-management/G3-summary.md).
+
+The cached ordinary candidate (`564b492`, baseline main `36091e7`) improves
+eight-worker parallel maps by 12.1% elapsed / 32.5% GC pause time, with RSS
++5.8 MiB. Application gains are mixed. A separate 15-repeat CPU/fanout follow-up
+reproduces CPU/8 **+4.1% elapsed** despite GC pause −2.6%; fanout/8 becomes −3.5%
+elapsed, GC −6.5%. Serial controls also vary despite having no helpers, so small
+differences cannot all be attributed to reuse. No broad tail/RSS win is accepted.
+
+Do not ship this prototype as the ordinary default. The scoped sweep body is
+restored verbatim from main, with a saved source-body hash. Cached helper state,
+threads and shutdown hooks compile only for `gc-profile` or unit tests; the
+diagnostic default is also scoped. Existing G2's 512-byte pool choice is retained.
+The rejected ordinary candidate remains revision-pinned in history and its raw
+results are preserved, rather than being relabeled as the final default.
+
+G3a is checked as a completed evaluation, while production G3 remains open.
+Next work should measure cheaper batch helper publication/completion and bounded
+sweep scratch reuse (G3b), alongside native-buffer attribution (G1b) and bounded
+pool reservations (G2c). All region/arena implementations remain unimplemented.

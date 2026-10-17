@@ -215,9 +215,17 @@ mod tests {
         assert!(lists.iter().all(|&w| gc::objects(w).is_empty()));
         shutdown();
         assert!(run(&lists, &[0, 0, 0], false).is_none(), "shutdown cannot reopen the cache");
+        #[cfg(feature = "gc-profile")]
+        let mut profile = gc::diagnostics::Collection::new();
         assert_eq!(
-            gc::sweep_parallel(&lists, &[0, 0, 0], false),
-            (0, 2),
+            gc::sweep_parallel(
+                &lists,
+                &[0, 0, 0],
+                false,
+                #[cfg(feature = "gc-profile")]
+                &mut profile,
+            ),
+            0,
             "closed cache falls back to joined scoped threads"
         );
         shutdown(); // idempotent, all helper threads already joined

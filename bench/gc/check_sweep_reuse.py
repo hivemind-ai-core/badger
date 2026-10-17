@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Linux black-box check that ordinary comparison binaries select distinct sweep policies."""
+"""Verify ordinary sweep policy and absence of diagnostics through Linux procfs."""
 import argparse
 import hashlib
 import json
@@ -51,6 +51,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--candidate-policy", choices=["cached", "scoped"], default="cached")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     assert Path("/proc/self/task").is_dir(), "requires Linux procfs"
@@ -76,7 +77,7 @@ def main():
             record = json.loads(result.stdout)
             assert record["checksum"] == expected, record
             assert record["heap"]["collections"] > 0, record
-            if name == "baseline":
+            if name == "baseline" or args.candidate_policy == "scoped":
                 assert record["helpers"] == 0, ("expected scoped helpers", record)
             else:
                 assert 0 < record["helpers"] <= 3, ("expected cached helpers", record)
@@ -85,7 +86,7 @@ def main():
             reports[name] = dict(binary=str(binary), sha256=sha, record=record)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(reports, indent=2) + "\n")
-    print("verified scoped/cached sweep-helper behavior")
+    print(f"verified scoped/{args.candidate_policy} sweep-helper behavior")
 
 
 if __name__ == "__main__":

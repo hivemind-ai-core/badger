@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "binary": "/tmp/badger-G3-binaries/base-36091e7",
+    "sha256": "f7cb52e382b76df8bf5bae5d9d01eea54cd23b06e65163ef61bd31e2c6762fcc",
+    "record": {
+      "checksum": 1073770496,
+      "heap": {
+        "bytes": 14733408,
+        "collections": 62,
+        "external_live_bytes": 112,
+        "managed_live_bytes": 881264,
+        "objects": 49938,
+        "pause_max_ns": 1948438,
+        "pause_total_ns": 35252684,
+        "pool_reserved_bytes": 17039360
+      },
+      "helpers": 0
+    }
+  },
+  "candidate": {
+    "binary": "/tmp/badger-G3-binaries/final-scoped",
+    "sha256": "3481879d0f5374f9690463ccde5c91658ebccc7c7b426dfd9c1c4082b4ba2fc2",
+    "record": {
+      "checksum": 1073770496,
+      "heap": {
+        "bytes": 14653800,
+        "collections": 62,
+        "external_live_bytes": 112,
+        "managed_live_bytes": 911072,
+        "objects": 49777,
+        "pause_max_ns": 1865774,
+        "pause_total_ns": 30984468,
+        "pool_reserved_bytes": 14942208
+      },
+      "helpers": 0
+    }
+  }
+}

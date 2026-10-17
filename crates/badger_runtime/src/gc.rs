@@ -31,6 +31,7 @@ use crate::desc::{Kind, Repr, TypeDesc};
 mod allocations;
 #[cfg(feature = "gc-profile")]
 pub mod diagnostics;
+#[cfg(any(feature = "gc-profile", test))]
 mod sweep;
 
 #[repr(C)]
@@ -804,10 +805,13 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     }
     if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
         let starts: Vec<usize> = lists.iter().map(|&w| from(w)).collect();
-        let (bytes, _created) = sweep_parallel(&lists, &starts, sticky);
-        live = bytes;
-        #[cfg(feature = "gc-profile")]
-        profile.snapshot("sweep_helpers_created", _created);
+        live = sweep_parallel(
+            &lists,
+            &starts,
+            sticky,
+            #[cfg(feature = "gc-profile")]
+            profile,
+        );
     } else {
         for wl in lists {
             let start = from(wl);
@@ -1046,15 +1050,20 @@ fn verify_minor(h: &Heap) {
 /// Heaps with at least this many objects (spread over several workers'
 /// lists) are swept in parallel.
 const PARALLEL_SWEEP: usize = 32 << 10;
-const REUSE_SWEEP_HELPERS: bool = true;
+#[cfg(feature = "gc-profile")]
+const REUSE_SWEEP_HELPERS: bool = false;
 
+#[cfg(any(feature = "gc-profile", test))]
 type SweptList = (usize, Vec<*mut Header>);
 
 // Only sweep jobs transfer these pointers: the world is stopped, each job owns
 // a different worker's list/pool, and every result is received before resuming.
+#[cfg(any(feature = "gc-profile", test))]
 struct SweepResult(SweptList);
+#[cfg(any(feature = "gc-profile", test))]
 unsafe impl std::marker::Send for SweepResult {}
 
+#[cfg(any(feature = "gc-profile", test))]
 fn sweep_list(wl: usize, start: usize, sticky: bool) -> SweptList {
     let mut live = 0usize;
     let mut fin = vec![];
@@ -1076,6 +1085,7 @@ fn sweep_list(wl: usize, start: usize, sticky: bool) -> SweptList {
 
 /// Close the helper cache before profiler/process shutdown. Later collections
 /// use scoped helpers, so a concurrent late collection cannot reopen the cache.
+#[cfg(feature = "gc-profile")]
 pub(crate) fn shutdown_sweep_helpers() {
     sweep::shutdown();
 }
@@ -1084,35 +1094,72 @@ pub(crate) fn shutdown_sweep_helpers() {
 /// stopped, so the other workers are not using their lists or pools; each
 /// thread frees only into its list's own pool). Dead objects with a
 /// finalizer are finalized and freed afterwards on this thread, in list
-/// order: finalizers touch shared runtime state. Returns live bytes and the
-/// number of native helper threads created (diagnostic accounting).
-fn sweep_parallel(lists: &[usize], starts: &[usize], sticky: bool) -> (usize, usize) {
-    let reuse = REUSE_SWEEP_HELPERS;
+/// order: finalizers touch shared runtime state. Returns live bytes; diagnostics
+/// additionally record native helper creation.
+fn sweep_parallel(
+    lists: &[usize],
+    starts: &[usize],
+    sticky: bool,
+    #[cfg(feature = "gc-profile")] profile: &mut diagnostics::Collection,
+) -> usize {
     #[cfg(feature = "gc-profile")]
-    let reuse = diagnostics::reuse_sweep_helpers(reuse);
-    let cached = if reuse { sweep::run(lists, starts, sticky) } else { None };
-    let (results, created) = cached.unwrap_or_else(|| {
-        let results = std::thread::scope(|sc| {
-            let handles: Vec<_> = lists[1..]
-                .iter()
-                .zip(&starts[1..])
-                .map(|(&wl, &st)| {
-                    sc.spawn(move || {
-                        #[cfg(feature = "gc-profile")]
-                        crate::profile::start_thread();
-                        SweepResult(sweep_list(wl, st, sticky))
-                    })
+    {
+        if diagnostics::reuse_sweep_helpers(REUSE_SWEEP_HELPERS)
+            && let Some((results, created)) = sweep::run(lists, starts, sticky)
+        {
+            profile.snapshot("sweep_helpers_created", created);
+            return finish_sweep(lists, results);
+        }
+        profile.snapshot("sweep_helpers_created", lists.len() - 1);
+    }
+    struct Send<T>(T);
+    unsafe impl<T> std::marker::Send for Send<T> {}
+    let sweep = |wl: usize, start: usize| -> (usize, Vec<*mut Header>) {
+        let mut live = 0usize;
+        let mut fin = vec![];
+        sweep_from(
+            objects(wl),
+            start,
+            sticky,
+            |p| live += HEADER + unsafe { (*p).payload_size() },
+            |p| unsafe {
+                if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+                    fin.push(p);
+                } else {
+                    free_cell(wl, p, (*p).payload_size());
+                }
+            },
+        );
+        (live, fin)
+    };
+    let results: Vec<(usize, Vec<*mut Header>)> = std::thread::scope(|sc| {
+        let handles: Vec<_> = lists[1..]
+            .iter()
+            .zip(&starts[1..])
+            .map(|(&wl, &st)| {
+                sc.spawn(move || {
+                    #[cfg(feature = "gc-profile")]
+                    crate::profile::start_thread();
+                    Send(sweep(wl, st))
                 })
-                .collect();
-            let mut out = vec![sweep_list(lists[0], starts[0], sticky)];
-            out.extend(handles.into_iter().map(|h| h.join().expect("sweep thread").0));
-            out
-        });
-        (results, lists.len() - 1)
+            })
+            .collect();
+        let mut out = vec![sweep(lists[0], starts[0])];
+        out.extend(handles.into_iter().map(|h| h.join().expect("sweep thread").0));
+        out
     });
-    (finish_sweep(lists, results), created)
+    let mut live = 0;
+    for (&wl, (l, fin)) in lists.iter().zip(results) {
+        live += l;
+        for p in fin {
+            finalize(p);
+            free_cell(wl, p, unsafe { (*p).payload_size() });
+        }
+    }
+    live
 }
 
+#[cfg(any(feature = "gc-profile", test))]
 fn finish_sweep(lists: &[usize], results: Vec<SweptList>) -> usize {
     let mut live = 0;
     for (&wl, (l, fin)) in lists.iter().zip(results) {

@@ -1,0 +1,7 @@
+{
+  "main": "36091e71e8b22525747bc9bec4b6a4401cf535b0",
+  "original_scoped_body_preserved": true,
+  "body_sha256": "42094d02873357913ec839d65970bb6ae1f6cf547fde3b392961a23ff8263f0b",
+  "experimental_helpers": "Compiled only for gc-profile or unit tests; ordinary profiler finish contains no cache shutdown call.",
+  "default_reuse": false
+}

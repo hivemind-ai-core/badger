@@ -1,0 +1,65 @@
+{
+  "binaries": {
+    "baseline-initial": {
+      "path": "/tmp/badger-G3-binaries/base-5d25647",
+      "sha256": "f7cb52e382b76df8bf5bae5d9d01eea54cd23b06e65163ef61bd31e2c6762fcc",
+      "revision": "5d25647587634dfefff9ace98ce1fb9708744ca8",
+      "gc_profile": false
+    },
+    "baseline": {
+      "path": "/tmp/badger-G3-binaries/base-36091e7",
+      "sha256": "f7cb52e382b76df8bf5bae5d9d01eea54cd23b06e65163ef61bd31e2c6762fcc",
+      "revision": "36091e71e8b22525747bc9bec4b6a4401cf535b0",
+      "gc_profile": false
+    },
+    "candidate": {
+      "path": "/tmp/badger-G3-binaries/candidate-reuse",
+      "sha256": "b54aea567397e8a6082f7b7993dc65ffbc198d1da5abb05e0161712603fd43dc",
+      "revision": "564b49238886d38543db0360878d0ce7f7a937bc",
+      "gc_profile": false
+    },
+    "diagnostic-sweep-counts": {
+      "path": "/tmp/badger-G3-binaries/sweep-profile-c83897c",
+      "sha256": "14eafafb0d3840f09127a1f927f4bbe385afcfa99a0ce567e4247af7f710989a",
+      "revision": "c83897cb40656db822f3864bdf060cdac366b293",
+      "gc_profile": true
+    },
+    "diagnostic-policy-experiment": {
+      "path": "/tmp/badger-G3-binaries/reuse-experiment",
+      "sha256": "e727e3a688d60cc893ff3bdc6be96a1e37f59796e25a3d4aafcc1e6f6362f2c7",
+      "revision": "2ae1cd2a4d25b545815cee4a967050d487ac0aea",
+      "gc_profile": true
+    },
+    "final-scoped": {
+      "path": "/tmp/badger-G3-binaries/final-scoped",
+      "sha256": "3481879d0f5374f9690463ccde5c91658ebccc7c7b426dfd9c1c4082b4ba2fc2",
+      "gc_profile": false,
+      "source": "Final restoration; exact source files pinned by SHA-256 below, no performance claim for these validation binaries."
+    },
+    "final-diagnostic": {
+      "path": "/tmp/badger-G3-binaries/final-diagnostic",
+      "sha256": "42b63dd0f52a8bf6f93cc1fd483922434689f0d6ec63f3880d975db1e2a2fbc7",
+      "gc_profile": true,
+      "source": "Final restoration; exact source files pinned by SHA-256 below, no performance claim for these validation binaries."
+    }
+  },
+  "main_at_comparison": "36091e71e8b22525747bc9bec4b6a4401cf535b0",
+  "production_diff_paths": [
+    "crates/badger_runtime/src/gc.rs",
+    "crates/badger_runtime/src/gc/diagnostics.rs",
+    "crates/badger_runtime/src/gc/sweep.rs",
+    "crates/badger_runtime/src/profile.rs"
+  ],
+  "build_note": "Ordinary baseline and candidate runtime artifacts were explicitly cleaned between worktrees. Latest-main baseline is byte-identical to initial 5d25647 baseline. sweep-policy-check.json independently proves scoped/cached policy and absent diagnostics. Tests/benchmarks never overlap our compiler builds.",
+  "cached_ordinary_candidate_accepted": false,
+  "ordinary_default": "scoped",
+  "final_source_sha256": {
+    "crates/badger_runtime/src/gc.rs": "1eef817f58cb97422b355ef1f3ed02f4d907367f30e3c05b2f6b5b28c765dcd0",
+    "crates/badger_runtime/src/gc/sweep.rs": "8cebb0411ec7da73ce36db175f2a610079439e4612d35fb500456cc8bbab663b",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "1213afdc65668c47515a940dc4289acfa715648b513cf81e03a13ec4a56f518c",
+    "crates/badger_runtime/src/profile.rs": "f3efdc0e1da43cb7527f6c5e37167d53552ff5432913c84deb17f7233a9b11bb",
+    "bench/gc/coverage.bdg": "e5e77f488f5ed20fcbe8938c31d520b1d3e311df74f0f357e8c5d85f9df392d9",
+    "bench/gc/run.py": "5c0d104411a26ee1bc1f5f8e1496def7a65a72a2cfc4e0fb7fb154ad6232dea0",
+    "bench/gc/check_sweep_reuse.py": "cec592a3c55b70a259aa5de4836a1df8c3d1164e3f6a1e9e4a0339f7c17f11e4"
+  }
+}

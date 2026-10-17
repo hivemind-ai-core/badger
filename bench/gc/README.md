@@ -90,6 +90,10 @@ thread creation. All helper results are joined/received before serial finalizers
 or worker resumption; profiler/process finish closes the cache and joins helpers.
 Later collections use scoped helpers. The cache is bounded by `MAX_WORKERS` and
 created lazily, but idle native stacks/channels consume resources until finish.
+Ordinary builds retain scoped helpers. Reuse was rejected as a default after
+mixed application results and a repeated CPU-heavy slowdown; the cache and its
+shutdown hook compile only for diagnostics/unit tests. See `G3-summary.md` in
+`reports/memory-management/` for the full decision and retained measurements.
 
 Before timing an ordinary scoped/cached comparison on Linux, verify actual policy:
 
@@ -100,6 +104,7 @@ python3 bench/gc/check_sweep_reuse.py --baseline /tmp/base/badger --candidate /t
 This validates independent final-map contents and GC activity, then counts named
 cached helpers through procfs while still inside the language program. It detects
 accidental Cargo artifact reuse independently of executable labels/hashes.
+Use `--candidate-policy scoped` when checking the restored ordinary default.
 
 ```
 python3 bench/gc/run.py --baseline /tmp/base/lang --diagnostic /tmp/diag/lang --suite telemetry --out /tmp/gc-telemetry
