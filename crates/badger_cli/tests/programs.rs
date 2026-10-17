@@ -188,6 +188,23 @@ fn warning_programs() {
 
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
+/// `main -> Int` exits with the value it returns (clamped to 0..=255).
+#[test]
+fn main_int_exit_status() {
+    let dir = std::env::temp_dir().join(format!("badger-exit-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    for (src, want) in [
+        ("pub fn main() -> Int { 3 }\n", 3),
+        ("pub fn main() -> Int { 300 }\n", 255),
+        ("pub fn main() -> Int { 0 }\n", 0),
+    ] {
+        std::fs::write(dir.join("m.bdg"), src).unwrap();
+        let out = lang().arg("run").arg(dir.join("m.bdg")).output().unwrap();
+        assert_eq!(out.status.code(), Some(want), "{src}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A provider's precondition on a configuration known only at run time is
 /// checked when its node starts: the failure names the clause.
 #[test]

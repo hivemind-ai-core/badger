@@ -114,7 +114,7 @@ pub fn greet(names: List<String>) -> Result<Unit, io.Error> {
 | 70 | Internal error: a bug in Badger, not in the program. The message ends with "please report it"; `RUST_BACKTRACE=1` adds a backtrace. |
 | 71 | Fatal: the runtime cannot allocate a task stack (address-space limit `ulimit -v`, or `vm.max_map_count`). |
 | 101 | The program failed with a defect (a panic, a failed contract, an arithmetic or bounds failure) in its main task, or the main task was cancelled. |
-| N | A program that calls `process.exit(N)` exits with N. `badger replay --compare` also exits with the program's status. |
+| N | A program that calls `process.exit(N)`, or whose `main` returns the `Int` N, exits with N (0 to 255). `badger replay --compare` also exits with the program's status. |
 
 ## Run and check
 

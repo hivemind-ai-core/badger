@@ -1538,6 +1538,12 @@ fn report_exit(exit: badger_runtime::task::Exit, prog: &badger_mir::Program) -> 
                     return (1, Some(failure));
                 }
             }
+            // `main -> Int`: the exit status (0 to 255)
+            if let Some(d) = prog.entry_ret
+                && matches!(d.kind, badger_runtime::desc::Kind::Int { .. })
+            {
+                return ((w as i64).clamp(0, 255) as i32, None);
+            }
             (0, None)
         }
         Exit::Failed(p) => {
