@@ -214,49 +214,117 @@ pub fn external<T: Serialize + DeserializeOwned>(
             }
             v
         }
-        _ => {
-            let mut g = STATE.lock().unwrap();
-            let s = g.as_mut().unwrap();
-            let Some(i) =
-                (0..s.ops.len()).find(|i| !s.used[*i] && s.ops[*i].kind == kind && s.ops[*i].key == key)
-            else {
-                let done =
-                    s.ops.iter().zip(&s.used).filter(|(o, u)| **u && o.kind == kind && o.key == key).count();
-                let why = if s.incomplete {
-                    " (the bundle is incomplete: recording stopped at its size limit)"
-                } else if done > 0 {
-                    " again (the recording has it fewer times)"
+        _ => answer(kind, key, replayed(kind, key, &digest)),
+    }
+}
+
+/// The recorded outcome of an operation the task stopped waiting for.
+const CANCELLED: &str = "$cancelled";
+
+/// Like [`external`], for an operation the task can be cancelled while it
+/// waits (an async native call). A recording files the operation when it
+/// starts, so one the task stopped waiting for is noted as such; a replay
+/// of that one calls `wait_cancelled`, which waits until the task is
+/// cancelled again (by the same timeout, say) and never returns.
+pub fn external_cancellable<T: Serialize + DeserializeOwned>(
+    kind: &str,
+    key: &str,
+    digest: Option<String>,
+    real: impl FnOnce() -> T,
+    wait_cancelled: impl FnOnce() -> T,
+) -> T {
+    match MODE.load(Ordering::Relaxed) {
+        OFF => real(),
+        RECORD => {
+            let slot = {
+                let mut g = STATE.lock().unwrap();
+                let s = g.as_mut().unwrap();
+                let size = kind.len() + key.len();
+                if s.bytes + size > MAX_BYTES {
+                    s.incomplete = true;
+                    None
                 } else {
-                    ""
-                };
-                drop(g);
-                diverge(format!("`{kind} {key}` was not recorded{why}"));
+                    s.bytes += size;
+                    let value = serde_json::json!({ CANCELLED: true });
+                    s.ops.push(Op { kind: kind.into(), key: key.into(), digest, value, redacted: false });
+                    Some(s.ops.len() - 1)
+                }
             };
-            let op = &s.ops[i];
-            if op.redacted {
-                drop(g);
-                diverge(format!(
-                    "`{kind} {key}` was redacted from the bundle (it looks like a credential), so it cannot be replayed"
-                ));
-            }
-            if op.digest != digest {
-                if s.compare {
-                    s.notes.push(format!("`{kind} {key}` sends different content than the recording"));
+            let v = real();
+            if let Some(i) = slot {
+                let value = serde_json::to_value(&v).unwrap_or(Value::Null);
+                let mut g = STATE.lock().unwrap();
+                let s = g.as_mut().unwrap();
+                let size = value.to_string().len();
+                if s.bytes + size > MAX_BYTES {
+                    // too large to keep: the operation stays unanswerable
+                    s.incomplete = true;
+                    s.ops[i].value = Value::Null;
+                    s.ops[i].redacted = true;
                 } else {
-                    drop(g);
-                    diverge(format!("`{kind} {key}` sends different content than the recording"));
+                    s.bytes += size;
+                    s.ops[i].value = value;
                 }
             }
-            s.used[i] = true;
-            s.order.push(i);
-            let value = op.value.clone();
-            drop(g);
-            match serde_json::from_value(value) {
-                Ok(v) => v,
-                Err(e) => diverge(format!("`{kind} {key}`: the recorded outcome does not fit ({e})")),
+            v
+        }
+        _ => {
+            let value = replayed(kind, key, &digest);
+            if value.get(CANCELLED) == Some(&Value::Bool(true)) {
+                return wait_cancelled();
             }
+            answer(kind, key, value)
         }
     }
+}
+
+fn answer<T: DeserializeOwned>(kind: &str, key: &str, value: Value) -> T {
+    match serde_json::from_value(value) {
+        Ok(v) => v,
+        Err(e) => diverge(format!("`{kind} {key}`: the recorded outcome does not fit ({e})")),
+    }
+}
+
+/// The next unused recorded outcome of `kind key` (a replay).
+fn replayed(kind: &str, key: &str, digest: &Option<String>) -> Value {
+    let mut g = STATE.lock().unwrap();
+    let s = g.as_mut().unwrap();
+    // the same operation sending the same content first: concurrent tasks
+    // may reach operations with one key in another order than recorded
+    let unused = |i: &usize| !s.used[*i] && s.ops[*i].kind == kind && s.ops[*i].key == key;
+    let found = (0..s.ops.len())
+        .find(|i| unused(i) && s.ops[*i].digest == *digest)
+        .or_else(|| (0..s.ops.len()).find(unused));
+    let Some(i) = found else {
+        let done = s.ops.iter().zip(&s.used).filter(|(o, u)| **u && o.kind == kind && o.key == key).count();
+        let why = if s.incomplete {
+            " (the bundle is incomplete: recording stopped at its size limit)"
+        } else if done > 0 {
+            " again (the recording has it fewer times)"
+        } else {
+            ""
+        };
+        drop(g);
+        diverge(format!("`{kind} {key}` was not recorded{why}"));
+    };
+    let op = &s.ops[i];
+    if op.redacted {
+        drop(g);
+        diverge(format!(
+            "`{kind} {key}` was redacted from the bundle (it looks like a credential), so it cannot be replayed"
+        ));
+    }
+    if op.digest != *digest {
+        if s.compare {
+            s.notes.push(format!("`{kind} {key}` sends different content than the recording"));
+        } else {
+            drop(g);
+            diverge(format!("`{kind} {key}` sends different content than the recording"));
+        }
+    }
+    s.used[i] = true;
+    s.order.push(i);
+    op.value.clone()
 }
 
 /// The program reached something bundles do not capture.

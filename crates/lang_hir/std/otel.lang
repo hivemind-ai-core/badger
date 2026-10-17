@@ -1,0 +1,109 @@
+// OpenTelemetry export: logs (`std.log`), spans (`trace.span`), and metrics
+// (`std.metrics`) sent to an OTLP/HTTP collector as JSON (`/v1/logs`,
+// `/v1/traces`, `/v1/metrics`) by a background task, every `interval` and
+// once more when it stops. Records wait in bounded buffers between
+// exports (the oldest are dropped, and counted, when the collector falls
+// behind); a failed export is counted in the `otel.export_failures` metric
+// and never fails the program.
+
+import std.io
+import std.fetch
+import std.time
+import std.channel
+import std.system
+import std.env
+import std.text
+import std.metrics
+
+pub type Options = { endpoint: String, service: String, interval: Duration }
+
+/// A running exporter.
+pub struct Exporter {
+    stop: channel.Sender<Bool>,
+    scope: Int,
+    options: Options,
+}
+
+extern "intrinsic" fn log_attach(capacity: Int) -> Unit
+extern "intrinsic" fn otlp_body(signal: String, service: String) -> Option<String>
+extern "intrinsic" fn service_scope() -> Int
+extern "intrinsic" fn service_spawn(scope: Int, f: fn() -> Unit) -> Unit
+extern "intrinsic" fn service_close(scope: Int) -> Unit
+
+/// Options from the standard environment: `OTEL_EXPORTER_OTLP_ENDPOINT`
+/// (default `http://localhost:4318`), `OTEL_SERVICE_NAME` (default
+/// `unknown_service`), and `OTEL_METRIC_EXPORT_INTERVAL` in milliseconds
+/// (default 5000).
+pub fn from_env() -> Options !{Io} {
+    let ms = text.parse_int(env.get("OTEL_METRIC_EXPORT_INTERVAL").unwrap_or("5000")).unwrap_or(5000)
+    {
+        endpoint: env.get("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or("http://localhost:4318"),
+        service: env.get("OTEL_SERVICE_NAME").unwrap_or("unknown_service"),
+        interval: time.millis(ms),
+    }
+}
+
+/// Start exporting with `options`.
+pub fn start(options: Options) -> Result<Exporter, io.Error> !{Io} {
+    log_attach(8192)
+    let ch = channel.create<Bool>({ ..channel.defaults, capacity: 1 }).map_err(fn(e) { io_error($"{e}") })?
+    let scope = service_scope()
+    let stop = ch.receiver
+    service_spawn(scope, fn() { export_until_stopped(options, stop) })
+    ok({ stop: ch.sender, scope, options })
+}
+
+fn io_error(message: String) -> io.Error { { kind: :io/other, message } }
+
+fn export_until_stopped(options: Options, stop: channel.Receiver<Bool>) -> Unit {
+    loop {
+        let stopping = channel.choose([channel.on_recv(stop, fn(_) { true })], Option.some(options.interval)).unwrap_or(false)
+        send_all(options)
+        if stopping {
+            break
+        }
+    }
+}
+
+fn send_all(options: Options) -> Unit {
+    send(options, "traces")
+    send(options, "logs")
+    send(options, "metrics")
+}
+
+fn send(options: Options, signal: String) -> Unit {
+    match otlp_body(signal, options.service) {
+        .some(body) => {
+            let base = if text.ends_with(options.endpoint, "/") { text.slice(options.endpoint, 0, options.endpoint.len() - 1).unwrap_or(options.endpoint) } else { options.endpoint }
+            match fetch.post($"{base}/v1/{signal}", body, "application/json") {
+                .ok(reply) => if reply.status >= 300 {
+                    metrics.count("otel.export_failures", { signal })
+                },
+                .err(_) => metrics.count("otel.export_failures", { signal }),
+            }
+        },
+        .none => (),
+    }
+}
+
+/// Export what is waiting now, from the calling task.
+pub fn flush(e: Exporter) -> Unit { send_all(e.options) }
+
+/// Export what is waiting and stop the exporter.
+pub fn stop(e: Exporter) -> Unit {
+    let _ = e.stop.try_send(true)
+    service_close(e.scope)
+}
+
+fn exporter_init(scope: system.InitScope, config: Options) -> Result<Exporter, io.Error> {
+    let e = start(config)?
+    scope.on_halt(fn() -> Result<Unit, io.Error> {
+        stop(e)
+        ok(())
+    })
+    ok(e)
+}
+
+/// Provider of an exporter for `{endpoint, service, interval}` (see
+/// `from_env`); it stops, exporting what is left, when its system halts.
+pub let exporter = system.provider({ name: :otel/exporter, init: exporter_init })

@@ -1,0 +1,20 @@
+// The enclosing condition decides the argument (a warning: the path may
+// never run): under `n < 0`, `n > 0`
+// cannot hold; neither can a list literal's length.
+// expect-warning: E0145
+requires n > 0
+fn half(n: Int) -> Int { n / 2 }
+
+requires xs.len() > 2
+fn third(xs: List<Int>) -> Int { xs.get(2).unwrap_or(0) }
+
+fn pick(n: Int) -> Int {
+    if n < 0 {
+        return half(n)
+    }
+    third([1, 2])
+}
+
+pub fn main() -> Unit {
+    let _ = pick(3)
+}

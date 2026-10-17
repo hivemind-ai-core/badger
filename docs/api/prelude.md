@@ -402,6 +402,12 @@ fn display(self: &Self) -> String
 enum Option<T> { none, some(value: T) }
 ```
 
+#### `Option.display`
+
+```lang
+fn display(self: &Self) -> String
+```
+
 ### `PartialEq`
 
 ```lang
@@ -430,6 +436,12 @@ Lazy integer range `start..end` / `start..=end`.
 
 ```lang
 enum Result<T, E> { ok(value: T), err(error: E) }
+```
+
+#### `Result.display`
+
+```lang
+fn display(self: &Self) -> String
 ```
 
 ### `Row`

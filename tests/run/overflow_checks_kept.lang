@@ -1,0 +1,36 @@
+// Arithmetic the compiler proves cannot overflow loses its check; any
+// other arithmetic keeps it, so an overflow is still a defect.
+import std.io
+import std.task
+
+fn bounded() -> Int {
+    var total = 0
+    for i in 0..1000 {
+        // i is 0..=999: i * i * i cannot overflow
+        total = total + i * i * i
+    }
+    total
+}
+
+fn squares(limit: Int) -> Int {
+    var total = 0
+    for i in 0..limit {
+        total = total + i
+    }
+    // nothing bounds `limit`
+    limit * limit
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"bounded {bounded()}")?
+    io.println($"small {squares(10)}")?
+    let r = task.scope(fn(s) -> Result<Bool, io.Error> {
+        let t = s.capture(fn() => squares(4000000000))
+        ok(match t.join() {
+            .failed(_) => true,
+            _ => false,
+        })
+    })?
+    io.println($"overflow still a defect: {r}")?
+    ok(())
+}

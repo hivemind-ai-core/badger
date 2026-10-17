@@ -1,0 +1,9 @@
+ok 3
+ok 60
+err bad row `x`
+err -2 after 2 item(s)
+ok 0
+2 errors: ["bad row `x`", "bad numbers in `y,1`"]
+partition [1, 2] ["a", "b"] all_ok ok 2
+err two, source closed 1 time(s)
+ok 6

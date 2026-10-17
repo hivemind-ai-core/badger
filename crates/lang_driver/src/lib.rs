@@ -17,12 +17,14 @@ use lang_syntax::ast;
 
 pub mod analysis;
 pub mod authority;
+pub mod contracts;
 pub mod deps;
 pub mod inspect;
 pub mod live;
 pub mod manifest;
 pub mod sql;
 pub mod sqlcheck;
+pub mod sqlgen;
 
 #[derive(Default)]
 pub struct Session {
@@ -71,6 +73,59 @@ fn entry_fn() -> String {
     ENTRY_FN.lock().unwrap().clone().unwrap_or_else(|| "main".into())
 }
 
+/// Load the project's `[env] dotenv` files into the environment, before
+/// the program (and its runtime threads) start: `NAME=value` lines, with
+/// `#` comments, an optional `export ` prefix, and quoted values (`"..."`
+/// with `\n` escapes, or `'...'` taken literally). A variable already set
+/// keeps its value; a listed file that does not exist is skipped.
+pub fn load_dotenv(project: &Path) -> Result<(), String> {
+    let Ok(m) = manifest::Manifest::load(&project.join("lang.toml")) else { return Ok(()) };
+    for f in &m.dotenv {
+        let p = project.join(f);
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        for (k, v) in parse_dotenv(&text).map_err(|e| format!("{}: {e}", p.display()))? {
+            if std::env::var_os(&k).is_none() {
+                // SAFETY: before the program starts, while this process
+                // runs no other threads that read the environment
+                unsafe { std::env::set_var(&k, &v) };
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `NAME=value` pairs of a dotenv file.
+pub fn parse_dotenv(text: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out = vec![];
+    for (i, raw) in text.lines().enumerate() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let line = line.strip_prefix("export ").unwrap_or(line);
+        let Some((k, v)) = line.split_once('=') else {
+            return Err(format!("line {}: expected NAME=value", i + 1));
+        };
+        let k = k.trim();
+        if k.is_empty() || !k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(format!("line {}: `{k}` is not a variable name", i + 1));
+        }
+        let v = v.trim();
+        let v = if let Some(q) = v.strip_prefix('"') {
+            let Some(end) = q.rfind('"') else { return Err(format!("line {}: unclosed quote", i + 1)) };
+            q[..end].replace("\\n", "\n").replace("\\\"", "\"")
+        } else if let Some(q) = v.strip_prefix('\'') {
+            let Some(end) = q.rfind('\'') else { return Err(format!("line {}: unclosed quote", i + 1)) };
+            q[..end].to_string()
+        } else {
+            // an unquoted value ends at a ` #` comment
+            v.split(" #").next().unwrap_or(v).trim().to_string()
+        };
+        out.push((k.to_string(), v));
+    }
+    Ok(out)
+}
+
 /// The packages a command at `path` covers: every package of the
 /// workspace whose root `path` is, else `path` itself.
 pub fn packages_of(path: &Path) -> Vec<PathBuf> {
@@ -115,6 +170,14 @@ pub fn register_native_modules() {
         lang_runtime::native::register_builtin("lang_sqlite", lang_sqlite::native_entry);
         lang_runtime::native::register_builtin("lang_fetch", lang_fetch::native_entry);
         lang_runtime::native::register_builtin("lang_http", lang_http::native_entry);
+        lang_runtime::native::register_builtin("lang_formats", lang_formats::native_entry);
+        lang_runtime::native::register_builtin("lang_template", lang_template::native_entry);
+        lang_runtime::native::register_builtin("lang_crypto", lang_crypto::native_entry);
+        lang_runtime::native::register_builtin("lang_valkey", lang_valkey::native_entry);
+        lang_runtime::native::register_builtin("lang_postgres", lang_postgres::native_entry);
+        lang_runtime::native::register_builtin("lang_datetime", lang_datetime::native_entry);
+        lang_runtime::native::register_builtin("lang_compress", lang_compress::native_entry);
+        lang_runtime::native::register_builtin("lang_fs", lang_fs::native_entry);
     });
 }
 
@@ -511,6 +574,45 @@ impl Session {
 
     /// Front end + static analysis only (every package, for a workspace
     /// root).
+    /// Check `path` and report each contract clause and what the static
+    /// analysis decided about it (`lang contracts`).
+    pub fn contract_report(&mut self, path: &Path) -> (Outcome, Vec<contracts::Clause>) {
+        let outcome = self.check(path);
+        let mut clauses = contracts::last_report();
+        for c in &mut clauses {
+            let f = self.sources.get(c.span.file);
+            c.file = f.name.clone();
+            c.line = f.line_col(c.span.start as usize).0;
+        }
+        (outcome, clauses)
+    }
+
+    /// Run the tests of `path` observing the program, then report each
+    /// clause with its static status and test coverage, and candidate
+    /// clauses that held in every observed call (`lang contracts --tests`).
+    pub fn contract_test_report(
+        &mut self,
+        path: &Path,
+    ) -> Result<(Vec<contracts::Clause>, Vec<contracts::Suggestion>, (usize, usize)), Outcome> {
+        let opts = RunOptions { tests: true, json: true, observe: true, ..Default::default() };
+        select_entry(None);
+        self.run(path, vec![], &opts)?;
+        let (ran, failed, _) = take_tests();
+        let (slots, outcomes) = lang_runtime::observe::take();
+        let (mut clauses, mut suggestions) = contracts::merge_observations(&slots, &outcomes);
+        for c in &mut clauses {
+            let f = self.sources.get(c.span.file);
+            c.file = f.name.clone();
+            c.line = f.line_col(c.span.start as usize).0;
+        }
+        for s in &mut suggestions {
+            let f = self.sources.get(s.span.file);
+            s.file = f.name.clone();
+            s.line = f.line_col(s.span.start as usize).0;
+        }
+        Ok((clauses, suggestions, (ran, failed)))
+    }
+
     pub fn check(&mut self, path: &Path) -> Outcome {
         let packages = packages_of(path);
         if packages.len() != 1 || packages[0] != path {
@@ -744,6 +846,12 @@ impl Session {
             }
         }
         let mut config: Vec<(String, String)> = vec![];
+        if path.is_dir()
+            && let Err(e) = load_dotenv(path)
+        {
+            self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
+            return Err(Outcome::Errors);
+        }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => {
                 config = entries.into_iter().map(|(k, v, _)| (k, v)).collect();
@@ -913,6 +1021,16 @@ impl Session {
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
+        // `lang contracts --tests`: instrument the program's functions and
+        // clauses, and check every clause (no elision)
+        if opts.observe {
+            lang_mir::lower::set_observe(contracts::observe_plan(&hir));
+            contracts::resolve_names(&self.interner);
+            lang_mir::lower::set_elided(Default::default());
+            lang_runtime::observe::reset();
+        } else {
+            lang_mir::lower::set_observe(Default::default());
+        }
         let entry_fn = entry_fn();
         let (mut prog, errors) = timed("lower", || {
             lang_mir::lower_program_optimized(
@@ -929,6 +1047,13 @@ impl Session {
         for e in errors {
             self.diagnostics
                 .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
+        }
+        for w in std::mem::take(&mut prog.warnings) {
+            self.diagnostics.push(
+                Diagnostic::warning(w)
+                    .with_code("E0147")
+                    .with_note("calling it fails at run time; give the recursion a bounded type, or remove the protocol constraint so it can use the erased fallback"),
+            );
         }
         if let Some(e) = &prog.entry_error
             && !opts.tests
@@ -1183,6 +1308,9 @@ fn apply_runtime_setting(k: &str, v: &str) {
         "trace_capacity" | "trace_overflow" => {
             lang_runtime::intrinsics_codec::set_trace_setting(k, v);
         }
+        "log_level" | "log_format" => {
+            lang_runtime::telemetry::configure(k, v);
+        }
         _ if k.starts_with("http_") => {
             if let Ok(n) = v.parse() {
                 lang_runtime::http::set_default_limit(k, n);
@@ -1234,6 +1362,9 @@ pub struct RunOptions {
     /// Replay this reproduction bundle (with `true`: compare a changed
     /// program against it).
     pub replay: Option<(PathBuf, bool)>,
+    /// Observe integer arguments, results, and contract outcomes while
+    /// the tests run (`lang contracts --tests`).
+    pub observe: bool,
 }
 
 /// Read a reproduction bundle written by `lang run --record`.
@@ -1404,6 +1535,13 @@ struct TestTally {
 static TALLY: std::sync::Mutex<Option<TestTally>> = std::sync::Mutex::new(None);
 
 /// Print the summary of every test run in this process; returns the exit code.
+/// The tests run so far: how many, how many failed, and their JSON
+/// results (consumed).
+pub fn take_tests() -> (usize, usize, Vec<String>) {
+    let t = TALLY.lock().unwrap().take();
+    t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]))
+}
+
 pub fn finish_tests(json: bool) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));
@@ -1836,18 +1974,30 @@ fn check_typed<'a>(
 ) -> (lang_typeck::Checked<'a>, Vec<Diagnostic>) {
     let restricted = restricted(path);
     let sql = sql::wanted(hir);
-    if restricted || sql {
+    let contracts = contracts::wanted(hir);
+    // proven contract checks belong to this program only (expression ids
+    // are per program): reset before anything is lowered
+    lang_mir::lower::set_elided(Default::default());
+    if restricted || sql || contracts {
         lang_typeck::set_record_types(true);
     }
     let (checked, mut diags) = lang_typeck::check_program(hir, interner);
-    if restricted || sql {
+    if restricted || sql || contracts {
         lang_typeck::set_record_types(false);
         if let Some(t) = &checked.types {
             if restricted {
                 diags.extend(authority::check(hir, t, interner));
             }
-            if sql && !diags.iter().any(|d| d.severity == lang_base::Severity::Error) {
+            let clean = !diags.iter().any(|d| d.severity == lang_base::Severity::Error);
+            if sql && clean {
                 diags.extend(sql::check(hir, t, interner, database_schema(path).as_deref()));
+            }
+            if contracts && clean {
+                let (found, elided) = contracts::check(hir, t, interner);
+                diags.extend(found);
+                if std::env::var_os("LANG_NO_CONTRACT_ELISION").is_none() {
+                    lang_mir::lower::set_elided(elided);
+                }
             }
         }
     }

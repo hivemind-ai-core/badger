@@ -28,9 +28,84 @@ pub fn is_ok<T, E>(r: Result<T, E>) -> Bool {
     }
 }
 
+/// The value, or `fallback(error)` computed only on failure.
+pub fn unwrap_or_else<T, E>(r: Result<T, E>, fallback: once fn(E) -> T) -> T {
+    match r {
+        .ok(x) => x,
+        .err(e) => fallback(e),
+    }
+}
+
+/// Chain a fallible step: `f` runs only on success.
+pub fn and_then<T, U, E>(r: Result<T, E>, f: once fn(T) -> Result<U, E>) -> Result<U, E> {
+    match r {
+        .ok(x) => f(x),
+        .err(e) => Result.err(e),
+    }
+}
+
+/// Recover from a failure: `f` runs only on an error and may fail with
+/// another error type.
+pub fn or_else<T, E, F>(r: Result<T, E>, f: once fn(E) -> Result<T, F>) -> Result<T, F> {
+    match r {
+        .ok(x) => Result.ok(x),
+        .err(e) => f(e),
+    }
+}
+
+/// The value, if successful.
+pub fn value<T, E>(r: Result<T, E>) -> Option<T> {
+    match r {
+        .ok(x) => Option.some(x),
+        .err(_) => Option.none,
+    }
+}
+
+/// The error, if failed.
+pub fn error<T, E>(r: Result<T, E>) -> Option<E> {
+    match r {
+        .ok(_) => Option.none,
+        .err(e) => Option.some(e),
+    }
+}
+
+/// Remove one level of nesting.
+pub fn flatten<T, E>(r: Result<Result<T, E>, E>) -> Result<T, E> {
+    match r {
+        .ok(inner) => inner,
+        .err(e) => Result.err(e),
+    }
+}
+
+/// `Result<Option<T>, E>` as `Option<Result<T, E>>`: `ok(none)` is absent.
+pub fn transpose<T, E>(r: Result<Option<T>, E>) -> Option<Result<T, E>> {
+    match r {
+        .ok(.some(x)) => Option.some(Result.ok(x)),
+        .ok(.none) => Option.none,
+        .err(e) => Option.some(Result.err(e)),
+    }
+}
+
 impl<T, E> Result<T, E> {
-    pub fn is_ok(self: &Self) -> Bool { is_ok(self) }
-    pub fn is_err(self: &Self) -> Bool { !is_ok(self) }
+    pub fn unwrap_or_else(self: &Self, fallback: once fn(E) -> T) -> T { unwrap_or_else(self, fallback) }
+    pub fn and_then<U>(self: &Self, f: once fn(T) -> Result<U, E>) -> Result<U, E> { and_then(self, f) }
+    pub fn or_else<F>(self: &Self, f: once fn(E) -> Result<T, F>) -> Result<T, F> { or_else(self, f) }
+    pub fn value(self: &Self) -> Option<T> { value(self) }
+    pub fn error(self: &Self) -> Option<E> { error(self) }
+    // the predicates match the borrowed receiver (passing it on would copy
+    // an affine payload)
+    pub fn is_ok(self: &Self) -> Bool {
+        match self {
+            .ok(_) => true,
+            .err(_) => false,
+        }
+    }
+    pub fn is_err(self: &Self) -> Bool {
+        match self {
+            .ok(_) => false,
+            .err(_) => true,
+        }
+    }
     pub fn unwrap_or(self: &Self, default: T) -> T { unwrap_or(self, default) }
     pub fn map<U>(self: &Self, f: fn(T) -> U) -> Result<U, E> { map(self, f) }
     pub fn map_err<F>(self: &Self, f: fn(E) -> F) -> Result<T, F> { map_err(self, f) }

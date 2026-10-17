@@ -1,0 +1,29 @@
+// Typed SQL: queries.lang is generated from queries.sql and the schema.
+import std.io
+import std.sqlite
+import queries
+
+pub enum AppError {
+    io(source: io.Error),
+    sqlite(source: sqlite.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    let _ = sqlite.execute(db, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, email TEXT, karma INTEGER NOT NULL DEFAULT 0)", [])?
+    let ada = queries.create_user(db, "ada", Option.some("ada@example.com"))?
+    let bob = queries.create_user(db, "bob", Option.none)?
+    queries.add_karma(db, ada.id, 5)?
+    queries.add_karma(db, bob.id, 2)?
+    match queries.find_user(db, ada.id)? {
+        .some(u) => io.println($"{u.name} {u.email.unwrap_or("-")} {u.karma}")?,
+        .none => io.println("no ada")?,
+    }
+    io.println($"missing: {queries.find_user(db, 99)?.is_none()}")?
+    for u in queries.users_named(db, "%o%")? {
+        io.println($"named: {u.id} {u.name}")?
+    }
+    let t = queries.karma_total(db)?
+    io.println($"{t.users} users, karma {t.total.unwrap_or(0)}")?
+    ok(())
+}

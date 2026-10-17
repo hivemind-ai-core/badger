@@ -332,6 +332,22 @@ impl Display for () {
 
 extern "intrinsic" fn display_value<T>(value: T) -> String
 
+impl<T> Display for Option<T> where T: Display {
+    fn display(self: &Self) -> String {
+        match self {
+            .some(x) => $"some({x})",
+            .none => "none",
+        }
+    }
+}
+impl<T, E> Display for Result<T, E> where T: Display, E: Display {
+    fn display(self: &Self) -> String {
+        match self {
+            .ok(x) => $"ok({x})",
+            .err(e) => $"err({e})",
+        }
+    }
+}
 impl<T> Display for List<T> where T: Display {
     fn display(self: &Self) -> String { display_value(self) }
 }

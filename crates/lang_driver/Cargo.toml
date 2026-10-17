@@ -22,7 +22,20 @@ rusqlite = { version = "0.38", features = ["bundled", "column_decltype", "column
 lang_sqlite.workspace = true
 lang_fetch.workspace = true
 lang_http.workspace = true
+lang_formats.workspace = true
+lang_template.workspace = true
+lang_crypto.workspace = true
+lang_valkey.workspace = true
+lang_postgres.workspace = true
+lang_datetime.workspace = true
+lang_compress.workspace = true
+lang_fs.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
 pretty_assertions.workspace = true
+
+[features]
+# ThreadSanitizer fiber annotations (see lang_runtime)
+tsan = ["lang_runtime/tsan"]
+asan = ["lang_runtime/asan"]

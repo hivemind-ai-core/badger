@@ -23,6 +23,14 @@ lang_native = { path = "crates/lang_native" }
 lang_sqlite = { path = "crates/lang_sqlite" }
 lang_fetch = { path = "crates/lang_fetch" }
 lang_http = { path = "crates/lang_http" }
+lang_formats = { path = "crates/lang_formats" }
+lang_template = { path = "crates/lang_template" }
+lang_crypto = { path = "crates/lang_crypto" }
+lang_valkey = { path = "crates/lang_valkey" }
+lang_postgres = { path = "crates/lang_postgres" }
+lang_datetime = { path = "crates/lang_datetime" }
+lang_compress = { path = "crates/lang_compress" }
+lang_fs = { path = "crates/lang_fs" }
 
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"

@@ -12,6 +12,11 @@ fn check() -> Unit {
     let signed = array.from_list([-128I8, -1I8, 127I8])
     assert(signed.get(0).unwrap_or(0I8) == -128I8)
     assert(signed.get(1).unwrap_or(0I8) == -1I8)
+    // Structural ordering must read packed values at their element width.
+    let ordered = [array.from_list([1I8]), signed, array.from_list([-128I8])].sort()
+    assert(ordered[0] == array.from_list([-128I8]))
+    assert(ordered[1] == signed)
+    assert(ordered[2] == array.from_list([1I8]))
     let wide = array.from_list([65535U16, 0U16])
     assert(wide.get(0).unwrap_or(0U16) == 65535U16)
     let floats = array.from_list([1.5F32, -2.25F32])

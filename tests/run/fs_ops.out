@@ -1,0 +1,14 @@
+bytes abcdef
+appended ["one", "two"]
+metadata file 6 readonly false recent true
+is_dir true is_file true false
+walk ["b/c/deep.txt", "top.txt"]
+copied 3 bytes
+renamed false top
+remove_dir non-empty: io/not_empty
+missing: io/not_found
+dir read 2 walk 6 files
+top: io/permission_denied
+escape: io/permission_denied
+after cleanup ["cap.bin", "data.bin", "log.txt"]
+gone false

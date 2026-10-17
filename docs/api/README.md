@@ -10,6 +10,7 @@
 | [`std.seq`](seq.md) | Typed lazy sequences. A `Seq<T>` is a reusable description: each |
 | [`std.text`](text.md) | Unicode text operations. |
 | [`std.env`](env.md) | Process environment. |
+| [`std.cli`](cli.md) | Typed command-line arguments: a record type is the interface. |
 | [`std.fs`](fs.md) | Filesystem access. Operations run on the blocking pool and park the |
 | [`std.map`](map.md) | Persistent maps with value semantics. |
 | [`std.set`](set.md) | Persistent sets. |
@@ -18,13 +19,29 @@
 | [`std.task`](task.md) | Structured concurrency: task scopes own every child they spawn. |
 | [`std.channel`](channel.md) | Typed bounded channels and batch channels. |
 | [`std.time`](time.md) | Clocks and durations. |
+| [`std.datetime`](datetime.md) | Calendar dates, wall-clock times, and time zones (the `lang_datetime` |
 | [`std.records`](records.md) | Typed record operations. |
 | [`std.pipeline`](pipeline.md) | Typed interceptor pipelines. |
 | [`std.trace`](trace.md) | Structured runtime events. Events are encoded through the value's derived |
+| [`std.log`](log.md) | Structured logs. Each record has a level, a message, and fields (any |
+| [`std.metrics`](metrics.md) | Metrics: counters, gauges, and histograms (OpenTelemetry's default |
+| [`std.otel`](otel.md) | OpenTelemetry export: logs (`std.log`), spans (`trace.span`), and metrics |
+| [`std.toml`](toml.md) | TOML documents, as `Data` or typed values (records decoded by their |
+| [`std.yaml`](yaml.md) | YAML documents, as `Data` or typed values (records decoded by their |
+| [`std.csv`](csv.md) | CSV: rows of text fields, or records keyed by the header row, and back. |
+| [`std.template`](template.md) | Templates in Jinja syntax (`{{ value }}`, `{% for x in xs %}`, `{% if %}`, |
+| [`std.markdown`](markdown.md) | Markdown (CommonMark, with tables, strikethrough, task lists, and |
+| [`std.encoding`](encoding.md) | Text encodings of bytes and text: base64 (standard, or URL-safe without |
+| [`std.crypto`](crypto.md) | Hashes, message authentication, constant-time comparison, and secure |
+| [`std.uuid`](uuid.md) | UUIDs as their hyphenated lower-case text: random (version 4) and |
+| [`std.compress`](compress.md) | Compression: gzip, zlib, raw deflate, and zstd (the `lang_compress` |
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |
 | [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions. |
+| [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |
+| [`std.postgres`](postgres.md) | PostgreSQL with pooled connections and scoped transactions; the same |
+| [`std.websocket`](websocket.md) | WebSockets: client connections (`connect`), and the server side of an |
 | [`std.http`](http.md) | HTTP request/reply adapter. |
 | [`std.buffer`](buffer.md) | Contiguous affine buffers and immutable arrays. |
 | [`std.worker`](worker.md) | Worker restart policies, and running work under one (let it crash: a |

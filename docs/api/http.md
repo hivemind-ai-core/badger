@@ -60,10 +60,44 @@ struct Error { pub message: String }
 fn display(self: &Self) -> String
 ```
 
+### `Event`
+
+```lang
+struct Event { pub data: String, pub event: Option<String>, pub id: Option<String>, pub retry: Option<Int>, pub comment: Option<String> }
+```
+
+One server-sent event. `data` may span lines; an event with only a
+`comment` is a comment line (a keep-alive).
+
+#### `Event.named`
+
+```lang
+fn named(self: &Self, name: String) -> Event
+```
+
+The event with this type (`event:`), for `addEventListener(name)`.
+
+#### `Event.with_id`
+
+```lang
+fn with_id(self: &Self, id: String) -> Event
+```
+
+The event with this id (`id:`), sent back as `Last-Event-ID` on
+reconnection.
+
+#### `Event.with_retry`
+
+```lang
+fn with_retry(self: &Self, millis: Int) -> Event
+```
+
+The event asking the client to wait `millis` before reconnecting.
+
 ### `Exchange`
 
 ```lang
-struct Exchange { conn: Option<native.Handle>, sink: Option<Cell<http.Response>> }
+struct Exchange { conn: Option<native.Handle>, sink: Option<Cell<http.Response>>, service: Int }
 ```
 
 The connection side of one request: a live exchange, or an in-process
@@ -125,6 +159,15 @@ fn body(self: &Self) -> BodyReader<S>
 
 A reader of the body, branded with this request's region.
 
+#### `RequestScope.events`
+
+```lang
+fn events(self: &Self, events: Seq<Event>) -> Sent
+```
+
+Stream server-sent events now (`text/event-stream`); stops early,
+closing the sequence, if the client goes away.
+
 #### `RequestScope.request`
 
 ```lang
@@ -149,6 +192,22 @@ fn stream(self: &Self, status: Int, content_type: String, chunks: Seq<Bytes>) ->
 
 Stream a reply now: the head, then each chunk as it is produced;
 the sequence is consumed (and closed) before this returns.
+
+#### `RequestScope.stream_with`
+
+```lang
+fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent
+```
+
+#### `RequestScope.websocket`
+
+```lang
+fn websocket<E>(self: &Self, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display
+```
+
+Upgrade to a WebSocket and run `session` on it in this request's
+task; the socket closes when it returns (or the task stops). A
+request that is not an upgrade is answered 426 without running it.
 
 ### `Response`
 
@@ -201,6 +260,42 @@ fn call(h: Handler, request: Request) -> Response
 Run a handler in-process on `request` (tests and adapters): a streamed
 reply is collected into the body.
 
+### `comment`
+
+```lang
+fn comment(note: String) -> Event
+```
+
+A comment line (ignored by clients; keeps idle connections open).
+
+### `encode_event`
+
+```lang
+fn encode_event(e: Event) -> String
+```
+
+An event in the wire format (ends with the blank line that dispatches
+it).
+
+### `event`
+
+```lang
+fn event(data: String) -> Event
+```
+
+An unnamed event carrying `data`.
+
+### `events`
+
+```lang
+fn events(events: Seq<Event>) -> Result<Streamed, Error>
+```
+
+A streamed `text/event-stream` reply of `events`. Each event is sent
+as it is produced; if the client goes away the request task is
+cancelled, so a sequence waiting for its next event (a subscription)
+stops too and its cleanups run.
+
 ### `handler`
 
 ```lang
@@ -209,6 +304,14 @@ fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Display
 
 Package a request callback.
 
+### `is_websocket`
+
+```lang
+fn is_websocket(request: Request) -> Bool
+```
+
+Whether the request asks to upgrade to a WebSocket.
+
 ### `json`
 
 ```lang
@@ -216,6 +319,14 @@ fn json<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec
 ```
 
 A JSON reply with the given status.
+
+### `last_event_id`
+
+```lang
+fn last_event_id(request: Request) -> Option<String>
+```
+
+The `Last-Event-ID` a reconnecting client sent, if any.
 
 ### `limited_server`
 
@@ -249,6 +360,15 @@ fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result
 ```
 
 Start serving with explicit limits.
+
+### `parse_events`
+
+```lang
+fn parse_events(body: String) -> List<Event>
+```
+
+The events in an `text/event-stream` body (as a client sees them:
+comments are skipped, and a block without data dispatches nothing).
 
 ### `port`
 
@@ -321,4 +441,14 @@ becomes a 500 reply.
 ```lang
 fn text(status: Int, body: String) -> Result<Response, Error>
 ```
+
+### `websocket_handler`
+
+```lang
+fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display
+```
+
+Package a WebSocket session callback: each upgrade request runs it in
+its own task (see `RequestScope.websocket`); other requests are
+answered 426 (Upgrade Required).
 

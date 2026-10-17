@@ -1,0 +1,20 @@
+// A standard generic function that reuses a value of its type parameter
+// (seq.scan's state) given an affine builder: rejected statically (it
+// failed only at run time while the standard library was exempt).
+// expect-error: E0404
+import std.io
+import std.seq
+import std.list
+
+pub fn main() -> Result<Unit, io.Error> {
+    let b = list.builder<Int>()
+    let s = seq.scan(seq.range(0, 3), b, fn(acc, x) { var a = acc; a.append(x); a })
+    var total = 0
+    for x in s.collect() {
+        let l = x.finish()
+        total = total + l.len()
+        io.println($"finished a list of {l.len()}")?
+    }
+    io.println($"total {total}")?
+    ok(())
+}

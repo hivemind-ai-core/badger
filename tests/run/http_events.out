@@ -1,0 +1,19 @@
+data: hello
+
+event: multi
+id: 7
+retry: 1500
+data: two
+data: lines
+
+: keep-alive
+
+event: badname
+data: x
+
+message id=- retry=10 data=a
+b
+message id=3 retry=0 data=c:d
+200 text/event-stream
+message id=- retry=0 data=resumed after 1
+message id=2 retry=0 data=next

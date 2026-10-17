@@ -2,7 +2,7 @@
 
 The targeted costs improved substantially: local scalar Options are **13.2× faster**, a visible range/map/filter/fold pipeline is **39.4× faster**, indexed array reads are **11.5× faster**, and array iteration is **3.2× faster** in the one-worker probes. Byte storage uses **87.5% fewer element bytes**. The composite probe's generated function code is **51.3% smaller**.
 
-Application performance is mixed. On the larger telemetry workload, **11 of 16 throughput medians decreased**, by up to **14.0%**; five increased, by up to **11.2%**. The median source-compilation/JIT interval decreased from **118.268 ms to 93.798 ms**, or **20.7%**. This bundle has measurable runtime tradeoffs and remains isolated from main.
+Application performance is mixed. On the larger telemetry workload, **11 of 16 throughput medians decreased**, by up to **14.0%**; five increased, by up to **11.2%**. The median source-compilation/JIT interval decreased from **118.268 ms to 93.798 ms**, or **20.7%**. This bundle has measurable runtime tradeoffs. The measurements below describe the pinned pre-integration revisions, not the later main integration.
 
 ## Baseline and provenance
 
@@ -102,6 +102,31 @@ The [first comparison](performance-audit-2026-10-16/opportunities/first-comparis
 
 The stress suite caught an intermediate stop-the-world defect in the new weak-page clearing: a nested public inspection helper resumed workers before sweep completed. The collector now uses a stopped-world internal iterator. An explicit regression runs task-result/list workloads under both generational settings with four workers, chaos scheduling, and heap verification.
 
-Implementation commits: `ea47906` (scalar enums), `6ff46b4` (arrays/text/accounting), `0d00f6d` (GC/rooting/pruning), `eef6fd8` (sequence fusion), `a325294` (collection synchronization regression/fix), and `3927dcc` (poll publication). Benchmark harnesses and raw evidence are separate commits. Main has not been merged or edited by this work.
+Implementation commits: `ea47906` (scalar enums), `6ff46b4` (arrays/text/accounting), `0d00f6d` (GC/rooting/pruning), `eef6fd8` (sequence fusion), `a325294` (collection synchronization regression/fix), and `3927dcc` (poll publication). Benchmark harnesses and raw evidence are separate commits. The benchmark runs preceded the main integration described below.
 
 Reproduction commands are in [bench/opportunities/README.md](../bench/opportunities/README.md). Runtime/application tradeoffs remain visible in the tables above; the targeted microbenchmark gains should not be used as a whole-language speedup claim.
+
+
+## Main integration and broader-performance follow-ups
+
+Integration combines the optimization branch with main at `b52b41d` in the isolated worktree before merging back. The text-slice conflict keeps the tested `char_range` helper and main's added text operations. The new whitespace splitter uses the same streaming list builder as lines/split. Main's structural array comparison now reads packed elements through their value iterator. Main's existing uncommitted files are kept outside this integration.
+
+Main has changed substantially since the benchmark baseline, including its own text-slice improvements. These historical before/after numbers therefore do not measure the incremental gain over current main. Repeat application comparisons against the integration's main parent before making that claim.
+
+The application results have three distinct explanations to investigate:
+
+- **Coverage and cost share:** local scalarization keeps the boxed ABI for escaping values; fusion handles visible range/list pipelines, not arbitrary stored or collected sequences. Telemetry contains channel transfers, task spawning/joining, serial cache requests, and persistent-map updates. It stores its payload as `Array<U64>`, so narrow-byte packing does not reduce those payloads. Faster eligible loops can leave most application cost intact.
+- **Added runtime work:** root packing publishes live pointers at safepoints; external-buffer accounting changes collection pressure; bounding minor collections adds full scans; pool trimming sorts occupied addresses, walks free lists, and can require subsequent allocation again. These are plausible causes of throughput regressions in return for lower retention. They have not been isolated experimentally. The fast-poll root-store issue was separately found and fixed; that does not establish the cause of the remaining application regressions.
+- **Workload and measurement effects:** backpressure, serial service stages, allocation patterns, and scheduling change the critical path as worker count changes. The shared host produced large outliers. Interleaving limits drift, but noise must not be used to dismiss 11 slower medians out of 16.
+
+Existing raw runs do provide a GC clue, without identifying its cause. At one worker, backpressure's median collection count increases from 4 to 6 and total GC pause time from 15.945 to 19.307 ms; workload time increases from 103.578 to 120.382 ms. Four-worker fanout increases from 10 to 11 collections and 36.755 to 45.343 ms of GC pauses, alongside 210.469 to 228.685 ms workload time. Conversely, four-worker balanced improves despite 4 to 6 collections, with roughly unchanged total pause time. GC is a concrete follow-up target, not a complete explanation. These are independently computed medians from five runs per cell; subtracting them does not establish an attributable share. [Derived GC comparison and source hash](performance-audit-2026-10-16/opportunities/final/gc-comparison.json) retain all cells and samples.
+
+Prioritized follow-ups:
+
+1. Establish fresh application baselines against current main, then ablate scalarization, fusion, typed array reads, root publication, major-collection cadence, and pool release separately. Retain immutable binaries, hashes, correctness oracles, interleaved repetitions, and 1/2/4/8-worker sweeps.
+2. Attribute runtime cost with allocation bytes/counts, GC minor/full counts and pause distributions, root-store counts, pool release/reallocation, runnable/parked worker time, and channel/wake/lock wait/hold measurements. Separate compile/JIT time from steady-state execution.
+3. Optimize the measured dominant path. Root publication may benefit from avoiding unchanged stores; GC and pool release may benefit from adaptive thresholds and reclamation hysteresis. If coordination dominates, investigate batching, locality, and request coalescing before synchronization redesign. Each proposal needs a throughput/latency/memory comparison.
+4. Inspect real application MIR for optimization coverage. Extend fusion through single-use locals and selected consumers only while preserving effects, early termination, and cleanup. Investigate escaping enum and channel-result allocation where profiles establish a material cost.
+5. Use longer controlled runs and finer latency sampling to gate changes on application throughput, tail latency, and memory together. A retention improvement can be valuable without being a throughput improvement; publish the tradeoff explicitly.
+
+Integration validation: `cargo test --workspace --release --offline` passes on the combined tree: **143 passed, zero failed, 1 ignored**, across 62 targets. The existing native documentation example remains ignored. Clippy with warnings denied, Rust/language formatting, all four benchmark fixture checks, nine Python runner tests, and nine oracle-checked telemetry smoke runs pass. Local-network tests ran outside the filesystem/network sandbox because its port-binding restriction prevents MCP/service tests from running. [Integration logs](performance-audit-2026-10-16/integration/workspace-tests.txt) and [smoke evidence](performance-audit-2026-10-16/integration/telemetry-smoke.json.gz) preserve this verification separately from the historical benchmark evidence.

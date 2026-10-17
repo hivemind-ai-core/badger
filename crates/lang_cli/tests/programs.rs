@@ -141,6 +141,51 @@ fn reject_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Standard input through `io.stdin()` (line reads), in a program that
+/// also reads files through `io.Reader`.
+#[test]
+fn standard_input() {
+    use std::io::Write;
+    let mut child = lang()
+        .args(["run", "tests/run/readers_writers.lang"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"in one\r\nin two").unwrap();
+    let out = child.wait_with_output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && text.ends_with("stdin: in one\nstdin: in two\n"), "{text}");
+}
+
+/// Programs that check with the warnings their `// expect-warning:` lines
+/// name (and no errors).
+#[test]
+fn warning_programs() {
+    let mut failures = vec![];
+    for f in files("tests/warnings") {
+        let src = std::fs::read_to_string(&f).unwrap();
+        let want: Vec<&str> =
+            src.lines().filter_map(|l| l.trim().strip_prefix("// expect-warning:")).map(str::trim).collect();
+        let out = lang().arg("check").arg("--json").arg(&f).output().unwrap();
+        let json = String::from_utf8_lossy(&out.stdout);
+        let missing: Vec<&&str> = want
+            .iter()
+            .filter(|c| {
+                !json.contains(&format!("\"code\":\"{c}\"")) || !json.contains("\"severity\":\"warning\"")
+            })
+            .collect();
+        if !out.status.success()
+            || !missing.is_empty()
+            || want.is_empty()
+            || json.contains("\"severity\":\"error\"")
+        {
+            failures.push(format!("{}: missing {missing:?}\n{json}", f.display()));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
 /// Every example program runs and prints the expected output.
 #[test]
 fn examples_run() {
@@ -463,6 +508,161 @@ fn dependencies() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Structured logs on standard error: the level threshold, text and JSON
+/// lines with fields in order, and `log.with` context inherited by a
+/// spawned task.
+#[test]
+fn structured_logs() {
+    let run = |env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/log/records.lang"]);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        assert!(out.status.success());
+        String::from_utf8_lossy(&out.stderr).to_string()
+    };
+    let text = run(&[]);
+    let lines: Vec<&str> = text.lines().map(|l| l.split_once(' ').map(|x| x.1).unwrap_or(l)).collect();
+    assert_eq!(
+        lines,
+        vec![
+            "INFO  starting version=1.0 workers=4",
+            "WARN  slow query request=7 ms=120 sql=\"select 1\"",
+            "INFO  in child request=7 step=2",
+            "ERROR done",
+        ],
+        "{text}"
+    );
+    let json = run(&[("LANG_LOG_LEVEL", "debug"), ("LANG_LOG_FORMAT", "json")]);
+    let recs: Vec<serde_json::Value> = json.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    assert_eq!(recs.len(), 5, "{json}");
+    assert_eq!(recs[0]["level"], "debug");
+    assert_eq!(
+        (recs[3]["msg"].as_str(), recs[3]["request"].as_i64(), recs[3]["step"].as_i64()),
+        (Some("in child"), Some(7), Some(2))
+    );
+    assert_ne!(recs[3]["task"], recs[0]["task"]);
+    assert!(json.lines().nth(2).unwrap().starts_with("{\"ts\":"), "{json}");
+    assert!(run(&[("LANG_LOG_LEVEL", "off")]).is_empty());
+}
+
+/// OpenTelemetry export: a span, a log record inside it (with its trace
+/// and span ids), and a counter reach an OTLP/HTTP collector as JSON.
+#[test]
+fn otel_export() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let collector = std::thread::spawn(move || {
+        let mut got: Vec<(String, serde_json::Value)> = vec![];
+        // never wait forever: report what arrived
+        listener.set_nonblocking(true).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while got.len() < 3 && std::time::Instant::now() < deadline {
+            let Ok((mut s, _)) = listener.accept() else {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                continue;
+            };
+            s.set_nonblocking(false).unwrap();
+            s.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+            let mut r = BufReader::new(s.try_clone().unwrap());
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            let path = line.split(' ').nth(1).unwrap_or("").to_string();
+            let mut len = 0usize;
+            loop {
+                let mut h = String::new();
+                r.read_line(&mut h).unwrap();
+                if h.trim().is_empty() {
+                    break;
+                }
+                if let Some(v) = h.to_ascii_lowercase().strip_prefix("content-length:") {
+                    len = v.trim().parse().unwrap();
+                }
+            }
+            let mut body = vec![0u8; len];
+            r.read_exact(&mut body).unwrap();
+            s.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}").unwrap();
+            got.push((path, serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null)));
+        }
+        got
+    });
+    let out = lang()
+        .args(["run", "tests/log/otel.lang"])
+        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env("OTEL_SERVICE_NAME", "svc")
+        // records are exported, not written
+        .env("LANG_LOG_FORMAT", "none")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success() && String::from_utf8_lossy(&out.stdout) == "done\n",
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got = collector.join().unwrap();
+    let paths: Vec<&str> = got.iter().map(|(p, _)| p.as_str()).collect();
+    assert_eq!(paths, vec!["/v1/traces", "/v1/logs", "/v1/metrics"]);
+    let span = &got[0].1["resourceSpans"][0]["scopeSpans"][0]["spans"][0];
+    assert_eq!(span["name"], "work");
+    assert_eq!(got[0].1["resourceSpans"][0]["resource"]["attributes"][0]["value"]["stringValue"], "svc");
+    let log = &got[1].1["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0];
+    assert_eq!(log["body"]["stringValue"], "working");
+    assert_eq!((&log["traceId"], &log["spanId"]), (&span["traceId"], &span["spanId"]));
+    let metric = &got[2].1["resourceMetrics"][0]["scopeMetrics"][0]["metrics"][0];
+    assert_eq!(
+        (&metric["name"], &metric["sum"]["dataPoints"][0]["asDouble"]),
+        (&serde_json::json!("jobs"), &serde_json::json!(1.0))
+    );
+}
+
+/// Configuration from the environment: `[env] dotenv` files load before
+/// the program starts (variables already set win), and `${NAME}` /
+/// `${NAME:-default}` in `[config]` values read the environment.
+#[test]
+fn dotenv_and_env_references() {
+    let dir = std::env::temp_dir().join(format!("lang-dotenv-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("lang.toml"),
+        "[package]\nname = \"envdemo\"\n\n[env]\ndotenv = [\".env\", \".env.local\"]\n\n[config]\nurl = \"${DATABASE_URL}\"\nport = \"${PORT:-8080}\"\ngreeting = \"hi $${literal}\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(".env"),
+        "# local settings\nexport DATABASE_URL=\"postgres://u@h/db\"\nSECRET=abc # trailing\nQUOTED='a b'\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/main.lang"),
+        "import std.io\nimport std.config\nimport std.env\n\npub fn main() -> Result<Unit, String> {\n    let c = config.load<{ url: String, port: Int, greeting: String }>(\"APP_\").map_err(fn(e) { e.display() })?\n    let secret = env.get(\"SECRET\").unwrap_or(\"-\")\n    let quoted = env.get(\"QUOTED\").unwrap_or(\"-\")\n    let _ = io.println($\"{c.url} {c.port} {c.greeting} {secret} {quoted}\")\n    ok(())\n}\n",
+    )
+    .unwrap();
+    let run = |env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.arg("run")
+            .arg(&dir)
+            .env_remove("DATABASE_URL")
+            .env_remove("PORT")
+            .env_remove("SECRET")
+            .env_remove("QUOTED");
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (String::from_utf8_lossy(&out.stdout).to_string(), String::from_utf8_lossy(&out.stderr).to_string())
+    };
+    assert_eq!(run(&[]).0, "postgres://u@h/db 8080 hi ${literal} abc a b\n");
+    assert_eq!(run(&[("PORT", "9"), ("DATABASE_URL", "real")]).0, "real 9 hi ${literal} abc a b\n");
+    std::fs::remove_file(dir.join(".env")).unwrap();
+    let (out, err) = run(&[]);
+    assert!(out.is_empty() && err.contains("url: environment variable `DATABASE_URL` is not set"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Workspaces and git dependencies: members share one `lang.lock`; a git
 /// dependency builds from its locked commit (a changed `rev` is refused
 /// until `lang update`, which resolves it again); `lang check` and
@@ -728,6 +928,32 @@ fn query_check_overlays() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
+/// Typed SQL generation (`lang generate sql`) from a SQLite schema: the
+/// committed module is what the generator writes, and the program using it
+/// checks and runs.
+#[test]
+fn sql_generation_sqlite() {
+    let out =
+        lang().args(["generate", "sql", "--check", "tests/sqlgen/sqlite/queries.sql"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let run = lang().args(["run", "tests/sqlgen/sqlite"]).output().unwrap();
+    let want = std::fs::read_to_string(root().join("tests/sqlgen/sqlite/main.out")).unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), want, "{}", String::from_utf8_lossy(&run.stderr));
+    // a query the schema rejects is reported with its line
+    let dir = std::env::temp_dir().join(format!("lang-sqlgen-bad-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad = dir.join("bad.sql");
+    std::fs::write(&bad, "-- name: nope :many\nSELECT missing FROM users\n").unwrap();
+    let out = lang()
+        .args(["generate", "sql", "--schema", "tests/sqlgen/sqlite/schema.sql"])
+        .arg(&bad)
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success() && err.contains("line 1: `nope`") && err.contains("missing"), "{err}");
+}
+
 /// Native modules (`tests/native`, calling `crates/lang_native_demo`, which
 /// cargo builds as a dev-dependency into `deps` next to the executable):
 /// every mode, value shapes, defects, and handles, on one worker and four;
@@ -747,6 +973,22 @@ fn native_modules() {
             );
         }
     }
+    // recorded async calls replay, including one abandoned by a timeout
+    let bundle = std::env::temp_dir().join(format!("lang-native-replay-{}.json", std::process::id()));
+    let rec = lang()
+        .args(["run", "--record"])
+        .arg(&bundle)
+        .arg("tests/native/replay_timeout.lang")
+        .output()
+        .unwrap();
+    assert!(rec.status.success(), "{}", String::from_utf8_lossy(&rec.stderr));
+    let started = std::time::Instant::now();
+    let rep = lang().arg("replay").arg(&bundle).output().unwrap();
+    let _ = std::fs::remove_file(&bundle);
+    let err = String::from_utf8_lossy(&rep.stderr);
+    assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
+    assert_eq!(String::from_utf8_lossy(&rep.stdout), "timed out: true\nlater: 2\n");
+    assert!(started.elapsed() < std::time::Duration::from_secs(20), "the replay ran the abandoned call");
     let dir = std::env::temp_dir().join(format!("lang-native-restricted-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
@@ -1401,10 +1643,16 @@ fn contract_violations() {
     let src = dir.join("acct.lang");
     let program = |call: &str| {
         format!(
-            "requires amount > 0, \"a positive amount\"\nfn withdraw(balance: Int, amount: Int) -> Int {{ balance - amount }}\n\nensures result == x + 1\nfn inc(x: Int) -> Int {{ x + 2 }}\n\npub fn main() -> Unit {{\n    let _ = {call}\n}}\n"
+            "requires amount > 0, \"a positive amount\"\nfn withdraw(balance: Int, amount: Int) -> Int {{ balance - amount }}\n\nensures result == x + 1\nfn inc(x: Int) -> Int {{ x + 2 }}\n\npub fn main() -> Unit {{\n    let _ = {call}\n}}\n// what a function without `ensures` returns is not known statically\nfn unknown(n: Int) -> Int {{ n }}\n"
         )
     };
+    // a violation the compiler can see is an error before the program runs
     std::fs::write(&src, program("withdraw(10, -5)")).unwrap();
+    let out = lang().arg("run").arg(&src).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(!out.status.success() && err.contains("E0145") && err.contains("amount > 0"), "{err}");
+    // one it cannot is a defect when the program runs
+    std::fs::write(&src, program("withdraw(10, unknown(-5))")).unwrap();
     let out = lang().arg("run").arg(&src).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr).to_string();
     assert_eq!(out.status.code(), Some(101), "{err}");
@@ -1421,6 +1669,58 @@ fn contract_violations() {
     let out = lang().arg("run").arg(&src).output().unwrap();
     assert!(!out.status.success());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `lang contracts`: each clause's static status, and what proven ones
+/// leave out of the compiled program.
+#[test]
+fn contract_report() {
+    let out = lang().args(["contracts", "--json", "tests/run/contracts.lang"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let status = |f: &str, kind: &str| {
+        v["clauses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["function"] == f && c["kind"] == kind)
+            .map(|c| c["status"].as_str().unwrap_or("").to_string())
+            .unwrap_or_default()
+    };
+    // abs returns -x only when x < 0, and x after that guard
+    assert_eq!(status("abs", "ensures"), "proven");
+    // the recursive call is in the n > 1 branch
+    assert_eq!(status("factorial", "requires"), "proven");
+    assert_eq!(status("factorial", "ensures"), "proven");
+    // withdraw_twice passes an amount it knows nothing about
+    assert_eq!(status("withdraw", "requires"), "runtime");
+    assert_eq!(status("largest", "ensures"), "runtime");
+}
+
+/// `lang contracts --tests`: which clauses the tests exercise, and
+/// candidate clauses from what held in every observed call.
+#[test]
+fn contract_test_report() {
+    let out =
+        lang().args(["contracts", "--tests", "--json", "tests/contracts/inventory.lang"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["tests"]["ran"], 3);
+    let clause =
+        |f: &str| v["clauses"].as_array().unwrap().iter().find(|c| c["function"] == f).cloned().unwrap();
+    assert_eq!(clause("restock")["tested"]["evaluated"], 3);
+    assert_eq!(clause("restock")["tested"]["held"], 3);
+    // a clause no test reaches is a gap
+    assert_eq!(clause("reorder_after")["tested"]["evaluated"], 0);
+    let suggested: Vec<String> = v["suggestions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| format!("{} {}", s["function"].as_str().unwrap(), s["clause"].as_str().unwrap()))
+        .collect();
+    assert!(suggested.contains(&"take ensures result >= 0".to_string()), "{suggested:?}");
+    // nothing is suggested about what a clause already states
+    assert!(!suggested.iter().any(|s| s.starts_with("restock requires qty")), "{suggested:?}");
 }
 
 /// `lang query api`: a standard module's public functions, types, and
@@ -1588,6 +1888,33 @@ fn outbound_http() {
     assert_eq!(
         String::from_utf8_lossy(&out.stdout),
         "get 200 hi\npost 200 got ping\nclient 200 hi\nclient post 200 got pong\nredirect 302 moved [content-length=5,connection=close,location=http://example.com/]\nmissing 404 none\nother origin refused (io/permission_denied)\nno slash refused (io/permission_denied)\nbad origin true true\nunreachable refused (io/connection_failed)\n"
+    );
+}
+
+/// `std.fetch.send` and the JSON helpers against a local server.
+#[test]
+fn outbound_http_send() {
+    let port = http_server(|method, path, body| {
+        let json = "Content-Type: application/json\r\n";
+        let (status, extra, text) = match path {
+            "/json" => ("200 OK", json.to_string(), r#"{"n":1,"tags":["a","b"]}"#.to_string()),
+            "/echo" => ("200 OK", json.to_string(), body.to_string()),
+            "/method" => ("200 OK", "Content-Type: text/plain\r\n".to_string(), method.to_string()),
+            "/hop" => ("302 Found", "Location: /json\r\n".to_string(), String::new()),
+            "/big" => ("200 OK", String::new(), "x".repeat(100)),
+            _ => ("500 Internal Server Error", String::new(), "no".to_string()),
+        };
+        (status.to_string(), extra, text)
+    });
+    let out = lang()
+        .args(["run", "tests/net/fetch_send.lang"])
+        .env("FETCH_BASE", format!("http://127.0.0.1:{port}"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "get_json 1 [\"a\", \"b\"]\npost_json 7 [\"x\", \"y\"]\npatch 200 PATCH type text/plain\nfollowed 200 true {\"n\":1,\"tags\":[\"a\",\"b\"]}\nnot followed 302 /json\nlimit io/too_large\nstatus io/http_status\nclient 200 DELETE success true\n"
     );
 }
 

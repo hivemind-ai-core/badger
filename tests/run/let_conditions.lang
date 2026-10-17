@@ -1,0 +1,85 @@
+// `if let` and `while let`: a pattern condition evaluated once, binding
+// only in the matching branch.
+import std.channel
+import std.io
+import std.task
+
+fn describe(o: Option<Int>) -> String {
+    if let .some(n) = o {
+        $"some {n}"
+    } else {
+        "none"
+    }
+}
+
+fn classify(r: Result<Int, String>) -> String {
+    if let .ok(0) = r {
+        "zero"
+    } else if let .ok(n) = r {
+        $"ok {n}"
+    } else if let .err(e) = r {
+        $"err {e}"
+    } else {
+        "unreachable"
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{describe(Option.some(3))} {describe(Option.none)}")?
+    io.println($"{classify(ok(0))} {classify(ok(5))} {classify(err("bad"))}")?
+    // without else: Unit
+    var hits = 0
+    if let .some(n) = Option.some(2) {
+        hits = hits + n
+    }
+    if let .some(n) = Option.none {
+        hits = hits + n
+    }
+    io.println($"hits {hits}")?
+    // a receive loop: suspends, stops on close, honours continue and break
+    let total = task.scope(fn(s) -> Result<Int, channel.ConfigError> {
+        let ends = channel.create<Int>(channel.defaults)?
+        let producer = s.spawn(fn() {
+            for i in 1..8 {
+                let _ = ends.sender.send(i)
+            }
+            ends.sender.close()
+        })
+        var sum = 0
+        while let .some(job) = ends.receiver.recv() {
+            if job == 2 {
+                continue
+            }
+            if job == 6 {
+                break
+            }
+            sum = sum + job
+        }
+        producer.cancel()
+        ok(sum)
+    })
+    io.println($"received sum {total.unwrap_or(-1)}")?
+    // counting down with a fresh value each time round
+    var stack = [1, 2, 3]
+    var popped: List<Int> = []
+    while let .some(top) = stack.last() {
+        popped = popped.append(top)
+        stack = stack.slice(0, stack.len() - 1)
+    }
+    io.println($"popped {popped}")?
+    // the scrutinee runs once per condition
+    let calls = Cell.new(0)
+    let next = fn() -> Option<Int> {
+        calls.set(calls.get() + 1)
+        if calls.get() <= 3 { Option.some(calls.get()) } else { Option.none }
+    }
+    var seen = 0
+    while let .some(_) = next() {
+        seen = seen + 1
+    }
+    io.println($"seen {seen} after {calls.get()} calls")?
+    // an expression
+    let label = if let .some(name) = Option.some("ada") { name } else { "anonymous" }
+    io.println(label)?
+    ok(())
+}

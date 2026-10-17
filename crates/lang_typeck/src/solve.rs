@@ -630,20 +630,10 @@ impl Infer<'_, '_> {
                     return Step::Pending;
                 }
                 if *ordered {
-                    let ok = match &*t {
-                        TyKind::Con(d, _) => {
-                            self.b().is_numeric(*d)
-                                || [
-                                    self.b().char_,
-                                    self.b().string,
-                                    self.b().duration,
-                                    self.b().instant,
-                                    self.b().bool_,
-                                ]
-                                .contains(d)
-                        }
-                        TyKind::Skolem(_) | TyKind::Error => true,
-                        _ => false,
+                    // the same orders as `PartialOrd`
+                    let ok = match self.ord_ok(&t, final_) {
+                        Some(ok) => ok,
+                        None => return Step::Pending,
                     };
                     if !ok {
                         let s = self.show(&t);
@@ -1401,18 +1391,39 @@ impl Infer<'_, '_> {
                 }
             }
             TyKind::Error | TyKind::Skolem(_) | TyKind::Gen(_) => Some(true),
-            TyKind::Con(d, _) => {
+            // structural orders (the runtime's): tuples by position,
+            // records by field label, sequences lexicographically, and
+            // options and results by variant then payload
+            TyKind::Tuple(ts) => self.all_ord(ts.clone(), final_),
+            TyKind::Record(r) => {
+                let (fs, _) = self.icx.flatten_row(&r.clone());
+                self.all_ord(fs.into_iter().map(|(_, t)| t).collect(), final_)
+            }
+            TyKind::Con(d, args) => {
                 let name = self.lang_name(*d).unwrap_or_default();
+                if matches!(name.as_str(), "List" | "Array" | "Option" | "Result") {
+                    return self.all_ord(args.clone(), final_);
+                }
                 Some(
                     self.b().is_numeric(*d)
                         || matches!(
                             name.as_str(),
-                            "Char" | "String" | "Duration" | "Instant" | "Timestamp" | "Symbol"
+                            "Bool" | "Char" | "String" | "Duration" | "Instant" | "Timestamp" | "Symbol"
                         ),
                 )
             }
             _ => Some(false),
         }
+    }
+
+    fn all_ord(&mut self, ts: Vec<Ty>, final_: bool) -> Option<bool> {
+        for t in ts {
+            match self.ord_ok(&t, final_) {
+                Some(true) => {}
+                other => return other,
+            }
+        }
+        Some(true)
     }
 
     /// No region-parameterized constructor (a scoped resource) inside `t`.

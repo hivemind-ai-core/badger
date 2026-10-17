@@ -1,0 +1,6 @@
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    email TEXT,
+    karma INTEGER NOT NULL DEFAULT 0
+);

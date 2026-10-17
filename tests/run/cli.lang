@@ -1,0 +1,38 @@
+// Typed command-line arguments (std.cli): a record type is the interface.
+import std.cli
+import std.io
+
+pub enum Mode {
+    fast,
+    careful,
+} derive(Codec)
+
+type Options = { port: Int, verbose: Bool, dry_run: Bool, name: Option<String>, tag: List<String>, ratio: Float, mode: Mode, args: List<String> }
+
+fn show(args: List<String>) -> String {
+    match cli.parse<Options>(args) {
+        .ok(o) => $"port={o.port} verbose={o.verbose} dry_run={o.dry_run} name={o.name.unwrap_or("-")} tags={o.tag} ratio={o.ratio} args={o.args}",
+        .err(e) => $"{e.code}: {e.message}",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(show(["--port", "8080", "--ratio=0.5", "--mode", "fast", "a.txt", "--verbose", "--tag", "x", "--tag=y", "--dry-run", "--", "--literal"]))?
+    io.println(show(["--port=1", "--ratio", "2", "--mode=careful", "--name", "ada", "--no-verbose"]))?
+    io.println(show(["--ratio", "1", "--mode", "fast"]))?
+    io.println(show(["--port", "x", "--ratio", "1", "--mode", "fast"]))?
+    io.println(show(["--port", "1", "--ratio", "1", "--mode", "slow"]))?
+    io.println(show(["--colour", "red"]))?
+    io.println(show(["--port"]))?
+    // defaults for fields not given
+    let defaults: Options = { port: 80, verbose: false, dry_run: false, name: Option.none, tag: [], ratio: 1.0, mode: Mode.fast, args: [] }
+    match cli.parse_or(["--port", "9000"], defaults) {
+        .ok(o) => io.println($"defaults: port={o.port} ratio={o.ratio}")?,
+        .err(e) => io.println($"{e}")?,
+    }
+    match cli.parse_program<Options>("serve", ["--help"]) {
+        .ok(_) => io.println("no help?")?,
+        .err(e) => io.println($"{e}")?,
+    }
+    ok(())
+}

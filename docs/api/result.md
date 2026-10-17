@@ -6,6 +6,30 @@ Result helpers.
 
 ## Functions
 
+### `and_then`
+
+```lang
+fn and_then<T, U, E>(r: Result<T, E>, f: once fn(T) -> Result<U, E>) -> Result<U, E>
+```
+
+Chain a fallible step: `f` runs only on success.
+
+### `error`
+
+```lang
+fn error<T, E>(r: Result<T, E>) -> Option<E>
+```
+
+The error, if failed.
+
+### `flatten`
+
+```lang
+fn flatten<T, E>(r: Result<Result<T, E>, E>) -> Result<T, E>
+```
+
+Remove one level of nesting.
+
 ### `is_ok`
 
 ```lang
@@ -24,13 +48,58 @@ fn map<T, U, E>(r: Result<T, E>, f: fn(T) -> U) -> Result<U, E>
 fn map_err<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F>
 ```
 
+### `or_else`
+
+```lang
+fn or_else<T, E, F>(r: Result<T, E>, f: once fn(E) -> Result<T, F>) -> Result<T, F>
+```
+
+Recover from a failure: `f` runs only on an error and may fail with
+another error type.
+
+### `transpose`
+
+```lang
+fn transpose<T, E>(r: Result<Option<T>, E>) -> Option<Result<T, E>>
+```
+
+`Result<Option<T>, E>` as `Option<Result<T, E>>`: `ok(none)` is absent.
+
 ### `unwrap_or`
 
 ```lang
 fn unwrap_or<T, E>(r: Result<T, E>, default: T) -> T
 ```
 
+### `unwrap_or_else`
+
+```lang
+fn unwrap_or_else<T, E>(r: Result<T, E>, fallback: once fn(E) -> T) -> T
+```
+
+The value, or `fallback(error)` computed only on failure.
+
+### `value`
+
+```lang
+fn value<T, E>(r: Result<T, E>) -> Option<T>
+```
+
+The value, if successful.
+
 ## Methods on other types
+
+### `Result.and_then`
+
+```lang
+fn and_then<U>(self: &Self, f: once fn(T) -> Result<U, E>) -> Result<U, E>
+```
+
+### `Result.error`
+
+```lang
+fn error(self: &Self) -> Option<E>
+```
 
 ### `Result.is_err`
 
@@ -56,9 +125,27 @@ fn map<U>(self: &Self, f: fn(T) -> U) -> Result<U, E>
 fn map_err<F>(self: &Self, f: fn(E) -> F) -> Result<T, F>
 ```
 
+### `Result.or_else`
+
+```lang
+fn or_else<F>(self: &Self, f: once fn(E) -> Result<T, F>) -> Result<T, F>
+```
+
 ### `Result.unwrap_or`
 
 ```lang
 fn unwrap_or(self: &Self, default: T) -> T
+```
+
+### `Result.unwrap_or_else`
+
+```lang
+fn unwrap_or_else(self: &Self, fallback: once fn(E) -> T) -> T
+```
+
+### `Result.value`
+
+```lang
+fn value(self: &Self) -> Option<T>
 ```
 

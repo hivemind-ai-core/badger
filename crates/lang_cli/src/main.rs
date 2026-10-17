@@ -225,6 +225,37 @@ enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Generate code: `sql` turns SQL files of named queries
+    /// (`-- name: find_user :one`) into typed functions, `NAME.lang` next
+    /// to each `NAME.sql`. Types come from Postgres (`--database`, or
+    /// `DATABASE_URL`) or from a SQLite schema (`--schema`, or the
+    /// project's `[database] schema`).
+    Generate {
+        /// What to generate: `sql`.
+        what: String,
+        files: Vec<PathBuf>,
+        #[arg(long)]
+        database: Option<String>,
+        #[arg(long)]
+        schema: Option<PathBuf>,
+        /// Compare with the generated files and fail if any differ.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Each contract clause (`requires`, `ensures`) and what the compiler
+    /// decided about it: proven (its runtime check is compiled out),
+    /// refuted (an error), or checked at run time, and why.
+    Contracts {
+        /// Entry file or project directory (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        json: bool,
+        /// Also run the tests, observing the program: each clause's test
+        /// coverage, and candidate clauses that held in every call.
+        #[arg(long)]
+        tests: bool,
+    },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
         /// `diagnostic`, `type`, or `effect`.
@@ -328,6 +359,7 @@ fn main() -> ExitCode {
                 debug,
                 record,
                 replay: None,
+                observe: false,
             };
             match session.run(&path, args, &opts) {
                 Ok(code) => {
@@ -443,6 +475,69 @@ fn main() -> ExitCode {
             }
             exit_now(lang_driver::finish_tests(json))
         }
+        Command::Contracts { path, json, tests: true } => match session.contract_test_report(&path) {
+            Ok((clauses, suggestions, (ran, failed))) => {
+                if json {
+                    let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
+                    let s: Vec<serde_json::Value> = suggestions.iter().map(|c| c.to_json()).collect();
+                    println!(
+                        "{}",
+                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s })
+                    );
+                } else {
+                    report(&session, false);
+                    println!("{ran} test(s) ran, {failed} failed");
+                    for c in &clauses {
+                        let (e, h) = c.tested.unwrap_or((0, 0));
+                        let tested = if e == 0 {
+                            "never exercised by a test".to_string()
+                        } else if h == e {
+                            format!("held all {e} time(s) the tests evaluated it")
+                        } else {
+                            format!("FAILED {} of {e} time(s)", e - h)
+                        };
+                        println!(
+                            "{}:{}: {} {} `{}`: {} ({}); {tested}",
+                            c.file, c.line, c.function, c.kind, c.text, c.status, c.reason
+                        );
+                    }
+                    for s in &suggestions {
+                        println!(
+                            "{}:{}: {} could state `{}` ({})",
+                            s.file, s.line, s.function, s.clause, s.basis
+                        );
+                    }
+                }
+                if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+            }
+            Err(_) => {
+                report(&session, json);
+                ExitCode::FAILURE
+            }
+        },
+        Command::Contracts { path, json, tests: false } => {
+            let (outcome, clauses) = session.contract_report(&path);
+            if json {
+                let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
+                println!("{}", serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v }));
+            } else {
+                report(&session, false);
+                for c in &clauses {
+                    println!(
+                        "{}:{}: {} {} `{}`: {} ({})",
+                        c.file, c.line, c.function, c.kind, c.text, c.status, c.reason
+                    );
+                }
+                let proven = clauses.iter().filter(|c| c.status == "proven").count();
+                println!(
+                    "{} clause(s): {proven} proven, {} checked at run time, {} refuted",
+                    clauses.len(),
+                    clauses.iter().filter(|c| c.status == "runtime").count(),
+                    clauses.iter().filter(|c| c.status == "refuted").count()
+                );
+            }
+            if outcome == Outcome::Ok { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+        }
         Command::Check { path, json } => {
             let outcome = session.check(&path);
             report(&session, json);
@@ -505,6 +600,27 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Generate { what, files, database, schema, check } => {
+            if what != "sql" {
+                eprintln!("error: unknown generator `{what}` (available: sql)");
+                return ExitCode::FAILURE;
+            }
+            let database = database.or_else(|| std::env::var("DATABASE_URL").ok());
+            match lang_driver::sqlgen::run(&files, database.as_deref(), schema.as_deref(), check) {
+                Ok(written) => {
+                    for w in written {
+                        println!("wrote {w}");
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(es) => {
+                    for e in es {
+                        eprintln!("error: {e}");
+                    }
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Command::Format { paths, check } => {
             format(if paths.is_empty() { vec![PathBuf::from(".")] } else { paths }, check)
         }

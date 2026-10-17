@@ -229,6 +229,61 @@ pub fn cmp(d: &TypeDesc, a: u64, b: u64) -> Ordering {
         Kind::String | Kind::Symbol | Kind::Bytes => {
             crate::string::bytes_of(a).cmp(crate::string::bytes_of(b))
         }
+        // structural orders: tuples by position, records by field label,
+        // enums by variant then payload, sequences lexicographically
+        Kind::Record { fields, .. } => {
+            let (pa, pb) = unsafe { (obj(a).payload(), obj(b).payload()) };
+            let mut order: Vec<&crate::desc::Field> = fields.iter().collect();
+            if order.iter().all(|f| f.name.parse::<usize>().is_ok()) {
+                order.sort_by_key(|f| f.name.parse::<usize>().unwrap_or(0));
+            } else {
+                order.sort_by(|x, y| x.name.cmp(&y.name));
+            }
+            for f in order {
+                let o = cmp(f.desc, field_word(pa, f.offset, f.repr), field_word(pb, f.offset, f.repr));
+                if o != Ordering::Equal {
+                    return o;
+                }
+            }
+            Ordering::Equal
+        }
+        Kind::Enum { variants, .. } => {
+            let (pa, pb) = unsafe { (obj(a).payload(), obj(b).payload()) };
+            let (ta, tb) = unsafe { (*(pa as *const u32), *(pb as *const u32)) };
+            if ta != tb {
+                return ta.cmp(&tb);
+            }
+            for f in &variants[ta as usize].fields {
+                let o = cmp(f.desc, field_word(pa, f.offset, f.repr), field_word(pb, f.offset, f.repr));
+                if o != Ordering::Equal {
+                    return o;
+                }
+            }
+            Ordering::Equal
+        }
+        Kind::List { elem } => {
+            let (la, lb) = (crate::list::len(a), crate::list::len(b));
+            for i in 0..la.min(lb) {
+                let o = cmp(elem, crate::list::get(a, i), crate::list::get(b, i));
+                if o != Ordering::Equal {
+                    return o;
+                }
+            }
+            la.cmp(&lb)
+        }
+        Kind::Opaque { .. } => match crate::buffer::array_elem(d) {
+            Some(elem) => {
+                let (xa, xb) = (crate::buffer::items(a), crate::buffer::items(b));
+                for (x, y) in xa.iter().zip(xb.iter()) {
+                    let o = cmp(elem, x, y);
+                    if o != Ordering::Equal {
+                        return o;
+                    }
+                }
+                xa.len().cmp(&xb.len())
+            }
+            None => Ordering::Equal,
+        },
         _ => Ordering::Equal,
     }
 }

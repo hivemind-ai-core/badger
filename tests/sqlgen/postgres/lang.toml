@@ -1,0 +1,3 @@
+[package]
+name = "sqlgen_postgres"
+entry = "main.lang"

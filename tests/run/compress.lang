@@ -1,0 +1,26 @@
+// Compression round trips, corrupt input, and the decompression limit.
+import std.compress
+import std.io
+import std.text
+
+pub fn main() -> Result<Unit, compress.Error> {
+    let data = text.to_bytes(text.repeat("hello, compression! ", 500))
+    let g = compress.gzip(data)
+    let z = compress.zstd(data)
+    let _ = io.println($"original {data.len()}, gzip smaller {g.len() < 200}, zstd smaller {z.len() < 200}")
+    let _ = io.println($"gzip round trip {compress.gunzip(g)? == data}")
+    let _ = io.println($"zstd round trip {compress.unzstd(z)? == data}")
+    let _ = io.println($"zlib round trip {compress.unzlib(compress.zlib(data))? == data}")
+    let _ = io.println($"deflate round trip {compress.inflate(compress.deflate(data))? == data}")
+    let _ = io.println($"level 9 no larger {compress.gzip_level(data, 9).len() <= g.len()}")
+    let _ = match compress.gunzip(text.to_bytes("not gzip at all")) {
+        .ok(_) => io.println("decoded garbage?"),
+        .err(e) => io.println($"corrupt: {e.code}"),
+    }
+    let _ = match compress.gunzip_limited(g, 100) {
+        .ok(_) => io.println("no limit?"),
+        .err(e) => io.println($"limited: {e.code}"),
+    }
+    let _ = io.println($"exactly at the limit {compress.unzstd_limited(z, data.len())?.len()}")
+    ok(())
+}

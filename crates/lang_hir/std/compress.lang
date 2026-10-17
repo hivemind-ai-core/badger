@@ -1,0 +1,64 @@
+// Compression: gzip, zlib, raw deflate, and zstd (the `lang_compress`
+// native module; the calling task parks while it runs). Decompression
+// takes a limit on its output (`max_bytes`; 256 MiB by default), past
+// which it fails with `:compress/too_large` rather than exhaust memory.
+
+import std.prelude
+
+import std.native
+
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.code}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+}
+
+/// The default decompression limit (256 MiB).
+pub let default_limit: Int = 268435456
+
+extern "native lang_compress.compress" fn cz_compress(format: String, data: Bytes, level: Int) -> Result<Bytes, native.Error> !{Wait}
+extern "native lang_compress.decompress" fn cz_decompress(format: String, data: Bytes, max_bytes: Int) -> Result<Bytes, native.Error> !{Wait}
+
+fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: e.kind, message: e.message }),
+    }
+}
+
+fn sure(r: Result<Bytes, native.Error>) -> Bytes {
+    match r {
+        .ok(v) => v,
+        .err(e) => panic($"compress: {e.message}"),
+    }
+}
+
+/// gzip at the default level (6).
+pub fn gzip(data: Bytes) -> Bytes !{Wait} { sure(cz_compress("gzip", data, 6)) }
+/// gzip at `level`, 0 (none) to 9 (smallest).
+pub fn gzip_level(data: Bytes, level: Int) -> Bytes !{Wait} { sure(cz_compress("gzip", data, level)) }
+/// Decompress gzip (several concatenated members are one stream).
+pub fn gunzip(data: Bytes) -> Result<Bytes, Error> !{Wait} { gunzip_limited(data, default_limit) }
+pub fn gunzip_limited(data: Bytes, max_bytes: Int) -> Result<Bytes, Error> !{Wait} { lift(cz_decompress("gzip", data, max_bytes)) }
+
+pub fn zlib(data: Bytes) -> Bytes !{Wait} { sure(cz_compress("zlib", data, 6)) }
+pub fn unzlib(data: Bytes) -> Result<Bytes, Error> !{Wait} { lift(cz_decompress("zlib", data, default_limit)) }
+
+/// Raw deflate (no header), as in zip entries and HTTP `deflate` bodies
+/// from some servers.
+pub fn deflate(data: Bytes) -> Bytes !{Wait} { sure(cz_compress("deflate", data, 6)) }
+pub fn inflate(data: Bytes) -> Result<Bytes, Error> !{Wait} { lift(cz_decompress("deflate", data, default_limit)) }
+
+/// zstd at the default level (3).
+pub fn zstd(data: Bytes) -> Bytes !{Wait} { sure(cz_compress("zstd", data, 3)) }
+/// zstd at `level`, -7 (fastest) to 22 (smallest).
+pub fn zstd_level(data: Bytes, level: Int) -> Bytes !{Wait} { sure(cz_compress("zstd", data, level)) }
+pub fn unzstd(data: Bytes) -> Result<Bytes, Error> !{Wait} { unzstd_limited(data, default_limit) }
+pub fn unzstd_limited(data: Bytes, max_bytes: Int) -> Result<Bytes, Error> !{Wait} { lift(cz_decompress("zstd", data, max_bytes)) }

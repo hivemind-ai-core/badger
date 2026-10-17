@@ -1,0 +1,31 @@
+// A bounded `use`: a block holds the continuation, so the resource's
+// scope (and the helper's whole result, commit failures included) ends
+// with the block.
+import std.io
+import std.sqlite
+
+pub enum AppError {
+    io(source: io.Error),
+    sqlite(source: sqlite.Error),
+} derive(Error, From)
+
+fn insert_notes(tx: sqlite.Tx<_>, notes: List<String>) -> Result<Int, AppError> {
+    for n in notes {
+        let _ = sqlite.execute(tx, "INSERT INTO notes (text) VALUES (?)", [Data.string(n)])?
+    }
+    ok(notes.len())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let pool = sqlite.open(":memory:")?
+    let _ = sqlite.execute(pool, "CREATE TABLE notes (id INTEGER PRIMARY KEY, text TEXT NOT NULL)", [])?
+    let count = {
+        use tx <- sqlite.transaction(pool)
+        let count = insert_notes(tx, ["one", "two"])?
+        ok(count)
+    }?
+    // the transaction has committed here
+    let rows = sqlite.query_one(pool, "SELECT count(*) AS n FROM notes", [])?
+    io.println($"inserted {count}, table has {rows}")?
+    ok(())
+}

@@ -1,0 +1,33 @@
+// Server-sent events: the wire format, parsing it back, and an in-process
+// call collecting a stream of events.
+import std.http
+import std.io
+import std.list
+import std.text
+
+fn show(e: http.Event) -> String {
+    $"{e.event.unwrap_or("message")} id={e.id.unwrap_or("-")} retry={e.retry.unwrap_or(0)} data={e.data}"
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.print(http.encode_event(http.event("hello")))?
+    io.print(http.encode_event(http.event("two\nlines").named("multi").with_id("7").with_retry(1500)))?
+    io.print(http.encode_event(http.comment("keep-alive")))?
+    // line breaks cannot end a field early
+    io.print(http.encode_event(http.event("x").named("bad\nname")))?
+    let body = "retry: 10\n: ignored\ndata: a\ndata:b\n\nevent: e\n\nid: 3\ndata: c:d\r\n\r\n"
+    for e in http.parse_events(body) {
+        io.println(show(e))?
+    }
+    let h = http.streaming_handler(fn(request) -> Result<http.Streamed, http.Error> {
+        let from = http.last_event_id(request).unwrap_or("none")
+        http.events(list.of([http.event($"resumed after {from}"), http.event("next").with_id("2")]))
+    })
+    let request = { ..http.request(:get, "/events", ""), headers: map { "last-event-id" => "1" } }
+    let r = http.call(h, request)
+    io.println($"{r.status} {r.headers.get("content-type").unwrap_or("?")}")?
+    for e in http.parse_events(text.from_bytes(r.body).unwrap_or("")) {
+        io.println(show(e))?
+    }
+    ok(())
+}

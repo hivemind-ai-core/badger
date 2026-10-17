@@ -29,10 +29,112 @@ pub fn ok_or<T, E>(o: Option<T>, error: E) -> Result<T, E> {
     }
 }
 
+/// The value, or `fallback()` computed only when absent.
+pub fn unwrap_or_else<T>(o: Option<T>, fallback: once fn() -> T) -> T {
+    match o {
+        .some(x) => x,
+        .none => fallback(),
+    }
+}
+
+/// Convert absence into an error built only when needed.
+pub fn ok_or_else<T, E>(o: Option<T>, error: once fn() -> E) -> Result<T, E> {
+    match o {
+        .some(x) => Result.ok(x),
+        .none => Result.err(error()),
+    }
+}
+
+/// Chain an optional step: `f` runs only on a value.
+pub fn and_then<T, U>(o: Option<T>, f: once fn(T) -> Option<U>) -> Option<U> {
+    match o {
+        .some(x) => f(x),
+        .none => Option.none,
+    }
+}
+
+/// This option, or `other()` computed only when absent.
+pub fn or_else<T>(o: Option<T>, other: once fn() -> Option<T>) -> Option<T> {
+    match o {
+        .some(x) => Option.some(x),
+        .none => other(),
+    }
+}
+
+/// This option, or `other` when absent.
+pub fn or<T>(o: Option<T>, other: Option<T>) -> Option<T> {
+    match o {
+        .some(x) => Option.some(x),
+        .none => other,
+    }
+}
+
+/// The value if `keep` accepts it.
+pub fn filter<T>(o: Option<T>, keep: once fn(&T) -> Bool) -> Option<T> {
+    match o {
+        .some(x) => if keep(&x) { Option.some(x) } else { Option.none },
+        .none => Option.none,
+    }
+}
+
+/// Remove one level of nesting.
+pub fn flatten<T>(o: Option<Option<T>>) -> Option<T> {
+    match o {
+        .some(inner) => inner,
+        .none => Option.none,
+    }
+}
+
+/// `Option<Result<T, E>>` as `Result<Option<T>, E>`: an absent value is
+/// `ok(none)`.
+pub fn transpose<T, E>(o: Option<Result<T, E>>) -> Result<Option<T>, E> {
+    match o {
+        .some(.ok(x)) => Result.ok(Option.some(x)),
+        .some(.err(e)) => Result.err(e),
+        .none => Result.ok(Option.none),
+    }
+}
+
+/// Both values, if both are present.
+pub fn zip<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)> {
+    match (a, b) {
+        (.some(x), .some(y)) => Option.some((x, y)),
+        _ => Option.none,
+    }
+}
+
+/// The value as a list of zero or one items.
+pub fn to_list<T>(o: Option<T>) -> List<T> {
+    match o {
+        .some(x) => [x],
+        .none => [],
+    }
+}
+
 impl<T> Option<T> {
+    pub fn unwrap_or_else(self: &Self, fallback: once fn() -> T) -> T { unwrap_or_else(self, fallback) }
+    pub fn ok_or_else<E>(self: &Self, error: once fn() -> E) -> Result<T, E> { ok_or_else(self, error) }
+    pub fn and_then<U>(self: &Self, f: once fn(T) -> Option<U>) -> Option<U> { and_then(self, f) }
+    pub fn or_else(self: &Self, other: once fn() -> Option<T>) -> Option<T> { or_else(self, other) }
+    pub fn or(self: &Self, other: Option<T>) -> Option<T> { or(self, other) }
+    pub fn filter(self: &Self, keep: once fn(&T) -> Bool) -> Option<T> { filter(self, keep) }
+    pub fn zip<U>(self: &Self, other: Option<U>) -> Option<(T, U)> { zip(self, other) }
+    pub fn to_list(self: &Self) -> List<T> { to_list(self) }
     pub fn unwrap_or(self: &Self, default: T) -> T { unwrap_or(self, default) }
-    pub fn is_some(self: &Self) -> Bool { is_some(self) }
-    pub fn is_none(self: &Self) -> Bool { !is_some(self) }
+    // the predicates match the borrowed receiver (passing it on would copy
+    // an affine payload)
+    pub fn is_some(self: &Self) -> Bool {
+        match self {
+            .some(_) => true,
+            .none => false,
+        }
+    }
+    pub fn is_none(self: &Self) -> Bool {
+        match self {
+            .some(_) => false,
+            .none => true,
+        }
+    }
     pub fn map<U>(self: &Self, f: fn(T) -> U) -> Option<U> { map(self, f) }
     pub fn ok_or<E>(self: &Self, error: E) -> Result<T, E> { ok_or(self, error) }
 }

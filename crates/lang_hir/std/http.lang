@@ -5,6 +5,9 @@ import std.prelude
 import std.codec
 import std.system
 import std.native
+import std.websocket
+import std.list
+import std.text as texts
 
 /// Immutable request metadata and body.
 pub type Request = { method: Symbol, path: String, headers: Map<String, String>, body: Bytes }
@@ -47,6 +50,8 @@ enum Reply {
 pub struct Exchange {
     conn: Option<native.Handle>,
     sink: Option<Cell<Response>>,
+    /// the server's service scope (disconnect watchers run in it)
+    service: Int,
 }
 
 /// A packaged request handler; handler errors become 500 replies.
@@ -121,7 +126,20 @@ impl<S: Scope> RequestScope<S> {
     /// Stream a reply now: the head, then each chunk as it is produced;
     /// the sequence is consumed (and closed) before this returns.
     pub fn stream(self: &Self, status: Int, content_type: String, chunks: Seq<Bytes>) -> Sent {
-        let headers = map { "content-type" => content_type }
+        self.stream_with(status, map { "content-type" => content_type }, chunks)
+    }
+    /// Stream server-sent events now (`text/event-stream`); stops early,
+    /// closing the sequence, if the client goes away.
+    pub fn events(self: &Self, events: Seq<Event>) -> Sent {
+        self.stream_with(200, event_headers(), events.map(fn(e: Event) -> Bytes { text_to_bytes(encode_event(e)) }))
+    }
+    /// Upgrade to a WebSocket and run `session` on it in this request's
+    /// task; the socket closes when it returns (or the task stops). A
+    /// request that is not an upgrade is answered 426 without running it.
+    pub fn websocket<E>(self: &Self, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display {
+        run_websocket(self.exchange, self.request, session)
+    }
+    fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent {
         match self.exchange.sink {
             .some(cell) => {
                 var body = text_to_bytes("")
@@ -131,13 +149,7 @@ impl<S: Scope> RequestScope<S> {
                 cell.set({ status, headers, body })
             },
             .none => match self.exchange.conn {
-                .some(conn) => {
-                    http_stream_begin(conn, status, headers)
-                    for chunk in chunks {
-                        http_stream_chunk(conn, chunk)
-                    }
-                    http_stream_end(conn)
-                },
+                .some(conn) => pump(conn, self.exchange.service, status, headers, chunks),
                 .none => (),
             },
         }
@@ -210,8 +222,10 @@ extern "native lang_http.listen" fn http_listen(address: String, port: U16, limi
 extern "native lang_http.accept" fn http_accept(server: native.Handle) -> Result<Incoming, Error> !{Io, Wait}
 extern "native lang_http.respond" fn http_respond(exchange: native.Handle, status: Int, headers: Map<String, String>, body: Bytes) -> Unit
 extern "native lang_http.stream_begin" fn http_stream_begin(exchange: native.Handle, status: Int, headers: Map<String, String>) -> Unit
-extern "native lang_http.stream_chunk" fn http_stream_chunk(exchange: native.Handle, chunk: Bytes) -> Unit !{Wait}
+extern "native lang_http.stream_chunk" fn http_stream_chunk(exchange: native.Handle, chunk: Bytes) -> Bool !{Wait}
 extern "native lang_http.stream_end" fn http_stream_end(exchange: native.Handle) -> Unit
+extern "native lang_http.stream_watch" fn http_stream_watch(exchange: native.Handle) -> Bool !{Wait}
+extern "native lang_http.ws_accept" fn http_ws_accept(exchange: native.Handle, subprotocol: String) -> Result<websocket.WebSocket, native.Error> !{Io, Wait}
 extern "native lang_http.abort" fn http_abort(exchange: native.Handle) -> Unit
 extern "native lang_http.stop" fn http_stop(server: native.Handle) -> Unit
 extern "native lang_http.port" fn http_port(server: native.Handle) -> Int
@@ -224,6 +238,8 @@ extern "intrinsic" fn service_spawn(scope: Int, f: fn() -> Unit) -> Unit
 extern "intrinsic" fn service_close(scope: Int) -> Unit
 extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
 extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
+extern "intrinsic" fn task_id() -> Int
+extern "intrinsic" fn task_cancel(id: Int) -> Unit
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
 
 /// Package a request callback.
@@ -262,13 +278,197 @@ pub fn stream(status: Int, content_type: String, chunks: Seq<Bytes>) -> Result<S
     ok({ status, headers: map { "content-type" => content_type }, chunks })
 }
 
+// ---------------------------------------------------------------- websockets
+
+/// Whether the request asks to upgrade to a WebSocket.
+pub fn is_websocket(request: Request) -> Bool {
+    match request.headers.get("upgrade") {
+        .some(v) => texts.contains(texts.to_lower(v), "websocket"),
+        .none => false,
+    }
+}
+
+/// Package a WebSocket session callback: each upgrade request runs it in
+/// its own task (see `RequestScope.websocket`); other requests are
+/// answered 426 (Upgrade Required).
+pub fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display {
+    {
+        run: fn(request, exchange) {
+            let _ = run_websocket(exchange, request, fn(ws: websocket.WebSocket) -> Result<Unit, E> { session(request, ws) })
+            Reply.sent
+        },
+    }
+}
+
+fn run_websocket<E>(ex: Exchange, request: Request, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display {
+    let conn = match ex.conn {
+        .some(c) => c,
+        .none => {
+            send_full(ex, error_response(501, "websockets need a live connection"))
+            return { status: 501 }
+        },
+    }
+    if !is_websocket(request) {
+        send_full(ex, error_response(426, "websocket upgrade required"))
+        return { status: 426 }
+    }
+    match http_ws_accept(conn, "") {
+        .ok(ws) => {
+            let guard = cleanup_push(fn() { let _ = ws.close() })
+            match session(ws) {
+                .ok(_) => (),
+                .err(e) => trace_event(:http/websocket_error, { message: e.display() }),
+            }
+            cleanup_remove(guard)
+            let _ = ws.close()
+        },
+        .err(e) => trace_event(:http/websocket_error, { message: e.message }),
+    }
+    { status: 101 }
+}
+
+// ---------------------------------------------------------------- server-sent events
+
+/// One server-sent event. `data` may span lines; an event with only a
+/// `comment` is a comment line (a keep-alive).
+pub struct Event {
+    pub data: String,
+    pub event: Option<String>,
+    pub id: Option<String>,
+    /// the client's reconnection delay, in milliseconds
+    pub retry: Option<Int>,
+    pub comment: Option<String>,
+}
+
+impl Event {
+    /// The event with this type (`event:`), for `addEventListener(name)`.
+    pub fn named(self: &Self, name: String) -> Event { { ..self, event: Option.some(name) } }
+    /// The event with this id (`id:`), sent back as `Last-Event-ID` on
+    /// reconnection.
+    pub fn with_id(self: &Self, id: String) -> Event { { ..self, id: Option.some(id) } }
+    /// The event asking the client to wait `millis` before reconnecting.
+    pub fn with_retry(self: &Self, millis: Int) -> Event { { ..self, retry: Option.some(millis) } }
+}
+
+/// An unnamed event carrying `data`.
+pub fn event(data: String) -> Event {
+    { data, event: Option.none, id: Option.none, retry: Option.none, comment: Option.none }
+}
+
+/// A comment line (ignored by clients; keeps idle connections open).
+pub fn comment(note: String) -> Event { { ..event(""), comment: Option.some(note) } }
+
+/// A streamed `text/event-stream` reply of `events`. Each event is sent
+/// as it is produced; if the client goes away the request task is
+/// cancelled, so a sequence waiting for its next event (a subscription)
+/// stops too and its cleanups run.
+pub fn events(events: Seq<Event>) -> Result<Streamed, Error> {
+    ok({ status: 200, headers: event_headers(), chunks: events.map(fn(e: Event) -> Bytes { text_to_bytes(encode_event(e)) }) })
+}
+
+fn event_headers() -> Map<String, String> {
+    map { "content-type" => "text/event-stream", "cache-control" => "no-cache" }
+}
+
+/// One line of a field: line breaks would end it early.
+fn one_line(value: String) -> String { texts.replace(texts.replace(value, "\r", ""), "\n", "") }
+
+/// An event in the wire format (ends with the blank line that dispatches
+/// it).
+pub fn encode_event(e: Event) -> String {
+    var out = ""
+    match e.comment {
+        .some(c) => { for line in texts.split(normalize_breaks(c), "\n") { out = $"{out}: {line}\n" } },
+        .none => (),
+    }
+    match e.event {
+        .some(name) => { out = $"{out}event: {one_line(name)}\n" },
+        .none => (),
+    }
+    match e.id {
+        .some(id) => { out = $"{out}id: {one_line(id)}\n" },
+        .none => (),
+    }
+    match e.retry {
+        .some(ms) => { out = $"{out}retry: {ms}\n" },
+        .none => (),
+    }
+    if !(e.data == "" && e.comment.is_some()) {
+        for line in texts.split(normalize_breaks(e.data), "\n") {
+            out = $"{out}data: {line}\n"
+        }
+    }
+    $"{out}\n"
+}
+
+fn normalize_breaks(s: String) -> String { texts.replace(texts.replace(s, "\r\n", "\n"), "\r", "\n") }
+
+/// The events in an `text/event-stream` body (as a client sees them:
+/// comments are skipped, and a block without data dispatches nothing).
+pub fn parse_events(body: String) -> List<Event> {
+    var out = list.builder<Event>()
+    var current = event("")
+    var data: List<String> = list.empty()
+    for line in texts.split(normalize_breaks(body), "\n") {
+        if line == "" {
+            if !data.is_empty() {
+                out.append({ ..current, data: texts.join(data, "\n") })
+            }
+            current = event("")
+            data = list.empty()
+        } else if !texts.starts_with(line, ":") {
+            let parts = texts.split(line, ":")
+            let field = parts.first().unwrap_or("")
+            var value = texts.join(parts.slice(1, parts.len()), ":")
+            if texts.starts_with(value, " ") {
+                value = texts.slice(value, 1, texts.len(value)).unwrap_or("")
+            }
+            if field == "data" {
+                data = data.append(value)
+            } else if field == "event" {
+                current = current.named(value)
+            } else if field == "id" {
+                current = current.with_id(value)
+            } else if field == "retry" {
+                match texts.parse_int(value) {
+                    .some(ms) => { current = current.with_retry(ms) },
+                    .none => (),
+                }
+            }
+        }
+    }
+    out.finish()
+}
+
+/// The `Last-Event-ID` a reconnecting client sent, if any.
+pub fn last_event_id(request: Request) -> Option<String> { request.headers.get("last-event-id") }
+
+/// Send a stream on a live exchange. A watcher in the server's scope
+/// cancels the request task if the client goes away first, so a producer
+/// parked waiting for its next item stops too.
+fn pump(conn: native.Handle, service: Int, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Unit {
+    http_stream_begin(conn, status, headers)
+    let me = task_id()
+    service_spawn(service, fn() {
+        if http_stream_watch(conn) {
+            task_cancel(me)
+        }
+    })
+    for chunk in chunks {
+        if !http_stream_chunk(conn, chunk) {
+            break
+        }
+    }
+    http_stream_end(conn)
+}
+
 extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
 
 /// Run a handler in-process on `request` (tests and adapters): a streamed
 /// reply is collected into the body.
 pub fn call(h: Handler, request: Request) -> Response {
     let sink: Cell<Response> = Cell.new(error_response(500, "no reply"))
-    match h.run(request, { conn: Option.none, sink: Option.some(sink) }) {
+    match h.run(request, { conn: Option.none, sink: Option.some(sink), service: 0 }) {
         .full(r) => r,
         .sent => sink.get(),
         .stream(s) => {
@@ -332,7 +532,7 @@ pub fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Re
 fn accept_requests(server: native.Handle, scope: Int, h: Handler) -> Unit {
     loop {
         match http_accept(server) {
-            .ok(incoming) => service_spawn(scope, fn() { serve(h, incoming) }),
+            .ok(incoming) => service_spawn(scope, fn() { serve(h, scope, incoming) }),
             .err(_) => break,
         }
     }
@@ -340,20 +540,14 @@ fn accept_requests(server: native.Handle, scope: Int, h: Handler) -> Unit {
 
 /// One request's task: a defect or cancellation before the reply is sent
 /// answers 500 (or cuts a started stream short).
-fn serve(h: Handler, incoming: Incoming) -> Unit {
+fn serve(h: Handler, service: Int, incoming: Incoming) -> Unit {
     let conn = incoming.exchange
     let guard = cleanup_push(fn() { http_abort(conn) })
     let request: Request = { method: incoming.method, path: incoming.path, headers: incoming.headers, body: incoming.body }
-    match h.run(request, { conn: Option.some(conn), sink: Option.none }) {
+    match h.run(request, { conn: Option.some(conn), sink: Option.none, service }) {
         .sent => (),
         .full(response) => http_respond(conn, response.status, response.headers, response.body),
-        .stream(s) => {
-            http_stream_begin(conn, s.status, s.headers)
-            for chunk in s.chunks {
-                http_stream_chunk(conn, chunk)
-            }
-            http_stream_end(conn)
-        },
+        .stream(s) => pump(conn, service, s.status, s.headers, s.chunks),
     }
     cleanup_remove(guard)
 }

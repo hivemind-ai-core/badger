@@ -1,0 +1,9 @@
+original 10000, gzip smaller true, zstd smaller true
+gzip round trip true
+zstd round trip true
+zlib round trip true
+deflate round trip true
+level 9 no larger true
+corrupt: compress/corrupt
+limited: compress/too_large
+exactly at the limit 10000

@@ -1,0 +1,44 @@
+// Option and Result combinators: lazy fallbacks run only when needed.
+import std.io
+import std.option
+import std.result
+
+fn half(n: Int) -> Option<Int> { if n % 2 == 0 { Option.some(n / 2) } else { Option.none } }
+
+fn parse(s: String) -> Result<Int, String> { if s == "" { err("empty") } else { ok(s.len()) } }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let calls = Cell.new(0)
+    let costly = fn() -> Int {
+        calls.set(calls.get() + 1)
+        99
+    }
+    let a = Option.some(4).unwrap_or_else(costly)
+    let b = Option.none.unwrap_or_else(costly)
+    io.println($"unwrap_or_else {a} {b}, fallback ran {calls.get()} time(s)")?
+    let made = Cell.new(0)
+    let missing = fn() -> String {
+        made.set(made.get() + 1)
+        "missing"
+    }
+    let r1: Result<Int, String> = Option.some(1).ok_or_else(missing)
+    let r2: Result<Int, String> = Option.none.ok_or_else(missing)
+    io.println($"ok_or_else {r1.unwrap_or(0)} {r2.error().unwrap_or("-")}, error built {made.get()} time(s)")?
+    io.println($"and_then {Option.some(8).and_then(half).and_then(half).unwrap_or(-1)} {Option.some(6).and_then(half).and_then(half).is_none()}")?
+    io.println($"or_else {Option.none.or_else(fn() => Option.some(5)).unwrap_or(0)} or {Option.none.or(Option.some(6)).unwrap_or(0)}")?
+    io.println($"filter {Option.some(3).filter(fn(x) => x > 2).is_some()} {Option.some(1).filter(fn(x) => x > 2).is_some()}")?
+    io.println($"flatten {option.flatten(Option.some(Option.some(7))).unwrap_or(0)} {option.flatten(Option.some(Option.none)).is_none()}")?
+    let t1: Result<Option<Int>, String> = option.transpose(Option.some(ok(2)))
+    let t2: Result<Option<Int>, String> = option.transpose(Option.none)
+    io.println($"transpose {t1.unwrap_or(Option.none).unwrap_or(0)} {t2.unwrap_or(Option.some(1)).is_none()}")?
+    io.println($"zip {Option.some(1).zip(Option.some("a")).is_some()} {Option.some(1).zip(Option.none).is_some()} to_list {Option.some(3).to_list()}")?
+    // Result
+    let recovered = parse("").or_else(fn(e) -> Result<Int, Int> => if e == "empty" { ok(0) } else { err(1) })
+    io.println($"result and_then {parse("abc").and_then(fn(n) => if n > 2 { ok(n * 10) } else { err("short") }).unwrap_or(0)} or_else {recovered.unwrap_or(-1)}")?
+    io.println($"unwrap_or_else {parse("").unwrap_or_else(fn(e) => e.len())} value {parse("ab").value().unwrap_or(0)} error {parse("").error().unwrap_or("-")}")?
+    let nested: Result<Result<Int, String>, String> = ok(ok(3))
+    io.println($"flatten {result.flatten(nested).unwrap_or(0)}")?
+    let ro: Result<Option<Int>, String> = ok(Option.none)
+    io.println($"transpose {result.transpose(ro).is_none()}")?
+    ok(())
+}

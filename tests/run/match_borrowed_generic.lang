@@ -1,0 +1,17 @@
+// Matching a borrowed value whose arms bind nothing reads it: a generic
+// function may inspect a borrowed Result holding an affine payload.
+import std.buffer
+import std.io
+
+fn failed<T, E>(r: &Result<T, E>) -> Bool {
+    match r {
+        .ok(_) => false,
+        .err(_) => true,
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let r: Result<Int, Buffer<Int>> = err(buffer.new())
+    io.println($"failed {failed(&r)} is_err {r.is_err()}")?
+    ok(())
+}

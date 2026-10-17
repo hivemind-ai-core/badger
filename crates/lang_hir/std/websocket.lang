@@ -1,0 +1,74 @@
+// WebSockets: client connections (`connect`), and the server side of an
+// upgraded request (`http.RequestScope.websocket`, `http.websocket_handler`).
+// Receiving and sending wait independently, so one task can read while
+// another writes. Pings are answered for you; `recv` gives `none` once the
+// peer closed.
+
+import std.prelude
+
+import std.native
+
+/// A message: text or bytes.
+pub enum Message {
+    text(value: String),
+    binary(value: Bytes),
+}
+
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.code}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+}
+
+/// An open connection (closed once unreachable, or by `close`).
+pub struct WebSocket {
+    handle: native.Handle,
+}
+
+/// Connection options: request headers (authorization, a subprotocol) and
+/// the largest message accepted.
+pub type Options = { headers: Map<String, String>, max_message_bytes: Int }
+
+pub let defaults: Options = { headers: map {}, max_message_bytes: 16777216 }
+
+// the `lang_http` native module (crates/lang_http)
+extern "native lang_http.ws_connect" fn ws_connect(url: String, headers: Map<String, String>, max_message_bytes: Int) -> Result<WebSocket, native.Error> !{Io, Wait}
+extern "native lang_http.ws_recv" fn ws_recv(ws: native.Handle) -> Result<Option<Message>, native.Error> !{Io, Wait}
+extern "native lang_http.ws_send" fn ws_send(ws: native.Handle, message: Message) -> Result<Unit, native.Error> !{Io, Wait}
+extern "native lang_http.ws_close" fn ws_close(ws: native.Handle, code: Int, reason: String) -> Result<Unit, native.Error> !{Io, Wait}
+
+fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: e.kind, message: e.message }),
+    }
+}
+
+/// Connect to a `ws://` or `wss://` URL.
+pub fn connect(url: String) -> Result<WebSocket, Error> !{Io, Wait} { connect_with(url, defaults) }
+
+pub fn connect_with(url: String, options: Options) -> Result<WebSocket, Error> !{Io, Wait} {
+    lift(ws_connect(url, options.headers, options.max_message_bytes))
+}
+
+impl WebSocket {
+    /// The next message (waits); `none` once the peer closed.
+    pub fn recv(self: &Self) -> Result<Option<Message>, Error> !{Io, Wait} { lift(ws_recv(self.handle)) }
+    /// Send a message (waits while the peer is behind).
+    pub fn send(self: &Self, message: Message) -> Result<Unit, Error> !{Io, Wait} { lift(ws_send(self.handle, message)) }
+    pub fn send_text(self: &Self, text: String) -> Result<Unit, Error> !{Io, Wait} { self.send(Message.text(text)) }
+    pub fn send_binary(self: &Self, bytes: Bytes) -> Result<Unit, Error> !{Io, Wait} { self.send(Message.binary(bytes)) }
+    /// Close normally (code 1000).
+    pub fn close(self: &Self) -> Result<Unit, Error> !{Io, Wait} { self.close_with(1000, "") }
+    /// Close with a status code (1000-4999) and a reason.
+    pub fn close_with(self: &Self, code: Int, reason: String) -> Result<Unit, Error> !{Io, Wait} {
+        lift(ws_close(self.handle, code, reason))
+    }
+}

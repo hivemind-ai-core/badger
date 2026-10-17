@@ -38,6 +38,7 @@ pub mod list;
 pub mod live;
 pub mod map;
 pub mod native;
+pub mod observe;
 pub mod parse;
 pub mod profile;
 pub mod reply;
@@ -45,6 +46,7 @@ pub mod repro;
 pub mod scope;
 pub mod string;
 pub mod task;
+pub mod telemetry;
 pub mod value;
 
 pub use desc::{Field, Kind, Repr, TypeDesc, Variant};
@@ -249,6 +251,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
     let mut v = abi::symbols();
     v.extend(intrinsics::symbols());
     v.extend(ffi::symbols());
+    v.extend(observe::symbols());
     v.extend([
         ("lang_rt_enter", task::lang_rt_enter as *const u8),
         ("lang_rt_leave", task::lang_rt_leave as *const u8),
@@ -256,4 +259,17 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
         ("lang_rt_safe_end", task::lang_rt_safe_end as *const u8),
     ]);
     v
+}
+
+#[cfg(test)]
+mod symbol_tests {
+    /// Two runtime functions with one name: the JIT would bind one of them
+    /// silently (as when a new `bytes_get` shadowed the index operator's).
+    #[test]
+    fn runtime_symbols_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        let dups: Vec<&str> =
+            super::symbols().into_iter().map(|(n, _)| n).filter(|n| !seen.insert(*n)).collect();
+        assert!(dups.is_empty(), "duplicate runtime symbols: {dups:?}");
+    }
 }

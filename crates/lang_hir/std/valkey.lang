@@ -1,0 +1,278 @@
+// A Valkey (or Redis) client. One client is a multiplexed connection that
+// reconnects on failure: share it between tasks, each command parks its
+// task until the reply. Typed helpers cover the common commands;
+// `command` sends any other (its reply is `Data`). Blocking commands
+// (`BLPOP`, `XREAD BLOCK`) hold the shared connection while they wait:
+// give them a client of their own.
+
+import std.prelude
+
+import std.codec
+import std.native
+import std.system
+import std.time
+
+pub struct Error {
+    pub code: Symbol,
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { $"{self.code}: {self.message}" }
+}
+
+impl prelude.Error for Error {
+    fn code(self: &Self) -> Symbol { self.code }
+}
+
+/// A connection to one server (`valkey://`, `valkeys://` for TLS, or the
+/// `redis://` spellings, with an optional `user:password@` and `/db`).
+pub struct Client {
+    handle: native.Handle,
+    url: String,
+}
+
+/// A published message.
+pub type Message = { channel: String, pattern: Option<String>, payload: String }
+
+/// Messages on a connection of its own.
+pub struct Subscription {
+    handle: native.Handle,
+}
+
+// the `lang_valkey` native module (crates/lang_valkey)
+extern "native lang_valkey.connect" fn vk_connect(url: String) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native lang_valkey.command" fn vk_command(client: native.Handle, args: List<String>) -> Result<Data, native.Error> !{Io, Wait}
+extern "native lang_valkey.command" fn vk_command_with_bytes(client: native.Handle, args: List<Bytes>) -> Result<Data, native.Error> !{Io, Wait}
+extern "native lang_valkey.command_bytes" fn vk_command_bytes(client: native.Handle, args: List<String>) -> Result<Option<Bytes>, native.Error> !{Io, Wait}
+extern "native lang_valkey.pipeline" fn vk_pipeline(client: native.Handle, commands: List<List<String>>, atomic: Bool) -> Result<List<Data>, native.Error> !{Io, Wait}
+extern "native lang_valkey.subscribe" fn vk_subscribe(url: String, channels: List<String>, patterns: List<String>) -> Result<native.Handle, native.Error> !{Io, Wait}
+extern "native lang_valkey.next" fn vk_next(sub: native.Handle) -> Result<Option<Message>, native.Error> !{Io, Wait}
+extern "native lang_valkey.close" fn vk_close(handle: native.Handle) -> Unit
+extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
+
+fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
+    match r {
+        .ok(v) => ok(v),
+        .err(e) => err({ code: e.kind, message: e.message }),
+    }
+}
+
+fn unexpected<T>(command: String, reply: Data) -> Result<T, Error> {
+    err({ code: :valkey/reply, message: $"unexpected reply to {command}: {reply}" })
+}
+
+/// Connect to the server at `url`.
+pub fn connect(url: String) -> Result<Client, Error> !{Io, Wait} {
+    let handle = lift(vk_connect(url))?
+    ok({ handle, url })
+}
+
+/// Close the connection (also done once the client is unreachable).
+pub fn close(client: Client) -> Unit { vk_close(client.handle) }
+
+impl Client {
+    /// Send any command (`["ZADD", "board", "10", "ada"]`).
+    pub fn command(self: &Self, args: List<String>) -> Result<Data, Error> !{Io, Wait} { lift(vk_command(self.handle, args)) }
+    /// Send a command whose arguments are bytes.
+    pub fn command_with_bytes(self: &Self, args: List<Bytes>) -> Result<Data, Error> !{Io, Wait} {
+        lift(vk_command_with_bytes(self.handle, args))
+    }
+    /// Commands sent together in one round trip; their replies in order.
+    pub fn pipeline(self: &Self, commands: List<List<String>>) -> Result<List<Data>, Error> !{Io, Wait} {
+        lift(vk_pipeline(self.handle, commands, false))
+    }
+    /// Commands run atomically (`MULTI` ... `EXEC`); their replies in order.
+    pub fn transaction(self: &Self, commands: List<List<String>>) -> Result<List<Data>, Error> !{Io, Wait} {
+        lift(vk_pipeline(self.handle, commands, true))
+    }
+
+    // ------------------------------------------------------------ strings
+
+    /// The value at `key`, if any.
+    pub fn get(self: &Self, key: String) -> Result<Option<String>, Error> !{Io, Wait} {
+        match self.command(["GET", key])? {
+            .string(s) => ok(Option.some(s)),
+            .null => ok(Option.none),
+            other => unexpected("GET", other),
+        }
+    }
+    /// The raw bytes at `key`, if any.
+    pub fn get_bytes(self: &Self, key: String) -> Result<Option<Bytes>, Error> !{Io, Wait} {
+        lift(vk_command_bytes(self.handle, ["GET", key]))
+    }
+    /// The JSON value at `key` decoded as `T`, if any.
+    pub fn get_json<T>(self: &Self, key: String) -> Result<Option<T>, Error> !{Io, Wait} where T: Codec {
+        match self.get_bytes(key)? {
+            .some(b) => match codec.decode<T>(b) {
+                .ok(v) => ok(Option.some(v)),
+                .err(e) => err({ code: :valkey/decode, message: $"{key}: {e.message}" }),
+            },
+            .none => ok(Option.none),
+        }
+    }
+    pub fn set(self: &Self, key: String, value: String) -> Result<Unit, Error> !{Io, Wait} {
+        let _ = self.command(["SET", key, value])?
+        ok(())
+    }
+    /// Set `key`, expiring after `ttl`.
+    pub fn set_ex(self: &Self, key: String, value: String, ttl: Duration) -> Result<Unit, Error> !{Io, Wait} {
+        let _ = self.command(["SET", key, value, "PX", $"{time.as_millis(ttl)}"])?
+        ok(())
+    }
+    /// Set `key` only if it does not exist; whether it was set.
+    pub fn set_nx(self: &Self, key: String, value: String) -> Result<Bool, Error> !{Io, Wait} {
+        match self.command(["SET", key, value, "NX"])? {
+            .null => ok(false),
+            _ => ok(true),
+        }
+    }
+    pub fn set_bytes(self: &Self, key: String, value: Bytes) -> Result<Unit, Error> !{Io, Wait} {
+        let _ = self.command_with_bytes([text_to_bytes("SET"), text_to_bytes(key), value])?
+        ok(())
+    }
+    /// Store `value` as JSON.
+    pub fn set_json<T>(self: &Self, key: String, value: T) -> Result<Unit, Error> !{Io, Wait} where T: Codec {
+        self.set_bytes(key, codec.encode(value))
+    }
+    /// Remove keys; how many existed.
+    pub fn delete(self: &Self, keys: List<String>) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("DEL", self.command(["DEL"].concat(keys))?)
+    }
+    pub fn exists(self: &Self, key: String) -> Result<Bool, Error> !{Io, Wait} {
+        ok(int_reply("EXISTS", self.command(["EXISTS", key])?)? > 0)
+    }
+    /// Add `by` to the integer at `key` (0 if absent); the new value.
+    pub fn incr_by(self: &Self, key: String, by: Int) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("INCRBY", self.command(["INCRBY", key, $"{by}"])?)
+    }
+    pub fn incr(self: &Self, key: String) -> Result<Int, Error> !{Io, Wait} { self.incr_by(key, 1) }
+    /// Expire `key` after `ttl`; false if it does not exist.
+    pub fn expire(self: &Self, key: String, ttl: Duration) -> Result<Bool, Error> !{Io, Wait} {
+        ok(int_reply("PEXPIRE", self.command(["PEXPIRE", key, $"{time.as_millis(ttl)}"])?)? == 1)
+    }
+    /// Time left before `key` expires (`none`: no key, or no expiry).
+    pub fn ttl(self: &Self, key: String) -> Result<Option<Duration>, Error> !{Io, Wait} {
+        let ms = int_reply("PTTL", self.command(["PTTL", key])?)?
+        ok(if ms < 0 { Option.none } else { Option.some(time.millis(ms)) })
+    }
+
+    // ------------------------------------------------------------ hashes
+
+    pub fn hset(self: &Self, key: String, field: String, value: String) -> Result<Unit, Error> !{Io, Wait} {
+        let _ = self.command(["HSET", key, field, value])?
+        ok(())
+    }
+    pub fn hget(self: &Self, key: String, field: String) -> Result<Option<String>, Error> !{Io, Wait} {
+        match self.command(["HGET", key, field])? {
+            .string(s) => ok(Option.some(s)),
+            .null => ok(Option.none),
+            other => unexpected("HGET", other),
+        }
+    }
+    pub fn hgetall(self: &Self, key: String) -> Result<Map<String, String>, Error> !{Io, Wait} {
+        match self.command(["HGETALL", key])? {
+            // RESP2 replies alternate fields and values; RESP3 is a map
+            .list(items) => {
+                var out: Map<String, String> = map {}
+                var i = 0
+                while i + 1 < items.len() {
+                    out = out.insert(string_of(items.get(i).unwrap_or(Data.null)), string_of(items.get(i + 1).unwrap_or(Data.null)))
+                    i = i + 2
+                }
+                ok(out)
+            },
+            .object(fields) => {
+                var out: Map<String, String> = map {}
+                for (k, v) in fields {
+                    out = out.insert(k, string_of(v))
+                }
+                ok(out)
+            },
+            other => unexpected("HGETALL", other),
+        }
+    }
+    pub fn hdel(self: &Self, key: String, fields: List<String>) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("HDEL", self.command(["HDEL", key].concat(fields))?)
+    }
+
+    // ------------------------------------------------------------ lists
+
+    /// Push to the head; the list's new length.
+    pub fn lpush(self: &Self, key: String, values: List<String>) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("LPUSH", self.command(["LPUSH", key].concat(values))?)
+    }
+    /// Push to the tail; the list's new length.
+    pub fn rpush(self: &Self, key: String, values: List<String>) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("RPUSH", self.command(["RPUSH", key].concat(values))?)
+    }
+    pub fn lpop(self: &Self, key: String) -> Result<Option<String>, Error> !{Io, Wait} {
+        match self.command(["LPOP", key])? {
+            .string(s) => ok(Option.some(s)),
+            .null => ok(Option.none),
+            other => unexpected("LPOP", other),
+        }
+    }
+    /// Elements `start..=stop` (negative counts from the end).
+    pub fn lrange(self: &Self, key: String, start: Int, stop: Int) -> Result<List<String>, Error> !{Io, Wait} {
+        strings_reply("LRANGE", self.command(["LRANGE", key, $"{start}", $"{stop}"])?)
+    }
+
+    // ------------------------------------------------------------ pub/sub
+
+    /// Publish; how many subscribers received it.
+    pub fn publish(self: &Self, channel: String, message: String) -> Result<Int, Error> !{Io, Wait} {
+        int_reply("PUBLISH", self.command(["PUBLISH", channel, message])?)
+    }
+    /// A subscription to `channels` (its own connection).
+    pub fn subscribe(self: &Self, channels: List<String>) -> Result<Subscription, Error> !{Io, Wait} {
+        let handle = lift(vk_subscribe(self.url, channels, []))?
+        ok({ handle })
+    }
+    /// A subscription to channels matching `patterns` (`news.*`).
+    pub fn psubscribe(self: &Self, patterns: List<String>) -> Result<Subscription, Error> !{Io, Wait} {
+        let handle = lift(vk_subscribe(self.url, [], patterns))?
+        ok({ handle })
+    }
+}
+
+impl Subscription {
+    /// The next message (waits); `none` once the connection is gone.
+    pub fn recv(self: &Self) -> Result<Option<Message>, Error> !{Io, Wait} { lift(vk_next(self.handle)) }
+    /// Stop receiving (also done once the subscription is unreachable).
+    pub fn close(self: &Self) -> Unit { vk_close(self.handle) }
+}
+
+fn int_reply(command: String, reply: Data) -> Result<Int, Error> {
+    match reply {
+        .int(n) => ok(n),
+        other => unexpected(command, other),
+    }
+}
+
+fn string_of(d: Data) -> String {
+    match d {
+        .string(s) => s,
+        .null => "",
+        other => $"{other}",
+    }
+}
+
+fn strings_reply(command: String, reply: Data) -> Result<List<String>, Error> {
+    match reply {
+        .list(items) => ok(items.map(string_of)),
+        other => unexpected(command, other),
+    }
+}
+
+fn client_init(scope: system.InitScope, config: { url: String }) -> Result<Client, Error> {
+    let c = connect(config.url)?
+    scope.on_halt(fn() -> Result<Unit, Error> {
+        close(c)
+        ok(())
+    })
+    ok(c)
+}
+
+/// Provider of a client for `{url: String}`, closed when the system halts.
+pub let client = system.provider({ name: :valkey/client, init: client_init })

@@ -420,8 +420,57 @@ std_intrinsics! {
         }
         out
     }
+    // The character index of the first occurrence of `p`.
+    fn text_find(ctx, targs, ret, s, p) {
+        let st = str_of(s);
+        match st.find(str_of(p)) {
+            Some(i) => some(rdesc(ret), st[..i].chars().count() as u64),
+            None => none(rdesc(ret)),
+        }
+    }
+    // The character index of the last occurrence of `p`.
+    fn text_rfind(ctx, targs, ret, s, p) {
+        let st = str_of(s);
+        match st.rfind(str_of(p)) {
+            Some(i) => some(rdesc(ret), st[..i].chars().count() as u64),
+            None => none(rdesc(ret)),
+        }
+    }
+    // Non-overlapping occurrences of `p` (0 for an empty `p`).
+    fn text_count(ctx, targs, ret, s, p) {
+        let p = str_of(p);
+        if p.is_empty() { 0 } else { str_of(s).matches(p).count() as u64 }
+    }
+    fn text_replace_first(ctx, targs, ret, s, a, b) { new_string(&str_of(s).replacen(str_of(a), str_of(b), 1)) }
+    fn text_trim_start(ctx, targs, ret, s) { new_string(str_of(s).trim_start()) }
+    fn text_trim_end(ctx, targs, ret, s) { new_string(str_of(s).trim_end()) }
+    fn text_split_whitespace(ctx, targs, ret, s) {
+        strings_to_list(rdesc(ret), str_of(s).split_whitespace())
+    }
+    // Remove the indentation every non-blank line shares (spaces and
+    // tabs, counted as characters); blank lines become empty.
+    fn text_dedent(ctx, targs, ret, s) {
+        let st = str_of(s);
+        let indent = st
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.len() - l.trim_start_matches([' ', '\t']).len())
+            .min()
+            .unwrap_or(0);
+        let mut out = String::with_capacity(st.len());
+        for (i, line) in st.split('\n').enumerate() {
+            if i > 0 {
+                out.push('\n');
+            }
+            if !line.trim().is_empty() {
+                out.push_str(&line[indent.min(line.len())..]);
+            }
+        }
+        new_string(&out)
+    }
     fn text_slice(ctx, targs, ret, s, a, b) {
-        // character-indexed slice; returns Option<String>
+        // character-indexed slice; returns Option<String> (one pass, no
+        // index table)
         let st = str_of(s);
         let Some(range) = crate::string::char_range(st, a as i64, b as i64) else {
             return none(rdesc(ret));

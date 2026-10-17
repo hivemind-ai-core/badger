@@ -126,13 +126,25 @@ pub struct FnDef {
     /// module's function name after a `.` when it differs from the
     /// declaration's (`"native NAME.FUNCTION"`).
     pub native: Option<String>,
+    /// `requires` clauses, checked at the start of `body` (each by the
+    /// `check` expression placed there).
+    pub requires: Vec<Precondition>,
     /// `ensures` clauses: checked on every return, with `result` (the
-    /// local below) bound to the value returned. (`requires` clauses are
-    /// checks at the start of `body`.)
+    /// local below) bound to the value returned.
     pub ensures: Vec<Postcondition>,
     pub result: Option<LocalId>,
     /// Source text of every contract clause, for tools.
     pub contracts: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Precondition {
+    pub cond: ExprId,
+    /// The `if !cond { ... }` check at the start of the body.
+    pub check: ExprId,
+    /// The clause's source text.
+    pub text: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]

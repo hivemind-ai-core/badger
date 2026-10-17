@@ -247,7 +247,28 @@ fn call(targs: Targs, ret: &'static TypeDesc, s: u64, args: &[u64]) -> u64 {
             None => ("native".to_string(), what()),
         };
         let (key, digest) = identity(&prefix, &w.buf, record as usize - 1);
-        crate::repro::external(&kind, &key, Some(digest), false, || run(m, index, mode, w.buf))
+        if mode == Mode::Async {
+            // a call the task stopped waiting for (a timeout) replays as one
+            // that waits until the task is cancelled again
+            crate::repro::external_cancellable(
+                &kind,
+                &key,
+                Some(digest),
+                || run(m, index, mode, w.buf),
+                || {
+                    with_lock(|| {
+                        if let Some(t) = task::current() {
+                            t.wait = "native call";
+                        }
+                        loop {
+                            task::park();
+                        }
+                    })
+                },
+            )
+        } else {
+            crate::repro::external(&kind, &key, Some(digest), false, || run(m, index, mode, w.buf))
+        }
     };
     let _r = Roots::new();
     match decode_result(ret, &bytes, m) {
@@ -601,7 +622,7 @@ fn encode_data(v: u64, w: &mut Writer) -> Result<(), String> {
                 encode_data(list::get(vals[0], i), w)?;
             }
         }
-        "map" => {
+        "object" => {
             let es = map::entries(vals[0]);
             w.u8(tag::MAP);
             w.u32(es.len() as u32);

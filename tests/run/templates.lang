@@ -1,0 +1,30 @@
+// Templates: values by name, loops and conditions, filters, HTML escaping,
+// strict names, and compiled sets with `extends`.
+import std.io
+import std.template
+
+pub struct Item {
+    pub name: String,
+    pub price: Int,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let order = { customer: "Ada", items: [{ name: "tea", price: 3 }, { name: "<cake>", price: 5 }], vip: true }
+    let text = "{{ customer | upper }}:{% for i in items %} {{ i.name }}={{ i.price }}{% endfor %}{% if vip %} (vip){% endif %}"
+    io.println(template.render(text, order).unwrap_or("?"))?
+    io.println(template.render_html("<p>{{ items[1].name }}</p>", order).unwrap_or("?"))?
+    match template.render("{{ custmer }}", order) {
+        .ok(s) => io.println($"rendered {s}")?,
+        .err(e) => io.println($"strict: {e.message.len() > 0}")?,
+    }
+    io.println($"bad syntax: {template.render("{% for %}", order).is_err()}")?
+    let set = template.compile_html(map {
+        "base" => "<h1>{% block title %}{% endblock %}</h1>{% block body %}{% endblock %}",
+        "page" => "{% extends \"base\" %}{% block title %}{{ customer }}{% endblock %}{% block body %}{{ items | length }} items{% endblock %}",
+    })
+    match set {
+        .ok(t) => io.println(t.render("page", order).unwrap_or("?"))?,
+        .err(e) => io.println($"compile: {e}")?,
+    }
+    ok(())
+}

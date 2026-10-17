@@ -491,7 +491,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             let names: FxHashSet<Symbol> = set.iter().map(|d| hir.defs[*d].name).collect();
             let mut grew = false;
             for &v in &values {
-                if set.contains(&v) || hir.modules[hir.defs[v].module].is_std {
+                if set.contains(&v) {
                     continue;
                 }
                 let mut hit = false;
@@ -690,7 +690,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         if repl_session && hir.entry == Some(def.module) {
             continue;
         }
-        if !matches!(def.kind, DefKind::Global(_)) || hir.modules[def.module].is_std {
+        if !matches!(def.kind, DefKind::Global(_)) {
             continue;
         }
         let Some(s) = g.schemes.get(&id) else { continue };
@@ -939,14 +939,11 @@ fn check_contract_signature(g: &Global, id: DefId, t: &Ty, diags: &mut Vec<Diagn
 fn check_impl_signatures(g: &Global, diags: &mut Vec<Diagnostic>) {
     let hir = g.hir;
     for imp in &g.env.impls {
-        let (Some(idef), Some((proto, pargs)), ImplMethods::Defs(methods)) =
+        let (Some(_), Some((proto, pargs)), ImplMethods::Defs(methods)) =
             (imp.def, &imp.protocol, &imp.methods)
         else {
             continue;
         };
-        if hir.modules[hir.defs[idef].module].is_std {
-            continue;
-        }
         let DefKind::Protocol(pd) = &hir.defs[*proto].kind else { continue };
         let pname = g.interner.resolve(hir.defs[*proto].name).to_string();
         for (name, &m) in methods {
@@ -1416,8 +1413,6 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diag
             continue;
         }
         match &f.effect {
-            // the library's own bounds are its contract; user code is checked
-            Some(_) if hir.modules[hir.defs[*d].module].is_std => {}
             // an explicit bound: these effects were not permitted
             Some(_) => {
                 let names: Vec<String> = extra.iter().map(|l| g.interner.resolve(*l).to_string()).collect();
@@ -1449,14 +1444,10 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diag
 fn check_impl_effects(g: &Global, diags: &mut Vec<Diagnostic>) {
     let hir = g.hir;
     for imp in &g.env.impls {
-        let (Some(idef), Some((proto, _)), ImplMethods::Defs(methods)) =
-            (imp.def, &imp.protocol, &imp.methods)
+        let (Some(_), Some((proto, _)), ImplMethods::Defs(methods)) = (imp.def, &imp.protocol, &imp.methods)
         else {
             continue;
         };
-        if hir.modules[hir.defs[idef].module].is_std {
-            continue;
-        }
         let DefKind::Protocol(pd) = &hir.defs[*proto].kind else { continue };
         let pname = g.interner.resolve(hir.defs[*proto].name).to_string();
         for (name, &m) in methods {
@@ -1495,10 +1486,7 @@ fn check_impl_supers(g: &Global, diags: &mut Vec<Diagnostic>) {
     let hir = g.hir;
     let mut inf = Infer::new(g, Mode::Generic);
     for imp in &g.env.impls {
-        let (Some(idef), Some((proto, _))) = (imp.def, &imp.protocol) else { continue };
-        if hir.modules[hir.defs[idef].module].is_std {
-            continue;
-        }
+        let (Some(_), Some((proto, _))) = (imp.def, &imp.protocol) else { continue };
         let Some(info) = g.env.protocols.get(proto) else { continue };
         if info.supers.is_empty() {
             continue;
@@ -1566,7 +1554,7 @@ fn declared_scheme(g: &Global, id: DefId, f: &FnDef, diags: &mut Vec<Diagnostic>
     };
     // an omitted effect of a function in the result (not tied to a
     // parameter) cannot be chosen by the caller: it may be any effect
-    if !hir.modules[hir.defs[id].module].is_std {
+    {
         let mut pvars = vec![];
         for p in &params {
             icx.free_vars(p, &mut pvars);
@@ -1714,8 +1702,7 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
         crate::ownership::check_def(inf, d);
         crate::concurrency::check_def(inf, d);
     }
-    // user code only: the standard library's own region plumbing is trusted
-    if defs.iter().any(|d| !hir.modules[hir.defs[*d].module].is_std) {
+    if !defs.is_empty() {
         crate::regions::check(inf);
     } else {
         inf.region_lambdas.clear();
@@ -1972,7 +1959,7 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
             // as in the declared scheme: a function in the result whose
             // effect is omitted (and not tied to a parameter) may perform any
             // effect, so the body cannot return a closure the type cannot track
-            if f.ret.is_some() && !hir.modules[hir.defs[d].module].is_std {
+            if f.ret.is_some() {
                 let mut pvars = vec![];
                 for p in &params {
                     let p = inf.icx.resolve(p);
@@ -1989,7 +1976,7 @@ fn check_def_body(inf: &mut Infer<'_, '_>, d: DefId, declared: bool) -> (Ty, Vec
             }
             // the result's functions may be task-confined closures (the
             // declared scheme records it for callers)
-            if f.ret.is_some() && !hir.modules[hir.defs[d].module].is_std {
+            if f.ret.is_some() {
                 let span = f.ret.as_ref().map(|t| t.span).unwrap_or(hir.defs[d].span);
                 let r = inf.icx.resolve(&ret);
                 ret = open_result_rows(inf, &r, span);

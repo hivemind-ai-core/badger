@@ -1,0 +1,182 @@
+    Checking typenum v1.20.1
+   Compiling serde_core v1.0.229
+    Checking lang_native v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_native)
+   Compiling getrandom v0.4.3
+    Checking rand_core v0.10.1
+   Compiling jobserver v0.1.35
+    Checking stable_deref_trait v1.2.1
+    Checking cmov v0.5.4
+    Checking futures-sink v0.3.34
+    Checking const-oid v0.10.2
+   Compiling syn v3.0.9
+    Checking cpufeatures v0.3.1
+   Compiling syn v2.0.119
+    Checking slab v0.4.12
+    Checking litemap v0.8.3
+    Checking futures-task v0.3.34
+    Checking writeable v0.6.4
+    Checking futures-channel v0.3.34
+   Compiling generic-array v0.14.7
+    Checking tinyvec v1.13.3
+    Checking chacha20 v0.10.2
+    Checking utf8_iter v1.0.4
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+    Checking ctutils v0.4.3
+    Checking futures-util v0.3.34
+   Compiling cc v1.8.0
+    Checking base64 v0.22.1
+    Checking unicode-bidi v0.3.18
+    Checking unicode-properties v0.1.4
+    Checking fallible-iterator v0.2.0
+    Checking rand v0.10.3
+    Checking siphasher v1.0.4
+    Checking byteorder v1.5.0
+    Checking flagset v0.4.7
+    Checking ryu v1.0.23
+    Checking const-oid v0.9.6
+    Checking unicode-normalization v0.1.26
+    Checking parking v2.2.1
+   Compiling rustversion v1.0.23
+    Checking parking_lot v0.12.5
+    Checking phf_shared v0.13.1
+    Checking event-listener v5.4.2
+    Checking whoami v2.1.3
+   Compiling crc32fast v1.5.2
+   Compiling zstd-safe v8.2.0
+    Checking phf v0.13.1
+    Checking event-listener-strategy v0.5.4
+    Checking stringprep v0.1.5
+    Checking hybrid-array v0.4.15
+    Checking form_urlencoded v1.2.2
+    Checking tracing-core v0.1.36
+   Compiling getrandom v0.3.4
+   Compiling pulldown-cmark v0.13.4
+    Checking data-encoding v2.11.1
+    Checking openssl-probe v0.2.1
+    Checking simd-adler32 v0.3.10
+    Checking rustls-native-certs v0.8.5
+    Checking async-lock v3.4.2
+    Checking backon v1.6.0
+    Checking miniz_oxide v0.9.1
+    Checking webpki-roots v0.26.11
+    Checking csv-core v0.1.13
+    Checking unicase v2.10.0
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking jiff-core v0.1.1
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+    Checking jiff-tzdb v0.1.9
+    Checking arcstr v1.2.0
+    Checking xxhash-rust v0.8.19
+    Checking memo-map v0.3.4
+    Checking cpufeatures v0.2.17
+    Checking digest v0.10.7
+    Checking unsafe-libyaml v0.2.11
+    Checking toml_writer v1.1.2+spec-1.1.0
+    Checking pulldown-cmark-escape v0.11.0
+    Checking uuid v1.27.0
+    Checking lang_fs v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_fs)
+    Checking hmac v0.12.1
+    Checking flate2 v1.1.10
+    Checking sha2 v0.10.9
+    Checking lang_native_demo v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_native_demo)
+    Checking tempfile v3.27.0
+    Checking lang_crypto v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_crypto)
+    Checking digest v0.11.3
+    Checking insta v1.49.0
+    Checking md-5 v0.11.0
+    Checking hmac v0.13.0
+    Checking sha2 v0.11.1
+    Checking sha1 v0.11.0
+    Checking jiff v0.2.38
+    Checking serde_json v1.0.154
+    Checking serde v1.0.229
+    Checking toml_datetime v1.1.2+spec-1.1.0
+    Checking serde_spanned v1.1.1
+    Checking csv v1.4.0
+    Checking arc-swap v1.9.2
+    Checking toml v1.1.6+spec-1.1.0
+    Checking serde_yaml_ng v0.10.0
+    Checking minijinja v2.24.0
+    Checking postgres-protocol v0.6.12
+    Checking lang_runtime v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_runtime)
+    Checking postgres-types v0.2.14
+    Checking lang_formats v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_formats)
+   Compiling synstructure v0.14.0
+    Checking lang_datetime v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_datetime)
+   Compiling ring v0.17.14
+   Compiling psm v0.1.24
+   Compiling stacker v0.1.25
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling libsqlite3-sys v0.36.0
+    Checking lang_template v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_template)
+   Compiling pest v2.9.3
+   Compiling pest_meta v2.9.3
+   Compiling pest_generator v2.9.3
+   Compiling der_derive v0.7.3
+   Compiling tracing-attributes v0.1.31
+    Checking rustls-webpki v0.103.15
+   Compiling rustls v0.23.45
+   Compiling tokio-macros v2.7.2
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.21
+   Compiling pest_derive v2.9.3
+    Checking der v0.7.10
+   Compiling async-trait v0.1.92
+    Checking ureq v3.4.2
+    Checking spki v0.7.3
+    Checking tracing v0.1.44
+    Checking x509-cert v0.2.5
+   Compiling clap_derive v4.6.7
+    Checking lang_fetch v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_fetch)
+    Checking tokio v1.53.3
+    Checking tokio-util v0.7.20
+    Checking zerofrom v0.1.8
+    Checking yoke v0.8.3
+    Checking tokio-rustls v0.26.6
+    Checking deadpool-runtime v0.3.1
+    Checking zerovec v0.11.8
+    Checking zerotrie v0.2.5
+    Checking deadpool v0.13.1
+    Checking tokio-postgres v0.7.18
+    Checking combine v4.6.9
+    Checking hyper v1.11.1
+    Checking tinystr v0.8.4
+    Checking potential_utf v0.1.6
+    Checking icu_collections v2.3.0
+    Checking icu_locale_core v2.3.0
+    Checking thiserror v2.0.21
+    Checking lang_base v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_base)
+    Checking tungstenite v0.30.0
+    Checking zstd v0.14.3
+    Checking hyper-util v0.1.21
+    Checking lang_syntax v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_syntax)
+    Checking lang_compress v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_compress)
+    Checking icu_provider v2.3.1
+    Checking tokio-tungstenite v0.30.0
+    Checking clap v4.6.7
+    Checking icu_properties v2.3.0
+    Checking icu_normalizer v2.3.0
+    Checking lang_http v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_http)
+    Checking deadpool-postgres v0.14.2
+    Checking tokio-postgres-rustls v0.14.0
+    Checking idna_adapter v1.2.2
+    Checking idna v1.1.0
+    Checking lang_hir v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_hir)
+    Checking url v2.5.8
+    Checking lang_postgres v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_postgres)
+    Checking lang_typeck v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_typeck)
+    Checking redis v1.7.1
+    Checking lang_mir v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_mir)
+    Checking lang_codegen v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_codegen)
+    Checking lang_valkey v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_valkey)
+    Checking rusqlite v0.38.0
+    Checking lang_sqlite v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_sqlite)
+    Checking lang_driver v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_driver)
+    Checking lang_cli v0.1.0 (/tmp/language-performance-audit-2026-10-16/crates/lang_cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 56.21s

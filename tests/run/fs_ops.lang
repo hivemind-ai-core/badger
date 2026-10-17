@@ -1,0 +1,54 @@
+// Filesystem operations in a fresh temporary directory, directly and
+// through a `Dir` capability.
+import std.fs
+import std.io
+import std.path
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    let tmp = fs.make_temp_dir("lang-fs-test-")?
+    let p = fn(name: String) => path.join(tmp, name)
+    fs.write_bytes(p("data.bin"), text.to_bytes("abc"))?
+    fs.append_bytes(p("data.bin"), text.to_bytes("def"))?
+    io.println($"bytes {text.from_bytes(fs.read_bytes(p("data.bin"))?).unwrap_or("?")}")?
+    fs.append_text(p("log.txt"), "one\n")?
+    fs.append_text(p("log.txt"), "two\n")?
+    io.println($"appended {fs.read_text(p("log.txt"))?.lines()}")?
+    let m = fs.metadata(p("data.bin"))?
+    io.println($"metadata {m.kind} {m.size} readonly {m.readonly} recent {fs.modified(m) != fs.modified({ ..m, modified_nanos: 0 })}")?
+    fs.create_dir_all(p("a/b/c"))?
+    fs.create_dir_all(p("a/b/c"))?
+    fs.write_text(p("a/b/c/deep.txt"), "deep")?
+    fs.write_text(p("a/top.txt"), "top")?
+    io.println($"is_dir {fs.is_dir(p("a/b"))} is_file {fs.is_file(p("a/top.txt"))} {fs.is_file(p("a"))}")?
+    io.println($"walk {fs.walk(p("a"))?}")?
+    io.println($"copied {fs.copy(p("a/top.txt"), p("copy.txt"))?} bytes")?
+    fs.rename(p("copy.txt"), p("moved.txt"))?
+    io.println($"renamed {fs.exists(p("copy.txt"))} {fs.read_text(p("moved.txt"))?}")?
+    match fs.remove_dir(p("a")) {
+        .ok(_) => io.println("removed a non-empty directory?")?,
+        .err(e) => io.println($"remove_dir non-empty: {e.kind}")?,
+    }
+    match fs.read_bytes(p("missing")) {
+        .ok(_) => io.println("read a missing file?")?,
+        .err(e) => io.println($"missing: {e.kind}")?,
+    }
+    // through a capability: nothing outside the tree
+    let d = fs.root(tmp)?
+    d.write_bytes("cap.bin", text.to_bytes("xy"))?
+    io.println($"dir read {d.read_bytes("cap.bin")?.len()} walk {d.walk(".")?.len()} files")?
+    match d.remove_all(".") {
+        .ok(_) => io.println("removed the tree's top?")?,
+        .err(e) => io.println($"top: {e.kind}")?,
+    }
+    match d.read_bytes("../outside") {
+        .ok(_) => io.println("escaped?")?,
+        .err(e) => io.println($"escape: {e.kind}")?,
+    }
+    d.remove_all("a")?
+    fs.remove_file(p("moved.txt"))?
+    io.println($"after cleanup {fs.walk(tmp)?}")?
+    fs.remove_all(tmp)?
+    io.println($"gone {fs.exists(tmp)}")?
+    ok(())
+}

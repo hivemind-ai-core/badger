@@ -1,0 +1,19 @@
+port=8080 verbose=true dry_run=true name=- tags=["x", "y"] ratio=0.5 args=["a.txt", "--literal"]
+port=1 verbose=false dry_run=false name=ada tags=[] ratio=2.0 args=[]
+cli/missing: --port is required
+cli/invalid: --port: `x` is not an integer
+cli/invalid: --mode: `slow` is not one of fast, careful
+cli/unknown: unknown option `--colour`
+cli/missing: --port needs a value
+defaults: port=9000 ratio=1.0
+usage: serve [options] [args...]
+
+options:
+  --dry-run
+  --mode <fast|careful>          (required)
+  --name <string>
+  --port <integer>               (required)
+  --ratio <number>               (required)
+  --tag <string>                 (repeatable)
+  --verbose
+  -h, --help

@@ -1,0 +1,17 @@
+// A return value that cannot satisfy the postcondition on its path (a
+// warning: the analysis cannot rule out that the path never runs).
+// expect-warning: E0146
+ensures result >= 0
+fn clamp(x: Int) -> Int {
+    if x > 100 {
+        return 100
+    }
+    if x < 0 {
+        return -1
+    }
+    x
+}
+
+pub fn main() -> Unit {
+    let _ = clamp(5)
+}

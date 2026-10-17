@@ -20,3 +20,8 @@ path = "src/main.rs"
 [dev-dependencies]
 # a native module for the native ABI tests (its cdylib lands in target/*/deps)
 lang_native_demo = { path = "../lang_native_demo" }
+
+[features]
+# ThreadSanitizer fiber annotations (see lang_runtime)
+tsan = ["lang_driver/tsan"]
+asan = ["lang_driver/asan"]

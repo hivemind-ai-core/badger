@@ -129,6 +129,251 @@ pub fn take<T>(items: Seq<T>, n: Int) -> Seq<T> {
     }
 }
 
+/// `f`'s values, skipping the items it maps to `none`.
+pub fn filter_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Seq<U> {
+    {
+        start: fn() {
+            let next = items.start()
+            link(fn() -> Option<U> {
+                loop {
+                    match next() {
+                        .some(x) => match f(x) {
+                            .some(y) => { return Option.some(y) },
+                            .none => (),
+                        },
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+/// Each item with its position, from 0.
+pub fn enumerate<T>(items: Seq<T>) -> Seq<(Int, T)> {
+    {
+        start: fn() {
+            let next = items.start()
+            let i = Cell.new(0)
+            link(fn() {
+                match next() {
+                    .some(x) => {
+                        let k = i.get()
+                        i.set(k + 1)
+                        Option.some((k, x))
+                    },
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+/// All but the first `n` items.
+pub fn skip<T>(items: Seq<T>, n: Int) -> Seq<T> {
+    {
+        start: fn() {
+            let next = items.start()
+            let left = Cell.new(n)
+            link(fn() -> Option<T> {
+                while left.get() > 0 {
+                    left.set(left.get() - 1)
+                    if next().is_none() {
+                        return Option.none
+                    }
+                }
+                next()
+            }, next)
+        },
+    }
+}
+
+/// Items while `keep` accepts them; the first it refuses ends the
+/// sequence (and closes the source).
+pub fn take_while<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T> {
+    {
+        start: fn() {
+            let next = items.start()
+            let done = Cell.new(false)
+            link(fn() -> Option<T> {
+                if done.get() {
+                    return Option.none
+                }
+                match next() {
+                    .some(x) => if keep(x) {
+                        Option.some(x)
+                    } else {
+                        done.set(true)
+                        iter_close(next)
+                        Option.none
+                    },
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+/// Items after the leading ones `skip` accepts.
+pub fn skip_while<T>(items: Seq<T>, skip: fn(T) -> Bool) -> Seq<T> {
+    {
+        start: fn() {
+            let next = items.start()
+            let skipping = Cell.new(true)
+            link(fn() -> Option<T> {
+                loop {
+                    match next() {
+                        .some(x) => if !skipping.get() || !skip(x) {
+                            skipping.set(false)
+                            return Option.some(x)
+                        },
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+/// Running states: `f(state, item)` for each item, starting from `initial`.
+pub fn scan<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> Seq<A> {
+    {
+        start: fn() {
+            let next = items.start()
+            let state = Cell.new(initial)
+            link(fn() {
+                match next() {
+                    .some(x) => {
+                        let s = f(state.get(), x)
+                        state.set(s)
+                        Option.some(s)
+                    },
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+/// Consecutive groups of `size` items (the last may be shorter).
+pub fn chunks<T>(items: Seq<T>, size: Int) -> Seq<List<T>> {
+    {
+        start: fn() {
+            let next = items.start()
+            link(fn() -> Option<List<T>> {
+                let b = list.builder<T>()
+                while b.len() < size {
+                    match next() {
+                        .some(x) => b.append(x),
+                        .none => { break },
+                    }
+                }
+                if b.len() == 0 { Option.none } else { Option.some(b.finish()) }
+            }, next)
+        },
+    }
+}
+
+/// The first item `matches` accepts (consuming no further).
+pub fn find<T>(items: Seq<T>, matches: fn(T) -> Bool) -> Option<T> {
+    for x in items {
+        if matches(x) {
+            return Option.some(x)
+        }
+    }
+    Option.none
+}
+
+/// The first `some` that `f` gives.
+pub fn find_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Option<U> {
+    for x in items {
+        match f(x) {
+            .some(y) => { return Option.some(y) },
+            .none => (),
+        }
+    }
+    Option.none
+}
+
+/// Whether some item satisfies `test` (stopping at the first).
+pub fn any<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool {
+    for x in items {
+        if test(x) {
+            return true
+        }
+    }
+    false
+}
+
+/// Whether every item satisfies `test` (stopping at the first that does not).
+pub fn all<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool {
+    for x in items {
+        if !test(x) {
+            return false
+        }
+    }
+    true
+}
+
+pub fn first<T>(items: Seq<T>) -> Option<T> {
+    for x in items {
+        return Option.some(x)
+    }
+    Option.none
+}
+
+pub fn last<T>(items: Seq<T>) -> Option<T> {
+    var out: Option<T> = Option.none
+    for x in items {
+        out = Option.some(x)
+    }
+    out
+}
+
+/// The item with the smallest key (the first, on ties).
+pub fn min_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    for x in items {
+        let k = key(x)
+        best = match best {
+            .some((bk, bx)) => if k < bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+            .none => Option.some((k, x)),
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
+/// The item with the largest key (the first, on ties).
+pub fn max_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    for x in items {
+        let k = key(x)
+        best = match best {
+            .some((bk, bx)) => if k > bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+            .none => Option.some((k, x)),
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
+/// The items `keep` accepts and those it refuses, each in order.
+pub fn partition<T>(items: Seq<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>) {
+    let yes = list.builder<T>()
+    let no = list.builder<T>()
+    for x in items {
+        if keep(x) { yes.append(x) } else { no.append(x) }
+    }
+    (yes.finish(), no.finish())
+}
+
+pub fn sum(items: Seq<Int>) -> Int {
+    var total = 0
+    for x in items {
+        total = total + x
+    }
+    total
+}
+
 pub fn flat_map<T, U>(items: Seq<T>, f: fn(T) -> Seq<U>) -> Seq<U> {
     {
         start: fn() {
@@ -206,6 +451,35 @@ pub fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)> {
     }
 }
 
+/// Fold in order, stopping at the first error; a scoped source is closed
+/// either way.
+pub fn try_fold<T, A, E>(items: Seq<T>, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> {
+    var acc = initial
+    for x in items {
+        acc = f(acc, x)?
+    }
+    ok(acc)
+}
+
+/// Run `f` on each item, stopping at the first error (closing a scoped
+/// source).
+pub fn try_each<T, E>(items: Seq<T>, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> {
+    for x in items {
+        f(x)?
+    }
+    ok(())
+}
+
+/// The items of a sequence of results, or the first error (the rest are
+/// not produced, and a scoped source is closed).
+pub fn try_collect<T, E>(items: Seq<Result<T, E>>) -> Result<List<T>, E> {
+    let b = list.builder<T>()
+    for r in items {
+        b.append(r?)
+    }
+    ok(b.finish())
+}
+
 pub fn fold<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> A {
     var acc = initial
     for x in items {
@@ -257,7 +531,25 @@ impl<T> Seq<T> {
     pub fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U>) -> Seq<U> { flat_map(self, f) }
     pub fn zip<U>(self: &Self, other: Seq<U>) -> Seq<(T, U)> { zip(self, other) }
     pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
+    pub fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> { try_fold(self, initial, f) }
+    pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> { try_each(self, f) }
     pub fn count(self: &Self) -> Int { count(self) }
     pub fn collect(self: &Self) -> List<T> { list.collect(self) }
     pub fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
+    pub fn filter_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Seq<U> { filter_map(self, f) }
+    pub fn enumerate(self: &Self) -> Seq<(Int, T)> { enumerate(self) }
+    pub fn skip(self: &Self, n: Int) -> Seq<T> { skip(self, n) }
+    pub fn take_while(self: &Self, keep: fn(T) -> Bool) -> Seq<T> { take_while(self, keep) }
+    pub fn skip_while(self: &Self, skip: fn(T) -> Bool) -> Seq<T> { skip_while(self, skip) }
+    pub fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> Seq<A> { scan(self, initial, f) }
+    pub fn chunks(self: &Self, size: Int) -> Seq<List<T>> { chunks(self, size) }
+    pub fn find(self: &Self, matches: fn(T) -> Bool) -> Option<T> { find(self, matches) }
+    pub fn find_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Option<U> { find_map(self, f) }
+    pub fn any(self: &Self, test: fn(T) -> Bool) -> Bool { any(self, test) }
+    pub fn all(self: &Self, test: fn(T) -> Bool) -> Bool { all(self, test) }
+    pub fn first(self: &Self) -> Option<T> { first(self) }
+    pub fn last(self: &Self) -> Option<T> { last(self) }
+    pub fn min_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd { min_by(self, key) }
+    pub fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd { max_by(self, key) }
+    pub fn partition(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>) { partition(self, keep) }
 }

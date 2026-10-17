@@ -483,7 +483,9 @@ mod tests {
         let mut model = HashMap::new();
         let mut versions = vec![];
         let mut x: u64 = 1;
-        for step in 0..20000u64 {
+        // fewer steps under Miri, which interprets every one
+        let steps = if cfg!(miri) { 1500 } else { 20000u64 };
+        for step in 0..steps {
             x ^= x << 13;
             x ^= x >> 7;
             x ^= x << 17;

@@ -1,0 +1,7 @@
+// Option and Result display their payloads (some(x), none, ok(x), err(e)).
+import std.io
+pub fn main() -> Unit {
+    let r: Result<Int, String> = err("bad")
+    let o: Option<List<Int>> = Option.some([1, 2])
+    let _ = io.println($"{r} {o} {[Option.some(1), Option.none]} {Option.some(Option.some("x"))}")
+}

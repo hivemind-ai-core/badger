@@ -48,8 +48,12 @@ impl Header {
         unsafe { &*self.desc }
     }
 
+    /// The object's payload. Objects are reached through pointer words
+    /// (`u64`), which expose their allocation's provenance; the payload
+    /// pointer takes that provenance from the address, as a pointer derived
+    /// from `&self` may only touch the header itself.
     pub fn payload(&self) -> *mut u8 {
-        unsafe { (self as *const Header as *mut u8).add(HEADER) }
+        std::ptr::with_exposed_provenance_mut((self as *const Header).addr() + HEADER)
     }
 
     pub fn payload_size(&self) -> usize {
@@ -218,7 +222,8 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         if chunk.is_null() {
             return chunk as *mut Header;
         }
-        if bytes == BIG_CHUNK {
+        // a hint only (Miri does not model it)
+        if bytes == BIG_CHUNK && !cfg!(miri) {
             unsafe { libc::madvise(chunk as *mut libc::c_void, bytes, libc::MADV_HUGEPAGE) };
         }
         pool.chunks.push(Chunk { base: chunk, bytes, align });
@@ -406,11 +411,18 @@ pub fn register_global(slot: *mut u64) {
 /// The temporary roots of the running task (each task has its own: tasks
 /// interleave at suspension points, so one shared stack would let one
 /// task's guard drop another's roots), or the heap's own outside tasks.
-fn temp_roots() -> &'static mut Vec<u64> {
+/// The current task's temporary roots (or the heap's, outside tasks), as a
+/// raw pointer taken without making a reference to the heap, so guards
+/// holding it stay valid while other code borrows the heap.
+fn temp_roots_ptr() -> *mut Vec<u64> {
     match crate::task::current_temp_roots() {
-        Some(v) => unsafe { &mut *v },
-        None => &mut heap().temp_roots,
+        Some(v) => v,
+        None => unsafe { &raw mut (*HEAP.0.get()).temp_roots },
     }
+}
+
+fn temp_roots() -> &'static mut Vec<u64> {
+    unsafe { &mut *temp_roots_ptr() }
 }
 
 /// Keep `w` alive until the matching [`pop_root`]. Runtime code uses this
@@ -440,8 +452,8 @@ pub struct Roots(*mut Vec<u64>, usize);
 
 impl Roots {
     pub fn new() -> Roots {
-        let v = temp_roots();
-        Roots(v as *mut Vec<u64>, v.len())
+        let v = temp_roots_ptr();
+        Roots(v, unsafe { (*v).len() })
     }
 
     pub fn add(&self, w: u64) -> u64 {

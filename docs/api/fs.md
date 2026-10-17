@@ -18,6 +18,36 @@ Authority over one directory tree: paths are relative to it, and none
 and `Dir.sub` make one, so a function given a `Dir` can touch that tree
 and nothing else through it; `reader` narrows it to reading.
 
+#### `Dir.append_text`
+
+```lang
+fn append_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `Dir.append_to`
+
+```lang
+fn append_to(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+#### `Dir.copy`
+
+```lang
+fn copy(self: &Self, from: String, to: String) -> Result<Int, io.Error> !{Io, Wait}
+```
+
+#### `Dir.create`
+
+```lang
+fn create(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+#### `Dir.create_dir_all`
+
+```lang
+fn create_dir_all(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
 #### `Dir.exists`
 
 ```lang
@@ -32,6 +62,18 @@ fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait}
 
 The names in a directory of the tree (`"."` for its top), sorted.
 
+#### `Dir.metadata`
+
+```lang
+fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+```
+
+#### `Dir.open`
+
+```lang
+fn open(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
 #### `Dir.path`
 
 ```lang
@@ -39,6 +81,12 @@ fn path(self: &Self) -> String
 ```
 
 The tree's absolute path.
+
+#### `Dir.read_bytes`
+
+```lang
+fn read_bytes(self: &Self, path: String) -> Result<Bytes, io.Error> !{Io, Wait}
+```
 
 #### `Dir.read_text`
 
@@ -54,6 +102,26 @@ fn reader(self: &Self) -> ReadDir
 
 The same tree, for reading only.
 
+#### `Dir.remove_all`
+
+```lang
+fn remove_all(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Remove a file or a subtree (never the tree's top).
+
+#### `Dir.remove_file`
+
+```lang
+fn remove_file(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `Dir.rename`
+
+```lang
+fn rename(self: &Self, from: String, to: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
 #### `Dir.sub`
 
 ```lang
@@ -62,11 +130,75 @@ fn sub(self: &Self, path: String) -> Result<Dir, io.Error> !{Io}
 
 A narrower tree inside this one.
 
+#### `Dir.walk`
+
+```lang
+fn walk(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait}
+```
+
+Every file under a directory of the tree, relative to it, sorted.
+
+#### `Dir.write_bytes`
+
+```lang
+fn write_bytes(self: &Self, path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
 #### `Dir.write_text`
 
 ```lang
 fn write_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
 ```
+
+### `File`
+
+```lang
+struct File { handle: native.Handle }
+```
+
+An open file: an `io.Reader` and `io.Writer` (as its mode allows).
+Closed by `close`, or once nothing can reach it.
+
+#### `File.close`
+
+```lang
+fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Flush and close; later reads and writes fail with `:io/closed`.
+
+#### `File.flush`
+
+```lang
+fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `File.read`
+
+```lang
+fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait}
+```
+
+#### `File.write`
+
+```lang
+fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `File.write_text`
+
+```lang
+fn write_text(self: &Self, text: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+### `Metadata`
+
+```lang
+pub type Metadata = { kind: Symbol, size: Int, modified_nanos: Int, readonly: Bool }
+```
+
+What is at a path: `:file`, `:dir`, `:symlink` (not followed), or
+`:other`, with its size in bytes and when it last changed.
 
 ### `ReadDir`
 
@@ -88,10 +220,28 @@ fn exists(self: &Self, path: String) -> Bool !{Io}
 fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait}
 ```
 
+#### `ReadDir.metadata`
+
+```lang
+fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+```
+
+#### `ReadDir.open`
+
+```lang
+fn open(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
 #### `ReadDir.path`
 
 ```lang
 fn path(self: &Self) -> String
+```
+
+#### `ReadDir.read_bytes`
+
+```lang
+fn read_bytes(self: &Self, path: String) -> Result<Bytes, io.Error> !{Io, Wait}
 ```
 
 #### `ReadDir.read_text`
@@ -106,12 +256,90 @@ fn read_text(self: &Self, path: String) -> Result<String, io.Error> !{Io, Wait}
 fn sub(self: &Self, path: String) -> Result<ReadDir, io.Error> !{Io}
 ```
 
+#### `ReadDir.walk`
+
+```lang
+fn walk(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait}
+```
+
 ## Functions
+
+### `append_bytes`
+
+```lang
+fn append_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+### `append_text`
+
+```lang
+fn append_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Append to a file, creating it if absent.
+
+### `append_to`
+
+```lang
+fn append_to(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for adding to its end, creating it if absent.
+
+### `copy`
+
+```lang
+fn copy(from: String, to: String) -> Result<Int, io.Error> !{Io, Wait}
+```
+
+Copy a file; the number of bytes copied.
+
+### `create`
+
+```lang
+fn create(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for writing, creating it or emptying it.
+
+### `create_dir`
+
+```lang
+fn create_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+### `create_dir_all`
+
+```lang
+fn create_dir_all(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Create a directory and any missing parents (fine if it exists).
+
+### `create_new`
+
+```lang
+fn create_new(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Create a new file for writing (`:io/already_exists` if there is one).
 
 ### `exists`
 
 ```lang
 fn exists(path: String) -> Bool !{Io}
+```
+
+### `is_dir`
+
+```lang
+fn is_dir(path: String) -> Bool !{Io, Wait}
+```
+
+### `is_file`
+
+```lang
+fn is_file(path: String) -> Bool !{Io, Wait}
 ```
 
 ### `list`
@@ -122,11 +350,78 @@ fn list(path: String) -> Result<List<String>, io.Error> !{Io, Wait}
 
 The names in a directory, sorted.
 
+### `make_temp_dir`
+
+```lang
+fn make_temp_dir(prefix: String) -> Result<String, io.Error> !{Io, Wait}
+```
+
+A new, empty directory only this user can read, under `temp_dir()`.
+
+### `metadata`
+
+```lang
+fn metadata(path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+```
+
+### `modified`
+
+```lang
+fn modified(m: Metadata) -> Timestamp
+```
+
+When it last changed.
+
+### `open`
+
+```lang
+fn open(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for reading.
+
+### `read_bytes`
+
+```lang
+fn read_bytes(path: String) -> Result<Bytes, io.Error> !{Io, Wait}
+```
+
 ### `read_text`
 
 ```lang
 fn read_text(path: String) -> Result<String, io.Error> !{Io, Wait}
 ```
+
+### `remove_all`
+
+```lang
+fn remove_all(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Remove a file, or a directory and everything in it (symlinks are
+removed, not followed).
+
+### `remove_dir`
+
+```lang
+fn remove_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Remove an empty directory.
+
+### `remove_file`
+
+```lang
+fn remove_file(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+### `rename`
+
+```lang
+fn rename(from: String, to: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Move or rename (replacing a file at `to`).
 
 ### `root`
 
@@ -135,6 +430,29 @@ fn root(path: String) -> Result<Dir, io.Error> !{Io}
 ```
 
 The directory tree at `path`, which must exist.
+
+### `temp_dir`
+
+```lang
+fn temp_dir() -> String !{Io}
+```
+
+The system's directory for temporary files.
+
+### `walk`
+
+```lang
+fn walk(path: String) -> Result<List<String>, io.Error> !{Io, Wait}
+```
+
+Every file under a directory, as paths relative to it, sorted
+(symlinks are listed, not followed).
+
+### `write_bytes`
+
+```lang
+fn write_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+```
 
 ### `write_text`
 

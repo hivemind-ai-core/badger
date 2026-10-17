@@ -1,0 +1,12 @@
+// A returned value that cannot satisfy the postcondition whenever the
+// function runs.
+// expect-error: E0146
+ensures result >= 0
+fn penalty(points: Int) -> Int {
+    let base = -10
+    base
+}
+
+pub fn main() -> Unit {
+    let _ = penalty(5)
+}

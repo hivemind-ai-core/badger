@@ -1,0 +1,15 @@
+<h1>Title</h1>
+<p>Some <em>emphasis</em>, <del>gone</del>, and <code>code</code>.</p>
+<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>
+<tr><td>1</td><td>2</td></tr>
+</tbody></table>
+<ul>
+<li><input disabled="" type="checkbox" checked=""/>
+done</li>
+<li><input disabled="" type="checkbox"/>
+todo</li>
+</ul>
+<script>alert(1)</script>
+<p><a href="javascript:alert(1)">click</a> <a href="java%09script:alert(2)">tab</a> <img src="data:text/html,hi" alt="x" /> <a href="https://example.com">ok</a></p>
+&lt;script&gt;alert(1)&lt;/script&gt;
+<p><a href="#">click</a> <a href="#">tab</a> <img src="" alt="x" /> <a href="https://example.com">ok</a></p>

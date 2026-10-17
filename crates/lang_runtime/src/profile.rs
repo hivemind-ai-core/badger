@@ -144,7 +144,9 @@ extern "C" fn on_sample(_sig: libc::c_int, _info: *mut libc::siginfo_t, uc: *mut
     }
     // walk [fp] = caller's fp, [fp + 8] = return address
     while n < DEPTH && fp != 0 && fp % 8 == 0 {
-        let (Some(next), Some(ret)) = (read_word(fp), read_word(fp + 8)) else { break };
+        // (a garbage frame pointer must not panic in a signal handler)
+        let Some(at) = fp.checked_add(8) else { break };
+        let (Some(next), Some(ret)) = (read_word(fp), read_word(at)) else { break };
         if ret == 0 {
             break;
         }

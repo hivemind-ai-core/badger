@@ -1,0 +1,46 @@
+// Expression-bodied lambdas: `fn(x) => e` is `fn(x) { e }`.
+import std.io
+import std.list
+import std.seq
+
+type Event = { name: String, enabled: Bool }
+
+fn twice(f: fn(Int) -> Int, x: Int) -> Int { f(f(x)) }
+
+fn parse_all(items: List<String>, f: fn(String) -> Result<Int, String>) -> Result<Int, String> {
+    var total = 0
+    for s in items {
+        total = total + f(s)?
+    }
+    ok(total)
+}
+
+fn digits(s: String) -> Result<Int, String> {
+    if s == "" { err("empty") } else { ok(s.len()) }
+}
+
+fn show(r: Result<Int, String>) -> String {
+    match r {
+        .ok(n) => $"ok {n}",
+        .err(e) => $"err {e}",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let events: List<Event> = [{ name: "a", enabled: true }, { name: "b", enabled: false }, { name: "c", enabled: true }]
+    let names = events.seq() |> seq.filter(fn(e) => e.enabled) |> seq.map(fn(e) => e.name) |> list.collect()
+    io.println($"{names}")?
+    let add = fn(a: Int, b: Int) -> Int => a + b
+    io.println($"{add(2, 3)} {[1, 2, 3].map(fn(x) => x * x)} {twice(fn(x) => x + 10, 1)}")?
+    // nested: a lambda returning a lambda
+    let adder = fn(n: Int) => fn(k: Int) => k + n
+    io.println($"{adder(5)(1)}")?
+    // `?` in an expression body belongs to the lambda
+    io.println(show(parse_all(["ab", "cde"], fn(s) => ok(digits(s)? * 2))))?
+    io.println(show(parse_all(["ab", ""], fn(s) => ok(digits(s)? * 2))))?
+    // a once lambda may consume its capture
+    let label = "taken"
+    let take = once fn() => label
+    io.println(take())?
+    ok(())
+}

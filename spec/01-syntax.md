@@ -114,8 +114,16 @@ fn identity<T>(value: T) -> T {
 }
 
 let increment = fn(value) { value + 1 }
+let double = fn(value) => value * 2
 let answer = identity<Int>(42)
 ```
+
+A lambda's body is a block, or `=> expression`: `fn(x) => e` is
+`fn(x) { e }`, with the same parameters, captures, effects, `once`, and
+`return`/`?` boundary. The expression extends as far as an expression
+can (to the closing `)` or `,` of an enclosing call, or the end of a
+match arm), so `fn(n) => fn(k) => k + n` nests. Use the short form for a
+single expression and a block for statements.
 
 Calls are explicit and positional. Use an options record when several arguments
 need labels or defaults. There is no automatic currying or parameter default
@@ -132,17 +140,20 @@ Ordinary module functions compose through calls and pipelines.
 
 ```lang fragment
 events
-    |> seq.filter(fn(event) { event.enabled })
-    |> seq.map(fn(event) { event.name })
+    |> seq.filter(fn(event) => event.enabled)
+    |> seq.map(fn(event) => event.name)
     |> list.collect()
 ```
 
 `x |> f(a, b)` means `f(x, a, b)`. Pipe evaluation is left to right, with the
 left side evaluated once. There are no implicit placeholders or alternative
 last-argument pipes. The pipe operator has lower precedence than comparisons
-and arithmetic and higher precedence than assignment. Postfix `?` binds
-tighter than `|>`, so `x |> f(a)?` applies `?` to `f(a)`; write
-`(x |> f(a))?` to propagate the pipeline's error.
+and arithmetic and higher precedence than assignment. A stage that is a
+call followed by `?` takes the piped value first and then applies `?` to
+the call's result: `x |> f(a)?` is `(x |> f(a))?`, so fallible stages
+chain (`input |> decode()? |> validate()?`), each left side running once.
+A parenthesized `(make())?` is not a call stage: it computes the stage's
+function, which then receives the value.
 
 ## Bindings and control flow
 
@@ -184,6 +195,26 @@ match result {
 }
 ```
 
+A pattern condition tests one refutable pattern: `if let PATTERN = EXPR
+{ ... } else { ... }` is a `match` with that arm and a `_` arm, and
+`while let PATTERN = EXPR { ... }` repeats while it matches. The
+expression runs once per test; names bind only inside the matching
+block; `else if let` chains. `break` and `continue` in a `while let`
+body act on that loop.
+
+```lang fragment
+while let .some(job) = receiver.recv() {
+    process(job)?
+}
+
+if let .some(user) = users.get(id) {
+    greet(user)
+}
+```
+
+A pattern condition that ignores `.err` silently drops a failure: match a
+`Result` when the error matters.
+
 A leading-dot variant pattern takes its enum from the scrutinee. Constructor
 expressions use `Enum.variant(...)`, or an imported ordinary helper such as
 `ok(...)`; draft 0 does not infer an enum by searching for a bare variant name.
@@ -216,6 +247,23 @@ postfix `?` expression. Multiple bound patterns are callback parameters.
 the enclosing block's value, so helper-level commit/cleanup errors are retained.
 The callback's call count, ownership, and lifetime follow the helper's type;
 `use` itself promises neither cleanup nor a one-shot invocation.
+
+To end a `use` scope early, put it in a block: the block's value is the
+helper's whole result (a commit failure included), and the resource is
+released before the code after the block runs.
+
+```lang fragment
+let count = {
+    use tx <- sqlite.transaction(pool)
+    let count = insert_notes(tx, notes)?
+    ok(count)
+}?
+
+print_summary(count)?
+```
+
+Inside the block, `return` and `?` still belong to the continuation
+callback; the `?` after the block propagates the helper's result.
 
 ## Operator precedence and evaluation
 

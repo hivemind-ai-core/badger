@@ -402,6 +402,22 @@ error. `lang_cli` is the `lang` binary.
   path (return, error, defect, `process.exit`). Native module calls
   (SQLite among them) and the HTTP server are marked uncaptured.
 
+## Logs
+
+`std.log` writes structured records (`crates/lang_runtime/src/telemetry.rs`):
+a level check against `[runtime] log_level` is one atomic load; a record
+encodes its fields through their schema, merges the task's `log.with`
+context (copied to tasks it spawns), and is written to standard error as
+text or a JSON line (`log_format`), and kept in a bounded buffer while an
+exporter is attached. `trace.span` sets the task's current span (trace and
+span ids, inherited by spawned tasks, and stamped on log records inside
+it); a task cleanup ends it as failed on a defect or cancellation.
+`std.metrics` aggregates counters, gauges, and histograms (OpenTelemetry's
+default bounds) by name and attributes. `std.otel` is written in the
+language: a background task in a service scope drains the buffers every
+interval (and once more when stopped) into OTLP/HTTP JSON bodies the
+runtime builds, and posts them with `std.fetch`.
+
 ## Native modules
 
 `crates/lang_native` defines the native module ABI and wire format, and
@@ -461,7 +477,10 @@ the commit, and a build uses the locked commit while the manifest asks for
 the same `rev`). `[workspace] members` (with `dir/*` patterns) groups
 packages that share the lockfile at the workspace root; `lang check` and
 `lang test` there cover every member. `[package] kind = "library"` marks a
-package without `main`.
+package without `main`. `[env] dotenv` lists files of `NAME=value` lines
+the driver loads into the environment before a source run starts
+(variables already set win), and `${NAME}` / `${NAME:-default}` in
+`[config]` values read the environment when `config.load` decodes them.
 `[package] restricted = true` confines ambient authority to the entry module
 (`crates/lang_driver/src/authority.rs`: a reachability check over resolved
 calls and function references, reporting the path to the ambient function;

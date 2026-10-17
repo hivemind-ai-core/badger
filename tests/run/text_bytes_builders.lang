@@ -1,0 +1,53 @@
+// Text and bytes helpers, and scoped builders.
+import std.bytes
+import std.io
+import std.list
+import std.map
+import std.set
+import std.text
+
+pub fn main() -> Result<Unit, io.Error> {
+    let s = "key=value=more"
+    io.println($"index_of {s.index_of("=").unwrap_or(-1)} last {s.last_index_of("=").unwrap_or(-1)} count {s.count("=")} missing {s.index_of("#").is_none()}")?
+    match s.split_once("=") {
+        .some((k, v)) => io.println($"split_once {k} | {v}")?,
+        .none => io.println("no split")?,
+    }
+    match s.rsplit_once("=") {
+        .some((k, v)) => io.println($"rsplit_once {k} | {v}")?,
+        .none => io.println("no split")?,
+    }
+    io.println($"unicode index {"héllo wörld".index_of("w").unwrap_or(-1)} {"héllo".char_at(1).map(fn(c) => $"{c}").unwrap_or("-")}")?
+    io.println($"words {"  one two\tthree\n".words()} trim [{"  x  ".trim_start()}] [{"  x  ".trim_end()}]")?
+    io.println($"strip {"v1.2".strip_prefix("v").unwrap_or("-")} {"file.txt".strip_suffix(".txt").unwrap_or("-")} {"x".strip_prefix("y").is_none()}")?
+    io.println($"pad [{"7".pad_start(3, '0')}] [{"ab".pad_end(4, '.')}] [{"long".pad_start(2, ' ')}]")?
+    io.println($"replace_first {"a-b-c".replace_first("-", "+")} replace {"a-b-c".replace("-", "+")} blank {"  \t".is_blank()} {" x ".is_blank()}")?
+    io.println($"parse {"42".parse_int().unwrap_or(0)} {"2.5".parse_float().unwrap_or(0.0)} {"x".parse_int().is_none()} ends {"abc".ends_with("bc")}")?
+    let block = "\n        first\n          nested\n\n        last\n    "
+    io.print($"dedent:{block.dedent()}|\n")?
+    io.println($"indent:\n{"a\n\nb".indent("> ")}")?
+    // bytes
+    let b = "GET /x HTTP/1.1\r\nHost: h\r\n\r\nbody".to_bytes()
+    let sep = "\r\n".to_bytes()
+    let parts = b.split(sep)
+    io.println($"bytes split {parts.len()} first {parts.get(0).map(fn(p) => p.to_text().unwrap_or("?")).unwrap_or("-")} index {b.index_of("Host".to_bytes()).unwrap_or(-1)}")?
+    io.println($"bytes starts {b.starts_with("GET".to_bytes())} ends {b.ends_with("body".to_bytes())} get {b.get(0).map(fn(x) => $"{x}").unwrap_or("-")} join {bytes.join(["a".to_bytes(), "b".to_bytes()], ", ".to_bytes()).to_text().unwrap_or("?")}")?
+    // scoped builders
+    let squares = list.build(fn(out) {
+        for i in 1..5 {
+            out.append(i * i)
+        }
+    })
+    let lengths = map.build(fn(out) {
+        for w in ["a", "bb", "ccc"] {
+            out.insert(w, w.len())
+        }
+    })
+    let letters = set.build(fn(out) {
+        for c in "hello".chars() {
+            out.insert(c)
+        }
+    })
+    io.println($"build {squares} {lengths.get_or("bb", 0)} {letters.len()}")?
+    ok(())
+}

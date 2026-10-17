@@ -1,5 +1,5 @@
 add 42; hello, native!
-echo [1,"two",null]
+echo [1,"two",null,{"k":[true]}]
 point 3,4; scaled 10,20
 7/0: demo/division_by_zero: cannot divide by zero
 7/2 = 3

@@ -2,6 +2,7 @@
 // in every mode, with every value shape, expected errors, and handles.
 import std.io
 import std.native
+import std.codec
 import std.task
 import std.text
 import std.bytes
@@ -34,7 +35,7 @@ extern "native lang_native_demo" fn bump(c: native.Handle) -> Int
 
 pub fn main() -> Result<Unit, io.Error> {
     io.println($"add {add(40, 2)}; {greet("native")}")?
-    let d = echo(Data.list([Data.int(1), Data.string("two"), Data.null]))
+    let d = echo(Data.list([Data.int(1), Data.string("two"), Data.null, codec.parse_data("{\"k\": [true]}").unwrap_or(Data.null)]))
     io.println($"echo {d}")?
     let p = point(3, 4)
     let q = scale({ x: 1, y: 2 }, 10)

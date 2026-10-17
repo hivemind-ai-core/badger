@@ -1,0 +1,54 @@
+// Everyday sequence, list, map, and set operations.
+import std.io
+import std.list
+import std.map
+import std.seq
+import std.set
+
+type Person = { name: String, age: Int, team: String }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let people: List<Person> = [
+        { name: "ada", age: 36, team: "core" },
+        { name: "bob", age: 25, team: "web" },
+        { name: "cy", age: 41, team: "core" },
+        { name: "dee", age: 25, team: "ops" },
+    ]
+    // lazy sequences
+    let s = seq.range(1, 11)
+    io.println($"filter_map {s.filter_map(fn(x) => if x % 3 == 0 { Option.some(x * x) } else { Option.none }).collect()}")?
+    io.println($"enumerate {seq.range(5, 8).enumerate().map(fn(p) => p.0 * 100 + p.1).collect()}")?
+    io.println($"skip/take_while {s.skip(3).take_while(fn(x) => x < 7).collect()} skip_while {s.skip_while(fn(x) => x < 8).collect()}")?
+    io.println($"scan {s.take(5).scan(0, fn(acc, x) => acc + x).collect()} chunks {s.chunks(4).collect()}")?
+    io.println($"find {s.find(fn(x) => x * x > 30).unwrap_or(0)} find_map {s.find_map(fn(x) => if x > 4 { Option.some(x * 10) } else { Option.none }).unwrap_or(0)}")?
+    io.println($"any {s.any(fn(x) => x == 7)} all {s.all(fn(x) => x > 0)} {s.all(fn(x) => x < 5)} first {s.first().unwrap_or(0)} last {s.last().unwrap_or(0)} sum {seq.sum(s)}")?
+    let (evens, odds) = s.partition(fn(x) => x % 2 == 0)
+    io.println($"partition {evens} {odds}")?
+    io.println($"min_by {people.seq().min_by(fn(p) => p.age).map(fn(p) => p.name).unwrap_or("-")} max_by {people.seq().max_by(fn(p) => p.age).map(fn(p) => p.name).unwrap_or("-")}")?
+    // eager lists
+    let ages = people.map(fn(p) => p.age)
+    io.println($"sort_by age then name {people.sort_by(fn(p) => (p.age, p.name)).map(fn(p) => p.name)}")?
+    io.println($"stable sort_by {people.sort_by(fn(p) => p.age).map(fn(p) => p.name)} sort_with desc {ages.sort_with(fn(a, b) => b - a)}")?
+    io.println($"dedup {[1, 1, 2, 2, 2, 1, 3].dedup()} unique {[3, 1, 3, 2, 1].unique()}")?
+    let teams = people.group_by(fn(p) => p.team)
+    io.println($"group_by core {teams.get_or("core", []).map(fn(p) => p.name)} web {teams.get_or("web", []).map(fn(p) => p.name)} groups {teams.len()}")?
+    io.println($"find {people.find(fn(p) => p.age < 30).map(fn(p) => p.name).unwrap_or("-")} position {people.position(fn(p) => p.team == "ops").unwrap_or(-1)} count {people.count(fn(p) => p.age == 25)}")?
+    io.println($"take {ages.take(2)} skip {ages.skip(2)} take_while {ages.take_while(fn(a) => a > 30)} zip {list.zip([1, 2, 3], ["a", "b"]).len()}")?
+    io.println($"scan {ages.scan(0, fn(acc, a) => acc + a)} flat_map {[1, 2].flat_map(fn(x) => [x, x * 10])} chunks_of {[1, 2, 3, 4, 5].chunks_of(2)} sum {list.sum(ages)}")?
+    // maps
+    let m = map.from_list([("a", 1), ("b", 2)])
+    let bumped = m.update("a", fn(v) => v.map(fn(n) => n + 10)).update("c", fn(v) => Option.some(v.unwrap_or(0) + 1)).update("b", fn(_v) => Option.none)
+    io.println($"update {bumped.get_or("a", 0)} {bumped.get_or("c", 0)} {bumped.contains("b")}")?
+    let merged = m.merge_with(map.from_list([("b", 5), ("d", 7)]), fn(x, y) => x + y)
+    io.println($"merge_with {merged.get_or("b", 0)} {merged.get_or("d", 0)} {merged.len()} merge {m.merge(map.from_list([("a", 9)])).get_or("a", 0)}")?
+    io.println($"keys {m.keys().sort()} values {m.values().sort()} map_values {m.map_values(fn(v) => v * 2).values().sort()} filter {m.filter(fn(k, v) => v > 1).keys()} empty {map.empty<String, Int>().is_empty()}")?
+    // sets
+    let x = set.from_list([1, 2, 3, 4])
+    let y = set.from_list([3, 4, 5])
+    io.println($"union {x.union(y).to_list().sort()} intersection {x.intersection(y).to_list().sort()} difference {x.difference(y).to_list().sort()}")?
+    io.println($"subset {set.from_list([3, 4]).is_subset(x)} {y.is_subset(x)} filter {x.filter(fn(n) => n > 2).to_list().sort()} insert {x.insert(9).len()} remove {x.remove(1).len()}")?
+    // structural comparison
+    let (r1, r2) = ({ x: 2, y: 1 }, { x: 1, y: 9 })
+    io.println($"compare {(1, "b") < (1, "c")} {r1 > r2} {[1, 2] < [1, 3]} {Option.some(1) < Option.some(2)}")?
+    ok(())
+}

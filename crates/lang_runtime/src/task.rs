@@ -149,7 +149,34 @@ pub enum Cleanup {
     Native(Box<dyn FnOnce(*mut TaskCtx)>),
 }
 
-type Co = Coroutine<(), Signal, (), DefaultStack>;
+type RawCo = Coroutine<(), Signal, (), DefaultStack>;
+
+/// A task's coroutine, with its ThreadSanitizer fiber (feature `tsan`;
+/// otherwise 0).
+struct Co {
+    inner: RawCo,
+    fiber: usize,
+}
+
+impl std::ops::Deref for Co {
+    type Target = RawCo;
+    fn deref(&self) -> &RawCo {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for Co {
+    fn deref_mut(&mut self) -> &mut RawCo {
+        &mut self.inner
+    }
+}
+
+impl Co {
+    fn into_stack(self) -> DefaultStack {
+        tsan::destroy(self.fiber);
+        self.inner.into_stack()
+    }
+}
 
 pub struct Task {
     pub id: TaskId,
@@ -233,6 +260,12 @@ pub struct Task {
     pub publishing: bool,
     /// Pipeline stages the task is inside, outermost first.
     pub stages: Vec<String>,
+    /// `log.with` context: JSON objects merged into each log record
+    /// (copied from the spawning task).
+    pub log_ctx: Vec<String>,
+    /// The current span (`trace.span`): trace id and span id, 0 for none
+    /// (copied from the spawning task, so its work continues the trace).
+    pub span: (u128, u64),
     /// A wake that arrived while the task was [`State::Parking`] (written
     /// and read under the scheduler queue lock).
     pending_wake: Option<Wake>,
@@ -373,7 +406,7 @@ fn end_wait() {
 /// (or publishing its staged batches on the way), not cancelled.
 pub fn waits(id: TaskId, wait: u64) -> bool {
     task(id).is_some_and(|t| {
-        t.ctx.flags & FLAG_CANCEL == 0
+        flags_of(t) & FLAG_CANCEL == 0
             && t.wait_gen.load(Ordering::Acquire) == wait
             && (matches!(t.state.get(), State::Parked | State::Parking) || t.publishing)
     })
@@ -1070,6 +1103,8 @@ pub fn spawn_with_args(
         select_done: None,
         publishing: false,
         stages: vec![],
+        log_ctx: current().map(|t| t.log_ctx.clone()).unwrap_or_default(),
+        span: current().map(|t| t.span).unwrap_or((0, 0)),
         pending_wake: None,
         free_resume: false,
         tlock: AtomicBool::new(false),
@@ -1136,6 +1171,7 @@ fn take_stack() -> DefaultStack {
 /// release and cross-CPU TLB flushes) that would otherwise delay the
 /// worker, such as a scope settling many cancelled tasks.
 fn release_stack(s: DefaultStack) {
+    asan::unpoison_stack(&s);
     let Some(s) = STACK_POOL.with(|p| {
         let mut p = p.borrow_mut();
         if p.len() < STACK_POOL_MAX {
@@ -1194,7 +1230,7 @@ fn make_coroutine_for(id: TaskId, p: *mut Task, body: Body) -> Co {
         unsafe { (*p).stack = (stack.limit().get(), stack.base().get()) };
     }
     let p = p as usize;
-    Coroutine::with_stack(stack, move |y: &Yielder<(), Signal>, ()| {
+    let inner = Coroutine::with_stack(stack, move |y: &Yielder<(), Signal>, ()| {
         let t = if p != 0 { unsafe { &mut *(p as *mut Task) } } else { task(id).unwrap() };
         t.yielder = y as *const _;
         t.ctx.stack_limit = limit;
@@ -1213,7 +1249,8 @@ fn make_coroutine_for(id: TaskId, p: *mut Task, body: Body) -> Co {
             }
             Body::Cleanup => run_cleanups(id),
         }
-    })
+    });
+    Co { inner, fiber: tsan::create() }
 }
 
 /// A task's body returned `r` without the runtime lock (still counted as
@@ -1280,6 +1317,7 @@ fn run_cleanups(id: TaskId) {
 fn suspend(sig: Signal) {
     let t = current().expect("suspend outside a task");
     let y = t.yielder;
+    tsan::leave();
     unsafe { (*y).suspend(sig) };
 }
 
@@ -1303,7 +1341,7 @@ pub fn park() -> Wake {
     // worker) woke nothing: honor it before waiting, or nothing will
     // (the wait ends exactly when `check_interrupts` abandons it)
     let t = current().unwrap();
-    if t.state.get() != State::Cleaning && t.ctx.flags & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+    if t.state.get() != State::Cleaning && flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
         end_wait();
     }
     check_interrupts();
@@ -1358,6 +1396,17 @@ pub fn can_suspend_free() -> bool {
 
 fn flags_of(t: &Task) -> u64 {
     unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).load(Ordering::Acquire) }
+}
+
+/// Set flag bits of a task that may be running on another worker (which
+/// reads them without the runtime lock): an atomic update, never a plain
+/// read-modify-write racing with that read.
+fn set_flags(t: &Task, bits: u64) {
+    unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).fetch_or(bits, Ordering::AcqRel) };
+}
+
+fn clear_flags(t: &Task, bits: u64) {
+    unsafe { (*(&raw const t.ctx.flags).cast::<AtomicU64>()).fetch_and(!bits, Ordering::AcqRel) };
 }
 
 /// Without the runtime lock, holding what the running task registers with
@@ -1458,10 +1507,10 @@ pub fn check_interrupts() {
     if t.state.get() == State::Cleaning {
         return;
     }
-    if t.ctx.flags & FLAG_FAIL != 0 {
+    if flags_of(t) & FLAG_FAIL != 0 {
         abandon(None);
     }
-    if t.ctx.flags & FLAG_CANCEL != 0 {
+    if flags_of(t) & FLAG_CANCEL != 0 {
         abandon(Some(Exit::Cancelled));
     }
 }
@@ -1990,10 +2039,10 @@ pub fn cancel_with(id: TaskId, reason: CancelReason) {
     if t.state.get() == State::Done || t.state.get() == State::Cleaning {
         return;
     }
-    if t.ctx.flags & FLAG_CANCEL == 0 {
+    if flags_of(t) & FLAG_CANCEL == 0 {
         t.cancel_reason = reason;
     }
-    t.ctx.flags |= FLAG_CANCEL;
+    set_flags(t, FLAG_CANCEL);
     // tasks waiting for it now wait under the cleanup grace period
     let joiners = with_task(t, |t| t.joiners.clone());
     for j in joiners {
@@ -2015,7 +2064,7 @@ pub fn fail_pending(id: TaskId, info: PanicInfo) {
     if t.state.get() == State::Done || t.state.get() == State::Cleaning || t.pending_exit.is_some() {
         return;
     }
-    t.ctx.flags |= FLAG_FAIL;
+    set_flags(t, FLAG_FAIL);
     t.pending_exit = Some(Exit::Failed(info));
     wake_waiting(id, Wake::Cancelled);
 }
@@ -2423,7 +2472,7 @@ pub fn await_task(id: TaskId, shielded: bool) {
         }
         // waiting on a cancelled task is bounded by the cleanup grace period
         if task(id).is_some_and(|t| {
-            t.ctx.flags & FLAG_CANCEL != 0
+            flags_of(t) & FLAG_CANCEL != 0
                 || t.state.get() == State::Cleaning
                     && t.pending_exit.as_ref().is_some_and(|e| matches!(e, Exit::Cancelled))
         }) {
@@ -2912,7 +2961,7 @@ fn run_one(id: TaskId) {
         return;
     }
     // a cancelled task that never started does not run
-    if t.ctx.flags & FLAG_CANCEL != 0
+    if flags_of(t) & FLAG_CANCEL != 0
         && t.co.as_ref().is_none_or(|c| !c.started())
         && t.state.get() == State::Ready
     {
@@ -2935,7 +2984,9 @@ fn run_one(id: TaskId) {
     stat(|w| &w.runs, 1);
     let p = t as *mut Task as usize;
     let co = t.co.as_mut().unwrap() as *mut Co;
+    tsan::enter(unsafe { &*co });
     let res = unsafe { (*co).resume(()) };
+    tsan::returned(&res);
     set_current(0);
     // a task resumed under the lock releases it as it returns to compiled
     // code, and may then suspend without it (the table is not looked at
@@ -3013,7 +3064,9 @@ fn run_free(mut e: Entry, cycle: bool) {
         set_current_task(e.0, p);
         stat(|w| &w.runs, 1);
         let co = t.co.as_mut().unwrap() as *mut Co;
+        tsan::enter(unsafe { &*co });
         let res = unsafe { (*co).resume(()) };
+        tsan::returned(&res);
         set_current_task(0, std::ptr::null_mut());
         if !suspended_free(e, &res) {
             // it suspended (or finished) holding the runtime lock
@@ -3136,7 +3189,7 @@ fn start_cleanup(id: TaskId) {
     let t = task(id).unwrap();
     t.state.set(State::Cleaning);
     t.in_cleanup = true;
-    t.ctx.flags &= !(FLAG_CANCEL | FLAG_FAIL);
+    clear_flags(t, FLAG_CANCEL | FLAG_FAIL);
     t.ctx.shadow = std::ptr::null_mut();
     if t.cleanups.is_empty() {
         finish(id);
@@ -3157,6 +3210,96 @@ fn drop_reset(co: Option<Co>) {
         unsafe { c.force_reset() };
     }
     release_stack(c.into_stack());
+}
+
+/// ThreadSanitizer fiber annotations (feature `tsan`): each coroutine is a
+/// fiber, so TSan follows the stack switches of `resume` and `suspend`. A
+/// switch is announced immediately before corosensei's own switch (the
+/// helpers inline, so no instrumented call lands on the wrong fiber's
+/// shadow stack); a coroutine that returns is left on the worker after
+/// `resume`, as its fiber is then discarded.
+#[cfg(feature = "tsan")]
+mod tsan {
+    use std::cell::Cell;
+    use std::ffi::c_void;
+
+    unsafe extern "C" {
+        fn __tsan_get_current_fiber() -> *mut c_void;
+        fn __tsan_create_fiber(flags: u32) -> *mut c_void;
+        fn __tsan_destroy_fiber(fiber: *mut c_void);
+        fn __tsan_switch_to_fiber(fiber: *mut c_void, flags: u32);
+    }
+
+    thread_local! {
+        /// The fiber that resumed the running coroutine on this thread.
+        static RETURN_TO: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub fn create() -> usize {
+        unsafe { __tsan_create_fiber(0) as usize }
+    }
+
+    pub fn destroy(fiber: usize) {
+        if fiber != 0 {
+            unsafe { __tsan_destroy_fiber(fiber as *mut c_void) };
+        }
+    }
+
+    #[inline(always)]
+    pub fn enter(co: &super::Co) {
+        if co.fiber != 0 {
+            RETURN_TO.with(|r| r.set(unsafe { __tsan_get_current_fiber() } as usize));
+            unsafe { __tsan_switch_to_fiber(co.fiber as *mut c_void, 0) };
+        }
+    }
+
+    #[inline(always)]
+    pub fn leave() {
+        let back = RETURN_TO.with(|r| r.get());
+        if back != 0 {
+            unsafe { __tsan_switch_to_fiber(back as *mut c_void, 0) };
+        }
+    }
+
+    /// After `resume`: a coroutine that finished is left here.
+    #[inline(always)]
+    pub fn returned<Y>(res: &corosensei::CoroutineResult<Y, ()>) {
+        if matches!(res, corosensei::CoroutineResult::Return(())) {
+            leave();
+        }
+    }
+}
+
+/// AddressSanitizer support (feature `asan`): a coroutine abandoned in the
+/// middle of its frames (`force_reset`) leaves their redzones poisoned, so
+/// a stack is unpoisoned before it is reused.
+#[cfg(feature = "asan")]
+mod asan {
+    unsafe extern "C" {
+        fn __asan_unpoison_memory_region(addr: *const std::ffi::c_void, size: usize);
+    }
+
+    pub fn unpoison_stack(s: &corosensei::stack::DefaultStack) {
+        use corosensei::stack::Stack;
+        let (lo, hi) = (s.limit().get(), s.base().get());
+        unsafe { __asan_unpoison_memory_region(lo as *const _, hi - lo) };
+    }
+}
+
+#[cfg(not(feature = "asan"))]
+mod asan {
+    pub fn unpoison_stack(_s: &corosensei::stack::DefaultStack) {}
+}
+
+#[cfg(not(feature = "tsan"))]
+mod tsan {
+    pub fn create() -> usize {
+        0
+    }
+    pub fn destroy(_fiber: usize) {}
+    pub fn enter(_co: &super::Co) {}
+    pub fn leave() {}
+    pub fn returned<Y>(_res: &corosensei::CoroutineResult<Y, ()>) {}
 }
 
 fn finish(id: TaskId) {

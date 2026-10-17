@@ -5,6 +5,7 @@ import std.prelude
 import std.system
 import std.codec
 import std.native
+import std.list
 
 pub struct Error {
     pub code: Symbol,
@@ -103,11 +104,7 @@ fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
 /// `[database] schema`, `lang check` checks a literal statement's columns
 /// against `T`.
 pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection {
-    var out: List<T> = []
-    for row in lift(sql_query(conn.connection(), sql, params))? {
-        out = out.append(decode_row(row)?)
-    }
-    ok(out)
+    list.try_map(lift(sql_query(conn.connection(), sql, params))?, decode_row)
 }
 
 /// Exactly one row, as `T` (see `query_as`).

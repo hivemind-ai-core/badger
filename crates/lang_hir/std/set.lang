@@ -18,6 +18,14 @@ impl<T> SetBuilder<T> {
 
 pub fn builder<T>() -> SetBuilder<T> where T: Hash { { set: empty() } }
 
+/// A set built by `fill`, which inserts into a builder that is finished
+/// when it returns.
+pub fn build<T>(fill: once fn(&mut SetBuilder<T>) -> Unit) -> Set<T> where T: Hash {
+    var b: SetBuilder<T> = { set: empty() }
+    fill(&mut b)
+    b.finish()
+}
+
 pub fn from_list<T>(items: List<T>) -> Set<T> where T: Hash {
     let s = empty()
     for x in items {
@@ -46,7 +54,73 @@ pub fn len<T>(s: Set<T>) -> Int { map_len(identity<Set<T>, Map<T, Unit>>(s)) }
 /// Members in unspecified order.
 pub fn to_list<T>(s: Set<T>) -> List<T> { set_items(s) }
 
+/// The items in either set.
+pub fn union<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in set_items(a) {
+        set_insert_mut(s, x)
+    }
+    for x in set_items(b) {
+        set_insert_mut(s, x)
+    }
+    s
+}
+
+/// The items in both sets.
+pub fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in set_items(a) {
+        if contains(b, x) {
+            set_insert_mut(s, x)
+        }
+    }
+    s
+}
+
+/// The items of `a` not in `b`.
+pub fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in set_items(a) {
+        if !contains(b, x) {
+            set_insert_mut(s, x)
+        }
+    }
+    s
+}
+
+/// Whether every item of `a` is in `b`.
+pub fn is_subset<T>(a: Set<T>, b: Set<T>) -> Bool {
+    for x in set_items(a) {
+        if !contains(b, x) {
+            return false
+        }
+    }
+    true
+}
+
+/// The items `keep` accepts.
+pub fn filter<T>(s: Set<T>, keep: fn(T) -> Bool) -> Set<T> where T: Hash {
+    let out = empty()
+    for x in set_items(s) {
+        if keep(x) {
+            set_insert_mut(out, x)
+        }
+    }
+    out
+}
+
+pub fn is_empty<T>(s: Set<T>) -> Bool { len(s) == 0 }
+
 impl<T> Set<T> {
+    pub fn insert(self: &Self, value: T) -> Set<T> { insert(self, value) }
+    pub fn remove(self: &Self, value: T) -> Set<T> { remove(self, value) }
+    pub fn to_list(self: &Self) -> List<T> { set_items(self) }
+    pub fn union(self: &Self, other: Set<T>) -> Set<T> where T: Hash { union(self, other) }
+    pub fn intersection(self: &Self, other: Set<T>) -> Set<T> where T: Hash { intersection(self, other) }
+    pub fn difference(self: &Self, other: Set<T>) -> Set<T> where T: Hash { difference(self, other) }
+    pub fn is_subset(self: &Self, other: Set<T>) -> Bool { is_subset(self, other) }
+    pub fn filter(self: &Self, keep: fn(T) -> Bool) -> Set<T> where T: Hash { filter(self, keep) }
+    pub fn is_empty(self: &Self) -> Bool { len(self) == 0 }
     pub fn contains(self: &Self, value: T) -> Bool { contains(self, value) }
     pub fn len(self: &Self) -> Int { len(self) }
 }
