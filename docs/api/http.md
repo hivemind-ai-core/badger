@@ -199,6 +199,16 @@ the sequence is consumed (and closed) before this returns.
 fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent
 ```
 
+#### `RequestScope.websocket`
+
+```lang
+fn websocket<E>(self: &Self, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display
+```
+
+Upgrade to a WebSocket and run `session` on it in this request's
+task; the socket closes when it returns (or the task stops). A
+request that is not an upgrade is answered 426 without running it.
+
 ### `Response`
 
 ```lang
@@ -293,6 +303,14 @@ fn handler<E>(f: fn(Request) -> Result<Response, E>) -> Handler where E: Display
 ```
 
 Package a request callback.
+
+### `is_websocket`
+
+```lang
+fn is_websocket(request: Request) -> Bool
+```
+
+Whether the request asks to upgrade to a WebSocket.
 
 ### `json`
 
@@ -423,4 +441,14 @@ becomes a 500 reply.
 ```lang
 fn text(status: Int, body: String) -> Result<Response, Error>
 ```
+
+### `websocket_handler`
+
+```lang
+fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display
+```
+
+Package a WebSocket session callback: each upgrade request runs it in
+its own task (see `RequestScope.websocket`); other requests are
+answered 426 (Upgrade Required).
 

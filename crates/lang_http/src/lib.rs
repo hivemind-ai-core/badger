@@ -10,7 +10,9 @@
 //! chunks wait (the task parks) while more than `max_stream_buffer_bytes`
 //! are still unwritten. `abort` answers 500, or truncates a started stream,
 //! for a request whose task failed. A request not answered within 60
-//! seconds is answered 500. Each connection closes after its reply.
+//! seconds is answered 500. Each connection closes after its reply, but
+//! for a websocket upgrade (`ws_accept`), which takes the connection over;
+//! `ws_connect` opens client websockets (see `ws.rs`).
 
 use std::collections::VecDeque;
 use std::convert::Infallible;
@@ -28,9 +30,15 @@ use hyper_util::rt::TokioIo;
 use lang_native::{Args, CallId, Completion, Error, Handler, Handles, ModuleDef, Outcome, Value};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch};
 
+mod ws;
+
 type Body = BoxBody<Bytes, std::io::Error>;
 
-fn runtime() -> &'static tokio::runtime::Runtime {
+pub(crate) fn empty_body() -> Body {
+    Full::new(Bytes::new()).map_err(|e| match e {}).boxed()
+}
+
+pub(crate) fn runtime() -> &'static tokio::runtime::Runtime {
     static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RT.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -56,6 +64,8 @@ struct Pending {
     headers: Vec<(String, String)>,
     body: Vec<u8>,
     reply: oneshot::Sender<Response<Body>>,
+    /// A websocket upgrade request: its key and the upgraded connection.
+    ws: Option<(String, hyper::upgrade::OnUpgrade)>,
 }
 
 struct Queue {
@@ -82,6 +92,11 @@ struct Exchange {
     /// written (`buffer` of them).
     stream: Mutex<Option<(mpsc::Sender<Chunk>, Arc<Semaphore>)>>,
     buffer: usize,
+    /// The websocket key and upgrade of an upgrade request.
+    ws_key: Option<String>,
+    upgrade: Mutex<Option<hyper::upgrade::OnUpgrade>>,
+    /// The largest websocket message accepted (the body limit).
+    max_message: usize,
     /// OPEN, then ENDED (the program finished or aborted the reply) or
     /// GONE (hyper dropped the body: the client went away), whichever
     /// comes first.
@@ -105,6 +120,7 @@ fn settle(phase: &watch::Sender<u8>, to: u8) {
 enum Target {
     Server(Arc<Server>),
     Exchange(Arc<Exchange>),
+    Socket(Arc<ws::Socket>),
 }
 
 static HANDLES: Handles<Target> = Handles::new();
@@ -145,7 +161,7 @@ impl Server {
         match q.acceptors.pop_front() {
             Some(c) => {
                 drop(q);
-                c.complete(Ok(request_value(p, self.limits.stream_buffer)));
+                c.complete(Ok(request_value(p, self.limits)));
             }
             None => q.requests.push_back(p),
         }
@@ -170,11 +186,18 @@ impl Server {
 }
 
 /// An admitted request as the program sees it, with its exchange.
-fn request_value(p: Pending, buffer: usize) -> Value {
+fn request_value(p: Pending, limits: Limits) -> Value {
+    let (ws_key, upgrade) = match p.ws {
+        Some((k, u)) => (Some(k), Some(u)),
+        None => (None, None),
+    };
     let ex = Exchange {
         reply: Mutex::new(Some(p.reply)),
         stream: Mutex::new(None),
-        buffer,
+        buffer: limits.stream_buffer,
+        ws_key,
+        upgrade: Mutex::new(upgrade),
+        max_message: limits.body,
         phase: Arc::new(watch::channel(OPEN).0),
     };
     Value::Map(vec![
@@ -186,7 +209,7 @@ fn request_value(p: Pending, buffer: usize) -> Value {
     ])
 }
 
-async fn handle(server: Arc<Server>, req: Request<Incoming>) -> Result<Response<Body>, Infallible> {
+async fn handle(server: Arc<Server>, mut req: Request<Incoming>) -> Result<Response<Body>, Infallible> {
     let lim = server.limits;
     let reject = |status: u16, msg: &str| {
         server.rejected.fetch_add(1, Ordering::SeqCst);
@@ -215,6 +238,7 @@ async fn handle(server: Arc<Server>, req: Request<Incoming>) -> Result<Response<
         server.in_flight.fetch_sub(1, Ordering::SeqCst);
         return reject(503, "server busy");
     }
+    let ws = websocket_key(&req).map(|k| (k, hyper::upgrade::on(&mut req)));
     let method = req.method().as_str().to_ascii_lowercase();
     let path = req.uri().path_and_query().map(|p| p.to_string()).unwrap_or_else(|| "/".into());
     let headers: Vec<(String, String)> = req
@@ -230,13 +254,26 @@ async fn handle(server: Arc<Server>, req: Request<Incoming>) -> Result<Response<
         }
     };
     let (tx, rx) = oneshot::channel();
-    server.deliver(Pending { method, path, headers, body, reply: tx });
+    server.deliver(Pending { method, path, headers, body, reply: tx, ws });
     let resp = match tokio::time::timeout(Duration::from_secs(60), rx).await {
         Ok(Ok(r)) => r,
         _ => simple(500, "internal server error"),
     };
     server.in_flight.fetch_sub(1, Ordering::SeqCst);
     Ok(resp)
+}
+
+/// The `sec-websocket-key` of a websocket upgrade request.
+fn websocket_key(req: &Request<Incoming>) -> Option<String> {
+    let h = req.headers();
+    let has = |name: &str, word: &str| {
+        h.get_all(name)
+            .iter()
+            .any(|v| v.to_str().is_ok_and(|v| v.split(',').any(|w| w.trim().eq_ignore_ascii_case(word))))
+    };
+    (req.method() == hyper::Method::GET && has("upgrade", "websocket") && has("connection", "upgrade"))
+        .then(|| h.get("sec-websocket-key")?.to_str().ok().map(str::to_string))
+        .flatten()
 }
 
 fn field(v: Option<&Value>, default: usize) -> usize {
@@ -293,10 +330,12 @@ fn listen(a: &Args) -> Outcome {
             tokio::spawn(async move {
                 let max_buf = (s.limits.header + 1024).max(8192);
                 let svc = service_fn(move |req| handle(s.clone(), req));
+                // every reply says `connection: close` (but a websocket
+                // upgrade's 101, which `keep_alive(false)` would rewrite)
                 let _ = hyper::server::conn::http1::Builder::new()
-                    .keep_alive(false)
                     .max_buf_size(max_buf)
                     .serve_connection(TokioIo::new(stream), svc)
+                    .with_upgrades()
                     .await;
             });
         }
@@ -310,14 +349,14 @@ fn listen(a: &Args) -> Outcome {
 fn server(a: &Args, i: usize) -> Result<Arc<Server>, Error> {
     match HANDLES.get(a.handle(i)?)?.as_ref() {
         Target::Server(s) => Ok(s.clone()),
-        Target::Exchange(_) => Err(Error::new("http/argument", "not a server")),
+        _ => Err(Error::new("http/argument", "not a server")),
     }
 }
 
-fn exchange(a: &Args, i: usize) -> Result<Arc<Exchange>, Error> {
+pub(crate) fn exchange(a: &Args, i: usize) -> Result<Arc<Exchange>, Error> {
     match HANDLES.get(a.handle(i)?)?.as_ref() {
         Target::Exchange(e) => Ok(e.clone()),
-        Target::Server(_) => Err(Error::new("http/argument", "not an exchange")),
+        _ => Err(Error::new("http/argument", "not an exchange")),
     }
 }
 
@@ -331,7 +370,7 @@ fn accept(a: Args, done: Completion) {
     let mut q = s.queue.lock().unwrap();
     if let Some(p) = q.requests.pop_front() {
         drop(q);
-        done.complete(Ok(request_value(p, s.limits.stream_buffer)));
+        done.complete(Ok(request_value(p, s.limits)));
     } else if q.closed {
         drop(q);
         done.complete(Err(Error::new("http/closed", "the server stopped")));
@@ -343,6 +382,9 @@ fn accept(a: Args, done: Completion) {
 /// A waiting `accept` whose task was cancelled stops waiting (so no
 /// request is handed to it).
 fn cancel(id: CallId) {
+    if ws::cancel(id) {
+        return;
+    }
     let servers = SERVERS.lock().unwrap().clone();
     for s in servers {
         let mut q = s.queue.lock().unwrap();
@@ -520,6 +562,7 @@ fn drop_handle(h: u64) {
     match HANDLES.remove(h).as_deref() {
         Some(Target::Exchange(e)) => abort_exchange(e),
         Some(Target::Server(s)) => s.shut(),
+        Some(Target::Socket(s)) => ws::release(s.clone()),
         None => {}
     }
 }
@@ -538,6 +581,11 @@ pub static DEF: ModuleDef = ModuleDef {
         ("stop", Handler::Inline(stop)),
         ("port", Handler::Inline(port)),
         ("stats", Handler::Inline(stats)),
+        ("ws_accept", Handler::Async(ws::accept)),
+        ("ws_connect", Handler::Async(ws::connect)),
+        ("ws_recv", Handler::Async(ws::recv)),
+        ("ws_send", Handler::Async(ws::send)),
+        ("ws_close", Handler::Async(ws::close)),
     ],
     drop_handle: Some(drop_handle),
     cancel: Some(cancel),

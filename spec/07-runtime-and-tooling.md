@@ -153,7 +153,12 @@ waits until the client has taken them). A client that goes away while a
 reply streams cancels the request task, even while its producer is parked
 waiting for the next item, so the producer's cleanups run. Server-sent
 events (`http.events`, `RequestScope.events`) are a streamed reply of
-typed `Event` values in the `text/event-stream` format.
+typed `Event` values in the `text/event-stream` format. WebSockets:
+`RequestScope.websocket(session)` and `http.websocket_handler` upgrade a
+request and run the session in its task (other requests get 426);
+`std.websocket.connect` opens client connections; the same
+`websocket.WebSocket` receives and sends independently, so a reader task
+can run beside a writer.
 
 Routes are inspectable typed descriptions. A route associates method/path,
 parameter/body schemas, a handler/pipeline, and a stable name. Validate conflicts

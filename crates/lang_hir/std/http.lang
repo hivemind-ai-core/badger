@@ -5,6 +5,7 @@ import std.prelude
 import std.codec
 import std.system
 import std.native
+import std.websocket
 import std.list
 import std.text as texts
 
@@ -132,6 +133,12 @@ impl<S: Scope> RequestScope<S> {
     pub fn events(self: &Self, events: Seq<Event>) -> Sent {
         self.stream_with(200, event_headers(), events.map(fn(e: Event) -> Bytes { text_to_bytes(encode_event(e)) }))
     }
+    /// Upgrade to a WebSocket and run `session` on it in this request's
+    /// task; the socket closes when it returns (or the task stops). A
+    /// request that is not an upgrade is answered 426 without running it.
+    pub fn websocket<E>(self: &Self, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display {
+        run_websocket(self.exchange, self.request, session)
+    }
     fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent {
         match self.exchange.sink {
             .some(cell) => {
@@ -218,6 +225,7 @@ extern "native lang_http.stream_begin" fn http_stream_begin(exchange: native.Han
 extern "native lang_http.stream_chunk" fn http_stream_chunk(exchange: native.Handle, chunk: Bytes) -> Bool !{Wait}
 extern "native lang_http.stream_end" fn http_stream_end(exchange: native.Handle) -> Unit
 extern "native lang_http.stream_watch" fn http_stream_watch(exchange: native.Handle) -> Bool !{Wait}
+extern "native lang_http.ws_accept" fn http_ws_accept(exchange: native.Handle, subprotocol: String) -> Result<websocket.WebSocket, native.Error> !{Io, Wait}
 extern "native lang_http.abort" fn http_abort(exchange: native.Handle) -> Unit
 extern "native lang_http.stop" fn http_stop(server: native.Handle) -> Unit
 extern "native lang_http.port" fn http_port(server: native.Handle) -> Int
@@ -268,6 +276,55 @@ pub fn streaming_handler<E>(f: fn(Request) -> Result<Streamed, E>) -> Handler wh
 /// A streamed reply of `chunks` with the given status and content type.
 pub fn stream(status: Int, content_type: String, chunks: Seq<Bytes>) -> Result<Streamed, Error> {
     ok({ status, headers: map { "content-type" => content_type }, chunks })
+}
+
+// ---------------------------------------------------------------- websockets
+
+/// Whether the request asks to upgrade to a WebSocket.
+pub fn is_websocket(request: Request) -> Bool {
+    match request.headers.get("upgrade") {
+        .some(v) => texts.contains(texts.to_lower(v), "websocket"),
+        .none => false,
+    }
+}
+
+/// Package a WebSocket session callback: each upgrade request runs it in
+/// its own task (see `RequestScope.websocket`); other requests are
+/// answered 426 (Upgrade Required).
+pub fn websocket_handler<E>(session: fn(Request, websocket.WebSocket) -> Result<Unit, E>) -> Handler where E: Display {
+    {
+        run: fn(request, exchange) {
+            let _ = run_websocket(exchange, request, fn(ws: websocket.WebSocket) -> Result<Unit, E> { session(request, ws) })
+            Reply.sent
+        },
+    }
+}
+
+fn run_websocket<E>(ex: Exchange, request: Request, session: fn(websocket.WebSocket) -> Result<Unit, E>) -> Sent where E: Display {
+    let conn = match ex.conn {
+        .some(c) => c,
+        .none => {
+            send_full(ex, error_response(501, "websockets need a live connection"))
+            return { status: 501 }
+        },
+    }
+    if !is_websocket(request) {
+        send_full(ex, error_response(426, "websocket upgrade required"))
+        return { status: 426 }
+    }
+    match http_ws_accept(conn, "") {
+        .ok(ws) => {
+            let guard = cleanup_push(fn() { let _ = ws.close() })
+            match session(ws) {
+                .ok(_) => (),
+                .err(e) => trace_event(:http/websocket_error, { message: e.display() }),
+            }
+            cleanup_remove(guard)
+            let _ = ws.close()
+        },
+        .err(e) => trace_event(:http/websocket_error, { message: e.message }),
+    }
+    { status: 101 }
 }
 
 // ---------------------------------------------------------------- server-sent events

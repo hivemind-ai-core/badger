@@ -339,3 +339,27 @@ fn events_stop_when_the_client_leaves() {
     let output = child.output();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
+
+/// WebSockets: an echo server and clients in one program (text, binary, a
+/// reader task beside a writer, a server-side close, and a plain request
+/// answered 426).
+#[test]
+fn websockets() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let port = 27000 + (std::process::id() % 1000) as u16 * 2;
+    let out = Command::new(env!("CARGO_BIN_EXE_lang"))
+        .current_dir(&root)
+        .args(["run", "tests/http/websocket.lang"])
+        .env("WS_PORT", port.to_string())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let round = "echo: hello\n5 bytes\n[\"echo: m0\", \"echo: m1\", \"echo: m2\"]\nclosed\n";
+    assert_eq!(
+        stdout,
+        format!("{round}{round}plain request: 426\n"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(out.status.success());
+}

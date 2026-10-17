@@ -37,6 +37,7 @@
 | [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions. |
 | [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |
 | [`std.postgres`](postgres.md) | PostgreSQL with pooled connections and scoped transactions; the same |
+| [`std.websocket`](websocket.md) | WebSockets: client connections (`connect`), and the server side of an |
 | [`std.http`](http.md) | HTTP request/reply adapter. |
 | [`std.buffer`](buffer.md) | Contiguous affine buffers and immutable arrays. |
 | [`std.worker`](worker.md) | Worker restart policies, and running work under one (let it crash: a |

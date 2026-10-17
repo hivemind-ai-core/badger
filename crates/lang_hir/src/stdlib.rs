@@ -44,6 +44,7 @@ std_modules![
     "sqlite",
     "valkey",
     "postgres",
+    "websocket",
     "http",
     "buffer",
     "worker",

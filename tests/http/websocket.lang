@@ -1,0 +1,96 @@
+// WebSockets: an echo server (a handler and a request scope) and clients
+// in the same program: text and binary messages, a reader task alongside
+// a writer, a server-side close, and a plain request answered 426.
+import std.config
+import std.fetch
+import std.http
+import std.io
+import std.system
+import std.system.{component}
+import std.task
+import std.text
+import std.websocket
+
+type Settings = { port: U16 }
+
+pub enum AppError {
+    config(source: config.Error),
+    http(source: http.Error),
+    io(source: io.Error),
+    system(source: system.Error),
+    websocket(source: websocket.Error),
+} derive(Error, From)
+
+fn echo(ws: websocket.WebSocket) -> Result<Unit, websocket.Error> {
+    loop {
+        match ws.recv()? {
+            .some(.text(t)) => {
+                if t == "bye" {
+                    ws.close_with(4000, "done")?
+                    break
+                }
+                ws.send_text($"echo: {t}")?
+            },
+            .some(.binary(b)) => ws.send_binary(b)?,
+            .none => break,
+        }
+    }
+    ok(())
+}
+
+let api = system.provider({
+    name: :test/ws,
+    init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
+        let plain = http.websocket_handler(fn(_request, ws) -> Result<Unit, websocket.Error> { echo(ws) })
+        let scoped = http.scoped(fn(scope) -> Result<http.Sent, http.Error> { ok(scope.websocket(echo)) })
+        ok({ plain, scoped })
+    },
+})
+
+fn show(m: Option<websocket.Message>) -> String {
+    match m {
+        .some(.text(t)) => t,
+        .some(.binary(b)) => $"{b.len()} bytes",
+        .none => "closed",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.from_env<Settings>("WS_")?
+    let plan = system {
+        api: component(api, {}),
+        plain: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).plain }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).scoped }),
+    }
+    use running <- system.run(plan)
+    for port in [settings.port, settings.port + 1] {
+        let ws = websocket.connect($"ws://127.0.0.1:{port}/chat")?
+        ws.send_text("hello")?
+        io.println(show(ws.recv()?))?
+        ws.send_binary(text.to_bytes("12345"))?
+        io.println(show(ws.recv()?))?
+        // a reader task alongside the writer
+        let got = task.scope(fn(s) -> Result<List<String>, websocket.Error> {
+            let reader = s.spawn(fn() -> Result<List<String>, websocket.Error> {
+                var seen: List<String> = []
+                for _ in 0..3 {
+                    seen = seen.append(show(ws.recv()?))
+                }
+                ok(seen)
+            })
+            for i in 0..3 {
+                ws.send_text($"m{i}")?
+            }
+            reader.join()
+        })?
+        io.println($"{got}")?
+        ws.send_text("bye")?
+        io.println(show(ws.recv()?))?
+    }
+    // a plain request to a websocket endpoint
+    match fetch.get($"http://127.0.0.1:{settings.port}/chat") {
+        .ok(r) => io.println($"plain request: {r.status}")?,
+        .err(e) => io.println($"plain request failed: {e}")?,
+    }
+    ok(())
+}
