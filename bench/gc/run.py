@@ -115,7 +115,11 @@ def main():
     cells = [(name, w, v) for name in cases for w in args.workers for v in variants]
     rng = random.Random(20261017)
     runs = []
-    sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    def sha(path):
+        # Avoid faulting a large debug executable into the runner's heap:
+        # fork/exec children can inherit that RSS high-water mark.
+        with path.open("rb") as file:
+            return hashlib.file_digest(file, "sha256").hexdigest()
     report = dict(schema=1, timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         revision=t.command_output(["git", "rev-parse", "HEAD"]),
         dirty=t.command_output(["git", "status", "--porcelain"]),

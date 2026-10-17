@@ -56,3 +56,7 @@ for workload attribution. CPU samples sum CPU across workers, whereas pauses
 are wall time. They must not be added or treated as interchangeable percentages.
 Worker sweeps keep eight parser tasks fixed. Shared-host runs are directional;
 publish ranges and memory costs alongside policy comparisons.
+
+Executable hashing streams through a bounded buffer. Reading the whole debug
+binary into Python can inflate fork/exec RSS high-water marks; such runs must
+not be used for memory comparisons.
