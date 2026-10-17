@@ -686,7 +686,8 @@ fn dotenv_and_env_references() {
 /// Workspaces and git dependencies: members share one `badger.lock`; a git
 /// dependency builds from its locked commit (a changed `rev` is refused
 /// until `badger update`, which resolves it again); `badger check` and
-/// `badger test` at the root cover every member; a library and a workspace
+/// `badger test` at the root cover every member (each package's tests
+/// once, not again as a dependency's); a library and a workspace
 /// root are not run.
 #[test]
 fn workspaces_and_git_dependencies() {
@@ -762,8 +763,13 @@ fn workspaces_and_git_dependencies() {
         "{lock}"
     );
     assert!(!ws.join("app/badger.lock").exists(), "members share the workspace lockfile");
+    // each member's own tests, once: a package's tests are not run again
+    // as a dependency's
     let (ok, out, err) = run(&["test", "."]);
-    assert!(ok && out.contains("test_twice") && out.contains("test_app"), "{out}{err}");
+    assert!(ok && out.contains("test test_twice ...") && out.contains("test test_app ..."), "{out}{err}");
+    assert!(out.contains("2 passed") && !out.contains("util.test_twice"), "{out}{err}");
+    let (ok, out, err) = run(&["test", "app"]);
+    assert!(ok && out.contains("1 passed") && !out.contains("twice"), "{out}{err}");
     let (ok, _, err) = run(&["run", "libs/util"]);
     assert!(!ok && err.contains("is a library"), "{err}");
     let (ok, _, err) = run(&["run", "."]);

@@ -421,7 +421,7 @@ impl Session {
                 .collect();
         }
         let entry = modules.len();
-        modules.push(ParsedModule { path: vec![self.sym(&stem)], file, ast, is_std: false });
+        modules.push(ParsedModule { path: vec![self.sym(&stem)], file, ast, is_std: false, dependency: false });
         // breadth-first discovery of imported user modules; each module
         // resolves imports relative to its own package
         let mut module_pkg: Vec<usize> = vec![0; modules.len()];
@@ -478,7 +478,7 @@ impl Session {
                 self.sources.set_module(file, mname.join("."));
                 if let Some(ast) = self.parse(file) {
                     // modules are addressable by both the written and stripped path
-                    modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false });
+                    modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false, dependency: target != 0 });
                     module_pkg.push(target);
                 }
             }
@@ -547,7 +547,7 @@ impl Session {
                 add_imports(&ast, src, &mut wanted, &self.interner);
                 let mut mpath = vec![std_sym];
                 mpath.extend(name.split('/').map(|s| self.sym(s)));
-                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true }));
+                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true, dependency: false }));
             }
         }
         // in the library's own order

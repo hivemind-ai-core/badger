@@ -66,6 +66,8 @@ pub struct Module {
     pub path: Vec<Symbol>,
     pub file: badger_base::FileId,
     pub is_std: bool,
+    /// A module of a dependency package.
+    pub dependency: bool,
     /// Items declared in this module (both namespaces; case distinguishes).
     pub items: FxHashMap<Symbol, DefId>,
     pub tests: Vec<DefId>,

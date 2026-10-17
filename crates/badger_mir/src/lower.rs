@@ -3523,8 +3523,9 @@ pub fn lower_program_optimized<'g, 'a>(
             m.static_closure(f);
         }
         if tests {
-            // every user module's tests; outside the entry module they are
-            // named with their module path
+            // the tests of every module of the package (not of its
+            // dependencies); outside the entry module they are named with
+            // their module path
             for (mid, module) in hir.modules.iter() {
                 if module.is_std {
                     continue;

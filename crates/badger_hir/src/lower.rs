@@ -13,6 +13,8 @@ pub struct ParsedModule {
     pub file: FileId,
     pub ast: ast::Ast,
     pub is_std: bool,
+    /// A module of a dependency package (its tests are not the program's).
+    pub dependency: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,6 +229,7 @@ impl Cx<'_> {
                 path: m.path.clone(),
                 file: m.file,
                 is_std: m.is_std,
+                dependency: m.dependency,
                 items: FxHashMap::default(),
                 tests: vec![],
             });
@@ -444,7 +447,7 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && name.starts_with("test_") && f.params.is_empty() {
+                if !m.is_std && !m.dependency && name.starts_with("test_") && f.params.is_empty() {
                     self.hir.modules[mid].tests.push(def);
                 }
             }
