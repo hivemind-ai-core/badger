@@ -336,19 +336,50 @@ fn run(m: &'static Loaded, index: usize, mode: Mode, args: Vec<u8>) -> Vec<u8> {
     match mode {
         Mode::Inline => unsafe { (module.call)(&HOST, raw, index) },
         Mode::Blocking => {
+            // the call owns its argument bytes: a cancelled task stops
+            // waiting, and a result it never takes releases its handles
             let raw = raw as usize;
             let module = module as *const Module as usize;
+            let done = Untaken(st.clone());
             with_lock(|| {
-                task::run_blocking(move || unsafe {
-                    let module = &*(module as *const Module);
-                    (module.call)(&HOST, raw as *mut Call, index)
+                task::run_blocking_abandonable(move || {
+                    unsafe {
+                        let module = &*(module as *const Module);
+                        (module.call)(&HOST, raw as *mut Call, index)
+                    }
+                    done
                 })
-            });
+            })
+            .disarm();
         }
         Mode::Async => with_lock(|| wait_async(&st, module, raw, index)),
     }
     let result = st.result.lock().unwrap().take();
     result.unwrap_or_else(|| nv::defect("the module returned without completing the call"))
+}
+
+/// A blocking call's state on its way back to the task: dropped without
+/// [`Untaken::disarm`] (the task stopped waiting), it releases the handles
+/// of the result.
+struct Untaken(Arc<CallState>);
+
+// the state is shared with the module's call through the same `Arc`
+unsafe impl Send for Untaken {}
+
+impl Untaken {
+    fn disarm(self) {
+        // the task takes the result: drop the shared state without releasing
+        let me = std::mem::ManuallyDrop::new(self);
+        drop(unsafe { std::ptr::read(&me.0) });
+    }
+}
+
+impl Drop for Untaken {
+    fn drop(&mut self) {
+        if let Some(bytes) = self.0.result.lock().unwrap().take() {
+            release_handles(self.0.drop_handle, &bytes);
+        }
+    }
 }
 
 fn with_lock<R>(f: impl FnOnce() -> R) -> R {

@@ -120,7 +120,7 @@ os_intrinsics! {
         // Result<List<String>, io.Error>
         let path = str_of(p).to_string();
         let r = crate::repro::external("list", &path.clone(), None, false, move || {
-            crate::task::run_blocking(move || {
+            crate::task::run_blocking_abandonable(move || {
                 std::fs::read_dir(&path).map(|it| {
                     let mut v: Vec<String> = it.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
                     v.sort();
@@ -148,7 +148,9 @@ os_intrinsics! {
         let argv: Vec<String> = list::to_vec(args).into_iter().map(|w| str_of(w).to_string()).collect();
         let key = std::iter::once(&prog).chain(&argv).map(|a| format!("{a:?}")).collect::<Vec<_>>().join(" ");
         let r = crate::repro::external("process", &key, None, false, move || {
-            crate::task::run_blocking(move || std::process::Command::new(&prog).args(&argv).output())
+            let mut cmd = std::process::Command::new(&prog);
+            cmd.args(&argv);
+            run_child(cmd, None)
                 .map(|out| {
                     let text = |b: &[u8]| String::from_utf8_lossy(b).into_owned();
                     (out.status.code().unwrap_or(-1) as i64, text(&out.stdout), text(&out.stderr))
@@ -179,25 +181,9 @@ os_intrinsics! {
             .collect::<Vec<_>>()
             .join(" ");
         let r = crate::repro::external("process", &key, None, false, move || {
-            crate::task::run_blocking(move || {
-                use std::io::Write;
-                use std::process::Stdio;
-                let mut child = std::process::Command::new(&prog)
-                    .args(&argv)
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()?;
-                // written from its own thread: a program that writes before
-                // reading all of its input cannot block on a full pipe
-                let mut stdin = child.stdin.take().expect("piped stdin");
-                let writer = std::thread::spawn(move || {
-                    let _ = stdin.write_all(input.as_bytes());
-                });
-                let out = child.wait_with_output();
-                let _ = writer.join();
-                out
-            })
+            let mut cmd = std::process::Command::new(&prog);
+            cmd.args(&argv);
+            run_child(cmd, Some(input))
             .map(|out| {
                 let text = |b: &[u8]| String::from_utf8_lossy(b).into_owned();
                 (out.status.code().unwrap_or(-1) as i64, text(&out.stdout), text(&out.stderr))
@@ -429,4 +415,76 @@ fn run_exit_hook() {
     if let Some(f) = EXIT_HOOK.lock().unwrap().as_ref() {
         f();
     }
+}
+
+/// Run a subprocess to completion on the blocking pool (writing `input` to
+/// its standard input when given). Cancelling the waiting task kills the
+/// child; the task still waits for it to exit, then leaves as cancelled.
+fn run_child(mut cmd: std::process::Command, input: Option<String>) -> std::io::Result<std::process::Output> {
+    use std::process::Stdio;
+    use std::sync::{Arc, Mutex};
+    // the running child's pid, cleared once it has been reaped (a kill
+    // never reaches a reused pid)
+    let pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
+    let running = pid.clone();
+    crate::task::run_blocking_cancellable(
+        move || {
+            use std::io::Write;
+            if input.is_some() {
+                cmd.stdin(Stdio::piped());
+            }
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+            let mut child = cmd.spawn()?;
+            *running.lock().unwrap() = Some(child.id());
+            // written from its own thread: a program that writes before
+            // reading all of its input cannot block on a full pipe
+            let writer = input.map(|text| {
+                let mut stdin = child.stdin.take().expect("piped stdin");
+                std::thread::spawn(move || {
+                    let _ = stdin.write_all(text.as_bytes());
+                })
+            });
+            // the output pipes drain while the child runs
+            let drain = |p: Option<Box<dyn std::io::Read + Send>>| {
+                std::thread::spawn(move || {
+                    let mut buf = vec![];
+                    if let Some(mut r) = p {
+                        let _ = r.read_to_end(&mut buf);
+                    }
+                    buf
+                })
+            };
+            let out_r = drain(child.stdout.take().map(|p| Box::new(p) as Box<dyn std::io::Read + Send>));
+            let err_r = drain(child.stderr.take().map(|p| Box::new(p) as Box<dyn std::io::Read + Send>));
+            // wait for the exit without reaping: until the pid is cleared, a
+            // kill reaches this child (or its zombie), never a reused pid
+            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+            loop {
+                let r = unsafe {
+                    libc::waitid(
+                        libc::P_PID,
+                        child.id() as libc::id_t,
+                        &mut info,
+                        libc::WEXITED | libc::WNOWAIT,
+                    )
+                };
+                if r == 0 || std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                    break;
+                }
+            }
+            *running.lock().unwrap() = None;
+            let status = child.wait();
+            if let Some(w) = writer {
+                let _ = w.join();
+            }
+            let stdout = out_r.join().unwrap_or_default();
+            let stderr = err_r.join().unwrap_or_default();
+            status.map(|status| std::process::Output { status, stdout, stderr })
+        },
+        move || {
+            if let Some(p) = *pid.lock().unwrap() {
+                unsafe { libc::kill(p as libc::pid_t, libc::SIGKILL) };
+            }
+        },
+    )
 }
