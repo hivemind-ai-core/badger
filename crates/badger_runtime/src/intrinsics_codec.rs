@@ -274,6 +274,12 @@ pub fn report_overload() {
 /// Record an event in the bounded sink. Diagnostics never block business
 /// code: when the sink is full, the overflow policy decides which event is
 /// lost, and losses are counted and reported separately.
+/// An environment variable read by `std.config`: recorded and replayed like
+/// `env.get`, so a replay sees the recorded configuration.
+fn env_var(name: &str) -> Option<String> {
+    crate::repro::external("env", name, None, crate::repro::secret_name(name), || std::env::var(name).ok())
+}
+
 pub fn record_event(name: &str, payload: &str) {
     let mut g = SINK.lock().unwrap();
     g.recorded += 1;
@@ -364,7 +370,7 @@ fn config_object(
             continue;
         }
         let env_key = format!("{env_pre}{}", f.name.to_uppercase());
-        let (key, raw) = match std::env::var(&env_key) {
+        let (key, raw) = match env_var(&env_key).ok_or(std::env::VarError::NotPresent) {
             Ok(v) => (env_key, Ok(v)),
             Err(e) => match profile_data.iter().find(|(k, _)| *k == path) {
                 // `${NAME}` and `${NAME:-default}` in a configured value
@@ -431,7 +437,7 @@ pub fn expand_env(v: &str) -> Result<String, String> {
         if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             return Err(format!("`${{{inner}}}` does not name an environment variable"));
         }
-        match (std::env::var(name).ok().filter(|x| !x.is_empty() || default.is_none()), default) {
+        match (env_var(name).filter(|x| !x.is_empty() || default.is_none()), default) {
             (Some(x), _) => out.push_str(&x),
             (None, Some(d)) => out.push_str(d),
             (None, None) => return Err(format!("environment variable `{name}` is not set")),
@@ -471,7 +477,7 @@ fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix:
             let field = path.split('[').next().unwrap_or(path);
             let env_key = format!("{pre}{}", field.replace('.', "_").to_uppercase());
             let key =
-                if profile && std::env::var_os(&env_key).is_none() { field.to_string() } else { env_key };
+                if profile && env_var(&env_key).is_none() { field.to_string() } else { env_key };
             err(&key, &e.message)
         }
     }

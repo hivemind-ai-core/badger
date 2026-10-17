@@ -2201,6 +2201,35 @@ fn private_struct_update() {
     assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
 }
 
+/// Environment reads by `std.config` are recorded: a replay under a
+/// different environment sees the recorded configuration.
+#[test]
+fn config_env_replays() {
+    let dir = std::env::temp_dir().join(format!("badger-config-replay-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("cfg.bdg"),
+        "import std.io\nimport std.config\ntype Settings = { port: Int, name: String }\n\
+         pub fn main() -> Result<Unit, String> {\n\
+         let s = config.from_env<Settings>(\"DEMO_\").map_err(fn(e) => e.display())?\n\
+         io.println($\"{s.name}:{s.port}\").map_err(fn(e) => \"io\")?\nok(())\n}\n",
+    )
+    .unwrap();
+    let rec = lang()
+        .current_dir(&dir)
+        .args(["run", "--record", "b.json", "cfg.bdg"])
+        .env("DEMO_PORT", "1")
+        .env("DEMO_NAME", "a")
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&rec.stdout), "a:1\n", "{}", String::from_utf8_lossy(&rec.stderr));
+    let rep = lang().current_dir(&dir).args(["replay", "b.json"]).env("DEMO_PORT", "2").env_remove("DEMO_NAME").output().unwrap();
+    let err = String::from_utf8_lossy(&rep.stderr).to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
+    assert_eq!(String::from_utf8_lossy(&rep.stdout), "a:1\n");
+}
+
 /// Inherent methods are private to their module unless `pub`, by method
 /// call and by path; protocol methods stay usable.
 #[test]
