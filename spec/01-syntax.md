@@ -77,14 +77,14 @@ let mask = 0xFFU32
 let message = "hello"
 let formatted = $"received {count} jobs"
 let initial = 'A'
-let key = :database
-let namespaced_key = :app/database
+let key = #database
+let namespaced_key = #app/database
 let pair = (count, message)
 let nothing = ()
 let jobs = [first_job, second_job]
-let request = { path: "/orders", method: :post }
+let request = { path: "/orders", method: #post }
 let headers = map { "accept" => "application/json" }
-let methods = set { :get, :post }
+let methods = set { #get, #post }
 ```
 
 Integer literals support decimal, `0x`, and `0b`, with `_` separators.
@@ -100,7 +100,10 @@ include `\n`, `\r`, `\t`, `\0`, `\\`, `\"`, `\'`, and `\u{...}`. Interpolation u
 `$"...{expression}..."`; `{{` and `}}` escape interpolation braces. Interpolated
 values need a `Display` implementation. Triple-quoted strings preserve raw
 multiline text without escape processing; a `$` prefix enables interpolation.
-Symbols are interned qualified names, distinct from strings and enum variants.
+Symbols are interned qualified names, distinct from strings and enum variants,
+written `#name` or `#ns/name` (no space after the `#`). Displayed on its own a
+symbol shows its name (`database`); inside a list, record, or other value it
+keeps the `#` (`[#store, #api]`).
 
 `{}` is an empty record. A brace expression beginning with a field label, a
 spread, or shorthand fields (`{ name }`, `{ a, b }`, meaning `{ name: name }`)

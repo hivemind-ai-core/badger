@@ -7,12 +7,12 @@ subscribed (unlike a channel, where each message has one consumer).
 
 Retention is per subscriber: a bounded backlog of `backlog` messages.
 When a subscriber's backlog is full, the policy decides:
-- `:drop_oldest` (default): the oldest pending message is dropped and the
+- `#drop_oldest` (default): the oldest pending message is dropped and the
   subscriber's `lagged()` count grows; publishing never waits.
-- `:block`: publishing waits for the slow subscriber.
+- `#block`: publishing waits for the slow subscriber.
 
 A subscriber that is done calls `close()`: publishing then stops
-delivering to it (and, under `:block`, stops waiting for it). One that is
+delivering to it (and, under `#block`, stops waiting for it). One that is
 only dropped stays subscribed, since the broadcaster still holds its end.
 
 ## Types

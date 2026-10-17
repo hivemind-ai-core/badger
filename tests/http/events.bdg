@@ -35,7 +35,7 @@ fn ticks(closed: Atom<Int>) -> Seq<http.Event> {
 }
 
 let api = system.provider({
-    name: :test/events,
+    name: #test/events,
     init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
         let closed = Atom.new(0)
         let events = http.streaming_handler(fn(request) -> Result<http.Streamed, http.Error> {
@@ -55,9 +55,9 @@ pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("SSE_")?
     let plan = system {
         api: component(api, {}),
-        events: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).events }),
-        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).scoped }),
-        count: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(:api).count }),
+        events: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(#api).events }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(#api).scoped }),
+        count: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(#api).count }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

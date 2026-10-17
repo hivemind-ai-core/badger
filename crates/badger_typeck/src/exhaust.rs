@@ -314,7 +314,7 @@ pub fn check_system_nodes(inf: &mut Infer<'_, '_>, d: DefId, generalized: &[Ty])
             let TyKind::Con(_, args) = &*t else { return };
             let Some(out) = args.last() else { return };
             let key = match cargs.first().map(|a| &hir.exprs[*a].kind) {
-                Some(ExprKind::Lit(Lit::Symbol(s))) => format!("system node `:{}`", inf.sym(*s)),
+                Some(ExprKind::Lit(Lit::Symbol(s))) => format!("system node `#{}`", inf.sym(*s)),
                 _ => "system node `this node`".into(),
             };
             outs.push((out.clone(), hir.exprs[e].span, key));

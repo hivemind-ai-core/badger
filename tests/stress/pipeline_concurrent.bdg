@@ -29,9 +29,9 @@ fn counter(name: Symbol, seen: Atom<Int>) -> pipeline.Stage<Ctx, Ctx, String, St
 pub fn main() -> Result<Unit, AppError> {
     let seen = Atom.new(0)
     let plan = pipeline {
-        counter(:stress/a, seen),
-        counter(:stress/b, seen),
-        counter(:stress/c, seen),
+        counter(#stress/a, seen),
+        counter(#stress/b, seen),
+        counter(#stress/c, seen),
         handle(fn(ctx: Ctx) -> Result<String, String> { ok($"{ctx.id}:{ctx.hits}") }),
     }
     let run = pipeline.compile(plan)

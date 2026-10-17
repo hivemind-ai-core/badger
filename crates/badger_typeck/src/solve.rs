@@ -926,7 +926,7 @@ impl Infer<'_, '_> {
                             Diagnostic::error("a record cannot be indexed by a runtime value")
                                 .with_code("E0335")
                                 .with_label(*span, "heterogeneous fields have no single result type")
-                                .with_note("use a literal symbol label `record[:label]`, or convert to `Data` or a `Map` explicitly"),
+                                .with_note("use a literal symbol label `record[#label]`, or convert to `Data` or a `Map` explicitly"),
                         );
                         Step::Solved
                     }

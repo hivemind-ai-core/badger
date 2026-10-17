@@ -8,7 +8,7 @@ pub enum ExampleError {
 
 fn auditing() {
     pipeline.stage({
-        name: :example/audit,
+        name: #example/audit,
         enter: fn(ctx) {
             pipeline.next({ ..ctx, verified: false })
         },
@@ -19,7 +19,7 @@ fn auditing() {
         },
         error: fn(ctx, error) {
             // Reads true after the later update, false if it never committed.
-            trace.event(:example/audit_error, { verified: ctx.verified })
+            trace.event(#example/audit_error, { verified: ctx.verified })
             pipeline.propagate(ctx, error)
         },
     })
@@ -27,7 +27,7 @@ fn auditing() {
 
 fn verifying() {
     pipeline.stage({
-        name: :example/verify,
+        name: #example/verify,
         enter: fn(ctx) {
             pipeline.next({ ..ctx, verified: true, token: "checked" })
         },

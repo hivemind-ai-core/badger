@@ -96,7 +96,7 @@ returns a lazy `Seq<String>`).
   a `postgres.pool` provider) over pooled server connections.
 - SQL as SQL: `badger generate sql FILE.sql` turns a file of named queries
   (`-- name: find_user :one`, with `:one`, `:opt`, `:many`, or `:exec`,
-  and `:name` parameters) into `FILE.bdg`: a row record type and a typed
+  and `#name` parameters) into `FILE.bdg`: a row record type and a typed
   function per query, taking a pool or transaction. Types come from the
   database: Postgres describes each statement (`--database`, or
   `DATABASE_URL`), SQLite prepares it against the schema. See
@@ -111,7 +111,7 @@ returns a lazy `Seq<String>`).
   commits the new state, what happens next (`again`, `after(delay)`,
   `done`, `failed(reason)`), and outbox operations (idempotent by key; a
   key reused with another payload is an error) in one transaction that
-  fails with `:jobs/lease_lost` or `:jobs/cancelled` when the claim no
+  fails with `#jobs/lease_lost` or `#jobs/cancelled` when the claim no
   longer holds. `retry` records a failed attempt with a backoff; `cancel`
   fences out the worker and cancels unsent operations. `dispatch(kind,
   limit, timeout, send)` marks each pending operation `sending` (committed)

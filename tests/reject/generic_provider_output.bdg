@@ -5,7 +5,7 @@ import std.system.{component}
 pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
-fn empty<T>() -> system.Provider<{ x: Int }, List<T>, F> { system.provider({ name: :t/g, init: fn(scope, c) -> Result<List<T>, F> { ok([]) } }) }
+fn empty<T>() -> system.Provider<{ x: Int }, List<T>, F> { system.provider({ name: #t/g, init: fn(scope, c) -> Result<List<T>, F> { ok([]) } }) }
 pub fn main() -> Result<Unit, system.Error> {
     let plan = system { a: component(empty(), { x: 1 }) }
     system.run(plan, fn(r) -> Result<Unit, system.Error> { ok(()) })

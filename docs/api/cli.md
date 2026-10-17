@@ -13,9 +13,9 @@ Each field is an option, spelled in kebab case (`dry_run` is
 be left out; a `List` field may repeat (`--tag a --tag b`; absent is
 empty); an enum field takes one of its variant names. A field named
 `args` (`List<String>`) collects the positional arguments, and `--`
-ends the options. `-h`/`--help` returns a `:cli/help` error whose
-`usage` is the help text; other problems are `:cli/unknown`,
-`:cli/missing`, and `:cli/invalid` errors that carry it too.
+ends the options. `-h`/`--help` returns a `#cli/help` error whose
+`usage` is the help text; other problems are `#cli/unknown`,
+`#cli/missing`, and `#cli/invalid` errors that carry it too.
 
 ## Types
 

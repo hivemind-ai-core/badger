@@ -88,10 +88,10 @@ pub fn parse_recovering(
     let input = tokens.as_slice().split_token_span(eoi);
     // the fast pass tracks no errors; a file that does not parse is parsed
     // again for the report (with recovery, so every error is found)
-    let fast = grammar::program::<_, chumsky::error::EmptyErr>(src).parse(input).into_output_errors();
+    let fast = grammar::program::<_, chumsky::error::EmptyErr>().parse(input).into_output_errors();
     let (items, parse_errors) = match fast {
         (Some(items), errs) if errs.is_empty() => (Some(items), vec![]),
-        _ => grammar::program::<_, grammar::Error<'_, '_>>(src).parse(input).into_output_errors(),
+        _ => grammar::program::<_, grammar::Error<'_, '_>>().parse(input).into_output_errors(),
     };
     for e in parse_errors {
         let mut d = syntax(*e.span(), describe(&e));
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn literals() {
-        let (ast, int) = parse_ok("let a = [0xFFU32, 12U8, 0.5F32, 1_000, 100ms, 'A', :app/db, $\"n={n}\"]");
+        let (ast, int) = parse_ok("let a = [0xFFU32, 12U8, 0.5F32, 1_000, 100ms, 'A', #app/db, $\"n={n}\"]");
         let ExprKind::List(items) = &ast.exprs[body_expr(&ast)].kind else { panic!() };
         let ExprKind::Lit(Lit::Int { value: 255, suffix: Some(s) }) = ast.exprs[items[0]].kind else {
             panic!()
@@ -384,9 +384,9 @@ mod tests {
     }
 
     #[test]
-    fn symbols_need_no_space() {
-        // `x: Int` is an annotation, `{a:b}` a field, `:b` a symbol
-        let (ast, _) = parse_ok("fn f(x: Int) -> Int { x }\nlet r = {a:b}\nlet s = { k: :v }");
+    fn symbols_and_colons() {
+        // `x: Int` is an annotation, `{a:b}` a field, `#b` a symbol
+        let (ast, _) = parse_ok("fn f(x: Int) -> Int { x }\nlet r = {a:b}\nlet s = { k: #v }");
         let ItemKind::Global { value, .. } = ast.items[1].kind else { panic!() };
         let ExprKind::Record { entries, .. } = &ast.exprs[value].kind else { panic!() };
         let RecordEntry::Field { value, .. } = &entries[0] else { panic!() };

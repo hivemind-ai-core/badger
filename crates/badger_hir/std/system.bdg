@@ -178,7 +178,7 @@ pub struct ErasedNode {
     config_type: Int,
 }
 
-/// A typed node handle: `ref(:key)` reads its output through `output`;
+/// A typed node handle: `ref(#key)` reads its output through `output`;
 /// `C` is its provider's configuration type.
 pub struct Node<C, O> {
     pub index: Int,
@@ -247,7 +247,7 @@ impl<Os: Row, Cs: Row> SystemPlan<Os, Cs> {
         let nodes = self.nodes
         list.map(nodes, fn(n: ErasedNode) -> { key: Symbol, provider: Symbol, at: String, deps: List<Symbol> } {
             let deps = list.map(n.deps, fn(i: Int) -> Symbol {
-                var label = :unknown
+                var label = #unknown
                 for m in nodes {
                     if m.index == i {
                         label = m.label
@@ -260,7 +260,7 @@ impl<Os: Row, Cs: Row> SystemPlan<Os, Cs> {
     }
 }
 
-/// `system.replace(plan, :key, provider)`: the same plan with one node's
+/// `system.replace(plan, #key, provider)`: the same plan with one node's
 /// provider replaced (tests). The replacement keeps the node's declared
 /// configuration and output contract, checked statically (the compiler
 /// supplies `pick` and `pick_config`).
@@ -291,7 +291,7 @@ pub fn replace_node<Os: Row, Cs: Row, C, O, E>(plan: SystemPlan<Os, Cs>, key: Sy
     ok({ nodes, view: plan.view, configs: plan.configs })
 }
 
-/// `system.select(plan, [:key, ...])`: the sub-plan that starts only the
+/// `system.select(plan, [#key, ...])`: the sub-plan that starts only the
 /// selected keys and their dependency closure (in the original order), with
 /// just those keys' outputs. The keys must be a literal list; the compiler
 /// rewrites the call to `select_keys` with a typed projection.
@@ -460,14 +460,14 @@ pub fn run<Os: Row, Cs: Row, R, E>(plan: SystemPlan<Os, Cs>, body: for<S: Scope>
         .ok(v) => if list.len(notes) == 0 {
             ok(v)
         } else {
-            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.none, cause: Option.none }
+            let failure: Error = { node: #system/halt, message: "cleanup failed", notes, original: Option.none, cause: Option.none }
             err(E.from(failure))
         },
         // a cleanup failure after a failed body keeps the original attached
         .err(e) => if list.len(notes) == 0 {
             err(e)
         } else {
-            let failure: Error = { node: :system/halt, message: "cleanup failed", notes, original: Option.some(e.display()), cause: Option.none }
+            let failure: Error = { node: #system/halt, message: "cleanup failed", notes, original: Option.some(e.display()), cause: Option.none }
             err(E.from(failure))
         },
     }

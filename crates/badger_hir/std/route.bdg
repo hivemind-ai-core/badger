@@ -52,7 +52,7 @@ fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request
             match handler(request, params) {
                 .ok(r) => r,
                 .err(e) => {
-                    trace_event(:route/handler_error, { route: name, message: e.display() })
+                    trace_event(#route/handler_error, { route: name, message: e.display() })
                     json_reply(500, { error: "internal server error" })
                 },
             }
@@ -61,19 +61,19 @@ fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request
 }
 
 pub fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
-    route(:get, path, name, handler)
+    route(#get, path, name, handler)
 }
 
 pub fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
-    route(:post, path, name, handler)
+    route(#post, path, name, handler)
 }
 
 pub fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
-    route(:put, path, name, handler)
+    route(#put, path, name, handler)
 }
 
 pub fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
-    route(:delete, path, name, handler)
+    route(#delete, path, name, handler)
 }
 
 /// A typed JSON route: the request body is validated against `B`'s schema
@@ -94,7 +94,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
                 .ok(b) => match handler(request, params, b) {
                     .ok((status, reply)) => json_reply(status, reply),
                     .err(e) => {
-                        trace_event(:route/handler_error, { route: name, message: e.display() })
+                        trace_event(#route/handler_error, { route: name, message: e.display() })
                         json_reply(500, { error: "internal server error" })
                     },
                 },
@@ -106,7 +106,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
 /// A typed JSON route without a request body.
 pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<(Int, R), E>) -> Route where R: Codec, E: Display {
     {
-        method: :get,
+        method: #get,
         path,
         name,
         params: Option.none,
@@ -116,7 +116,7 @@ pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Para
             match handler(request, params) {
                 .ok((status, reply)) => json_reply(status, reply),
                 .err(e) => {
-                    trace_event(:route/handler_error, { route: name, message: e.display() })
+                    trace_event(#route/handler_error, { route: name, message: e.display() })
                     json_reply(500, { error: "internal server error" })
                 },
             }
@@ -137,19 +137,19 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
         path,
         name,
         params: Option.some(schema.json_schema(schema.of<P>())),
-        body: if method == :get || method == :delete { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
+        body: if method == #get || method == #delete { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, raw) {
             match params_decode<P>(raw) {
                 .err(e) => json_reply(400, { error: "invalid path parameter", path: e.path, message: e.message }),
                 .ok(p) => {
-                    let body = if method == :get || method == :delete { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
+                    let body = if method == #get || method == #delete { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
                     match body {
                         .err(e) => json_reply(400, { error: "invalid request body", path: e.path, message: e.message }),
                         .ok(b) => match handler(request, p, b) {
                             .ok((status, reply)) => json_reply(status, reply),
                             .err(e) => {
-                                trace_event(:route/handler_error, { route: name, message: e.display() })
+                                trace_event(#route/handler_error, { route: name, message: e.display() })
                                 json_reply(500, { error: "internal server error" })
                             },
                         },
@@ -217,7 +217,7 @@ pub fn validate(routes: List<Route>) -> Result<Unit, RouteError> {
     var i = 0
     while i < list.len(routes) {
         let r = routes[i]
-        if ![:get, :post, :put, :delete, :patch].contains(r.method) {
+        if ![#get, #post, #put, #delete, #patch].contains(r.method) {
             return err({ message: $"route {r.name} has unknown method {r.method}" })
         }
         if !text.starts_with(r.path, "/") {

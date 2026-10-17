@@ -51,7 +51,7 @@ impl io.Writer for File {
 }
 
 impl File {
-    /// Flush and close; later reads and writes fail with `:io/closed`.
+    /// Flush and close; later reads and writes fail with `#io/closed`.
     pub fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_close(self.handle) }
     pub fn write_text(self: &Self, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_write(self.handle, text_to_bytes(text)) }
 }
@@ -67,13 +67,13 @@ fn opened(path: String, mode: String) -> Result<File, io.Error> !{Io, Wait} {
 pub fn open(path: String) -> Result<File, io.Error> !{Io, Wait} { opened(path, "read") }
 /// Open a file for writing, creating it or emptying it.
 pub fn create(path: String) -> Result<File, io.Error> !{Io, Wait} { opened(path, "write") }
-/// Create a new file for writing (`:io/already_exists` if there is one).
+/// Create a new file for writing (`#io/already_exists` if there is one).
 pub fn create_new(path: String) -> Result<File, io.Error> !{Io, Wait} { opened(path, "create") }
 /// Open a file for adding to its end, creating it if absent.
 pub fn append_to(path: String) -> Result<File, io.Error> !{Io, Wait} { opened(path, "append") }
 
-/// What is at a path: `:file`, `:dir`, `:symlink` (not followed), or
-/// `:other`, with its size in bytes and when it last changed.
+/// What is at a path: `#file`, `#dir`, `#symlink` (not followed), or
+/// `#other`, with its size in bytes and when it last changed.
 pub type Metadata = { kind: Symbol, size: Int, modified_nanos: Int, readonly: Bool }
 
 /// When it last changed.
@@ -101,13 +101,13 @@ pub fn create_dir_all(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_c
 pub fn metadata(path: String) -> Result<Metadata, io.Error> !{Io, Wait} { fs_metadata(path) }
 pub fn is_dir(path: String) -> Bool !{Io, Wait} {
     match fs_metadata(path) {
-        .ok(m) => m.kind == :dir,
+        .ok(m) => m.kind == #dir,
         .err(_) => false,
     }
 }
 pub fn is_file(path: String) -> Bool !{Io, Wait} {
     match fs_metadata(path) {
-        .ok(m) => m.kind == :file,
+        .ok(m) => m.kind == #file,
         .err(_) => false,
     }
 }
@@ -173,7 +173,7 @@ impl Dir {
     pub fn remove_all(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait} {
         let p = fs_within(self.root, path)?
         if p == self.root {
-            return err({ kind: :io/permission_denied, message: "cannot remove the top of a tree through it" })
+            return err({ kind: #io/permission_denied, message: "cannot remove the top of a tree through it" })
         }
         fs_remove_all(p)
     }

@@ -213,27 +213,18 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
             i = j;
             continue;
         }
-        if c == ':' && next.is_some_and(is_ident_start) {
-            // a symbol literal where a value is expected; otherwise a colon
-            let value_position = match out.last() {
-                None => true,
-                Some(p) => {
-                    matches!(p.k, K::Open | K::Comma | K::Semi | K::Op | K::Colon | K::Keyword)
-                        || (spaced && p.k != K::Ident)
-                }
-            };
-            if value_position {
-                let mut j = i + 1;
-                while j < b.len()
-                    && (is_ident_char(b[j])
-                        || ((b[j] == '/' || b[j] == '.') && b.get(j + 1).is_some_and(|d| is_ident_start(*d))))
-                {
-                    j += 1;
-                }
-                push(&mut out, K::Symbol, b[i..j].iter().collect(), &mut spaced);
-                i = j;
-                continue;
+        if c == '#' && next.is_some_and(|n| n.is_ascii_alphabetic()) {
+            // a symbol literal: `#name` or `#ns/name`
+            let mut j = i + 1;
+            while j < b.len()
+                && (is_ident_char(b[j])
+                    || (b[j] == '/' && b.get(j + 1).is_some_and(|d| d.is_ascii_alphabetic())))
+            {
+                j += 1;
             }
+            push(&mut out, K::Symbol, b[i..j].iter().collect(), &mut spaced);
+            i = j;
+            continue;
         }
         let two: String = b[i..(i + 2).min(b.len())].iter().collect();
         let three: String = b[i..(i + 3).min(b.len())].iter().collect();
@@ -534,7 +525,7 @@ mod tests {
             ),
             ("let b = list.builder<Event>()", "let b = list.builder<Event>()"),
             ("let s = $\"{a}-{ f(\"x\") }\"", "let s = $\"{a}-{ f(\"x\") }\""),
-            ("component(p,{v:ref(:base)+1})", "component(p, { v: ref(:base) + 1 })"),
+            ("component(p,{v:ref(#base)+1})", "component(p, { v: ref(#base) + 1 })"),
             (
                 "impl<T> Display for Box<T> where T: Display {",
                 "impl<T> Display for Box<T> where T: Display {",

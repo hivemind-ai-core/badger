@@ -23,7 +23,7 @@ pub enum AppError {
     io(source: io.Error),
 } derive(Error, From)
 
-let num = system.provider({ name: :t/num, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
+let num = system.provider({ name: #t/num, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
 
 fn wrap() -> Wrapper<{ x: Int }> { { v: { x: 1 } } }
 

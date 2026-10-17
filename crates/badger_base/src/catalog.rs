@@ -255,7 +255,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0344",
         "records.remove label",
-        "`records.remove(record, :label)` needs a literal label (`:name` or `:ns/name`) naming a field the record has.",
+        "`records.remove(record, #label)` needs a literal label (`#name` or `#ns/name`) naming a field the record has.",
     ),
     (
         "E0139",
@@ -405,7 +405,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0335",
         "runtime record index",
-        "Records have heterogeneous fields, so `record[runtime_symbol]` has no single type. Use a literal label `record[:label]`, or convert to `Data` or a `Map`.",
+        "Records have heterogeneous fields, so `record[runtime_symbol]` has no single type. Use a literal label `record[#label]`, or convert to `Data` or a `Map`.",
     ),
     ("E0336", "not indexable", "Indexing applies to lists, arrays, buffers, and maps."),
     (
@@ -502,8 +502,8 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "effect bound violation",
         "An operation's effect is not permitted by the function's declared effect bound.",
     ),
-    ("E0601", "missing system reference", "`ref(:key)` must name a key of the same `system { ... }` plan."),
-    ("E0602", "ref outside system", "`ref(:key)` is only valid inside a system node's configuration."),
+    ("E0601", "missing system reference", "`ref(#key)` must name a key of the same `system { ... }` plan."),
+    ("E0602", "ref outside system", "`ref(#key)` is only valid inside a system node's configuration."),
     ("E0603", "invalid system entry", "System entries have the form `key: component(provider, config)`."),
     (
         "E0604",
@@ -513,7 +513,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0605",
         "dynamic system selection",
-        "`system.select(plan, keys)` takes a literal list of plan keys such as `[:database, :api]`, so the selected output record is known statically.",
+        "`system.select(plan, keys)` takes a literal list of plan keys such as `[#database, #api]`, so the selected output record is known statically.",
     ),
     (
         "E0606",

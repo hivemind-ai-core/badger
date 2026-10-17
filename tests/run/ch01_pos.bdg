@@ -68,15 +68,15 @@ pub fn main() -> Result<Unit, io.Error> {
     let formatted = $"received {count} jobs, braces {{literal}}"
     let initial = 'A'
     let uni = '\u{263A}'
-    let key = :database
-    let namespaced_key = :app/database
+    let key = #database
+    let namespaced_key = #app/database
     let pair = (count, message)
     let one = (count,)
     let nothing = ()
     let jobs = [1, 2, 3]
-    let request = { path: "/orders", method: :post }
+    let request = { path: "/orders", method: #post }
     let headers = map { "accept" => "application/json" }
-    let methods = set { :get, :post }
+    let methods = set { #get, #post }
     let empty = {}
     let raw = """raw {count} \n stays"""
     let raw_i = $"" "interp {count}" ""

@@ -78,12 +78,12 @@ Ordinary labels are lowercase identifiers. Qualified symbol labels allow
 library-specific extensions without unrelated name collisions:
 
 ```badger fragment
-let authenticated = { ..request, [:auth/user]: user }
-let current_user = authenticated[:auth/user]
+let authenticated = { ..request, [#auth/user]: user }
+let current_user = authenticated[#auth/user]
 let { name, age, .. } = person
 ```
 
-Identifier `name` denotes the symbol `:name`; qualified labels retain their
+Identifier `name` denotes the symbol `#name`; qualified labels retain their
 full symbol identity. A literal-symbol selection is statically typed.
 `record[runtime_symbol]` is rejected: heterogeneous fields do not have a single
 inferred result type for arbitrary keys. Convert to `Data` or a map explicitly
@@ -103,7 +103,7 @@ let relocated = { ..person, address.city: "Cork" }
 Dotted updates require every intermediate record to exist. The final field
 may be added or replaced. Overlapping explicit paths, such as `address` and
 `address.city`, are rejected. They lower to nested row-preserving updates.
-`records.remove(record, :label)` requires a literal existing label and returns
+`records.remove(record, #label)` requires a literal existing label and returns
 the row without it. `records.merge(left, right)` is right-biased; an overlapping
 field takes the right value and type. Reflection specializes these operations;
 it is not runtime hashing of ordinary field accesses.

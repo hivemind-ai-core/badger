@@ -94,10 +94,11 @@ pub fn main() -> Result<Unit, io.Error> {
 
     // ---- Symbols ----
     // Interned names for tags and keys, distinct from strings. They can be
-    // namespaced with `/`. They print without the colon.
-    let key = :database
-    let namespaced = :app/database
-    io.println($"{key} {namespaced} {key == :database}")?
+    // namespaced with `/`. Printed on their own they show just the name;
+    // inside a list or record they keep the `#` (`[#a, #b]`).
+    let key = #database
+    let namespaced = #app/database
+    io.println($"{key} {namespaced} {key == #database}")?
 
     // ---- Durations ----
     // Literal units: ns, us, ms, s, min, h.
@@ -582,8 +583,8 @@ pub fn main() -> Result<Unit, io.Error> {
     }
 
     // ---- Set<T>: membership ----
-    let tags = set { :urgent, :billing }
-    io.println($"{tags.contains(:urgent)} {tags.insert(:urgent).len()}")?
+    let tags = set { #urgent, #billing }
+    io.println($"{tags.contains(#urgent)} {tags.insert(#urgent).len()}")?
 
     // ---- Seq<T>: lazy sequences ----
     // Nothing runs until the sequence is consumed (by collect, count,
@@ -997,7 +998,7 @@ import std.text
 // A handler is a function from a request to a Result of a response.
 // Requests are records: { method, path, headers, body }.
 fn route(request: http.Request) -> Result<http.Response, http.Error> {
-    if request.method == :get && request.path == "/hello" {
+    if request.method == #get && request.path == "/hello" {
         // http.json encodes any record (or other Codec value) as JSON.
         http.json(200, { message: "hi", path: request.path })
     } else {
@@ -1010,9 +1011,9 @@ pub fn main() -> Result<Unit, io.Error> {
 
     // http.call runs a handler in-process: no socket, handy in tests.
     // http.listen(address, port, app) serves the same handler over TCP.
-    let hello = http.call(app, http.request(:get, "/hello", ""))
+    let hello = http.call(app, http.request(#get, "/hello", ""))
     io.println($"{hello.status} {text.from_bytes(hello.body).unwrap_or("?")}")?
-    let missing = http.call(app, http.request(:get, "/nope", ""))
+    let missing = http.call(app, http.request(#get, "/nope", ""))
     io.println(missing.status)?
     ok(())
 }

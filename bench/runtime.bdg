@@ -41,7 +41,7 @@ fn depth(n: Int) -> Int {
 
 fn resource(halts: Atom<Int>) -> system.Provider<{ n: Int }, Int, Failure> {
     system.provider({
-        name: :bench/resource,
+        name: #bench/resource,
         init: fn(scope, config) -> Result<Int, Failure> {
             scope.on_halt(fn() -> Result<Unit, Failure> {
                 let _ = halts.update(fn(h: Int) -> Int { h + 1 })
@@ -78,13 +78,13 @@ pub fn main() -> Result<Unit, AppError> {
     let halts = Atom.new(0)
     let plan = system {
         r1: component(resource(halts), { n: 1 }),
-        r2: component(resource(halts), { n: ref(:r1) + 1 }),
-        r3: component(resource(halts), { n: ref(:r2) + 1 }),
-        r4: component(resource(halts), { n: ref(:r3) + 1 }),
-        r5: component(resource(halts), { n: ref(:r4) + 1 }),
-        r6: component(resource(halts), { n: ref(:r5) + 1 }),
-        r7: component(resource(halts), { n: ref(:r6) + 1 }),
-        r8: component(resource(halts), { n: ref(:r7) + 1 }),
+        r2: component(resource(halts), { n: ref(#r1) + 1 }),
+        r3: component(resource(halts), { n: ref(#r2) + 1 }),
+        r4: component(resource(halts), { n: ref(#r3) + 1 }),
+        r5: component(resource(halts), { n: ref(#r4) + 1 }),
+        r6: component(resource(halts), { n: ref(#r5) + 1 }),
+        r7: component(resource(halts), { n: ref(#r6) + 1 }),
+        r8: component(resource(halts), { n: ref(#r7) + 1 }),
     }
     let ch = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
     let started = Atom.new(time.now())

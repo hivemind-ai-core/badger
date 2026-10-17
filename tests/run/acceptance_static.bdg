@@ -65,12 +65,12 @@ pub fn main() -> Result<Unit, AppError> {
     // visible field; early stop unwinds only established prefixes.
     let process = pipeline.compile(pipeline {
         pipeline.stage({
-            name: :t/first,
+            name: #t/first,
             enter: fn(ctx) { pipeline.next({ ..ctx, hits: 1 }) },
             leave: fn(ctx, reply) { pipeline.leave({ ..ctx, hits: ctx.hits + 1 }, reply + ctx.hits) },
         }),
         pipeline.stage({
-            name: :t/second,
+            name: #t/second,
             enter: fn(ctx) {
                 if ctx.id < 0 { return pipeline.stop(ctx, -1) }
                 pipeline.next({ ..ctx, doubled: ctx.hits * 2 })

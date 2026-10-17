@@ -25,7 +25,7 @@ and the one known limitation below.
 
 ## Differences from the compiler's parser
 
-The grammar follows `crates/badger_syntax/src/grammar.pest`, with two
+The grammar follows `crates/badger_syntax/src/grammar.rs`, with two
 simplifications. The compiler is the authority on what a program means.
 
 - **Newlines are whitespace here.** The compiler's layout pass makes a

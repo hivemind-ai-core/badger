@@ -20,7 +20,7 @@ fn say(s: String) -> Unit {
 
 fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ dep: Int }, Int, Failure> {
     system.provider({
-        name: :test/node,
+        name: #test/node,
         init: fn(scope, config) -> Result<Int, Failure> {
             if fail_start {
                 say($"start {label} failed")
@@ -42,9 +42,9 @@ pub enum AppError {
 
 pub fn main() -> Unit {
     let plan = system {
-        c: component(make("c", true, false), { dep: ref(:b) }),
+        c: component(make("c", true, false), { dep: ref(#b) }),
         a: component(make("a", false, true), { dep: 0 }),
-        b: component(make("b", false, false), { dep: ref(:a) }),
+        b: component(make("b", false, false), { dep: ref(#a) }),
     }
     say($"order: {plan.labels()}")
     let r = system.run(plan, fn(_running) -> Result<Unit, AppError> {

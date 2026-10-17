@@ -10,7 +10,7 @@ impl Error for Failure {}
 fn say(s: String) -> Unit { let _ = io.println(s) }
 pub enum AppError { system(source: system.Error) } derive(Error, From)
 import std.worker
-let res = system.provider({ name: :t/res, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
+let res = system.provider({ name: #t/res, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
     let alive = Atom.new(1)
     scope.on_halt(fn() -> Result<Unit, Failure> { alive.set(0); say("resource freed"); ok(()) })
     scope.worker(fn() -> Result<Unit, Failure> {

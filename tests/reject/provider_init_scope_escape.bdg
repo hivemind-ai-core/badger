@@ -10,7 +10,7 @@ impl Error for Failure {}
 fn say(s: String) -> Unit { let _ = io.println(s) }
 pub enum AppError { system(source: system.Error) } derive(Error, From)
 fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ dep: Int }, Int, Failure> {
-    system.provider({ name: :test/node, init: fn(scope, config) -> Result<Int, Failure> {
+    system.provider({ name: #test/node, init: fn(scope, config) -> Result<Int, Failure> {
         say($"start {label} (dep {config.dep})")
         scope.on_halt(fn() -> Result<Unit, Failure> {
             say($"halt {label} #1")
@@ -28,7 +28,7 @@ import std.worker
 pub fn main() -> Unit {
     let empty: List<system.InitScope> = []
     let stash = Atom.new(empty)
-    let leaky = system.provider({ name: :t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
+    let leaky = system.provider({ name: #t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
         stash.set([scope])
         ok(1)
     } })

@@ -6,7 +6,7 @@ import std.system.{component}
 
 pub fn main() -> Unit {
     let _ = system {
-        a: component(sqlite.pool, { path: ref(:b) }),
-        b: component(sqlite.pool, { path: ref(:a) }),
+        a: component(sqlite.pool, { path: ref(#b) }),
+        b: component(sqlite.pool, { path: ref(#a) }),
     }
 }

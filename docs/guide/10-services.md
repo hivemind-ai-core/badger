@@ -23,11 +23,11 @@ pub enum AppError {
 
 fn routes() -> List<route.Route> {
     [
-        route.get("/health", :health, fn(_request, _params) { http.text(200, "ok") }),
-        route.json_get("/notes/:id", :notes/show, fn(_request, params) -> Result<(Int, Note), String> {
+        route.get("/health", #health, fn(_request, _params) { http.text(200, "ok") }),
+        route.json_get("/notes/:id", #notes/show, fn(_request, params) -> Result<(Int, Note), String> {
             ok((200, { id: 1, title: $"note {params["id"]}" }))
         }),
-        route.json(:post, "/notes", :notes/create, fn(_request, _params, body: NewNote) -> Result<(Int, Note), String> {
+        route.json(#post, "/notes", #notes/create, fn(_request, _params, body: NewNote) -> Result<(Int, Note), String> {
             ok((201, { id: 2, title: body.title }))
         }),
     ]
@@ -39,11 +39,11 @@ fn show(r: http.Response) -> String {
 
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    io.println(show(http.call(handler, http.request(:get, "/health", ""))))?
-    io.println(show(http.call(handler, http.request(:get, "/notes/7", ""))))?
-    io.println(show(http.call(handler, http.request(:post, "/notes", "{\"title\":\"milk\"}"))))?
-    io.println(show(http.call(handler, http.request(:post, "/notes", "{}"))))?
-    io.println(show(http.call(handler, http.request(:get, "/missing", ""))))?
+    io.println(show(http.call(handler, http.request(#get, "/health", ""))))?
+    io.println(show(http.call(handler, http.request(#get, "/notes/7", ""))))?
+    io.println(show(http.call(handler, http.request(#post, "/notes", "{\"title\":\"milk\"}"))))?
+    io.println(show(http.call(handler, http.request(#post, "/notes", "{}"))))?
+    io.println(show(http.call(handler, http.request(#get, "/missing", ""))))?
     ok(())
 }
 ```
@@ -149,7 +149,7 @@ fn ticks(_request: http.Request) -> Result<http.Streamed, http.Error> {
 
 pub fn main() -> Result<Unit, io.Error> {
     let handler = http.streaming_handler(ticks)
-    let reply = http.call(handler, http.request(:get, "/ticks", ""))
+    let reply = http.call(handler, http.request(#get, "/ticks", ""))
     io.print(text.from_bytes(reply.body).unwrap_or(""))?
     ok(())
 }
@@ -240,7 +240,7 @@ itself failed. Requests run on the blocking pool while the task waits.
 | Function | Use |
 |---|---|
 | `fetch.get(url)`, `fetch.post(url, body, content_type)` | Text bodies, 30 s limit, no redirects |
-| `fetch.get_json<T>(url)`, `fetch.post_json<T, R>(url, value)` | JSON in and out; a non-2xx status is an `:io/http_status` error |
+| `fetch.get_json<T>(url)`, `fetch.post_json<T, R>(url, value)` | JSON in and out; a non-2xx status is an `#io/http_status` error |
 | `fetch.request(method, url)` then `fetch.send(r)` | Any method, headers, byte body, time limit, redirects, body limit |
 | `fetch.client(origin)` | A `Client` that may reach one origin only; pass it to code that should not reach others |
 

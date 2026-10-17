@@ -17,13 +17,13 @@ impl Display for Boom {
 impl Error for Boom {}
 
 let always_failing = system.provider({
-    name: :test/failing,
+    name: #test/failing,
     init: fn(scope, _cfg) -> Result<Unit, Boom> {
         scope.on_halt(fn() -> Result<Unit, Boom> {
             let _ = io.println("node halted")
             ok(())
         })
-        scope.worker_with(:test/bad, fn() -> Result<Unit, Boom> {
+        scope.worker_with(#test/bad, fn() -> Result<Unit, Boom> {
             err({ message: "always fails" })
         }, worker.on_failure({ max_restarts: 2, window: 10s, backoff: 1ms }), worker.cancel())
         ok(())

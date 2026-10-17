@@ -1,5 +1,5 @@
 // Broadcast delivers each message to every subscriber; a slow subscriber
-// with `:drop_oldest` retention loses its oldest messages and sees a lag.
+// with `#drop_oldest` retention loses its oldest messages and sees a lag.
 import std.broadcast
 import std.io
 

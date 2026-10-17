@@ -19,7 +19,7 @@ impl Display for Failure {
 impl Error for Failure {}
 
 fn value(v: Int) -> system.Provider<{ v: Int }, Int, Failure> {
-    system.provider({ name: :test/value, init: fn(scope, config) -> Result<Int, Failure> { ok(config.v) } })
+    system.provider({ name: #test/value, init: fn(scope, config) -> Result<Int, Failure> { ok(config.v) } })
 }
 
 type Ctx = { path: String }
@@ -28,7 +28,7 @@ type Ctx = { path: String }
 fn slow_chain() -> Result<String, String> {
     let chain = pipeline {
         pipeline.stage({
-            name: :test/auth,
+            name: #test/auth,
             enter: fn(ctx: Ctx) -> Result<pipeline.Enter<Ctx, Ctx, String>, String> {
                 task.sleep(1200ms)
                 pipeline.next(ctx)
@@ -49,7 +49,7 @@ pub enum AppError {
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
         base: component(value(1), { v: 1 }),
-        total: component(value(2), { v: ref(:base) + 1 }),
+        total: component(value(2), { v: ref(#base) + 1 }),
     }
     let full = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
     let idle = channel.create<String>({ ..channel.defaults, capacity: 4 })?

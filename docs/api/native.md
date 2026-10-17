@@ -24,7 +24,7 @@ struct Error { pub kind: Symbol, pub message: String } derive(Codec)
 ```
 
 An expected failure reported by a native module: a `kind` such as
-`:sqlite/constraint`, and a message.
+`#sqlite/constraint`, and a message.
 
 #### `Error.code`
 

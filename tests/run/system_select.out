@@ -1,4 +1,4 @@
-[:base, :derived]
+[#base, #derived]
 start base
 start derived
 derived = 11

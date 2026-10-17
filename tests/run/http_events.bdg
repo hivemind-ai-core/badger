@@ -23,7 +23,7 @@ pub fn main() -> Result<Unit, io.Error> {
         let from = http.last_event_id(request).unwrap_or("none")
         http.events(list.of([http.event($"resumed after {from}"), http.event("next").with_id("2")]))
     })
-    let request = { ..http.request(:get, "/events", ""), headers: map { "last-event-id" => "1" } }
+    let request = { ..http.request(#get, "/events", ""), headers: map { "last-event-id" => "1" } }
     let r = http.call(h, request)
     io.println($"{r.status} {r.headers.get("content-type").unwrap_or("?")}")?
     for e in http.parse_events(text.from_bytes(r.body).unwrap_or("")) {

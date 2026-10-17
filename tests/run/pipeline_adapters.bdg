@@ -17,7 +17,7 @@ fn lookup(c: Ctx) -> Result<Int, String> {
 
 fn logged() -> pipeline.Stage<Ctx, Ctx, String, ApiError> {
     pipeline.stage({
-        name: :demo/log,
+        name: #demo/log,
         leave: fn(c: Ctx, r: String) -> Result<(Ctx, String), ApiError> { pipeline.leave(c, $"[{r}]") },
     })
 }

@@ -240,17 +240,18 @@ see the [reference](../api/text.md).
 
 ## Symbols
 
-A symbol is an interned name: `:get`, `:database`, or qualified
-`:app/database`. Symbols compare by name and are distinct from strings.
-They print without the colon.
+A symbol is an interned name: `#get`, `#database`, or qualified
+`#app/database`, written without a space after the `#`. Symbols compare by
+name and are distinct from strings. Printed on their own they show just the
+name; inside a list or record they keep the `#` (`[#a, #b]`).
 
 ```badger
 import std.io
 
 pub fn main() -> Result<Unit, io.Error> {
-    let method = :post
-    io.println(method == :post)?
-    io.println(:app/database)?
+    let method = #post
+    io.println(method == #post)?
+    io.println(#app/database)?
     ok(())
 }
 ```

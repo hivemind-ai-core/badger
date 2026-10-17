@@ -10,10 +10,9 @@
 //!
 //! Words are one token kind: reserved words, contextual keywords (`system`,
 //! `map`, ...), and names are told apart by the parser, so a keyword can
-//! still name a field (`s.match()`, `{ type: t }`). Symbols (`:name`) and the
-//! two-character operators `>>` and `>=` are likewise recognized by the
-//! parser from adjacent tokens, so `Map<K, List<V>>` closes two generic
-//! argument lists and `x: Int` never reads as a symbol.
+//! still name a field (`s.match()`, `{ type: t }`). The two-character
+//! operators `>>` and `>=` are recognized by the parser from adjacent
+//! tokens, so `Map<K, List<V>>` closes two generic argument lists.
 
 // decision ladders list each case separately for readability
 #![allow(clippy::if_same_then_else)]
@@ -34,6 +33,9 @@ pub enum Tok<'a> {
     /// An identifier-shaped word: a name, a reserved word, or `_`.
     #[regex(r"[A-Za-z_][A-Za-z0-9_]*", |lex| lex.slice())]
     Word(&'a str),
+    /// A symbol, `#name` or `#ns/name`, with the text after the `#`.
+    #[regex(r"#[A-Za-z][A-Za-z0-9_]*(/[A-Za-z][A-Za-z0-9_]*)?", |lex| &lex.slice()[1..])]
+    Symbol(&'a str),
     /// A numeric literal, validated by the driver (see [`Tok::Int`]).
     #[regex(r"[0-9]", number)]
     Number(&'a str),
@@ -151,6 +153,7 @@ impl std::fmt::Display for Tok<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Tok::Word(w) => return write!(f, "`{w}`"),
+            Tok::Symbol(s) => return write!(f, "`#{s}`"),
             Tok::Number(n) | Tok::Int(n) | Tok::Float(n) | Tok::Duration(n) => return write!(f, "`{n}`"),
             Tok::Str(_) | Tok::RawStr(_) | Tok::InterpStart(_) => "a string",
             Tok::Char(_) => "a character",
@@ -471,6 +474,8 @@ pub fn lex(src: &str) -> (Vec<(Tok<'_>, Span)>, Vec<LexError>) {
                     "unterminated raw string: add the closing `\"\"\"`".to_string()
                 } else if text.starts_with('"') {
                     "unterminated string: add the closing `\"` on this line".to_string()
+                } else if text.starts_with('#') {
+                    "`#` starts a symbol: a letter follows it (`#name`, `#ns/name`)".to_string()
                 } else if text.starts_with('\'') {
                     "invalid character literal: one character or escape between single quotes".to_string()
                 } else {
@@ -632,6 +637,7 @@ fn ends(t: &Tok<'_>) -> Ends {
         | Tok::Str(_)
         | Tok::RawStr(_)
         | Tok::Char(_)
+        | Tok::Symbol(_)
         | Tok::InterpStart(_)
         | Tok::RParen
         | Tok::RBracket

@@ -249,7 +249,7 @@ fn flush(a: &Args) -> Outcome {
     Ok(Value::Unit)
 }
 
-/// Close (later reads and writes fail with `:io/closed`).
+/// Close (later reads and writes fail with `#io/closed`).
 fn close_file(a: &Args) -> Outcome {
     let f = file(a)?;
     let taken = f.lock().unwrap().take();

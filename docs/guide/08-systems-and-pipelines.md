@@ -20,7 +20,7 @@ fn say(line: String) -> Unit {
 }
 
 let store = system.provider({
-    name: :app/store,
+    name: #app/store,
     init: fn(scope, config: { prefix: String }) -> Result<_, AppError> {
         say("store: start")
         scope.on_halt(fn() -> Result<Unit, AppError> {
@@ -32,7 +32,7 @@ let store = system.provider({
 })
 
 let api = system.provider({
-    name: :app/api,
+    name: #app/api,
     init: fn(scope, config) -> Result<_, AppError> {
         say("api: start")
         scope.on_halt(fn() -> Result<Unit, AppError> {
@@ -45,7 +45,7 @@ let api = system.provider({
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        api: component(api, { store: ref(:store) }),
+        api: component(api, { store: ref(#store) }),
         store: component(store, { prefix: "order" }),
     }
     say($"start order: {plan.labels()}")
@@ -56,7 +56,7 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 ```text
-start order: [:store, :api]
+start order: [#store, #api]
 store: start
 api: start
 item order-7
@@ -65,7 +65,7 @@ store: halt
 ```
 
 - Each entry is `key: component(provider, config)`.
-- `ref(:key)` inside a config is another node's output, typed. Here
+- `ref(#key)` inside a config is another node's output, typed. Here
   `config.store` in `api` is the record `store` returned.
 - Startup follows dependencies; source order breaks ties. Halting runs in
   reverse.
@@ -79,7 +79,7 @@ The `system { }` form is checked before anything runs:
 
 | Code | Mistake |
 |---|---|
-| E0601 | `ref(:key)` names no key of the plan |
+| E0601 | `ref(#key)` names no key of the plan |
 | E0602 | `ref` used outside a system configuration |
 | E0603 | An entry is not `key: component(provider, config)` |
 | E0604 | Configurations reference each other in a cycle (the path is reported) |
@@ -120,7 +120,7 @@ pub enum AppError {
 } derive(Error, From)
 
 let cache = system.provider({
-    name: :app/cache,
+    name: #app/cache,
     init: fn(scope, _config: {}) -> Result<Int, Failure> {
         scope.on_halt(fn() -> Result<Unit, Failure> {
             let _ = io.println("cache: halt")
@@ -131,7 +131,7 @@ let cache = system.provider({
 })
 
 let remote = system.provider({
-    name: :app/remote,
+    name: #app/remote,
     init: fn(_scope, config: { host: String, cache: Int }) -> Result<Int, Failure> {
         err(Failure.unreachable(config.host))
     },
@@ -140,7 +140,7 @@ let remote = system.provider({
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
         cache: component(cache, {}),
-        remote: component(remote, { host: "db.internal", cache: ref(:cache) }),
+        remote: component(remote, { host: "db.internal", cache: ref(#cache) }),
     }
     let r = system.run(plan, fn(_running) -> Result<Unit, AppError> { ok(()) })
     match r {
@@ -197,11 +197,11 @@ pub enum AppError {
 } derive(Error, From)
 
 let tally = system.provider({
-    name: :app/tally,
+    name: #app/tally,
     init: fn(scope, config: { capacity: Int }) -> Result<_, AppError> {
         let inbox = channel.create<Int>({ ..channel.defaults, capacity: config.capacity })?
         let total = Atom.new(0)
-        scope.worker_with(:tally/sum, fn() -> Result<Unit, AppError> {
+        scope.worker_with(#tally/sum, fn() -> Result<Unit, AppError> {
             loop {
                 match inbox.receiver.recv() {
                     .some(n) => { let _ = total.update(fn(t) { t + n }) },
@@ -248,7 +248,7 @@ does not replay messages it already consumed.
 | `worker.on_failure(options)` | Restart after a failure, at most `max_restarts` times per `window`, waiting `backoff` between attempts; past the budget, escalate |
 
 `worker.defaults` is `{ max_restarts: 3, window: 1s, backoff: 10ms }`.
-Each restart records a `:worker/restart` trace event.
+Each restart records a `#worker/restart` trace event.
 
 | Shutdown policy | When the node halts |
 |---|---|
@@ -277,29 +277,29 @@ pub enum Failure {
 } derive(Error)
 
 let clock = system.provider({
-    name: :app/clock,
+    name: #app/clock,
     init: fn(_scope, config: { start: Int }) -> Result<Int, Failure> { ok(config.start) },
 })
 
 let fixed_clock = system.provider({
-    name: :test/clock,
+    name: #test/clock,
     init: fn(_scope, _config: { start: Int }) -> Result<Int, Failure> { ok(1000) },
 })
 
 let report = system.provider({
-    name: :app/report,
+    name: #app/report,
     init: fn(_scope, config: { now: Int }) -> Result<String, Failure> { ok($"report at {config.now}") },
 })
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
         clock: component(clock, { start: 5 }),
-        report: component(report, { now: ref(:clock) }),
+        report: component(report, { now: ref(#clock) }),
     }
-    let only_clock = system.select(plan, [:clock])
+    let only_clock = system.select(plan, [#clock])
     let n = system.run(only_clock, fn(running) -> Result<Int, AppError> { ok(running.clock) })?
     io.println($"selected: {only_clock.labels()} -> {n}")?
-    let test_plan = system.replace(plan, :clock, fixed_clock)?
+    let test_plan = system.replace(plan, #clock, fixed_clock)?
     let text = system.run(test_plan, fn(running) -> Result<String, AppError> { ok(running.report) })?
     io.println(text)?
     ok(())
@@ -307,13 +307,13 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 ```text
-selected: [:clock] -> 5
+selected: [#clock] -> 5
 report at 1000
 ```
 
-- `system.select(plan, [:keys])` keeps the selected nodes and their
+- `system.select(plan, [#keys])` keeps the selected nodes and their
   dependencies. The output record has only those keys.
-- `system.replace(plan, :key, provider)` swaps one node's provider, for
+- `system.replace(plan, #key, provider)` swaps one node's provider, for
   tests. The replacement must take the same config type and produce the
   same output type; the compiler checks both.
 
@@ -324,9 +324,9 @@ For the first example in this chapter, saved as `app.bdg`:
 ```text
 $ badger inspect plans app.bdg
 system plan at line 39
-  :api = api <- :store
-  :store = store
-  startup order: :store -> :api
+  #api = api <- #store
+  #store = store
+  startup order: #store -> #api
 ```
 
 `badger graph systems FILE` draws the same graph (DOT by default,
@@ -348,7 +348,7 @@ pub enum AppError {
 
 fn log_stage() {
     pipeline.stage({
-        name: :demo/log,
+        name: #demo/log,
         enter: fn(ctx) {
             let _ = io.println($"enter {ctx.path}")
             pipeline.next(ctx)
@@ -362,7 +362,7 @@ fn log_stage() {
 
 fn errors_stage() {
     pipeline.stage({
-        name: :demo/errors,
+        name: #demo/errors,
         error: fn(ctx, error: AppError) {
             match error {
                 .missing_name => pipeline.recover(ctx, { status: 400, body: "name required" }),
@@ -373,7 +373,7 @@ fn errors_stage() {
 
 fn user_stage() {
     pipeline.stage({
-        name: :demo/user,
+        name: #demo/user,
         enter: fn(ctx) -> Result<_, AppError> {
             if ctx.name == "" {
                 return err(AppError.missing_name)
@@ -438,7 +438,7 @@ the context through.
   recovered.
 - Each stage runs at most one unwind callback.
 - Defects and cancellation skip `error` callbacks, still run scope
-  cleanup, and record a `:pipeline/aborted` trace event per entered stage.
+  cleanup, and record a `#pipeline/aborted` trace event per entered stage.
 
 ### What a stage can see
 
@@ -453,7 +453,7 @@ pub enum AppError {
 
 fn counting() {
     pipeline.stage({
-        name: :demo/counting,
+        name: #demo/counting,
         enter: fn(ctx) { pipeline.next({ ..ctx, steps: 0 }) },
         leave: fn(ctx, reply: String) {
             let _ = io.println($"steps seen on leave: {ctx.steps}")

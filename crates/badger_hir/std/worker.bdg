@@ -65,7 +65,7 @@ pub fn supervise<E>(name: Symbol, factory: fn() -> Result<Unit, E>, policy: Poli
                 if list.len(failures) > max {
                     panic($"worker {name} exceeded its restart budget: {reason}")
                 }
-                trace.event(:worker/restart, { worker: name, reason })
+                trace.event(#worker/restart, { worker: name, reason })
                 task.sleep(backoff)
             },
         }

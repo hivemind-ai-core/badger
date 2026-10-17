@@ -921,12 +921,12 @@ fn command(mut cli: Cli) -> ExitCode {
                         } else {
                             format!(
                                 " <- {}",
-                                n.refs.iter().map(|r| format!(":{r}")).collect::<Vec<_>>().join(", ")
+                                n.refs.iter().map(|r| format!("#{r}")).collect::<Vec<_>>().join(", ")
                             )
                         };
-                        println!("  :{} = {}{refs}", n.key, n.provider);
+                        println!("  #{} = {}{refs}", n.key, n.provider);
                     }
-                    let order: Vec<String> = p.startup_order().iter().map(|k| format!(":{k}")).collect();
+                    let order: Vec<String> = p.startup_order().iter().map(|k| format!("#{k}")).collect();
                     println!("  startup order: {}", order.join(" -> "));
                 }
             }

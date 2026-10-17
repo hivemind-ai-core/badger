@@ -44,7 +44,7 @@ pub type PostRow = { id: Int, title: String, status: String, tags: List<String>,
 pub fn post<C>(db: C, id: Int) -> Result<Option<PostRow>, postgres.Error> !{Io, Wait} where C: postgres.Connection {
     let rows = postgres.query_as<PostRow, C>(db, "SELECT p.id, p.title, p.status, p.tags, p.score, p.meta, a.name AS author, a.bio\nFROM posts p JOIN authors a ON a.id = p.author\nWHERE p.id = $1", [codec.to_data(id)])?
     if rows.len() > 1 {
-        return err({ code: :postgres/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
+        return err({ code: #postgres/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
     }
     ok(rows.first())
 }

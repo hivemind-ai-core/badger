@@ -1740,7 +1740,7 @@ impl PlanInfo {
 }
 
 fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
-    // walk the configuration expression for `ref(:key)`
+    // walk the configuration expression for `ref(#key)`
     for (_, x) in a.exprs.iter() {
         let _ = x;
     }

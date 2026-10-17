@@ -63,11 +63,11 @@ struct Error { pub code: Symbol, pub message: String }
 ```
 
 A job store operation failed: a database error (`code` from SQLite), a
-state that does not decode (`:jobs/decode`), a transition by a worker
-that lost its claim (`:jobs/lease_lost`) or whose job was cancelled
-(`:jobs/cancelled`), an operation key reused with a different payload
-(`:jobs/operation_conflict`), or an unknown store layout
-(`:jobs/schema`).
+state that does not decode (`#jobs/decode`), a transition by a worker
+that lost its claim (`#jobs/lease_lost`) or whose job was cancelled
+(`#jobs/cancelled`), an operation key reused with a different payload
+(`#jobs/operation_conflict`), or an unknown store layout
+(`#jobs/schema`).
 
 #### `Error.code`
 

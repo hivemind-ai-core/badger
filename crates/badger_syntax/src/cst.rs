@@ -13,7 +13,7 @@ pub struct Ident<'a> {
     pub span: Span,
 }
 
-/// A record label: a field name, or a qualified symbol (`[:auth/user]`).
+/// A record label: a field name, or a qualified symbol (`[#auth/user]`).
 #[derive(Debug, Clone, Copy)]
 pub enum Label<'a> {
     Name(Ident<'a>),
@@ -358,7 +358,7 @@ pub enum Expr<'a> {
     Loop(Block<'a>),
     System(Vec<(Label<'a>, E<'a>)>),
     Pipeline(Vec<E<'a>>),
-    /// `ref(:key)`: the symbol's text and span.
+    /// `ref(#key)`: the symbol's text and span.
     Ref(&'a str, Span),
     Unsafe(Block<'a>),
     Return(Option<Box<E<'a>>>),

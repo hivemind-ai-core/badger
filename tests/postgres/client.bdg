@@ -65,7 +65,7 @@ pub fn main() -> Result<Unit, AppError> {
     io.println($"commit: {code(committed)} note {postgres.query_one(db, "SELECT note FROM items WHERE name = 'ink'", [])?}")?
     let rolled = postgres.transaction(db, fn(tx) -> Result<Int, postgres.Error> {
         let _ = postgres.execute(tx, "DELETE FROM items", [])?
-        err({ code: :app/changed_mind, message: "no", cause: Option.none })
+        err({ code: #app/changed_mind, message: "no", cause: Option.none })
     })
     io.println($"rollback: {code(rolled)} rows {postgres.query_one(db, "SELECT count(*) AS n FROM items", [])?}")?
     let aborted = postgres.transaction(db, fn(tx) -> Result<Int, postgres.Error> {

@@ -10,7 +10,7 @@ pub enum RequestError {
 
 fn audit() {
     pipeline.stage({
-        name: :request/audit,
+        name: #request/audit,
         enter: fn(ctx) {
             pipeline.next({ ..ctx, checked: false, processed: 0 })
         },
@@ -25,11 +25,11 @@ fn audit() {
                 assert(ctx.processed == 0)
             }
             // ctx.identity is unavailable: a later stage introduced it.
-            trace.event(:request/completed, { processed: ctx.processed })
+            trace.event(#request/completed, { processed: ctx.processed })
             pipeline.leave(ctx, reply)
         },
         error: fn(ctx, error) {
-            trace.event(:request/failed, { checked: ctx.checked })
+            trace.event(#request/failed, { checked: ctx.checked })
             pipeline.propagate(ctx, error)
         },
     })
@@ -37,7 +37,7 @@ fn audit() {
 
 fn recover_invalid_name() {
     pipeline.stage({
-        name: :request/recover,
+        name: #request/recover,
         error: fn(ctx, error: RequestError) {
             match error {
                 .invalid_name => pipeline.recover(ctx, {
@@ -51,7 +51,7 @@ fn recover_invalid_name() {
 
 fn identify() {
     pipeline.stage({
-        name: :request/identify,
+        name: #request/identify,
         enter: fn(ctx) {
             pipeline.next({ ..ctx, checked: true, identity: ctx.name })
         },

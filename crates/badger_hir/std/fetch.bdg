@@ -66,7 +66,7 @@ impl Client {
 
 /// A request: any method, headers, a byte body, a time limit, how many
 /// redirects to follow (none by default), and the largest reply body to
-/// read (16 MiB by default; more is `:io/too_large`).
+/// read (16 MiB by default; more is `#io/too_large`).
 pub type Request = {
     method: String,
     url: String,
@@ -101,14 +101,14 @@ impl Response {
     pub fn text(self: &Self) -> Result<String, io.Error> {
         match text_from_bytes(self.body) {
             .ok(t) => ok(t),
-            .err(e) => err(io_error(:io/invalid_data, $"{self.url}: the body is not UTF-8 ({e})")),
+            .err(e) => err(io_error(#io/invalid_data, $"{self.url}: the body is not UTF-8 ({e})")),
         }
     }
     /// The body decoded from JSON as `T`.
     pub fn json<T>(self: &Self) -> Result<T, io.Error> where T: Codec {
         match codec.decode<T>(self.body) {
             .ok(v) => ok(v),
-            .err(e) => err(io_error(:io/invalid_data, $"{self.url}: {e.message}")),
+            .err(e) => err(io_error(#io/invalid_data, $"{self.url}: {e.message}")),
         }
     }
     /// Whether the status is 2xx.
@@ -132,7 +132,7 @@ pub fn send(r: Request) -> Result<Response, io.Error> !{Io, Wait} {
 }
 
 /// `GET url` and decode a 2xx reply's JSON body as `T` (another status
-/// is an `:io/http_status` error).
+/// is an `#io/http_status` error).
 pub fn get_json<T>(url: String) -> Result<T, io.Error> !{Io, Wait} where T: Codec {
     let r = send({ ..request("GET", url), headers: map { "accept" => "application/json" } })?
     expect_json(r)
@@ -146,7 +146,7 @@ pub fn post_json<T, R>(url: String, value: T) -> Result<R, io.Error> !{Io, Wait}
 
 fn expect_json<R>(r: Response) -> Result<R, io.Error> where R: Codec {
     if !r.is_success() {
-        return err(io_error(:io/http_status, $"{r.url}: status {r.status}"))
+        return err(io_error(#io/http_status, $"{r.url}: status {r.status}"))
     }
     r.json<R>()
 }

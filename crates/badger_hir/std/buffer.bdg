@@ -29,7 +29,7 @@ impl<T> Display for Full<T> {
 }
 
 impl<T> Error for Full<T> {
-    fn code(self: &Self) -> Symbol { :buffer/full }
+    fn code(self: &Self) -> Symbol { #buffer/full }
 }
 
 /// A fixed-capacity buffer (allocated once, up front).

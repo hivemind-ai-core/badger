@@ -6,18 +6,18 @@ import std.trace
 
 fn audit() {
     pipeline.stage({
-        name: :orders/audit,
+        name: #orders/audit,
         enter: fn(ctx) {
             pipeline.next({ ..ctx, validated: false })
         },
         leave: fn(ctx, reply) {
             // Observe the latest value of a field introduced by this stage.
             assert(ctx.validated)
-            trace.event(:orders/created, { id: reply.id, validated: ctx.validated })
+            trace.event(#orders/created, { id: reply.id, validated: ctx.validated })
             pipeline.leave(ctx, reply)
         },
         error: fn(ctx, error) {
-            trace.event(:orders/rejected, { validated: ctx.validated })
+            trace.event(#orders/rejected, { validated: ctx.validated })
             pipeline.propagate(ctx, error)
         },
     })
@@ -25,7 +25,7 @@ fn audit() {
 
 fn validate() {
     pipeline.stage({
-        name: :orders/validate,
+        name: #orders/validate,
         enter: fn(ctx) -> Result<_, api.Error> {
             let title = text.trim(ctx.input.title)
             if title == "" {

@@ -84,7 +84,7 @@ pub type Request = {
 
 A request: any method, headers, a byte body, a time limit, how many
 redirects to follow (none by default), and the largest reply body to
-read (16 MiB by default; more is `:io/too_large`).
+read (16 MiB by default; more is `#io/too_large`).
 
 ### `Response`
 
@@ -152,7 +152,7 @@ fn get_json<T>(url: String) -> Result<T, io.Error> !{Io, Wait} where T: Codec
 ```
 
 `GET url` and decode a 2xx reply's JSON body as `T` (another status
-is an `:io/http_status` error).
+is an `#io/http_status` error).
 
 ### `post`
 

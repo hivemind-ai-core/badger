@@ -23,7 +23,7 @@ pub struct Name {
 }
 
 /// A record label: a lowercase identifier or a qualified symbol label
-/// (`[:auth/user]`). Both are stored as the symbol's text without the colon.
+/// (`[#auth/user]`). Both are stored as the symbol's text without the `#`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Label {
     pub sym: Symbol,

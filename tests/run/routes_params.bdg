@@ -14,20 +14,20 @@ fn show(r: http.Response) -> String {
 
 pub fn main() -> Result<Unit, route.RouteError> {
     let routes = [
-        route.typed(:get, "/orders/:id/:verbose", :orders/show, fn(_req, p: Ids, _b: Empty) -> Result<(Int, { id: Int, twice: Int }), String> {
+        route.typed(#get, "/orders/:id/:verbose", #orders/show, fn(_req, p: Ids, _b: Empty) -> Result<(Int, { id: Int, twice: Int }), String> {
             ok((200, { id: p.id, twice: p.id * 2 }))
         }),
     ]
     let h = route.table(routes)?
-    let _ = io.println(show(http.call(h, http.request(:get, "/orders/21/true", ""))))
-    let _ = io.println(show(http.call(h, http.request(:get, "/orders/x/true", ""))))
+    let _ = io.println(show(http.call(h, http.request(#get, "/orders/21/true", ""))))
+    let _ = io.println(show(http.call(h, http.request(#get, "/orders/x/true", ""))))
     let overlap = route.validate([
-        route.get("/a/:x", :one, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
-        route.get("/a/b", :two, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
+        route.get("/a/:x", #one, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
+        route.get("/a/b", #two, fn(_r, _p) -> Result<http.Response, String> { err("no") }),
     ])
     let _ = io.println($"overlap rejected: {overlap.is_err()}")
     let mismatch = route.validate([
-        route.typed(:get, "/x/:other", :bad, fn(_req, p: Ids, _b: Empty) -> Result<(Int, Int), String> { ok((200, 1)) }),
+        route.typed(#get, "/x/:other", #bad, fn(_req, p: Ids, _b: Empty) -> Result<(Int, Int), String> { ok((200, 1)) }),
     ])
     match mismatch {
         .ok(_) => { let _ = io.println("unexpected") },

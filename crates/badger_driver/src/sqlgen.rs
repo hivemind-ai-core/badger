@@ -596,7 +596,7 @@ pub fn generate(source: &str, text: &str, backend: &Backend) -> Result<String, V
             Kind::Many => out.push_str(&format!("    {module}.query_as<{row}, C>(db, {sql}, {args})\n")),
             Kind::Exec => out.push_str(&format!("    {module}.execute(db, {sql}, {args})\n")),
             Kind::Opt => out.push_str(&format!(
-                "    let rows = {module}.query_as<{row}, C>(db, {sql}, {args})?\n    if rows.len() > 1 {{\n        return err({{ code: :{module}/row_count, message: $\"expected at most one row, got {{rows.len()}}\", cause: Option.none }})\n    }}\n    ok(rows.first())\n"
+                "    let rows = {module}.query_as<{row}, C>(db, {sql}, {args})?\n    if rows.len() > 1 {{\n        return err({{ code: #{module}/row_count, message: $\"expected at most one row, got {{rows.len()}}\", cause: Option.none }})\n    }}\n    ok(rows.first())\n"
             )),
         }
         out.push_str("}\n");

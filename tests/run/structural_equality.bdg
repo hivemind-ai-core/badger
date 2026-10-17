@@ -16,10 +16,10 @@ pub fn main() -> Unit {
     let t1 = (1, true, 'a')
     let t2 = (1, true, 'b')
     let _ = io.println($"tuples: {t1 == t1} {t1 == t2} {t1 != t2}")
-    let n1: Tagged = { at: a, tag: :k }
-    let n2: Tagged = { at: b, tag: :k }
-    let n3: Tagged = { at: c, tag: :k }
-    let n4: Tagged = { at: a, tag: :j }
+    let n1: Tagged = { at: a, tag: #k }
+    let n2: Tagged = { at: b, tag: #k }
+    let n3: Tagged = { at: c, tag: #k }
+    let n4: Tagged = { at: a, tag: #j }
     let _ = io.println($"nested: {n1 == n2} {n1 == n3} {n1 == n4}")
     let nan = 0.0 / 0.0
     let f1 = { v: nan, w: 1.0 }

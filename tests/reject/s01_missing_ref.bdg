@@ -7,6 +7,6 @@ import std.system.{component}
 pub fn main() -> Unit {
     let _ = system {
         database: component(sqlite.pool, { path: ":memory:" }),
-        api: component(sqlite.pool, { path: ref(:databse) }),
+        api: component(sqlite.pool, { path: ref(#databse) }),
     }
 }

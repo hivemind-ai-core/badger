@@ -149,11 +149,11 @@ field (E0301 for a record, E0319 for a struct).
 |---|---|
 | `records.project<T>(r)` | the fields of `T` taken from a record that has them all (E0301 if one is missing) |
 | `records.merge(a, b)` | both records' fields; `b` wins on overlap |
-| `records.remove(r, :label)` | the record without that field |
+| `records.remove(r, #label)` | the record without that field |
 
 Qualified labels let libraries add fields without name clashes:
-`{ ..request, [:auth/user]: user }`, read back with
-`request[:auth/user]`. The label must be a literal symbol: indexing a
+`{ ..request, [#auth/user]: user }`, read back with
+`request[#auth/user]`. The label must be a literal symbol: indexing a
 record with a runtime `Symbol` is E0335 (use a `Map` for runtime keys).
 
 ```badger
@@ -165,9 +165,9 @@ type Contact = { name: String, email: String }
 pub fn main() -> Result<Unit, io.Error> {
     let person = { name: "Ada", age: 36, email: "ada@example.test" }
     let contact = records.project<Contact>(person)
-    let tagged = { ..contact, [:import/source]: "contacts.csv" }
-    io.println(tagged[:import/source])?
-    io.println(records.remove(tagged, :import/source) == contact)?
+    let tagged = { ..contact, [#import/source]: "contacts.csv" }
+    io.println(tagged[#import/source])?
+    io.println(records.remove(tagged, #import/source) == contact)?
     let settings = records.merge({ retries: 2, verbose: false }, { retries: 4 })
     io.println(settings.retries)?
     ok(())
@@ -362,7 +362,7 @@ Patterns appear in `match` arms, `let`, function parameters, `for`,
 |---|---|
 | `x` | anything; binds it to `x` |
 | `_` | anything; binds nothing |
-| `42`, `-1`, `"text"`, `'c'`, `:sym`, `true`, `0s` | that literal |
+| `42`, `-1`, `"text"`, `'c'`, `#sym`, `true`, `0s` | that literal |
 | `()` | the unit value |
 | `(a, b)` | a tuple, element by element |
 | `{ x, y: 0 }` | a record with exactly these fields; `x` binds the field, `y` must match `0` |
@@ -386,11 +386,11 @@ type Event = { kind: Symbol, shape: Shape, retries: Int }
 
 fn describe(e: Event) -> String {
     match e {
-        { kind: :draw, shape: .dot, .. } => "draw a dot",
-        { kind: :draw, shape: .circle(r), .. } if r > 10.0 => "draw a big circle",
-        { kind: :draw, shape: Shape.circle(r), .. } => $"draw a circle of {r}",
-        { kind: :draw, shape: .rect(w, h), retries: 0 } => $"draw {w}x{h} once",
-        { kind: :draw, shape: .rect(_, _), retries } => $"draw a rectangle, {retries} retries",
+        { kind: #draw, shape: .dot, .. } => "draw a dot",
+        { kind: #draw, shape: .circle(r), .. } if r > 10.0 => "draw a big circle",
+        { kind: #draw, shape: Shape.circle(r), .. } => $"draw a circle of {r}",
+        { kind: #draw, shape: .rect(w, h), retries: 0 } => $"draw {w}x{h} once",
+        { kind: #draw, shape: .rect(_, _), retries } => $"draw a rectangle, {retries} retries",
         { kind, .. } => $"ignore {kind}",
     }
 }
@@ -405,9 +405,9 @@ fn nested(r: Result<Option<Int>, String>) -> String {
 }
 
 pub fn main() -> Result<Unit, io.Error> {
-    io.println(describe({ kind: :draw, shape: Shape.circle(12.0), retries: 0 }))?
-    io.println(describe({ kind: :draw, shape: Shape.rect(2.0, 3.0), retries: 2 }))?
-    io.println(describe({ kind: :erase, shape: Shape.dot, retries: 0 }))?
+    io.println(describe({ kind: #draw, shape: Shape.circle(12.0), retries: 0 }))?
+    io.println(describe({ kind: #draw, shape: Shape.rect(2.0, 3.0), retries: 2 }))?
+    io.println(describe({ kind: #erase, shape: Shape.dot, retries: 0 }))?
     io.println(nested(ok(Option.some(-1))))?
     io.println(nested(err("timeout")))?
     ok(())

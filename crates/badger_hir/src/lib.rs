@@ -6,7 +6,7 @@
 //! - surface sugar is removed: pipes become calls, `use` binds the rest of the
 //!   block as a callback, dotted record updates and field assignments become
 //!   nested row-preserving updates, and system configurations become deferred
-//!   lambdas whose `ref(:key)` holes read resolved outputs
+//!   lambdas whose `ref(#key)` holes read resolved outputs
 //! - lambdas record their captured locals
 //! - syntactic system checks (missing references, dependency cycles) run here
 //!

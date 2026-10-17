@@ -5,7 +5,7 @@
 Compression: gzip, zlib, raw deflate, and zstd (the `badger_compress`
 native module; the calling task parks while it runs). Decompression
 takes a limit on its output (`max_bytes`; 256 MiB by default), past
-which it fails with `:compress/too_large` rather than exhaust memory.
+which it fails with `#compress/too_large` rather than exhaust memory.
 
 ## Types
 

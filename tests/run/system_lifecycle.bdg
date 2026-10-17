@@ -29,7 +29,7 @@ fn say(s: String) -> Unit {
 }
 
 let with_worker = system.provider({
-    name: :test/worker_owner,
+    name: #test/worker_owner,
     init: fn(scope, config: { n: Int }) -> Result<Int, Failure> {
         let ticks = Atom.new(0)
         scope.on_halt(fn() -> Result<Unit, Failure> {
@@ -53,7 +53,7 @@ let with_worker = system.provider({
 
 fn failing_halts(label: String) -> system.Provider<{ v: Int }, Int, Failure> {
     system.provider({
-        name: :test/failing_halts,
+        name: #test/failing_halts,
         init: fn(scope, config) -> Result<Int, Failure> {
             scope.on_halt(fn() -> Result<Unit, Failure> {
                 say($"{label}: first registered halt runs last")
@@ -69,12 +69,12 @@ fn failing_halts(label: String) -> system.Provider<{ v: Int }, Int, Failure> {
 }
 
 let constant = system.provider({
-    name: :test/constant,
+    name: #test/constant,
     init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v) },
 })
 
 let doubled = system.provider({
-    name: :test/doubled,
+    name: #test/doubled,
     init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v * 2) },
 })
 
@@ -106,7 +106,7 @@ pub fn main() -> Result<Unit, AppError> {
     let base = system {
         value: component(constant, { v: 21 }),
     }
-    let swapped = system.replace(base, :value, doubled)?
+    let swapped = system.replace(base, #value, doubled)?
     let v = system.run(swapped, fn(running) -> Result<Int, AppError> { ok(running.value) })?
     say($"replaced value {v}")
     for d in swapped.describe() {

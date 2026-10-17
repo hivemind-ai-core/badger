@@ -79,7 +79,7 @@ where
 }
 
 /// Items, then the end of input.
-pub fn program<'t, 's: 't, I, Er>(src: &'s str) -> impl Parser<'t, I, Vec<Item<'s>>, extra::Err<Er>> + Clone
+pub fn program<'t, 's: 't, I, Er>() -> impl Parser<'t, I, Vec<Item<'s>>, extra::Err<Er>> + Clone
 where
     I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
     Er: ParseErr<'t, 's, I> + 't,
@@ -122,42 +122,8 @@ where
     let csep = nls.clone().then(just(Tok::Comma)).then(nls.clone()).ignored();
     let trail = nls.clone().then(just(Tok::Comma).then(nls.clone()).or_not()).ignored();
 
-    // `:name` or `:ns/name`, written without spaces (a colon with a word
-    // after it is a symbol only when they touch: `x: Int` is not one)
-    let symbol = custom(move |inp| {
-        let alpha =
-            |t: Option<Tok<'s>>| matches!(t, Some(Tok::Word(w)) if w.as_bytes()[0].is_ascii_alphabetic());
-        let before = inp.cursor();
-        let save = inp.save();
-        let found = inp.peek();
-        let colon_ok = inp.next() == Some(Tok::Colon);
-        let colon: Span = inp.span_since(&before);
-        let c = inp.cursor();
-        let word = inp.next();
-        let first: Span = inp.span_since(&c);
-        if !(colon_ok && alpha(word) && first.start == colon.end) {
-            inp.rewind(save);
-            let c = inp.cursor();
-            inp.next();
-            let at = inp.span_since(&c);
-            return Err(expected::<I, Er>(Some("symbol"), found, at));
-        }
-        let mut end = first.end;
-        let save = inp.save();
-        let c = inp.cursor();
-        let slash = inp.next();
-        let s: Span = inp.span_since(&c);
-        let c = inp.cursor();
-        let word = inp.next();
-        let second: Span = inp.span_since(&c);
-        if slash == Some(Tok::Slash) && s.start == end && alpha(word) && second.start == s.end {
-            end = second.end;
-        } else {
-            inp.rewind(save);
-        }
-        Ok((&src[first.start..end], Span::from(colon.start..end)))
-    })
-    .labelled("symbol");
+    // `#name` or `#ns/name` (one token)
+    let symbol = select! { Tok::Symbol(s) => s }.map_with(|s, e| (s, e.span())).labelled("symbol");
 
     let lit = select! {
         Tok::Int(n) => Lit::Int(n),
@@ -670,7 +636,7 @@ where
                     | Tok::Str(_)
                     | Tok::RawStr(_)
                     | Tok::Char(_)
-                    | Tok::Colon
+                    | Tok::Symbol(_)
                     | Tok::Word("true" | "false"),
                 ) => inp.parse(&lit),
                 Some(Tok::Word("fn" | "once")) => inp.parse(&lambda),

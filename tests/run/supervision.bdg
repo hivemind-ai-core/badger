@@ -21,11 +21,11 @@ fn say(s: String) -> Unit {
 }
 
 let flaky = system.provider({
-    name: :test/flaky,
+    name: #test/flaky,
     init: fn(scope, cfg) -> Result<Unit, Boom> {
         // shared with the worker's task: an Atom, not a task-confined Cell
         let attempts = Atom.new(0)
-        scope.worker_with(:test/flaky_worker, fn() -> Result<Unit, Boom> {
+        scope.worker_with(#test/flaky_worker, fn() -> Result<Unit, Boom> {
             attempts.set(attempts.get() + 1)
             say($"flaky attempt {attempts.get()}")
             if attempts.get() == 1 { return err({ message: "first attempt fails" }) }
@@ -33,7 +33,7 @@ let flaky = system.provider({
             say("flaky completed")
             ok(())
         }, worker.on_failure({ ..worker.defaults, max_restarts: cfg.restarts }), worker.cancel())
-        scope.worker_with(:test/forever, fn() -> Result<Unit, Boom> {
+        scope.worker_with(#test/forever, fn() -> Result<Unit, Boom> {
             loop {
                 task.sleep(1ms)
             }

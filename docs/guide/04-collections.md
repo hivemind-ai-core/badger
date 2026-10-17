@@ -10,7 +10,7 @@ day. For choosing between them and what each operation costs, see
 |---|---|---|
 | `List<T>` | immutable sequence, indexable | `[1, 2, 3]` |
 | `Map<K, V>` | immutable key-value map | `map { "a" => 1 }` |
-| `Set<T>` | immutable set | `set { :get, :post }` |
+| `Set<T>` | immutable set | `set { #get, #post }` |
 | `Array<T>` | immutable, fixed length, contiguous | `[1, 2]` where `Array<Int>` is expected |
 | `Buffer<T>` | mutable, contiguous, one owner | `[1, 2]` where `Buffer<Int>` is expected |
 | `Bytes` | immutable bytes | `"text".to_bytes()` |
@@ -239,7 +239,7 @@ pub fn main() -> Result<Unit, io.Error> {
     io.println(a.intersection(b).to_list().sort())?
     io.println(a.difference(b).to_list().sort())?
     io.println(set { 3, 4 }.is_subset(a))?
-    io.println(set { :get, :post } == set { :post, :get })?
+    io.println(set { #get, #post } == set { #post, #get })?
     ok(())
 }
 ```

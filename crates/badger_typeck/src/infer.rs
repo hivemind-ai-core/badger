@@ -117,7 +117,7 @@ pub enum IndexKind {
     Buffer,
     Map,
     Bytes,
-    /// Static record label (`record[:label]`).
+    /// Static record label (`record[#label]`).
     Label(Symbol),
 }
 
@@ -1288,7 +1288,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                         "E0344",
                         self.g.hir.exprs[args[1]].span,
                         "`records.remove` needs a literal label",
-                        "e.g. `:name` or `:ns/name`",
+                        "e.g. `#name` or `#ns/name`",
                     );
                     return error_ty();
                 };

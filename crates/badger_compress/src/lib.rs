@@ -1,6 +1,6 @@
 //! `badger_compress`: gzip, zlib, raw deflate, and zstd for `std.compress`.
 //! Each call runs on the blocking pool (the calling task parks). A
-//! decompression stops with `:compress/too_large` once its output passes
+//! decompression stops with `#compress/too_large` once its output passes
 //! the caller's limit, so a small hostile input cannot exhaust memory.
 
 use std::io::{Read, Write};

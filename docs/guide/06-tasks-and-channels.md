@@ -376,8 +376,8 @@ true
 | `byte_budget` | 0 (none) | Bytes of queued messages. A single message larger than the budget fails with `channel/too_large` instead of waiting forever |
 
 A failed send returns the unsent value in `SendError.value`, with
-`reason` set to `:channel/full`, `:channel/closed`, or
-`:channel/too_large`. Negative limits are a `ConfigError`.
+`reason` set to `#channel/full`, `#channel/closed`, or
+`#channel/too_large`. Negative limits are a `ConfigError`.
 
 The byte budget limits the queue, not everything the program keeps after
 delivery. Heap limits are separate (`[runtime] heap_max_bytes`).
@@ -566,12 +566,12 @@ Every subscriber receives each message published after it subscribed.
 | Option | Default | Meaning |
 |---|---|---|
 | `backlog` | 64 | Messages kept per subscriber |
-| `policy` | `:drop_oldest` | When a backlog is full: `:drop_oldest` drops the oldest message and counts it in `subscription.lagged()`; `:block` makes `publish` wait |
+| `policy` | `#drop_oldest` | When a backlog is full: `#drop_oldest` drops the oldest message and counts it in `subscription.lagged()`; `#block` makes `publish` wait |
 
 - `broadcaster.close()` ends the broadcast: subscribers drain what they
   have, then `recv` returns `none`. Subscribing afterwards is an error.
 - `subscription.close()` leaves: later publishes skip it and, under
-  `:block`, stop waiting for it. A subscription that is only dropped stays
+  `#block`, stop waiting for it. A subscription that is only dropped stays
   subscribed.
 - Payloads must be `Share` and `Transfer`.
 

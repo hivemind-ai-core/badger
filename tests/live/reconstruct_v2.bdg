@@ -24,7 +24,7 @@ fn label(p: Point) -> String { $"v2 point {p.x} {p.y}" }
 
 fn resource(name: String) -> system.Provider<{ v: Int }, Int, Failure> {
     system.provider({
-        name: :test/resource,
+        name: #test/resource,
         init: fn(scope, config) -> Result<Int, Failure> {
             let _ = io.println($"start {name}")
             scope.on_halt(fn() -> Result<Unit, Failure> {

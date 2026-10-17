@@ -63,7 +63,7 @@ error. `badger_cli` is the `badger` binary.
 - **Lexer and layout.** logos scans tokens (words, literals, punctuation;
   interpolation holes as ordinary tokens); newlines that end statements
   become separator tokens. Words are one token kind, so a keyword can still
-  name a field; symbols (`:name`), `>>`, and `>=` are adjacent tokens the
+  name a field; symbols (`#name`), `>>`, and `>=` are adjacent tokens the
   parser joins, so `List<List<Int>>` closes two argument lists.
 - **Grammar.** chumsky parsers over the token slice build an owned syntax
   tree, lowered to the arena AST. The first pass tracks no errors and
@@ -84,8 +84,8 @@ error. `badger_cli` is the `badger` binary.
   captures) and desugars pipes, `use` continuations, dotted record updates,
   field assignment, `pipeline.stage({...})`, `pipeline { ... }` (into nested
   stage runners), `system { ... }` (topologically ordered nodes with typed
-  `ref(:key)` outputs; missing keys and cycles are reported here), and
-  `system.select(plan, [:keys])` (a typed output projection).
+  `ref(#key)` outputs; missing keys and cycles are reported here), and
+  `system.select(plan, [#keys])` (a typed output projection).
 - **Standard library.** `crates/badger_hir/std/*.bdg` (60 modules) are ordinary
   language modules. A program loads the core modules (the prelude,
   collections, text, numbers, options and results, codecs, records:

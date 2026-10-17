@@ -399,7 +399,7 @@ pub(crate) fn exchange(a: &Args, i: usize) -> Result<Arc<Exchange>, Error> {
     }
 }
 
-/// The next admitted request (waits; fails with `:http/closed` once the
+/// The next admitted request (waits; fails with `#http/closed` once the
 /// server stopped).
 fn accept(a: Args, done: Completion) {
     let s = match server(&a, 0) {

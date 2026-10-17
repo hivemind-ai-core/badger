@@ -21,11 +21,11 @@ or mandatory component object is required.
 ```badger fragment
 let plan = system {
     database: component(sqlite.pool, { path: config.database_path }),
-    api: component(api.provider, { database: ref(:database) }),
+    api: component(api.provider, { database: ref(#database) }),
     server: component(http.server, {
         address: "127.0.0.1",
         port: 8080,
-        handler: ref(:api),
+        handler: ref(#api),
     }),
 }
 
@@ -101,7 +101,7 @@ contract. A changed output contract requires rechecking dependents. This is
 the canonical dependency-injection mechanism; no ambient service locator.
 Implementation: a plan's type is `SystemPlan<Os, Cs>`, its nodes' outputs
 and providers' configurations by key (`Cs` may be elided in annotations),
-so `system.replace(plan, :key, provider)` checks both the replacement's
+so `system.replace(plan, #key, provider)` checks both the replacement's
 output and configuration types when the program is checked.
 
 ## The user's prefix-visible context rule

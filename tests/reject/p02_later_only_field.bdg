@@ -6,7 +6,7 @@ import std.pipeline.{handle}
 
 fn early() {
     pipeline.stage({
-        name: :p02/early,
+        name: #p02/early,
         enter: fn(ctx) { pipeline.next({ ..ctx, verified: false }) },
         leave: fn(ctx, reply) {
             let _ = ctx.token
@@ -17,7 +17,7 @@ fn early() {
 
 fn later() {
     pipeline.stage({
-        name: :p02/later,
+        name: #p02/later,
         enter: fn(ctx) { pipeline.next({ ..ctx, token: "t" }) },
     })
 }

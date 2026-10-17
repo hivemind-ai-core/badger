@@ -1,11 +1,11 @@
 // A closed subscription leaves the broadcast: publishing stops delivering
-// to it, and under `:block` stops waiting for it (it would otherwise block
+// to it, and under `#block` stops waiting for it (it would otherwise block
 // once its backlog filled).
 import std.broadcast
 import std.io
 
 pub fn main() -> Result<Unit, broadcast.Error> {
-    let b = broadcast.create<Int>({ backlog: 2, policy: :block })?
+    let b = broadcast.create<Int>({ backlog: 2, policy: #block })?
     let live = b.subscribe()?
     let gone = b.subscribe()?
     let _ = io.println($"subscribers {b.subscribers()}")
