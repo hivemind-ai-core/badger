@@ -26,6 +26,9 @@ pub struct Program {
     pub entry_args: Option<&'static lang_runtime::TypeDesc>,
     /// Why the entry function's signature cannot be invoked by the tool.
     pub entry_error: Option<String>,
+    /// Compile-time warnings from lowering (an instance past the
+    /// specialization depth, which fails if it is called).
+    pub warnings: Vec<String>,
     /// Static closure of `describe_error<E>` for an entry returning
     /// `Result<T, E>` with `E: Error`.
     pub error_report: Option<FuncId>,

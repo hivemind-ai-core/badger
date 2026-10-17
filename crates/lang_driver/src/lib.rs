@@ -1038,6 +1038,13 @@ impl Session {
             self.diagnostics
                 .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
         }
+        for w in std::mem::take(&mut prog.warnings) {
+            self.diagnostics.push(
+                Diagnostic::warning(w)
+                    .with_code("E0147")
+                    .with_note("calling it fails at run time; give the recursion a bounded type, or remove the protocol constraint so it can use the erased fallback"),
+            );
+        }
         if let Some(e) = &prog.entry_error
             && !opts.tests
         {

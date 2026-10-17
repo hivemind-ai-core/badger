@@ -134,10 +134,14 @@ impl<'g, 'a> Mono<'g, 'a> {
             let l = f.locals.push(crate::mir::LocalDecl { repr: r, name: None });
             f.params.push(l);
         }
-        let msg = self.str_const(&format!(
+        let text = format!(
             "polymorphic recursion of `{}` exceeds the specialization depth ({SPECIALIZATION_DEPTH} nested type levels)",
             self.def_path(def)
-        ));
+        );
+        if !self.prog.warnings.contains(&text) {
+            self.prog.warnings.push(text.clone());
+        }
+        let msg = self.str_const(&text);
         let loc = self.str_const("<specialization>");
         let tmp = f.locals.push(crate::mir::LocalDecl { repr: Repr::I64, name: None });
         f.blocks[BlockId::new(0)].stmts.push(Stmt::Assign(
