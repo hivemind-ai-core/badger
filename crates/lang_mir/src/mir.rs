@@ -51,6 +51,8 @@ pub struct Program {
     pub origins: Origins,
     /// Source files named by `Stmt::Loc`.
     pub debug_files: Vec<String>,
+    /// Native modules the program calls (not saved: a release records them).
+    pub natives: std::collections::BTreeSet<String>,
 }
 
 /// The runtime objects a lowered program refers to by address.

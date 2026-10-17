@@ -71,7 +71,23 @@ pub fn search_path() -> Vec<PathBuf> {
     v
 }
 
-fn file_name(name: &str) -> String {
+/// The native module ABI version this runtime hosts.
+pub const ABI_VERSION: u32 = nv::ABI_VERSION;
+
+/// Where module `name` comes from: `None` when it is linked into the
+/// executable, else the library file found on the search path (or why it
+/// cannot be used: missing, unloadable, or another ABI version).
+pub fn probe(name: &str) -> Result<Option<PathBuf>, String> {
+    if BUILTINS.lock().unwrap().iter().any(|(n, _)| n == name) {
+        return Ok(None);
+    }
+    let file = search_path().into_iter().map(|d| d.join(file_name(name))).find(|p| p.is_file());
+    load(name)?;
+    Ok(file)
+}
+
+/// The library file name of module `name` on this platform.
+pub fn file_name(name: &str) -> String {
     if cfg!(target_os = "macos") { format!("lib{name}.dylib") } else { format!("lib{name}.so") }
 }
 
