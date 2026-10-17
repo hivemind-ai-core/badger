@@ -140,7 +140,7 @@ enum Command {
         #[arg(long)]
         release: bool,
     },
-    /// Run the entry module's `test_*` functions: `badger test [path] [filter]`
+    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [path] [filter]`
     /// (path defaults to the current project).
     Test {
         /// An optional program path, then an optional name filter.
@@ -193,7 +193,7 @@ enum Command {
         #[arg(long, value_name = "ADDR")]
         connect: Option<String>,
     },
-    /// Resolve path dependencies and rewrite the project's `badger.lock`.
+    /// Resolve path and git dependencies and rewrite the project's `badger.lock`.
     Update {
         /// Project directory (with `badger.toml`).
         #[arg(default_value = ".")]
@@ -319,6 +319,11 @@ fn exit_on_internal_errors() {
             .map(|s| s.to_string())
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "unknown".into());
+        // a reader that stopped early (`badger doc std | head`): end quietly
+        // with the status a SIGPIPE death reports in a shell
+        if msg.starts_with("failed printing to stdout") && msg.contains("Broken pipe") {
+            std::process::exit(141);
+        }
         let at = info.location().map(|l| format!(" at {}:{}", l.file(), l.line())).unwrap_or_default();
         let thread = std::thread::current();
         eprintln!(
