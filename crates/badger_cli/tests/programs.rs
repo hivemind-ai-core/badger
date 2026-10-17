@@ -1768,6 +1768,13 @@ fn api_export() {
     assert!(api.contains(r#""name":"withdraw""#) && api.contains("requires amount > 0"), "{api}");
     assert!(api.contains(r#""name":"Range.width""#), "{api}");
     assert!(!api.contains(r#""name":"abs""#), "private functions are not part of the API: {api}");
+    // a doc comment above the contract clauses documents the function
+    let f = std::env::temp_dir().join(format!("badger-doc-contract-{}.bdg", std::process::id()));
+    std::fs::write(&f, "/// Halve an even number.\nrequires n % 2 == 0\nensures result * 2 == n\npub fn half(n: Int) -> Int { n / 2 }\n").unwrap();
+    let out = lang().args(["query", "api"]).arg(&f).output().unwrap();
+    let _ = std::fs::remove_file(&f);
+    let api = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(api.contains(r#""doc":"Halve an even number.""#), "{api}");
 }
 
 /// Diagnostics never disappear: a missing file, and a module its project
