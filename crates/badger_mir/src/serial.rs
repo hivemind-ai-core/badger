@@ -785,6 +785,8 @@ struct Dec<'b> {
     r: R<'b>,
     /// New address of each pool entry.
     addrs: Vec<u64>,
+    /// Which pool entries are type descriptors.
+    is_desc: Vec<bool>,
 }
 
 impl Dec<'_> {
@@ -793,16 +795,17 @@ impl Dec<'_> {
         self.addrs.get(i).copied().ok_or_else(|| "bad constant reference".to_string())
     }
     fn desc(&mut self) -> Result<&'static TypeDesc, String> {
-        let a = self.addr()?;
-        if a == 0 {
-            return Err("missing descriptor".into());
+        let i = self.r.u32()? as usize;
+        if !self.is_desc.get(i).copied().unwrap_or(false) {
+            return Err("a descriptor reference names something else".into());
         }
-        Ok(unsafe { &*(a as *const TypeDesc) })
+        Ok(unsafe { &*(self.addrs[i] as *const TypeDesc) })
     }
     fn num(&mut self) -> Result<NumTy, String> {
         Ok(match self.r.u8()? {
             0 => NumTy::I(self.r.u8()?, self.r.bool()?),
-            _ => NumTy::F(self.r.u8()?),
+            1 => NumTy::F(self.r.u8()?),
+            t => return Err(format!("bad number type {t}")),
         })
     }
     fn repr(&mut self) -> Result<Repr, String> {
@@ -844,7 +847,8 @@ impl Dec<'_> {
                 let sse = (0..n).map(|_| self.r.bool()).collect::<Result<_, _>>()?;
                 FfiArg::Regs { desc, size, sse }
             }
-            _ => FfiArg::Memory { desc: self.addr()?, size: self.r.u32()? },
+            2 => FfiArg::Memory { desc: self.addr()?, size: self.r.u32()? },
+            t => return Err(format!("bad foreign argument kind {t}")),
         })
     }
     fn callee(&mut self) -> Result<Callee, String> {
@@ -918,8 +922,9 @@ impl Dec<'_> {
                 value: self.operand()?,
             },
             2 => Stmt::GlobalStore { slot: self.r.u32()?, value: self.operand()? },
+            3 => Stmt::Poll,
             4 => Stmt::Loc { file: self.r.u32()?, line: self.r.u32()?, col: self.r.u32()? },
-            _ => Stmt::Poll,
+            t => return Err(format!("bad statement kind {t}")),
         })
     }
     fn term(&mut self) -> Result<Option<Term>, String> {
@@ -937,7 +942,8 @@ impl Dec<'_> {
                 Some(Term::Switch(o, cases, self.block()?))
             }
             4 => Some(Term::Return(self.operand()?)),
-            _ => Some(Term::Unreachable),
+            5 => Some(Term::Unreachable),
+            t => return Err(format!("bad terminator kind {t}")),
         })
     }
     fn func(&mut self) -> Result<Func, String> {
@@ -945,7 +951,8 @@ impl Dec<'_> {
         let kind = match self.r.u8()? {
             0 => FuncKind::Normal,
             1 => FuncKind::Lambda,
-            _ => FuncKind::DisplayHook,
+            2 => FuncKind::DisplayHook,
+            t => return Err(format!("bad function kind {t}")),
         };
         let env = self.local()?;
         let n = self.r.u32()?;
@@ -1057,13 +1064,24 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
             _ => {}
         }
     }
-    let mut dec = Dec { r, addrs };
-    // descriptor kinds
+    let is_desc: Vec<bool> = raw.iter().map(|e| matches!(e, Raw::Desc | Raw::Builtin(_))).collect();
+    // a reference to a descriptor entry (any other index is a damaged file)
+    let desc_at = |addrs: &[u64], i: u32| -> Result<&'static TypeDesc, String> {
+        match is_desc.get(i as usize) {
+            Some(true) => Ok(unsafe { &*(addrs[i as usize] as *const TypeDesc) }),
+            _ => Err("a descriptor reference names something else".into()),
+        }
+    };
+    let mut dec = Dec { r, addrs, is_desc: is_desc.clone() };
+    // descriptor kinds (only of descriptors this file defines)
     let count = dec.r.u32()?;
     for _ in 0..count {
         let i = dec.r.u32()? as usize;
         let name = dec.r.str()?;
         let kind = read_kind(&mut dec)?;
+        if !matches!(raw.get(i), Some(Raw::Desc)) {
+            return Err("a descriptor definition names something else".into());
+        }
         let p = dec.addrs[i] as *mut TypeDesc;
         unsafe {
             (*p).name = name;
@@ -1075,18 +1093,18 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
     for (i, e) in raw.iter().enumerate() {
         match e {
             Raw::Closure(desc, size) => {
-                let d = unsafe { &*(dec.addrs[*desc as usize] as *const TypeDesc) };
+                let d = desc_at(&dec.addrs, *desc)?;
                 dec.addrs[i] = badger_runtime::gc::alloc_immortal(d, *size as usize);
             }
             Raw::Nullary(desc, idx) => {
-                let d = unsafe { &*(dec.addrs[*desc as usize] as *const TypeDesc) };
+                let d = desc_at(&dec.addrs, *desc)?;
                 let w = badger_runtime::gc::alloc_immortal(d, d.payload_size() as usize);
                 unsafe { *(badger_runtime::gc::obj(w).payload() as *mut u32) = *idx };
                 dec.addrs[i] = w;
             }
             Raw::Targs(v) => {
                 let ds: Vec<&'static TypeDesc> =
-                    v.iter().map(|x| unsafe { &*(dec.addrs[*x as usize] as *const TypeDesc) }).collect();
+                    v.iter().map(|x| desc_at(&dec.addrs, *x)).collect::<Result<_, _>>()?;
                 dec.addrs[i] = Box::leak(ds.into_boxed_slice()).as_ptr() as u64;
             }
             Raw::Null => dec.addrs[i] = 0,

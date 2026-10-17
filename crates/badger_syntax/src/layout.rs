@@ -29,10 +29,22 @@ pub fn layout(src: &str) -> String {
     layout_checked(src).0
 }
 
+/// Brackets nested deeper than this are refused (the parser and every
+/// later pass recurse once per level).
+pub const MAX_NESTING: usize = 1000;
+
 /// [`layout`], also returning where an unterminated block comment opens.
 pub fn layout_checked(src: &str) -> (String, Option<usize>) {
+    let (text, unterminated, _) = layout_nesting(src);
+    (text, unterminated)
+}
+
+/// [`layout_checked`], also returning the first bracket opened deeper than
+/// [`MAX_NESTING`].
+pub fn layout_nesting(src: &str) -> (String, Option<usize>, Option<usize>) {
     let b = src.as_bytes();
     let mut unterminated = None;
+    let mut too_deep = None;
     let mut out = b.to_vec();
     let mut stack: Vec<u8> = Vec::new();
     let mut last_ends = false;
@@ -100,7 +112,12 @@ pub fn layout_checked(src: &str) -> (String, Option<usize>) {
             out[p] = NL;
         }
         match c {
-            b'(' | b'[' | b'{' => stack.push(c),
+            b'(' | b'[' | b'{' => {
+                stack.push(c);
+                if stack.len() > MAX_NESTING && too_deep.is_none() {
+                    too_deep = Some(i);
+                }
+            }
             b')' | b']' | b'}' => {
                 stack.pop();
             }
@@ -113,7 +130,7 @@ pub fn layout_checked(src: &str) -> (String, Option<usize>) {
         out[p] = NL;
     }
     // Comment bytes were replaced by ASCII spaces only; the result is UTF-8.
-    (String::from_utf8(out).expect("layout preserves UTF-8"), unterminated)
+    (String::from_utf8(out).expect("layout preserves UTF-8"), unterminated, too_deep)
 }
 
 fn is_ident(c: u8) -> bool {

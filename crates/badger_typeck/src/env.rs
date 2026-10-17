@@ -38,9 +38,22 @@ pub struct Builtins {
     pub hash: DefId,
     pub codec: DefId,
     pub cell: DefId,
+    /// Types whose values stay on their task: `Cell` and the database
+    /// transactions (when their modules are loaded).
+    pub confined: Vec<DefId>,
 }
 
 impl Builtins {
+    /// The standard library's affine types (builders and buffers: each
+    /// value has one owner and moves rather than being shared).
+    pub const AFFINE_STD: &'static [&'static str] =
+        &["ListBuilder", "Buffer", "Batch", "MapBuilder", "SetBuilder", "FixedBuffer"];
+
+    /// Whether values of type constructor `d` are confined to their task.
+    pub fn is_confined(&self, d: DefId) -> bool {
+        self.confined.contains(&d)
+    }
+
     pub fn new(hir: &Hir) -> Self {
         let l = |n: &str| hir.lang(n);
         Builtins {
@@ -72,6 +85,9 @@ impl Builtins {
             hash: l("Hash"),
             codec: l("Codec"),
             cell: l("Cell"),
+            confined: std::iter::once(l("Cell"))
+                .chain(["sqlite.Tx", "postgres.Tx"].iter().filter_map(|n| hir.try_lang(n)))
+                .collect(),
         }
     }
 

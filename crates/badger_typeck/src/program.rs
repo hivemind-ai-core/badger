@@ -838,6 +838,18 @@ fn check_native_signature(g: &Global, id: DefId, t: &Ty, diags: &mut Vec<Diagnos
         check(p, format!("parameter {} of this native function", i + 1));
     }
     check(&f.ret, "the result of this native function".into());
+    // the native call ABI passes at most eight arguments
+    if f.params.len() > 8 {
+        diags.push(
+            Diagnostic::error(format!(
+                "a native function takes at most 8 parameters, and this one takes {}",
+                f.params.len()
+            ))
+            .with_code("E0410")
+            .with_label(span, "too many parameters")
+            .with_note("pass several values as one record (`{ a, b, c }`) or a tuple"),
+        );
+    }
 }
 
 fn check_ffi_signature(g: &Global, id: DefId, t: &Ty, diags: &mut Vec<Diagnostic>) {

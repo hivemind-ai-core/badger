@@ -302,7 +302,7 @@ impl Cx<'_> {
                 self.hir.modules[module_id(mi)].items.iter().map(|(k, v)| (*k, *v)).collect();
             for (name, def) in items {
                 let key = format!("{prefix}{}", self.sym(name));
-                self.hir.lang.insert(Box::leak(key.into_boxed_str()), def);
+                self.hir.lang.insert(key, def);
             }
         }
     }
@@ -351,6 +351,18 @@ impl Cx<'_> {
                     }
                 }
             }
+            // names this module's own imports bind (one name, one meaning)
+            let mut imported: FxHashMap<Symbol, (Res, Span)> = FxHashMap::default();
+            let mut conflicts: Vec<(Symbol, Span, Span)> = vec![];
+            let mut bind = |names: &mut FxHashMap<Symbol, (Res, Span)>, name: Symbol, r: Res, span: Span| {
+                match imported.get(&name) {
+                    Some((prev, at)) if *prev != r => conflicts.push((name, span, *at)),
+                    _ => {
+                        imported.insert(name, (r, span));
+                    }
+                }
+                names.insert(name, (r, span));
+            };
             for item in &m.ast.items {
                 let ast::ItemKind::Import(imp) = &item.kind else { continue };
                 let path: Vec<Symbol> = imp.path.iter().map(|n| n.sym).collect();
@@ -359,7 +371,7 @@ impl Cx<'_> {
                 match (&imp.items, target) {
                     (None, Some(t)) => {
                         let alias = imp.alias.map(|a| a.sym).unwrap_or(*path.last().unwrap());
-                        names.insert(alias, (Res::Module(t), span));
+                        bind(&mut names, alias, Res::Module(t), span);
                     }
                     (Some(items), Some(t)) => {
                         for (n, alias) in items {
@@ -369,8 +381,8 @@ impl Cx<'_> {
                                 .copied()
                                 .or_else(|| self.reexport(t, n.sym));
                             match found {
-                                Some(d) if self.hir.defs[d].is_pub || self.hir.modules[t].is_std && false => {
-                                    names.insert(alias.unwrap_or(*n).sym, (Res::Def(d), n.span));
+                                Some(d) if self.hir.defs[d].is_pub => {
+                                    bind(&mut names, alias.unwrap_or(*n).sym, Res::Def(d), n.span);
                                 }
                                 Some(_) => {
                                     let s = self.sym(n.sym).to_string();
@@ -399,6 +411,15 @@ impl Cx<'_> {
                         self.err("E0114", span, format!("unknown module `{mp}`"), "no such module");
                     }
                 }
+            }
+            for (name, span, first) in conflicts {
+                let s = self.sym(name).to_string();
+                let d = Diagnostic::error(format!("`{s}` is imported twice, naming different things"))
+                    .with_code("E0141")
+                    .with_label(span, "imported again here")
+                    .with_label(first, "first imported here")
+                    .with_note("import one of them under another name (`import m.{x as y}`), or use the module name (`m.x`)");
+                self.diags.push(d);
             }
             // own items (highest priority)
             for (k, v) in &self.hir.modules[mid].items {
@@ -719,7 +740,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             name: m.name.sym,
             module: self.module,
             span: m.name.span,
-            is_pub: m.is_pub || true,
+            // a method is visible wherever its type is (`pub` on one is
+            // accepted and changes nothing)
+            is_pub: true,
             kind: DefKind::Pending,
         });
         let saved = self.cur_def;

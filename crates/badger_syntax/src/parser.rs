@@ -63,11 +63,20 @@ pub fn parse(
     interner: &mut Interner,
     diags: &mut Vec<Diagnostic>,
 ) -> Result<Ast, ParseError> {
-    let (text, unterminated) = layout::layout_checked(src);
+    let (text, unterminated, too_deep) = layout::layout_nesting(src);
     if let Some(at) = unterminated {
         return Err(ParseError {
             message: "unterminated block comment".into(),
             span: Span::new(file, at, at + 2),
+        });
+    }
+    if let Some(at) = too_deep {
+        return Err(ParseError {
+            message: format!(
+                "brackets nested more than {} deep: split the expression into named parts",
+                layout::MAX_NESTING
+            ),
+            span: Span::new(file, at, at + 1),
         });
     }
     let mut pairs = LangParser::parse(Rule::program, &text).map_err(|e| {
@@ -91,14 +100,126 @@ pub fn parse(
         ParseError { message, span: Span::new(file, start, end.max(start)) }
     })?;
     let program = pairs.next().unwrap();
-    let mut lower = Lower { file, interner, ast: Ast::default(), diags, parenthesized: Default::default() };
+    let mut lower = Lower {
+        file,
+        interner,
+        ast: Ast::default(),
+        diags,
+        parenthesized: Default::default(),
+        depth: Default::default(),
+        too_deep: None,
+    };
     for p in program.into_inner() {
         if p.as_rule() == Rule::item {
             let item = lower.item(p);
             lower.push_item(item);
         }
     }
+    if let Some(span) = lower.too_deep {
+        return Err(ParseError {
+            message: format!(
+                "expression nested more than {MAX_EXPR_DEPTH} deep (a long operator chain or `else if` ladder counts each step): split it into named parts"
+            ),
+            span,
+        });
+    }
     Ok(lower.ast)
+}
+
+/// Expressions nested deeper than this are refused: every pass after
+/// parsing recurses once per level.
+pub const MAX_EXPR_DEPTH: u32 = 2000;
+
+/// The subexpressions an expression holds directly.
+fn expr_children(kind: &ExprKind, f: &mut impl FnMut(ExprId)) {
+    let stmt = |s: &Stmt, f: &mut dyn FnMut(ExprId)| match s {
+        Stmt::Let { value, .. } => f(*value),
+        Stmt::Assign { path, value, .. } => {
+            for p in path {
+                if let PlaceElem::Index(i) = p {
+                    f(*i)
+                }
+            }
+            f(*value)
+        }
+        Stmt::Use { call, .. } => f(*call),
+        Stmt::Expr { expr, .. } => f(*expr),
+    };
+    match kind {
+        ExprKind::Lit(_)
+        | ExprKind::Name(_)
+        | ExprKind::TypeName(_)
+        | ExprKind::Continue
+        | ExprKind::Ref(_) => {}
+        ExprKind::Interp(parts) => {
+            for p in parts {
+                if let InterpPart::Expr(e) = p {
+                    f(*e)
+                }
+            }
+        }
+        ExprKind::Field { base, .. } | ExprKind::Try(base) | ExprKind::Unary { operand: base, .. } => {
+            f(*base)
+        }
+        ExprKind::Index { base, index } => {
+            f(*base);
+            f(*index)
+        }
+        ExprKind::Call { callee, args, .. } => {
+            f(*callee);
+            args.iter().for_each(|a| f(*a))
+        }
+        ExprKind::Binary { lhs, rhs, .. } => {
+            f(*lhs);
+            f(*rhs)
+        }
+        ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) | ExprKind::Pipeline(xs) => {
+            xs.iter().for_each(|x| f(*x))
+        }
+        ExprKind::Record { spread, entries } => {
+            spread.iter().for_each(|x| f(*x));
+            for e in entries {
+                if let RecordEntry::Field { value, .. } = e {
+                    f(*value)
+                }
+            }
+        }
+        ExprKind::Map(kvs) => {
+            for (k, v) in kvs {
+                f(*k);
+                f(*v)
+            }
+        }
+        ExprKind::Lambda(l) => f(l.body),
+        ExprKind::If { cond, then, els } => {
+            f(*cond);
+            f(*then);
+            els.iter().for_each(|x| f(*x))
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            f(*scrutinee);
+            for a in arms {
+                a.guard.iter().for_each(|g| f(*g));
+                f(a.body)
+            }
+        }
+        ExprKind::While { cond, body } => {
+            f(*cond);
+            f(*body)
+        }
+        ExprKind::For { iter, body, .. } => {
+            f(*iter);
+            f(*body)
+        }
+        ExprKind::Loop { body } | ExprKind::Unsafe(body) => f(*body),
+        ExprKind::Block { stmts } => {
+            for s in stmts {
+                stmt(s, f)
+            }
+        }
+        ExprKind::Return(x) | ExprKind::Break(x) => x.iter().for_each(|x| f(*x)),
+        ExprKind::System(entries) => entries.iter().for_each(|(_, x)| f(*x)),
+    }
 }
 
 /// The names a pattern binds, in order.
@@ -231,6 +352,10 @@ struct Lower<'a> {
     diags: &'a mut Vec<Diagnostic>,
     /// Expressions written in parentheses.
     parenthesized: std::collections::HashSet<ExprId>,
+    /// Nesting depth of each expression (children are built first).
+    depth: std::collections::HashMap<ExprId, u32>,
+    /// The first expression nested deeper than [`MAX_EXPR_DEPTH`].
+    too_deep: Option<Span>,
 }
 
 fn is_upper(s: &str) -> bool {
@@ -275,7 +400,14 @@ impl Lower<'_> {
     }
 
     fn alloc_expr(&mut self, kind: ExprKind, span: Span) -> ExprId {
-        self.ast.exprs.alloc(Expr { kind, span })
+        let mut d = 0;
+        expr_children(&kind, &mut |c| d = d.max(self.depth.get(&c).copied().unwrap_or(0)));
+        let id = self.ast.exprs.alloc(Expr { kind, span });
+        self.depth.insert(id, d + 1);
+        if d + 1 > MAX_EXPR_DEPTH && self.too_deep.is_none() {
+            self.too_deep = Some(span);
+        }
+        id
     }
 
     fn alloc_pat(&mut self, kind: PatKind, span: Span) -> PatId {
@@ -621,10 +753,18 @@ impl Lower<'_> {
             Rule::hole_type => self.alloc_ty(TypeKind::Hole, span),
             Rule::path_type => self.path_type(inner),
             Rule::unit_type => self.alloc_ty(TypeKind::Unit, span),
-            Rule::paren_type => self.type_expr(inner.into_inner().next().unwrap()),
-            Rule::tuple_type => {
-                let items = inner.into_inner().map(|t| self.type_expr(t)).collect();
-                self.alloc_ty(TypeKind::Tuple(items), span)
+            Rule::group_type => {
+                let mut it = inner.into_inner();
+                let first = self.type_expr(it.next().unwrap());
+                match it.next() {
+                    None => first,
+                    Some(rest) => {
+                        let items = std::iter::once(first)
+                            .chain(rest.into_inner().map(|t| self.type_expr(t)))
+                            .collect();
+                        self.alloc_ty(TypeKind::Tuple(items), span)
+                    }
+                }
             }
             Rule::fn_type => {
                 let mut once = false;
@@ -1121,14 +1261,20 @@ impl Lower<'_> {
                 self.alloc_expr(ExprKind::TypeName(n), span)
             }
             Rule::unit_lit => self.alloc_expr(ExprKind::Lit(Lit::Unit), span),
-            Rule::paren => {
-                let e = self.expr(p.into_inner().next().unwrap());
-                self.parenthesized.insert(e);
-                e
-            }
-            Rule::tuple_lit => {
-                let items = p.into_inner().map(|e| self.expr(e)).collect();
-                self.alloc_expr(ExprKind::Tuple(items), span)
+            Rule::group => {
+                let mut it = p.into_inner();
+                let first = self.expr(it.next().unwrap());
+                match it.next() {
+                    None => {
+                        self.parenthesized.insert(first);
+                        first
+                    }
+                    Some(rest) => {
+                        let items =
+                            std::iter::once(first).chain(rest.into_inner().map(|e| self.expr(e))).collect();
+                        self.alloc_expr(ExprKind::Tuple(items), span)
+                    }
+                }
             }
             Rule::list_lit => {
                 let items = p.into_inner().map(|e| self.expr(e)).collect();
@@ -1394,10 +1540,18 @@ impl Lower<'_> {
                 self.alloc_pat(PatKind::Lit { lit, negative }, span)
             }
             Rule::unit_pat => self.alloc_pat(PatKind::Lit { lit: Lit::Unit, negative: false }, span),
-            Rule::paren_pat => self.pattern(inner.into_inner().next().unwrap()),
-            Rule::tuple_pat => {
-                let items = inner.into_inner().map(|q| self.pattern(q)).collect();
-                self.alloc_pat(PatKind::Tuple(items), span)
+            Rule::group_pat => {
+                let mut it = inner.into_inner();
+                let first = self.pattern(it.next().unwrap());
+                match it.next() {
+                    None => first,
+                    Some(rest) => {
+                        let items = std::iter::once(first)
+                            .chain(rest.into_inner().map(|q| self.pattern(q)))
+                            .collect();
+                        self.alloc_pat(PatKind::Tuple(items), span)
+                    }
+                }
             }
             Rule::record_pat => {
                 let mut fields = vec![];

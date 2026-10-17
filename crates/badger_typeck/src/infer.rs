@@ -365,7 +365,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     .with_label(span, format!("`{r}` only exposes its declared prefix"))
                     .with_shapes(self.show(expected), self.show(actual))
             }
-            UnifyError::Escape { skolem, ty } => {
+            UnifyError::Escape { skolem, .. } => {
                 // fresh callback regions are numbered internally (`S12`)
                 let name = self
                     .g
@@ -373,8 +373,6 @@ impl<'g, 'a> Infer<'g, 'a> {
                     .resolve(self.icx.skolems[skolem as usize].name)
                     .trim_end_matches(|c: char| c.is_ascii_digit())
                     .to_string();
-                let t = self.show(&ty);
-                let _ = t;
                 Diagnostic::error("a scoped value escapes its scope")
                     .with_code("E0401")
                     .with_label(span, format!("this value is bound to scope region `{name}`"))
@@ -2033,17 +2031,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             None => eff,
         };
         let once = l.once || exp_fn.as_ref().is_some_and(|f| f.once);
-        let fty = mk(TyKind::Fn(FnTy { params, ret, eff, once }));
-        if let Some(f) = &exp_fn {
-            let ef = mk(TyKind::Fn(FnTy {
-                params: f.params.clone(),
-                ret: f.ret.clone(),
-                eff: f.eff.clone(),
-                once,
-            }));
-            let _ = ef;
-        }
-        fty
+        mk(TyKind::Fn(FnTy { params, ret, eff, once }))
     }
 
     /// Mark the current (innermost) function's effect row with the regions
@@ -2052,15 +2040,11 @@ impl<'g, 'a> Infer<'g, 'a> {
         let t = self.icx.resolve(t);
         let mut regions = vec![];
         let mut confined = false;
-        let cell = self.b().cell;
-        let txs = [self.g.hir.try_lang("sqlite.Tx"), self.g.hir.try_lang("postgres.Tx")];
+        let b = self.b().clone();
         let mut visit = |k: &TyKind| {
             match k {
                 TyKind::Skolem(s) => regions.push(*s),
-                TyKind::Con(d, _) if *d == cell || txs.contains(&Some(*d)) => confined = true,
-                TyKind::RowExt(l, _, _) => {
-                    let _ = l;
-                }
+                TyKind::Con(d, _) if b.is_confined(*d) => confined = true,
                 _ => {}
             }
             false
@@ -2092,10 +2076,7 @@ impl<'g, 'a> Infer<'g, 'a> {
         let t = self.icx.resolve(t);
         match &*t {
             TyKind::Con(d, args) => {
-                if *d == self.b().cell
-                    || Some(*d) == self.g.hir.try_lang("sqlite.Tx")
-                    || Some(*d) == self.g.hir.try_lang("postgres.Tx")
-                {
+                if self.b().is_confined(*d) {
                     return true;
                 }
                 if seen.contains(d) {
@@ -2263,12 +2244,25 @@ impl<'g, 'a> Infer<'g, 'a> {
         let p = self.icx.resolve(p);
         let mut labels: Vec<Symbol> = vec![];
         let mut stack = vec![p];
-        let mut seen = 0;
+        // each distinct type once; polymorphic recursion (a struct holding
+        // itself at a bigger type) has no end, so past a bound on how often
+        // one type constructor is expanded every modeled effect is charged
+        // (sound, never silently dropped)
+        let mut seen: Vec<Ty> = vec![];
+        let mut expanded: rustc_hash::FxHashMap<DefId, u32> = Default::default();
         while let Some(t) = stack.pop() {
-            seen += 1;
-            if seen > 64 {
-                break;
+            if seen.contains(&t) {
+                continue;
             }
+            if let TyKind::Con(d, _) = &*t {
+                let n = expanded.entry(*d).or_default();
+                *n += 1;
+                if *n > 256 || seen.len() >= 4096 {
+                    labels = self.g.env.all_effects.clone();
+                    break;
+                }
+            }
+            seen.push(t.clone());
             match &*t {
                 TyKind::Fn(f) => {
                     for (l, _) in row_fields(&f.eff).0 {

@@ -1,0 +1,7 @@
+// The native call ABI passes at most eight arguments.
+// expect-error: E0410
+extern "native demo.f" fn f(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int, i: Int) -> Int
+
+pub fn main() {
+    let _ = f(1, 2, 3, 4, 5, 6, 7, 8, 9)
+}

@@ -29,7 +29,7 @@ pub struct Hir {
     pub modules: Arena<Module>,
     pub generics: Arena<GenericParam>,
     /// Well-known definitions the compiler relies on (`Option`, `List`, ...).
-    pub lang: FxHashMap<&'static str, DefId>,
+    pub lang: FxHashMap<String, DefId>,
     /// Module-level value initializers in source order (globals).
     pub globals: Vec<DefId>,
     /// Entry module (the user's main module).

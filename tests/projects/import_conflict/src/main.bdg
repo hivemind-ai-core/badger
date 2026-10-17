@@ -1,0 +1,7 @@
+import a.{greet}
+import b.{greet}
+import std.io
+
+pub fn main() {
+    let _ = io.println(greet())
+}

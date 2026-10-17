@@ -363,12 +363,13 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
 }
 
 /// Whether a value of type `t` can carry code or confined state: a
-/// function, `dyn` value, type parameter, cell, or a structure holding one.
+/// function, `dyn` value, type parameter, task-confined value (a cell or a
+/// transaction), or a structure holding one.
 fn carries_code(g: &crate::program::Global<'_>, t: &Ty, seen: &mut Vec<DefId>) -> bool {
     match &**t {
         TyKind::Fn(_) | TyKind::Dyn(..) | TyKind::Skolem(_) | TyKind::Var(_) | TyKind::Gen(_) => true,
         TyKind::Con(d, args) => {
-            if *d == g.env.b.cell || args.iter().any(|a| carries_code(g, a, seen)) {
+            if g.env.b.is_confined(*d) || args.iter().any(|a| carries_code(g, a, seen)) {
                 return true;
             }
             if seen.contains(d) {
@@ -1288,10 +1289,7 @@ impl Own<'_, '_, '_> {
         match &*t {
             TyKind::Con(d, args) => {
                 let name = self.inf.lang_name(*d);
-                if matches!(
-                    name.as_deref(),
-                    Some("ListBuilder" | "Buffer" | "Batch" | "MapBuilder" | "SetBuilder" | "FixedBuffer")
-                ) {
+                if name.as_deref().is_some_and(|n| crate::env::Builtins::AFFINE_STD.contains(&n)) {
                     return true;
                 }
                 // a sequence of affine items is a one-shot iterator

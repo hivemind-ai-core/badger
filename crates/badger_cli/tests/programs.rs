@@ -2243,3 +2243,45 @@ fn release_starts_without_sources() {
     assert!(other.join("keep.txt").is_file());
     let _ = std::fs::remove_dir_all(&base);
 }
+
+/// Deeply nested programs get a diagnostic, not a crash or a hang: a long
+/// operator chain past the expression depth limit, brackets past the
+/// nesting limit; just under the limits they compile (even in debug
+/// builds, on the CLI's large stack), and nested parentheses parse in
+/// linear time.
+#[test]
+fn deep_nesting_is_refused_cleanly() {
+    let dir = std::env::temp_dir().join(format!("badger-deep-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let check = |name: &str, src: String| {
+        let f = dir.join(name);
+        std::fs::write(&f, src).unwrap();
+        let started = std::time::Instant::now();
+        let out = lang().arg("check").arg(&f).output().unwrap();
+        (out.status.code(), String::from_utf8_lossy(&out.stderr).into_owned(), started.elapsed())
+    };
+    let chain = |n: usize| {
+        format!("pub fn main() {{\n    let x = {}\n    assert(x == {n})\n}}\n", vec!["1"; n].join(" + "))
+    };
+    let (code, err, _) = check("long.bdg", chain(1999));
+    assert_eq!(code, Some(0), "{err}");
+    let (code, err, _) = check("longer.bdg", chain(5000));
+    assert!(code == Some(1) && err.contains("nested more than 2000 deep"), "{code:?} {err}");
+    let parens =
+        |n: usize| format!("pub fn main() {{\n    let x = {}1{}\n}}\n", "(".repeat(n), ")".repeat(n));
+    let (code, err, took) = check("parens.bdg", parens(900));
+    assert!(code == Some(0) && took < std::time::Duration::from_secs(20), "{code:?} {took:?} {err}");
+    let (code, err, _) = check("deeper.bdg", parens(1500));
+    assert!(code == Some(1) && err.contains("brackets nested more than 1000 deep"), "{code:?} {err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Two imports binding one name to different items are an error, not a
+/// silent choice of the later one.
+#[test]
+fn conflicting_imports_are_reported() {
+    let out = lang().args(["check", "--json", "tests/projects/import_conflict"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(!out.status.success());
+    assert!(text.contains("\"code\":\"E0141\"") && text.contains("`greet` is imported twice"), "{text}");
+}

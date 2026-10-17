@@ -1693,14 +1693,11 @@ impl Infer<'_, '_> {
                 let d = *d;
                 let name = self.lang_name(d).unwrap_or_default();
                 if which == "Transfer" || which == "Share" {
-                    if d == self.b().cell
-                        || Some(d) == self.g.hir.try_lang("sqlite.Tx")
-                        || Some(d) == self.g.hir.try_lang("postgres.Tx")
-                    {
+                    if self.b().is_confined(d) {
                         return Some(false);
                     }
                     // affine values move rather than share
-                    if which == "Share" && matches!(name.as_str(), "ListBuilder" | "Buffer" | "Batch") {
+                    if which == "Share" && crate::env::Builtins::AFFINE_STD.contains(&name.as_str()) {
                         return Some(false);
                     }
                 } else {
@@ -2043,15 +2040,8 @@ impl Infer<'_, '_> {
             return Some(true);
         }
         match &*ttail {
-            TyKind::Var(_) if !final_ => {
-                // the target's remaining fields are not yet known
-                if matches!(&*stail, TyKind::RowEmpty) {
-                    let rest: Vec<(Symbol, Ty)> =
-                        sf.iter().filter(|f| !tf.iter().any(|g| g.0 == f.0)).cloned().collect();
-                    let _ = rest;
-                }
-                None
-            }
+            // the target's remaining fields are not yet known
+            TyKind::Var(_) if !final_ => None,
             TyKind::Var(_) => {
                 let _ = self.icx.unify(&ttail, &row_empty());
                 Some(true)

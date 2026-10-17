@@ -85,7 +85,9 @@ pub fn watch(entry: PathBuf, files: Vec<PathBuf>, optimize: bool, reconstruct: b
     // the baseline is taken now, not whenever the thread starts running
     let mut last = stamp(&files);
     let mut changed = last.iter().any(|t| t.is_some_and(|t| t > read_at));
-    std::thread::spawn(move || {
+    // it recompiles: the compiler's room for deeply nested programs
+    let watcher = std::thread::Builder::new().name("watch".into()).stack_size(512 << 20);
+    let _ = watcher.spawn(move || {
         loop {
             if !changed {
                 std::thread::sleep(Duration::from_millis(100));

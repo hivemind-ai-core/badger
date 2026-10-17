@@ -1,0 +1,3 @@
+[package]
+name = "import_conflict"
+entry = "src/main.bdg"

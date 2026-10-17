@@ -335,8 +335,6 @@ fn exit_on_internal_errors() {
 
 fn main() -> ExitCode {
     exit_on_internal_errors();
-    // BADGER_PROFILE covers compilation too, not only the program run
-    badger_driver::start_profile();
     // `std.compiler` runs this executable for its queries
     if std::env::var_os("BADGER_EXE").is_none()
         && let Ok(exe) = std::env::current_exe()
@@ -344,7 +342,29 @@ fn main() -> ExitCode {
         // SAFETY: no other threads exist yet
         unsafe { std::env::set_var("BADGER_EXE", exe) };
     }
-    let mut cli = Cli::parse();
+    let cli = Cli::parse();
+    // the compiler recurses once per nesting level of a program (the parser
+    // refuses deeper than its limits): give it room in debug builds too.
+    // Only the pages it touches become resident.
+    let worker = std::thread::Builder::new().name("main".into()).stack_size(512 << 20).spawn(move || {
+        // BADGER_PROFILE covers compilation too, not only the program run
+        // (sampling the thread that does the work)
+        badger_driver::start_profile();
+        command(cli)
+    });
+    match worker.map(|w| w.join()) {
+        Ok(Ok(code)) => code,
+        // a panic was already reported by the internal-error hook
+        Ok(Err(_)) => ExitCode::from(INTERNAL_ERROR as u8),
+        Err(e) => {
+            eprintln!("error: cannot start: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Run one CLI command.
+fn command(mut cli: Cli) -> ExitCode {
     // a missing path means the current directory's project
     if let Command::Inspect { path, connect: None, .. } = &mut cli.command
         && path.is_none()
