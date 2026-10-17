@@ -61,6 +61,10 @@ negative results; do not mark architectural sketches as implemented.
     GC survival alone is not escape or uniqueness evidence.
 - [ ] G2: Optimize pool refill/reuse and clearing based on initialization contracts;
   evaluate size-class pages, occupancy metadata, and bulk empty-page reclamation.
+  - [x] G2a: Add persistent integer-map baselines and diagnostic comparisons of
+    256/512/1024-byte pooled cells, with reuse/zeroing/quarantine/trim tests.
+  - [ ] G2b: Select a production pool limit only after measuring application
+    throughput, pauses, peak RSS and retention; retain unsuccessful experiments.
 - [ ] G3: Reduce sweep bookkeeping and repeated helper-thread/scratch allocation;
   preserve finalizers, stable addresses, and bounded collection coordination.
 - [ ] G4: Prototype adaptive nursery sizing and major cadence using survival,
@@ -415,3 +419,21 @@ matrix. G1a confirms G3 and I5 as strong follow-ups, while G1b native-buffer
 accounting is needed before making arena claims. G2/G3/I5 and all arena
 implementation boxes remain unchecked. No default collector policy or production
 representation changed in this measurement slice.
+
+### G2a: pool boundary experiments
+
+Initial source inspection after G1a found that dense HAMT root nodes occupy
+288 bytes including the header, beyond the 256-byte pooled-cell limit.
+G1a phase profiles attribute about 64–94% of GC time to sweep/finalization in
+the application cells inspected. Larger pool classes are a candidate, not yet
+an accepted production change. Persistent integer-map cases (64/256/4096 keys)
+isolate ordinary path copying without string/conversion churn.
+
+The before-change baseline is saved under `reports/memory-management/G2-baseline/`:
+ordinary binary `main-0d34cee`, benchmark revision `55d0a43`, workers 1/2/4/8,
+five measured repetitions and one warmup. All 60 measured checksums pass.
+Diagnostic builds can compare fixed 256/512/1024-byte pool limits in the same
+binary. Normal builds still use 256 bytes. Unit tests isolate their global heap
+in child processes and cover every payload size through 1,040 bytes, cleared
+reuse, crossing chunk boundaries, a retained quarantined cell, and purging all
+links before chunk retirement (with verification both enabled and disabled).

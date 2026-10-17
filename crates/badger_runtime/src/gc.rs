@@ -165,7 +165,14 @@ fn layout(payload: usize) -> Layout {
 /// cells are reused, not returned to the system. Larger objects use the
 /// system allocator.
 const SMALL_MAX: usize = 256;
-const CLASSES: usize = SMALL_MAX / 16;
+// Diagnostic builds can compare larger classes without changing their binary.
+const CLASSES: usize = if cfg!(feature = "gc-profile") { 1024 / 16 } else { SMALL_MAX / 16 };
+fn small_max() -> usize {
+    #[cfg(feature = "gc-profile")]
+    return diagnostics::pool_max(SMALL_MAX);
+    #[cfg(not(feature = "gc-profile"))]
+    SMALL_MAX
+}
 const CHUNK: usize = 256 << 10;
 /// Chunks after a worker's first: 2 MiB, aligned and advised as a huge
 /// page, so a program that allocates much takes one page fault per chunk
@@ -205,10 +212,104 @@ fn cell_size(payload: usize) -> usize {
     (HEADER + payload.max(8) + 15) & !15
 }
 
+#[cfg(test)]
+mod pool_tests {
+    use super::*;
+
+    #[test]
+    fn cells_reuse_zeroed_storage_and_trim_respects_quarantine() {
+        // An isolated test process avoids racing other runtime unit tests that
+        // use the global heap. Its only test is this allocator exercise.
+        if std::env::var_os("BADGER_POOL_TEST_CHILD").is_none() {
+            let limits: &[usize] =
+                if cfg!(feature = "gc-profile") { &[256, 512, 1024] } else { &[SMALL_MAX] };
+            for limit in limits {
+                for verify in ["0", "1"] {
+                    let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+                    for (key, _) in std::env::vars_os() {
+                        if key.to_string_lossy().starts_with("BADGER_") {
+                            command.env_remove(key);
+                        }
+                    }
+                    let output = command
+                        .args([
+                            "--exact",
+                            "gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine",
+                        ])
+                        .env("BADGER_POOL_TEST_CHILD", "1")
+                        .env("BADGER_GC_POOL_MAX", limit.to_string())
+                        .env("BADGER_GC_VERIFY", verify)
+                        .output()
+                        .unwrap();
+                    assert!(
+                        output.status.success(),
+                        "pool{limit} verify{verify}: {} {}",
+                        String::from_utf8_lossy(&output.stdout),
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+            }
+            return;
+        }
+        let w = 0;
+        for payload in 0..=1040 {
+            let bytes =
+                if cell_size(payload) <= small_max() { cell_size(payload) } else { layout(payload).size() };
+            let p = alloc_cell(w, payload);
+            assert!(!p.is_null());
+            unsafe {
+                assert!(std::slice::from_raw_parts(p as *const u8, bytes).iter().all(|&b| b == 0));
+                std::ptr::write_bytes(p as *mut u8, 0xAB, bytes);
+            }
+            free_cell(w, p, payload);
+            let q = alloc_cell(w, payload);
+            if cell_size(payload) <= small_max() {
+                assert_eq!(p, q);
+            }
+            unsafe {
+                assert!(std::slice::from_raw_parts(q as *const u8, bytes).iter().all(|&b| b == 0));
+            }
+            free_cell(w, q, payload);
+        }
+        // Cross a chunk boundary, then retain just one quarantined cell from
+        // the first chunk. Free-list links into retired chunks must be purged.
+        let payload = small_max() - HEADER;
+        let cells: Vec<_> = (0..CHUNK / small_max() + 8).map(|_| alloc_cell(w, payload)).collect();
+        assert!(unsafe { &*POOLS.0[w].get() }.chunks.len() >= 2);
+        let held = cells[0];
+        for p in cells.into_iter().skip(1) {
+            free_cell(w, p, payload);
+        }
+        let desc = crate::desc::builtin::unit();
+        unsafe {
+            (*held).desc = desc;
+            (*held).meta = (payload as u64) << 32;
+            std::ptr::write_bytes((*held).payload(), 0xCD, payload);
+        }
+        heap().quarantine.push_back((held, desc));
+        heap().quarantine_bytes = HEADER + payload;
+        trim_empty_chunks(heap());
+        assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks.len(), 1);
+        unsafe {
+            assert!(std::slice::from_raw_parts((*held).payload(), payload).iter().all(|&b| b == 0xCD));
+        }
+        assert_eq!(heap().quarantine.pop_front().unwrap().0, held);
+        heap().quarantine_bytes = 0;
+        free_cell(w, held, payload);
+        trim_empty_chunks(heap());
+        let pool = unsafe { &*POOLS.0[w].get() };
+        assert!(pool.chunks.is_empty());
+        assert!(pool.free.iter().all(|p| p.is_null()));
+        assert!(pool.active.is_null());
+        assert_eq!(pool.left, 0);
+        assert_eq!(pool_reserved_bytes(), 0);
+    }
+}
+
 /// A zeroed cell for an object with `payload` bytes, owned by worker `w`.
 fn alloc_cell(w: usize, payload: usize) -> *mut Header {
     let size = cell_size(payload);
-    if size > SMALL_MAX {
+    if size > small_max() {
         return unsafe { alloc_zeroed(layout(payload)) as *mut Header };
     }
     let pool = unsafe { &mut *POOLS.0[w].get() };
@@ -248,7 +349,7 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
 /// list: a pool is otherwise touched only by its worker's allocations).
 fn free_cell(w: usize, p: *mut Header, payload: usize) {
     let size = cell_size(payload);
-    if size > SMALL_MAX {
+    if size > small_max() {
         return unsafe { dealloc(p as *mut u8, layout(payload)) };
     }
     // Quarantine drains on the collector thread, possibly for a different

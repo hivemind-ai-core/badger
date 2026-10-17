@@ -81,6 +81,13 @@ class AllocationCensus(unittest.TestCase):
         profile["allocation_sizes"] = dict(small_pool_classes=[dict(cell_size=32, allocated=counts["allocated"])],
                                            large_system_cells=dict(objects=0, requested_bytes=0, cell_bytes=0))
         run.validate_allocations(profile)
+        profile["requested_size_classes"] = dict(through_1024=[dict(rounded_total_bytes=32, allocated=copy.deepcopy(counts["allocated"]))],
+                                                over_1024=dict(objects=0, requested_bytes=0, cell_bytes=0))
+        run.validate_allocations(profile)
+        bad = copy.deepcopy(profile)
+        bad["requested_size_classes"]["through_1024"][0]["allocated"]["objects"] -= 1
+        with self.assertRaises(ValueError):
+            run.validate_allocations(bad)
         for category, metric in [("reclaimed_before_survival", "requested_bytes"),
                                  ("first_survival", "objects"),
                                  ("full_survivor_observations", "cell_bytes")]:

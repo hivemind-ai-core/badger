@@ -7,7 +7,7 @@ use std::sync::{Mutex, OnceLock};
 use rustc_hash::FxHashMap;
 use serde_json::json;
 
-use super::{HEADER, Header, MARK, SMALL_MAX, cell_size, layout};
+use super::{HEADER, Header, MARK, cell_size, layout, small_max};
 use crate::desc::TypeDesc;
 
 fn path() -> Option<&'static str> {
@@ -34,7 +34,7 @@ impl Volume {
         Self {
             objects: 1,
             requested_bytes: (HEADER + payload) as u64,
-            cell_bytes: if cell_size(payload) <= SMALL_MAX {
+            cell_bytes: if cell_size(payload) <= small_max() {
                 cell_size(payload) as u64
             } else {
                 layout(payload).size() as u64
@@ -105,13 +105,24 @@ struct Object {
     site: usize,
     survived: bool,
 }
-#[derive(Default)]
 struct Worker {
     sites: Vec<Site>,
     by_key: FxHashMap<Key, usize>,
     objects: Vec<Object>,
     // Exact small-cell classes, followed by all system-allocated large cells.
     sizes: [Volume; super::CLASSES + 1],
+    requested_sizes: [Volume; 65],
+}
+impl Default for Worker {
+    fn default() -> Self {
+        Self {
+            sites: Vec::new(),
+            by_key: FxHashMap::default(),
+            objects: Vec::new(),
+            sizes: [Volume::default(); super::CLASSES + 1],
+            requested_sizes: [Volume::default(); 65],
+        }
+    }
 }
 static WORKERS: [Mutex<Worker>; crate::task::MAX_WORKERS] = [const {
     Mutex::new(Worker {
@@ -119,6 +130,7 @@ static WORKERS: [Mutex<Worker>; crate::task::MAX_WORKERS] = [const {
         by_key: FxHashMap::with_hasher(rustc_hash::FxBuildHasher),
         objects: Vec::new(),
         sizes: [Volume { objects: 0, requested_bytes: 0, cell_bytes: 0 }; super::CLASSES + 1],
+        requested_sizes: [Volume { objects: 0, requested_bytes: 0, cell_bytes: 0 }; 65],
     })
 }; crate::task::MAX_WORKERS];
 
@@ -145,8 +157,9 @@ pub(super) fn record(
     };
     let volume = Volume::object(payload);
     w.sites[site].counts.allocated.add(volume);
-    let class = if cell_size(payload) <= SMALL_MAX { cell_size(payload) / 16 - 1 } else { super::CLASSES };
+    let class = if cell_size(payload) <= small_max() { cell_size(payload) / 16 - 1 } else { super::CLASSES };
     w.sizes[class].add(volume);
+    w.requested_sizes[(cell_size(payload) / 16 - 1).min(64)].add(volume);
     w.objects.push(Object { site, survived: false });
 }
 
@@ -198,11 +211,15 @@ pub(super) fn finish() {
     let mut metadata_capacity = 0;
     let mut remaining_objects = 0;
     let mut sizes = [Volume::default(); super::CLASSES + 1];
+    let mut requested_sizes = [Volume::default(); 65];
     for worker in &WORKERS {
         let worker = worker.lock().unwrap();
         metadata_capacity += worker.objects.capacity() * std::mem::size_of::<Object>();
         remaining_objects += worker.objects.len();
         for (total, volume) in sizes.iter_mut().zip(worker.sizes) {
+            total.add(volume);
+        }
+        for (total, volume) in requested_sizes.iter_mut().zip(worker.requested_sizes) {
             total.add(volume);
         }
         for site in &worker.sites {
@@ -229,8 +246,12 @@ pub(super) fn finish() {
         "object_metadata_capacity_bytes": metadata_capacity,
         "remaining_metadata_objects": remaining_objects,
         "allocation_sizes": {
-            "small_pool_classes": sizes[..super::CLASSES].iter().enumerate().map(|(i, volume)| json!({"cell_size": (i + 1) * 16, "allocated": volume.report()})).collect::<Vec<_>>(),
+            "small_pool_classes": sizes[..small_max()/16].iter().enumerate().map(|(i, volume)| json!({"cell_size": (i + 1) * 16, "allocated": volume.report()})).collect::<Vec<_>>(),
             "large_system_cells": sizes[super::CLASSES].report(),
+        },
+        "requested_size_classes": {
+            "through_1024": requested_sizes[..64].iter().enumerate().map(|(i, volume)| json!({"rounded_total_bytes": (i + 1) * 16, "allocated": volume.report()})).collect::<Vec<_>>(),
+            "over_1024": requested_sizes[64].report(),
         },
         "totals": total.report(), "sites": rows,
     });

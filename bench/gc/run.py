@@ -45,6 +45,9 @@ POLICIES = {
     "young64m": {"BADGER_GC_MINOR_BYTES": str(64 << 20)},
     "no-trim": {"BADGER_GC_TRIM": "0"},
     "minors32": {"BADGER_GC_MAX_MINORS": "32"},
+    "pool256": {"BADGER_GC_POOL_MAX": "256"},
+    "pool512": {"BADGER_GC_POOL_MAX": "512"},
+    "pool1024": {"BADGER_GC_POOL_MAX": "1024"},
 }
 
 
@@ -109,6 +112,11 @@ def validate_allocations(profile):
         if totals["allocated"][metric] != (sizes["large_system_cells"][metric]
                 + sum(c["allocated"][metric] for c in sizes["small_pool_classes"])):
             raise ValueError("allocation size classes do not sum to totals")
+        if "requested_size_classes" in profile:
+            sizes = profile["requested_size_classes"]
+            if totals["allocated"][metric] != (sizes["over_1024"][metric]
+                    + sum(c["allocated"][metric] for c in sizes["through_1024"])):
+                raise ValueError("requested size classes do not sum to totals")
     if totals["remaining"]["objects"] != profile["remaining_metadata_objects"]:
         raise ValueError("allocation metadata disagrees with remaining objects")
     if totals["allocated"]["objects"] <= 0:
@@ -253,6 +261,9 @@ def main():
                 t.validate(record, config, workers, oracles[name])
             before, after = (record["before"], record["after"]) if coverage else (record["heap_before"], record["heap_after"])
             phases = json.loads(gc_path.read_text()) if gc_path.exists() else None
+            if "BADGER_GC_POOL_MAX" in settings:
+                if phases is None or phases["policy"].get("pool_max_bytes") != int(settings["BADGER_GC_POOL_MAX"]):
+                    raise ValueError("diagnostic binary did not apply the pool-size policy")
             gc_path.unlink(missing_ok=True)
             allocations = None
             if variant == "diagnostic-allocations":

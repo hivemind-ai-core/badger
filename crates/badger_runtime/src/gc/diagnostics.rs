@@ -12,6 +12,7 @@ struct Settings {
     young_bytes: Option<usize>,
     max_minors: Option<usize>,
     trim: bool,
+    pool_max: Option<usize>,
 }
 fn settings() -> &'static Settings {
     static SETTINGS: OnceLock<Settings> = OnceLock::new();
@@ -21,11 +22,17 @@ fn settings() -> &'static Settings {
                 v.parse::<usize>().unwrap_or_else(|_| panic!("invalid diagnostic setting {key}={v}"))
             })
         };
+        let pool_max = number("BADGER_GC_POOL_MAX");
+        assert!(
+            matches!(pool_max, None | Some(256 | 512 | 1024)),
+            "BADGER_GC_POOL_MAX must be 256, 512 or 1024"
+        );
         Settings {
             path: std::env::var("BADGER_GC_PROFILE").ok(),
             young_bytes: number("BADGER_GC_MINOR_BYTES"),
             max_minors: number("BADGER_GC_MAX_MINORS"),
             trim: !std::env::var("BADGER_GC_TRIM").is_ok_and(|v| v == "0"),
+            pool_max,
         }
     })
 }
@@ -37,6 +44,9 @@ pub(super) fn max_minors(default: usize) -> usize {
 }
 pub(super) fn trim() -> bool {
     settings().trim
+}
+pub(super) fn pool_max(default: usize) -> usize {
+    settings().pool_max.unwrap_or(default)
 }
 
 pub(super) struct Collection {
@@ -82,7 +92,7 @@ pub fn finish() {
     let records = std::mem::take(&mut *RECORDS.lock().unwrap());
     let output = json!({"schema": 1, "collections": records,
         "policy": {"minor_bytes": settings().young_bytes, "max_minors": settings().max_minors,
-                   "trim": settings().trim},
+                   "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX)},
         "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution."});
     if let Err(e) = std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()) {
         eprintln!("cannot write GC diagnostics {path}: {e}");

@@ -72,6 +72,15 @@ are buffered and written at exit. `BADGER_PROFILE_SCOPE=runtime` excludes fronte
 and JIT samples; its default retains existing whole-process profiling. With
 sampling active, diagnostic sweep helper threads are sampled too.
 
+`BADGER_GC_POOL_MAX=256|512|1024` is another diagnostic-only experiment. It fixes
+the pooled cell limit for the process, including headers and size-class rounding.
+Allocation and reclamation always use the same limit. Compare it with
+`--suite policy --policies pool256 pool512 pool1024`; the runner verifies the
+reported policy to reject a binary that does not support this setting.
+Allocation censuses also include requested-size buckets through 1,024 bytes,
+independent of which limit is pooled. Histogram volumes conserve the same
+objects, requested bytes and actual cell-layout bytes as the other counters.
+
 ```
 python3 bench/gc/run.py --baseline /tmp/base/lang --diagnostic /tmp/diag/lang --suite telemetry --out /tmp/gc-telemetry
 python3 bench/gc/run.py --baseline /tmp/base/lang --suite coverage --out /tmp/gc-coverage
