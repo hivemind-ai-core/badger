@@ -1,16 +1,12 @@
-// A return value that cannot satisfy the postcondition.
+// A returned value that cannot satisfy the postcondition whenever the
+// function runs.
 // expect-error: E0146
 ensures result >= 0
-fn clamp(x: Int) -> Int {
-    if x > 100 {
-        return 100
-    }
-    if x < 0 {
-        return -1
-    }
-    x
+fn penalty(points: Int) -> Int {
+    let base = -10
+    base
 }
 
 pub fn main() -> Unit {
-    let _ = clamp(5)
+    let _ = penalty(5)
 }

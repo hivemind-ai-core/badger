@@ -69,6 +69,9 @@ struct Env {
     vals: HashMap<LocalId, V>,
     /// The path cannot be taken (its conditions contradict).
     dead: bool,
+    /// What is known depends on the conditions of enclosing branches (the
+    /// path may be one that never runs).
+    path: bool,
 }
 
 impl Env {
@@ -308,6 +311,7 @@ impl<'a> Analysis<'a> {
 
     /// Learn from `cond` being `truth` on this path.
     fn refine(&self, cond: ExprId, truth: bool, env: &mut Env) {
+        env.path = true;
         match &self.hir.exprs[cond].kind {
             ExprKind::Unary { op: UnOp::Not, operand } => self.refine(*operand, !truth, env),
             ExprKind::Binary { op: BinOp::And, lhs, rhs } if truth => {
@@ -440,15 +444,20 @@ impl<'a> Analysis<'a> {
                 let v = self.eval(pc.cond, &callee_env);
                 if v == V::Bool(Some(false)) && !env.dead {
                     let span = self.hir.exprs[call].span;
+                    let message =
+                        format!("this call breaks the precondition `{}` of `{}`", pc.text, self.name(d));
+                    let d = if env.path {
+                        // only on a path the analysis cannot rule out
+                        Diagnostic::warning(message).with_note(
+                            "the enclosing conditions decide this; if that path can run, the call fails",
+                        )
+                    } else {
+                        Diagnostic::error(message)
+                    };
                     self.diags.push(
-                        Diagnostic::error(format!(
-                            "this call breaks the precondition `{}` of `{}`",
-                            pc.text,
-                            self.name(d)
-                        ))
-                        .with_code("E0145")
-                        .with_label(span, "the arguments here cannot satisfy it")
-                        .with_label(pc.span, "the precondition"),
+                        d.with_code("E0145")
+                            .with_label(span, "the arguments here cannot satisfy it")
+                            .with_label(pc.span, "the precondition"),
                     );
                 }
                 v == V::Bool(Some(true)) || env.dead
@@ -642,14 +651,19 @@ impl<'a> Analysis<'a> {
                     V::Bool(Some(true)) => {}
                     V::Bool(Some(false)) => {
                         all = false;
+                        let message =
+                            format!("`{}` returns a value that breaks its postcondition", self.name(d));
+                        let diag = if env.path {
+                            Diagnostic::warning(message).with_note(
+                                "the enclosing conditions decide this; if that path can run, the return fails",
+                            )
+                        } else {
+                            Diagnostic::error(message)
+                        };
                         self.diags.push(
-                            Diagnostic::error(format!(
-                                "`{}` returns a value that breaks its postcondition",
-                                self.name(d)
-                            ))
-                            .with_code("E0146")
-                            .with_label(self.hir.exprs[*value].span, "this value cannot satisfy it")
-                            .with_label(pc.span, "the postcondition"),
+                            diag.with_code("E0146")
+                                .with_label(self.hir.exprs[*value].span, "this value cannot satisfy it")
+                                .with_label(pc.span, "the postcondition"),
                         );
                     }
                     _ => all = false,
@@ -1030,6 +1044,8 @@ fn analyze(
         for pc in &f.requires {
             a.refine(pc.cond, true, &mut entry);
         }
+        // preconditions are facts, not path conditions
+        entry.path = false;
         a.walk(body, &entry);
         if !f.ensures.is_empty() && !is_std(hir, hir.defs[*d].span) {
             a.check_returns(*d, f, &mut elided.posts);

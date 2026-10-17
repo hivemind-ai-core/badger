@@ -141,6 +141,34 @@ fn reject_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Programs that check with the warnings their `// expect-warning:` lines
+/// name (and no errors).
+#[test]
+fn warning_programs() {
+    let mut failures = vec![];
+    for f in files("tests/warnings") {
+        let src = std::fs::read_to_string(&f).unwrap();
+        let want: Vec<&str> =
+            src.lines().filter_map(|l| l.trim().strip_prefix("// expect-warning:")).map(str::trim).collect();
+        let out = lang().arg("check").arg("--json").arg(&f).output().unwrap();
+        let json = String::from_utf8_lossy(&out.stdout);
+        let missing: Vec<&&str> = want
+            .iter()
+            .filter(|c| {
+                !json.contains(&format!("\"code\":\"{c}\"")) || !json.contains("\"severity\":\"warning\"")
+            })
+            .collect();
+        if !out.status.success()
+            || !missing.is_empty()
+            || want.is_empty()
+            || json.contains("\"severity\":\"error\"")
+        {
+            failures.push(format!("{}: missing {missing:?}\n{json}", f.display()));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
 /// Every example program runs and prints the expected output.
 #[test]
 fn examples_run() {

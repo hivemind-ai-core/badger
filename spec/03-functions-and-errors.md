@@ -168,7 +168,10 @@ learning from constants, immutable bindings, enclosing `if` conditions and
 early-return guards, the function's own preconditions, and the
 postconditions of the functions it calls. A call whose arguments cannot
 satisfy a precondition is an error (E0145), as is a returned value that
-cannot satisfy a postcondition (E0146). A clause it proves is compiled
+cannot satisfy a postcondition (E0146), when that holds whenever the
+function runs; when it holds only under the conditions of enclosing
+branches, which the analysis cannot show are reachable, it is a warning
+with the same code. A clause it proves is compiled
 out: a postcondition proven at every return (including `?` exits), and a
 precondition proven at every call of a function that is only called
 directly (not used as a value). Everything else is checked at run time as
