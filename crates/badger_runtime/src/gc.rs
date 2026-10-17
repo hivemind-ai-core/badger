@@ -28,7 +28,7 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use crate::desc::{Kind, Repr, TypeDesc};
 
 #[cfg(feature = "gc-profile")]
-mod allocations;
+pub(crate) mod allocations;
 #[cfg(feature = "gc-profile")]
 pub mod diagnostics;
 #[cfg(any(feature = "gc-profile", test))]

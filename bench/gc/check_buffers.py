@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--ordinary", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--previous", type=Path, help="optional old-format compiler to check ABI rejection")
+    parser.add_argument("--compatible", type=Path, help="former format-6 compiler whose saved MIR must still run")
     args = parser.parse_args()
     binary = args.ordinary.resolve()
     clean = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_") and k != "GC_BENCH_CONFIG"}
@@ -38,6 +39,14 @@ def main():
                 previous_hash = hashlib.file_digest(file, "sha256").hexdigest()
             older_mir_check = dict(command=command, previous_sha256=previous_hash,
                                    mir_sha256=hashlib.sha256(older.read_bytes()).hexdigest(), stderr=output.stderr)
+        compatible_mir = None
+        compatible_check = None
+        if args.compatible:
+            compatible = args.compatible.resolve()
+            compatible_mir = Path(directory) / "compatible.bdgmir"
+            command = [str(compatible), "compile", "tests/run/packed_arrays.bdg", "-o", str(compatible_mir)]
+            subprocess.run(command, cwd=run.ROOT, env=clean, capture_output=True, check=True, timeout=60)
+            compatible_check = dict(command=command, mir_sha256=hashlib.sha256(compatible_mir.read_bytes()).hexdigest())
         compile_command = [str(binary), "compile", "tests/run/packed_arrays.bdg", "-o", str(mir)]
         subprocess.run(compile_command, cwd=run.ROOT, env=clean, capture_output=True, check=True, timeout=60)
         def check(source, workers, generational, config=None):
@@ -55,16 +64,16 @@ def main():
             results.append(dict(command=command, generational=generational, config=config, stdout=output.stdout, stderr=output.stderr))
         for generational in [0, 1]:
             for workers in [1, 4, 8]:
-                for source in ["tests/run/packed_arrays.bdg", mir]:
+                for source in ["tests/run/packed_arrays.bdg", mir, *([compatible_mir] if compatible_mir else [])]:
                     check(source, workers, generational)
             for workers in [1, 8]:
-                for mode in ["buffers-empty", "buffers-grow", "buffers-pointers"]:
+                for mode in ["buffers-empty", "buffers-grow", "buffers-pointers", "buffers-capacity", "buffers-capacity-grow", "buffers-capacity-pointers"]:
                     check("bench/gc/coverage.bdg", workers, generational,
                           dict(mode=mode, n=33, rounds=1, payload=9, retain=4))
     with binary.open("rb") as file:
         digest = hashlib.file_digest(file, "sha256").hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(dict(binary=str(binary), sha256=digest, compile_command=compile_command, older_mir_check=older_mir_check, runs=results), indent=2) + "\n")
+    args.out.write_text(json.dumps(dict(binary=str(binary), sha256=digest, compile_command=compile_command, older_mir_check=older_mir_check, compatible_mir_check=compatible_check, runs=results), indent=2) + "\n")
     print(f"{len(results)} source/binary-MIR and buffer coverage stress checks passed")
 
 

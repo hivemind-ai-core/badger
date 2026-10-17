@@ -14,6 +14,7 @@ struct Settings {
     trim: bool,
     pool_max: Option<usize>,
     pool_refill: Option<usize>,
+    buffer_inline: Option<usize>,
     reuse_sweep: Option<bool>,
 }
 fn settings() -> &'static Settings {
@@ -30,6 +31,11 @@ fn settings() -> &'static Settings {
             "BADGER_GC_POOL_MAX must be 256, 512 or 1024"
         );
         let pool_refill = number("BADGER_GC_POOL_REFILL_KIB");
+        let buffer_inline = number("BADGER_BUFFER_INLINE_BYTES");
+        assert!(
+            matches!(buffer_inline, None | Some(0 | 128 | 256)),
+            "BADGER_BUFFER_INLINE_BYTES must be 0, 128 or 256"
+        );
         assert!(
             matches!(pool_refill, None | Some(256 | 512 | 2048)),
             "BADGER_GC_POOL_REFILL_KIB must be 256, 512 or 2048"
@@ -41,6 +47,7 @@ fn settings() -> &'static Settings {
             trim: !std::env::var("BADGER_GC_TRIM").is_ok_and(|v| v == "0"),
             pool_max,
             pool_refill: pool_refill.map(|kib| kib << 10),
+            buffer_inline,
             reuse_sweep: std::env::var("BADGER_GC_SWEEP_REUSE").ok().map(|v| match v.as_str() {
                 "0" => false,
                 "1" => true,
@@ -63,6 +70,9 @@ pub(super) fn pool_max(default: usize) -> usize {
 }
 pub(super) fn pool_refill(default: usize) -> usize {
     settings().pool_refill.unwrap_or(default)
+}
+pub(crate) fn buffer_inline_bytes(default: usize) -> usize {
+    settings().buffer_inline.unwrap_or(default)
 }
 pub(super) fn reuse_sweep_helpers(default: bool) -> bool {
     settings().reuse_sweep.unwrap_or(default)
@@ -118,6 +128,7 @@ pub fn finish() {
         "policy": {"minor_bytes": settings().young_bytes, "max_minors": settings().max_minors,
                    "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX),
                    "pool_refill_bytes": pool_refill(super::BIG_CHUNK),
+                   "buffer_inline_bytes": buffer_inline_bytes(crate::buffer::INLINE_BYTES),
                    "reuse_sweep_helpers": reuse_sweep_helpers(super::REUSE_SWEEP_HELPERS)},
         "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution."});
     if let Err(e) = std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()) {

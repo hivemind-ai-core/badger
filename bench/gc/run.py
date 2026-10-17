@@ -70,6 +70,7 @@ POLICIES = {
     "sweep-scoped": {"BADGER_GC_SWEEP_REUSE": "0"},
     "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
     **{f"refill{kib}": {"BADGER_GC_POOL_REFILL_KIB": str(kib)} for kib in [256, 512, 2048]},
+    **{f"inline{n}": {"BADGER_BUFFER_INLINE_BYTES": str(n)} for n in [0, 128, 256]},
 }
 
 
@@ -222,6 +223,23 @@ def validate_allocations(profile):
         raise ValueError("allocation metadata disagrees with remaining objects")
     if totals["allocated"]["objects"] <= 0:
         raise ValueError("empty allocation census")
+    if "buffer_storage" in profile:
+        storage = profile["buffer_storage"]
+        events = storage["events"]
+        required = {"native_alloc", "native_realloc_growth", "native_adopt", "native_free", "inline", "inline_to_native"}
+        if (set(events) != required or any(set(event) != {"calls", "bytes"} for event in events.values())
+                or any(type(v) is not int or v < 0 for event in events.values() for v in event.values())
+                or any(type(storage[k]) is not int for k in ["native_owned_bytes_remaining", "native_owned_blocks_remaining"])):
+            raise ValueError("invalid buffer storage events")
+        charged = sum(events[k]["bytes"] for k in ["native_alloc", "native_realloc_growth", "native_adopt"])
+        blocks = events["native_alloc"]["calls"] + events["native_adopt"]["calls"]
+        remaining = charged - events["native_free"]["bytes"]
+        live_blocks = blocks - events["native_free"]["calls"]
+        if (remaining < 0 or live_blocks < 0 or storage["native_owned_bytes_remaining"] != remaining
+                or storage["native_owned_blocks_remaining"] != live_blocks
+                or events["inline_to_native"]["bytes"] != 0
+                or events["inline_to_native"]["calls"] > min(events["inline"]["calls"], events["native_alloc"]["calls"])):
+            raise ValueError("buffer storage ownership violates conservation")
 
 
 def summarize(rows):
@@ -257,8 +275,8 @@ def main():
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    if args.allocations and (args.diagnostic is None or args.suite in ["policy", "coverage-policy", "samples"]):
-        ap.error("--allocations requires --diagnostic and coverage, telemetry or smoke")
+    if args.allocations and (args.diagnostic is None or args.suite == "samples"):
+        ap.error("--allocations requires --diagnostic and a nonsampling suite")
     if args.suite in ["policy", "coverage-policy", "samples"] and args.diagnostic is None:
         ap.error("--diagnostic is required for policy, coverage-policy and samples")
     if args.reps < 1 or any(w < 1 for w in args.workers):
@@ -347,7 +365,8 @@ def run_benchmarks(args):
             allocation_path = args.out.resolve() / f"{stem}.allocations.json"
             if binary == "diagnostic" and variant != "diagnostic-off":
                 env["BADGER_GC_PROFILE"] = str(gc_path)
-            if variant == "diagnostic-allocations":
+            census = variant == "diagnostic-allocations" or (args.allocations and args.suite in ["policy", "coverage-policy"])
+            if census:
                 env["BADGER_ALLOC_PROFILE"] = str(allocation_path)
             if args.suite == "samples":
                 env["BADGER_PROFILE"] = str(args.out.resolve() / f"{stem}.folded")
@@ -381,9 +400,12 @@ def run_benchmarks(args):
             if "BADGER_GC_POOL_REFILL_KIB" in settings:
                 if phases is None or phases["policy"].get("pool_refill_bytes") != int(settings["BADGER_GC_POOL_REFILL_KIB"]) << 10:
                     raise ValueError("diagnostic binary did not apply the pool-refill policy")
+            if "BADGER_BUFFER_INLINE_BYTES" in settings:
+                if phases is None or phases["policy"].get("buffer_inline_bytes") != int(settings["BADGER_BUFFER_INLINE_BYTES"]):
+                    raise ValueError("diagnostic binary did not apply the inline-buffer policy")
             gc_path.unlink(missing_ok=True)
             allocations = None
-            if variant == "diagnostic-allocations":
+            if census:
                 allocations = json.loads(allocation_path.read_text())
                 validate_allocations(allocations)
                 allocation_path.unlink()

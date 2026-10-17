@@ -172,6 +172,20 @@ class AllocationCensus(unittest.TestCase):
             bad["totals"][category][metric] += 1
             with self.assertRaises(ValueError):
                 run.validate_allocations(bad)
+        profile["buffer_storage"] = dict(
+            events={name: dict(calls=calls, bytes=volume) for name, calls, volume in [
+                ("native_alloc", 2, 64), ("native_realloc_growth", 1, 16),
+                ("native_adopt", 1, 32), ("native_free", 2, 72),
+                ("inline", 2, 96), ("inline_to_native", 1, 0)]},
+            native_owned_bytes_remaining=40, native_owned_blocks_remaining=1)
+        run.validate_allocations(profile)
+        for kind, key, value in [("native_free", "calls", 4), ("native_free", "bytes", 73),
+                                 ("inline_to_native", "calls", 3), ("inline_to_native", "bytes", 1),
+                                 ("native_adopt", "bytes", -1)]:
+            bad = copy.deepcopy(profile)
+            bad["buffer_storage"]["events"][kind][key] = value
+            with self.assertRaises(ValueError):
+                run.validate_allocations(bad)
         bad = copy.deepcopy(profile)
         bad["remaining_metadata_objects"] = 3
         with self.assertRaises(ValueError):

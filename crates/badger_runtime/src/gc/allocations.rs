@@ -1,7 +1,7 @@
 //! Managed allocation census. Diagnostic storage is native and is not counted.
 //! Side metadata follows OBJECTS' stable compaction, without changing headers.
 use std::panic::Location;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use rustc_hash::FxHashMap;
@@ -13,6 +13,49 @@ use crate::desc::TypeDesc;
 fn path() -> Option<&'static str> {
     static PATH: OnceLock<Option<String>> = OnceLock::new();
     PATH.get_or_init(|| std::env::var("BADGER_ALLOC_PROFILE").ok()).as_deref()
+}
+
+/// Items storage only: allocator calls, Vec adoption and owned capacity.
+/// Inline bytes are a subset of managed payloads, never extra native bytes.
+pub(crate) enum BufferStorageEvent {
+    NativeAlloc,
+    NativeRealloc,
+    NativeAdopt,
+    NativeFree,
+    Inline,
+    InlineGrow,
+}
+const BUFFER_EVENTS: [&str; 6] =
+    ["native_alloc", "native_realloc_growth", "native_adopt", "native_free", "inline", "inline_to_native"];
+static BUFFER_CALLS: [AtomicU64; 6] = [const { AtomicU64::new(0) }; 6];
+static BUFFER_BYTES: [AtomicU64; 6] = [const { AtomicU64::new(0) }; 6];
+
+pub(crate) fn record_buffer_storage(event: BufferStorageEvent, bytes: usize) {
+    if path().is_none() {
+        return;
+    }
+    let event = event as usize;
+    BUFFER_CALLS[event].fetch_add(1, Ordering::Relaxed);
+    BUFFER_BYTES[event].fetch_add(bytes as u64, Ordering::Relaxed);
+}
+
+fn buffer_storage_report() -> serde_json::Value {
+    let calls = BUFFER_CALLS.each_ref().map(|v| v.load(Ordering::Relaxed));
+    let bytes = BUFFER_BYTES.each_ref().map(|v| v.load(Ordering::Relaxed));
+    let charged = bytes[0] + bytes[1] + bytes[2];
+    let blocks = calls[0] + calls[2];
+    assert!(charged >= bytes[3] && blocks >= calls[3], "buffer storage ownership underflow");
+    let events: serde_json::Map<_, _> = BUFFER_EVENTS
+        .iter()
+        .enumerate()
+        .map(|(i, name)| ((*name).to_string(), json!({"calls": calls[i], "bytes": bytes[i]})))
+        .collect();
+    json!({
+        "events": events,
+        "native_owned_bytes_remaining": charged - bytes[3],
+        "native_owned_blocks_remaining": blocks - calls[3],
+        "note": "Items storage only, process-wide. Native alloc/realloc are successful allocator API calls; realloc bytes are capacity growth, not all bytes internally moved. Adoption transfers existing Vec storage and is not a new malloc call. Temporary Vec construction and other native allocations are excluded. Inline bytes are already included in managed totals. No timing/RSS inference from diagnostic counts."
+    })
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -242,7 +285,8 @@ pub(super) fn finish() {
     let output = json!({
         "schema": 1,
         "scope": "process-managed-allocations",
-        "note": "Runtime Rust call sites, not language source locations. Includes startup/output allocation. Excludes immortals, external buffers, task stacks and other native allocations. Reclaimed means removed by sweep, including quarantined cells; remaining is unswept, not proven reachable. Minor collections do not examine old objects. Survivor observations can count an object repeatedly. Survival is not escape/uniqueness proof. Diagnostic counters, mutexes and side metadata perturb timing and memory.",
+        "buffer_storage": buffer_storage_report(),
+        "note": "Runtime Rust call sites, not language source locations. Includes startup/output allocation. Managed totals exclude immortals, external buffers, task stacks and other native allocations; buffer_storage separately reports Items allocator API calls and owned capacity. Reclaimed means removed by sweep, including quarantined cells; remaining is unswept, not proven reachable. Minor collections do not examine old objects. Survivor observations can count an object repeatedly. Survival is not escape/uniqueness proof. Diagnostic counters, mutexes and side metadata perturb timing and memory.",
         "object_metadata_capacity_bytes": metadata_capacity,
         "remaining_metadata_objects": remaining_objects,
         "allocation_sizes": {

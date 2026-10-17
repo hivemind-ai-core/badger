@@ -227,7 +227,7 @@ define_intrinsics! {
     fn buffer_len(ctx, targs, ret, b) { crate::buffer::data(b).items.len() as u64 }
     fn buffer_capacity(ctx, targs, ret, b) { crate::buffer::data(b).items.capacity() as u64 }
     fn buffer_address(ctx, targs, ret, b) { crate::buffer::data(b).items.as_ptr() as u64 }
-    fn buffer_freeze(ctx, targs, ret, b) { crate::buffer::data(b).frozen = true; b }
+    fn buffer_freeze(ctx, targs, ret, b) { crate::buffer::freeze(b) }
     fn bytes_from_buffer(ctx, targs, ret, b) {
         let d = crate::buffer::data(b);
         let v: Vec<u8> = d.items.iter().map(|w| w as u8).collect();
@@ -274,7 +274,7 @@ define_intrinsics! {
             for k in i..end {
                 crate::buffer::data(a).items.push(list::get(l, k));
             }
-            crate::buffer::data(a).frozen = true;
+            crate::buffer::freeze(a);
             list::push(out, a);
             i = end;
         }
