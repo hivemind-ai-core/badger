@@ -57,6 +57,7 @@ POLICIES = {
     "pool1024": {"BADGER_GC_POOL_MAX": "1024"},
     "sweep-scoped": {"BADGER_GC_SWEEP_REUSE": "0"},
     "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
+    **{f"refill{kib}": {"BADGER_GC_POOL_REFILL_KIB": str(kib)} for kib in [256, 512, 2048]},
 }
 
 
@@ -185,7 +186,7 @@ def main():
     ap.add_argument("--candidate-revision", default="unspecified")
     ap.add_argument("--diagnostic", type=Path)
     ap.add_argument("--allocations", action="store_true", help="add a separately perturbed managed-allocation census variant")
-    ap.add_argument("--suite", choices=["coverage", "telemetry", "policy", "samples", "smoke"], required=True)
+    ap.add_argument("--suite", choices=["coverage", "telemetry", "policy", "coverage-policy", "samples", "smoke"], required=True)
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
     ap.add_argument("--events", type=int, default=262144)
     ap.add_argument("--reps", type=int, default=3)
@@ -195,16 +196,16 @@ def main():
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    if args.allocations and (args.diagnostic is None or args.suite in ["policy", "samples"]):
+    if args.allocations and (args.diagnostic is None or args.suite in ["policy", "coverage-policy", "samples"]):
         ap.error("--allocations requires --diagnostic and coverage, telemetry or smoke")
-    if args.suite in ["policy", "samples"] and args.diagnostic is None:
-        ap.error("--diagnostic is required for policy and samples")
+    if args.suite in ["policy", "coverage-policy", "samples"] and args.diagnostic is None:
+        ap.error("--diagnostic is required for policy, coverage-policy and samples")
     if args.reps < 1 or any(w < 1 for w in args.workers):
         ap.error("positive repetitions and worker counts are required")
-    if args.candidate and args.suite in ["policy", "samples"]:
+    if args.candidate and args.suite in ["policy", "coverage-policy", "samples"]:
         ap.error("--candidate is for ordinary coverage/telemetry comparisons")
-    if args.cases and args.suite not in ["coverage", "smoke"]:
-        ap.error("--cases requires coverage or smoke")
+    if args.cases and args.suite not in ["coverage", "coverage-policy", "smoke"]:
+        ap.error("--cases requires coverage, coverage-policy or smoke")
     args.out.mkdir(parents=True, exist_ok=True)
     binaries = {"baseline": args.baseline.resolve()}
     if args.candidate:
@@ -219,11 +220,11 @@ def main():
         variants["diagnostic-off"] = ("diagnostic", {})
         if args.allocations:
             variants["diagnostic-allocations"] = ("diagnostic", {})
-    if args.suite == "policy":
+    if args.suite in ["policy", "coverage-policy"]:
         variants = {k: ("diagnostic", v) for k, v in POLICIES.items() if k in args.policies}
     if args.suite == "samples":
         variants = {"samples": ("diagnostic", {"BADGER_PROFILE_SCOPE": "runtime", "BADGER_RUNTIME_STATS": "1"})}
-    coverage = args.suite in ["coverage", "smoke"]
+    coverage = args.suite in ["coverage", "coverage-policy", "smoke"]
     cases = {k: v.copy() for k, v in COVERAGE.items()} if coverage else {
         name: {**t.DEFAULT, **t.PROFILES[name], "events": args.events} for name in args.profiles}
     if args.cases:
@@ -310,6 +311,9 @@ def main():
             if "BADGER_GC_SWEEP_REUSE" in settings:
                 if phases is None or phases["policy"].get("reuse_sweep_helpers") != (settings["BADGER_GC_SWEEP_REUSE"] == "1"):
                     raise ValueError("diagnostic binary did not apply the sweep-helper policy")
+            if "BADGER_GC_POOL_REFILL_KIB" in settings:
+                if phases is None or phases["policy"].get("pool_refill_bytes") != int(settings["BADGER_GC_POOL_REFILL_KIB"]) << 10:
+                    raise ValueError("diagnostic binary did not apply the pool-refill policy")
             gc_path.unlink(missing_ok=True)
             allocations = None
             if variant == "diagnostic-allocations":

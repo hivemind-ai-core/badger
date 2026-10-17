@@ -181,6 +181,12 @@ const CHUNK: usize = 256 << 10;
 /// page, so a program that allocates much takes one page fault per chunk
 /// instead of 512 (a small program keeps its small first chunk).
 const BIG_CHUNK: usize = 2 << 20;
+fn refill_bytes() -> usize {
+    #[cfg(feature = "gc-profile")]
+    return diagnostics::pool_refill(BIG_CHUNK);
+    #[cfg(not(feature = "gc-profile"))]
+    BIG_CHUNK
+}
 
 #[derive(Clone, Copy)]
 struct Chunk {
@@ -232,7 +238,8 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         return p as *mut Header;
     }
     if pool.left < size {
-        let (bytes, align) = if pool.chunks.is_empty() { (CHUNK, 16) } else { (BIG_CHUNK, BIG_CHUNK) };
+        let bytes = if pool.chunks.is_empty() { CHUNK } else { refill_bytes() };
+        let align = if bytes == BIG_CHUNK { BIG_CHUNK } else { 16 };
         let chunk = unsafe { alloc_zeroed(Layout::from_size_align(bytes, align).unwrap()) };
         if chunk.is_null() {
             return chunk as *mut Header;
@@ -1272,7 +1279,11 @@ mod pool_tests {
         if std::env::var_os("BADGER_POOL_TEST_CHILD").is_none() {
             let limits: &[usize] =
                 if cfg!(feature = "gc-profile") { &[256, 512, 1024] } else { &[SMALL_MAX] };
-            for limit in limits {
+            let refills: &[usize] =
+                if cfg!(feature = "gc-profile") { &[256, 512, 2048] } else { &[BIG_CHUNK >> 10] };
+            for (limit, refill) in
+                limits.iter().flat_map(|limit| refills.iter().map(move |refill| (limit, refill)))
+            {
                 for verify in ["0", "1"] {
                     let mut command = std::process::Command::new(std::env::current_exe().unwrap());
                     for (key, _) in std::env::vars_os() {
@@ -1287,12 +1298,13 @@ mod pool_tests {
                         ])
                         .env("BADGER_POOL_TEST_CHILD", "1")
                         .env("BADGER_GC_POOL_MAX", limit.to_string())
+                        .env("BADGER_GC_POOL_REFILL_KIB", refill.to_string())
                         .env("BADGER_GC_VERIFY", verify)
                         .output()
                         .unwrap();
                     assert!(
                         output.status.success(),
-                        "pool{limit} verify{verify}: {} {}",
+                        "pool{limit} refill{refill} verify{verify}: {} {}",
                         String::from_utf8_lossy(&output.stdout),
                         String::from_utf8_lossy(&output.stderr)
                     );
@@ -1325,6 +1337,7 @@ mod pool_tests {
         let payload = small_max() - HEADER;
         let cells: Vec<_> = (0..CHUNK / small_max() + 8).map(|_| alloc_cell(w, payload)).collect();
         assert!(unsafe { &*POOLS.0[w].get() }.chunks.len() >= 2);
+        assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks[1].bytes, refill_bytes());
         let held = cells[0];
         for p in cells.into_iter().skip(1) {
             free_cell(w, p, payload);

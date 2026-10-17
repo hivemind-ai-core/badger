@@ -13,6 +13,7 @@ struct Settings {
     max_minors: Option<usize>,
     trim: bool,
     pool_max: Option<usize>,
+    pool_refill: Option<usize>,
     reuse_sweep: Option<bool>,
 }
 fn settings() -> &'static Settings {
@@ -28,12 +29,18 @@ fn settings() -> &'static Settings {
             matches!(pool_max, None | Some(256 | 512 | 1024)),
             "BADGER_GC_POOL_MAX must be 256, 512 or 1024"
         );
+        let pool_refill = number("BADGER_GC_POOL_REFILL_KIB");
+        assert!(
+            matches!(pool_refill, None | Some(256 | 512 | 2048)),
+            "BADGER_GC_POOL_REFILL_KIB must be 256, 512 or 2048"
+        );
         Settings {
             path: std::env::var("BADGER_GC_PROFILE").ok(),
             young_bytes: number("BADGER_GC_MINOR_BYTES"),
             max_minors: number("BADGER_GC_MAX_MINORS"),
             trim: !std::env::var("BADGER_GC_TRIM").is_ok_and(|v| v == "0"),
             pool_max,
+            pool_refill: pool_refill.map(|kib| kib << 10),
             reuse_sweep: std::env::var("BADGER_GC_SWEEP_REUSE").ok().map(|v| match v.as_str() {
                 "0" => false,
                 "1" => true,
@@ -53,6 +60,9 @@ pub(super) fn trim() -> bool {
 }
 pub(super) fn pool_max(default: usize) -> usize {
     settings().pool_max.unwrap_or(default)
+}
+pub(super) fn pool_refill(default: usize) -> usize {
+    settings().pool_refill.unwrap_or(default)
 }
 pub(super) fn reuse_sweep_helpers(default: bool) -> bool {
     settings().reuse_sweep.unwrap_or(default)
@@ -107,6 +117,7 @@ pub fn finish() {
     let output = json!({"schema": 1, "collections": records,
         "policy": {"minor_bytes": settings().young_bytes, "max_minors": settings().max_minors,
                    "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX),
+                   "pool_refill_bytes": pool_refill(super::BIG_CHUNK),
                    "reuse_sweep_helpers": reuse_sweep_helpers(super::REUSE_SWEEP_HELPERS)},
         "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution."});
     if let Err(e) = std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()) {

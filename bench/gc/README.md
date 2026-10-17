@@ -218,3 +218,11 @@ its configured retain count does not exceed the burst length.
 The runner accepts `--seed` to repeat shuffled comparisons with different
 orders. Keep a baseline-versus-itself control when interpreting small timing
 differences; a different seed alone does not resolve host interference.
+
+Diagnostic builds additionally accept `BADGER_GC_POOL_REFILL_KIB=256|512|2048`
+for post-first chunks; the initial chunk remains 256 KiB and the 512-byte cell
+cutoff is unchanged. Only 2 MiB chunks request huge-page alignment/advice.
+`--suite coverage-policy --cases pool-burst-1 pool-burst-16 pool-burst-256
+--policies refill256 refill512 refill2048` evaluates sparse retention with one
+diagnostic executable. `--suite policy` evaluates the same choices on telemetry.
+The runner verifies the recorded refill policy; diagnostics perturb timings.
