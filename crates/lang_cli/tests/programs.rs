@@ -1787,6 +1787,33 @@ fn outbound_http() {
     );
 }
 
+/// `std.fetch.send` and the JSON helpers against a local server.
+#[test]
+fn outbound_http_send() {
+    let port = http_server(|method, path, body| {
+        let json = "Content-Type: application/json\r\n";
+        let (status, extra, text) = match path {
+            "/json" => ("200 OK", json.to_string(), r#"{"n":1,"tags":["a","b"]}"#.to_string()),
+            "/echo" => ("200 OK", json.to_string(), body.to_string()),
+            "/method" => ("200 OK", "Content-Type: text/plain\r\n".to_string(), method.to_string()),
+            "/hop" => ("302 Found", "Location: /json\r\n".to_string(), String::new()),
+            "/big" => ("200 OK", String::new(), "x".repeat(100)),
+            _ => ("500 Internal Server Error", String::new(), "no".to_string()),
+        };
+        (status.to_string(), extra, text)
+    });
+    let out = lang()
+        .args(["run", "tests/net/fetch_send.lang"])
+        .env("FETCH_BASE", format!("http://127.0.0.1:{port}"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "get_json 1 [\"a\", \"b\"]\npost_json 7 [\"x\", \"y\"]\npatch 200 PATCH type text/plain\nfollowed 200 true {\"n\":1,\"tags\":[\"a\",\"b\"]}\nnot followed 302 /json\nlimit io/too_large\nstatus io/http_status\nclient 200 DELETE success true\n"
+    );
+}
+
 /// An inlined lambda reports a defect at its own source position.
 #[test]
 fn inlined_lambda_defect_location() {

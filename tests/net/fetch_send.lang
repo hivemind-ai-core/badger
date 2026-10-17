@@ -1,0 +1,35 @@
+// std.fetch's general requests against a local server ($FETCH_BASE):
+// any method, JSON in and out, followed redirects, the body limit, and
+// statuses that are not 2xx.
+import std.env
+import std.fetch
+import std.io
+import std.text
+
+type Item = { n: Int, tags: List<String> }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let base = env.get("FETCH_BASE").unwrap_or("http://127.0.0.1:1")
+    let item: Item = fetch.get_json<Item>($"{base}/json")?
+    io.println($"get_json {item.n} {item.tags}")?
+    let back: Item = fetch.post_json<Item, Item>($"{base}/echo", { n: 7, tags: ["x", "y"] })?
+    io.println($"post_json {back.n} {back.tags}")?
+    let r = fetch.send({ ..fetch.request("PATCH", $"{base}/method"), body: text.to_bytes("data") })?
+    io.println($"patch {r.status} {r.text()?} type {r.header("Content-Type").unwrap_or("-")}")?
+    let hop = fetch.send({ ..fetch.request("GET", $"{base}/hop"), max_redirects: 3 })?
+    io.println($"followed {hop.status} {text.ends_with(hop.url, "/json")} {hop.text()?}")?
+    let stay = fetch.send(fetch.request("GET", $"{base}/hop"))?
+    io.println($"not followed {stay.status} {stay.header("location").unwrap_or("-")}")?
+    match fetch.send({ ..fetch.request("GET", $"{base}/big"), max_body_bytes: 10 }) {
+        .ok(r) => io.println($"no limit? {r.body.len()}")?,
+        .err(e) => io.println($"limit {e.kind}")?,
+    }
+    match fetch.get_json<Item>($"{base}/fail") {
+        .ok(_) => io.println("no error?")?,
+        .err(e) => io.println($"status {e.kind}")?,
+    }
+    let c = fetch.client(base)?
+    let cr = c.send("/method", fetch.request("DELETE", "ignored"))?
+    io.println($"client {cr.status} {cr.text()?} success {cr.is_success()}")?
+    ok(())
+}
