@@ -55,9 +55,9 @@ contract         = ( "requires" | "ensures" ), expr, [ ",", STRING ], separator 
 extern_decl      = visibility, "extern", STRING, "fn", value_name,
                    "(", typed_params, ")", "->", type_expr, separator ;
 (* `provider`, `stage`, `enter`, `leave`, and `error` are keywords only here *)
-provider_decl    = visibility, "provider", value_name, [ "as", SYMBOL ],
+provider_decl    = { contract }, visibility, "provider", value_name, [ "as", SYMBOL ],
                    "(", params, ")", [ "->", type_expr ], [ effect ], block ;
-stage_decl       = visibility, "stage", value_name, [ "as", SYMBOL ],
+stage_decl       = { contract }, visibility, "stage", value_name, [ "as", SYMBOL ],
                    [ generic_params ], "(", params, ")", [ "->", type_expr ],
                    "{", { stage_callback | separator }, "}" ;
 stage_callback   = ( "enter" | "leave" | "error" ), "(", params, ")",

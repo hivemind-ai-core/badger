@@ -1,0 +1,12 @@
+// expect-error: E0145
+// A stage's contracts are its factory's: a call that breaks one is refused.
+import std.pipeline
+
+requires limit > 0
+stage capped(limit: Int) {
+    enter(ctx) => pipeline.next(ctx)
+}
+
+pub fn main() {
+    let _ = capped(0)
+}

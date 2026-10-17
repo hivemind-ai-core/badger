@@ -160,6 +160,7 @@ module.exports = grammar({
     // `provider name [as #sym](scope, config) [-> Result<O, E>] { ... }`
     provider_declaration: ($) =>
       seq(
+        repeat($.contract),
         optional($.visibility),
         'provider',
         field('name', $.identifier),
@@ -173,6 +174,7 @@ module.exports = grammar({
     // `stage name [as #sym][<G>](params) [-> Result<_, E>] { enter(ctx) { ... } ... }`
     stage_declaration: ($) =>
       seq(
+        repeat($.contract),
         optional($.visibility),
         'stage',
         field('name', $.identifier),

@@ -109,7 +109,11 @@ default name is the module path and the declaration name
 `return` and `?` in the body leave the initializer. The result annotation
 and parameter types are inferred when omitted; a `pub provider` declares
 its configuration type and `-> Result<Output, Error>`, and its type is
-`system.Provider<Config, Output, Error>`. `provider` is a keyword only where
+`system.Provider<Config, Output, Error>`. `requires` / `ensures` lines
+before a provider are its initializer's contract (over `scope`, `config`,
+and `result`): they are checked when a node starts, and each node's
+configuration in a `system { }` is checked against the preconditions when
+the program is checked. `provider` is a keyword only where
 a declaration starts. The descriptor form `system.provider({...})` remains
 for providers built by functions (generic providers, providers chosen from
 data).
@@ -217,7 +221,8 @@ result (`enter(ctx) -> Result<_, E> { ... }`), which takes precedence over
 the stage's. The optional `-> Result<_, E>`
 names the stage's error type once: it annotates the results of `enter` and
 `leave` and the type of `error`'s error parameter. `as #label` names the
-stage explicitly, as for providers. A `pub stage` declares its parameter
+stage explicitly, as for providers. `requires` / `ensures` lines before a
+stage are its factory's contract. A `pub stage` declares its parameter
 types; its `pipeline.Stage` type follows from its callbacks. `stage` is a
 keyword only where a declaration starts, and `enter`, `leave`, and `error`
 only inside one.

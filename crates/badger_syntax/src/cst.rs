@@ -120,6 +120,7 @@ pub enum ItemKind<'a> {
     },
     /// `provider NAME [as #sym](scope, config) [-> Result<O, E>] { ... }`
     Provider {
+        contracts: Vec<Contract<'a>>,
         name: Ident<'a>,
         alias: Option<(&'a str, Span)>,
         params: Vec<Param<'a>>,
@@ -130,6 +131,7 @@ pub enum ItemKind<'a> {
     },
     /// `stage NAME [as #sym][<G>](params) [-> Result<_, E>] { enter(..) .. }`
     Stage {
+        contracts: Vec<Contract<'a>>,
         name: Ident<'a>,
         alias: Option<(&'a str, Span)>,
         generics: Vec<Generic<'a>>,

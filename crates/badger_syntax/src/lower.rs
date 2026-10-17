@@ -31,6 +31,9 @@ pub struct Lower<'a, 'i> {
     depth: Vec<u32>,
     /// The first expression nested deeper than [`MAX_EXPR_DEPTH`].
     pub too_deep: Option<Span>,
+    /// Items a declaration generates besides itself (a provider's
+    /// initializer when it has contracts).
+    extra_items: Vec<Item>,
 }
 
 fn is_upper(s: &str) -> bool {
@@ -57,6 +60,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             parenthesized: HashSet::new(),
             depth: Vec::new(),
             too_deep: None,
+            extra_items: vec![],
         }
     }
 
@@ -121,6 +125,9 @@ impl<'a, 'i> Lower<'a, 'i> {
         for it in items {
             if let Some(item) = self.item(it) {
                 self.push_item(item);
+            }
+            for extra in std::mem::take(&mut self.extra_items) {
+                self.push_item(extra);
             }
         }
     }
@@ -226,11 +233,15 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let value = self.expr(value);
                 ItemKind::Global { kind, pat, ty, value }
             }
-            cst::ItemKind::Provider { name, alias, params, params_span, ret, effect, body } => {
-                self.provider(span, is_pub, name, alias, params, params_span, ret, effect, body)
+            cst::ItemKind::Provider { contracts, name, alias, params, params_span, ret, effect, body } => {
+                let contracts = contracts.into_iter().map(|c| self.contract(c)).collect();
+                self.provider(span, is_pub, contracts, name, alias, params, params_span, ret, effect, body)
             }
-            cst::ItemKind::Stage { name, alias, generics, params, ret, members, body_span } => {
-                let d = self.stage(span, is_pub, name, alias, generics, params, ret, members, body_span);
+            cst::ItemKind::Stage { contracts, name, alias, generics, params, ret, members, body_span } => {
+                let contracts = contracts.into_iter().map(|c| self.contract(c)).collect();
+                let mut d = self.stage(span, is_pub, name, alias, generics, params, ret, members, body_span);
+                // a stage's contracts are its factory's
+                d.contracts = contracts;
                 ItemKind::Fn(d)
             }
             cst::ItemKind::Error => return None,
@@ -310,6 +321,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         &mut self,
         span: Span,
         is_pub: bool,
+        contracts: Vec<Contract>,
         name: cst::Ident<'_>,
         alias: Option<(&str, crate::token::Span)>,
         params: Vec<cst::Param<'_>>,
@@ -345,7 +357,32 @@ impl<'a, 'i> Lower<'a, 'i> {
             };
         let effect = effect.map(|e| self.effect(e));
         let body = self.block(body);
-        let init = self.alloc_expr(ExprKind::Lambda(Lambda { once: false, params, ret, effect, body }), span);
+        let init = if contracts.is_empty() {
+            self.alloc_expr(ExprKind::Lambda(Lambda { once: false, params, ret, effect, body }), span)
+        } else {
+            // contracts belong to functions: the initializer becomes a
+            // private module function carrying them
+            let text = format!("{}.init", self.interner.resolve(n.sym));
+            let fname = Name { sym: self.interner.intern(&text), span: n.span };
+            self.extra_items.push(Item {
+                kind: ItemKind::Fn(FnDecl {
+                    name: fname,
+                    is_pub: false,
+                    generics: vec![],
+                    params,
+                    ret,
+                    effect,
+                    where_preds: vec![],
+                    body: Some(body),
+                    span,
+                    contracts,
+                    result_inferred: false,
+                }),
+                span,
+                is_pub: false,
+            });
+            self.alloc_expr(ExprKind::Name(fname), n.span)
+        };
         let name_e = self.decl_name(n, alias);
         let record = self.descriptor(&[("name", name_e), ("init", init)], span);
         // the generated reference is zero-width at the declaration's start,

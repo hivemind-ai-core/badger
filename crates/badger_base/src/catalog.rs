@@ -295,7 +295,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0145",
         "precondition cannot hold",
-        "The compiler proved that the arguments of this call cannot satisfy the callee's `requires` clause. It is an error when every run reaches the call, and a warning when the enclosing conditions decide whether it runs.",
+        "The compiler proved that the arguments of this call cannot satisfy the callee's `requires` clause, or that a `system { }` node's configuration cannot satisfy its provider's. It is an error when every run reaches the call, and a warning when the enclosing conditions decide whether it runs.",
     ),
     (
         "E0146",

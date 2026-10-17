@@ -34,6 +34,8 @@ enum V {
     Str(Option<String>),
     /// A list with between `lo` and `hi` items.
     List(i128, i128),
+    /// A record literal's fields (a system node's configuration).
+    Record(Vec<(badger_base::Symbol, V)>),
     Unknown,
 }
 
@@ -59,6 +61,11 @@ fn join(a: &V, b: &V) -> V {
         (V::Bool(_), V::Bool(_)) => V::Bool(None),
         (V::Str(x), V::Str(y)) if x == y => V::Str(x.clone()),
         (V::Str(_), V::Str(_)) => V::Str(None),
+        (V::Record(x), V::Record(y)) => V::Record(
+            x.iter()
+                .filter_map(|(k, a)| y.iter().find(|(l, _)| l == k).map(|(_, b)| (*k, join(a, b))))
+                .collect(),
+        ),
         _ => V::Unknown,
     }
 }
@@ -155,6 +162,15 @@ impl<'a> Analysis<'a> {
                 let n = items.len() as i128;
                 V::List(n, n)
             }
+            ExprKind::Record { spread: None, fields } => {
+                V::Record(fields.iter().map(|(k, _, v)| (*k, self.eval(*v, env))).collect())
+            }
+            ExprKind::Field { base, label, .. } => match self.eval(*base, env) {
+                V::Record(fields) => {
+                    fields.into_iter().find(|(k, _)| k == label).map_or(V::Unknown, |(_, v)| v)
+                }
+                _ => V::Unknown,
+            },
             ExprKind::Unary { op: UnOp::Neg, operand } => match self.eval(*operand, env) {
                 V::Int(lo, hi) => int(-hi, -lo),
                 _ => V::Unknown,
@@ -430,7 +446,60 @@ impl<'a> Analysis<'a> {
         out
     }
 
+    /// A system node (`system.node(key, index, deps, provider, config, at)`
+    /// from `system { key: provider(config) }`): the provider initializer's
+    /// preconditions against the node's configuration. A configuration that
+    /// cannot satisfy one is an error; nothing is proven here (the same
+    /// provider may start elsewhere with other configurations).
+    fn check_node(&mut self, call: ExprId, env: &Env) {
+        let ExprKind::Call { args, .. } = &self.hir.exprs[call].kind else { return };
+        let (Some(&provider), Some(&config)) = (args.get(3), args.get(4)) else { return };
+        // the provider value: `system.provider({ name, init: f })`
+        let ExprKind::Def { def: pdef, .. } = self.hir.exprs[provider].kind else { return };
+        let DefKind::Global(g) = &self.hir.defs[pdef].kind else { return };
+        let ExprKind::Call { args: pargs, .. } = &self.hir.exprs[g.value].kind else { return };
+        let Some(&spec) = pargs.first() else { return };
+        let ExprKind::Record { fields, .. } = &self.hir.exprs[spec].kind else { return };
+        let Some(&(_, _, init)) = fields.iter().find(|(k, _, _)| self.interner.resolve(*k) == "init") else {
+            return;
+        };
+        let ExprKind::Def { def: init_def, .. } = self.hir.exprs[init].kind else { return };
+        let Some(f) = self.fn_def(init_def) else { return };
+        if f.requires.is_empty() || f.params.len() != 2 {
+            return;
+        }
+        // the configuration: the body of the node's configuration closure
+        let ExprKind::Lambda(l) = &self.hir.exprs[config].kind else { return };
+        let value = self.eval(l.body, env);
+        let mut callee_env = Env::default();
+        if let PatKind::Bind(c) = &self.hir.pats[f.params[1].pat].kind {
+            callee_env.vals.insert(*c, value);
+        }
+        for pc in &f.requires {
+            if self.eval(pc.cond, &callee_env) == V::Bool(Some(false)) && !env.dead {
+                let span = self.hir.exprs[config].span;
+                self.diags.push(
+                    Diagnostic::error(format!(
+                        "this configuration breaks the precondition `{}` of provider `{}`",
+                        pc.text,
+                        self.name(init_def).trim_end_matches(".init")
+                    ))
+                    .with_code("E0145")
+                    .with_label(span, "the node's configuration cannot satisfy it")
+                    .with_label(pc.span, "the precondition"),
+                );
+            }
+        }
+    }
+
     fn check_call(&mut self, call: ExprId, env: &Env) {
+        if let ExprKind::Call { callee, .. } = &self.hir.exprs[call].kind
+            && let ExprKind::Def { def, .. } = self.hir.exprs[*callee].kind
+            && self.hir.try_lang("system.node") == Some(def)
+        {
+            self.check_node(call, env);
+            return;
+        }
         let Some(d) = self.callee(call) else { return };
         let Some(f) = self.fn_def(d) else { return };
         if f.requires.is_empty() {

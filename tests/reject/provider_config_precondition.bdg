@@ -1,0 +1,13 @@
+// expect-error: E0145
+// A system node's configuration is checked against its provider's
+// preconditions when the program is checked.
+import std.system
+
+requires config.size > 0
+provider pool(config: { size: Int }) -> Result<Int, system.Error> {
+    ok(config.size)
+}
+
+pub fn main() {
+    let _ = system { pool: pool({ size: 0 }) }
+}

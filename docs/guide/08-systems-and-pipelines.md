@@ -93,6 +93,9 @@ report failures as plain data.
 - The name in diagnostics and inspection is `#MODULE/NAME`; `provider NAME
   as #app/name(...)` sets it.
 - A `pub provider` declares its config type and `-> Result<Output, E>`.
+- `requires` / `ensures` lines before a provider (or a stage) are its
+  contract; each node's config is checked against it
+  ([chapter 9](09-testing-and-contracts.md#contracts-on-providers-and-stages)).
 - `system.provider({ name, init })` builds the same provider as a value,
   for providers made by functions.
 

@@ -188,6 +188,31 @@ fn warning_programs() {
 
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
+/// A provider's precondition on a configuration known only at run time is
+/// checked when its node starts: the failure names the clause.
+#[test]
+fn provider_precondition_at_startup() {
+    let dir = std::env::temp_dir().join(format!("badger-provider-pre-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("p.bdg"),
+        "import std.env\nimport std.system\n\
+         requires config.size > 0, \"a pool needs a slot\"\n\
+         provider pool(config: { size: Int }) -> Result<Int, system.Error> { ok(config.size) }\n\
+         pub fn main() -> Result<Unit, system.Error> {\n\
+         let plan = system { pool: pool({ size: env.args().len() }) }\n\
+         use _running <- system.run(plan)\nok(())\n}\n",
+    )
+    .unwrap();
+    let out = lang().arg("run").arg(dir.join("p.bdg")).output().unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success() && err.contains("precondition of `pool.init` failed: config.size > 0"),
+        "{err}"
+    );
+}
+
 /// The framework example: its tests pass, and the CLI and worker entry
 /// points compose the same feature into smaller plans.
 #[test]
@@ -195,7 +220,11 @@ fn framework_example() {
     let dir = root().join("examples/framework");
     let out = lang().arg("test").arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
-    assert!(out.status.success() && text.contains("2 passed; 0 failed"), "{text}{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success() && text.contains("2 passed; 0 failed"),
+        "{text}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let run = |args: &[&str]| {
         let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
         assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));

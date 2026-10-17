@@ -1257,8 +1257,9 @@ where
         .map(|((((p, kind), pat), ty), value)| (p, ItemKind::Global { kind, pat, ty, value }));
     // `provider` and `stage` are keywords only where a declaration starts
     let alias = kw("as").ignore_then(symbol.clone()).or_not();
-    let provider_item = is_pub
+    let provider_item = contracts
         .clone()
+        .then(is_pub.clone())
         .then_ignore(kw("provider"))
         .then(name.clone())
         .then(alias.clone())
@@ -1266,8 +1267,8 @@ where
         .then(ret.clone().or_not())
         .then(effect.clone().or_not())
         .then(block.clone())
-        .map(|((((((p, name), alias), (params, params_span)), ret), effect), body)| {
-            (p, ItemKind::Provider { name, alias, params, params_span, ret, effect, body })
+        .map(|(((((((contracts, p), name), alias), (params, params_span)), ret), effect), body)| {
+            (p, ItemKind::Provider { contracts, name, alias, params, params_span, ret, effect, body })
         });
     let member = choice((kw("enter").to("enter"), kw("leave").to("leave"), kw("error").to("error")))
         .map_with(|text, e| Ident { text, span: e.span() })
@@ -1279,8 +1280,9 @@ where
             just(Tok::FatArrow).ignore_then(expr.clone()),
         )))
         .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
-    let stage_item = is_pub
+    let stage_item = contracts
         .clone()
+        .then(is_pub.clone())
         .then_ignore(kw("stage"))
         .then(name.clone())
         .then(alias)
@@ -1294,10 +1296,11 @@ where
                 .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
                 .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
         )
-        .map(|((((((p, name), alias), g), params), ret), (members, body_span))| {
+        .map(|(((((((contracts, p), name), alias), g), params), ret), (members, body_span))| {
             (
                 p,
                 ItemKind::Stage {
+                    contracts,
                     name,
                     alias,
                     generics: g.unwrap_or_default(),
