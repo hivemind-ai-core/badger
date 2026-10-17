@@ -1,6 +1,7 @@
 //! Opt-in collector phase measurements and experimental policy controls.
 //! Compiled only with `gc-profile`; normal builds contain none of this code.
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
@@ -73,6 +74,10 @@ static RECORDS: Mutex<Vec<Value>> = Mutex::new(Vec::new());
 
 pub fn finish() {
     let Some(path) = &settings().path else { return };
+    static FINISHED: AtomicBool = AtomicBool::new(false);
+    if FINISHED.swap(true, Ordering::Relaxed) {
+        return;
+    }
     let records = std::mem::take(&mut *RECORDS.lock().unwrap());
     let output = json!({"schema": 1, "collections": records,
         "policy": {"minor_bytes": settings().young_bytes, "max_minors": settings().max_minors,
