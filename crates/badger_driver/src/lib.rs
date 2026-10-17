@@ -421,7 +421,7 @@ impl Session {
                 .collect();
         }
         let entry = modules.len();
-        modules.push(ParsedModule { path: vec![self.sym(&stem)], file, ast, is_std: false });
+        modules.push(ParsedModule { path: vec![self.sym(&stem)], file, ast, is_std: false, dependency: false });
         // breadth-first discovery of imported user modules; each module
         // resolves imports relative to its own package
         let mut module_pkg: Vec<usize> = vec![0; modules.len()];
@@ -478,7 +478,7 @@ impl Session {
                 self.sources.set_module(file, mname.join("."));
                 if let Some(ast) = self.parse(file) {
                     // modules are addressable by both the written and stripped path
-                    modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false });
+                    modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false, dependency: target != 0 });
                     module_pkg.push(target);
                 }
             }
@@ -547,7 +547,7 @@ impl Session {
                 add_imports(&ast, src, &mut wanted, &self.interner);
                 let mut mpath = vec![std_sym];
                 mpath.extend(name.split('/').map(|s| self.sym(s)));
-                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true }));
+                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true, dependency: false }));
             }
         }
         // in the library's own order
@@ -898,6 +898,15 @@ impl Session {
             }
             // one worker, so the interleaving of tasks is the scheduler's
             // own and not the machine's
+            if opts.workers.is_some_and(|w| w > 1) {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "`--record` and replays run on one worker (the recorded interleaving is the scheduler's): drop `--workers`",
+                    )
+                    .with_code("E0013"),
+                );
+                return Err(Outcome::Errors);
+            }
             badger_runtime::task::set_workers(1);
             let identity = program_identity(path, &built.files, &args, opts.profile.as_deref(), &config);
             if let Some(file) = &opts.record {
@@ -981,6 +990,7 @@ fn run_entry(built: Built, bench: Option<std::time::Duration>) -> i32 {
         }
         let exit = badger_codegen::run_main(&built.compiled, &built.prog);
         let ran = run_start.elapsed();
+        inspect::withdraw_tokens();
         let (code, failure) = report_exit(exit, &built.prog);
         let code = badger_runtime::repro::finish(code, failure);
         if let Some(compile) = bench {
@@ -1587,7 +1597,13 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
         let detail = match &exit {
             Exit::Failed(p) => format!("{} at {}", p.message, p.location),
             Exit::Cancelled => "cancelled".into(),
-            Exit::Returned(_) if !ok => "returned an error".into(),
+            Exit::Returned(w) if !ok => match prog.test_errors.iter().find(|(n, _)| n == name) {
+                Some((_, ed)) => format!(
+                    "returned an error: {}",
+                    badger_runtime::value::display(std::ptr::null_mut(), ed, badger_runtime::enum_parts(*w).1[0], true)
+                ),
+                None => "returned an error".into(),
+            },
             _ => String::new(),
         };
         if !ok {

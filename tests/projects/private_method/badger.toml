@@ -1,0 +1,3 @@
+[package]
+name = "private_method"
+entry = "src/main.bdg"

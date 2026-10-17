@@ -13,6 +13,8 @@ pub struct ParsedModule {
     pub file: FileId,
     pub ast: ast::Ast,
     pub is_std: bool,
+    /// A module of a dependency package (its tests are not the program's).
+    pub dependency: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,6 +229,7 @@ impl Cx<'_> {
                 path: m.path.clone(),
                 file: m.file,
                 is_std: m.is_std,
+                dependency: m.dependency,
                 items: FxHashMap::default(),
                 tests: vec![],
             });
@@ -444,8 +447,17 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && name.starts_with("test_") && f.params.is_empty() {
-                    self.hir.modules[mid].tests.push(def);
+                if !m.is_std && !m.dependency && name.starts_with("test_") {
+                    if f.params.is_empty() {
+                        self.hir.modules[mid].tests.push(def);
+                    } else {
+                        let span = self.hir.defs[def].span;
+                        self.diags.push(
+                            Diagnostic::warning(format!("`{name}` takes parameters, so `badger test` does not run it"))
+                                .with_code("E0142")
+                                .with_label(span, "a test takes no parameters"),
+                        );
+                    }
                 }
             }
         }
@@ -577,7 +589,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 self.in_impl = true;
                 let mut methods = vec![];
                 for m in &p.methods {
-                    let mdef = self.alloc_method_def(m, def);
+                    let mdef = self.alloc_method_def(m, def, true);
                     methods.push(mdef);
                 }
                 self.in_impl = false;
@@ -595,7 +607,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     i.assoc_types.iter().filter_map(|(n, t)| t.map(|t| (n.sym, self.lower_ty(t)))).collect();
                 let mut methods = vec![];
                 for m in &i.methods {
-                    let mdef = self.alloc_method_def(m, def);
+                    // inherent methods are private unless `pub`; protocol
+                    // methods are as visible as the protocol
+                    let mdef = self.alloc_method_def(m, def, protocol.is_some() || m.is_pub);
                     methods.push(mdef);
                 }
                 self.in_impl = false;
@@ -735,14 +749,12 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         }
     }
 
-    fn alloc_method_def(&mut self, m: &ast::FnDecl, owner: DefId) -> DefId {
+    fn alloc_method_def(&mut self, m: &ast::FnDecl, owner: DefId, is_pub: bool) -> DefId {
         let def = self.cx.hir.defs.alloc(Def {
             name: m.name.sym,
             module: self.module,
             span: m.name.span,
-            // a method is visible wherever its type is (`pub` on one is
-            // accepted and changes nothing)
-            is_pub: true,
+            is_pub,
             kind: DefKind::Pending,
         });
         let saved = self.cur_def;

@@ -32,7 +32,9 @@ pub fn order_total(order: Order) -> Int {
 A file is one module; its path inside `src` determines its module path.
 `src/orders/store.bdg` is `orders.store`. Import cycles involving value
 initialization are rejected. Pure type/function cycles may form one checked
-module group. Declarations are private unless marked `pub`. Module initialization
+module group. Declarations are private unless marked `pub`, including methods
+in an inherent `impl` (methods of a protocol implementation are as visible as
+the protocol). Module initialization
 can define pure immutable values; acquisition and other effects belong in
 functions or system initialization, never hidden import-time work.
 

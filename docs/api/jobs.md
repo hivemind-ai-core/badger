@@ -278,12 +278,6 @@ Record a failed attempt: the job is ready again after `backoff`, or
 failed for good once it has failed `max_attempts` times. Returns
 whether it will run again.
 
-#### `Store.settle`
-
-```badger
-fn settle(self: &Self, e: Entry, outcome: Outcome) -> Result<Entry, Error> !{Io, Wait}
-```
-
 #### `Store.submit`
 
 ```badger
@@ -293,12 +287,6 @@ fn submit<T>(self: &Self, kind: String, event: String, version: Int, state: T, m
 Ingest an event: create job `kind:event` in its first state, unless
 an event with this key was ingested before (then nothing changes).
 The job may fail `max_attempts` times before it fails for good.
-
-#### `Store.take`
-
-```badger
-fn take(self: &Self, id: Int, timeout: Duration) -> Result<Option<Entry>, Error> !{Io, Wait}
-```
 
 ### `Submitted`
 

@@ -230,6 +230,25 @@ pub fn from_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
     dec(d, &j, "$")
 }
 
+thread_local! {
+    /// Decoding a SQLite row: SQLite has no boolean type, so `Bool` also
+    /// accepts the integers 0 and 1 (as `badger check` allows for INTEGER).
+    static INT_BOOLS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Decode a SQLite row (`Data`) against a descriptor.
+pub fn from_sql_row(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            INT_BOOLS.with(|c| c.set(false));
+        }
+    }
+    INT_BOOLS.with(|c| c.set(true));
+    let _r = Reset;
+    from_data(d, w)
+}
+
 fn root(w: u64) -> u64 {
     gc::push_root(w);
     w
@@ -238,7 +257,13 @@ fn root(w: u64) -> u64 {
 fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::Unit => Ok(0),
-        Kind::Bool => j.as_bool().map(|b| b as u64).ok_or(()).or_else(|_| fail(path, "expected a boolean")),
+        Kind::Bool => match j {
+            J::Bool(b) => Ok(*b as u64),
+            J::Number(n) if INT_BOOLS.with(|c| c.get()) && (n.as_i64() == Some(0) || n.as_i64() == Some(1)) => {
+                Ok(n.as_i64().unwrap() as u64)
+            }
+            _ => fail(path, "expected a boolean"),
+        },
         Kind::Int { bits, signed } => {
             let v = if *signed { j.as_i64() } else { j.as_u64().map(|u| u as i64) };
             let Some(v) = v else { return fail(path, "expected an integer") };

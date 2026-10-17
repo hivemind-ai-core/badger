@@ -100,8 +100,8 @@ fn tools() -> Value {
                     "release": { "type": "boolean" },
                     "timeout_secs": { "type": "number", "description": "Kill the process after this long (default 60)." },
                     "breakpoints": { "type": "array", "items": { "type": "string" }, "description": "Stop at `file:line` or `file:line if CONDITION` (gdb syntax)." },
-                    "commands": { "type": "array", "items": { "type": "string" }, "description": "gdb commands at each stop (default: bt, info args, info locals)." },
-                    "max_stops": { "type": "integer", "description": "Stops to report before ending the run (default 10)." },
+                    "commands": { "type": "array", "items": { "type": "string" }, "description": "gdb commands at each stop (default: bt 5, info args, info locals). Only with `breakpoints`." },
+                    "max_stops": { "type": "integer", "description": "Stops to report before ending the run (default 10). Only with `breakpoints`." },
                     "profile": { "type": "boolean" }
                 },
                 "required": ["path"]
@@ -371,7 +371,8 @@ impl Mcp {
                             Err(e) => text(e, true),
                         }
                     }
-                    _ => {
+                    "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
+                    | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {
@@ -391,11 +392,27 @@ impl Mcp {
                             Err(e) => text(e, true),
                         }
                     }
+                    // `check` has its own tool
+                    other => text(
+                        format!(
+                            "unknown query kind `{other}` (hover, definition, references, completion, rename, symbols, diagnostics, explain, module, graph, api; diagnostics of proposed contents: the `check` tool)"
+                        ),
+                        true,
+                    ),
                 }
             }
             "run" => {
                 let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                 // options that would be ignored are refused, not dropped
+                let debugging = a["breakpoints"].as_array().is_some_and(|b| !b.is_empty());
+                for opt in ["commands", "max_stops"] {
+                    if !a[opt].is_null() && !debugging {
+                        return text(format!("`{opt}` applies only with `breakpoints`"), true);
+                    }
+                }
+                if debugging && a["profile"] == json!(true) {
+                    return text("`profile` cannot be used with `breakpoints`: a debugged run is not profiled", true);
+                }
                 if a["test"] == json!(true) {
                     for (opt, why) in [
                         ("breakpoints", "breakpoints debug a program run, not its tests"),
@@ -495,7 +512,11 @@ impl Mcp {
                         || l.starts_with("Use `info auto-load"))
                 };
                 let report: Vec<&str> = out.lines().chain(err.lines()).filter(keep).collect();
-                text(report.join("\n"), false)
+                // the program's failure, not gdb's status, makes it an error
+                let failed = report.iter().any(|l| {
+                    l.contains("exited with code") || l.starts_with("Program terminated with signal")
+                });
+                text(report.join("\n"), failed)
             }
         }
     }

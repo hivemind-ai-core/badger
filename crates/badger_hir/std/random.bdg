@@ -33,7 +33,7 @@ fn step(x: U64) -> U64 {
 
 impl Random {
     /// The next 64 random bits.
-    fn next(self: &Self) -> U64 !{State} { wrapping_mul(self.state.update(step), 2685821657736338717U64) }
+    pub fn next(self: &Self) -> U64 !{State} { wrapping_mul(self.state.update(step), 2685821657736338717U64) }
 
     /// A uniformly distributed integer in `low..high` (`low` when the
     /// range is empty).

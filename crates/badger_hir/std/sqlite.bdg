@@ -50,6 +50,8 @@ extern "native badger_sqlite.query" fn sql_query(conn: native.Handle, sql: Strin
 extern "native badger_sqlite.query_one" fn sql_query_one(conn: native.Handle, sql: String, params: List<Data>) -> Result<Data, native.Error> !{Io, Wait}
 extern "native badger_sqlite.begin" fn sql_begin(pool: native.Handle) -> Result<native.Handle, native.Error> !{Io, Wait}
 extern "native badger_sqlite.finish" fn sql_finish(tx: native.Handle, commit: Bool) -> Result<Unit, native.Error> !{Io, Wait}
+// `codec.from_data`, with `Bool` also read from the integers 0 and 1
+extern "intrinsic" fn codec_from_sql_row<T>(data: Data) -> Result<T, codec.DecodeError>
 extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
 extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
 
@@ -93,7 +95,7 @@ pub fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Er
 }
 
 fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
-    match codec.from_data<T>(row) {
+    match codec_from_sql_row<T>(row) {
         .ok(v) => ok(v),
         .err(e) => err({ code: :sqlite/decode, message: $"a row does not decode: {e}", cause: Option.none }),
     }

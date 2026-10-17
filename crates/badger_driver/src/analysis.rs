@@ -423,10 +423,15 @@ impl Ix<'_> {
         }
         let text = &self.s.sources.get(sp.file).text;
         let start = text[..sp.start as usize].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let contracts = matches!(&self.hir.defs[d].kind, DefKind::Fn(f) if !f.contracts.is_empty());
         let mut lines: Vec<&str> = vec![];
         for l in text[..start].lines().rev() {
             match l.trim().strip_prefix("///") {
                 Some(d) => lines.push(d.strip_prefix(' ').unwrap_or(d)),
+                // the doc comment may stand above the contract clauses
+                None if contracts
+                    && lines.is_empty()
+                    && (l.trim_start().starts_with("requires ") || l.trim_start().starts_with("ensures ")) => {}
                 None => break,
             }
         }

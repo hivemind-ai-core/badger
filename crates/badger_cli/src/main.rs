@@ -35,7 +35,8 @@ enum Command {
         /// Entry file or project directory (default: the current project).
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Output file (default: the entry's name with `.bdgmir`).
+        /// Output file (default: `FILE.bdgmir` beside an entry file;
+        /// `DIR/<package>.bdgmir` for a project).
         #[arg(short, long, value_name = "FILE")]
         output: Option<PathBuf>,
         /// Merge `[profile.NAME]` from `badger.toml` into the saved configuration.
@@ -131,6 +132,7 @@ enum Command {
     /// ends the replay (exit 3). Exits 0 when the recorded outcome (exit
     /// code, output, failure) is reproduced and 1 when it differs.
     Replay {
+        /// The bundle written by `badger run --record`.
         bundle: PathBuf,
         /// Run a changed program against the recording: report differing
         /// operations instead of stopping, and exit with the program's code.
@@ -140,22 +142,25 @@ enum Command {
         #[arg(long)]
         release: bool,
     },
-    /// Run the entry module's `test_*` functions: `badger test [path] [filter]`
+    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [path] [filter]`
     /// (path defaults to the current project).
     Test {
         /// An optional program path, then an optional name filter.
         #[arg(num_args = 0..=2)]
         args: Vec<String>,
+        /// Print the results as one JSON object.
         #[arg(long)]
         json: bool,
     },
     /// Run a user task: a typed function declared in the project's
     /// `[tasks]` table (`name = "src/file.bdg#function"`).
     Task {
+        /// The task's name in `[tasks]`.
         name: String,
         /// Project directory (default `.`).
         #[arg(long, default_value = ".")]
         project: PathBuf,
+        /// Merge `[profile.NAME]` from `badger.toml` into the configuration.
         #[arg(long)]
         profile: Option<String>,
         /// Arguments passed to the task (after `--`).
@@ -183,17 +188,20 @@ enum Command {
         /// sources) of PATH; or, with `--connect`, `tasks`, `channels`,
         /// `system`, `heap`, `code`, or `all` of a running program.
         what: String,
+        /// Entry file or project directory (for `plans`, `config`, `runtime`;
+        /// default `.`).
         path: Option<PathBuf>,
+        /// Print JSON instead of a table.
         #[arg(long)]
         json: bool,
-        /// Profile for `config`.
+        /// Merge `[profile.NAME]` into what `config` and `runtime` show.
         #[arg(long)]
         profile: Option<String>,
         /// Address of a program started with `badger run --inspect ADDR`.
         #[arg(long, value_name = "ADDR")]
         connect: Option<String>,
     },
-    /// Resolve path dependencies and rewrite the project's `badger.lock`.
+    /// Resolve path and git dependencies and rewrite the project's `badger.lock`.
     Update {
         /// Project directory (with `badger.toml`).
         #[arg(default_value = ".")]
@@ -208,9 +216,11 @@ enum Command {
     /// Program structure as a graph: `calls`, `modules`, `types`, or
     /// `systems`, in DOT (default), Mermaid, or JSON.
     Graph {
+        /// `calls`, `modules`, `types`, or `systems`.
         kind: String,
         /// Entry file or project directory (default `.`).
         path: Option<PathBuf>,
+        /// `dot`, `mermaid`, or `json`.
         #[arg(long, default_value = "dot")]
         format: String,
         /// Include standard-library nodes.
@@ -225,11 +235,14 @@ enum Command {
     /// `references`, `completion`, `rename` (with `--name`: the edits, not
     /// applied).
     Query {
+        /// What to ask (see above).
         kind: String,
         /// Source file (checked with its project, if any).
         path: Option<PathBuf>,
+        /// Line of the position asked about (1-based).
         #[arg(long)]
         line: Option<usize>,
+        /// Column of the position asked about (1-based).
         #[arg(long)]
         col: Option<usize>,
         /// Ask about this source text (checked on its own) instead of a file
@@ -249,6 +262,7 @@ enum Command {
     /// (every standard module, one page each plus an index), a standard
     /// module (`std.list`), or the program at a path.
     Doc {
+        /// `std`, a standard module (`std.list`), or a program path.
         target: String,
         /// Write the pages into this directory instead of printing them.
         #[arg(long)]
@@ -265,9 +279,13 @@ enum Command {
     Generate {
         /// What to generate: `sql`.
         what: String,
+        /// The SQL files.
         files: Vec<PathBuf>,
+        /// Postgres URL to take types from (default: `DATABASE_URL`).
         #[arg(long)]
         database: Option<String>,
+        /// SQLite schema file to take types from (default: the project's
+        /// `[database] schema`).
         #[arg(long)]
         schema: Option<PathBuf>,
         /// Compare with the generated files and fail if any differ.
@@ -281,6 +299,7 @@ enum Command {
         /// Entry file or project directory (default `.`).
         #[arg(default_value = ".")]
         path: PathBuf,
+        /// Print JSON.
         #[arg(long)]
         json: bool,
         /// Also run the tests, observing the program: each clause's test
@@ -297,6 +316,7 @@ enum Command {
         target: Option<String>,
         /// Program to examine (for `type` and `effect`).
         path: Option<PathBuf>,
+        /// Print JSON.
         #[arg(long)]
         json: bool,
     },
@@ -319,6 +339,11 @@ fn exit_on_internal_errors() {
             .map(|s| s.to_string())
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "unknown".into());
+        // a reader that stopped early (`badger doc std | head`): end quietly
+        // with the status a SIGPIPE death reports in a shell
+        if msg.starts_with("failed printing to stdout") && msg.contains("Broken pipe") {
+            std::process::exit(141);
+        }
         let at = info.location().map(|l| format!(" at {}:{}", l.file(), l.line())).unwrap_or_default();
         let thread = std::thread::current();
         eprintln!(
@@ -670,7 +695,8 @@ fn command(mut cli: Cli) -> ExitCode {
         Command::Graph { kind, path, format, std } => {
             match graph::graph(&kind, &path.unwrap_or_else(|| PathBuf::from(".")), &format, std) {
                 Ok(g) => {
-                    print!("{g}");
+                    // every format ends with a newline
+                    if g.ends_with('\n') { print!("{g}") } else { println!("{g}") }
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
@@ -723,6 +749,10 @@ fn command(mut cli: Cli) -> ExitCode {
                 eprintln!("error: unknown generator `{what}` (available: sql)");
                 return ExitCode::FAILURE;
             }
+            if files.is_empty() {
+                eprintln!("error: `badger generate sql` needs one or more SQL files (`badger generate sql queries/*.sql`)");
+                return ExitCode::from(2);
+            }
             let database = database.or_else(|| std::env::var("DATABASE_URL").ok());
             match badger_driver::sqlgen::run(&files, database.as_deref(), schema.as_deref(), check) {
                 Ok(written) => {
@@ -759,7 +789,20 @@ fn command(mut cli: Cli) -> ExitCode {
             None => repl(),
         },
         Command::Inspect { what, json, connect: Some(addr), .. } => {
+            const REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
+            if !REMOTE.contains(&what.as_str()) {
+                eprintln!("error: `{what}` is not a snapshot of a running program (one of: {})", REMOTE.join(", "));
+                return ExitCode::from(2);
+            }
             match badger_driver::inspect::request(&addr, &what) {
+                Ok(text) if text.starts_with("{\"error\":") => {
+                    let e = serde_json::from_str::<serde_json::Value>(&text)
+                        .ok()
+                        .and_then(|v| v["error"].as_str().map(str::to_string))
+                        .unwrap_or(text);
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
                 Ok(text) => {
                     if json {
                         println!("{text}");
@@ -1057,7 +1100,7 @@ fn print_snapshot(what: &str, text: &str) {
                 "id", "state", "waiting on", "scope", "code", "stack", "stage"
             );
             for t in items(&v) {
-                let stack = t["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
+                let stack = t["memory"]["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
                 println!(
                     "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} {}",
                     field(&t, "id"),

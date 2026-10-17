@@ -539,6 +539,15 @@ pub fn update(project: &Path) -> Result<Vec<Dep>, String> {
     let m = Manifest::load(&project.join("badger.toml"))?;
     let (base, _, all) = resolve_shared(project, &m, true)?;
     let lock = base.join(LOCK);
+    if all.is_empty() {
+        // no dependencies, no lockfile (as a build leaves it)
+        match std::fs::remove_file(&lock) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("cannot remove {}: {e}", lock.display()));
+            }
+            _ => return Ok(all),
+        }
+    }
     std::fs::write(&lock, lock_text(&base, &all))
         .map_err(|e| format!("cannot write {}: {e}", lock.display()))?;
     Ok(all)

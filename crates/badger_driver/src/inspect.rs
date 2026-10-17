@@ -343,6 +343,18 @@ fn publish_token(addr: &str, token: &str) {
     }
 }
 
+/// Remove the token files this process published (when its program ends),
+/// unless another process has since published its own for the address.
+pub fn withdraw_tokens() {
+    for (addr, token) in TOKENS.lock().unwrap().iter() {
+        if let Some(path) = inspect_token_path(addr)
+            && std::fs::read_to_string(&path).is_ok_and(|t| t == *token)
+        {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+}
+
 /// The token for `addr`: this process's own endpoint, or the user's file.
 fn token_for(addr: &str) -> String {
     if let Some((_, t)) = TOKENS.lock().unwrap().iter().find(|(a, _)| a == addr) {

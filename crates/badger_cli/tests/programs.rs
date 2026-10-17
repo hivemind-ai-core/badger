@@ -421,7 +421,14 @@ fn inspect_running_program() {
     }
     let channels = ask("channels");
     let systems = ask("system");
+    // the table shows each task's resident stack; an unknown snapshot fails
+    let table = lang().args(["inspect", "tasks", "--connect", &addr]).output().unwrap();
+    let table = String::from_utf8_lossy(&table.stdout).to_string();
+    let bogus = lang().args(["inspect", "plans", "--connect", &addr]).output().unwrap();
     let status = child.wait().unwrap();
+    assert!(table.lines().count() > 2, "{table}");
+    assert!(table.lines().skip(1).all(|l| l.split_whitespace().any(|w| w.ends_with('K'))), "{table}");
+    assert!(!bogus.status.success() && String::from_utf8_lossy(&bogus.stderr).contains("not a snapshot"));
     assert!(status.success());
     assert!(
         tasks.contains("\"wait\":\"channel send\"") && tasks.contains("\"wait\":\"channel receive\""),
@@ -686,7 +693,8 @@ fn dotenv_and_env_references() {
 /// Workspaces and git dependencies: members share one `badger.lock`; a git
 /// dependency builds from its locked commit (a changed `rev` is refused
 /// until `badger update`, which resolves it again); `badger check` and
-/// `badger test` at the root cover every member; a library and a workspace
+/// `badger test` at the root cover every member (each package's tests
+/// once, not again as a dependency's); a library and a workspace
 /// root are not run.
 #[test]
 fn workspaces_and_git_dependencies() {
@@ -762,8 +770,13 @@ fn workspaces_and_git_dependencies() {
         "{lock}"
     );
     assert!(!ws.join("app/badger.lock").exists(), "members share the workspace lockfile");
+    // each member's own tests, once: a package's tests are not run again
+    // as a dependency's
     let (ok, out, err) = run(&["test", "."]);
-    assert!(ok && out.contains("test_twice") && out.contains("test_app"), "{out}{err}");
+    assert!(ok && out.contains("test test_twice ...") && out.contains("test test_app ..."), "{out}{err}");
+    assert!(out.contains("2 passed") && !out.contains("util.test_twice"), "{out}{err}");
+    let (ok, out, err) = run(&["test", "app"]);
+    assert!(ok && out.contains("1 passed") && !out.contains("twice"), "{out}{err}");
     let (ok, _, err) = run(&["run", "libs/util"]);
     assert!(!ok && err.contains("is a library"), "{err}");
     let (ok, _, err) = run(&["run", "."]);
@@ -1264,7 +1277,8 @@ fn diagnostics_early_phases() {
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual
-/// time; assertion failures report the caller's location.
+/// time; assertion failures report the caller's location, and a test
+/// returning `err` reports the error.
 #[test]
 fn test_runner_controlled_clock() {
     let out = lang().args(["test", "tests/testing/clock.bdg"]).current_dir(root()).output().unwrap();
@@ -1274,7 +1288,8 @@ fn test_runner_controlled_clock() {
         "test test_b_clock_isolated ... ok",
         "test test_c_advance_wakes_sleeper ... ok",
         "test test_d_failure_location ... FAILED (assertion failed: expected 3, found 2 at tests/testing/clock.bdg:38:5)",
-        "3 passed; 1 failed",
+        "test test_e_error_result ... FAILED (returned an error: the error a failed test returned)",
+        "3 passed; 2 failed",
     ] {
         assert!(text.contains(want), "missing {want:?} in {text}");
     }
@@ -1755,6 +1770,13 @@ fn api_export() {
     assert!(api.contains(r#""name":"withdraw""#) && api.contains("requires amount > 0"), "{api}");
     assert!(api.contains(r#""name":"Range.width""#), "{api}");
     assert!(!api.contains(r#""name":"abs""#), "private functions are not part of the API: {api}");
+    // a doc comment above the contract clauses documents the function
+    let f = std::env::temp_dir().join(format!("badger-doc-contract-{}.bdg", std::process::id()));
+    std::fs::write(&f, "/// Halve an even number.\nrequires n % 2 == 0\nensures result * 2 == n\npub fn half(n: Int) -> Int { n / 2 }\n").unwrap();
+    let out = lang().args(["query", "api"]).arg(&f).output().unwrap();
+    let _ = std::fs::remove_file(&f);
+    let api = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(api.contains(r#""doc":"Halve an even number.""#), "{api}");
 }
 
 /// Diagnostics never disappear: a missing file, and a module its project
@@ -2199,6 +2221,50 @@ fn private_struct_update() {
     assert!(!out.status.success());
     assert_eq!(text.matches("\"code\":\"E0308\"").count(), 1, "{text}");
     assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
+}
+
+/// Environment reads by `std.config` are recorded: a replay under a
+/// different environment sees the recorded configuration.
+#[test]
+fn config_env_replays() {
+    let dir = std::env::temp_dir().join(format!("badger-config-replay-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("cfg.bdg"),
+        "import std.io\nimport std.config\ntype Settings = { port: Int, name: String }\n\
+         pub fn main() -> Result<Unit, String> {\n\
+         let s = config.from_env<Settings>(\"DEMO_\").map_err(fn(e) => e.display())?\n\
+         io.println($\"{s.name}:{s.port}\").map_err(fn(e) => \"io\")?\nok(())\n}\n",
+    )
+    .unwrap();
+    let rec = lang()
+        .current_dir(&dir)
+        .args(["run", "--record", "b.json", "cfg.bdg"])
+        .env("DEMO_PORT", "1")
+        .env("DEMO_NAME", "a")
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&rec.stdout), "a:1\n", "{}", String::from_utf8_lossy(&rec.stderr));
+    let rep = lang().current_dir(&dir).args(["replay", "b.json"]).env("DEMO_PORT", "2").env_remove("DEMO_NAME").output().unwrap();
+    let err = String::from_utf8_lossy(&rep.stderr).to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
+    assert_eq!(String::from_utf8_lossy(&rep.stdout), "a:1\n");
+    // a recording runs on one worker: asking for more is refused, not ignored
+    let many = lang().args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"]).output().unwrap();
+    assert!(!many.status.success() && String::from_utf8_lossy(&many.stderr).contains("run on one worker"));
+}
+
+/// Inherent methods are private to their module unless `pub`, by method
+/// call and by path; protocol methods stay usable.
+#[test]
+fn private_method_call() {
+    let out = lang().args(["check", "--json", "tests/projects/private_method"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(!out.status.success());
+    assert_eq!(text.matches("\"code\":\"E0112\"").count(), 2, "{text}");
+    assert!(text.contains("\"line\":8,\"column\":18") && text.contains("\"line\":9,\"column\":26"), "{text}");
+    assert_eq!(text.matches("\"code\"").count(), 2, "{text}");
 }
 
 /// Cleanup that never finishes is escalated after one grace period, not

@@ -140,6 +140,11 @@ fn mcp_tools() {
     assert!(out.contains("pub fn"), "{out}");
     let (out, err) = call("run", json!({ "path": path }));
     assert!(!err && out.contains("42"), "{out}");
+    // options a call would ignore are refused; unknown query kinds too
+    let (out, err) = call("run", json!({ "path": path, "max_stops": 3 }));
+    assert!(err && out.contains("only with `breakpoints`"), "{out}");
+    let (out, err) = call("query", json!({ "kind": "check", "path": path }));
+    assert!(err && out.contains("unknown query kind"), "{out}");
 
     drop(stdin);
     assert!(child.wait().unwrap().success());

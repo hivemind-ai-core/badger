@@ -303,6 +303,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "The compiler proved that this returned value cannot satisfy the function's `ensures` clause. It is an error when every run returns it, and a warning when the enclosing conditions decide whether it is returned.",
     ),
     (
+        "E0142",
+        "test with parameters",
+        "A `test_*` function runs only when it takes no parameters (warning): `badger test` skips this one. Remove the parameters, or rename the function if it is a helper.",
+    ),
+    (
         "E0147",
         "specialization limit",
         "A generic function recurses through ever larger types past the specialization depth, so one of its instances cannot be compiled and fails if it is called (warning). Give the recursion a bounded type, or remove the protocol constraint so it can use the erased fallback.",

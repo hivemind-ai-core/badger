@@ -42,6 +42,9 @@ pub struct Program {
     pub display_hooks: Vec<(&'static badger_runtime::TypeDesc, FuncId)>,
     /// Test functions: (name, function).
     pub tests: Vec<(String, FuncId)>,
+    /// The error type of each test returning a `Result`, by test name (for
+    /// the failure report; not saved).
+    pub test_errors: Vec<(String, &'static badger_runtime::TypeDesc)>,
     /// Emit calls between user functions through live-reload slots.
     pub live: bool,
     /// Worker threads; above one, runtime calls take the runtime lock.

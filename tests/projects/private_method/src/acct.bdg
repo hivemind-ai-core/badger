@@ -1,0 +1,13 @@
+pub struct Acct { balance: Int }
+
+impl Acct {
+    pub fn new() -> Acct { { balance: 0 } }
+    // private: callable only in this module
+    fn secret(self: &Self) -> Int { self.balance + 42 }
+    pub fn shown(self: &Self) -> Int { self.secret() }
+}
+
+impl Display for Acct {
+    // a protocol method is as visible as the protocol
+    fn display(self: &Self) -> String { $"acct {self.balance}" }
+}

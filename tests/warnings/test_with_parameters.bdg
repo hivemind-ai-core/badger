@@ -1,0 +1,4 @@
+// A `test_*` function with parameters is not a test: warned, not run.
+// expect-warning: E0142
+fn test_with(n: Int) -> Unit { assert(n > 0) }
+pub fn main() { }
