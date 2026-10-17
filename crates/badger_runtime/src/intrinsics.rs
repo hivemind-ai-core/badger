@@ -20,6 +20,28 @@ pub fn rdesc(r: *const TypeDesc) -> &'static TypeDesc {
     unsafe { &*r }
 }
 
+/// `Option.some(w)` of the option type `ret`.
+pub(crate) fn some(ret: &'static TypeDesc, w: u64) -> u64 {
+    crate::make_variant(ret, "some", &[w])
+}
+
+/// `Option.none` of the option type `ret`.
+pub(crate) fn none(ret: &'static TypeDesc) -> u64 {
+    crate::make_variant(ret, "none", &[])
+}
+
+/// A `List<String>` (of descriptor `list`) of `items`.
+pub(crate) fn strings<S: AsRef<str>>(list: &'static TypeDesc, items: impl IntoIterator<Item = S>) -> u64 {
+    let r = crate::gc::Roots::new();
+    let l = r.add(crate::list::new(list));
+    for s in items {
+        let item = crate::gc::Roots::new();
+        let w = item.add(crate::string::new_string(s.as_ref()));
+        crate::list::push(l, w);
+    }
+    l
+}
+
 macro_rules! intrinsics {
     ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
         $(

@@ -155,11 +155,11 @@ pub fn run_handler<C, R, E, Eff>(h: Handler<C, R, E, Eff>, ctx: C) -> Unwind<C, 
     }
 }
 
-/// Enter `stage`, run the rest of the chain, then unwind through this
-/// stage's leave/error callback exactly once.
 extern "intrinsic" fn task_stage_push(name: Symbol) -> Unit
 extern "intrinsic" fn task_stage_pop() -> Unit
 
+/// Enter `stage`, run the rest of the chain, then unwind through this
+/// stage's leave/error callback exactly once.
 pub fn run_stage<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
     // a defect or cancellation skips recovery but leaves a trace of the
     // aborted chain (one event per entered stage, innermost first)

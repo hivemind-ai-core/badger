@@ -66,8 +66,11 @@ fn content_hash(dir: &Path) -> String {
         let Ok(rd) = std::fs::read_dir(dir) else { return };
         for e in rd.flatten() {
             let p = e.path();
+            // a symlinked directory is not followed (a link back up would
+            // never end)
+            let link_dir = e.file_type().is_ok_and(|t| t.is_symlink()) && p.is_dir();
             if p.is_dir() {
-                if p.file_name().is_some_and(|n| n == ".git") {
+                if link_dir || p.file_name().is_some_and(|n| n == ".git") {
                     continue;
                 }
                 walk(base, &p, out);
@@ -212,9 +215,11 @@ fn locked_commits(lock: &str) -> HashMap<String, (String, String)> {
     lock.lines()
         .filter(|l| !l.starts_with('#'))
         .filter_map(|l| {
-            let mut parts = l.split(' ');
-            let name = parts.next()?;
-            let source = parts.nth(1)?;
+            // `name version source hash`: the source (a path or URL) may
+            // hold spaces, so it is what lies between the version and hash
+            let (name, rest) = l.split_once(' ')?;
+            let (_version, rest) = rest.split_once(' ')?;
+            let (source, _hash) = rest.rsplit_once(' ')?;
             let (asked, commit) = source.strip_prefix("git+")?.rsplit_once('@')?;
             let commit = commit.split('#').next()?;
             Some((name.to_string(), (asked.to_string(), commit.to_string())))
@@ -480,6 +485,11 @@ pub fn verified(project: &Path, m: &Manifest) -> Result<Vec<Dep>, String> {
     let lock = base.join(LOCK);
     let expected = lock_text(&base, &all);
     match std::fs::read_to_string(&lock) {
+        // only a lockfile that is not there is written fresh (one that
+        // cannot be read is never overwritten)
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            return Err(format!("cannot read {}: {e}", lock.display()));
+        }
         Err(_) => {
             if !all.is_empty() {
                 std::fs::write(&lock, &expected)
@@ -528,7 +538,8 @@ pub fn verified(project: &Path, m: &Manifest) -> Result<Vec<Dep>, String> {
 pub fn update(project: &Path) -> Result<Vec<Dep>, String> {
     let m = Manifest::load(&project.join("badger.toml"))?;
     let (base, _, all) = resolve_shared(project, &m, true)?;
-    std::fs::write(base.join(LOCK), lock_text(&base, &all))
-        .map_err(|e| format!("cannot write badger.lock: {e}"))?;
+    let lock = base.join(LOCK);
+    std::fs::write(&lock, lock_text(&base, &all))
+        .map_err(|e| format!("cannot write {}: {e}", lock.display()))?;
     Ok(all)
 }

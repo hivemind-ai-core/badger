@@ -21,33 +21,6 @@ const SPLIT: &[(&str, &str)] = &[
     ("badger_rt_i_batch_try_recv", "badger_rt_i_batch_try_recv_split"),
 ];
 
-fn operands(rv: &Rvalue) -> Vec<Operand> {
-    match rv {
-        Rvalue::Use(a) | Rvalue::Not(a) | Rvalue::ToWord(a) | Rvalue::Tag(a) => vec![*a],
-        Rvalue::Neg { a, .. }
-        | Rvalue::Convert { a, .. }
-        | Rvalue::Fits { a, .. }
-        | Rvalue::FromWord { a, .. } => {
-            vec![*a]
-        }
-        Rvalue::Bin { a, b, .. } | Rvalue::Cmp { a, b, .. } | Rvalue::Overflows { a, b, .. } => vec![*a, *b],
-        Rvalue::Load { base, .. } => vec![*base],
-        Rvalue::Call { callee, args, .. } => {
-            let mut v = args.clone();
-            if let Callee::Closure(c) = callee {
-                v.push(*c);
-            }
-            v
-        }
-        Rvalue::Concat(xs) => xs.clone(),
-        Rvalue::Alloc { .. }
-        | Rvalue::GlobalLoad(_)
-        | Rvalue::GlobalAddr(_)
-        | Rvalue::FuncAddr(_)
-        | Rvalue::AdapterAddr(_) => vec![],
-    }
-}
-
 /// Split the eligible receives of `prog`; returns how many were split.
 pub fn split_receives(prog: &mut Program) -> usize {
     if prog.live {
@@ -130,7 +103,7 @@ fn split_func(f: &mut Func) -> usize {
                             }
                         }
                     }
-                    Stmt::Assign(_, rv) => ok &= !operands(rv).iter().any(&in_group),
+                    Stmt::Assign(_, rv) => ok &= !rv.operands().iter().any(&in_group),
                     Stmt::Store { base, value, .. } => ok &= !in_group(base) && !in_group(value),
                     Stmt::GlobalStore { value, .. } => ok &= !in_group(value),
                     Stmt::Poll | Stmt::Loc { .. } => {}

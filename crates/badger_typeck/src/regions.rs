@@ -452,72 +452,11 @@ impl Regions<'_, '_, '_> {
 }
 
 pub(crate) fn collect(hir: &badger_hir::Hir, p: badger_hir::PatId, out: &mut Vec<LocalId>) {
-    match &hir.pats[p].kind {
-        PatKind::Bind(l) => out.push(*l),
-        PatKind::Tuple(ps) => ps.iter().for_each(|x| collect(hir, *x, out)),
-        PatKind::Record { fields, .. } => fields.iter().for_each(|(_, x)| collect(hir, *x, out)),
-        PatKind::Variant { args, .. } => args.iter().for_each(|x| collect(hir, *x, out)),
-        _ => {}
-    }
+    hir.pat_binders(p, out)
 }
 
 pub(crate) fn sub_exprs(kind: &ExprKind) -> Vec<ExprId> {
-    let mut v = vec![];
-    match kind {
-        ExprKind::Interp(parts) => {
-            for p in parts {
-                if let badger_hir::InterpPart::Expr(x) = p {
-                    v.push(*x);
-                }
-            }
-        }
-        ExprKind::Field { base, .. } => v.push(*base),
-        ExprKind::Index { base, index } => v.extend([*base, *index]),
-        ExprKind::Call { callee, args } => {
-            v.push(*callee);
-            v.extend(args.iter().copied());
-        }
-        ExprKind::MethodCall { recv, args, .. } => {
-            v.push(*recv);
-            v.extend(args.iter().copied());
-        }
-        ExprKind::Try(x) | ExprKind::Unsafe(x) | ExprKind::Loop { body: x } => v.push(*x),
-        ExprKind::Unary { operand, .. } => v.push(*operand),
-        ExprKind::Binary { lhs, rhs, .. } => v.extend([*lhs, *rhs]),
-        ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => v.extend(xs.iter().copied()),
-        ExprKind::Map(kv) => kv.iter().for_each(|(k, x)| v.extend([*k, *x])),
-        ExprKind::Record { spread, fields } => {
-            v.extend(spread.iter().copied());
-            v.extend(fields.iter().map(|f| f.2));
-        }
-        ExprKind::Lambda(l) => v.push(l.body),
-        ExprKind::If { cond, then, els } => {
-            v.extend([*cond, *then]);
-            v.extend(els.iter().copied());
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            v.push(*scrutinee);
-            for a in arms {
-                v.extend(a.guard.iter().copied());
-                v.push(a.body);
-            }
-        }
-        ExprKind::While { cond, body } => v.extend([*cond, *body]),
-        ExprKind::For { iter, body, .. } => v.extend([*iter, *body]),
-        ExprKind::Block { stmts, tail } => {
-            for s in stmts {
-                match s {
-                    Stmt::Let { init, .. } => v.push(*init),
-                    Stmt::Assign { value, .. } => v.push(*value),
-                    Stmt::Expr { expr, .. } => v.push(*expr),
-                }
-            }
-            v.extend(tail.iter().copied());
-        }
-        ExprKind::Return { value, .. } | ExprKind::Break { value, .. } => v.extend(value.iter().copied()),
-        _ => {}
-    }
-    v
+    kind.children()
 }
 
 /// `seeds` and the locals of `body` bound or assigned to an alias of them

@@ -288,6 +288,26 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`requires` and `ensures` clauses state conditions on a function that has a body: they cannot `return` or propagate errors with `?` (a closure inside a clause may), and a protocol method's signature cannot carry them (put them on each implementation's method).",
     ),
     (
+        "E0141",
+        "conflicting import",
+        "Two imports bind one name to different things (`import a.{f}` and `import b.{f}`). Import one under another name (`import b.{f as g}`) or refer to it through its module (`b.f`). Importing the same item twice is fine, and an import may shadow a prelude name.",
+    ),
+    (
+        "E0145",
+        "precondition cannot hold",
+        "The compiler proved that the arguments of this call cannot satisfy the callee's `requires` clause. It is an error when every run reaches the call, and a warning when the enclosing conditions decide whether it runs.",
+    ),
+    (
+        "E0146",
+        "postcondition cannot hold",
+        "The compiler proved that this returned value cannot satisfy the function's `ensures` clause. It is an error when every run returns it, and a warning when the enclosing conditions decide whether it is returned.",
+    ),
+    (
+        "E0147",
+        "specialization limit",
+        "A generic function recurses through ever larger types past the specialization depth, so one of its instances cannot be compiled and fails if it is called (warning). Give the recursion a bounded type, or remove the protocol constraint so it can use the erased fallback.",
+    ),
+    (
         "E0220",
         "implementation signature",
         "An implementation method has the signature its protocol declares, with `Self` and the protocol's type arguments replaced by the implementation's.",
@@ -403,6 +423,16 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A task that receives from a channel until it is closed was joined before the channel's sender is closed, so the join waits forever (warning). Close the sender first.",
     ),
     (
+        "E0451",
+        "join before send",
+        "A task waiting to receive from a channel created in this function was joined before anything was sent on that channel, so the join waits forever (warning). Send before joining.",
+    ),
+    (
+        "E0452",
+        "send past capacity",
+        "More messages were sent on a channel created in this function than it holds, before any other task could receive from it, so the send past its capacity waits forever (warning). Start the receiving task first, or use `try_send`.",
+    ),
+    (
         "E0401",
         "region escape",
         "A value carrying a scope brand (transaction, task handle, running system, or a closure capturing one) would outlive the callback that introduced the scope.",
@@ -455,7 +485,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0410",
         "cannot cross a native boundary",
-        "Native module functions exchange values by copy: primitives, `String`, `Bytes`, `Symbol`, `Data`, `native.Handle`, and lists, sets, arrays, maps with string keys, `Option`, `Result`, tuples, records, structs, and enums made of them. Closures, references, cells, channels, tasks, raw pointers, and other runtime objects stay in the program.",
+        "Native module functions exchange values by copy: primitives, `String`, `Bytes`, `Symbol`, `Data`, `native.Handle`, and lists, sets, arrays, maps with string keys, `Option`, `Result`, tuples, records, structs, and enums made of them. Closures, references, cells, channels, tasks, raw pointers, and other runtime objects stay in the program. A native function takes at most 8 parameters (pass more as one record).",
     ),
     (
         "E0406",

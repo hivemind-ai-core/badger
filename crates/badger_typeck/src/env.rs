@@ -38,9 +38,22 @@ pub struct Builtins {
     pub hash: DefId,
     pub codec: DefId,
     pub cell: DefId,
+    /// Types whose values stay on their task: `Cell` and the database
+    /// transactions (when their modules are loaded).
+    pub confined: Vec<DefId>,
 }
 
 impl Builtins {
+    /// The standard library's affine types (builders and buffers: each
+    /// value has one owner and moves rather than being shared).
+    pub const AFFINE_STD: &'static [&'static str] =
+        &["ListBuilder", "Buffer", "Batch", "MapBuilder", "SetBuilder", "FixedBuffer"];
+
+    /// Whether values of type constructor `d` are confined to their task.
+    pub fn is_confined(&self, d: DefId) -> bool {
+        self.confined.contains(&d)
+    }
+
     pub fn new(hir: &Hir) -> Self {
         let l = |n: &str| hir.lang(n);
         Builtins {
@@ -72,6 +85,9 @@ impl Builtins {
             hash: l("Hash"),
             codec: l("Codec"),
             cell: l("Cell"),
+            confined: std::iter::once(l("Cell"))
+                .chain(["sqlite.Tx", "postgres.Tx"].iter().filter_map(|n| hir.try_lang(n)))
+                .collect(),
         }
     }
 
@@ -1249,6 +1265,20 @@ impl TypeEnv {
     pub fn variant_fields(&self, enum_def: DefId, variant: u32, args: &[Ty]) -> Vec<(Option<Symbol>, Ty)> {
         let info = &self.enums[&enum_def];
         info.variants[variant as usize].fields.iter().map(|(l, t)| (*l, subst_gen(t, args))).collect()
+    }
+
+    /// The field types of a struct, or of every variant of an enum, at
+    /// `args`; `None` for other type constructors.
+    pub fn field_types(&self, d: DefId, args: &[Ty]) -> Option<Vec<Ty>> {
+        if let Some(e) = self.enums.get(&d) {
+            let n = e.variants.len();
+            return Some(
+                (0..n)
+                    .flat_map(|v| self.variant_fields(d, v as u32, args).into_iter().map(|f| f.1))
+                    .collect(),
+            );
+        }
+        self.structs.contains_key(&d).then(|| self.struct_fields(d, args).into_iter().map(|f| f.1).collect())
     }
 
     pub fn struct_fields(&self, def: DefId, args: &[Ty]) -> Vec<(Symbol, Ty, bool)> {

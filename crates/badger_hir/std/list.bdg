@@ -549,6 +549,7 @@ pub fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K
     let index: Map<K, Int> = map_empty()
     let keys = list_builder()
     let members = list_builder()
+    var pos = 0
     for x in list {
         let k = key(x)
         let g = match map_get(index, k) {
@@ -560,10 +561,13 @@ pub fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K
                 g
             },
         }
-        list_builder_append(members, (g, x))
+        // (group, position): sorted on these alone, a group keeps the
+        // items' order (positions never tie, so items are never compared)
+        list_builder_append(members, (g, pos, x))
+        pos = pos + 1
     }
     let ks = list_finish(keys)
-    let ordered = list_sort(map(list_finish(members), fn(p) => (p.0, 0, p.1)))
+    let ordered = list_sort(list_finish(members))
     let out: Map<K, List<T>> = map_empty()
     var i = 0
     var g = 0

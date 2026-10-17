@@ -12,8 +12,11 @@
 import std.text
 
 pub struct Grammar {
-    id: Int,
+    compiled: Compiled,
 }
+
+/// A compiled grammar (released when no `Grammar` reaches it).
+extern type Compiled
 
 /// A parse tree: nodes `{rule, start, end, children}` and tokens
 /// `{token, start, end}` with byte offsets.
@@ -39,16 +42,16 @@ pub enum Sym {
 /// A programmatic production: a rule name and its alternatives.
 pub type Production = { name: String, alts: List<List<Sym>> }
 
-extern "intrinsic" fn parse_grammar(text: String) -> Result<Int, String>
-extern "intrinsic" fn parse_run(grammar: Int, input: String) -> Result<Parsed, Failure>
-extern "intrinsic" fn parse_forest(grammar: Int, input: String) -> Result<Data, Failure>
-extern "intrinsic" fn parse_trees(grammar: Int, input: String, limit: Int) -> Result<Trees, Failure>
-extern "intrinsic" fn parse_recover(grammar: Int, input: String, max_errors: Int) -> Result<Recovered, Failure>
+extern "intrinsic" fn parse_grammar(text: String) -> Result<Compiled, String>
+extern "intrinsic" fn parse_run(grammar: Compiled, input: String) -> Result<Parsed, Failure>
+extern "intrinsic" fn parse_forest(grammar: Compiled, input: String) -> Result<Data, Failure>
+extern "intrinsic" fn parse_trees(grammar: Compiled, input: String, limit: Int) -> Result<Trees, Failure>
+extern "intrinsic" fn parse_recover(grammar: Compiled, input: String, max_errors: Int) -> Result<Recovered, Failure>
 
 /// Compile a grammar string; malformed grammars are errors.
 pub fn grammar(text: String) -> Result<Grammar, String> {
     match parse_grammar(text) {
-        .ok(id) => ok({ id }),
+        .ok(compiled) => ok({ compiled }),
         .err(e) => err(e),
     }
 }
@@ -92,18 +95,18 @@ pub fn from_productions(productions: List<Production>, skip: Option<String>) -> 
 }
 
 impl Grammar {
-    pub fn parse(self: &Self, input: String) -> Result<Parsed, Failure> { parse_run(self.id, input) }
+    pub fn parse(self: &Self, input: String) -> Result<Parsed, Failure> { parse_run(self.compiled, input) }
 
     /// The shared packed parse forest:
     /// `{root, ambiguous, cyclic, nodes: [{id, rule, start, end,
     /// alternatives: [[{node} | {token, start, end}]]}]}`.
-    pub fn forest(self: &Self, input: String) -> Result<Data, Failure> { parse_forest(self.id, input) }
+    pub fn forest(self: &Self, input: String) -> Result<Data, Failure> { parse_forest(self.compiled, input) }
 
     /// At most `limit` trees, lazily expanded from the forest.
-    pub fn trees(self: &Self, input: String, limit: Int) -> Result<Trees, Failure> { parse_trees(self.id, input, limit) }
+    pub fn trees(self: &Self, input: String, limit: Int) -> Result<Trees, Failure> { parse_trees(self.compiled, input, limit) }
 
     /// Parse, skipping up to `max_errors` unparsable regions.
     pub fn parse_recovering(self: &Self, input: String, max_errors: Int) -> Result<Recovered, Failure> {
-        parse_recover(self.id, input, max_errors)
+        parse_recover(self.compiled, input, max_errors)
     }
 }

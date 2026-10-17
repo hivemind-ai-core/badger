@@ -197,12 +197,7 @@ fn has_cycle(f: &Func) -> bool {
     let mut stack: Vec<(BlockId, usize)> = vec![(BlockId::new(0), 0)];
     state[0] = 1;
     while let Some((b, i)) = stack.pop() {
-        let succ: Vec<BlockId> = match &f.blocks[b].term {
-            Some(Term::Goto(x)) => vec![*x],
-            Some(Term::Branch(_, x, y)) => vec![*x, *y],
-            Some(Term::Switch(_, cases, d)) => cases.iter().map(|c| c.1).chain([*d]).collect(),
-            _ => vec![],
-        };
+        let succ: Vec<BlockId> = f.blocks[b].term.as_ref().map(Term::successors).unwrap_or_default();
         if i < succ.len() {
             stack.push((b, i + 1));
             let n = succ[i];

@@ -18,6 +18,27 @@
 // Entry points take raw words and pointers from compiled code by design.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+/// Runtime intrinsics: `extern "C"` functions compiled code calls as
+/// `badger_rt_i_NAME`, each taking the task context, the call's type
+/// arguments, and the result descriptor before its own (word) arguments;
+/// and `symbols()`, the module's list for the JIT.
+macro_rules! define_intrinsics {
+    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
+        $(
+            #[allow(unused_variables)]
+            pub extern "C" fn $name(
+                $ctx: *mut $crate::task::TaskCtx,
+                $targs: $crate::intrinsics::Targs,
+                $ret: *const $crate::desc::TypeDesc
+                $(, $arg: u64)*
+            ) -> u64 $body
+        )*
+        pub fn symbols() -> Vec<(&'static str, *const u8)> {
+            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
+        }
+    };
+}
+
 pub mod abi;
 pub mod buffer;
 pub mod channel;
@@ -229,6 +250,9 @@ pub fn make_record(desc: &'static TypeDesc, fields: &[(&str, u64)]) -> u64 {
     unsafe {
         let p = gc::obj(w).payload();
         for (name, val) in fields {
+            // a name the type lacks is a runtime/std mismatch (a renamed
+            // field): caught in debug builds, where the suite runs
+            debug_assert!(desc.field(name).is_some(), "record `{}` has no field `{name}`", desc.name);
             if let Some(fd) = desc.field(name) {
                 fd.repr.store(p.add(fd.offset as usize), *val);
             }

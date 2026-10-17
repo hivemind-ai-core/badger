@@ -56,7 +56,6 @@ pub enum TryRecv<T> {
 
 extern "intrinsic" fn chan_new<T, C>(capacity: Int, max_batch: Int, batched: Bool, byte_budget: Int) -> C
 extern "intrinsic" fn chan_select<T>(kinds: List<Int>, chans: List<Receiver<T>>, values: List<T>, start: Int, timeout: Duration) -> Selected<T>
-extern "intrinsic" fn task_id() -> Int
 extern "intrinsic" fn identity<A, B>(value: A) -> B
 extern "intrinsic" fn chan_send<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
 extern "intrinsic" fn chan_try_send<T, C>(ch: C, value: T) -> Result<Unit, SendError<T>>
@@ -269,8 +268,6 @@ pub enum Selected<T> {
     timeout,
 }
 
-/// Wait until one operation can commit; exactly one commits. Selection
-/// rotates fairly between calls. `timeout` of `none` waits indefinitely.
 extern "intrinsic" fn select_seq() -> Int
 extern "intrinsic" fn chan_close_receiver<C>(ch: C) -> Unit
 extern "intrinsic" fn chan_configure<C>(ch: C, discard: Bool, latency: Duration) -> Unit
@@ -414,7 +411,6 @@ pub fn select_priority<T>(ops: List<Op<T>>, timeout: Option<Duration>) -> Select
 fn select_from<T>(ops: List<Op<T>>, timeout: Option<Duration>, start: Int) -> Selected<T> !{Wait} {
     let kinds = list.builder<Int>()
     let chans = list.builder<Receiver<T>>()
-    let values = list.builder<T>()
     var placeholder: Option<T> = Option.none
     for op in ops {
         match op {
@@ -448,7 +444,6 @@ fn select_from<T>(ops: List<Op<T>>, timeout: Option<Duration>, start: Int) -> Se
             .send(_, v) => vs.append(v),
         }
     }
-    let _ = values
     let wait = match timeout {
         .some(d) => d,
         .none => identity<Int, Duration>(-1),

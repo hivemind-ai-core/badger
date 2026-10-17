@@ -1,36 +1,52 @@
 // Explicit random sources. A seeded source is deterministic, so tests can
 // control randomness; an OS-seeded source is an explicit `State` effect.
+// The generator is xorshift64*; its state lives in the source (an `Atom`,
+// so tasks may share one), and a dropped source frees it.
 
 pub struct Random {
-    id: Int,
+    state: Atom<U64>,
 }
 
-extern "intrinsic" fn random_seeded(seed: Int) -> Int
-extern "intrinsic" fn random_os() -> Int
-extern "intrinsic" fn random_next(id: Int) -> U64
+extern "intrinsic" fn random_os() -> U64
 extern "intrinsic" fn convert_lossy<A, B>(value: A) -> B
+extern "intrinsic" fn wrapping_mul<T>(a: T, b: T) -> T
 
 /// A deterministic source.
-pub fn seeded(seed: Int) -> Random { { id: random_seeded(seed) } }
+pub fn seeded(seed: Int) -> Random {
+    // the seed's bits (distinct seeds, negative ones too, give distinct
+    // streams); xorshift needs a state other than 0
+    let s: U64 = convert_lossy(seed)
+    { state: Atom.new(if s == 0U64 { 1U64 } else { s }) }
+}
 
 /// A source seeded from the clock and process id.
-pub fn system() -> Random !{State} { { id: random_os() } }
+pub fn system() -> Random !{State} { { state: Atom.new(random_os()) } }
+
+/// One xorshift step (the state is never 0).
+fn step(x: U64) -> U64 {
+    let a = x ^ (x >> 12U64)
+    let b = a ^ (a << 25U64)
+    b ^ (b >> 27U64)
+}
 
 impl Random {
+    /// The next 64 random bits.
+    fn next(self: &Self) -> U64 !{State} { wrapping_mul(self.state.update(step), 2685821657736338717U64) }
+
     /// A uniformly distributed integer in `low..high`.
     pub fn int(self: &Self, low: Int, high: Int) -> Int !{State} {
         let span = high - low
         if span <= 0 { return low }
-        let r: Int = convert_lossy(random_next(self.id) % convert_lossy<Int, U64>(span))
+        let r: Int = convert_lossy(self.next() % convert_lossy<Int, U64>(span))
         low + r
     }
 
     /// A float in `[0, 1)`.
     pub fn float(self: &Self) -> Float !{State} {
-        let bits: U64 = random_next(self.id) / 2048U64
+        let bits: U64 = self.next() / 2048U64
         let f: Float = convert_lossy(bits)
         f / 9007199254740992.0
     }
 
-    pub fn bool(self: &Self) -> Bool !{State} { random_next(self.id) % 2U64 == 0U64 }
+    pub fn bool(self: &Self) -> Bool !{State} { self.next() % 2U64 == 0U64 }
 }

@@ -23,10 +23,12 @@ fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State
 ### `Console`
 
 ```badger
-struct Console { err: Bool }
+struct Console { err: Bool, pending: Atom<Bytes> }
 ```
 
-Standard output or error, as a `Writer` (text: bytes must be UTF-8).
+Standard output or error, as a `Writer` (text: the bytes must be
+UTF-8; a character split between two writes, as `copy`'s chunks may
+split one, is written whole with the second).
 
 #### `Console.flush`
 

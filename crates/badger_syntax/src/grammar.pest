@@ -110,15 +110,17 @@ extern_decl = { pub_kw? ~ K_extern ~ string ~ K_fn ~ name ~ generic_params? ~ "(
 global_decl = { pub_kw? ~ let_kind ~ pattern ~ (":" ~ type_expr)? ~ "=" ~ expr }
 
 // ---------------------------------------------------------------- types
-type_expr   = { hole_type | fn_type | forall_type | ref_type | dyn_type | record_type | unit_type | tuple_type | paren_type | path_type }
+type_expr   = { hole_type | fn_type | forall_type | ref_type | dyn_type | record_type | unit_type | group_type | path_type }
 hole_type   = { discard }
 path_type   = { (value_ident ~ ".")* ~ type_ident ~ ("." ~ type_ident)? ~ type_args? }
 type_args   = { "<" ~ type_arg ~ ("," ~ type_arg)* ~ ","? ~ ">" }
 // an effect row argument of an effect-generic type (`Seq<Int, !{Io}>`)
 type_arg    = _{ effect | type_expr }
 unit_type   = { "(" ~ ")" }
-paren_type  = { "(" ~ type_expr ~ ")" }
-tuple_type  = { "(" ~ type_expr ~ "," ~ (type_expr ~ ("," ~ type_expr)*)? ~ ","? ~ ")" }
+// `(T)` or a tuple `(A, B)`: one rule, so the first element is parsed once
+// (alternatives sharing the prefix would backtrack exponentially when nested)
+group_type  = { "(" ~ type_expr ~ tuple_type_rest? ~ ")" }
+tuple_type_rest = { "," ~ (type_expr ~ ("," ~ type_expr)*)? ~ ","? }
 fn_type     = { once_kw? ~ K_fn ~ "(" ~ (type_expr ~ ("," ~ type_expr)* ~ ","?)? ~ ")" ~ "->" ~ type_expr ~ effect? }
 forall_type = { K_for ~ generic_params ~ type_expr }
 ref_type    = { "&" ~ mut_kw? ~ type_expr }
@@ -185,14 +187,15 @@ primary = _{
   | lambda | if_expr | match_expr | while_expr | for_expr | loop_expr
   | system_expr | pipeline_expr | map_lit | set_lit | ref_expr | unsafe_expr
   | return_expr | break_expr | continue_expr
-  | record_lit | block | unit_lit | tuple_lit | paren | list_lit
+  | record_lit | block | unit_lit | group | list_lit
   | type_name_expr | name_expr
 }
 name_expr      = { value_ident }
 type_name_expr = { type_ident }
 unit_lit  = { "(" ~ ")" }
-paren     = { "(" ~ expr ~ ")" }
-tuple_lit = { "(" ~ expr ~ "," ~ (expr ~ ("," ~ expr)*)? ~ ","? ~ ")" }
+// `(e)` or a tuple `(a, b)` (one rule: see `group_type`)
+group     = { "(" ~ expr ~ tuple_rest? ~ ")" }
+tuple_rest = { "," ~ (expr ~ ("," ~ expr)*)? ~ ","? }
 list_lit  = { "[" ~ (expr ~ ("," ~ expr)* ~ ","?)? ~ "]" }
 
 record_lit   = { "{" ~ nls ~ "}" | "{" ~ nls ~ &record_head ~ record_entry ~ (csep ~ record_entry)* ~ trail ~ "}" }
@@ -229,12 +232,13 @@ break_expr  = { K_break ~ expr? }
 continue_expr = { K_continue }
 
 // ---------------------------------------------------------------- patterns
-pattern      = { discard_pat | literal_pat | unit_pat | tuple_pat | paren_pat | record_pat | variant_pat | bind_pat }
+pattern      = { discard_pat | literal_pat | unit_pat | group_pat | record_pat | variant_pat | bind_pat }
 discard_pat  = { discard }
 literal_pat  = { neg_op? ~ (float | int) | duration | raw_string | string | char_lit | symbol | bool_lit }
 unit_pat     = { "(" ~ ")" }
-paren_pat    = { "(" ~ pattern ~ ")" }
-tuple_pat    = { "(" ~ pattern ~ "," ~ (pattern ~ ("," ~ pattern)*)? ~ ","? ~ ")" }
+// `(p)` or a tuple pattern `(a, b)` (one rule: see `group_type`)
+group_pat    = { "(" ~ pattern ~ tuple_pat_rest? ~ ")" }
+tuple_pat_rest = { "," ~ (pattern ~ ("," ~ pattern)*)? ~ ","? }
 record_pat   = { "{" ~ nls ~ (pat_field ~ (csep ~ pat_field)* ~ (csep ~ rest_pat)? | rest_pat)? ~ trail ~ "}" }
 pat_field    = { label ~ (":" ~ pattern)? }
 rest_pat     = { ".." }

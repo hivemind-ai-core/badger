@@ -286,6 +286,50 @@ pub enum Rvalue {
     AdapterAddr(FuncId),
 }
 
+impl Rvalue {
+    /// The operands this rvalue reads (a closure call reads its closure).
+    pub fn operands(&self) -> Vec<Operand> {
+        match self {
+            Rvalue::Use(a) | Rvalue::Not(a) | Rvalue::ToWord(a) | Rvalue::Tag(a) => vec![*a],
+            Rvalue::Neg { a, .. }
+            | Rvalue::Convert { a, .. }
+            | Rvalue::Fits { a, .. }
+            | Rvalue::FromWord { a, .. } => {
+                vec![*a]
+            }
+            Rvalue::Bin { a, b, .. } | Rvalue::Cmp { a, b, .. } | Rvalue::Overflows { a, b, .. } => {
+                vec![*a, *b]
+            }
+            Rvalue::Load { base, .. } => vec![*base],
+            Rvalue::Call { callee, args, .. } => {
+                let mut v = args.clone();
+                if let Callee::Closure(c) = callee {
+                    v.push(*c);
+                }
+                v
+            }
+            Rvalue::Concat(xs) => xs.clone(),
+            Rvalue::Alloc { .. }
+            | Rvalue::GlobalLoad(_)
+            | Rvalue::GlobalAddr(_)
+            | Rvalue::FuncAddr(_)
+            | Rvalue::AdapterAddr(_) => vec![],
+        }
+    }
+}
+
+impl Term {
+    /// The blocks control may continue to.
+    pub fn successors(&self) -> Vec<BlockId> {
+        match self {
+            Term::Goto(x) => vec![*x],
+            Term::Branch(_, a, b) => vec![*a, *b],
+            Term::Switch(_, cases, d) => cases.iter().map(|c| c.1).chain([*d]).collect(),
+            Term::Return(_) | Term::Unreachable => vec![],
+        }
+    }
+}
+
 /// How one value crosses the C boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FfiArg {

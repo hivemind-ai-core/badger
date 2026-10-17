@@ -64,7 +64,7 @@ pub fn split(b: Bytes, sep: Bytes) -> List<Bytes> {
     out.finish()
 }
 
-/// The parts with `sep` between them, in one copy.
+/// The parts with `sep` between them.
 pub fn join(parts: List<Bytes>, sep: Bytes) -> Bytes {
     let out = list.builder<Byte>()
     var first = true

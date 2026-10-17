@@ -210,10 +210,6 @@ fn overlap(a: String, b: String) -> Bool {
     true
 }
 
-fn shape(path: String) -> String {
-    text.join(list.map(segments(path), fn(s) { if text.starts_with(s, ":") { ":" } else { s } }), "/")
-}
-
 /// Check a route table: names unique and present, paths well formed,
 /// parameters named and unique, methods known, no two routes matching the
 /// same requests.

@@ -1,0 +1,9 @@
+// Grouping keeps each group in the items' order (it never sorts by value).
+import std.io
+import std.list
+
+pub fn main() {
+    let _ = io.println($"{list.group_by([3, 1, 2, 9, 0], fn(x) => x % 2)}")
+    let words = ["b", "a", "c"]
+    let _ = io.println($"{list.group_by(words, fn(s) => 1)}")
+}

@@ -827,7 +827,6 @@ impl FnCx<'_> {
         }
         let dbg = if debug { Some(func_debug(jit, f, size, &src_locs, dbg_layout.as_ref())) } else { None };
         jit.module.clear_context(&mut jit.ctx);
-        let _ = self.call_conv;
         Ok((size, dbg))
     }
 

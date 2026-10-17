@@ -290,10 +290,11 @@ enum Command {
     },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
-        /// `diagnostic`, `type`, or `effect`.
+        /// `diagnostic`, `type`, or `effect` (or a diagnostic code itself:
+        /// `badger explain E0301`).
         kind: String,
         /// Diagnostic code (e.g. E0301), or a definition name.
-        target: String,
+        target: Option<String>,
         /// Program to examine (for `type` and `effect`).
         path: Option<PathBuf>,
         #[arg(long)]
@@ -335,8 +336,6 @@ fn exit_on_internal_errors() {
 
 fn main() -> ExitCode {
     exit_on_internal_errors();
-    // BADGER_PROFILE covers compilation too, not only the program run
-    badger_driver::start_profile();
     // `std.compiler` runs this executable for its queries
     if std::env::var_os("BADGER_EXE").is_none()
         && let Ok(exe) = std::env::current_exe()
@@ -344,7 +343,29 @@ fn main() -> ExitCode {
         // SAFETY: no other threads exist yet
         unsafe { std::env::set_var("BADGER_EXE", exe) };
     }
-    let mut cli = Cli::parse();
+    let cli = Cli::parse();
+    // the compiler recurses once per nesting level of a program (the parser
+    // refuses deeper than its limits): give it room in debug builds too.
+    // Only the pages it touches become resident.
+    let worker = std::thread::Builder::new().name("main".into()).stack_size(512 << 20).spawn(move || {
+        // BADGER_PROFILE covers compilation too, not only the program run
+        // (sampling the thread that does the work)
+        badger_driver::start_profile();
+        command(cli)
+    });
+    match worker.map(|w| w.join()) {
+        Ok(Ok(code)) => code,
+        // a panic was already reported by the internal-error hook
+        Ok(Err(_)) => ExitCode::from(INTERNAL_ERROR as u8),
+        Err(e) => {
+            eprintln!("error: cannot start: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Run one CLI command.
+fn command(mut cli: Cli) -> ExitCode {
     // a missing path means the current directory's project
     if let Command::Inspect { path, connect: None, .. } = &mut cli.command
         && path.is_none()
@@ -370,6 +391,10 @@ fn main() -> ExitCode {
             let path = match entry {
                 None => PathBuf::from("."),
                 Some(e) if Path::new(&e).exists() => PathBuf::from(e),
+                Some(e) if looks_like_path(&e) => {
+                    eprintln!("error: no such file or directory: {e}");
+                    return ExitCode::FAILURE;
+                }
                 Some(e) => {
                     // a named `[entries]` module of the current project
                     badger_driver::select_entry(Some(e));
@@ -534,6 +559,11 @@ fn main() -> ExitCode {
             let mut args = args.into_iter();
             let (path, filter) = match args.next() {
                 Some(a) if Path::new(&a).exists() => (PathBuf::from(a), args.next()),
+                // a mistyped path is not a filter that matches nothing
+                Some(a) if looks_like_path(&a) => {
+                    eprintln!("error: no such file or directory: {a}");
+                    return ExitCode::FAILURE;
+                }
                 Some(a) => (PathBuf::from("."), Some(a)),
                 None => (PathBuf::from("."), None),
             };
@@ -566,7 +596,7 @@ fn main() -> ExitCode {
                     let s: Vec<serde_json::Value> = suggestions.iter().map(|c| c.to_json()).collect();
                     println!(
                         "{}",
-                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s })
+                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s, "diagnostics": diagnostics_json(&session) })
                     );
                 } else {
                     report(&session, false);
@@ -603,7 +633,11 @@ fn main() -> ExitCode {
             let (outcome, clauses) = session.contract_report(&path);
             if json {
                 let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
-                println!("{}", serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v }));
+                // the diagnostics too: a program that does not check says why
+                println!(
+                    "{}",
+                    serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v, "diagnostics": diagnostics_json(&session) })
+                );
             } else {
                 report(&session, false);
                 for c in &clauses {
@@ -882,60 +916,81 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Command::Explain { kind, target, path, json } => match kind.as_str() {
-            "diagnostic" => match badger_base::catalog::explain(&target) {
-                Some((title, text)) => {
-                    if json {
-                        println!(
-                            "{{\"code\":{},\"title\":{},\"explanation\":{}}}",
-                            json_str(&target.to_uppercase()),
-                            json_str(title),
-                            json_str(text)
-                        );
-                    } else {
-                        println!("{} {title}\n\n{text}", target.to_uppercase());
-                    }
-                    ExitCode::SUCCESS
-                }
+        Command::Explain { kind, target, path, json } => {
+            // `badger explain E0301` names the code directly
+            let is_code = |s: &str| {
+                s.len() == 5 && s[..1].eq_ignore_ascii_case("e") && s[1..].bytes().all(|b| b.is_ascii_digit())
+            };
+            let (kind, target) = match target {
+                Some(t) => (kind, t),
+                None if is_code(&kind) => ("diagnostic".to_string(), kind),
                 None => {
-                    eprintln!("error: unknown diagnostic code `{target}`");
-                    ExitCode::FAILURE
+                    eprintln!(
+                        "error: `badger explain {kind}` needs what to explain: a diagnostic code, or a definition name (`badger explain type NAME FILE`)"
+                    );
+                    return ExitCode::FAILURE;
                 }
-            },
-            "type" | "effect" => {
-                let path = path.unwrap_or_else(|| PathBuf::from("."));
-                match session.explain_def(&path, &target) {
-                    Some((ty, eff)) => {
-                        let v = if kind == "type" { ty } else { eff };
+            };
+            match kind.as_str() {
+                "diagnostic" => match badger_base::catalog::explain(&target) {
+                    Some((title, text)) => {
                         if json {
-                            println!("{{\"name\":{},\"{kind}\":{}}}", json_str(&target), json_str(&v));
+                            println!(
+                                "{{\"code\":{},\"title\":{},\"explanation\":{}}}",
+                                json_str(&target.to_uppercase()),
+                                json_str(title),
+                                json_str(text)
+                            );
                         } else {
-                            println!("{target}: {v}");
+                            println!("{} {title}\n\n{text}", target.to_uppercase());
                         }
                         ExitCode::SUCCESS
                     }
                     None => {
-                        report(&session, json);
-                        eprintln!("error: no definition `{target}` in the entry module");
+                        eprintln!("error: unknown diagnostic code `{target}`");
                         ExitCode::FAILURE
                     }
+                },
+                "type" | "effect" => {
+                    let path = path.unwrap_or_else(|| PathBuf::from("."));
+                    match session.explain_def(&path, &target) {
+                        Some((ty, eff)) => {
+                            let v = if kind == "type" { ty } else { eff };
+                            if json {
+                                println!("{{\"name\":{},\"{kind}\":{}}}", json_str(&target), json_str(&v));
+                            } else {
+                                println!("{target}: {v}");
+                            }
+                            ExitCode::SUCCESS
+                        }
+                        None => {
+                            report(&session, json);
+                            eprintln!("error: no definition `{target}` in the entry module");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                other => {
+                    eprintln!("error: unknown explain kind `{other}` (expected diagnostic, type, or effect)");
+                    ExitCode::FAILURE
                 }
             }
-            other => {
-                eprintln!("error: unknown explain kind `{other}` (expected diagnostic, type, or effect)");
-                ExitCode::FAILURE
-            }
-        },
+        }
     }
 }
 
 fn source_files(p: &Path, out: &mut Vec<PathBuf>) {
     if p.is_dir() {
-        let mut entries: Vec<PathBuf> =
-            std::fs::read_dir(p).into_iter().flatten().flatten().map(|e| e.path()).collect();
-        entries.sort();
+        let mut entries: Vec<std::fs::DirEntry> =
+            std::fs::read_dir(p).into_iter().flatten().flatten().collect();
+        entries.sort_by_key(|e| e.path());
         for e in entries {
-            source_files(&e, out);
+            // a symlinked directory is not followed (a link back up would
+            // never end)
+            if e.file_type().is_ok_and(|t| t.is_symlink()) && e.path().is_dir() {
+                continue;
+            }
+            source_files(&e.path(), out);
         }
     } else if p.extension().is_some_and(|x| x == "bdg") {
         out.push(p.to_path_buf());
@@ -945,21 +1000,33 @@ fn source_files(p: &Path, out: &mut Vec<PathBuf>) {
 fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
     let mut files = vec![];
     for p in &paths {
+        // a path given by name must be there, and be a source or a directory
+        if !p.exists() {
+            eprintln!("error: no such file or directory: {}", p.display());
+            return ExitCode::FAILURE;
+        }
+        if p.is_file() && p.extension().is_none_or(|x| x != "bdg") {
+            eprintln!("error: {} is not a Badger source (`.bdg`)", p.display());
+            return ExitCode::FAILURE;
+        }
         source_files(p, &mut files);
     }
     let mut changed = 0;
     for f in files {
-        let Ok(src) = std::fs::read_to_string(&f) else {
-            eprintln!("error: cannot read {}", f.display());
-            return ExitCode::FAILURE;
+        let src = match std::fs::read_to_string(&f) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: cannot read {}: {e}", f.display());
+                return ExitCode::FAILURE;
+            }
         };
         let out = badger_syntax::format::format(&src);
         if out != src {
             changed += 1;
             if check {
                 println!("would reformat {}", f.display());
-            } else if std::fs::write(&f, out).is_err() {
-                eprintln!("error: cannot write {}", f.display());
+            } else if let Err(e) = std::fs::write(&f, out) {
+                eprintln!("error: cannot write {}: {e}", f.display());
                 return ExitCode::FAILURE;
             }
         }
@@ -967,74 +1034,39 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
     if check && changed > 0 { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
-/// Interactive session. Definitions (and imports) accumulate, a later
-/// definition replaces an earlier one with the same name, and each
-/// expression is checked and run against the current definitions.
 /// Human-readable rendering of an inspection snapshot (JSON from the
 /// running program's endpoint).
 fn print_snapshot(what: &str, text: &str) {
-    let field = |obj: &str, key: &str| -> String {
-        // small flat-object reader: `"key":value`
-        let pat = format!("\"{key}\":");
-        match obj.find(&pat) {
-            Some(i) => {
-                let rest = &obj[i + pat.len()..];
-                let end = if let Some(quoted) = rest.strip_prefix('"') {
-                    quoted.find('"').map(|j| j + 2).unwrap_or(rest.len())
-                } else if rest.starts_with('[') {
-                    rest.find(']').map(|j| j + 1).unwrap_or(rest.len())
-                } else {
-                    rest.find([',', '}']).unwrap_or(rest.len())
-                };
-                rest[..end].trim_matches('"').to_string()
-            }
-            None => String::new(),
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
+        println!("{text}");
+        return;
+    };
+    // a field as text: strings bare, `null` as `-`, anything else as JSON
+    let field = |o: &serde_json::Value, key: &str| -> String {
+        match &o[key] {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Null => "-".to_string(),
+            other => other.to_string(),
         }
     };
-    let objects = |t: &str| -> Vec<String> {
-        let inner = t.trim().trim_start_matches('[').trim_end_matches(']');
-        let mut out = vec![];
-        let (mut depth, mut start) = (0, None);
-        for (i, c) in inner.char_indices() {
-            match c {
-                '{' => {
-                    if depth == 0 {
-                        start = Some(i);
-                    }
-                    depth += 1;
-                }
-                '}' => {
-                    depth -= 1;
-                    if depth == 0
-                        && let Some(s) = start.take()
-                    {
-                        out.push(inner[s..=i].to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-        out
-    };
+    let items = |v: &serde_json::Value| v.as_array().cloned().unwrap_or_default();
     match what {
         "tasks" => {
             println!(
                 "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} name",
                 "id", "state", "waiting on", "scope", "code", "stack", "stage"
             );
-            for t in objects(text) {
-                let wait = field(&t, "wait");
-                let stage = field(&t, "stage");
-                let stack = field(&t, "stack_resident").parse::<u64>().map(|b| format!("{}K", b / 1024));
+            for t in items(&v) {
+                let stack = t["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
                 println!(
                     "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} {}",
                     field(&t, "id"),
                     field(&t, "state"),
-                    if wait == "null" { "-".to_string() } else { wait },
+                    field(&t, "wait"),
                     field(&t, "scope"),
                     format!("v{}", field(&t, "code_version")),
-                    stack.unwrap_or_else(|_| "-".into()),
-                    if stage == "null" { "-".to_string() } else { stage },
+                    stack.unwrap_or_else(|| "-".into()),
+                    field(&t, "stage"),
                     field(&t, "name")
                 );
             }
@@ -1044,7 +1076,7 @@ fn print_snapshot(what: &str, text: &str) {
                 "{:>5}  {:<7} {:>8} {:>7} {:>7} {:>7}  waiting(s/r)  element",
                 "id", "kind", "capacity", "queued", "staged", "closed"
             );
-            for c in objects(text) {
+            for c in items(&v) {
                 println!(
                     "{:>5}  {:<7} {:>8} {:>7} {:>7} {:>7}  {:>5}/{:<6}  {}",
                     field(&c, "id"),
@@ -1060,10 +1092,9 @@ fn print_snapshot(what: &str, text: &str) {
             }
         }
         "system" => {
-            for s in objects(text) {
+            for s in items(&v) {
                 println!("system {} ({})", field(&s, "id"), field(&s, "state"));
-                let nodes = s.split_once("\"nodes\":").map(|x| x.1).unwrap_or("");
-                for n in objects(nodes) {
+                for n in items(&s["nodes"]) {
                     println!(
                         "  :{} = {} (generation {})",
                         field(&n, "key"),
@@ -1216,6 +1247,11 @@ pub(crate) fn exit_now(code: i32) -> ExitCode {
     unsafe { libc::_exit(code) }
 }
 
+/// The session's diagnostics as JSON (the `check --json` form).
+fn diagnostics_json(session: &Session) -> serde_json::Value {
+    serde_json::from_str(&session.diagnostics.render_json(&session.sources)).unwrap_or_default()
+}
+
 pub(crate) fn report(session: &Session, json: bool) {
     if json {
         println!("{}", session.diagnostics.render_json(&session.sources));
@@ -1229,19 +1265,12 @@ pub(crate) fn report(session: &Session, json: bool) {
 /// in it (the directory's name when there is no manifest name).
 fn default_binary_name(path: &Path) -> PathBuf {
     if path.is_dir() {
-        let name = std::fs::read_to_string(path.join("badger.toml"))
-            .ok()
-            .and_then(|t| {
-                t.lines().find_map(|l| {
-                    let l = l.trim();
-                    l.strip_prefix("name")
-                        .map(|r| r.trim_start().trim_start_matches('=').trim().trim_matches('"').to_string())
-                })
-            })
-            .filter(|n| !n.is_empty())
-            .or_else(|| path.canonicalize().ok()?.file_name().map(|n| n.to_string_lossy().into_owned()))
-            .unwrap_or_else(|| "program".into());
-        return path.join(format!("{name}.bdgmir"));
+        return path.join(format!("{}.bdgmir", badger_driver::release::release_name(path)));
     }
     path.with_extension("bdgmir")
+}
+
+/// An argument meant as a path (not an entry name or a test filter).
+fn looks_like_path(a: &str) -> bool {
+    a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
 }

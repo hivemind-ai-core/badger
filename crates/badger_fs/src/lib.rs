@@ -13,19 +13,7 @@ use std::sync::Mutex;
 use badger_native::{Args, Error, Handler, Handles, ModuleDef, Outcome, Value};
 
 fn io(e: std::io::Error) -> Error {
-    use std::io::ErrorKind::*;
-    let kind = match e.kind() {
-        NotFound => "io/not_found",
-        PermissionDenied => "io/permission_denied",
-        AlreadyExists => "io/already_exists",
-        InvalidData => "io/invalid_data",
-        InvalidInput => "io/invalid_input",
-        DirectoryNotEmpty => "io/not_empty",
-        IsADirectory => "io/is_a_directory",
-        NotADirectory => "io/not_a_directory",
-        _ => "io/other",
-    };
-    Error::new(kind, e.to_string())
+    Error::new(badger_native::io_error_kind(e.kind()), e.to_string())
 }
 
 fn at(path: &str, e: std::io::Error) -> Error {
@@ -167,6 +155,13 @@ fn temp_dir(_: &Args) -> Outcome {
 /// A new, empty, private directory under the temporary directory.
 fn make_temp_dir(a: &Args) -> Outcome {
     let prefix = a.str(0)?;
+    // the directory is made directly in the temporary directory
+    if prefix.contains(['/', '\\']) || prefix.contains("..") {
+        return Err(Error::new(
+            "io/invalid_input",
+            format!("a temporary directory prefix cannot contain a path: {prefix:?}"),
+        ));
+    }
     let base = std::env::temp_dir();
     let seed = std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     for attempt in 0..64u128 {
@@ -178,15 +173,15 @@ fn make_temp_dir(a: &Args) -> Outcome {
             x /= 36;
         }
         let p = base.join(&name);
-        match std::fs::create_dir(&p) {
-            Ok(()) => {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    let _ = std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700));
-                }
-                return Ok(Value::Str(p.to_string_lossy().into_owned()));
-            }
+        // created private (owner only), with no window where it is not
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        match builder.create(&p) {
+            Ok(()) => return Ok(Value::Str(p.to_string_lossy().into_owned())),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(at(&p.to_string_lossy(), e)),
         }

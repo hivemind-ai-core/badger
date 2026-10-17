@@ -42,6 +42,7 @@ pub(crate) fn runtime() -> &'static tokio::runtime::Runtime {
     static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RT.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
+            .on_thread_start(badger_native::module_thread)
             .worker_threads(2)
             .thread_name("badger-http")
             .enable_all()
@@ -135,11 +136,26 @@ fn simple(status: u16, message: &str) -> Response<Body> {
         .expect("a valid response")
 }
 
+/// A reply. An invalid status or header is the program's mistake: it
+/// panics, which the dispatcher reports to the program as a defect (rather
+/// than silently answering 200, or 500 while the program sees success).
 fn response(status: i64, headers: &[(String, Value)], body: Body) -> Response<Body> {
-    let mut b = Response::builder().status(StatusCode::from_u16(status as u16).unwrap_or(StatusCode::OK));
+    let code = u16::try_from(status)
+        .ok()
+        .and_then(|s| StatusCode::from_u16(s).ok())
+        .unwrap_or_else(|| panic!("http: {status} is not a valid response status (100-999)"));
+    let mut b = Response::builder().status(code);
     let mut typed = false;
     for (k, v) in headers {
         if let Value::Str(v) = v {
+            if hyper::header::HeaderName::from_bytes(k.as_bytes()).is_err() {
+                panic!("http: {k:?} is not a valid header name");
+            }
+            if hyper::header::HeaderValue::from_str(v).is_err() {
+                panic!(
+                    "http: the value of header {k:?} is not valid (control characters or non-visible bytes)"
+                );
+            }
             typed |= k.eq_ignore_ascii_case("content-type");
             b = b.header(k.as_str(), v.as_str());
         }
@@ -147,7 +163,7 @@ fn response(status: i64, headers: &[(String, Value)], body: Body) -> Response<Bo
     if !typed {
         b = b.header("content-type", "application/json");
     }
-    b.header("connection", "close").body(body).unwrap_or_else(|_| simple(500, "invalid response"))
+    b.header("connection", "close").body(body).expect("a response of checked parts")
 }
 
 impl Server {
@@ -233,11 +249,12 @@ async fn handle(server: Arc<Server>, mut req: Request<Incoming>) -> Result<Respo
     if declared > lim.body {
         return reject(413, "request body too large");
     }
-    // bounded admission: beyond the limit, answer without the program
-    if server.in_flight.fetch_add(1, Ordering::SeqCst) >= lim.in_flight {
-        server.in_flight.fetch_sub(1, Ordering::SeqCst);
+    // bounded admission: beyond the limit, answer without the program. The
+    // slot is released however this ends, including when the client goes
+    // away and hyper drops this future mid-await.
+    let Some(_slot) = Slot::take(&server.in_flight, lim.in_flight) else {
         return reject(503, "server busy");
-    }
+    };
     let ws = websocket_key(&req).map(|k| (k, hyper::upgrade::on(&mut req)));
     let method = req.method().as_str().to_ascii_lowercase();
     let path = req.uri().path_and_query().map(|p| p.to_string()).unwrap_or_else(|| "/".into());
@@ -248,10 +265,11 @@ async fn handle(server: Arc<Server>, mut req: Request<Incoming>) -> Result<Respo
         .collect();
     let body = match Limited::new(req.into_body(), lim.body).collect().await {
         Ok(b) => b.to_bytes().to_vec(),
-        Err(_) => {
-            server.in_flight.fetch_sub(1, Ordering::SeqCst);
+        Err(e) if e.downcast_ref::<http_body_util::LengthLimitError>().is_some() => {
             return reject(413, "request body too large");
         }
+        // the client stopped sending (or sent a malformed body)
+        Err(_) => return reject(400, "incomplete request body"),
     };
     let (tx, rx) = oneshot::channel();
     server.deliver(Pending { method, path, headers, body, reply: tx, ws });
@@ -259,8 +277,26 @@ async fn handle(server: Arc<Server>, mut req: Request<Incoming>) -> Result<Respo
         Ok(Ok(r)) => r,
         _ => simple(500, "internal server error"),
     };
-    server.in_flight.fetch_sub(1, Ordering::SeqCst);
     Ok(resp)
+}
+
+/// One admitted request's place in the in-flight count, released on drop.
+struct Slot<'a>(&'a AtomicUsize);
+
+impl<'a> Slot<'a> {
+    fn take(count: &'a AtomicUsize, limit: usize) -> Option<Slot<'a>> {
+        if count.fetch_add(1, Ordering::SeqCst) >= limit {
+            count.fetch_sub(1, Ordering::SeqCst);
+            return None;
+        }
+        Some(Slot(count))
+    }
+}
+
+impl Drop for Slot<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 /// The `sec-websocket-key` of a websocket upgrade request.
@@ -276,9 +312,10 @@ fn websocket_key(req: &Request<Incoming>) -> Option<String> {
         .flatten()
 }
 
+/// A positive limit (at most what a semaphore can count), else `default`.
 fn field(v: Option<&Value>, default: usize) -> usize {
     match v {
-        Some(Value::Int(n)) if *n > 0 => *n as usize,
+        Some(Value::Int(n)) if *n > 0 => (*n as usize).min(Semaphore::MAX_PERMITS),
         _ => default,
     }
 }
@@ -292,7 +329,9 @@ fn listen(a: &Args) -> Outcome {
         in_flight: field(l.field("max_in_flight"), 1024),
         stream_buffer: field(l.field("max_stream_buffer_bytes"), 1 << 20),
     };
-    let addr = format!("{address}:{}", port & 0xffff);
+    let port = u16::try_from(port)
+        .map_err(|_| Error::new("http/argument", format!("{port} is not a port (0-65535)")))?;
+    let addr = format!("{address}:{port}");
     let std_listener = std::net::TcpListener::bind(&addr)
         .map_err(|e| Error::new("http/listen", format!("cannot listen on {addr}: {e}")))?;
     std_listener.set_nonblocking(true).map_err(|e| Error::new("http/listen", e.to_string()))?;

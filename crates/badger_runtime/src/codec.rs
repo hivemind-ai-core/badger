@@ -224,7 +224,8 @@ pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
 
 /// Decode a `Data` value against a descriptor.
 pub fn from_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
-    let j: J = serde_json::from_str(&crate::intrinsics_io::data_json(w)).unwrap_or(J::Null);
+    let j: J =
+        serde_json::from_str(&crate::intrinsics_io::data_json(w)).expect("`data_json` writes valid JSON");
     let _g = Roots::new();
     dec(d, &j, "$")
 }
@@ -260,7 +261,7 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
             None => fail(path, "expected a string"),
         },
         Kind::Symbol => match j.as_str() {
-            Some(s) => Ok(crate::string::symbol(s)),
+            Some(s) => crate::string::external_symbol(s).or_else(|m| fail(path, &m)),
             None => fail(path, "expected a symbol string"),
         },
         Kind::Char => match j.as_str().and_then(|s| s.chars().next()) {

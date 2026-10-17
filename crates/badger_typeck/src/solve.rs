@@ -1693,14 +1693,11 @@ impl Infer<'_, '_> {
                 let d = *d;
                 let name = self.lang_name(d).unwrap_or_default();
                 if which == "Transfer" || which == "Share" {
-                    if d == self.b().cell
-                        || Some(d) == self.g.hir.try_lang("sqlite.Tx")
-                        || Some(d) == self.g.hir.try_lang("postgres.Tx")
-                    {
+                    if self.b().is_confined(d) {
                         return Some(false);
                     }
                     // affine values move rather than share
-                    if which == "Share" && matches!(name.as_str(), "ListBuilder" | "Buffer" | "Batch") {
+                    if which == "Share" && crate::env::Builtins::AFFINE_STD.contains(&name.as_str()) {
                         return Some(false);
                     }
                 } else {
@@ -1771,15 +1768,7 @@ impl Infer<'_, '_> {
                 if self.visiting.contains(&d) {
                     return Some(true);
                 }
-                let fields: Vec<Ty> = if let Some(e) = self.g.env.enums.get(&d) {
-                    (0..e.variants.len())
-                        .flat_map(|v| self.g.env.variant_fields(d, v as u32, args).into_iter().map(|f| f.1))
-                        .collect()
-                } else if self.g.env.structs.contains_key(&d) {
-                    self.g.env.struct_fields(d, args).into_iter().map(|f| f.1).collect()
-                } else {
-                    args.clone()
-                };
+                let fields: Vec<Ty> = self.g.env.field_types(d, args).unwrap_or_else(|| args.clone());
                 self.visiting.push(d);
                 let mut result = Some(true);
                 for x in fields {
@@ -2043,15 +2032,8 @@ impl Infer<'_, '_> {
             return Some(true);
         }
         match &*ttail {
-            TyKind::Var(_) if !final_ => {
-                // the target's remaining fields are not yet known
-                if matches!(&*stail, TyKind::RowEmpty) {
-                    let rest: Vec<(Symbol, Ty)> =
-                        sf.iter().filter(|f| !tf.iter().any(|g| g.0 == f.0)).cloned().collect();
-                    let _ = rest;
-                }
-                None
-            }
+            // the target's remaining fields are not yet known
+            TyKind::Var(_) if !final_ => None,
             TyKind::Var(_) => {
                 let _ = self.icx.unify(&ttail, &row_empty());
                 Some(true)

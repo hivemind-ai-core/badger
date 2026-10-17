@@ -241,17 +241,20 @@ impl Pool {
             g.workers += 1;
             drop(g);
             let pool = self.clone();
-            std::thread::spawn(move || match open_conn(&pool.path) {
-                Ok(c) => worker(pool, c),
-                Err(e) => {
-                    // this connection could not open: fail the job it was for
-                    let job = {
-                        let mut g = pool.state.lock().unwrap();
-                        g.workers -= 1;
-                        g.jobs.pop_front()
-                    };
-                    if let Some(Job::Run { done, .. } | Job::Begin { done }) = job {
-                        done.complete(Err(Error::new("sqlite/pool", e.to_string())));
+            std::thread::spawn(move || {
+                badger_native::module_thread();
+                match open_conn(&pool.path) {
+                    Ok(c) => worker(pool, c),
+                    Err(e) => {
+                        // this connection could not open: fail the job it was for
+                        let job = {
+                            let mut g = pool.state.lock().unwrap();
+                            g.workers -= 1;
+                            g.jobs.pop_front()
+                        };
+                        if let Some(Job::Run { done, .. } | Job::Begin { done }) = job {
+                            done.complete(Err(Error::new("sqlite/pool", e.to_string())));
+                        }
                     }
                 }
             });
@@ -326,17 +329,25 @@ fn open(a: Args, done: Completion) {
         Ok(p) => p.to_string(),
         Err(e) => return done.complete(Err(e)),
     };
-    std::thread::spawn(move || match open_conn(&path) {
-        Ok(c) => {
-            let pool = Arc::new(Pool {
-                path,
-                state: Mutex::new(PoolState { jobs: VecDeque::new(), workers: 1, busy: 0, closed: false }),
-                cond: Condvar::new(),
-            });
-            done.complete(Ok(HANDLES.insert(Target::Pool(pool.clone()))));
-            worker(pool, c);
+    std::thread::spawn(move || {
+        badger_native::module_thread();
+        match open_conn(&path) {
+            Ok(c) => {
+                let pool = Arc::new(Pool {
+                    path,
+                    state: Mutex::new(PoolState {
+                        jobs: VecDeque::new(),
+                        workers: 1,
+                        busy: 0,
+                        closed: false,
+                    }),
+                    cond: Condvar::new(),
+                });
+                done.complete(Ok(HANDLES.insert(Target::Pool(pool.clone()))));
+                worker(pool, c);
+            }
+            Err(e) => done.complete(Err(Error::new("sqlite/open", e.to_string()))),
         }
-        Err(e) => done.complete(Err(Error::new("sqlite/open", e.to_string()))),
     });
 }
 

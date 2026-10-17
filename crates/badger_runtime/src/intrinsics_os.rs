@@ -2,19 +2,12 @@
 
 use crate::desc::TypeDesc;
 use crate::gc::Roots;
-use crate::intrinsics::{Targs, rdesc};
+use crate::intrinsics::rdesc;
 use crate::intrinsics_io::{io_err_msg, io_ok};
 use crate::string::{bytes_of, new_bytes, new_string, str_of};
-use crate::task::TaskCtx;
 use crate::{list, make_record, make_variant};
 
-fn some(ret: &'static TypeDesc, w: u64) -> u64 {
-    make_variant(ret, "some", &[w])
-}
-
-fn none(ret: &'static TypeDesc) -> u64 {
-    make_variant(ret, "none", &[])
-}
+use crate::intrinsics::{none, some, strings};
 
 fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
     match s {
@@ -26,46 +19,31 @@ fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
     }
 }
 
-fn strings(ret: &'static TypeDesc, v: Vec<String>) -> u64 {
-    let r = Roots::new();
-    let l = r.add(list::new(ret));
-    for s in v {
-        let w = r.add(new_string(&s));
-        list::push(l, w);
-    }
-    l
-}
-
-/// Deterministic random source state (xorshift64*).
-pub struct Rng(u64);
-
-impl Rng {
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> u64 {
-        let mut x = self.0;
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        self.0 = x;
-        x.wrapping_mul(0x2545_F491_4F6C_DD1D)
-    }
-}
-
-static RNGS: std::sync::Mutex<Vec<Rng>> = std::sync::Mutex::new(Vec::new());
-
 /// Manual (controlled) clock for tests: `None` = real monotonic clock.
-pub static MANUAL_CLOCK: std::sync::Mutex<Option<i64>> = std::sync::Mutex::new(None);
+static MANUAL_CLOCK: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(REAL_CLOCK);
 
-macro_rules! os_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
+/// [`MANUAL_CLOCK`] on the real clock.
+const REAL_CLOCK: i64 = i64::MIN;
+
+/// The controlled clock's time, if the clock is controlled.
+pub fn manual_clock() -> Option<i64> {
+    let t = MANUAL_CLOCK.load(std::sync::atomic::Ordering::Acquire);
+    (t != REAL_CLOCK).then_some(t)
+}
+
+/// Control the clock at `t`, or (`None`) return to the real clock.
+pub fn set_manual_clock(t: Option<i64>) {
+    MANUAL_CLOCK.store(t.unwrap_or(REAL_CLOCK), std::sync::atomic::Ordering::Release);
+}
+
+/// Change a controlled clock's time with `f`; the new time (`None` on the
+/// real clock).
+pub fn update_manual_clock(f: impl Fn(i64) -> i64) -> Option<i64> {
+    use std::sync::atomic::Ordering;
+    MANUAL_CLOCK
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+        .ok()
+        .map(&f)
 }
 
 /// A compiled pattern, from a bounded cache (patterns are usually literals
@@ -98,7 +76,7 @@ fn pattern(p: u64) -> regex::Regex {
     }
 }
 
-os_intrinsics! {
+define_intrinsics! {
     // ---------------------------------------------------------------- path
     fn path_join(ctx, targs, ret, a, b) {
         new_string(&std::path::Path::new(str_of(a)).join(str_of(b)).to_string_lossy())
@@ -113,31 +91,8 @@ os_intrinsics! {
         opt_string(rdesc(ret), std::path::Path::new(str_of(p)).extension().map(|x| x.to_string_lossy().into_owned()))
     }
     fn path_components(ctx, targs, ret, p) {
-        let v = std::path::Path::new(str_of(p)).components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+        let v: Vec<String> = std::path::Path::new(str_of(p)).components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
         strings(rdesc(ret), v)
-    }
-    fn fs_list_dir(ctx, targs, ret, p) {
-        // Result<List<String>, io.Error>
-        let path = str_of(p).to_string();
-        let r = crate::repro::external("list", &path.clone(), None, false, move || {
-            crate::task::run_blocking_abandonable(move || {
-                std::fs::read_dir(&path).map(|it| {
-                    let mut v: Vec<String> = it.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
-                    v.sort();
-                    v
-                })
-            })
-            .map_err(|e| crate::intrinsics_io::io_pair(&e))
-        });
-        match r {
-            Ok(v) => {
-                let g = Roots::new();
-                let list_desc = rdesc(ret).variant(0).unwrap().fields[0].desc;
-                let l = g.add(strings(list_desc, v));
-                io_ok(rdesc(ret), l)
-            }
-            Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
-        }
     }
 
     // ---------------------------------------------------------------- process
@@ -261,21 +216,11 @@ os_intrinsics! {
     }
 
     // ---------------------------------------------------------------- random
-    fn random_seeded(ctx, targs, ret, seed) {
-        let mut g = RNGS.lock().unwrap();
-        g.push(Rng(seed.max(1)));
-        (g.len() - 1) as u64
-    }
+    // the OS seed of `random.system()` (recorded, so a replay repeats it)
     fn random_os(ctx, targs, ret) {
-        let seed = crate::repro::external("random", "", None, false, || {
+        crate::repro::external("random", "", None, false, || {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7) ^ (std::process::id() as u64) << 32
-        });
-        let mut g = RNGS.lock().unwrap();
-        g.push(Rng(seed | 1));
-        (g.len() - 1) as u64
-    }
-    fn random_next(ctx, targs, ret, id) {
-        RNGS.lock().unwrap()[id as usize].next()
+        }) | 1
     }
 
     // ---------------------------------------------------------------- regex
@@ -305,28 +250,19 @@ os_intrinsics! {
     }
     fn regex_replace_all(ctx, targs, ret, pat, s, rep) { new_string(&pattern(pat).replace_all(str_of(s), str_of(rep))) }
     fn regex_find_all(ctx, targs, ret, pat, s) {
-        let v = pattern(pat).find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect();
+        let v: Vec<String> = pattern(pat).find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect();
         strings(rdesc(ret), v)
     }
 
     // ---------------------------------------------------------------- test clock
-    fn clock_manual(ctx, targs, ret, start) { *MANUAL_CLOCK.lock().unwrap() = Some(start as i64); 0 }
+    fn clock_manual(ctx, targs, ret, start) { set_manual_clock(Some(start as i64)); 0 }
     fn clock_advance(ctx, targs, ret, d) {
-        let now = {
-            let mut g = MANUAL_CLOCK.lock().unwrap();
-            match g.as_mut() {
-                Some(t) => {
-                    *t += d as i64;
-                    *t
-                }
-                None => return 0,
-            }
-        };
+        let Some(now) = update_manual_clock(|t| t + d as i64) else { return 0 };
         crate::task::clock_advanced(now);
         0
     }
     fn clock_real(ctx, targs, ret) {
-        *MANUAL_CLOCK.lock().unwrap() = None;
+        set_manual_clock(None);
         // pending controlled sleeps end
         crate::task::clock_advanced(i64::MAX);
         0
@@ -374,11 +310,6 @@ os_intrinsics! {
         let loc = crate::task::current().map(|t| t.caller_loc).filter(|l| *l != 0).map(|l| str_of(l).to_string()).unwrap_or_default();
         crate::task::panic_current(str_of(msg).to_string(), loc)
     }
-}
-
-#[allow(dead_code)]
-fn unused(ret: &'static TypeDesc) -> u64 {
-    io_err_msg(ret, "x", "y")
 }
 
 /// A tool hook run when the program ends itself with `process.exit` (for

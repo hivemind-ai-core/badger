@@ -23,19 +23,7 @@ fn decode_result(ret: &'static TypeDesc, r: Result<u64, codec::DecodeError>) -> 
     }
 }
 
-macro_rules! codec_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-codec_intrinsics! {
+define_intrinsics! {
     fn wire_encode(ctx, targs, ret, names, aliases, v) {
         let w = wire_names(names, aliases);
         codec::with_wire(w, || new_string(&codec::encode(targ(targs, 0), v)))
@@ -476,7 +464,14 @@ fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix:
     match codec::decode(t, &serde_json::Value::Object(obj).to_string()) {
         Ok(w) => make_variant(ret, "ok", &[w]),
         Err(e) => {
-            let key = format!("{pre}{}", e.path.trim_start_matches("$.").to_uppercase());
+            // the setting that holds the bad value: its environment variable
+            // (`APP_DB_PORT` for `$.db.port`, `APP_PORTS` for `$.ports[0]`),
+            // or its profile key when the value came from the profile
+            let path = e.path.trim_start_matches('$').trim_start_matches('.');
+            let field = path.split('[').next().unwrap_or(path);
+            let env_key = format!("{pre}{}", field.replace('.', "_").to_uppercase());
+            let key =
+                if profile && std::env::var_os(&env_key).is_none() { field.to_string() } else { env_key };
             err(&key, &e.message)
         }
     }

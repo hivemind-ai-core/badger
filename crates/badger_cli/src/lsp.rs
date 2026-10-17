@@ -1115,7 +1115,10 @@ fn diagnostic_json(a: &Analysis, d: &analysis::FileDiag, text_of: &dyn Fn(&str) 
 /// tests, and the task spawns).
 fn check_report(path: &Path, overlays: &HashMap<PathBuf, String>) -> Value {
     let file = canonical(path);
-    let mut prog = program_of(&file);
+    // a file that is not there is reported itself (E0011), never replaced
+    // by a check of the project around it (a mistyped path would "check")
+    let exists = file.exists() || overlays.contains_key(&badger_driver::overlay_key(&file));
+    let mut prog = if exists { program_of(&file) } else { file.clone() };
     let text_of = |p: &str| overlay_text(overlays, p);
     let mut selections: Vec<Option<String>> = vec![None];
     selections.extend(badger_driver::project_entry_points(&prog).into_iter().map(Some));

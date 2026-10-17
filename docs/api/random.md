@@ -4,13 +4,15 @@
 
 Explicit random sources. A seeded source is deterministic, so tests can
 control randomness; an OS-seeded source is an explicit `State` effect.
+The generator is xorshift64*; its state lives in the source (an `Atom`,
+so tasks may share one), and a dropped source frees it.
 
 ## Types
 
 ### `Random`
 
 ```badger
-struct Random { id: Int }
+struct Random { state: Atom<U64> }
 ```
 
 #### `Random.bool`
@@ -34,6 +36,14 @@ fn int(self: &Self, low: Int, high: Int) -> Int !{State}
 ```
 
 A uniformly distributed integer in `low..high`.
+
+#### `Random.next`
+
+```badger
+fn next(self: &Self) -> U64 !{State}
+```
+
+The next 64 random bits.
 
 ## Functions
 

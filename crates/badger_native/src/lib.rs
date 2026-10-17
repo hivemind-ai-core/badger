@@ -159,12 +159,12 @@ impl Value {
             }
             Value::List(xs) => {
                 w.u8(tag::LIST);
-                w.u32(xs.len() as u32);
+                w.count(xs.len());
                 xs.iter().for_each(|x| x.encode(w));
             }
             Value::Map(fs) => {
                 w.u8(tag::MAP);
-                w.u32(fs.len() as u32);
+                w.count(fs.len());
                 for (k, v) in fs {
                     w.str(k);
                     v.encode(w);
@@ -173,7 +173,7 @@ impl Value {
             Value::Variant(name, xs) => {
                 w.u8(tag::VARIANT);
                 w.str(name);
-                w.u32(xs.len() as u32);
+                w.count(xs.len());
                 xs.iter().for_each(|x| x.encode(w));
             }
             Value::Handle(h) => {
@@ -250,8 +250,15 @@ impl Writer {
         self.buf.extend_from_slice(&v.to_bits().to_le_bytes());
     }
     pub fn bytes(&mut self, b: &[u8]) {
-        self.u32(b.len() as u32);
+        self.count(b.len());
         self.buf.extend_from_slice(b);
+    }
+    /// A length or count (the wire holds 32 bits: a value of 4 GiB, or
+    /// 2^32 items, cannot cross; in a module that is a defect, not a
+    /// silently truncated value).
+    pub fn count(&mut self, n: usize) {
+        let n = u32::try_from(n).unwrap_or_else(|_| panic!("a value of {n} bytes or items is too large to cross the native module boundary (limit 2^32 - 1)"));
+        self.u32(n);
     }
     pub fn str(&mut self, s: &str) {
         self.bytes(s.as_bytes());
@@ -503,7 +510,12 @@ impl Completion {
 impl Drop for Completion {
     fn drop(&mut self) {
         if !self.done {
-            finish(self.host, self.call, &defect("the module dropped an async call without completing it"));
+            let why = if std::thread::panicking() {
+                "the native module failed (it panicked) before completing the call"
+            } else {
+                "the module dropped an async call without completing it"
+            };
+            finish(self.host, self.call, &defect(why));
         }
     }
 }
@@ -579,6 +591,45 @@ fn quiet_panics() {
             }
         }));
     });
+}
+
+/// Run a module hook (handle release, cancellation) with its panics caught
+/// and kept off the process's panic hook.
+#[doc(hidden)]
+pub fn module_thread_call(f: impl FnOnce()) {
+    let _ = dispatched(f);
+}
+
+/// The `io.Error` kind of an operating-system error (one mapping for the
+/// runtime and every module, so the same failure has the same kind).
+pub fn io_error_kind(k: std::io::ErrorKind) -> &'static str {
+    use std::io::ErrorKind::*;
+    match k {
+        NotFound => "io/not_found",
+        PermissionDenied => "io/permission_denied",
+        AlreadyExists => "io/already_exists",
+        InvalidData => "io/invalid_data",
+        InvalidInput => "io/invalid_input",
+        DirectoryNotEmpty => "io/not_empty",
+        IsADirectory => "io/is_a_directory",
+        NotADirectory => "io/not_a_directory",
+        TimedOut => "io/timed_out",
+        BrokenPipe => "io/broken_pipe",
+        Interrupted => "io/interrupted",
+        UnexpectedEof => "io/unexpected_eof",
+        _ => "io/other",
+    }
+}
+
+/// Mark the current thread as the module's own (a tokio worker, a
+/// connection thread). Its panics stay off the process's panic hook, which
+/// in the `badger` executable would end the whole process: a panicking
+/// tokio task becomes its `JoinError`, and an async call the panic leaves
+/// unfinished is reported to the program as a defect (its [`Completion`]
+/// is dropped).
+pub fn module_thread() {
+    quiet_panics();
+    IN_DISPATCH.with(|c| c.set(true));
 }
 
 /// Run `f` as dispatched module code (its panics are caught by the caller).
@@ -715,12 +766,12 @@ macro_rules! export {
         }
         unsafe extern "C" fn __lang_native_drop(h: u64) {
             if let Some(f) = $def.drop_handle {
-                let _ = std::panic::catch_unwind(|| f(h));
+                $crate::module_thread_call(|| f(h));
             }
         }
         unsafe extern "C" fn __lang_native_cancel(c: *mut $crate::Call) {
             if let Some(f) = $def.cancel {
-                let _ = std::panic::catch_unwind(|| f($crate::CallId(c as usize)));
+                $crate::module_thread_call(|| f($crate::CallId(c as usize)));
             }
         }
         /// The module's entry point.

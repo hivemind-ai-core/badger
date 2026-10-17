@@ -1,0 +1,5 @@
+subscribers 2
+publish 1 reached 1
+publish 2 reached 1
+publish 3 reached 1
+subscribers 1, live got some(3)

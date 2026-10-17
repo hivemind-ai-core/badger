@@ -95,3 +95,53 @@ fn api_reference_current() {
     let out = lang().args(["doc", "std", "--out", "docs/api", "--check"]).output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
 }
+
+/// Every diagnostic code the compiler emits has a catalog entry
+/// (`badger explain diagnostic CODE`), and every entry is still used.
+#[test]
+fn diagnostic_codes_catalogued() {
+    fn codes(text: &str, out: &mut std::collections::BTreeSet<String>) {
+        let b = text.as_bytes();
+        for i in 0..b.len().saturating_sub(6) {
+            if b[i] == b'"'
+                && b[i + 1] == b'E'
+                && b[i + 6] == b'"'
+                && b[i + 2..i + 6].iter().all(u8::is_ascii_digit)
+            {
+                out.insert(text[i + 1..i + 6].to_string());
+            }
+        }
+    }
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p);
+            }
+        }
+    }
+    let mut files = vec![];
+    for c in std::fs::read_dir(root().join("crates")).unwrap().flatten() {
+        if c.path().join("src").is_dir() {
+            walk(&c.path().join("src"), &mut files);
+        }
+    }
+    let (mut used, mut catalogued) = (Default::default(), Default::default());
+    for f in files {
+        let text = std::fs::read_to_string(&f).unwrap();
+        if f.ends_with("badger_base/src/catalog.rs") {
+            codes(&text, &mut catalogued);
+        } else {
+            codes(&text, &mut used);
+        }
+    }
+    let missing: Vec<&String> = used.difference(&catalogued).collect();
+    let stale: Vec<&String> = catalogued.difference(&used).collect();
+    assert!(
+        missing.is_empty(),
+        "codes without a catalog entry (crates/badger_base/src/catalog.rs): {missing:?}"
+    );
+    assert!(stale.is_empty(), "catalog entries no code uses: {stale:?}");
+}

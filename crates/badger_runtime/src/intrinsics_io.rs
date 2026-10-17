@@ -40,16 +40,7 @@ pub fn io_result(ret: &'static TypeDesc, r: Result<u64, (String, String)>) -> u6
 }
 
 fn kind_name(k: std::io::ErrorKind) -> String {
-    use std::io::ErrorKind::*;
-    match k {
-        NotFound => "io/not_found",
-        PermissionDenied => "io/permission_denied",
-        AlreadyExists => "io/already_exists",
-        InvalidData => "io/invalid_data",
-        InvalidInput => "io/invalid_input",
-        _ => "io/other",
-    }
-    .to_string()
+    badger_native::io_error_kind(k).to_string()
 }
 
 pub extern "C" fn write_out(
@@ -92,7 +83,11 @@ fn write_data(w: u64, out: &mut String) {
         0 => out.push_str("null"),
         1 => out.push_str(if fields[0] & 1 != 0 { "true" } else { "false" }),
         2 => out.push_str(&(fields[0] as i64).to_string()),
-        3 => out.push_str(&crate::value::fmt_float(f64::from_bits(fields[0]))),
+        // JSON has no NaN or infinity: they are `null` (as `codec.encode` writes them)
+        3 => {
+            let f = f64::from_bits(fields[0]);
+            out.push_str(&if f.is_finite() { crate::value::fmt_float(f) } else { "null".to_string() })
+        }
         4 => out.push_str(&json_quote(str_of(fields[0]))),
         5 => {
             out.push('[');

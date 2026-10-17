@@ -224,7 +224,12 @@ pub fn cmp(d: &TypeDesc, a: u64, b: u64) -> Ordering {
         Kind::Int { .. } | Kind::Duration | Kind::Instant | Kind::Timestamp => {
             as_i64(d, a).cmp(&as_i64(d, b))
         }
-        Kind::Float { .. } => as_f64(d, a).partial_cmp(&as_f64(d, b)).unwrap_or(Ordering::Equal),
+        // a total order (sorting needs one): NaN after every number, equal
+        // to NaN; -0.0 equals 0.0
+        Kind::Float { .. } => {
+            let (x, y) = (as_f64(d, a), as_f64(d, b));
+            if x == y { Ordering::Equal } else { x.total_cmp(&y) }
+        }
         Kind::Bool | Kind::Char => (a & mask(d)).cmp(&(b & mask(d))),
         Kind::String | Kind::Symbol | Kind::Bytes => {
             crate::string::bytes_of(a).cmp(crate::string::bytes_of(b))

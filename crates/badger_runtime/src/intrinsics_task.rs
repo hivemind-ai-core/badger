@@ -1,7 +1,7 @@
 //! Task, scope, channel, time, and cleanup intrinsics (uniform ABI).
 
 use crate::channel::{self, Free, RecvResult, SendResult};
-use crate::desc::{Kind, TypeDesc};
+use crate::desc::TypeDesc;
 use crate::gc::Roots;
 use crate::intrinsics::{Targs, rdesc, targ};
 use crate::string::new_string;
@@ -115,19 +115,7 @@ fn send_result(ret: *const TypeDesc, v: u64, r: SendResult) -> u64 {
     }
 }
 
-macro_rules! task_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-task_intrinsics! {
+define_intrinsics! {
     // ---------------------------------------------------------------- scopes & tasks
     fn scope_open(ctx, targs, ret) { scope::open() }
     fn scope_close(ctx, targs, ret, s, cancel) { scope::close(s, cancel & 1 != 0); 0 }
@@ -245,7 +233,7 @@ task_intrinsics! {
     fn task_workers(ctx, targs, ret) { task::workers() as u64 }
     fn time_now(ctx, targs, ret) {
         static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-        if let Some(t) = *crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap() {
+        if let Some(t) = crate::intrinsics_os::manual_clock() {
             return t as u64;
         }
         let s = START.get_or_init(std::time::Instant::now);
@@ -725,11 +713,6 @@ task_intrinsics! {
     }
     fn batch_release(ctx, targs, ret, b) { channel::release(b); 0 }
     fn batches_published(ctx, targs, ret, ch) { channel::data(ch).published_batches }
-}
-
-#[allow(dead_code)]
-fn is_list(d: &TypeDesc) -> bool {
-    matches!(d.kind, Kind::List { .. })
 }
 
 /// Post a parked selection's cases so a rendezvous partner can commit one.

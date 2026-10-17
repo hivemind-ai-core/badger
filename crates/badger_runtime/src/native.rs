@@ -14,7 +14,7 @@
 //! or a result that does not fit the declared type is a defect of the
 //! calling task, never undefined behavior.
 
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{CStr, CString};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
@@ -516,6 +516,13 @@ fn queue_drop(drop: unsafe extern "C" fn(u64), id: u64) {
 
 // ------------------------------------------------------------------ to the wire
 
+/// A length or count for the wire (32 bits).
+fn count(n: usize) -> Result<u32, String> {
+    u32::try_from(n).map_err(|_| {
+        format!("a value of {n} bytes or items is too large to pass to a native module (limit 2^32 - 1)")
+    })
+}
+
 fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<(), String> {
     if matches!(d.kind, Kind::Dynamic) && v != 0 {
         return encode(unsafe { obj(v).desc() }, v, w, m);
@@ -545,6 +552,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
         }
         Kind::String => {
             w.u8(tag::STR);
+            count(str_of(v).len())?;
             w.str(str_of(v));
         }
         Kind::Symbol => {
@@ -553,12 +561,13 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
         }
         Kind::Bytes => {
             w.u8(tag::BYTES);
+            count(bytes_of(v).len())?;
             w.bytes(bytes_of(v));
         }
         Kind::Record { fields, tuple, .. } => {
             let p = unsafe { obj(v).payload() };
             w.u8(if *tuple { tag::LIST } else { tag::MAP });
-            w.u32(fields.len() as u32);
+            w.u32(count(fields.len())?);
             for f in fields {
                 if !*tuple {
                     w.str(&f.name);
@@ -582,7 +591,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
             }
             w.u8(tag::VARIANT);
             w.str(&var.name);
-            w.u32(var.fields.len() as u32);
+            w.u32(count(var.fields.len())?);
             for (f, x) in var.fields.iter().zip(vals) {
                 encode(f.desc, x, w, m)?;
             }
@@ -590,7 +599,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
         Kind::List { elem } => {
             let n = list::len(v);
             w.u8(tag::LIST);
-            w.u32(n as u32);
+            w.u32(count(n)?);
             for i in 0..n {
                 encode(elem, list::get(v, i), w, m)?;
             }
@@ -598,7 +607,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
         Kind::Set { elem } => {
             let es = map::entries(v);
             w.u8(tag::LIST);
-            w.u32(es.len() as u32);
+            w.u32(count(es.len())?);
             for (k, _) in es {
                 encode(elem, k, w, m)?;
             }
@@ -606,7 +615,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
         Kind::Map { key, val } if matches!(key.kind, Kind::String | Kind::Symbol) => {
             let es = map::entries(v);
             w.u8(tag::MAP);
-            w.u32(es.len() as u32);
+            w.u32(count(es.len())?);
             for (k, x) in es {
                 w.str(str_of(k));
                 encode(val, x, w, m)?;
@@ -616,7 +625,7 @@ fn encode(d: &TypeDesc, v: u64, w: &mut Writer, m: &'static Loaded) -> Result<()
             let elem = crate::buffer::array_elem(d).expect("array");
             let items = crate::buffer::items(v);
             w.u8(tag::LIST);
-            w.u32(items.len() as u32);
+            w.u32(count(items.len())?);
             for x in items.iter() {
                 encode(elem, x, w, m)?;
             }
@@ -664,7 +673,7 @@ fn encode_data(v: u64, w: &mut Writer) -> Result<(), String> {
         "list" => {
             let n = list::len(vals[0]);
             w.u8(tag::LIST);
-            w.u32(n as u32);
+            w.u32(count(n)?);
             for i in 0..n {
                 encode_data(list::get(vals[0], i), w)?;
             }
@@ -672,7 +681,7 @@ fn encode_data(v: u64, w: &mut Writer) -> Result<(), String> {
         "object" => {
             let es = map::entries(vals[0]);
             w.u8(tag::MAP);
-            w.u32(es.len() as u32);
+            w.u32(count(es.len())?);
             for (k, x) in es {
                 w.str(str_of(k));
                 encode_data(x, w)?;
@@ -788,7 +797,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
         }
         (Kind::Char, tag::CHAR) => r.u32()? as u64,
         (Kind::String, tag::STR | tag::SYMBOL) => root(new_string(r.str()?)),
-        (Kind::Symbol, tag::SYMBOL | tag::STR) => crate::string::symbol(r.str()?),
+        (Kind::Symbol, tag::SYMBOL | tag::STR) => crate::string::external_symbol(r.str()?)?,
         (Kind::Bytes, tag::BYTES) => root(new_bytes(r.bytes()?)),
         (Kind::Bytes, tag::STR) => root(new_bytes(r.str()?.as_bytes())),
         (Kind::Record { fields, tuple: true, size, .. }, tag::LIST) => {
@@ -840,7 +849,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
             for _ in 0..n {
                 let k = r.str()?;
                 let kw = if matches!(key.kind, Kind::Symbol) {
-                    crate::string::symbol(k)
+                    crate::string::external_symbol(k)?
                 } else {
                     root(new_string(k))
                 };
@@ -978,9 +987,4 @@ pub fn describe() -> String {
         .collect();
     names.sort();
     names.join("\n")
-}
-
-#[allow(dead_code)]
-fn c_name(p: *const c_char) -> String {
-    unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned()
 }

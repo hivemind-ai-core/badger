@@ -1,5 +1,5 @@
 //! `badger mcp`: a Model Context Protocol server on stdio (newline-delimited
-//! JSON-RPC) giving an agent the compiler and a live REPL through four tools:
+//! JSON-RPC) giving an agent the compiler and a live REPL through five tools:
 //!
 //! - `eval` ("code mode"): a persistent REPL session (the local `badger repl`
 //!   machinery); definitions accumulate and expressions evaluate, and
@@ -8,6 +8,8 @@
 //! - `check`: diagnostics of a file or project, or of a source text.
 //! - `query`: hover, definition, references, symbols, completion,
 //!   diagnostic explanations, and standard module sources.
+//! - `contracts`: each `requires`/`ensures` clause and whether it was proven,
+//!   refuted, or is checked at run time (optionally run against the tests).
 //! - `run`: run a program or its tests in a subprocess, with a time limit.
 //!
 //! Compiler questions run in subprocesses (`badger query`), isolated from the
@@ -113,12 +115,12 @@ fn exe() -> String {
 }
 
 /// Run `badger ARGS` with a time limit: (status, stdout, stderr).
-fn lang(args: &[String], limit: Duration) -> Result<(i32, String, String), String> {
-    lang_env(args, &[], limit)
+fn badger_cmd(args: &[String], limit: Duration) -> Result<(i32, String, String), String> {
+    badger_cmd_env(args, &[], limit)
 }
 
 /// `badger` with extra environment variables for the child.
-fn lang_env(
+fn badger_cmd_env(
     args: &[String],
     env: &[(&str, String)],
     limit: Duration,
@@ -239,7 +241,7 @@ impl Mcp {
                     "--overlays".into(),
                     p.display().to_string(),
                 ];
-                match lang(&args, Duration::from_secs(120)) {
+                match badger_cmd(&args, Duration::from_secs(120)) {
                     Ok((0, out, _)) => {
                         let r: Value = serde_json::from_str(&out).unwrap_or(Value::Null);
                         let n = r["diagnostics"].as_array().map(|d| d.len()).unwrap_or(0);
@@ -261,7 +263,7 @@ impl Mcp {
                     args.push("--tests".into());
                 }
                 args.push(arg_path(path));
-                match lang(&args, Duration::from_secs(300)) {
+                match badger_cmd(&args, Duration::from_secs(300)) {
                     Ok((_, out, err)) => match serde_json::from_str::<Value>(&out) {
                         Ok(v) => {
                             let clauses = v["clauses"].as_array().cloned().unwrap_or_default();
@@ -305,17 +307,18 @@ impl Mcp {
                     }
                     _ => return text("give `path` or `source`", true),
                 };
-                match lang(&["query".into(), "diagnostics".into(), path], Duration::from_secs(120)) {
+                match badger_cmd(&["query".into(), "diagnostics".into(), path], Duration::from_secs(120)) {
                     Ok((0, out, _)) => {
-                        let n = serde_json::from_str::<Value>(&out)
-                            .ok()
-                            .and_then(|v| v.as_array().map(|a| a.len()));
-                        let summary = match n {
+                        let ds = serde_json::from_str::<Value>(&out).ok().and_then(|v| v.as_array().cloned());
+                        // only errors make it fail (warnings are reported, the program checks)
+                        let errors =
+                            ds.as_ref().map(|d| d.iter().filter(|x| x["severity"] == "error").count());
+                        let summary = match ds.as_ref().map(Vec::len) {
                             Some(0) => "no diagnostics: it checks".to_string(),
                             Some(n) => format!("{n} diagnostic(s):\n{out}"),
                             None => out,
                         };
-                        text(summary, n.unwrap_or(1) > 0)
+                        text(summary, errors.unwrap_or(1) > 0)
                     }
                     Ok((_, _, err)) => text(err, true),
                     Err(e) => text(e, true),
@@ -351,7 +354,7 @@ impl Mcp {
                             return text("give `name` (e.g. std.list) or `path`", true);
                         };
                         let args = vec!["query".into(), "api".into(), arg_path(target)];
-                        match lang(&args, Duration::from_secs(120)) {
+                        match badger_cmd(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),
                             Ok((_, _, err)) => text(err.trim(), true),
                             Err(e) => text(e, true),
@@ -362,7 +365,7 @@ impl Mcp {
                         let which = a["name"].as_str().unwrap_or("calls").to_string();
                         let args =
                             vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
-                        match lang(&args, Duration::from_secs(120)) {
+                        match badger_cmd(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),
                             Ok((_, _, err)) => text(err.trim(), true),
                             Err(e) => text(e, true),
@@ -382,7 +385,7 @@ impl Mcp {
                         {
                             args.push(format!("--name={n}"));
                         }
-                        match lang(&args, Duration::from_secs(120)) {
+                        match badger_cmd(&args, Duration::from_secs(120)) {
                             Ok((0, out, _)) => text(out.trim(), false),
                             Ok((_, _, err)) => text(err.trim(), true),
                             Err(e) => text(e, true),
@@ -392,6 +395,18 @@ impl Mcp {
             }
             "run" => {
                 let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                // options that would be ignored are refused, not dropped
+                if a["test"] == json!(true) {
+                    for (opt, why) in [
+                        ("breakpoints", "breakpoints debug a program run, not its tests"),
+                        ("args", "tests take no program arguments"),
+                        ("release", "tests run unoptimized"),
+                    ] {
+                        if !a[opt].is_null() && a[opt] != json!(false) && a[opt] != json!([]) {
+                            return text(format!("`{opt}` cannot be used with `test`: {why}"), true);
+                        }
+                    }
+                }
                 let mut args: Vec<String> =
                     vec![if a["test"] == json!(true) { "test" } else { "run" }.into()];
                 if a["release"] == json!(true) && args[0] == "run" {
@@ -412,7 +427,7 @@ impl Mcp {
                     // the summary is printed on stderr
                     env.push(("BADGER_PROFILE", self.scratch.join("profile.folded").display().to_string()));
                 }
-                match lang_env(&args, &env, secs(&a["timeout_secs"], 60.0)) {
+                match badger_cmd_env(&args, &env, secs(&a["timeout_secs"], 60.0)) {
                     Ok((status, out, err)) => {
                         let mut t = format!("exit status {status}\n");
                         if !out.is_empty() {

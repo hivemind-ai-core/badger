@@ -500,6 +500,10 @@ impl Manifest {
         if m.name.is_empty() && !sections_seen.iter().any(|s| s == "workspace") {
             return Err("missing [package] name".into());
         }
+        // the name names files (saved programs, releases): no paths
+        if !m.name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') {
+            return Err(format!("package name `{}` may contain only letters, digits, `_`, and `-`", m.name));
+        }
         Ok(m)
     }
 

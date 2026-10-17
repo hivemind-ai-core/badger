@@ -178,7 +178,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             && cur_def == def
             && cur_args.len() == args.len()
             && args != cur_args
-            && args.iter().zip(&cur_args).any(|(a, c)| a != c && ty_depth(a) > ty_depth(c))
+            && args.iter().zip(&cur_args).any(|(a, c)| a != c && type_depth(a) > type_depth(c))
             && self.g.scheme(def).is_some_and(|s| s.constraints.iter().all(|c| self.runtime_dispatchable(c)))
             && let Some(dynamic) = self.g.hir.try_lang("Dynamic")
         {
@@ -194,7 +194,7 @@ impl<'g, 'a> Mono<'g, 'a> {
         }
         // past the specialization limit an instance is a stub that fails at
         // run time
-        if args.iter().any(|a| ty_depth(a) > SPECIALIZATION_DEPTH) {
+        if args.iter().any(|a| type_depth(a) > SPECIALIZATION_DEPTH) {
             return self.depth_stub(def, args);
         }
         let scheme = self.g.scheme(def);
@@ -988,12 +988,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
     }
 
-    /// The prelude's `err` helper called from user code.
-    fn is_prelude_err(&self, def: DefId, call: Span) -> bool {
+    /// The prelude's `err` helper called from user code (an error made
+    /// inside the standard library keeps its origin at the user's call).
+    fn is_prelude_err(&self, def: DefId) -> bool {
         let hir = self.hir();
         let m = &hir.modules[hir.defs[def].module];
         m.is_std
-            && call.file != m.file
+            && !self.in_std()
             && m.path.len() == 2
             && self.m.g.interner.resolve(m.path[1]) == "prelude"
             && self.m.g.interner.resolve(hir.defs[def].name) == "err"
@@ -2300,7 +2301,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 let r = self.call_def(*def, targs, ops, ty, span)?;
                 // a user `err(...)` is where an error starts
-                if self.is_prelude_err(*def, span) {
+                if self.is_prelude_err(*def) {
                     let rl = self.copy_to_local(r, Repr::Ptr, None);
                     let l = self.loc(span);
                     self.rt(
@@ -3341,11 +3342,6 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             }
         }
     }
-
-    #[allow(dead_code)]
-    fn owner(&self) -> Owner {
-        self.owner
-    }
 }
 
 /// Self tail calls become parameter reassignment and a jump back to the
@@ -3430,34 +3426,20 @@ fn match_ty(p: &Ty, t: &Ty, binds: &mut Vec<Option<Ty>>) -> bool {
     }
 }
 
-#[allow(dead_code)]
-fn word_num(r: Repr) -> NumTy {
-    match r {
-        Repr::I8 => NumTy::I(8, false),
-        Repr::I16 => NumTy::I(16, false),
-        Repr::I32 => NumTy::I(32, false),
-        Repr::F32 => NumTy::F(32),
-        Repr::F64 => NumTy::F(64),
-        _ => NumTy::I(64, false),
-    }
-}
-
 /// Type nesting beyond which instances are not specialized (only
 /// polymorphic recursion builds such types).
 pub(crate) const SPECIALIZATION_DEPTH: usize = 24;
 
 pub(crate) fn type_depth(t: &Ty) -> usize {
-    ty_depth(t)
-}
-
-fn ty_depth(t: &Ty) -> usize {
     match &**t {
         TyKind::Con(_, args) | TyKind::Tuple(args) | TyKind::Dyn(_, args) => {
-            1 + args.iter().map(ty_depth).max().unwrap_or(0)
+            1 + args.iter().map(type_depth).max().unwrap_or(0)
         }
-        TyKind::Fn(f) => 1 + f.params.iter().chain(std::iter::once(&f.ret)).map(ty_depth).max().unwrap_or(0),
-        TyKind::Record(r) | TyKind::Ref(_, r) => 1 + ty_depth(r),
-        TyKind::RowExt(_, a, rest) => ty_depth(a).max(ty_depth(rest)),
+        TyKind::Fn(f) => {
+            1 + f.params.iter().chain(std::iter::once(&f.ret)).map(type_depth).max().unwrap_or(0)
+        }
+        TyKind::Record(r) | TyKind::Ref(_, r) => 1 + type_depth(r),
+        TyKind::RowExt(_, a, rest) => type_depth(a).max(type_depth(rest)),
         _ => 1,
     }
 }

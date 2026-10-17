@@ -58,6 +58,8 @@ extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
 extern "intrinsic" fn bytes_find(b: Bytes, needle: Bytes, from: Int) -> Option<Int>
 extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
+extern "intrinsic" fn bytes_at(b: Bytes, index: Int) -> Option<Byte>
+extern "intrinsic" fn convert_lossy<A, B>(value: A) -> B
 extern "native badger_fs.stdin_read" fn stdin_read(max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
 extern "native badger_fs.stdin_line" fn stdin_line() -> Result<Option<String>, Error> !{Io, Wait, State}
 
@@ -80,17 +82,57 @@ impl Stdin {
     pub fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait, State} { utf8(read_all(self)?) }
 }
 
-/// Standard output or error, as a `Writer` (text: bytes must be UTF-8).
+/// Standard output or error, as a `Writer` (text: the bytes must be
+/// UTF-8; a character split between two writes, as `copy`'s chunks may
+/// split one, is written whole with the second).
 pub struct Console {
     err: Bool,
+    /// the start of a character the last write ended inside
+    pending: Atom<Bytes>,
 }
 
-pub fn stdout() -> Console { { err: false } }
-pub fn stderr() -> Console { { err: true } }
+pub fn stdout() -> Console { { err: false, pending: Atom.new(text_to_bytes("")) } }
+pub fn stderr() -> Console { { err: true, pending: Atom.new(text_to_bytes("")) } }
 
 impl Writer for Console {
-    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} { write_out(utf8(data)?, false, self.err) }
-    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} { ok(()) }
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} {
+        let all = bytes_concat(self.pending.swap(text_to_bytes("")), data)
+        let n = bytes_len(all)
+        // the text up to an incomplete last character (1 to 3 bytes of a
+        // multibyte sequence), which waits for the next write
+        let cut = incomplete_tail(all)
+        let whole = if cut == 0 { all } else { bytes_slice(all, 0, n - cut).unwrap_or(all) }
+        if cut > 0 {
+            self.pending.set(bytes_slice(all, n - cut, n).unwrap_or(text_to_bytes("")))
+        }
+        write_out(utf8(whole)?, false, self.err)
+    }
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} {
+        if bytes_len(self.pending.get()) > 0 {
+            return err({ kind: :io/invalid_data, message: "not UTF-8 text: the output ends inside a character" })
+        }
+        ok(())
+    }
+}
+
+/// How many bytes at the end of `b` begin a multibyte UTF-8 character that
+/// is not complete yet (0 if `b` ends on a character boundary).
+fn incomplete_tail(b: Bytes) -> Int {
+    let n = bytes_len(b)
+    var k = 1
+    while k <= 3 && k <= n {
+        let byte: Int = convert_lossy(bytes_at(b, n - k).unwrap_or(0))
+        if byte >= 192 {
+            // a lead byte: 110xxxxx needs 2 bytes, 1110xxxx 3, 11110xxx 4
+            let need = if byte >= 240 { 4 } else if byte >= 224 { 3 } else { 2 }
+            return if need > k { k } else { 0 }
+        }
+        if byte < 128 {
+            return 0
+        }
+        k = k + 1
+    }
+    0
 }
 
 fn utf8(b: Bytes) -> Result<String, Error> {

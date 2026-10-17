@@ -201,16 +201,21 @@ pub fn overlay_key(path: &Path) -> PathBuf {
     }
 }
 
+/// `n` random bytes from the operating system, as hex.
+pub fn random_hex(n: usize) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut b = vec![0u8; n];
+    std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
+    Ok(b.iter().map(|x| format!("{x:02x}")).collect())
+}
+
 /// A new temporary directory only this user can use, with an
 /// unpredictable name (never an existing directory or a symlink), removed
 /// when the process exits.
 pub fn private_temp_dir(prefix: &str) -> std::io::Result<PathBuf> {
-    use std::io::Read;
     use std::os::unix::fs::DirBuilderExt;
     for _ in 0..16 {
-        let mut b = [0u8; 8];
-        std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
-        let suffix: String = b.iter().map(|x| format!("{x:02x}")).collect();
+        let suffix = random_hex(8)?;
         let dir = std::env::temp_dir().join(format!("{prefix}-{suffix}"));
         match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
             Ok(()) => {
@@ -1951,23 +1956,32 @@ pub fn std_modules() -> Vec<&'static str> {
     badger_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect()
 }
 
+/// The project directory `path` belongs to: `path` itself when it holds a
+/// `badger.toml`, else the nearest enclosing directory that does (a file
+/// checked on its own is still part of its project).
+pub fn project_root(path: &Path) -> Option<PathBuf> {
+    let abs = std::path::absolute(path).ok()?;
+    let mut dir = if abs.is_dir() { Some(abs.as_path()) } else { abs.parent() };
+    while let Some(d) = dir {
+        if d.join("badger.toml").is_file() {
+            return Some(d.to_path_buf());
+        }
+        dir = d.parent();
+    }
+    None
+}
+
 /// Whether the project `path` belongs to is restricted (`[package]
 /// restricted = true`).
 pub fn restricted(path: &Path) -> bool {
-    let root = if path.is_dir() {
-        path.to_path_buf()
-    } else {
-        match Session::entry_of(path) {
-            Ok((_, root, _)) => root,
-            Err(_) => return false,
-        }
-    };
-    manifest::Manifest::load(&root.join("badger.toml")).is_ok_and(|m| m.restricted)
+    project_root(path)
+        .and_then(|root| manifest::Manifest::load(&root.join("badger.toml")).ok())
+        .is_some_and(|m| m.restricted)
 }
 
 /// The `[database] schema` file of the project `path` belongs to.
 pub(crate) fn database_schema(path: &Path) -> Option<PathBuf> {
-    let root = if path.is_dir() { path.to_path_buf() } else { Session::entry_of(path).ok()?.1 };
+    let root = project_root(path)?;
     let m = manifest::Manifest::load(&root.join("badger.toml")).ok()?;
     m.schema.map(|s| root.join(s))
 }
