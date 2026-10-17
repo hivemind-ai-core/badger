@@ -1311,6 +1311,7 @@ impl Infer<'_, '_> {
             for i in idxs {
                 let imp = self.g.env.impls[i].clone();
                 if let Some(c) = self.impl_member(&imp, &st, name, explicit, span) {
+                    self.check_method_visible(&imp, &c.0, name, span);
                     cands.push(c);
                 }
             }
@@ -2146,6 +2147,7 @@ impl Infer<'_, '_> {
                         continue;
                     }
                     if let Some((target, ty)) = self.impl_member(&imp, &r, name, explicit, span) {
+                        self.check_method_visible(&imp, &target, name, span);
                         return Lookup::Found(target, ty);
                     }
                 }
@@ -2269,6 +2271,20 @@ impl Infer<'_, '_> {
     }
 
     /// Member `name` of impl `imp` applied to self type `st`.
+    /// Inherent methods are private to their module unless marked `pub`
+    /// (protocol methods are as visible as the protocol).
+    fn check_method_visible(&mut self, imp: &ImplInfo, target: &Target, name: Symbol, span: Span) {
+        if imp.protocol.is_some() {
+            return;
+        }
+        let Target::Fn { def, .. } = target else { return };
+        let d = &self.g.hir.defs[*def];
+        if !d.is_pub && Some(d.module) != self.module {
+            let m = self.sym(name).to_string();
+            self.error("E0112", span, format!("`{m}` is private"), "not marked `pub`");
+        }
+    }
+
     fn impl_member(
         &mut self,
         imp: &ImplInfo,

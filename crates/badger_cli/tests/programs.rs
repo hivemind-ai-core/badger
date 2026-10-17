@@ -2201,6 +2201,18 @@ fn private_struct_update() {
     assert!(text.contains("field `secret` is private") && text.contains("\"line\":12"), "{text}");
 }
 
+/// Inherent methods are private to their module unless `pub`, by method
+/// call and by path; protocol methods stay usable.
+#[test]
+fn private_method_call() {
+    let out = lang().args(["check", "--json", "tests/projects/private_method"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(!out.status.success());
+    assert_eq!(text.matches("\"code\":\"E0112\"").count(), 2, "{text}");
+    assert!(text.contains("\"line\":8,\"column\":18") && text.contains("\"line\":9,\"column\":26"), "{text}");
+    assert_eq!(text.matches("\"code\"").count(), 2, "{text}");
+}
+
 /// Cleanup that never finishes is escalated after one grace period, not
 /// waited for forever (or once per waiter).
 #[test]

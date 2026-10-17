@@ -193,12 +193,6 @@ fn stream(self: &Self, status: Int, content_type: String, chunks: Seq<Bytes>) ->
 Stream a reply now: the head, then each chunk as it is produced;
 the sequence is consumed (and closed) before this returns.
 
-#### `RequestScope.stream_with`
-
-```badger
-fn stream_with(self: &Self, status: Int, headers: Map<String, String>, chunks: Seq<Bytes>) -> Sent
-```
-
 #### `RequestScope.websocket`
 
 ```badger
