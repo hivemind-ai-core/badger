@@ -34,6 +34,9 @@ COVERAGE = {
     "bytes-transient": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=32),
     "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
     "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
+    "buffers-empty": dict(mode="buffers-empty", n=524288, rounds=1, payload=1, retain=1),
+    "buffers-grow": dict(mode="buffers-grow", n=65536, rounds=1, payload=32, retain=64),
+    "buffers-pointers": dict(mode="buffers-pointers", n=32768, rounds=1, payload=8, retain=128),
     "snapshots": dict(mode="snapshots", n=65536, rounds=1, payload=96, retain=32),
     **{f"persistent-{size}": dict(mode="persistent-int", n=131072, rounds=1, payload=1, retain=size)
        for size in [64, 256, 4096]},
@@ -62,6 +65,13 @@ POLICIES = {
 
 
 def expected_coverage(c):
+    if c["mode"] == "buffers-empty":
+        return c["n"]
+    if c["mode"] in ["buffers-grow", "buffers-pointers"]:
+        def value(i):
+            first = i * 31 if c["mode"] == "buffers-grow" else 32 + i % 3
+            return first * c["payload"] + c["payload"] * (c["payload"] - 1) // 2
+        return sum(value(i) for i in range(c["n"])) + sum(value(i) for i in range(max(0, c["n"] - c["retain"]), c["n"]))
     if c["mode"] == "pool-burst":
         allocated = sum(c["payload"] + i % 3 for i in range(c["n"]))
         retained = sum(c["payload"] + (slot * c["n"] // c["retain"]) % 3 for slot in range(c["retain"]))

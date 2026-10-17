@@ -226,3 +226,9 @@ cutoff is unchanged. Only 2 MiB chunks request huge-page alignment/advice.
 --policies refill256 refill512 refill2048` evaluates sparse retention with one
 diagnostic executable. `--suite policy` evaluates the same choices on telemetry.
 The runner verifies the recorded refill policy; diagnostics perturb timings.
+
+`buffers-empty`, `buffers-grow`, and `buffers-pointers` cover metadata-only
+arrays, repeated native storage growth/freezing, and pointer-valued arrays
+retained across churn. Growth/pointer cases validate each retained tail element
+and independently check total checksums. These complement fixed-capacity packed
+byte/word buffers, sustained messages and application-shaped telemetry.

@@ -631,3 +631,14 @@ RSS tradeoffs, major-collection checks, raw data and exact provenance.
 Next priority G5a: remove the separate native Buffer/Array metadata Box by
 embedding it in the already stable managed cell, preserving generated access
 offsets and precise tracing. This attacks allocation churn directly.
+
+### G5a baseline — Buffer metadata allocation
+
+Before changing Buffer production code, saved 88 ordinary coverage measurements
+(11 cases, 1/2/4/8 workers, two repetitions) and six new-case smoke measurements.
+The immutable baseline remains `1b47a02` (main `56f5983` plus restored-default G3
+diagnostics); Buffer code is unchanged by G2c. Added empty, growing and
+pointer-valued buffer cases with independent checksums and full retained-tail
+validation. Existing G2c's 32-run telemetry baseline uses the same executable
+and unchanged application workload; final comparison will run both binaries
+interleaved on the current harness. Raw data: `G5a-coverage-baseline/`.

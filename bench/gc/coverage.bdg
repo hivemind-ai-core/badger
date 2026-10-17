@@ -188,6 +188,61 @@ fn buffers(c: Config, narrow: Bool) -> Int {
     total
 }
 
+fn buffer_growth(c: Config) -> Int {
+    let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.empty<Int>()) })
+    var total = 0
+    for i in 0..c.n {
+        var b = buffer.new<Int>()
+        for j in 0..c.payload { b.push(i * 31 + j) }
+        let done = b.freeze()
+        for word in done { total = total + word }
+        retained[i % c.retain].set(done)
+    }
+    for slot in 0..c.n.min(c.retain) {
+        let last = c.n - 1 - (c.n - 1 - slot) % c.retain
+        let a = retained[slot].get()
+        assert(a.len() == c.payload)
+        for j in 0..c.payload {
+            assert(a[j] == last * 31 + j)
+            total = total + a[j]
+        }
+    }
+    total
+}
+
+fn buffer_pointers(c: Config) -> Int {
+    let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.empty<String>()) })
+    var total = 0
+    for i in 0..c.n {
+        var b = buffer.new<String>()
+        for j in 0..c.payload {
+            b.push(text.repeat(if i % 2 == 0 { "x" } else { "y" }, 32 + i % 3 + j))
+        }
+        let done = b.freeze()
+        for value in done { total = total + value.len() }
+        retained[i % c.retain].set(done)
+    }
+    for slot in 0..c.n.min(c.retain) {
+        let last = c.n - 1 - (c.n - 1 - slot) % c.retain
+        let a = retained[slot].get()
+        assert(a.len() == c.payload)
+        for j in 0..c.payload {
+            assert(a[j] == text.repeat(if last % 2 == 0 { "x" } else { "y" }, 32 + last % 3 + j))
+            total = total + a[j].len()
+        }
+    }
+    total
+}
+
+fn empty_buffers(c: Config) -> Int {
+    var total = 0
+    for _ in 0..c.n {
+        let a = array.empty<Int>()
+        total = total + 1 + a.len()
+    }
+    total
+}
+
 fn snapshots(c: Config) -> Int {
     var current: Map<Int, String> = map.empty()
     let history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, String>()) })
@@ -312,6 +367,9 @@ pub fn main() -> Result<Unit, io.Error> {
         checkpoints = shots
         total
     }
+    else if c.mode == "buffers-empty" { empty_buffers(c) }
+    else if c.mode == "buffers-grow" { buffer_growth(c) }
+    else if c.mode == "buffers-pointers" { buffer_pointers(c) }
     else if c.mode == "bytes" { buffers(c, true) }
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }

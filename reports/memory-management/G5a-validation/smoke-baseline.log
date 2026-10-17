@@ -1,0 +1,242 @@
+smoke rep=-1 buffers-empty w4 baseline
+smoke rep=-1 buffers-pointers w4 baseline
+smoke rep=-1 buffers-pointers w1 baseline
+smoke rep=-1 buffers-grow w4 baseline
+smoke rep=-1 buffers-empty w1 baseline
+smoke rep=-1 buffers-grow w1 baseline
+smoke rep=0 buffers-empty w4 baseline
+smoke rep=0 buffers-empty w1 baseline
+smoke rep=0 buffers-pointers w4 baseline
+smoke rep=0 buffers-grow w1 baseline
+smoke rep=0 buffers-pointers w1 baseline
+smoke rep=0 buffers-grow w4 baseline
+[
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.011401,
+      "min": 0.011401,
+      "max": 0.011401,
+      "runs": [
+        0.011401
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 27432,
+      "min": 27432,
+      "max": 27432,
+      "runs": [
+        27432
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.011672,
+      "min": 0.011672,
+      "max": 0.011672,
+      "runs": [
+        0.011672
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 27372,
+      "min": 27372,
+      "max": 27372,
+      "runs": [
+        27372
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.077965,
+      "min": 0.077965,
+      "max": 0.077965,
+      "runs": [
+        0.077965
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 27152,
+      "min": 27152,
+      "max": 27152,
+      "runs": [
+        27152
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.093613,
+      "min": 0.093613,
+      "max": 0.093613,
+      "runs": [
+        0.093613
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 27244,
+      "min": 27244,
+      "max": 27244,
+      "runs": [
+        27244
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.386979,
+      "min": 0.386979,
+      "max": 0.386979,
+      "runs": [
+        0.386979
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29456,
+      "min": 29456,
+      "max": 29456,
+      "runs": [
+        29456
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.53882,
+      "min": 0.53882,
+      "max": 0.53882,
+      "runs": [
+        0.53882
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29848,
+      "min": 29848,
+      "max": 29848,
+      "runs": [
+        29848
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  }
+]

@@ -3,6 +3,15 @@ import run
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_buffer_churn_checks_growth_pointer_values_and_retained_tail(self):
+        c = dict(mode="buffers-grow", n=5, retain=3, payload=4)
+        values = [sum(i * 31 + j for j in range(4)) for i in range(5)]
+        self.assertEqual(run.expected_coverage(c), sum(values) + sum(values[-3:]))
+        values = [sum(32 + i % 3 + j for j in range(4)) for i in range(5)]
+        self.assertEqual(run.expected_coverage(c | dict(mode="buffers-pointers")), sum(values) + sum(values[-3:]))
+        self.assertEqual(run.expected_coverage(c | dict(mode="buffers-pointers", retain=9)), sum(values) * 2)
+        self.assertEqual(run.expected_coverage(c | dict(mode="buffers-empty")), 5)
+
     def test_pool_burst_includes_full_burst_scattered_survivors_and_churn(self):
         c = dict(mode="pool-burst", n=7, retain=3, payload=5, rounds=70)
         latest = {i % 64: i for i in range(70)}
