@@ -447,8 +447,17 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && !m.dependency && name.starts_with("test_") && f.params.is_empty() {
-                    self.hir.modules[mid].tests.push(def);
+                if !m.is_std && !m.dependency && name.starts_with("test_") {
+                    if f.params.is_empty() {
+                        self.hir.modules[mid].tests.push(def);
+                    } else {
+                        let span = self.hir.defs[def].span;
+                        self.diags.push(
+                            Diagnostic::warning(format!("`{name}` takes parameters, so `badger test` does not run it"))
+                                .with_code("E0142")
+                                .with_label(span, "a test takes no parameters"),
+                        );
+                    }
                 }
             }
         }

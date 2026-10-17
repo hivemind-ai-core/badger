@@ -3540,6 +3540,16 @@ pub fn lower_program_optimized<'g, 'a>(
                         let path: Vec<&str> = module.path.iter().map(|s| g.interner.resolve(*s)).collect();
                         format!("{}.{short}", path.join("."))
                     };
+                    if let Some(s) = g.scheme(t)
+                        && let TyKind::Fn(ft) = &*s.ty
+                    {
+                        let ret = badger_typeck::ground_resolved(&ft.ret);
+                        if m.lay.is_std(&ret, "Result")
+                            && let Some(e) = m.lay.args(&ret).get(1).cloned()
+                        {
+                            m.prog.test_errors.push((name.clone(), m.lay.desc(&e)));
+                        }
+                    }
                     m.prog.tests.push((name, f));
                 }
             }

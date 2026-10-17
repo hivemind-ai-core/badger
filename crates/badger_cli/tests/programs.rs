@@ -1277,7 +1277,8 @@ fn diagnostics_early_phases() {
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual
-/// time; assertion failures report the caller's location.
+/// time; assertion failures report the caller's location, and a test
+/// returning `err` reports the error.
 #[test]
 fn test_runner_controlled_clock() {
     let out = lang().args(["test", "tests/testing/clock.bdg"]).current_dir(root()).output().unwrap();
@@ -1287,7 +1288,8 @@ fn test_runner_controlled_clock() {
         "test test_b_clock_isolated ... ok",
         "test test_c_advance_wakes_sleeper ... ok",
         "test test_d_failure_location ... FAILED (assertion failed: expected 3, found 2 at tests/testing/clock.bdg:38:5)",
-        "3 passed; 1 failed",
+        "test test_e_error_result ... FAILED (returned an error: the error a failed test returned)",
+        "3 passed; 2 failed",
     ] {
         assert!(text.contains(want), "missing {want:?} in {text}");
     }

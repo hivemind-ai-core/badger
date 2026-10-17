@@ -1596,7 +1596,13 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
         let detail = match &exit {
             Exit::Failed(p) => format!("{} at {}", p.message, p.location),
             Exit::Cancelled => "cancelled".into(),
-            Exit::Returned(_) if !ok => "returned an error".into(),
+            Exit::Returned(w) if !ok => match prog.test_errors.iter().find(|(n, _)| n == name) {
+                Some((_, ed)) => format!(
+                    "returned an error: {}",
+                    badger_runtime::value::display(std::ptr::null_mut(), ed, badger_runtime::enum_parts(*w).1[0], true)
+                ),
+                None => "returned an error".into(),
+            },
             _ => String::new(),
         };
         if !ok {

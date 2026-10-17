@@ -728,6 +728,10 @@ fn command(mut cli: Cli) -> ExitCode {
                 eprintln!("error: unknown generator `{what}` (available: sql)");
                 return ExitCode::FAILURE;
             }
+            if files.is_empty() {
+                eprintln!("error: `badger generate sql` needs one or more SQL files (`badger generate sql queries/*.sql`)");
+                return ExitCode::from(2);
+            }
             let database = database.or_else(|| std::env::var("DATABASE_URL").ok());
             match badger_driver::sqlgen::run(&files, database.as_deref(), schema.as_deref(), check) {
                 Ok(written) => {
