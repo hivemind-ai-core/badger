@@ -84,6 +84,17 @@ returns a lazy `Seq<String>`).
   nullable column, or a field type that does not fit the declared column
   type is E0182. Without a schema file or literal DDL only syntax is
   checked; statements built at run time are not checked.
+- `std.postgres` has the same shape (`connect`, `execute`, `query`,
+  `query_one`, `query_as`, `query_one_as`, `transaction`, `describe`, and
+  a `postgres.pool` provider) over pooled server connections.
+- SQL as SQL: `lang generate sql FILE.sql` turns a file of named queries
+  (`-- name: find_user :one`, with `:one`, `:opt`, `:many`, or `:exec`,
+  and `:name` parameters) into `FILE.lang`: a row record type and a typed
+  function per query, taking a pool or transaction. Types come from the
+  database: Postgres describes each statement (`--database`, or
+  `DATABASE_URL`), SQLite prepares it against the schema. See
+  `docs/typed-sql.md`; `--check` fails when the committed module is out of
+  date.
 - `jobs.open(path)` opens a job store in a SQLite file. `submit(kind, event,
   version, state, max_attempts)` ingests an event once per key (`created` or
   `duplicate`) as job `kind:event` with a `Codec` state. `claim(kind,

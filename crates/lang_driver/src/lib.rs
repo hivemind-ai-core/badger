@@ -23,6 +23,7 @@ pub mod live;
 pub mod manifest;
 pub mod sql;
 pub mod sqlcheck;
+pub mod sqlgen;
 
 #[derive(Default)]
 pub struct Session {

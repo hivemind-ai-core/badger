@@ -883,6 +883,32 @@ fn query_check_overlays() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
+/// Typed SQL generation (`lang generate sql`) from a SQLite schema: the
+/// committed module is what the generator writes, and the program using it
+/// checks and runs.
+#[test]
+fn sql_generation_sqlite() {
+    let out =
+        lang().args(["generate", "sql", "--check", "tests/sqlgen/sqlite/queries.sql"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let run = lang().args(["run", "tests/sqlgen/sqlite"]).output().unwrap();
+    let want = std::fs::read_to_string(root().join("tests/sqlgen/sqlite/main.out")).unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), want, "{}", String::from_utf8_lossy(&run.stderr));
+    // a query the schema rejects is reported with its line
+    let dir = std::env::temp_dir().join(format!("lang-sqlgen-bad-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad = dir.join("bad.sql");
+    std::fs::write(&bad, "-- name: nope :many\nSELECT missing FROM users\n").unwrap();
+    let out = lang()
+        .args(["generate", "sql", "--schema", "tests/sqlgen/sqlite/schema.sql"])
+        .arg(&bad)
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success() && err.contains("line 1: `nope`") && err.contains("missing"), "{err}");
+}
+
 /// Native modules (`tests/native`, calling `crates/lang_native_demo`, which
 /// cargo builds as a dev-dependency into `deps` next to the executable):
 /// every mode, value shapes, defects, and handles, on one worker and four;

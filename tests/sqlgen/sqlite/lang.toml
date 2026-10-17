@@ -1,0 +1,6 @@
+[package]
+name = "sqlgen_sqlite"
+entry = "main.lang"
+
+[database]
+schema = "schema.sql"

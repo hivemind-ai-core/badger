@@ -11,8 +11,8 @@
 //!
 //! Parameters are `Data` sent in text format, so the server parses them as
 //! the statement's parameter types (numbers, text, timestamps, UUIDs,
-//! enums...); a list is an array literal, and any value given for a `json`
-//! or `jsonb` parameter is sent as JSON. Results come back as `Data`
+//! enums...); a list is an array literal, and any other value given for a
+//! `json` or `jsonb` parameter is sent as JSON (null is SQL NULL). Results come back as `Data`
 //! objects by column name: integers, floats and booleans as themselves,
 //! `numeric` as exact decimal text, dates and times as ISO 8601 text,
 //! `json`/`jsonb` as their values, arrays as lists, `bytea` as `\x` hex
@@ -248,7 +248,7 @@ impl ToSql for Param<'_> {
         out: &mut BytesMut,
     ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
         match self.0 {
-            Value::Null | Value::Unit if !is_json(ty) => Ok(IsNull::Yes),
+            Value::Null | Value::Unit => Ok(IsNull::Yes),
             v => {
                 out.extend_from_slice(text_of(v, ty)?.as_bytes());
                 Ok(IsNull::No)
@@ -724,36 +724,86 @@ fn describe(a: Args, done: Completion) {
             return Err(Error::new("postgres/handle", "describe takes a pool"));
         };
         let conn = pool.get().await.map_err(pool_error)?;
-        let st = conn.prepare(&sql).await.map_err(error)?;
-        let mut columns = vec![];
-        for c in st.columns() {
-            let nullable = match (c.table_oid(), c.column_id()) {
-                (Some(t), Some(n)) if t != 0 && n > 0 => {
-                    let row = conn
-                        .query_opt(
-                            "SELECT attnotnull FROM pg_attribute WHERE attrelid = $1 AND attnum = $2",
-                            &[&t, &n],
-                        )
-                        .await
-                        .map_err(error)?;
-                    match row {
-                        Some(r) => Value::Bool(!r.get::<_, bool>(0)),
-                        None => Value::Null,
-                    }
-                }
-                _ => Value::Null,
-            };
-            columns.push(Value::Map(vec![
-                ("name".into(), Value::Str(c.name().into())),
-                ("sql_type".into(), Value::Str(type_name(c.type_()))),
-                ("nullable".into(), nullable),
-            ]));
-        }
+        let d = describe_on(&conn, &sql).await?;
+        let nullable = |n: Option<bool>| n.map_or(Value::Null, Value::Bool);
         Ok(Value::Map(vec![
-            ("params".into(), Value::List(st.params().iter().map(|t| Value::Str(type_name(t))).collect())),
-            ("columns".into(), Value::List(columns)),
+            ("params".into(), Value::List(d.params.into_iter().map(Value::Str).collect())),
+            (
+                "columns".into(),
+                Value::List(
+                    d.columns
+                        .into_iter()
+                        .map(|c| {
+                            Value::Map(vec![
+                                ("name".into(), Value::Str(c.name)),
+                                ("sql_type".into(), Value::Str(c.sql_type)),
+                                ("nullable".into(), nullable(c.nullable)),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
         ]))
     });
+}
+
+/// A statement as the server describes it.
+pub struct Described {
+    /// Parameter types (`int8`, `text[]`, `enum mood`).
+    pub params: Vec<String>,
+    pub columns: Vec<DescribedColumn>,
+}
+
+pub struct DescribedColumn {
+    pub name: String,
+    pub sql_type: String,
+    /// Known for a column read straight from a table; `None` for an
+    /// expression.
+    pub nullable: Option<bool>,
+}
+
+async fn describe_on(conn: &tokio_postgres::Client, sql: &str) -> Result<Described, Error> {
+    let st = conn.prepare(sql).await.map_err(error)?;
+    let mut columns = vec![];
+    for c in st.columns() {
+        let nullable = match (c.table_oid(), c.column_id()) {
+            (Some(t), Some(n)) if t != 0 && n > 0 => conn
+                .query_opt(
+                    "SELECT attnotnull FROM pg_attribute WHERE attrelid = $1 AND attnum = $2",
+                    &[&t, &n],
+                )
+                .await
+                .map_err(error)?
+                .map(|r| !r.get::<_, bool>(0)),
+            _ => None,
+        };
+        columns.push(DescribedColumn { name: c.name().into(), sql_type: type_name(c.type_()), nullable });
+    }
+    Ok(Described { params: st.params().iter().map(type_name).collect(), columns })
+}
+
+/// Describe statements on one connection to `url` (`lang generate sql`):
+/// each statement's description, or why the server rejects it. Fails if
+/// the server cannot be reached. Call it from outside any async runtime.
+pub fn describe_statements(url: &str, sqls: &[String]) -> Result<Vec<Result<Described, String>>, String> {
+    let url = url.to_string();
+    let sqls = sqls.to_vec();
+    runtime().block_on(async move {
+        let mut config: tokio_postgres::Config =
+            url.parse().map_err(|e: tokio_postgres::Error| e.to_string())?;
+        if config.get_connect_timeout().is_none() {
+            config.connect_timeout(Duration::from_secs(10));
+        }
+        let (client, connection) = config.connect(tls()).await.map_err(|e| error(e).message)?;
+        let driver = tokio::spawn(connection);
+        let mut out = vec![];
+        for sql in &sqls {
+            out.push(describe_on(&client, sql).await.map_err(|e| e.message));
+        }
+        drop(client);
+        let _ = driver.await;
+        Ok(out)
+    })
 }
 
 /// A type's name, with `[]` for arrays and the base type for domains.

@@ -225,6 +225,23 @@ enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Generate code: `sql` turns SQL files of named queries
+    /// (`-- name: find_user :one`) into typed functions, `NAME.lang` next
+    /// to each `NAME.sql`. Types come from Postgres (`--database`, or
+    /// `DATABASE_URL`) or from a SQLite schema (`--schema`, or the
+    /// project's `[database] schema`).
+    Generate {
+        /// What to generate: `sql`.
+        what: String,
+        files: Vec<PathBuf>,
+        #[arg(long)]
+        database: Option<String>,
+        #[arg(long)]
+        schema: Option<PathBuf>,
+        /// Compare with the generated files and fail if any differ.
+        #[arg(long)]
+        check: bool,
+    },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
         /// `diagnostic`, `type`, or `effect`.
@@ -505,6 +522,27 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Generate { what, files, database, schema, check } => {
+            if what != "sql" {
+                eprintln!("error: unknown generator `{what}` (available: sql)");
+                return ExitCode::FAILURE;
+            }
+            let database = database.or_else(|| std::env::var("DATABASE_URL").ok());
+            match lang_driver::sqlgen::run(&files, database.as_deref(), schema.as_deref(), check) {
+                Ok(written) => {
+                    for w in written {
+                        println!("wrote {w}");
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(es) => {
+                    for e in es {
+                        eprintln!("error: {e}");
+                    }
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Command::Format { paths, check } => {
             format(if paths.is_empty() { vec![PathBuf::from(".")] } else { paths }, check)
         }
