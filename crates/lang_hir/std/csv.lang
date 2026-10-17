@@ -4,6 +4,7 @@
 // The `lang_formats` native module does the parsing.
 
 import std.codec
+import std.list
 
 /// Input that does not parse (an unclosed quote, a ragged record with a
 /// header).
@@ -32,16 +33,14 @@ pub fn records(text: String) -> Result<List<Map<String, String>>, Error> { csv_r
 /// the columns (text fields; decode numbers from them, or use `Data`
 /// fields through `codec`).
 pub fn decode<T>(text: String) -> Result<List<T>, Error> where T: Codec {
-    var out: List<T> = []
+    let out = list.builder<T>()
     for r in csv_records(text, ",")? {
         match codec.from_data<T>(codec.to_data(r)) {
-            .ok(v) => {
-                out = out.append(v)
-            },
+            .ok(v) => out.append(v),
             .err(e) => return err({ message: $"row {out.len() + 1}: {e}" }),
         }
     }
-    ok(out)
+    ok(out.finish())
 }
 
 /// Text of `rows` (fields quoted where needed).

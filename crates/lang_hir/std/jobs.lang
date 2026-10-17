@@ -26,6 +26,7 @@
 import std.prelude
 import std.sqlite
 import std.codec
+import std.list
 import std.time
 
 extern "intrinsic" fn time_wall_nanos() -> Int
@@ -487,11 +488,7 @@ impl<S> Store<S> {
     /// Outbox entries with `status` (oldest first).
     pub fn operations(self: &Self, status: String) -> Result<List<Entry>, Error> !{Io, Wait} {
         let rows = sqlite.query(self.pool, "SELECT id, job, key, kind, payload, status, receipt, attempts FROM jobs_outbox WHERE status = ? ORDER BY id", [str(status)])?
-        var out: List<Entry> = []
-        for row in rows {
-            out = out.append(codec.from_data<Entry>(row)?)
-        }
-        ok(out)
+        ok(list.try_map(rows, fn(row) => codec.from_data<Entry>(row))?)
     }
 
     /// A job by id.
@@ -506,21 +503,13 @@ impl<S> Store<S> {
     /// Jobs with `status` (oldest first).
     pub fn jobs(self: &Self, status: String) -> Result<List<Job>, Error> !{Io, Wait} {
         let rows = sqlite.query(self.pool, "SELECT id, kind, version, status, step, attempts, max_attempts, run_at, owner, error, created, updated FROM jobs WHERE status = ? ORDER BY created, id", [str(status)])?
-        var out: List<Job> = []
-        for row in rows {
-            out = out.append(codec.from_data<Job>(row)?)
-        }
-        ok(out)
+        ok(list.try_map(rows, fn(row) => codec.from_data<Job>(row))?)
     }
 
     /// A job's transitions, oldest first.
     pub fn history(self: &Self, id: String) -> Result<List<Transition>, Error> !{Io, Wait} {
         let rows = sqlite.query(self.pool, "SELECT at, step, status, note FROM jobs_history WHERE job = ? ORDER BY rowid", [str(id)])?
-        var out: List<Transition> = []
-        for row in rows {
-            out = out.append(codec.from_data<Transition>(row)?)
-        }
-        ok(out)
+        ok(list.try_map(rows, fn(row) => codec.from_data<Transition>(row))?)
     }
 
     /// Rewrite the state of every unfinished job of `kind` at version

@@ -479,16 +479,23 @@ std_intrinsics! {
         new_string(&out)
     }
     fn text_slice(ctx, targs, ret, s, a, b) {
-        // character-indexed slice; returns Option<String>
+        // character-indexed slice; returns Option<String> (one pass, no
+        // index table)
         let st = str_of(s);
-        let chars: Vec<(usize, char)> = st.char_indices().collect();
-        let n = chars.len() as i64;
         let (a, b) = (a as i64, b as i64);
-        if a < 0 || b < a || b > n {
+        if a < 0 || b < a {
             return none(rdesc(ret));
         }
-        let start = chars.get(a as usize).map(|c| c.0).unwrap_or(st.len());
-        let end = chars.get(b as usize).map(|c| c.0).unwrap_or(st.len());
+        let mut bounds = st.char_indices().map(|(i, _)| i).chain(std::iter::once(st.len()));
+        let Some(start) = bounds.nth(a as usize) else { return none(rdesc(ret)) };
+        let end = if b == a {
+            start
+        } else {
+            match bounds.nth((b - a - 1) as usize) {
+                Some(e) => e,
+                None => return none(rdesc(ret)),
+            }
+        };
         let w = new_string(&st[start..end]);
         some(rdesc(ret), w)
     }
