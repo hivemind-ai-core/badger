@@ -27,6 +27,9 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
 use crate::desc::{Kind, Repr, TypeDesc};
 
+#[cfg(feature = "gc-profile")]
+pub mod diagnostics;
+
 #[repr(C)]
 pub struct Header {
     pub desc: *const TypeDesc,
@@ -600,25 +603,50 @@ pub fn barrier(o: u64) {
 pub fn collect() {
     let started = std::time::Instant::now();
     // several workers: wait until none executes compiled code
+    #[cfg(feature = "gc-profile")]
+    let mut profile = diagnostics::Collection::new();
     crate::task::stop_the_world();
-    collect_inner();
+    #[cfg(feature = "gc-profile")]
+    profile.phase("stop_world");
+    collect_inner(
+        #[cfg(feature = "gc-profile")]
+        &mut profile,
+    );
     crate::task::resume_the_world();
+    #[cfg(feature = "gc-profile")]
+    {
+        profile.phase("resume_world");
+        profile.finish();
+    }
     let h = heap();
     let ns = started.elapsed().as_nanos() as u64;
     h.pause_total += ns;
     h.pause_max = h.pause_max.max(ns);
 }
 
-fn collect_inner() {
+fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Collection) {
+    #[cfg(feature = "gc-profile")]
+    {
+        profile.snapshot("objects_before", all_objects().count());
+        profile.snapshot("external_before", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("pool_before", pool_reserved_bytes());
+        profile.snapshot("pressure_managed", ALLOCATED.load(Ordering::Relaxed));
+        profile.snapshot("pressure_external", EXTERNAL_PRESSURE.load(Ordering::Relaxed));
+    }
     let h = heap();
     h.collections += 1;
+    #[cfg(feature = "gc-profile")]
+    profile.snapshot("collection", h.collections);
     EXTERNAL_PRESSURE.store(0, Ordering::Relaxed);
     let sticky = generational();
     // (collection stress: a full collection every 16th, so dead old objects
     // do not pile up between the many minor ones)
     let budget_full = BUDGET_FULL.swap(false, Ordering::Relaxed);
+    let max_minors = MAX_CONSECUTIVE_MINORS;
+    #[cfg(feature = "gc-profile")]
+    let max_minors = diagnostics::max_minors(max_minors);
     let minor = sticky
-        && h.minor_collections < MAX_CONSECUTIVE_MINORS
+        && h.minor_collections < max_minors
         && OLD_BYTES.load(Ordering::Relaxed) < MAJOR_AT.load(Ordering::Relaxed)
         && !(stress() && h.collections.is_multiple_of(16))
         && !budget_full;
@@ -668,6 +696,11 @@ fn collect_inner() {
         }
         stack.push(w);
     };
+    #[cfg(feature = "gc-profile")]
+    {
+        profile.snapshot("minor", minor as usize);
+        profile.phase("prepare");
+    }
     // roots
     for &g in &h.globals {
         let w = unsafe { *g };
@@ -690,6 +723,11 @@ fn collect_inner() {
         check(w, &|| "a task root (stack frame, entry, result, or held value)".into());
         mark(w, &mut stack)
     });
+    #[cfg(feature = "gc-profile")]
+    {
+        profile.snapshot("remembered", remembered.len());
+        profile.phase("roots");
+    }
     for &o in &remembered {
         unsafe { (*(o as *mut Header)).meta &= !REMEMBERED };
         if minor {
@@ -709,14 +747,20 @@ fn collect_inner() {
         });
         stack = pending;
     }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("trace");
     if !minor {
         crate::list::clear_unmarked_directory_pages();
     }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("weak_pages");
     // (under collection stress, a sample: a missed barrier also shows as a
     // use of a poisoned freed object)
     if minor && checking && (!stress() || h.collections.is_multiple_of(64)) {
         verify_minor(h);
     }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("verify");
     // sweep each worker's list in place: a minor collection only its young
     // objects; survivors keep their marks (old) when collection is
     // generational
@@ -725,6 +769,8 @@ fn collect_inner() {
     let mut live = 0usize;
     let lists: Vec<usize> = (0..crate::task::MAX_WORKERS).filter(|&w| objects(w).len() > from(w)).collect();
     let total: usize = lists.iter().map(|&w| objects(w).len() - from(w)).sum();
+    #[cfg(feature = "gc-profile")]
+    profile.snapshot("swept", total);
     if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
         let starts: Vec<usize> = lists.iter().map(|&w| from(w)).collect();
         live = sweep_parallel(&lists, &starts, sticky);
@@ -756,6 +802,8 @@ fn collect_inner() {
             );
         }
     }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("sweep_finalize");
     for (w, start) in YOUNG_START.iter().enumerate() {
         start.store(objects(w).len(), Ordering::Relaxed);
     }
@@ -771,7 +819,13 @@ fn collect_inner() {
     for (wl, c) in COUNTS.iter().enumerate() {
         c.0.store(objects(wl).len(), Ordering::Relaxed);
     }
-    if !minor {
+    #[cfg(feature = "gc-profile")]
+    profile.phase("accounting");
+    #[cfg(not(feature = "gc-profile"))]
+    let trim = true;
+    #[cfg(feature = "gc-profile")]
+    let trim = diagnostics::trim();
+    if !minor && trim {
         trim_empty_chunks(h);
         if h.temp_roots.capacity() > h.temp_roots.len().max(4096) * 4 {
             h.temp_roots.shrink_to(h.temp_roots.len().max(4096));
@@ -783,6 +837,8 @@ fn collect_inner() {
             }
         }
     }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("trim");
     // every worker is stopped: their unpublished debt is part of `live`
     for d in &DEBT {
         d.0.store(0, Ordering::Relaxed);
@@ -801,13 +857,24 @@ fn collect_inner() {
         // the young generation's budget: a minor collection after this much
         // allocation (its cost is the young survivors, not the heap)
         ALLOCATED.store(0, Ordering::Relaxed);
-        THRESHOLD.store((old / 2).clamp(16 << 20, 256 << 20), Ordering::Relaxed);
+        let young_bytes = (old / 2).clamp(16 << 20, 256 << 20);
+        #[cfg(feature = "gc-profile")]
+        let young_bytes = diagnostics::young_bytes(young_bytes);
+        THRESHOLD.store(young_bytes, Ordering::Relaxed);
     } else {
         h.live = live;
         ALLOCATED.store(live, Ordering::Relaxed);
         THRESHOLD.store((live * 2).max(16 << 20), Ordering::Relaxed);
     }
     MINOR_COLLECTION.store(false, Ordering::Relaxed);
+    #[cfg(feature = "gc-profile")]
+    {
+        profile.snapshot("objects_after", all_objects().count());
+        profile.snapshot("external_after", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("pool_after", pool_reserved_bytes());
+        profile.snapshot("managed_live", h.live);
+        profile.phase("finish");
+    }
 }
 
 /// Whole chunks with neither live nor quarantined cells can be released.
@@ -976,7 +1043,13 @@ fn sweep_parallel(lists: &[usize], starts: &[usize], sticky: bool) -> usize {
         let handles: Vec<_> = lists[1..]
             .iter()
             .zip(&starts[1..])
-            .map(|(&wl, &st)| sc.spawn(move || Send(sweep(wl, st))))
+            .map(|(&wl, &st)| {
+                sc.spawn(move || {
+                    #[cfg(feature = "gc-profile")]
+                    crate::profile::start_thread();
+                    Send(sweep(wl, st))
+                })
+            })
             .collect();
         let mut out = vec![sweep(lists[0], starts[0])];
         out.extend(handles.into_iter().map(|h| h.join().expect("sweep thread").0));

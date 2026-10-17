@@ -1,0 +1,88 @@
+// Allocation, survival and pipeline shapes omitted by read-only microbenchmarks.
+import std.array
+import std.buffer
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.list
+import std.map
+import std.seq
+import std.text
+import std.time
+
+type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
+
+fn buffers(c: Config, narrow: Bool) -> Int {
+    var total = 0
+    if narrow {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U8])) })
+        for i in 0..c.n {
+            let value = U8.try_from(i % 251).unwrap_or(0U8)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U8)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    } else {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U64])) })
+        for i in 0..c.n {
+            let value = U64.try_from(i % 251).unwrap_or(0U64)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U64)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    }
+    total
+}
+
+fn snapshots(c: Config) -> Int {
+    var current: Map<Int, String> = map.empty()
+    let history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, String>()) })
+    var total = 0
+    for i in 0..c.n {
+        current = current.insert(i % 1024, text.repeat("x", c.payload + i % 3))
+        total = total + current.get(i % 1024).unwrap_or("").len()
+        if i % 64 == 0 { history[(i / 64) % c.retain].set(current) }
+    }
+    for old in history { total = total + old.get().len() }
+    total + current.len()
+}
+
+fn pipeline(c: Config) -> Int {
+    var total = 0
+    for _ in 0..c.rounds {
+        if c.mode == "visible" {
+            total = total + seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "stored" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "collected" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).collect()
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else {
+            let values = seq.range(0, c.n).collect().map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        }
+    }
+    total
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c = match codec.decode_text<Config>(env.get("GC_BENCH_CONFIG").unwrap_or("")) {
+        .ok(c) => c,
+        .err(_) => panic("invalid GC_BENCH_CONFIG"),
+    }
+    assert(c.n > 0 && c.rounds > 0 && c.payload > 0 && c.retain > 0)
+    let before = inspect.heap()
+    let start = time.now()
+    let checksum = if c.mode == "bytes" { buffers(c, true) }
+    else if c.mode == "words" { buffers(c, false) }
+    else if c.mode == "snapshots" { snapshots(c) }
+    else { pipeline(c) }
+    let elapsed_ns = time.as_nanos(time.now() - start)
+    let after = inspect.heap()
+    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after }))?
+    ok(())
+}

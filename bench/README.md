@@ -68,3 +68,8 @@ python3 bench/telemetry.py --workers 1 2 4 8 --out reports/telemetry/run
 
 This workload has its own runner; `baseline.py` keeps the existing microbenchmark
 suite. `cargo test` checks `telemetry.lang` along with the other benchmark sources.
+
+GC profiling and broader allocation/pipeline coverage are documented in
+[gc/README.md](gc/README.md). The suite separates ordinary timing from optional
+collector diagnostics and includes construction, survivor windows, retained map
+snapshots, and stored/collected pipelines.
