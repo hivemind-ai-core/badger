@@ -2,19 +2,12 @@
 
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::{self, Roots};
-use crate::intrinsics::{Targs, rdesc, targ};
+use crate::intrinsics::{rdesc, targ};
 use crate::intrinsics_io::io_ok;
 use crate::string::{new_string, str_of};
-use crate::task::TaskCtx;
 use crate::{list, make_variant, map};
 
-fn some(ret: &'static TypeDesc, w: u64) -> u64 {
-    make_variant(ret, "some", &[w])
-}
-
-fn none(ret: &'static TypeDesc) -> u64 {
-    make_variant(ret, "none", &[])
-}
+use crate::intrinsics::{none, some};
 
 fn bool_w(b: bool) -> u64 {
     b as u64
@@ -22,14 +15,7 @@ fn bool_w(b: bool) -> u64 {
 
 /// Descriptor of `List<String>` style results: the `ret` itself.
 fn strings_to_list<S: AsRef<str>>(ret: &'static TypeDesc, items: impl IntoIterator<Item = S>) -> u64 {
-    let r = Roots::new();
-    let l = r.add(list::new(ret));
-    for s in items {
-        let item = Roots::new();
-        let w = item.add(new_string(s.as_ref()));
-        list::push(l, w);
-    }
-    l
+    crate::intrinsics::strings(ret, items)
 }
 
 /// Atomic access to an `Atom<T>`'s value field (payload offset 0).
@@ -70,19 +56,7 @@ fn atomic_cas(r: crate::desc::Repr, p: *mut u8, old: u64, new: u64) -> bool {
     }
 }
 
-macro_rules! std_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-std_intrinsics! {
+define_intrinsics! {
     // ---------------------------------------------------------------- errors
     // default `Error.code`: the variant name of an enum, else the type name
     fn error_code(ctx, targs, ret, v) {

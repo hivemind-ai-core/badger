@@ -12,10 +12,9 @@ use std::io::Write;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
-use crate::desc::TypeDesc;
-use crate::intrinsics::{Targs, rdesc, targ};
+use crate::intrinsics::{rdesc, targ};
 use crate::string::{new_string, str_of};
-use crate::task::{self, TaskCtx};
+use crate::task::{self};
 
 pub const TRACE: u8 = 0;
 pub const DEBUG: u8 = 1;
@@ -595,29 +594,9 @@ pub fn otlp_metrics(service: &str) -> Option<String> {
 }
 
 /// A `List<String>` of `items`.
-fn strings(list_desc: &'static TypeDesc, items: Vec<String>) -> u64 {
-    let g = crate::gc::Roots::new();
-    let l = g.add(crate::list::new(list_desc));
-    for r in items {
-        let s = g.add(new_string(&r));
-        crate::list::push(l, s);
-    }
-    l
-}
+use crate::intrinsics::strings;
 
-macro_rules! log_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-log_intrinsics! {
+define_intrinsics! {
     fn log_enabled(ctx, targs, ret, level) { enabled(level as u8) as u64 }
     fn log_emit(ctx, targs, ret, level, message, fields) {
         if enabled(level as u8) {

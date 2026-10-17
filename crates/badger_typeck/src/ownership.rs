@@ -376,15 +376,7 @@ fn carries_code(g: &crate::program::Global<'_>, t: &Ty, seen: &mut Vec<DefId>) -
                 return false;
             }
             seen.push(*d);
-            let fields: Vec<Ty> = if let Some(e) = g.env.enums.get(d) {
-                (0..e.variants.len())
-                    .flat_map(|v| g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
-                    .collect()
-            } else if g.env.structs.contains_key(d) {
-                g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
-            } else {
-                vec![]
-            };
+            let fields: Vec<Ty> = g.env.field_types(*d, args).unwrap_or_default();
             let r = fields.iter().any(|f| carries_code(g, f, seen));
             seen.pop();
             r
@@ -890,73 +882,12 @@ fn match_gens(s: &Ty, t: &Ty, out: &mut Vec<(u32, Ty)>) {
 }
 
 fn pat_locals(hir: &badger_hir::Hir, p: PatId, out: &mut Vec<LocalId>) {
-    match &hir.pats[p].kind {
-        PatKind::Bind(l) => out.push(*l),
-        PatKind::Tuple(ps) => ps.iter().for_each(|x| pat_locals(hir, *x, out)),
-        PatKind::Record { fields, .. } => fields.iter().for_each(|(_, x)| pat_locals(hir, *x, out)),
-        PatKind::Variant { args, .. } => args.iter().for_each(|x| pat_locals(hir, *x, out)),
-        _ => {}
-    }
+    hir.pat_binders(p, out)
 }
 
 /// Direct sub-expressions of an expression.
 fn children(kind: &ExprKind) -> Vec<ExprId> {
-    let mut v = vec![];
-    match kind {
-        ExprKind::Interp(parts) => {
-            for p in parts {
-                if let InterpPart::Expr(x) = p {
-                    v.push(*x);
-                }
-            }
-        }
-        ExprKind::Field { base, .. } => v.push(*base),
-        ExprKind::Index { base, index } => v.extend([*base, *index]),
-        ExprKind::Call { callee, args } => {
-            v.push(*callee);
-            v.extend(args.iter().copied());
-        }
-        ExprKind::MethodCall { recv, args, .. } => {
-            v.push(*recv);
-            v.extend(args.iter().copied());
-        }
-        ExprKind::Try(x) | ExprKind::Unsafe(x) | ExprKind::Loop { body: x } => v.push(*x),
-        ExprKind::Unary { operand, .. } => v.push(*operand),
-        ExprKind::Binary { lhs, rhs, .. } => v.extend([*lhs, *rhs]),
-        ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => v.extend(xs.iter().copied()),
-        ExprKind::Map(kv) => kv.iter().for_each(|(k, x)| v.extend([*k, *x])),
-        ExprKind::Record { spread, fields } => {
-            v.extend(spread.iter().copied());
-            v.extend(fields.iter().map(|f| f.2));
-        }
-        ExprKind::Lambda(l) => v.push(l.body),
-        ExprKind::If { cond, then, els } => {
-            v.extend([*cond, *then]);
-            v.extend(els.iter().copied());
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            v.push(*scrutinee);
-            for a in arms {
-                v.extend(a.guard.iter().copied());
-                v.push(a.body);
-            }
-        }
-        ExprKind::While { cond, body } => v.extend([*cond, *body]),
-        ExprKind::For { iter, body, .. } => v.extend([*iter, *body]),
-        ExprKind::Block { stmts, tail } => {
-            for s in stmts {
-                match s {
-                    Stmt::Let { init, .. } => v.push(*init),
-                    Stmt::Assign { value, .. } => v.push(*value),
-                    Stmt::Expr { expr, .. } => v.push(*expr),
-                }
-            }
-            v.extend(tail.iter().copied());
-        }
-        ExprKind::Return { value, .. } | ExprKind::Break { value, .. } => v.extend(value.iter().copied()),
-        _ => {}
-    }
-    v
+    kind.children()
 }
 
 impl Own<'_, '_, '_> {

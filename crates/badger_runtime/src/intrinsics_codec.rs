@@ -23,19 +23,7 @@ fn decode_result(ret: &'static TypeDesc, r: Result<u64, codec::DecodeError>) -> 
     }
 }
 
-macro_rules! codec_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-codec_intrinsics! {
+define_intrinsics! {
     fn wire_encode(ctx, targs, ret, names, aliases, v) {
         let w = wire_names(names, aliases);
         codec::with_wire(w, || new_string(&codec::encode(targ(targs, 0), v)))

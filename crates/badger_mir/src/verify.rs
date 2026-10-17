@@ -35,14 +35,8 @@ fn verify_func(prog: &Program, _fid: FuncId, f: &Func, out: &mut Vec<String>) {
             continue;
         }
         reach[b.index()] = true;
-        match &f.blocks[b].term {
-            Some(Term::Goto(t)) => stack.push(*t),
-            Some(Term::Branch(_, a, c)) => stack.extend([*a, *c]),
-            Some(Term::Switch(_, cases, d)) => {
-                stack.extend(cases.iter().map(|c| c.1));
-                stack.push(*d);
-            }
-            _ => {}
+        if let Some(t) = &f.blocks[b].term {
+            stack.extend(t.successors());
         }
     }
     for (b, block) in f.blocks.iter_enumerated() {

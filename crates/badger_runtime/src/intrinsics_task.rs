@@ -115,19 +115,7 @@ fn send_result(ret: *const TypeDesc, v: u64, r: SendResult) -> u64 {
     }
 }
 
-macro_rules! task_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-task_intrinsics! {
+define_intrinsics! {
     // ---------------------------------------------------------------- scopes & tasks
     fn scope_open(ctx, targs, ret) { scope::open() }
     fn scope_close(ctx, targs, ret, s, cancel) { scope::close(s, cancel & 1 != 0); 0 }

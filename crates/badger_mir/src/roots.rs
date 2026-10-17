@@ -49,12 +49,7 @@ impl Bits {
 }
 
 fn successors(t: &Option<Term>) -> Vec<BlockId> {
-    match t {
-        Some(Term::Goto(x)) => vec![*x],
-        Some(Term::Branch(_, a, b)) => vec![*a, *b],
-        Some(Term::Switch(_, cases, d)) => cases.iter().map(|c| c.1).chain([*d]).collect(),
-        _ => vec![],
-    }
+    t.as_ref().map(Term::successors).unwrap_or_default()
 }
 
 fn term_uses(t: &Option<Term>) -> Vec<&Operand> {

@@ -1267,6 +1267,20 @@ impl TypeEnv {
         info.variants[variant as usize].fields.iter().map(|(l, t)| (*l, subst_gen(t, args))).collect()
     }
 
+    /// The field types of a struct, or of every variant of an enum, at
+    /// `args`; `None` for other type constructors.
+    pub fn field_types(&self, d: DefId, args: &[Ty]) -> Option<Vec<Ty>> {
+        if let Some(e) = self.enums.get(&d) {
+            let n = e.variants.len();
+            return Some(
+                (0..n)
+                    .flat_map(|v| self.variant_fields(d, v as u32, args).into_iter().map(|f| f.1))
+                    .collect(),
+            );
+        }
+        self.structs.contains_key(&d).then(|| self.struct_fields(d, args).into_iter().map(|f| f.1).collect())
+    }
+
     pub fn struct_fields(&self, def: DefId, args: &[Ty]) -> Vec<(Symbol, Ty, bool)> {
         self.structs[&def].fields.iter().map(|(l, t, p)| (*l, subst_gen(t, args), *p)).collect()
     }

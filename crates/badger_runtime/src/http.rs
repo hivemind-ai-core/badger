@@ -6,10 +6,9 @@ use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
-use crate::desc::TypeDesc;
-use crate::intrinsics::{Targs, rdesc};
+use crate::intrinsics::rdesc;
 use crate::string::{bytes_of, new_string, str_of};
-use crate::task::{self, TaskCtx, TaskId};
+use crate::task::{self, TaskId};
 use crate::{list, make_record};
 
 /// Explicit request limits: body and header sizes, and bounded admission
@@ -64,19 +63,7 @@ fn reg() -> &'static mut Registry {
     }
 }
 
-macro_rules! http_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
-
-http_intrinsics! {
+define_intrinsics! {
     fn http_default_limits(ctx, targs, ret) {
         let lim = default_limits();
         make_record(rdesc(ret), &[

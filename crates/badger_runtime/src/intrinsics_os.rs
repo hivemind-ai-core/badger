@@ -2,19 +2,12 @@
 
 use crate::desc::TypeDesc;
 use crate::gc::Roots;
-use crate::intrinsics::{Targs, rdesc};
+use crate::intrinsics::rdesc;
 use crate::intrinsics_io::{io_err_msg, io_ok};
 use crate::string::{bytes_of, new_bytes, new_string, str_of};
-use crate::task::TaskCtx;
 use crate::{list, make_record, make_variant};
 
-fn some(ret: &'static TypeDesc, w: u64) -> u64 {
-    make_variant(ret, "some", &[w])
-}
-
-fn none(ret: &'static TypeDesc) -> u64 {
-    make_variant(ret, "none", &[])
-}
+use crate::intrinsics::{none, some, strings};
 
 fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
     match s {
@@ -24,16 +17,6 @@ fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
         }
         None => none(ret),
     }
-}
-
-fn strings(ret: &'static TypeDesc, v: Vec<String>) -> u64 {
-    let r = Roots::new();
-    let l = r.add(list::new(ret));
-    for s in v {
-        let w = r.add(new_string(&s));
-        list::push(l, w);
-    }
-    l
 }
 
 /// Deterministic random source state (xorshift64*).
@@ -55,18 +38,6 @@ static RNGS: std::sync::Mutex<Vec<Rng>> = std::sync::Mutex::new(Vec::new());
 
 /// Manual (controlled) clock for tests: `None` = real monotonic clock.
 pub static MANUAL_CLOCK: std::sync::Mutex<Option<i64>> = std::sync::Mutex::new(None);
-
-macro_rules! os_intrinsics {
-    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
-        $(
-            #[allow(unused_variables)]
-            pub extern "C" fn $name($ctx: *mut TaskCtx, $targs: Targs, $ret: *const TypeDesc $(, $arg: u64)*) -> u64 $body
-        )*
-        pub fn symbols() -> Vec<(&'static str, *const u8)> {
-            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
-        }
-    };
-}
 
 /// A compiled pattern, from a bounded cache (patterns are usually literals
 /// used again and again).
@@ -98,7 +69,7 @@ fn pattern(p: u64) -> regex::Regex {
     }
 }
 
-os_intrinsics! {
+define_intrinsics! {
     // ---------------------------------------------------------------- path
     fn path_join(ctx, targs, ret, a, b) {
         new_string(&std::path::Path::new(str_of(a)).join(str_of(b)).to_string_lossy())
@@ -113,7 +84,7 @@ os_intrinsics! {
         opt_string(rdesc(ret), std::path::Path::new(str_of(p)).extension().map(|x| x.to_string_lossy().into_owned()))
     }
     fn path_components(ctx, targs, ret, p) {
-        let v = std::path::Path::new(str_of(p)).components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+        let v: Vec<String> = std::path::Path::new(str_of(p)).components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
         strings(rdesc(ret), v)
     }
 
@@ -282,7 +253,7 @@ os_intrinsics! {
     }
     fn regex_replace_all(ctx, targs, ret, pat, s, rep) { new_string(&pattern(pat).replace_all(str_of(s), str_of(rep))) }
     fn regex_find_all(ctx, targs, ret, pat, s) {
-        let v = pattern(pat).find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect();
+        let v: Vec<String> = pattern(pat).find_iter(str_of(s)).map(|m| m.as_str().to_string()).collect();
         strings(rdesc(ret), v)
     }
 

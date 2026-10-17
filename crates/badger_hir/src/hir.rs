@@ -41,6 +41,17 @@ pub struct Hir {
 }
 
 impl Hir {
+    /// The locals a pattern binds, in order.
+    pub fn pat_binders(&self, p: PatId, out: &mut Vec<LocalId>) {
+        match &self.pats[p].kind {
+            PatKind::Bind(l) => out.push(*l),
+            PatKind::Tuple(ps) => ps.iter().for_each(|x| self.pat_binders(*x, out)),
+            PatKind::Record { fields, .. } => fields.iter().for_each(|(_, x)| self.pat_binders(*x, out)),
+            PatKind::Variant { args, .. } => args.iter().for_each(|x| self.pat_binders(*x, out)),
+            PatKind::Discard | PatKind::Lit(_) | PatKind::Error => {}
+        }
+    }
+
     pub fn lang(&self, name: &str) -> DefId {
         *self.lang.get(name).unwrap_or_else(|| panic!("missing lang item `{name}`"))
     }
@@ -490,6 +501,99 @@ pub enum ExprKind {
     },
     Unsafe(ExprId),
     Error,
+}
+
+impl ExprKind {
+    /// Each subexpression this expression holds directly, in evaluation
+    /// order (the one walk every pass shares: a new kind must say here what
+    /// it contains).
+    pub fn for_each_child(&self, mut f: impl FnMut(ExprId)) {
+        match self {
+            ExprKind::Interp(parts) => {
+                for p in parts {
+                    if let InterpPart::Expr(x) = p {
+                        f(*x)
+                    }
+                }
+            }
+            ExprKind::Field { base, .. } => f(*base),
+            ExprKind::Index { base, index } => {
+                f(*base);
+                f(*index)
+            }
+            ExprKind::Call { callee: x, args } | ExprKind::MethodCall { recv: x, args, .. } => {
+                f(*x);
+                args.iter().for_each(|a| f(*a))
+            }
+            ExprKind::Try(x)
+            | ExprKind::Unary { operand: x, .. }
+            | ExprKind::Unsafe(x)
+            | ExprKind::Loop { body: x } => f(*x),
+            ExprKind::Binary { lhs, rhs, .. } => {
+                f(*lhs);
+                f(*rhs)
+            }
+            ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => xs.iter().for_each(|x| f(*x)),
+            ExprKind::Record { spread, fields } => {
+                spread.iter().for_each(|x| f(*x));
+                fields.iter().for_each(|fl| f(fl.2))
+            }
+            ExprKind::Map(kv) => {
+                for (k, v) in kv {
+                    f(*k);
+                    f(*v)
+                }
+            }
+            ExprKind::Lambda(l) => f(l.body),
+            ExprKind::If { cond, then, els } => {
+                f(*cond);
+                f(*then);
+                els.iter().for_each(|x| f(*x))
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                f(*scrutinee);
+                for a in arms {
+                    a.guard.iter().for_each(|g| f(*g));
+                    f(a.body)
+                }
+            }
+            ExprKind::While { cond, body } => {
+                f(*cond);
+                f(*body)
+            }
+            ExprKind::For { iter, body, .. } => {
+                f(*iter);
+                f(*body)
+            }
+            ExprKind::Block { stmts, tail } => {
+                for s in stmts {
+                    match s {
+                        Stmt::Let { init: x, .. }
+                        | Stmt::Assign { value: x, .. }
+                        | Stmt::Expr { expr: x, .. } => f(*x),
+                    }
+                }
+                tail.iter().for_each(|x| f(*x))
+            }
+            ExprKind::Return { value, .. } | ExprKind::Break { value, .. } => {
+                value.iter().for_each(|x| f(*x))
+            }
+            ExprKind::Lit(_)
+            | ExprKind::Local(_)
+            | ExprKind::Def { .. }
+            | ExprKind::Ctor { .. }
+            | ExprKind::AssocFn { .. }
+            | ExprKind::Continue { .. }
+            | ExprKind::Error => {}
+        }
+    }
+
+    /// [`ExprKind::for_each_child`], collected.
+    pub fn children(&self) -> Vec<ExprId> {
+        let mut v = vec![];
+        self.for_each_child(|x| v.push(x));
+        v
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -8,31 +8,6 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::mir::{Const, Func, Local, Operand, Repr, Rvalue, Stmt, Term};
 
-fn operands(rv: &Rvalue) -> Vec<Operand> {
-    match rv {
-        Rvalue::Use(a) | Rvalue::Not(a) | Rvalue::ToWord(a) | Rvalue::Tag(a) => vec![*a],
-        Rvalue::Neg { a, .. }
-        | Rvalue::Convert { a, .. }
-        | Rvalue::Fits { a, .. }
-        | Rvalue::FromWord { a, .. } => vec![*a],
-        Rvalue::Bin { a, b, .. } | Rvalue::Cmp { a, b, .. } | Rvalue::Overflows { a, b, .. } => vec![*a, *b],
-        Rvalue::Load { base, .. } => vec![*base],
-        Rvalue::Call { callee, args, .. } => {
-            let mut v = args.clone();
-            if let crate::mir::Callee::Closure(c) = callee {
-                v.push(*c);
-            }
-            v
-        }
-        Rvalue::Concat(xs) => xs.clone(),
-        Rvalue::Alloc { .. }
-        | Rvalue::GlobalLoad(_)
-        | Rvalue::GlobalAddr(_)
-        | Rvalue::FuncAddr(_)
-        | Rvalue::AdapterAddr(_) => vec![],
-    }
-}
-
 pub fn scalar_replace(f: &mut Func) {
     // definitions per local
     let mut defs: FxHashMap<Local, usize> = FxHashMap::default();
@@ -113,7 +88,7 @@ pub fn scalar_replace(f: &mut Func) {
                     note(group[m], *offset, *repr, &mut fields, &mut conflict);
                 }
                 Stmt::Assign(_, rv) => {
-                    for op in operands(rv) {
+                    for op in rv.operands() {
                         esc(&op, &mut escaped);
                     }
                 }

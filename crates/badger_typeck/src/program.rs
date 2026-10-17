@@ -1083,15 +1083,7 @@ pub(crate) fn stored_state(g: &Global, t: &Ty, seen: &mut Vec<DefId>) -> Option<
                 return None;
             }
             seen.push(*d);
-            let parts: Vec<Ty> = if let Some(e) = g.env.enums.get(d) {
-                (0..e.variants.len())
-                    .flat_map(|v| g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
-                    .collect()
-            } else if g.env.structs.contains_key(d) {
-                g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
-            } else {
-                args.clone()
-            };
+            let parts: Vec<Ty> = g.env.field_types(*d, args).unwrap_or_else(|| args.clone());
             let r = parts.iter().find_map(|p| stored_state(g, p, seen));
             seen.pop();
             r
@@ -1288,15 +1280,7 @@ fn nominal_heads(g: &Global, t: &Ty, out: &mut Vec<DefId>) {
                 return;
             }
             out.push(*d);
-            let parts: Vec<Ty> = if let Some(e) = g.env.enums.get(d) {
-                (0..e.variants.len())
-                    .flat_map(|v| g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
-                    .collect()
-            } else if g.env.structs.contains_key(d) {
-                g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
-            } else {
-                args.clone()
-            };
+            let parts: Vec<Ty> = g.env.field_types(*d, args).unwrap_or_else(|| args.clone());
             for p in parts {
                 nominal_heads(g, &p, out);
             }
@@ -2060,113 +2044,9 @@ pub fn collect_def_refs(hir: &Hir, e: ExprId, out: &mut Vec<DefId>) {
 /// Visit every expression in a tree (pre-order).
 pub fn walk_exprs(hir: &Hir, e: ExprId, f: &mut impl FnMut(ExprId)) {
     f(e);
-    let go = |x: ExprId, f: &mut dyn FnMut(ExprId)| walk_exprs_dyn(hir, x, f);
-    match &hir.exprs[e].kind {
-        ExprKind::Interp(parts) => {
-            for p in parts {
-                if let badger_hir::InterpPart::Expr(x) = p {
-                    go(*x, f);
-                }
-            }
-        }
-        ExprKind::Field { base, .. } => go(*base, f),
-        ExprKind::Index { base, index } => {
-            go(*base, f);
-            go(*index, f);
-        }
-        ExprKind::Call { callee, args } => {
-            go(*callee, f);
-            for a in args {
-                go(*a, f);
-            }
-        }
-        ExprKind::MethodCall { recv, args, .. } => {
-            go(*recv, f);
-            for a in args {
-                go(*a, f);
-            }
-        }
-        ExprKind::Try(x)
-        | ExprKind::Unary { operand: x, .. }
-        | ExprKind::Unsafe(x)
-        | ExprKind::Loop { body: x } => go(*x, f),
-        ExprKind::Binary { lhs, rhs, .. } => {
-            go(*lhs, f);
-            go(*rhs, f);
-        }
-        ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => {
-            for x in xs {
-                go(*x, f);
-            }
-        }
-        ExprKind::Record { spread, fields } => {
-            if let Some(s) = spread {
-                go(*s, f);
-            }
-            for (_, _, x) in fields {
-                go(*x, f);
-            }
-        }
-        ExprKind::Map(kv) => {
-            for (k, v) in kv {
-                go(*k, f);
-                go(*v, f);
-            }
-        }
-        ExprKind::Lambda(l) => go(l.body, f),
-        ExprKind::If { cond, then, els } => {
-            go(*cond, f);
-            go(*then, f);
-            if let Some(x) = els {
-                go(*x, f);
-            }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            go(*scrutinee, f);
-            for a in arms {
-                if let Some(g) = a.guard {
-                    go(g, f);
-                }
-                go(a.body, f);
-            }
-        }
-        ExprKind::While { cond, body } => {
-            go(*cond, f);
-            go(*body, f);
-        }
-        ExprKind::For { iter, body, .. } => {
-            go(*iter, f);
-            go(*body, f);
-        }
-        ExprKind::Block { stmts, tail } => {
-            for s in stmts {
-                match s {
-                    Stmt::Let { init, .. } => go(*init, f),
-                    Stmt::Assign { value, .. } => go(*value, f),
-                    Stmt::Expr { expr, .. } => go(*expr, f),
-                }
-            }
-            if let Some(t) = tail {
-                go(*t, f);
-            }
-        }
-        ExprKind::Return { value, .. } | ExprKind::Break { value, .. } => {
-            if let Some(v) = value {
-                go(*v, f);
-            }
-        }
-        ExprKind::Lit(_)
-        | ExprKind::Local(_)
-        | ExprKind::Def { .. }
-        | ExprKind::Ctor { .. }
-        | ExprKind::AssocFn { .. }
-        | ExprKind::Continue { .. }
-        | ExprKind::Error => {}
+    for c in hir.exprs[e].kind.children() {
+        walk_exprs(hir, c, f);
     }
-}
-
-fn walk_exprs_dyn(hir: &Hir, e: ExprId, f: &mut dyn FnMut(ExprId)) {
-    walk_exprs(hir, e, &mut |x| f(x));
 }
 
 // ------------------------------------------------------------------ instances

@@ -2083,15 +2083,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                     return false;
                 }
                 seen.push(*d);
-                let fields: Vec<Ty> = if let Some(e) = self.g.env.enums.get(d) {
-                    (0..e.variants.len())
-                        .flat_map(|v| self.g.env.variant_fields(*d, v as u32, args).into_iter().map(|f| f.1))
-                        .collect()
-                } else if self.g.env.structs.contains_key(d) {
-                    self.g.env.struct_fields(*d, args).into_iter().map(|f| f.1).collect()
-                } else {
-                    args.clone()
-                };
+                let fields: Vec<Ty> = self.g.env.field_types(*d, args).unwrap_or_else(|| args.clone());
                 let r = fields.iter().any(|f| self.holds_confined(f, seen));
                 seen.pop();
                 r

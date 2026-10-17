@@ -1768,15 +1768,7 @@ impl Infer<'_, '_> {
                 if self.visiting.contains(&d) {
                     return Some(true);
                 }
-                let fields: Vec<Ty> = if let Some(e) = self.g.env.enums.get(&d) {
-                    (0..e.variants.len())
-                        .flat_map(|v| self.g.env.variant_fields(d, v as u32, args).into_iter().map(|f| f.1))
-                        .collect()
-                } else if self.g.env.structs.contains_key(&d) {
-                    self.g.env.struct_fields(d, args).into_iter().map(|f| f.1).collect()
-                } else {
-                    args.clone()
-                };
+                let fields: Vec<Ty> = self.g.env.field_types(d, args).unwrap_or_else(|| args.clone());
                 self.visiting.push(d);
                 let mut result = Some(true);
                 for x in fields {

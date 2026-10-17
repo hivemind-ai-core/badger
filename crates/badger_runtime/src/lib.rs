@@ -18,6 +18,27 @@
 // Entry points take raw words and pointers from compiled code by design.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+/// Runtime intrinsics: `extern "C"` functions compiled code calls as
+/// `badger_rt_i_NAME`, each taking the task context, the call's type
+/// arguments, and the result descriptor before its own (word) arguments;
+/// and `symbols()`, the module's list for the JIT.
+macro_rules! define_intrinsics {
+    ($( fn $name:ident($ctx:ident, $targs:ident, $ret:ident $(, $arg:ident)*) $body:block )*) => {
+        $(
+            #[allow(unused_variables)]
+            pub extern "C" fn $name(
+                $ctx: *mut $crate::task::TaskCtx,
+                $targs: $crate::intrinsics::Targs,
+                $ret: *const $crate::desc::TypeDesc
+                $(, $arg: u64)*
+            ) -> u64 $body
+        )*
+        pub fn symbols() -> Vec<(&'static str, *const u8)> {
+            vec![$((concat!("badger_rt_i_", stringify!($name)), $name as *const u8)),*]
+        }
+    };
+}
+
 pub mod abi;
 pub mod buffer;
 pub mod channel;
