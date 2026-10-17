@@ -11,7 +11,6 @@ import std.set
 import std.task
 import std.text
 import std.time
-import std.trace
 import std.worker
 
 /// A startup or cleanup failure, with cleanup failures attached. When

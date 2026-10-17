@@ -176,6 +176,9 @@ fn run_handler<C, R, E, Eff>(h: Handler<C, R, E, Eff>, ctx: C) -> Unwind<C, R, E
 fn run_stage<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In>
 ```
 
+Enter `stage`, run the rest of the chain, then unwind through this
+stage's leave/error callback exactly once.
+
 ### `stage`
 
 ```badger

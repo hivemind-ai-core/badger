@@ -286,19 +286,6 @@ impl Lower<'_> {
     }
 }
 
-/// Parse a single expression (used by the REPL and tests).
-pub fn parse_expr(
-    file: FileId,
-    src: &str,
-    interner: &mut Interner,
-    diags: &mut Vec<Diagnostic>,
-) -> Result<(Ast, ExprId), ParseError> {
-    let wrapped = format!("let __repl = {src}");
-    let ast = parse(file, &wrapped, interner, diags)?;
-    let ItemKind::Global { value, .. } = ast.items[0].kind else { unreachable!() };
-    Ok((ast, value))
-}
-
 fn describe(r: Rule) -> Option<String> {
     let s = match r {
         Rule::expr => "expression",

@@ -596,7 +596,7 @@ fn command(mut cli: Cli) -> ExitCode {
                     let s: Vec<serde_json::Value> = suggestions.iter().map(|c| c.to_json()).collect();
                     println!(
                         "{}",
-                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s })
+                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s, "diagnostics": diagnostics_json(&session) })
                     );
                 } else {
                     report(&session, false);
@@ -633,7 +633,11 @@ fn command(mut cli: Cli) -> ExitCode {
             let (outcome, clauses) = session.contract_report(&path);
             if json {
                 let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
-                println!("{}", serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v }));
+                // the diagnostics too: a program that does not check says why
+                println!(
+                    "{}",
+                    serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v, "diagnostics": diagnostics_json(&session) })
+                );
             } else {
                 report(&session, false);
                 for c in &clauses {
@@ -1030,74 +1034,39 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
     if check && changed > 0 { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
-/// Interactive session. Definitions (and imports) accumulate, a later
-/// definition replaces an earlier one with the same name, and each
-/// expression is checked and run against the current definitions.
 /// Human-readable rendering of an inspection snapshot (JSON from the
 /// running program's endpoint).
 fn print_snapshot(what: &str, text: &str) {
-    let field = |obj: &str, key: &str| -> String {
-        // small flat-object reader: `"key":value`
-        let pat = format!("\"{key}\":");
-        match obj.find(&pat) {
-            Some(i) => {
-                let rest = &obj[i + pat.len()..];
-                let end = if let Some(quoted) = rest.strip_prefix('"') {
-                    quoted.find('"').map(|j| j + 2).unwrap_or(rest.len())
-                } else if rest.starts_with('[') {
-                    rest.find(']').map(|j| j + 1).unwrap_or(rest.len())
-                } else {
-                    rest.find([',', '}']).unwrap_or(rest.len())
-                };
-                rest[..end].trim_matches('"').to_string()
-            }
-            None => String::new(),
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
+        println!("{text}");
+        return;
+    };
+    // a field as text: strings bare, `null` as `-`, anything else as JSON
+    let field = |o: &serde_json::Value, key: &str| -> String {
+        match &o[key] {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Null => "-".to_string(),
+            other => other.to_string(),
         }
     };
-    let objects = |t: &str| -> Vec<String> {
-        let inner = t.trim().trim_start_matches('[').trim_end_matches(']');
-        let mut out = vec![];
-        let (mut depth, mut start) = (0, None);
-        for (i, c) in inner.char_indices() {
-            match c {
-                '{' => {
-                    if depth == 0 {
-                        start = Some(i);
-                    }
-                    depth += 1;
-                }
-                '}' => {
-                    depth -= 1;
-                    if depth == 0
-                        && let Some(s) = start.take()
-                    {
-                        out.push(inner[s..=i].to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-        out
-    };
+    let items = |v: &serde_json::Value| v.as_array().cloned().unwrap_or_default();
     match what {
         "tasks" => {
             println!(
                 "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} name",
                 "id", "state", "waiting on", "scope", "code", "stack", "stage"
             );
-            for t in objects(text) {
-                let wait = field(&t, "wait");
-                let stage = field(&t, "stage");
-                let stack = field(&t, "stack_resident").parse::<u64>().map(|b| format!("{}K", b / 1024));
+            for t in items(&v) {
+                let stack = t["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
                 println!(
                     "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} {}",
                     field(&t, "id"),
                     field(&t, "state"),
-                    if wait == "null" { "-".to_string() } else { wait },
+                    field(&t, "wait"),
                     field(&t, "scope"),
                     format!("v{}", field(&t, "code_version")),
-                    stack.unwrap_or_else(|_| "-".into()),
-                    if stage == "null" { "-".to_string() } else { stage },
+                    stack.unwrap_or_else(|| "-".into()),
+                    field(&t, "stage"),
                     field(&t, "name")
                 );
             }
@@ -1107,7 +1076,7 @@ fn print_snapshot(what: &str, text: &str) {
                 "{:>5}  {:<7} {:>8} {:>7} {:>7} {:>7}  waiting(s/r)  element",
                 "id", "kind", "capacity", "queued", "staged", "closed"
             );
-            for c in objects(text) {
+            for c in items(&v) {
                 println!(
                     "{:>5}  {:<7} {:>8} {:>7} {:>7} {:>7}  {:>5}/{:<6}  {}",
                     field(&c, "id"),
@@ -1123,10 +1092,9 @@ fn print_snapshot(what: &str, text: &str) {
             }
         }
         "system" => {
-            for s in objects(text) {
+            for s in items(&v) {
                 println!("system {} ({})", field(&s, "id"), field(&s, "state"));
-                let nodes = s.split_once("\"nodes\":").map(|x| x.1).unwrap_or("");
-                for n in objects(nodes) {
+                for n in items(&s["nodes"]) {
                     println!(
                         "  :{} = {} (generation {})",
                         field(&n, "key"),
@@ -1277,6 +1245,11 @@ pub(crate) fn exit_now(code: i32) -> ExitCode {
     // Abandoned task stacks may still be mid-call; process teardown hooks
     // must not run on their behalf.
     unsafe { libc::_exit(code) }
+}
+
+/// The session's diagnostics as JSON (the `check --json` form).
+fn diagnostics_json(session: &Session) -> serde_json::Value {
+    serde_json::from_str(&session.diagnostics.render_json(&session.sources)).unwrap_or_default()
 }
 
 pub(crate) fn report(session: &Session, json: bool) {

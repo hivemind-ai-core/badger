@@ -15,4 +15,4 @@ pub mod layout;
 pub mod parser;
 pub mod spacing;
 
-pub use parser::{ParseError, parse, parse_expr};
+pub use parser::{ParseError, parse};

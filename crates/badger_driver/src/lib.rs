@@ -201,16 +201,21 @@ pub fn overlay_key(path: &Path) -> PathBuf {
     }
 }
 
+/// `n` random bytes from the operating system, as hex.
+pub fn random_hex(n: usize) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut b = vec![0u8; n];
+    std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
+    Ok(b.iter().map(|x| format!("{x:02x}")).collect())
+}
+
 /// A new temporary directory only this user can use, with an
 /// unpredictable name (never an existing directory or a symlink), removed
 /// when the process exits.
 pub fn private_temp_dir(prefix: &str) -> std::io::Result<PathBuf> {
-    use std::io::Read;
     use std::os::unix::fs::DirBuilderExt;
     for _ in 0..16 {
-        let mut b = [0u8; 8];
-        std::fs::File::open("/dev/urandom")?.read_exact(&mut b)?;
-        let suffix: String = b.iter().map(|x| format!("{x:02x}")).collect();
+        let suffix = random_hex(8)?;
         let dir = std::env::temp_dir().join(format!("{prefix}-{suffix}"));
         match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
             Ok(()) => {

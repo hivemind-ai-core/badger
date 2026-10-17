@@ -321,12 +321,10 @@ pub fn inspect_token_path(addr: &str) -> Option<PathBuf> {
     Some(dir.join(format!("{name}.token")))
 }
 
-fn random_token() -> String {
-    let mut b = [0u8; 16];
-    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
-        let _ = f.read_exact(&mut b);
-    }
-    b.iter().map(|x| format!("{x:02x}")).collect()
+/// The endpoint's secret: without one it does not serve (it can evaluate
+/// code), rather than serve under a guessable one.
+fn random_token() -> std::io::Result<String> {
+    crate::random_hex(16)
 }
 
 fn publish_token(addr: &str, token: &str) {
@@ -361,7 +359,7 @@ fn token_for(addr: &str) -> String {
 /// steps (running programs answer at their next poll).
 pub fn serve(addr: &str, entry: PathBuf, optimize: bool) -> Result<(), String> {
     let listener = TcpListener::bind(addr).map_err(|e| format!("cannot listen on {addr}: {e}"))?;
-    let token = random_token();
+    let token = random_token().map_err(|e| format!("cannot make an access token: {e}"))?;
     TOKENS.lock().unwrap().push((addr.to_string(), token.clone()));
     publish_token(addr, &token);
     let q = badger_runtime::task::external_queue();

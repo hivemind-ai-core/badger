@@ -52,11 +52,6 @@ impl Diagnostic {
         self
     }
 
-    pub fn with_scope(mut self, scope: impl Into<String>) -> Self {
-        self.scope = Some(scope.into());
-        self
-    }
-
     pub fn with_related(mut self, name: impl Into<String>, span: Span) -> Self {
         self.related.push((name.into(), span));
         self
@@ -127,10 +122,6 @@ impl Diagnostics {
 
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
-    }
-
-    pub fn error_count(&self) -> usize {
-        self.items.iter().filter(|d| d.severity == Severity::Error).count()
     }
 
     pub fn has_errors(&self) -> bool {
