@@ -1,0 +1,12 @@
+unwrap_or_else 4 99, fallback ran 1 time(s)
+ok_or_else 1 missing, error built 1 time(s)
+and_then 2 true
+or_else 5 or 6
+filter true false
+flatten 7 true
+transpose 2 true
+zip true false to_list [3]
+result and_then 30 or_else 0
+unwrap_or_else 5 value 2 error empty
+flatten 3
+transpose true

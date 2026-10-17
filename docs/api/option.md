@@ -6,6 +6,30 @@ Option helpers.
 
 ## Functions
 
+### `and_then`
+
+```lang
+fn and_then<T, U>(o: Option<T>, f: once fn(T) -> Option<U>) -> Option<U>
+```
+
+Chain an optional step: `f` runs only on a value.
+
+### `filter`
+
+```lang
+fn filter<T>(o: Option<T>, keep: once fn(&T) -> Bool) -> Option<T>
+```
+
+The value if `keep` accepts it.
+
+### `flatten`
+
+```lang
+fn flatten<T>(o: Option<Option<T>>) -> Option<T>
+```
+
+Remove one level of nesting.
+
 ### `is_some`
 
 ```lang
@@ -26,13 +50,82 @@ fn ok_or<T, E>(o: Option<T>, error: E) -> Result<T, E>
 
 Convert absence into an explicit error.
 
+### `ok_or_else`
+
+```lang
+fn ok_or_else<T, E>(o: Option<T>, error: once fn() -> E) -> Result<T, E>
+```
+
+Convert absence into an error built only when needed.
+
+### `or`
+
+```lang
+fn or<T>(o: Option<T>, other: Option<T>) -> Option<T>
+```
+
+This option, or `other` when absent.
+
+### `or_else`
+
+```lang
+fn or_else<T>(o: Option<T>, other: once fn() -> Option<T>) -> Option<T>
+```
+
+This option, or `other()` computed only when absent.
+
+### `to_list`
+
+```lang
+fn to_list<T>(o: Option<T>) -> List<T>
+```
+
+The value as a list of zero or one items.
+
+### `transpose`
+
+```lang
+fn transpose<T, E>(o: Option<Result<T, E>>) -> Result<Option<T>, E>
+```
+
+`Option<Result<T, E>>` as `Result<Option<T>, E>`: an absent value is
+`ok(none)`.
+
 ### `unwrap_or`
 
 ```lang
 fn unwrap_or<T>(o: Option<T>, default: T) -> T
 ```
 
+### `unwrap_or_else`
+
+```lang
+fn unwrap_or_else<T>(o: Option<T>, fallback: once fn() -> T) -> T
+```
+
+The value, or `fallback()` computed only when absent.
+
+### `zip`
+
+```lang
+fn zip<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)>
+```
+
+Both values, if both are present.
+
 ## Methods on other types
+
+### `Option.and_then`
+
+```lang
+fn and_then<U>(self: &Self, f: once fn(T) -> Option<U>) -> Option<U>
+```
+
+### `Option.filter`
+
+```lang
+fn filter(self: &Self, keep: once fn(&T) -> Bool) -> Option<T>
+```
 
 ### `Option.is_none`
 
@@ -58,9 +151,45 @@ fn map<U>(self: &Self, f: fn(T) -> U) -> Option<U>
 fn ok_or<E>(self: &Self, error: E) -> Result<T, E>
 ```
 
+### `Option.ok_or_else`
+
+```lang
+fn ok_or_else<E>(self: &Self, error: once fn() -> E) -> Result<T, E>
+```
+
+### `Option.or`
+
+```lang
+fn or(self: &Self, other: Option<T>) -> Option<T>
+```
+
+### `Option.or_else`
+
+```lang
+fn or_else(self: &Self, other: once fn() -> Option<T>) -> Option<T>
+```
+
+### `Option.to_list`
+
+```lang
+fn to_list(self: &Self) -> List<T>
+```
+
 ### `Option.unwrap_or`
 
 ```lang
 fn unwrap_or(self: &Self, default: T) -> T
+```
+
+### `Option.unwrap_or_else`
+
+```lang
+fn unwrap_or_else(self: &Self, fallback: once fn() -> T) -> T
+```
+
+### `Option.zip`
+
+```lang
+fn zip<U>(self: &Self, other: Option<U>) -> Option<(T, U)>
 ```
 
