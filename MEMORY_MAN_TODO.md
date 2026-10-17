@@ -133,6 +133,9 @@ integration; R1/R2 remain unchecked until their acceptance checks pass.
 
 - Producer reserves aligned storage, writes a complete payload, then publishes
   with release ordering. Consumer observes publication with acquire ordering.
+- Allocate storage lazily; do not reserve a large arena for every idle or
+  one-shot reply channel. Pool segments with bounded retained capacity and account
+  for memory across all active channel domains, not only each pair individually.
 - Reservation, publication, delivery and reclamation are distinct states. A
   consumer may suspend while processing; dequeue never advances reclamation.
 - One FIFO borrow/lease initially; acknowledgement ends its lifetime and allows
@@ -235,3 +238,13 @@ no `gc::FINALIZING` storage or standalone `gc::finalize` symbol (`nm -a -C`).
 The release optimizer appears to eliminate the guard already; no production cost
 or improvement is established. Do not spend a performance change on this source
 pattern without generated-code or profile evidence. No runtime change was made.
+
+### Validation execution note
+
+The full debug workspace run passed adversarial, docs and fuzz checks, but its
+first GC soak was still running after five minutes (the same optimized workload
+passes on baseline/candidate in about 10 seconds). That broad debug run was
+explicitly stopped and replaced with `cargo test --release --offline --workspace
+--target-dir /tmp/language-gc-profile-target -- --test-threads=1`. Do not report the
+partial debug run as a complete pass. Dedicated debug runtime/model tests and the
+12-case builder debug/optimized stress matrix have passed independently.
