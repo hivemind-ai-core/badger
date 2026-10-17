@@ -233,7 +233,7 @@ define_intrinsics! {
     fn task_workers(ctx, targs, ret) { task::workers() as u64 }
     fn time_now(ctx, targs, ret) {
         static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-        if let Some(t) = *crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap() {
+        if let Some(t) = crate::intrinsics_os::manual_clock() {
             return t as u64;
         }
         let s = START.get_or_init(std::time::Instant::now);

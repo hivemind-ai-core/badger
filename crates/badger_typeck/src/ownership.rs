@@ -808,7 +808,8 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
     o.expr(body, m, &mut st);
     o.check_consuming_result(body);
     let offending = std::mem::take(&mut o.offending);
-    let flagged = !o.inf.diags.is_empty();
+    // only a duplicated use decides it (not another diagnostic of the walk)
+    let flagged = o.inf.diags.iter().any(|d| d.code == Some("E0404"));
     o.inf.diags = saved;
     if !flagged {
         return;
@@ -1672,12 +1673,6 @@ impl Own<'_, '_, '_> {
         if affine_args.is_empty() || self.generic {
             return;
         }
-        let mut params: Vec<LocalId> = vec![];
-        for &i in &affine_args {
-            if let Some(p) = l.params.get(i) {
-                pat_locals(hir, p.pat, &mut params);
-            }
-        }
         // re-walk the body with the parameters' types treated as affine
         let saved = std::mem::take(&mut self.inf.diags);
         let (was_generic, saved_reported, saved_affine) =
@@ -1686,12 +1681,12 @@ impl Own<'_, '_, '_> {
         let mut inner = State::default();
         self.expr(l.body, Mode::Move, &mut inner);
         self.offending.clear();
-        let dup = !self.inf.diags.is_empty();
+        // only a duplicated use decides it (not another diagnostic of the walk)
+        let dup = self.inf.diags.iter().any(|d| d.code == Some("E0404"));
         self.generic = was_generic;
         self.reported = saved_reported;
         self.affine = saved_affine;
         self.inf.diags = saved;
-        let _ = params;
         if dup {
             let shown =
                 self.inf.show(&self.inf.exprs.get(&args[affine_args[0]]).cloned().unwrap_or_else(error_ty));

@@ -2203,7 +2203,7 @@ pub fn sleep(d: Duration) -> Wake {
     let id = current_id();
     // a controlled clock: the sleep ends when the clock is advanced past
     // its deadline (explicitly, or automatically once nothing else can run)
-    let manual = *crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap();
+    let manual = crate::intrinsics_os::manual_clock();
     if let Some(now) = manual {
         r.timer_seq += 1;
         r.virtual_timers.push((now + d.as_nanos() as i64, r.timer_seq, id));
@@ -3450,7 +3450,7 @@ fn run_scheduler_work() {
 
 /// Isolate tests: each starts on the real clock with no controlled sleeps.
 pub fn reset_test_state() {
-    *crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap() = None;
+    crate::intrinsics_os::set_manual_clock(None);
     rt().virtual_timers.clear();
     let mut c = SCHED.lock().unwrap();
     c.seed = std::env::var("BADGER_SCHED_SEED").ok().and_then(|v| v.parse().ok());
@@ -3479,14 +3479,8 @@ fn auto_advance() -> bool {
     let r = rt();
     r.virtual_timers.retain(|(_, seq, id)| task(*id).is_some_and(|x| x.sleep_seq == *seq));
     let Some(at) = r.virtual_timers.iter().map(|v| v.0).min() else { return false };
-    {
-        let mut g = crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap();
-        // (on the real clock again, the sleeps are simply woken)
-        if let Some(t) = g.as_mut() {
-            *t = (*t).max(at);
-        }
-    }
-    let now = crate::intrinsics_os::MANUAL_CLOCK.lock().unwrap().unwrap_or(i64::MAX);
+    // (on the real clock again, the sleeps are simply woken)
+    let now = crate::intrinsics_os::update_manual_clock(|t| t.max(at)).unwrap_or(i64::MAX);
     clock_advanced(now);
     true
 }

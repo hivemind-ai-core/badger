@@ -20,7 +20,31 @@ fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
 }
 
 /// Manual (controlled) clock for tests: `None` = real monotonic clock.
-pub static MANUAL_CLOCK: std::sync::Mutex<Option<i64>> = std::sync::Mutex::new(None);
+static MANUAL_CLOCK: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(REAL_CLOCK);
+
+/// [`MANUAL_CLOCK`] on the real clock.
+const REAL_CLOCK: i64 = i64::MIN;
+
+/// The controlled clock's time, if the clock is controlled.
+pub fn manual_clock() -> Option<i64> {
+    let t = MANUAL_CLOCK.load(std::sync::atomic::Ordering::Acquire);
+    (t != REAL_CLOCK).then_some(t)
+}
+
+/// Control the clock at `t`, or (`None`) return to the real clock.
+pub fn set_manual_clock(t: Option<i64>) {
+    MANUAL_CLOCK.store(t.unwrap_or(REAL_CLOCK), std::sync::atomic::Ordering::Release);
+}
+
+/// Change a controlled clock's time with `f`; the new time (`None` on the
+/// real clock).
+pub fn update_manual_clock(f: impl Fn(i64) -> i64) -> Option<i64> {
+    use std::sync::atomic::Ordering;
+    MANUAL_CLOCK
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+        .ok()
+        .map(&f)
+}
 
 /// A compiled pattern, from a bounded cache (patterns are usually literals
 /// used again and again).
@@ -231,23 +255,14 @@ define_intrinsics! {
     }
 
     // ---------------------------------------------------------------- test clock
-    fn clock_manual(ctx, targs, ret, start) { *MANUAL_CLOCK.lock().unwrap() = Some(start as i64); 0 }
+    fn clock_manual(ctx, targs, ret, start) { set_manual_clock(Some(start as i64)); 0 }
     fn clock_advance(ctx, targs, ret, d) {
-        let now = {
-            let mut g = MANUAL_CLOCK.lock().unwrap();
-            match g.as_mut() {
-                Some(t) => {
-                    *t += d as i64;
-                    *t
-                }
-                None => return 0,
-            }
-        };
+        let Some(now) = update_manual_clock(|t| t + d as i64) else { return 0 };
         crate::task::clock_advanced(now);
         0
     }
     fn clock_real(ctx, targs, ret) {
-        *MANUAL_CLOCK.lock().unwrap() = None;
+        set_manual_clock(None);
         // pending controlled sleeps end
         crate::task::clock_advanced(i64::MAX);
         0

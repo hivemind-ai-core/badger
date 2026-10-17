@@ -988,12 +988,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
     }
 
-    /// The prelude's `err` helper called from user code.
-    fn is_prelude_err(&self, def: DefId, call: Span) -> bool {
+    /// The prelude's `err` helper called from user code (an error made
+    /// inside the standard library keeps its origin at the user's call).
+    fn is_prelude_err(&self, def: DefId) -> bool {
         let hir = self.hir();
         let m = &hir.modules[hir.defs[def].module];
         m.is_std
-            && call.file != m.file
+            && !self.in_std()
             && m.path.len() == 2
             && self.m.g.interner.resolve(m.path[1]) == "prelude"
             && self.m.g.interner.resolve(hir.defs[def].name) == "err"
@@ -2300,7 +2301,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 }
                 let r = self.call_def(*def, targs, ops, ty, span)?;
                 // a user `err(...)` is where an error starts
-                if self.is_prelude_err(*def, span) {
+                if self.is_prelude_err(*def) {
                     let rl = self.copy_to_local(r, Repr::Ptr, None);
                     let l = self.loc(span);
                     self.rt(

@@ -44,32 +44,64 @@ fn join(a: &Args) -> Outcome {
     join_origin(a.str(0)?, a.str(1)?).map(Value::Str).map_err(|m| Error::new("io/permission_denied", m))
 }
 
-/// One request: `{status, headers, body}`.
-fn request(a: &Args) -> Outcome {
-    let (method, url, body, content_type) = (a.str(0)?, a.str(1)?, a.str(2)?, a.str(3)?);
-    let timeout_ms = a.int(4)?.max(1) as u64;
-    // the URL must start with a valid http(s) origin
+/// Refuse a URL that does not start with a valid http(s) origin.
+fn check_url(url: &str) -> Result<(), Error> {
     let authority_end =
         url.find("://").map(|k| k + 3).map(|k| k + url[k..].find(['/', '?', '#']).unwrap_or(url.len() - k));
     if authority_end.is_none_or(|end| origin_of(&url[..end]).is_err()) {
         return Err(Error::new("io/invalid_input", format!("`{url}` is not an http(s) URL")));
     }
-    let config = ureq::Agent::config_builder()
+    Ok(())
+}
+
+/// A client with a time limit that follows at most `redirects` redirects
+/// (answering with the last response past that) and reports HTTP error
+/// statuses as responses.
+fn agent(timeout_ms: u64, redirects: u32) -> ureq::Agent {
+    ureq::Agent::config_builder()
         .timeout_global(Some(std::time::Duration::from_millis(timeout_ms)))
-        .max_redirects(0)
+        .max_redirects(redirects)
+        .max_redirects_will_error(false)
         .http_status_as_error(false)
-        .build();
-    let agent: ureq::Agent = config.into();
-    let fail = |e: ureq::Error| {
-        let kind = match &e {
-            ureq::Error::Timeout(_) => "io/timed_out",
-            ureq::Error::Io(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => {
-                "io/connection_failed"
-            }
-            _ => "io/other",
-        };
-        Error::new(kind, format!("{method} {url}: {e}"))
+        .build()
+        .into()
+}
+
+/// A request failure as an `io.Error` naming the request.
+fn failure(method: &str, url: &str, e: ureq::Error) -> Error {
+    let kind = match &e {
+        ureq::Error::Timeout(_) => "io/timed_out",
+        ureq::Error::Io(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => {
+            "io/connection_failed"
+        }
+        ureq::Error::BodyExceedsLimit(_) => "io/too_large",
+        _ => "io/other",
     };
+    Error::new(kind, format!("{method} {url}: {e}"))
+}
+
+/// Response headers as `[name, value]` pairs (a value that is not valid
+/// text is kept with replacement characters, not dropped).
+fn header_pairs(h: &ureq::http::HeaderMap) -> Value {
+    Value::List(
+        h.iter()
+            .map(|(k, v)| {
+                Value::List(vec![
+                    Value::str(k.as_str()),
+                    Value::Str(String::from_utf8_lossy(v.as_bytes()).into_owned()),
+                ])
+            })
+            .collect(),
+    )
+}
+
+/// One request: `{status, headers, body}`.
+fn request(a: &Args) -> Outcome {
+    let (method, url, body, content_type) = (a.str(0)?, a.str(1)?, a.str(2)?, a.str(3)?);
+    let timeout_ms = a.int(4)?.max(1) as u64;
+    check_url(url)?;
+    let agent = agent(timeout_ms, 0);
+    let fail = |e| failure(method, url, e);
     let resp = match method {
         "GET" => agent.get(url).call(),
         "DELETE" => agent.delete(url).call(),
@@ -79,15 +111,11 @@ fn request(a: &Args) -> Outcome {
     };
     let mut resp = resp.map_err(fail)?;
     let status = resp.status().as_u16();
-    let headers = resp
-        .headers()
-        .iter()
-        .map(|(k, v)| Value::List(vec![Value::str(k.as_str()), Value::str(v.to_str().unwrap_or(""))]))
-        .collect();
+    let headers = header_pairs(resp.headers());
     let text = resp.body_mut().with_config().limit(16 << 20).read_to_string().map_err(fail)?;
     Ok(Value::Map(vec![
         ("status".into(), Value::Int(status as i64)),
-        ("headers".into(), Value::List(headers)),
+        ("headers".into(), headers),
         ("body".into(), Value::Str(text)),
     ]))
 }
@@ -110,29 +138,9 @@ fn send(a: &Args) -> Outcome {
     let body = a.bytes(3)?.to_vec();
     let (timeout_ms, redirects, max_body) =
         (a.int(4)?.max(1) as u64, a.int(5)?.clamp(0, 50) as u32, a.int(6)?.max(0) as u64);
-    let authority_end =
-        url.find("://").map(|k| k + 3).map(|k| k + url[k..].find(['/', '?', '#']).unwrap_or(url.len() - k));
-    if authority_end.is_none_or(|end| origin_of(&url[..end]).is_err()) {
-        return Err(Error::new("io/invalid_input", format!("`{url}` is not an http(s) URL")));
-    }
-    let config = ureq::Agent::config_builder()
-        .timeout_global(Some(std::time::Duration::from_millis(timeout_ms)))
-        .max_redirects(redirects)
-        .max_redirects_will_error(false)
-        .http_status_as_error(false)
-        .build();
-    let agent: ureq::Agent = config.into();
-    let fail = |e: ureq::Error| {
-        let kind = match &e {
-            ureq::Error::Timeout(_) => "io/timed_out",
-            ureq::Error::Io(_) | ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => {
-                "io/connection_failed"
-            }
-            ureq::Error::BodyExceedsLimit(_) => "io/too_large",
-            _ => "io/other",
-        };
-        Error::new(kind, format!("{method} {url}: {e}"))
-    };
+    check_url(url)?;
+    let agent = agent(timeout_ms, redirects);
+    let fail = |e| failure(method, url, e);
     let mut req = ureq::http::Request::builder().method(method).uri(url);
     for (k, v) in &headers {
         req = req.header(k.as_str(), v.as_str());
@@ -142,15 +150,11 @@ fn send(a: &Args) -> Outcome {
     use ureq::ResponseExt;
     let final_url = resp.get_uri().to_string();
     let status = resp.status().as_u16();
-    let headers = resp
-        .headers()
-        .iter()
-        .map(|(k, v)| Value::List(vec![Value::str(k.as_str()), Value::str(v.to_str().unwrap_or(""))]))
-        .collect();
+    let headers = header_pairs(resp.headers());
     let bytes = resp.body_mut().with_config().limit(max_body).read_to_vec().map_err(fail)?;
     Ok(Value::Map(vec![
         ("status".into(), Value::Int(status as i64)),
-        ("headers".into(), Value::List(headers)),
+        ("headers".into(), headers),
         ("body".into(), Value::Bytes(bytes)),
         ("url".into(), Value::Str(final_url)),
     ]))
