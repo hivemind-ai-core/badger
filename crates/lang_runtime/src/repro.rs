@@ -289,8 +289,13 @@ fn answer<T: DeserializeOwned>(kind: &str, key: &str, value: Value) -> T {
 fn replayed(kind: &str, key: &str, digest: &Option<String>) -> Value {
     let mut g = STATE.lock().unwrap();
     let s = g.as_mut().unwrap();
-    let Some(i) = (0..s.ops.len()).find(|i| !s.used[*i] && s.ops[*i].kind == kind && s.ops[*i].key == key)
-    else {
+    // the same operation sending the same content first: concurrent tasks
+    // may reach operations with one key in another order than recorded
+    let unused = |i: &usize| !s.used[*i] && s.ops[*i].kind == kind && s.ops[*i].key == key;
+    let found = (0..s.ops.len())
+        .find(|i| unused(i) && s.ops[*i].digest == *digest)
+        .or_else(|| (0..s.ops.len()).find(unused));
+    let Some(i) = found else {
         let done = s.ops.iter().zip(&s.used).filter(|(o, u)| **u && o.kind == kind && o.key == key).count();
         let why = if s.incomplete {
             " (the bundle is incomplete: recording stopped at its size limit)"

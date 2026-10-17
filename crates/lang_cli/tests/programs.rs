@@ -917,7 +917,7 @@ fn native_modules() {
     let err = String::from_utf8_lossy(&rep.stderr);
     assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
     assert_eq!(String::from_utf8_lossy(&rep.stdout), "timed out: true\nlater: 2\n");
-    assert!(started.elapsed() < std::time::Duration::from_secs(4), "the replay ran the abandoned call");
+    assert!(started.elapsed() < std::time::Duration::from_secs(20), "the replay ran the abandoned call");
     let dir = std::env::temp_dir().join(format!("lang-native-restricted-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(

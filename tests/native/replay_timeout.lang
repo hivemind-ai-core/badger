@@ -8,7 +8,7 @@ import std.time
 extern "native lang_native_demo" fn later(ms: Int, value: Int) -> Int !{Wait}
 
 pub fn main() -> Result<Unit, io.Error> {
-    let first = task.timeout(time.millis(50), fn() { later(5000, 1) })
+    let first = task.timeout(time.millis(50), fn() { later(30000, 1) })
     io.println($"timed out: {first.is_err()}")?
     io.println($"later: {later(10, 2)}")?
     ok(())
