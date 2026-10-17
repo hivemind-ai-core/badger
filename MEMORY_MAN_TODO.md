@@ -758,3 +758,20 @@ not complete malloc interception, language sites or escape inference.
 Next priority G6a: measure unnecessary completed-task entry/argument roots,
 with preserved result aliases and cleanup lifetimes. Clear only at synchronized
 completion points; do not mutate roots after lock-free execution permits GC.
+
+### G6a baseline — completed tasks retain consumed input graphs
+
+Added scoped completed-input and returned-alias controls. The scope and child
+records stay open through 524,288 persistent-map updates; full payload checks
+run before churn, and returned aliases are joined/checked again afterward.
+Before any production change, saved four smoke and 24 full-size measurements
+at 1/2/4/8 workers from the immutable G5b ordinary binary (`a0a9838`). Both
+cases retain 16 MiB native element storage through churn and idle in all runs.
+
+Use the existing acquire/release terminal `Done` state to stop tracing only
+entry closures/arguments after execution and cleanup finish. Keep task results
+and all other roots unchanged. Inspection must avoid following completed entry
+pointers after GC can reclaim them. This avoids introducing concurrent writes
+to currently immutable entry/argument fields, which inspection reads while
+other workers run. It retains the small native argument vector until record
+release; it does not recycle task records or coroutine stacks.

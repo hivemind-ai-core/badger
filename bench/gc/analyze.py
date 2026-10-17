@@ -86,18 +86,20 @@ def main():
             lines.append(f"| {case} | {workers} | {len(values)} | {statistics.median(values):+.1f}% [{min(values):+.1f}%, {max(values):+.1f}%] | {sum(v < 0 for v in values)} / {len(values)} |")
     checkpoints = collections.defaultdict(list)
     for run in d["runs"]:
-        for stage, snapshot in zip(["burst", "after churn", "idle"], run["record"].get("checkpoints", [])):
+        stages = ["tasks done", "after churn", "idle"] if run["case"].startswith("tasks-") else ["burst", "after churn", "idle"]
+        for stage, snapshot in zip(stages, run["record"].get("checkpoints", [])):
             checkpoints[(run["case"], run["workers"], run["variant"], stage)].append(snapshot)
     if checkpoints:
-        lines += ["", "Burst checkpoints: pool reservation is distinct from live objects and process peak RSS.",
+        lines += ["", "Lifetime checkpoints: pool reservation is distinct from live objects and process peak RSS.",
                   "Idle yields without allocating intentionally or forcing a collection.", "",
-                  "| Case | Workers | Variant | Stage | Pool MiB median [min, max] | Managed live MiB median | Collection count median |",
-                  "|---|---:|---|---|---:|---:|---:|"]
+                  "| Case | Workers | Variant | Stage | Pool MiB median [min, max] | Managed live MiB median | Native external MiB median | Collection count median |",
+                  "|---|---:|---|---|---:|---:|---:|---:|"]
         for (case, workers, variant, stage), snapshots in sorted(checkpoints.items()):
             pool = [s["pool_reserved_bytes"] / (1 << 20) for s in snapshots]
             live = statistics.median(s["managed_live_bytes"] for s in snapshots) / (1 << 20)
+            external = statistics.median(s["external_live_bytes"] for s in snapshots) / (1 << 20)
             count = statistics.median(s["collections"] for s in snapshots)
-            lines.append(f"| {case} | {workers} | {variant} | {stage} | {statistics.median(pool):.2f} [{min(pool):.2f}, {max(pool):.2f}] | {live:.2f} | {count} |")
+            lines.append(f"| {case} | {workers} | {variant} | {stage} | {statistics.median(pool):.2f} [{min(pool):.2f}, {max(pool):.2f}] | {live:.2f} | {external:.2f} | {count} |")
     histograms = collections.defaultdict(lambda: [0] * 512)
     for measurement in d["runs"]:
         record = measurement["record"]

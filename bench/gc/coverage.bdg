@@ -337,6 +337,48 @@ fn pool_burst(c: Config) -> (Int, List<Data>) {
     (checksum, [burst, after_churn, idle])
 }
 
+// Keep the scope and completed task records open during later allocation.
+// Returned aliases are a positive retention control; consumed input graphs
+// should stop rooting through the completed task once execution/cleanup ends.
+fn task_payload_sum(values: Array<Int>) -> Int {
+    var total = 0
+    for value in values { total = total + value }
+    total
+}
+
+fn task_retention(c: Config) -> (Int, List<Data>) {
+    must(task.scope(fn(s) -> Result<(Int, List<Data>), String> {
+        if c.mode == "tasks-result" {
+            let jobs = array.build(c.n, fn(i: Int) {
+                let values = array.build(c.payload, fn(j: Int) { i * 31 + j })
+                s.spawn(fn() { values })
+            })
+            var total = 0
+            for job in jobs { total = total + task_payload_sum(job.join()) }
+            let done = inspect.heap()
+            let drained = persistent_int({ ..c, mode: "persistent-int", n: c.rounds, retain: 64 })
+            let churn = inspect.heap()
+            for _ in 0..32 { task.yield_now() }
+            let idle = inspect.heap()
+            // The result can alias an input and must survive later collections.
+            for job in jobs { total = total + task_payload_sum(job.join()) }
+            ok((total + drained, [done, churn, idle]))
+        } else {
+            let jobs = array.build(c.n, fn(i: Int) {
+                let values = array.build(c.payload, fn(j: Int) { i * 31 + j })
+                s.spawn(fn() { task_payload_sum(values) })
+            })
+            var total = 0
+            for job in jobs { total = total + job.join() }
+            let done = inspect.heap()
+            let drained = persistent_int({ ..c, mode: "persistent-int", n: c.rounds, retain: 64 })
+            let churn = inspect.heap()
+            for _ in 0..32 { task.yield_now() }
+            ok((total + drained, [done, churn, inspect.heap()]))
+        }
+    }))
+}
+
 fn pipeline(c: Config) -> Int {
     var total = 0
     for _ in 0..c.rounds {
@@ -367,6 +409,11 @@ pub fn main() -> Result<Unit, io.Error> {
     var checkpoints: List<Data> = []
     let checksum = if c.mode == "pool-burst" {
         let (total, shots) = pool_burst(c)
+        checkpoints = shots
+        total
+    }
+    else if c.mode.starts_with("tasks-") {
+        let (total, shots) = task_retention(c)
         checkpoints = shots
         total
     }

@@ -23,6 +23,8 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    **{name: dict(mode=name, n=64, rounds=524288, payload=32768, retain=64)
+       for name in ["tasks-input", "tasks-result"]},
     "map-new": dict(mode="map-new", n=8192, rounds=16, payload=1, retain=8192),
     "map-replace": dict(mode="map-replace", n=65536, rounds=8, payload=1, retain=256),
     "map-strings": dict(mode="map-strings", n=16384, rounds=8, payload=32, retain=1024),
@@ -117,6 +119,11 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"] in ["tasks-input", "tasks-result"]:
+        payload_sum = 31 * c["payload"] * c["n"] * (c["n"] - 1) // 2
+        payload_sum += c["n"] * c["payload"] * (c["payload"] - 1) // 2
+        drained = expected_coverage(c | dict(mode="persistent-int", n=c["rounds"], retain=64))
+        return payload_sum * (2 if c["mode"] == "tasks-result" else 1) + drained
     if c["mode"] == "buffers-empty":
         return c["n"]
     if c["mode"] in ["buffers-grow", "buffers-pointers", "buffers-capacity", "buffers-capacity-grow", "buffers-capacity-pointers"]:
@@ -168,7 +175,7 @@ def validate_coverage(record, config):
         raise ValueError(f"coverage oracle mismatch: {record}")
     if record["elapsed_ns"] <= 0:
         raise ValueError("invalid elapsed time")
-    if config["mode"] == "pool-burst":
+    if config["mode"] in ["pool-burst", "tasks-input", "tasks-result"]:
         shots = record.get("checkpoints", [])
         if len(shots) != 3 or any(s["pool_reserved_bytes"] <= 0 for s in shots):
             raise ValueError("missing burst/churn/idle memory snapshots")

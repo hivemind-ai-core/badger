@@ -33,6 +33,18 @@ class MeasurementOrder(unittest.TestCase):
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_completed_task_inputs_and_result_alias_control(self):
+        c = dict(mode="tasks-input", n=3, rounds=5, payload=4, retain=64)
+        payloads = [sum(i * 31 + j for j in range(4)) for i in range(3)]
+        churn = 5 + sum(range(5)) * 2
+        self.assertEqual(run.expected_coverage(c), sum(payloads) + churn)
+        self.assertEqual(run.expected_coverage(c | dict(mode="tasks-result")), 2 * sum(payloads) + churn)
+        record = dict(config=c, checksum=sum(payloads) + churn, elapsed_ns=1,
+                      before=dict(collections=0), checkpoints=[dict(collections=i, pool_reserved_bytes=262144) for i in [1, 3, 3]])
+        run.validate_coverage(record, c)
+        with self.assertRaises(ValueError):
+            run.validate_coverage(record | dict(checkpoints=[]), c)
+
     def test_buffer_churn_checks_growth_pointer_values_and_retained_tail(self):
         c = dict(mode="buffers-grow", n=5, retain=3, payload=4)
         values = [sum(i * 31 + j for j in range(4)) for i in range(5)]
