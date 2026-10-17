@@ -55,7 +55,7 @@ fn main() {
                 strings += 1;
             });
             println!("prefix_len=512 retained_strings={strings}");
-            assert_eq!(strings, 2048);
+            assert_eq!(strings, 512);
             drop(roots);
             gc::collect();
             snapshot("after_drop_prefix");

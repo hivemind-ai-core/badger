@@ -68,3 +68,21 @@ fn buffer_capacity_obeys_heap_budget() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn dead_array_roots_release_storage_before_the_next_allocation() {
+    let dir = std::env::temp_dir().join(format!("lang-array-lifetime-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("lifetime.lang");
+    std::fs::write(&source, "import std.array\npub fn main() -> Int {\nlet a = array.build(2000000, fn(_: Int) { 7U8 })\nassert(a.get(1999999).unwrap_or(0U8) == 7U8)\nlet b = array.build(2000000, fn(_: Int) { 9U8 })\nassert(b.get(1999999).unwrap_or(0U8) == 9U8)\n0\n}\n").unwrap();
+    for workers in [1, 4] {
+        let out = lang()
+            .args(["run", "--release", "--workers", &workers.to_string()])
+            .arg(&source)
+            .env("LANG_HEAP_MAX_BYTES", "3000000")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}

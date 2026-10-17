@@ -914,8 +914,18 @@ impl Session {
             return Err(Outcome::Errors);
         }
         let entry_fn = entry_fn();
-        let (mut prog, errors) =
-            timed("lower", || lang_mir::lower_program(&checked.g, &self.sources, opts.tests, &entry_fn));
+        let (mut prog, errors) = timed("lower", || {
+            lang_mir::lower_program_optimized(
+                &checked.g,
+                &self.sources,
+                opts.tests,
+                &entry_fn,
+                opts.optimize
+                    && !opts.watch
+                    && opts.inspect.is_none()
+                    && std::env::var_os("LANG_NO_INLINE").is_none(),
+            )
+        });
         for e in errors {
             self.diagnostics
                 .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));

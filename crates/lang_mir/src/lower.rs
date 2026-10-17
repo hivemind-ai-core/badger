@@ -21,6 +21,8 @@ use rustc_hash::FxHashMap;
 use crate::layout::Layouts;
 use crate::mir::*;
 
+mod fusion;
+
 pub struct Mono<'g, 'a> {
     pub g: &'g Global<'a>,
     pub lay: Layouts<'g, 'a>,
@@ -40,6 +42,7 @@ pub struct Mono<'g, 'a> {
     nullary: FxHashMap<(Ty, u32), u64>,
     targs: FxHashMap<Vec<Ty>, u64>,
     pub errors: Vec<String>,
+    fuse_sequences: bool,
     /// The instance whose body is being lowered (polymorphic recursion is
     /// a request for the same definition at a deeper type).
     current: Option<(DefId, Vec<Ty>)>,
@@ -64,6 +67,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             nullary: FxHashMap::default(),
             targs: FxHashMap::default(),
             errors: vec![],
+            fuse_sequences: false,
             current: None,
         }
     }
@@ -1227,6 +1231,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let span = hir.exprs[e].span;
         let kind = hir.exprs[e].kind.clone();
         let ty = self.ty(e);
+        if self.m.fuse_sequences
+            && let Some(plan) = self.fused_terminal(e)
+        {
+            return self.lower_fused(e, plan);
+        }
         match kind {
             ExprKind::Lit(l) => Some(self.lit(&l, &ty)),
             ExprKind::Interp(parts) => {
@@ -2664,6 +2673,13 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             Some(Res::Iter(k)) => *k,
             _ => IterKind::List,
         };
+        if self.m.fuse_sequences
+            && kind == IterKind::Seq
+            && let Some(plan) = self.fused_for(iter, pat, body)
+        {
+            self.lower_fused(e, plan)?;
+            return Some(());
+        }
         // `for p in map.to_list(m)` (or `set.to_list(s)`) walks `m` itself:
         // the list would be a temporary nobody else sees, built only to be
         // consumed in the trie's order, which the walk follows
@@ -3410,7 +3426,19 @@ pub fn lower_program<'g, 'a>(
     tests: bool,
     entry_fn: &str,
 ) -> (Program, Vec<String>) {
+    lower_program_optimized(g, sources, tests, entry_fn, false)
+}
+
+/// Lower with sequence fusion when optimized, non-live code is requested.
+pub fn lower_program_optimized<'g, 'a>(
+    g: &'g Global<'a>,
+    sources: &'g SourceMap,
+    tests: bool,
+    entry_fn: &str,
+    fuse_sequences: bool,
+) -> (Program, Vec<String>) {
     let mut m = Mono::new(g, sources);
+    m.fuse_sequences = fuse_sequences;
     let hir = g.hir;
     if let Some(entry) = hir.entry {
         let main = hir.modules[entry].items.get(&g.interner.intern(entry_fn)).copied();

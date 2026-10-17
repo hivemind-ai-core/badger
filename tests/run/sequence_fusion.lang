@@ -1,0 +1,75 @@
+import std.seq
+import std.list
+import std.task
+import std.text
+
+fn event(log: Cell<List<Int>>, code: Int, value: Int) -> Int {
+    log.set(log.get().append(code))
+    value
+}
+
+fn mapper(log: Cell<List<Int>>) -> fn(Int) -> Int {
+    let _ = event(log, 3, 0)
+    fn(x: Int) { event(log, 100 + x, x + 1) }
+}
+
+fn predicate(log: Cell<List<Int>>) -> fn(Int) -> Bool {
+    let _ = event(log, 4, 0)
+    fn(x: Int) { let _ = event(log, 200 + x, 0); x % 2 == 0 }
+}
+
+fn folder(log: Cell<List<Int>>) -> fn(Int, Int) -> Int {
+    let _ = event(log, 7, 0)
+    fn(a: Int, x: Int) { event(log, 300 + x, a + x) }
+}
+
+fn early() -> Int {
+    for x in seq.range(0, 10).map(fn(x: Int) { x * 2 }) {
+        if x < 4 { continue }
+        return x
+    }
+    -1
+}
+
+pub fn main() -> Unit {
+    let log = Cell.new(list.empty<Int>())
+    let sum = seq.range(event(log, 1, 0), event(log, 2, 10)).map(mapper(log)).filter(predicate(log)).take(event(log, 5, 2)).fold(event(log, 6, 0), folder(log))
+    assert(sum == 6)
+    assert(log.get() == [1, 2, 3, 4, 5, 6, 7, 100, 201, 101, 202, 302, 102, 203, 103, 204, 304])
+    log.set([])
+    assert(seq.range(0, 10).map(mapper(log)).take(0).count() == 0)
+    assert(log.get() == [3])
+    log.set([])
+    assert(seq.range(0, 10).map(mapper(log)).take(3).filter(fn(_: Int) { false }).count() == 0)
+    assert(log.get() == [3, 100, 101, 102])
+    assert(seq.range(0, 100).filter(fn(x: Int) { x % 2 == 0 }).take(3).take(2).count() == 2)
+    assert(seq.range(4, 2).count() == 0)
+    assert(seq.range(4, 4).count() == 0)
+    assert(seq.range(0, 10).take(-1).count() == 0)
+    assert((9223372036854775806..=9223372036854775807).map(fn(x: Int) { x }).count() == 2)
+    assert((3..=3).count() == 1)
+    assert(early() == 4)
+    var total = 0
+    for x in seq.range(0, 100).filter(fn(x: Int) { x % 3 == 0 }).take(4) {
+        if x == 9 { break }
+        total = total + x
+    }
+    assert(total == 9)
+    let words = ["a", "bb", "ccc", "dddd"]
+    let n = words.seq().map(fn(s: String) {
+        task.yield_now()
+        let temporary = text.repeat("x", s.len())
+        assert(temporary.len() == s.len())
+        s.len()
+    }).filter(fn(n: Int) { n % 2 == 0 }).fold(0, fn(a: Int, n: Int) { a + n })
+    assert(n == 6)
+    var seen: List<String> = []
+    for s in words.seq().map(fn(s: String) { task.yield_now(); s }).take(3) {
+        seen = seen.append(s)
+    }
+    assert(seen == ["a", "bb", "ccc"])
+    // Unknown/reusable sequence descriptions retain ordinary iteration.
+    let reusable = seq.range(0, 10).map(fn(x: Int) { x + 1 })
+    assert(reusable.count() == 10)
+    assert(reusable.count() == 10)
+}

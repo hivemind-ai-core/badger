@@ -78,6 +78,25 @@ pub fn char_range(s: &str, start: i64, end: i64) -> Option<std::ops::Range<usize
     Some(from..to)
 }
 
+static SYMBOLS: Mutex<Option<FxHashMap<String, u64>>> = Mutex::new(None);
+
+/// Interned symbol: an immortal string object, unique per name.
+pub fn symbol(name: &str) -> u64 {
+    let mut g = SYMBOLS.lock().unwrap();
+    let m = g.get_or_insert_with(FxHashMap::default);
+    if let Some(&w) = m.get(name) {
+        return w;
+    }
+    let w = gc::alloc_immortal(builtin::symbol(), 8 + name.len());
+    unsafe {
+        let p = obj(w).payload();
+        *(p as *mut u64) = name.len() as u64;
+        std::ptr::copy_nonoverlapping(name.as_ptr(), p.add(8), name.len());
+    }
+    m.insert(name.to_string(), w);
+    w
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -97,23 +116,4 @@ mod tests {
             }
         }
     }
-}
-
-static SYMBOLS: Mutex<Option<FxHashMap<String, u64>>> = Mutex::new(None);
-
-/// Interned symbol: an immortal string object, unique per name.
-pub fn symbol(name: &str) -> u64 {
-    let mut g = SYMBOLS.lock().unwrap();
-    let m = g.get_or_insert_with(FxHashMap::default);
-    if let Some(&w) = m.get(name) {
-        return w;
-    }
-    let w = gc::alloc_immortal(builtin::symbol(), 8 + name.len());
-    unsafe {
-        let p = obj(w).payload();
-        *(p as *mut u64) = name.len() as u64;
-        std::ptr::copy_nonoverlapping(name.as_ptr(), p.add(8), name.len());
-    }
-    m.insert(name.to_string(), w);
-    w
 }
