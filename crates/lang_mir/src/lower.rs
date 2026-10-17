@@ -2446,7 +2446,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     _ => BinOp::Shr,
                 };
                 let nt = self.m.lay.num_ty(&at).unwrap_or(NumTy::I(64, true));
-                let l = self.loc(span);
+                // the contract analysis proved this cannot overflow: no check
+                let l = if matches!(bop, BinOp::Add | BinOp::Sub | BinOp::Mul) && elided_arith(e) {
+                    0
+                } else {
+                    self.loc(span)
+                };
                 let v = self
                     .assign(self.repr(ty), Rvalue::Bin { op: bop, a: Operand::Local(al), b, ty: nt, loc: l });
                 // durations are never negative
@@ -3443,6 +3448,9 @@ fn display_path(name: &str) -> String {
 pub struct Elided {
     pub checks: std::collections::HashSet<ExprId>,
     pub posts: std::collections::HashSet<(DefId, usize)>,
+    /// `Int` additions, subtractions, and multiplications proven not to
+    /// overflow (compiled without the overflow check).
+    pub arith: std::collections::HashSet<ExprId>,
 }
 
 thread_local! {
@@ -3456,6 +3464,10 @@ pub fn set_elided(e: Elided) {
 
 fn elided_check(e: ExprId) -> bool {
     ELIDED.with(|x| x.borrow().checks.contains(&e))
+}
+
+fn elided_arith(e: ExprId) -> bool {
+    ELIDED.with(|x| x.borrow().arith.contains(&e))
 }
 
 fn elided_post(def: DefId, k: usize) -> bool {

@@ -13,6 +13,10 @@
 //!   postcondition proven at every return, and a precondition proven at
 //!   every call of a function that is only ever called directly.
 //!
+//! It also records `Int` additions, subtractions, and multiplications whose
+//! operand ranges rule out overflow; those compile without the overflow
+//! check.
+//!
 //! Anything it cannot decide stays a runtime check, as before.
 
 use lang_base::{Diagnostic, Interner, Span};
@@ -101,6 +105,9 @@ struct Analysis<'a> {
     /// each clause, and whether it is ever used other than by a direct call.
     pre_ok: HashMap<DefId, Vec<bool>>,
     pre_unproven: HashMap<DefId, Vec<usize>>,
+    /// `Int` arithmetic proven not to overflow.
+    safe_arith: HashSet<ExprId>,
+    types: &'a lang_typeck::TypeIndex,
     calls: HashMap<DefId, usize>,
     escapes: HashSet<DefId>,
     /// The function whose body is being walked, and its return points.
@@ -118,6 +125,11 @@ impl<'a> Analysis<'a> {
             DefKind::Fn(f) => Some(f),
             _ => None,
         }
+    }
+
+    /// Whether an expression's type is `Int` (64 bits; the ranges assume it).
+    fn int_typed(&self, e: ExprId) -> bool {
+        self.types.exprs.get(&e).is_some_and(|t| t == "Int")
     }
 
     fn name(&self, d: DefId) -> String {
@@ -539,6 +551,41 @@ impl<'a> Analysis<'a> {
                     }
                 }
             }
+            ExprKind::Binary { op, lhs, rhs } => {
+                self.walk(lhs, env);
+                self.walk(rhs, env);
+                if matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul)
+                    && !env.dead
+                    && self.int_typed(e)
+                    && let (V::Int(a1, a2), V::Int(b1, b2)) = (self.eval(lhs, env), self.eval(rhs, env))
+                {
+                    let (lo, hi) = match op {
+                        BinOp::Add => (a1 + b1, a2 + b2),
+                        BinOp::Sub => (a1 - b2, a2 - b1),
+                        _ => {
+                            let ps = [a1 * b1, a1 * b2, a2 * b1, a2 * b2];
+                            (*ps.iter().min().unwrap(), *ps.iter().max().unwrap())
+                        }
+                    };
+                    if lo >= MIN && hi <= MAX {
+                        self.safe_arith.insert(e);
+                    }
+                }
+            }
+            ExprKind::For { pat, iter, body } => {
+                self.walk(iter, env);
+                let mut inner = env.clone();
+                // `for i in a..b`: i is in the range
+                if let PatKind::Bind(l) = &self.hir.pats[pat].kind
+                    && let ExprKind::Binary { op: op @ (BinOp::Range | BinOp::RangeIncl), lhs, rhs } =
+                        &self.hir.exprs[iter].kind
+                    && let (V::Int(lo, _), V::Int(_, hi)) = (self.eval(*lhs, env), self.eval(*rhs, env))
+                {
+                    let hi = if *op == BinOp::Range { hi - 1 } else { hi };
+                    inner.vals.insert(*l, V::Int(lo, hi));
+                }
+                self.walk(body, &inner);
+            }
             ExprKind::Lambda(l) => {
                 // a lambda's returns are its own
                 let saved = self.current.take();
@@ -655,7 +702,7 @@ fn children(k: &ExprKind) -> Vec<ExprId> {
         ExprKind::Field { base, .. } => v.push(*base),
         ExprKind::Index { base, index } => v.extend([*base, *index]),
         ExprKind::Unsafe(x) | ExprKind::Unary { operand: x, .. } => v.push(*x),
-        ExprKind::Binary { lhs, rhs, .. } => v.extend([*lhs, *rhs]),
+
         ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => v.extend(xs.iter().copied()),
         ExprKind::Record { spread, fields } => {
             v.extend(spread.iter().copied());
@@ -674,7 +721,7 @@ fn children(k: &ExprKind) -> Vec<ExprId> {
             }
         }
         ExprKind::While { cond, body } => v.extend([*cond, *body]),
-        ExprKind::For { iter, body, .. } => v.extend([*iter, *body]),
+
         ExprKind::Loop { body } => v.push(*body),
         ExprKind::Break { value, .. } => v.extend(value.iter().copied()),
         ExprKind::Interp(parts) => {
@@ -689,13 +736,12 @@ fn children(k: &ExprKind) -> Vec<ExprId> {
     v
 }
 
-/// Whether any user function states a contract (the analysis needs the
-/// type checker's call targets).
+/// Whether to run the analysis (it needs the type checker's call
+/// targets): always, as it also proves arithmetic safe from overflow;
+/// `LANG_NO_CONTRACT_ELISION` turns it off with the elision.
 pub fn wanted(hir: &Hir) -> bool {
-    hir.defs.iter().any(|(_, d)| {
-        matches!(&d.kind, DefKind::Fn(f) if !f.requires.is_empty() || !f.ensures.is_empty())
-            && !is_std(hir, d.span)
-    })
+    let _ = hir;
+    std::env::var_os("LANG_NO_CONTRACT_ELISION").is_none()
 }
 
 /// One clause and what the analysis decided about it.
@@ -958,6 +1004,8 @@ fn analyze(
         diags: vec![],
         pre_ok: HashMap::new(),
         pre_unproven: HashMap::new(),
+        safe_arith: HashSet::new(),
+        types,
         calls: HashMap::new(),
         escapes: HashSet::new(),
         current: None,
@@ -1001,6 +1049,7 @@ fn analyze(
             }
         }
     }
+    elided.arith = std::mem::take(&mut a.safe_arith);
     // the report
     let refuted: HashSet<Span> = a.diags.iter().flat_map(|d| d.labels.iter().map(|l| l.span)).collect();
     let mut report = vec![];
