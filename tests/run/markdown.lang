@@ -1,0 +1,12 @@
+// Markdown to HTML, trusted and untrusted.
+import std.io
+import std.markdown
+
+pub fn main() -> Result<Unit, io.Error> {
+    let doc = "# Title\n\nSome *emphasis*, ~~gone~~, and `code`.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] done\n- [ ] todo\n"
+    io.print(markdown.html(doc))?
+    let hostile = "<script>alert(1)</script>\n\n[click](javascript:alert(1)) [tab](java&#9;script:alert(2)) ![x](data:text/html,hi) [ok](https://example.com)\n"
+    io.print(markdown.html(hostile))?
+    io.print(markdown.safe_html(hostile))?
+    ok(())
+}

@@ -138,6 +138,43 @@ fn csv_encode(a: &Args) -> Outcome {
     Ok(Value::Str(String::from_utf8_lossy(&bytes).into_owned()))
 }
 
+/// CommonMark (with tables, strikethrough, task lists, and footnotes) as
+/// HTML. `safe` escapes raw HTML in the input and drops link and image
+/// URLs with a script scheme, for text from untrusted sources.
+fn markdown_html(a: &Args) -> Outcome {
+    use pulldown_cmark::{CowStr, Event, Options, Parser, Tag};
+    let (text, safe) = (a.str(0)?, a.bool(1)?);
+    let options = Options::ENABLE_TABLES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_FOOTNOTES;
+    // browsers ignore whitespace and control characters in a scheme
+    // (`java&#9;script:`), so compare without them
+    let unsafe_url = |u: &str| {
+        let plain: String = u.chars().filter(|c| !c.is_whitespace() && !c.is_control()).collect();
+        let scheme = plain.split(':').next().unwrap_or("").to_ascii_lowercase();
+        plain.contains(':') && matches!(scheme.as_str(), "javascript" | "vbscript" | "data")
+    };
+    let events = Parser::new_ext(text, options).map(|e| {
+        if !safe {
+            return e;
+        }
+        match e {
+            Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
+            Event::Start(Tag::Link { link_type, dest_url, title, id }) if unsafe_url(&dest_url) => {
+                Event::Start(Tag::Link { link_type, dest_url: CowStr::Borrowed("#"), title, id })
+            }
+            Event::Start(Tag::Image { link_type, dest_url, title, id }) if unsafe_url(&dest_url) => {
+                Event::Start(Tag::Image { link_type, dest_url: CowStr::Borrowed(""), title, id })
+            }
+            e => e,
+        }
+    });
+    let mut out = String::new();
+    pulldown_cmark::html::push_html(&mut out, events);
+    Ok(Value::Str(out))
+}
+
 pub static DEF: ModuleDef = ModuleDef {
     name: "lang_formats",
     functions: &[
@@ -148,11 +185,13 @@ pub static DEF: ModuleDef = ModuleDef {
         ("csv_rows", Handler::Inline(csv_rows)),
         ("csv_records", Handler::Inline(csv_records)),
         ("csv_encode", Handler::Inline(csv_encode)),
+        ("markdown_html", Handler::Inline(markdown_html)),
     ],
     drop_handle: None,
     cancel: None,
     recorded: &[],
     pure: &[
+        "markdown_html",
         "toml_parse",
         "toml_encode",
         "yaml_parse",

@@ -31,7 +31,7 @@ an HTTP framework on a CLI program.
 | `std.jobs` | Durable single-host jobs on SQLite: deduplicated ingestion, fenced step transitions with an outbox, receipts, explicit uncertainty |
 | `std.fetch` | Outbound HTTP(S) requests and origin-bound clients |
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
-| `std.toml`, `std.yaml`, `std.csv`, `std.template` | Data formats and Jinja-syntax templates |
+| `std.toml`, `std.yaml`, `std.csv`, `std.template`, `std.markdown` | Data formats, Jinja-syntax templates, Markdown to HTML (with a safe mode for untrusted text) |
 | `std.encoding`, `std.crypto`, `std.uuid` | Base64/hex/URL encoding, hashes and HMAC, secure random bytes, UUIDs |
 | `std.compress` | gzip, zlib, deflate, and zstd, with bounded decompression |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |

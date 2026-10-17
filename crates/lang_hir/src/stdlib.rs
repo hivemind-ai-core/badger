@@ -37,6 +37,7 @@ std_modules![
     "yaml",
     "csv",
     "template",
+    "markdown",
     "encoding",
     "crypto",
     "uuid",

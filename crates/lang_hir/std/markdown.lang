@@ -1,0 +1,14 @@
+// Markdown (CommonMark, with tables, strikethrough, task lists, and
+// footnotes) rendered as HTML (the `lang_formats` native module).
+
+// `html` passes raw HTML in the input through, for trusted text;
+// `safe_html` escapes it and drops `javascript:`/`data:` link and image
+// URLs, for text from users.
+extern "native lang_formats.markdown_html" fn md_html(text: String, safe: Bool) -> String
+
+/// The HTML for trusted Markdown (raw HTML in it passes through).
+pub fn html(text: String) -> String { md_html(text, false) }
+
+/// The HTML for untrusted Markdown: raw HTML is escaped, and links and
+/// images with a script or data URL lose it.
+pub fn safe_html(text: String) -> String { md_html(text, true) }
