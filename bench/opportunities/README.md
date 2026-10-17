@@ -57,3 +57,10 @@ for application conclusions. Rerun the baseline binary interleaved with the fina
 binary after implementation to check host drift. Retained-object counts, RSS,
 external storage, cumulative allocations, and managed pressure are distinct
 measurements; do not interpret `inspect.heap().bytes` as total process memory.
+
+The paired application runner reuses that oracle and shuffles both binaries
+across all profiles and worker counts. It saves raw histograms compressed:
+
+```
+python3 bench/opportunities/telemetry_pair.py --before /tmp/opportunity-before/lang --after /tmp/opportunity-after/lang --out /tmp/opportunity-comparison/telemetry.json.gz
+```
