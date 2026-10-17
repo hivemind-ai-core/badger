@@ -125,7 +125,8 @@ Number of Unicode scalar values.
 fn lines(text: String) -> Seq<String>
 ```
 
-Lines of a text as a lazy sequence.
+The lines of a text (as `String.lines`) as a sequence, for pipelines
+(`text.lines(s) |> seq.map(...)`). The lines are split up front.
 
 ### `pad_end`
 

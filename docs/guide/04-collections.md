@@ -508,8 +508,8 @@ when failures matter: it drops them silently.
 
 `String` is not a collection type, but many collection-shaped operations
 exist for it: `s.chars()` (`List<Char>`), `s.lines()` and `s.words()`
-(`List<String>`), `text.lines(s)` (a lazy `Seq<String>`), `s.split(sep)`,
-and `text.join(parts, sep)`. See the [`std.text`
+(`List<String>`), `text.lines(s)` (the same lines as a `Seq<String>`, for
+pipelines), `s.split(sep)`, and `text.join(parts, sep)`. See the [`std.text`
 reference](../api/text.md). To build a long string, collect the pieces
 and `text.join` them once.
 

@@ -32,7 +32,8 @@ extern "intrinsic" fn text_trim_end(text: String) -> String
 extern "intrinsic" fn text_split_whitespace(text: String) -> List<String>
 extern "intrinsic" fn text_dedent(text: String) -> String
 
-/// Lines of a text as a lazy sequence.
+/// The lines of a text (as `String.lines`) as a sequence, for pipelines
+/// (`text.lines(s) |> seq.map(...)`). The lines are split up front.
 pub fn lines(text: String) -> Seq<String> { list.of(text_lines(text)) }
 pub fn split(text: String, sep: String) -> List<String> { text_split(text, sep) }
 pub fn trim(text: String) -> String { text_trim(text) }
