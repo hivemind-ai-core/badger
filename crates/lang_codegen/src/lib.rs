@@ -747,19 +747,23 @@ impl FnCx<'_> {
                 b.switch_to_block(body.blocks[bid]);
                 body.fresh.clear();
                 for (si, s) in blk.stmts.iter().enumerate() {
-                    if framed && lang_mir::roots::is_safepoint(s) {
-                        // Pack only the values needed at this safe point. Slots
-                        // are reused at the next one; shrinking len drops dead
-                        // roots without clearing the unused tail of the frame.
-                        let point = &roots[bid.index()][si];
-                        for (i, local) in point.iter().enumerate() {
-                            let value = b.use_var(body.vars[*local]);
-                            b.ins().stack_store(types::I64, value, body.frame, 16 + 8 * i as i32);
-                        }
-                        let len = b.ins().iconst(types::I64, point.len() as i64);
-                        b.ins().stack_store(types::I64, len, body.frame, 8);
+                    let point = framed.then_some(roots[bid.index()][si].as_slice());
+                    if lang_mir::roots::is_safepoint(s)
+                        && !matches!(s, Stmt::Poll)
+                        && let Some(point) = point
+                    {
+                        body.publish_roots(&mut b, point);
                     }
-                    self.stmt(&mut b, &mut body, s, &import_refs, &func_refs, &adapter_refs, globals_gv);
+                    self.stmt(
+                        &mut b,
+                        &mut body,
+                        s,
+                        &import_refs,
+                        &func_refs,
+                        &adapter_refs,
+                        globals_gv,
+                        point,
+                    );
                 }
                 match blk.term.as_ref().unwrap_or(&Term::Unreachable) {
                     Term::Goto(t) => {
@@ -834,6 +838,7 @@ impl FnCx<'_> {
         funcs: &FxHashMap<FuncId, cranelift_codegen::ir::FuncRef>,
         adapters: &FxHashMap<FuncId, cranelift_codegen::ir::FuncRef>,
         globals: Option<cranelift_codegen::ir::GlobalValue>,
+        roots: Option<&[Local]>,
     ) {
         match s {
             Stmt::Assign(l, rv) => {
@@ -905,6 +910,11 @@ impl FnCx<'_> {
                 b.set_cold_block(slow);
                 b.ins().brif(neg, slow, &[], cont, &[]);
                 b.switch_to_block(slow);
+                // Only the slow poll can stop/suspend this worker. Publishing
+                // roots on the fast path would add stores to every iteration.
+                if let Some(roots) = roots {
+                    body.publish_roots(b, roots);
+                }
                 self.rt_call(b, imports, "lang_rt_poll", &[body.ctx], body.ctx);
                 b.ins().jump(cont, &[]);
                 b.switch_to_block(cont);
@@ -1514,6 +1524,17 @@ impl FnCx<'_> {
 }
 
 impl Body<'_> {
+    /// Reuse slots at the actual safe point. A shorter len drops dead
+    /// roots without clearing the unused tail of the frame.
+    fn publish_roots(&self, b: &mut FunctionBuilder, point: &[Local]) {
+        for (i, local) in point.iter().enumerate() {
+            let value = b.use_var(self.vars[*local]);
+            b.ins().stack_store(types::I64, value, self.frame, 16 + 8 * i as i32);
+        }
+        let len = b.ins().iconst(types::I64, point.len() as i64);
+        b.ins().stack_store(types::I64, len, self.frame, 8);
+    }
+
     fn set(&mut self, b: &mut FunctionBuilder, l: Local, v: Value) {
         b.def_var(self.vars[l], v);
         if let (Some(slot), Some(off)) = (self.dbg_slot, self.dbg_offsets.get(&l)) {
