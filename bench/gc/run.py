@@ -24,7 +24,7 @@ import telemetry as t
 
 COVERAGE = {
     **{name: dict(mode=name, n=1048576, rounds=1, payload=32, retain=1024)
-       for name in ["lookup-map-int", "lookup-map-pointers", "lookup-array-int",
+       for name in ["lookup-map-misses", "lookup-list-misses", "lookup-map-int", "lookup-map-pointers", "lookup-array-int",
                     "lookup-list-pointers", "lookup-map-stored"]},
     **{name: dict(mode=name, n=64, rounds=524288, payload=32768, retain=64)
        for name in ["tasks-input", "tasks-result"]},
@@ -122,6 +122,8 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"] in ["lookup-map-misses", "lookup-list-misses"]:
+        return c["n"]
     if c["mode"].startswith("lookup-"):
         total = 0
         for i in range(c["n"]):

@@ -477,6 +477,34 @@ fn lookup_list_pointers(c: Config) -> Int {
     total
 }
 
+// All misses: none is already shared, so this isolates split protocol overhead.
+fn lookup_map_misses(c: Config) -> Int {
+    var builder = map.builder<Int, Int>()
+    for k in 0..c.retain { builder.insert(k, k * 31 + 7) }
+    let values = builder.finish()
+    var total = 0
+    for i in 0..c.n {
+        match values.get(c.retain + i % c.retain) {
+            .some(v) => { assert(v < 0); total = total + v },
+            .none => { total = total + 1 },
+        }
+    }
+    total
+}
+
+// All misses: none is already shared, so this isolates split protocol overhead.
+fn lookup_list_misses(c: Config) -> Int {
+    let values = array.build(c.retain, fn(k: Int) { k * 31 + 7 }).to_list()
+    var total = 0
+    for i in 0..c.n {
+        match values.get(c.retain + i % c.retain) {
+            .some(v) => { assert(v < 0); total = total + v },
+            .none => { total = total + 1 },
+        }
+    }
+    total
+}
+
 fn pipeline(c: Config) -> Int {
     var total = 0
     for _ in 0..c.rounds {
@@ -516,7 +544,9 @@ pub fn main() -> Result<Unit, io.Error> {
         total
     }
     else if c.mode.starts_with("lookup-") {
-        if c.mode == "lookup-map-pointers" { lookup_map_pointers(c) }
+        if c.mode == "lookup-map-misses" { lookup_map_misses(c) }
+        else if c.mode == "lookup-list-misses" { lookup_list_misses(c) }
+        else if c.mode == "lookup-map-pointers" { lookup_map_pointers(c) }
         else if c.mode == "lookup-list-pointers" { lookup_list_pointers(c) }
         else if c.mode == "lookup-array-int" { lookup_array_int(c) }
         else { lookup_int(c) }

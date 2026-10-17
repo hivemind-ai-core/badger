@@ -261,3 +261,22 @@ both group and variant order. Analysis reports each pair's elapsed ratio and
 keeps every outlier. A per-user exclusive GC-runner lock prevents accidentally
 overlapping two GC benchmark invocations; a second runner fails before creating
 its output directory. The lock does not control other tools or host workloads.
+
+Local lookup coverage (`lookup-map-int`, `lookup-map-pointers`,
+`lookup-list-pointers`) alternates hits/misses, including negative keys/indices.
+Pointer results are checked against prebuilt full strings so expected-value
+allocation does not hide result boxing. `lookup-map-stored` keeps Options in an
+array and checks the boxed ABI; `lookup-array-int` controls already-eliminated
+array lookup boxes. These tasks execute on one language task even when the
+runtime worker count changes; worker sweeps are scheduling/GC context, not
+parallel lookup scaling.
+
+```
+python3 bench/gc/check_lookup_split.py --ordinary /tmp/candidate/badger --compatible /tmp/baseline/badger --out /tmp/lookup-checks.json.gz
+```
+
+The checker verifies optimized/unoptimized MIR selection, preserved stored
+results, packed scalars, dynamic null, nested Options, escaping pointer results,
+GC stress with and without quarantine, scheduler perturbation and old saved MIR.
+Candidate/baseline executables must be ordinary builds. Census variants are
+separate diagnostic builds; GC survival counters do not establish ownership.

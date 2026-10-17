@@ -35,6 +35,8 @@ class MeasurementOrder(unittest.TestCase):
 class CoverageOracle(unittest.TestCase):
     def test_lookup_misses_negatives_and_stored_control(self):
         c = dict(mode="lookup-map-int", n=13, retain=3, payload=11)
+        for mode in ["lookup-map-misses", "lookup-list-misses"]:
+            self.assertEqual(run.expected_coverage(c | dict(mode=mode)), 13)
         # Keys cycle -1,0,1,2,3,4: two full cycles and one final miss.
         self.assertEqual(run.expected_coverage(c), 2 * (7 + 38 + 69))
         for mode in ["lookup-array-int", "lookup-map-stored"]:

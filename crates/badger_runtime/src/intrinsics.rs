@@ -33,15 +33,16 @@ pub(crate) fn none(ret: &'static TypeDesc) -> u64 {
 /// Lookup's Option tag, with a separately rooted payload for the immediately
 /// following `badger_rt_take_aux`. No allocation/safe point occurs before the
 /// payload is published. Keeping a separate tag permits `some(0)`, including
-/// dynamic null and zero-valued scalars. A miss clears any inactive payload.
+/// dynamic null and zero-valued scalars. The compiler always takes/clears the
+/// slot immediately after each split call, so it is empty on entry. A miss
+/// needs neither task lookup nor publication. Standard Option tags are 0/1.
 pub(crate) fn split_option(ret: &TypeDesc, value: Option<u64>) -> u64 {
-    let tag = ret.variant_index(if value.is_some() { "some" } else { "none" }).expect("lookup Option");
-    let is_ptr = value.is_some()
-        && ret.variant(tag).and_then(|v| v.fields.first()).is_some_and(|f| f.repr == crate::Repr::Ptr);
+    let Some(value) = value else { return 0 };
+    let is_ptr = ret.variant(1).and_then(|v| v.fields.first()).is_some_and(|f| f.repr == crate::Repr::Ptr);
     let task = crate::task::current().expect("split lookup outside task");
-    task.aux = value.unwrap_or(0);
+    task.aux = value;
     task.aux_is_ptr = is_ptr;
-    tag as u64
+    1
 }
 
 /// A `List<String>` (of descriptor `list`) of `items`.
