@@ -35,6 +35,8 @@ COVERAGE = {
     "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
     "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
     "snapshots": dict(mode="snapshots", n=65536, rounds=1, payload=96, retain=32),
+    **{f"persistent-{size}": dict(mode="persistent-int", n=131072, rounds=1, payload=1, retain=size)
+       for size in [64, 256, 4096]},
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
        for name in ["visible", "stored", "collected", "eager"]},
 }
@@ -47,6 +49,9 @@ POLICIES = {
 
 
 def expected_coverage(c):
+    if c["mode"] == "persistent-int":
+        latest = {i % c["retain"]: i for i in range(c["n"])}
+        return len(latest) + sum(latest) + sum(latest.values())
     if c["mode"].startswith("map-") or c["mode"] == "set-builder":
         latest = {i % c["retain"]: i for i in range(c["n"])}
         total = len(latest) + sum(latest)

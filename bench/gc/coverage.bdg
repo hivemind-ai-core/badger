@@ -201,6 +201,21 @@ fn snapshots(c: Config) -> Int {
     total + current.len()
 }
 
+// Ordinary persistent updates, without string or numeric-conversion churn.
+// Unlike the builder cases, each insert copies its path through the trie.
+fn persistent_int(c: Config) -> Int {
+    var current: Map<Int, Int> = map.empty()
+    for i in 0..c.n { current = current.insert(i % c.retain, i) }
+    assert(current.len() == c.n.min(c.retain))
+    var total = current.len()
+    for (k, v) in current {
+        assert(k >= 0 && k < c.n.min(c.retain))
+        assert(v == c.n - 1 - (c.n - 1 - k) % c.retain)
+        total = total + k + v
+    }
+    total
+}
+
 fn pipeline(c: Config) -> Int {
     var total = 0
     for _ in 0..c.rounds {
@@ -231,6 +246,7 @@ pub fn main() -> Result<Unit, io.Error> {
     let checksum = if c.mode == "bytes" { buffers(c, true) }
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
+    else if c.mode == "persistent-int" { persistent_int(c) }
     else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
     else if c.mode.starts_with("messages-int") { messages_int(c) }
     else if c.mode.starts_with("messages") { messages(c) }

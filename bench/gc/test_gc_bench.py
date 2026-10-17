@@ -3,6 +3,10 @@ import run
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_persistent_maps_check_final_keys_and_values(self):
+        self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=5, retain=3)), 3 + 3 + 9)
+        self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=2, retain=9)), 2 + 1 + 1)
+
     def test_builders_check_last_replacements_and_keys(self):
         c = dict(mode="map-replace", n=5, retain=3, rounds=2, payload=7)
         self.assertEqual(run.expected_coverage(c), (3 + 0 + 1 + 2 + 3 + 4 + 2) * 2)

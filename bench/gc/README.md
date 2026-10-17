@@ -116,6 +116,10 @@ while holding the payload, bounded retention past dequeue, and immutable fanout.
 Every payload word contributes to the independent oracle. These use ordinary
 channels as the baseline; no ring arena or topology specialization is implied.
 Map cases execute on one task even when the runtime has several workers.
+`persistent-64`, `persistent-256` and `persistent-4096` replace integer keys in
+ordinary persistent maps. They complement builder-only and string/snapshot
+cases and isolate path-copy churn at different trie shapes. Final validation
+checks every key and its last inserted value.
 
 `messages-int`, `messages-int-slow`, `messages-int-retained` and
 `messages-int-fanout` mirror the original `U64` message workloads using signed
