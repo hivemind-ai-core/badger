@@ -421,7 +421,14 @@ fn inspect_running_program() {
     }
     let channels = ask("channels");
     let systems = ask("system");
+    // the table shows each task's resident stack; an unknown snapshot fails
+    let table = lang().args(["inspect", "tasks", "--connect", &addr]).output().unwrap();
+    let table = String::from_utf8_lossy(&table.stdout).to_string();
+    let bogus = lang().args(["inspect", "plans", "--connect", &addr]).output().unwrap();
     let status = child.wait().unwrap();
+    assert!(table.lines().count() > 2, "{table}");
+    assert!(table.lines().skip(1).all(|l| l.split_whitespace().any(|w| w.ends_with('K'))), "{table}");
+    assert!(!bogus.status.success() && String::from_utf8_lossy(&bogus.stderr).contains("not a snapshot"));
     assert!(status.success());
     assert!(
         tasks.contains("\"wait\":\"channel send\"") && tasks.contains("\"wait\":\"channel receive\""),

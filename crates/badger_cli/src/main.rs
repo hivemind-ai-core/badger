@@ -764,7 +764,20 @@ fn command(mut cli: Cli) -> ExitCode {
             None => repl(),
         },
         Command::Inspect { what, json, connect: Some(addr), .. } => {
+            const REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
+            if !REMOTE.contains(&what.as_str()) {
+                eprintln!("error: `{what}` is not a snapshot of a running program (one of: {})", REMOTE.join(", "));
+                return ExitCode::from(2);
+            }
             match badger_driver::inspect::request(&addr, &what) {
+                Ok(text) if text.starts_with("{\"error\":") => {
+                    let e = serde_json::from_str::<serde_json::Value>(&text)
+                        .ok()
+                        .and_then(|v| v["error"].as_str().map(str::to_string))
+                        .unwrap_or(text);
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
                 Ok(text) => {
                     if json {
                         println!("{text}");
@@ -1062,7 +1075,7 @@ fn print_snapshot(what: &str, text: &str) {
                 "id", "state", "waiting on", "scope", "code", "stack", "stage"
             );
             for t in items(&v) {
-                let stack = t["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
+                let stack = t["memory"]["stack_resident"].as_u64().map(|b| format!("{}K", b / 1024));
                 println!(
                     "{:>5}  {:<9} {:<16} {:>6} {:>4} {:>8}  {:<18} {}",
                     field(&t, "id"),
