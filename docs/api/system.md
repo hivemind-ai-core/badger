@@ -263,7 +263,7 @@ fn replace_node<Os: Row, Cs: Row, C, O, E>(plan: SystemPlan<Os, Cs>, key: Symbol
 ### `run`
 
 ```lang
-fn run<Os: Row, Cs: Row, R, E>(plan: SystemPlan<Os, Cs>, body: for<S: Scope> fn(Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait} where E: From<Error>, E: Display
+fn run<Os: Row, Cs: Row, R, E>(plan: SystemPlan<Os, Cs>, body: for<S: Scope> fn(Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait, State} where E: From<Error>, E: Display
 ```
 
 Start every node in dependency order, run `body`, then halt in reverse.

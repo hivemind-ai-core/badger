@@ -42,12 +42,12 @@ pub struct File {
 }
 
 impl io.Reader for File {
-    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait} { fs_file_read(self.handle, max) }
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait, State} { fs_file_read(self.handle, max) }
 }
 
 impl io.Writer for File {
-    fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_write(self.handle, data) }
-    fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_flush(self.handle) }
+    fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait, State} { fs_file_write(self.handle, data) }
+    fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait, State} { fs_file_flush(self.handle) }
 }
 
 impl File {

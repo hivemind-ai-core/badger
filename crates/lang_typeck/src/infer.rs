@@ -1556,9 +1556,7 @@ impl<'g, 'a> Infer<'g, 'a> {
         // from one by a pattern) is the caller's too
         let recv_ty = self.icx.resolve(&rt);
         let recv_ty = self.deref(&recv_ty);
-        let user_code = self.module.is_some_and(|m| !self.g.hir.modules[m].is_std);
-        if user_code
-            && !matches!(&self.g.hir.exprs[recv].kind, ExprKind::Local(_))
+        if !matches!(&self.g.hir.exprs[recv].kind, ExprKind::Local(_))
             && matches!(self.sym(method), "set" | "get")
             && self.param_rooted(recv)
             && matches!(&*recv_ty, TyKind::Con(d, _) if *d == self.b().cell)

@@ -17,7 +17,7 @@ A `Reader` over bytes in memory.
 #### `BytesReader.read`
 
 ```lang
-fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait}
+fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
 ```
 
 ### `Console`
@@ -31,13 +31,13 @@ Standard output or error, as a `Writer` (text: bytes must be UTF-8).
 #### `Console.flush`
 
 ```lang
-fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait}
+fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State}
 ```
 
 #### `Console.write`
 
 ```lang
-fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait}
+fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State}
 ```
 
 ### `Error`
@@ -65,7 +65,7 @@ Lines of text read from a `Reader`, buffered.
 #### `LineReader.next_line`
 
 ```lang
-fn next_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait} where R: Reader
+fn next_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State} where R: Reader
 ```
 
 The next line without its break; `none` at the end.
@@ -89,7 +89,7 @@ Everything written so far.
 #### `MemoryWriter.flush`
 
 ```lang
-fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait}
+fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State}
 ```
 
 #### `MemoryWriter.text`
@@ -101,13 +101,13 @@ fn text(self: &Self) -> Result<String, Error>
 #### `MemoryWriter.write`
 
 ```lang
-fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait}
+fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State}
 ```
 
 ### `Reader`
 
 ```lang
-protocol Reader { read: fn(&Self, Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait} }
+protocol Reader { read: fn(&Self, Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait, State} }
 ```
 
 A source of bytes read in pieces: files, standard input, sockets,
@@ -124,13 +124,13 @@ Standard input.
 #### `Stdin.read`
 
 ```lang
-fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait}
+fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
 ```
 
 #### `Stdin.read_line`
 
 ```lang
-fn read_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait}
+fn read_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State}
 ```
 
 The next line, without its line break; `none` at the end of input.
@@ -138,7 +138,7 @@ The next line, without its line break; `none` at the end of input.
 #### `Stdin.read_text`
 
 ```lang
-fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait}
+fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait, State}
 ```
 
 Everything left, as text.
@@ -146,7 +146,7 @@ Everything left, as text.
 ### `Writer`
 
 ```lang
-protocol Writer { flush: fn(&Self) -> Result<Unit, io.Error> !{Io, Wait}, write: fn(&Self, Bytes) -> Result<Unit, io.Error> !{Io, Wait} }
+protocol Writer { flush: fn(&Self) -> Result<Unit, io.Error> !{Io, Wait, State}, write: fn(&Self, Bytes) -> Result<Unit, io.Error> !{Io, Wait, State} }
 ```
 
 A sink of bytes written in pieces.
@@ -170,7 +170,7 @@ The size `copy` and `read_all` read in.
 ### `copy`
 
 ```lang
-fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait} where R: Reader, W: Writer
+fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait, State} where R: Reader, W: Writer
 ```
 
 Copy everything from `from` to `to` (then flush); the number of bytes.
@@ -212,7 +212,7 @@ Print a value and a newline to standard output.
 ### `read_all`
 
 ```lang
-fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait} where R: Reader
+fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait, State} where R: Reader
 ```
 
 Everything left in `from`.

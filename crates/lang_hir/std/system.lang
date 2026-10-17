@@ -347,7 +347,7 @@ pub type Running<S, Os: Row> = {
 }
 
 /// Stop a node's workers per their shutdown policies, waiting for them.
-fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait} {
+fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait, State} {
     s.stopping.set(true)
     let ws = s.workers.get()
     for w in ws {
@@ -403,7 +403,7 @@ fn halt_all(scopes: List<InitScope<Unit>>) -> List<String> {
 /// Start every node in dependency order, run `body`, then halt in reverse.
 /// If startup fails, already-started nodes halt and their cleanup failures
 /// attach to the original error.
-pub fn run<Os: Row, Cs: Row, R, E>(plan: SystemPlan<Os, Cs>, body: for<S: Scope> fn(Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait} where E: From<Error>, E: Display {
+pub fn run<Os: Row, Cs: Row, R, E>(plan: SystemPlan<Os, Cs>, body: for<S: Scope> fn(Running<S, Os>) -> Result<R, E>) -> Result<R, E> !{Io, Wait, State} where E: From<Error>, E: Display {
     let outputs: Outputs = { slots: Cell.new(map.empty()), partial: false }
     let scopes: Cell<List<InitScope<Unit>>> = Cell.new([])
     let workers = scope_open()

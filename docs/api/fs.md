@@ -170,19 +170,19 @@ Flush and close; later reads and writes fail with `:io/closed`.
 #### `File.flush`
 
 ```lang
-fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait, State}
 ```
 
 #### `File.read`
 
 ```lang
-fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait}
+fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait, State}
 ```
 
 #### `File.write`
 
 ```lang
-fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait, State}
 ```
 
 #### `File.write_text`

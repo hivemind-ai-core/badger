@@ -42,14 +42,14 @@ pub fn eprintln<T>(value: T) -> Result<Unit, Error> !{Io} where T: Display {
 pub protocol Reader {
     /// Up to `max` bytes (at least one unless at the end); `none` once the
     /// source is exhausted.
-    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait}
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
 }
 
 /// A sink of bytes written in pieces.
 pub protocol Writer {
-    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait}
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State}
     /// Push anything buffered to the destination.
-    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait}
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State}
 }
 
 extern "intrinsic" fn bytes_len(b: Bytes) -> Int
@@ -58,8 +58,8 @@ extern "intrinsic" fn bytes_concat(a: Bytes, b: Bytes) -> Bytes
 extern "intrinsic" fn bytes_find(b: Bytes, needle: Bytes, from: Int) -> Option<Int>
 extern "intrinsic" fn text_to_bytes(text: String) -> Bytes
 extern "intrinsic" fn text_from_bytes(bytes: Bytes) -> Result<String, String>
-extern "native lang_fs.stdin_read" fn stdin_read(max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait}
-extern "native lang_fs.stdin_line" fn stdin_line() -> Result<Option<String>, Error> !{Io, Wait}
+extern "native lang_fs.stdin_read" fn stdin_read(max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State}
+extern "native lang_fs.stdin_line" fn stdin_line() -> Result<Option<String>, Error> !{Io, Wait, State}
 
 /// The size `copy` and `read_all` read in.
 pub let chunk_size: Int = 65536
@@ -70,14 +70,14 @@ pub struct Stdin {}
 pub fn stdin() -> Stdin { {} }
 
 impl Reader for Stdin {
-    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait} { stdin_read(max) }
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State} { stdin_read(max) }
 }
 
 impl Stdin {
     /// The next line, without its line break; `none` at the end of input.
-    pub fn read_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait} { stdin_line() }
+    pub fn read_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State} { stdin_line() }
     /// Everything left, as text.
-    pub fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait} { utf8(read_all(self)?) }
+    pub fn read_text(self: &Self) -> Result<String, Error> !{Io, Wait, State} { utf8(read_all(self)?) }
 }
 
 /// Standard output or error, as a `Writer` (text: bytes must be UTF-8).
@@ -89,8 +89,8 @@ pub fn stdout() -> Console { { err: false } }
 pub fn stderr() -> Console { { err: true } }
 
 impl Writer for Console {
-    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait} { write_out(utf8(data)?, false, self.err) }
-    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait} { ok(()) }
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} { write_out(utf8(data)?, false, self.err) }
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} { ok(()) }
 }
 
 fn utf8(b: Bytes) -> Result<String, Error> {
@@ -109,7 +109,7 @@ pub struct BytesReader {
 pub fn bytes_reader(data: Bytes) -> BytesReader { { data, at: Cell.new(0) } }
 
 impl Reader for BytesReader {
-    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait} {
+    fn read(self: &Self, max: Int) -> Result<Option<Bytes>, Error> !{Io, Wait, State} {
         let i = self.at.get()
         let n = bytes_len(self.data)
         if i >= n {
@@ -129,11 +129,11 @@ pub struct MemoryWriter {
 pub fn memory_writer() -> MemoryWriter { { parts: Cell.new([]) } }
 
 impl Writer for MemoryWriter {
-    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait} {
+    fn write(self: &Self, data: Bytes) -> Result<Unit, Error> !{Io, Wait, State} {
         self.parts.set(self.parts.get().append(data))
         ok(())
     }
-    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait} { ok(()) }
+    fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} { ok(()) }
 }
 
 impl MemoryWriter {
@@ -143,7 +143,7 @@ impl MemoryWriter {
 }
 
 /// Copy everything from `from` to `to` (then flush); the number of bytes.
-pub fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait} where R: Reader, W: Writer {
+pub fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait, State} where R: Reader, W: Writer {
     var total = 0
     loop {
         match from.read(chunk_size)? {
@@ -159,7 +159,7 @@ pub fn copy<R, W>(from: R, to: W) -> Result<Int, Error> !{Io, Wait} where R: Rea
 }
 
 /// Everything left in `from`.
-pub fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait} where R: Reader {
+pub fn read_all<R>(from: R) -> Result<Bytes, Error> !{Io, Wait, State} where R: Reader {
     let sink = memory_writer()
     let _ = copy(from, sink)?
     ok(sink.bytes())
@@ -177,7 +177,7 @@ pub fn lines<R>(from: R) -> LineReader<R> where R: Reader { { source: from, pend
 
 impl<R> LineReader<R> {
     /// The next line without its break; `none` at the end.
-    pub fn next_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait} where R: Reader {
+    pub fn next_line(self: &Self) -> Result<Option<String>, Error> !{Io, Wait, State} where R: Reader {
         let newline = text_to_bytes("\n")
         loop {
             let buf = self.pending.get()
