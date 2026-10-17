@@ -1688,7 +1688,10 @@ impl Infer<'_, '_> {
                 let d = *d;
                 let name = self.lang_name(d).unwrap_or_default();
                 if which == "Transfer" || which == "Share" {
-                    if d == self.b().cell || Some(d) == self.g.hir.try_lang("sqlite.Tx") {
+                    if d == self.b().cell
+                        || Some(d) == self.g.hir.try_lang("sqlite.Tx")
+                        || Some(d) == self.g.hir.try_lang("postgres.Tx")
+                    {
                         return Some(false);
                     }
                     // affine values move rather than share

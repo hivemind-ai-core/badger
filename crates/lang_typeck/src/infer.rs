@@ -2015,11 +2015,11 @@ impl<'g, 'a> Infer<'g, 'a> {
         let mut regions = vec![];
         let mut confined = false;
         let cell = self.b().cell;
-        let tx = self.g.hir.try_lang("sqlite.Tx");
+        let txs = [self.g.hir.try_lang("sqlite.Tx"), self.g.hir.try_lang("postgres.Tx")];
         let mut visit = |k: &TyKind| {
             match k {
                 TyKind::Skolem(s) => regions.push(*s),
-                TyKind::Con(d, _) if *d == cell || Some(*d) == tx => confined = true,
+                TyKind::Con(d, _) if *d == cell || txs.contains(&Some(*d)) => confined = true,
                 TyKind::RowExt(l, _, _) => {
                     let _ = l;
                 }
@@ -2054,7 +2054,10 @@ impl<'g, 'a> Infer<'g, 'a> {
         let t = self.icx.resolve(t);
         match &*t {
             TyKind::Con(d, args) => {
-                if *d == self.b().cell || Some(*d) == self.g.hir.try_lang("sqlite.Tx") {
+                if *d == self.b().cell
+                    || Some(*d) == self.g.hir.try_lang("sqlite.Tx")
+                    || Some(*d) == self.g.hir.try_lang("postgres.Tx")
+                {
                     return true;
                 }
                 if seen.contains(d) {
