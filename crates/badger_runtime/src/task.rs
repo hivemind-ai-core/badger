@@ -185,9 +185,10 @@ pub struct Task {
     yielder: *const Yielder<(), Signal>,
     state: StateCell,
     pub exit: Option<Exit>,
-    /// Closure run by this task (rooted until the task is removed).
+    /// Closure run by this task (rooted until execution and cleanup finish).
+    /// After Done its word may be stale: inspection must not dereference it.
     pub entry: u64,
-    /// Arguments passed to the entry closure (managed pointers are rooted).
+    /// Arguments passed to the entry closure (managed pointers rooted until Done).
     pub entry_args: Vec<(u64, bool)>,
     pub joiners: Vec<TaskId>,
     pub cleanups: Vec<(u64, Cleanup)>,
@@ -981,10 +982,17 @@ pub fn for_each_root(f: &mut dyn FnMut(u64)) {
         return;
     }
     for t in all_tasks() {
-        f(t.entry);
-        for (w, p) in &t.entry_args {
-            if *p {
-                f(*w);
+        // Done is terminal and release-published after execution/cleanup.
+        // The scope may keep this record (and its result) much longer than
+        // its inputs are needed. Do not keep captured graphs alive through
+        // the entry closure/arguments after that publication. Fields remain
+        // unchanged, avoiding writes racing the lock-free finish/inspector.
+        if t.state.get() != State::Done {
+            f(t.entry);
+            for (w, p) in &t.entry_args {
+                if *p {
+                    f(*w);
+                }
             }
         }
         if t.delivered_is_ptr {
@@ -3582,8 +3590,14 @@ fn resident(lo: usize, hi: usize) -> usize {
 /// it, and the channels it is registered with.
 fn memory_json(t: &Task) -> String {
     let (lo, hi) = t.stack;
-    let captures =
-        if t.entry != 0 { crate::gc::HEADER + unsafe { crate::gc::obj(t.entry).payload_size() } } else { 0 };
+    // A completed task's entry is no longer a root and may be reclaimed.
+    // Done is terminal; the runtime lock prevents a collection between this
+    // state check and reading a still-running entry's managed metadata.
+    let captures = if t.state.get() != State::Done && t.entry != 0 {
+        crate::gc::HEADER + unsafe { crate::gc::obj(t.entry).payload_size() }
+    } else {
+        0
+    };
     format!(
         "{{\"stack_reserved\":{},\"stack_resident\":{},\"captures\":{captures},\"roots\":{},\"channels\":{}}}",
         hi - lo,

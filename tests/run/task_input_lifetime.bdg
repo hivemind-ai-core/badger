@@ -1,0 +1,108 @@
+// Completed input graphs may die; aliases returned through results and
+// captures held by cancellation/defect cleanups must survive collections.
+import std.array
+import std.channel
+import std.inspect
+import std.io
+import std.task
+import std.text
+
+fn churn() -> Unit {
+    for i in 0..1024 {
+        let values = array.build(256, fn(j: Int) { i * 31 + j })
+        assert(values[255] == i * 31 + 255)
+    }
+}
+
+fn payload() -> Array<String> {
+    array.build(32, fn(i: Int) { text.repeat("x", 256 + i) })
+}
+
+fn check(values: Array<String>) -> Int {
+    var total = 0
+    var index = 0
+    for value in values {
+        assert(value == text.repeat("x", 256 + index))
+        total = total + value.len()
+        index = index + 1
+    }
+    assert(index == 32)
+    total
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let scalar = task.scope(fn(s) -> Result<Int, String> {
+        let work = s.spawn(fn() { check(payload()) })
+        let got = work.join()
+        churn()
+        // Inspection follows only still-rooted entry pointers after GC.
+        let _ = inspect.tasks()
+        assert(work.join() == got)
+        ok(got)
+    }).unwrap_or(0)
+    assert(scalar == 8688)
+
+    let alias = task.scope(fn(s) -> Result<Int, String> {
+        let values = payload()
+        let work = s.spawn(fn() { fn() { check(values) } })
+        let use_result = work.join()
+        churn()
+        let _ = inspect.tasks()
+        assert(work.join()() == 8688)
+        ok(use_result())
+    }).unwrap_or(0)
+    assert(alias == 8688)
+
+    let cleaned = Atom.new(0)
+    let failed = task.scope(fn(s) -> Result<Unit, String> {
+        let work = s.capture(fn() -> Int {
+            let values = payload()
+            let result: Result<Int, String> = task.scope(fn(inner) -> Result<Int, String> {
+                inner.defer(fn() {
+                    churn()
+                    assert(check(values) == 8688)
+                    let _ = cleaned.update(fn(n: Int) { n + 1 })
+                })
+                panic("expected input lifetime defect")
+            })
+            result.unwrap_or(0)
+        })
+        match work.join() {
+            .failed(_) => (),
+            _ => panic("expected failed task"),
+        }
+        churn()
+        let _ = inspect.tasks()
+        ok(())
+    })
+    assert(failed.is_ok() && cleaned.get() == 1)
+
+    let cancelled = task.scope(fn(s) -> Result<Unit, String> {
+        let ready = channel.create<Int>({ ..channel.defaults, capacity: 1 }).unwrap_or_else(fn(_) { panic("channel") })
+        let work = s.capture(fn() -> Int {
+            let values = payload()
+            let result: Result<Int, String> = task.scope(fn(inner) -> Result<Int, String> {
+                inner.defer(fn() {
+                    churn()
+                    assert(check(values) == 8688)
+                    let _ = cleaned.update(fn(n: Int) { n + 1 })
+                })
+                let _ = ready.sender.send(1)
+                loop { task.yield_now() }
+            })
+            result.unwrap_or(0)
+        })
+        assert(ready.receiver.recv() == Option.some(1))
+        work.cancel()
+        match work.join() {
+            .cancelled(_) => (),
+            _ => panic("expected cancelled task"),
+        }
+        churn()
+        let _ = inspect.tasks()
+        ok(())
+    })
+    assert(cancelled.is_ok() && cleaned.get() == 2)
+    io.println("task input lifetimes ok")?
+    ok(())
+}
