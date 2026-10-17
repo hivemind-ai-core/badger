@@ -295,8 +295,7 @@ fn resolve_with(
                     }
                 }
             };
-            let dm = Manifest::load(&ddir.join("badger.toml"))
-                .map_err(|e| format!("dependency `{}`: {e}", d.name))?;
+            let dm = Manifest::in_dir(&ddir).map_err(|e| format!("dependency `{}`: {e}", d.name))?;
             if dm.name != d.name {
                 return Err(format!(
                     "dependency `{}` at {} is the package `{}`",
@@ -414,7 +413,7 @@ pub fn workspace_of(project: &Path) -> Option<(PathBuf, Vec<PathBuf>)> {
     let project = project.canonicalize().ok()?;
     let mut dir = Some(project.as_path());
     while let Some(d) = dir {
-        if let Ok(m) = Manifest::load(&d.join("badger.toml"))
+        if let Ok(m) = Manifest::in_dir(d)
             && m.workspace.is_some()
         {
             let packages = workspace_packages(d, &m);
@@ -448,7 +447,7 @@ fn resolve_shared(
     let mut mine = vec![];
     let mut all: Vec<Dep> = vec![];
     for p in &packages {
-        let pm = if *p == me { m.clone() } else { Manifest::load(&p.join("badger.toml"))? };
+        let pm = if *p == me { m.clone() } else { Manifest::in_dir(p)? };
         if !pm.has_package {
             continue;
         }
@@ -536,7 +535,7 @@ pub fn verified(project: &Path, m: &Manifest) -> Result<Vec<Dep>, String> {
 /// Rewrite `badger.lock` (of `project`'s workspace, if any) from the current
 /// dependencies, resolving git revisions again.
 pub fn update(project: &Path) -> Result<Vec<Dep>, String> {
-    let m = Manifest::load(&project.join("badger.toml"))?;
+    let m = Manifest::in_dir(project)?;
     let (base, _, all) = resolve_shared(project, &m, true)?;
     let lock = base.join(LOCK);
     if all.is_empty() {

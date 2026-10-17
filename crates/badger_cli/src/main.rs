@@ -443,16 +443,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 replay: None,
                 observe: false,
             };
-            match session.run(&path, args, &opts) {
-                Ok(code) => {
-                    report(&session, false);
-                    exit_now(code)
-                }
-                Err(_) => {
-                    report(&session, false);
-                    ExitCode::FAILURE
-                }
-            }
+            run_and_exit(&mut session, &path, args, &opts)
         }
         Command::Replay { bundle, compare, release } => {
             let b = match badger_driver::load_bundle(&bundle) {
@@ -480,16 +471,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 replay: Some((bundle, compare)),
                 ..Default::default()
             };
-            match session.run(&path, args, &opts) {
-                Ok(code) => {
-                    report(&session, false);
-                    exit_now(code)
-                }
-                Err(_) => {
-                    report(&session, false);
-                    ExitCode::FAILURE
-                }
-            }
+            run_and_exit(&mut session, &path, args, &opts)
         }
         Command::Compile { path, output, profile, workers } => {
             // saved programs get the MIR optimizations of `run --release`
@@ -553,30 +535,12 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             };
             let opts = badger_driver::RunOptions { workers, optimize: true, ..Default::default() };
-            match session.run(&program, args, &opts) {
-                Ok(code) => {
-                    report(&session, false);
-                    exit_now(code)
-                }
-                Err(_) => {
-                    report(&session, false);
-                    ExitCode::FAILURE
-                }
-            }
+            run_and_exit(&mut session, &program, args, &opts)
         }
         Command::Task { name, project, profile, args } => {
             badger_driver::select_task(&name);
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
-            match session.run(&project, args, &opts) {
-                Ok(code) => {
-                    report(&session, false);
-                    exit_now(code)
-                }
-                Err(_) => {
-                    report(&session, false);
-                    ExitCode::FAILURE
-                }
-            }
+            run_and_exit(&mut session, &project, args, &opts)
         }
         Command::Test { args, json } => {
             // `[path] [filter]`: a first argument naming an existing file or
@@ -1221,55 +1185,74 @@ fn repl_loop(addr: &str, prompt_text: &str) -> i32 {
 /// same machinery as `badger repl --connect`). Definitions accumulate;
 /// module-level `let` values are computed once and keep their identity;
 /// expressions evaluate inside the session.
-fn repl() -> ExitCode {
-    let dir = match badger_driver::private_temp_dir("badger-repl") {
+/// A REPL session program, ready to run as an inspection endpoint: the
+/// private directory holding it and the local address it will serve.
+pub(crate) struct SessionSetup {
+    pub dir: PathBuf,
+    pub file: PathBuf,
+    pub addr: String,
+}
+
+/// Write the session program into a fresh private directory and reserve a
+/// local port for it (the errors are printed).
+pub(crate) fn prepare_session(prefix: &str) -> Option<SessionSetup> {
+    let dir = match badger_driver::private_temp_dir(prefix) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: cannot create a session directory: {e}");
-            return ExitCode::FAILURE;
+            return None;
         }
     };
     let file = dir.join("session.bdg");
-    let session = "// REPL session program\nimport std.io\nimport std.task\n\npub fn main() -> Unit {\n    loop {\n        task.sleep(3600s)\n    }\n}\n";
+    let session = "// session program\nimport std.io\nimport std.task\n\npub fn main() -> Unit {\n    loop {\n        task.sleep(3600s)\n    }\n}\n";
     if std::fs::write(&file, session).is_err() {
         eprintln!("error: cannot write the session file");
-        return ExitCode::FAILURE;
+        return None;
     }
     let port = match std::net::TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()) {
         Ok(a) => a.port(),
         Err(e) => {
             eprintln!("error: cannot reserve a local port: {e}");
-            return ExitCode::FAILURE;
+            return None;
         }
     };
-    let addr = format!("127.0.0.1:{port}");
-    let client_addr = addr.clone();
-    let cleanup = dir.clone();
-    std::thread::spawn(move || {
-        let start = std::time::Instant::now();
-        while std::net::TcpStream::connect(&client_addr).is_err() {
-            if start.elapsed() > std::time::Duration::from_secs(30) {
-                eprintln!("error: the REPL session did not start");
-                exit_now(1);
-            }
-            std::thread::sleep(std::time::Duration::from_millis(10));
+    Some(SessionSetup { dir, file, addr: format!("127.0.0.1:{port}") })
+}
+
+/// Wait until the session program serves `addr` (the process ends when it
+/// has not started within 30 seconds).
+pub(crate) fn wait_for_session(addr: &str) {
+    let start = std::time::Instant::now();
+    while std::net::TcpStream::connect(addr).is_err() {
+        if start.elapsed() > std::time::Duration::from_secs(30) {
+            eprintln!("error: the session did not start");
+            exit_now(1);
         }
-        let code = repl_loop(&client_addr, "badger> ");
-        let _ = std::fs::remove_dir_all(&cleanup);
-        exit_now(code)
-    });
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+/// Run the session program on this thread (it returns only when the process
+/// ends, or when the program does not build).
+pub(crate) fn run_session(setup: &SessionSetup) -> ExitCode {
     // session bindings are interactive state, not a program's module values
     // (which must be pure immutable data)
     badger_driver::set_repl_session();
     let mut s = Session::new();
-    let opts = badger_driver::RunOptions { inspect: Some(addr), ..Default::default() };
-    match s.run(&file, vec![], &opts) {
-        Ok(code) => exit_now(code),
-        Err(_) => {
-            report(&s, false);
-            ExitCode::FAILURE
-        }
-    }
+    let opts = badger_driver::RunOptions { inspect: Some(setup.addr.clone()), ..Default::default() };
+    run_and_exit(&mut s, &setup.file, vec![], &opts)
+}
+
+fn repl() -> ExitCode {
+    let Some(setup) = prepare_session("badger-repl") else { return ExitCode::FAILURE };
+    let (addr, cleanup) = (setup.addr.clone(), setup.dir.clone());
+    std::thread::spawn(move || {
+        wait_for_session(&addr);
+        let code = repl_loop(&addr, "badger> ");
+        let _ = std::fs::remove_dir_all(&cleanup);
+        exit_now(code)
+    });
+    run_session(&setup)
 }
 
 fn depth(s: &str) -> i32 {
@@ -1286,6 +1269,22 @@ fn depth(s: &str) -> i32 {
         prev = c;
     }
     d
+}
+
+/// Run a program, report its diagnostics, and leave the process with its
+/// exit code (or failure, when it did not build).
+fn run_and_exit(
+    session: &mut Session,
+    path: &Path,
+    args: Vec<String>,
+    opts: &badger_driver::RunOptions,
+) -> ExitCode {
+    let r = session.run(path, args, opts);
+    report(session, false);
+    match r {
+        Ok(code) => exit_now(code),
+        Err(_) => ExitCode::FAILURE,
+    }
 }
 
 /// Leave the process after a program ran: the runtime's task stacks, JIT

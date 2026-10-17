@@ -46,7 +46,7 @@ pub struct Built {
 /// the directory's name).
 pub fn release_name(path: &Path) -> String {
     if path.is_dir()
-        && let Ok(m) = crate::manifest::Manifest::load(&path.join("badger.toml"))
+        && let Ok(m) = crate::manifest::Manifest::in_dir(path)
     {
         return m.name;
     }

@@ -167,6 +167,11 @@ pub enum Source {
 }
 
 impl Manifest {
+    /// The manifest of the project directory `dir` (its `badger.toml`).
+    pub fn in_dir(dir: &Path) -> Result<Manifest, String> {
+        Self::load(&dir.join("badger.toml"))
+    }
+
     pub fn load(path: &Path) -> Result<Manifest, String> {
         let text =
             std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
