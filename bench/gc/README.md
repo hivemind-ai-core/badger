@@ -1,6 +1,35 @@
 GC/application attribution and coverage
 =====================================
 
+Managed allocation census (G1a)
+------------------------------
+
+The diagnostic build also accepts `BADGER_ALLOC_PROFILE=path.json`, independently
+of phase profiling. It records process-wide managed allocations by type descriptor
+and Rust runtime call site, plus small-pool size classes. Requested bytes include
+the header; cell bytes include small-pool rounding or the large allocation layout,
+but exclude allocator bookkeeping and reserved unused pool space. Counts separate
+reclamation before any survival, first survival, later reclamation, and remaining
+unswept objects. Minor collections leave the old prefix unexamined. Repeated full
+survivor observations are not distinct objects. Quarantined objects count as
+reclaimed when removed from the object list, even while their cells remain reserved.
+
+```
+python3 bench/gc/run.py --baseline /tmp/base/badger --diagnostic /tmp/diag/badger --allocations --suite coverage --workers 1 2 4 8 --reps 3 --out /tmp/allocation-census
+```
+
+This adds `diagnostic-allocations` beside ordinary, diagnostic-disabled and
+phase-only runs. Every census must conserve objects, requested bytes and cell
+bytes across sites, size classes, reclamation and remaining metadata. The gzip
+report retains the full per-site census. Attribution covers startup and output
+encoding as well as the workload; it cannot be filtered using GC collection
+indices. It excludes immortals, external buffers, task stacks and other native
+allocations. Runtime call sites are not language source locations. Survival does
+not prove task escape or unique ownership. Side metadata, counters and mutexes
+perturb both timing and RSS: use the ordinary variant for performance claims.
+`object_metadata_capacity_bytes` reports just the side-vector capacity; site tables,
+output encoding and other diagnostic native storage add further overhead.
+
 `coverage.bdg` adds construction-inclusive byte/word buffer churn, a larger
 survivor window, persistent-map snapshot histories, and equivalent visible,
 stored, collected and eager pipelines. Checksums include retained data. The
@@ -40,7 +69,7 @@ python3 -m unittest discover -s bench/gc -p 'test_*.py'
 ```
 
 Each cell gets a warmup followed by shuffled fresh processes; the runner clears
-inherited LANG settings, fixes parser topology, saves binary/source hashes and
+inherited BADGER settings, fixes parser topology, saves binary/source hashes and
 raw runs in gzip JSON, and fails on oracle errors or timeout. Oracle outputs
 are cached beside output directories by input and oracle-source hash; delete
 the `oracles` directory to regenerate them. `baseline` and

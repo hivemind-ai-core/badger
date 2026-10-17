@@ -28,6 +28,8 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use crate::desc::{Kind, Repr, TypeDesc};
 
 #[cfg(feature = "gc-profile")]
+mod allocations;
+#[cfg(feature = "gc-profile")]
 pub mod diagnostics;
 
 #[repr(C)]
@@ -313,6 +315,7 @@ impl Drop for Finalized {
     }
 }
 
+#[cfg_attr(feature = "gc-profile", track_caller)]
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     debug_assert!(!FINALIZING.load(Ordering::Relaxed), "a finalizer allocated");
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
@@ -346,6 +349,8 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         (*p).meta = (payload as u64) << 32;
         let list = objects(w);
         list.push(p);
+        #[cfg(feature = "gc-profile")]
+        allocations::record(w, desc, payload, list.len(), std::panic::Location::caller());
         COUNTS[w].0.store(list.len(), Ordering::Relaxed);
         // collection pressure is published in blocks: every worker adding
         // to one shared counter per allocation would contend on it
@@ -510,6 +515,7 @@ pub fn set_heap_max(bytes: usize) {
 
 /// An allocation of `payload` bytes by compiled code, under the heap
 /// budget (see [`budget_check`]).
+#[cfg_attr(feature = "gc-profile", track_caller)]
 pub fn alloc_checked(desc: &'static TypeDesc, payload: usize) -> u64 {
     budget_check(payload);
     alloc(desc, payload)
@@ -771,6 +777,15 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     let total: usize = lists.iter().map(|&w| objects(w).len() - from(w)).sum();
     #[cfg(feature = "gc-profile")]
     profile.snapshot("swept", total);
+    #[cfg(feature = "gc-profile")]
+    {
+        // Observe marks before either serial or parallel sweep clears them.
+        // The profiler compacts its side metadata in the same order as sweep.
+        for &w in &lists {
+            allocations::before_sweep(w, objects(w), from(w), minor);
+        }
+        profile.phase("allocation_census");
+    }
     if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
         let starts: Vec<usize> = lists.iter().map(|&w| from(w)).collect();
         live = sweep_parallel(&lists, &starts, sticky);

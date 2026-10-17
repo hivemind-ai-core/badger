@@ -60,5 +60,32 @@ class ChildRss(unittest.TestCase):
             self.assertEqual(len(ballast), 64 << 20)
 
 
+class AllocationCensus(unittest.TestCase):
+    def test_conservation_rejects_corrupted_bytes_and_survival(self):
+        import copy
+        values = dict(allocated=10, reclaimed_before_survival=4,
+                      reclaimed_after_survival=2, remaining=4,
+                      first_survival=5, remaining_after_survival=3,
+                      minor_survivor_observations=5, full_survivor_observations=2)
+        counts = {key: dict(objects=n, requested_bytes=n * 24, cell_bytes=n * 32)
+                  for key, n in values.items()}
+        profile = dict(schema=1, scope="process-managed-allocations", totals=counts,
+                       sites=[dict(counts=copy.deepcopy(counts))], remaining_metadata_objects=4)
+        profile["allocation_sizes"] = dict(small_pool_classes=[dict(cell_size=32, allocated=counts["allocated"])],
+                                           large_system_cells=dict(objects=0, requested_bytes=0, cell_bytes=0))
+        run.validate_allocations(profile)
+        for category, metric in [("reclaimed_before_survival", "requested_bytes"),
+                                 ("first_survival", "objects"),
+                                 ("full_survivor_observations", "cell_bytes")]:
+            bad = copy.deepcopy(profile)
+            bad["totals"][category][metric] += 1
+            with self.assertRaises(ValueError):
+                run.validate_allocations(bad)
+        bad = copy.deepcopy(profile)
+        bad["remaining_metadata_objects"] = 3
+        with self.assertRaises(ValueError):
+            run.validate_allocations(bad)
+
+
 if __name__ == "__main__":
     unittest.main()

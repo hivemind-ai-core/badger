@@ -53,6 +53,12 @@ negative results; do not mark architectural sketches as implemented.
 
 - [ ] G1: Measure allocation counts/bytes by source/type and survival/escape class;
   distinguish native allocations from managed allocations and live snapshots.
+  - [x] G1a: Add opt-in managed allocation counts/bytes by type and runtime Rust
+    call site, pool-size census, first-survival/later-reclamation accounting,
+    and benchmark conservation checks. No normal-build instrumentation.
+  - [ ] G1b: Add language allocation-site attribution, native allocation/buffer
+    churn, task-lifetime/escape observations and workload-boundary snapshots.
+    GC survival alone is not escape or uniqueness evidence.
 - [ ] G2: Optimize pool refill/reuse and clearing based on initialization contracts;
   evaluate size-class pages, occupancy metadata, and bulk empty-page reclamation.
 - [ ] G3: Reduce sweep bookkeeping and repeated helper-thread/scratch allocation;
@@ -349,3 +355,20 @@ tests passed in the renamed rehearsal; benchmark-harness tests (7) and formattin
 also passed. Final merged-tree GC retention, scalar enums, sequence fusion and
 transient-map focused checks passed; logs are in `reports/memory-management/integration/`.
 G1 attribution remains the next implementation slice.
+
+### G1a: managed allocation and survival census
+
+The completed I1 branch was merged to main at `0d34cee`, after integrating the
+Badger rename and editor support. All 69 uncommitted files were SHA-256 checked
+before/after the merge and preserved. Further work continues in the isolated
+`perf/memory-management-2026-10-17` branch.
+
+`gc-profile` now supports `BADGER_ALLOC_PROFILE` independently of phase profiling.
+The census follows the collector's per-worker object-list compaction with side
+metadata; it leaves object headers and ordinary builds unchanged. A separate
+`allocation_census` phase accounts for the diagnostic scan before sweeping.
+Totals distinguish requested managed bytes from allocated cell bytes, early
+reclamation, first survival and later reclamation. Benchmark diagnostics also
+record small-pool allocation classes. Remaining objects are unswept, not a
+reachability census; native/immortal allocations and true escape classification
+remain G1b. Profiling overhead is measured separately and is not an optimization.

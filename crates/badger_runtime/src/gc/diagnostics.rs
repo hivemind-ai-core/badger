@@ -73,6 +73,7 @@ impl Collection {
 static RECORDS: Mutex<Vec<Value>> = Mutex::new(Vec::new());
 
 pub fn finish() {
+    super::allocations::finish();
     let Some(path) = &settings().path else { return };
     static FINISHED: AtomicBool = AtomicBool::new(false);
     if FINISHED.swap(true, Ordering::Relaxed) {

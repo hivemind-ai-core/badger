@@ -78,6 +78,33 @@ def validate_coverage(record, config):
         raise ValueError("invalid elapsed time")
 
 
+def validate_allocations(profile):
+    """Check byte and object conservation, not just successful JSON output."""
+    if profile["schema"] != 1 or profile["scope"] != "process-managed-allocations":
+        raise ValueError("unsupported allocation census")
+    totals = profile["totals"]
+    for metric in ["objects", "requested_bytes", "cell_bytes"]:
+        for counts in [totals, *(s["counts"] for s in profile["sites"])]:
+            n = {key: value[metric] for key, value in counts.items()}
+            if (any(v < 0 for v in n.values())
+                    or n["allocated"] != n["reclaimed_before_survival"] + n["reclaimed_after_survival"] + n["remaining"]
+                    or n["first_survival"] != n["reclaimed_after_survival"] + n["remaining_after_survival"]
+                    or n["remaining_after_survival"] > n["remaining"]
+                    or n["minor_survivor_observations"] + n["full_survivor_observations"] < n["first_survival"]):
+                raise ValueError("allocation census violates conservation")
+        for key, volume in totals.items():
+            if volume[metric] != sum(site["counts"][key][metric] for site in profile["sites"]):
+                raise ValueError("allocation sites do not sum to totals")
+        sizes = profile["allocation_sizes"]
+        if totals["allocated"][metric] != (sizes["large_system_cells"][metric]
+                + sum(c["allocated"][metric] for c in sizes["small_pool_classes"])):
+            raise ValueError("allocation size classes do not sum to totals")
+    if totals["remaining"]["objects"] != profile["remaining_metadata_objects"]:
+        raise ValueError("allocation metadata disagrees with remaining objects")
+    if totals["allocated"]["objects"] <= 0:
+        raise ValueError("empty allocation census")
+
+
 def summarize(rows):
     groups = collections.defaultdict(list)
     for row in rows:
@@ -99,6 +126,7 @@ def main():
     ap.add_argument("--baseline-revision", default="unspecified")
     ap.add_argument("--candidate-revision", default="unspecified")
     ap.add_argument("--diagnostic", type=Path)
+    ap.add_argument("--allocations", action="store_true", help="add a separately perturbed managed-allocation census variant")
     ap.add_argument("--suite", choices=["coverage", "telemetry", "policy", "samples", "smoke"], required=True)
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
     ap.add_argument("--events", type=int, default=262144)
@@ -108,6 +136,8 @@ def main():
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+    if args.allocations and (args.diagnostic is None or args.suite in ["policy", "samples"]):
+        ap.error("--allocations requires --diagnostic and coverage, telemetry or smoke")
     if args.suite in ["policy", "samples"] and args.diagnostic is None:
         ap.error("--diagnostic is required for policy and samples")
     if args.reps < 1 or any(w < 1 for w in args.workers):
@@ -128,6 +158,8 @@ def main():
     if args.diagnostic:
         variants["diagnostic"] = ("diagnostic", {})
         variants["diagnostic-off"] = ("diagnostic", {})
+        if args.allocations:
+            variants["diagnostic-allocations"] = ("diagnostic", {})
     if args.suite == "policy":
         variants = {k: ("diagnostic", v) for k, v in POLICIES.items() if k in args.policies}
     if args.suite == "samples":
@@ -187,8 +219,11 @@ def main():
             env["LC_ALL"] = "C"
             stem = f"{name}-w{workers}-{variant}-{rep}"
             gc_path = args.out.resolve() / f"{stem}.gc.json"
+            allocation_path = args.out.resolve() / f"{stem}.allocations.json"
             if binary == "diagnostic" and variant != "diagnostic-off":
                 env["BADGER_GC_PROFILE"] = str(gc_path)
+            if variant == "diagnostic-allocations":
+                env["BADGER_ALLOC_PROFILE"] = str(allocation_path)
             if args.suite == "samples":
                 env["BADGER_PROFILE"] = str(args.out.resolve() / f"{stem}.folded")
             config = cases[name]
@@ -209,9 +244,14 @@ def main():
             before, after = (record["before"], record["after"]) if coverage else (record["heap_before"], record["heap_after"])
             phases = json.loads(gc_path.read_text()) if gc_path.exists() else None
             gc_path.unlink(missing_ok=True)
+            allocations = None
+            if variant == "diagnostic-allocations":
+                allocations = json.loads(allocation_path.read_text())
+                validate_allocations(allocations)
+                allocation_path.unlink()
             if rep >= 0:
                 runs.append(dict(case=name, workers=workers, variant=variant, repetition=rep,
-                    record=record, process=process, stderr=err, gc=phases,
+                    record=record, process=process, stderr=err, gc=phases, allocations=allocations,
                     heap_collections=after["collections"] - before["collections"],
                     gc_pause_ns=after["pause_total_ns"] - before["pause_total_ns"]))
                 report["summary"] = summarize(runs)
