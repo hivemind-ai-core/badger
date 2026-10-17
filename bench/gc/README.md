@@ -121,6 +121,9 @@ machine words. Payload width, topology, retention, suspension and checksum are
 the same; the new cases avoid per-word checked numeric conversions in generation
 and validation. Keep both families: conversion-result boxing can dominate the
 managed allocation count in the original cases and obscure payload-storage gains.
+The four `messages-int*-sustained` cases send 262,144 messages, versus 16,384 in
+the matched controls. Use these to exercise collections after removing conversion
+churn; the smaller controls can finish without collecting at all.
 
 Use `--cases map-new map-replace map-strings set-builder` to select coverage.
 For before/after comparisons, copy binaries before rebuilding and run:

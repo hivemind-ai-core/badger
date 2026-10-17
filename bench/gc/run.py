@@ -28,6 +28,9 @@ COVERAGE = {
                               ("messages-retained", 256), ("messages-fanout", 64),
                               ("messages-int", 64), ("messages-int-slow", 1),
                               ("messages-int-retained", 256), ("messages-int-fanout", 64)]},
+    **{f"{mode}-sustained": dict(mode=mode, n=262144, rounds=1, payload=32, retain=capacity)
+       for mode, capacity in [("messages-int", 64), ("messages-int-slow", 1),
+                              ("messages-int-retained", 256), ("messages-int-fanout", 64)]},
     "bytes-transient": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=32),
     "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
     "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
