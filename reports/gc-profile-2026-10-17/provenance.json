@@ -1,0 +1,26 @@
+{
+  "baseline_revision": "fa2b80e",
+  "diagnostic_runtime_revision": "0fd91cf",
+  "harness_revision": "7d76119",
+  "binary_hashes": {
+    "baseline": {
+      "path": "/tmp/language-gc-profile-bins/base/lang",
+      "sha256": "ed0a438be7ef6e65e8417a62c86883eec05f43d58f6d41981ea2b40215b1749c"
+    },
+    "diagnostic": {
+      "path": "/tmp/language-gc-profile-bins/diagnostic/lang",
+      "sha256": "3c267be59129e34f27b131951c674ca2a35d42e04fd4d1e3d013141167b5f5f3"
+    }
+  },
+  "timestamp": "2026-10-17T07:56:55.362911+00:00",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n",
+  "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+  "diagnostic_build": "CARGO_TARGET_DIR=/tmp/language-gc-profile-target CARGO_PROFILE_RELEASE_DEBUG=1 RUSTFLAGS='-C force-frame-pointers=yes' cargo build --offline --release -p lang_cli -p lang_runtime --features lang_runtime/gc-profile",
+  "notes": [
+    "Baseline binary is the tested merged tree at fa2b80e, identical tree to integration 329efae.",
+    "Diagnostic production source is unchanged after 0fd91cf; later commits add/fix benchmark tooling.",
+    "All final matrices used the native RSS launcher. Earlier RSS-contaminated exploratory runs are excluded.",
+    "No perf executable was available. Built-in CPU sampling ran outside sandbox to permit self process_vm_readv.",
+    "Host was shared, with neither frequency control nor CPU isolation."
+  ]
+}

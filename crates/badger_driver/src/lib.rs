@@ -155,6 +155,9 @@ pub fn project_entry_points(path: &Path) -> Vec<String> {
 
 /// Start the sampling profiler if `BADGER_PROFILE` is set.
 pub fn start_profile() {
+    if std::env::var("BADGER_PROFILE_SCOPE").is_ok_and(|v| v == "runtime") {
+        return;
+    }
     badger_runtime::profile::start_from_env();
 }
 

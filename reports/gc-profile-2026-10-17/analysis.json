@@ -1,0 +1,2374 @@
+{
+  "phases": [
+    {
+      "case": "backpressure",
+      "workers": 1,
+      "phases_ns": {
+        "accounting": 62218,
+        "finish": 88905,
+        "prepare": 5193194,
+        "resume_world": 45431,
+        "roots": 746610,
+        "stop_world": 8763,
+        "sweep_finalize": 214717490,
+        "trace": 14142451,
+        "trim": 1171165,
+        "verify": 11288,
+        "weak_pages": 5252567
+      },
+      "reclaimed_managed_objects": 12326667,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "backpressure",
+      "workers": 2,
+      "phases_ns": {
+        "accounting": 79578,
+        "finish": 102864,
+        "prepare": 6294241,
+        "resume_world": 30064,
+        "roots": 858811,
+        "stop_world": 306795,
+        "sweep_finalize": 216147669,
+        "trace": 15258067,
+        "trim": 1041604,
+        "verify": 11890,
+        "weak_pages": 6747785
+      },
+      "reclaimed_managed_objects": 12354040,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "backpressure",
+      "workers": 4,
+      "phases_ns": {
+        "accounting": 76623,
+        "finish": 145256,
+        "prepare": 5075898,
+        "resume_world": 26983,
+        "roots": 856556,
+        "stop_world": 115263,
+        "sweep_finalize": 156832242,
+        "trace": 14646149,
+        "trim": 1062332,
+        "verify": 11776,
+        "weak_pages": 5577210
+      },
+      "reclaimed_managed_objects": 12412319,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "backpressure",
+      "workers": 8,
+      "phases_ns": {
+        "accounting": 72907,
+        "finish": 131409,
+        "prepare": 5159136,
+        "resume_world": 34225,
+        "roots": 1123286,
+        "stop_world": 131613,
+        "sweep_finalize": 142618412,
+        "trace": 17366190,
+        "trim": 1054490,
+        "verify": 13777,
+        "weak_pages": 6896342
+      },
+      "reclaimed_managed_objects": 12529436,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "balanced",
+      "workers": 1,
+      "phases_ns": {
+        "accounting": 68064,
+        "finish": 102009,
+        "prepare": 8811675,
+        "resume_world": 54008,
+        "roots": 866159,
+        "stop_world": 7774,
+        "sweep_finalize": 263529884,
+        "trace": 66639282,
+        "trim": 4245136,
+        "verify": 12260,
+        "weak_pages": 9189960
+      },
+      "reclaimed_managed_objects": 11996592,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "balanced",
+      "workers": 2,
+      "phases_ns": {
+        "accounting": 74855,
+        "finish": 136404,
+        "prepare": 8691085,
+        "resume_world": 25831,
+        "roots": 985234,
+        "stop_world": 357859,
+        "sweep_finalize": 225363966,
+        "trace": 64406451,
+        "trim": 2317337,
+        "verify": 12118,
+        "weak_pages": 9611424
+      },
+      "reclaimed_managed_objects": 12015450,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "balanced",
+      "workers": 4,
+      "phases_ns": {
+        "accounting": 66348,
+        "finish": 139752,
+        "prepare": 8846858,
+        "resume_world": 26650,
+        "roots": 1038255,
+        "stop_world": 180051,
+        "sweep_finalize": 160977582,
+        "trace": 66031835,
+        "trim": 2504440,
+        "verify": 18172,
+        "weak_pages": 11182466
+      },
+      "reclaimed_managed_objects": 12056329,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "balanced",
+      "workers": 8,
+      "phases_ns": {
+        "accounting": 66642,
+        "finish": 112796,
+        "prepare": 8329326,
+        "resume_world": 28780,
+        "roots": 1024523,
+        "stop_world": 257798,
+        "sweep_finalize": 134134628,
+        "trace": 64708193,
+        "trim": 2435276,
+        "verify": 14212,
+        "weak_pages": 10092405
+      },
+      "reclaimed_managed_objects": 12173700,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "cpu",
+      "workers": 1,
+      "phases_ns": {
+        "accounting": 65591,
+        "finish": 100362,
+        "prepare": 10338356,
+        "resume_world": 52187,
+        "roots": 1222794,
+        "stop_world": 12139,
+        "sweep_finalize": 263135684,
+        "trace": 64612063,
+        "trim": 3344670,
+        "verify": 13406,
+        "weak_pages": 8610246
+      },
+      "reclaimed_managed_objects": 12575724,
+      "collection_counts": {
+        "minor": 69,
+        "full": 6
+      }
+    },
+    {
+      "case": "cpu",
+      "workers": 2,
+      "phases_ns": {
+        "accounting": 85441,
+        "finish": 104633,
+        "prepare": 7964292,
+        "resume_world": 27870,
+        "roots": 1203100,
+        "stop_world": 224867,
+        "sweep_finalize": 226062684,
+        "trace": 60829060,
+        "trim": 2040622,
+        "verify": 12546,
+        "weak_pages": 8470671
+      },
+      "reclaimed_managed_objects": 12590584,
+      "collection_counts": {
+        "minor": 69,
+        "full": 6
+      }
+    },
+    {
+      "case": "cpu",
+      "workers": 4,
+      "phases_ns": {
+        "accounting": 70339,
+        "finish": 136487,
+        "prepare": 7556369,
+        "resume_world": 26169,
+        "roots": 1104372,
+        "stop_world": 376519,
+        "sweep_finalize": 160075932,
+        "trace": 53215403,
+        "trim": 2075440,
+        "verify": 18783,
+        "weak_pages": 8880220
+      },
+      "reclaimed_managed_objects": 12669263,
+      "collection_counts": {
+        "minor": 69,
+        "full": 6
+      }
+    },
+    {
+      "case": "cpu",
+      "workers": 8,
+      "phases_ns": {
+        "accounting": 76320,
+        "finish": 115963,
+        "prepare": 8324722,
+        "resume_world": 32424,
+        "roots": 995468,
+        "stop_world": 178384,
+        "sweep_finalize": 165312288,
+        "trace": 59272581,
+        "trim": 2107511,
+        "verify": 13074,
+        "weak_pages": 9302750
+      },
+      "reclaimed_managed_objects": 12248838,
+      "collection_counts": {
+        "minor": 66,
+        "full": 6
+      }
+    },
+    {
+      "case": "fanout",
+      "workers": 1,
+      "phases_ns": {
+        "accounting": 134579,
+        "finish": 192405,
+        "prepare": 26962229,
+        "resume_world": 93329,
+        "roots": 9984363,
+        "stop_world": 14608,
+        "sweep_finalize": 648969840,
+        "trace": 143348706,
+        "trim": 12861423,
+        "verify": 26856,
+        "weak_pages": 28438756
+      },
+      "reclaimed_managed_objects": 24838644,
+      "collection_counts": {
+        "minor": 120,
+        "full": 15
+      }
+    },
+    {
+      "case": "fanout",
+      "workers": 2,
+      "phases_ns": {
+        "accounting": 160454,
+        "finish": 211453,
+        "prepare": 25622906,
+        "resume_world": 76478,
+        "roots": 7445501,
+        "stop_world": 683252,
+        "sweep_finalize": 572544549,
+        "trace": 131019224,
+        "trim": 8472892,
+        "verify": 25070,
+        "weak_pages": 29450150
+      },
+      "reclaimed_managed_objects": 24882761,
+      "collection_counts": {
+        "minor": 120,
+        "full": 15
+      }
+    },
+    {
+      "case": "fanout",
+      "workers": 4,
+      "phases_ns": {
+        "accounting": 151910,
+        "finish": 193581,
+        "prepare": 24938696,
+        "resume_world": 68349,
+        "roots": 7640878,
+        "stop_world": 530102,
+        "sweep_finalize": 418944407,
+        "trace": 134484879,
+        "trim": 38181573,
+        "verify": 26899,
+        "weak_pages": 31331535
+      },
+      "reclaimed_managed_objects": 25002378,
+      "collection_counts": {
+        "minor": 120,
+        "full": 15
+      }
+    },
+    {
+      "case": "fanout",
+      "workers": 8,
+      "phases_ns": {
+        "accounting": 144203,
+        "finish": 225545,
+        "prepare": 19327627,
+        "resume_world": 71746,
+        "roots": 8169995,
+        "stop_world": 224158,
+        "sweep_finalize": 332212085,
+        "trace": 142090327,
+        "trim": 5859865,
+        "verify": 26491,
+        "weak_pages": 24642297
+      },
+      "reclaimed_managed_objects": 24138745,
+      "collection_counts": {
+        "minor": 120,
+        "full": 12
+      }
+    }
+  ],
+  "cpu": [
+    {
+      "case": "balanced",
+      "workers": 1,
+      "samples": 1936,
+      "gc_samples": 387,
+      "alloc_cell_self": 243,
+      "map_insert_inclusive": 507,
+      "top_self": [
+        [
+          "telemetry.parse#117",
+          250
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          243
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::collect_inner::{closure#14}, lang_runtime::gc::collect_inner::{closure#15}>",
+          111
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          109
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          80
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          45
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          44
+        ],
+        [
+          "telemetry.raw_event#136",
+          44
+        ],
+        [
+          "lang_runtime::buffer::push",
+          40
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          37
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          34
+        ],
+        [
+          "[libc.so.6+0xa768c]",
+          27
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          23
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          22
+        ],
+        [
+          "telemetry.aggregate#17",
+          19
+        ],
+        [
+          "core::sync::atomic::atomic_add::<usize, usize>",
+          19
+        ],
+        [
+          "lang_runtime::hamt::get",
+          18
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          17
+        ],
+        [
+          "[libc.so.6+0xa4f23]",
+          17
+        ],
+        [
+          "__libc_free",
+          16
+        ],
+        [
+          "lang_runtime::buffer::trace",
+          16
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          15
+        ],
+        [
+          "<lang_runtime::buffer::Items>::capacity_bytes",
+          14
+        ],
+        [
+          "telemetry.cache_actor#15",
+          13
+        ],
+        [
+          "core::ptr::eq::<lang_runtime::desc::TypeDesc>",
+          12
+        ],
+        [
+          "[libc.so.6+0xa73e8]",
+          11
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          11
+        ],
+        [
+          "[libc.so.6+0x18f51d]",
+          10
+        ],
+        [
+          "calloc",
+          10
+        ],
+        [
+          "core::ptr::copy_nonoverlapping::<u8>",
+          10
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "stack_init_trampoline",
+          1870
+        ],
+        [
+          "[lang+0xe17c8f]",
+          1870
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          1869
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          1864
+        ],
+        [
+          "lang_runtime::call_entry",
+          1863
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          698
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          698
+        ],
+        [
+          "telemetry.aggregate#17",
+          697
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          553
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          553
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          516
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          508
+        ],
+        [
+          "lang_runtime::map::insert",
+          507
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          466
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          466
+        ],
+        [
+          "telemetry.generate#25",
+          466
+        ],
+        [
+          "telemetry.raw_event#136",
+          443
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          414
+        ],
+        [
+          "lang_runtime::gc::collect",
+          387
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          332
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          323
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          311
+        ],
+        [
+          "telemetry.parse#117",
+          259
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          243
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          243
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_get",
+          164
+        ],
+        [
+          "lang_runtime::map::get",
+          143
+        ],
+        [
+          "<std::alloc::System as core::alloc::global::GlobalAlloc>::dealloc",
+          135
+        ],
+        [
+          "[libc.so.6+0xa623d]",
+          118
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::collect_inner::{closure#14}, lang_runtime::gc::collect_inner::{closure#15}>",
+          111
+        ]
+      ]
+    },
+    {
+      "case": "balanced",
+      "workers": 4,
+      "samples": 1556,
+      "gc_samples": 210,
+      "alloc_cell_self": 222,
+      "map_insert_inclusive": 360,
+      "top_self": [
+        [
+          "lang_runtime::gc::alloc_cell",
+          222
+        ],
+        [
+          "telemetry.parse#117",
+          204
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          45
+        ],
+        [
+          "lang_runtime::buffer::push",
+          44
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          36
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::sweep_parallel::{closure#0}::{closure#0}, lang_runtime::gc::sweep_parallel::{closure#0}::{closure#1}>",
+          32
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          31
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          31
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          28
+        ],
+        [
+          "<alloc::vec::Vec<*mut lang_runtime::gc::Header>>::push_mut",
+          25
+        ],
+        [
+          "core::sync::atomic::atomic_compare_exchange_weak::<u8>",
+          21
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          21
+        ],
+        [
+          "core::sync::atomic::atomic_add::<usize, usize>",
+          20
+        ],
+        [
+          "mprotect",
+          20
+        ],
+        [
+          "[libc.so.6+0x18fc8a]",
+          18
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          18
+        ],
+        [
+          "telemetry.aggregate#17",
+          18
+        ],
+        [
+          "[libc.so.6+0xa65cd]",
+          18
+        ],
+        [
+          "__sched_yield",
+          18
+        ],
+        [
+          "telemetry.raw_event#136",
+          16
+        ],
+        [
+          "__lll_lock_wake_private",
+          14
+        ],
+        [
+          "[libc.so.6+0xa6e8b]",
+          14
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          13
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          13
+        ],
+        [
+          "lang_runtime::hamt::get",
+          12
+        ],
+        [
+          "<lang_runtime::gc::Header>::desc",
+          12
+        ],
+        [
+          "syscall",
+          11
+        ],
+        [
+          "lang_runtime::channel::send_fast",
+          11
+        ],
+        [
+          "lang_runtime::task::worker_index",
+          11
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          10
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          1461
+        ],
+        [
+          "stack_init_trampoline",
+          1461
+        ],
+        [
+          "[lang+0xe17c8f]",
+          1461
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          1458
+        ],
+        [
+          "lang_runtime::call_entry",
+          1454
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          491
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          491
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          466
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          466
+        ],
+        [
+          "telemetry.aggregate#17",
+          465
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          445
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          380
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          380
+        ],
+        [
+          "telemetry.generate#25",
+          379
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          363
+        ],
+        [
+          "lang_runtime::map::insert",
+          360
+        ],
+        [
+          "telemetry.raw_event#136",
+          358
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          282
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          274
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          257
+        ],
+        [
+          "telemetry.parse#117",
+          229
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          222
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          220
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          205
+        ],
+        [
+          "[libc.so.6+0x12080b]",
+          203
+        ],
+        [
+          "[libc.so.6+0x980a1]",
+          198
+        ],
+        [
+          "<alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once",
+          198
+        ],
+        [
+          "lang_runtime::gc::collect",
+          187
+        ],
+        [
+          "lang_runtime::task::worker_loop",
+          186
+        ],
+        [
+          "std::thread::lifecycle::spawn_unchecked::<lang_runtime::task::run_main_multi::{closure#0}, ()>::{closure#1}::{closure#0}",
+          175
+        ]
+      ]
+    },
+    {
+      "case": "backpressure",
+      "workers": 1,
+      "samples": 1668,
+      "gc_samples": 267,
+      "alloc_cell_self": 113,
+      "map_insert_inclusive": 355,
+      "top_self": [
+        [
+          "telemetry.parse#117",
+          215
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          113
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          105
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          88
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::collect_inner::{closure#14}, lang_runtime::gc::collect_inner::{closure#15}>",
+          66
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          55
+        ],
+        [
+          "lang_runtime::buffer::push",
+          46
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          45
+        ],
+        [
+          "telemetry.raw_event#136",
+          29
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          28
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          27
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          25
+        ],
+        [
+          "__libc_free",
+          22
+        ],
+        [
+          "telemetry.aggregate#17",
+          19
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          15
+        ],
+        [
+          "[libc.so.6+0xa4f3b]",
+          13
+        ],
+        [
+          "lang_runtime::hamt::get",
+          13
+        ],
+        [
+          "[libc.so.6+0xa4f23]",
+          13
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          12
+        ],
+        [
+          "lang_runtime::gc::finalize",
+          12
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          12
+        ],
+        [
+          "[libc.so.6+0x18f51d]",
+          12
+        ],
+        [
+          "corosensei::arch::x86_64::switch_yield",
+          12
+        ],
+        [
+          "core::sync::atomic::atomic_load::<u64>",
+          11
+        ],
+        [
+          "lang_runtime::make_enum",
+          11
+        ],
+        [
+          "malloc",
+          11
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          11
+        ],
+        [
+          "<core::option::Option<std::collections::hash::map::HashMap<u64, alloc::boxed::Box<lang_runtime::task::Task>, rustc_hash::FxBuildHasher>>>::get_or_insert_with::<<std::collections::hash::map::HashMap<u64, alloc::boxed::Box<lang_runtime::task::Task>, rustc_hash::FxBuildHasher> as core::default::Default>::default>",
+          11
+        ],
+        [
+          "[libc.so.6+0x18f413]",
+          10
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          10
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "stack_init_trampoline",
+          1573
+        ],
+        [
+          "[lang+0xe17c8f]",
+          1573
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          1572
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          1569
+        ],
+        [
+          "lang_runtime::call_entry",
+          1568
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          571
+        ],
+        [
+          "telemetry.aggregate#17",
+          571
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          571
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          502
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          502
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          463
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          362
+        ],
+        [
+          "lang_runtime::map::insert",
+          355
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          343
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          343
+        ],
+        [
+          "telemetry.generate#25",
+          343
+        ],
+        [
+          "telemetry.raw_event#136",
+          326
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          300
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          273
+        ],
+        [
+          "lang_runtime::gc::collect",
+          267
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          264
+        ],
+        [
+          "telemetry.parse#117",
+          222
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          185
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          178
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_get",
+          155
+        ],
+        [
+          "lang_runtime::map::get",
+          138
+        ],
+        [
+          "<std::alloc::System as core::alloc::global::GlobalAlloc>::dealloc",
+          132
+        ],
+        [
+          "[libc.so.6+0xa623d]",
+          115
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          113
+        ],
+        [
+          "lang_runtime::intrinsics_std::buffer_push",
+          110
+        ]
+      ]
+    },
+    {
+      "case": "backpressure",
+      "workers": 4,
+      "samples": 2104,
+      "gc_samples": 240,
+      "alloc_cell_self": 378,
+      "map_insert_inclusive": 393,
+      "top_self": [
+        [
+          "lang_runtime::gc::alloc_cell",
+          378
+        ],
+        [
+          "telemetry.parse#117",
+          188
+        ],
+        [
+          "core::sync::atomic::atomic_compare_exchange_weak::<u8>",
+          110
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::sweep_parallel::{closure#0}::{closure#0}, lang_runtime::gc::sweep_parallel::{closure#0}::{closure#1}>",
+          67
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          66
+        ],
+        [
+          "lang_runtime::buffer::push",
+          64
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          54
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          46
+        ],
+        [
+          "[libc.so.6+0x18fc8a]",
+          33
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          33
+        ],
+        [
+          "<alloc::vec::Vec<*mut lang_runtime::gc::Header>>::push_mut",
+          29
+        ],
+        [
+          "core::sync::atomic::atomic_add::<usize, usize>",
+          28
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          27
+        ],
+        [
+          "[[vdso]+0xd4c]",
+          27
+        ],
+        [
+          "<lang_runtime::gc::Header>::desc",
+          27
+        ],
+        [
+          "telemetry.raw_event#136",
+          25
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          24
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          23
+        ],
+        [
+          "telemetry.aggregate#17",
+          20
+        ],
+        [
+          "[libc.so.6+0xa65cd]",
+          17
+        ],
+        [
+          "__libc_free",
+          14
+        ],
+        [
+          "syscall",
+          14
+        ],
+        [
+          "core::sync::atomic::atomic_load::<u32>",
+          13
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          13
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          12
+        ],
+        [
+          "lang_runtime::task::worker_index",
+          12
+        ],
+        [
+          "mprotect",
+          11
+        ],
+        [
+          "lang_runtime::hamt::get",
+          11
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          11
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          11
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "[lang+0xe17c8f]",
+          1914
+        ],
+        [
+          "stack_init_trampoline",
+          1914
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          1913
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          1910
+        ],
+        [
+          "lang_runtime::call_entry",
+          1909
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          672
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          672
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          652
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          652
+        ],
+        [
+          "telemetry.aggregate#17",
+          651
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          589
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          431
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          431
+        ],
+        [
+          "telemetry.generate#25",
+          431
+        ],
+        [
+          "telemetry.raw_event#136",
+          409
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          404
+        ],
+        [
+          "lang_runtime::map::insert",
+          393
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          378
+        ],
+        [
+          "[libc.so.6+0x12080b]",
+          368
+        ],
+        [
+          "[libc.so.6+0x980a1]",
+          361
+        ],
+        [
+          "<alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once",
+          356
+        ],
+        [
+          "lang_runtime::task::worker_loop",
+          339
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          331
+        ],
+        [
+          "std::thread::lifecycle::spawn_unchecked::<lang_runtime::task::run_main_multi::{closure#0}, ()>::{closure#1}::{closure#0}",
+          308
+        ],
+        [
+          "lang_runtime::task::run_main_multi::{closure#0}",
+          308
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          299
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          291
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          222
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          215
+        ],
+        [
+          "corosensei::arch::x86_64::switch_and_link",
+          213
+        ]
+      ]
+    },
+    {
+      "case": "fanout",
+      "workers": 1,
+      "samples": 5725,
+      "gc_samples": 913,
+      "alloc_cell_self": 745,
+      "map_insert_inclusive": 1098,
+      "top_self": [
+        [
+          "lang_runtime::gc::alloc_cell",
+          745
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::collect_inner::{closure#14}, lang_runtime::gc::collect_inner::{closure#15}>",
+          338
+        ],
+        [
+          "telemetry.parse#117",
+          225
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          184
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          170
+        ],
+        [
+          "corosensei::arch::x86_64::switch_yield",
+          154
+        ],
+        [
+          "core::sync::atomic::atomic_load::<u64>",
+          127
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          116
+        ],
+        [
+          "lang_runtime::channel::send_fast",
+          99
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::non_null::<u64>",
+          96
+        ],
+        [
+          "lang_runtime::channel::done_waiting::{closure#0}",
+          95
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          93
+        ],
+        [
+          "lang_runtime::task::deliver::{closure#0}",
+          91
+        ],
+        [
+          "telemetry.cache_actor#15",
+          85
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          79
+        ],
+        [
+          "__libc_free",
+          79
+        ],
+        [
+          "<u64 as core::cmp::PartialEq>::eq",
+          74
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          73
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          68
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465",
+          60
+        ],
+        [
+          "[libc.so.6+0xa4f3b]",
+          57
+        ],
+        [
+          "core::sync::atomic::atomic_load::<u8>",
+          57
+        ],
+        [
+          "lang_runtime::task::worker_index",
+          48
+        ],
+        [
+          "lang_runtime::buffer::push",
+          46
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          45
+        ],
+        [
+          "lang_runtime::channel::raw",
+          45
+        ],
+        [
+          "core::ptr::copy_nonoverlapping::<u8>",
+          43
+        ],
+        [
+          "lang_runtime::hamt::get",
+          42
+        ],
+        [
+          "lang_runtime::channel::data_elem",
+          36
+        ],
+        [
+          "[libc.so.6+0xa4f23]",
+          35
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "stack_init_trampoline",
+          5127
+        ],
+        [
+          "[lang+0xe17c8f]",
+          5127
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          5123
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          5083
+        ],
+        [
+          "lang_runtime::call_entry",
+          5073
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          1665
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          1665
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          1443
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8957",
+          1254
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8957 (adapter)",
+          1254
+        ],
+        [
+          "telemetry.cache_actor#15",
+          1253
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          1112
+        ],
+        [
+          "lang_runtime::map::insert",
+          1098
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          986
+        ],
+        [
+          "lang_runtime::gc::collect",
+          913
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          825
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          825
+        ],
+        [
+          "telemetry.aggregate#17",
+          824
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465 (adapter)",
+          808
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465",
+          798
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          778
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          745
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          700
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          672
+        ],
+        [
+          "__libc_start_main",
+          598
+        ],
+        [
+          "<&dyn core::ops::function::Fn<(), Output = i32> + core::panic::unwind_safe::RefUnwindSafe + core::marker::Sync as core::ops::function::FnOnce<()>>::call_once",
+          598
+        ],
+        [
+          "std::rt::lang_start::<std::process::ExitCode>::{closure#0}",
+          598
+        ],
+        [
+          "_start",
+          598
+        ],
+        [
+          "[libc.so.6+0x27780]",
+          598
+        ],
+        [
+          "<fn() -> std::process::ExitCode as core::ops::function::FnOnce<()>>::call_once",
+          598
+        ]
+      ]
+    },
+    {
+      "case": "fanout",
+      "workers": 4,
+      "samples": 5129,
+      "gc_samples": 568,
+      "alloc_cell_self": 676,
+      "map_insert_inclusive": 946,
+      "top_self": [
+        [
+          "lang_runtime::gc::alloc_cell",
+          676
+        ],
+        [
+          "syscall",
+          400
+        ],
+        [
+          "__sched_yield",
+          251
+        ],
+        [
+          "telemetry.parse#117",
+          221
+        ],
+        [
+          "core::sync::atomic::atomic_compare_exchange_weak::<u8>",
+          166
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::sweep_parallel::{closure#0}::{closure#0}, lang_runtime::gc::sweep_parallel::{closure#0}::{closure#1}>",
+          130
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          100
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          88
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          88
+        ],
+        [
+          "__lll_lock_wake_private",
+          81
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          72
+        ],
+        [
+          "[[vdso]+0xd4c]",
+          72
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          68
+        ],
+        [
+          "corosensei::arch::x86_64::switch_yield",
+          63
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          57
+        ],
+        [
+          "<alloc::vec::Vec<*mut lang_runtime::gc::Header>>::push_mut",
+          56
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          56
+        ],
+        [
+          "core::sync::atomic::atomic_load::<u32>",
+          54
+        ],
+        [
+          "[libc.so.6+0x18fc8a]",
+          47
+        ],
+        [
+          "__lll_lock_wait_private",
+          43
+        ],
+        [
+          "lang_runtime::task::worker_index",
+          43
+        ],
+        [
+          "telemetry.cache_actor#15",
+          42
+        ],
+        [
+          "<lang_runtime::gc::Header>::desc",
+          42
+        ],
+        [
+          "lang_runtime::channel::send_fast",
+          42
+        ],
+        [
+          "__libc_free",
+          39
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465",
+          38
+        ],
+        [
+          "[libc.so.6+0xa4f23]",
+          37
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          35
+        ],
+        [
+          "core::core_arch::x86::sse2::_mm_pause",
+          35
+        ],
+        [
+          "lang_runtime::buffer::push",
+          34
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "stack_init_trampoline",
+          3856
+        ],
+        [
+          "[lang+0xe17c8f]",
+          3856
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          3850
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          3840
+        ],
+        [
+          "lang_runtime::call_entry",
+          3830
+        ],
+        [
+          "lang_runtime::task::worker_loop",
+          1831
+        ],
+        [
+          "[libc.so.6+0x12080b]",
+          1715
+        ],
+        [
+          "[libc.so.6+0x980a1]",
+          1695
+        ],
+        [
+          "<alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once",
+          1692
+        ],
+        [
+          "std::thread::lifecycle::spawn_unchecked::<lang_runtime::task::run_main_multi::{closure#0}, ()>::{closure#1}::{closure#0}",
+          1570
+        ],
+        [
+          "lang_runtime::task::run_main_multi::{closure#0}",
+          1570
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          1480
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          1480
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          1202
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          954
+        ],
+        [
+          "lang_runtime::map::insert",
+          946
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8957",
+          832
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8957 (adapter)",
+          832
+        ],
+        [
+          "telemetry.cache_actor#15",
+          830
+        ],
+        [
+          "corosensei::arch::x86_64::switch_and_link",
+          716
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          676
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          659
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          639
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          574
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          566
+        ],
+        [
+          "telemetry.aggregate#17",
+          566
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          566
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465 (adapter)",
+          561
+        ],
+        [
+          "telemetry.parser#21.lambda8439.lambda8465",
+          556
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          505
+        ]
+      ]
+    },
+    {
+      "case": "cpu",
+      "workers": 1,
+      "samples": 2046,
+      "gc_samples": 258,
+      "alloc_cell_self": 178,
+      "map_insert_inclusive": 273,
+      "top_self": [
+        [
+          "telemetry.parse#117",
+          1003
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          178
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          83
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::collect_inner::{closure#14}, lang_runtime::gc::collect_inner::{closure#15}>",
+          62
+        ],
+        [
+          "lang_runtime::buffer::push",
+          35
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          32
+        ],
+        [
+          "[libc.so.6+0xa768c]",
+          27
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          26
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          24
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          24
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          18
+        ],
+        [
+          "telemetry.raw_event#136",
+          18
+        ],
+        [
+          "<u32>::count_ones",
+          17
+        ],
+        [
+          "__libc_free",
+          13
+        ],
+        [
+          "telemetry.aggregate#17",
+          11
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          11
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          10
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          10
+        ],
+        [
+          "[libc.so.6+0xa4f23]",
+          10
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::non_null::<*mut lang_runtime::gc::Header>",
+          9
+        ],
+        [
+          "[libc.so.6+0xa6ecb]",
+          9
+        ],
+        [
+          "lang_runtime::gc::finalize",
+          9
+        ],
+        [
+          "[libc.so.6+0xa61c5]",
+          9
+        ],
+        [
+          "core::sync::atomic::atomic_add::<usize, usize>",
+          9
+        ],
+        [
+          "lang_runtime::channel::send_fast",
+          7
+        ],
+        [
+          "lang_runtime::buffer::trace",
+          7
+        ],
+        [
+          "lang_runtime::task::worker_index",
+          7
+        ],
+        [
+          "core::ptr::eq::<lang_runtime::desc::TypeDesc>",
+          7
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          7
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          6
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          2007
+        ],
+        [
+          "[lang+0xe17c8f]",
+          2007
+        ],
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          2007
+        ],
+        [
+          "stack_init_trampoline",
+          2007
+        ],
+        [
+          "lang_runtime::call_entry",
+          2006
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          1235
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          1235
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          1218
+        ],
+        [
+          "telemetry.parse#117",
+          1010
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          344
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          344
+        ],
+        [
+          "telemetry.aggregate#17",
+          343
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          318
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          318
+        ],
+        [
+          "telemetry.generate#25",
+          318
+        ],
+        [
+          "telemetry.raw_event#136",
+          307
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          286
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          279
+        ],
+        [
+          "lang_runtime::map::insert",
+          273
+        ],
+        [
+          "lang_runtime::gc::collect",
+          258
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          204
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          199
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          196
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          178
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          159
+        ],
+        [
+          "<std::alloc::System as core::alloc::global::GlobalAlloc>::dealloc",
+          103
+        ],
+        [
+          "lang_runtime::intrinsics_std::buffer_new",
+          95
+        ],
+        [
+          "[libc.so.6+0xa623d]",
+          90
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          83
+        ],
+        [
+          "lang_runtime::intrinsics_std::buffer_push",
+          65
+        ]
+      ]
+    },
+    {
+      "case": "cpu",
+      "workers": 4,
+      "samples": 2237,
+      "gc_samples": 176,
+      "alloc_cell_self": 195,
+      "map_insert_inclusive": 316,
+      "top_self": [
+        [
+          "telemetry.parse#117",
+          1088
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          195
+        ],
+        [
+          "<lang_runtime::desc::TypeDesc>::repr",
+          54
+        ],
+        [
+          "[libc.so.6+0xa4ffe]",
+          29
+        ],
+        [
+          "[libc.so.6+0xa65cd]",
+          26
+        ],
+        [
+          "[libc.so.6+0x18fc8a]",
+          26
+        ],
+        [
+          "lang_runtime::buffer::push",
+          26
+        ],
+        [
+          "core::sync::atomic::atomic_add::<usize, usize>",
+          25
+        ],
+        [
+          "lang_runtime::gc::sweep_from::<lang_runtime::gc::sweep_parallel::{closure#0}::{closure#0}, lang_runtime::gc::sweep_parallel::{closure#0}::{closure#1}>",
+          24
+        ],
+        [
+          "lang_runtime::gc::collect_inner::{closure#3}",
+          24
+        ],
+        [
+          "telemetry.raw_event#136",
+          24
+        ],
+        [
+          "syscall",
+          22
+        ],
+        [
+          "mprotect",
+          21
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          21
+        ],
+        [
+          "<lang_runtime::gc::Header>::desc",
+          19
+        ],
+        [
+          "<alloc::vec::Vec<*mut lang_runtime::gc::Header>>::push_mut",
+          17
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          13
+        ],
+        [
+          "<lang_runtime::buffer::Items>::push",
+          13
+        ],
+        [
+          "<lang_runtime::hamt::Node>::word",
+          12
+        ],
+        [
+          "<lang_runtime::hamt::Node>::u32_at",
+          11
+        ],
+        [
+          "__lll_lock_wait_private",
+          11
+        ],
+        [
+          "core::sync::atomic::atomic_load::<usize>",
+          11
+        ],
+        [
+          "__lll_lock_wake_private",
+          11
+        ],
+        [
+          "<u32>::count_ones",
+          10
+        ],
+        [
+          "lang_runtime::hamt::get",
+          10
+        ],
+        [
+          "lang_runtime::value::hash::<rustc_hash::FxHasher>",
+          10
+        ],
+        [
+          "__libc_free",
+          10
+        ],
+        [
+          "telemetry.aggregate#17",
+          9
+        ],
+        [
+          "[[vdso]+0xd4c]",
+          9
+        ],
+        [
+          "lang_runtime::gc::free_cell",
+          9
+        ]
+      ],
+      "top_inclusive": [
+        [
+          "std::panicking::catch_unwind::<(), core::panic::unwind_safe::AssertUnwindSafe<<corosensei::coroutine::Coroutine<_, _, _, _>>::with_stack_unchecked::coroutine_func<(), lang_runtime::task::Signal, (), lang_runtime::task::make_coroutine_for::{closure#0}>::{closure#0}>>",
+          2161
+        ],
+        [
+          "stack_init_trampoline",
+          2161
+        ],
+        [
+          "[lang+0xe17c8f]",
+          2161
+        ],
+        [
+          "lang_runtime::task::make_coroutine_for::{closure#0}",
+          2158
+        ],
+        [
+          "lang_runtime::call_entry",
+          2155
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993 (adapter)",
+          1340
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8991.lambda8993",
+          1340
+        ],
+        [
+          "telemetry.parser#21.lambda8439",
+          1310
+        ],
+        [
+          "telemetry.parse#117",
+          1112
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971 (adapter)",
+          384
+        ],
+        [
+          "telemetry.aggregate#17",
+          384
+        ],
+        [
+          "telemetry.main.lambda8916.lambda8969.lambda8971",
+          384
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013 (adapter)",
+          322
+        ],
+        [
+          "telemetry.main.lambda8916.lambda9011.lambda9013",
+          322
+        ],
+        [
+          "telemetry.generate#25",
+          322
+        ],
+        [
+          "lang_runtime::intrinsics_std::map_insert",
+          318
+        ],
+        [
+          "lang_runtime::map::insert",
+          316
+        ],
+        [
+          "telemetry.raw_event#136",
+          315
+        ],
+        [
+          "lang_runtime::hamt::insert",
+          241
+        ],
+        [
+          "lang_runtime::hamt::insert_at",
+          234
+        ],
+        [
+          "lang_runtime::gc::alloc_checked",
+          228
+        ],
+        [
+          "lang_runtime::gc::alloc_cell",
+          195
+        ],
+        [
+          "lang_runtime::hamt::splice",
+          192
+        ],
+        [
+          "lang_runtime::gc::alloc",
+          187
+        ],
+        [
+          "lang_runtime::gc::collect",
+          165
+        ],
+        [
+          "[libc.so.6+0x12080b]",
+          136
+        ],
+        [
+          "lang_runtime::task::worker_loop",
+          133
+        ],
+        [
+          "[libc.so.6+0x980a1]",
+          131
+        ],
+        [
+          "<alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once",
+          130
+        ],
+        [
+          "std::thread::lifecycle::spawn_unchecked::<lang_runtime::task::run_main_multi::{closure#0}, ()>::{closure#1}::{closure#0}",
+          119
+        ]
+      ]
+    }
+  ]
+}

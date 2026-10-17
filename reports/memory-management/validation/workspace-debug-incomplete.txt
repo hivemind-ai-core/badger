@@ -1,0 +1,345 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling memchr v2.8.3
+   Compiling smallvec v1.16.3
+   Compiling once_cell v1.21.4
+   Compiling version_check v0.9.5
+   Compiling log v0.4.34
+   Compiling foldhash v0.2.0
+   Compiling jobserver v0.1.35
+   Compiling serde_core v1.0.229
+   Compiling bytes v1.12.1
+   Compiling rand_core v0.10.1
+   Compiling parking_lot_core v0.9.12
+   Compiling getrandom v0.4.3
+   Compiling hashbrown v0.17.1
+   Compiling typenum v1.20.1
+   Compiling allocator-api2 v0.2.21
+   Compiling lock_api v0.4.14
+   Compiling pin-project-lite v0.2.17
+   Compiling thiserror v2.0.21
+   Compiling cc v1.8.0
+   Compiling zerocopy v0.8.63
+   Compiling equivalent v1.0.3
+   Compiling subtle v2.6.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling zeroize v1.9.1
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling rustls-pki-types v1.15.1
+   Compiling yansi v1.0.1
+   Compiling indexmap v2.14.2
+   Compiling getrandom v0.2.17
+   Compiling ucd-trie v0.1.7
+   Compiling unicode-width v0.2.2
+   Compiling ahash v0.8.12
+   Compiling futures-core v0.3.34
+   Compiling syn v3.0.9
+   Compiling untrusted v0.9.0
+   Compiling ariadne v0.6.0
+   Compiling hybrid-array v0.4.15
+   Compiling bitflags v2.13.2
+   Compiling la-arena v0.3.1
+   Compiling smol_str v0.3.6
+   Compiling rustls v0.23.45
+   Compiling futures-sink v0.3.34
+   Compiling bumpalo v3.20.3
+   Compiling percent-encoding v2.3.2
+   Compiling cmov v0.5.4
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling const-oid v0.10.2
+   Compiling aho-corasick v1.1.5
+   Compiling stable_deref_trait v1.2.1
+   Compiling cpufeatures v0.3.1
+   Compiling ctutils v0.4.3
+   Compiling object v0.37.3
+   Compiling webpki-roots v1.0.9
+   Compiling cranelift-srcgen v0.136.3
+   Compiling fastrand v2.5.0
+   Compiling pkg-config v0.3.34
+   Compiling libm v0.2.16
+   Compiling futures-channel v0.3.34
+   Compiling cranelift-assembler-x64-meta v0.136.3
+   Compiling hashbrown v0.16.1
+   Compiling foldhash v0.1.5
+   Compiling slab v0.4.12
+   Compiling futures-task v0.3.34
+   Compiling wasmtime-internal-core v49.0.3
+   Compiling futures-util v0.3.34
+   Compiling hashbrown v0.15.5
+   Compiling chacha20 v0.10.2
+   Compiling digest v0.11.3
+   Compiling http v1.5.0
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling regex-automata v0.4.18
+   Compiling fixedbitset v0.5.7
+   Compiling heck v0.5.0
+   Compiling httparse v1.10.1
+   Compiling petgraph v0.8.3
+   Compiling rand v0.10.3
+   Compiling index_vec v0.1.4
+   Compiling cranelift-isle v0.136.3
+   Compiling cranelift-codegen-shared v0.136.3
+   Compiling cranelift-codegen-meta v0.136.3
+   Compiling cranelift-bitset v0.136.3
+   Compiling syn v2.0.119
+   Compiling either v1.19.0
+   Compiling synstructure v0.14.0
+   Compiling base64 v0.22.1
+   Compiling target-lexicon v0.13.5
+   Compiling hashbrown v0.14.5
+   Compiling backtrace v0.3.76
+   Compiling litemap v0.8.3
+   Compiling regex v1.13.1
+   Compiling writeable v0.6.4
+   Compiling dashmap v6.2.1
+   Compiling itertools v0.15.0
+   Compiling lang_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_runtime)
+   Compiling cranelift-entity v0.136.3
+   Compiling lasso v0.7.3
+   Compiling generic-array v0.14.7
+   Compiling ena v0.14.4
+   Compiling icu_normalizer_data v2.3.0
+   Compiling utf8_iter v1.0.4
+   Compiling fnv v1.0.7
+   Compiling tinyvec v1.13.3
+   Compiling icu_properties_data v2.3.0
+   Compiling arbitrary v1.5.0
+   Compiling unicode-normalization v0.1.26
+   Compiling gimli v0.33.0
+   Compiling cranelift-control v0.136.3
+   Compiling cranelift-bforest v0.136.3
+   Compiling regalloc2 v0.15.2
+   Compiling unicode-properties v0.1.4
+   Compiling unicode-bidi v0.3.18
+   Compiling ryu v1.0.23
+   Compiling stringprep v0.1.5
+   Compiling hmac v0.13.0
+   Compiling sha2 v0.11.1
+   Compiling md-5 v0.11.0
+   Compiling cranelift-assembler-x64 v0.136.3
+   Compiling psm v0.1.24
+   Compiling ring v0.17.14
+   Compiling stacker v0.1.25
+   Compiling pest v2.9.3
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling anyhow v1.0.104
+   Compiling byteorder v1.5.0
+   Compiling fallible-iterator v0.2.0
+   Compiling siphasher v1.0.4
+   Compiling pest_meta v2.9.3
+   Compiling phf_shared v0.13.1
+   Compiling postgres-protocol v0.6.12
+   Compiling parking v2.2.1
+   Compiling rustversion v1.0.23
+   Compiling vcpkg v0.2.15
+   Compiling const-oid v0.9.6
+   Compiling pest_generator v2.9.3
+   Compiling flagset v0.4.7
+   Compiling postgres-types v0.2.14
+   Compiling event-listener v5.4.2
+   Compiling phf v0.13.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling http-body v1.1.0
+   Compiling slotmap v1.1.1
+   Compiling parking_lot v0.12.5
+   Compiling whoami v2.1.3
+   Compiling crc32fast v1.5.2
+   Compiling bitflags v1.3.2
+   Compiling zstd-safe v8.2.0
+   Compiling region v3.0.2
+   Compiling digest v0.10.7
+   Compiling event-listener-strategy v0.5.4
+   Compiling libsqlite3-sys v0.36.0
+   Compiling wasmtime-internal-jit-icache-coherence v49.0.3
+   Compiling sha1 v0.11.0
+   Compiling form_urlencoded v1.2.2
+   Compiling tracing-core v0.1.36
+   Compiling memmap2 v0.9.11
+   Compiling openssl-probe v0.2.1
+   Compiling getrandom v0.3.4
+   Compiling pulldown-cmark v0.13.4
+   Compiling base64 v0.23.1
+   Compiling winnow v1.0.4
+   Compiling data-encoding v2.11.1
+   Compiling simd-adler32 v0.3.10
+   Compiling atomic-waker v1.1.2
+   Compiling httpdate v1.0.3
+   Compiling miniz_oxide v0.9.1
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling arc-swap v1.9.2
+   Compiling ureq-proto v0.6.4
+   Compiling rustls-native-certs v0.8.5
+   Compiling async-lock v3.4.2
+   Compiling rustls-webpki v0.103.15
+   Compiling cranelift-codegen v0.136.3
+   Compiling hashlink v0.11.1
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling backon v1.6.0
+   Compiling webpki-roots v0.26.11
+   Compiling csv-core v0.1.13
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling jiff-core v0.1.1
+   Compiling xxhash-rust v0.8.19
+   Compiling pulldown-cmark-escape v0.11.0
+   Compiling jiff-tzdb v0.1.9
+   Compiling memo-map v0.3.4
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling unsafe-libyaml v0.2.11
+   Compiling cpufeatures v0.2.17
+   Compiling utf8-zero v0.8.1
+   Compiling arcstr v1.2.0
+   Compiling unicase v2.10.0
+   Compiling sha2 v0.10.9
+   Compiling minijinja v2.24.0
+   Compiling toml v1.1.6+spec-1.1.0
+   Compiling jiff v0.2.38
+   Compiling serde_yaml_ng v0.10.0
+   Compiling csv v1.4.0
+   Compiling flate2 v1.1.10
+   Compiling ureq v3.4.2
+   Compiling hmac v0.12.1
+   Compiling http-body-util v0.1.5
+   Compiling uuid v1.27.0
+   Compiling lang_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_fs)
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling anstyle v1.0.14
+   Compiling colorchoice v1.0.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
+   Compiling strsim v0.11.1
+   Compiling anstream v1.0.0
+   Compiling lang_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_crypto)
+   Compiling clap_lex v1.1.1
+   Compiling lang_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_native_demo)
+   Compiling clap_builder v4.6.7
+   Compiling rustix v1.1.5
+   Compiling linux-raw-sys v0.12.1
+   Compiling console v0.16.6
+   Compiling similar v2.7.0
+   Compiling diff v0.1.13
+   Compiling tempfile v3.27.0
+   Compiling pretty_assertions v1.4.1
+   Compiling insta v1.49.0
+   Compiling lang_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_formats)
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio-macros v2.7.2
+   Compiling zerofrom-derive v0.1.8
+   Compiling pest_derive v2.9.3
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling der_derive v0.7.3
+   Compiling async-trait v0.1.92
+   Compiling tracing-attributes v0.1.31
+   Compiling lang_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_datetime)
+   Compiling tokio v1.53.3
+   Compiling clap_derive v4.6.7
+   Compiling cranelift-module v0.136.3
+   Compiling cranelift-native v0.136.3
+   Compiling cranelift-jit v0.136.3
+   Compiling tokio-rustls v0.26.6
+   Compiling tokio-util v0.7.20
+   Compiling der v0.7.10
+   Compiling deadpool-runtime v0.3.1
+   Compiling deadpool v0.13.1
+   Compiling lang_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_base)
+   Compiling tungstenite v0.30.0
+   Compiling combine v4.6.9
+   Compiling lang_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_syntax)
+   Compiling spki v0.7.3
+   Compiling x509-cert v0.2.5
+   Compiling hyper v1.11.1
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.8
+   Compiling tinystr v0.8.4
+   Compiling lang_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_hir)
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling icu_collections v2.3.0
+   Compiling lang_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_typeck)
+   Compiling icu_provider v2.3.1
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling tracing v0.1.44
+   Compiling tokio-postgres v0.7.18
+   Compiling cranelift-frontend v0.136.3
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling zstd v0.14.3
+   Compiling url v2.5.8
+   Compiling hyper-util v0.1.21
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lang_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_compress)
+   Compiling lang_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_fetch)
+   Compiling redis v1.7.1
+   Compiling lang_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_mir)
+   Compiling tokio-postgres-rustls v0.14.0
+   Compiling deadpool-postgres v0.14.2
+   Compiling lang_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_http)
+   Compiling lang_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_codegen)
+   Compiling clap v4.6.7
+   Compiling lang_native v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_native)
+   Compiling lang_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_template)
+   Compiling lang_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_postgres)
+   Compiling lang_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_valkey)
+   Compiling rusqlite v0.38.0
+   Compiling lang_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_sqlite)
+   Compiling lang_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_driver)
+   Compiling lang_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 53s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/debug/deps/lang_base-a902643669ecac39)
+
+running 1 test
+test source::tests::indexed_line_col_matches_scan ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/language-gc-profile-target/debug/deps/lang-f025627180d8362c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial.rs (/tmp/language-gc-profile-target/debug/deps/adversarial-d132cffb44356b66)
+
+running 4 tests
+test reject_programs ... ok
+test run_four_workers ... ok
+test run_optimized ... ok
+test run_single_worker ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.22s
+
+     Running tests/docs.rs (/tmp/language-gc-profile-target/debug/deps/docs-a51d93d2073caca6)
+
+running 2 tests
+test api_reference_current ... ok
+test doc_examples_check ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.50s
+
+     Running tests/fuzz.rs (/tmp/language-gc-profile-target/debug/deps/fuzz-0ce763b55301e1eb)
+
+running 3 tests
+test formatter_is_idempotent ... ok
+test formatting_preserves_meaning ... ok
+test invalid_input_never_crashes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 412.06s
+
+     Running tests/gc_retention.rs (/tmp/language-gc-profile-target/debug/deps/gc_retention-e64be9c6625e6d04)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... 

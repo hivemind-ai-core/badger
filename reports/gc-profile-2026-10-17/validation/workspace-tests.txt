@@ -1,0 +1,560 @@
+   Compiling bitflags v2.13.2
+   Compiling fastrand v2.5.0
+   Compiling lang_native_demo v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_native_demo)
+   Compiling rustix v1.1.5
+   Compiling linux-raw-sys v0.12.1
+   Compiling console v0.16.6
+   Compiling similar v2.7.0
+   Compiling diff v0.1.13
+   Compiling lang_http v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_http)
+   Compiling lang_compress v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_compress)
+   Compiling lang_datetime v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_datetime)
+   Compiling lang_postgres v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_postgres)
+   Compiling lang_template v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_template)
+   Compiling lang_crypto v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_crypto)
+   Compiling lang_codegen v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_codegen)
+   Compiling lang_fetch v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_fetch)
+   Compiling backon v1.6.0
+   Compiling pulldown-cmark v0.13.4
+   Compiling rusqlite v0.38.0
+   Compiling pretty_assertions v1.4.1
+   Compiling redis v1.7.1
+   Compiling lang_runtime v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_runtime)
+   Compiling tempfile v3.27.0
+   Compiling lang_sqlite v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_sqlite)
+   Compiling insta v1.49.0
+   Compiling lang_formats v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_formats)
+   Compiling lang_hir v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_hir)
+   Compiling lang_syntax v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_syntax)
+   Compiling lang_mir v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_mir)
+   Compiling lang_typeck v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_typeck)
+   Compiling lang_valkey v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_valkey)
+   Compiling lang_base v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_base)
+   Compiling lang_fs v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_fs)
+   Compiling lang_native v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_native)
+   Compiling lang_driver v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_driver)
+   Compiling lang_cli v0.1.0 (/tmp/language-gc-profile-2026-10-17/crates/lang_cli)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2m 00s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_base-28967e3dda4fb151)
+
+running 1 test
+test source::tests::indexed_line_col_matches_scan ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/language-gc-profile-target/release/deps/lang-002b1c999ed4ee44)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial.rs (/tmp/language-gc-profile-target/release/deps/adversarial-3f3382a60635c4bb)
+
+running 4 tests
+test reject_programs ... ok
+test run_single_worker ... ok
+test run_four_workers ... ok
+test run_optimized ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.14s
+
+     Running tests/docs.rs (/tmp/language-gc-profile-target/release/deps/docs-decebf74f60c6ddf)
+
+running 2 tests
+test doc_examples_check ... ok
+test api_reference_current ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.57s
+
+     Running tests/fuzz.rs (/tmp/language-gc-profile-target/release/deps/fuzz-ae2fa33446397e62)
+
+running 3 tests
+test formatter_is_idempotent ... ok
+test invalid_input_never_crashes ... ok
+test formatting_preserves_meaning ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.58s
+
+     Running tests/gc_retention.rs (/tmp/language-gc-profile-target/release/deps/gc_retention-c8650adb7228662e)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.57s
+
+     Running tests/lsp.rs (/tmp/language-gc-profile-target/release/deps/lsp-84af31064d556f08)
+
+running 3 tests
+test language_server_robustness ... ok
+test language_server_project_entries ... ok
+test language_server ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/mcp.rs (/tmp/language-gc-profile-target/release/deps/mcp-0d08af6f0c891f0b)
+
+running 1 test
+test mcp_tools ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.35s
+
+     Running tests/option_niche.rs (/tmp/language-gc-profile-target/release/deps/option_niche-2f0e0b35cca9fc14)
+
+running 3 tests
+test returned_options_keep_boxed_function_layout ... ok
+test local_pointer_options_use_null_and_payload_before_dump_and_save ... ok
+test pointer_option_roots_survive_gc_suspension_and_multiple_workers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running tests/packed_arrays.rs (/tmp/language-gc-profile-target/release/deps/packed_arrays-12944df1bde4cb10)
+
+running 4 tests
+test array_get_and_iteration_use_typed_loads ... ok
+test buffer_capacity_obeys_heap_budget ... ok
+test dead_array_roots_release_storage_before_the_next_allocation ... ok
+test packed_array_bits_codecs_and_roots ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/postgres.rs (/tmp/language-gc-profile-target/release/deps/postgres-669e45f52515ef04)
+
+running 1 test
+test postgres_client ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.42s
+
+     Running tests/programs.rs (/tmp/language-gc-profile-target/release/deps/programs-0a62ae36455e42fe)
+
+running 60 tests
+test diagnostics_early_phases ... ok
+wrote /tmp/lang-mir-3096005/dyn_protocol.langmir (14568 bytes)
+test contract_test_report ... ok
+test contract_report ... ok
+test batch_receive_under_gc_stress ... ok
+test api_export ... ok
+wrote /tmp/lang-mir-3096005/broadcast.langmir (33380 bytes)
+test eval_in_busy_program ... ok
+test dependencies ... ok
+wrote /tmp/lang-mir-3096005/multicore.langmir (39155 bytes)
+test dotenv_and_env_references ... ok
+test internal_error_exits_promptly ... ok
+test inlined_lambda_defect_location ... ok
+test deadlock_report_names_waits ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test contract_violations ... ok
+test main_error_report ... ok
+wrote /tmp/lang-mir-3096005/multicore2.langmir (39155 bytes)
+test multicore_migration ... ok
+test map_versions_under_gc_stress ... ok
+test compiled_programs_run ... ok
+test explain_types ... ok
+test outbound_http ... ok
+test outbound_http_send ... ok
+test otel_export ... ok
+test private_struct_update ... ok
+test module_values_under_gc_stress ... ok
+test profiles ... ok
+test debugger_sees_generated_code ... ok
+test bench_programs_check ... ok
+test program_graphs ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test live_reconstruct ... ok
+test query_check_overlays ... ok
+test restricted_projects ... ok
+test live_reload ... ok
+test run_bench_reports_execution_time ... ok
+test query_rename_and_unsupported_inputs ... ok
+test inspect_running_program ... ok
+test project_tooling ... ok
+test remote_repl ... ok
+test examples_run ... ok
+test sql_generation_sqlite ... ok
+test standard_input ... ok
+test native_modules ... ok
+test test_runner_controlled_clock ... ok
+test sampling_profile ... ok
+test local_repl_session ... ok
+test structured_diagnostics ... ok
+test structured_logs ... ok
+test grace_escalation_keeps_resources ... ok
+test warning_programs ... ok
+test test_runner_simulation ... ok
+test typed_sql_schema ... ok
+test workspaces_and_git_dependencies ... ok
+test stuck_cleanup_is_bounded ... ok
+test heap_budget_contains_a_task ... ok
+test reproduction_bundles ... ok
+test durable_jobs_survive_crashes ... ok
+test run_programs_release ... ok
+test run_programs_compiled ... ok
+test run_programs ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+test result: ok. 60 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.94s
+
+     Running tests/scalar_enums.rs (/tmp/language-gc-profile-target/release/deps/scalar_enums-fcac60a3894c0fc9)
+
+running 2 tests
+wrote /tmp/lang-scalar-enums-3101582/scalar.langmir (4520 bytes)
+test local_scalar_enums_have_no_wrapper_allocations_before_dump_or_save ... ok
+test mixed_payloads_aliases_and_gc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/sequence_fusion.rs (/tmp/language-gc-profile-target/release/deps/sequence_fusion-730b053073df1cf9)
+
+running 2 tests
+wrote /tmp/lang-fusion-3101968/fusion.langmir (2716 bytes)
+test visible_pipeline_is_a_loop_before_dump_and_save ... ok
+test fusion_preserves_construction_effect_order_limits_and_roots ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+
+     Running tests/service.rs (/tmp/language-gc-profile-target/release/deps/service-f4faafc634a28ac2)
+
+running 7 tests
+test websockets ... ok
+test orders_service ... ok
+test orders_service_concurrent ... ok
+test request_isolation ... ok
+test http_limits_and_streaming ... ok
+test events_stop_when_the_client_leaves ... ok
+test stream_backpressure ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.22s
+
+     Running tests/stress.rs (/tmp/language-gc-profile-target/release/deps/stress-64ce8413c3ca8e5b)
+
+running 2 tests
+test stress_soak ... ok
+test stress_programs ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.29s
+
+     Running tests/valkey.rs (/tmp/language-gc-profile-target/release/deps/valkey-74681ff886525962)
+
+running 1 test
+test valkey_client ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_codegen-27df5731b1eae900)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_compress-5e365559b1f68504)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_crypto-600ba16135d8f76f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_datetime-ceacdd41a1c6eb9d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_driver-c85c90ba49fa4aa6)
+
+running 6 tests
+test manifest::tests::duplicate_keys_and_sections_are_errors ... ok
+test manifest::tests::toml_semantics ... ok
+test sqlgen::tests::maps_types ... ok
+test sqlgen::tests::rewrites_parameters ... ok
+test sqlgen::tests::parses_named_queries ... ok
+test sqlgen::tests::generates_sqlite ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_fetch-984b17a9b7e71498)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_formats-378f7cdc11b4393a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_fs-4862e3ab568dab25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_hir-1c3bbc94e177c7cd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_http-273bf154f77aa224)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_mir-ce6a60f832a48b3b)
+
+running 2 tests
+test reach::tests::callbacks_and_relocation_origins_survive_renumbering ... ok
+test roots::tests::roots_expire_between_safe_points_but_word_sources_stay_pinned ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_native-8ba195e044319896)
+
+running 2 tests
+test tests::malformed_wire_data_is_an_error ... ok
+test tests::wire_round_trip ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_native_demo-e4c741f3d8608c2c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_postgres-dcc816d3697f94b7)
+
+running 3 tests
+test tests::array_parameters ... ok
+test tests::dates_and_times ... ok
+test tests::numerics ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_runtime-69b2be35fed53317)
+
+running 6 tests
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test string::tests::scalar_slice_matches_character_reference ... ok
+test telemetry::tests::rfc3339_dates ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/cancelled_waiters.rs (/tmp/language-gc-profile-target/release/deps/cancelled_waiters-363bf482b139257c)
+
+running 1 test
+test cancelled_senders_leave_the_channel ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/retention.rs (/tmp/language-gc-profile-target/release/deps/retention-04b232b04645316b)
+
+running 1 test
+test shared_prefix_old_objects_and_empty_pool_chunks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/task_ids.rs (/tmp/language-gc-profile-target/release/deps/task_ids-55164b296ce3a68a)
+
+running 1 test
+test ids_continue_past_32_bits ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_sqlite-32d6f046b92f3ad4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_syntax-e8c43349f68ab72e)
+
+running 17 tests
+test format::tests::raw_strings_are_verbatim ... ok
+test format::tests::reindents_and_is_idempotent ... ok
+test layout::tests::comments_become_spaces_and_strings_are_opaque ... ok
+test layout::tests::inserts_after_statement_end ... ok
+test layout::tests::braces_restore_inside_parens ... ok
+test layout::tests::no_insert_inside_parens_or_after_operator ... ok
+test layout::tests::pipe_and_else_continue ... ok
+test parser::tests::case_rules ... ok
+test parser::tests::pipe_is_weakest ... ok
+test parser::tests::literals ... ok
+test parser::tests::generic_call_and_comparison ... ok
+test parser::tests::precedence ... ok
+test parser::tests::record_vs_block ... ok
+test parser::tests::reports_error_span ... ok
+test parser::tests::statements_and_semicolons ... ok
+test spacing::tests::canonical_spacing ... ok
+test parser::tests::design_examples_parse ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/format_repo.rs (/tmp/language-gc-profile-target/release/deps/format_repo-1fb3e79f6cbecd0c)
+
+running 1 test
+test formatting_preserves_structure ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_template-69f743a20313da44)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_typeck-96048fd63b93aa02)
+
+running 6 tests
+test ty::tests::occurs_check ... ok
+test ty::tests::closed_row_rejects_extra_field ... ok
+test ty::tests::rows_in_different_order_unify ... ok
+test ty::tests::unify_function_types ... ok
+test ty::tests::open_row_absorbs_extra_fields ... ok
+test ty::tests::region_skolem_cannot_escape ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_valkey-42f6e0b535e77938)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_base
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_codegen
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_compress
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_crypto
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_datetime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_driver
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_fetch
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_formats
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_fs
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_hir
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_http
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_mir
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_native
+
+running 1 test
+test crates/lang_native/src/lib.rs - (line 28) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.50s; merged doctests compilation took 0.50s
+   Doc-tests lang_native_demo
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_postgres
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_sqlite
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_syntax
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_template
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_typeck
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lang_valkey
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

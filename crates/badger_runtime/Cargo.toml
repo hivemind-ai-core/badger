@@ -16,6 +16,8 @@ serde = "1.0.229"
 serde_json = "1.0.154"
 
 [features]
+# Collector diagnostics and policy experiments, absent from normal builds.
+gc-profile = []
 # ThreadSanitizer fiber annotations for coroutine stack switches (build with
 # -Zsanitizer=thread)
 tsan = []

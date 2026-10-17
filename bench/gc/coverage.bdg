@@ -1,0 +1,190 @@
+// Allocation, survival and pipeline shapes omitted by read-only microbenchmarks.
+import std.array
+import std.buffer
+import std.channel
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.list
+import std.map
+import std.seq
+import std.set
+import std.task
+import std.text
+import std.time
+
+type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
+
+fn builders(c: Config) -> Int {
+    var total = 0
+    for _ in 0..c.rounds {
+        if c.mode == "set-builder" {
+            var b = set.builder<Int>()
+            for i in 0..c.n { b.insert(i % c.retain) }
+            let done = b.finish()
+            total = total + done.len()
+            for k in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                total = total + k
+            }
+        } else if c.mode == "map-strings" {
+            var b = map.builder<Int, String>()
+            for i in 0..c.n { b.insert(i % c.retain, text.repeat("x", c.payload + i % 3)) }
+            let done = b.finish()
+            total = total + done.len()
+            for (k, v) in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                let last = c.n - 1 - (c.n - 1 - k) % c.retain
+                assert(v.len() == c.payload + last % 3)
+                total = total + k + v.len()
+            }
+        } else {
+            var b = map.builder<Int, Int>()
+            for i in 0..c.n { b.insert(i % c.retain, i) }
+            let done = b.finish()
+            total = total + done.len()
+            for (k, v) in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                assert(v == c.n - 1 - (c.n - 1 - k) % c.retain)
+                total = total + k + v
+            }
+        }
+    }
+    total
+}
+
+fn must<T, E>(r: Result<T, E>) -> T {
+    match r {
+        .ok(v) => v,
+        .err(_) => panic("message benchmark failed"),
+    }
+}
+
+fn consume(c: Config, rx: channel.Receiver<Array<U64>>) -> Int {
+    let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U64])) })
+    var count = 0
+    var total = 0
+    loop {
+        match rx.recv() {
+            .none => { break },
+            .some(words) => {
+                // Processing can suspend while the payload remains live.
+                if c.mode == "messages-slow" { task.yield_now() }
+                var index = 0
+                for word in words {
+                    assert(word == U64.try_from(count * 31 + index).unwrap_or(0U64))
+                    total = total + Int.try_from(word).unwrap_or(0)
+                    index = index + 1
+                }
+                assert(index == c.payload)
+                if c.mode == "messages-retained" { retained[count % c.retain].set(words) }
+                count = count + 1
+            },
+        }
+    }
+    assert(count == c.n)
+    if c.mode == "messages-retained" {
+        for slot in retained {
+            for word in slot.get() { total = total + Int.try_from(word).unwrap_or(0) }
+        }
+    }
+    total
+}
+
+fn messages(c: Config) -> Int {
+    let a = must(channel.create<Array<U64>>({ ..channel.defaults, capacity: c.retain }))
+    let b = must(channel.create<Array<U64>>({ ..channel.defaults, capacity: c.retain }))
+    must(task.scope(fn(s) -> Result<Int, String> {
+        let producer = s.spawn(fn() {
+            for i in 0..c.n {
+                let words = array.build(c.payload, fn(j: Int) { U64.try_from(i * 31 + j).unwrap_or(0U64) })
+                let _ = must(a.sender.send(words))
+                if c.mode == "messages-fanout" { let _ = must(b.sender.send(words)) }
+            }
+            a.sender.close()
+            b.sender.close()
+        })
+        let consumer = s.spawn(fn() { consume(c, a.receiver) })
+        let extra = if c.mode == "messages-fanout" { consume(c, b.receiver) } else { 0 }
+        let total = consumer.join()
+        producer.join()
+        ok(total + extra)
+    }))
+}
+
+fn buffers(c: Config, narrow: Bool) -> Int {
+    var total = 0
+    if narrow {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U8])) })
+        for i in 0..c.n {
+            let value = U8.try_from(i % 251).unwrap_or(0U8)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U8)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    } else {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U64])) })
+        for i in 0..c.n {
+            let value = U64.try_from(i % 251).unwrap_or(0U64)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U64)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    }
+    total
+}
+
+fn snapshots(c: Config) -> Int {
+    var current: Map<Int, String> = map.empty()
+    let history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, String>()) })
+    var total = 0
+    for i in 0..c.n {
+        current = current.insert(i % 1024, text.repeat("x", c.payload + i % 3))
+        total = total + current.get(i % 1024).unwrap_or("").len()
+        if i % 64 == 0 { history[(i / 64) % c.retain].set(current) }
+    }
+    for old in history { total = total + old.get().len() }
+    total + current.len()
+}
+
+fn pipeline(c: Config) -> Int {
+    var total = 0
+    for _ in 0..c.rounds {
+        if c.mode == "visible" {
+            total = total + seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "stored" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "collected" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).collect()
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else {
+            let values = seq.range(0, c.n).collect().map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        }
+    }
+    total
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c = match codec.decode_text<Config>(env.get("GC_BENCH_CONFIG").unwrap_or("")) {
+        .ok(c) => c,
+        .err(_) => panic("invalid GC_BENCH_CONFIG"),
+    }
+    assert(c.n > 0 && c.rounds > 0 && c.payload > 0 && c.retain > 0)
+    let before = inspect.heap()
+    let start = time.now()
+    let checksum = if c.mode == "bytes" { buffers(c, true) }
+    else if c.mode == "words" { buffers(c, false) }
+    else if c.mode == "snapshots" { snapshots(c) }
+    else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
+    else if c.mode.starts_with("messages") { messages(c) }
+    else { pipeline(c) }
+    let elapsed_ns = time.as_nanos(time.now() - start)
+    let after = inspect.heap()
+    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after }))?
+    ok(())
+}

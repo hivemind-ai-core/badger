@@ -1,0 +1,11 @@
+    Checking memchr v2.8.3
+    Checking serde_core v1.0.229
+    Checking aho-corasick v1.1.5
+    Checking object v0.37.3
+    Checking regex-automata v0.4.18
+    Checking serde v1.0.229
+    Checking serde_json v1.0.154
+    Checking backtrace v0.3.76
+    Checking regex v1.13.1
+    Checking lang_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_runtime)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.29s
