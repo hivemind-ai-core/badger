@@ -71,6 +71,7 @@ POLICIES = {
     "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
     **{f"refill{kib}": {"BADGER_GC_POOL_REFILL_KIB": str(kib)} for kib in [256, 512, 2048]},
     **{f"inline{n}": {"BADGER_BUFFER_INLINE_BYTES": str(n)} for n in [0, 128, 256]},
+    "inline256-pool256": {"BADGER_BUFFER_INLINE_BYTES": "256", "BADGER_GC_POOL_MAX": "256"},
 }
 
 

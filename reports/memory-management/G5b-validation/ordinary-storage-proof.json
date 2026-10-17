@@ -1,0 +1,61 @@
+{
+  "source": "import std.array\nimport std.codec\nimport std.inspect\nimport std.io\npub fn main() -> Result<Unit, io.Error> {\n    let before = inspect.heap()\n    let values = array.build(1024, fn(i: Int) {\n        array.build(32, fn(j: Int) { i * 31 + j })\n    })\n    var checksum = 0\n    for words in values { for word in words { checksum = checksum + word } }\n    let after = inspect.heap()\n    io.println(codec.encode_text({ checksum, before, after }))?\n    ok(())\n}\n",
+  "runs": {
+    "baseline": {
+      "binary": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+      "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde",
+      "record": {
+        "after": {
+          "bytes": 337673,
+          "collections": 0,
+          "external_live_bytes": 270336,
+          "managed_live_bytes": 0,
+          "objects": 1051,
+          "pause_max_ns": 0,
+          "pause_total_ns": 0,
+          "pool_reserved_bytes": 262144
+        },
+        "before": {
+          "bytes": 0,
+          "collections": 0,
+          "external_live_bytes": 0,
+          "managed_live_bytes": 0,
+          "objects": 0,
+          "pause_max_ns": 0,
+          "pause_total_ns": 0,
+          "pool_reserved_bytes": 0
+        },
+        "checksum": 520093696
+      },
+      "external_growth_bytes": 270336
+    },
+    "candidate": {
+      "binary": "/tmp/badger-G5b-binaries/inline256",
+      "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054",
+      "record": {
+        "after": {
+          "bytes": 337673,
+          "collections": 0,
+          "external_live_bytes": 8192,
+          "managed_live_bytes": 0,
+          "objects": 1051,
+          "pause_max_ns": 0,
+          "pause_total_ns": 0,
+          "pool_reserved_bytes": 2359296
+        },
+        "before": {
+          "bytes": 0,
+          "collections": 0,
+          "external_live_bytes": 0,
+          "managed_live_bytes": 0,
+          "objects": 0,
+          "pause_max_ns": 0,
+          "pause_total_ns": 0,
+          "pool_reserved_bytes": 0
+        },
+        "checksum": 520093696
+      },
+      "external_growth_bytes": 8192
+    }
+  }
+}

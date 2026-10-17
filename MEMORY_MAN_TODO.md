@@ -59,6 +59,9 @@ negative results; do not mark architectural sketches as implemented.
   - [ ] G1b: Add language allocation-site attribution, native allocation/buffer
     churn, task-lifetime/escape observations and workload-boundary snapshots.
     GC survival alone is not escape or uniqueness evidence.
+    - [x] Add scoped Items native allocation/growth/adoption/free and inline
+      placement/growth counters with ownership-conservation validation (G5b).
+    - [ ] Complete language sites, other native allocations and task escape attribution.
 - [ ] G2: Optimize pool refill/reuse and clearing based on initialization contracts;
   evaluate size-class pages, occupancy metadata, and bulk empty-page reclamation.
   - [x] G2a: Add persistent integer-map baselines and diagnostic comparisons of
@@ -85,7 +88,7 @@ negative results; do not mark architectural sketches as implemented.
   - [x] G5a: Embed Buffer/Array metadata in its stable managed cell, eliminating
     a native Box allocation/free per buffer. Preserve tracing and version the
     generated access ABI when needed; compare native/managed bytes and applications.
-  - [ ] G5b: Inline small fixed-capacity element storage; eliminate native
+  - [x] G5b: Inline small fixed-capacity element storage; eliminate native
     payload allocation and frozen-buffer finalizer dispatch where no native
     resources remain. Prove grow-to-native, packed tracing, budgets and handoff.
 - [ ] G6: Shorten unnecessary shadow-root retention, including pointer provenance
@@ -722,3 +725,36 @@ MIR field offsets will remain compatible; inline state fits native metadata
 padding. Native growth must copy the initialized prefix, charge its entire new
 capacity (old inline bytes remain managed), and retain ordinary finalization.
 Only frozen storage that owns no native allocation may skip finalizer dispatch.
+
+### G5b complete — bounded inline payload storage retained
+
+Ordinary candidate `a0a9838` embeds positive capacities up to 256 bytes after
+managed Buffer metadata and removes finalization for frozen inline storage.
+Existing precise tracing, write barriers and shared ownership remain; format-6
+MIR offsets stay compatible. Growth copies the initialized prefix to native
+storage and charges its full capacity; original inline bytes remain managed.
+
+Saved 12 smoke/68 coverage/32 application baseline runs before implementation.
+Final ordinary evidence: 96 application, 408 coverage, 216 paired follow-up,
+80 same-binary control and 84 CPU confirmation runs. Separately saved 170
+diagnostic policy/census runs. Every oracle passes; all 1,166 saved measured
+intervals are nonoverlapping. Native ledger proves 262,144 payload allocations
+avoided in sustained integer messages while managed object count is unchanged.
+
+Nine-pair follow-up at 4/8 workers: backpressure −12.1%/−9.6%, balanced
+−6.0%/−10.3%. Exact 32-word arrays improve 23.8%/26.2%, sustained integer
+messages 12.5%/14.4%. RSS often rises a few MiB. CPU/8 varies: first flat,
+follow-up +5.3%, new 21-pair confirmation −4.7%; no stable CPU/8 or general
+tail-latency win is established. Smaller global pool routing reduces memory
+but sacrifices storage speed, so keep the default pool policy. Targeted pages
+remain open. Full tradeoffs, paired ranges, counts and provenance:
+[G5b results](reports/memory-management/G5b-summary.md).
+
+Validation: 10 ordinary/12 diagnostic runtime tests, all 66 program tests,
+42 source/MIR GC stress checks, 15 harness tests, strict Clippy in both modes
+and scoped formatting. G1b now includes Items-owned native capacity events,
+not complete malloc interception, language sites or escape inference.
+
+Next priority G6a: measure unnecessary completed-task entry/argument roots,
+with preserved result aliases and cleanup lifetimes. Clear only at synchronized
+completion points; do not mutate roots after lock-free execution permits GC.

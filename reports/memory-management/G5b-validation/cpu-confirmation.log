@@ -1,0 +1,562 @@
+telemetry rep=-1 cpu w4 candidate
+telemetry rep=-1 cpu w4 baseline
+telemetry rep=-1 cpu w8 candidate
+telemetry rep=-1 cpu w8 baseline
+telemetry rep=0 cpu w8 candidate
+telemetry rep=0 cpu w8 baseline
+telemetry rep=0 cpu w4 candidate
+telemetry rep=0 cpu w4 baseline
+telemetry rep=1 cpu w8 candidate
+telemetry rep=1 cpu w8 baseline
+telemetry rep=1 cpu w4 baseline
+telemetry rep=1 cpu w4 candidate
+telemetry rep=2 cpu w4 candidate
+telemetry rep=2 cpu w4 baseline
+telemetry rep=2 cpu w8 baseline
+telemetry rep=2 cpu w8 candidate
+telemetry rep=3 cpu w4 candidate
+telemetry rep=3 cpu w4 baseline
+telemetry rep=3 cpu w8 baseline
+telemetry rep=3 cpu w8 candidate
+telemetry rep=4 cpu w4 baseline
+telemetry rep=4 cpu w4 candidate
+telemetry rep=4 cpu w8 baseline
+telemetry rep=4 cpu w8 candidate
+telemetry rep=5 cpu w4 candidate
+telemetry rep=5 cpu w4 baseline
+telemetry rep=5 cpu w8 candidate
+telemetry rep=5 cpu w8 baseline
+telemetry rep=6 cpu w4 baseline
+telemetry rep=6 cpu w4 candidate
+telemetry rep=6 cpu w8 candidate
+telemetry rep=6 cpu w8 baseline
+telemetry rep=7 cpu w8 baseline
+telemetry rep=7 cpu w8 candidate
+telemetry rep=7 cpu w4 candidate
+telemetry rep=7 cpu w4 baseline
+telemetry rep=8 cpu w8 baseline
+telemetry rep=8 cpu w8 candidate
+telemetry rep=8 cpu w4 baseline
+telemetry rep=8 cpu w4 candidate
+telemetry rep=9 cpu w8 baseline
+telemetry rep=9 cpu w8 candidate
+telemetry rep=9 cpu w4 baseline
+telemetry rep=9 cpu w4 candidate
+telemetry rep=10 cpu w4 candidate
+telemetry rep=10 cpu w4 baseline
+telemetry rep=10 cpu w8 baseline
+telemetry rep=10 cpu w8 candidate
+telemetry rep=11 cpu w8 candidate
+telemetry rep=11 cpu w8 baseline
+telemetry rep=11 cpu w4 baseline
+telemetry rep=11 cpu w4 candidate
+telemetry rep=12 cpu w8 candidate
+telemetry rep=12 cpu w8 baseline
+telemetry rep=12 cpu w4 candidate
+telemetry rep=12 cpu w4 baseline
+telemetry rep=13 cpu w8 baseline
+telemetry rep=13 cpu w8 candidate
+telemetry rep=13 cpu w4 baseline
+telemetry rep=13 cpu w4 candidate
+telemetry rep=14 cpu w8 baseline
+telemetry rep=14 cpu w8 candidate
+telemetry rep=14 cpu w4 candidate
+telemetry rep=14 cpu w4 baseline
+telemetry rep=15 cpu w8 baseline
+telemetry rep=15 cpu w8 candidate
+telemetry rep=15 cpu w4 candidate
+telemetry rep=15 cpu w4 baseline
+telemetry rep=16 cpu w4 candidate
+telemetry rep=16 cpu w4 baseline
+telemetry rep=16 cpu w8 candidate
+telemetry rep=16 cpu w8 baseline
+telemetry rep=17 cpu w4 baseline
+telemetry rep=17 cpu w4 candidate
+telemetry rep=17 cpu w8 baseline
+telemetry rep=17 cpu w8 candidate
+telemetry rep=18 cpu w4 candidate
+telemetry rep=18 cpu w4 baseline
+telemetry rep=18 cpu w8 baseline
+telemetry rep=18 cpu w8 candidate
+telemetry rep=19 cpu w4 baseline
+telemetry rep=19 cpu w4 candidate
+telemetry rep=19 cpu w8 baseline
+telemetry rep=19 cpu w8 candidate
+telemetry rep=20 cpu w8 candidate
+telemetry rep=20 cpu w8 baseline
+telemetry rep=20 cpu w4 candidate
+telemetry rep=20 cpu w4 baseline
+[
+  {
+    "case": "cpu",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 21,
+    "elapsed_ms": {
+      "median": 270.982523,
+      "min": 256.846719,
+      "max": 295.260316,
+      "runs": [
+        256.846719,
+        260.152124,
+        275.619181,
+        288.860177,
+        295.260316,
+        260.391037,
+        268.66274,
+        265.094787,
+        272.555505,
+        286.882957,
+        285.576101,
+        269.429362,
+        274.599729,
+        267.328292,
+        291.347954,
+        270.433926,
+        270.982523,
+        282.670228,
+        272.502345,
+        266.03452,
+        268.131363
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 94712,
+      "min": 89368,
+      "max": 99016,
+      "runs": [
+        89968,
+        96368,
+        94400,
+        97880,
+        92504,
+        93464,
+        94432,
+        96168,
+        94276,
+        96868,
+        90668,
+        94272,
+        97136,
+        89368,
+        99016,
+        98536,
+        94712,
+        95276,
+        96404,
+        94964,
+        93124
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 46.088876,
+      "min": 42.820976,
+      "max": 56.39407,
+      "runs": [
+        43.334408,
+        42.820976,
+        49.372258,
+        55.325365,
+        56.39407,
+        45.419829,
+        48.468567,
+        43.336416,
+        46.031187,
+        45.243779,
+        46.995867,
+        43.640126,
+        44.010977,
+        43.105704,
+        48.950655,
+        46.647197,
+        49.591071,
+        46.067701,
+        46.294825,
+        46.088876,
+        47.831026
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 21,
+    "elapsed_ms": {
+      "median": 257.28944,
+      "min": 239.049748,
+      "max": 277.375511,
+      "runs": [
+        239.049748,
+        241.655804,
+        252.563809,
+        271.693646,
+        277.375511,
+        262.292086,
+        253.26419,
+        262.49383,
+        252.81731,
+        256.625708,
+        262.242653,
+        257.283258,
+        263.23765,
+        262.54782,
+        254.821308,
+        254.166403,
+        257.28944,
+        258.919605,
+        261.015095,
+        255.604902,
+        259.277949
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 98440,
+      "min": 95936,
+      "max": 104052,
+      "runs": [
+        100208,
+        97840,
+        101652,
+        98440,
+        96408,
+        95936,
+        101636,
+        98532,
+        96320,
+        96480,
+        98540,
+        102532,
+        96628,
+        98152,
+        98392,
+        96636,
+        100432,
+        100588,
+        104052,
+        96256,
+        102092
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 39.866854,
+      "min": 36.327424,
+      "max": 48.896694,
+      "runs": [
+        36.327424,
+        37.357348,
+        39.866854,
+        44.843412,
+        48.896694,
+        43.662088,
+        39.899737,
+        38.298486,
+        37.801912,
+        38.381821,
+        38.725518,
+        40.017305,
+        44.970209,
+        44.084471,
+        39.765437,
+        39.479315,
+        40.160149,
+        40.739464,
+        47.052604,
+        39.344315,
+        38.70412
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 21,
+    "elapsed_ms": {
+      "median": 328.250227,
+      "min": 279.797357,
+      "max": 360.15854,
+      "runs": [
+        324.958037,
+        279.797357,
+        328.321479,
+        360.15854,
+        334.763856,
+        332.374081,
+        327.138243,
+        329.056784,
+        300.073569,
+        284.105162,
+        345.8813,
+        328.250227,
+        339.562522,
+        338.705071,
+        314.773322,
+        321.978445,
+        337.273193,
+        322.579891,
+        312.381192,
+        321.465323,
+        338.864376
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 130100,
+      "min": 122388,
+      "max": 138760,
+      "runs": [
+        130180,
+        124208,
+        122388,
+        136196,
+        132252,
+        128116,
+        136432,
+        130224,
+        128760,
+        132040,
+        128860,
+        127072,
+        124116,
+        130100,
+        122912,
+        137968,
+        130252,
+        138760,
+        130492,
+        124992,
+        128780
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 48.404363,
+      "min": 41.604217,
+      "max": 58.99757,
+      "runs": [
+        49.967087,
+        41.604217,
+        48.944177,
+        54.875913,
+        52.321032,
+        58.00957,
+        51.446709,
+        48.404363,
+        43.859747,
+        43.808747,
+        47.309216,
+        45.256259,
+        49.033588,
+        46.093415,
+        48.027328,
+        47.25619,
+        57.639095,
+        47.260789,
+        45.876799,
+        52.214825,
+        58.99757
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 21,
+    "elapsed_ms": {
+      "median": 312.66533,
+      "min": 287.414144,
+      "max": 371.730017,
+      "runs": [
+        309.491531,
+        287.414144,
+        330.014,
+        364.690011,
+        371.730017,
+        309.240694,
+        315.856223,
+        312.66533,
+        317.158219,
+        306.106898,
+        290.690534,
+        310.251279,
+        318.82404,
+        291.996748,
+        298.741767,
+        340.460949,
+        362.683826,
+        308.106899,
+        348.957519,
+        330.167263,
+        304.773642
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 132124,
+      "min": 124616,
+      "max": 142316,
+      "runs": [
+        133344,
+        129684,
+        129088,
+        129408,
+        134156,
+        127532,
+        133504,
+        142316,
+        125948,
+        124616,
+        135756,
+        133680,
+        136276,
+        137736,
+        132124,
+        129960,
+        133960,
+        136524,
+        126676,
+        131972,
+        124880
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 43.286024,
+      "min": 37.978785,
+      "max": 63.837565,
+      "runs": [
+        48.510648,
+        38.731592,
+        45.474863,
+        63.837565,
+        53.712957,
+        42.080784,
+        43.286024,
+        54.345891,
+        37.978785,
+        40.214519,
+        38.045205,
+        39.132585,
+        43.677034,
+        38.022201,
+        40.430504,
+        58.518022,
+        58.559128,
+        42.060137,
+        41.038599,
+        43.908584,
+        52.039094
+      ]
+    }
+  }
+]

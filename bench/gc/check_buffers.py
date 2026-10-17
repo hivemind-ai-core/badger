@@ -69,7 +69,9 @@ def main():
             for workers in [1, 8]:
                 for mode in ["buffers-empty", "buffers-grow", "buffers-pointers", "buffers-capacity", "buffers-capacity-grow", "buffers-capacity-pointers"]:
                     check("bench/gc/coverage.bdg", workers, generational,
-                          dict(mode=mode, n=33, rounds=1, payload=9, retain=4))
+                          dict(mode=mode, n=33, rounds=1,
+                               payload=65 if mode == "buffers-capacity-grow" else (32 if mode.startswith("buffers-capacity") else 9),
+                               retain=4))
     with binary.open("rb") as file:
         digest = hashlib.file_digest(file, "sha256").hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,767 @@
+{
+  "binary": "/tmp/badger-G5b-binaries/inline256",
+  "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054",
+  "compile_command": [
+    "/tmp/badger-G5b-binaries/inline256",
+    "compile",
+    "tests/run/packed_arrays.bdg",
+    "-o",
+    "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+  ],
+  "older_mir_check": {
+    "command": [
+      "/tmp/badger-G2c-binaries/baseline-1b47a02",
+      "compile",
+      "tests/run/packed_arrays.bdg",
+      "-o",
+      "/tmp/badger-buffer-checks-7ubtswoj/previous.bdgmir"
+    ],
+    "previous_sha256": "d3c54de1a935086c9f7e7ffd235990f6d272c5568b77e433d225262e1e724df7",
+    "mir_sha256": "0f739d88d1a38ca59a7ec6a52bd5098b50ac3d9a9be2668e2dd26f314ca85e4a",
+    "stderr": "Error: [E0011] compiled by badger 0.1.0 (mir format 5), but this is badger 0.1.0 (mir format 6): compile it again\n"
+  },
+  "compatible_mir_check": {
+    "command": [
+      "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+      "compile",
+      "tests/run/packed_arrays.bdg",
+      "-o",
+      "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+    ],
+    "mir_sha256": "da689a1affbdef4846a57453b9e14887b17834536e9ac6976b9116f578d2f48c"
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 0,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-empty",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1046,\"collections\":65,\"external_live_bytes\":0,\"managed_live_bytes\":982,\"objects\":23,\"pause_max_ns\":23573,\"pause_total_ns\":105704,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":223,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":191,\"objects\":4,\"pause_max_ns\":23573,\"pause_total_ns\":28482,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":33,\"config\":{\"mode\":\"buffers-empty\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":52217}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1621,\"collections\":74,\"external_live_bytes\":640,\"managed_live_bytes\":1429,\"objects\":32,\"pause_max_ns\":22502,\"pause_total_ns\":139755,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":221,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":189,\"objects\":4,\"pause_max_ns\":22502,\"pause_total_ns\":27051,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":89667}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":3703,\"collections\":407,\"external_live_bytes\":512,\"managed_live_bytes\":3638,\"objects\":68,\"pause_max_ns\":30747,\"pause_total_ns\":1393740,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":229,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":30747,\"pause_total_ns\":35587,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":1374030}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1857,\"collections\":74,\"external_live_bytes\":0,\"managed_live_bytes\":1721,\"objects\":32,\"pause_max_ns\":26148,\"pause_total_ns\":148907,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":229,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":26148,\"pause_total_ns\":31117,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":96920}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1790,\"collections\":74,\"external_live_bytes\":640,\"managed_live_bytes\":1566,\"objects\":32,\"pause_max_ns\":22903,\"pause_total_ns\":139951,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":239,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":207,\"objects\":4,\"pause_max_ns\":22903,\"pause_total_ns\":27843,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":92321}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":4000,\"collections\":407,\"external_live_bytes\":0,\"managed_live_bytes\":3935,\"objects\":68,\"pause_max_ns\":25488,\"pause_total_ns\":1371052,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":247,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":215,\"objects\":4,\"pause_max_ns\":25488,\"pause_total_ns\":29878,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-capacity-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":1344404}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-empty",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1046,\"collections\":65,\"external_live_bytes\":0,\"managed_live_bytes\":982,\"objects\":23,\"pause_max_ns\":46877,\"pause_total_ns\":149770,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":223,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":191,\"objects\":4,\"pause_max_ns\":46877,\"pause_total_ns\":52377,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":33,\"config\":{\"mode\":\"buffers-empty\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":146953}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1621,\"collections\":74,\"external_live_bytes\":640,\"managed_live_bytes\":1429,\"objects\":32,\"pause_max_ns\":39364,\"pause_total_ns\":369730,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":221,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":189,\"objects\":4,\"pause_max_ns\":39364,\"pause_total_ns\":53800,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":344109}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":3703,\"collections\":407,\"external_live_bytes\":512,\"managed_live_bytes\":3638,\"objects\":68,\"pause_max_ns\":34414,\"pause_total_ns\":1467450,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":229,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":34414,\"pause_total_ns\":39634,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":1473404}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1857,\"collections\":74,\"external_live_bytes\":0,\"managed_live_bytes\":1721,\"objects\":32,\"pause_max_ns\":41376,\"pause_total_ns\":203820,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":229,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":41376,\"pause_total_ns\":46716,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":185053}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":1790,\"collections\":74,\"external_live_bytes\":640,\"managed_live_bytes\":1566,\"objects\":32,\"pause_max_ns\":32200,\"pause_total_ns\":166936,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":239,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":207,\"objects\":4,\"pause_max_ns\":32200,\"pause_total_ns\":39314,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":133378}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 0,
+      "config": {
+        "mode": "buffers-capacity-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":4000,\"collections\":407,\"external_live_bytes\":0,\"managed_live_bytes\":3935,\"objects\":68,\"pause_max_ns\":34013,\"pause_total_ns\":1579886,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":247,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":215,\"objects\":4,\"pause_max_ns\":34013,\"pause_total_ns\":40646,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-capacity-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":1606271}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "4",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "tests/run/packed_arrays.bdg"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "/tmp/badger-buffer-checks-7ubtswoj/packed.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "/tmp/badger-buffer-checks-7ubtswoj/compatible.bdgmir"
+      ],
+      "generational": 1,
+      "config": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-empty",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":64,\"collections\":65,\"external_live_bytes\":0,\"managed_live_bytes\":982,\"objects\":23,\"pause_max_ns\":13245,\"pause_total_ns\":75830,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":191,\"objects\":4,\"pause_max_ns\":10850,\"pause_total_ns\":14366,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":33,\"config\":{\"mode\":\"buffers-empty\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":33151}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":192,\"collections\":74,\"external_live_bytes\":768,\"managed_live_bytes\":1493,\"objects\":33,\"pause_max_ns\":12393,\"pause_total_ns\":102559,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":189,\"objects\":4,\"pause_max_ns\":11160,\"pause_total_ns\":18314,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":60392}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":65,\"collections\":407,\"external_live_bytes\":512,\"managed_live_bytes\":3638,\"objects\":68,\"pause_max_ns\":13395,\"pause_total_ns\":714175,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":9859,\"pause_total_ns\":13195,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":709316}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":136,\"collections\":74,\"external_live_bytes\":0,\"managed_live_bytes\":1857,\"objects\":33,\"pause_max_ns\":16821,\"pause_total_ns\":95270,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":9588,\"pause_total_ns\":12774,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":55413}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":224,\"collections\":74,\"external_live_bytes\":768,\"managed_live_bytes\":1662,\"objects\":33,\"pause_max_ns\":12173,\"pause_total_ns\":98767,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":207,\"objects\":4,\"pause_max_ns\":10470,\"pause_total_ns\":13645,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":60442}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "1",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":65,\"collections\":407,\"external_live_bytes\":0,\"managed_live_bytes\":3935,\"objects\":68,\"pause_max_ns\":15048,\"pause_total_ns\":721010,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":215,\"objects\":4,\"pause_max_ns\":9959,\"pause_total_ns\":13435,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-capacity-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":710829}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-empty",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":64,\"collections\":65,\"external_live_bytes\":0,\"managed_live_bytes\":982,\"objects\":23,\"pause_max_ns\":18805,\"pause_total_ns\":90187,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":191,\"objects\":4,\"pause_max_ns\":8185,\"pause_total_ns\":12232,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":33,\"config\":{\"mode\":\"buffers-empty\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":67576}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":192,\"collections\":74,\"external_live_bytes\":768,\"managed_live_bytes\":1493,\"objects\":33,\"pause_max_ns\":29916,\"pause_total_ns\":139563,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":189,\"objects\":4,\"pause_max_ns\":7594,\"pause_total_ns\":13866,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":130743}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":65,\"collections\":407,\"external_live_bytes\":512,\"managed_live_bytes\":3638,\"objects\":68,\"pause_max_ns\":24184,\"pause_total_ns\":817970,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":7523,\"pause_total_ns\":11489,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":856039}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":136,\"collections\":74,\"external_live_bytes\":0,\"managed_live_bytes\":1857,\"objects\":33,\"pause_max_ns\":17843,\"pause_total_ns\":115473,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":197,\"objects\":4,\"pause_max_ns\":14958,\"pause_total_ns\":19026,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":79768}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity-grow",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":224,\"collections\":74,\"external_live_bytes\":768,\"managed_live_bytes\":1662,\"objects\":33,\"pause_max_ns\":27551,\"pause_total_ns\":125175,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":207,\"objects\":4,\"pause_max_ns\":15028,\"pause_total_ns\":19757,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":182682,\"config\":{\"mode\":\"buffers-capacity-grow\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":92953}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/badger-G5b-binaries/inline256",
+        "run",
+        "--release",
+        "--workers",
+        "8",
+        "bench/gc/coverage.bdg"
+      ],
+      "generational": 1,
+      "config": {
+        "mode": "buffers-capacity-pointers",
+        "n": 33,
+        "rounds": 1,
+        "payload": 9,
+        "retain": 4
+      },
+      "stdout": "{\"after\":{\"bytes\":65,\"collections\":407,\"external_live_bytes\":0,\"managed_live_bytes\":3935,\"objects\":68,\"pause_max_ns\":17703,\"pause_total_ns\":757478,\"pool_reserved_bytes\":262144},\"before\":{\"bytes\":32,\"collections\":5,\"external_live_bytes\":0,\"managed_live_bytes\":215,\"objects\":4,\"pause_max_ns\":14177,\"pause_total_ns\":18324,\"pool_reserved_bytes\":262144},\"checkpoints\":[],\"checksum\":12330,\"config\":{\"mode\":\"buffers-capacity-pointers\",\"n\":33,\"payload\":9,\"retain\":4,\"rounds\":1},\"elapsed_ns\":749251}\n",
+      "stderr": ""
+    }
+  ]
+}

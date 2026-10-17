@@ -1,0 +1,788 @@
+{
+  "baseline_revision": "b8b6935cc1ef5037ba7df28a51f4433a77e6156d",
+  "candidate_revision": "a0a9838076b5ce70222edd76542dcc81b367f000",
+  "integrated_main": "56f5983",
+  "binaries": {
+    "ordinary-baseline": {
+      "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+      "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde",
+      "bytes": 30543264
+    },
+    "ordinary-inline256": {
+      "path": "/tmp/badger-G5b-binaries/inline256",
+      "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054",
+      "bytes": 30545488
+    },
+    "diagnostic-inline-policies": {
+      "path": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+      "sha256": "a9fdde6873b8507463707eac56eb8fff47430c3e12759a7221f13912a0c0312a",
+      "bytes": 30920688
+    }
+  },
+  "candidate_source_sha256": {
+    "crates/badger_runtime/src/buffer.rs": "48b65618e4e736d586598f400c5c39a9e6492b998c5d6b75ab953da9904d77a9",
+    "crates/badger_runtime/src/intrinsics_std.rs": "852ffa402d52c5edb6652f7e4243da12170558fed57624b7883de048deebcb1b",
+    "crates/badger_runtime/src/gc.rs": "91eac2b0098da95fe1fc9b06a6c34088958abf985ddaed33b2edc91ed9f18b65",
+    "crates/badger_runtime/src/gc/allocations.rs": "303d11a6be79a8cd06b106a432602971c3732f22b9fb8e383f50a4a3de5fdea9",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "08a765c5270b11887053e8981fbb47f223d2a2f280a72f17f9a3e67658ba260d"
+  },
+  "final_harness_sha256": {
+    "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+    "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+    "bench/gc/check_buffers.py": "6e2de609cdcc419507e8866d52266d0669afc09e2e880fc6c39c5fe3ec8c3745",
+    "bench/gc/check_inline_storage.py": "7efcc4e49e98bc76c15e2f721314e116132d60fdb04b35ff5837211f8ef3bf4e",
+    "bench/gc/test_gc_bench.py": "e65ab876fcc58447b6c5f626522c7ee7e1ae10c0b18ed563e2cc666f6baade15",
+    "bench/gc/analyze.py": "25a11ede8ccbb442d19900663ac6c8a99f83283c81e487b222a993c78b7cc207"
+  },
+  "datasets": {
+    "G5b-smoke-baseline": {
+      "measured_runs": 12,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "cde5489fc72b0baeff212dfb8afdea66869da984aaecda97d72d063736f734e8",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "smoke",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 20261017,
+        "paired": false,
+        "cases": [
+          "buffers-capacity-31",
+          "buffers-capacity-32",
+          "buffers-capacity-33",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "bytes-257"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048"
+        ],
+        "out": "reports/memory-management/G5b-smoke-baseline"
+      }
+    },
+    "G5b-coverage-baseline": {
+      "measured_runs": 68,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "cde5489fc72b0baeff212dfb8afdea66869da984aaecda97d72d063736f734e8",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 20261017,
+        "paired": false,
+        "cases": [
+          "buffers-empty",
+          "buffers-grow",
+          "buffers-pointers",
+          "buffers-capacity-31",
+          "buffers-capacity-32",
+          "buffers-capacity-33",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "bytes-257",
+          "bytes-transient",
+          "words-transient",
+          "bytes-survivors",
+          "messages-int-sustained",
+          "messages-int-slow-sustained",
+          "messages-int-retained-sustained",
+          "messages-int-fanout-sustained",
+          "persistent-4096"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048"
+        ],
+        "out": "reports/memory-management/G5b-coverage-baseline"
+      }
+    },
+    "G5b-app-baseline": {
+      "measured_runs": 32,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "cde5489fc72b0baeff212dfb8afdea66869da984aaecda97d72d063736f734e8",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 2,
+        "seed": 20261017,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048"
+        ],
+        "out": "reports/memory-management/G5b-app-baseline"
+      }
+    },
+    "G5b-applications": {
+      "measured_runs": 96,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "f2466f9758f66c7721d3ce781f90d928e19eca68762d38e41bec341025f9736d",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "/tmp/badger-G5b-binaries/inline256",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "a0a9838",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 20261025,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256"
+        ],
+        "out": "reports/memory-management/G5b-applications"
+      }
+    },
+    "G5b-coverage": {
+      "measured_runs": 408,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "f2466f9758f66c7721d3ce781f90d928e19eca68762d38e41bec341025f9736d",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "/tmp/badger-G5b-binaries/inline256",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "a0a9838",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 20261026,
+        "paired": true,
+        "cases": [
+          "buffers-empty",
+          "buffers-grow",
+          "buffers-pointers",
+          "buffers-capacity-31",
+          "buffers-capacity-32",
+          "buffers-capacity-33",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "bytes-257",
+          "bytes-transient",
+          "words-transient",
+          "bytes-survivors",
+          "messages-int-sustained",
+          "messages-int-slow-sustained",
+          "messages-int-retained-sustained",
+          "messages-int-fanout-sustained",
+          "persistent-4096"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256"
+        ],
+        "out": "reports/memory-management/G5b-coverage"
+      }
+    },
+    "G5b-storage-census": {
+      "measured_runs": 16,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+          "sha256": "a9fdde6873b8507463707eac56eb8fff47430c3e12759a7221f13912a0c0312a"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "f2466f9758f66c7721d3ce781f90d928e19eca68762d38e41bec341025f9736d",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+        "allocations": true,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 20261027,
+        "paired": true,
+        "cases": [
+          "buffers-capacity-32",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "messages-int-sustained"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "inline0",
+          "inline256"
+        ],
+        "out": "reports/memory-management/G5b-storage-census"
+      }
+    },
+    "G5b-app-followup": {
+      "measured_runs": 216,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "/tmp/badger-G5b-binaries/inline256",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "a0a9838",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 9,
+        "seed": 20261028,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G5b-app-followup"
+      }
+    },
+    "G5b-self-control": {
+      "measured_runs": 80,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "b8b6935",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 5,
+        "seed": 20261029,
+        "paired": true,
+        "cases": [
+          "buffers-empty",
+          "words-transient",
+          "persistent-4096",
+          "buffers-capacity-33"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G5b-self-control"
+      }
+    },
+    "G5b-diagnostic-app-policies": {
+      "measured_runs": 96,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+          "sha256": "a9fdde6873b8507463707eac56eb8fff47430c3e12759a7221f13912a0c0312a"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+        "allocations": false,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 20261030,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G5b-diagnostic-app-policies"
+      }
+    },
+    "G5b-diagnostic-storage-policies": {
+      "measured_runs": 54,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+          "sha256": "a9fdde6873b8507463707eac56eb8fff47430c3e12759a7221f13912a0c0312a"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+        "allocations": false,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 20261031,
+        "paired": true,
+        "cases": [
+          "buffers-capacity-32",
+          "messages-int-sustained",
+          "bytes-survivors"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "inline0",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G5b-diagnostic-storage-policies"
+      }
+    },
+    "G5b-cpu-confirmation": {
+      "measured_runs": 84,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "/tmp/badger-G5b-binaries/inline256",
+        "baseline_revision": "b8b6935",
+        "candidate_revision": "a0a9838",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 21,
+        "seed": 2026101741,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G5b-cpu-confirmation"
+      }
+    },
+    "G5b-application-census": {
+      "measured_runs": 4,
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+          "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+          "sha256": "a9fdde6873b8507463707eac56eb8fff47430c3e12759a7221f13912a0c0312a"
+        }
+      },
+      "source_hashes": {
+        "bench/gc/run.py": "dd1b9e0291f57884a7295a22b8d888ffbcdf14f074a43aa1696e79906a112a27",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "f57a6d1ce29fc7c17f7f498d2552e2e26d837f48e711ddd1e13ffcbfbb7fa81d",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "arguments": {
+        "baseline": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-G5b-binaries/diagnostic-a0a9838",
+        "allocations": true,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101742,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced"
+        ],
+        "policies": [
+          "inline0",
+          "inline256"
+        ],
+        "out": "reports/memory-management/G5b-application-census"
+      }
+    }
+  },
+  "interval_audit": {
+    "measured_intervals": 1166,
+    "overlaps": 0,
+    "note": "Only runs with saved host boundaries. No own builds/tests/other experiments overlapped accepted measurements; host background load is uncontrolled."
+  },
+  "normal_policy": {
+    "inline_bytes": 256,
+    "pool_max_bytes": 512,
+    "refill_kib": 2048,
+    "scoped_sweep": true,
+    "mir_format": 6
+  }
+}

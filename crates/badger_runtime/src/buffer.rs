@@ -293,7 +293,15 @@ mod tests {
         if std::env::var_os("BADGER_INLINE_TEST_CHILD").is_none() {
             let limits: &[usize] =
                 if cfg!(feature = "gc-profile") { &[0, 128, 256] } else { &[INLINE_BYTES] };
-            for (limit, generational) in limits.iter().flat_map(|n| ["0", "1"].map(move |g| (n, g))) {
+            let pools: &[usize] = if cfg!(feature = "gc-profile") { &[256, 512] } else { &[512] };
+            let settings = limits.iter().flat_map(|limit| {
+                pools.iter().flat_map(move |pool| {
+                    ["0", "1"].into_iter().flat_map(move |generation| {
+                        ["0", "1"].map(move |verify| (limit, pool, generation, verify))
+                    })
+                })
+            });
+            for (limit, pool, generational, verify) in settings {
                 let mut command = std::process::Command::new(std::env::current_exe().unwrap());
                 for (key, _) in std::env::vars_os() {
                     if key.to_string_lossy().starts_with("BADGER_") {
@@ -306,14 +314,15 @@ mod tests {
                         "buffer::tests::inline_elements_trace_freeze_and_grow_without_native_leaks",
                     ])
                     .env("BADGER_INLINE_TEST_CHILD", "1")
-                    .env("BADGER_GC_VERIFY", "1")
+                    .env("BADGER_GC_VERIFY", verify)
                     .env("BADGER_GC_GENERATIONAL", generational)
+                    .env("BADGER_GC_POOL_MAX", pool.to_string())
                     .env("BADGER_BUFFER_INLINE_BYTES", limit.to_string())
                     .output()
                     .unwrap();
                 assert!(
                     output.status.success(),
-                    "inline{limit} gen{generational}: {} {}",
+                    "inline{limit} pool{pool} gen{generational} verify{verify}: {} {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 );
@@ -343,9 +352,27 @@ mod tests {
                 assert_eq!(finalize.is_none(), inline);
                 arrays.push((w, cap));
             }
-            let growing = roots.add(new(crate::desc::builtin::string(), 4));
-            let frozen_ptrs = roots.add(new(crate::desc::builtin::string(), 4));
-            for i in 0..4 {
+            let mut packed = vec![];
+            for (name, kind) in [
+                ("I16", Kind::Int { bits: 16, signed: true }),
+                ("U32", Kind::Int { bits: 32, signed: false }),
+                ("F32", Kind::Float { bits: 32 }),
+                ("F64", Kind::Float { bits: 64 }),
+            ] {
+                let elem = TypeDesc::new(name, kind).leak();
+                let cap = (inline_bytes() / elem.repr().size() as usize).max(4);
+                let w = roots.add(new(elem, cap));
+                let mask = u64::MAX >> (64 - elem.repr().size() * 8);
+                let expected: Vec<_> = (0..cap).map(|i| [0, 1, u64::MAX, 0x7fc00001][i % 4] & mask).collect();
+                for &word in &expected {
+                    push(w, word);
+                }
+                freeze(w);
+                packed.push((w, expected));
+            }
+            let growing = roots.add(new(crate::desc::builtin::string(), 32));
+            let frozen_ptrs = roots.add(new(crate::desc::builtin::string(), 32));
+            for i in 0..32 {
                 let value = crate::string::new_string(&format!("value {i}"));
                 push(growing, value);
                 push(frozen_ptrs, value);
@@ -357,7 +384,7 @@ mod tests {
             let original_payload = unsafe { obj(growing).payload_size() };
             let original_storage = items(growing).as_ptr();
             let was_inline = items(growing).inline;
-            for i in 4..128 {
+            for i in 32..128 {
                 push(growing, crate::string::new_string(&format!("value {i}")));
             }
             assert!(!items(growing).inline);
@@ -374,6 +401,9 @@ mod tests {
                 for i in 0..cap {
                     assert_eq!(items(w).get(i), Some((i % 251) as u64));
                 }
+            }
+            for (w, expected) in packed {
+                assert_eq!(items(w).iter().collect::<Vec<_>>(), expected);
             }
             for w in [growing, frozen_ptrs] {
                 for (i, word) in items(w).iter().enumerate() {

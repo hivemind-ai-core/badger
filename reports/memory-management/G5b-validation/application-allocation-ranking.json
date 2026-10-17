@@ -1,0 +1,1098 @@
+[
+  {
+    "workers": 1,
+    "variant": "inline0",
+    "totals": {
+      "allocated": {
+        "cell_bytes": 311071276,
+        "objects": 2986931,
+        "requested_bytes": 304904332
+      },
+      "first_survival": {
+        "cell_bytes": 28785960,
+        "objects": 457763,
+        "requested_bytes": 27056161
+      },
+      "full_survivor_observations": {
+        "cell_bytes": 4139248,
+        "objects": 59741,
+        "requested_bytes": 3952050
+      },
+      "minor_survivor_observations": {
+        "cell_bytes": 26151840,
+        "objects": 415640,
+        "requested_bytes": 24581697
+      },
+      "reclaimed_after_survival": {
+        "cell_bytes": 21684680,
+        "objects": 350442,
+        "requested_bytes": 20335160
+      },
+      "reclaimed_before_survival": {
+        "cell_bytes": 277945688,
+        "objects": 2485712,
+        "requested_bytes": 273559926
+      },
+      "remaining": {
+        "cell_bytes": 11440908,
+        "objects": 150777,
+        "requested_bytes": 11009246
+      },
+      "remaining_after_survival": {
+        "cell_bytes": 7101280,
+        "objects": 107321,
+        "requested_bytes": 6721001
+      }
+    },
+    "buffer_storage": {
+      "events": {
+        "inline": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "inline_to_native": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_adopt": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_alloc": {
+          "bytes": 69247040,
+          "calls": 266251
+        },
+        "native_free": {
+          "bytes": 58798080,
+          "calls": 226200
+        },
+        "native_realloc_growth": {
+          "bytes": 0,
+          "calls": 0
+        }
+      },
+      "native_owned_blocks_remaining": 40051,
+      "native_owned_bytes_remaining": 10448960,
+      "note": "Items storage only, process-wide. Native alloc/realloc are successful allocator API calls; realloc bytes are capacity growth, not all bytes internally moved. Adoption transfers existing Vec storage and is not a new malloc call. Temporary Vec construction and other native allocations are excluded. Inline bytes are already included in managed totals. No timing/RSS inference from diagnostic counts."
+    },
+    "top_sites": [
+      {
+        "type": "MapNode",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/hamt.rs",
+          "line": 159
+        },
+        "allocated": {
+          "cell_bytes": 209351824,
+          "objects": 759532,
+          "requested_bytes": 207707912
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 12087936,
+          "objects": 377748,
+          "requested_bytes": 12087936
+        }
+      },
+      {
+        "type": "Buffer",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/buffer.rs",
+          "line": 212
+        },
+        "allocated": {
+          "cell_bytes": 17040064,
+          "objects": 266251,
+          "requested_bytes": 17040064
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 8388608,
+          "objects": 262144,
+          "requested_bytes": 8388608
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 12582912
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Tuple",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 249
+        },
+        "allocated": {
+          "cell_bytes": 1410176,
+          "objects": 44068,
+          "requested_bytes": 1410176
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1156352,
+          "objects": 36136,
+          "requested_bytes": 1156352
+        }
+      },
+      {
+        "type": "Channel",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/channel.rs",
+          "line": 545
+        },
+        "allocated": {
+          "cell_bytes": 1048928,
+          "objects": 32779,
+          "requested_bytes": 786696
+        }
+      },
+      {
+        "type": "List",
+        "source": {
+          "column": 21,
+          "file": "crates/badger_runtime/src/list.rs",
+          "line": 492
+        },
+        "allocated": {
+          "cell_bytes": 1572864,
+          "objects": 32768,
+          "requested_bytes": 1572864
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      }
+    ]
+  },
+  {
+    "workers": 1,
+    "variant": "inline256",
+    "totals": {
+      "allocated": {
+        "cell_bytes": 378180198,
+        "objects": 2986931,
+        "requested_bytes": 372013254
+      },
+      "first_survival": {
+        "cell_bytes": 77575224,
+        "objects": 458248,
+        "requested_bytes": 75849377
+      },
+      "full_survivor_observations": {
+        "cell_bytes": 8693360,
+        "objects": 59714,
+        "requested_bytes": 8506106
+      },
+      "minor_survivor_observations": {
+        "cell_bytes": 70387536,
+        "objects": 416159,
+        "requested_bytes": 68821401
+      },
+      "reclaimed_after_survival": {
+        "cell_bytes": 60494560,
+        "objects": 351543,
+        "requested_bytes": 59146776
+      },
+      "reclaimed_before_survival": {
+        "cell_bytes": 296622824,
+        "objects": 2488535,
+        "requested_bytes": 292227702
+      },
+      "remaining": {
+        "cell_bytes": 21062814,
+        "objects": 146853,
+        "requested_bytes": 20638776
+      },
+      "remaining_after_survival": {
+        "cell_bytes": 17080664,
+        "objects": 106705,
+        "requested_bytes": 16702601
+      }
+    },
+    "buffer_storage": {
+      "events": {
+        "inline": {
+          "bytes": 67108928,
+          "calls": 262145
+        },
+        "inline_to_native": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_adopt": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_alloc": {
+          "bytes": 2138112,
+          "calls": 4106
+        },
+        "native_free": {
+          "bytes": 1784320,
+          "calls": 3485
+        },
+        "native_realloc_growth": {
+          "bytes": 0,
+          "calls": 0
+        }
+      },
+      "native_owned_blocks_remaining": 621,
+      "native_owned_bytes_remaining": 353792,
+      "note": "Items storage only, process-wide. Native alloc/realloc are successful allocator API calls; realloc bytes are capacity growth, not all bytes internally moved. Adoption transfers existing Vec storage and is not a new malloc call. Temporary Vec construction and other native allocations are excluded. Inline bytes are already included in managed totals. No timing/RSS inference from diagnostic counts."
+    },
+    "top_sites": [
+      {
+        "type": "MapNode",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/hamt.rs",
+          "line": 159
+        },
+        "allocated": {
+          "cell_bytes": 209351824,
+          "objects": 759532,
+          "requested_bytes": 207707912
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 12087936,
+          "objects": 377748,
+          "requested_bytes": 12087936
+        }
+      },
+      {
+        "type": "Buffer",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/buffer.rs",
+          "line": 212
+        },
+        "allocated": {
+          "cell_bytes": 84148992,
+          "objects": 266251,
+          "requested_bytes": 84148992
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 8388608,
+          "objects": 262144,
+          "requested_bytes": 8388608
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 12582912
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Tuple",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 249
+        },
+        "allocated": {
+          "cell_bytes": 1410176,
+          "objects": 44068,
+          "requested_bytes": 1410176
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1156352,
+          "objects": 36136,
+          "requested_bytes": 1156352
+        }
+      },
+      {
+        "type": "Channel",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/channel.rs",
+          "line": 545
+        },
+        "allocated": {
+          "cell_bytes": 1048928,
+          "objects": 32779,
+          "requested_bytes": 786696
+        }
+      },
+      {
+        "type": "List",
+        "source": {
+          "column": 21,
+          "file": "crates/badger_runtime/src/list.rs",
+          "line": 492
+        },
+        "allocated": {
+          "cell_bytes": 1572864,
+          "objects": 32768,
+          "requested_bytes": 1572864
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      }
+    ]
+  },
+  {
+    "workers": 8,
+    "variant": "inline0",
+    "totals": {
+      "allocated": {
+        "cell_bytes": 311511632,
+        "objects": 2986517,
+        "requested_bytes": 305348544
+      },
+      "first_survival": {
+        "cell_bytes": 27958592,
+        "objects": 442980,
+        "requested_bytes": 26290393
+      },
+      "full_survivor_observations": {
+        "cell_bytes": 4160168,
+        "objects": 59833,
+        "requested_bytes": 3973466
+      },
+      "minor_survivor_observations": {
+        "cell_bytes": 25316232,
+        "objects": 400908,
+        "requested_bytes": 23807009
+      },
+      "reclaimed_after_survival": {
+        "cell_bytes": 21525144,
+        "objects": 346078,
+        "requested_bytes": 20198208
+      },
+      "reclaimed_before_survival": {
+        "cell_bytes": 268396904,
+        "objects": 2390998,
+        "requested_bytes": 264152470
+      },
+      "remaining": {
+        "cell_bytes": 21589584,
+        "objects": 249441,
+        "requested_bytes": 20997866
+      },
+      "remaining_after_survival": {
+        "cell_bytes": 6433448,
+        "objects": 96902,
+        "requested_bytes": 6092185
+      }
+    },
+    "buffer_storage": {
+      "events": {
+        "inline": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "inline_to_native": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_adopt": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_alloc": {
+          "bytes": 69247040,
+          "calls": 266251
+        },
+        "native_free": {
+          "bytes": 58324992,
+          "calls": 224380
+        },
+        "native_realloc_growth": {
+          "bytes": 0,
+          "calls": 0
+        }
+      },
+      "native_owned_blocks_remaining": 41871,
+      "native_owned_bytes_remaining": 10922048,
+      "note": "Items storage only, process-wide. Native alloc/realloc are successful allocator API calls; realloc bytes are capacity growth, not all bytes internally moved. Adoption transfers existing Vec storage and is not a new malloc call. Temporary Vec construction and other native allocations are excluded. Inline bytes are already included in managed totals. No timing/RSS inference from diagnostic counts."
+    },
+    "top_sites": [
+      {
+        "type": "MapNode",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/hamt.rs",
+          "line": 159
+        },
+        "allocated": {
+          "cell_bytes": 209795008,
+          "objects": 759216,
+          "requested_bytes": 208154952
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 12087072,
+          "objects": 377721,
+          "requested_bytes": 12087072
+        }
+      },
+      {
+        "type": "Buffer",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/buffer.rs",
+          "line": 212
+        },
+        "allocated": {
+          "cell_bytes": 17040064,
+          "objects": 266251,
+          "requested_bytes": 17040064
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 8388608,
+          "objects": 262144,
+          "requested_bytes": 8388608
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 12582912
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Tuple",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 249
+        },
+        "allocated": {
+          "cell_bytes": 1407712,
+          "objects": 43991,
+          "requested_bytes": 1407712
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1156352,
+          "objects": 36136,
+          "requested_bytes": 1156352
+        }
+      },
+      {
+        "type": "Channel",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/channel.rs",
+          "line": 545
+        },
+        "allocated": {
+          "cell_bytes": 1048928,
+          "objects": 32779,
+          "requested_bytes": 786696
+        }
+      },
+      {
+        "type": "List",
+        "source": {
+          "column": 21,
+          "file": "crates/badger_runtime/src/list.rs",
+          "line": 492
+        },
+        "allocated": {
+          "cell_bytes": 1572864,
+          "objects": 32768,
+          "requested_bytes": 1572864
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      }
+    ]
+  },
+  {
+    "workers": 8,
+    "variant": "inline256",
+    "totals": {
+      "allocated": {
+        "cell_bytes": 378412225,
+        "objects": 2986475,
+        "requested_bytes": 372243017
+      },
+      "first_survival": {
+        "cell_bytes": 75456880,
+        "objects": 442692,
+        "requested_bytes": 73787785
+      },
+      "full_survivor_observations": {
+        "cell_bytes": 8617416,
+        "objects": 59159,
+        "requested_bytes": 8433706
+      },
+      "minor_survivor_observations": {
+        "cell_bytes": 68352736,
+        "objects": 401227,
+        "requested_bytes": 66839793
+      },
+      "reclaimed_after_survival": {
+        "cell_bytes": 59971960,
+        "objects": 346264,
+        "requested_bytes": 58641976
+      },
+      "reclaimed_before_survival": {
+        "cell_bytes": 286336136,
+        "objects": 2390999,
+        "requested_bytes": 282088454
+      },
+      "remaining": {
+        "cell_bytes": 32104129,
+        "objects": 249212,
+        "requested_bytes": 31512587
+      },
+      "remaining_after_survival": {
+        "cell_bytes": 15484920,
+        "objects": 96428,
+        "requested_bytes": 15145809
+      }
+    },
+    "buffer_storage": {
+      "events": {
+        "inline": {
+          "bytes": 67108928,
+          "calls": 262145
+        },
+        "inline_to_native": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_adopt": {
+          "bytes": 0,
+          "calls": 0
+        },
+        "native_alloc": {
+          "bytes": 2138112,
+          "calls": 4106
+        },
+        "native_free": {
+          "bytes": 1767936,
+          "calls": 3453
+        },
+        "native_realloc_growth": {
+          "bytes": 0,
+          "calls": 0
+        }
+      },
+      "native_owned_blocks_remaining": 653,
+      "native_owned_bytes_remaining": 370176,
+      "note": "Items storage only, process-wide. Native alloc/realloc are successful allocator API calls; realloc bytes are capacity growth, not all bytes internally moved. Adoption transfers existing Vec storage and is not a new malloc call. Temporary Vec construction and other native allocations are excluded. Inline bytes are already included in managed totals. No timing/RSS inference from diagnostic counts."
+    },
+    "top_sites": [
+      {
+        "type": "MapNode",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/hamt.rs",
+          "line": 159
+        },
+        "allocated": {
+          "cell_bytes": 209582088,
+          "objects": 759054,
+          "requested_bytes": 207935856
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 12089888,
+          "objects": 377809,
+          "requested_bytes": 12089888
+        }
+      },
+      {
+        "type": "Buffer",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/buffer.rs",
+          "line": 212
+        },
+        "allocated": {
+          "cell_bytes": 84148992,
+          "objects": 266251,
+          "requested_bytes": 84148992
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 8388608,
+          "objects": 262144,
+          "requested_bytes": 8388608
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 12582912
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 12582912,
+          "objects": 262144,
+          "requested_bytes": 10485760
+        }
+      },
+      {
+        "type": "Tuple",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 249
+        },
+        "allocated": {
+          "cell_bytes": 1408416,
+          "objects": 44013,
+          "requested_bytes": 1408416
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1156352,
+          "objects": 36136,
+          "requested_bytes": 1156352
+        }
+      },
+      {
+        "type": "Channel",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/channel.rs",
+          "line": 545
+        },
+        "allocated": {
+          "cell_bytes": 1048928,
+          "objects": 32779,
+          "requested_bytes": 786696
+        }
+      },
+      {
+        "type": "List",
+        "source": {
+          "column": 21,
+          "file": "crates/badger_runtime/src/list.rs",
+          "line": 492
+        },
+        "allocated": {
+          "cell_bytes": 1572864,
+          "objects": 32768,
+          "requested_bytes": 1572864
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Map",
+        "source": {
+          "column": 15,
+          "file": "crates/badger_runtime/src/map.rs",
+          "line": 102
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Option",
+        "source": {
+          "column": 13,
+          "file": "crates/badger_runtime/src/lib.rs",
+          "line": 164
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      },
+      {
+        "type": "Record",
+        "source": {
+          "column": 5,
+          "file": "crates/badger_runtime/src/abi.rs",
+          "line": 14
+        },
+        "allocated": {
+          "cell_bytes": 1048576,
+          "objects": 32768,
+          "requested_bytes": 1048576
+        }
+      }
+    ]
+  }
+]

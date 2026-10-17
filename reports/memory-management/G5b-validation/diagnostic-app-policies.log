@@ -1,0 +1,1602 @@
+policy rep=-1 cpu w1 inline256-pool256
+policy rep=-1 cpu w1 inline128
+policy rep=-1 cpu w1 inline0
+policy rep=-1 cpu w1 inline256
+policy rep=-1 balanced w8 inline256-pool256
+policy rep=-1 balanced w8 inline0
+policy rep=-1 balanced w8 inline128
+policy rep=-1 balanced w8 inline256
+policy rep=-1 fanout w8 inline256-pool256
+policy rep=-1 fanout w8 inline256
+policy rep=-1 fanout w8 inline0
+policy rep=-1 fanout w8 inline128
+policy rep=-1 balanced w1 inline256
+policy rep=-1 balanced w1 inline256-pool256
+policy rep=-1 balanced w1 inline128
+policy rep=-1 balanced w1 inline0
+policy rep=-1 cpu w8 inline0
+policy rep=-1 cpu w8 inline128
+policy rep=-1 cpu w8 inline256-pool256
+policy rep=-1 cpu w8 inline256
+policy rep=-1 backpressure w1 inline256
+policy rep=-1 backpressure w1 inline0
+policy rep=-1 backpressure w1 inline128
+policy rep=-1 backpressure w1 inline256-pool256
+policy rep=-1 fanout w1 inline256-pool256
+policy rep=-1 fanout w1 inline256
+policy rep=-1 fanout w1 inline128
+policy rep=-1 fanout w1 inline0
+policy rep=-1 backpressure w8 inline256
+policy rep=-1 backpressure w8 inline0
+policy rep=-1 backpressure w8 inline128
+policy rep=-1 backpressure w8 inline256-pool256
+policy rep=0 fanout w1 inline256
+policy rep=0 fanout w1 inline256-pool256
+policy rep=0 fanout w1 inline128
+policy rep=0 fanout w1 inline0
+policy rep=0 balanced w1 inline0
+policy rep=0 balanced w1 inline256-pool256
+policy rep=0 balanced w1 inline256
+policy rep=0 balanced w1 inline128
+policy rep=0 cpu w1 inline128
+policy rep=0 cpu w1 inline0
+policy rep=0 cpu w1 inline256
+policy rep=0 cpu w1 inline256-pool256
+policy rep=0 balanced w8 inline256-pool256
+policy rep=0 balanced w8 inline0
+policy rep=0 balanced w8 inline256
+policy rep=0 balanced w8 inline128
+policy rep=0 cpu w8 inline256
+policy rep=0 cpu w8 inline256-pool256
+policy rep=0 cpu w8 inline128
+policy rep=0 cpu w8 inline0
+policy rep=0 fanout w8 inline256-pool256
+policy rep=0 fanout w8 inline256
+policy rep=0 fanout w8 inline128
+policy rep=0 fanout w8 inline0
+policy rep=0 backpressure w1 inline128
+policy rep=0 backpressure w1 inline0
+policy rep=0 backpressure w1 inline256
+policy rep=0 backpressure w1 inline256-pool256
+policy rep=0 backpressure w8 inline256-pool256
+policy rep=0 backpressure w8 inline256
+policy rep=0 backpressure w8 inline0
+policy rep=0 backpressure w8 inline128
+policy rep=1 cpu w8 inline0
+policy rep=1 cpu w8 inline256
+policy rep=1 cpu w8 inline256-pool256
+policy rep=1 cpu w8 inline128
+policy rep=1 cpu w1 inline256
+policy rep=1 cpu w1 inline0
+policy rep=1 cpu w1 inline256-pool256
+policy rep=1 cpu w1 inline128
+policy rep=1 fanout w1 inline0
+policy rep=1 fanout w1 inline128
+policy rep=1 fanout w1 inline256-pool256
+policy rep=1 fanout w1 inline256
+policy rep=1 balanced w1 inline128
+policy rep=1 balanced w1 inline256-pool256
+policy rep=1 balanced w1 inline0
+policy rep=1 balanced w1 inline256
+policy rep=1 backpressure w1 inline256-pool256
+policy rep=1 backpressure w1 inline0
+policy rep=1 backpressure w1 inline128
+policy rep=1 backpressure w1 inline256
+policy rep=1 fanout w8 inline256
+policy rep=1 fanout w8 inline128
+policy rep=1 fanout w8 inline256-pool256
+policy rep=1 fanout w8 inline0
+policy rep=1 backpressure w8 inline256
+policy rep=1 backpressure w8 inline0
+policy rep=1 backpressure w8 inline128
+policy rep=1 backpressure w8 inline256-pool256
+policy rep=1 balanced w8 inline128
+policy rep=1 balanced w8 inline256-pool256
+policy rep=1 balanced w8 inline0
+policy rep=1 balanced w8 inline256
+policy rep=2 fanout w1 inline128
+policy rep=2 fanout w1 inline256-pool256
+policy rep=2 fanout w1 inline0
+policy rep=2 fanout w1 inline256
+policy rep=2 balanced w8 inline128
+policy rep=2 balanced w8 inline0
+policy rep=2 balanced w8 inline256
+policy rep=2 balanced w8 inline256-pool256
+policy rep=2 balanced w1 inline128
+policy rep=2 balanced w1 inline256
+policy rep=2 balanced w1 inline256-pool256
+policy rep=2 balanced w1 inline0
+policy rep=2 backpressure w8 inline0
+policy rep=2 backpressure w8 inline128
+policy rep=2 backpressure w8 inline256-pool256
+policy rep=2 backpressure w8 inline256
+policy rep=2 fanout w8 inline128
+policy rep=2 fanout w8 inline0
+policy rep=2 fanout w8 inline256
+policy rep=2 fanout w8 inline256-pool256
+policy rep=2 backpressure w1 inline256-pool256
+policy rep=2 backpressure w1 inline0
+policy rep=2 backpressure w1 inline128
+policy rep=2 backpressure w1 inline256
+policy rep=2 cpu w8 inline0
+policy rep=2 cpu w8 inline128
+policy rep=2 cpu w8 inline256
+policy rep=2 cpu w8 inline256-pool256
+policy rep=2 cpu w1 inline256-pool256
+policy rep=2 cpu w1 inline0
+policy rep=2 cpu w1 inline128
+policy rep=2 cpu w1 inline256
+[
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 427.254488,
+      "min": 423.656692,
+      "max": 430.406042,
+      "runs": [
+        427.254488,
+        423.656692,
+        430.406042
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58648,
+      "min": 57028,
+      "max": 58652,
+      "runs": [
+        58648,
+        57028,
+        58652
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 63.743912,
+      "min": 62.141765,
+      "max": 63.760713,
+      "runs": [
+        62.141765,
+        63.760713,
+        63.743912
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 440.753728,
+      "min": 433.965639,
+      "max": 442.63888,
+      "runs": [
+        440.753728,
+        442.63888,
+        433.965639
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58496,
+      "min": 58268,
+      "max": 58540,
+      "runs": [
+        58268,
+        58496,
+        58540
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 64.439804,
+      "min": 63.599204,
+      "max": 66.316838,
+      "runs": [
+        63.599204,
+        64.439804,
+        66.316838
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 424.681103,
+      "min": 414.39225,
+      "max": 426.251478,
+      "runs": [
+        414.39225,
+        426.251478,
+        424.681103
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60708,
+      "min": 60560,
+      "max": 60740,
+      "runs": [
+        60708,
+        60560,
+        60740
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 59.004484,
+      "min": 56.547122,
+      "max": 60.607487,
+      "runs": [
+        56.547122,
+        60.607487,
+        59.004484
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 1,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 426.856372,
+      "min": 422.22241,
+      "max": 436.066145,
+      "runs": [
+        436.066145,
+        426.856372,
+        422.22241
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54156,
+      "min": 53544,
+      "max": 54848,
+      "runs": [
+        54848,
+        53544,
+        54156
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 72.834966,
+      "min": 70.823662,
+      "max": 73.080901,
+      "runs": [
+        72.834966,
+        73.080901,
+        70.823662
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 121.838414,
+      "min": 121.570729,
+      "max": 122.516277,
+      "runs": [
+        122.516277,
+        121.570729,
+        121.838414
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 82020,
+      "min": 80476,
+      "max": 82800,
+      "runs": [
+        80476,
+        82020,
+        82800
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 33.60678,
+      "min": 32.203904,
+      "max": 33.980181,
+      "runs": [
+        32.203904,
+        33.980181,
+        33.60678
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 122.079536,
+      "min": 120.771513,
+      "max": 124.968768,
+      "runs": [
+        122.079536,
+        124.968768,
+        120.771513
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 82476,
+      "min": 81880,
+      "max": 84780,
+      "runs": [
+        81880,
+        84780,
+        82476
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 22,
+      "runs": [
+        22,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 33.245817,
+      "min": 32.443323,
+      "max": 33.823682,
+      "runs": [
+        33.823682,
+        33.245817,
+        32.443323
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 108.63099,
+      "min": 104.647392,
+      "max": 109.990272,
+      "runs": [
+        108.63099,
+        109.990272,
+        104.647392
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 75228,
+      "min": 73772,
+      "max": 76168,
+      "runs": [
+        73772,
+        75228,
+        76168
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.628846,
+      "min": 23.163932,
+      "max": 24.05306,
+      "runs": [
+        24.05306,
+        23.628846,
+        23.163932
+      ]
+    }
+  },
+  {
+    "case": "backpressure",
+    "workers": 8,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 115.087834,
+      "min": 114.279524,
+      "max": 118.338581,
+      "runs": [
+        118.338581,
+        114.279524,
+        115.087834
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 73288,
+      "min": 71692,
+      "max": 77004,
+      "runs": [
+        77004,
+        71692,
+        73288
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 27.19194,
+      "min": 27.097,
+      "max": 27.460546,
+      "runs": [
+        27.19194,
+        27.097,
+        27.460546
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 439.773852,
+      "min": 426.342301,
+      "max": 444.393771,
+      "runs": [
+        444.393771,
+        439.773852,
+        426.342301
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 86308,
+      "min": 86200,
+      "max": 86632,
+      "runs": [
+        86308,
+        86632,
+        86200
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 74.611264,
+      "min": 72.876555,
+      "max": 76.020184,
+      "runs": [
+        76.020184,
+        74.611264,
+        72.876555
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 429.377593,
+      "min": 429.071908,
+      "max": 436.16289,
+      "runs": [
+        436.16289,
+        429.377593,
+        429.071908
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 86056,
+      "min": 86048,
+      "max": 86112,
+      "runs": [
+        86048,
+        86112,
+        86056
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 73.153948,
+      "min": 72.290111,
+      "max": 73.437428,
+      "runs": [
+        73.437428,
+        72.290111,
+        73.153948
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 422.005086,
+      "min": 414.232499,
+      "max": 431.284686,
+      "runs": [
+        414.232499,
+        422.005086,
+        431.284686
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 90048,
+      "min": 89992,
+      "max": 90276,
+      "runs": [
+        90048,
+        89992,
+        90276
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 72.085017,
+      "min": 71.012365,
+      "max": 73.080221,
+      "runs": [
+        71.012365,
+        72.085017,
+        73.080221
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 432.745635,
+      "min": 427.780882,
+      "max": 433.566972,
+      "runs": [
+        433.566972,
+        432.745635,
+        427.780882
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 82912,
+      "min": 82788,
+      "max": 82956,
+      "runs": [
+        82912,
+        82956,
+        82788
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 87.272048,
+      "min": 84.777454,
+      "max": 88.042048,
+      "runs": [
+        88.042048,
+        87.272048,
+        84.777454
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 125.598675,
+      "min": 122.255063,
+      "max": 127.980467,
+      "runs": [
+        122.255063,
+        127.980467,
+        125.598675
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 109800,
+      "min": 109392,
+      "max": 115752,
+      "runs": [
+        109800,
+        109392,
+        115752
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 22,
+      "runs": [
+        21,
+        22,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 41.3666,
+      "min": 40.790103,
+      "max": 42.795972,
+      "runs": [
+        40.790103,
+        42.795972,
+        41.3666
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 125.684439,
+      "min": 122.424304,
+      "max": 126.18263,
+      "runs": [
+        125.684439,
+        122.424304,
+        126.18263
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 111828,
+      "min": 110540,
+      "max": 118252,
+      "runs": [
+        110540,
+        111828,
+        118252
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 40.505758,
+      "min": 40.368647,
+      "max": 42.331925,
+      "runs": [
+        40.505758,
+        40.368647,
+        42.331925
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 117.517297,
+      "min": 108.510573,
+      "max": 118.664273,
+      "runs": [
+        117.517297,
+        118.664273,
+        108.510573
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 112028,
+      "min": 111648,
+      "max": 114136,
+      "runs": [
+        114136,
+        111648,
+        112028
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 36.738451,
+      "min": 34.194067,
+      "max": 37.440684,
+      "runs": [
+        36.738451,
+        37.440684,
+        34.194067
+      ]
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 123.65922,
+      "min": 121.578202,
+      "max": 123.7261,
+      "runs": [
+        123.65922,
+        123.7261,
+        121.578202
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 98164,
+      "min": 97840,
+      "max": 98320,
+      "runs": [
+        98320,
+        98164,
+        97840
+      ]
+    },
+    "collections": {
+      "median": 21,
+      "min": 21,
+      "max": 21,
+      "runs": [
+        21,
+        21,
+        21
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 39.572729,
+      "min": 39.51704,
+      "max": 40.129788,
+      "runs": [
+        39.51704,
+        40.129788,
+        39.572729
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 849.463818,
+      "min": 844.534091,
+      "max": 858.998826,
+      "runs": [
+        849.463818,
+        858.998826,
+        844.534091
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 80144,
+      "min": 79676,
+      "max": 80224,
+      "runs": [
+        80144,
+        79676,
+        80224
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 71.30154,
+      "min": 70.386452,
+      "max": 72.273869,
+      "runs": [
+        72.273869,
+        70.386452,
+        71.30154
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 845.386966,
+      "min": 838.492285,
+      "max": 851.572203,
+      "runs": [
+        851.572203,
+        845.386966,
+        838.492285
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 80380,
+      "min": 80024,
+      "max": 80436,
+      "runs": [
+        80380,
+        80024,
+        80436
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 71.785391,
+      "min": 70.28983,
+      "max": 72.748061,
+      "runs": [
+        72.748061,
+        71.785391,
+        70.28983
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 844.966689,
+      "min": 838.590631,
+      "max": 845.795982,
+      "runs": [
+        844.966689,
+        838.590631,
+        845.795982
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 84068,
+      "min": 84060,
+      "max": 84216,
+      "runs": [
+        84068,
+        84060,
+        84216
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 71.724217,
+      "min": 71.122993,
+      "max": 75.791405,
+      "runs": [
+        71.122993,
+        71.724217,
+        75.791405
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 1,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 836.364306,
+      "min": 835.216077,
+      "max": 847.238192,
+      "runs": [
+        835.216077,
+        847.238192,
+        836.364306
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 77552,
+      "min": 77292,
+      "max": 77676,
+      "runs": [
+        77676,
+        77552,
+        77292
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 80.816668,
+      "min": 80.460696,
+      "max": 82.542279,
+      "runs": [
+        80.816668,
+        82.542279,
+        80.460696
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 331.767519,
+      "min": 317.532358,
+      "max": 332.163692,
+      "runs": [
+        331.767519,
+        332.163692,
+        317.532358
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 131708,
+      "min": 131196,
+      "max": 134544,
+      "runs": [
+        131708,
+        134544,
+        131196
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 48.086838,
+      "min": 46.682659,
+      "max": 48.22325,
+      "runs": [
+        48.086838,
+        48.22325,
+        46.682659
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 308.364405,
+      "min": 300.660709,
+      "max": 321.658149,
+      "runs": [
+        308.364405,
+        321.658149,
+        300.660709
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 131540,
+      "min": 131108,
+      "max": 133464,
+      "runs": [
+        131540,
+        133464,
+        131108
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 49.182995,
+      "min": 46.259324,
+      "max": 50.774054,
+      "runs": [
+        49.182995,
+        50.774054,
+        46.259324
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 314.474825,
+      "min": 301.457237,
+      "max": 333.769035,
+      "runs": [
+        333.769035,
+        314.474825,
+        301.457237
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 129644,
+      "min": 128260,
+      "max": 132312,
+      "runs": [
+        132312,
+        128260,
+        129644
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 41.113333,
+      "min": 40.768631,
+      "max": 53.759168,
+      "runs": [
+        53.759168,
+        41.113333,
+        40.768631
+      ]
+    }
+  },
+  {
+    "case": "cpu",
+    "workers": 8,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 322.650895,
+      "min": 313.883013,
+      "max": 323.757828,
+      "runs": [
+        322.650895,
+        323.757828,
+        313.883013
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 123092,
+      "min": 117432,
+      "max": 129404,
+      "runs": [
+        117432,
+        123092,
+        129404
+      ]
+    },
+    "collections": {
+      "median": 22,
+      "min": 22,
+      "max": 22,
+      "runs": [
+        22,
+        22,
+        22
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 48.123937,
+      "min": 46.48804,
+      "max": 54.670858,
+      "runs": [
+        46.48804,
+        48.123937,
+        54.670858
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1193.927094,
+      "min": 1192.226134,
+      "max": 1194.325575,
+      "runs": [
+        1192.226134,
+        1194.325575,
+        1193.927094
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 88568,
+      "min": 88512,
+      "max": 88824,
+      "runs": [
+        88824,
+        88512,
+        88568
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 186.847282,
+      "min": 186.144626,
+      "max": 187.685208,
+      "runs": [
+        186.847282,
+        186.144626,
+        187.685208
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1178.830297,
+      "min": 1151.067253,
+      "max": 1195.084473,
+      "runs": [
+        1178.830297,
+        1195.084473,
+        1151.067253
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 88648,
+      "min": 88384,
+      "max": 88876,
+      "runs": [
+        88876,
+        88384,
+        88648
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 186.227309,
+      "min": 183.976088,
+      "max": 189.301029,
+      "runs": [
+        189.301029,
+        186.227309,
+        183.976088
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1189.281518,
+      "min": 1158.183729,
+      "max": 1691.346195,
+      "runs": [
+        1691.346195,
+        1158.183729,
+        1189.281518
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 88460,
+      "min": 88232,
+      "max": 88636,
+      "runs": [
+        88460,
+        88232,
+        88636
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 187.425863,
+      "min": 182.812773,
+      "max": 236.113806,
+      "runs": [
+        236.113806,
+        182.812773,
+        187.425863
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 1169.165116,
+      "min": 1104.803226,
+      "max": 1177.433878,
+      "runs": [
+        1169.165116,
+        1104.803226,
+        1177.433878
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83848,
+      "min": 83268,
+      "max": 83924,
+      "runs": [
+        83848,
+        83924,
+        83268
+      ]
+    },
+    "collections": {
+      "median": 42,
+      "min": 42,
+      "max": 42,
+      "runs": [
+        42,
+        42,
+        42
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 207.350453,
+      "min": 203.891962,
+      "max": 207.930296,
+      "runs": [
+        207.350453,
+        203.891962,
+        207.930296
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "inline0",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 763.439018,
+      "min": 748.765189,
+      "max": 782.812531,
+      "runs": [
+        782.812531,
+        748.765189,
+        763.439018
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 107888,
+      "min": 107856,
+      "max": 110004,
+      "runs": [
+        110004,
+        107856,
+        107888
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 41,
+      "runs": [
+        41,
+        41,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 121.512007,
+      "min": 110.617528,
+      "max": 128.012472,
+      "runs": [
+        128.012472,
+        110.617528,
+        121.512007
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "inline128",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 760.408593,
+      "min": 757.736274,
+      "max": 803.832683,
+      "runs": [
+        803.832683,
+        757.736274,
+        760.408593
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 114024,
+      "min": 110936,
+      "max": 114300,
+      "runs": [
+        110936,
+        114300,
+        114024
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 41,
+      "runs": [
+        41,
+        41,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 118.554801,
+      "min": 111.350951,
+      "max": 119.851415,
+      "runs": [
+        118.554801,
+        111.350951,
+        119.851415
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "inline256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 766.398512,
+      "min": 762.282791,
+      "max": 767.139611,
+      "runs": [
+        766.398512,
+        767.139611,
+        762.282791
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 113408,
+      "min": 111648,
+      "max": 123560,
+      "runs": [
+        111648,
+        113408,
+        123560
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 41,
+      "runs": [
+        41,
+        41,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 111.416,
+      "min": 108.879036,
+      "max": 122.540392,
+      "runs": [
+        111.416,
+        122.540392,
+        108.879036
+      ]
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "variant": "inline256-pool256",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 798.46552,
+      "min": 784.310074,
+      "max": 805.089224,
+      "runs": [
+        798.46552,
+        784.310074,
+        805.089224
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 100920,
+      "min": 99280,
+      "max": 105380,
+      "runs": [
+        105380,
+        99280,
+        100920
+      ]
+    },
+    "collections": {
+      "median": 41,
+      "min": 41,
+      "max": 41,
+      "runs": [
+        41,
+        41,
+        41
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 124.63456,
+      "min": 124.478708,
+      "max": 127.052607,
+      "runs": [
+        127.052607,
+        124.478708,
+        124.63456
+      ]
+    }
+  }
+]
