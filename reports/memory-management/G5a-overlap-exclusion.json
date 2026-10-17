@@ -1,0 +1,22 @@
+{
+  "reason": "The diagnostic census was started before the adjacent-pair follow-up finished. The census runner was interrupted; affected timing sets are retained but excluded from all accepted performance comparisons. Fresh sequential repeats use -isolated output directories.",
+  "excluded": [
+    "G5a-paired-followup",
+    "G5a-census-before",
+    "G5a-census-after"
+  ],
+  "source_boundaries": {
+    "G5a-paired-followup": {
+      "started": "2026-10-17T20:55:24.403640+00:00",
+      "measured_runs": 240,
+      "earliest_measured_ns": 1792270531480446040,
+      "latest_measured_ns": 1792270683441525124
+    },
+    "G5a-census-before": {
+      "started": "2026-10-17T20:57:09.465943+00:00",
+      "measured_runs": 32,
+      "earliest_measured_ns": 1792270636004240962,
+      "latest_measured_ns": 1792270642705680065
+    }
+  }
+}

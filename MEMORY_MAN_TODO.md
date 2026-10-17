@@ -82,9 +82,12 @@ negative results; do not mark architectural sketches as implemented.
   a larger fixed nursery is not an accepted substitute.
 - [ ] G5: Reuse task/TaskCtx/queue metadata and owned buffers where lifetimes are
   explicit. Bound retained pool capacity and account for native resources.
-  - [ ] G5a: Embed Buffer/Array metadata in its stable managed cell, eliminating
-    a native Box allocation/free per buffer while preserving tracing and the
-    generated access layout. Compare native/managed bytes and applications.
+  - [x] G5a: Embed Buffer/Array metadata in its stable managed cell, eliminating
+    a native Box allocation/free per buffer. Preserve tracing and version the
+    generated access ABI when needed; compare native/managed bytes and applications.
+  - [ ] G5b: Inline small fixed-capacity element storage; eliminate native
+    payload allocation and frozen-buffer finalizer dispatch where no native
+    resources remain. Prove grow-to-native, packed tracing, budgets and handoff.
 - [ ] G6: Shorten unnecessary shadow-root retention, including pointer provenance
   through word-based runtime calls, with stress coverage for hidden aliases.
 
@@ -672,3 +675,38 @@ now occupies the payload directly, reducing a 64-bit Buffer cell from 80 to
 format advances from 5 to 6 because old field loads would otherwise interpret
 the new layout incorrectly. Old files must fail with a recompile diagnostic.
 This is a refinement under evaluation; no arena or ownership inference is added.
+
+### G5a complete — direct Buffer metadata retained
+
+Final production candidate `b8b6935` uses a 64-byte managed cell (baseline
+32-byte cell plus 48-byte native Box); the intermediate 80-byte cell with an
+extra compatibility pointer is superseded. Managed Buffer counts are unchanged;
+one native metadata allocation/free per Buffer and one array metadata-pointer
+load are removed. Saved MIR moves to format 6 and format-5 files fail with a
+recompile diagnostic.
+
+Final accepted measurements: 224 ordinary application runs, 264 coverage runs,
+80 identical-binary controls, 144 isolated adjacent-pair follow-ups and 64
+separate diagnostic/census controls. All independent checks pass. Initial
+intermediate results remain revision-pinned; one accidentally overlapping
+repeat/census attempt is explicitly excluded and rerun in isolated directories.
+The GC runner now prevents concurrent invocations and supports randomized
+adjacent pairs, different shuffle seeds, and per-run host-pressure context.
+M3 remains open for broader host/scheduling sensitivity.
+
+Nine-pair application follow-up at four workers: backpressure −7.8%, balanced
+−11.0%, CPU −6.3%, fanout −5.2%; corresponding GC pause medians improve about
+15–23%. CPU/8's −1.6% elapsed is within control variation. Memory is mixed
+(e.g. balanced/8 +3.4 MiB in the repeat). This is not a universal memory or
+tail-latency win. One-worker empty-buffer coverage improves 48.2%, growing
+buffers 15.1%, sustained integer messages 11.6%; persistent-map control 1.5%.
+
+Validation passes: 9 ordinary/11 diagnostic runtime tests, 3 MIR tests, 66
+CLI/program tests, 24 dedicated source/binary-MIR GC stress checks, strict
+runtime/MIR Clippy in both modes, scoped formatting and 15 harness tests.
+[Full G5a decision, ranges, accounting and evidence](reports/memory-management/G5a-summary.md).
+
+Next priority is G5b: small fixed-capacity payloads (especially 256-byte message
+arrays) still allocate native element storage and later dispatch finalizers.
+Embedding that storage under existing GC ownership is a smaller next step than
+arenas and can reduce native churn without requiring escape/topology proofs.

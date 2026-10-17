@@ -1,0 +1,69 @@
+{
+  "binaries": {
+    "ordinary-baseline": {
+      "path": "/tmp/badger-G2c-binaries/baseline-1b47a02",
+      "sha256": "d3c54de1a935086c9f7e7ffd235990f6d272c5568b77e433d225262e1e724df7",
+      "bytes": 30543872,
+      "revision": "1b47a02dad1d3548ded308b5e26d188226fb3043",
+      "gc_profile": false
+    },
+    "diagnostic-baseline": {
+      "path": "/tmp/badger-G2c-binaries/diagnostic-3a74557",
+      "sha256": "e9f7024df8329f8c20e93eee4fcc037739326f0559b8c64a4665129d2fffec26",
+      "bytes": 30899552,
+      "revision": "3a74557d5a155adb162d841597171da7046b9839",
+      "gc_profile": true
+    },
+    "embedded-indirect-intermediate": {
+      "path": "/tmp/badger-G2c-binaries/buffer-inline-candidate",
+      "sha256": "44b9fb69309db4f66d80fc8ab4a4a6cfcb414a3e5be3b4766b5068484742aa31",
+      "bytes": 30543704,
+      "revision": "75f9c98e35597f2a72c8d6dd50360a60fd1fbd67",
+      "gc_profile": false
+    },
+    "ordinary-direct": {
+      "path": "/tmp/badger-G2c-binaries/buffer-direct-candidate",
+      "sha256": "e4468e548de72fd3ebe111827f127ecdb1ce91bbae0c5e693f7cc6ff6b46ffde",
+      "bytes": 30543264,
+      "revision": "b8b6935cc1ef5037ba7df28a51f4433a77e6156d",
+      "gc_profile": false
+    },
+    "diagnostic-direct": {
+      "path": "/tmp/badger-G2c-binaries/buffer-direct-diagnostic",
+      "sha256": "2112edaac3413add67856588053068595a72dacfde95de132801ef55e988634e",
+      "bytes": 30899448,
+      "revision": "b8b6935cc1ef5037ba7df28a51f4433a77e6156d",
+      "gc_profile": true
+    }
+  },
+  "source_sha256": {
+    "crates/badger_runtime/src/buffer.rs": "c4f20eac3a936dec4abeb3f21451765f292504e28bc94efbe81fee087a178775",
+    "crates/badger_runtime/src/gc.rs": "9c70ccdbfbf9416222a1336655070ea9db89bbde3e99b0e17a59b475f561aae0",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "61dea22bc919a290e9235931842f62da565ecd7c12cba4b1f7b8159cddc0158e",
+    "crates/badger_mir/src/lower.rs": "3e14185beba813dfe95cd2fcbe6c4490e45e9681e0123aed98464ddf225b56c2",
+    "crates/badger_mir/src/serial.rs": "a6f18d6f86eccb756b75461141f2c16fb2c5bf8cff7ad9102438b9afc36d12f9",
+    "bench/gc/run.py": "032ca910e6057759972c2b69dfbd3acea2f5627bbe06af38ff9b765cb220c405",
+    "bench/gc/coverage.bdg": "454d9b50f9cae2f0ca01a538548f1f007400a674fe113389b8b2e89d798a4684"
+  },
+  "integrated_main": "56f5983",
+  "normal_pool_max": 512,
+  "normal_refill_kib": 2048,
+  "normal_sweep_policy": "scoped",
+  "final_mir_format": 6,
+  "build_note": "Copied executables before feature switches; never overwritten. Separate ordinary and diagnostic builds. Source production changes pinned by revisions and hashes. Native metadata bytes move into managed accounting; GC object count is unchanged.",
+  "final_harness_sha256": {
+    "bench/gc/run.py": "6d2aa35809b35df7096605e6a8c4e2de1fbddaaff6f0af73a945492936fc119c",
+    "bench/gc/analyze.py": "25a11ede8ccbb442d19900663ac6c8a99f83283c81e487b222a993c78b7cc207",
+    "bench/gc/check_buffers.py": "b0838672439dae259ccee01ff130893ee1f672f4a075a5083dc3754d3091bf88",
+    "bench/gc/test_gc_bench.py": "4a3f94b80d634b032d4d96b95d831ed71cf05540f552dc8d098184d1bfe6d2dc"
+  },
+  "accepted_measurements": {
+    "G5a-direct-applications": 224,
+    "G5a-direct-coverage": 264,
+    "G5a-self-control": 80,
+    "G5a-paired-isolated": 144,
+    "G5a-census-before-isolated": 32,
+    "G5a-census-after-isolated": 32
+  },
+  "excluded_measurements": "See G5a-overlap-exclusion.json"
+}

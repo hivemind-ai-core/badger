@@ -3,6 +3,8 @@
 import argparse
 import collections
 import datetime
+from contextlib import contextmanager
+import fcntl
 import gzip
 import hashlib
 import json
@@ -13,6 +15,7 @@ import re
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -76,6 +79,34 @@ def host_context():
         except OSError:
             pass
     return context
+
+
+def measurement_order(cells, rng, paired=False):
+    if not paired:
+        order = cells.copy()
+        rng.shuffle(order)
+        return order
+    groups = collections.defaultdict(list)
+    for cell in cells:
+        groups[cell[:2]].append(cell)
+    pairs = list(groups.values())
+    rng.shuffle(pairs)
+    order = []
+    for pair in pairs:
+        rng.shuffle(pair)
+        order.extend(pair)
+    return order
+
+
+@contextmanager
+def benchmark_lock(path=None):
+    path = path or Path(tempfile.gettempdir()) / f"badger-gc-benchmark-{os.getuid()}.lock"
+    with path.open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError("another GC benchmark is running; wait for it to finish") from error
+        yield
 
 
 def expected_coverage(c):
@@ -215,6 +246,7 @@ def main():
     ap.add_argument("--events", type=int, default=262144)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--seed", type=int, default=20261017, help="shuffle seed, saved with raw measurements")
+    ap.add_argument("--paired", action="store_true", help="keep each case/worker's variants adjacent, shuffling groups and variant order")
     ap.add_argument("--cases", nargs="+", choices=COVERAGE)
     ap.add_argument("--profiles", nargs="+", choices=t.PROFILES, default=list(t.PROFILES))
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
@@ -230,6 +262,11 @@ def main():
         ap.error("--candidate is for ordinary coverage/telemetry comparisons")
     if args.cases and args.suite not in ["coverage", "coverage-policy", "smoke"]:
         ap.error("--cases requires coverage, coverage-policy or smoke")
+    with benchmark_lock():
+        run_benchmarks(args)
+
+
+def run_benchmarks(args):
     args.out.mkdir(parents=True, exist_ok=True)
     binaries = {"baseline": args.baseline.resolve()}
     if args.candidate:
@@ -293,8 +330,7 @@ def main():
         sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), rss_source, ROOT / "bench/gc/coverage.bdg", ROOT / "bench/telemetry.bdg", ROOT / "bench/telemetry.py"]},
         runs=runs)
     for rep in range(-1, args.reps):
-        order = cells.copy()
-        rng.shuffle(order)
+        order = measurement_order(cells, rng, args.paired)
         for name, workers, variant in order:
             print(f"{args.suite} rep={rep} {name} w{workers} {variant}", flush=True)
             binary, settings = variants[variant]

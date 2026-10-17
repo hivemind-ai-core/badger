@@ -245,3 +245,19 @@ pointer-buffer coverage under `BADGER_GC_STRESS=1`, `BADGER_GC_VERIFY=1`, both
 generational modes and multiple workers. Isolated native unit tests additionally
 check exact external-storage accounting, promotion/barriers, generated-access
 offsets and eventual storage reclamation while cells remain quarantined.
+
+The direct metadata layout uses MIR format 6; format-5 programs must
+be compiled again. Pass `--previous /tmp/old/badger` to `check_buffers.py` to
+compile a real former-layout program and verify the recompile diagnostic before
+execution. The checker also rejects accidental diagnostic-feature executables.
+
+Each new measurement records host load, Linux CPU pressure and available cgroup
+root CPU counters immediately before/after child execution. Reads occur outside
+the measured process; these are host/ancestor context, not workload-specific
+contention attribution. Raw process context-switch/CPU counters remain separate.
+
+Use `--paired` to keep variants of a case/worker adjacent while randomizing
+both group and variant order. Analysis reports each pair's elapsed ratio and
+keeps every outlier. A per-user exclusive GC-runner lock prevents accidentally
+overlapping two GC benchmark invocations; a second runner fails before creating
+its output directory. The lock does not control other tools or host workloads.

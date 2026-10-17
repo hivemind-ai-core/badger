@@ -1,0 +1,20 @@
+[
+  {
+    "directory": "G5a-paired-isolated",
+    "measured_runs": 144,
+    "start_ns": 1792270730847971646,
+    "end_ns": 1792270811520847251
+  },
+  {
+    "directory": "G5a-census-before-isolated",
+    "measured_runs": 32,
+    "start_ns": 1792270817775007243,
+    "end_ns": 1792270823930453575
+  },
+  {
+    "directory": "G5a-census-after-isolated",
+    "measured_runs": 32,
+    "start_ns": 1792270829711966390,
+    "end_ns": 1792270835629131710
+  }
+]

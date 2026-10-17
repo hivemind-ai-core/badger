@@ -1,0 +1,1282 @@
+coverage rep=-1 buffers-pointers w8 baseline
+coverage rep=-1 messages-int-sustained w8 diagnostic-off
+coverage rep=-1 messages-int-sustained w1 diagnostic
+coverage rep=-1 messages-int-sustained w8 diagnostic-allocations
+coverage rep=-1 buffers-pointers w8 diagnostic
+coverage rep=-1 buffers-empty w1 diagnostic-allocations
+coverage rep=-1 buffers-empty w1 diagnostic
+coverage rep=-1 buffers-grow w1 diagnostic-off
+coverage rep=-1 messages-int-sustained w8 diagnostic
+coverage rep=-1 buffers-pointers w1 diagnostic-allocations
+coverage rep=-1 buffers-pointers w8 diagnostic-off
+coverage rep=-1 buffers-empty w8 diagnostic
+coverage rep=-1 buffers-grow w8 diagnostic-off
+coverage rep=-1 buffers-empty w8 baseline
+coverage rep=-1 buffers-grow w8 diagnostic-allocations
+coverage rep=-1 messages-int-sustained w1 diagnostic-allocations
+coverage rep=-1 buffers-pointers w8 diagnostic-allocations
+coverage rep=-1 buffers-grow w1 diagnostic
+coverage rep=-1 messages-int-sustained w8 baseline
+coverage rep=-1 buffers-grow w8 baseline
+coverage rep=-1 buffers-empty w1 diagnostic-off
+coverage rep=-1 buffers-grow w8 diagnostic
+coverage rep=-1 buffers-empty w1 baseline
+coverage rep=-1 messages-int-sustained w1 diagnostic-off
+coverage rep=-1 buffers-pointers w1 diagnostic-off
+coverage rep=-1 buffers-empty w8 diagnostic-allocations
+coverage rep=-1 buffers-grow w1 diagnostic-allocations
+coverage rep=-1 buffers-pointers w1 diagnostic
+coverage rep=-1 buffers-empty w8 diagnostic-off
+coverage rep=-1 messages-int-sustained w1 baseline
+coverage rep=-1 buffers-grow w1 baseline
+coverage rep=-1 buffers-pointers w1 baseline
+coverage rep=0 buffers-grow w8 diagnostic-allocations
+coverage rep=0 messages-int-sustained w8 diagnostic-allocations
+coverage rep=0 messages-int-sustained w1 diagnostic-allocations
+coverage rep=0 buffers-empty w1 diagnostic-off
+coverage rep=0 buffers-pointers w8 diagnostic
+coverage rep=0 messages-int-sustained w8 diagnostic-off
+coverage rep=0 buffers-empty w8 diagnostic-off
+coverage rep=0 buffers-pointers w8 diagnostic-allocations
+coverage rep=0 buffers-pointers w1 diagnostic-allocations
+coverage rep=0 buffers-grow w8 diagnostic-off
+coverage rep=0 buffers-grow w8 baseline
+coverage rep=0 buffers-pointers w1 baseline
+coverage rep=0 messages-int-sustained w1 diagnostic
+coverage rep=0 buffers-pointers w1 diagnostic
+coverage rep=0 buffers-empty w8 diagnostic
+coverage rep=0 messages-int-sustained w8 diagnostic
+coverage rep=0 buffers-empty w8 baseline
+coverage rep=0 buffers-pointers w8 baseline
+coverage rep=0 messages-int-sustained w1 diagnostic-off
+coverage rep=0 buffers-empty w1 baseline
+coverage rep=0 messages-int-sustained w8 baseline
+coverage rep=0 buffers-empty w1 diagnostic
+coverage rep=0 buffers-grow w1 diagnostic-off
+coverage rep=0 buffers-pointers w8 diagnostic-off
+coverage rep=0 buffers-grow w1 diagnostic-allocations
+coverage rep=0 messages-int-sustained w1 baseline
+coverage rep=0 buffers-grow w1 baseline
+coverage rep=0 buffers-grow w8 diagnostic
+coverage rep=0 buffers-pointers w1 diagnostic-off
+coverage rep=0 buffers-empty w8 diagnostic-allocations
+coverage rep=0 buffers-grow w1 diagnostic
+coverage rep=0 buffers-empty w1 diagnostic-allocations
+[
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 26.17071,
+      "min": 26.17071,
+      "max": 26.17071,
+      "runs": [
+        26.17071
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 45464,
+      "min": 45464,
+      "max": 45464,
+      "runs": [
+        45464
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.477109,
+      "min": 6.477109,
+      "max": 6.477109,
+      "runs": [
+        6.477109
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.967106,
+      "min": 24.967106,
+      "max": 24.967106,
+      "runs": [
+        24.967106
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 45612,
+      "min": 45612,
+      "max": 45612,
+      "runs": [
+        45612
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.845983,
+      "min": 6.845983,
+      "max": 6.845983,
+      "runs": [
+        6.845983
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 35.725638,
+      "min": 35.725638,
+      "max": 35.725638,
+      "runs": [
+        35.725638
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51580,
+      "min": 51580,
+      "max": 51580,
+      "runs": [
+        51580
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.39638,
+      "min": 8.39638,
+      "max": 8.39638,
+      "runs": [
+        8.39638
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.515128,
+      "min": 24.515128,
+      "max": 24.515128,
+      "runs": [
+        24.515128
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47644,
+      "min": 47644,
+      "max": 47644,
+      "runs": [
+        47644
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.885035,
+      "min": 6.885035,
+      "max": 6.885035,
+      "runs": [
+        6.885035
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.340012,
+      "min": 24.340012,
+      "max": 24.340012,
+      "runs": [
+        24.340012
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44984,
+      "min": 44984,
+      "max": 44984,
+      "runs": [
+        44984
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.540766,
+      "min": 6.540766,
+      "max": 6.540766,
+      "runs": [
+        6.540766
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.943613,
+      "min": 24.943613,
+      "max": 24.943613,
+      "runs": [
+        24.943613
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47968,
+      "min": 47968,
+      "max": 47968,
+      "runs": [
+        47968
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.820956,
+      "min": 6.820956,
+      "max": 6.820956,
+      "runs": [
+        6.820956
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 35.304838,
+      "min": 35.304838,
+      "max": 35.304838,
+      "runs": [
+        35.304838
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49808,
+      "min": 49808,
+      "max": 49808,
+      "runs": [
+        49808
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.234409,
+      "min": 8.234409,
+      "max": 8.234409,
+      "runs": [
+        8.234409
+      ]
+    }
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.750204,
+      "min": 24.750204,
+      "max": 24.750204,
+      "runs": [
+        24.750204
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 45672,
+      "min": 45672,
+      "max": 45672,
+      "runs": [
+        45672
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 6.754443,
+      "min": 6.754443,
+      "max": 6.754443,
+      "runs": [
+        6.754443
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.820357,
+      "min": 30.820357,
+      "max": 30.820357,
+      "runs": [
+        30.820357
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 39524,
+      "min": 39524,
+      "max": 39524,
+      "runs": [
+        39524
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.703522,
+      "min": 1.703522,
+      "max": 1.703522,
+      "runs": [
+        1.703522
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.181071,
+      "min": 30.181071,
+      "max": 30.181071,
+      "runs": [
+        30.181071
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40696,
+      "min": 40696,
+      "max": 40696,
+      "runs": [
+        40696
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.781526,
+      "min": 1.781526,
+      "max": 1.781526,
+      "runs": [
+        1.781526
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 31.53849,
+      "min": 31.53849,
+      "max": 31.53849,
+      "runs": [
+        31.53849
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 41348,
+      "min": 41348,
+      "max": 41348,
+      "runs": [
+        41348
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.982639,
+      "min": 1.982639,
+      "max": 1.982639,
+      "runs": [
+        1.982639
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 33.251929,
+      "min": 33.251929,
+      "max": 33.251929,
+      "runs": [
+        33.251929
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40932,
+      "min": 40932,
+      "max": 40932,
+      "runs": [
+        40932
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.75714,
+      "min": 1.75714,
+      "max": 1.75714,
+      "runs": [
+        1.75714
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.673814,
+      "min": 30.673814,
+      "max": 30.673814,
+      "runs": [
+        30.673814
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40280,
+      "min": 40280,
+      "max": 40280,
+      "runs": [
+        40280
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.721584,
+      "min": 1.721584,
+      "max": 1.721584,
+      "runs": [
+        1.721584
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.410466,
+      "min": 30.410466,
+      "max": 30.410466,
+      "runs": [
+        30.410466
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40452,
+      "min": 40452,
+      "max": 40452,
+      "runs": [
+        40452
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.781576,
+      "min": 1.781576,
+      "max": 1.781576,
+      "runs": [
+        1.781576
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 31.644306,
+      "min": 31.644306,
+      "max": 31.644306,
+      "runs": [
+        31.644306
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 41492,
+      "min": 41492,
+      "max": 41492,
+      "runs": [
+        41492
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.962732,
+      "min": 1.962732,
+      "max": 1.962732,
+      "runs": [
+        1.962732
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.41772,
+      "min": 30.41772,
+      "max": 30.41772,
+      "runs": [
+        30.41772
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40724,
+      "min": 40724,
+      "max": 40724,
+      "runs": [
+        40724
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.764685,
+      "min": 1.764685,
+      "max": 1.764685,
+      "runs": [
+        1.764685
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 17.659607,
+      "min": 17.659607,
+      "max": 17.659607,
+      "runs": [
+        17.659607
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44260,
+      "min": 44260,
+      "max": 44260,
+      "runs": [
+        44260
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.388667,
+      "min": 1.388667,
+      "max": 1.388667,
+      "runs": [
+        1.388667
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 18.012993,
+      "min": 18.012993,
+      "max": 18.012993,
+      "runs": [
+        18.012993
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 43992,
+      "min": 43992,
+      "max": 43992,
+      "runs": [
+        43992
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.457624,
+      "min": 1.457624,
+      "max": 1.457624,
+      "runs": [
+        1.457624
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 24.120766,
+      "min": 24.120766,
+      "max": 24.120766,
+      "runs": [
+        24.120766
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51868,
+      "min": 51868,
+      "max": 51868,
+      "runs": [
+        51868
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.34448,
+      "min": 2.34448,
+      "max": 2.34448,
+      "runs": [
+        2.34448
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 17.847015,
+      "min": 17.847015,
+      "max": 17.847015,
+      "runs": [
+        17.847015
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44372,
+      "min": 44372,
+      "max": 44372,
+      "runs": [
+        44372
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.458887,
+      "min": 1.458887,
+      "max": 1.458887,
+      "runs": [
+        1.458887
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 25.474638,
+      "min": 25.474638,
+      "max": 25.474638,
+      "runs": [
+        25.474638
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44256,
+      "min": 44256,
+      "max": 44256,
+      "runs": [
+        44256
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.517786,
+      "min": 1.517786,
+      "max": 1.517786,
+      "runs": [
+        1.517786
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 23.458297,
+      "min": 23.458297,
+      "max": 23.458297,
+      "runs": [
+        23.458297
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44520,
+      "min": 44520,
+      "max": 44520,
+      "runs": [
+        44520
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.485586,
+      "min": 1.485586,
+      "max": 1.485586,
+      "runs": [
+        1.485586
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.928397,
+      "min": 30.928397,
+      "max": 30.928397,
+      "runs": [
+        30.928397
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54100,
+      "min": 54100,
+      "max": 54100,
+      "runs": [
+        54100
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.42018,
+      "min": 2.42018,
+      "max": 2.42018,
+      "runs": [
+        2.42018
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 23.671933,
+      "min": 23.671933,
+      "max": 23.671933,
+      "runs": [
+        23.671933
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 44408,
+      "min": 44408,
+      "max": 44408,
+      "runs": [
+        44408
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.435393,
+      "min": 1.435393,
+      "max": 1.435393,
+      "runs": [
+        1.435393
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 99.523555,
+      "min": 99.523555,
+      "max": 99.523555,
+      "runs": [
+        99.523555
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40512,
+      "min": 40512,
+      "max": 40512,
+      "runs": [
+        40512
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 9.212987,
+      "min": 9.212987,
+      "max": 9.212987,
+      "runs": [
+        9.212987
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 98.339779,
+      "min": 98.339779,
+      "max": 98.339779,
+      "runs": [
+        98.339779
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 42904,
+      "min": 42904,
+      "max": 42904,
+      "runs": [
+        42904
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.491308,
+      "min": 8.491308,
+      "max": 8.491308,
+      "runs": [
+        8.491308
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 100.850808,
+      "min": 100.850808,
+      "max": 100.850808,
+      "runs": [
+        100.850808
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 41636,
+      "min": 41636,
+      "max": 41636,
+      "runs": [
+        41636
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 9.24297,
+      "min": 9.24297,
+      "max": 9.24297,
+      "runs": [
+        9.24297
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 93.744442,
+      "min": 93.744442,
+      "max": 93.744442,
+      "runs": [
+        93.744442
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40544,
+      "min": 40544,
+      "max": 40544,
+      "runs": [
+        40544
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.699101,
+      "min": 8.699101,
+      "max": 8.699101,
+      "runs": [
+        8.699101
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 111.567382,
+      "min": 111.567382,
+      "max": 111.567382,
+      "runs": [
+        111.567382
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 66680,
+      "min": 66680,
+      "max": 66680,
+      "runs": [
+        66680
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 7.558864,
+      "min": 7.558864,
+      "max": 7.558864,
+      "runs": [
+        7.558864
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 112.042885,
+      "min": 112.042885,
+      "max": 112.042885,
+      "runs": [
+        112.042885
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 68372,
+      "min": 68372,
+      "max": 68372,
+      "runs": [
+        68372
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 7.67426,
+      "min": 7.67426,
+      "max": 7.67426,
+      "runs": [
+        7.67426
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 102.77616,
+      "min": 102.77616,
+      "max": 102.77616,
+      "runs": [
+        102.77616
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48304,
+      "min": 48304,
+      "max": 48304,
+      "runs": [
+        48304
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.45155,
+      "min": 8.45155,
+      "max": 8.45155,
+      "runs": [
+        8.45155
+      ]
+    }
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 101.556878,
+      "min": 101.556878,
+      "max": 101.556878,
+      "runs": [
+        101.556878
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49544,
+      "min": 49544,
+      "max": 49544,
+      "runs": [
+        49544
+      ]
+    },
+    "collections": {
+      "median": 5,
+      "min": 5,
+      "max": 5,
+      "runs": [
+        5
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 8.347148,
+      "min": 8.347148,
+      "max": 8.347148,
+      "runs": [
+        8.347148
+      ]
+    }
+  }
+]

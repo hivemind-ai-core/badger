@@ -19,6 +19,9 @@ def main():
     args = parser.parse_args()
     binary = args.ordinary.resolve()
     clean = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_") and k != "GC_BENCH_CONFIG"}
+    # A diagnostic-feature executable rejects this setting on allocation;
+    # ordinary builds must ignore it, independently of the executable label.
+    clean["BADGER_GC_POOL_MAX"] = "unsupported"
     results = []
     with tempfile.TemporaryDirectory(prefix="badger-buffer-checks-") as directory:
         mir = Path(directory) / "packed.bdgmir"

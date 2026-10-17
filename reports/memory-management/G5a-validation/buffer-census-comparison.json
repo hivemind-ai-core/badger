@@ -1,0 +1,138 @@
+[
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "before": {
+      "objects": 65601,
+      "requested_bytes": 1574424,
+      "cell_bytes": 2099232
+    },
+    "after": {
+      "objects": 65601,
+      "requested_bytes": 4198464,
+      "cell_bytes": 4198464
+    },
+    "removed_native_metadata_boxes": 65601,
+    "former_native_metadata_bytes": 3148848,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 1049616
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 8,
+    "before": {
+      "objects": 262209,
+      "requested_bytes": 6293016,
+      "cell_bytes": 8390688
+    },
+    "after": {
+      "objects": 262209,
+      "requested_bytes": 16781376,
+      "cell_bytes": 16781376
+    },
+    "removed_native_metadata_boxes": 262209,
+    "former_native_metadata_bytes": 12586032,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 4195344
+  },
+  {
+    "case": "messages-int-sustained",
+    "workers": 1,
+    "before": {
+      "objects": 262209,
+      "requested_bytes": 6293016,
+      "cell_bytes": 8390688
+    },
+    "after": {
+      "objects": 262209,
+      "requested_bytes": 16781376,
+      "cell_bytes": 16781376
+    },
+    "removed_native_metadata_boxes": 262209,
+    "former_native_metadata_bytes": 12586032,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 4195344
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "before": {
+      "objects": 32897,
+      "requested_bytes": 789528,
+      "cell_bytes": 1052704
+    },
+    "after": {
+      "objects": 32897,
+      "requested_bytes": 2105408,
+      "cell_bytes": 2105408
+    },
+    "removed_native_metadata_boxes": 32897,
+    "former_native_metadata_bytes": 1579056,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 526352
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "before": {
+      "objects": 32897,
+      "requested_bytes": 789528,
+      "cell_bytes": 1052704
+    },
+    "after": {
+      "objects": 32897,
+      "requested_bytes": 2105408,
+      "cell_bytes": 2105408
+    },
+    "removed_native_metadata_boxes": 32897,
+    "former_native_metadata_bytes": 1579056,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 526352
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "before": {
+      "objects": 65601,
+      "requested_bytes": 1574424,
+      "cell_bytes": 2099232
+    },
+    "after": {
+      "objects": 65601,
+      "requested_bytes": 4198464,
+      "cell_bytes": 4198464
+    },
+    "removed_native_metadata_boxes": 65601,
+    "former_native_metadata_bytes": 3148848,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 1049616
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 8,
+    "before": {
+      "objects": 524288,
+      "requested_bytes": 12582912,
+      "cell_bytes": 16777216
+    },
+    "after": {
+      "objects": 524288,
+      "requested_bytes": 33554432,
+      "cell_bytes": 33554432
+    },
+    "removed_native_metadata_boxes": 524288,
+    "former_native_metadata_bytes": 25165824,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 8388608
+  },
+  {
+    "case": "buffers-empty",
+    "workers": 1,
+    "before": {
+      "objects": 524288,
+      "requested_bytes": 12582912,
+      "cell_bytes": 16777216
+    },
+    "after": {
+      "objects": 524288,
+      "requested_bytes": 33554432,
+      "cell_bytes": 33554432
+    },
+    "removed_native_metadata_boxes": 524288,
+    "former_native_metadata_bytes": 25165824,
+    "nominal_total_bytes_saved_excluding_element_storage_and_native_allocator_overhead": 8388608
+  }
+]

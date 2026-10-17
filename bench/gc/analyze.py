@@ -68,6 +68,22 @@ def main():
                        for key in ["elapsed_ms", "gc_pause_ms", "peak_rss_kib"]]
             lines.append(f"| {case} | {workers} | " + " | ".join(changes)
                          + f" | {base['collections']['median']} / {candidate['collections']['median']} |")
+    if d["arguments"].get("paired") and "candidate" in d["binaries"]:
+        pairs = collections.defaultdict(dict)
+        for run in d["runs"]:
+            pairs[(run["case"], run["workers"], run["repetition"])][run["variant"]] = run
+        changes = collections.defaultdict(list)
+        for (case, workers, _), pair in pairs.items():
+            if "baseline" in pair and "candidate" in pair:
+                before = pair["baseline"]["record"]["elapsed_ns"]
+                after = pair["candidate"]["record"]["elapsed_ns"]
+                changes[(case, workers)].append(100 * (after / before - 1))
+        lines += ["", "Adjacent randomized pairs: per-pair elapsed ratios, without dropping outliers.",
+                  "Pairs reduce time separation; these counts are not a significance test.", "",
+                  "| Case | Workers | Pairs | Work change median [min, max] | Pairs with lower candidate time |",
+                  "|---|---:|---:|---:|---:|"]
+        for (case, workers), values in sorted(changes.items()):
+            lines.append(f"| {case} | {workers} | {len(values)} | {statistics.median(values):+.1f}% [{min(values):+.1f}%, {max(values):+.1f}%] | {sum(v < 0 for v in values)} / {len(values)} |")
     checkpoints = collections.defaultdict(list)
     for run in d["runs"]:
         for stage, snapshot in zip(["burst", "after churn", "idle"], run["record"].get("checkpoints", [])):

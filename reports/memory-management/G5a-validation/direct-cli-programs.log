@@ -1,0 +1,79 @@
+    Blocking waiting for file lock on build directory
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 40.77s
+     Running tests/programs.rs (/tmp/language-gc-profile-target/release/deps/programs-980a0abb6c430cc0)
+
+running 66 tests
+test conflicting_imports_are_reported ... ok
+test contract_report ... ok
+test diagnostics_early_phases ... ok
+test contract_test_report ... ok
+test batch_receive_under_gc_stress ... ok
+wrote /tmp/badger-mir-65618/dyn_protocol.bdgmir (14684 bytes)
+test dependencies ... ok
+wrote /tmp/badger-mir-65618/broadcast.bdgmir (40954 bytes)
+test eval_in_busy_program ... ok
+test api_export ... ok
+test dotenv_and_env_references ... ok
+test contract_violations ... ok
+test config_env_replays ... ok
+test deadlock_report_names_waits ... ok
+wrote /tmp/badger-mir-65618/multicore.bdgmir (38962 bytes)
+test internal_error_exits_promptly ... ok
+test debugger_sees_generated_code ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test deep_nesting_is_refused_cleanly ... ok
+wrote /tmp/badger-mir-65618/multicore2.bdgmir (38962 bytes)
+test inlined_lambda_defect_location ... ok
+test main_error_report ... ok
+test compiled_programs_run ... ok
+test example_projects_check ... ok
+test explain_types ... ok
+test map_versions_under_gc_stress ... ok
+test outbound_http ... ok
+test multicore_migration ... ok
+test private_method_call ... ok
+test outbound_http_send ... ok
+test otel_export ... ok
+test private_struct_update ... ok
+test module_values_under_gc_stress ... ok
+test bench_programs_check ... ok
+test profiles ... ok
+test program_graphs ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test release_starts_without_sources ... ok
+test live_reconstruct ... ok
+test query_check_overlays ... ok
+test live_reload ... ok
+test run_bench_reports_execution_time ... ok
+test restricted_projects ... ok
+test inspect_running_program ... ok
+test query_rename_and_unsupported_inputs ... ok
+test project_tooling ... ok
+test sampling_profile ... ok
+test native_modules ... ok
+test sql_generation_sqlite ... ok
+test examples_run ... ok
+test grace_escalation_keeps_resources ... ok
+test standard_input ... ok
+test test_runner_controlled_clock ... ok
+test remote_repl ... ok
+test structured_diagnostics ... ok
+test structured_logs ... ok
+test test_runner_simulation ... ok
+test typed_sql_schema ... ok
+test warning_programs ... ok
+test stuck_cleanup_is_bounded ... ok
+test reproduction_bundles ... ok
+test local_repl_session ... ok
+test workspaces_and_git_dependencies ... ok
+test heap_budget_contains_a_task ... ok
+test durable_jobs_survive_crashes ... ok
+test run_programs ... ok
+test run_programs_release ... ok
+test run_programs_compiled ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 23.96s
+

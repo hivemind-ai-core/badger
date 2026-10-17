@@ -2,6 +2,36 @@ import unittest
 import run
 
 
+class MeasurementOrder(unittest.TestCase):
+    def test_concurrent_gc_runners_are_refused_and_lock_is_released(self):
+        from pathlib import Path
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark.lock"
+            with run.benchmark_lock(path):
+                with self.assertRaisesRegex(RuntimeError, "another GC benchmark"):
+                    with run.benchmark_lock(path):
+                        self.fail("overlapping measurement admitted")
+            with run.benchmark_lock(path):
+                pass
+
+    def test_pairing_keeps_every_cell_and_varies_both_orders(self):
+        import random
+        cells = [(case, w, v) for case in ["buffers", "control"]
+                 for w in [1, 8] for v in ["baseline", "candidate"]]
+        observed_groups, observed_variants = set(), set()
+        for seed in range(10):
+            ordered = run.measurement_order(cells, random.Random(seed), paired=True)
+            self.assertCountEqual(ordered, cells)
+            self.assertEqual(ordered, run.measurement_order(cells, random.Random(seed), paired=True))
+            for index in range(0, len(ordered), 2):
+                self.assertEqual(ordered[index][:2], ordered[index + 1][:2])
+            observed_groups.add(tuple(cell[:2] for cell in ordered[::2]))
+            observed_variants.add(ordered[0][2])
+        self.assertGreater(len(observed_groups), 1)
+        self.assertEqual(observed_variants, {"baseline", "candidate"})
+
+
 class CoverageOracle(unittest.TestCase):
     def test_buffer_churn_checks_growth_pointer_values_and_retained_tail(self):
         c = dict(mode="buffers-grow", n=5, retain=3, payload=4)
