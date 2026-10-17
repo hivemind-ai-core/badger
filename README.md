@@ -12,7 +12,7 @@ compiled with Cranelift and run in-process on a substantial runtime.
 - [Semantic acceptance cases](spec/08-worked-examples.md) and their test status.
 - [Compiler architecture and implementation status](ARCHITECTURE.md).
 - [Benchmarks](bench/README.md) for the specification's measurement gates.
-- [Earlier design discussion](DESIGN.md) and [library research](researxh/README.md).
+- [Earlier design discussion](DESIGN.md) and [library research](research/README.md).
 
 ## Using it
 

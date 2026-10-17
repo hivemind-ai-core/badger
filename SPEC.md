@@ -78,7 +78,7 @@ where the two differ, the pest grammar is authoritative.
 
 [DESIGN.md](DESIGN.md) retains the earlier reasoning and alternatives. When it
 conflicts with this draft, this draft states the current proposal. The original
-[research notes](researxh/README.md) are reference material, not language rules.
+[research notes](research/README.md) are reference material, not language rules.
 
 [ARCHITECTURE.md](ARCHITECTURE.md) describes how the implementation does
 row inference, same-layout record construction, scope escape checking,

@@ -1,4 +1,4 @@
-//! Read-only performance probes; see reports/performance-audit-2026-10-16.
+//! Read-only performance probes; see reports/archive/performance-audit-2026-10-16.
 use badger_runtime::{buffer, desc, gc, list, string};
 
 fn rss_kib() -> usize {
