@@ -205,11 +205,13 @@ label_path   = { label ~ ("." ~ label)* }
 lambda      = { once_kw? ~ K_fn ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ (block | lambda_expr) }
 // `fn(x) => x + 1`: an expression body, the same as `{ x + 1 }`
 lambda_expr = { "=>" ~ expr }
-if_expr     = { K_if ~ expr ~ block ~ (NL? ~ K_else ~ (if_expr | block))? }
+if_expr     = { K_if ~ (let_cond | expr) ~ block ~ (NL? ~ K_else ~ (if_expr | block))? }
+// `if let PATTERN = EXPR` / `while let PATTERN = EXPR`
+let_cond    = { K_let ~ pattern ~ "=" ~ expr }
 match_expr  = { K_match ~ expr ~ "{" ~ sepc* ~ (match_arm ~ (sepc+ ~ match_arm)*)? ~ sepc* ~ "}" }
 match_arm   = { pattern ~ guard? ~ "=>" ~ expr }
 guard       = { K_if ~ expr }
-while_expr  = { K_while ~ expr ~ block }
+while_expr  = { K_while ~ (let_cond | expr) ~ block }
 for_expr    = { K_for ~ pattern ~ K_in ~ expr ~ block }
 loop_expr   = { K_loop ~ block }
 system_expr = { K_system ~ "{" ~ nls ~ (system_entry ~ (csep ~ system_entry)*)? ~ trail ~ "}" }
@@ -269,6 +271,7 @@ kw_match = @{ "match" ~ !ident_char }
 K_while = _{ &kw_while ~ "while" }
 kw_while = @{ "while" ~ !ident_char }
 K_loop = _{ &kw_loop ~ "loop" }
+K_let = _{ "let" ~ !ident_char }
 kw_loop = @{ "loop" ~ !ident_char }
 K_in = _{ &kw_in ~ "in" }
 kw_in = @{ "in" ~ !ident_char }

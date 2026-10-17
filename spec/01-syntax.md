@@ -192,6 +192,26 @@ match result {
 }
 ```
 
+A pattern condition tests one refutable pattern: `if let PATTERN = EXPR
+{ ... } else { ... }` is a `match` with that arm and a `_` arm, and
+`while let PATTERN = EXPR { ... }` repeats while it matches. The
+expression runs once per test; names bind only inside the matching
+block; `else if let` chains. `break` and `continue` in a `while let`
+body act on that loop.
+
+```lang fragment
+while let .some(job) = receiver.recv() {
+    process(job)?
+}
+
+if let .some(user) = users.get(id) {
+    greet(user)
+}
+```
+
+A pattern condition that ignores `.err` silently drops a failure: match a
+`Result` when the error matters.
+
 A leading-dot variant pattern takes its enum from the scrutinee. Constructor
 expressions use `Enum.variant(...)`, or an imported ordinary helper such as
 `ok(...)`; draft 0 does not infer an enum by searching for a bare variant name.

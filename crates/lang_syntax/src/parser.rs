@@ -1169,7 +1169,22 @@ impl Lower<'_> {
             }
             Rule::while_expr => {
                 let mut it = p.into_inner();
-                let cond = self.expr(it.next().unwrap());
+                let first = it.next().unwrap();
+                if first.as_rule() == Rule::let_cond {
+                    // `while let p = e { body }` is
+                    // `loop { match e { p => body, _ => break } }`
+                    let (pat, scrutinee) = self.let_cond(first);
+                    let body = self.block(it.next().unwrap());
+                    let stop = self.alloc_expr(ExprKind::Break(None), span);
+                    let arms = self.let_arms(pat, body, stop, span);
+                    let m = self.alloc_expr(ExprKind::Match { scrutinee, arms }, span);
+                    let block = self.alloc_expr(
+                        ExprKind::Block { stmts: vec![Stmt::Expr { expr: m, semi: false }] },
+                        span,
+                    );
+                    return self.alloc_expr(ExprKind::Loop { body: block }, span);
+                }
+                let cond = self.expr(first);
                 let body = self.block(it.next().unwrap());
                 self.alloc_expr(ExprKind::While { cond, body }, span)
             }
@@ -1284,13 +1299,43 @@ impl Lower<'_> {
     fn if_expr(&mut self, p: Pair<'_, Rule>) -> ExprId {
         let span = self.span(&p);
         let mut it = p.into_inner();
-        let cond = self.expr(it.next().unwrap());
+        let first = it.next().unwrap();
+        let let_cond = (first.as_rule() == Rule::let_cond).then(|| self.let_cond(first.clone()));
+        let cond = if let_cond.is_none() { Some(self.expr(first)) } else { None };
         let then = self.block(it.next().unwrap());
         let els = it.next().map(|q| match q.as_rule() {
             Rule::if_expr => self.if_expr(q),
             _ => self.block(q),
         });
-        self.alloc_expr(ExprKind::If { cond, then, els }, span)
+        match (let_cond, cond) {
+            // `if let p = e { a } else { b }` is `match e { p => a, _ => b }`
+            (Some((pat, scrutinee)), _) => {
+                let otherwise = match els {
+                    Some(e) => e,
+                    None => self.alloc_expr(ExprKind::Lit(Lit::Unit), span),
+                };
+                let arms = self.let_arms(pat, then, otherwise, span);
+                self.alloc_expr(ExprKind::Match { scrutinee, arms }, span)
+            }
+            (None, Some(cond)) => self.alloc_expr(ExprKind::If { cond, then, els }, span),
+            (None, None) => unreachable!(),
+        }
+    }
+
+    fn let_cond(&mut self, p: Pair<'_, Rule>) -> (PatId, ExprId) {
+        let mut it = p.into_inner();
+        let pat = self.pattern(it.next().unwrap());
+        let scrutinee = self.expr(it.next().unwrap());
+        (pat, scrutinee)
+    }
+
+    /// The arms of a pattern condition: the pattern's, then any other value.
+    fn let_arms(&mut self, pat: PatId, matched: ExprId, otherwise: ExprId, span: Span) -> Vec<MatchArm> {
+        let any = self.alloc_pat(PatKind::Discard, span);
+        vec![
+            MatchArm { pat, guard: None, body: matched, span },
+            MatchArm { pat: any, guard: None, body: otherwise, span },
+        ]
     }
 
     // ------------------------------------------------------------ patterns
