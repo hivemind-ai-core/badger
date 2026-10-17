@@ -15,7 +15,9 @@ use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
 /// Layout of the file format; files of another version are refused.
-const FORMAT: u32 = 5;
+// Format 6 uses Buffer metadata directly in the managed payload. Format 5
+// array loads dereference a separate metadata pointer and cannot run safely.
+const FORMAT: u32 = 6;
 
 /// The toolchain that wrote a file must be the one that loads it: MIR and
 /// the runtime's ABI change together.
@@ -1306,4 +1308,23 @@ fn read_kind(d: &mut Dec<'_>) -> Result<Kind, String> {
         }
         t => return Err(format!("bad descriptor kind {t}")),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn former_indirect_buffer_layout_is_refused_before_decoding() {
+        let mut old = W { out: MAGIC.to_vec() };
+        old.str(&format!("badger {} (mir format 5)", env!("CARGO_PKG_VERSION")));
+        old.u64(checksum(&[]));
+        // A header from the former ABI must fail on the toolchain check,
+        // before any payload/runtime addresses could be decoded or executed.
+        let error = match decode(&old.out) {
+            Err(error) => error,
+            Ok(_) => panic!("accepted the former indirect-buffer ABI"),
+        };
+        assert!(error.contains("mir format 5") && error.contains("compile it again"), "{error}");
+    }
 }

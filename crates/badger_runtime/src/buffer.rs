@@ -128,16 +128,7 @@ pub struct BufData {
     pub frozen: bool,
 }
 
-/// The first word preserves the generated array-access ABI. Metadata lives
-/// beside it in the stable managed cell, so there is no separate native Box.
-#[repr(C)]
-struct BufferObject {
-    data: *mut BufData,
-    inline: BufData,
-}
-
 // Actual offsets in BufData (unlike MIR Load offsets, which add HEADER).
-pub const DATA_OFFSET: i32 = 0;
 pub const ITEMS_PTR: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, ptr)) as i32;
 pub const ITEMS_LEN: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, len)) as i32;
 
@@ -149,37 +140,32 @@ pub fn desc() -> &'static TypeDesc {
     })
 }
 fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
-    let d = unsafe { &*(*((*o).payload() as *const *mut BufData)) };
+    let d = unsafe { &*((*o).payload() as *const BufData) };
     if d.elem.is_ptr() {
         d.items.iter().for_each(f);
     }
 }
 fn finalize(o: *mut Header) {
     unsafe {
-        let p = (*o).payload() as *mut *mut BufData;
-        if !(*p).is_null() {
-            std::ptr::drop_in_place(*p);
-            *p = std::ptr::null_mut();
-        }
+        // Sweep finalizes each object once, before freeing or quarantining its
+        // managed cell. Dropping in place releases the native element storage.
+        std::ptr::drop_in_place((*o).payload() as *mut BufData);
     }
 }
 pub fn is_buffer(w: u64) -> bool {
     std::ptr::eq(unsafe { obj(w).desc() }, desc())
 }
 pub fn new(elem: &'static TypeDesc, cap: usize) -> u64 {
-    gc::budget_check(gc::HEADER + std::mem::size_of::<BufferObject>() + bytes(cap, elem.repr()));
-    let w = gc::alloc(desc(), std::mem::size_of::<BufferObject>());
+    gc::budget_check(gc::HEADER + std::mem::size_of::<BufData>() + bytes(cap, elem.repr()));
+    let w = gc::alloc(desc(), std::mem::size_of::<BufData>());
     let d = BufData { elem, items: Items::new(elem.repr(), cap), frozen: false };
     unsafe {
-        let p = obj(w).payload() as *mut BufferObject;
-        let inline = std::ptr::addr_of_mut!((*p).inline);
-        inline.write(d);
-        std::ptr::addr_of_mut!((*p).data).write(inline);
+        (obj(w).payload() as *mut BufData).write(d);
     }
     w
 }
 pub fn data<'a>(w: u64) -> &'a mut BufData {
-    unsafe { &mut **(obj(w).payload() as *mut *mut BufData) }
+    unsafe { &mut *(obj(w).payload() as *mut BufData) }
 }
 pub fn push(w: u64, value: u64) {
     let d = data(w);
@@ -209,10 +195,10 @@ pub fn array_elem(d: &TypeDesc) -> Option<&'static TypeDesc> {
     }
 }
 pub fn items<'a>(w: u64) -> &'a Items {
-    unsafe { &(**(obj(w).payload() as *const *const BufData)).items }
+    unsafe { &(*(obj(w).payload() as *const BufData)).items }
 }
 pub fn frozen(elem: &'static TypeDesc, words: Vec<u64>) -> u64 {
-    gc::budget_check(gc::HEADER + std::mem::size_of::<BufferObject>() + bytes(words.capacity(), elem.repr()));
+    gc::budget_check(gc::HEADER + std::mem::size_of::<BufData>() + bytes(words.capacity(), elem.repr()));
     let w = new(elem, 0);
     let d = data(w);
     d.items = Items::from_words(elem.repr(), words);
@@ -296,14 +282,11 @@ mod tests {
             );
             unsafe {
                 // Exercise the same pointer and length offsets read by JIT.
-                let d = *(obj(pointers).payload().add(DATA_OFFSET as usize) as *const *const u8);
+                let d = obj(pointers).payload() as *const u8;
                 assert_eq!(*(d.add(ITEMS_PTR as usize) as *const *const u8), items(pointers).as_ptr());
                 assert_eq!(*(d.add(ITEMS_LEN as usize) as *const usize), 512);
-                assert!((d as usize) >= obj(pointers).payload() as usize);
-                assert!(
-                    (d as usize) + std::mem::size_of::<BufData>()
-                        <= obj(pointers).payload() as usize + std::mem::size_of::<BufferObject>()
-                );
+                assert_eq!(d, address as *const u8);
+                assert_eq!(obj(pointers).payload_size(), std::mem::size_of::<BufData>());
             }
         }
         // A full collection must drop element storage exactly once, even in

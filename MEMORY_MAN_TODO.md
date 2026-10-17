@@ -642,3 +642,33 @@ pointer-valued buffer cases with independent checksums and full retained-tail
 validation. Existing G2c's 32-run telemetry baseline uses the same executable
 and unchanged application workload; final comparison will run both binaries
 interleaved on the current harness. Raw data: `G5a-coverage-baseline/`.
+
+### G5a implementation and validation in progress
+
+Candidate `75f9c98` embeds BufData in the Buffer's stable managed cell. The
+payload's first word still points to BufData, preserving existing generated
+pointer/length access offsets and packed element storage. There is one fewer
+native metadata allocation/free per buffer. The metadata bytes move from
+external accounting into the managed payload; managed object counts do not
+decrease. Finalization drops element storage in place instead of freeing a Box.
+
+The isolated test checks zero native metadata charge, Vec adoption, storage
+growth, promoted-buffer/young-string barriers, generated offsets, and eventual
+external-storage reclamation in both GC modes with quarantined cells. Nine
+ordinary runtime tests, strict runtime Clippy, 66 CLI/program tests and 24
+source/binary-MIR/multiworker GC stress checks pass. The first sandboxed CLI run
+could not use localhost listeners/PTY/debugging; its complete rerun with local
+permissions passes. Performance acceptance and diagnostic validation remain
+pending; do not mark G5a complete from the native allocation reduction alone.
+
+### G5a refinement — direct managed metadata / MIR format 6
+
+The first candidate's 160 application and 440 coverage comparisons are retained
+in `G5a-applications/` and `G5a-coverage/`. Application timing generally improves,
+but multiworker RSS and some timing cells need further evaluation. Before
+acceptance, remove the redundant self-pointer from the first layout: BufData
+now occupies the payload directly, reducing a 64-bit Buffer cell from 80 to
+64 bytes and removing the MIR metadata-pointer load. Saved MIR's toolchain
+format advances from 5 to 6 because old field loads would otherwise interpret
+the new layout incorrectly. Old files must fail with a recompile diagnostic.
+This is a refinement under evaluation; no arena or ownership inference is added.

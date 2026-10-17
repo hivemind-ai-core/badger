@@ -2049,7 +2049,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             "buffer_len"
                 if self.m.lay.is_std(&targs[0], "Array") || self.m.lay.is_std(&targs[0], "Buffer") =>
             {
-                let data = self.buffer_data(args[0]);
+                let data = args[0];
                 Some(self.buffer_len(data))
             }
             "buffer_get"
@@ -2057,7 +2057,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     .get(1)
                     .is_some_and(|t| self.m.lay.is_std(t, "Array") || self.m.lay.is_std(t, "Buffer")) =>
             {
-                let data = self.buffer_data(args[0]);
+                let data = args[0];
                 let len = self.buffer_len(data);
                 let inside = self.assign(
                     Repr::I8,
@@ -3027,7 +3027,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.term(Term::Goto(head));
             }
             IterKind::Array => {
-                let data = self.buffer_data(Operand::Local(itl));
+                let data = Operand::Local(itl);
                 let n = self.buffer_len(data);
                 let i = self.copy_to_local(int(0), Repr::I64, None);
                 self.term(Term::Goto(head));
@@ -3041,7 +3041,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.switch(bodyb);
                 // Reload through the owner in the loop so its managed root
                 // stays live across body calls, polls and suspension.
-                let data = self.buffer_data(Operand::Local(itl));
+                let data = Operand::Local(itl);
                 let x = self.buffer_load(data, Operand::Local(i), self.repr(&item_ty));
                 self.bind_irrefutable(pat, x, &item_ty);
                 self.loops.push(LoopCtx { expr: e, cont: step, brk: exit, result: None, close: None });
@@ -3109,32 +3109,17 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         Some(())
     }
 
-    fn buffer_data(&mut self, owner: Operand) -> Operand {
-        self.assign(
-            Repr::I64,
-            Rvalue::Load { base: owner, offset: badger_runtime::buffer::DATA_OFFSET, repr: Repr::I64 },
-        )
-    }
-
     fn buffer_len(&mut self, data: Operand) -> Operand {
         self.assign(
             Repr::I64,
-            Rvalue::Load {
-                base: data,
-                offset: badger_runtime::buffer::ITEMS_LEN - badger_runtime::gc::HEADER as i32,
-                repr: Repr::I64,
-            },
+            Rvalue::Load { base: data, offset: badger_runtime::buffer::ITEMS_LEN, repr: Repr::I64 },
         )
     }
 
     fn buffer_load(&mut self, data: Operand, index: Operand, repr: Repr) -> Operand {
         let ptr = self.assign(
             Repr::I64,
-            Rvalue::Load {
-                base: data,
-                offset: badger_runtime::buffer::ITEMS_PTR - badger_runtime::gc::HEADER as i32,
-                repr: Repr::I64,
-            },
+            Rvalue::Load { base: data, offset: badger_runtime::buffer::ITEMS_PTR, repr: Repr::I64 },
         );
         let offset = self.assign(
             Repr::I64,

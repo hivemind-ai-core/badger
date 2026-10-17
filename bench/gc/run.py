@@ -13,6 +13,7 @@ import re
 import statistics
 import subprocess
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "bench"))
@@ -62,6 +63,19 @@ POLICIES = {
     "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
     **{f"refill{kib}": {"BADGER_GC_POOL_REFILL_KIB": str(kib)} for kib in [256, 512, 2048]},
 }
+
+
+def host_context():
+    """Outside child timing; host-wide pressure is context, not attribution."""
+    context = dict(wall_time_ns=time.time_ns(), load_average=os.getloadavg())
+    for name, path in [("cpu_pressure", "/proc/pressure/cpu"),
+                       ("cgroup_root_cpu_stat", "/sys/fs/cgroup/cpu.stat"),
+                       ("cgroup_root_cpu_max", "/sys/fs/cgroup/cpu.max")]:
+        try:
+            context[name] = Path(path).read_text().strip()
+        except OSError:
+            pass
+    return context
 
 
 def expected_coverage(c):
@@ -300,7 +314,9 @@ def main():
             env["GC_BENCH_CONFIG" if coverage else "TELEMETRY_CONFIG"] = json.dumps(config)
             command = [str(binaries[binary]), "run", "--release", "--bench", "--workers", str(workers),
                        "bench/gc/coverage.bdg" if coverage else "bench/telemetry.bdg"]
+            host_before = host_context()
             out, err, process = t.run_process([str(rss_helper), *command], env, 180)
+            host_after = host_context()
             rss = re.search(r"^\[gc-bench child rss\] (\d+)$", err, re.MULTILINE)
             if rss is None:
                 raise ValueError("RSS helper did not report language-child usage")
@@ -333,6 +349,7 @@ def main():
             if rep >= 0:
                 runs.append(dict(case=name, workers=workers, variant=variant, repetition=rep,
                     record=record, process=process, stderr=err, gc=phases, allocations=allocations,
+                    host_before=host_before, host_after=host_after,
                     heap_collections=after["collections"] - before["collections"],
                     gc_pause_ns=after["pause_total_ns"] - before["pause_total_ns"]))
                 report["summary"] = summarize(runs)

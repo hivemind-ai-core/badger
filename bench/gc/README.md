@@ -232,3 +232,16 @@ arrays, repeated native storage growth/freezing, and pointer-valued arrays
 retained across churn. Growth/pointer cases validate each retained tail element
 and independently check total checksums. These complement fixed-capacity packed
 byte/word buffers, sustained messages and application-shaped telemetry.
+
+To validate buffer layout, pointers, growth and reclamation independently of
+performance measurements:
+
+```
+python3 bench/gc/check_buffers.py --ordinary /tmp/candidate/badger --out /tmp/buffer-stress.json
+```
+
+This runs packed arrays through source and saved binary MIR, plus empty/growing/
+pointer-buffer coverage under `BADGER_GC_STRESS=1`, `BADGER_GC_VERIFY=1`, both
+generational modes and multiple workers. Isolated native unit tests additionally
+check exact external-storage accounting, promotion/barriers, generated-access
+offsets and eventual storage reclamation while cells remain quarantined.

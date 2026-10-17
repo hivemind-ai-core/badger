@@ -1,0 +1,157 @@
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 5.27s
+     Running tests/programs.rs (/tmp/language-gc-profile-target/release/deps/programs-980a0abb6c430cc0)
+
+running 66 tests
+test durable_jobs_survive_crashes ... FAILED
+test diagnostics_early_phases ... ok
+test conflicting_imports_are_reported ... ok
+test contract_report ... ok
+wrote /tmp/badger-mir-455/dyn_protocol.bdgmir (14684 bytes)
+Error: [E0014] cannot listen on 127.0.0.1:25455: Operation not permitted (os error 1)
+test contract_test_report ... ok
+test batch_receive_under_gc_stress ... ok
+test dependencies ... ok
+wrote /tmp/badger-mir-455/broadcast.bdgmir (40954 bytes)
+test api_export ... ok
+test dotenv_and_env_references ... ok
+test deadlock_report_names_waits ... ok
+wrote /tmp/badger-mir-455/multicore.bdgmir (38962 bytes)
+test contract_violations ... ok
+test debugger_sees_generated_code ... FAILED
+test config_env_replays ... ok
+test local_repl_session ... FAILED
+test internal_error_exits_promptly ... ok
+test inlined_lambda_defect_location ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test deep_nesting_is_refused_cleanly ... ok
+wrote /tmp/badger-mir-455/multicore2.bdgmir (38962 bytes)
+test main_error_report ... ok
+test otel_export ... FAILED
+test outbound_http ... FAILED
+test outbound_http_send ... FAILED
+Error: [E0014] cannot listen on 127.0.0.1:21455: Operation not permitted (os error 1)
+test compiled_programs_run ... ok
+test private_struct_update ... ok
+test private_method_call ... ok
+test example_projects_check ... ok
+test multicore_migration ... ok
+test map_versions_under_gc_stress ... ok
+test explain_types ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test profiles ... ok
+test module_values_under_gc_stress ... ok
+test program_graphs ... ok
+test reproduction_bundles ... FAILED
+test bench_programs_check ... ok
+Error: [E0014] cannot listen on 127.0.0.1:23455: Operation not permitted (os error 1)
+test release_starts_without_sources ... ok
+test query_check_overlays ... ok
+test run_bench_reports_execution_time ... ok
+test live_reconstruct ... ok
+test live_reload ... ok
+test restricted_projects ... ok
+test query_rename_and_unsupported_inputs ... ok
+test sql_generation_sqlite ... ok
+test sampling_profile ... ok
+test standard_input ... ok
+test project_tooling ... ok
+test test_runner_controlled_clock ... ok
+test examples_run ... ok
+test structured_diagnostics ... ok
+test native_modules ... ok
+test structured_logs ... ok
+test test_runner_simulation ... ok
+test grace_escalation_keeps_resources ... ok
+test typed_sql_schema ... ok
+test warning_programs ... ok
+test stuck_cleanup_is_bounded ... ok
+test workspaces_and_git_dependencies ... ok
+test heap_budget_contains_a_task ... ok
+test inspect_running_program ... FAILED
+test remote_repl ... FAILED
+test eval_in_busy_program ... FAILED
+test run_programs_release ... ok
+test run_programs_compiled ... ok
+test run_programs ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+failures:
+
+---- durable_jobs_survive_crashes stdout ----
+
+thread 'durable_jobs_survive_crashes' (481) panicked at crates/badger_cli/tests/programs.rs:1874:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- debugger_sees_generated_code stdout ----
+
+thread 'debugger_sees_generated_code' (471) panicked at crates/badger_cli/tests/programs.rs:1631:5:
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.archlinux.org>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+Breakpoint 1 (dbgprog.bdg:5) pending.
+
+
+---- local_repl_session stdout ----
+
+thread 'local_repl_session' (679) panicked at crates/badger_cli/tests/programs.rs:1343:5:
+assertion `left == right` failed: 
+  left: []
+ right: ["5", "{a: 1, b: \"s\"}", "10", "P { x: 3 }"]
+
+---- otel_export stdout ----
+
+thread 'otel_export' (722) panicked at crates/badger_cli/tests/programs.rs:583:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- outbound_http stdout ----
+
+thread 'outbound_http' (723) panicked at crates/badger_cli/tests/programs.rs:1874:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- outbound_http_send stdout ----
+
+thread 'outbound_http_send' (724) panicked at crates/badger_cli/tests/programs.rs:1874:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- reproduction_bundles stdout ----
+
+thread 'reproduction_bundles' (876) panicked at crates/badger_cli/tests/programs.rs:1874:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- inspect_running_program stdout ----
+
+thread 'inspect_running_program' (635) panicked at crates/badger_cli/tests/programs.rs:429:5:
+
+
+---- remote_repl stdout ----
+
+thread 'remote_repl' (867) panicked at crates/badger_cli/tests/programs.rs:467:9:
+endpoint never came up
+
+---- eval_in_busy_program stdout ----
+
+thread 'eval_in_busy_program' (484) panicked at crates/badger_cli/tests/programs.rs:1588:5:
+
+
+
+failures:
+    debugger_sees_generated_code
+    durable_jobs_survive_crashes
+    eval_in_busy_program
+    inspect_running_program
+    local_repl_session
+    otel_export
+    outbound_http
+    outbound_http_send
+    remote_repl
+    reproduction_bundles
+
+test result: FAILED. 56 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.99s
+
+error: test failed, to rerun pass `-p badger_cli --test programs`
