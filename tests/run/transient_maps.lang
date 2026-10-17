@@ -1,0 +1,63 @@
+// Private builder nodes can mutate; finished maps and their versions cannot.
+import std.array
+import std.io
+import std.map
+import std.set
+import std.task
+import std.text
+
+fn build(seed: Int) -> Map<String, String> {
+    var b = map.builder<String, String>()
+    for i in 0..160 {
+        let key = $"key-{i % 64}"
+        b.insert(key, text.repeat("x", seed + i + 1))
+        assert(b.len() == (i + 1).min(64))
+        if i % 16 == 0 { task.yield_now() }
+    }
+    b.finish()
+}
+
+fn check(m: Map<String, String>, seed: Int) -> Unit {
+    assert(m.len() == 64)
+    for k in 0..64 {
+        let last = if k < 32 { k + 128 } else { k + 64 }
+        assert(m.get($"key-{k}").unwrap_or("").len() == seed + last + 1)
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = task.scope(fn(s) -> Result<Unit, io.Error> {
+        let a = s.spawn(fn() { build(1) })
+        let b = s.spawn(fn() { build(2) })
+        let original = a.join()
+        let other = b.join()
+        check(original, 1)
+        check(other, 2)
+        let changed = original.insert("key-0", "changed")
+        let removed = changed.remove("key-1")
+        assert(changed.get("key-0").unwrap_or("") == "changed")
+        assert(!removed.contains("key-1"))
+        assert(changed.contains("key-1"))
+        check(original, 1)
+        check(other, 2)
+        // Fresh builders must never modify descendants of finished versions.
+        for seed in 3..8 { check(build(seed), seed) }
+        check(original, 1)
+        let merged = original.merge(other)
+        check(merged, 2)
+        let copied = map.from_list(original.entries())
+        check(copied, 1)
+        let mapped = original.map_values(fn(v: String) { v.len() })
+        assert(mapped.get("key-0").unwrap_or(0) == 130)
+        var sb = set.builder<String>()
+        for i in 0..160 { sb.insert($"key-{i % 64}") }
+        let frozen = sb.finish()
+        let grown = frozen.insert("extra")
+        assert(frozen.len() == 64 && !frozen.contains("extra"))
+        assert(grown.len() == 65)
+        for i in 0..64 { assert(frozen.contains($"key-{i}")) }
+        ok(())
+    })?
+    io.println("transient maps: ok")?
+    ok(())
+}

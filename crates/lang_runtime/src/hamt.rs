@@ -20,6 +20,8 @@
 //!
 //! Callers keep the trie being read or updated reachable (rooted), and root
 //! keys and values passed in; allocation of new nodes may collect.
+//! Fresh builders use a separate insertion path: all their nodes are private
+//! until the builder is finished, so edits that fit an allocation reuse it.
 
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::{self, Header, obj};
@@ -188,6 +190,66 @@ fn splice(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>) -> u
     out
 }
 
+/// Builder-only edit. Every node reachable from `w` must be exclusively owned
+/// by the unfinished builder. Persistent maps must always use `MUTABLE = false`.
+/// Keep the allocation's original payload size: shrinking the logical node can
+/// leave spare capacity, but must not change how the collector frees its cell.
+fn edit<const MUTABLE: bool>(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>) -> u64 {
+    if !MUTABLE {
+        return splice(w, datamap, nodemap, e, c);
+    }
+    let n = Node::of(w);
+    let (ne, nc) = (n.entries(), n.children());
+    let new_ne = ne - e.del + e.ins.is_some() as usize;
+    let new_nc = nc - c.del + c.ins.is_some() as usize;
+    if HDR + new_ne * 24 + new_nc * 8 > unsafe { obj(w).payload_size() } {
+        return splice(w, datamap, nodemap, e, c);
+    }
+    // Insertion never deletes a child without replacing it. Consequently
+    // relocating the old children fits whenever the final layout fits.
+    debug_assert!(c.del <= c.ins.is_some() as usize);
+    unsafe {
+        let entries = n.0.add(HDR) as *mut u64;
+        let children = entries.add(new_ne * 3);
+        // Growing entries would overwrite the old child array, so move it
+        // first. Shrinking entries must finish before moving children left.
+        if new_ne > ne {
+            std::ptr::copy(entries.add(ne * 3), children, nc);
+        }
+        if e.del != e.ins.is_some() as usize {
+            std::ptr::copy(
+                entries.add((e.at + e.del) * 3),
+                entries.add((e.at + e.ins.is_some() as usize) * 3),
+                (ne - e.at - e.del) * 3,
+            );
+        }
+        if let Some(x) = e.ins {
+            let p = entries.add(e.at * 3);
+            *p = x.hash;
+            *p.add(1) = x.key;
+            *p.add(2) = x.val;
+        }
+        if new_ne < ne {
+            std::ptr::copy(entries.add(ne * 3), children, nc);
+        }
+        if c.del != c.ins.is_some() as usize {
+            std::ptr::copy(
+                children.add(c.at + c.del),
+                children.add(c.at + c.ins.is_some() as usize),
+                nc - c.at - c.del,
+            );
+        }
+        if let Some(child) = c.ins {
+            *children.add(c.at) = child;
+        }
+        *(n.0 as *mut u32) = datamap;
+        *(n.0.add(4) as *mut u32) = nodemap;
+        *(n.0.add(12) as *mut u32) = new_ne as u32;
+    }
+    gc::barrier(w);
+    w
+}
+
 /// A node holding two entries whose hashes agree below `shift`.
 fn pair(a: Entry, b: Entry, shift: u32, flags: u32) -> u64 {
     if collision(shift) {
@@ -234,22 +296,46 @@ pub fn get(root: u64, hash: u64, key: u64, eq: &dyn Fn(u64, u64) -> bool) -> Opt
 
 /// Insert or replace: the new root, and whether the key was new.
 pub fn insert(root: u64, e: Entry, flags: u32, eq: &dyn Fn(u64, u64) -> bool) -> (u64, bool) {
+    insert_with::<false>(root, e, flags, eq)
+}
+
+/// Insert into a fresh builder. The root and every descendant must be private:
+/// never call this on a finished map or on a trie sharing persistent nodes.
+pub(crate) fn insert_mut(root: u64, e: Entry, flags: u32, eq: &dyn Fn(u64, u64) -> bool) -> (u64, bool) {
+    insert_with::<true>(root, e, flags, eq)
+}
+
+fn insert_with<const MUTABLE: bool>(
+    root: u64,
+    e: Entry,
+    flags: u32,
+    eq: &dyn Fn(u64, u64) -> bool,
+) -> (u64, bool) {
     if root == 0 {
         return (alloc_node(bit(e.hash, 0), 0, flags, &[e], &[]), true);
     }
-    insert_at(root, e, 0, flags, eq)
+    insert_at::<MUTABLE>(root, e, 0, flags, eq)
 }
 
-fn insert_at(w: u64, e: Entry, shift: u32, flags: u32, eq: &dyn Fn(u64, u64) -> bool) -> (u64, bool) {
+fn insert_at<const MUTABLE: bool>(
+    w: u64,
+    e: Entry,
+    shift: u32,
+    flags: u32,
+    eq: &dyn Fn(u64, u64) -> bool,
+) -> (u64, bool) {
     let n = Node::of(w);
     if collision(shift) {
         for i in 0..n.entries() {
             let x = n.entry(i);
             if x.hash == e.hash && eq(x.key, e.key) {
-                return (splice(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none()), false);
+                return (edit::<MUTABLE>(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none()), false);
             }
         }
-        return (splice(w, 0, 0, Edit { at: n.entries(), del: 0, ins: Some(e) }, Edit::none()), true);
+        return (
+            edit::<MUTABLE>(w, 0, 0, Edit { at: n.entries(), del: 0, ins: Some(e) }, Edit::none()),
+            true,
+        );
     }
     let b = bit(e.hash, shift);
     let (dm, nm) = (n.datamap(), n.nodemap());
@@ -257,13 +343,13 @@ fn insert_at(w: u64, e: Entry, shift: u32, flags: u32, eq: &dyn Fn(u64, u64) -> 
         let i = index(dm, b);
         let x = n.entry(i);
         if x.hash == e.hash && eq(x.key, e.key) {
-            return (splice(w, dm, nm, Edit { at: i, del: 1, ins: Some(e) }, Edit::none()), false);
+            return (edit::<MUTABLE>(w, dm, nm, Edit { at: i, del: 1, ins: Some(e) }, Edit::none()), false);
         }
         // the resident entry and the new one move into a child
         let r = gc::Roots::new();
         let c = r.add(pair(x, e, shift + BITS, flags));
         let j = index(nm, b);
-        let out = splice(
+        let out = edit::<MUTABLE>(
             w,
             dm & !b,
             nm | b,
@@ -274,12 +360,16 @@ fn insert_at(w: u64, e: Entry, shift: u32, flags: u32, eq: &dyn Fn(u64, u64) -> 
     }
     if nm & b != 0 {
         let j = index(nm, b);
-        let (c, added) = insert_at(n.child(j), e, shift + BITS, flags, eq);
+        let old_child = n.child(j);
+        let (c, added) = insert_at::<MUTABLE>(old_child, e, shift + BITS, flags, eq);
+        if MUTABLE && c == old_child {
+            return (w, added);
+        }
         let r = gc::Roots::new();
         r.add(c);
-        return (splice(w, dm, nm, Edit::none(), Edit { at: j, del: 1, ins: Some(c) }), added);
+        return (edit::<MUTABLE>(w, dm, nm, Edit::none(), Edit { at: j, del: 1, ins: Some(c) }), added);
     }
-    (splice(w, dm | b, nm, Edit { at: index(dm, b), del: 0, ins: Some(e) }, Edit::none()), true)
+    (edit::<MUTABLE>(w, dm | b, nm, Edit { at: index(dm, b), del: 0, ins: Some(e) }, Edit::none()), true)
 }
 
 enum Removed {
@@ -519,6 +609,63 @@ mod tests {
             for k in 0..3000 {
                 assert_eq!(get(*t, h(k), k, &eq), m.get(&k).copied());
             }
+        }
+        // Keep all managed-heap model checks in the same test: this heap's
+        // unit-test mutator is single-threaded, rather than a task runtime.
+        transient_matches_a_model_and_stops_allocating_for_replacements();
+    }
+
+    fn transient_matches_a_model_and_stops_allocating_for_replacements() {
+        use std::collections::HashMap;
+        let eq = |a: u64, b: u64| a == b;
+        let mut root = 0;
+        let mut model = HashMap::new();
+        // Ascending, descending and permuted insertion orders exercise data
+        // compaction, child-array movement, and reused capacity after splits.
+        for order in 0..3 {
+            root = 0;
+            model.clear();
+            for i in 0..512 {
+                let k = match order {
+                    0 => i,
+                    1 => 511 - i,
+                    _ => (i * 173) % 512,
+                };
+                let (next, added) = insert_mut(root, Entry { hash: h(k), key: k, val: i }, 0, &eq);
+                assert!(added);
+                root = next;
+                model.insert(k, i);
+                if i % 31 == 0 {
+                    for (&key, &value) in &model {
+                        assert_eq!(get(root, h(key), key, &eq), Some(value));
+                    }
+                }
+            }
+            let before = gc::stats().0;
+            for i in 0..4096 {
+                let k = (i * 173) % 512;
+                let (next, added) = insert_mut(root, Entry { hash: h(k), key: k, val: i }, 0, &eq);
+                assert!(!added);
+                assert_eq!(next, root);
+                model.insert(k, i);
+            }
+            assert_eq!(gc::stats().0, before, "replacement-only builder updates allocated nodes");
+            let mut visited = 0;
+            for_each(root, &mut |entry| {
+                visited += 1;
+                assert_eq!(model.get(&entry.key), Some(&entry.val));
+            });
+            assert_eq!(visited, model.len());
+        }
+        // Once frozen, updates/removals must copy; a shared root or descendant
+        // is never enough evidence to use the transient insertion path.
+        let frozen = root;
+        let (changed, _) = insert(frozen, Entry { hash: h(0), key: 0, val: 99999 }, 0, &eq);
+        let removed = remove(changed, h(7), 7, &eq).unwrap();
+        assert_eq!(get(changed, h(0), 0, &eq), Some(99999));
+        assert_eq!(get(removed, h(7), 7, &eq), None);
+        for (&key, &value) in &model {
+            assert_eq!(get(frozen, h(key), key, &eq), Some(value));
         }
     }
 }

@@ -24,19 +24,31 @@ fn builders(c: Config) -> Int {
             for i in 0..c.n { b.insert(i % c.retain) }
             let done = b.finish()
             total = total + done.len()
-            for k in done { total = total + k }
+            for k in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                total = total + k
+            }
         } else if c.mode == "map-strings" {
             var b = map.builder<Int, String>()
             for i in 0..c.n { b.insert(i % c.retain, text.repeat("x", c.payload + i % 3)) }
             let done = b.finish()
             total = total + done.len()
-            for (k, v) in done { total = total + k + v.len() }
+            for (k, v) in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                let last = c.n - 1 - (c.n - 1 - k) % c.retain
+                assert(v.len() == c.payload + last % 3)
+                total = total + k + v.len()
+            }
         } else {
             var b = map.builder<Int, Int>()
             for i in 0..c.n { b.insert(i % c.retain, i) }
             let done = b.finish()
             total = total + done.len()
-            for (k, v) in done { total = total + k + v }
+            for (k, v) in done {
+                assert(k >= 0 && k < c.n.min(c.retain))
+                assert(v == c.n - 1 - (c.n - 1 - k) % c.retain)
+                total = total + k + v
+            }
         }
     }
     total
@@ -59,7 +71,13 @@ fn consume(c: Config, rx: channel.Receiver<Array<U64>>) -> Int {
             .some(words) => {
                 // Processing can suspend while the payload remains live.
                 if c.mode == "messages-slow" { task.yield_now() }
-                for word in words { total = total + Int.try_from(word).unwrap_or(0) }
+                var index = 0
+                for word in words {
+                    assert(word == U64.try_from(count * 31 + index).unwrap_or(0U64))
+                    total = total + Int.try_from(word).unwrap_or(0)
+                    index = index + 1
+                }
+                assert(index == c.payload)
                 if c.mode == "messages-retained" { retained[count % c.retain].set(words) }
                 count = count + 1
             },

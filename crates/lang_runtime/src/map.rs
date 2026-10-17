@@ -108,8 +108,13 @@ pub fn insert(m: u64, k: u64, v: u64) -> u64 {
 pub fn insert_mut(m: u64, k: u64, v: u64) {
     let r = gc::Roots::new();
     root_args(&r, m, k, v);
-    let (t, n) = inserted(m, k, v);
-    set(m, t, n);
+    let (kd, vd) = descs(m);
+    let e = Entry { hash: hash(kd, k), key: k, val: v };
+    let eq = |a, b| crate::value::eq(kd, a, b);
+    // Builders/literals start empty and expose no snapshot before finishing:
+    // every trie node, not just the map wrapper, is exclusively owned.
+    let (t, added) = hamt::insert_mut(root(m), e, flags(kd, vd), &eq);
+    set(m, t, len(m) + added as usize);
     // (a builder's map may predate a collection)
     gc::barrier(m);
 }

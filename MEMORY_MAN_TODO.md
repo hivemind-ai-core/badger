@@ -14,7 +14,7 @@ correctness checks, raw benchmark evidence, and results recorded here.
   interleaved repetitions, independent output checks, executable/source hashes,
   cleared inherited LANG settings, and raw results retained in the repository.
 
-Track workload elapsed time, managed allocation counts/bytes where available,
+Before each applicable slice, cover its lifetime/failure cases. Track workload elapsed time, managed allocation counts/bytes where available,
 collection count and pause time, process peak RSS, and application throughput at
 1/2/4/8 workers. Separate workload timing from frontend/JIT and process RSS.
 Include transient and retained graphs, true snapshots, replacement-heavy and
@@ -199,3 +199,30 @@ Shared-host measurements are directional, not significance or tail-latency claim
 | cpu | 4 | 183.289 | 35.307 | 86.2 |
 | fanout | 1 | 675.253 | 119.406 | 81.1 |
 | fanout | 4 | 430.845 | 89.400 | 112.8 |
+
+### I1 — implementation awaiting final validation and comparison
+
+Fresh map/set builders now update exclusively owned HAMT nodes in place when
+edits fit their original allocation. Growing nodes still allocate; ancestors
+whose child address is unchanged require no replacement. No reference counters,
+new object headers, ABI changes, or mutable access to finished maps were added.
+Original allocation sizes are retained for freeing/size-class correctness;
+mutated old nodes receive the generational write barrier.
+
+The existing model test now additionally checks three builder insertion orders,
+full hash collisions, 4,096 replacement updates per order without any managed
+allocation, and persistent update/remove behavior after freezing. A language
+regression covers pointer keys/values, yielded builders, concurrent tasks,
+finished snapshots, fresh subsequent builders, merge/from-list/map-values, sets,
+and saved MIR. Six optimized stress/verification/chaos configurations (both
+collection modes, workers 1/4/8) passed. The dedicated integration suite also passed all 12 debug/optimized
+stress configurations and the saved-MIR check; the full workspace run and
+benchmark comparison are still pending.
+
+Coverage fixtures now also assert exact FIFO payload words and final builder
+values during execution. The original baseline above retains its earlier source
+hash; report optimization changes only from new interleaved comparisons where
+both binaries run the same strengthened fixture. Application fixtures are unchanged.
+
+Default workspace/all-target Clippy and diagnostic runtime/all-target Clippy both
+pass with `-D warnings`; runtime unit/integration tests and formatting pass.
