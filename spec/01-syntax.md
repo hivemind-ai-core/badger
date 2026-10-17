@@ -148,9 +148,12 @@ events
 `x |> f(a, b)` means `f(x, a, b)`. Pipe evaluation is left to right, with the
 left side evaluated once. There are no implicit placeholders or alternative
 last-argument pipes. The pipe operator has lower precedence than comparisons
-and arithmetic and higher precedence than assignment. Postfix `?` binds
-tighter than `|>`, so `x |> f(a)?` applies `?` to `f(a)`; write
-`(x |> f(a))?` to propagate the pipeline's error.
+and arithmetic and higher precedence than assignment. A stage that is a
+call followed by `?` takes the piped value first and then applies `?` to
+the call's result: `x |> f(a)?` is `(x |> f(a))?`, so fallible stages
+chain (`input |> decode()? |> validate()?`), each left side running once.
+A parenthesized `(make())?` is not a call stage: it computes the stage's
+function, which then receives the value.
 
 ## Bindings and control flow
 

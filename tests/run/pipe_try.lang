@@ -1,0 +1,48 @@
+// `?` in a pipeline stage applies to the stage's call: `x |> f()?` is
+// `(x |> f())?`, so fallible stages chain.
+import std.io
+
+fn increment(n: Int) -> Result<Int, String> { if n > 100 { err($"{n} is too big") } else { ok(n + 1) } }
+
+fn double(n: Int) -> Result<Int, String> { ok(n * 2) }
+
+fn nested(n: Int) -> Result<Result<Int, String>, String> { ok(ok(n)) }
+
+/// A function-producing call: parenthesized, `?` applies before the pipe.
+fn adder(k: Int) -> Result<fn(Int) -> Int, String> { ok(fn(n) => n + k) }
+
+fn run(start: Int, counter: Cell<Int>) -> Result<Int, String> {
+    let tick = fn(n: Int) -> Int {
+        counter.set(counter.get() + 1)
+        n
+    }
+    let n = tick(start) |> increment()? |> double()? |> increment()?
+    ok(n)
+}
+
+fn with_value<R>(v: Int, body: fn(Int) -> R) -> R { body(v) }
+
+/// Inside a `use` continuation, `?` in a piped stage returns from it.
+fn in_use(v: Int) -> Result<Int, String> {
+    use n <- with_value(v)
+    let m = n |> increment()? |> double()?
+    ok(m)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let counter = Cell.new(0)
+    io.println($"{run(1, counter).unwrap_or(-1)} {counter.get()}")?
+    match run(200, counter) {
+        .ok(n) => io.println($"ok {n}")?,
+        .err(e) => io.println($"err {e} (left operand ran {counter.get()} times in all)")?,
+    }
+    let explicit = fn() -> Result<Int, String> { ok(increment(double(5)?)?) }
+    let piped = fn() -> Result<Int, String> { ok(5 |> double()? |> increment()?) }
+    io.println($"explicit {explicit().unwrap_or(0)} piped {piped().unwrap_or(0)}")?
+    let twice = fn() -> Result<Int, String> { ok(7 |> nested()??) }
+    io.println($"double ? {twice().unwrap_or(0)}")?
+    let produced = fn() -> Result<Int, String> { ok(10 |> (adder(5))?) }
+    io.println($"parenthesized {produced().unwrap_or(0)}")?
+    io.println($"use {in_use(4).unwrap_or(0)} {in_use(500).is_err()}")?
+    ok(())
+}

@@ -919,6 +919,30 @@ impl Lower<'_> {
                     r => unreachable!("infix {r:?}"),
                 };
                 let span = this.ast.exprs[lhs].span.to(this.ast.exprs[rhs].span);
+                if op == BinOp::Pipe {
+                    // `x |> f(a)?` is `(x |> f(a))?`: the value goes into the
+                    // call, then each `?` applies to its result. A
+                    // parenthesized `(make())?` stays the stage's function.
+                    let mut tries = 0;
+                    let mut stage = rhs;
+                    while let ExprKind::Try(inner) = this.ast.exprs[stage].kind {
+                        if this.parenthesized.contains(&stage) {
+                            break;
+                        }
+                        tries += 1;
+                        stage = inner;
+                    }
+                    if tries > 0
+                        && matches!(this.ast.exprs[stage].kind, ExprKind::Call { .. })
+                        && !this.parenthesized.contains(&stage)
+                    {
+                        let mut e = this.alloc_expr(ExprKind::Binary { op, lhs, rhs: stage }, span);
+                        for _ in 0..tries {
+                            e = this.alloc_expr(ExprKind::Try(e), span);
+                        }
+                        return e;
+                    }
+                }
                 this.alloc_expr(ExprKind::Binary { op, lhs, rhs }, span)
             })
             .parse(pairs)
