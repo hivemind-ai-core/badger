@@ -1255,6 +1255,59 @@ where
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
         .map(|((((p, kind), pat), ty), value)| (p, ItemKind::Global { kind, pat, ty, value }));
+    // `provider` and `stage` are keywords only where a declaration starts
+    let alias = kw("as").ignore_then(symbol.clone()).or_not();
+    let provider_item = is_pub
+        .clone()
+        .then_ignore(kw("provider"))
+        .then(name.clone())
+        .then(alias.clone())
+        .then(params.clone().map_with(|p, e| (p, e.span())))
+        .then(ret.clone().or_not())
+        .then(effect.clone().or_not())
+        .then(block.clone())
+        .map(|((((((p, name), alias), (params, params_span)), ret), effect), body)| {
+            (p, ItemKind::Provider { name, alias, params, params_span, ret, effect, body })
+        });
+    let member = choice((kw("enter").to("enter"), kw("leave").to("leave"), kw("error").to("error")))
+        .map_with(|text, e| Ident { text, span: e.span() })
+        .labelled("a stage callback (`enter`, `leave`, or `error`)")
+        .then(params.clone())
+        .then(ret.clone().or_not())
+        .then(choice((
+            block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
+            just(Tok::FatArrow).ignore_then(expr.clone()),
+        )))
+        .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
+    let stage_item = is_pub
+        .clone()
+        .then_ignore(kw("stage"))
+        .then(name.clone())
+        .then(alias)
+        .then(generics.clone().or_not())
+        .then(params.clone())
+        .then(ret.clone().or_not())
+        .then(
+            choice((sep.clone().to(None), member.map(Some)))
+                .repeated()
+                .collect::<Vec<_>>()
+                .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
+                .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
+        )
+        .map(|((((((p, name), alias), g), params), ret), (members, body_span))| {
+            (
+                p,
+                ItemKind::Stage {
+                    name,
+                    alias,
+                    generics: g.unwrap_or_default(),
+                    params,
+                    ret,
+                    members,
+                    body_span,
+                },
+            )
+        });
     let item = choice((
         import,
         extern_type,
@@ -1263,6 +1316,8 @@ where
         enum_decl,
         protocol,
         impl_decl,
+        provider_item,
+        stage_item,
         fn_item,
         extern_decl,
         global,

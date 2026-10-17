@@ -9,13 +9,22 @@ pub fn f(n: Int) -> Int !{} { n }
 
 (source_file
   (function_declaration
-    (contract (binary_expression left: (identifier) right: (integer)))
+    (contract
+      (binary_expression
+        left: (identifier)
+        right: (integer)))
     (visibility)
     name: (identifier)
-    (parameters (parameter (identifier) (type_path (type_identifier))))
-    return_type: (type_path (type_identifier))
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier))))
+    return_type: (type_path
+      (type_identifier))
     (effect)
-    body: (block (identifier))))
+    body: (block
+      (identifier))))
 
 ==================
 Records, pipes, lambdas, and match
@@ -37,22 +46,44 @@ fn g() {
     name: (identifier)
     (parameters)
     body: (block
-      (let_statement (identifier)
+      (let_statement
+        (identifier)
         (record_literal
-          (field_initializer name: (identifier) value: (string))
-          (spread (identifier))))
-      (let_statement (identifier)
+          (field_initializer
+            name: (identifier)
+            value: (string))
+          (spread
+            (identifier))))
+      (let_statement
+        (identifier)
         (binary_expression
-          left: (list_literal (integer) (integer))
+          left: (list_literal
+            (integer)
+            (integer))
           right: (call_expression
-            function: (field_expression value: (identifier) field: (identifier))
+            function: (field_expression
+              value: (identifier)
+              field: (identifier))
             arguments: (arguments
-              (lambda (parameters (parameter (identifier)))
-                (binary_expression left: (identifier) right: (integer)))))))
+              (lambda
+                (parameters
+                  (parameter
+                    (identifier)))
+                (binary_expression
+                  left: (identifier)
+                  right: (integer)))))))
       (match_expression
-        (field_expression value: (identifier) field: (identifier))
-        (match_arm (variant_pattern variant: (identifier) (identifier)) (identifier))
-        (match_arm (wildcard) (integer))))))
+        (field_expression
+          value: (identifier)
+          field: (identifier))
+        (match_arm
+          (variant_pattern
+            variant: (identifier)
+            (identifier))
+          (identifier))
+        (match_arm
+          (wildcard)
+          (integer))))))
 
 ==================
 Effect type arguments and module-named values
@@ -68,22 +99,36 @@ fn h(s: Seq<Int, !{Io}>) -> Int {
   (function_declaration
     name: (identifier)
     (parameters
-      (parameter (identifier)
-        (type_path (type_identifier)
-          (type_arguments (type_path (type_identifier)) (effect (type_identifier))))))
-    return_type: (type_path (type_identifier))
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier)
+          (type_arguments
+            (type_path
+              (type_identifier))
+            (effect
+              (type_identifier))))))
+    return_type: (type_path
+      (type_identifier))
     body: (block
       (binary_expression
         left: (call_expression
           function: (field_expression
             value: (call_expression
-              function: (field_expression value: (identifier) field: (identifier))
-              arguments: (arguments (list_literal (integer))))
+              function: (field_expression
+                value: (identifier)
+                field: (identifier))
+              arguments: (arguments
+                (list_literal
+                  (integer))))
             field: (identifier))
           arguments: (arguments))
         right: (call_expression
           function: (field_expression
-            value: (map_literal (map_entry (integer) (integer)))
+            value: (map_literal
+              (map_entry
+                (integer)
+                (integer)))
             field: (identifier))
           arguments: (arguments))))))
 
@@ -98,6 +143,98 @@ let s = $"n = {n + 1}"
 
 (source_file
   (block_comment)
-  (global_declaration (identifier)
+  (global_declaration
+    (identifier)
     (interpolated_string
-      (interpolation (binary_expression left: (identifier) right: (integer))))))
+      (interpolation
+        (binary_expression
+          left: (identifier)
+          right: (integer))))))
+
+==================
+Provider and stage declarations
+==================
+
+provider greeting(scope, config) -> Result<_, AppError> {
+    ok(config)
+}
+
+stage audit() -> Result<_, AppError> {
+    enter(ctx) { pipeline.next(ctx) }
+    error(ctx, error) => pipeline.propagate(ctx, error)
+}
+
+fn main() {
+    let stage = system { greeting: greeting({ prefix: "Hi" }) }
+}
+
+---
+
+(source_file
+  (provider_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier))
+      (parameter
+        (identifier)))
+    (type_path
+      (type_identifier)
+      (type_arguments
+        (hole)
+        (type_path
+          (type_identifier))))
+    (block
+      (call_expression
+        (identifier)
+        (arguments
+          (identifier)))))
+  (stage_declaration
+    (identifier)
+    (parameters)
+    (type_path
+      (type_identifier)
+      (type_arguments
+        (hole)
+        (type_path
+          (type_identifier))))
+    (stage_callback
+      (parameters
+        (parameter
+          (identifier)))
+      (block
+        (call_expression
+          (field_expression
+            (identifier)
+            (identifier))
+          (arguments
+            (identifier)))))
+    (stage_callback
+      (parameters
+        (parameter
+          (identifier))
+        (parameter
+          (identifier)))
+      (call_expression
+        (field_expression
+          (identifier)
+          (identifier))
+        (arguments
+          (identifier)
+          (identifier)))))
+  (function_declaration
+    (identifier)
+    (parameters)
+    (block
+      (let_statement
+        (identifier)
+        (system_expression
+          (system_entry
+            (identifier)
+            (call_expression
+              (identifier)
+              (arguments
+                (record_literal
+                  (field_initializer
+                    (identifier)
+                    (string)))))))))))

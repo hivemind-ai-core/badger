@@ -6,7 +6,8 @@
 
 program          = { separator | declaration } ;
 declaration      = import_decl | type_decl | struct_decl | enum_decl
-                 | protocol_decl | impl_decl | function_decl | extern_decl
+                 | protocol_decl | impl_decl | function_decl | provider_decl
+                 | stage_decl | extern_decl
                  | global_binding ;
 visibility       = [ "pub" ] ;
 separator        = NEWLINE | ";" ;
@@ -53,6 +54,14 @@ function_decl    = { contract }, visibility, "fn", value_name, [ generic_params 
 contract         = ( "requires" | "ensures" ), expr, [ ",", STRING ], separator ;
 extern_decl      = visibility, "extern", STRING, "fn", value_name,
                    "(", typed_params, ")", "->", type_expr, separator ;
+(* `provider`, `stage`, `enter`, `leave`, and `error` are keywords only here *)
+provider_decl    = visibility, "provider", value_name, [ "as", SYMBOL ],
+                   "(", params, ")", [ "->", type_expr ], [ effect ], block ;
+stage_decl       = visibility, "stage", value_name, [ "as", SYMBOL ],
+                   [ generic_params ], "(", params, ")", [ "->", type_expr ],
+                   "{", { stage_callback | separator }, "}" ;
+stage_callback   = ( "enter" | "leave" | "error" ), "(", params, ")",
+                   [ "->", type_expr ], ( block | "=>", expr ) ;
 global_binding   = [ "pub" ], ("let" | "const"), pattern,
                    [ ":", type_expr ], "=", expr, separator ;
 params           = [ param, { ",", param }, [ "," ] ] ;
@@ -118,7 +127,7 @@ for_expr         = "for", pattern, "in", expr, block ;
 loop_expr        = "loop", block ;
 system_expr      = "system", "{", [ system_entry,
                    { ",", system_entry }, [ "," ] ], "}" ;
-system_entry     = label, ":", expr ;
+system_entry     = label, ":", expr ;   (* a provider application: provider(config), or component(provider, config) *)
 pipeline_expr    = "pipeline", "{", [ expr, { ",", expr }, [ "," ] ], "}" ;
 ref_expr         = "ref", "(", SYMBOL, ")" ;
 unsafe_expr      = "unsafe", block ;

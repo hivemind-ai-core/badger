@@ -20,9 +20,9 @@ or mandatory component object is required.
 
 ```badger fragment
 let plan = system {
-    database: component(sqlite.pool, { path: config.database_path }),
-    api: component(api.provider, { database: ref(#database) }),
-    server: component(http.server, {
+    database: sqlite.pool({ path: config.database_path }),
+    api: api.provider({ database: ref(#database) }),
+    server: http.server({
         address: "127.0.0.1",
         port: 8080,
         handler: ref(#api),
@@ -38,8 +38,11 @@ is valid only inside a system configuration and identifies another plan key.
 It may occur inside nested records/lists. It is a typed dependency expression,
 not a runtime symbol lookup that can produce arbitrary `Any`.
 
-`component(provider, config)` associates a provider with a deferred typed
-configuration. Compiler elaboration first collects nodes and their output
+An entry `key: provider(config)` applies a provider to a deferred typed
+configuration (`provider()` has the empty configuration `{}`); it is the
+same as `key: component(provider, config)`, the explicit marker. Inside
+`system { ... }` an application does not run anything: it describes a
+node. Compiler elaboration first collects nodes and their output
 schemes, resolves reference holes, checks the resolved config against each
 provider, and rejects missing references, invalid fields, and dependency cycles.
 It then produces a normal inspectable `SystemPlan` value. Generic providers must
@@ -86,6 +89,30 @@ resource from the closing region; system diagnostics retain an explicit erased
 error interface/schema rather than erasing arbitrary application values.
 Adapters for raw foreign resources use an explicit owned-resource adoption
 contract. General safe code cannot manufacture an untracked scoped handle.
+
+### Provider declarations
+
+```badger fragment
+provider greeting(scope, config: { prefix: String }) -> Result<Greeter, AppError> {
+    scope.on_halt(fn() -> Result<Unit, AppError> { ok(()) })
+    ok({ greet: fn(name: String) { $"{config.prefix}, {name}" } })
+}
+```
+
+`provider NAME(scope, config) -> R { body }` declares the module value
+`NAME = system.provider({ name: #MODULE/NAME, init: fn(scope, config) -> R { body } })`:
+the body is the initializer, run with the node's initialization scope and
+its configuration. A provider that registers nothing on its scope may
+write `(config)`. `provider NAME as #label(...)` names it explicitly; the
+default name is the module path and the declaration name
+(`#orders.store/database`), shown by inspection and in diagnostics.
+`return` and `?` in the body leave the initializer. The result annotation
+and parameter types are inferred when omitted; a `pub provider` declares
+its configuration type and `-> Result<Output, Error>`, and its type is
+`system.Provider<Config, Output, Error>`. `provider` is a keyword only where
+a declaration starts. The descriptor form `system.provider({...})` remains
+for providers built by functions (generic providers, providers chosen from
+data).
 
 Configurations are ordinary typed values after validation. Profiles and
 environment overlays merge explicit configuration data, then decode/validate
@@ -167,6 +194,33 @@ error: (LiveView<Out>, E) -> ErrorStep<LiveView<Out>, Reply, E>
 Enter = next(Out) | stop(In, Reply)
 ErrorStep = propagate(Context, E) | recover(Context, Reply)
 ```
+
+### Stage declarations
+
+```badger fragment
+stage decode_order() -> Result<_, AppError> {
+    enter(ctx) {
+        let input = codec.decode<OrderInput>(ctx.request.body)?
+        pipeline.next({ ..ctx, input })
+    }
+    error(ctx, error) => pipeline.propagate(ctx, error)
+}
+```
+
+`stage NAME(params) { callbacks }` declares the stage factory
+`fn NAME(params) { pipeline.stage({ name: #MODULE/NAME, enter: ..., leave: ..., error: ... }) }`;
+a pipeline uses it as `pipeline { NAME(args), ... }`. Each callback
+(`enter(ctx)`, `leave(ctx, reply)`, `error(ctx, error)`) is written at most
+once, with a block or `=> expression` body, and at least one is present;
+callbacks capture the factory's parameters. A callback may annotate its own
+result (`enter(ctx) -> Result<_, E> { ... }`), which takes precedence over
+the stage's. The optional `-> Result<_, E>`
+names the stage's error type once: it annotates the results of `enter` and
+`leave` and the type of `error`'s error parameter. `as #label` names the
+stage explicitly, as for providers. A `pub stage` declares its parameter
+types; its `pipeline.Stage` type follows from its callbacks. `stage` is a
+keyword only where a declaration starts, and `enter`, `leave`, and `error`
+only inside one.
 
 `pipeline.next(ctx)` creates successful continuation;
 `pipeline.stop(ctx, reply)` creates successful early completion;

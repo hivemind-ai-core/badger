@@ -66,6 +66,8 @@ module.exports = grammar({
         $.protocol_declaration,
         $.impl_declaration,
         $.function_declaration,
+        $.provider_declaration,
+        $.stage_declaration,
         $.extern_declaration,
         $.extern_type,
         $.global_declaration,
@@ -153,6 +155,42 @@ module.exports = grammar({
         optional($.effect),
         optional($.where_clause),
         optional(field('body', $.block)),
+      ),
+
+    // `provider name [as #sym](scope, config) [-> Result<O, E>] { ... }`
+    provider_declaration: ($) =>
+      seq(
+        optional($.visibility),
+        'provider',
+        field('name', $.identifier),
+        optional(seq('as', field('label', $.symbol))),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        optional($.effect),
+        field('body', $.block),
+      ),
+
+    // `stage name [as #sym][<G>](params) [-> Result<_, E>] { enter(ctx) { ... } ... }`
+    stage_declaration: ($) =>
+      seq(
+        optional($.visibility),
+        'stage',
+        field('name', $.identifier),
+        optional(seq('as', field('label', $.symbol))),
+        optional($.generic_parameters),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        '{',
+        repeat(choice($.stage_callback, ';')),
+        '}',
+      ),
+
+    stage_callback: ($) =>
+      seq(
+        field('kind', choice('enter', 'leave', 'error')),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        choice(field('body', $.block), seq('=>', field('body', $._expression))),
       ),
 
     extern_declaration: ($) =>

@@ -88,7 +88,6 @@ body reader) cannot outlive it (E0401).
 import std.config
 import std.http
 import std.system
-import std.system.{component}
 
 type Settings = { address: String, port: U16 }
 
@@ -104,7 +103,7 @@ fn hello(request: http.Request) -> Result<http.Response, http.Error> {
 pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("APP_")?
     let plan = system {
-        server: component(http.server, {
+        server: http.server({
             address: settings.address,
             port: settings.port,
             handler: http.handler(hello),
@@ -176,7 +175,6 @@ reconnecting client's `Last-Event-ID`.
 ```badger
 import std.http
 import std.system
-import std.system.{component}
 import std.websocket
 
 pub enum AppError {
@@ -196,7 +194,7 @@ fn echo(_request: http.Request, ws: websocket.WebSocket) -> Result<Unit, websock
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        server: component(http.server, {
+        server: http.server({
             address: "127.0.0.1",
             port: 8080,
             handler: http.websocket_handler(echo),
@@ -465,7 +463,6 @@ To export, add the exporter to the system:
 import std.http
 import std.otel
 import std.system
-import std.system.{component}
 
 pub enum AppError {
     system(source: system.Error),
@@ -477,8 +474,8 @@ fn hello(_request: http.Request) -> Result<http.Response, http.Error> {
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        telemetry: component(otel.exporter, otel.from_env()),
-        server: component(http.server, { address: "127.0.0.1", port: 8080, handler: http.handler(hello) }),
+        telemetry: otel.exporter(otel.from_env()),
+        server: http.server({ address: "127.0.0.1", port: 8080, handler: http.handler(hello) }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

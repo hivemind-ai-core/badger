@@ -7,7 +7,7 @@
 [
   "import" "as" "type" "struct" "enum" "protocol" "impl" "where"
   "let" "var" "const" "use" "extern" "dyn" "derive" "repr" "unsafe"
-  "system" "pipeline" "map" "set" "ref"
+  "system" "pipeline" "map" "set" "ref" "provider" "stage"
 ] @keyword
 
 ["fn" "once"] @keyword.function
@@ -31,6 +31,9 @@
 
 ; functions
 (function_declaration name: (_) @function)
+(provider_declaration name: (identifier) @function)
+(stage_declaration name: (identifier) @function)
+(stage_callback kind: _ @keyword.function)
 (extern_declaration name: (identifier) @function)
 (call_expression function: (identifier) @function.call)
 (call_expression function: (field_expression field: (_) @function.method.call))

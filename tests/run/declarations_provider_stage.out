@@ -1,0 +1,10 @@
+[#greeting, #announcement]
+greeting starts (Welcome)
+Welcome, Ada!
+enter Grace
+leave hello Grace
+hello Grace
+enter 
+leave (no name)
+(no name)
+greeting halts

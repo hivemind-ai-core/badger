@@ -82,7 +82,11 @@ error. `badger_cli` is the `badger` binary.
   its parse tree and that the sources are canonical.
 - **HIR lowering** resolves names (modules, imports, prelude, locals,
   captures) and desugars pipes, `use` continuations, dotted record updates,
-  field assignment, `pipeline.stage({...})`, `pipeline { ... }` (into nested
+  field assignment, `provider` and `stage` declarations (into
+  `system.provider({...})` values and factories returning
+  `pipeline.stage({...})`; the syntax crate lowers them with references to
+  standard items and `#module/name` names the HIR resolves),
+  `pipeline.stage({...})`, `pipeline { ... }` (into nested
   stage runners), `system { ... }` (topologically ordered nodes with typed
   `ref(#key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [#keys])` (a typed output projection).
@@ -91,7 +95,8 @@ error. `badger_cli` is the `badger` binary.
   collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
   import) plus the modules it imports, closed over the standard modules' own
-  imports; `system { }` and `pipeline { }` syntax brings in its module.
+  imports; `system { }` and `pipeline { }` syntax, and `provider` and `stage`
+  declarations, bring in their modules.
   Runtime operations are `extern "intrinsic"` declarations implemented in
   `badger_runtime` or expanded inline by MIR lowering.
 

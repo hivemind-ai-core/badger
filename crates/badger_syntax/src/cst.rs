@@ -118,6 +118,26 @@ pub enum ItemKind<'a> {
         ty: Option<T<'a>>,
         value: E<'a>,
     },
+    /// `provider NAME [as #sym](scope, config) [-> Result<O, E>] { ... }`
+    Provider {
+        name: Ident<'a>,
+        alias: Option<(&'a str, Span)>,
+        params: Vec<Param<'a>>,
+        params_span: Span,
+        ret: Option<T<'a>>,
+        effect: Option<Effect<'a>>,
+        body: Block<'a>,
+    },
+    /// `stage NAME [as #sym][<G>](params) [-> Result<_, E>] { enter(..) .. }`
+    Stage {
+        name: Ident<'a>,
+        alias: Option<(&'a str, Span)>,
+        generics: Vec<Generic<'a>>,
+        params: Vec<Param<'a>>,
+        ret: Option<T<'a>>,
+        members: Vec<StageMember<'a>>,
+        body_span: Span,
+    },
     /// A declaration that did not parse (the error is reported).
     Error,
 }
@@ -127,6 +147,16 @@ pub struct Variant<'a> {
     pub name: Ident<'a>,
     pub fields: Vec<(Option<Ident<'a>>, T<'a>)>,
     pub span: Span,
+}
+
+/// A stage callback: `enter(ctx) { ... }`, `leave(ctx, reply) => ...`.
+#[derive(Debug, Clone)]
+pub struct StageMember<'a> {
+    pub kind: Ident<'a>,
+    pub params: Vec<Param<'a>>,
+    /// The callback's own result annotation (overrides the stage's).
+    pub ret: Option<T<'a>>,
+    pub body: E<'a>,
 }
 
 #[derive(Debug, Clone)]

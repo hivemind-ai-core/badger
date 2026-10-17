@@ -8,7 +8,6 @@ A `pipeline { ... }` composes typed interceptor stages around a handler.
 ```badger
 import std.io
 import std.system
-import std.system.{component}
 
 pub enum AppError {
     io(source: io.Error),
@@ -19,34 +18,28 @@ fn say(line: String) -> Unit {
     let _ = io.println(line)
 }
 
-let store = system.provider({
-    name: #app/store,
-    init: fn(scope, config: { prefix: String }) -> Result<_, AppError> {
-        say("store: start")
-        scope.on_halt(fn() -> Result<Unit, AppError> {
-            say("store: halt")
-            ok(())
-        })
-        ok({ key: fn(id: Int) { $"{config.prefix}-{id}" } })
-    },
-})
+provider store(scope, config: { prefix: String }) -> Result<_, AppError> {
+    say("store: start")
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        say("store: halt")
+        ok(())
+    })
+    ok({ key: fn(id: Int) { $"{config.prefix}-{id}" } })
+}
 
-let api = system.provider({
-    name: #app/api,
-    init: fn(scope, config) -> Result<_, AppError> {
-        say("api: start")
-        scope.on_halt(fn() -> Result<Unit, AppError> {
-            say("api: halt")
-            ok(())
-        })
-        ok({ show: fn(id: Int) { $"item {config.store.key(id)}" } })
-    },
-})
+provider api(scope, config) -> Result<_, AppError> {
+    say("api: start")
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        say("api: halt")
+        ok(())
+    })
+    ok({ show: fn(id: Int) { $"item {config.store.key(id)}" } })
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        api: component(api, { store: ref(#store) }),
-        store: component(store, { prefix: "order" }),
+        api: api({ store: ref(#store) }),
+        store: store({ prefix: "order" }),
     }
     say($"start order: {plan.labels()}")
     use running <- system.run(plan)
@@ -64,7 +57,9 @@ api: halt
 store: halt
 ```
 
-- Each entry is `key: component(provider, config)`.
+- Each entry applies a provider to its config: `key: provider(config)`.
+  Nothing runs yet: the entry describes a node. (`component(provider,
+  config)` is the same, written out.)
 - `ref(#key)` inside a config is another node's output, typed. Here
   `config.store` in `api` is the record `store` returned.
 - Startup follows dependencies; source order breaks ties. Halting runs in
@@ -81,17 +76,25 @@ The `system { }` form is checked before anything runs:
 |---|---|
 | E0601 | `ref(#key)` names no key of the plan |
 | E0602 | `ref` used outside a system configuration |
-| E0603 | An entry is not `key: component(provider, config)` |
+| E0603 | An entry is not a provider application `key: provider(config)` |
 | E0604 | Configurations reference each other in a cycle (the path is reported) |
 | E0605 | `system.select` given keys that are not a literal list |
 | E0606 | A generic provider's output is not concrete at a node |
 
 ## Providers
 
-`system.provider({ name, init })` makes a provider. `init` receives the
-node's initialization scope and its resolved config, and returns
-`Result<Output, E>`. `E` must implement `Error` and must not hold scoped
-values (E0411); report failures as plain data.
+`provider NAME(scope, config) -> Result<Output, E> { ... }` declares a
+provider. Its body is the initializer: it receives the node's
+initialization scope and its resolved config, and returns the node's
+output. `E` must implement `Error` and must not hold scoped values (E0411);
+report failures as plain data.
+
+- Write `(config)` when the initializer registers nothing on its scope.
+- The name in diagnostics and inspection is `#MODULE/NAME`; `provider NAME
+  as #app/name(...)` sets it.
+- A `pub provider` declares its config type and `-> Result<Output, E>`.
+- `system.provider({ name, init })` builds the same provider as a value,
+  for providers made by functions.
 
 | `InitScope` method | Effect |
 |---|---|
@@ -108,7 +111,6 @@ Standard providers include `sqlite.pool`, `postgres.pool`, `http.server`,
 ```badger
 import std.io
 import std.system
-import std.system.{component}
 
 pub enum Failure {
     unreachable(host: String),
@@ -119,28 +121,22 @@ pub enum AppError {
     system(source: system.Error),
 } derive(Error, From)
 
-let cache = system.provider({
-    name: #app/cache,
-    init: fn(scope, _config: {}) -> Result<Int, Failure> {
-        scope.on_halt(fn() -> Result<Unit, Failure> {
-            let _ = io.println("cache: halt")
-            ok(())
-        })
-        ok(1)
-    },
-})
+provider cache(scope, _config: {}) -> Result<Int, Failure> {
+    scope.on_halt(fn() -> Result<Unit, Failure> {
+        let _ = io.println("cache: halt")
+        ok(())
+    })
+    ok(1)
+}
 
-let remote = system.provider({
-    name: #app/remote,
-    init: fn(_scope, config: { host: String, cache: Int }) -> Result<Int, Failure> {
-        err(Failure.unreachable(config.host))
-    },
-})
+provider remote(_scope, config: { host: String, cache: Int }) -> Result<Int, Failure> {
+    err(Failure.unreachable(config.host))
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        cache: component(cache, {}),
-        remote: component(remote, { host: "db.internal", cache: ref(#cache) }),
+        cache: cache(),
+        remote: remote({ host: "db.internal", cache: ref(#cache) }),
     }
     let r = system.run(plan, fn(_running) -> Result<Unit, AppError> { ok(()) })
     match r {
@@ -155,7 +151,7 @@ Saved as `failure.bdg`, it prints:
 
 ```text
 cache: halt
-system: system node remote: unreachable: db.internal (provider app/remote, node at failure.bdg:35:9)
+system: system node remote: unreachable: db.internal (provider failure/remote, node at failure.bdg:28:9)
 ```
 
 When a node fails to start, the nodes already started halt in reverse
@@ -186,7 +182,6 @@ error as data.
 import std.channel
 import std.io
 import std.system
-import std.system.{component}
 import std.task
 import std.worker
 
@@ -196,31 +191,28 @@ pub enum AppError {
     system(source: system.Error),
 } derive(Error, From)
 
-let tally = system.provider({
-    name: #app/tally,
-    init: fn(scope, config: { capacity: Int }) -> Result<_, AppError> {
-        let inbox = channel.create<Int>({ ..channel.defaults, capacity: config.capacity })?
-        let total = Atom.new(0)
-        scope.worker_with(#tally/sum, fn() -> Result<Unit, AppError> {
-            loop {
-                match inbox.receiver.recv() {
-                    .some(n) => { let _ = total.update(fn(t) { t + n }) },
-                    .none => break,
-                }
+provider tally(scope, config: { capacity: Int }) -> Result<_, AppError> {
+    let inbox = channel.create<Int>({ ..channel.defaults, capacity: config.capacity })?
+    let total = Atom.new(0)
+    scope.worker_with(#tally/sum, fn() -> Result<Unit, AppError> {
+        loop {
+            match inbox.receiver.recv() {
+                .some(n) => { let _ = total.update(fn(t) { t + n }) },
+                .none => break,
             }
-            ok(())
-        }, worker.on_failure(worker.defaults), worker.drain(100ms))
-        scope.on_halt(fn() -> Result<Unit, AppError> {
-            let _ = io.println($"halt: total {total.get()}")
-            ok(())
-        })
-        ok({ add: fn(n: Int) { inbox.sender.try_send(n).is_ok() }, stop: fn() { inbox.sender.close() } })
-    },
-})
+        }
+        ok(())
+    }, worker.on_failure(worker.defaults), worker.drain(100ms))
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        let _ = io.println($"halt: total {total.get()}")
+        ok(())
+    })
+    ok({ add: fn(n: Int) { inbox.sender.try_send(n).is_ok() }, stop: fn() { inbox.sender.close() } })
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        tally: component(tally, { capacity: 16 }),
+        tally: tally({ capacity: 16 }),
     }
     use running <- system.run(plan)
     for n in 1..=4 {
@@ -265,7 +257,6 @@ factory, policy)` runs the same restart loop in any task, outside a system.
 ```badger
 import std.io
 import std.system
-import std.system.{component}
 
 pub enum AppError {
     io(source: io.Error),
@@ -276,25 +267,22 @@ pub enum Failure {
     invalid,
 } derive(Error)
 
-let clock = system.provider({
-    name: #app/clock,
-    init: fn(_scope, config: { start: Int }) -> Result<Int, Failure> { ok(config.start) },
-})
+provider clock(config: { start: Int }) -> Result<Int, Failure> {
+ ok(config.start)
+}
 
-let fixed_clock = system.provider({
-    name: #test/clock,
-    init: fn(_scope, _config: { start: Int }) -> Result<Int, Failure> { ok(1000) },
-})
+provider fixed_clock(_config: { start: Int }) -> Result<Int, Failure> {
+ ok(1000)
+}
 
-let report = system.provider({
-    name: #app/report,
-    init: fn(_scope, config: { now: Int }) -> Result<String, Failure> { ok($"report at {config.now}") },
-})
+provider report(config: { now: Int }) -> Result<String, Failure> {
+ ok($"report at {config.now}")
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        clock: component(clock, { start: 5 }),
-        report: component(report, { now: ref(#clock) }),
+        clock: clock({ start: 5 }),
+        report: report({ now: ref(#clock) }),
     }
     let only_clock = system.select(plan, [#clock])
     let n = system.run(only_clock, fn(running) -> Result<Int, AppError> { ok(running.clock) })?
@@ -323,7 +311,7 @@ For the first example in this chapter, saved as `app.bdg`:
 
 ```text
 $ badger inspect plans app.bdg
-system plan at line 39
+system plan at line 32
   #api = api <- #store
   #store = store
   startup order: #store -> #api
@@ -346,41 +334,32 @@ pub enum AppError {
     missing_name,
 } derive(Error)
 
-fn log_stage() {
-    pipeline.stage({
-        name: #demo/log,
-        enter: fn(ctx) {
-            let _ = io.println($"enter {ctx.path}")
-            pipeline.next(ctx)
-        },
-        leave: fn(ctx, reply: Reply) {
-            let _ = io.println($"leave {ctx.path} -> {reply.status}")
-            pipeline.leave(ctx, reply)
-        },
-    })
+stage log_stage() {
+    enter(ctx) {
+        let _ = io.println($"enter {ctx.path}")
+        pipeline.next(ctx)
+    }
+    leave(ctx, reply: Reply) {
+        let _ = io.println($"leave {ctx.path} -> {reply.status}")
+        pipeline.leave(ctx, reply)
+    }
 }
 
-fn errors_stage() {
-    pipeline.stage({
-        name: #demo/errors,
-        error: fn(ctx, error: AppError) {
-            match error {
-                .missing_name => pipeline.recover(ctx, { status: 400, body: "name required" }),
-            }
-        },
-    })
+stage errors_stage() {
+    error(ctx, error: AppError) {
+        match error {
+            .missing_name => pipeline.recover(ctx, { status: 400, body: "name required" }),
+        }
+    }
 }
 
-fn user_stage() {
-    pipeline.stage({
-        name: #demo/user,
-        enter: fn(ctx) -> Result<_, AppError> {
-            if ctx.name == "" {
-                return err(AppError.missing_name)
-            }
-            pipeline.next({ ..ctx, user: ctx.name.to_upper() })
-        },
-    })
+stage user_stage() -> Result<_, AppError> {
+    enter(ctx) {
+        if ctx.name == "" {
+            return err(AppError.missing_name)
+        }
+        pipeline.next({ ..ctx, user: ctx.name.to_upper() })
+    }
 }
 
 pub fn main() -> Result<Unit, AppError> {
@@ -418,8 +397,17 @@ Each stage's `enter` may add fields to the context, so the handler sees
 | `leave` | `fn(ctx, reply) -> Result<(ctx, reply), E>` | `pipeline.leave(ctx, reply)` |
 | `error` | `fn(ctx, error) -> ErrorStep` | `pipeline.propagate(ctx, error)` or `pipeline.recover(ctx, reply)` |
 
-Every callback is optional except the name. A stage without `enter` passes
-the context through.
+`stage NAME(params) { ... }` declares a stage factory: a pipeline calls it
+(`log_stage()`), and parameterized factories capture their arguments.
+
+- Each callback is optional, at most once, with a block or `=> expression`
+  body. A stage without `enter` passes the context through.
+- `stage NAME() -> Result<_, E>` names the error type once, for every
+  callback (`errors_stage` above could write `error(ctx, error)`).
+- The name in traces and diagnostics is `#MODULE/NAME`; `stage NAME as
+  #app/name()` sets it.
+- `pipeline.stage({ name, enter, leave, error })` builds the same stage as a
+  value.
 
 | Handler | Returns |
 |---|---|
@@ -451,15 +439,14 @@ pub enum AppError {
     failed,
 } derive(Error)
 
-fn counting() {
-    pipeline.stage({
-        name: #demo/counting,
-        enter: fn(ctx) { pipeline.next({ ..ctx, steps: 0 }) },
-        leave: fn(ctx, reply: String) {
-            let _ = io.println($"steps seen on leave: {ctx.steps}")
-            pipeline.leave(ctx, reply)
-        },
-    })
+stage counting() {
+    enter(ctx) {
+ pipeline.next({ ..ctx, steps: 0 })
+    }
+    leave(ctx, reply: String) {
+        let _ = io.println($"steps seen on leave: {ctx.steps}")
+        pipeline.leave(ctx, reply)
+    }
 }
 
 pub fn main() -> Result<Unit, AppError> {

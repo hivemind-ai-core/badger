@@ -226,6 +226,13 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let value = self.expr(value);
                 ItemKind::Global { kind, pat, ty, value }
             }
+            cst::ItemKind::Provider { name, alias, params, params_span, ret, effect, body } => {
+                self.provider(span, is_pub, name, alias, params, params_span, ret, effect, body)
+            }
+            cst::ItemKind::Stage { name, alias, generics, params, ret, members, body_span } => {
+                let d = self.stage(span, is_pub, name, alias, generics, params, ret, members, body_span);
+                ItemKind::Fn(d)
+            }
             cst::ItemKind::Error => return None,
         };
         Some(Item { kind, span, is_pub })
@@ -259,7 +266,19 @@ impl<'a, 'i> Lower<'a, 'i> {
         let effect = d.effect.map(|e| self.effect(e));
         let where_preds = self.where_preds(d.where_preds);
         let body = d.body.map(|b| self.block(b));
-        FnDecl { name, is_pub: d.is_pub, generics, params, ret, effect, where_preds, body, span, contracts }
+        FnDecl {
+            name,
+            is_pub: d.is_pub,
+            generics,
+            params,
+            ret,
+            effect,
+            where_preds,
+            body,
+            span,
+            contracts,
+            result_inferred: false,
+        }
     }
 
     fn contract(&mut self, c: cst::Contract<'_>) -> Contract {
@@ -269,6 +288,204 @@ impl<'a, 'i> Lower<'a, 'i> {
         let cond = self.expr(c.cond);
         let message = c.message.map(|m| self.string(&m, span));
         Contract { ensures: c.ensures, cond, message, span, text, cond_text }
+    }
+
+    /// The descriptor's `name`: an explicit `as #sym`, else `#module/NAME`.
+    fn decl_name(&mut self, name: Name, alias: Option<(&str, crate::token::Span)>) -> ExprId {
+        match alias {
+            Some((text, s)) => {
+                let sym = self.interner.intern(text);
+                let span = self.span(s);
+                self.alloc_expr(ExprKind::Lit(Lit::Symbol(sym)), span)
+            }
+            None => self.alloc_expr(ExprKind::DeclName(name), name.span),
+        }
+    }
+
+    /// `provider NAME(scope, config) -> R { body }` is
+    /// `let NAME = system.provider({ name: #module/NAME, init: fn(scope, config) -> R { body } })`;
+    /// a public one has the type `system.Provider<C, O, E>` of its signature.
+    #[allow(clippy::too_many_arguments)]
+    fn provider(
+        &mut self,
+        span: Span,
+        is_pub: bool,
+        name: cst::Ident<'_>,
+        alias: Option<(&str, crate::token::Span)>,
+        params: Vec<cst::Param<'_>>,
+        params_span: crate::token::Span,
+        ret: Option<cst::T<'_>>,
+        effect: Option<cst::Effect<'_>>,
+        body: cst::Block<'_>,
+    ) -> ItemKind {
+        let n = self.value_name(name);
+        let mut params = self.params(params);
+        if params.len() == 1 {
+            // `(config)`: the scope is unused
+            let pspan = self.span(params_span);
+            let scope = self.alloc_pat(PatKind::Discard, pspan);
+            params.insert(0, Param { pat: scope, ty: None });
+        } else if params.len() != 2 {
+            self.error(
+                "E0705",
+                self.span(params_span),
+                "a provider takes `(config)` or `(scope, config)`",
+                "the initializer's parameters",
+            );
+        }
+        let ret = ret.map(|t| self.ty(t));
+        // the public type: `system.Provider<Config, Output, Error>`
+        let ty =
+            match (is_pub, params.get(1).and_then(|p| p.ty), ret.map(|r| self.result_args(r))) {
+                (true, Some(config), Some(Some((out, error)))) => Some(self.alloc_ty(
+                    TypeKind::Std { path: "system.Provider", args: vec![config, out, error] },
+                    n.span,
+                )),
+                _ => None,
+            };
+        let effect = effect.map(|e| self.effect(e));
+        let body = self.block(body);
+        let init = self.alloc_expr(ExprKind::Lambda(Lambda { once: false, params, ret, effect, body }), span);
+        let name_e = self.decl_name(n, alias);
+        let record = self.descriptor(&[("name", name_e), ("init", init)], span);
+        // the generated reference is zero-width at the declaration's start,
+        // so tools find the declaration's own names, not `system.provider`
+        let at = Span { end: span.start, ..span };
+        let callee = self.alloc_expr(ExprKind::Std("system.provider"), at);
+        let value = self.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![record] }, n.span);
+        let pat = self.alloc_pat(PatKind::Bind(n), n.span);
+        ItemKind::Global { kind: LetKind::Let, pat, ty, value }
+    }
+
+    /// `stage NAME(params) -> Result<_, E> { enter(ctx) { .. } leave(..) .. error(..) .. }`
+    /// is `fn NAME(params) { pipeline.stage({ name: #module/NAME, enter: fn(ctx) -> Result<_, E> { .. }, .. }) }`:
+    /// the shared annotation types `enter` and `leave` results and the
+    /// `error` callback's error.
+    #[allow(clippy::too_many_arguments)]
+    fn stage(
+        &mut self,
+        span: Span,
+        is_pub: bool,
+        name: cst::Ident<'_>,
+        alias: Option<(&str, crate::token::Span)>,
+        generics: Vec<cst::Generic<'_>>,
+        params: Vec<cst::Param<'_>>,
+        ret: Option<cst::T<'_>>,
+        members: Vec<cst::StageMember<'_>>,
+        body_span: crate::token::Span,
+    ) -> FnDecl {
+        let n = self.value_name(name);
+        let generics = self.generics(generics);
+        let params = self.params(params);
+        let ret = ret.map(|t| self.ty(t));
+        let error_ty = match ret.map(|r| (r, self.result_args(r))) {
+            Some((_, Some((_, e)))) => Some(e),
+            Some((r, None)) => {
+                let rs = self.ast.types[r].span;
+                self.error(
+                    "E0702",
+                    rs,
+                    "a stage's result annotation is `-> Result<_, Error>`",
+                    "it names the error type of the stage's callbacks",
+                );
+                None
+            }
+            None => None,
+        };
+        let mut fields: Vec<(&'static str, ExprId)> = vec![];
+        let name_e = self.decl_name(n, alias);
+        fields.push(("name", name_e));
+        let mut seen: Vec<(&str, Span)> = vec![];
+        for m in members {
+            let kspan = self.span(m.kind.span);
+            if let Some((_, first)) = seen.iter().find(|(k, _)| *k == m.kind.text) {
+                self.diags.push(
+                    Diagnostic::error(format!("a stage has one `{}` callback", m.kind.text))
+                        .with_code("E0702")
+                        .with_label(kspan, "a second one")
+                        .with_label(*first, "the first"),
+                );
+                continue;
+            }
+            seen.push((m.kind.text, kspan));
+            let mut params = self.params(m.params);
+            let kind: &'static str = match m.kind.text {
+                "enter" => "enter",
+                "leave" => "leave",
+                _ => "error",
+            };
+            let own = m.ret.map(|t| self.ty(t));
+            let ret = match kind {
+                _ if own.is_some() => own,
+                "error" => {
+                    // `error(ctx, error)`: the error parameter has the stage's error type
+                    if let (Some(e), Some(p)) = (error_ty, params.get_mut(1))
+                        && p.ty.is_none()
+                    {
+                        p.ty = Some(e);
+                    }
+                    None
+                }
+                _ => ret,
+            };
+            let mspan = Span::new(self.file, m.kind.span.start, m.body.1.end);
+            let body = self.expr(m.body);
+            let f = self
+                .alloc_expr(ExprKind::Lambda(Lambda { once: false, params, ret, effect: None, body }), mspan);
+            fields.push((kind, f));
+        }
+        if fields.len() == 1 {
+            self.error(
+                "E0702",
+                self.span(body_span),
+                "a stage needs a callback",
+                "add `enter(ctx) { ... }`, `leave(ctx, reply) { ... }`, or `error(ctx, error) { ... }`",
+            );
+        }
+        let record = self.descriptor(&fields, span);
+        // generated references are zero-width (see `provider`)
+        let at = Span { end: span.start, ..span };
+        let callee = self.alloc_expr(ExprKind::Std("pipeline.stage"), at);
+        let call = self.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![record] }, at);
+        let body =
+            self.alloc_expr(ExprKind::Block { stmts: vec![Stmt::Expr { expr: call, semi: false }] }, span);
+        FnDecl {
+            name: n,
+            is_pub,
+            generics,
+            params,
+            ret: None,
+            effect: None,
+            where_preds: vec![],
+            body: Some(body),
+            span,
+            contracts: vec![],
+            result_inferred: true,
+        }
+    }
+
+    /// A descriptor record literal from labelled values.
+    fn descriptor(&mut self, fields: &[(&str, ExprId)], span: Span) -> ExprId {
+        let entries = fields
+            .iter()
+            .map(|(label, value)| RecordEntry::Field {
+                path: vec![Label { sym: self.interner.intern(label), span: self.ast.exprs[*value].span }],
+                value: *value,
+            })
+            .collect();
+        self.alloc_expr(ExprKind::Record { spread: None, entries }, span)
+    }
+
+    /// `Result<O, E>`'s type arguments.
+    fn result_args(&self, t: TypeId) -> Option<(TypeId, TypeId)> {
+        match &self.ast.types[t].kind {
+            TypeKind::Path { module, name, args }
+                if module.is_empty() && self.interner.resolve(name.sym) == "Result" && args.len() == 2 =>
+            {
+                Some((args[0], args[1]))
+            }
+            _ => None,
+        }
     }
 
     fn params(&mut self, ps: Vec<cst::Param<'_>>) -> Vec<Param> {
@@ -1065,6 +1282,8 @@ fn expr_children(kind: &ExprKind, f: &mut impl FnMut(ExprId)) {
         | ExprKind::TypeName(_)
         | ExprKind::Continue
         | ExprKind::Ref(_)
+        | ExprKind::Std(_)
+        | ExprKind::DeclName(_)
         | ExprKind::Error => {}
         ExprKind::Interp(parts) => {
             for p in parts {

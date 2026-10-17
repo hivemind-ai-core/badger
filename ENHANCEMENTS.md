@@ -195,7 +195,7 @@ Nested deadlines should use the earlier deadline. Admission permits must release
 
 ### L8. Streamline provider, system, and interceptor declarations
 
-**P1 · Small to medium per slice · Accepted direction; exact syntax remains a proposal.**
+**P1 · Small to medium per slice · Implemented 2026-10-17 (spec chapter 06).** `provider` and `stage` declarations and direct provider application in `system { ... }` desugar to `system.provider({...})`, factories returning `pipeline.stage({...})`, and `component(...)`; the examples (`examples/10_interceptors.bdg`, `examples/11_systems.bdg`, `examples/design/service`, `examples/design/framework`) use them. The candidate syntax below is the original proposal.
 
 User direction, 2026-10-16: the existing system/pipeline example exposes substantial plumbing. Since systems and interceptors already have compiler support, explore dedicated syntax to make them easier to declare and compose. Preserve their existing semantics while reducing descriptor records, nested callbacks, wrapper calls, repeated metadata, and repeated type annotations.
 

@@ -199,18 +199,18 @@ No provider initializer runs simply to discover its type. Configuration expansio
 
 The initial composition root remains an ordinary `system { ... }`. A proposed `app.run` helper may combine configuration, signal handling, health, and `system.run`, but must preserve its callback-scoped resource contract. It cannot return a running service whose dependencies have already closed.
 
-For example, a generated composition root could have this shape. The feature/adapter providers are application or future framework code; the `system`/`component`/`ref` syntax itself is current language syntax:
+For example, a generated composition root could have this shape. The feature/adapter providers are application or future framework code; the `system { ... }` provider application and `ref` syntax itself is current language syntax:
 
 ```badger fragment
 let plan = system {
-    database: component(sqlite.pool, { path: settings.database_path }),
-    store: component(order_store.provider, { database: ref(:database) }),
-    orders: component(orders.provider, { store: ref(:store) }),
-    routes: component(orders_http.provider, { orders: ref(:orders) }),
-    server: component(web.server, {
+    database: sqlite.pool({ path: settings.database_path }),
+    store: order_store.provider({ database: ref(#database) }),
+    orders: orders.provider({ store: ref(#store) }),
+    routes: orders_http.provider({ orders: ref(#orders) }),
+    server: web.server({
         address: settings.address,
         port: settings.port,
-        handler: ref(:routes),
+        handler: ref(#routes),
     }),
 }
 ```
@@ -253,7 +253,7 @@ This is a proposed library fragment, not runnable with today's imports. `Store`,
 ```badger fragment
 fn build_operations(store: Store) {
     let create = operation.from_pipeline(
-        { id: :orders/create, version: 1 },
+        { id: #orders/create, version: 1 },
         pipeline {
             validation.input(validate_create),
             authorization.require(can_create),
@@ -268,7 +268,7 @@ fn build_operations(store: Store) {
 
 The private factory above illustrates inference; its exported counterpart declares a complete public API with the concrete operation error/effect parameters. `validation.input` transforms an input only under the pipeline's field-type preservation rule: use the same normalized type or establish a distinct decoded field. `authorization.require` checks the verified actor and typed input before invoking storage. It is a normal typed stage factory, not a policy registry lookup hidden in a symbol.
 
-An HTTP binding might be `web.json_post("/orders", orders.create, { name: :orders/create_http, status: 201, errors: render_create_error })`. A CLI binding can connect the same operation to typed arguments/output/exit mappings. These constructor names/options are proposals. The binding factories check their input/output/error schemas against the operation; they do not reconstruct a service contract from strings.
+An HTTP binding might be `web.json_post("/orders", orders.create, { name: #orders/create_http, status: 201, errors: render_create_error })`. A CLI binding can connect the same operation to typed arguments/output/exit mappings. These constructor names/options are proposals. The binding factories check their input/output/error schemas against the operation; they do not reconstruct a service contract from strings.
 
 The expected everyday experience is: implement a domain function, optionally compose typed policies around it, expose it through a small feature interface, and select adapters. The descriptor/metadata layer should not require a separate hand-written class, universal event type, or dependency-container lookup for each call.
 
@@ -521,7 +521,7 @@ A normal LLM task should follow one small loop: query a feature's contract/conte
 
 ## 23. Language and compiler interaction
 
-Provider/stage declarations and shorter system entries are recorded in [ENHANCEMENTS.md, L8](ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations). They should desugar to existing typed descriptors and retain diagnostic/source identity. Shared stage error annotations could address the repeated callback annotations visible in current examples.
+Provider/stage declarations and shorter system entries are implemented (spec chapter 06): `provider NAME(scope, config) -> Result<O, E> { ... }`, `stage NAME(params) -> Result<_, E> { enter(ctx) { ... } ... }`, and `key: provider(config)` entries. They desugar to the existing typed descriptors and keep diagnostic/source identity (`#module/name`, or `as #label`); a stage's shared `-> Result<_, E>` annotation replaces the repeated callback annotations.
 
 The framework also benefits from fallible pipes, expression lambdas, pattern conditions, fallible collection helpers, richer diagnostic/query parity, and reliable semantic edits. Those remain general enhancements with independent value to non-framework code.
 

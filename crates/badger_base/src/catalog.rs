@@ -528,13 +528,18 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     ("E0701", "empty pipeline", "A pipeline ends with a terminal `handle(...)` or `handle_context(...)`."),
     (
         "E0702",
-        "invalid stage descriptor",
-        "`pipeline.stage` takes a record literal with `name` and optional `enter`, `leave`, `error`.",
+        "invalid stage",
+        "A `stage` declaration has at least one callback (`enter`, `leave`, `error`), each at most once, and its result annotation is `-> Result<_, Error>`. `pipeline.stage` takes a record literal with `name` and optional `enter`, `leave`, `error`.",
     ),
     (
         "E0703",
         "context field changed",
         "Enter steps may add fields and replace values but may not remove or change the type of a field visible to an earlier stage; put a new representation under a new label.",
+    ),
+    (
+        "E0705",
+        "provider parameters",
+        "A `provider` declaration's initializer takes `(config)` or `(scope, config)`: the configuration, and the scope that registers halts (`scope.on_halt`).",
     ),
     (
         "E9001",

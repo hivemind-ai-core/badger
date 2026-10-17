@@ -528,6 +528,25 @@ impl Session {
                     }
                 }
             }
+            // declarations desugared into standard items (`provider`, `stage`)
+            let std_paths = ast
+                .exprs
+                .iter()
+                .filter_map(|(_, e)| match &e.kind {
+                    ast::ExprKind::Std(p) => Some(*p),
+                    _ => None,
+                })
+                .chain(ast.types.iter().filter_map(|(_, t)| match &t.kind {
+                    ast::TypeKind::Std { path, .. } => Some(*path),
+                    _ => None,
+                }));
+            for p in std_paths {
+                if let Some((m, _)) = p.rsplit_once('.')
+                    && !wanted.iter().any(|w| w == m)
+                {
+                    wanted.push(m.to_string());
+                }
+            }
             // `system { ... }` and `pipeline { ... }` expand into their modules
             for (kw, m) in [("system", "system"), ("pipeline", "pipeline")] {
                 let mut rest = text;
@@ -1672,9 +1691,17 @@ impl Session {
                 for (label, value) in entries {
                     let mut refs = vec![];
                     collect_ast_refs(&m.ast, *value, &mut refs);
+                    // `component(provider, config)`, or `provider(config)`
                     let provider = match &m.ast.exprs[*value].kind {
-                        ast::ExprKind::Call { args, .. } if !args.is_empty() => {
-                            let sp = m.ast.exprs[args[0]].span;
+                        ast::ExprKind::Call { callee, args, .. } => {
+                            let callee_text = &text[m.ast.exprs[*callee].span.range()];
+                            let is_component = args.len() == 2
+                                && (callee_text == "component" || callee_text.ends_with(".component"));
+                            let sp = if is_component {
+                                m.ast.exprs[args[0]].span
+                            } else {
+                                m.ast.exprs[*callee].span
+                            };
                             text[sp.range()].to_string()
                         }
                         _ => "?".into(),
