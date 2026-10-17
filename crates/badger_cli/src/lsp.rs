@@ -761,12 +761,13 @@ pub fn serve() -> i32 {
     *CLIENT_URIS.lock().unwrap() = Some(HashMap::new());
     let mut shutdown = false;
     while let Ok(first) = rx.recv() {
-        // take everything already queued, apply edits, then check once
+        // everything already queued, handled in order: edits apply as they
+        // come, a request first brings the analysis up to date with the
+        // edits before it, and the batch's diagnostics publish at its end
         let mut batch = vec![first];
         while let Ok(m) = rx.try_recv() {
             batch.push(m);
         }
-        let mut requests = vec![];
         for m in batch {
             let method = m["method"].as_str().unwrap_or("").to_string();
             let params = &m["params"];
@@ -809,54 +810,56 @@ pub fn serve() -> i32 {
                     server.dirty.insert(p);
                 }
                 "exit" => return if shutdown { 0 } else { 1 },
-                _ => requests.push(m),
+                _ => {
+                    let Some(id) = m.get("id").cloned() else { continue };
+                    if !server.dirty.is_empty() && !matches!(method.as_str(), "initialize" | "shutdown") {
+                        server.reanalyze(&mut out);
+                    }
+                    let result: Result<Value, (i64, String)> = match m["method"].as_str().unwrap_or("") {
+                        "initialize" => Ok(json!({
+                            "capabilities": {
+                                "textDocumentSync": { "openClose": true, "change": 2, "save": true },
+                                "hoverProvider": true,
+                                "definitionProvider": true,
+                                "referencesProvider": true,
+                                "documentHighlightProvider": true,
+                                "documentSymbolProvider": true,
+                                "workspaceSymbolProvider": true,
+                                "documentFormattingProvider": true,
+                                "renameProvider": { "prepareProvider": true },
+                                "completionProvider": { "triggerCharacters": ["."] },
+                            },
+                            "serverInfo": { "name": "badger", "version": env!("CARGO_PKG_VERSION") },
+                        })),
+                        "shutdown" => {
+                            shutdown = true;
+                            Ok(Value::Null)
+                        }
+                        "textDocument/hover" => Ok(server.hover(params)),
+                        "textDocument/definition" => Ok(server.definition(params)),
+                        "textDocument/references" => Ok(server.references(params)),
+                        "textDocument/documentHighlight" => Ok(server.highlights(params)),
+                        "textDocument/documentSymbol" => Ok(server.symbols(params)),
+                        "workspace/symbol" => Ok(server.workspace_symbols(params)),
+                        "textDocument/formatting" => Ok(server.format(params)),
+                        "textDocument/completion" => Ok(server.completion(params)),
+                        "textDocument/prepareRename" => Ok(server.prepare_rename(params)),
+                        "textDocument/rename" => server.rename(params).map_err(|e| (-32602, e)),
+                        other => Err((-32601, format!("method not found: {other}"))),
+                    };
+                    let reply = match result {
+                        Ok(r) => json!({ "jsonrpc": "2.0", "id": id, "result": r }),
+                        Err((code, message)) => {
+                            json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
+                        }
+                    };
+
+                    send(&mut out, &reply);
+                }
             }
         }
         if !server.dirty.is_empty() {
             server.reanalyze(&mut out);
-        }
-        for m in requests {
-            let Some(id) = m.get("id").cloned() else { continue };
-            let params = &m["params"];
-            let result: Result<Value, (i64, String)> = match m["method"].as_str().unwrap_or("") {
-                "initialize" => Ok(json!({
-                    "capabilities": {
-                        "textDocumentSync": { "openClose": true, "change": 2, "save": true },
-                        "hoverProvider": true,
-                        "definitionProvider": true,
-                        "referencesProvider": true,
-                        "documentHighlightProvider": true,
-                        "documentSymbolProvider": true,
-                        "workspaceSymbolProvider": true,
-                        "documentFormattingProvider": true,
-                        "renameProvider": { "prepareProvider": true },
-                        "completionProvider": { "triggerCharacters": ["."] },
-                    },
-                    "serverInfo": { "name": "badger", "version": env!("CARGO_PKG_VERSION") },
-                })),
-                "shutdown" => {
-                    shutdown = true;
-                    Ok(Value::Null)
-                }
-                "textDocument/hover" => Ok(server.hover(params)),
-                "textDocument/definition" => Ok(server.definition(params)),
-                "textDocument/references" => Ok(server.references(params)),
-                "textDocument/documentHighlight" => Ok(server.highlights(params)),
-                "textDocument/documentSymbol" => Ok(server.symbols(params)),
-                "workspace/symbol" => Ok(server.workspace_symbols(params)),
-                "textDocument/formatting" => Ok(server.format(params)),
-                "textDocument/completion" => Ok(server.completion(params)),
-                "textDocument/prepareRename" => Ok(server.prepare_rename(params)),
-                "textDocument/rename" => server.rename(params).map_err(|e| (-32602, e)),
-                other => Err((-32601, format!("method not found: {other}"))),
-            };
-            let reply = match result {
-                Ok(r) => json!({ "jsonrpc": "2.0", "id": id, "result": r }),
-                Err((code, message)) => {
-                    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
-                }
-            };
-            send(&mut out, &reply);
         }
     }
     0
