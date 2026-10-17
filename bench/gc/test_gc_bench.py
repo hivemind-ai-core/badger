@@ -27,10 +27,6 @@ class CoverageOracle(unittest.TestCase):
             run.validate_coverage(good | dict(config=c | dict(n=8)), c)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ChildRss(unittest.TestCase):
     def test_native_launcher_excludes_runner_memory(self):
         import os
@@ -48,3 +44,7 @@ class ChildRss(unittest.TestCase):
             child_rss = int(re.search(r"\[gc-bench child rss\] (\d+)", err)[1])
             self.assertLess(child_rss, direct["peak_rss_kib"] // 2)
             self.assertEqual(len(ballast), 64 << 20)
+
+
+if __name__ == "__main__":
+    unittest.main()
