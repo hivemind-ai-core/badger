@@ -35,7 +35,8 @@ enum Command {
         /// Entry file or project directory (default: the current project).
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Output file (default: the entry's name with `.bdgmir`).
+        /// Output file (default: `FILE.bdgmir` beside an entry file;
+        /// `DIR/<package>.bdgmir` for a project).
         #[arg(short, long, value_name = "FILE")]
         output: Option<PathBuf>,
         /// Merge `[profile.NAME]` from `badger.toml` into the saved configuration.
@@ -131,6 +132,7 @@ enum Command {
     /// ends the replay (exit 3). Exits 0 when the recorded outcome (exit
     /// code, output, failure) is reproduced and 1 when it differs.
     Replay {
+        /// The bundle written by `badger run --record`.
         bundle: PathBuf,
         /// Run a changed program against the recording: report differing
         /// operations instead of stopping, and exit with the program's code.
@@ -146,16 +148,19 @@ enum Command {
         /// An optional program path, then an optional name filter.
         #[arg(num_args = 0..=2)]
         args: Vec<String>,
+        /// Print the results as one JSON object.
         #[arg(long)]
         json: bool,
     },
     /// Run a user task: a typed function declared in the project's
     /// `[tasks]` table (`name = "src/file.bdg#function"`).
     Task {
+        /// The task's name in `[tasks]`.
         name: String,
         /// Project directory (default `.`).
         #[arg(long, default_value = ".")]
         project: PathBuf,
+        /// Merge `[profile.NAME]` from `badger.toml` into the configuration.
         #[arg(long)]
         profile: Option<String>,
         /// Arguments passed to the task (after `--`).
@@ -183,10 +188,13 @@ enum Command {
         /// sources) of PATH; or, with `--connect`, `tasks`, `channels`,
         /// `system`, `heap`, `code`, or `all` of a running program.
         what: String,
+        /// Entry file or project directory (for `plans`, `config`, `runtime`;
+        /// default `.`).
         path: Option<PathBuf>,
+        /// Print JSON instead of a table.
         #[arg(long)]
         json: bool,
-        /// Profile for `config`.
+        /// Merge `[profile.NAME]` into what `config` and `runtime` show.
         #[arg(long)]
         profile: Option<String>,
         /// Address of a program started with `badger run --inspect ADDR`.
@@ -208,9 +216,11 @@ enum Command {
     /// Program structure as a graph: `calls`, `modules`, `types`, or
     /// `systems`, in DOT (default), Mermaid, or JSON.
     Graph {
+        /// `calls`, `modules`, `types`, or `systems`.
         kind: String,
         /// Entry file or project directory (default `.`).
         path: Option<PathBuf>,
+        /// `dot`, `mermaid`, or `json`.
         #[arg(long, default_value = "dot")]
         format: String,
         /// Include standard-library nodes.
@@ -225,11 +235,14 @@ enum Command {
     /// `references`, `completion`, `rename` (with `--name`: the edits, not
     /// applied).
     Query {
+        /// What to ask (see above).
         kind: String,
         /// Source file (checked with its project, if any).
         path: Option<PathBuf>,
+        /// Line of the position asked about (1-based).
         #[arg(long)]
         line: Option<usize>,
+        /// Column of the position asked about (1-based).
         #[arg(long)]
         col: Option<usize>,
         /// Ask about this source text (checked on its own) instead of a file
@@ -249,6 +262,7 @@ enum Command {
     /// (every standard module, one page each plus an index), a standard
     /// module (`std.list`), or the program at a path.
     Doc {
+        /// `std`, a standard module (`std.list`), or a program path.
         target: String,
         /// Write the pages into this directory instead of printing them.
         #[arg(long)]
@@ -265,9 +279,13 @@ enum Command {
     Generate {
         /// What to generate: `sql`.
         what: String,
+        /// The SQL files.
         files: Vec<PathBuf>,
+        /// Postgres URL to take types from (default: `DATABASE_URL`).
         #[arg(long)]
         database: Option<String>,
+        /// SQLite schema file to take types from (default: the project's
+        /// `[database] schema`).
         #[arg(long)]
         schema: Option<PathBuf>,
         /// Compare with the generated files and fail if any differ.
@@ -281,6 +299,7 @@ enum Command {
         /// Entry file or project directory (default `.`).
         #[arg(default_value = ".")]
         path: PathBuf,
+        /// Print JSON.
         #[arg(long)]
         json: bool,
         /// Also run the tests, observing the program: each clause's test
@@ -297,6 +316,7 @@ enum Command {
         target: Option<String>,
         /// Program to examine (for `type` and `effect`).
         path: Option<PathBuf>,
+        /// Print JSON.
         #[arg(long)]
         json: bool,
     },
@@ -675,7 +695,8 @@ fn command(mut cli: Cli) -> ExitCode {
         Command::Graph { kind, path, format, std } => {
             match graph::graph(&kind, &path.unwrap_or_else(|| PathBuf::from(".")), &format, std) {
                 Ok(g) => {
-                    print!("{g}");
+                    // every format ends with a newline
+                    if g.ends_with('\n') { print!("{g}") } else { println!("{g}") }
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
