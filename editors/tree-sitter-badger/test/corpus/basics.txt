@@ -1,0 +1,103 @@
+==================
+Function with contract and effect
+==================
+
+requires n >= 0
+pub fn f(n: Int) -> Int !{} { n }
+
+---
+
+(source_file
+  (function_declaration
+    (contract (binary_expression left: (identifier) right: (integer)))
+    (visibility)
+    name: (identifier)
+    (parameters (parameter (identifier) (type_path (type_identifier))))
+    return_type: (type_path (type_identifier))
+    (effect)
+    body: (block (identifier))))
+
+==================
+Records, pipes, lambdas, and match
+==================
+
+fn g() {
+    let p = { name: "Ada", ..base }
+    let xs = [1, 2] |> list.map(fn(x) => x * 2)
+    match p.age {
+        .some(n) => n,
+        _ => 0,
+    }
+}
+
+---
+
+(source_file
+  (function_declaration
+    name: (identifier)
+    (parameters)
+    body: (block
+      (let_statement (identifier)
+        (record_literal
+          (field_initializer name: (identifier) value: (string))
+          (spread (identifier))))
+      (let_statement (identifier)
+        (binary_expression
+          left: (list_literal (integer) (integer))
+          right: (call_expression
+            function: (field_expression value: (identifier) field: (identifier))
+            arguments: (arguments
+              (lambda (parameters (parameter (identifier)))
+                (binary_expression left: (identifier) right: (integer)))))))
+      (match_expression
+        (field_expression value: (identifier) field: (identifier))
+        (match_arm (variant_pattern variant: (identifier) (identifier)) (identifier))
+        (match_arm (wildcard) (integer))))))
+
+==================
+Effect type arguments and module-named values
+==================
+
+fn h(s: Seq<Int, !{Io}>) -> Int {
+    set.from_list([1]).len() + map { 1 => 2 }.len()
+}
+
+---
+
+(source_file
+  (function_declaration
+    name: (identifier)
+    (parameters
+      (parameter (identifier)
+        (type_path (type_identifier)
+          (type_arguments (type_path (type_identifier)) (effect (type_identifier))))))
+    return_type: (type_path (type_identifier))
+    body: (block
+      (binary_expression
+        left: (call_expression
+          function: (field_expression
+            value: (call_expression
+              function: (field_expression value: (identifier) field: (identifier))
+              arguments: (arguments (list_literal (integer))))
+            field: (identifier))
+          arguments: (arguments))
+        right: (call_expression
+          function: (field_expression
+            value: (map_literal (map_entry (integer) (integer)))
+            field: (identifier))
+          arguments: (arguments))))))
+
+==================
+Nested block comments and interpolation
+==================
+
+/* outer /* inner */ still */
+let s = $"n = {n + 1}"
+
+---
+
+(source_file
+  (block_comment)
+  (global_declaration (identifier)
+    (interpolated_string
+      (interpolation (binary_expression left: (identifier) right: (integer))))))

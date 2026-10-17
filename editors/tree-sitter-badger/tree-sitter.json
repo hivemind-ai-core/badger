@@ -1,0 +1,19 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "badger",
+      "camelcase": "Badger",
+      "scope": "source.badger",
+      "path": ".",
+      "file-types": ["bdg"],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^(badger|bdg)$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT OR Apache-2.0",
+    "description": "Badger grammar for tree-sitter"
+  }
+}

@@ -56,3 +56,10 @@ exports.activate = () => new LanguageClient("badger", "badger",
   { command: "badger", args: ["lsp"] },
   { documentSelector: [{ scheme: "file", pattern: "**/*.bdg" }] }).start();
 ```
+
+## Syntax highlighting
+
+`editors/tree-sitter-badger` is a tree-sitter grammar with highlight
+queries; its [README](../editors/tree-sitter-badger/README.md) explains how
+to install it in Neovim and Helix, and where it differs from the compiler's
+parser.
