@@ -257,6 +257,8 @@ pub fn scan<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) ->
 
 /// Consecutive groups of `size` items (the last may be shorter).
 pub fn chunks<T, Eff>(items: Seq<T, Eff>, size: Int) -> Seq<List<T>, Eff> {
+    // a size below 1 counts as 1 (as `list.chunks_of`)
+    let size = if size < 1 { 1 } else { size }
     {
         start: fn() {
             let next = items.start()

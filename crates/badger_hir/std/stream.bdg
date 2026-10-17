@@ -110,11 +110,10 @@ pub fn take_while<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream
     }
 }
 
-/// Items in lists of `size` (the last may be shorter).
+/// Items in lists of `size` (the last may be shorter; a size below 1
+/// counts as 1, as `list.chunks_of`).
 pub fn batches<T, Eff>(s: Stream<T, Eff>, size: Int) -> Stream<List<T>, Eff> {
-    if size <= 0 {
-        panic("stream.batches: size must be positive")
-    }
+    let size = if size < 1 { 1 } else { size }
     {
         next: fn() -> Option<List<T>> {
             let b = list.builder<T>()
@@ -214,7 +213,7 @@ pub fn collect_at_most<T, Eff>(s: Stream<T, Eff>, limit: Int) -> Option<List<T>>
     loop {
         match s.next() {
             .some(x) => {
-                if n == limit {
+                if n >= limit {
                     s.close()
                     return Option.none
                 }

@@ -1,0 +1,17 @@
+// A character split between two writes to the console is written whole
+// (as `io.copy` may split one at a chunk boundary); bytes still pending at
+// `flush` are an error.
+import std.bytes
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let euro = "a€b\n".to_bytes()
+    let out = io.stdout()
+    out.write(bytes.slice(euro, 0, 2).unwrap_or(euro))?
+    out.write(bytes.slice(euro, 2, bytes.len(euro)).unwrap_or(euro))?
+    out.flush()?
+    let cut = io.stdout()
+    cut.write(bytes.slice(euro, 0, 3).unwrap_or(euro))?
+    io.println($"\nflush with half a character: {cut.flush().is_err()}")?
+    ok(())
+}

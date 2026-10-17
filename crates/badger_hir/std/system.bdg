@@ -350,10 +350,13 @@ pub type Running<S, Os: Row> = {
 fn stop_workers(s: InitScope<Unit>) -> Unit !{Io, Wait, State} {
     s.stopping.set(true)
     let ws = s.workers.get()
+    // every worker's grace period runs from now (they drain concurrently;
+    // waiting for one does not delay the others' deadlines)
+    let start = time.now()
     for w in ws {
         match w.1 {
             .drain(limit) => {
-                let deadline = time.now() + limit
+                let deadline = start + limit
                 while !task_done(w.0) && time.now() < deadline {
                     task.sleep(1ms)
                 }

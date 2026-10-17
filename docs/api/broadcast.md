@@ -11,12 +11,16 @@ When a subscriber's backlog is full, the policy decides:
   subscriber's `lagged()` count grows; publishing never waits.
 - `:block`: publishing waits for the slow subscriber.
 
+A subscriber that is done calls `close()`: publishing then stops
+delivering to it (and, under `:block`, stops waiting for it). One that is
+only dropped stays subscribed, since the broadcaster still holds its end.
+
 ## Types
 
 ### `Broadcaster`
 
 ```badger
-struct Broadcaster<T> { subs: Atom<List<{sender: channel.Sender<T>, receiver: channel.Receiver<T>, lagged: Atom<Int>}>>, backlog: Int, blocking: Bool, closed: Atom<Bool> }
+struct Broadcaster<T> { subs: Atom<List<{id: Int, sender: channel.Sender<T>, receiver: channel.Receiver<T>, lagged: Atom<Int>}>>, next_id: Atom<Int>, backlog: Int, blocking: Bool, closed: Atom<Bool> }
 ```
 
 #### `Broadcaster.close`
@@ -67,6 +71,15 @@ pub type Options = { backlog: Int, policy: Symbol }
 ```badger
 struct Subscription<T> { receiver: channel.Receiver<T>, lagged: Atom<Int> }
 ```
+
+#### `Subscription.close`
+
+```badger
+fn close(self: &Self) -> Unit
+```
+
+Stop receiving: later publishes skip this subscriber (and stop
+waiting for it).
 
 #### `Subscription.lagged`
 

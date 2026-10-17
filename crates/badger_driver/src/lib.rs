@@ -1951,23 +1951,32 @@ pub fn std_modules() -> Vec<&'static str> {
     badger_hir::stdlib::STD_MODULES.iter().map(|(n, _)| *n).collect()
 }
 
+/// The project directory `path` belongs to: `path` itself when it holds a
+/// `badger.toml`, else the nearest enclosing directory that does (a file
+/// checked on its own is still part of its project).
+pub fn project_root(path: &Path) -> Option<PathBuf> {
+    let abs = std::path::absolute(path).ok()?;
+    let mut dir = if abs.is_dir() { Some(abs.as_path()) } else { abs.parent() };
+    while let Some(d) = dir {
+        if d.join("badger.toml").is_file() {
+            return Some(d.to_path_buf());
+        }
+        dir = d.parent();
+    }
+    None
+}
+
 /// Whether the project `path` belongs to is restricted (`[package]
 /// restricted = true`).
 pub fn restricted(path: &Path) -> bool {
-    let root = if path.is_dir() {
-        path.to_path_buf()
-    } else {
-        match Session::entry_of(path) {
-            Ok((_, root, _)) => root,
-            Err(_) => return false,
-        }
-    };
-    manifest::Manifest::load(&root.join("badger.toml")).is_ok_and(|m| m.restricted)
+    project_root(path)
+        .and_then(|root| manifest::Manifest::load(&root.join("badger.toml")).ok())
+        .is_some_and(|m| m.restricted)
 }
 
 /// The `[database] schema` file of the project `path` belongs to.
 pub(crate) fn database_schema(path: &Path) -> Option<PathBuf> {
-    let root = if path.is_dir() { path.to_path_buf() } else { Session::entry_of(path).ok()?.1 };
+    let root = project_root(path)?;
     let m = manifest::Manifest::load(&root.join("badger.toml")).ok()?;
     m.schema.map(|s| root.join(s))
 }

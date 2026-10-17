@@ -6,6 +6,10 @@
 // - `:drop_oldest` (default): the oldest pending message is dropped and the
 //   subscriber's `lagged()` count grows; publishing never waits.
 // - `:block`: publishing waits for the slow subscriber.
+//
+// A subscriber that is done calls `close()`: publishing then stops
+// delivering to it (and, under `:block`, stops waiting for it). One that is
+// only dropped stays subscribed, since the broadcaster still holds its end.
 
 import std.channel
 import std.list
@@ -15,10 +19,11 @@ pub let defaults = { backlog: 64, policy: :drop_oldest }
 
 pub type Error = channel.ConfigError
 
-type Sub<T> = { sender: channel.Sender<T>, receiver: channel.Receiver<T>, lagged: Atom<Int> }
+type Sub<T> = { id: Int, sender: channel.Sender<T>, receiver: channel.Receiver<T>, lagged: Atom<Int> }
 
 pub struct Broadcaster<T> {
     subs: Atom<List<Sub<T>>>,
+    next_id: Atom<Int>,
     backlog: Int,
     blocking: Bool,
     closed: Atom<Bool>,
@@ -37,7 +42,13 @@ pub fn create<T>(options: Options) -> Result<Broadcaster<T>, Error> where T: Sha
     if options.policy != :drop_oldest && options.policy != :block {
         return err({ message: "broadcast policy is :drop_oldest or :block" })
     }
-    ok({ subs: Atom.new([]), backlog: options.backlog, blocking: options.policy == :block, closed: Atom.new(false) })
+    ok({
+        subs: Atom.new([]),
+        next_id: Atom.new(0),
+        backlog: options.backlog,
+        blocking: options.policy == :block,
+        closed: Atom.new(false),
+    })
 }
 
 impl<T> Broadcaster<T> {
@@ -48,7 +59,8 @@ impl<T> Broadcaster<T> {
         }
         let ends = channel.create<T>({ ..channel.defaults, capacity: self.backlog })?
         let lagged = Atom.new(0)
-        let sub: Sub<T> = { sender: ends.sender, receiver: ends.receiver, lagged }
+        let id = self.next_id.update(fn(n: Int) -> Int { n + 1 })
+        let sub: Sub<T> = { id, sender: ends.sender, receiver: ends.receiver, lagged }
         let _ = self.subs.update(fn(l: List<Sub<T>>) -> List<Sub<T>> { l.append(sub) })
         ok({ receiver: ends.receiver, lagged })
     }
@@ -57,11 +69,13 @@ impl<T> Broadcaster<T> {
     /// policy). Returns the number of subscribers reached.
     pub fn publish(self: &Self, value: T) -> Int !{Wait, State} {
         var reached = 0
+        // subscribers that closed their end: dropped from the list
+        var gone: List<Int> = []
         for s in self.subs.get() {
             if self.blocking {
                 match s.sender.send(value) {
                     .ok(_) => { reached = reached + 1 },
-                    .err(_) => (),
+                    .err(_) => { gone = gone.append(s.id) },
                 }
             } else {
                 var delivered = false
@@ -72,6 +86,7 @@ impl<T> Broadcaster<T> {
                         .err(e) => {
                             if e.reason == :channel/closed {
                                 attempts = 2
+                                gone = gone.append(s.id)
                             } else {
                                 // full: drop the subscriber's oldest message
                                 let _ = s.receiver.try_recv()
@@ -85,6 +100,10 @@ impl<T> Broadcaster<T> {
                     reached = reached + 1
                 }
             }
+        }
+        if gone.len() > 0 && !self.closed.get() {
+            let dead = gone
+            let _ = self.subs.update(fn(l: List<Sub<T>>) -> List<Sub<T>> { l.filter(fn(s: Sub<T>) -> Bool { !dead.contains(s.id) }) })
         }
         reached
     }
@@ -105,4 +124,7 @@ impl<T> Subscription<T> {
     pub fn recv(self: &Self) -> Option<T> !{Wait} { self.receiver.recv() }
     /// Messages dropped because this subscriber fell behind.
     pub fn lagged(self: &Self) -> Int !{State} { self.lagged.get() }
+    /// Stop receiving: later publishes skip this subscriber (and stop
+    /// waiting for it).
+    pub fn close(self: &Self) -> Unit { self.receiver.close() }
 }

@@ -87,7 +87,8 @@ fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Stream<Result<U,
 fn batches<T, Eff>(s: Stream<T, Eff>, size: Int) -> Stream<List<T>, Eff>
 ```
 
-Items in lists of `size` (the last may be shorter).
+Items in lists of `size` (the last may be shorter; a size below 1
+counts as 1, as `list.chunks_of`).
 
 ### `close`
 

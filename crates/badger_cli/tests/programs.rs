@@ -1772,6 +1772,11 @@ fn query_reports_unloadable_and_unreachable_files() {
     let out = lang().args(["query", "diagnostics"]).arg(dir.join("src/orphan.bdg")).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(text.contains("E0300"), "{text}");
+    // a missing file inside a project is reported, not replaced by a
+    // (passing) check of the project
+    let out = lang().args(["query", "diagnostics"]).arg(dir.join("src/typo.bdg")).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.contains("E0011") && text.contains("typo.bdg"), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1817,6 +1822,10 @@ fn restricted_projects() {
         String::from_utf8_lossy(&out.stdout),
         "stock: 3 apples\nlabel spring, other variables false, other programs refused true\n"
     );
+    // checking one of its files is checking it as part of the project
+    let file =
+        lang().args(["check", "--json", "tests/projects/restricted_bypass/src/main.bdg"]).output().unwrap();
+    assert!(!file.status.success() && String::from_utf8_lossy(&file.stdout).contains("\"code\":\"E0170\""));
     let out = lang().args(["check", "--json", "tests/projects/restricted_bypass"]).output().unwrap();
     assert!(!out.status.success());
     let text = String::from_utf8_lossy(&out.stdout).to_string();

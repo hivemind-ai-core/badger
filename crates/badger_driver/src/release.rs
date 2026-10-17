@@ -42,14 +42,21 @@ pub struct Built {
     pub libraries: Vec<String>,
 }
 
-/// The release's name: the package name, else the entry file's stem.
-fn release_name(path: &Path) -> String {
+/// A program's name: its package name, else the entry file's stem (or
+/// the directory's name).
+pub fn release_name(path: &Path) -> String {
     if path.is_dir()
         && let Ok(m) = crate::manifest::Manifest::load(&path.join("badger.toml"))
     {
         return m.name;
     }
-    path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "app".to_string())
+    // a file's stem, or a directory's own name (neither holds a `/`)
+    let named = if path.is_dir() { path.canonicalize().ok() } else { Some(path.to_path_buf()) };
+    named
+        .as_deref()
+        .and_then(|p| if p.is_dir() { p.file_name() } else { p.file_stem() })
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "app".to_string())
 }
 
 /// Compile the program at `path` and write a release directory at `out`.
@@ -60,6 +67,17 @@ pub fn build(
     out: &Path,
     opts: &RunOptions,
 ) -> Result<Built, Option<String>> {
+    // an absolute path, so `-o .` has a name and a parent to stage next to
+    let out = &std::path::absolute(out).map_err(|e| Some(format!("{}: {e}", out.display())))?;
+    if out.file_name().is_none() {
+        return Err(Some(format!("{} cannot be a release directory", out.display())));
+    }
+    if std::env::current_dir().is_ok_and(|cwd| cwd.starts_with(out)) {
+        return Err(Some(format!(
+            "{} contains the current directory: write the release somewhere else",
+            out.display()
+        )));
+    }
     if out.exists() {
         let empty = std::fs::read_dir(out).map(|mut d| d.next().is_none()).unwrap_or(false);
         if !empty && !out.join("release.json").is_file() {

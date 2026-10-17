@@ -126,12 +126,14 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
             i += 1;
             continue;
         }
-        let rest: String = b[i..].iter().collect();
-        if rest.starts_with("//") {
-            push(&mut out, K::Comment, rest, &mut spaced);
+        // prefix tests on the characters (building the rest of the line as a
+        // string for each token made long lines quadratic)
+        let at = |s: &str| s.chars().enumerate().all(|(k, ch)| b.get(i + k) == Some(&ch));
+        if at("//") {
+            push(&mut out, K::Comment, b[i..].iter().collect(), &mut spaced);
             break;
         }
-        if rest.starts_with("/*") {
+        if at("/*") {
             // an inline block comment (nested); multi-line ones are left alone
             let mut depth = 0;
             let mut j = i;
@@ -156,7 +158,7 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
             i = j;
             continue;
         }
-        if rest.starts_with("\"\"\"") || rest.starts_with("$\"\"\"") {
+        if at("\"\"\"") || at("$\"\"\"") {
             // a raw string closed on this line is copied verbatim; one that
             // continues leaves the line unchanged
             let open = if c == '$' { 4 } else { 3 };
