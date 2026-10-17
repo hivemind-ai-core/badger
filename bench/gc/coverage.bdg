@@ -249,6 +249,36 @@ fn parallel_maps(c: Config) -> Int {
     }))
 }
 
+// Hold the whole burst first, then leave a sparse set of immutable survivors.
+// Keeping just a rolling tail would miss chunks pinned by scattered objects.
+fn pool_fill(c: Config) -> (Array<String>, Data, Int) {
+    let values = array.build(c.n, fn(i: Int) {
+        text.repeat(if i % 2 == 0 { "x" } else { "y" }, c.payload + i % 3)
+    })
+    var checksum = 0
+    for value in values { checksum = checksum + value.len() }
+    let survivors = array.build(c.retain, fn(slot: Int) { values[slot * c.n / c.retain] })
+    (survivors, inspect.heap(), checksum)
+}
+
+fn pool_burst(c: Config) -> (Int, List<Data>) {
+    let (survivors, burst, allocated) = pool_fill(c)
+    // Force repeated ordinary collections, including majors, after the helper
+    // frame holding the full burst has returned. No forced-GC benchmark API.
+    let drained = persistent_int({ ..c, mode: "persistent-int", n: c.rounds, retain: 64 })
+    let after_churn = inspect.heap()
+    for _ in 0..32 { task.yield_now() }
+    let idle = inspect.heap()
+    var checksum = allocated + drained
+    for slot in 0..c.retain {
+        let at = slot * c.n / c.retain
+        let expected = text.repeat(if at % 2 == 0 { "x" } else { "y" }, c.payload + at % 3)
+        assert(survivors[slot] == expected)
+        checksum = checksum + survivors[slot].len()
+    }
+    (checksum, [burst, after_churn, idle])
+}
+
 fn pipeline(c: Config) -> Int {
     var total = 0
     for _ in 0..c.rounds {
@@ -276,7 +306,13 @@ pub fn main() -> Result<Unit, io.Error> {
     assert(c.n > 0 && c.rounds > 0 && c.payload > 0 && c.retain > 0)
     let before = inspect.heap()
     let start = time.now()
-    let checksum = if c.mode == "bytes" { buffers(c, true) }
+    var checkpoints: List<Data> = []
+    let checksum = if c.mode == "pool-burst" {
+        let (total, shots) = pool_burst(c)
+        checkpoints = shots
+        total
+    }
+    else if c.mode == "bytes" { buffers(c, true) }
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
     else if c.mode == "persistent-int" { persistent_int(c) }
@@ -287,6 +323,6 @@ pub fn main() -> Result<Unit, io.Error> {
     else { pipeline(c) }
     let elapsed_ns = time.as_nanos(time.now() - start)
     let after = inspect.heap()
-    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after }))?
+    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after, checkpoints }))?
     ok(())
 }

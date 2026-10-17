@@ -3,6 +3,21 @@ import run
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_pool_burst_includes_full_burst_scattered_survivors_and_churn(self):
+        c = dict(mode="pool-burst", n=7, retain=3, payload=5, rounds=70)
+        latest = {i % 64: i for i in range(70)}
+        expected = sum(5 + i % 3 for i in range(7))
+        expected += sum(5 + i % 3 for i in [0, 2, 4])
+        expected += len(latest) + sum(latest) + sum(latest.values())
+        self.assertEqual(run.expected_coverage(c), expected)
+        good = dict(config=c, checksum=expected, elapsed_ns=1,
+                    before=dict(collections=0), checkpoints=[dict(collections=i, pool_reserved_bytes=262144) for i in [1, 3, 3]])
+        run.validate_coverage(good, c)
+        with self.assertRaises(ValueError):
+            run.validate_coverage(good | dict(checkpoints=[]), c)
+        with self.assertRaises(ValueError):
+            run.validate_coverage(good | dict(checkpoints=list(reversed(good["checkpoints"]))), c)
+
     def test_persistent_maps_check_final_keys_and_values(self):
         self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=5, retain=3)), 3 + 3 + 9)
         self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=2, retain=9)), 2 + 1 + 1)

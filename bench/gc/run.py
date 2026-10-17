@@ -42,6 +42,8 @@ COVERAGE = {
     "snapshots-major": dict(mode="snapshots", n=262144, rounds=1, payload=96, retain=32),
     "parallel-maps": dict(mode="parallel-persistent-int", n=131072, rounds=8, payload=1, retain=1024),
     "parallel-snapshots": dict(mode="parallel-snapshots", n=65536, rounds=8, payload=96, retain=32),
+    **{f"pool-burst-{retain}": dict(mode="pool-burst", n=65536, rounds=524288, payload=256, retain=retain)
+       for retain in [1, 16, 256]},
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
        for name in ["visible", "stored", "collected", "eager"]},
 }
@@ -59,6 +61,11 @@ POLICIES = {
 
 
 def expected_coverage(c):
+    if c["mode"] == "pool-burst":
+        allocated = sum(c["payload"] + i % 3 for i in range(c["n"]))
+        retained = sum(c["payload"] + (slot * c["n"] // c["retain"]) % 3 for slot in range(c["retain"]))
+        drained = expected_coverage(c | dict(mode="persistent-int", n=c["rounds"], retain=64))
+        return allocated + retained + drained
     if c["mode"] in ["parallel-persistent-int", "parallel-snapshots"]:
         return c["rounds"] * expected_coverage(c | dict(mode=c["mode"].removeprefix("parallel-"), rounds=1))
     if c["mode"] == "persistent-int":
@@ -98,6 +105,14 @@ def validate_coverage(record, config):
         raise ValueError(f"coverage oracle mismatch: {record}")
     if record["elapsed_ns"] <= 0:
         raise ValueError("invalid elapsed time")
+    if config["mode"] == "pool-burst":
+        shots = record.get("checkpoints", [])
+        if len(shots) != 3 or any(s["pool_reserved_bytes"] <= 0 for s in shots):
+            raise ValueError("missing burst/churn/idle memory snapshots")
+        # Collections are monotonic; idle means yielding, not an explicit GC.
+        counts = [record["before"]["collections"], *(s["collections"] for s in shots)]
+        if counts != sorted(counts):
+            raise ValueError("nonmonotonic collection checkpoints")
 
 
 def validate_sweep(profile):
@@ -174,6 +189,7 @@ def main():
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
     ap.add_argument("--events", type=int, default=262144)
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--seed", type=int, default=20261017, help="shuffle seed, saved with raw measurements")
     ap.add_argument("--cases", nargs="+", choices=COVERAGE)
     ap.add_argument("--profiles", nargs="+", choices=t.PROFILES, default=list(t.PROFILES))
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
@@ -233,7 +249,7 @@ def main():
     if not rss_helper.exists():
         subprocess.run(["cc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", str(rss_source), "-o", str(rss_helper)], check=True)
     cells = [(name, w, v) for name in cases for w in args.workers for v in variants]
-    rng = random.Random(20261017)
+    rng = random.Random(args.seed)
     runs = []
     def sha(path):
         # Avoid faulting a large debug executable into the runner's heap:

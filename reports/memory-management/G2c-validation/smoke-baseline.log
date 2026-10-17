@@ -1,0 +1,42 @@
+smoke rep=-1 pool-burst-1 w1 baseline
+smoke rep=0 pool-burst-1 w1 baseline
+[
+  {
+    "case": "pool-burst-1",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.027561,
+      "min": 0.027561,
+      "max": 0.027561,
+      "runs": [
+        0.027561
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 26972,
+      "min": 26972,
+      "max": 26972,
+      "runs": [
+        26972
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  }
+]

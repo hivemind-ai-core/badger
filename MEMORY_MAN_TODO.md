@@ -596,3 +596,14 @@ G3a is checked as a completed evaluation, while production G3 remains open.
 Next work should measure cheaper batch helper publication/completion and bounded
 sweep scratch reuse (G3b), alongside native-buffer attribution (G1b) and bounded
 pool reservations (G2c). All region/arena implementations remain unimplemented.
+
+### Next slice — G2c bounded pool refills
+
+Integrated committed main `56f5983` at `1b47a02` before building the fresh
+ordinary baseline. Main's unrelated uncommitted changes remain outside this
+worktree. Prioritize refill reservation/retention because G2 improved throughput
+but raised application RSS, and each post-first worker chunk currently reserves
+2 MiB. New sparse-survivor burst checkpoints cover a missing memory lifetime.
+Next compare diagnostic refill sizes, then an ordinary candidate only if the
+measurements support one. Native-buffer attribution and allocation elimination
+follow; arena integration still requires the ownership/escape groundwork.

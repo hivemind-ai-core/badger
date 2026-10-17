@@ -68,6 +68,20 @@ def main():
                        for key in ["elapsed_ms", "gc_pause_ms", "peak_rss_kib"]]
             lines.append(f"| {case} | {workers} | " + " | ".join(changes)
                          + f" | {base['collections']['median']} / {candidate['collections']['median']} |")
+    checkpoints = collections.defaultdict(list)
+    for run in d["runs"]:
+        for stage, snapshot in zip(["burst", "after churn", "idle"], run["record"].get("checkpoints", [])):
+            checkpoints[(run["case"], run["workers"], run["variant"], stage)].append(snapshot)
+    if checkpoints:
+        lines += ["", "Burst checkpoints: pool reservation is distinct from live objects and process peak RSS.",
+                  "Idle yields without allocating intentionally or forcing a collection.", "",
+                  "| Case | Workers | Variant | Stage | Pool MiB median [min, max] | Managed live MiB median | Collection count median |",
+                  "|---|---:|---|---|---:|---:|---:|"]
+        for (case, workers, variant, stage), snapshots in sorted(checkpoints.items()):
+            pool = [s["pool_reserved_bytes"] / (1 << 20) for s in snapshots]
+            live = statistics.median(s["managed_live_bytes"] for s in snapshots) / (1 << 20)
+            count = statistics.median(s["collections"] for s in snapshots)
+            lines.append(f"| {case} | {workers} | {variant} | {stage} | {statistics.median(pool):.2f} [{min(pool):.2f}, {max(pool):.2f}] | {live:.2f} | {count} |")
     histograms = collections.defaultdict(lambda: [0] * 512)
     for measurement in d["runs"]:
         record = measurement["record"]

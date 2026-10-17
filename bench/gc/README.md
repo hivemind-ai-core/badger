@@ -199,3 +199,22 @@ python3 bench/gc/check_pool_limit.py --baseline /tmp/base/badger --candidate /tm
 
 This retains strings with 288/304-byte cells below the first collection threshold
 and checks their pool reservation, independently of binary labels or hashes.
+
+Pool reservation and sparse survivors (G2c)
+------------------------------------------
+
+`pool-burst-1`, `pool-burst-16`, and `pool-burst-256` first retain 65,536
+strings together, then return a sparse sample from a helper frame. Persistent
+map churn follows to exercise ordinary minor and major collections. Every
+retained string is checked after churn and scheduler yields. The checksum also
+includes every burst string length and every final map key/value. The three
+`checkpoints` record burst, after-churn and idle heap snapshots. Idle yields do
+not force GC; these are pool reservations, not current process RSS. The phase
+census must separately confirm majors occurred during the full-size workloads.
+Use smaller smoke cases for stress/verification rather than millions of
+allocation-triggered collections. The benchmark requires positive inputs and
+its configured retain count does not exceed the burst length.
+
+The runner accepts `--seed` to repeat shuffled comparisons with different
+orders. Keep a baseline-versus-itself control when interpreting small timing
+differences; a different seed alone does not resolve host interference.
