@@ -1,0 +1,53 @@
+// One byte-stream model: files, standard input and output, and memory
+// compose through io.Reader and io.Writer.
+import std.fs
+import std.io
+import std.path
+
+pub fn main() -> Result<Unit, io.Error> {
+    let tmp = fs.make_temp_dir("lang-rw-")?
+    let p = path.join(tmp, "log.txt")
+    // write in pieces, then append
+    let f = fs.create(p)?
+    f.write_text("first line\n")?
+    f.write_text("second line\r\n")?
+    f.close()?
+    let a = fs.append_to(p)?
+    a.write_text("third")?
+    a.close()?
+    // read it back line by line
+    let lines = io.lines(fs.open(p)?)
+    while let .some(line) = lines.next_line()? {
+        io.println($"line: {line}")?
+    }
+    // copy a file to memory, and memory to a file
+    let mem = io.memory_writer()
+    io.println($"copied {io.copy(fs.open(p)?, mem)?} bytes")?
+    let q = path.join(tmp, "copy.txt")
+    let n = io.copy(io.bytes_reader(mem.bytes()), fs.create(q)?)?
+    io.println($"wrote {n} bytes, same {fs.read_text(q)? == fs.read_text(p)?}")?
+    // small reads see every byte
+    let r = fs.open(p)?
+    var pieces = 0
+    while let .some(_) = r.read(4)? {
+        pieces = pieces + 1
+    }
+    io.println($"{pieces} pieces of at most 4 bytes")?
+    // a closed file refuses further use; a new file cannot replace one
+    match f.write_text("late") {
+        .ok(_) => io.println("wrote after close?")?,
+        .err(e) => io.println($"after close: {e.kind}")?,
+    }
+    match fs.create_new(p) {
+        .ok(_) => io.println("replaced?")?,
+        .err(e) => io.println($"create_new: {e.kind}")?,
+    }
+    // standard output as a writer
+    io.stdout().write("through stdout\n".to_bytes())?
+    // standard input, line by line
+    while let .some(x) = io.stdin().read_line()? {
+        io.println($"stdin: {x}")?
+    }
+    fs.remove_all(tmp)?
+    ok(())
+}

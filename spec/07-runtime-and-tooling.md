@@ -19,7 +19,7 @@ an HTTP framework on a CLI program.
 | `std.seq`, `std.stream` | Typed lazy iteration and suspending streams |
 | `std.task`, `std.channel`, `std.broadcast` | Scoped concurrency, joins, bounded queues, batches, one-shot replies, broadcast |
 | `std.system`, `std.worker`, `std.pipeline` | Lifecycle graphs, worker policy, typed interceptors |
-| `std.io`, `std.fs`, `std.path`, `std.process`, `std.env` | OS interaction and subprocesses |
+| `std.io`, `std.fs`, `std.path`, `std.process`, `std.env` | OS interaction and subprocesses; one byte-stream model (`io.Reader`, `io.Writer`) for files, standard input and output, and memory, with `io.copy`, `io.read_all`, and buffered line reading |
 | `std.cli` | Typed command-line arguments: a record type is the interface, with generated help |
 | `std.text`, `std.bytes`, `std.num` | Unicode text, byte views and decoding, numeric conversions and checked/wrapping arithmetic |
 | `std.time`, `std.random` | Explicit clocks, durations, and random providers |

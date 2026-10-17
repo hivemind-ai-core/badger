@@ -141,6 +141,23 @@ fn reject_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Standard input through `io.stdin()` (line reads), in a program that
+/// also reads files through `io.Reader`.
+#[test]
+fn standard_input() {
+    use std::io::Write;
+    let mut child = lang()
+        .args(["run", "tests/run/readers_writers.lang"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"in one\r\nin two").unwrap();
+    let out = child.wait_with_output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && text.ends_with("stdin: in one\nstdin: in two\n"), "{text}");
+}
+
 /// Programs that check with the warnings their `// expect-warning:` lines
 /// name (and no errors).
 #[test]

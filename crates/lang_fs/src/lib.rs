@@ -8,7 +8,9 @@ use std::io::Write;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-use lang_native::{Args, Error, Handler, ModuleDef, Outcome, Value};
+use std::sync::Mutex;
+
+use lang_native::{Args, Error, Handler, Handles, ModuleDef, Outcome, Value};
 
 fn io(e: std::io::Error) -> Error {
     use std::io::ErrorKind::*;
@@ -192,6 +194,113 @@ fn make_temp_dir(a: &Args) -> Outcome {
     Err(Error::new("io/already_exists", "no free temporary directory name"))
 }
 
+// ---------------------------------------------------------------- handles
+
+/// An open file (dropped, closing it, when its handle is released).
+static FILES: Handles<Mutex<Option<std::fs::File>>> = Handles::new();
+
+fn file(a: &Args) -> Result<std::sync::Arc<Mutex<Option<std::fs::File>>>, Error> {
+    FILES.get(a.handle(0)?)
+}
+
+/// Open `path`: `read`, `write` (create or truncate), `append` (create or
+/// add), or `create` (a new file; fails if it exists).
+fn open(a: &Args) -> Outcome {
+    let (p, mode) = (a.str(0)?, a.str(1)?);
+    let mut o = std::fs::OpenOptions::new();
+    match mode {
+        "read" => o.read(true),
+        "write" => o.write(true).create(true).truncate(true),
+        "append" => o.append(true).create(true),
+        "create" => o.write(true).create_new(true),
+        other => return Err(Error::new("io/invalid_input", format!("unknown mode `{other}`"))),
+    };
+    let f = o.open(p).map_err(|e| at(p, e))?;
+    Ok(FILES.insert(Mutex::new(Some(f))))
+}
+
+fn closed() -> Error {
+    Error::new("io/closed", "the file is closed")
+}
+
+/// Up to `max` bytes; `none` at the end of the file.
+fn read(a: &Args) -> Outcome {
+    use std::io::Read;
+    let f = file(a)?;
+    let max = a.int(1)?.clamp(1, 16 << 20) as usize;
+    let mut g = f.lock().unwrap();
+    let file = g.as_mut().ok_or_else(closed)?;
+    let mut buf = vec![0u8; max];
+    let n = file.read(&mut buf).map_err(io)?;
+    if n == 0 {
+        return Ok(Value::Null);
+    }
+    buf.truncate(n);
+    Ok(Value::Bytes(buf))
+}
+
+fn write(a: &Args) -> Outcome {
+    let f = file(a)?;
+    let data = a.bytes(1)?;
+    let mut g = f.lock().unwrap();
+    g.as_mut().ok_or_else(closed)?.write_all(data).map_err(io)?;
+    Ok(Value::Unit)
+}
+
+fn flush(a: &Args) -> Outcome {
+    let f = file(a)?;
+    let mut g = f.lock().unwrap();
+    g.as_mut().ok_or_else(closed)?.flush().map_err(io)?;
+    Ok(Value::Unit)
+}
+
+/// Close (later reads and writes fail with `:io/closed`).
+fn close_file(a: &Args) -> Outcome {
+    let f = file(a)?;
+    let taken = f.lock().unwrap().take();
+    if let Some(mut file) = taken {
+        file.flush().map_err(io)?;
+    }
+    Ok(Value::Unit)
+}
+
+/// Up to `max` bytes of standard input; `none` at its end.
+fn stdin_read(a: &Args) -> Outcome {
+    use std::io::{BufRead, Read};
+    let max = a.int(0)?.clamp(1, 16 << 20) as usize;
+    let mut lock = std::io::stdin().lock();
+    // what is buffered first, so line and byte reads interleave in order
+    let available = lock.fill_buf().map_err(io)?;
+    if available.is_empty() {
+        return Ok(Value::Null);
+    }
+    let n = available.len().min(max);
+    let mut buf = vec![0u8; n];
+    lock.read_exact(&mut buf).map_err(io)?;
+    Ok(Value::Bytes(buf))
+}
+
+/// The next line of standard input without its line break; `none` at its end.
+fn stdin_line(_: &Args) -> Outcome {
+    use std::io::BufRead;
+    let mut line = String::new();
+    let n = std::io::stdin().lock().read_line(&mut line).map_err(io)?;
+    if n == 0 {
+        return Ok(Value::Null);
+    }
+    if line.ends_with('\n') {
+        line.pop();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+    }
+    Ok(Value::Str(line))
+}
+
+fn drop_handle(h: u64) {
+    FILES.remove(h);
+}
+
 pub static DEF: ModuleDef = ModuleDef {
     name: "lang_fs",
     functions: &[
@@ -209,8 +318,15 @@ pub static DEF: ModuleDef = ModuleDef {
         ("walk", Handler::Blocking(walk)),
         ("temp_dir", Handler::Inline(temp_dir)),
         ("make_temp_dir", Handler::Blocking(make_temp_dir)),
+        ("open", Handler::Blocking(open)),
+        ("read", Handler::Blocking(read)),
+        ("write", Handler::Blocking(write)),
+        ("flush", Handler::Blocking(flush)),
+        ("close", Handler::Blocking(close_file)),
+        ("stdin_read", Handler::Blocking(stdin_read)),
+        ("stdin_line", Handler::Blocking(stdin_line)),
     ],
-    drop_handle: None,
+    drop_handle: Some(drop_handle),
     cancel: None,
     recorded: &[
         ("read_bytes", "read", 1),
@@ -227,6 +343,13 @@ pub static DEF: ModuleDef = ModuleDef {
         ("walk", "list", 1),
         ("temp_dir", "temp", 0),
         ("make_temp_dir", "temp", 1),
+        ("open", "open", 2),
+        ("read", "file read", 1),
+        ("write", "file write", 1),
+        ("flush", "file flush", 1),
+        ("close", "file close", 1),
+        ("stdin_read", "stdin", 0),
+        ("stdin_line", "stdin", 0),
     ],
     pure: &[],
 };

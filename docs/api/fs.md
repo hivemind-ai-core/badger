@@ -24,10 +24,22 @@ and nothing else through it; `reader` narrows it to reading.
 fn append_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
 ```
 
+#### `Dir.append_to`
+
+```lang
+fn append_to(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
 #### `Dir.copy`
 
 ```lang
 fn copy(self: &Self, from: String, to: String) -> Result<Int, io.Error> !{Io, Wait}
+```
+
+#### `Dir.create`
+
+```lang
+fn create(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
 ```
 
 #### `Dir.create_dir_all`
@@ -54,6 +66,12 @@ The names in a directory of the tree (`"."` for its top), sorted.
 
 ```lang
 fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+```
+
+#### `Dir.open`
+
+```lang
+fn open(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
 ```
 
 #### `Dir.path`
@@ -132,6 +150,47 @@ fn write_bytes(self: &Self, path: String, data: Bytes) -> Result<Unit, io.Error>
 fn write_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
 ```
 
+### `File`
+
+```lang
+struct File { handle: native.Handle }
+```
+
+An open file: an `io.Reader` and `io.Writer` (as its mode allows).
+Closed by `close`, or once nothing can reach it.
+
+#### `File.close`
+
+```lang
+fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+Flush and close; later reads and writes fail with `:io/closed`.
+
+#### `File.flush`
+
+```lang
+fn flush(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `File.read`
+
+```lang
+fn read(self: &Self, max: Int) -> Result<Option<Bytes>, io.Error> !{Io, Wait}
+```
+
+#### `File.write`
+
+```lang
+fn write(self: &Self, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
+#### `File.write_text`
+
+```lang
+fn write_text(self: &Self, text: String) -> Result<Unit, io.Error> !{Io, Wait}
+```
+
 ### `Metadata`
 
 ```lang
@@ -165,6 +224,12 @@ fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait}
 
 ```lang
 fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+```
+
+#### `ReadDir.open`
+
+```lang
+fn open(self: &Self, path: String) -> Result<File, io.Error> !{Io, Wait}
 ```
 
 #### `ReadDir.path`
@@ -213,6 +278,14 @@ fn append_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
 
 Append to a file, creating it if absent.
 
+### `append_to`
+
+```lang
+fn append_to(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for adding to its end, creating it if absent.
+
 ### `copy`
 
 ```lang
@@ -220,6 +293,14 @@ fn copy(from: String, to: String) -> Result<Int, io.Error> !{Io, Wait}
 ```
 
 Copy a file; the number of bytes copied.
+
+### `create`
+
+```lang
+fn create(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for writing, creating it or emptying it.
 
 ### `create_dir`
 
@@ -234,6 +315,14 @@ fn create_dir_all(path: String) -> Result<Unit, io.Error> !{Io, Wait}
 ```
 
 Create a directory and any missing parents (fine if it exists).
+
+### `create_new`
+
+```lang
+fn create_new(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Create a new file for writing (`:io/already_exists` if there is one).
 
 ### `exists`
 
@@ -282,6 +371,14 @@ fn modified(m: Metadata) -> Timestamp
 ```
 
 When it last changed.
+
+### `open`
+
+```lang
+fn open(path: String) -> Result<File, io.Error> !{Io, Wait}
+```
+
+Open a file for reading.
 
 ### `read_bytes`
 
