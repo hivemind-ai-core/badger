@@ -1542,6 +1542,7 @@ dependencies = [
  "lang_datetime",
  "lang_fetch",
  "lang_formats",
+ "lang_fs",
  "lang_hir",
  "lang_http",
  "lang_mir",
@@ -1577,6 +1578,13 @@ dependencies = [
  "serde_json",
  "serde_yaml_ng",
  "toml",
+]
+
+[[package]]
+name = "lang_fs"
+version = "0.1.0"
+dependencies = [
+ "lang_native",
 ]
 
 [[package]]

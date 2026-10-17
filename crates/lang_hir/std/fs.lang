@@ -10,7 +10,70 @@ extern "intrinsic" fn fs_root(path: String) -> Result<String, io.Error>
 extern "intrinsic" fn fs_within(root: String, path: String) -> Result<String, io.Error>
 extern "intrinsic" fn fs_list(path: String) -> Result<List<String>, io.Error>
 
+// the `lang_fs` native module (crates/lang_fs)
+extern "native lang_fs.read_bytes" fn fs_read_bytes(path: String) -> Result<Bytes, io.Error> !{Io, Wait}
+extern "native lang_fs.write_bytes" fn fs_write_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.append" fn fs_append_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.append" fn fs_append_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.remove_file" fn fs_remove_file(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.remove_dir" fn fs_remove_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.remove_all" fn fs_remove_all(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.rename" fn fs_rename(from: String, to: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.copy" fn fs_copy(from: String, to: String) -> Result<Int, io.Error> !{Io, Wait}
+extern "native lang_fs.create_dir" fn fs_create_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.create_dir_all" fn fs_create_dir_all(path: String) -> Result<Unit, io.Error> !{Io, Wait}
+extern "native lang_fs.metadata" fn fs_metadata(path: String) -> Result<Metadata, io.Error> !{Io, Wait}
+extern "native lang_fs.walk" fn fs_walk(path: String) -> Result<List<String>, io.Error> !{Io, Wait}
+extern "native lang_fs.temp_dir" fn fs_temp_dir() -> String !{Io}
+extern "native lang_fs.make_temp_dir" fn fs_make_temp_dir(prefix: String) -> Result<String, io.Error> !{Io, Wait}
+extern "intrinsic" fn identity<A, B>(value: A) -> B
+
+/// What is at a path: `:file`, `:dir`, `:symlink` (not followed), or
+/// `:other`, with its size in bytes and when it last changed.
+pub type Metadata = { kind: Symbol, size: Int, modified_nanos: Int, readonly: Bool }
+
+/// When it last changed.
+pub fn modified(m: Metadata) -> Timestamp { identity(m.modified_nanos) }
+
 pub fn read_text(path: String) -> Result<String, io.Error> !{Io, Wait} { fs_read_text(path) }
+pub fn read_bytes(path: String) -> Result<Bytes, io.Error> !{Io, Wait} { fs_read_bytes(path) }
+pub fn write_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait} { fs_write_bytes(path, data) }
+/// Append to a file, creating it if absent.
+pub fn append_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_append_text(path, text) }
+pub fn append_bytes(path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait} { fs_append_bytes(path, data) }
+pub fn remove_file(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_remove_file(path) }
+/// Remove an empty directory.
+pub fn remove_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_remove_dir(path) }
+/// Remove a file, or a directory and everything in it (symlinks are
+/// removed, not followed).
+pub fn remove_all(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_remove_all(path) }
+/// Move or rename (replacing a file at `to`).
+pub fn rename(from: String, to: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_rename(from, to) }
+/// Copy a file; the number of bytes copied.
+pub fn copy(from: String, to: String) -> Result<Int, io.Error> !{Io, Wait} { fs_copy(from, to) }
+pub fn create_dir(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_create_dir(path) }
+/// Create a directory and any missing parents (fine if it exists).
+pub fn create_dir_all(path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_create_dir_all(path) }
+pub fn metadata(path: String) -> Result<Metadata, io.Error> !{Io, Wait} { fs_metadata(path) }
+pub fn is_dir(path: String) -> Bool !{Io, Wait} {
+    match fs_metadata(path) {
+        .ok(m) => m.kind == :dir,
+        .err(_) => false,
+    }
+}
+pub fn is_file(path: String) -> Bool !{Io, Wait} {
+    match fs_metadata(path) {
+        .ok(m) => m.kind == :file,
+        .err(_) => false,
+    }
+}
+/// Every file under a directory, as paths relative to it, sorted
+/// (symlinks are listed, not followed).
+pub fn walk(path: String) -> Result<List<String>, io.Error> !{Io, Wait} { fs_walk(path) }
+/// The system's directory for temporary files.
+pub fn temp_dir() -> String !{Io} { fs_temp_dir() }
+/// A new, empty directory only this user can read, under `temp_dir()`.
+pub fn make_temp_dir(prefix: String) -> Result<String, io.Error> !{Io, Wait} { fs_make_temp_dir(prefix) }
 pub fn write_text(path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_write_text(path, text) }
 pub fn exists(path: String) -> Bool !{Io} { fs_exists(path) }
 /// The names in a directory, sorted.
@@ -54,6 +117,32 @@ impl Dir {
     pub fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} {
         fs_list(fs_within(self.root, path)?)
     }
+    pub fn read_bytes(self: &Self, path: String) -> Result<Bytes, io.Error> !{Io, Wait} { fs_read_bytes(fs_within(self.root, path)?) }
+    pub fn write_bytes(self: &Self, path: String, data: Bytes) -> Result<Unit, io.Error> !{Io, Wait} {
+        fs_write_bytes(fs_within(self.root, path)?, data)
+    }
+    pub fn append_text(self: &Self, path: String, text: String) -> Result<Unit, io.Error> !{Io, Wait} {
+        fs_append_text(fs_within(self.root, path)?, text)
+    }
+    pub fn remove_file(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_remove_file(fs_within(self.root, path)?) }
+    /// Remove a file or a subtree (never the tree's top).
+    pub fn remove_all(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait} {
+        let p = fs_within(self.root, path)?
+        if p == self.root {
+            return err({ kind: :io/permission_denied, message: "cannot remove the top of a tree through it" })
+        }
+        fs_remove_all(p)
+    }
+    pub fn rename(self: &Self, from: String, to: String) -> Result<Unit, io.Error> !{Io, Wait} {
+        fs_rename(fs_within(self.root, from)?, fs_within(self.root, to)?)
+    }
+    pub fn copy(self: &Self, from: String, to: String) -> Result<Int, io.Error> !{Io, Wait} {
+        fs_copy(fs_within(self.root, from)?, fs_within(self.root, to)?)
+    }
+    pub fn create_dir_all(self: &Self, path: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_create_dir_all(fs_within(self.root, path)?) }
+    pub fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait} { fs_metadata(fs_within(self.root, path)?) }
+    /// Every file under a directory of the tree, relative to it, sorted.
+    pub fn walk(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} { fs_walk(fs_within(self.root, path)?) }
     /// A narrower tree inside this one.
     pub fn sub(self: &Self, path: String) -> Result<Dir, io.Error> !{Io} {
         let d: Dir = { root: fs_root(fs_within(self.root, path)?)? }
@@ -80,6 +169,9 @@ impl ReadDir {
     pub fn list(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} {
         fs_list(fs_within(self.root, path)?)
     }
+    pub fn read_bytes(self: &Self, path: String) -> Result<Bytes, io.Error> !{Io, Wait} { fs_read_bytes(fs_within(self.root, path)?) }
+    pub fn metadata(self: &Self, path: String) -> Result<Metadata, io.Error> !{Io, Wait} { fs_metadata(fs_within(self.root, path)?) }
+    pub fn walk(self: &Self, path: String) -> Result<List<String>, io.Error> !{Io, Wait} { fs_walk(fs_within(self.root, path)?) }
     pub fn sub(self: &Self, path: String) -> Result<ReadDir, io.Error> !{Io} {
         let d: ReadDir = { root: fs_root(fs_within(self.root, path)?)? }
         ok(d)

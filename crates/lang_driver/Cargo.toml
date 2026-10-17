@@ -29,6 +29,7 @@ lang_valkey.workspace = true
 lang_postgres.workspace = true
 lang_datetime.workspace = true
 lang_compress.workspace = true
+lang_fs.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

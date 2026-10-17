@@ -379,7 +379,7 @@ the declaration's name differs), linked into the executable or loaded
 from `libNAME.so`; `std.sqlite`, `std.postgres`, `std.fetch`, `std.http`,
 `std.valkey`, the formats (`std.toml`, `std.yaml`, `std.csv`),
 `std.template`, and `std.encoding`/`std.crypto`/`std.uuid` are built on
-the `lang_sqlite`, `lang_postgres`, `lang_fetch`, `lang_http`,
+the `lang_sqlite`, `lang_postgres`, `lang_fetch`, `lang_http`, `lang_fs`,
 `lang_valkey`, `lang_formats`, `lang_template`, and `lang_crypto`
 modules.
 Arguments and results cross by copy in a typed wire format, so module code

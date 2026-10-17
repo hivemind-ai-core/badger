@@ -176,6 +176,7 @@ pub fn register_native_modules() {
         lang_runtime::native::register_builtin("lang_postgres", lang_postgres::native_entry);
         lang_runtime::native::register_builtin("lang_datetime", lang_datetime::native_entry);
         lang_runtime::native::register_builtin("lang_compress", lang_compress::native_entry);
+        lang_runtime::native::register_builtin("lang_fs", lang_fs::native_entry);
     });
 }
 
