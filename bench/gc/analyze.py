@@ -6,6 +6,8 @@ import gzip
 import json
 from pathlib import Path
 
+from run import t
+
 
 def phase_totals(run):
     before, after = ((run["record"]["before"], run["record"]["after"]) if "before" in run["record"]
@@ -61,6 +63,25 @@ def main():
                        for key in ["elapsed_ms", "gc_pause_ms", "peak_rss_kib"]]
             lines.append(f"| {case} | {workers} | " + " | ".join(changes)
                          + f" | {base['collections']['median']} / {candidate['collections']['median']} |")
+    histograms = collections.defaultdict(lambda: [0] * 512)
+    for measurement in d["runs"]:
+        record = measurement["record"]
+        if record.get("workload") != "telemetry":
+            continue
+        histogram = histograms[(measurement["case"], measurement["workers"], measurement["variant"])]
+        for shard in record["result"]["shards"]:
+            for i, count in enumerate(shard["histogram"]):
+                histogram[i] += count
+    if histograms:
+        lines += ["", "End-to-end latency: pooled histogram bucket upper bounds across repetitions.",
+                  "These are sampled batch/event latencies, not GC pauses. Shared-host variation applies;",
+                  "p99.9 is not reported here; fewer than 100,000 samples per cell is insufficient for it.", "",
+                  "| Profile | Workers | Variant | Samples | p50 <= ms | p99 <= ms |",
+                  "|---|---:|---|---:|---:|---:|"]
+        for (case, workers, variant), histogram in sorted(histograms.items()):
+            quantiles = [t.percentile(histogram, q) for q in [.5, .99]]
+            values = [f"{value / 1e6:.3f}" if value is not None else "overflow" for value in quantiles]
+            lines.append(f"| {case} | {workers} | {variant} | {sum(histogram)} | " + " | ".join(values) + " |")
     lines += ["", "Diagnostic GC phases summed across measured repetitions (wall time):", ""]
     groups = collections.defaultdict(collections.Counter)
     for run in d["runs"]:

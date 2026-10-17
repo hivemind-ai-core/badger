@@ -10,9 +10,12 @@ correctness checks, raw benchmark evidence, and results recorded here.
 - [x] M0: Bring the existing opt-in GC diagnostics and coverage harness onto this branch.
 - [x] M1: Add missing immutable-builder and producer/consumer coverage; save a fresh
   fixed-revision baseline before changing production code.
-- [ ] M2: Compare immutable baseline and candidate executables with shuffled,
+- [x] M2: Compare immutable baseline and candidate executables with shuffled,
   interleaved repetitions, independent output checks, executable/source hashes,
   cleared inherited LANG settings, and raw results retained in the repository.
+- [ ] M3: Improve robustness of short multi-worker controls: vary randomized
+  orders/seeds, pair related runs, retain baseline-versus-itself calibrations,
+  and investigate cross-workload/scheduling sensitivity before attributing small changes.
 
 Before each applicable slice, cover its lifetime/failure cases. Track workload elapsed time, managed allocation counts/bytes where available,
 collection count and pause time, process peak RSS, and application throughput at
@@ -30,7 +33,7 @@ negative results; do not mark architectural sketches as implemented.
 
 ### Reduce allocation and improve immutable collections
 
-- [ ] I1: True transient HAMT insertion for fresh, affine MapBuilder/SetBuilder
+- [x] I1: True transient HAMT insertion for fresh, affine MapBuilder/SetBuilder
   nodes. Reuse only exclusively owned nodes; preserve immutable snapshots,
   collision handling, pointer tracing, and old-to-young write barriers.
 - [ ] I2: Broaden enum/record/closure scalar replacement across proven nonescaping
@@ -74,7 +77,10 @@ negative results; do not mark architectural sketches as implemented.
   for aliases, extra participants, select, fanout, and unknown topology.
 - [ ] R3: Reclamation follows completed processing, not dequeue. A borrowed message
   must not escape its lease or be retained in a closure/task/result. Out-of-order
-  completion needs ordered acknowledgements or separate segments. Support task
+  completion needs ordered acknowledgements or separate segments. Before arena
+  integration, add a pinned-first-message/escaping-result benchmark that reads
+  an early payload after the entire stream; a retained rolling tail alone can
+  hide premature slot reuse. Add cancellation/close ownership benchmarks. Support task
   migration, close, cancellation, blocked senders, and failed publication.
 - [ ] R4: Add request/batch scratch regions and separate result/message regions;
   reset each request rather than retaining scratch for a long-lived worker task.
@@ -203,7 +209,7 @@ Shared-host measurements are directional, not significance or tail-latency claim
 | fanout | 1 | 675.253 | 119.406 | 81.1 |
 | fanout | 4 | 430.845 | 89.400 | 112.8 |
 
-### I1 — implementation awaiting final validation and comparison
+### I1 — implementation and correctness
 
 Fresh map/set builders now update exclusively owned HAMT nodes in place when
 edits fit their original allocation. Growing nodes still allocate; ancestors
@@ -219,8 +225,8 @@ regression covers pointer keys/values, yielded builders, concurrent tasks,
 finished snapshots, fresh subsequent builders, merge/from-list/map-values, sets,
 and saved MIR. Six optimized stress/verification/chaos configurations (both
 collection modes, workers 1/4/8) passed. The dedicated integration suite also passed all 12 debug/optimized
-stress configurations and the saved-MIR check; the full workspace run and
-benchmark comparison are still pending.
+stress configurations and the saved-MIR check. Full release workspace coverage
+and the benchmark comparison are now complete; see the results and validation below.
 
 Coverage fixtures now also assert exact FIFO payload words and final builder
 values during execution. The original baseline above retains its earlier source
@@ -248,3 +254,77 @@ explicitly stopped and replaced with `cargo test --release --offline --workspace
 --target-dir /tmp/language-gc-profile-target -- --test-threads=1`. Do not report the
 partial debug run as a complete pass. Dedicated debug runtime/model tests and the
 12-case builder debug/optimized stress matrix have passed independently.
+
+### I1 / M2 — measured result, completed
+
+Implementation: `19d35fc3a7593fa1464bd23a2b447dcd52182ec3`. Ordinary immutable
+executables and build/revision/hash provenance are in
+[binaries.json](reports/memory-management/binaries.json). Baseline binary is
+`c7c7e25`, candidate binary is `19d35fc`; the measurement harness was `e0f6378`.
+No production changes were made during measurement. The same strengthened
+workload source was used for both binaries in every comparison.
+
+```
+python3 bench/gc/run.py --baseline /tmp/language-memory-binaries/baseline --candidate /tmp/language-memory-binaries/transient-hamt --baseline-revision c7c7e25fc382f41df1c5b8c8053a12f0f9551abf --candidate-revision 19d35fc3a7593fa1464bd23a2b447dcd52182ec3 --suite coverage --workers 1 2 4 8 --reps 5 --out reports/memory-management/I1-coverage
+python3 bench/gc/run.py --baseline /tmp/language-memory-binaries/baseline --candidate /tmp/language-memory-binaries/transient-hamt --baseline-revision c7c7e25fc382f41df1c5b8c8053a12f0f9551abf --candidate-revision 19d35fc3a7593fa1464bd23a2b447dcd52182ec3 --suite telemetry --events 131072 --workers 1 2 4 8 --reps 5 --out reports/memory-management/I1-telemetry
+```
+
+640 coverage and 160 application measurements, plus one warmup per cell. Every
+run passed its independent oracle. All medians below are from these interleaved
+runs, not from the earlier baseline-only session. Negative time change is better.
+
+| Builder case, one worker | Before ms | After ms | Time change | Collections before / after | Peak process RSS MiB before / after |
+|---|---:|---:|---:|---:|---:|
+| map-new | 31.702 | 11.468 | -63.8% | 5 / 1 | 41.8 / 41.4 |
+| map-replace | 71.581 | 14.959 | -79.1% | 15 / 0 | 39.5 / 28.6 |
+| map-strings | 37.300 | 9.542 | -74.4% | 7 / 0 | 38.7 / 37.7 |
+| set-builder | 118.769 | 16.032 | -86.5% | 30 / 0 | 40.1 / 28.7 |
+
+Across worker settings, new-key map time fell 63.8–69.0%, replacement-heavy map
+78.6–79.4%, string-valued map 70.8–74.7%, and set builder 86.5–87.8%. These are
+single-task builders running with different configured runtime worker counts,
+not parallel-builder scaling. Peak RSS includes frontend/JIT/output and can hide
+managed-heap savings behind other process peaks. No total allocation-volume claim
+is made from heap snapshots; the model independently proves zero managed
+allocations for warmed replacement-only trie updates.
+
+[Coverage ranges, GC and RSS](reports/memory-management/I1-coverage/summary.md),
+[raw coverage](reports/memory-management/I1-coverage/measurements.json.gz).
+
+**Application result: no consistent broad improvement established.** Across four
+profiles and workers 1/2/4/8, elapsed changes range from -2.3% to +3.5%; collection
+counts remain 12 per run for balanced/backpressure/CPU and 22 for fanout. These
+workloads primarily update ordinary persistent maps and allocate messages/tasks,
+which this builder change does not eliminate. End-to-end p50/p99 histogram bucket
+upper bounds are retained (40,960 samples per cell); changes are mixed and do not
+establish a general tail-latency improvement. No p99.9 claim is made.
+
+[Application results and sampled latency](reports/memory-management/I1-telemetry/summary.md),
+[raw applications](reports/memory-management/I1-telemetry/measurements.json.gz).
+
+Two eight-worker controls initially appeared slower: snapshots +14.7%, yielding
+capacity-one messages +16.8%. Retain those observations. A 15-repetition follow-up
+found snapshots +0.7% and slow messages +6.6%. A separate 25-repetition slow-message
+comparison found +0.8% (41.109 vs 41.429 ms, overlapping ranges); a 25-repetition
+baseline-versus-itself calibration found effectively 0% (40.654 vs 40.647 ms).
+There is no stable material slowdown established by these checks, but short
+multi-worker cases show substantial run/workload sensitivity. Keep M3 and these
+controls in subsequent comparisons; do not dismiss every small change as noise.
+
+Follow-ups used `--suite coverage --workers 8 --cases snapshots messages-slow
+--reps 15`, then `--cases messages-slow --reps 25`; calibration passed the baseline
+path/revision for both binary roles. Exact arguments and hashes are in each raw file.
+
+- [15-repeat control follow-up](reports/memory-management/I1-controls-followup/summary.md)
+- [25-repeat slow-consumer comparison](reports/memory-management/I1-slow-consumer-paired/summary.md)
+- [25-repeat baseline-versus-itself calibration](reports/memory-management/I1-slow-consumer-AA/summary.md)
+
+All workspace targets are covered by successful release checks (146 distinct
+passing tests, one ignored native-library doctest), with focused debug GC/stress
+coverage and strict lint checks. The initial MCP port-permission failure and the
+incomplete broad debug run are explicitly retained in the
+[validation record](reports/memory-management/validation/README.md).
+
+Next implementation priority: G1 allocation/survival attribution to guide G2/G3
+and the R1 ring prototype. R1–R6, lifetime-based placement, and multiple-collector
+architecture are still unimplemented; R0 is a design/protocol checkpoint only.

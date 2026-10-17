@@ -1,0 +1,114 @@
+   Compiling bitflags v2.13.2
+   Compiling fastrand v2.5.0
+   Compiling lang_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_native_demo)
+   Compiling rustix v1.1.5
+   Compiling linux-raw-sys v0.12.1
+   Compiling console v0.16.6
+   Compiling similar v2.7.0
+   Compiling diff v0.1.13
+   Compiling lang_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_datetime)
+   Compiling lang_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_http)
+   Compiling lang_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_compress)
+   Compiling lang_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_postgres)
+   Compiling lang_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_crypto)
+   Compiling lang_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_template)
+   Compiling lang_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_codegen)
+   Compiling lang_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_fetch)
+   Compiling backon v1.6.0
+   Compiling rusqlite v0.38.0
+   Compiling pulldown-cmark v0.13.4
+   Compiling pretty_assertions v1.4.1
+   Compiling redis v1.7.1
+   Compiling lang_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_runtime)
+   Compiling lang_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_sqlite)
+   Compiling tempfile v3.27.0
+   Compiling insta v1.49.0
+   Compiling lang_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_formats)
+   Compiling lang_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_syntax)
+   Compiling lang_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_typeck)
+   Compiling lang_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_hir)
+   Compiling lang_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_mir)
+   Compiling lang_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_base)
+   Compiling lang_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_valkey)
+   Compiling lang_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_fs)
+   Compiling lang_native v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_native)
+   Compiling lang_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_driver)
+   Compiling lang_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_cli)
+    Finished `release` profile [optimized] target(s) in 1m 38s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/lang_base-7aaa12ecaf962ce7)
+
+running 1 test
+test source::tests::indexed_line_col_matches_scan ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/language-gc-profile-target/release/deps/lang-e2fe461cb12a0e22)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial.rs (/tmp/language-gc-profile-target/release/deps/adversarial-b1ab8f5f95f6c3b3)
+
+running 4 tests
+test reject_programs ... ok
+test run_four_workers ... ok
+test run_optimized ... ok
+test run_single_worker ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.49s
+
+     Running tests/docs.rs (/tmp/language-gc-profile-target/release/deps/docs-4d712e177790df53)
+
+running 2 tests
+test api_reference_current ... ok
+test doc_examples_check ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.91s
+
+     Running tests/fuzz.rs (/tmp/language-gc-profile-target/release/deps/fuzz-459d52ae88718d49)
+
+running 3 tests
+test formatter_is_idempotent ... ok
+test formatting_preserves_meaning ... ok
+test invalid_input_never_crashes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 110.91s
+
+     Running tests/gc_retention.rs (/tmp/language-gc-profile-target/release/deps/gc_retention-d581792b60f05fe4)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.99s
+
+     Running tests/lsp.rs (/tmp/language-gc-profile-target/release/deps/lsp-d07ef1e7835076d3)
+
+running 3 tests
+test language_server ... ok
+test language_server_project_entries ... ok
+test language_server_robustness ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/mcp.rs (/tmp/language-gc-profile-target/release/deps/mcp-80981cc8ab6b5c16)
+
+running 1 test
+test mcp_tools ... error: cannot reserve a local port: Operation not permitted (os error 1)
+FAILED
+
+failures:
+
+---- mcp_tools stdout ----
+
+thread 'mcp_tools' (5999) panicked at crates/lang_cli/tests/mcp.rs:38:56:
+called `Result::unwrap()` on an `Err` value: Error("EOF while parsing a value", line: 1, column: 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    mcp_tools
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lang_cli --test mcp`

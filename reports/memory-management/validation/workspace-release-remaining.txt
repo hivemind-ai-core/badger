@@ -1,0 +1,164 @@
+   Compiling lang_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_formats)
+   Compiling lang_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_valkey)
+   Compiling lang_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_sqlite)
+   Compiling lang_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_driver)
+   Compiling lang_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_cli)
+    Finished `release` profile [optimized] target(s) in 52.34s
+     Running tests/mcp.rs (/tmp/language-gc-profile-target/release/deps/mcp-94bb86d86841c5ca)
+
+running 1 test
+test mcp_tools ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.65s
+
+     Running tests/option_niche.rs (/tmp/language-gc-profile-target/release/deps/option_niche-efc3f15aa07a1595)
+
+running 3 tests
+test local_pointer_options_use_null_and_payload_before_dump_and_save ... ok
+test pointer_option_roots_survive_gc_suspension_and_multiple_workers ... ok
+test returned_options_keep_boxed_function_layout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/packed_arrays.rs (/tmp/language-gc-profile-target/release/deps/packed_arrays-6d40e8f7944fda87)
+
+running 4 tests
+test array_get_and_iteration_use_typed_loads ... ok
+test buffer_capacity_obeys_heap_budget ... ok
+test dead_array_roots_release_storage_before_the_next_allocation ... ok
+test packed_array_bits_codecs_and_roots ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/postgres.rs (/tmp/language-gc-profile-target/release/deps/postgres-483dd5c6e54351cd)
+
+running 1 test
+test postgres_client ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+     Running tests/programs.rs (/tmp/language-gc-profile-target/release/deps/programs-4df8e8de5572daab)
+
+running 61 tests
+test api_export ... ok
+test batch_receive_under_gc_stress ... ok
+test bench_programs_check ... ok
+test compiled_programs_run ... wrote /tmp/lang-mir-3313127/dyn_protocol.langmir (14610 bytes)
+wrote /tmp/lang-mir-3313127/broadcast.langmir (33443 bytes)
+wrote /tmp/lang-mir-3313127/multicore.langmir (39155 bytes)
+wrote /tmp/lang-mir-3313127/multicore2.langmir (39155 bytes)
+ok
+test contract_report ... ok
+test contract_test_report ... ok
+test contract_violations ... ok
+test deadlock_report_names_waits ... ok
+test debugger_sees_generated_code ... ok
+test dependencies ... ok
+test diagnostics_early_phases ... ok
+test dotenv_and_env_references ... ok
+test durable_jobs_survive_crashes ... ok
+test eval_in_busy_program ... ok
+test example_projects_check ... ok
+test examples_run ... ok
+test explain_types ... ok
+test grace_escalation_keeps_resources ... ok
+test heap_budget_contains_a_task ... ok
+test inlined_lambda_defect_location ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test inspect_running_program ... ok
+test internal_error_exits_promptly ... ok
+test live_reconstruct ... ok
+test live_reload ... ok
+test local_repl_session ... ok
+test main_error_report ... ok
+test map_versions_under_gc_stress ... ok
+test module_values_under_gc_stress ... ok
+test multicore_migration ... ok
+test native_modules ... ok
+test otel_export ... ok
+test outbound_http ... ok
+test outbound_http_send ... ok
+test private_struct_update ... ok
+test profiles ... ok
+test program_graphs ... ok
+test project_tooling ... ok
+test query_check_overlays ... ok
+test query_rename_and_unsupported_inputs ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test reject_programs ... ok
+test remote_repl ... ok
+test reproduction_bundles ... ok
+test restricted_projects ... ok
+test run_bench_reports_execution_time ... ok
+test run_programs ... ok
+test run_programs_compiled ... ok
+test run_programs_multicore ... ok
+test run_programs_release ... ok
+test sampling_profile ... ok
+test sql_generation_sqlite ... ok
+test standard_input ... ok
+test structured_diagnostics ... ok
+test structured_logs ... ok
+test stuck_cleanup_is_bounded ... ok
+test test_runner_controlled_clock ... ok
+test test_runner_simulation ... ok
+test typed_sql_schema ... ok
+test warning_programs ... ok
+test workspaces_and_git_dependencies ... ok
+
+test result: ok. 61 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 72.31s
+
+     Running tests/scalar_enums.rs (/tmp/language-gc-profile-target/release/deps/scalar_enums-e8fdcb520d5bdd1a)
+
+running 2 tests
+test local_scalar_enums_have_no_wrapper_allocations_before_dump_or_save ... wrote /tmp/lang-scalar-enums-3317084/scalar.langmir (4520 bytes)
+ok
+test mixed_payloads_aliases_and_gc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/sequence_fusion.rs (/tmp/language-gc-profile-target/release/deps/sequence_fusion-5671a732275fdfc8)
+
+running 2 tests
+test fusion_preserves_construction_effect_order_limits_and_roots ... ok
+test visible_pipeline_is_a_loop_before_dump_and_save ... wrote /tmp/lang-fusion-3317122/fusion.langmir (2716 bytes)
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/service.rs (/tmp/language-gc-profile-target/release/deps/service-0a6d0a238ec189e6)
+
+running 7 tests
+test events_stop_when_the_client_leaves ... ok
+test http_limits_and_streaming ... ok
+test orders_service ... ok
+test orders_service_concurrent ... ok
+test request_isolation ... ok
+test stream_backpressure ... ok
+test websockets ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.70s
+
+     Running tests/stress.rs (/tmp/language-gc-profile-target/release/deps/stress-22cff742f3f8a631)
+
+running 2 tests
+test stress_programs ... ok
+test stress_soak ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.86s
+
+     Running tests/transient_maps.rs (/tmp/language-gc-profile-target/release/deps/transient_maps-f9dfb7bf0e134747)
+
+running 2 tests
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive ... ok
+test finished_builder_maps_survive_saved_mir ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.19s
+
+     Running tests/valkey.rs (/tmp/language-gc-profile-target/release/deps/valkey-096c9cd2ea7fe113)
+
+running 1 test
+test valkey_client ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

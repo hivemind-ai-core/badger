@@ -1,0 +1,21 @@
+   Compiling bitflags v2.13.2
+   Compiling fastrand v2.5.0
+   Compiling backon v1.6.0
+   Compiling pulldown-cmark v0.13.4
+   Compiling rusqlite v0.38.0
+   Compiling redis v1.7.1
+   Compiling lang_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_sqlite)
+   Compiling lang_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_formats)
+   Compiling lang_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_valkey)
+   Compiling lang_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_driver)
+   Compiling lang_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/lang_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.44s
+     Running tests/transient_maps.rs (/tmp/language-gc-profile-target/debug/deps/transient_maps-023d23710fd0d4ed)
+
+running 2 tests
+test finished_builder_maps_survive_saved_mir ... ok
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive has been running for over 60 seconds
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 67.50s
+
