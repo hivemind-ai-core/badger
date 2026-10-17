@@ -1,6 +1,7 @@
 // The feature's vocabulary: what a task is, what can go wrong, what the
-// feature needs (a store), and what it offers (the same interface to HTTP,
-// the command line, and workers).
+// feature needs (a store), and what it offers: operations, the same ones to
+// HTTP, the command line, and workers.
+import std.app
 
 pub type Task = { id: Int, title: String, done: Bool }
 pub type NewTask = { title: String }
@@ -17,8 +18,8 @@ pub type Store = {
 }
 
 pub type Tasks = {
-    create: fn(NewTask) -> Result<Task, Error> !{State},
-    list: fn() -> List<Task> !{State},
-    open: fn() -> List<Task> !{State},
-    complete: fn(Int) -> Result<Task, Error> !{State},
+    create: app.Operation<NewTask, Task, Error, !{State}>,
+    list: app.Operation<{}, List<Task>, Error, !{State}>,
+    open: app.Operation<{}, List<Task>, Error, !{State}>,
+    complete: app.Operation<Int, Task, Error, !{State}>,
 }

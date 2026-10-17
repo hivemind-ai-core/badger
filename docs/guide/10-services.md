@@ -70,6 +70,9 @@ Use it in tests.
 paths, no two routes matching the same requests) and returns an
 `http.Handler`. The same descriptions give `route.url(routes, name,
 params)` and `route.openapi(routes, title, version)`.
+`endpoint.bind` makes a typed route from an `app.Operation`, with an
+explicit reply for each expected error ([Operations and
+bindings](08-systems-and-pipelines.md#operations-and-bindings)).
 
 | Handler constructor | Callback |
 |---|---|

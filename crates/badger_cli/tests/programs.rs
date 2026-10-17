@@ -238,19 +238,26 @@ fn framework_example() {
     let out = lang().arg("test").arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(
-        out.status.success() && text.contains("2 passed; 0 failed"),
+        out.status.success() && text.contains("4 passed; 0 failed"),
         "{text}{}",
         String::from_utf8_lossy(&out.stderr)
     );
     let run = |args: &[&str]| {
         let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
+        (out.status.code(), String::from_utf8_lossy(&out.stdout).to_string())
+    };
+    assert_eq!(
+        run(&["cli", "--", "add", "--title", "Write the docs"]),
+        (Some(0), "added 1: Write the docs\n".to_string())
+    );
+    // an expected error's exit status, and a usage problem's
+    assert_eq!(run(&["cli", "--", "done", "--id", "4"]), (Some(3), String::new()));
+    assert_eq!(run(&["cli", "--", "remove"]).0, Some(2));
+    let run = |args: &[&str]| {
+        let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
         assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
         String::from_utf8_lossy(&out.stdout).to_string()
     };
-    assert_eq!(
-        run(&["cli", "--", "--add", "Write the docs", "--add", "Ship it", "--done", "1"]),
-        "added 1: Write the docs\nadded 2: Ship it\ndone 1: Write the docs\n[x] 1 Write the docs\n[ ] 2 Ship it\n"
-    );
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 

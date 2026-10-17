@@ -1,41 +1,60 @@
-// The command line: `badger run cli -- --add "Write the docs" --done 1`.
-// It selects the parts of the application it needs (no HTTP server).
-import std.cli
+// The command line: `badger run cli -- add --title "Write the docs"`.
+// Each command binds one of the feature's operations; the entry selects
+// the parts of the application it needs (no HTTP server).
+import std.command
 import std.env
-import std.io
 import std.system
+import std.text
 import tasks.memory
 import tasks.model
 import tasks.service
 
-pub enum AppError {
-    cli(source: cli.Error),
-    tasks(source: model.Error),
-    system(source: system.Error),
-    io(source: io.Error),
-} derive(Error, From)
+fn show(task: model.Task) -> String {
+    let mark = if task.done { "x" } else { " " }
+    $"[{mark}] {task.id} {task.title}"
+}
 
-// Each field is an option: `--add TITLE` (repeatable), `--done ID`.
-type Options = { add: List<String>, done: List<Int> }
+fn failure(e: model.Error) -> command.Failure {
+    match e {
+        .invalid_title(message) => command.failure(1, message),
+        .not_found(id) => command.failure(3, $"no task {id}"),
+    }
+}
 
-pub fn main() -> Result<Unit, AppError> {
-    let options = cli.parse_program<Options>("tasks", env.args())?
+pub fn commands(tasks: model.Tasks) -> List<command.Command> {
+    [
+        command.bind({
+            name: "add",
+            operation: tasks.create,
+            input: fn(options: { title: String }) { { title: options.title } },
+            output: fn(task) { $"added {task.id}: {task.title}" },
+            errors: failure,
+        }),
+        command.bind({
+            name: "done",
+            operation: tasks.complete,
+            input: fn(options: { id: Int }) { options.id },
+            output: fn(task) { $"done {task.id}: {task.title}" },
+            errors: failure,
+        }),
+        command.bind({
+            name: "list",
+            operation: tasks.list,
+            input: fn(_options: {}) { {} },
+            output: fn(all) { if all.is_empty() { "no tasks" } else { text.join(all.map(show), "\n") } },
+            errors: failure,
+        }),
+    ]
+}
+
+pub fn main() -> Int {
     let plan = system {
         store: memory.store({ first_id: 1 }),
         tasks: service.tasks({ store: ref(#store), max_title: 80 }),
     }
-    use running <- system.run(plan)
-    for title in options.add {
-        let task = running.tasks.create({ title })?
-        io.println($"added {task.id}: {task.title}")?
+    let exit: Result<Int, system.Error> = {
+        use running <- system.run(plan)
+        ok(command.main("tasks", commands(running.tasks), env.args()))
     }
-    for id in options.done {
-        let task = running.tasks.complete(id)?
-        io.println($"done {task.id}: {task.title}")?
-    }
-    for task in running.tasks.list() {
-        let mark = if task.done { "x" } else { " " }
-        io.println($"[{mark}] {task.id} {task.title}")?
-    }
-    ok(())
+    exit.unwrap_or(70)
 }

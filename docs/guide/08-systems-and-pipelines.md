@@ -496,4 +496,97 @@ remove a field or change its type. Put a decoded value under a new label.
 inside a system. [std.pipeline](../api/pipeline.md) and
 [std.system](../api/system.md) have the full APIs.
 
+## Operations and bindings
+
+A feature's significant entry points can be *operations*: typed values
+with a stable identity and documentation. `app.from_fn(info, f)` wraps a
+function of the call and the input; `app.from_pipeline(info, plan)` wraps a
+pipeline whose context is `{ call, input }`. An operation keeps its input,
+output, error, and effect types, so callers use it directly:
+`op.call(caller, input)` runs it as a nested call of `caller`.
+
+An `app.Call` is the invocation metadata: an id, a correlation shared by
+the whole chain, the parent call, the operation entered, an optional
+deadline (inherited; `within` shortens it but never extends it), and an
+optional verified actor. It carries no dependencies; those are the
+operation's captured providers.
+
+`std.endpoint` binds an operation to HTTP and `std.command` binds it to a
+command line. A binding says how the input is decoded, how the output is
+rendered, and how each expected error is answered; the operation is the
+same for both:
+
+```badger
+import std.app
+import std.command
+import std.endpoint
+import std.http
+import std.io
+import std.route
+import std.text
+
+type Greeting = { text: String }
+
+pub enum GreetError {
+    unnamed,
+} derive(Error)
+
+pub enum AppError {
+    io(source: io.Error),
+    route(source: route.RouteError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let greet = app.from_fn({ id: #hello/greet, version: 1, doc: "Greet someone." }, fn(_call, name: String) -> Result<Greeting, GreetError> {
+        if text.trim(name) == "" { err(GreetError.unnamed) } else { ok({ text: $"Hello, {name}" }) }
+    })
+    let api = route.table([
+        endpoint.bind({
+            method: #get,
+            path: "/hello/:name",
+            operation: greet,
+            input: fn(params: { name: String }, _body: {}) { params.name },
+            status: 200,
+            errors: fn(_e) { endpoint.failure(400, #hello/unnamed, "a name is required") },
+        }),
+    ])?
+    let reply = http.call(api, http.request(#get, "/hello/Ada", ""))
+    io.println(reply.body.to_text().unwrap_or("?"))?
+
+    let commands = [
+        command.bind({
+            name: "greet",
+            operation: greet,
+            input: fn(options: { name: String }) { options.name },
+            output: fn(g) { g.text },
+            errors: fn(_e) { command.failure(1, "a name is required") },
+        }),
+    ]
+    let outcome = command.run("hello", commands, app.call(), ["greet", "--name", "Ada"])
+    io.println($"{outcome.exit}: {outcome.out}")?
+    ok(())
+}
+```
+
+```text
+{"text":"Hello, Ada"}
+0: Hello, Ada
+```
+
+An endpoint's path parameters decode into the input function's first
+parameter and the body into its second; malformed input is a 400 reply
+naming the field, before the operation runs. A command's options are a
+`std.cli` record. The route name is the operation's id and its OpenAPI
+summary the documentation; `command.help` lists the commands with their
+documentation. `command.run` returns an outcome (exit status, standard
+output, standard error) without printing, for tests; `command.main` prints
+it and returns the exit status, for `main -> Int`. Each request is a new
+call, joined to the caller's `x-correlation-id` when the request has one.
+
+`app.index(infos)` validates a set of operations' metadata (unique ids,
+versions from 1, documentation) without erasing their types.
+[`examples/framework`](../../examples/framework) is a small application
+built this way: [std.app](../api/app.md), [std.endpoint](../api/endpoint.md),
+and [std.command](../api/command.md) have the APIs.
+
 Next: [Testing and contracts](09-testing-and-contracts.md).

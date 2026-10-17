@@ -46,6 +46,8 @@ std_modules![
     "config",
     "system",
     "app",
+    "endpoint",
+    "command",
     "sqlite",
     "valkey",
     "postgres",

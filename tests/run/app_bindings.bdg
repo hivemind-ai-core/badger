@@ -1,0 +1,142 @@
+// One operation implementation behind two transports: std.endpoint binds
+// it to HTTP (typed parameters, body, and reply; explicit error replies;
+// correlation from the request) and std.command to a command line (typed
+// options, output rendering, error-to-exit mapping).
+import std.app
+import std.codec
+import std.command
+import std.endpoint
+import std.http
+import std.io
+import std.route
+import std.text
+
+type Order = { id: Int, title: String }
+type NewOrder = { title: String }
+
+pub enum OrderError {
+    invalid(message: String),
+    missing(id: Int),
+} derive(Error)
+
+pub enum AppError {
+    io(source: io.Error),
+    route(source: route.RouteError),
+    command(source: command.Error),
+} derive(Error, From)
+
+fn create_op() -> app.Operation<NewOrder, Order, OrderError, !{}> {
+    app.from_fn({ id: #orders/create, version: 1, doc: "Create an order." }, fn(_call, input: NewOrder) -> Result<Order, OrderError> !{} {
+        let title = text.trim(input.title)
+        if title == "" {
+            return err(OrderError.invalid("an order needs a title"))
+        }
+        ok({ id: 1, title })
+    })
+}
+
+fn find_op() -> app.Operation<Int, Order, OrderError, !{}> {
+    app.from_fn({ id: #orders/find, version: 1, doc: "Find an order by id." }, fn(_call, id: Int) -> Result<Order, OrderError> !{} {
+        if id == 1 { ok({ id, title: "first" }) } else { err(OrderError.missing(id)) }
+    })
+}
+
+fn http_errors(e: OrderError) -> endpoint.Failure {
+    match e {
+        .invalid(message) => endpoint.failure(400, #orders/invalid, message),
+        .missing(id) => endpoint.failure(404, #orders/missing, $"no order {id}"),
+    }
+}
+
+fn exit_errors(e: OrderError) -> command.Failure {
+    match e {
+        .invalid(message) => command.failure(1, message),
+        .missing(id) => command.failure(3, $"no order {id}"),
+    }
+}
+
+fn send(api: http.Handler, method: Symbol, path: String, body: String) -> Result<Unit, AppError> {
+    let response = http.call(api, http.request(method, path, body))
+    io.println($"{method} {path} -> {response.status} {response.body.to_text().unwrap_or("?")}")?
+    ok(())
+}
+
+fn show(outcome: command.Outcome) -> Result<Unit, AppError> {
+    io.println($"exit {outcome.exit} out [{outcome.out}] err [{text.trim(outcome.err).split("\n")[0]}]")?
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let create = create_op()
+    let find = find_op()
+
+    // HTTP
+    let routes = [
+        endpoint.bind({
+            method: #post,
+            path: "/orders",
+            operation: create,
+            input: fn(_params: {}, body: NewOrder) { body },
+            status: 201,
+            errors: http_errors,
+        }),
+        endpoint.bind({
+            method: #get,
+            path: "/orders/:id",
+            operation: find,
+            input: fn(params: { id: Int }, _body: {}) { params.id },
+            status: 200,
+            errors: http_errors,
+        }),
+    ]
+    let api = route.table(routes)?
+    send(api, #post, "/orders", "{\"title\": \" first \"}")?
+    send(api, #post, "/orders", "{\"title\": \"\"}")?
+    send(api, #post, "/orders", "{\"name\": 1}")?
+    send(api, #get, "/orders/1", "")?
+    send(api, #get, "/orders/2", "")?
+    send(api, #get, "/orders/x", "")?
+
+    // the caller's correlation is joined and echoed
+    let traced = { ..http.request(#get, "/orders/1", ""), headers: map { "x-correlation-id" => "abc-123" } }
+    io.println(http.call(api, traced).headers.get("x-correlation-id").unwrap_or("none"))?
+
+    // names, URLs, and documentation come from the operations
+    io.println(route.url(routes, #orders/find, map { "id" => "7" })?)?
+    let doc = route.openapi(routes, "Orders", "1")?
+    io.println(text.contains(doc, "\"operationId\":\"orders/find\",\"summary\":\"Find an order by id.\""))?
+
+    // command line
+    let commands = [
+        command.bind({
+            name: "create",
+            operation: create,
+            input: fn(options: { title: String }) { { title: options.title } },
+            output: fn(order) { $"created {order.id}: {order.title}" },
+            errors: exit_errors,
+        }),
+        command.bind({
+            name: "show",
+            operation: find,
+            input: fn(options: { id: Int }) { options.id },
+            output: fn(order) { codec.encode(order).to_text().unwrap_or("?") },
+            errors: exit_errors,
+        }),
+    ]
+    command.validate(commands)?
+    let call = app.call()
+    show(command.run("orders", commands, call, ["create", "--title", "second"]))?
+    show(command.run("orders", commands, call, ["create", "--title", " "]))?
+    show(command.run("orders", commands, call, ["show", "--id", "1"]))?
+    show(command.run("orders", commands, call, ["show", "--id", "5"]))?
+    show(command.run("orders", commands, call, ["show", "--id", "x"]))?
+    show(command.run("orders", commands, call, ["delete"]))?
+    show(command.run("orders", commands, call, []))?
+    io.println(command.run("orders", commands, call, ["help"]).out)?
+    io.println(command.run("orders", commands, call, ["help", "show"]).out)?
+    match command.validate([commands[0], commands[0]]) {
+        .err(e) => io.println(e)?,
+        .ok(_) => io.println("unexpected")?,
+    }
+    ok(())
+}

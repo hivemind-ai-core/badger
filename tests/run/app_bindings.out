@@ -1,0 +1,30 @@
+post /orders -> 201 {"id":1,"title":"first"}
+post /orders -> 400 {"error":"orders/invalid","message":"an order needs a title"}
+post /orders -> 400 {"error":"invalid request body","message":"missing required field","path":"$.title"}
+get /orders/1 -> 200 {"id":1,"title":"first"}
+get /orders/2 -> 404 {"error":"orders/missing","message":"no order 2"}
+get /orders/x -> 400 {"error":"invalid path parameter","message":"expected an integer","path":"$.id"}
+abc-123
+/orders/7
+true
+exit 0 out [created 1: second] err []
+exit 1 out [] err [an order needs a title]
+exit 0 out [{"id":1,"title":"first"}] err []
+exit 3 out [] err [no order 5]
+exit 2 out [] err [--id: `x` is not an integer]
+exit 2 out [] err [unknown command `delete`]
+exit 2 out [] err [Usage: orders <command> [options]]
+Usage: orders <command> [options]
+
+Commands:
+  create  Create an order.
+  show    Find an order by id.
+  help    Show this help, or a command's (`orders help <command>`).
+Find an order by id.
+
+usage: show [options]
+
+options:
+  --id <integer>                 (required)
+  -h, --help
+command `create` is defined twice

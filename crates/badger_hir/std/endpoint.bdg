@@ -1,0 +1,97 @@
+// HTTP bindings of operations (FRAMEWORK_DESIGN.md §14): an endpoint is a
+// route whose handler is an `app.Operation`.
+//
+//     endpoint.bind({
+//         method: #post,
+//         path: "/orders",
+//         operation: create,
+//         input: fn(_params: {}, body: NewOrder) { body },
+//         status: 201,
+//         errors: fn(e) { match e { .invalid(m) => endpoint.failure(400, #orders/invalid, m) } },
+//     })
+//
+// The path parameters decode into the input function's first parameter
+// (a record naming the pattern's `:name`s) and the body into its second;
+// malformed input is a 400 reply naming the input path, before the
+// operation runs. Each request is a new `app.Call` (its correlation is the
+// request's `x-correlation-id` when it has one, echoed in the reply). The
+// operation's output is encoded with its schema; its expected errors are
+// answered as `errors` maps them, so no error becomes a reply implicitly.
+// The route's name is the operation's id and its summary the operation's
+// documentation, so URLs and OpenAPI come from the same registration.
+import std.app
+import std.codec
+import std.http
+import std.route
+import std.schema
+
+/// How an expected error is answered: a status, a stable code, and a
+/// message for the client.
+pub type Failure = { status: Int, code: Symbol, message: String }
+
+pub fn failure(status: Int, code: Symbol, message: String) -> Failure {
+    { status, code, message }
+}
+
+extern "intrinsic" fn params_decode<P>(params: route.Params) -> Result<P, codec.DecodeError>
+
+fn reply<T>(status: Int, correlation: String, value: T) -> http.Response where T: Codec {
+    let headers = map { "content-type" => "application/json" }
+    { status, headers: if correlation == "" { headers } else { headers.insert("x-correlation-id", correlation) }, body: codec.encode(value) }
+}
+
+/// The call a request makes: a new root call, joined to the caller's
+/// correlation when the request carries `x-correlation-id`.
+pub fn call_of(request: http.Request) -> app.Call !{Io} {
+    let call = app.call()
+    match request.headers.get("x-correlation-id") {
+        .some(c) => if c == "" { call } else { { ..call, correlation: c } },
+        .none => call,
+    }
+}
+
+/// Bind an operation to a method and path (see the module documentation).
+/// A `#get` or `#delete` endpoint has no body, and an empty body is `{}`:
+/// the input function's second parameter decodes from it.
+pub fn bind<P, B, I, O, E, Eff>(binding: {
+    method: Symbol,
+    path: String,
+    operation: app.Operation<I, O, E, Eff>,
+    input: fn(P, B) -> I,
+    status: Int,
+    errors: fn(E) -> Failure,
+}) -> route.Route where P: Codec, B: Codec, O: Codec {
+    let operation = binding.operation
+    let input = binding.input
+    let errors = binding.errors
+    let status = binding.status
+    let bodiless = binding.method == #get || binding.method == #delete
+    {
+        method: binding.method,
+        path: binding.path,
+        name: operation.info.id,
+        summary: Option.some(operation.info.doc),
+        params: Option.some(schema.json_schema(schema.of<P>())),
+        body: if bodiless { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
+        reply: Option.some(schema.json_schema(schema.of<O>())),
+        run: fn(request, raw) {
+            let call = call_of(request)
+            match params_decode<P>(raw) {
+                .err(e) => reply(400, call.correlation, { error: "invalid path parameter", path: e.path, message: e.message }),
+                .ok(p) => {
+                    let body = if bodiless || request.body.len() == 0 { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
+                    match body {
+                        .err(e) => reply(400, call.correlation, { error: "invalid request body", path: e.path, message: e.message }),
+                        .ok(b) => match operation.call(call, input(p, b)) {
+                            .ok(out) => reply(status, call.correlation, out),
+                            .err(e) => {
+                                let f = errors(e)
+                                reply(f.status, call.correlation, { error: f.code, message: f.message })
+                            },
+                        },
+                    }
+                },
+            }
+        },
+    }
+}

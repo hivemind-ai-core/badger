@@ -4,19 +4,25 @@
 //     curl -X POST localhost:8080/tasks -d '{"title": "Write the docs"}'
 //     curl localhost:8080/tasks
 //     curl -X POST localhost:8080/tasks/1/done
+import std.app
+import std.command
 import std.config
 import std.http
 import std.io
 import std.log
+import std.route
 import std.system
+import std.text
 import tasks.memory
 import tasks.service
+import cli
 import web
 
 pub enum AppError {
     config(source: config.Error),
     system(source: system.Error),
     io(source: io.Error),
+    route(source: route.RouteError),
 } derive(Error, From)
 
 type Settings = { address: String, port: U16 }
@@ -64,10 +70,44 @@ fn test_errors_become_replies() -> Result<Unit, AppError> {
     }
     use running <- system.run(plan)
     let api = running.api
-    assert(call(api, #post, "/tasks", "{\"title\": \"  \"}") == (400, "{\"error\":\"a task needs a title\"}"))
+    assert(call(api, #post, "/tasks", "{\"title\": \"  \"}") == (400, "{\"error\":\"tasks/invalid_title\",\"message\":\"a task needs a title\"}"))
     assert(call(api, #post, "/tasks", "{\"title\": \"far too long a title\"}").0 == 400)
-    assert(call(api, #post, "/tasks/9/done", "") == (404, "{\"error\":\"no task 9\"}"))
+    assert(call(api, #post, "/tasks/9/done", "") == (404, "{\"error\":\"tasks/not_found\",\"message\":\"no task 9\"}"))
     assert(call(api, #post, "/tasks", "not json").0 == 400)
     assert(call(api, #get, "/nowhere", "").0 == 404)
+    ok(())
+}
+
+// The command line binds the same operations: commands are run directly,
+// against the same plan.
+fn test_commands() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    let commands = cli.commands(running.tasks)
+    let run = fn(args: List<String>) { command.run("tasks", commands, app.call(), args) }
+    assert(run(["add", "--title", "Write the docs"]).out == "added 1: Write the docs")
+    assert(run(["done", "--id", "1"]).out == "done 1: Write the docs")
+    assert(run(["list"]).out == "[x] 1 Write the docs")
+    let missing = run(["done", "--id", "9"])
+    assert(missing.exit == 3 && missing.err == "no task 9")
+    assert(run(["add", "--title", " "]).exit == 1)
+    assert(run(["add"]).exit == 2)
+    ok(())
+}
+
+// Route names, URLs, and the OpenAPI document come from the operations.
+fn test_descriptions() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    let routes = web.routes(running.tasks)
+    assert(route.url(routes, #tasks/complete, map { "id" => "4" })? == "/tasks/4/done")
+    let doc = route.openapi(routes, "Tasks", "1")?
+    assert(text.contains(doc, "\"operationId\":\"tasks/create\",\"summary\":\"Add a task.\""))
     ok(())
 }

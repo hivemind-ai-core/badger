@@ -1,76 +1,71 @@
-// The HTTP binding of the tasks feature: a route table for its
-// operations, behind transport stages (request identity, access log, and
-// replies for the feature's errors).
-import std.codec
+// The HTTP binding of the tasks feature: each operation bound to a method
+// and path (typed parameters, body, and reply; explicit replies for the
+// feature's errors), behind an access-log stage.
+import std.endpoint
 import std.http
 import std.log
 import std.pipeline
 import std.pipeline.{handle}
-import std.random
 import std.route
 import tasks.model
 
 pub enum Error {
     route(source: route.RouteError),
-    http(source: http.Error),
-    decode(source: codec.DecodeError),
-    tasks(source: model.Error),
 } derive(Error, From)
-
-// Give each request an id (kept in the context for later stages).
-stage request_id(ids: random.Random) {
-    enter(ctx) => pipeline.next({ ..ctx, request_id: ids.int(100000, 999999) })
-}
 
 // Log each request's outcome; `leave` sees the reply of every later stage.
 stage access_log() -> Result<_, Error> {
     leave(ctx, response: http.Response) {
         log.info("request", {
-            id: ctx.request_id,
             method: ctx.request.method,
             path: ctx.request.path,
             status: response.status,
+            correlation: response.headers.get("x-correlation-id").unwrap_or(""),
         })
         pipeline.leave(ctx, response)
     }
 }
 
-// An operation's result as a reply: the feature's errors are client
-// errors, with the message the feature gives.
-fn answer<T>(status: Int, result: Result<T, Error>) -> Result<http.Response, Error> where T: Codec {
-    let reply = match result {
-        .ok(value) => http.json(status, value),
-        .err(.tasks(.invalid_title(message))) => http.json(400, { error: message }),
-        .err(.tasks(.not_found(id))) => http.json(404, { error: $"no task {id}" }),
-        .err(.decode(e)) => http.json(400, { error: $"invalid request: {e}" }),
-        .err(e) => return err(e),
+// The feature's errors are client errors, with the message the feature gives.
+fn failure(e: model.Error) -> endpoint.Failure {
+    match e {
+        .invalid_title(message) => endpoint.failure(400, #tasks/invalid_title, message),
+        .not_found(id) => endpoint.failure(404, #tasks/not_found, $"no task {id}"),
     }
-    ok(reply?)
 }
 
-fn routes(tasks: model.Tasks) -> Result<http.Handler, Error> {
-    let table = route.table([
-        route.get("/tasks", #tasks/list, fn(_request, _params) {
-            answer(200, ok(tasks.list()))
+pub fn routes(tasks: model.Tasks) -> List<route.Route> {
+    [
+        endpoint.bind({
+            method: #get,
+            path: "/tasks",
+            operation: tasks.list,
+            input: fn(_params: {}, _body: {}) { {} },
+            status: 200,
+            errors: failure,
         }),
-        route.post("/tasks", #tasks/create, fn(request, _params) {
-            answer(201, codec.decode<model.NewTask>(request.body).map_err(Error.from).and_then(fn(input) {
-                tasks.create(input).map_err(Error.from)
-            }))
+        endpoint.bind({
+            method: #post,
+            path: "/tasks",
+            operation: tasks.create,
+            input: fn(_params: {}, body: model.NewTask) { body },
+            status: 201,
+            errors: failure,
         }),
-        route.post("/tasks/:id/done", #tasks/complete, fn(_request, params) {
-            let id = params.get("id").and_then(fn(s) { s.parse_int() }).unwrap_or(0)
-            answer(200, tasks.complete(id).map_err(Error.from))
+        endpoint.bind({
+            method: #post,
+            path: "/tasks/:id/done",
+            operation: tasks.complete,
+            input: fn(params: { id: Int }, _body: {}) { params.id },
+            status: 200,
+            errors: failure,
         }),
-    ])?
-    ok(table)
+    ]
 }
 
 pub provider api(config: { tasks: model.Tasks }) -> Result<http.Handler, Error> {
-    let table = routes(config.tasks)?
-    let ids = random.seeded(7)
+    let table = route.table(routes(config.tasks))?
     let process = pipeline.compile(pipeline {
-        request_id(ids),
         access_log(),
         handle(fn(ctx) -> Result<http.Response, Error> { ok(http.call(table, ctx.request)) }),
     })

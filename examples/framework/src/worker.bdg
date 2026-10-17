@@ -1,5 +1,6 @@
 // A background activity owned by a node: a reminder worker, supervised
 // (restarted after a failure, within limits) and stopped with the system.
+import std.app
 import std.io
 import std.system
 import std.task
@@ -21,7 +22,7 @@ provider reminders(scope, config: { tasks: model.Tasks, rounds: Int, sent: Atom<
     let rounds = config.rounds
     scope.worker(fn() -> Result<Unit, AppError> {
         for _ in 0..rounds {
-            let open = tasks.open()
+            let open = tasks.open.call(app.call(), {})?
             io.println($"reminder: {open.len()} open")?
             let _ = sent.update(fn(n) { n + 1 })
             task.sleep(1ms)
@@ -39,8 +40,9 @@ pub fn main() -> Result<Unit, AppError> {
         reminders: reminders({ tasks: ref(#tasks), rounds: 3, sent }),
     }
     use running <- system.run(plan)
-    let _ = running.tasks.create({ title: "Write the docs" })?
-    let _ = running.tasks.create({ title: "Ship the release" })?
+    let call = app.call()
+    let _ = running.tasks.create.call(call, { title: "Write the docs" })?
+    let _ = running.tasks.create.call(call, { title: "Ship the release" })?
     // wait for the worker's rounds; leaving the scope stops it
     while sent.get() < 3 {
         task.sleep(1ms)
