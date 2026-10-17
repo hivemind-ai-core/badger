@@ -29,6 +29,17 @@ not prove task escape or unique ownership. Side metadata, counters and mutexes
 perturb both timing and RSS: use the ordinary variant for performance claims.
 `object_metadata_capacity_bytes` reports just the side-vector capacity; site tables,
 output encoding and other diagnostic native storage add further overhead.
+`type_id` is process-local: generic instantiations can share a display name, so
+use the id to distinguish descriptors within a report and names for family-level
+summaries across processes.
+
+To repeat the stress/verification checks and summarize saved measurements:
+
+```
+python3 bench/gc/check_allocations.py --ordinary /tmp/base/badger --diagnostic /tmp/diag/badger --out /tmp/census-checks.json.gz
+python3 bench/gc/analyze.py /tmp/allocation-census
+python3 bench/gc/analyze_allocations.py /tmp/allocation-census
+```
 
 `coverage.bdg` adds construction-inclusive byte/word buffer churn, a larger
 survivor window, persistent-map snapshot histories, and equivalent visible,

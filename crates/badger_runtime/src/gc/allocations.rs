@@ -133,7 +133,7 @@ pub(super) fn record(
         return;
     }
     let key = Key {
-        descriptor: desc as *const TypeDesc as usize,
+        descriptor: desc.id,
         file: caller.file(),
         line: caller.line(),
         column: caller.column(),
@@ -225,7 +225,7 @@ pub(super) fn finish() {
     let mut total = Counts::default();
     let rows: Vec<_> = sites.into_iter().map(|(key, (name, counts))| {
         total.add(&counts);
-        json!({"type": name, "runtime_source": {"file": key.file, "line": key.line, "column": key.column}, "counts": counts.report()})
+        json!({"type": name, "type_id": key.descriptor, "runtime_source": {"file": key.file, "line": key.line, "column": key.column}, "counts": counts.report()})
     }).collect();
     let output = json!({
         "schema": 1,
