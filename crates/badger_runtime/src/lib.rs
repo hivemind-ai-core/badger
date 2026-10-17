@@ -250,6 +250,9 @@ pub fn make_record(desc: &'static TypeDesc, fields: &[(&str, u64)]) -> u64 {
     unsafe {
         let p = gc::obj(w).payload();
         for (name, val) in fields {
+            // a name the type lacks is a runtime/std mismatch (a renamed
+            // field): caught in debug builds, where the suite runs
+            debug_assert!(desc.field(name).is_some(), "record `{}` has no field `{name}`", desc.name);
             if let Some(fd) = desc.field(name) {
                 fd.repr.store(p.add(fd.offset as usize), *val);
             }

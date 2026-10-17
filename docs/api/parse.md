@@ -24,7 +24,7 @@ pub type Failure = { offset: Int, line: Int, column: Int, expected: List<String>
 ### `Grammar`
 
 ```badger
-struct Grammar { id: Int }
+struct Grammar { compiled: parse.Compiled }
 ```
 
 #### `Grammar.forest`

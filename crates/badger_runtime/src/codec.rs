@@ -261,7 +261,7 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
             None => fail(path, "expected a string"),
         },
         Kind::Symbol => match j.as_str() {
-            Some(s) => Ok(crate::string::symbol(s)),
+            Some(s) => crate::string::external_symbol(s).or_else(|m| fail(path, &m)),
             None => fail(path, "expected a symbol string"),
         },
         Kind::Char => match j.as_str().and_then(|s| s.chars().next()) {

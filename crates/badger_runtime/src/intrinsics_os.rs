@@ -19,23 +19,6 @@ fn opt_string(ret: &'static TypeDesc, s: Option<String>) -> u64 {
     }
 }
 
-/// Deterministic random source state (xorshift64*).
-pub struct Rng(u64);
-
-impl Rng {
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> u64 {
-        let mut x = self.0;
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        self.0 = x;
-        x.wrapping_mul(0x2545_F491_4F6C_DD1D)
-    }
-}
-
-static RNGS: std::sync::Mutex<Vec<Rng>> = std::sync::Mutex::new(Vec::new());
-
 /// Manual (controlled) clock for tests: `None` = real monotonic clock.
 pub static MANUAL_CLOCK: std::sync::Mutex<Option<i64>> = std::sync::Mutex::new(None);
 
@@ -209,21 +192,11 @@ define_intrinsics! {
     }
 
     // ---------------------------------------------------------------- random
-    fn random_seeded(ctx, targs, ret, seed) {
-        let mut g = RNGS.lock().unwrap();
-        g.push(Rng(seed.max(1)));
-        (g.len() - 1) as u64
-    }
+    // the OS seed of `random.system()` (recorded, so a replay repeats it)
     fn random_os(ctx, targs, ret) {
-        let seed = crate::repro::external("random", "", None, false, || {
+        crate::repro::external("random", "", None, false, || {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7) ^ (std::process::id() as u64) << 32
-        });
-        let mut g = RNGS.lock().unwrap();
-        g.push(Rng(seed | 1));
-        (g.len() - 1) as u64
-    }
-    fn random_next(ctx, targs, ret, id) {
-        RNGS.lock().unwrap()[id as usize].next()
+        }) | 1
     }
 
     // ---------------------------------------------------------------- regex

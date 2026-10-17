@@ -858,15 +858,47 @@ use crate::intrinsics::{Targs, rdesc};
 use crate::string::{new_string, str_of};
 use crate::task::TaskCtx;
 
-static GRAMMARS: std::sync::Mutex<Vec<std::sync::Arc<Grammar>>> = std::sync::Mutex::new(Vec::new());
+/// A compiled grammar as a managed object: its payload owns an
+/// `Arc<Grammar>`, released when the collector finds it unreachable.
+fn grammar_desc() -> &'static TypeDesc {
+    static D: std::sync::OnceLock<&'static TypeDesc> = std::sync::OnceLock::new();
+    D.get_or_init(|| {
+        TypeDesc::new(
+            "Compiled",
+            crate::desc::Kind::Opaque { trace: None, finalize: Some(finalize_grammar), args: vec![] },
+        )
+        .leak()
+    })
+}
+
+fn new_grammar(g: Grammar) -> u64 {
+    let w = crate::gc::alloc(grammar_desc(), 8);
+    let owned = Box::into_raw(Box::new(std::sync::Arc::new(g)));
+    unsafe { *(crate::gc::obj(w).payload() as *mut *mut std::sync::Arc<Grammar>) = owned };
+    w
+}
+
+fn grammar_of(w: u64) -> std::sync::Arc<Grammar> {
+    unsafe { (**(crate::gc::obj(w).payload() as *const *const std::sync::Arc<Grammar>)).clone() }
+}
+
+fn finalize_grammar(o: *mut crate::gc::Header) {
+    unsafe {
+        let p = (*o).payload() as *mut *mut std::sync::Arc<Grammar>;
+        if !(*p).is_null() {
+            drop(Box::from_raw(*p));
+            *p = std::ptr::null_mut();
+        }
+    }
+}
 
 /// `Result<Int, String>`: compile a grammar.
 pub extern "C" fn parse_grammar(_c: *mut TaskCtx, _t: Targs, ret: *const TypeDesc, text: u64) -> u64 {
     match Grammar::parse_text(str_of(text)) {
         Ok(g) => {
-            let mut gs = GRAMMARS.lock().unwrap();
-            gs.push(std::sync::Arc::new(g));
-            crate::make_variant(rdesc(ret), "ok", &[(gs.len() - 1) as u64])
+            let r = Roots::new();
+            let w = r.add(new_grammar(g));
+            crate::make_variant(rdesc(ret), "ok", &[w])
         }
         Err(e) => {
             let m = new_string(&e);
@@ -878,7 +910,7 @@ pub extern "C" fn parse_grammar(_c: *mut TaskCtx, _t: Targs, ret: *const TypeDes
 /// `Result<{tree: Data, ambiguous: Bool}, Failure>`
 pub extern "C" fn parse_run(_c: *mut TaskCtx, _t: Targs, ret: *const TypeDesc, g: u64, input: u64) -> u64 {
     let ret = rdesc(ret);
-    let grammar = GRAMMARS.lock().unwrap()[g as usize].clone();
+    let grammar = grammar_of(g);
     let text = str_of(input).to_string();
     let r = Roots::new();
     match grammar.parse(&text) {
@@ -938,7 +970,7 @@ fn failure_value(err_desc: &'static TypeDesc, text: &str, f: &Failure, r: &Roots
 /// `Result<Data, Failure>`: the shared packed parse forest.
 pub extern "C" fn parse_forest(_c: *mut TaskCtx, _t: Targs, ret: *const TypeDesc, g: u64, input: u64) -> u64 {
     let ret = rdesc(ret);
-    let grammar = GRAMMARS.lock().unwrap()[g as usize].clone();
+    let grammar = grammar_of(g);
     let text = str_of(input).to_string();
     let r = Roots::new();
     match grammar.forest_json(&text) {
@@ -963,7 +995,7 @@ pub extern "C" fn parse_trees(
     limit: u64,
 ) -> u64 {
     let ret = rdesc(ret);
-    let grammar = GRAMMARS.lock().unwrap()[g as usize].clone();
+    let grammar = grammar_of(g);
     let text = str_of(input).to_string();
     let r = Roots::new();
     match grammar.trees(&text, limit as usize) {
@@ -1002,7 +1034,7 @@ pub extern "C" fn parse_recover(
     max_errors: u64,
 ) -> u64 {
     let ret = rdesc(ret);
-    let grammar = GRAMMARS.lock().unwrap()[g as usize].clone();
+    let grammar = grammar_of(g);
     let text = str_of(input).to_string();
     let r = Roots::new();
     let err_desc = ret.variant(1).unwrap().fields[0].desc;

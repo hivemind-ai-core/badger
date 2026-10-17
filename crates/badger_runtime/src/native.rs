@@ -797,7 +797,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
         }
         (Kind::Char, tag::CHAR) => r.u32()? as u64,
         (Kind::String, tag::STR | tag::SYMBOL) => root(new_string(r.str()?)),
-        (Kind::Symbol, tag::SYMBOL | tag::STR) => crate::string::symbol(r.str()?),
+        (Kind::Symbol, tag::SYMBOL | tag::STR) => crate::string::external_symbol(r.str()?)?,
         (Kind::Bytes, tag::BYTES) => root(new_bytes(r.bytes()?)),
         (Kind::Bytes, tag::STR) => root(new_bytes(r.str()?.as_bytes())),
         (Kind::Record { fields, tuple: true, size, .. }, tag::LIST) => {
@@ -849,7 +849,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
             for _ in 0..n {
                 let k = r.str()?;
                 let kw = if matches!(key.kind, Kind::Symbol) {
-                    crate::string::symbol(k)
+                    crate::string::external_symbol(k)?
                 } else {
                     root(new_string(k))
                 };

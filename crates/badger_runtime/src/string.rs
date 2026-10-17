@@ -97,6 +97,32 @@ pub fn symbol(name: &str) -> u64 {
     w
 }
 
+/// New symbols decoded from external data (JSON, native results) so far.
+static EXTERNAL_SYMBOLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// How many new symbols external data may create: symbols are interned for
+/// the life of the process, so unbounded distinct ones from requests would
+/// grow memory without end.
+pub const EXTERNAL_SYMBOL_LIMIT: usize = 1 << 16;
+
+/// [`symbol`] for a name that came from outside the program: an existing
+/// symbol always; a new one only within [`EXTERNAL_SYMBOL_LIMIT`].
+pub fn external_symbol(name: &str) -> Result<u64, String> {
+    {
+        let g = SYMBOLS.lock().unwrap();
+        if let Some(&w) = g.as_ref().and_then(|m| m.get(name)) {
+            return Ok(w);
+        }
+    }
+    if EXTERNAL_SYMBOLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) >= EXTERNAL_SYMBOL_LIMIT {
+        EXTERNAL_SYMBOLS.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        return Err(format!(
+            "too many distinct symbols from external data ({EXTERNAL_SYMBOL_LIMIT}; symbols are never freed): decode this field as a String"
+        ));
+    }
+    Ok(symbol(name))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
