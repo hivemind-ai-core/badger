@@ -60,3 +60,9 @@ publish ranges and memory costs alongside policy comparisons.
 Executable hashing streams through a bounded buffer. Reading the whole debug
 binary into Python can inflate fork/exec RSS high-water marks; such runs must
 not be used for memory comparisons.
+
+`rss_spawn.c` is built with the system C compiler into the output parent. It
+forks the language from a small clean executable and reports that child's
+`wait4` RSS, excluding the Python runner's memory high-water mark. The original
+launcher-tree value is retained separately. This matters once large debug
+binaries or accumulated JSON reports have grown the Python process.

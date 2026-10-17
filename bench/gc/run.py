@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import random
+import re
 import statistics
 import subprocess
 import sys
@@ -112,6 +113,11 @@ def main():
             if not path.exists():
                 path.write_text(json.dumps(t.oracle(config), sort_keys=True))
             oracles[name] = json.loads(path.read_text())
+    rss_source = ROOT / "bench/gc/rss_spawn.c"
+    rss_hash = hashlib.sha256(rss_source.read_bytes()).hexdigest()
+    rss_helper = (args.out.parent / f"rss-spawn-{rss_hash[:16]}").resolve()
+    if not rss_helper.exists():
+        subprocess.run(["cc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror", str(rss_source), "-o", str(rss_helper)], check=True)
     cells = [(name, w, v) for name in cases for w in args.workers for v in variants]
     rng = random.Random(20261017)
     runs = []
@@ -126,7 +132,7 @@ def main():
         affinity=sorted(os.sched_getaffinity(0)), arguments=vars(args) | {
             "baseline": str(args.baseline), "diagnostic": str(args.diagnostic), "out": str(args.out)},
         binaries={k: dict(path=str(p), sha256=sha(p)) for k, p in binaries.items()},
-        sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), ROOT / "bench/gc/coverage.lang", ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
+        sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), rss_source, ROOT / "bench/gc/coverage.lang", ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
         runs=runs)
     for rep in range(-1, args.reps):
         order = cells.copy()
@@ -147,7 +153,12 @@ def main():
             env["GC_BENCH_CONFIG" if coverage else "TELEMETRY_CONFIG"] = json.dumps(config)
             command = [str(binaries[binary]), "run", "--release", "--bench", "--workers", str(workers),
                        "bench/gc/coverage.lang" if coverage else "bench/telemetry.lang"]
-            out, err, process = t.run_process(command, env, 180)
+            out, err, process = t.run_process([str(rss_helper), *command], env, 180)
+            rss = re.search(r"^\[gc-bench child rss\] (\d+)$", err, re.MULTILINE)
+            if rss is None:
+                raise ValueError("RSS helper did not report language-child usage")
+            process["launcher_tree_peak_rss_kib"] = process["peak_rss_kib"]
+            process["peak_rss_kib"] = int(rss[1])
             record = json.loads(out)
             if coverage:
                 validate_coverage(record, config)
