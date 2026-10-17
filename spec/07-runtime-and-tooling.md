@@ -180,7 +180,7 @@ support for left recursion, ambiguity, source spans, detailed failures, and
 optional recovery. Return packed parse forests where ambiguity requires them;
 enumerating trees is bounded/lazy, and cycles or enumeration budgets are reported
 explicitly. This standard parsing library is independent of the language's
-own pest grammar. Compile-time grammar optimization may cache a constant grammar
+own grammar. Compile-time grammar optimization may cache a constant grammar
 later, but general macros/evaluation are not prerequisites for the API.
 
 ## Memory budget

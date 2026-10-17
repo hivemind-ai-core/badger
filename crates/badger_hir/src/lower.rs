@@ -1026,6 +1026,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = te.span;
         let kind = match &te.kind {
             ast::TypeKind::Hole => HTyKind::Hole,
+            // only in a tree recovered from syntax errors
+            ast::TypeKind::Error => HTyKind::Error,
             ast::TypeKind::Unit => HTyKind::Unit,
             ast::TypeKind::Tuple(ts) => HTyKind::Tuple(ts.iter().map(|t| self.lower_ty(*t)).collect()),
             ast::TypeKind::Record { fields, rest } => {
@@ -1197,6 +1199,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = expr.span;
         let kind = match &expr.kind {
             ast::ExprKind::Lit(l) => ExprKind::Lit(self.lower_lit(l)),
+            ast::ExprKind::Error => ExprKind::Error,
             ast::ExprKind::Interp(parts) => ExprKind::Interp(
                 parts
                     .iter()
@@ -2540,6 +2543,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = pat.span;
         let kind = match &pat.kind {
             ast::PatKind::Discard => PatKind::Discard,
+            ast::PatKind::Error => PatKind::Error,
             ast::PatKind::Bind(n) => PatKind::Bind(self.bind_local(*n, mutable)),
             ast::PatKind::Lit { lit, negative } => {
                 let mut l = self.lower_lit(lit);
@@ -2627,7 +2631,7 @@ fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
     let mut go = |x: ast::ExprId| collect_refs(ast, x, out);
     match &ast.exprs[e].kind {
         K::Ref(l) => out.push((l.sym, l.span)),
-        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue => {}
+        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue | K::Error => {}
         K::Interp(parts) => parts.iter().for_each(|p| {
             if let ast::InterpPart::Expr(x) = p {
                 go(*x)

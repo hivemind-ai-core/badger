@@ -1,6 +1,6 @@
 # Architecture
 
-The compiler parses with **pest**, resolves and desugars into HIR, infers and
+The compiler lexes with **logos**, parses with **chumsky**, resolves and desugars into HIR, infers and
 checks types, effects, regions, and ownership, monomorphizes into MIR, and
 compiles MIR with **Cranelift** into machine code that runs in-process on the
 runtime. The language contract is [SPEC.md](SPEC.md); this document describes
@@ -8,7 +8,7 @@ the implementation.
 
 ```text
  source text
-     │  badger_syntax   layout pass (newline separators) → pest grammar → arena AST (Pratt operators)
+     │  badger_syntax   lexer (logos) → layout (newline separators) → chumsky grammar → syntax tree → arena AST
      ▼
     AST
      │  badger_hir      modules/imports, name resolution, prelude, desugaring, const checks
@@ -36,7 +36,7 @@ error. `badger_cli` is the `badger` binary.
 | Crate | Role | Key deps |
 |---|---|---|
 | `badger_base` | spans, source map, interner, diagnostics (codes, JSON, ariadne), diagnostic catalog | lasso, ariadne |
-| `badger_syntax` | layout pass, `grammar.pest`, parser, AST, formatter | pest |
+| `badger_syntax` | lexer, layout, grammar, lowering to the AST, formatter | logos, chumsky |
 | `badger_hir` | resolution, desugaring, lang items, embedded `std/*.bdg` | la-arena, petgraph |
 | `badger_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `badger_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
@@ -60,10 +60,19 @@ error. `badger_cli` is the `badger` binary.
 
 ## Front end
 
-- **Layout.** Newlines that end statements become separator tokens; comments
-  are blanked with offsets preserved, so spans stay exact.
-- **Grammar.** Keywords are matched as whole words; uppercase/lowercase roles
-  are lexical (types and protocols uppercase, values lowercase).
+- **Lexer and layout.** logos scans tokens (words, literals, punctuation;
+  interpolation holes as ordinary tokens); newlines that end statements
+  become separator tokens. Words are one token kind, so a keyword can still
+  name a field; symbols (`:name`), `>>`, and `>=` are adjacent tokens the
+  parser joins, so `List<List<Int>>` closes two argument lists.
+- **Grammar.** chumsky parsers over the token slice build an owned syntax
+  tree, lowered to the arena AST. The first pass tracks no errors and
+  dispatches on the next token; a file that fails is parsed again with rich
+  errors and recovery (each broken statement or declaration is skipped to
+  the next separator), so one run reports all syntax errors, and an
+  unbalanced bracket is reported at both ends. Uppercase/lowercase roles
+  are checked when lowering (types and protocols uppercase, values
+  lowercase).
 - **Formatter** (`badger format`): one canonical layout. Lines inside brackets
   indent one level past the line that opened them; spacing within a line is
   normalized token by token (operators, commas, colons, braces, generic

@@ -33,8 +33,8 @@ badger_compress = { path = "crates/badger_compress" }
 badger_fs = { path = "crates/badger_fs" }
 
 # --- parsing ---------------------------------------------------------------
-pest = "2.9.3"
-pest_derive = "2.9.3"
+logos = "0.16.1"        # lexer: source text to a flat (token, span) buffer
+chumsky = { version = "0.13.0", features = ["pratt"] }  # parser combinators over the token slice
 toml = { version = "1.1.6", default-features = false, features = ["std", "parse", "serde"] }  # manifest validation (exact TOML semantics)
 
 # --- code generation (Cranelift JIT) ---------------------------------------

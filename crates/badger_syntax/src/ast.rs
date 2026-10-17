@@ -232,6 +232,8 @@ pub enum TypeKind {
     },
     /// An effect row as a type argument: `Seq<Int, !{Io}>`.
     Effect(Effect),
+    /// A type that did not parse (only in a tree recovered from syntax errors).
+    Error,
 }
 
 // ------------------------------------------------------------------ expressions
@@ -391,24 +393,62 @@ pub enum ExprKind {
     Interp(Vec<InterpPart>),
     Name(Name),
     TypeName(Name),
-    Field { base: ExprId, name: Name },
-    Index { base: ExprId, index: ExprId },
-    Call { callee: ExprId, type_args: Vec<TypeId>, args: Vec<ExprId> },
+    Field {
+        base: ExprId,
+        name: Name,
+    },
+    Index {
+        base: ExprId,
+        index: ExprId,
+    },
+    Call {
+        callee: ExprId,
+        type_args: Vec<TypeId>,
+        args: Vec<ExprId>,
+    },
     Try(ExprId),
-    Unary { op: UnOp, operand: ExprId },
-    Binary { op: BinOp, lhs: ExprId, rhs: ExprId },
+    Unary {
+        op: UnOp,
+        operand: ExprId,
+    },
+    Binary {
+        op: BinOp,
+        lhs: ExprId,
+        rhs: ExprId,
+    },
     Tuple(Vec<ExprId>),
     List(Vec<ExprId>),
-    Record { spread: Option<ExprId>, entries: Vec<RecordEntry> },
+    Record {
+        spread: Option<ExprId>,
+        entries: Vec<RecordEntry>,
+    },
     Map(Vec<(ExprId, ExprId)>),
     Set(Vec<ExprId>),
     Lambda(Lambda),
-    If { cond: ExprId, then: ExprId, els: Option<ExprId> },
-    Match { scrutinee: ExprId, arms: Vec<MatchArm> },
-    While { cond: ExprId, body: ExprId },
-    For { pat: PatId, iter: ExprId, body: ExprId },
-    Loop { body: ExprId },
-    Block { stmts: Vec<Stmt> },
+    If {
+        cond: ExprId,
+        then: ExprId,
+        els: Option<ExprId>,
+    },
+    Match {
+        scrutinee: ExprId,
+        arms: Vec<MatchArm>,
+    },
+    While {
+        cond: ExprId,
+        body: ExprId,
+    },
+    For {
+        pat: PatId,
+        iter: ExprId,
+        body: ExprId,
+    },
+    Loop {
+        body: ExprId,
+    },
+    Block {
+        stmts: Vec<Stmt>,
+    },
     Return(Option<ExprId>),
     Break(Option<ExprId>),
     Continue,
@@ -416,6 +456,9 @@ pub enum ExprKind {
     Pipeline(Vec<ExprId>),
     Ref(Label),
     Unsafe(ExprId),
+    /// An expression that did not parse (only in a tree recovered from
+    /// syntax errors).
+    Error,
 }
 
 // ------------------------------------------------------------------ patterns
@@ -430,8 +473,20 @@ pub struct Pat {
 pub enum PatKind {
     Discard,
     Bind(Name),
-    Lit { lit: Lit, negative: bool },
+    Lit {
+        lit: Lit,
+        negative: bool,
+    },
     Tuple(Vec<PatId>),
-    Record { fields: Vec<(Label, Option<PatId>)>, open: bool },
-    Variant { ty: Option<(Vec<Name>, Name)>, name: Name, args: Option<Vec<PatId>> },
+    Record {
+        fields: Vec<(Label, Option<PatId>)>,
+        open: bool,
+    },
+    Variant {
+        ty: Option<(Vec<Name>, Name)>,
+        name: Name,
+        args: Option<Vec<PatId>>,
+    },
+    /// A pattern that did not parse (only in a tree recovered from syntax errors).
+    Error,
 }

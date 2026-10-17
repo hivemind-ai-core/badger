@@ -18,12 +18,20 @@ any phase reported an error.
 
 ### 1. Syntax: text to AST (`badger_syntax`)
 
-- `layout.rs`: newlines that end statements become separator tokens;
-  comments are blanked with byte offsets kept, so spans stay exact.
-- `grammar.pest`: the grammar, parsed with pest.
-- `parser.rs`: the short-lived pest parse tree is lowered at once into an
-  arena AST (`ast.rs`, nodes addressed by typed indices, each with a
-  `Span`). Operator precedence is a Pratt parser here, not in the grammar.
+- `token.rs`: the lexer (logos) turns source text into a flat buffer of
+  `(Tok, Span)`; interpolated strings' holes are lexed as ordinary tokens.
+  `layout` then turns the newlines that end statements into separator
+  tokens.
+- `grammar.rs`: chumsky parsers over the token slice, producing an owned
+  syntax tree (`cst.rs`). A first pass records no errors (fast); a file
+  that fails is parsed again with rich errors and recovery, so every
+  broken statement and declaration is reported. Expressions are parsed by
+  precedence climbing.
+- `lower.rs`: the syntax tree to the arena AST (`ast.rs`, nodes addressed by
+  typed indices, each with a `Span`), with the case, duplicate-field, and
+  literal checks and the `if let` / `while let` desugaring.
+- `parser.rs`: the entry point (`parse`, `parse_recovering`), bracket
+  balance errors, and diagnostics from parse errors.
 - `format.rs`, `spacing.rs`: the canonical formatter (`badger format`).
 
 ### 2. HIR: names and desugaring (`badger_hir`)
@@ -123,7 +131,7 @@ ARCHITECTURE.md's "Runtime" section has the details.
 | Crate | Role |
 |---|---|
 | `badger_base` | Spans, source map, interned symbols, diagnostics (codes, JSON, rendering), the diagnostic catalog (`badger explain`). |
-| `badger_syntax` | Layout pass, pest grammar, parser, AST, formatter. |
+| `badger_syntax` | Lexer, layout, chumsky grammar, lowering to the AST, formatter. |
 | `badger_hir` | Name resolution, desugaring, HIR; the embedded standard library (`std/*.bdg`). |
 | `badger_typeck` | Type inference and the static checks (effects, ownership, regions, exhaustiveness, deadlock warnings). |
 | `badger_mir` | Monomorphization, layouts and descriptors, MIR, optimization passes, binary MIR. |
@@ -235,7 +243,7 @@ cargo test --release -p badger_cli --test programs run_programs   # tests/run (n
 
 | To change | Start in |
 |---|---|
-| Syntax | `crates/badger_syntax/src/grammar.pest`, `parser.rs`; then `format.rs` |
+| Syntax | `crates/badger_syntax/src/token.rs`, `grammar.rs`, `lower.rs`; then `format.rs` |
 | A diagnostic | the phase that reports it; add catalog text in `crates/badger_base/src/catalog.rs` |
 | A standard function | `crates/badger_hir/std/MODULE.bdg`; an intrinsic also in `crates/badger_runtime/src/intrinsics*.rs` |
 | A CLI command | `crates/badger_cli/src/main.rs`, and the `Session` method it calls in `badger_driver` |

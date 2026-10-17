@@ -574,7 +574,7 @@ impl Session {
         match r {
             Ok(ast) => Some(ast),
             Err(e) => {
-                self.diagnostics.push(e.into());
+                self.diagnostics.extend(e.errors);
                 None
             }
         }
