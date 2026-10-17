@@ -1,0 +1,24 @@
+// The feature's vocabulary: what a task is, what can go wrong, what the
+// feature needs (a store), and what it offers (the same interface to HTTP,
+// the command line, and workers).
+
+pub type Task = { id: Int, title: String, done: Bool }
+pub type NewTask = { title: String }
+
+pub enum Error {
+    invalid_title(message: String),
+    not_found(id: Int),
+} derive(Error)
+
+pub type Store = {
+    insert: fn(String) -> Task !{State},
+    all: fn() -> List<Task> !{State},
+    complete: fn(Int) -> Option<Task> !{State},
+}
+
+pub type Tasks = {
+    create: fn(NewTask) -> Result<Task, Error> !{State},
+    list: fn() -> List<Task> !{State},
+    open: fn() -> List<Task> !{State},
+    complete: fn(Int) -> Result<Task, Error> !{State},
+}

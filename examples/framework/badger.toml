@@ -1,0 +1,11 @@
+[package]
+name = "todo"
+entry = "src/api.bdg"
+
+[entries]
+cli = "src/cli.bdg"
+worker = "src/worker.bdg"
+
+[config]
+address = "127.0.0.1"
+port = 8080

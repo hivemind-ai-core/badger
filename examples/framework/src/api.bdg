@@ -1,0 +1,73 @@
+// The HTTP service: `badger run` (in this directory) serves the tasks API
+// on the configured address until it is stopped.
+//
+//     curl -X POST localhost:8080/tasks -d '{"title": "Write the docs"}'
+//     curl localhost:8080/tasks
+//     curl -X POST localhost:8080/tasks/1/done
+import std.config
+import std.http
+import std.io
+import std.log
+import std.system
+import tasks.memory
+import tasks.service
+import web
+
+pub enum AppError {
+    config(source: config.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+type Settings = { address: String, port: U16 }
+
+pub fn main() -> Result<Unit, AppError> {
+    let settings = config.load<Settings>("TASKS_")?
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks) }),
+        server: http.server({ address: settings.address, port: settings.port, handler: ref(#api) }),
+    }
+    use running <- system.run(plan)
+    log.info("serving", { address: settings.address, port: settings.port })
+    running.wait_for_shutdown()?
+    ok(())
+}
+
+// Tests run the same plan without its server, calling the API in-process.
+
+fn call(api: http.Handler, method: Symbol, path: String, body: String) -> (Int, String) {
+    let response = http.call(api, http.request(method, path, body))
+    (response.status, response.body.to_text().unwrap_or("?"))
+}
+
+fn test_create_list_complete() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks) }),
+    }
+    use running <- system.run(plan)
+    let api = running.api
+    assert(call(api, #post, "/tasks", "{\"title\": \"  Write the docs \"}") == (201, "{\"done\":false,\"id\":1,\"title\":\"Write the docs\"}"))
+    assert(call(api, #post, "/tasks/1/done", "") == (200, "{\"done\":true,\"id\":1,\"title\":\"Write the docs\"}"))
+    assert(call(api, #get, "/tasks", "").0 == 200)
+    ok(())
+}
+
+fn test_errors_become_replies() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 10 }),
+        api: web.api({ tasks: ref(#tasks) }),
+    }
+    use running <- system.run(plan)
+    let api = running.api
+    assert(call(api, #post, "/tasks", "{\"title\": \"  \"}") == (400, "{\"error\":\"a task needs a title\"}"))
+    assert(call(api, #post, "/tasks", "{\"title\": \"far too long a title\"}").0 == 400)
+    assert(call(api, #post, "/tasks/9/done", "") == (404, "{\"error\":\"no task 9\"}"))
+    assert(call(api, #post, "/tasks", "not json").0 == 400)
+    assert(call(api, #get, "/nowhere", "").0 == 404)
+    ok(())
+}

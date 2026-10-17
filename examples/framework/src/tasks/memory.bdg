@@ -1,0 +1,23 @@
+// An in-memory store. Another adapter (SQLite, Postgres) would provide
+// the same `Store` interface; the feature does not know which it has.
+import std.list
+import tasks.model
+
+pub provider store(config: { first_id: Int }) -> Result<model.Store, model.Error> {
+    let rows: Atom<List<model.Task>> = Atom.new([])
+    ok({
+        insert: fn(title: String) -> model.Task {
+            let all = rows.update(fn(current) {
+                current.append({ id: config.first_id + current.len(), title, done: false })
+            })
+            all[all.len() - 1]
+        },
+        all: fn() { rows.get() },
+        complete: fn(id: Int) -> Option<model.Task> {
+            let all = rows.update(fn(current) {
+                list.map(current, fn(t) { if t.id == id { { ..t, done: true } } else { t } })
+            })
+            list.find(all, fn(t) { t.id == id })
+        },
+    })
+}

@@ -188,10 +188,30 @@ fn warning_programs() {
 
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
+/// The framework example: its tests pass, and the CLI and worker entry
+/// points compose the same feature into smaller plans.
+#[test]
+fn framework_example() {
+    let dir = root().join("examples/framework");
+    let out = lang().arg("test").arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(out.status.success() && text.contains("2 passed; 0 failed"), "{text}{}", String::from_utf8_lossy(&out.stderr));
+    let run = |args: &[&str]| {
+        let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
+        assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    assert_eq!(
+        run(&["cli", "--", "--add", "Write the docs", "--add", "Ship it", "--done", "1"]),
+        "added 1: Write the docs\nadded 2: Ship it\ndone 1: Write the docs\n[x] 1 Write the docs\n[ ] 2 Ship it\n"
+    );
+    assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
+}
+
 #[test]
 fn example_projects_check() {
     let mut failures = vec![];
-    for dir in ["examples/design", "tests/sqlgen"] {
+    for dir in ["examples/design", "examples", "tests/sqlgen"] {
         for e in std::fs::read_dir(root().join(dir)).unwrap().flatten() {
             let p = e.path();
             if !p.join("badger.toml").is_file() {

@@ -1,0 +1,41 @@
+// The command line: `badger run cli -- --add "Write the docs" --done 1`.
+// It selects the parts of the application it needs (no HTTP server).
+import std.cli
+import std.env
+import std.io
+import std.system
+import tasks.memory
+import tasks.model
+import tasks.service
+
+pub enum AppError {
+    cli(source: cli.Error),
+    tasks(source: model.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+// Each field is an option: `--add TITLE` (repeatable), `--done ID`.
+type Options = { add: List<String>, done: List<Int> }
+
+pub fn main() -> Result<Unit, AppError> {
+    let options = cli.parse_program<Options>("tasks", env.args())?
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    for title in options.add {
+        let task = running.tasks.create({ title })?
+        io.println($"added {task.id}: {task.title}")?
+    }
+    for id in options.done {
+        let task = running.tasks.complete(id)?
+        io.println($"done {task.id}: {task.title}")?
+    }
+    for task in running.tasks.list() {
+        let mark = if task.done { "x" } else { " " }
+        io.println($"[{mark}] {task.id} {task.title}")?
+    }
+    ok(())
+}
