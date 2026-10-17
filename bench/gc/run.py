@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""GC attribution and broader coverage; all diagnostic policies are experiments."""
+import argparse
+import collections
+import datetime
+import gzip
+import hashlib
+import json
+import os
+from pathlib import Path
+import random
+import statistics
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "bench"))
+import telemetry as t
+
+COVERAGE = {
+    "bytes-transient": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=32),
+    "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
+    "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
+    "snapshots": dict(mode="snapshots", n=65536, rounds=1, payload=96, retain=32),
+    **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
+       for name in ["visible", "stored", "collected", "eager"]},
+}
+POLICIES = {
+    "control": {},
+    "young64m": {"LANG_GC_MINOR_BYTES": str(64 << 20)},
+    "no-trim": {"LANG_GC_TRIM": "0"},
+    "minors32": {"LANG_GC_MAX_MINORS": "32"},
+}
+
+
+def expected_coverage(c):
+    if c["mode"] in ["bytes", "words"]:
+        n = c["n"]
+        q, r = divmod(n, 251)
+        return q * 251 * 250 // 2 + r * (r - 1) // 2 + min(n, c["retain"]) * c["payload"] + max(0, c["retain"] - n)
+    if c["mode"] == "snapshots":
+        history = [0] * c["retain"]
+        for i in range(0, c["n"], 64):
+            history[(i // 64) % c["retain"]] = min(i + 1, 1024)
+        return sum(c["payload"] + i % 3 for i in range(c["n"])) + sum(history) + min(c["n"], 1024)
+    m = (c["n"] - 1) // 3
+    return 3 * m * (m + 1) * c["rounds"]
+
+
+def validate_coverage(record, config):
+    if record["config"] != config or record["checksum"] != expected_coverage(config):
+        raise ValueError(f"coverage oracle mismatch: {record}")
+    if record["elapsed_ns"] <= 0:
+        raise ValueError("invalid elapsed time")
+
+
+def summarize(rows):
+    groups = collections.defaultdict(list)
+    for row in rows:
+        groups[(row["case"], row["workers"], row["variant"])].append(row)
+    result = []
+    for (case, workers, variant), runs in sorted(groups.items()):
+        result.append(dict(case=case, workers=workers, variant=variant, repetitions=len(runs),
+            elapsed_ms=t.stats([r["record"]["elapsed_ns"] / 1e6 for r in runs]),
+            peak_rss_kib=t.stats([r["process"]["peak_rss_kib"] for r in runs]),
+            collections=t.stats([r["heap_collections"] for r in runs]),
+            gc_pause_ms=t.stats([r["gc_pause_ns"] / 1e6 for r in runs])))
+    return result
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--baseline", type=Path, required=True)
+    ap.add_argument("--diagnostic", type=Path)
+    ap.add_argument("--suite", choices=["coverage", "telemetry", "policy", "samples", "smoke"], required=True)
+    ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
+    ap.add_argument("--events", type=int, default=262144)
+    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--profiles", nargs="+", choices=t.PROFILES, default=list(t.PROFILES))
+    ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
+    ap.add_argument("--out", type=Path, required=True)
+    args = ap.parse_args()
+    if args.suite in ["policy", "samples"] and args.diagnostic is None:
+        ap.error("--diagnostic is required for policy and samples")
+    args.out.mkdir(parents=True, exist_ok=True)
+    binaries = {"baseline": args.baseline.resolve()}
+    if args.diagnostic:
+        binaries["diagnostic"] = args.diagnostic.resolve()
+    variants = {"baseline": ("baseline", {})}
+    if args.diagnostic:
+        variants["diagnostic"] = ("diagnostic", {})
+        variants["diagnostic-off"] = ("diagnostic", {})
+    if args.suite == "policy":
+        variants = {k: ("diagnostic", v) for k, v in POLICIES.items() if k in args.policies}
+    if args.suite == "samples":
+        variants = {"samples": ("diagnostic", {"LANG_PROFILE_SCOPE": "runtime", "LANG_RUNTIME_STATS": "1"})}
+    coverage = args.suite in ["coverage", "smoke"]
+    cases = {k: v.copy() for k, v in COVERAGE.items()} if coverage else {
+        name: {**t.DEFAULT, **t.PROFILES[name], "events": args.events} for name in args.profiles}
+    if args.suite == "smoke":
+        for c in cases.values():
+            c.update(n=257, rounds=2, payload=17, retain=4)
+    # Calculate oracles once, outside subprocess measurements.
+    oracles = {} if coverage else {k: t.oracle(c) for k, c in cases.items()}
+    cells = [(name, w, v) for name in cases for w in args.workers for v in variants]
+    rng = random.Random(20261017)
+    runs = []
+    sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+    report = dict(schema=1, timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        revision=t.command_output(["git", "rev-parse", "HEAD"]),
+        dirty=t.command_output(["git", "status", "--porcelain"]),
+        affinity=sorted(os.sched_getaffinity(0)), arguments=vars(args) | {
+            "baseline": str(args.baseline), "diagnostic": str(args.diagnostic), "out": str(args.out)},
+        binaries={k: dict(path=str(p), sha256=sha(p)) for k, p in binaries.items()},
+        sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), ROOT / "bench/gc/coverage.lang", ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
+        runs=runs)
+    for rep in range(-1, args.reps):
+        order = cells.copy()
+        rng.shuffle(order)
+        for name, workers, variant in order:
+            print(f"{args.suite} rep={rep} {name} w{workers} {variant}", flush=True)
+            binary, settings = variants[variant]
+            env = {k: v for k, v in os.environ.items() if not k.startswith("LANG_") and k not in ["TELEMETRY_CONFIG", "GC_BENCH_CONFIG"]}
+            env.update(settings)
+            env["LC_ALL"] = "C"
+            stem = f"{name}-w{workers}-{variant}-{rep}"
+            gc_path = args.out.resolve() / f"{stem}.gc.json"
+            if binary == "diagnostic" and variant != "diagnostic-off":
+                env["LANG_GC_PROFILE"] = str(gc_path)
+            if args.suite == "samples":
+                env["LANG_PROFILE"] = str(args.out.resolve() / f"{stem}.folded")
+            config = cases[name]
+            env["GC_BENCH_CONFIG" if coverage else "TELEMETRY_CONFIG"] = json.dumps(config)
+            command = [str(binaries[binary]), "run", "--release", "--bench", "--workers", str(workers),
+                       "bench/gc/coverage.lang" if coverage else "bench/telemetry.lang"]
+            out, err, process = t.run_process(command, env, 180)
+            record = json.loads(out)
+            if coverage:
+                validate_coverage(record, config)
+            else:
+                t.validate(record, config, workers, oracles[name])
+            before, after = (record["before"], record["after"]) if coverage else (record["heap_before"], record["heap_after"])
+            phases = json.loads(gc_path.read_text()) if gc_path.exists() else None
+            gc_path.unlink(missing_ok=True)
+            if rep >= 0:
+                runs.append(dict(case=name, workers=workers, variant=variant, repetition=rep,
+                    record=record, process=process, stderr=err, gc=phases,
+                    heap_collections=after["collections"] - before["collections"],
+                    gc_pause_ns=after["pause_total_ns"] - before["pause_total_ns"]))
+                report["summary"] = summarize(runs)
+                (args.out / "measurements.json.gz").write_bytes(gzip.compress((json.dumps(report, indent=2) + "\n").encode(), mtime=0))
+    print(json.dumps(report["summary"], indent=2))
+
+
+if __name__ == "__main__":
+    main()

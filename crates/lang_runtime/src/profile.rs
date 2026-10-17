@@ -167,6 +167,8 @@ extern "C" fn finish_at_exit() {
 
 /// Stop sampling and write the profile (idempotent).
 pub fn finish() {
+    #[cfg(feature = "gc-profile")]
+    crate::gc::diagnostics::finish();
     let Some(path) = OUT.lock().unwrap().take() else { return };
     for t in std::mem::take(&mut *TIMERS.lock().unwrap()) {
         unsafe { libc::timer_delete(t as libc::timer_t) };
