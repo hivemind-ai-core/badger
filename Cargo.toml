@@ -29,6 +29,7 @@ lang_crypto = { path = "crates/lang_crypto" }
 lang_valkey = { path = "crates/lang_valkey" }
 lang_postgres = { path = "crates/lang_postgres" }
 lang_datetime = { path = "crates/lang_datetime" }
+lang_compress = { path = "crates/lang_compress" }
 
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"

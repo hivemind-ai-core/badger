@@ -40,6 +40,7 @@ std_modules![
     "encoding",
     "crypto",
     "uuid",
+    "compress",
     "codec",
     "config",
     "system",

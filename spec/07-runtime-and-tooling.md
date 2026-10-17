@@ -33,6 +33,7 @@ an HTTP framework on a CLI program.
 | `std.codec`, `std.schema`, `std.config` | Typed schemas, JSON/data conversion, validated configuration |
 | `std.toml`, `std.yaml`, `std.csv`, `std.template` | Data formats and Jinja-syntax templates |
 | `std.encoding`, `std.crypto`, `std.uuid` | Base64/hex/URL encoding, hashes and HMAC, secure random bytes, UUIDs |
+| `std.compress` | gzip, zlib, deflate, and zstd, with bounded decompression |
 | `std.parse`, `std.regex` | Grammar/parser values, source spans, structured failures |
 | `std.trace`, `std.test` | Structured runtime events, assertions, dependency fixtures |
 | `std.log` | Structured logs: levels, schema-encoded fields, task-inherited context, text or JSON lines |

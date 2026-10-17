@@ -33,6 +33,7 @@
 | [`std.encoding`](encoding.md) | Text encodings of bytes and text: base64 (standard, or URL-safe without |
 | [`std.crypto`](crypto.md) | Hashes, message authentication, constant-time comparison, and secure |
 | [`std.uuid`](uuid.md) | UUIDs as their hyphenated lower-case text: random (version 4) and |
+| [`std.compress`](compress.md) | Compression: gzip, zlib, raw deflate, and zstd (the `lang_compress` |
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |
