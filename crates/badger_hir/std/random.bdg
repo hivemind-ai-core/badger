@@ -10,6 +10,8 @@ pub struct Random {
 extern "intrinsic" fn random_os() -> U64
 extern "intrinsic" fn convert_lossy<A, B>(value: A) -> B
 extern "intrinsic" fn wrapping_mul<T>(a: T, b: T) -> T
+extern "intrinsic" fn wrapping_add<T>(a: T, b: T) -> T
+extern "intrinsic" fn wrapping_sub<T>(a: T, b: T) -> T
 
 /// A deterministic source.
 pub fn seeded(seed: Int) -> Random {
@@ -33,12 +35,20 @@ impl Random {
     /// The next 64 random bits.
     fn next(self: &Self) -> U64 !{State} { wrapping_mul(self.state.update(step), 2685821657736338717U64) }
 
-    /// A uniformly distributed integer in `low..high`.
+    /// A uniformly distributed integer in `low..high` (`low` when the
+    /// range is empty).
     pub fn int(self: &Self, low: Int, high: Int) -> Int !{State} {
-        let span = high - low
-        if span <= 0 { return low }
-        let r: Int = convert_lossy(self.next() % convert_lossy<Int, U64>(span))
-        low + r
+        if high <= low { return low }
+        // the span as unsigned bits (no overflow for any `low..high`), and
+        // draws past the last whole multiple of it rejected: no value is
+        // more likely than another
+        let span: U64 = wrapping_sub(convert_lossy<Int, U64>(high), convert_lossy<Int, U64>(low))
+        let limit: U64 = 18446744073709551615U64 - 18446744073709551615U64 % span
+        var x = self.next()
+        while x >= limit {
+            x = self.next()
+        }
+        convert_lossy(wrapping_add(convert_lossy<Int, U64>(low), x % span))
     }
 
     /// A float in `[0, 1)`.

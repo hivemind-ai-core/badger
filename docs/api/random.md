@@ -35,7 +35,8 @@ A float in `[0, 1)`.
 fn int(self: &Self, low: Int, high: Int) -> Int !{State}
 ```
 
-A uniformly distributed integer in `low..high`.
+A uniformly distributed integer in `low..high` (`low` when the
+range is empty).
 
 #### `Random.next`
 

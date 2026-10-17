@@ -25,10 +25,6 @@ use std::path::Path;
 pub struct Manifest {
     pub name: String,
     pub entry: String,
-    pub workers: usize,
-    /// `[runtime] cleanup_grace_ms`: how long cancelled tasks may take to
-    /// finish cleanup before the waiting owner escalates.
-    pub cleanup_grace_ms: Option<u64>,
     /// Base `[config]` entries (raw values, strings unquoted).
     pub config: Vec<(String, String)>,
     /// `[profile.NAME]` overlays, in file order.
@@ -241,8 +237,6 @@ impl Manifest {
         let mut m = Manifest {
             name: String::new(),
             entry: "src/main.bdg".into(),
-            workers: 1,
-            cleanup_grace_ms: None,
             config: vec![],
             profiles: vec![],
             version: "0.0.0".into(),
@@ -330,7 +324,11 @@ impl Manifest {
                 return Err(format!("line {}: key `{k}` is defined twice{place}", i + 1));
             }
             keys_seen.push((section.clone(), full));
-            let s = v.trim_matches('"').to_string();
+            // the value as text: a string's contents, anything else as written
+            let s = match toml_value(v) {
+                Some(toml::Value::String(x)) => x,
+                _ => v.trim_matches('"').to_string(),
+            };
             match (section.as_str(), k) {
                 ("package", "name") => m.name = s,
                 ("package", "entry") => m.entry = s,
@@ -386,13 +384,12 @@ impl Manifest {
                     m.tasks.push((name.to_string(), file.to_string(), func.to_string()));
                 }
                 ("dependencies", _) => {
-                    let table =
-                        v.trim().strip_prefix('{').and_then(|t| t.strip_suffix('}')).ok_or_else(|| {
-                            format!(
-                                "line {}: a dependency is an inline table such as `{{ path = \"../lib\" }}`",
-                                i + 1
-                            )
-                        })?;
+                    let Some(toml::Value::Table(table)) = toml_value(v) else {
+                        return Err(format!(
+                            "line {}: a dependency is an inline table such as `{{ path = \"../lib\" }}`",
+                            i + 1
+                        ));
+                    };
                     let mut dep = Dependency {
                         name: k.to_string(),
                         path: String::new(),
@@ -401,15 +398,11 @@ impl Manifest {
                         rev: None,
                         subdir: None,
                     };
-                    for part in table.split(',').map(str::trim).filter(|p| !p.is_empty()) {
-                        let Some((dk, dv)) = part.split_once('=') else {
-                            return Err(format!(
-                                "line {}: expected `key = value` in dependency `{k}`",
-                                i + 1
-                            ));
+                    for (dk, dv) in &table {
+                        let Some(dv) = dv.as_str().map(str::to_string) else {
+                            return Err(format!("line {}: dependency `{k}`: `{dk}` is a string", i + 1));
                         };
-                        let dv = dv.trim().trim_matches('"').to_string();
-                        match dk.trim() {
+                        match dk.as_str() {
                             "path" => dep.path = dv,
                             "version" => dep.version = Some(dv),
                             "git" => dep.git = Some(dv),
@@ -457,11 +450,6 @@ impl Manifest {
                 }
                 ("runtime", key) => {
                     check_runtime(key, &s, i + 1)?;
-                    match key {
-                        "workers" => m.workers = s.parse().unwrap(),
-                        "cleanup_grace_ms" => m.cleanup_grace_ms = Some(s.parse().unwrap()),
-                        _ => {}
-                    }
                     set(&mut m.runtime, key, s);
                 }
                 // `[config]`, `[config.table]`, inline tables: dotted keys
@@ -572,16 +560,31 @@ fn flatten(pre: &str, k: &str, v: &str) -> Vec<(String, String)> {
 }
 
 /// The line without a trailing `#` comment (`#` inside a string is kept).
+/// The line without its comment (a `#` inside a `"…"` or `'…'` string is
+/// text).
 fn strip_comment(line: &str) -> &str {
-    let mut quoted = false;
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
     for (i, c) in line.char_indices() {
-        match c {
-            '"' => quoted = !quoted,
-            '#' if !quoted => return &line[..i],
+        match (quote, c) {
+            (Some('"'), '\\') if !escaped => {
+                escaped = true;
+                continue;
+            }
+            (Some(q), c) if c == q && !escaped => quote = None,
+            (None, '"' | '\'') => quote = Some(c),
+            (None, '#') => return &line[..i],
             _ => {}
         }
+        escaped = false;
     }
     line
+}
+
+/// A value written in TOML (`"a"`, `'a'`, `1`, `{ path = "x" }`), read by
+/// the TOML parser so quoting and escapes mean what they mean in TOML.
+fn toml_value(v: &str) -> Option<toml::Value> {
+    format!("x = {v}").parse::<toml::Table>().ok()?.remove("x")
 }
 
 fn set(entries: &mut Vec<(String, String)>, k: &str, v: String) {
@@ -621,9 +624,32 @@ mod tests {
         assert!(p("[config]\na = 1\na.b = 2\n").is_err());
         assert!(p("[config]\na = { b = 1 }\n[config.a]\nc = 2\n").is_err());
         // single-quoted keys name the same key
-        assert_eq!(p("[runtime]\n'workers' = 3\n").unwrap().workers, 3);
+        assert!(
+            p("[runtime]\n'workers' = 3\n").unwrap().runtime.iter().any(|(k, v)| k == "workers" && v == "3")
+        );
         // a quoted key with `.` is not a path of names
         assert!(p("[config]\n\"a.b\" = 1\n").unwrap_err().contains("contains `.`"));
         assert!(p("[config\nx = 1\n").unwrap_err().contains("line 3"));
+    }
+}
+
+#[cfg(test)]
+mod value_tests {
+    use super::Manifest;
+
+    /// Values mean what they mean in TOML: single quotes, `#` inside a
+    /// string, and commas inside a dependency's path.
+    #[test]
+    fn toml_values() {
+        let m = Manifest::parse(
+            "[package]\nname = 'app' # the app\nentry = 'src/main.bdg'\n[dependencies]\nlib = { path = \"../x,y\" }\n",
+        )
+        .unwrap();
+        assert_eq!(m.name, "app");
+        assert_eq!(m.entry, "src/main.bdg");
+        assert_eq!(m.dependencies[0].path, "../x,y");
+        let m = Manifest::parse("[package]\nname = \"a\"\n[entries]\ntool = \"src/a#b.bdg\" # a comment\n")
+            .unwrap();
+        assert_eq!(m.entries[0].1, "src/a#b.bdg");
     }
 }

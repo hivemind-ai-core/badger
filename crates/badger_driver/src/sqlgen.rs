@@ -189,15 +189,10 @@ fn valid_ident(s: &str) -> bool {
     let mut cs = s.chars();
     cs.next().is_some_and(|c| c.is_ascii_lowercase() || c == '_')
         && cs.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-        && !KEYWORDS.contains(&s)
+        && !badger_syntax::RESERVED.contains(&s)
+        // the generated functions' connection parameter
+        && s != "db"
 }
-
-const KEYWORDS: &[&str] = &[
-    "pub", "once", "mut", "import", "as", "type", "struct", "enum", "protocol", "impl", "for", "where", "fn",
-    "if", "else", "match", "while", "loop", "in", "use", "unsafe", "extern", "dyn", "derive", "repr",
-    "system", "pipeline", "map", "set", "ref", "return", "break", "continue", "let", "var", "const", "true",
-    "false", "db",
-];
 
 /// `FindUser` → `find_user`.
 fn snake(s: &str) -> String {
