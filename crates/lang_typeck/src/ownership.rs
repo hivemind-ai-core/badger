@@ -684,9 +684,7 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
     let fns: Vec<DefId> = hir
         .defs
         .iter()
-        .filter(|(_, d)| {
-            !hir.modules[d.module].is_std && matches!(&d.kind, DefKind::Fn(f) if f.body.is_some())
-        })
+        .filter(|(_, d)| matches!(&d.kind, DefKind::Fn(f) if f.body.is_some()))
         .map(|(id, _)| id)
         .collect();
     for _ in 0..4 {
@@ -751,7 +749,7 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
 pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::Scheme) {
     let hir = inf.g.hir;
     inf.g.dup_done.borrow_mut().insert(d);
-    if scheme.n == 0 || hir.modules[hir.defs[d].module].is_std {
+    if scheme.n == 0 || trusted_std(inf, d, TRUSTED_SINGLE_USE) {
         return;
     }
     let DefKind::Fn(f) = &hir.defs[d].kind else { return };
@@ -1800,10 +1798,9 @@ impl Own<'_, '_, '_> {
     /// A generic function that may duplicate a type parameter cannot take
     /// an affine type for it.
     fn check_dup(&mut self, def: DefId, args: &[Ty], span: Span) {
-        let hir = self.inf.g.hir;
         // calls are checked once every generic function (and protocol
         // method, through its implementations) is analysed
-        if !self.generic && !self.inf.g.dups_final.get() && !hir.modules[hir.defs[def].module].is_std {
+        if !self.generic && !self.inf.g.dups_final.get() {
             let args: Vec<Ty> = args.iter().map(|a| self.inf.icx.resolve(a)).collect();
             self.inf.g.dup_deferred.borrow_mut().push((def, args, span));
             return;
@@ -2714,7 +2711,15 @@ impl Own<'_, '_, '_> {
                 false
             }
             ExprKind::Match { scrutinee, arms } => {
-                if self.expr(*scrutinee, Mode::Move, st) {
+                // a match whose arms bind nothing (wildcards, literals,
+                // variant tags) only reads its scrutinee
+                let binds = arms.iter().any(|a| {
+                    let mut ls = vec![];
+                    pat_locals(hir, a.pat, &mut ls);
+                    !ls.is_empty()
+                });
+                let how = if binds { Mode::Move } else { Mode::Borrow };
+                if self.expr(*scrutinee, how, st) {
                     return true;
                 }
                 // closures taken out of a value holding a consuming closure
@@ -3054,4 +3059,24 @@ impl Own<'_, '_, '_> {
             ExprKind::Unsafe(b) => self.expr(*b, mode, st),
         }
     }
+}
+
+/// Standard definitions trusted to use each value of their type parameters
+/// once although the analysis cannot see it: an explicit, named boundary,
+/// not an exemption for all standard code. `channel.select_keep` gives the
+/// runtime its operations, which sends exactly one value, and returns the
+/// others (a partition of the list it reads twice).
+const TRUSTED_SINGLE_USE: &[(&str, &str)] = &[("channel", "select_keep")];
+
+/// Whether `d` is one of the named standard definitions in `list`.
+fn trusted_std(inf: &Infer<'_, '_>, d: DefId, list: &[(&str, &str)]) -> bool {
+    let hir = inf.g.hir;
+    let def = &hir.defs[d];
+    let m = &hir.modules[def.module];
+    if !m.is_std {
+        return false;
+    }
+    let module = m.path.last().map(|s| inf.sym(*s).to_string()).unwrap_or_default();
+    let name = inf.sym(def.name).to_string();
+    list.iter().any(|(mm, n)| *mm == module && *n == name)
 }

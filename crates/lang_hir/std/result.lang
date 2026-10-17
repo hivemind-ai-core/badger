@@ -92,8 +92,20 @@ impl<T, E> Result<T, E> {
     pub fn or_else<F>(self: &Self, f: once fn(E) -> Result<T, F>) -> Result<T, F> { or_else(self, f) }
     pub fn value(self: &Self) -> Option<T> { value(self) }
     pub fn error(self: &Self) -> Option<E> { error(self) }
-    pub fn is_ok(self: &Self) -> Bool { is_ok(self) }
-    pub fn is_err(self: &Self) -> Bool { !is_ok(self) }
+    // the predicates match the borrowed receiver (passing it on would copy
+    // an affine payload)
+    pub fn is_ok(self: &Self) -> Bool {
+        match self {
+            .ok(_) => true,
+            .err(_) => false,
+        }
+    }
+    pub fn is_err(self: &Self) -> Bool {
+        match self {
+            .ok(_) => false,
+            .err(_) => true,
+        }
+    }
     pub fn unwrap_or(self: &Self, default: T) -> T { unwrap_or(self, default) }
     pub fn map<U>(self: &Self, f: fn(T) -> U) -> Result<U, E> { map(self, f) }
     pub fn map_err<F>(self: &Self, f: fn(E) -> F) -> Result<T, F> { map_err(self, f) }
