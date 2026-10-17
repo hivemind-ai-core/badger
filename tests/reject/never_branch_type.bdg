@@ -1,0 +1,9 @@
+// expect-error: E0300
+// A diverging `then` branch must not make the `if` have type `Never`: that
+// would let the `else` branch's String be used as an Int.
+fn get(flag: Bool) -> Int {
+    let x = if flag { panic("a") } else { "hello" }
+    let n: Int = x
+    n
+}
+pub fn main() { let _ = get(false) }

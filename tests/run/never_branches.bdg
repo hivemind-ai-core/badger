@@ -1,0 +1,43 @@
+// A diverging branch does not fix the type of the other branches: literals
+// still default, and `Never` is never a variable's type when another branch
+// gives one.
+import std.io
+fn pick_lit(m: String) -> Int {
+    let d = match m { "a" => 100, _ => panic("x") }
+    d
+}
+fn pick_lit2(m: Bool) -> Int {
+    let d = if m { 1 } else { panic("y") }
+    d
+}
+fn fail(msg) { panic(msg) }
+fn forever() { loop { } }
+fn pick(n: Int) -> String {
+    let s = match n { 0 => fail("zero"), 1 => "one", _ => "many" }
+    s
+}
+fn all_fail(n: Int) -> Int {
+    let z = match n { 0 => panic("a"), _ => panic("b") }
+    z
+}
+fn early(n: Int) -> Int {
+    let v = if n > 0 { return 7 } else { 3 }
+    v + 1
+}
+fn lst(flag: Bool) -> List<Int> {
+    let xs = if flag { [1, 2] } else { panic("no") }
+    xs
+}
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(pick_lit("a") + pick_lit2(true))?
+    let f = if false { forever } else { fn() { () } }
+    io.println(pick(1))?
+    io.println(early(0))?
+    io.println(early(5))?
+    io.println(lst(true))?
+    let y = if true { 2.5 } else { panic("f") }
+    io.println(y)?
+    let opt = if true { none } else { panic("o") }
+    let o: Option<Int> = opt
+    io.println(o)
+}

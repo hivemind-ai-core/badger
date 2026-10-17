@@ -322,6 +322,11 @@ impl Infer<'_, '_> {
                 break;
             }
         }
+        // what only diverging expressions constrained has type `Never`
+        if final_ && !self.icx.never_hints.is_empty() {
+            self.icx.settle_never();
+            self.solve(false);
+        }
     }
 
     /// Finish constraints whose variables are private to the given types'

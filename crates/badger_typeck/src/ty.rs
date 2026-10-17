@@ -216,6 +216,11 @@ pub struct InferCtxt {
     /// Equations on projections of not-yet-known types, retried by the solver.
     pub deferred: Vec<(Ty, Ty, badger_base::Span)>,
     snap_deferred: Vec<usize>,
+    /// Variables unified with `Never`. `Never` is the bottom type, so it does
+    /// not bind them (a diverging branch must not fix the type of the other
+    /// branches); the final solve binds the ones nothing else decided.
+    pub never_hints: Vec<TyVid>,
+    snap_never: Vec<usize>,
     /// Source location of the unification in progress (for deferred errors).
     pub span_hint: badger_base::Span,
 }
@@ -230,6 +235,8 @@ impl InferCtxt {
             lenient_effects: false,
             deferred: vec![],
             snap_deferred: vec![],
+            never_hints: vec![],
+            snap_never: vec![],
             span_hint: badger_base::Span::dummy(),
         }
     }
@@ -382,6 +389,14 @@ impl InferCtxt {
                 if x != y {
                     self.table.unify_var_var(*x, *y).unwrap();
                 }
+                Ok(())
+            }
+            (TyKind::Var(x), _) if self.is_never(&b) => {
+                self.never_hints.push(*x);
+                Ok(())
+            }
+            (_, TyKind::Var(y)) if self.is_never(&a) => {
+                self.never_hints.push(*y);
                 Ok(())
             }
             (TyKind::Var(x), _) => self.bind(*x, &b),
@@ -640,6 +655,7 @@ impl InferCtxt {
         let snap = self.table.snapshot();
         let nsk = self.skolems.len();
         let nd = self.deferred.len();
+        let nn = self.never_hints.len();
         match self.unify(a, b) {
             Ok(()) => {
                 self.table.commit(snap);
@@ -649,6 +665,7 @@ impl InferCtxt {
                 self.table.rollback_to(snap);
                 self.skolems.truncate(nsk);
                 self.deferred.truncate(nd);
+                self.never_hints.truncate(nn);
                 false
             }
         }
@@ -656,6 +673,7 @@ impl InferCtxt {
 
     pub fn snapshot(&mut self) -> ena::unify::Snapshot<ena::unify::InPlace<TyVid>> {
         self.snap_deferred.push(self.deferred.len());
+        self.snap_never.push(self.never_hints.len());
         self.table.snapshot()
     }
 
@@ -663,12 +681,26 @@ impl InferCtxt {
         if let Some(n) = self.snap_deferred.pop() {
             self.deferred.truncate(n);
         }
+        if let Some(n) = self.snap_never.pop() {
+            self.never_hints.truncate(n);
+        }
         self.table.rollback_to(s);
     }
 
     pub fn commit(&mut self, s: ena::unify::Snapshot<ena::unify::InPlace<TyVid>>) {
         self.snap_deferred.pop();
+        self.snap_never.pop();
         self.table.commit(s);
+    }
+
+    /// Bind the variables unified only with `Never` to `Never`.
+    pub fn settle_never(&mut self) {
+        let Some(n) = self.never else { return };
+        for v in std::mem::take(&mut self.never_hints) {
+            if let VarValue::Unbound { .. } = self.table.probe_value(v) {
+                self.table.union_value(v, VarValue::Bound(mk(TyKind::Con(n, vec![]))));
+            }
+        }
     }
 
     pub fn root(&mut self, v: TyVid) -> TyVid {
