@@ -13,6 +13,7 @@ struct Settings {
     max_minors: Option<usize>,
     trim: bool,
     pool_max: Option<usize>,
+    reuse_sweep: Option<bool>,
 }
 fn settings() -> &'static Settings {
     static SETTINGS: OnceLock<Settings> = OnceLock::new();
@@ -33,6 +34,11 @@ fn settings() -> &'static Settings {
             max_minors: number("BADGER_GC_MAX_MINORS"),
             trim: !std::env::var("BADGER_GC_TRIM").is_ok_and(|v| v == "0"),
             pool_max,
+            reuse_sweep: std::env::var("BADGER_GC_SWEEP_REUSE").ok().map(|v| match v.as_str() {
+                "0" => false,
+                "1" => true,
+                _ => panic!("BADGER_GC_SWEEP_REUSE must be 0 or 1"),
+            }),
         }
     })
 }
@@ -47,6 +53,9 @@ pub(super) fn trim() -> bool {
 }
 pub(super) fn pool_max(default: usize) -> usize {
     settings().pool_max.unwrap_or(default)
+}
+pub(super) fn reuse_sweep_helpers(default: bool) -> bool {
+    settings().reuse_sweep.unwrap_or(default)
 }
 
 pub(super) struct Collection {
@@ -97,7 +106,8 @@ pub fn finish() {
     let records = std::mem::take(&mut *RECORDS.lock().unwrap());
     let output = json!({"schema": 1, "collections": records,
         "policy": {"minor_bytes": settings().young_bytes, "max_minors": settings().max_minors,
-                   "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX)},
+                   "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX),
+                   "reuse_sweep_helpers": reuse_sweep_helpers(super::REUSE_SWEEP_HELPERS)},
         "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution."});
     if let Err(e) = std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()) {
         eprintln!("cannot write GC diagnostics {path}: {e}");

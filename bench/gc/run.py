@@ -51,6 +51,8 @@ POLICIES = {
     "pool256": {"BADGER_GC_POOL_MAX": "256"},
     "pool512": {"BADGER_GC_POOL_MAX": "512"},
     "pool1024": {"BADGER_GC_POOL_MAX": "1024"},
+    "sweep-scoped": {"BADGER_GC_SWEEP_REUSE": "0"},
+    "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
 }
 
 
@@ -100,11 +102,13 @@ def validate_sweep(profile):
         if "sweep_work_per_worker" not in heap:
             continue
         work, helpers = heap["sweep_work_per_worker"], heap["sweep_work_per_helper"]
+        created = heap.get("sweep_helpers_created", len(helpers))
         if (not work or any(type(n) is not int or n < 0 for n in work + helpers)
                 or sum(work) != heap["swept"]
                 or len(helpers) != heap["sweep_helpers"]
                 or len(helpers) > max(0, sum(n > 0 for n in work) - 1)
-                or any(n == 0 for n in helpers) or sum(helpers) > sum(work)):
+                or any(n == 0 for n in helpers) or sum(helpers) > sum(work)
+                or type(created) is not int or not 0 <= created <= len(helpers)):
             raise ValueError("invalid sweep work/helper accounting")
 
 
@@ -283,6 +287,9 @@ def main():
             if "BADGER_GC_POOL_MAX" in settings:
                 if phases is None or phases["policy"].get("pool_max_bytes") != int(settings["BADGER_GC_POOL_MAX"]):
                     raise ValueError("diagnostic binary did not apply the pool-size policy")
+            if "BADGER_GC_SWEEP_REUSE" in settings:
+                if phases is None or phases["policy"].get("reuse_sweep_helpers") != (settings["BADGER_GC_SWEEP_REUSE"] == "1"):
+                    raise ValueError("diagnostic binary did not apply the sweep-helper policy")
             gc_path.unlink(missing_ok=True)
             allocations = None
             if variant == "diagnostic-allocations":

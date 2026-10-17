@@ -56,7 +56,8 @@ class SweepAccounting(unittest.TestCase):
         for patch in [dict(swept=99), dict(sweep_work_per_worker=[95, -5, 10]),
                       dict(sweep_helpers=2), dict(sweep_work_per_helper=[0]),
                       dict(sweep_work_per_helper=[101]),
-                      dict(sweep_helpers=2, sweep_work_per_helper=[5, 95])]:
+                      dict(sweep_helpers=2, sweep_work_per_helper=[5, 95]),
+                      dict(sweep_helpers_created=2), dict(sweep_helpers_created=-1)]:
             with self.assertRaises(ValueError):
                 run.validate_sweep(dict(collections=[dict(heap=heap | patch)]))
         run.validate_sweep(dict(collections=[dict(heap=heap | dict(sweep_helpers=0,

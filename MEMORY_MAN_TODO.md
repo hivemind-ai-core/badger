@@ -525,3 +525,20 @@ Diagnostic builds now record per-worker swept-object counts and actual helper
 job sizes/launches. The runner checks count conservation; the analyzer reports
 small helper jobs and skew, filtered to workload collections. These diagnostic
 counts are evidence for selecting a sweep policy, not thread-startup timing.
+
+Fresh phase-only application profiles (`G3-sweep-telemetry/`, 144 measured runs
+including ordinary/diagnostic-disabled controls) show only 6 of 825 helper jobs
+below 4,096 objects. Most parallel work is balanced. The next candidate therefore
+reuses native helpers rather than suppressing useful parallelism.
+
+The diagnostic-only `BADGER_GC_SWEEP_REUSE=0|1` experiment compares scoped and
+cached helpers in one binary. Cache slots are bounded by `MAX_WORKERS`, created
+lazily, parked on capacity-one channels, and receive at most one outstanding
+job each. Every result is received before finalizers run in worker/list order
+on the collector thread. Profiler/process finish closes and joins the cache;
+late collections fall back to scoped helpers without reopening it. Ordinary
+builds still select scoped helpers until measurements accept a default change.
+
+An isolated native test covers sparse worker indices, old prefixes, sticky and
+cleared marks, exact collector-thread finalizer order, reuse, joining, repeated
+shutdown and scoped fallback. Default/diagnostic runtime and harness tests pass.

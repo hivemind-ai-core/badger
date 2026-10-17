@@ -167,6 +167,7 @@ extern "C" fn finish_at_exit() {
 
 /// Stop sampling and write the profile (idempotent).
 pub fn finish() {
+    crate::gc::shutdown_sweep_helpers();
     #[cfg(feature = "gc-profile")]
     crate::gc::diagnostics::finish();
     let Some(path) = OUT.lock().unwrap().take() else { return };
