@@ -238,6 +238,8 @@ lang replay bundle [--compare]
 lang test [filter] [--json]
 lang task name [-- args...]
 lang compile [path] [-o out]
+lang release [path] [-o dir]
+lang start dir [-- args...]
 lang format [path] [--check]
 lang repl [--connect endpoint]
 lang inspect [plans|config|runtime] [path] [--json]
@@ -329,7 +331,11 @@ in debug profiles, but runtime assertions do not replace the static contracts.
 Compile modules into typed HIR, explicit MIR, specialized layouts, and Cranelift
 code. Deployment uses source, or a checked program saved as binary MIR
 (`lang compile`; only code generation remains when it runs), plus a
-versioned runtime. **Proposed:** a native machine-code cache keyed by
+versioned runtime. **Implementation:** `lang release` writes a
+self-contained release directory (the executable, the program, the native
+libraries it calls, its lockfile, and a manifest of target and digests;
+see [docs/releases.md](../docs/releases.md)); `lang start DIR` (or
+`DIR/run`) checks it and starts it without the sources. **Proposed:** a native machine-code cache keyed by
 target/ISA, compiler, runtime ABI, dependencies, and source/interface
 hashes, and a standalone AOT backend as a separate output mode (not an
 inherent property of the JIT).

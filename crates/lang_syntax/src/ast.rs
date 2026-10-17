@@ -200,14 +200,38 @@ pub struct TypeExpr {
 #[derive(Debug, Clone)]
 pub enum TypeKind {
     Hole,
-    Path { module: Vec<Name>, name: Name, args: Vec<TypeId> },
+    Path {
+        module: Vec<Name>,
+        name: Name,
+        args: Vec<TypeId>,
+    },
     Unit,
     Tuple(Vec<TypeId>),
-    Record { fields: Vec<(Label, TypeId)>, rest: Option<Name> },
-    Fn { once: bool, params: Vec<TypeId>, ret: TypeId, effect: Option<Effect> },
-    Forall { generics: Vec<GenericParam>, body: TypeId },
-    Ref { mutable: bool, inner: TypeId },
-    Dyn { module: Vec<Name>, name: Name, args: Vec<TypeId> },
+    Record {
+        fields: Vec<(Label, TypeId)>,
+        rest: Option<Name>,
+    },
+    Fn {
+        once: bool,
+        params: Vec<TypeId>,
+        ret: TypeId,
+        effect: Option<Effect>,
+    },
+    Forall {
+        generics: Vec<GenericParam>,
+        body: TypeId,
+    },
+    Ref {
+        mutable: bool,
+        inner: TypeId,
+    },
+    Dyn {
+        module: Vec<Name>,
+        name: Name,
+        args: Vec<TypeId>,
+    },
+    /// An effect row as a type argument: `Seq<Int, !{Io}>`.
+    Effect(Effect),
 }
 
 // ------------------------------------------------------------------ expressions

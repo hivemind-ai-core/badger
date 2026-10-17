@@ -21,7 +21,7 @@ pub type Route = {
     params: Option<String>,
     body: Option<String>,
     reply: Option<String>,
-    run: fn(http.Request, Params) -> http.Response,
+    run: fn(http.Request, Params) -> http.Response !{Io, Wait, State, Foreign},
 }
 
 pub struct RouteError {

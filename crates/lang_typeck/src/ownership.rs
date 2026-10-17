@@ -85,13 +85,25 @@ struct Own<'i, 'g, 'a> {
     unread: FxHashMap<LocalId, Span>,
 }
 
+/// Standard modules whose code is not checked for ownership: they hand
+/// affine builders to intrinsics that append in place (by value in their
+/// signatures, without consuming them) and view a builder as its list.
+/// A trusted implementation boundary, named here; every other module,
+/// standard or not, is checked.
+const OWNERSHIP_TRUSTED_MODULES: &[&str] = &["list", "buffer", "array", "task", "channel"];
+
+fn ownership_trusted(inf: &Infer<'_, '_>, d: DefId) -> bool {
+    let hir = inf.g.hir;
+    let m = &hir.modules[hir.defs[d].module];
+    m.is_std && m.path.last().is_some_and(|name| OWNERSHIP_TRUSTED_MODULES.contains(&inf.sym(*name)))
+}
+
 pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
     let hir = inf.g.hir;
+    let trusted = ownership_trusted(inf, d);
     let (body, params) = match &hir.defs[d].kind {
-        DefKind::Fn(f) if !hir.modules[hir.defs[d].module].is_std => {
-            (f.body, f.params.iter().map(|p| p.pat).collect())
-        }
-        DefKind::Global(g) if !hir.modules[hir.defs[d].module].is_std => (Some(g.value), vec![]),
+        DefKind::Fn(f) if !trusted => (f.body, f.params.iter().map(|p| p.pat).collect()),
+        DefKind::Global(g) if !trusted => (Some(g.value), vec![]),
         _ => (None, vec![]),
     };
     let Some(body) = body else { return };

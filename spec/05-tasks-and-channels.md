@@ -37,6 +37,18 @@ recursive calls against a scheduling budget. Scheduling is fair at supported
 safe points, not a hard wall-clock deadline or arbitrary native preemption.
 Uninstrumented foreign code has a separate contract.
 
+Cancelling a task that waits on an operation outside the scheduler
+(**Implementation**, tested by `tests/run/cancel_matrix.lang`): a
+subprocess is killed (the task waits for it to exit, then leaves); a
+SQLite query is interrupted and a native module's async call withdrawn
+(its `cancel` hook runs, a late result's handles are released); a blocking
+file or native call that owns its arguments is abandoned: the task leaves
+at once, and the result, when the call ends, is dropped with its handles
+released (an external effect such as a write may still happen). A blocking
+foreign (`extern "C"`) call may use the task's memory, so the task waits
+for it to return before the cancellation takes effect. Under `--record`,
+every operation is waited for, so the bundle holds its outcome.
+
 ## Scopes, children, and results
 
 ```lang fragment

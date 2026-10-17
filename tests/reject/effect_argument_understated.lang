@@ -1,0 +1,15 @@
+// A value whose type says `!{}` cannot hide `Io`.
+// expect-error: E0501
+import std.io
+
+struct Gen<Eff: Effect> {
+    pub next: fn() -> Option<Int> !Eff,
+}
+
+fn liar() -> Gen<!{}> {
+    { next: fn() { let _ = io.println("x"); Option.none } }
+}
+
+pub fn main() {
+    let _ = liar().next()
+}

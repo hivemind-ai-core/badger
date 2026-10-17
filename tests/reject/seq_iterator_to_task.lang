@@ -1,0 +1,28 @@
+// A sequence iterator is task-local: sharing one between tasks would race on
+// its state.
+// expect-error: E0402
+import std.io
+import std.seq
+import std.task
+
+fn drain(it: fn() -> Option<Int>) -> Int {
+    var n = 0
+    loop {
+        match it() {
+            .some(_) => { n = n + 1 },
+            .none => break,
+        }
+    }
+    n
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let s = seq.scan(seq.range(0, 2000000), 0, fn(a, x) { a + x })
+    let it = s.start()
+    use scope <- task.scope()
+    let t = scope.spawn(fn() { drain(it) })
+    let m = drain(it)
+    let n = t.join()
+    io.println($"{n} + {m} = {n + m}")?
+    ok(())
+}

@@ -1,0 +1,8 @@
+subprocess: timed out true, promptly true
+  sleeping children left: 0
+sqlite query: timed out true, promptly true
+  pool afterwards: [{"n":42}]
+blocked file read: timed out true, promptly true
+channel receive: timed out true, promptly true
+  channel afterwards: some(5)
+races settled (some completed: true)

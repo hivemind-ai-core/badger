@@ -125,8 +125,10 @@ impl Display for Dynamic {
 }
 
 /// Typed lazy sequence: a reusable description producing fresh iterators.
-pub struct Seq<T> {
-    pub start: fn() -> fn() -> Option<T>,
+/// `Eff` is what iterating may do (and whether the description captures
+/// task-local state); an iterator itself always stays on its task.
+pub struct Seq<T, Eff: Effect> {
+    pub start: fn() -> (fn() -> Option<T> !{Local, Eff}) !Eff,
 }
 
 pub enum Option<T> {

@@ -1659,6 +1659,11 @@ impl Infer<'_, '_> {
                 if labels.iter().any(|(l, _)| self.sym(*l) == "%confined") {
                     return Some(false);
                 }
+                // a stored standard-library function whose effects (and so
+                // captures) are untracked may hold task-confined state
+                if matches!(&*tail, TyKind::Error) {
+                    return Some(false);
+                }
                 // capture marks may still arrive while the closure is inferred
                 if matches!(&*tail, TyKind::Var(_)) && !final_ {
                     return None;
@@ -1688,7 +1693,10 @@ impl Infer<'_, '_> {
                 let d = *d;
                 let name = self.lang_name(d).unwrap_or_default();
                 if which == "Transfer" || which == "Share" {
-                    if d == self.b().cell || Some(d) == self.g.hir.try_lang("sqlite.Tx") {
+                    if d == self.b().cell
+                        || Some(d) == self.g.hir.try_lang("sqlite.Tx")
+                        || Some(d) == self.g.hir.try_lang("postgres.Tx")
+                    {
                         return Some(false);
                     }
                     // affine values move rather than share
@@ -2336,7 +2344,10 @@ impl Infer<'_, '_> {
                         expr: None,
                     });
                 }
-                Some((Target::Fn { def: m, args: margs }, open_effects(&mut self.icx, &ty)))
+                Some((
+                    Target::Fn { def: m, args: margs },
+                    open_effects(&mut self.icx, &self.g.env, self.g.hir, &ty),
+                ))
             }
             ImplMethods::Derived(d) => {
                 let (proto, pargs) = imp.protocol.clone()?;
@@ -2357,7 +2368,7 @@ impl Infer<'_, '_> {
                     margs.push(self.icx.fresh());
                 }
                 let ty = subst_gen(&scheme.ty, &margs);
-                let ty = open_effects(&mut self.icx, &ty);
+                let ty = open_effects(&mut self.icx, &self.g.env, self.g.hir, &ty);
                 // derived `Error`: the cause is the wrapped error; other
                 // methods use the protocol's default bodies
                 if proto == self.b().error && self.sym(name) == "cause" {
@@ -2396,7 +2407,7 @@ impl Infer<'_, '_> {
             margs.push(self.icx.fresh());
         }
         let ty = subst_gen(&scheme.ty, &margs);
-        Some((Target::Fn { def: pm, args: margs }, open_effects(&mut self.icx, &ty)))
+        Some((Target::Fn { def: pm, args: margs }, open_effects(&mut self.icx, &self.g.env, self.g.hir, &ty)))
     }
 }
 

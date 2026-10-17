@@ -28,20 +28,23 @@ pub enum Unwind<C, R, E> {
     error(context: C, error: E),
 }
 
-pub struct Stage<In, Out, R, E> {
+/// A stage's callbacks share the effect row `Eff`, so a pipeline's type
+/// carries what its stages may do (and whether they capture task-local
+/// state).
+pub struct Stage<In, Out, R, E, Eff: Effect> {
     pub name: Symbol,
-    pub enter: fn(In) -> Result<Enter<In, Out, R>, E>,
-    pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>,
-    pub error: Option<fn(Out, E) -> ErrorStep<Out, R, E>>,
+    pub enter: fn(In) -> Result<Enter<In, Out, R>, E> !Eff,
+    pub leave: Option<fn(Out, R) -> Result<(Out, R), E> !Eff>,
+    pub error: Option<fn(Out, E) -> ErrorStep<Out, R, E> !Eff>,
 }
 
-pub struct Handler<C, R, E> {
-    pub run: fn(C) -> Result<(C, R), E>,
+pub struct Handler<C, R, E, Eff: Effect> {
+    pub run: fn(C) -> Result<(C, R), E> !Eff,
 }
 
 /// A composed pipeline: its runner and its stage names in order.
-pub struct Plan<In, R, E> {
-    pub run: fn(In) -> Unwind<In, R, E>,
+pub struct Plan<In, R, E, Eff: Effect> {
+    pub run: fn(In) -> Unwind<In, R, E> !Eff,
     pub stages: List<Symbol>,
 }
 
@@ -55,12 +58,12 @@ pub fn recover<C, R, E>(context: C, reply: R) -> ErrorStep<C, R, E> { ErrorStep.
 /// the compiler into `make_stage` / `make_passthrough`.
 pub fn stage<T>(descriptor: T) -> T { descriptor }
 
-pub fn make_stage<In, Out, R, E>(
+pub fn make_stage<In, Out, R, E, Eff>(
     name: Symbol,
-    enter: Option<fn(In) -> Result<Enter<In, Out, R>, E>>,
-    leave: Option<fn(Out, R) -> Result<(Out, R), E>>,
-    error: Option<fn(Out, E) -> ErrorStep<Out, R, E>>,
-) -> Stage<In, Out, R, E> where Out: records.Extends<In> {
+    enter: Option<fn(In) -> Result<Enter<In, Out, R>, E> !Eff>,
+    leave: Option<fn(Out, R) -> Result<(Out, R), E> !Eff>,
+    error: Option<fn(Out, E) -> ErrorStep<Out, R, E> !Eff>,
+) -> Stage<In, Out, R, E, Eff> where Out: records.Extends<In> {
     match enter {
         .some(f) => { name, enter: f, leave, error },
         .none => panic("stage without enter"),
@@ -68,16 +71,16 @@ pub fn make_stage<In, Out, R, E>(
 }
 
 /// A stage without `enter`: its output context is its input context.
-pub fn make_passthrough<C, R, E>(
+pub fn make_passthrough<C, R, E, Eff>(
     name: Symbol,
-    leave: Option<fn(C, R) -> Result<(C, R), E>>,
-    error: Option<fn(C, E) -> ErrorStep<C, R, E>>,
-) -> Stage<C, C, R, E> {
+    leave: Option<fn(C, R) -> Result<(C, R), E> !Eff>,
+    error: Option<fn(C, E) -> ErrorStep<C, R, E> !Eff>,
+) -> Stage<C, C, R, E, Eff> {
     { name, enter: fn(c) { ok(Enter.next(c)) }, leave, error }
 }
 
 /// Terminal handler returning only a reply.
-pub fn handle<C, R, E>(f: fn(C) -> Result<R, E>) -> Handler<C, R, E> {
+pub fn handle<C, R, E, Eff>(f: fn(C) -> Result<R, E> !Eff) -> Handler<C, R, E, Eff> {
     {
         run: fn(c) {
             match f(c) {
@@ -89,14 +92,14 @@ pub fn handle<C, R, E>(f: fn(C) -> Result<R, E>) -> Handler<C, R, E> {
 }
 
 /// Terminal handler that may update established context values.
-pub fn handle_context<C, R, E>(f: fn(C) -> Result<(C, R), E>) -> Handler<C, R, E> where C: records.Extends<C> {
+pub fn handle_context<C, R, E, Eff>(f: fn(C) -> Result<(C, R), E> !Eff) -> Handler<C, R, E, Eff> where C: records.Extends<C> {
     { run: f }
 }
 
 /// A handler whose reply and error are converted, so a handler written
 /// for other reply or error types ends a pipeline (`map_reply` and
 /// `map_error` convert one of them).
-pub fn map_handler<C, R, E, R2, E2>(h: Handler<C, R, E>, reply: fn(R) -> R2, error: fn(E) -> E2) -> Handler<C, R2, E2> {
+pub fn map_handler<C, R, E, R2, E2, Eff>(h: Handler<C, R, E, Eff>, reply: fn(R) -> R2 !Eff, error: fn(E) -> E2 !Eff) -> Handler<C, R2, E2, Eff> {
     let run = h.run
     {
         run: fn(c) {
@@ -108,18 +111,18 @@ pub fn map_handler<C, R, E, R2, E2>(h: Handler<C, R, E>, reply: fn(R) -> R2, err
     }
 }
 
-pub fn map_reply<C, R, E, R2>(h: Handler<C, R, E>, f: fn(R) -> R2) -> Handler<C, R2, E> {
+pub fn map_reply<C, R, E, R2, Eff>(h: Handler<C, R, E, Eff>, f: fn(R) -> R2 !Eff) -> Handler<C, R2, E, Eff> {
     map_handler(h, f, fn(e) { e })
 }
 
-pub fn map_error<C, R, E, E2>(h: Handler<C, R, E>, f: fn(E) -> E2) -> Handler<C, R, E2> {
+pub fn map_error<C, R, E, E2, Eff>(h: Handler<C, R, E, Eff>, f: fn(E) -> E2 !Eff) -> Handler<C, R, E2, Eff> {
     map_handler(h, fn(r) { r }, f)
 }
 
 /// A whole pipeline as the handler of another (the inner one's stages run
 /// inside the outer one's), typically with `map_handler` when their reply
 /// or error types differ.
-pub fn nest<C, R, E>(p: Plan<C, R, E>) -> Handler<C, R, E> {
+pub fn nest<C, R, E, Eff>(p: Plan<C, R, E, Eff>) -> Handler<C, R, E, Eff> {
     let run = p.run
     {
         run: fn(c) {
@@ -132,7 +135,7 @@ pub fn nest<C, R, E>(p: Plan<C, R, E>) -> Handler<C, R, E> {
 }
 
 /// A plan whose reply and error are converted.
-pub fn adapt<In, R, E, R2, E2>(p: Plan<In, R, E>, reply: fn(R) -> R2, error: fn(E) -> E2) -> Plan<In, R2, E2> {
+pub fn adapt<In, R, E, R2, E2, Eff>(p: Plan<In, R, E, Eff>, reply: fn(R) -> R2 !Eff, error: fn(E) -> E2 !Eff) -> Plan<In, R2, E2, Eff> {
     let run = p.run
     {
         run: fn(c: In) -> Unwind<In, R2, E2> {
@@ -145,7 +148,7 @@ pub fn adapt<In, R, E, R2, E2>(p: Plan<In, R, E>, reply: fn(R) -> R2, error: fn(
     }
 }
 
-pub fn run_handler<C, R, E>(h: Handler<C, R, E>, ctx: C) -> Unwind<C, R, E> {
+pub fn run_handler<C, R, E, Eff>(h: Handler<C, R, E, Eff>, ctx: C) -> Unwind<C, R, E> {
     match h.run(ctx) {
         .ok((c, r)) => Unwind.done(c, r),
         .err(e) => Unwind.error(ctx, e),
@@ -157,7 +160,7 @@ pub fn run_handler<C, R, E>(h: Handler<C, R, E>, ctx: C) -> Unwind<C, R, E> {
 extern "intrinsic" fn task_stage_push(name: Symbol) -> Unit
 extern "intrinsic" fn task_stage_pop() -> Unit
 
-pub fn run_stage<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Unwind<Out, R, E>, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
+pub fn run_stage<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
     // a defect or cancellation skips recovery but leaves a trace of the
     // aborted chain (one event per entered stage, innermost first)
     let name = stage.name
@@ -170,7 +173,7 @@ pub fn run_stage<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Un
     r
 }
 
-fn run_stage_inner<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Unwind<Out, R, E>, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
+fn run_stage_inner<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In> {
     match stage.enter(ctx) {
         // this stage's own fields never existed: earlier stages handle it
         .err(e) => Unwind.error(ctx, e),
@@ -194,7 +197,7 @@ fn run_stage_inner<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> 
     }
 }
 
-pub fn plan<In, R, E>(run: fn(In) -> Unwind<In, R, E>, stages: List<Symbol>) -> Plan<In, R, E> {
+pub fn plan<In, R, E, Eff>(run: fn(In) -> Unwind<In, R, E> !Eff, stages: List<Symbol>) -> Plan<In, R, E, Eff> {
     { run, stages }
 }
 
@@ -202,17 +205,17 @@ pub fn plan<In, R, E>(run: fn(In) -> Unwind<In, R, E>, stages: List<Symbol>) -> 
 /// Each stage preserves the context contract `C` (it may carry private
 /// state in its closures), so the composition is checked statically
 /// whatever the selection.
-pub fn with_stages<C, R, E>(stages: List<Stage<C, C, R, E>>, inner: Plan<C, R, E>) -> Plan<C, R, E> {
+pub fn with_stages<C, R, E, Eff>(stages: List<Stage<C, C, R, E, Eff>>, inner: Plan<C, R, E, Eff>) -> Plan<C, R, E, Eff> {
     var run = inner.run
     for s in list.reverse(stages) {
         let rest = run
         run = fn(c: C) -> Unwind<C, R, E> { run_stage(s, rest, c) }
     }
-    { run, stages: list.concat(list.map(stages, fn(s: Stage<C, C, R, E>) -> Symbol { s.name }), inner.stages) }
+    { run, stages: list.concat(list.map(stages, fn(s: Stage<C, C, R, E, Eff>) -> Symbol { s.name }), inner.stages) }
 }
 
 /// Compile a plan into a handler function.
-pub fn compile<In, R, E>(p: Plan<In, R, E>) -> fn(In) -> Result<R, E> {
+pub fn compile<In, R, E, Eff>(p: Plan<In, R, E, Eff>) -> fn(In) -> Result<R, E> !Eff {
     fn(c) {
         match p.run(c) {
             .done(_, r) => ok(r),

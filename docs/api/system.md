@@ -27,7 +27,7 @@ pub extern type Erased
 ### `ErasedNode`
 
 ```lang
-struct ErasedNode { pub label: Symbol, pub index: Int, pub deps: List<Int>, pub provider: Symbol, pub at: String, start: fn(system.InitScope<Unit>, system.Outputs) -> Result<system.Erased, system.Error>, config: system.Erased, config_type: Int }
+struct ErasedNode { pub label: Symbol, pub index: Int, pub deps: List<Int>, pub provider: Symbol, pub at: String, start: fn(system.InitScope<Unit>, system.Outputs) -> Result<system.Erased, system.Error> !{Io, Wait, State}, config: system.Erased, config_type: Int }
 ```
 
 ### `Error`
@@ -127,7 +127,7 @@ projection never reads.
 ### `Provider`
 
 ```lang
-struct Provider<C, O, E> { pub name: Symbol, pub init: fn(system.InitScope<Unit>, C) -> Result<O, E> }
+struct Provider<C, O, E> { pub name: Symbol, pub init: fn(system.InitScope<Unit>, C) -> Result<O, E> !{Io, Wait, State} }
 ```
 
 ### `ProviderError`
@@ -169,7 +169,7 @@ operations. Branded with the region of `system.run`'s callback.
 ### `SystemPlan`
 
 ```lang
-struct SystemPlan<Os, Cs> { pub nodes: List<system.ErasedNode>, view: fn(system.Outputs) -> {..Os}, configs: fn(system.Outputs) -> {..Cs} }
+struct SystemPlan<Os, Cs> { pub nodes: List<system.ErasedNode>, view: fn(system.Outputs) -> {..Os} !{Io, Wait, State}, configs: fn(system.Outputs) -> {..Cs} !{Io, Wait, State} }
 ```
 
 An inspectable, validated system description whose started nodes'

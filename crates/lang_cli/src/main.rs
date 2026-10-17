@@ -45,6 +45,38 @@ enum Command {
         #[arg(long, value_name = "N")]
         workers: Option<usize>,
     },
+    /// Write a self-contained release directory: the `lang` executable,
+    /// the program as binary MIR, the native libraries it calls, and a
+    /// manifest of their digests. `DIR/run ARGS` (or `lang start DIR`)
+    /// starts it without the sources or a compiler installation.
+    Release {
+        /// Entry file or project directory (default: the current project).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Release directory (default: `release/<package>`); an earlier
+        /// release there is replaced.
+        #[arg(short, long, value_name = "DIR")]
+        output: Option<PathBuf>,
+        /// Merge `[profile.NAME]` from `lang.toml` into the saved configuration.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Worker threads to save as the default.
+        #[arg(long, value_name = "N")]
+        workers: Option<usize>,
+    },
+    /// Start a release written by `lang release`: its target, program, and
+    /// native libraries (digests and ABI version) are checked before any
+    /// program code runs.
+    Start {
+        /// The release directory.
+        dir: PathBuf,
+        /// Worker threads (default: the release's saved setting).
+        #[arg(long, value_name = "N")]
+        workers: Option<usize>,
+        /// Arguments passed to the program (after `--`).
+        #[arg(last = true)]
+        args: Vec<String>,
+    },
     /// Compile a program with the JIT and run it (a source program, or a
     /// binary MIR file written by `lang compile`).
     Run {
@@ -423,6 +455,58 @@ fn main() -> ExitCode {
                     report(&session, false);
                     println!("wrote {} ({} bytes)", out.display(), bytes.len());
                     ExitCode::SUCCESS
+                }
+                Err(_) => {
+                    report(&session, false);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Release { path, output, profile, workers } => {
+            let opts = lang_driver::RunOptions { profile, workers, optimize: true, ..Default::default() };
+            let out = output.unwrap_or_else(|| {
+                let stem = default_binary_name(&path);
+                PathBuf::from("release").join(stem.file_stem().unwrap_or_default())
+            });
+            match lang_driver::release::build(&mut session, &path, &out, &opts) {
+                Ok(b) => {
+                    report(&session, false);
+                    let libs = if b.libraries.is_empty() {
+                        String::new()
+                    } else {
+                        format!(", native {}", b.libraries.join(", "))
+                    };
+                    println!(
+                        "wrote release {} ({}: {} bytes{libs}); start it with {}/run",
+                        out.display(),
+                        b.name,
+                        b.program_bytes,
+                        out.display()
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    report(&session, false);
+                    if let Some(e) = e {
+                        eprintln!("error: {e}");
+                    }
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Start { dir, workers, args } => {
+            let program = match lang_driver::release::verify(&dir) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: cannot start {}: {e}", dir.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            let opts = lang_driver::RunOptions { workers, optimize: true, ..Default::default() };
+            match session.run(&program, args, &opts) {
+                Ok(code) => {
+                    report(&session, false);
+                    exit_now(code)
                 }
                 Err(_) => {
                     report(&session, false);

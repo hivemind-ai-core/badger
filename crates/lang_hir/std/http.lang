@@ -56,7 +56,7 @@ pub struct Exchange {
 
 /// A packaged request handler; handler errors become 500 replies.
 pub struct Handler {
-    run: fn(Request, Exchange) -> Reply,
+    run: fn(Request, Exchange) -> Reply !{Io, Wait, State, Foreign},
 }
 
 extern "intrinsic" fn identity<A, B>(value: A) -> B
@@ -510,12 +510,12 @@ pub fn body_text(request: Request) -> String { http_body_text(request.body) }
 
 /// Start serving with the default limits; requests run as isolated sibling
 /// tasks of the server.
-pub fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error> !{Io} {
+pub fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error> {
     listen_with(address, port, h, limits())
 }
 
 /// Start serving with explicit limits.
-pub fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error> !{Io} {
+pub fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error> {
     let all: ListenLimits = {
         max_body_bytes: limits.max_body_bytes,
         max_header_bytes: limits.max_header_bytes,

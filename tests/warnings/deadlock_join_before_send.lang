@@ -1,0 +1,21 @@
+// A task waiting to receive is joined before anything is sent to it: the
+// join waits forever.
+// expect-warning: E0451
+import std.channel
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, String> {
+    let requests = channel.create<Int>({ ..channel.defaults, capacity: 1 }).map_err(fn(_) { "config" })?
+    use s <- task.scope()
+    let worker = s.spawn(fn() {
+        match requests.receiver.recv() {
+            .some(n) => n * 2,
+            .none => 0,
+        }
+    })
+    let doubled = worker.join()
+    let _ = requests.sender.send(21)
+    let _ = io.println($"{doubled}")
+    ok(())
+}

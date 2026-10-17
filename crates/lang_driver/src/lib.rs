@@ -22,6 +22,7 @@ pub mod deps;
 pub mod inspect;
 pub mod live;
 pub mod manifest;
+pub mod release;
 pub mod sql;
 pub mod sqlcheck;
 pub mod sqlgen;
@@ -35,6 +36,8 @@ pub struct Session {
     pub entry_suffix: String,
     /// Unsaved editor buffers, by canonical path: read instead of the file.
     pub overlays: std::collections::HashMap<PathBuf, String>,
+    /// Native modules the last `compile_binary` program calls.
+    pub natives: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1143,6 +1146,7 @@ impl Session {
             }
         };
         let (prog, _, _) = self.lower_to_mir(path, opts)?;
+        self.natives = prog.natives.iter().cloned().collect();
         let mut meta: Vec<(String, String)> =
             config.into_iter().map(|(k, v, _)| (format!("config.{k}"), v)).collect();
         // the effective settings at compile time (manifest, profile, and

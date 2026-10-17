@@ -1,0 +1,12 @@
+// A closure annotated with an effect variable may only perform that
+// variable's effects.
+// expect-error: E0501
+import std.io
+fn wrap<Eff: Effect>(f: fn(Int) -> Int !Eff) -> fn(Int) -> Int !Eff {
+    fn(x: Int) -> Int !Eff { let _ = io.println("s"); f(x) + 1 }
+}
+
+pub fn main() {
+    let g = wrap(fn(x) { x * 2 })
+    assert(g(1) == 3)
+}

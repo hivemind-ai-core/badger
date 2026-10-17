@@ -399,12 +399,25 @@ fn respace(line: &str) -> Option<(Vec<Tok>, String)> {
     // operator roles: unary prefix (`-x`, `!x`, `&x`) and effect markers (`!{`)
     let mut unary = vec![false; n];
     let mut effect = vec![false; n];
+    let mut generic_depth = 0usize;
     for i in 0..n {
+        if ts[i].generic {
+            if ts[i].text == "<" {
+                generic_depth += 1;
+            } else {
+                generic_depth = generic_depth.saturating_sub(1);
+            }
+        }
         if ts[i].k == K::Op && matches!(ts[i].text.as_str(), "-" | "!" | "&") {
             let prev_operand = i > 0 && ends_operand(&ts[i - 1]);
+            // an effect argument among generic arguments (`Seq<T, !{Io}>`)
+            let effect_arg = ts[i].text == "!"
+                && generic_depth > 0
+                && i > 0
+                && (ts[i - 1].k == K::Comma || (ts[i - 1].generic && ts[i - 1].text == "<"));
             // `!` is never binary: after an operand it marks an effect
             // (`-> T !{Io}`, `-> T !Eff`)
-            if ts[i].text == "!" && prev_operand {
+            if ts[i].text == "!" && (prev_operand || effect_arg) {
                 effect[i] = true;
             } else if !prev_operand {
                 unary[i] = true;

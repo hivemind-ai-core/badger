@@ -1,0 +1,44 @@
+// Valid neighbours of the E0451/E0452 patterns: no warning, and they finish.
+import std.channel
+import std.io
+import std.task
+
+fn send_then_join() -> Result<Int, String> {
+    let requests = channel.create<Int>({ ..channel.defaults, capacity: 1 }).map_err(fn(_) { "config" })?
+    use s <- task.scope()
+    let worker = s.spawn(fn() {
+        match requests.receiver.recv() {
+            .some(n) => n * 2,
+            .none => 0,
+        }
+    })
+    let _ = requests.sender.send(21)
+    ok(worker.join())
+}
+
+fn fill_to_capacity() -> Result<Int, String> {
+    let jobs = channel.create<Int>({ ..channel.defaults, capacity: 2 }).map_err(fn(_) { "config" })?
+    let _ = jobs.sender.send(1)
+    let _ = jobs.sender.send(2)
+    use s <- task.scope()
+    let worker = s.spawn(fn() {
+        var n = 0
+        loop {
+            match jobs.receiver.recv() {
+                .some(x) => { n = n + x },
+                .none => break,
+            }
+        }
+        n
+    })
+    let _ = jobs.sender.send(3)
+    jobs.sender.close()
+    ok(worker.join())
+}
+
+pub fn main() -> Result<Unit, String> {
+    let a = send_then_join()?
+    let b = fill_to_capacity()?
+    let _ = io.println($"{a} {b}")
+    ok(())
+}

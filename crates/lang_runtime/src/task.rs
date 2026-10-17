@@ -344,6 +344,9 @@ pub struct Runtime {
     /// Long-lived sources of external events (servers, signal waiters).
     pub listeners: usize,
     completions: FxHashMap<TaskId, Box<dyn std::any::Any + Send>>,
+    /// Tasks that stopped waiting for a blocking call (cancelled): its
+    /// completion, when it comes, is dropped.
+    abandoned: rustc_hash::FxHashSet<TaskId>,
     pub main: Option<TaskId>,
     pub stack_size: usize,
     /// Called when a task schedules out: publish its staged batches.
@@ -377,6 +380,7 @@ pub fn rt() -> &'static mut Runtime {
                 outstanding: 0,
                 listeners: 0,
                 completions: FxHashMap::default(),
+                abandoned: Default::default(),
                 main: None,
                 stack_size: STACK_SIZE.load(Ordering::SeqCst),
                 deschedule_hook: None,
@@ -2218,14 +2222,40 @@ pub fn sleep(d: Duration) -> Wake {
 }
 
 /// Run `f` on a blocking-pool thread, parking the current task meanwhile.
+/// Cancellation waits for `f` to finish (it may use the task's memory, as
+/// a blocking foreign call does), then takes effect.
 pub fn run_blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
-    run_on(&BLOCKING_POOL, "blocking call", f)
+    run_on(&BLOCKING_POOL, "blocking call", f, OnCancel::Wait)
+}
+
+/// [`run_blocking`] for work that can be told to stop (a subprocess is
+/// killed): when the task is cancelled, `stop` runs once on the worker;
+/// the task still waits for `f` to finish, then leaves as cancelled.
+pub fn run_blocking_cancellable<T: Send + 'static>(
+    f: impl FnOnce() -> T + Send + 'static,
+    stop: impl FnOnce() + 'static,
+) -> T {
+    run_on(&BLOCKING_POOL, "blocking call", f, OnCancel::Stop(Box::new(stop)))
+}
+
+/// [`run_blocking`] for work that owns everything it uses (copied paths and
+/// bytes, no managed memory): a cancelled task stops waiting at once, and
+/// the work's result is dropped when it finishes (its external effect may
+/// still happen).
+pub fn run_blocking_abandonable<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    run_on(&BLOCKING_POOL, "blocking call", f, OnCancel::Abandon)
+}
+
+enum OnCancel {
+    Wait,
+    Stop(Box<dyn FnOnce()>),
+    Abandon,
 }
 
 /// Run `f` on the one dedicated pinned thread (foreign thread affinity),
 /// parking the current task meanwhile.
 pub fn run_pinned<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
-    run_on(&PINNED_POOL, "pinned foreign call", f)
+    run_on(&PINNED_POOL, "pinned foreign call", f, OnCancel::Wait)
 }
 
 type Job = Box<dyn FnOnce() + Send>;
@@ -2300,6 +2330,7 @@ fn run_on<T: Send + 'static>(
     pool: &'static ThreadPool,
     wait: &'static str,
     f: impl FnOnce() -> T + Send + 'static,
+    mut on_cancel: OnCancel,
 ) -> T {
     let id = current_id();
     let q = rt().external.clone();
@@ -2314,13 +2345,43 @@ fn run_on<T: Send + 'static>(
     if let Some(t) = current() {
         t.wait = wait;
     }
+    let mut stopped = false;
     loop {
         park_shielded();
         if let Some(v) = rt().completions.remove(&id) {
             if let Some(t) = current() {
                 t.wait = "";
             }
+            // told to stop: its result is not the program's (the task
+            // leaves as cancelled here)
+            if stopped {
+                check_interrupts();
+            }
             return *v.downcast::<T>().expect("blocking result type");
+        }
+        let t = current().unwrap();
+        if t.state.get() == State::Cleaning || flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) == 0 {
+            continue;
+        }
+        // a recording keeps every operation's outcome: wait for it
+        if matches!(on_cancel, OnCancel::Abandon) && crate::repro::active() {
+            on_cancel = OnCancel::Wait;
+        }
+        match std::mem::replace(&mut on_cancel, OnCancel::Wait) {
+            OnCancel::Wait => {}
+            OnCancel::Stop(s) => {
+                s();
+                stopped = true;
+            }
+            OnCancel::Abandon => {
+                // the completion no longer keeps the program running, and is
+                // dropped when it arrives
+                rt().outstanding -= 1;
+                rt().abandoned.insert(id);
+                t.wait = "";
+                check_interrupts();
+                unreachable!("a cancelled task continued past its cancellation point");
+            }
         }
     }
 }
@@ -3347,6 +3408,10 @@ pub fn harvest_events() {
     for e in events {
         match e {
             External::Complete { task: id, value } => {
+                if rt().abandoned.remove(&id) {
+                    drop(value);
+                    continue;
+                }
                 rt().outstanding -= 1;
                 rt().completions.insert(id, value);
                 wake(id, Wake::Normal);
@@ -3446,6 +3511,10 @@ fn wait_events() -> bool {
         for e in events {
             match e {
                 External::Complete { task: id, value } => {
+                    if rt().abandoned.remove(&id) {
+                        drop(value);
+                        continue;
+                    }
                     rt().outstanding -= 1;
                     rt().completions.insert(id, value);
                     wake(id, Wake::Normal);

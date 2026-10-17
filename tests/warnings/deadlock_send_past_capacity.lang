@@ -1,0 +1,27 @@
+// Sending more than a fresh channel holds before any task could receive:
+// the third send waits forever.
+// expect-warning: E0452
+import std.channel
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, String> {
+    let jobs = channel.create<Int>({ ..channel.defaults, capacity: 2 }).map_err(fn(_) { "config" })?
+    let _ = jobs.sender.send(1)
+    let _ = jobs.sender.send(2)
+    let _ = jobs.sender.send(3)
+    use s <- task.scope()
+    let worker = s.spawn(fn() {
+        var n = 0
+        loop {
+            match jobs.receiver.recv() {
+                .some(x) => { n = n + x },
+                .none => break,
+            }
+        }
+        n
+    })
+    jobs.sender.close()
+    let _ = io.println($"{worker.join()}")
+    ok(())
+}

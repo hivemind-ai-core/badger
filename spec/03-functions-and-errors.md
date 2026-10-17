@@ -80,6 +80,18 @@ result, nothing determines it, so such a function type may perform any
 modeled effect (`Io`, `Wait`, `State`, `Foreign`); annotate it (`!{}`,
 `!{Io}`) to call it under a tighter bound.
 
+A type can be effect-generic: `struct Gen<Eff: Effect> { next: fn() -> T !Eff }`.
+Its effect argument is written `Gen<!{Io}>` or `Gen<Eff>`, a row can extend a
+variable (`!{Io, Eff}`), and a trailing effect argument may be omitted: in a
+signature it is inferred (a parameter's is the caller's choice), in a stored
+field it is any modeled effect. A function's result may be used where more
+effects are allowed (a closed row in a result position, including an effect
+argument, is an upper bound). The standard library's `Seq<T, Eff>`,
+`Stream<T, Eff>`, and pipeline stages carry their effects this way; a
+closure capturing a `Cell` marks the row it flows into, so a value holding
+it stays on its task. Module values are computed without effects, including
+the effects of callbacks they pass to functions that call them.
+
 Scheduler budget checks, tracing bookkeeping, and GC safe points are runtime
 mechanisms, not a requirement to annotate every pure function with `Wait`.
 Source-level nondeterminism still comes from concurrency and effectful calls.

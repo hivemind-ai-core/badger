@@ -1,0 +1,61 @@
+// Stream operations: bounded reads, batches, fallible transforms, and
+// closing the source when reading stops at an error (the producer's next
+// send fails, so it stops too).
+import std.channel
+import std.io
+import std.stream
+import std.task
+
+fn parse(x: Int) -> Result<Int, String> {
+    if x == 4 { err("bad item 4") } else { ok(x * 10) }
+}
+
+pub fn main() -> Result<Unit, String> {
+    let say = fn(s: String) { let _ = io.println(s) }
+    let nums = [1, 2, 3, 4, 5, 6, 7]
+    say($"take 3: {stream.from_list(nums).take(3) |> stream.collect}")
+    say($"batches: {stream.from_list(nums).batches(3) |> stream.collect}")
+    say($"fold: {stream.from_list(nums).fold(0, fn(a, x) { a + x })}")
+    say($"drain: {stream.from_list(nums).filter(fn(x) { x % 2 == 0 }).drain()}")
+    say($"at most 10: {stream.from_list(nums).collect_at_most(10)}")
+    say($"at most 3: {stream.from_list(nums).collect_at_most(3)}")
+    let seen = Atom.new(0)
+    stream.from_list(nums).each(fn(x) { seen.set(seen.get() + x) })
+    say($"each: {seen.get()}")
+    // the rest of a stream stays readable after `take`
+    let s = stream.from_list(nums)
+    let head = s.take(2) |> stream.collect
+    say($"head {head}, rest {stream.collect(s)}")
+    // stopping at an error closes the channel: the producer's send fails
+    let ch = channel.create<Int>({ ..channel.defaults, capacity: 1 }).map_err(fn(_) { "config" })?
+    use scope <- task.scope()
+    let producer = scope.spawn(fn() {
+        var sent = 0
+        for i in 1..100 {
+            match ch.sender.send(i) {
+                .ok(_) => { sent = sent + 1 },
+                .err(_) => break,
+            }
+        }
+        sent
+    })
+    let parsed = stream.from_receiver(ch.receiver) |> stream.try_map(parse) |> stream.try_collect
+    say($"parsed: {parsed}")
+    let sent = producer.join()
+    say($"producer stopped early: {sent < 99}")
+    // a stream over a channel can be handed to another task
+    let ch2 = channel.create<Int>({ ..channel.defaults, capacity: 8 }).map_err(fn(_) { "config" })?
+    let incoming = stream.from_receiver(ch2.receiver)
+    let consumer = scope.spawn(fn() { incoming.fold(0, fn(a, x) { a + x }) })
+    for i in 1..=5 {
+        let _ = ch2.sender.send(i)
+    }
+    ch2.sender.close()
+    say($"consumer total {consumer.join()}")
+    // try_each stops at the first error and closes
+    let r = stream.from_list(nums).try_each(fn(x) -> Result<Unit, String> {
+        if x > 2 { err($"stop at {x}") } else { ok(()) }
+    })
+    say($"try_each: {r}")
+    ok(())
+}

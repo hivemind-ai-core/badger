@@ -502,7 +502,7 @@ std_intrinsics! {
     fn fs_read_text(ctx, targs, ret, path) {
         let p = str_of(path).to_string();
         let r = crate::repro::external("read", &p.clone(), None, false, move || {
-            crate::task::run_blocking(move || std::fs::read_to_string(p)).map_err(|e| crate::intrinsics_io::io_pair(&e))
+            crate::task::run_blocking_abandonable(move || std::fs::read_to_string(p)).map_err(|e| crate::intrinsics_io::io_pair(&e))
         });
         match r { Ok(s) => { let w = new_string(&s); io_ok(rdesc(ret), w) } Err((k, m)) => crate::intrinsics_io::io_err_msg(rdesc(ret), &k, &m) }
     }
@@ -510,7 +510,7 @@ std_intrinsics! {
         let (p, t) = (str_of(path).to_string(), str_of(text).to_string());
         let d = Some(crate::repro::digest(t.as_bytes()));
         let r = crate::repro::external("write", &p.clone(), d, false, move || {
-            crate::task::run_blocking(move || std::fs::write(p, t)).map_err(|e| crate::intrinsics_io::io_pair(&e))
+            crate::task::run_blocking_abandonable(move || std::fs::write(p, t)).map_err(|e| crate::intrinsics_io::io_pair(&e))
         });
         crate::intrinsics_io::io_result(rdesc(ret), r.map(|()| 0))
     }
@@ -544,7 +544,7 @@ std_intrinsics! {
     fn fs_list(ctx, targs, ret, path) {
         let p = str_of(path).to_string();
         let r = crate::repro::external("list", &p.clone(), None, false, move || {
-            crate::task::run_blocking(move || -> std::io::Result<Vec<String>> {
+            crate::task::run_blocking_abandonable(move || -> std::io::Result<Vec<String>> {
                 let mut names: Vec<String> = std::fs::read_dir(p)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect();
                 names.sort();
                 Ok(names)

@@ -1,18 +1,52 @@
 // Suspending input streams (e.g. from channels). Unlike `Seq`, pulling from
-// a stream may wait, and a stream is consumed as it is read.
+// a stream may wait, and a stream is consumed as it is read: a `for` loop
+// that stops early leaves the rest readable. Closing a stream (`close`, or
+// an operation that stops at an error) closes what it reads from, so a
+// producer learns to stop.
 
 import std.channel
+import std.list
 
-pub struct Stream<T> {
-    pub next: fn() -> Option<T>,
+/// `Eff` is what pulling may do (and whether the stream captures task-local
+/// state).
+pub struct Stream<T, Eff: Effect> {
+    pub next: fn() -> Option<T> !Eff,
+    /// Stop reading: release the source (idempotent).
+    pub close: fn() -> Unit !Eff,
 }
 
-/// Messages from a receiver until it is closed and drained.
-pub fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T> {
-    { next: fn() { r.recv() } }
+/// A stream pulling from `next`, with nothing to release.
+pub fn from_fn<T, Eff>(next: fn() -> Option<T> !Eff) -> Stream<T, Eff> {
+    { next, close: fn() {} }
 }
 
-pub fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U> {
+/// Messages from a receiver until it is closed and drained. Closing the
+/// stream closes the receiver: further sends fail.
+pub fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T, !{Wait}> {
+    { next: fn() { r.recv() }, close: fn() { r.close() } }
+}
+
+/// The items of a list, in order.
+pub fn from_list<T>(items: List<T>) -> Stream<T, !{State}> {
+    let i = Atom.new(0)
+    {
+        next: fn() {
+            let k = i.get()
+            if k < items.len() {
+                i.set(k + 1)
+                items.get(k)
+            } else {
+                Option.none
+            }
+        },
+        close: fn() { i.set(items.len()) },
+    }
+}
+
+/// Stop reading `s` and release its source.
+pub fn close<T, Eff>(s: Stream<T, Eff>) -> Unit { s.close() }
+
+pub fn map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> U !Eff) -> Stream<U, Eff> {
     {
         next: fn() {
             match s.next() {
@@ -20,10 +54,11 @@ pub fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U> {
                 .none => Option.none,
             }
         },
+        close: s.close,
     }
 }
 
-pub fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T> {
+pub fn filter<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff> {
     {
         next: fn() -> Option<T> {
             loop {
@@ -33,11 +68,134 @@ pub fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T> {
                 }
             }
         },
+        close: s.close,
     }
 }
 
-/// Read every remaining item.
-pub fn collect<T>(s: Stream<T>) -> List<T> !{Wait} {
+/// At most `n` items; the rest of `s` stays readable.
+pub fn take<T, Eff>(s: Stream<T, Eff>, n: Int) -> Stream<T, !{State, Eff}> {
+    let left = Atom.new(n)
+    {
+        next: fn() {
+            if left.get() <= 0 {
+                Option.none
+            } else {
+                left.set(left.get() - 1)
+                s.next()
+            }
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// Items while `keep` holds (the first that fails is consumed).
+pub fn take_while<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, !{State, Eff}> {
+    let done = Atom.new(false)
+    {
+        next: fn() {
+            if done.get() {
+                return Option.none
+            }
+            match s.next() {
+                .some(x) => if keep(x) {
+                    Option.some(x)
+                } else {
+                    done.set(true)
+                    Option.none
+                },
+                .none => Option.none,
+            }
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// Items in lists of `size` (the last may be shorter).
+pub fn batches<T, Eff>(s: Stream<T, Eff>, size: Int) -> Stream<List<T>, Eff> {
+    if size <= 0 {
+        panic("stream.batches: size must be positive")
+    }
+    {
+        next: fn() -> Option<List<T>> {
+            let b = list.builder<T>()
+            var n = 0
+            while n < size {
+                match s.next() {
+                    .some(x) => {
+                        b.append(x)
+                        n = n + 1
+                    },
+                    .none => break,
+                }
+            }
+            let items = b.finish()
+            if items.len() == 0 { Option.none } else { Option.some(items) }
+        },
+        close: s.close,
+    }
+}
+
+/// A fallible transform: each item becomes `ok` or `err` (reading goes on;
+/// `try_collect` and `try_each` stop at the first error).
+pub fn try_map<T, U, E, Eff>(s: Stream<T, Eff>, f: fn(T) -> Result<U, E> !Eff) -> Stream<Result<U, E>, Eff> {
+    map(s, f)
+}
+
+/// Run `f` on each item.
+pub fn each<T, Eff>(s: Stream<T, Eff>, f: fn(T) -> Unit !Eff) -> Unit {
+    loop {
+        match s.next() {
+            .some(x) => f(x),
+            .none => break,
+        }
+    }
+}
+
+/// Run `f` on each item, stopping at the first error: the stream is
+/// closed, and the error returned.
+pub fn try_each<T, E, Eff>(s: Stream<T, Eff>, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E> {
+    loop {
+        match s.next() {
+            .some(x) => match f(x) {
+                .ok(_) => (),
+                .err(e) => {
+                    s.close()
+                    return err(e)
+                },
+            },
+            .none => break,
+        }
+    }
+    ok(())
+}
+
+pub fn fold<T, A, Eff>(s: Stream<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> A {
+    var acc = initial
+    loop {
+        match s.next() {
+            .some(x) => { acc = f(acc, x) },
+            .none => break,
+        }
+    }
+    acc
+}
+
+/// Read and discard every remaining item: how many there were.
+pub fn drain<T, Eff>(s: Stream<T, Eff>) -> Int {
+    var n = 0
+    loop {
+        match s.next() {
+            .some(_) => { n = n + 1 },
+            .none => break,
+        }
+    }
+    n
+}
+
+/// Read every remaining item. This is unbounded: a stream that never ends
+/// never returns, and a long one is held in memory whole (`collect_at_most`
+/// bounds it).
+pub fn collect<T, Eff>(s: Stream<T, Eff>) -> List<T> !{Wait, Eff} {
     let b = list.builder<T>()
     loop {
         match s.next() {
@@ -48,4 +206,53 @@ pub fn collect<T>(s: Stream<T>) -> List<T> !{Wait} {
     b.finish()
 }
 
-import std.list
+/// Every remaining item when there are at most `limit`; otherwise
+/// `none`, with the stream closed after reading one item past the limit.
+pub fn collect_at_most<T, Eff>(s: Stream<T, Eff>, limit: Int) -> Option<List<T>> {
+    let b = list.builder<T>()
+    var n = 0
+    loop {
+        match s.next() {
+            .some(x) => {
+                if n == limit {
+                    s.close()
+                    return Option.none
+                }
+                b.append(x)
+                n = n + 1
+            },
+            .none => break,
+        }
+    }
+    Option.some(b.finish())
+}
+
+/// The items of a stream of results, or the first error (the stream is
+/// then closed).
+pub fn try_collect<T, E, Eff>(s: Stream<Result<T, E>, Eff>) -> Result<List<T>, E> {
+    let b = list.builder<T>()
+    loop {
+        match s.next() {
+            .some(.ok(x)) => b.append(x),
+            .some(.err(e)) => {
+                s.close()
+                return err(e)
+            },
+            .none => break,
+        }
+    }
+    ok(b.finish())
+}
+
+impl<T, Eff> Stream<T, Eff> {
+    pub fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Stream<U, Eff> { map(self, f) }
+    pub fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff> { filter(self, keep) }
+    pub fn take(self: &Self, n: Int) -> Stream<T, !{State, Eff}> { take(self, n) }
+    pub fn batches(self: &Self, size: Int) -> Stream<List<T>, Eff> { batches(self, size) }
+    pub fn each(self: &Self, f: fn(T) -> Unit !Eff) -> Unit { each(self, f) }
+    pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E> { try_each(self, f) }
+    pub fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Stream<Result<U, E>, Eff> { try_map(self, f) }
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A { fold(self, initial, f) }
+    pub fn drain(self: &Self) -> Int { drain(self) }
+    pub fn collect_at_most(self: &Self, limit: Int) -> Option<List<T>> { collect_at_most(self, limit) }
+}

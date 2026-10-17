@@ -27,13 +27,13 @@ enum ErrorStep<C, R, E> { propagate(context: C, error: E), recover(context: C, r
 ### `Handler`
 
 ```lang
-struct Handler<C, R, E> { pub run: fn(C) -> Result<(C, R), E> }
+struct Handler<C, R, E, Eff> { pub run: fn(C) -> Result<(C, R), E> }
 ```
 
 ### `Plan`
 
 ```lang
-struct Plan<In, R, E> { pub run: fn(In) -> pipeline.Unwind<In, R, E>, pub stages: List<Symbol> }
+struct Plan<In, R, E, Eff> { pub run: fn(In) -> pipeline.Unwind<In, R, E>, pub stages: List<Symbol> }
 ```
 
 A composed pipeline: its runner and its stage names in order.
@@ -41,8 +41,12 @@ A composed pipeline: its runner and its stage names in order.
 ### `Stage`
 
 ```lang
-struct Stage<In, Out, R, E> { pub name: Symbol, pub enter: fn(In) -> Result<pipeline.Enter<In, Out, R>, E>, pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>, pub error: Option<fn(Out, E) -> pipeline.ErrorStep<Out, R, E>> }
+struct Stage<In, Out, R, E, Eff> { pub name: Symbol, pub enter: fn(In) -> Result<pipeline.Enter<In, Out, R>, E>, pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>, pub error: Option<fn(Out, E) -> pipeline.ErrorStep<Out, R, E>> }
 ```
+
+A stage's callbacks share the effect row `Eff`, so a pipeline's type
+carries what its stages may do (and whether they capture task-local
+state).
 
 ### `Unwind`
 
@@ -55,7 +59,7 @@ enum Unwind<C, R, E> { done(context: C, reply: R), error(context: C, error: E) }
 ### `adapt`
 
 ```lang
-fn adapt<In, R, E, R2, E2>(p: Plan<In, R, E>, reply: fn(R) -> R2, error: fn(E) -> E2) -> Plan<In, R2, E2>
+fn adapt<In, R, E, R2, E2, Eff>(p: Plan<In, R, E, Eff>, reply: fn(R) -> R2 !Eff, error: fn(E) -> E2 !Eff) -> Plan<In, R2, E2, Eff>
 ```
 
 A plan whose reply and error are converted.
@@ -63,7 +67,7 @@ A plan whose reply and error are converted.
 ### `compile`
 
 ```lang
-fn compile<In, R, E>(p: Plan<In, R, E>) -> fn(In) -> Result<R, E>
+fn compile<In, R, E, Eff>(p: Plan<In, R, E, Eff>) -> fn(In) -> Result<R, E> !Eff
 ```
 
 Compile a plan into a handler function.
@@ -71,7 +75,7 @@ Compile a plan into a handler function.
 ### `handle`
 
 ```lang
-fn handle<C, R, E>(f: fn(C) -> Result<R, E>) -> Handler<C, R, E>
+fn handle<C, R, E, Eff>(f: fn(C) -> Result<R, E> !Eff) -> Handler<C, R, E, Eff>
 ```
 
 Terminal handler returning only a reply.
@@ -79,7 +83,7 @@ Terminal handler returning only a reply.
 ### `handle_context`
 
 ```lang
-fn handle_context<C, R, E>(f: fn(C) -> Result<(C, R), E>) -> Handler<C, R, E> where C: records.Extends<C>
+fn handle_context<C, R, E, Eff>(f: fn(C) -> Result<(C, R), E> !Eff) -> Handler<C, R, E, Eff> where C: records.Extends<C>
 ```
 
 Terminal handler that may update established context values.
@@ -93,7 +97,7 @@ fn leave<C, R, E>(context: C, reply: R) -> Result<(C, R), E>
 ### `make_passthrough`
 
 ```lang
-fn make_passthrough<C, R, E>( name: Symbol, leave: Option<fn(C, R) -> Result<(C, R), E>>, error: Option<fn(C, E) -> ErrorStep<C, R, E>>, ) -> Stage<C, C, R, E>
+fn make_passthrough<C, R, E, Eff>( name: Symbol, leave: Option<fn(C, R) -> Result<(C, R), E> !Eff>, error: Option<fn(C, E) -> ErrorStep<C, R, E> !Eff>, ) -> Stage<C, C, R, E, Eff>
 ```
 
 A stage without `enter`: its output context is its input context.
@@ -101,19 +105,19 @@ A stage without `enter`: its output context is its input context.
 ### `make_stage`
 
 ```lang
-fn make_stage<In, Out, R, E>( name: Symbol, enter: Option<fn(In) -> Result<Enter<In, Out, R>, E>>, leave: Option<fn(Out, R) -> Result<(Out, R), E>>, error: Option<fn(Out, E) -> ErrorStep<Out, R, E>>, ) -> Stage<In, Out, R, E> where Out: records.Extends<In>
+fn make_stage<In, Out, R, E, Eff>( name: Symbol, enter: Option<fn(In) -> Result<Enter<In, Out, R>, E> !Eff>, leave: Option<fn(Out, R) -> Result<(Out, R), E> !Eff>, error: Option<fn(Out, E) -> ErrorStep<Out, R, E> !Eff>, ) -> Stage<In, Out, R, E, Eff> where Out: records.Extends<In>
 ```
 
 ### `map_error`
 
 ```lang
-fn map_error<C, R, E, E2>(h: Handler<C, R, E>, f: fn(E) -> E2) -> Handler<C, R, E2>
+fn map_error<C, R, E, E2, Eff>(h: Handler<C, R, E, Eff>, f: fn(E) -> E2 !Eff) -> Handler<C, R, E2, Eff>
 ```
 
 ### `map_handler`
 
 ```lang
-fn map_handler<C, R, E, R2, E2>(h: Handler<C, R, E>, reply: fn(R) -> R2, error: fn(E) -> E2) -> Handler<C, R2, E2>
+fn map_handler<C, R, E, R2, E2, Eff>(h: Handler<C, R, E, Eff>, reply: fn(R) -> R2 !Eff, error: fn(E) -> E2 !Eff) -> Handler<C, R2, E2, Eff>
 ```
 
 A handler whose reply and error are converted, so a handler written
@@ -123,13 +127,13 @@ for other reply or error types ends a pipeline (`map_reply` and
 ### `map_reply`
 
 ```lang
-fn map_reply<C, R, E, R2>(h: Handler<C, R, E>, f: fn(R) -> R2) -> Handler<C, R2, E>
+fn map_reply<C, R, E, R2, Eff>(h: Handler<C, R, E, Eff>, f: fn(R) -> R2 !Eff) -> Handler<C, R2, E, Eff>
 ```
 
 ### `nest`
 
 ```lang
-fn nest<C, R, E>(p: Plan<C, R, E>) -> Handler<C, R, E>
+fn nest<C, R, E, Eff>(p: Plan<C, R, E, Eff>) -> Handler<C, R, E, Eff>
 ```
 
 A whole pipeline as the handler of another (the inner one's stages run
@@ -145,7 +149,7 @@ fn next<In, Out, R, E>(context: Out) -> Result<Enter<In, Out, R>, E>
 ### `plan`
 
 ```lang
-fn plan<In, R, E>(run: fn(In) -> Unwind<In, R, E>, stages: List<Symbol>) -> Plan<In, R, E>
+fn plan<In, R, E, Eff>(run: fn(In) -> Unwind<In, R, E> !Eff, stages: List<Symbol>) -> Plan<In, R, E, Eff>
 ```
 
 ### `propagate`
@@ -163,13 +167,13 @@ fn recover<C, R, E>(context: C, reply: R) -> ErrorStep<C, R, E>
 ### `run_handler`
 
 ```lang
-fn run_handler<C, R, E>(h: Handler<C, R, E>, ctx: C) -> Unwind<C, R, E>
+fn run_handler<C, R, E, Eff>(h: Handler<C, R, E, Eff>, ctx: C) -> Unwind<C, R, E>
 ```
 
 ### `run_stage`
 
 ```lang
-fn run_stage<In, Out, R, E>(stage: Stage<In, Out, R, E>, rest: fn(Out) -> Unwind<Out, R, E>, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In>
+fn run_stage<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, ctx: In) -> Unwind<In, R, E> where Out: records.Extends<In>
 ```
 
 ### `stage`
@@ -190,7 +194,7 @@ fn stop<In, Out, R, E>(context: In, reply: R) -> Result<Enter<In, Out, R>, E>
 ### `with_stages`
 
 ```lang
-fn with_stages<C, R, E>(stages: List<Stage<C, C, R, E>>, inner: Plan<C, R, E>) -> Plan<C, R, E>
+fn with_stages<C, R, E, Eff>(stages: List<Stage<C, C, R, E, Eff>>, inner: Plan<C, R, E, Eff>) -> Plan<C, R, E, Eff>
 ```
 
 Runtime-selected stages: wrap `inner` with `stages` (outermost first).

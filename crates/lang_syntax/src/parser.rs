@@ -605,6 +605,15 @@ impl Lower<'_> {
 
     // ------------------------------------------------------------ types
 
+    fn type_arg(&mut self, p: Pair<'_, Rule>) -> TypeId {
+        if p.as_rule() == Rule::effect {
+            let span = self.span(&p);
+            let e = self.effect(p);
+            return self.alloc_ty(TypeKind::Effect(e), span);
+        }
+        self.type_expr(p)
+    }
+
     fn type_expr(&mut self, p: Pair<'_, Rule>) -> TypeId {
         let inner = if p.as_rule() == Rule::type_expr { p.into_inner().next().unwrap() } else { p };
         let span = self.span(&inner);
@@ -693,7 +702,7 @@ impl Lower<'_> {
                         module.push(prev);
                     }
                 }
-                Rule::type_args => args = q.into_inner().map(|t| self.type_expr(t)).collect(),
+                Rule::type_args => args = q.into_inner().map(|t| self.type_arg(t)).collect(),
                 _ => {}
             }
         }
@@ -871,7 +880,7 @@ impl Lower<'_> {
                         for q in op.into_inner() {
                             match q.as_rule() {
                                 Rule::type_args => {
-                                    type_args = q.into_inner().map(|t| this.type_expr(t)).collect()
+                                    type_args = q.into_inner().map(|t| this.type_arg(t)).collect()
                                 }
                                 Rule::args => args = q.into_inner().map(|a| this.expr(a)).collect(),
                                 _ => {}

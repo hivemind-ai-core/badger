@@ -1,0 +1,18 @@
+// An effect argument is an upper bound: a sequence of `Io` work is not a
+// pure one.
+// expect-error: E0501
+import std.io
+
+struct Gen<Eff: Effect> {
+    pub next: fn() -> Option<Int> !Eff,
+}
+
+fn noisy_gen() -> Gen<!{Io}> {
+    { next: fn() { let _ = io.println("x"); Option.none } }
+}
+
+fn pure_only(g: Gen<!{}>) -> Option<Int> !{} { g.next() }
+
+pub fn main() {
+    let _ = pure_only(noisy_gen())
+}

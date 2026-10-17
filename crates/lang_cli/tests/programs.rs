@@ -2213,3 +2213,39 @@ fn stuck_cleanup_is_bounded() {
     assert_eq!(err.matches("cleanup exceeded the grace period of 1500ms").count(), 1, "{err}");
     assert!(started.elapsed() < std::time::Duration::from_secs(20));
 }
+
+/// A release runs from anywhere with an empty environment (no sources, no
+/// search path), and refuses to start once a file it records has changed.
+#[test]
+fn release_starts_without_sources() {
+    let base = std::env::temp_dir().join(format!("lang-release-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let built = base.join("built");
+    let out = lang().args(["release", "tests/native/demo.lang", "-o"]).arg(&built).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    // moved away from where it was built, started with nothing inherited
+    let moved = base.join("moved");
+    std::fs::rename(&built, &moved).unwrap();
+    let run = Command::new(moved.join("run")).env_clear().current_dir("/").output().unwrap();
+    let want = std::fs::read_to_string(root().join("tests/native/demo.out")).unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), want, "{}", String::from_utf8_lossy(&run.stderr));
+    // a changed native library is refused before the program runs
+    let lib = moved.join("lib/lang/liblang_native_demo.so");
+    let mut bytes = std::fs::read(&lib).unwrap();
+    bytes.push(0);
+    std::fs::write(&lib, &bytes).unwrap();
+    let run = Command::new(moved.join("run")).env_clear().output().unwrap();
+    let err = String::from_utf8_lossy(&run.stderr);
+    assert!(!run.status.success() && err.contains("has changed since the release was built"), "{err}");
+    assert!(run.stdout.is_empty());
+    // something that is not a release is never overwritten
+    let other = base.join("other");
+    std::fs::create_dir_all(&other).unwrap();
+    std::fs::write(other.join("keep.txt"), "mine").unwrap();
+    let out = lang().args(["release", "tests/native/demo.lang", "-o"]).arg(&other).output().unwrap();
+    assert!(
+        !out.status.success() && String::from_utf8_lossy(&out.stderr).contains("not a release directory")
+    );
+    assert!(other.join("keep.txt").is_file());
+    let _ = std::fs::remove_dir_all(&base);
+}

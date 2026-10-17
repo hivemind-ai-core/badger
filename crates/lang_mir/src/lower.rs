@@ -1912,6 +1912,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     return Some(unit_op());
                 }
                 let site = self.m.str_const(&format!("{lib}\0{name}"));
+                self.m.prog.natives.insert(lib.clone());
                 let tp = self.m.targs_ptr(&params);
                 let rd = self.m.lay.desc(ret_ty) as *const TypeDesc as u64;
                 let wr = if self.repr(ret_ty) == Repr::Ptr { Repr::Ptr } else { Repr::I64 };
@@ -2828,8 +2829,11 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.term(Term::Goto(head));
             }
             IterKind::Seq | IterKind::Stream => {
+                // a sequence's `start`, or a stream's `next` (fields are laid
+                // out by label, so look it up)
                 let seq_l = self.m.lay.record(&it_ty);
-                let start_f = seq_l.fields[0].clone();
+                let want = if kind == IterKind::Seq { "start" } else { "next" };
+                let start_f = seq_l.fields.iter().find(|f| f.name == want).expect("iteration field").clone();
                 let start = self.assign(
                     Repr::Ptr,
                     Rvalue::Load { base: Operand::Local(itl), offset: start_f.offset, repr: Repr::Ptr },

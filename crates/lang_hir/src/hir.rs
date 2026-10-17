@@ -305,12 +305,20 @@ pub enum HTyKind {
     },
     /// Effect labels in effect position (`Io`, `Wait`, ...).
     EffectLabel(Symbol),
+    /// An effect row argument (`Seq<Int, !{Io}>`).
+    Effect(HEffect),
     Error,
 }
 
 #[derive(Debug, Clone)]
 pub enum HEffect {
-    Set { labels: Vec<Symbol>, span: Span },
+    /// `!{Io, Wait}`; with `rest`, `!{Io, Eff}` (the labels and an effect
+    /// variable's).
+    Set {
+        labels: Vec<Symbol>,
+        rest: Option<GenericId>,
+        span: Span,
+    },
     Var(GenericId),
 }
 
