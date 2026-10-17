@@ -8,7 +8,7 @@ correctness checks, raw benchmark evidence, and results recorded here.
 ## Measurement and acceptance
 
 - [x] M0: Bring the existing opt-in GC diagnostics and coverage harness onto this branch.
-- [ ] M1: Add missing immutable-builder and producer/consumer coverage; save a fresh
+- [x] M1: Add missing immutable-builder and producer/consumer coverage; save a fresh
   fixed-revision baseline before changing production code.
 - [ ] M2: Compare immutable baseline and candidate executables with shuffled,
   interleaved repetitions, independent output checks, executable/source hashes,
@@ -64,7 +64,7 @@ negative results; do not mark architectural sketches as implemented.
 
 ### Request regions and producer/consumer ring arenas
 
-- [ ] R0: Specify the ownership protocol and a benchmarked minimal scope before
+- [x] R0: Specify the ownership protocol and a benchmarked minimal scope before
   introducing cross-heap references. Transfer is not proof of graph uniqueness.
 - [ ] R1: Prototype bounded FIFO storage shared by a producer/consumer pair for
   pointer-free message data. Reserve/write, publish, receive, acknowledge, reclaim;
@@ -123,3 +123,79 @@ worker settings, and limitations with each completed item below.
 Merged existing profiling work at `c7c7e25`; production defaults are unchanged.
 Added independently checked builder and message-processing cases and ordinary
 baseline/candidate comparison support. Seven benchmark-harness tests pass.
+
+### R0 — initial pair-owned ring protocol
+
+Initial scope is pointer-free payload bytes/records with an explicitly bounded
+capacity, one producer and one consumer. General channel semantics remain the
+fallback. A prototype alone is not automatic topology detection or language
+integration; R1/R2 remain unchecked until their acceptance checks pass.
+
+- Producer reserves aligned storage, writes a complete payload, then publishes
+  with release ordering. Consumer observes publication with acquire ordering.
+- Reservation, publication, delivery and reclamation are distinct states. A
+  consumer may suspend while processing; dequeue never advances reclamation.
+- One FIFO borrow/lease initially; acknowledgement ends its lifetime and allows
+  storage reuse. Compiler escape checks must reject retaining its view in an
+  escaping result, closure, task or collection. An explicit owned copy can escape.
+- Monotonic cursors and wrap padding avoid confusing empty/full states. Define
+  overflow-safe arithmetic. Oversize payloads use a separately bounded owned
+  segment/fallback; capacity exhaustion applies backpressure.
+- Queue handoff owns pending messages. Failed reserve/publish/send returns the
+  reservation; cancellation/close wakes blocked peers and releases undelivered
+  reservations without overwriting a live consumer lease.
+- Ownership follows tasks across workers. A third endpoint, fanout, selection or
+  uncertain aliases cannot silently retain the single-producer/single-consumer
+  specialization. Shared immutable fanout needs reference-counted segments or GC.
+- No managed pointers, callbacks or native-resource finalizers in the first ring
+  payload. Supporting those requires R6 and explicit tracing/cleanup contracts.
+- Compare with current prompt/batch channels using equal payloads, processing,
+  capacities and correctness oracles. Include slow consumers, wraparound, full
+  and empty queues, retained/escaping results, cancellation and 1/2/4/8 workers.
+
+### Saved baseline — coverage
+
+Production source: `c7c7e25fc382f41df1c5b8c8053a12f0f9551abf` (main
+`926cdbd` plus the previously committed diagnostic feature, default-disabled).
+Harness source: `9218316`. Built with `cargo build --release --offline -p lang_cli
+--target-dir /tmp/language-gc-profile-target`; copied before further builds to
+`/tmp/language-memory-binaries/baseline`. No production optimization changed.
+
+```
+python3 bench/gc/run.py --baseline /tmp/language-memory-binaries/baseline --baseline-revision c7c7e25fc382f41df1c5b8c8053a12f0f9551abf --suite coverage --workers 1 2 4 8 --reps 5 --out reports/memory-management/baseline-coverage
+```
+
+320 measured runs plus one warmup per cell; all independent checks passed.
+[Raw data](reports/memory-management/baseline-coverage/measurements.json.gz) and
+[all ranges/RSS/GC summaries](reports/memory-management/baseline-coverage/summary.md)
+include exact executable and source hashes, host and toolchain. The one-worker
+medians were: map-new 32.918 ms / 5 collections; map-replace 79.662 ms / 15;
+map-strings 38.904 ms / 7; set-builder 124.270 ms / 30. These loops are single-task
+workloads; additional runtime workers do not imply parallel builder execution.
+Message medians: ordinary 19.911 ms; slow/capacity-one 23.299 ms; retained 20.685 ms;
+fanout 28.237 ms. Different cases have different input/lifetime contracts.
+
+### Saved baseline — applications
+
+Same fixed ordinary binary as the coverage baseline. All four telemetry profiles,
+131,072 events, workers 1/2/4/8, one warmup and three measured repetitions per
+cell (48 measured runs). All independent payload/routing/cache oracles passed.
+
+```
+python3 bench/gc/run.py --baseline /tmp/language-memory-binaries/baseline --baseline-revision c7c7e25fc382f41df1c5b8c8053a12f0f9551abf --suite telemetry --events 131072 --workers 1 2 4 8 --reps 3 --out reports/memory-management/baseline-telemetry
+```
+
+[Raw application data](reports/memory-management/baseline-telemetry/measurements.json.gz),
+[full ranges and memory/GC results](reports/memory-management/baseline-telemetry/summary.md).
+Shared-host measurements are directional, not significance or tail-latency claims.
+
+| Profile | Workers | Baseline work ms | Baseline GC ms | Peak RSS MiB |
+|---|---:|---:|---:|---:|
+| backpressure | 1 | 224.122 | 38.787 | 49.6 |
+| backpressure | 4 | 120.059 | 31.446 | 66.4 |
+| balanced | 1 | 244.708 | 52.813 | 76.1 |
+| balanced | 4 | 129.298 | 39.339 | 86.6 |
+| cpu | 1 | 471.002 | 49.607 | 74.9 |
+| cpu | 4 | 183.289 | 35.307 | 86.2 |
+| fanout | 1 | 675.253 | 119.406 | 81.1 |
+| fanout | 4 | 430.845 | 89.400 | 112.8 |

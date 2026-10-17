@@ -42,6 +42,25 @@ def main():
     for s in d["summary"]:
         v = s["elapsed_ms"]
         lines.append(f"| {s['case']} | {s['workers']} | {s['variant']} | {v['median']:.3f} [{v['min']:.3f}, {v['max']:.3f}] | {s['gc_pause_ms']['median']:.3f} | {s['peak_rss_kib']['median']/1024:.1f} |")
+    paired = collections.defaultdict(dict)
+    for summary in d["summary"]:
+        paired[(summary["case"], summary["workers"])][summary["variant"]] = summary
+    if "candidate" in d["binaries"]:
+        lines += ["", "Ordinary candidate versus baseline (negative time/RSS change is better):", "",
+                  "| Case | Workers | Work time change | GC time change | RSS change | Collections base / candidate |",
+                  "|---|---:|---:|---:|---:|---:|"]
+        def change(base, candidate):
+            if base == 0:
+                return "n/a"
+            return f"{100 * (candidate / base - 1):+.1f}%"
+        for (case, workers), variants in sorted(paired.items()):
+            if "baseline" not in variants or "candidate" not in variants:
+                raise ValueError(f"incomplete comparison: {case} w{workers}")
+            base, candidate = variants["baseline"], variants["candidate"]
+            changes = [change(base[key]["median"], candidate[key]["median"])
+                       for key in ["elapsed_ms", "gc_pause_ms", "peak_rss_kib"]]
+            lines.append(f"| {case} | {workers} | " + " | ".join(changes)
+                         + f" | {base['collections']['median']} / {candidate['collections']['median']} |")
     lines += ["", "Diagnostic GC phases summed across measured repetitions (wall time):", ""]
     groups = collections.defaultdict(collections.Counter)
     for run in d["runs"]:
