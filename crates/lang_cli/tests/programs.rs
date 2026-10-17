@@ -1597,10 +1597,16 @@ fn contract_violations() {
     let src = dir.join("acct.lang");
     let program = |call: &str| {
         format!(
-            "requires amount > 0, \"a positive amount\"\nfn withdraw(balance: Int, amount: Int) -> Int {{ balance - amount }}\n\nensures result == x + 1\nfn inc(x: Int) -> Int {{ x + 2 }}\n\npub fn main() -> Unit {{\n    let _ = {call}\n}}\n"
+            "requires amount > 0, \"a positive amount\"\nfn withdraw(balance: Int, amount: Int) -> Int {{ balance - amount }}\n\nensures result == x + 1\nfn inc(x: Int) -> Int {{ x + 2 }}\n\npub fn main() -> Unit {{\n    let _ = {call}\n}}\n// what a function without `ensures` returns is not known statically\nfn unknown(n: Int) -> Int {{ n }}\n"
         )
     };
+    // a violation the compiler can see is an error before the program runs
     std::fs::write(&src, program("withdraw(10, -5)")).unwrap();
+    let out = lang().arg("run").arg(&src).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(!out.status.success() && err.contains("E0145") && err.contains("amount > 0"), "{err}");
+    // one it cannot is a defect when the program runs
+    std::fs::write(&src, program("withdraw(10, unknown(-5))")).unwrap();
     let out = lang().arg("run").arg(&src).output().unwrap();
     let err = String::from_utf8_lossy(&out.stderr).to_string();
     assert_eq!(out.status.code(), Some(101), "{err}");
@@ -1617,6 +1623,32 @@ fn contract_violations() {
     let out = lang().arg("run").arg(&src).output().unwrap();
     assert!(!out.status.success());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `lang contracts`: each clause's static status, and what proven ones
+/// leave out of the compiled program.
+#[test]
+fn contract_report() {
+    let out = lang().args(["contracts", "--json", "tests/run/contracts.lang"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let status = |f: &str, kind: &str| {
+        v["clauses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["function"] == f && c["kind"] == kind)
+            .map(|c| c["status"].as_str().unwrap_or("").to_string())
+            .unwrap_or_default()
+    };
+    // abs returns -x only when x < 0, and x after that guard
+    assert_eq!(status("abs", "ensures"), "proven");
+    // the recursive call is in the n > 1 branch
+    assert_eq!(status("factorial", "requires"), "proven");
+    assert_eq!(status("factorial", "ensures"), "proven");
+    // withdraw_twice passes an amount it knows nothing about
+    assert_eq!(status("withdraw", "requires"), "runtime");
+    assert_eq!(status("largest", "ensures"), "runtime");
 }
 
 /// `lang query api`: a standard module's public functions, types, and

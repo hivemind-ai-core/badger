@@ -802,6 +802,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let fname = self.sym(f.name.sym).to_string();
         let mut checks = vec![];
         let mut ensures = vec![];
+        let mut requires = vec![];
         let mut result = None;
         let mut caller_local = None;
         let mut contracts = vec![];
@@ -859,6 +860,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     c.span,
                 );
                 let check = self.alloc(ExprKind::If { cond: not, then, els: None }, c.span);
+                requires.push(Precondition { cond, check, text: cond_text.clone(), span: c.span });
                 checks.push(Stmt::Expr { expr: check, semi: true });
             }
         }
@@ -916,6 +918,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             has_self,
             ffi: Default::default(),
             native: None,
+            requires,
             ensures,
             result,
             contracts,

@@ -1,0 +1,20 @@
+// A guard clause leaves `n <= 10` behind it; a callee's postcondition
+// tells what its result can be.
+// expect-error: E0145
+requires n > 10
+fn big(n: Int) -> Int { n }
+
+ensures result < 0
+fn negative(n: Int) -> Int { 0 - n * n - 1 }
+
+fn after_guard(n: Int) -> Int {
+    if n > 10 {
+        return 0
+    }
+    big(n)
+}
+
+pub fn main() -> Unit {
+    let _ = after_guard(3)
+    let _ = big(negative(4))
+}

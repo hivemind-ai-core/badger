@@ -162,6 +162,19 @@ names the clause; a failed postcondition is reported at the clause (the
 function broke it). Contracts are checked in every build, like overflow
 checks. Tools show a function's clauses with its signature.
 
+The compiler decides what it can before the program runs. It follows each
+function with known integer ranges, booleans, texts, and list lengths,
+learning from constants, immutable bindings, enclosing `if` conditions and
+early-return guards, the function's own preconditions, and the
+postconditions of the functions it calls. A call whose arguments cannot
+satisfy a precondition is an error (E0145), as is a returned value that
+cannot satisfy a postcondition (E0146). A clause it proves is compiled
+out: a postcondition proven at every return (including `?` exits), and a
+precondition proven at every call of a function that is only called
+directly (not used as a value). Everything else is checked at run time as
+above. `lang contracts PATH` lists each clause with its status
+(`proven`, `refuted`, or `runtime`) and why; `--json` gives it to tools.
+
 ## Task defects and cancellation
 
 Checked overflow, bounds violations, failed assertions, and explicit `panic`

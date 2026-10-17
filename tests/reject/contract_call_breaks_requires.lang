@@ -1,0 +1,8 @@
+// A call whose arguments cannot satisfy the callee's precondition.
+// expect-error: E0145
+requires amount > 0, "withdraw a positive amount"
+fn withdraw(balance: Int, amount: Int) -> Int { balance - amount }
+
+pub fn main() -> Unit {
+    let _ = withdraw(100, 0)
+}

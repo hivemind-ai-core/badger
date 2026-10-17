@@ -446,7 +446,10 @@ impl<'g, 'a> Mono<'g, 'a> {
                     if let Some(r) = f.result {
                         fl.locals.insert(r, rl);
                     }
-                    for pc in &f.ensures {
+                    for (k, pc) in f.ensures.iter().enumerate() {
+                        if elided_post(def, k) {
+                            continue;
+                        }
                         let Some(c) = fl.lower(pc.cond) else { continue };
                         let (ok, bad) = (fl.block(), fl.block());
                         fl.term(Term::Branch(c, ok, bad));
@@ -1484,6 +1487,8 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Some(m)
             }
             ExprKind::Lambda(l) => Some(self.lower_lambda(e, &l, &ty)),
+            // a precondition check the contract analysis proved never fails
+            ExprKind::If { .. } if elided_check(e) => Some(int(0)),
             ExprKind::If { cond, then, els } => {
                 let c = self.lower(cond)?;
                 let (tb, eb, join) = (self.block(), self.block(), self.block());
@@ -3390,4 +3395,30 @@ fn display_path(name: &str) -> String {
         Some(rel) => rel.to_string_lossy().into_owned(),
         None => norm.to_string_lossy().into_owned(),
     }
+}
+
+/// Contract checks the static analysis proved (`lang_driver::contracts`):
+/// precondition checks (by expression) and postconditions (by function and
+/// clause index) that are compiled out.
+#[derive(Default, Clone)]
+pub struct Elided {
+    pub checks: std::collections::HashSet<ExprId>,
+    pub posts: std::collections::HashSet<(DefId, usize)>,
+}
+
+thread_local! {
+    static ELIDED: std::cell::RefCell<Elided> = Default::default();
+}
+
+/// Set the proven contract checks for the next lowering on this thread.
+pub fn set_elided(e: Elided) {
+    ELIDED.with(|x| *x.borrow_mut() = e);
+}
+
+fn elided_check(e: ExprId) -> bool {
+    ELIDED.with(|x| x.borrow().checks.contains(&e))
+}
+
+fn elided_post(def: DefId, k: usize) -> bool {
+    ELIDED.with(|x| x.borrow().posts.contains(&(def, k)))
 }

@@ -1,0 +1,16 @@
+// A return value that cannot satisfy the postcondition.
+// expect-error: E0146
+ensures result >= 0
+fn clamp(x: Int) -> Int {
+    if x > 100 {
+        return 100
+    }
+    if x < 0 {
+        return -1
+    }
+    x
+}
+
+pub fn main() -> Unit {
+    let _ = clamp(5)
+}

@@ -17,6 +17,7 @@ use lang_syntax::ast;
 
 pub mod analysis;
 pub mod authority;
+pub mod contracts;
 pub mod deps;
 pub mod inspect;
 pub mod live;
@@ -573,6 +574,19 @@ impl Session {
 
     /// Front end + static analysis only (every package, for a workspace
     /// root).
+    /// Check `path` and report each contract clause and what the static
+    /// analysis decided about it (`lang contracts`).
+    pub fn contract_report(&mut self, path: &Path) -> (Outcome, Vec<contracts::Clause>) {
+        let outcome = self.check(path);
+        let mut clauses = contracts::last_report();
+        for c in &mut clauses {
+            let f = self.sources.get(c.span.file);
+            c.file = f.name.clone();
+            c.line = f.line_col(c.span.start as usize).0;
+        }
+        (outcome, clauses)
+    }
+
     pub fn check(&mut self, path: &Path) -> Outcome {
         let packages = packages_of(path);
         if packages.len() != 1 || packages[0] != path {
@@ -1894,18 +1908,30 @@ fn check_typed<'a>(
 ) -> (lang_typeck::Checked<'a>, Vec<Diagnostic>) {
     let restricted = restricted(path);
     let sql = sql::wanted(hir);
-    if restricted || sql {
+    let contracts = contracts::wanted(hir);
+    // proven contract checks belong to this program only (expression ids
+    // are per program): reset before anything is lowered
+    lang_mir::lower::set_elided(Default::default());
+    if restricted || sql || contracts {
         lang_typeck::set_record_types(true);
     }
     let (checked, mut diags) = lang_typeck::check_program(hir, interner);
-    if restricted || sql {
+    if restricted || sql || contracts {
         lang_typeck::set_record_types(false);
         if let Some(t) = &checked.types {
             if restricted {
                 diags.extend(authority::check(hir, t, interner));
             }
-            if sql && !diags.iter().any(|d| d.severity == lang_base::Severity::Error) {
+            let clean = !diags.iter().any(|d| d.severity == lang_base::Severity::Error);
+            if sql && clean {
                 diags.extend(sql::check(hir, t, interner, database_schema(path).as_deref()));
+            }
+            if contracts && clean {
+                let (found, elided) = contracts::check(hir, t, interner);
+                diags.extend(found);
+                if std::env::var_os("LANG_NO_CONTRACT_ELISION").is_none() {
+                    lang_mir::lower::set_elided(elided);
+                }
             }
         }
     }

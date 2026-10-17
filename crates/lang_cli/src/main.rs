@@ -242,6 +242,16 @@ enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Each contract clause (`requires`, `ensures`) and what the compiler
+    /// decided about it: proven (its runtime check is compiled out),
+    /// refuted (an error), or checked at run time, and why.
+    Contracts {
+        /// Entry file or project directory (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
         /// `diagnostic`, `type`, or `effect`.
@@ -459,6 +469,29 @@ fn main() -> ExitCode {
                 }
             }
             exit_now(lang_driver::finish_tests(json))
+        }
+        Command::Contracts { path, json } => {
+            let (outcome, clauses) = session.contract_report(&path);
+            if json {
+                let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
+                println!("{}", serde_json::json!({ "ok": outcome == Outcome::Ok, "clauses": v }));
+            } else {
+                report(&session, false);
+                for c in &clauses {
+                    println!(
+                        "{}:{}: {} {} `{}`: {} ({})",
+                        c.file, c.line, c.function, c.kind, c.text, c.status, c.reason
+                    );
+                }
+                let proven = clauses.iter().filter(|c| c.status == "proven").count();
+                println!(
+                    "{} clause(s): {proven} proven, {} checked at run time, {} refuted",
+                    clauses.len(),
+                    clauses.iter().filter(|c| c.status == "runtime").count(),
+                    clauses.iter().filter(|c| c.status == "refuted").count()
+                );
+            }
+            if outcome == Outcome::Ok { ExitCode::SUCCESS } else { ExitCode::FAILURE }
         }
         Command::Check { path, json } => {
             let outcome = session.check(&path);
