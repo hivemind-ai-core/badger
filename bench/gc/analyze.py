@@ -97,7 +97,7 @@ def main():
         lines.extend(f"- {name}: {c/n*100:.1f}% ({c})" for name,c in own.most_common(15))
         lines.append("Inclusive (overlapping):")
         lines.extend(f"- {name}: {c/n*100:.1f}% ({c})" for name,c in total.most_common(15))
-    (args.directory / "summary.md").write_text("\n".join(lines) + "\n")
+    (args.directory / "summary.md").write_text("\n".join(lines).rstrip() + "\n")
 
 
 if __name__ == "__main__":

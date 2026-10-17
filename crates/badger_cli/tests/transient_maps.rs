@@ -58,3 +58,32 @@ fn finished_builder_maps_survive_saved_mir() {
     assert_eq!(output.stdout, b"transient maps: ok\n");
     std::fs::remove_dir_all(scratch).unwrap();
 }
+
+#[test]
+fn pool_boundary_strings_survive_task_handoff_and_later_collections() {
+    for generation in ["0", "1"] {
+        for workers in [1, 2, 4, 8] {
+            for release in [false, true] {
+                let mut command = lang();
+                command.args(["run", "--workers", &workers.to_string()]);
+                if release {
+                    command.arg("--release");
+                }
+                let output = command
+                    .arg("tests/run/gc_pool_boundaries.bdg")
+                    .env("BADGER_GC_GENERATIONAL", generation)
+                    .env("BADGER_GC_STRESS", "1")
+                    .env("BADGER_GC_VERIFY", "1")
+                    .env("BADGER_CHAOS", "20261017")
+                    .output()
+                    .unwrap();
+                assert!(
+                    output.status.success(),
+                    "gen{generation} workers{workers} release{release}: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                assert_eq!(output.stdout, b"gc pool boundaries: ok\n");
+            }
+        }
+    }
+}

@@ -63,8 +63,10 @@ negative results; do not mark architectural sketches as implemented.
   evaluate size-class pages, occupancy metadata, and bulk empty-page reclamation.
   - [x] G2a: Add persistent integer-map baselines and diagnostic comparisons of
     256/512/1024-byte pooled cells, with reuse/zeroing/quarantine/trim tests.
-  - [ ] G2b: Select a production pool limit only after measuring application
+  - [x] G2b: Select a production pool limit only after measuring application
     throughput, pauses, peak RSS and retention; retain unsuccessful experiments.
+  - [ ] G2c: Bound larger-cell pool reservation/refill; compare targeted classes
+    or pages and burst/idle/post-major memory, preserving reuse and quarantine.
 - [ ] G3: Reduce sweep bookkeeping and repeated helper-thread/scratch allocation;
   preserve finalizers, stable addresses, and bounded collection coordination.
 - [ ] G4: Prototype adaptive nursery sizing and major cadence using survival,
@@ -461,3 +463,39 @@ Merged-tree validation passes: 7 ordinary runtime tests, 9 diagnostic runtime
 tests, 67 CLI/program/retention/builder tests, 9 Python harness tests, strict
 diagnostic runtime Clippy and formatting. Build identities and logs are saved in
 `G2-main-binaries.json` and `G2-main-validation/` beneath the report directory.
+
+### G2b: measured production pool choice
+
+Keep the 512-byte ordinary pool cutoff: frequent 288-byte HAMT roots now reuse
+worker-local cells. Object/header layouts, GC thresholds, marking, finalizer
+order and chunk sizes are unchanged. This lowers allocation/reclamation cost;
+it does not reduce managed object counts or collection frequency.
+
+Saved 1,214 fresh, ordinary-build measurements on the matched merged-main pair:
+180 repeated controls, 224 application runs, 640 broader coverage runs, 120
+application follow-ups and 50 message follow-ups. Every independent oracle
+passes. [G2 results](reports/memory-management/G2-summary.md) links all raw data,
+ranges, hashes, latency histograms, pool reservations and validation logs.
+
+- Persistent-map elapsed improves 1.6–27.7% in short cases, 1.8–10.5% in longer
+  cases including major collections; snapshot cases improve 5.8–12.6%.
+- Balanced application elapsed improves 5.3–13.6% across 1/2/4/8 workers.
+  Backpressure improves 3.0–5.5% at 1/2/4 workers, with +2.1% at 8.
+- CPU/fanout regressions in the initial application matrix do not reproduce in
+  a separate 15-repeat follow-up: CPU is +0.4%/−0.1%, fanout −0.1%/−7.2% at
+  1/2 workers. CPU GC time still falls 8.3–12.6%, without a throughput gain.
+- Application peak RSS rises 1.7–16.4 MiB. Long integer maps reserve 10–12 MiB
+  more pools at one worker. This is an accepted throughput/GC-cost tradeoff,
+  not a memory-saving change or a universal tail-latency improvement.
+- An initial +7.0% four-worker message result becomes −2.2% in 25 follow-up
+  repetitions, with RSS +0.3%. The one-worker 15-repeat controls are effectively
+  flat; keep M3 open for workload/order sensitivity.
+
+G2 remains open for bounded reserves and page/refill/reclamation improvements.
+Next GC priorities are G3 sweep overhead and G1b native-buffer attribution;
+I5 and region/arena protocols target allocation reduction rather than cell reuse.
+
+The new automated boundary-handoff regression passes in 16 combinations (both
+collection modes, 1/2/4/8 workers, optimized/unoptimized language code) with GC
+stress, verification and chaos. Together with the earlier merged-tree checks,
+68 distinct CLI/program/retention/builder tests pass. Formatting remains clean.
