@@ -19,6 +19,13 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    "map-new": dict(mode="map-new", n=8192, rounds=16, payload=1, retain=8192),
+    "map-replace": dict(mode="map-replace", n=65536, rounds=8, payload=1, retain=256),
+    "map-strings": dict(mode="map-strings", n=16384, rounds=8, payload=32, retain=1024),
+    "set-builder": dict(mode="set-builder", n=65536, rounds=8, payload=1, retain=1024),
+    **{name: dict(mode=name, n=16384, rounds=1, payload=32, retain=capacity)
+       for name, capacity in [("messages", 64), ("messages-slow", 1),
+                              ("messages-retained", 256), ("messages-fanout", 64)]},
     "bytes-transient": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=32),
     "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
     "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
@@ -35,6 +42,22 @@ POLICIES = {
 
 
 def expected_coverage(c):
+    if c["mode"].startswith("map-") or c["mode"] == "set-builder":
+        latest = {i % c["retain"]: i for i in range(c["n"])}
+        total = len(latest) + sum(latest)
+        if c["mode"] == "map-strings":
+            total += sum(c["payload"] + i % 3 for i in latest.values())
+        elif c["mode"] != "set-builder":
+            total += sum(latest.values())
+        return total * c["rounds"]
+    if c["mode"].startswith("messages"):
+        def payload_sum(first, end):
+            return (31 * c["payload"] * (first + end - 1) * (end - first) // 2
+                    + (end - first) * c["payload"] * (c["payload"] - 1) // 2)
+        total = payload_sum(0, c["n"])
+        if c["mode"] == "messages-retained":
+            total += payload_sum(max(0, c["n"] - c["retain"]), c["n"])
+        return total * (2 if c["mode"] == "messages-fanout" else 1)
     if c["mode"] in ["bytes", "words"]:
         n = c["n"]
         q, r = divmod(n, 251)
@@ -72,22 +95,36 @@ def summarize(rows):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--baseline", type=Path, required=True)
+    ap.add_argument("--candidate", type=Path)
+    ap.add_argument("--baseline-revision", default="unspecified")
+    ap.add_argument("--candidate-revision", default="unspecified")
     ap.add_argument("--diagnostic", type=Path)
     ap.add_argument("--suite", choices=["coverage", "telemetry", "policy", "samples", "smoke"], required=True)
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
     ap.add_argument("--events", type=int, default=262144)
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--cases", nargs="+", choices=COVERAGE)
     ap.add_argument("--profiles", nargs="+", choices=t.PROFILES, default=list(t.PROFILES))
     ap.add_argument("--policies", nargs="+", choices=POLICIES, default=list(POLICIES))
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     if args.suite in ["policy", "samples"] and args.diagnostic is None:
         ap.error("--diagnostic is required for policy and samples")
+    if args.reps < 1 or any(w < 1 for w in args.workers):
+        ap.error("positive repetitions and worker counts are required")
+    if args.candidate and args.suite in ["policy", "samples"]:
+        ap.error("--candidate is for ordinary coverage/telemetry comparisons")
+    if args.cases and args.suite not in ["coverage", "smoke"]:
+        ap.error("--cases requires coverage or smoke")
     args.out.mkdir(parents=True, exist_ok=True)
     binaries = {"baseline": args.baseline.resolve()}
+    if args.candidate:
+        binaries["candidate"] = args.candidate.resolve()
     if args.diagnostic:
         binaries["diagnostic"] = args.diagnostic.resolve()
     variants = {"baseline": ("baseline", {})}
+    if args.candidate:
+        variants["candidate"] = ("candidate", {})
     if args.diagnostic:
         variants["diagnostic"] = ("diagnostic", {})
         variants["diagnostic-off"] = ("diagnostic", {})
@@ -98,6 +135,8 @@ def main():
     coverage = args.suite in ["coverage", "smoke"]
     cases = {k: v.copy() for k, v in COVERAGE.items()} if coverage else {
         name: {**t.DEFAULT, **t.PROFILES[name], "events": args.events} for name in args.profiles}
+    if args.cases:
+        cases = {k: cases[k] for k in args.cases}
     if args.suite == "smoke":
         for c in cases.values():
             c.update(n=257, rounds=2, payload=17, retain=4)
@@ -126,11 +165,14 @@ def main():
         # fork/exec children can inherit that RSS high-water mark.
         with path.open("rb") as file:
             return hashlib.file_digest(file, "sha256").hexdigest()
-    report = dict(schema=1, timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    report = dict(schema=2, timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         revision=t.command_output(["git", "rev-parse", "HEAD"]),
         dirty=t.command_output(["git", "status", "--porcelain"]),
         affinity=sorted(os.sched_getaffinity(0)), arguments=vars(args) | {
-            "baseline": str(args.baseline), "diagnostic": str(args.diagnostic), "out": str(args.out)},
+            "baseline": str(args.baseline), "candidate": str(args.candidate),
+            "diagnostic": str(args.diagnostic), "out": str(args.out)},
+        host=t.command_output(["uname", "-a"]), toolchain=t.command_output(["rustc", "-Vv"]),
+        production_tree=t.command_output(["git", "ls-tree", "HEAD", "crates", "Cargo.lock", "Cargo.toml"]),
         binaries={k: dict(path=str(p), sha256=sha(p)) for k, p in binaries.items()},
         sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), rss_source, ROOT / "bench/gc/coverage.lang", ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
         runs=runs)

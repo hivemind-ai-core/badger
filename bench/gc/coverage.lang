@@ -1,6 +1,7 @@
 // Allocation, survival and pipeline shapes omitted by read-only microbenchmarks.
 import std.array
 import std.buffer
+import std.channel
 import std.codec
 import std.env
 import std.inspect
@@ -8,10 +9,91 @@ import std.io
 import std.list
 import std.map
 import std.seq
+import std.set
+import std.task
 import std.text
 import std.time
 
 type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
+
+fn builders(c: Config) -> Int {
+    var total = 0
+    for _ in 0..c.rounds {
+        if c.mode == "set-builder" {
+            var b = set.builder<Int>()
+            for i in 0..c.n { b.insert(i % c.retain) }
+            let done = b.finish()
+            total = total + done.len()
+            for k in done { total = total + k }
+        } else if c.mode == "map-strings" {
+            var b = map.builder<Int, String>()
+            for i in 0..c.n { b.insert(i % c.retain, text.repeat("x", c.payload + i % 3)) }
+            let done = b.finish()
+            total = total + done.len()
+            for (k, v) in done { total = total + k + v.len() }
+        } else {
+            var b = map.builder<Int, Int>()
+            for i in 0..c.n { b.insert(i % c.retain, i) }
+            let done = b.finish()
+            total = total + done.len()
+            for (k, v) in done { total = total + k + v }
+        }
+    }
+    total
+}
+
+fn must<T, E>(r: Result<T, E>) -> T {
+    match r {
+        .ok(v) => v,
+        .err(_) => panic("message benchmark failed"),
+    }
+}
+
+fn consume(c: Config, rx: channel.Receiver<Array<U64>>) -> Int {
+    let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U64])) })
+    var count = 0
+    var total = 0
+    loop {
+        match rx.recv() {
+            .none => { break },
+            .some(words) => {
+                // Processing can suspend while the payload remains live.
+                if c.mode == "messages-slow" { task.yield_now() }
+                for word in words { total = total + Int.try_from(word).unwrap_or(0) }
+                if c.mode == "messages-retained" { retained[count % c.retain].set(words) }
+                count = count + 1
+            },
+        }
+    }
+    assert(count == c.n)
+    if c.mode == "messages-retained" {
+        for slot in retained {
+            for word in slot.get() { total = total + Int.try_from(word).unwrap_or(0) }
+        }
+    }
+    total
+}
+
+fn messages(c: Config) -> Int {
+    let a = must(channel.create<Array<U64>>({ ..channel.defaults, capacity: c.retain }))
+    let b = must(channel.create<Array<U64>>({ ..channel.defaults, capacity: c.retain }))
+    must(task.scope(fn(s) -> Result<Int, String> {
+        let producer = s.spawn(fn() {
+            for i in 0..c.n {
+                let words = array.build(c.payload, fn(j: Int) { U64.try_from(i * 31 + j).unwrap_or(0U64) })
+                let _ = must(a.sender.send(words))
+                if c.mode == "messages-fanout" { let _ = must(b.sender.send(words)) }
+            }
+            a.sender.close()
+            b.sender.close()
+        })
+        let consumer = s.spawn(fn() { consume(c, a.receiver) })
+        let extra = if c.mode == "messages-fanout" { consume(c, b.receiver) } else { 0 }
+        let total = consumer.join()
+        producer.join()
+        ok(total + extra)
+    }))
+}
 
 fn buffers(c: Config, narrow: Bool) -> Int {
     var total = 0
@@ -80,6 +162,8 @@ pub fn main() -> Result<Unit, io.Error> {
     let checksum = if c.mode == "bytes" { buffers(c, true) }
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
+    else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
+    else if c.mode.starts_with("messages") { messages(c) }
     else { pipeline(c) }
     let elapsed_ns = time.as_nanos(time.now() - start)
     let after = inspect.heap()

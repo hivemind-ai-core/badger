@@ -66,3 +66,26 @@ forks the language from a small clean executable and reports that child's
 `wait4` RSS, excluding the Python runner's memory high-water mark. The original
 launcher-tree value is retained separately. This matters once large debug
 binaries or accumulated JSON reports have grown the Python process.
+
+Memory-management progress also covers fresh-key and replacement-heavy map
+builders, pointer-valued maps, set builders, and producer/consumer payloads.
+The message cases include capacity-one backpressure with a consumer that yields
+while holding the payload, bounded retention past dequeue, and immutable fanout.
+Every payload word contributes to the independent oracle. These use ordinary
+channels as the baseline; no ring arena or topology specialization is implied.
+Map cases execute on one task even when the runtime has several workers.
+
+Use `--cases map-new map-replace map-strings set-builder` to select coverage.
+For before/after comparisons, copy binaries before rebuilding and run:
+
+```
+python3 bench/gc/run.py --baseline /tmp/base/lang --candidate /tmp/candidate/lang --baseline-revision BASE_SHA --candidate-revision CANDIDATE_SHA --suite coverage --workers 1 2 4 8 --reps 5 --out /tmp/memory-comparison
+```
+
+The candidate is an ordinary build, separate from the diagnostic variants.
+Revision labels describe the binaries; the report also records the harness
+revision, source hashes, host/toolchain, raw ranges, and executable hashes.
+Capture a baseline-only run before editing production code, then compare both
+binaries interleaved after each slice. Peak RSS includes frontend/JIT and is
+not a live-heap or allocation-volume measurement. Never reuse output directories
+for a different experiment.

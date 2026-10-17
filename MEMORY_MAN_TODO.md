@@ -7,7 +7,7 @@ correctness checks, raw benchmark evidence, and results recorded here.
 
 ## Measurement and acceptance
 
-- [ ] M0: Bring the existing opt-in GC diagnostics and coverage harness onto this branch.
+- [x] M0: Bring the existing opt-in GC diagnostics and coverage harness onto this branch.
 - [ ] M1: Add missing immutable-builder and producer/consumer coverage; save a fresh
   fixed-revision baseline before changing production code.
 - [ ] M2: Compare immutable baseline and candidate executables with shuffled,
@@ -117,3 +117,9 @@ Pending M0/M1. Historical profiling is useful for selecting targets, but is not 
 baseline for this branch. Save raw results under `reports/memory-management/` and
 record exact commands, executable hashes, revisions, input sizes, repetitions,
 worker settings, and limitations with each completed item below.
+
+### M0 — diagnostic/benchmark foundation
+
+Merged existing profiling work at `c7c7e25`; production defaults are unchanged.
+Added independently checked builder and message-processing cases and ordinary
+baseline/candidate comparison support. Seven benchmark-harness tests pass.

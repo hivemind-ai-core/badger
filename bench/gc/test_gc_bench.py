@@ -3,6 +3,20 @@ import run
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_builders_check_last_replacements_and_keys(self):
+        c = dict(mode="map-replace", n=5, retain=3, rounds=2, payload=7)
+        self.assertEqual(run.expected_coverage(c), (3 + 0 + 1 + 2 + 3 + 4 + 2) * 2)
+        self.assertEqual(run.expected_coverage(c | dict(mode="set-builder")), 12)
+        self.assertEqual(run.expected_coverage(c | dict(mode="map-strings")), (3 + 3 + 7 + 8 + 9) * 2)
+
+    def test_messages_include_all_words_retention_and_fanout(self):
+        c = dict(mode="messages", n=5, retain=3, payload=4)
+        messages = [sum(i * 31 + j for j in range(4)) for i in range(5)]
+        self.assertEqual(run.expected_coverage(c), sum(messages))
+        self.assertEqual(run.expected_coverage(c | dict(mode="messages-retained")), sum(messages) + sum(messages[-3:]))
+        self.assertEqual(run.expected_coverage(c | dict(mode="messages-retained", retain=9)), sum(messages) * 2)
+        self.assertEqual(run.expected_coverage(c | dict(mode="messages-fanout")), sum(messages) * 2)
+
     def test_buffers_include_retained_tail_and_wrap(self):
         c = dict(mode="bytes", n=253, retain=4, payload=17)
         self.assertEqual(run.expected_coverage(c), 31375 + 1 + 68)
