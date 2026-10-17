@@ -1,0 +1,43 @@
+// Text encodings of bytes and text: base64 (standard, or URL-safe without
+// padding), hex, and URL percent-encoding. The `badger_crypto` native module
+// encodes.
+
+import std.bytes
+
+/// Input that is not in the encoding.
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+extern "native badger_crypto.base64_encode" fn b64_encode(data: Bytes, url: Bool) -> String
+extern "native badger_crypto.base64_decode" fn b64_decode(text: String, url: Bool) -> Result<Bytes, Error>
+extern "native badger_crypto.hex_decode" fn hex_dec(text: String) -> Result<Bytes, Error>
+extern "native badger_crypto.url_encode" fn url_enc(text: String) -> String
+extern "native badger_crypto.url_decode" fn url_dec(text: String) -> Result<String, Error>
+
+/// Standard base64 (with padding).
+pub fn base64(data: Bytes) -> String { b64_encode(data, false) }
+
+/// Standard base64 (padding optional).
+pub fn from_base64(text: String) -> Result<Bytes, Error> { b64_decode(text, false) }
+
+/// URL-safe base64 without padding (JWTs, URLs).
+pub fn base64_url(data: Bytes) -> String { b64_encode(data, true) }
+
+pub fn from_base64_url(text: String) -> Result<Bytes, Error> { b64_decode(text, true) }
+
+/// Lower-case hex.
+pub fn hex(data: Bytes) -> String { bytes.hex(data) }
+
+pub fn from_hex(text: String) -> Result<Bytes, Error> { hex_dec(text) }
+
+/// `text` as a URL component: every character but letters, digits, and
+/// `-_.~` percent-encoded (UTF-8).
+pub fn url(text: String) -> String { url_enc(text) }
+
+/// A percent-encoded URL component (`+` as a space).
+pub fn from_url(text: String) -> Result<String, Error> { url_dec(text) }

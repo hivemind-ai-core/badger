@@ -1,16 +1,16 @@
 # Agent setup (MCP)
 
-`lang mcp` serves the Model Context Protocol on stdin/stdout. Register it
+`badger mcp` serves the Model Context Protocol on stdin/stdout. Register it
 with an MCP client, for example:
 
 ```sh
-claude mcp add lang -- lang mcp
+claude mcp add badger -- badger mcp
 ```
 
 or in a client's JSON configuration:
 
 ```json
-{ "mcpServers": { "lang": { "command": "lang", "args": ["mcp"] } } }
+{ "mcpServers": { "badger": { "command": "badger", "args": ["mcp"] } } }
 ```
 
 ## Tools
@@ -18,10 +18,10 @@ or in a client's JSON configuration:
 | Tool | Arguments | Result |
 |---|---|---|
 | `eval` | `code`, optional `timeout_secs` (default 30) | Output printed by the code, then the value of an expression. Items (`fn`, `struct`, `enum`, `import`, module-level `let`) join the session and replace earlier ones of the same name. |
-| `check` | `path` (file or project directory) or `source`; optional `files` | Diagnostics as JSON; an empty list means it checks. A project is checked as `lang check` checks it: the main entry, each `[entries]` module, and each `[tasks]` module. With `files` (path, relative to the program's directory, to proposed text), the project is checked with those contents in place of the files on disk, and nothing is written; see [Checking proposed edits](#checking-proposed-edits). |
+| `check` | `path` (file or project directory) or `source`; optional `files` | Diagnostics as JSON; an empty list means it checks. A project is checked as `badger check` checks it: the main entry, each `[entries]` module, and each `[tasks]` module. With `files` (path, relative to the program's directory, to proposed text), the project is checked with those contents in place of the files on disk, and nothing is written; see [Checking proposed edits](#checking-proposed-edits). |
 | `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references` (every use, in all of a project's entry points and tasks), `completion`, `symbols`, `diagnostics`; `rename` with the new name in `name` (the edits, not applied); `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list; `graph` with `name` `calls`, `modules`, `types`, or `systems` (JSON nodes and edges); `api` for the public interface (signatures with effects and contracts, and docs) of `name` (a standard module such as `std.list`) or of the program at `path`. |
 | `contracts` | `path`, optional `tests` | Each `requires`/`ensures` clause and what the compiler decided: `proven` (its runtime check is compiled out), `refuted` (an error), or `runtime`, with why. With `tests: true` it runs the tests observing the program: each clause's coverage (`tested.evaluated` 0 is a gap) and candidate clauses that held in every observed call. See [Working with the compiler on contracts](#working-with-the-compiler-on-contracts). |
-| `run` | `path`, optional `args`, `test`, `release`, `timeout_secs`, `breakpoints`, `commands`, `max_stops`, `profile` | Exit status, stdout, and stderr of `lang run` or `lang test`. With `breakpoints` (`file:line`, optionally `if CONDITION`) it runs under gdb and reports the frames, arguments, and locals at each stop (see [debugging](debugging.md)); with `profile: true` it adds a CPU profile (functions by self and total time). |
+| `run` | `path`, optional `args`, `test`, `release`, `timeout_secs`, `breakpoints`, `commands`, `max_stops`, `profile` | Exit status, stdout, and stderr of `badger run` or `badger test`. With `breakpoints` (`file:line`, optionally `if CONDITION`) it runs under gdb and reports the frames, arguments, and locals at each stop (see [debugging](debugging.md)); with `profile: true` it adds a CPU profile (functions by self and total time). |
 
 A query that cannot answer its input fails with a message (a missing
 file, a directory where a source file is needed, a file that does not
@@ -41,7 +41,7 @@ compiler.diagnostics("src").map(fn(ds) {
 })
 
 // the signatures of a file's functions
-compiler.symbols("src/main.lang").map(fn(ss) {
+compiler.symbols("src/main.bdg").map(fn(ss) {
     ss.filter(fn(s) { s.kind == "function" }).map(fn(s) { $"{s.name}: {s.detail}" })
 })
 ```
@@ -63,12 +63,12 @@ compiler.symbols("src/main.lang").map(fn(ss) {
 
 A diagnostic has its location (`file`, `line`, `col`, `end_line`,
 `end_col`), `severity`, `code`, `message`, and `notes`, and the same
-structured facts as `lang check --json`: the primary `label`, `expected`
+structured facts as `badger check --json`: the primary `label`, `expected`
 and `actual` shapes, the enclosing `scope`, secondary `related` locations,
 and `declarations` (related definitions, by name and location).
 
 The same answers are available without MCP from the command line:
-`lang query hover src/main.lang --line 12 --col 8`.
+`badger query hover src/main.bdg --line 12 --col 8`.
 
 ## Working with the compiler on contracts
 
@@ -95,19 +95,19 @@ the project:
 
 ```text
 compiler.check_project("app", map.from_list([
-    ("src/shapes.lang", new_shapes),
-    ("src/report.lang", new_report),
+    ("src/shapes.bdg", new_shapes),
+    ("src/report.bdg", new_report),
 ]))
 ```
 
-or MCP `check` with `path` and `files`, or `lang query check app
+or MCP `check` with `path` and `files`, or `badger query check app
 --overlays edits.json` (`--overlays -` reads the JSON object from standard
 input). Files not named are read from disk; a proposed file may be new.
 The result agrees with checking the same edits saved. Besides
 `diagnostics`, it reports:
 
 - `ok`: no errors (warnings may remain);
-- `inputs`: every file checked (`lang.toml` included), with `proposed`
+- `inputs`: every file checked (`badger.toml` included), with `proposed`
   (whether the text came from `files`), `bytes`, and a `hash`;
 - `unused_overlays`: proposed files that no checked module imports (a
   misspelled path, or a module nothing imports yet);

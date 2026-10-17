@@ -8,46 +8,46 @@ the implementation.
 
 ```text
  source text
-     │  lang_syntax   layout pass (newline separators) → pest grammar → arena AST (Pratt operators)
+     │  badger_syntax   layout pass (newline separators) → pest grammar → arena AST (Pratt operators)
      ▼
     AST
-     │  lang_hir      modules/imports, name resolution, prelude, desugaring, const checks
+     │  badger_hir      modules/imports, name resolution, prelude, desugaring, const checks
      ▼
     HIR  (+ embedded standard library, also HIR)
-     │  lang_typeck   binding-group SCCs, HM inference with rows/effects/regions,
+     │  badger_typeck   binding-group SCCs, HM inference with rows/effects/regions,
      │                protocol constraint solving, coherence, exhaustiveness, ownership
      ▼
  typed HIR (side tables: expression types, resolutions, coercions)
-     │  lang_mir      monomorphization worklist, layouts, closures, dyn dictionaries,
+     │  badger_mir      monomorphization worklist, layouts, closures, dyn dictionaries,
      │                explicit CFG with checked operations
      ▼
     MIR
-     │  lang_codegen  MIR → CLIF, shadow-stack roots, polls, adapters, cranelift-jit
+     │  badger_codegen  MIR → CLIF, shadow-stack roots, polls, adapters, cranelift-jit
      ▼
- machine code in-process  ──calls──▶  lang_runtime (extern "C" lang_rt_*)
+ machine code in-process  ──calls──▶  badger_runtime (extern "C" badger_rt_*)
 ```
 
-`lang_driver` runs the pipeline (`Session::check`, `Session::build`,
+`badger_driver` runs the pipeline (`Session::check`, `Session::build`,
 `Session::run`) and stops before code generation when any phase reports an
-error. `lang_cli` is the `lang` binary.
+error. `badger_cli` is the `badger` binary.
 
 ## Crates
 
 | Crate | Role | Key deps |
 |---|---|---|
-| `lang_base` | spans, source map, interner, diagnostics (codes, JSON, ariadne), diagnostic catalog | lasso, ariadne |
-| `lang_syntax` | layout pass, `grammar.pest`, parser, AST, formatter | pest |
-| `lang_hir` | resolution, desugaring, lang items, embedded `std/*.lang` | la-arena, petgraph |
-| `lang_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
-| `lang_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
-| `lang_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
-| `lang_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
-| `lang_native` | native module ABI, wire format, helpers for modules in Rust | — |
-| `lang_sqlite` | the `lang_sqlite` native module behind `std.sqlite` | rusqlite |
-| `lang_fetch` | the `lang_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
-| `lang_http` | the `lang_http` native module behind `std.http` (the HTTP/1.1 server) | hyper, tokio |
-| `lang_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
-| `lang_cli` | command-line interface | clap |
+| `badger_base` | spans, source map, interner, diagnostics (codes, JSON, ariadne), diagnostic catalog | lasso, ariadne |
+| `badger_syntax` | layout pass, `grammar.pest`, parser, AST, formatter | pest |
+| `badger_hir` | resolution, desugaring, lang items, embedded `std/*.bdg` | la-arena, petgraph |
+| `badger_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
+| `badger_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
+| `badger_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
+| `badger_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
+| `badger_native` | native module ABI, wire format, helpers for modules in Rust | — |
+| `badger_sqlite` | the `badger_sqlite` native module behind `std.sqlite` | rusqlite |
+| `badger_fetch` | the `badger_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
+| `badger_http` | the `badger_http` native module behind `std.http` (the HTTP/1.1 server) | hyper, tokio |
+| `badger_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
+| `badger_cli` | command-line interface | clap |
 
 ## Front end
 
@@ -55,7 +55,7 @@ error. `lang_cli` is the `lang` binary.
   are blanked with offsets preserved, so spans stay exact.
 - **Grammar.** Keywords are matched as whole words; uppercase/lowercase roles
   are lexical (types and protocols uppercase, values lowercase).
-- **Formatter** (`lang format`): one canonical layout. Lines inside brackets
+- **Formatter** (`badger format`): one canonical layout. Lines inside brackets
   indent one level past the line that opened them; spacing within a line is
   normalized token by token (operators, commas, colons, braces, generic
   arguments, calls) and re-lexed to confirm tokens are unchanged; a trailing
@@ -68,14 +68,14 @@ error. `lang_cli` is the `lang` binary.
   stage runners), `system { ... }` (topologically ordered nodes with typed
   `ref(:key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [:keys])` (a typed output projection).
-- **Standard library.** `crates/lang_hir/std/*.lang` (42 modules) are ordinary
+- **Standard library.** `crates/badger_hir/std/*.bdg` (42 modules) are ordinary
   language modules. A program loads the core modules (the prelude,
   collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
   import) plus the modules it imports, closed over the standard modules' own
   imports; `system { }` and `pipeline { }` syntax brings in its module.
   Runtime operations are `extern "intrinsic"` declarations implemented in
-  `lang_runtime` or expanded inline by MIR lowering.
+  `badger_runtime` or expanded inline by MIR lowering.
 
 ## Types and checks
 
@@ -179,14 +179,14 @@ error. `lang_cli` is the `lang` binary.
 
 ## MIR and code generation
 
-- **Binary MIR** (`lang compile`, `crates/lang_mir/src/serial.rs`): a lowered
+- **Binary MIR** (`badger compile`, `crates/badger_mir/src/serial.rs`): a lowered
   program is saved with its runtime constants (descriptors, immortal
   strings, symbols, static closures, nullary values, type-argument arrays)
   recorded by how they were made, as a constant pool; loading makes them
-  anew and patches the program, so `lang run FILE.langmir` only generates
+  anew and patches the program, so `badger run FILE.bdgmir` only generates
   code. The file also carries the effective configuration and runtime
   settings. Saved programs get the MIR optimizations of `run --release`
-  (inlining, split receives); `lang run FILE.langmir --release` then
+  (inlining, split receives); `badger run FILE.bdgmir --release` then
   optimizes code generation.
 
 - MIR is a CFG per function instance with typed representations (`I8..I64`,
@@ -201,15 +201,15 @@ error. `lang_cli` is the `lang` binary.
   call reports a failure), then the directory slot `i >> log2(cap)` and
   page slot `i & (cap - 1)` (`list::page_cap_for` is a power of two for
   every element size, shared with the runtime).
-- Split receives (`lang_mir::split`, optimized builds after inlining): a
+- Split receives (`badger_mir::split`, optimized builds after inlining): a
   channel receive whose `Option`/`TryRecv` result is only examined (tag
   read, payload loaded, through copies) calls a split form returning the
   tag, with the payload taken from the task right after
-  (`lang_rt_take_aux`; a pointer payload is taken as a pointer, so it is
+  (`badger_rt_take_aux`; a pointer payload is taken as a pointer, so it is
   rooted), and no result object is allocated.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
-- Inlining (optimized builds without live dispatch; `lang_mir::inline`):
+- Inlining (optimized builds without live dispatch; `badger_mir::inline`):
   small, non-recursive direct callees whose argument and result
   representations match are copied into their callers (two rounds, with a
   growth cap), then scalar replacement runs again, so a record built only
@@ -218,7 +218,7 @@ error. `lang_cli` is the `lang` binary.
   are inlined too, with the closure as the lambda's environment, and a
   callee given such a closure may be twice as large, so `map`, `filter`,
   and `fold` with a lambda become loops around its body; the closure's
-  allocation goes when nothing else uses it. `LANG_NO_INLINE=1` disables it.
+  allocation goes when nothing else uses it. `BADGER_NO_INLINE=1` disables it.
 - Scalar replacement: an object used only through field loads and stores in
   its function (records, tuples, ranges — possibly through copies of the
   reference) is not heap-allocated; its fields become locals.
@@ -234,7 +234,7 @@ error. `lang_cli` is the `lang` binary.
   location.
 - Code generation keeps every managed pointer that is live across a safe
   point (call, allocation, poll) in a shadow-stack frame (precise roots;
-  `lang_mir::roots`; functions without such pointers link no frame), inserts scheduling/cancellation polls at function entries and loop
+  `badger_mir::roots`; functions without such pointers link no frame), inserts scheduling/cancellation polls at function entries and loop
   back-edges, checks the stack pointer against the task's stack limit in each
   prologue (overflow is a task defect), and emits word adapters for
   first-class calls.
@@ -242,7 +242,7 @@ error. `lang_cli` is the `lang` binary.
   early (`break`, `return`, `?`); closers are also task cleanups, so a
   defect or cancellation closes them too.
 - `extern "c"` calls run inline; `extern "c blocking"` and `"c pinned"`
-  contracts route word-sized calls through `lang_rt_ffi_call` to the bounded
+  contracts route word-sized calls through `badger_rt_ffi_call` to the bounded
   blocking pool or the dedicated pinned thread while the task parks.
 - In `--watch` mode, calls between user functions dispatch through per-instance
   slots so a compatible new version replaces them (see below).
@@ -266,10 +266,10 @@ error. `lang_cli` is the `lang` binary.
   old object written with a pointer: generated code checks after every
   pointer store into an object not freshly allocated in the same block, and
   runtime containers (list pages and directories, map builders, buffers,
-  channels, atoms) call `gc::barrier`. `LANG_GC_VERIFY=1` checks every
+  channels, atoms) call `gc::barrier`. `BADGER_GC_VERIFY=1` checks every
   minor collection for a reachable unmarked object (a missed barrier),
-  `LANG_GC_STRESS=1` collects at every allocation, and
-  `LANG_GC_GENERATIONAL=0` turns generations off. Sweeps run per worker
+  `BADGER_GC_STRESS=1` collects at every allocation, and
+  `BADGER_GC_GENERATIONAL=0` turns generations off. Sweeps run per worker
   list in parallel. `heap_max_bytes` budgets live data: past it the
   allocating task fails with a defect after a full collection.
 - **Tasks:** stackful coroutines (corosensei) with cooperative polls,
@@ -280,11 +280,11 @@ error. `lang_cli` is the `lang` binary.
   Tests can control the clock (sleeps wait on virtual time, advanced
   explicitly or automatically when nothing else can run) and the scheduler
   (seeded choice among ready tasks, recorded decisions, replay). With
-  several workers, `lang test` restarts the worker pool per test; under a
+  several workers, `badger test` restarts the worker pool per test; under a
   controlled scheduler only the first worker runs tasks, so schedules are
   reproducible at any worker count.
 - **Workers:** one by default (1..64); `[runtime] workers = N`, `--workers N`,
-  or `LANG_WORKERS` runs N OS threads; tasks migrate between them at
+  or `BADGER_WORKERS` runs N OS threads; tasks migrate between them at
   suspension points. Each worker has its own run queue (a next slot for a
   task its running task woke, then a deque), and idle workers steal (a
   next-slot task only after 50 µs, for cache locality). Common operations
@@ -294,8 +294,8 @@ error. `lang_cli` is the `lang` binary.
   spawn, join, and normal task exit run without it; idle workers wait
   without it while others are active. The remaining runtime code (most
   intrinsics, cleanups, failures, select) runs under one runtime lock:
-  the code generator brackets those calls with `lang_rt_enter`/
-  `lang_rt_leave`; entries listed as unlocked in the code generator take
+  the code generator brackets those calls with `badger_rt_enter`/
+  `badger_rt_leave`; entries listed as unlocked in the code generator take
   the lock themselves only on their slow paths. A collection stops the
   world by waiting until no worker executes compiled code (each worker
   counts itself; a worker resuming a task without the lock waits out a
@@ -353,13 +353,13 @@ error. `lang_cli` is the `lang` binary.
   offer `try_append`/`try_send`, `recv`, and `try_recv`. Plain `select` and `on_send` drop an unsent payload, so
   they require `T: Share`; `select_keep` and `on_send_keep` return an
   affine payload to the caller.
-- **Services:** SQLite (the `lang_sqlite` native module, `crates/lang_sqlite`:
+- **Services:** SQLite (the `badger_sqlite` native module, `crates/badger_sqlite`:
   each pool has up to four connections, each on its own thread, and every
   statement is an async native call, so a task waiting for a connection
   only parks; a transaction pins one connection from `BEGIN IMMEDIATE`
   until it ends, a cleanup rolls it back if the task is abandoned, and an
   unreachable one is rolled back; a failed rollback is returned with the
-  callback's error as its cause), an HTTP/1.1 server (the `lang_http`
+  callback's error as its cause), an HTTP/1.1 server (the `badger_http`
   native module, hyper on its own small tokio runtime: it reads requests
   and enforces the limits, and `std.http` takes admitted ones with an async
   `accept` in an acceptor task, each request in its own task of a service
@@ -372,15 +372,15 @@ error. `lang_cli` is the `lang` binary.
   output;
   environment and profile configuration; a bounded trace sink whose overload
   is reported separately.
-- **Typed SQL** (`crates/lang_driver/src/sql.rs`): after type checking, the
+- **Typed SQL** (`crates/badger_driver/src/sql.rs`): after type checking, the
   driver finds calls of `sqlite.execute/query/query_one/query_as/
   query_one_as` with a literal SQL argument, loads the `[database] schema`
   file and the program's literal DDL into an in-memory SQLite, and prepares
-  each statement (`lang_driver::sqlcheck`, with SQLite's column
+  each statement (`badger_driver::sqlcheck`, with SQLite's column
   declared-type and NOT NULL metadata). Row types come from the recorded
-  type of the call. The checks run in `lang check`, `lang run`, and the
+  type of the call. The checks run in `badger check`, `badger run`, and the
   language server.
-- **Durable jobs** (`crates/lang_hir/std/jobs.lang`, written in the language
+- **Durable jobs** (`crates/badger_hir/std/jobs.bdg`, written in the language
   over `std.sqlite`): tables for jobs (state as `Codec` JSON with a version,
   status, step, attempts, run-at time, owner, lease deadline, fence),
   ingested event keys, outbox operations (unique key, status, receipt,
@@ -390,7 +390,7 @@ error. `lang_cli` is the `lang` binary.
   commits nothing. Dispatch commits `sending` before calling the adapter;
   an operation found `sending` past its deadline is `uncertain` and goes to
   reconciliation, never back to sending.
-- **Reproduction bundles** (`crates/lang_runtime/src/repro.rs`): external
+- **Reproduction bundles** (`crates/badger_runtime/src/repro.rs`): external
   intrinsics (fetch, process, fs, env, clocks, OS random seeds) go through
   `repro::external(kind, key, digest, redact, real)`, which in record mode
   performs the operation and keeps its outcome as JSON (serde), in replay
@@ -404,7 +404,7 @@ error. `lang_cli` is the `lang` binary.
 
 ## Logs
 
-`std.log` writes structured records (`crates/lang_runtime/src/telemetry.rs`):
+`std.log` writes structured records (`crates/badger_runtime/src/telemetry.rs`):
 a level check against `[runtime] log_level` is one atomic load; a record
 encodes its fields through their schema, merges the task's `log.with`
 context (copied to tasks it spawns), and is written to standard error as
@@ -420,14 +420,14 @@ runtime builds, and posts them with `std.fetch`.
 
 ## Native modules
 
-`crates/lang_native` defines the native module ABI and wire format, and
-helpers for writing modules in Rust; `crates/lang_runtime/src/native.rs`
+`crates/badger_native` defines the native module ABI and wire format, and
+helpers for writing modules in Rust; `crates/badger_runtime/src/native.rs`
 is the host. `extern "native NAME" fn` lowers to intrinsic
 `native_callN` (N arguments) whose first argument names the site
 (`"NAME\0function"`, an immortal string) and whose type arguments are the
 parameter types: the host resolves the site once (a module linked in with
 `native::register_builtin`, else `libNAME.so` by `dlopen` from
-`LANG_NATIVE_PATH`, the executable's directory, or `lib/lang` next to it),
+`BADGER_NATIVE_PATH`, the executable's directory, or `lib/badger` next to it),
 encodes the arguments by their descriptors, runs the function by its
 mode, and decodes the result by the result descriptor. The calls are
 unlocked entries: an inline function runs on the worker without the
@@ -441,11 +441,11 @@ A function a module marks recorded (`FnDesc::record`: identified by its
 first k arguments, filed under a kind such as `fetch`) goes through
 `repro::external` with its encoded result, so bundles capture and replay
 it; one marked pure runs as usual; any other is `repro::uncaptured`.
-`crates/lang_native_demo` is a module for the tests (`tests/native`).
+`crates/badger_native_demo` is a module for the tests (`tests/native`).
 
 ## Live reload
 
-`lang run --watch` keeps the program running while it polls the sources. On
+`badger run --watch` keeps the program running while it polls the sources. On
 a change it rechecks and recompiles on the scheduler thread between task
 steps. The new version is accepted only if its user type definitions are
 unchanged (new types may be added) and every function present in both
@@ -464,46 +464,46 @@ reinterpreted as a new type.
 
 ## Projects and dependencies
 
-`lang.toml` (a TOML subset) names the package, its version and entry module,
+`badger.toml` (a TOML subset) names the package, its version and entry module,
 the toolchain language (`draft-0`), `[runtime]` settings with
 `[profile.NAME.runtime]` overrides, `[config]` with `[profile.NAME]` overlays,
-named `[entries]`, user `[tasks]` (typed functions run by `lang task`), and
+named `[entries]`, user `[tasks]` (typed functions run by `badger task`), and
 `[dependencies]` as inline tables with an optional version prefix: a
 `path`, or a `git` repository with `rev` and `subdir`
-(`crates/lang_driver/src/deps.rs`: the repository is cloned bare into the
-cache, `$LANG_HOME` or `~/.cache/lang`, and each commit used is checked
-out into its own directory; `lang.lock` records the requested `rev` and
+(`crates/badger_driver/src/deps.rs`: the repository is cloned bare into the
+cache, `$BADGER_HOME` or `~/.cache/badger`, and each commit used is checked
+out into its own directory; `badger.lock` records the requested `rev` and
 the commit, and a build uses the locked commit while the manifest asks for
 the same `rev`). `[workspace] members` (with `dir/*` patterns) groups
-packages that share the lockfile at the workspace root; `lang check` and
-`lang test` there cover every member. `[package] kind = "library"` marks a
+packages that share the lockfile at the workspace root; `badger check` and
+`badger test` there cover every member. `[package] kind = "library"` marks a
 package without `main`. `[env] dotenv` lists files of `NAME=value` lines
 the driver loads into the environment before a source run starts
 (variables already set win), and `${NAME}` / `${NAME:-default}` in
 `[config]` values read the environment when `config.load` decodes them.
 `[package] restricted = true` confines ambient authority to the entry module
-(`crates/lang_driver/src/authority.rs`: a reachability check over resolved
+(`crates/badger_driver/src/authority.rs`: a reachability check over resolved
 calls and function references, reporting the path to the ambient function;
 the ambient set is the listed functions plus every standard free function
 or module value, such as a provider, that reaches an OS-facing intrinsic
 through other standard free functions and values; methods act on given
 capabilities and are not ambient).
-Unknown sections and keys are errors. `lang check` and `lang test` cover the
+Unknown sections and keys are errors. `badger check` and `badger test` cover the
 main entry and every `[entries]` and `[tasks]` module. An entry or task
 function takes no parameters or the arguments as `List<String>`. Dependencies resolve transitively; a module imports
 a dependency's entry as `import dep` and its other modules as
 `import dep.module` (inside a package, siblings are imported with the
-package's own name as prefix). `lang.lock` records each dependency's
+package's own name as prefix). `badger.lock` records each dependency's
 version, path, and a content hash of its manifest and sources; builds verify
-it and `lang update` rewrites it.
+it and `badger update` rewrites it.
 
 ## Inspection and remote REPL
 
-`lang run --inspect ADDR` serves a line protocol on a local TCP address.
+`badger run --inspect ADDR` serves a line protocol on a local TCP address.
 Every request carries the endpoint's token, a random secret made at start,
-kept in memory for in-process clients (the local REPL, `lang mcp`) and
+kept in memory for in-process clients (the local REPL, `badger mcp`) and
 written for the user's other processes to a 0600 file in a 0700 per-user
-directory (`$XDG_RUNTIME_DIR/lang-inspect`, else `~/.cache/lang-inspect`);
+directory (`$XDG_RUNTIME_DIR/badger-inspect`, else `~/.cache/badger-inspect`);
 other local users cannot inspect or evaluate. Each connection is served
 on its own thread with a read timeout; evaluations run one at a time.
 Snapshot requests (`tasks` with state, wait reason, owner scope, the code
@@ -511,31 +511,31 @@ version the task started on, and the pipeline stages it is inside;
 `channels` with capacity, queued/staged/leased messages, closure, and waiters;
 `system` with running systems and their nodes' providers and generations; `heap` with collections and
 pause times; `code` with the live version) are computed on the scheduler
-thread between task steps. `eval` requests come from `lang repl --connect`:
+thread between task steps. `eval` requests come from `badger repl --connect`:
 the input is appended to the entry module (a definition replaces the
 program's item of the same name), the program is rebuilt as a new code
 version under the live-reload compatibility rules, and an expression runs as
 a task of that version whose displayed result is the reply. The program
 itself is compiled with slot dispatch while the endpoint is active. The local
-`lang repl` runs the same way against an in-process session program, so
+`badger repl` runs the same way against an in-process session program, so
 module-level values are computed once and keep their identity. Redefining
 a definition with another type or effect is rejected; new types may be
 added.
 
 ## Editor support
 
-`lang lsp` is a language server on stdio (`crates/lang_cli/src/lsp.rs`).
+`badger lsp` is a language server on stdio (`crates/badger_cli/src/lsp.rs`).
 Each edit re-checks the program the document belongs to (its project, or
-the file alone when no `lang.toml` encloses it or the project's module graph
+the file alone when no `badger.toml` encloses it or the project's module graph
 does not reach it) with every open buffer overlaid (`Session::overlays`);
 a burst of edits is checked once. The check is the ordinary one, so
-diagnostics are exactly `lang check`'s; with `set_record_types` the checker
+diagnostics are exactly `badger check`'s; with `set_record_types` the checker
 also returns a `TypeIndex` (printed types of user expressions and locals,
 resolved call/method/constructor targets, and the fields and methods of each
-local's type). `lang_driver::analysis` turns that and the HIR into owned
+local's type). `badger_driver::analysis` turns that and the HIR into owned
 per-file data: references (span, definition target, a key identifying the
 referent, hover text from `describe_def`, the same rendering as
-`lang explain`), document symbols, and locals with their scopes. Hover,
+`badger explain`), document symbols, and locals with their scopes. Hover,
 definition, references, highlights, rename (occurrences spelled as the name;
 library definitions are not renamed), document and workspace symbols,
 formatting (the canonical formatter), and completion are answered from it.
@@ -544,30 +544,30 @@ while the text being typed does not parse: names in scope, module members
 after `module.`, fields and methods after `value.`. Setup for editors is in
 [docs/editors.md](docs/editors.md).
 
-`lang query KIND PATH [--line L --col C]` answers one of the same
+`badger query KIND PATH [--line L --col C]` answers one of the same
 questions (diagnostics, hover, definition, references, completion, symbols)
 as JSON with 1-based positions. `std.compiler` wraps it for programs: typed
 records (`Diagnostic`, `Location`, `Symbol`, `Completion`) decoded from a
-`lang query` subprocess (`LANG_EXE` names the running executable), plus
-`check_source` and `explain`. `lang query check PATH --overlays FILE`
+`badger query` subprocess (`BADGER_EXE` names the running executable), plus
+`check_source` and `explain`. `badger query check PATH --overlays FILE`
 (`std.compiler.check_project`, MCP `check` with `files`) checks a project
 with proposed file contents overlaid on the files on disk, the way the
 language server checks unsaved buffers: every entry point and task, as
-`lang check` does, reporting the inputs checked and the roots covered.
+`badger check` does, reporting the inputs checked and the roots covered.
 
 References and rename consider every entry point of a project: the
 server also analyses each `[entries]` and `[tasks]` program (when first
 asked, until the next change) and looks the definition up in each, so a
-module reachable only from a task is renamed with the rest. `lang query
+module reachable only from a task is renamed with the rest. `badger query
 rename` returns the edits without applying them.
 
-`lang doc std --out docs/api` writes the standard library reference
-(`crates/lang_cli/src/doc.rs`) from the `api` query: declarations and `///`
+`badger doc std --out docs/api` writes the standard library reference
+(`crates/badger_cli/src/doc.rs`) from the `api` query: declarations and `///`
 documentation of each module's public types, methods, and functions, with
 the module's leading comment as its introduction. `tests/docs.rs` keeps it
-current and checks every `lang` code block in the specification and guides.
+current and checks every `badger` code block in the specification and guides.
 
-`lang graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
+`badger graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
 [--std]` draws program structure from the same analysis: calls from each
 resolved call target to its enclosing function, imports between modules,
 types used by struct fields and enum variants, and system plan nodes with
@@ -575,15 +575,15 @@ the nodes they reference (a node without references is drawn alone).
 
 ## Agent tooling (MCP)
 
-`lang mcp` is a Model Context Protocol server on stdio
-(`crates/lang_cli/src/mcp.rs`) with four tools. `eval` is code mode: a
-persistent REPL session (the `lang repl` machinery: an in-process session
+`badger mcp` is a Model Context Protocol server on stdio
+(`crates/badger_cli/src/mcp.rs`) with four tools. `eval` is code mode: a
+persistent REPL session (the `badger repl` machinery: an in-process session
 program served over the inspection endpoint) where definitions accumulate
 and expressions evaluate; with `import std.compiler` the agent queries and
 post-processes analysis in the language itself instead of through many
 narrow tools. Evaluations have a time limit (`evalt` requests: the
 endpoint cancels the evaluation task when it expires, so the session stays
-usable). `check` (a path or source text, or a project with proposed `files`), `query` (the `lang query` kinds,
+usable). `check` (a path or source text, or a project with proposed `files`), `query` (the `badger query` kinds,
 diagnostic explanations, and standard module sources as API reference) and
 `run` (a program or its tests, with a time limit) run in subprocesses,
 isolated from the session. The session's standard output is redirected to
@@ -595,7 +595,7 @@ protocol. Setup in [docs/agents.md](docs/agents.md).
 `requires` / `ensures` lines before a function parse into `FnDecl::contracts`.
 HIR lowering turns each `requires` into a check at the start of the body
 (`contract_caller()` reads, once on entry, the call site that direct and
-method calls of such functions record with `lang_rt_caller_loc`;
+method calls of such functions record with `badger_rt_caller_loc`;
 `precondition_failed` reports there, naming the clause) and keeps `ensures`
 clauses on `FnDef` with a `result` local. Type checking checks postconditions
 as `Bool` after the body (with `result` of the return type), the ownership
@@ -606,10 +606,10 @@ body's value, `return`, and `?`) through one epilogue that checks them.
 
 `Stmt::Loc` statements mark source positions in MIR (each statement and
 block result of user code; `Program::debug_files` names the files). With
-`lang run --debug` (`lang_codegen::set_debug_info`) code generation turns
+`badger run --debug` (`badger_codegen::set_debug_info`) code generation turns
 them into Cranelift source locations, keeps every named local in a stack
 slot (stored on each assignment), and after finalization builds DWARF
-(`crates/lang_codegen/src/debuginfo.rs`): a line program, a subprogram per
+(`crates/badger_codegen/src/debuginfo.rs`): a line program, a subprogram per
 function with parameters and locals at frame-pointer offsets taken from
 Cranelift's frame layout, base types by representation, and `.debug_frame`
 from Cranelift's unwind information. The DWARF goes into an in-memory ELF
@@ -620,63 +620,63 @@ breakpoints by source line, step, unwind, and read and watch locals. See
 
 ## Testing
 
-- `tests/run/*.lang` must run and print `NAME.out` (exit code `NAME.exit`),
+- `tests/run/*.bdg` must run and print `NAME.out` (exit code `NAME.exit`),
   both on one worker and with `--workers 4`.
-- `tests/reject/*.lang` must fail with the codes in `// expect-error:` lines.
-- `crates/lang_cli/tests/programs.rs` also runs the examples, profile
+- `tests/reject/*.bdg` must fail with the codes in `// expect-error:` lines.
+- `crates/badger_cli/tests/programs.rs` also runs the examples, profile
   configuration, path dependencies and lockfile checks, project tooling
   (entries, tasks, runtime settings, strict manifests; `tests/projects`),
   live reload (`tests/live`), inspection and the local and remote REPL
-  (`tests/inspect`), `lang test` fixtures (`tests/testing`: controlled
+  (`tests/inspect`), `badger test` fixtures (`tests/testing`: controlled
   clock, scheduling, property checks), structured diagnostics
-  (`tests/diagnostics`), `lang explain` (`tests/explain`), and checks
+  (`tests/diagnostics`), `badger explain` (`tests/explain`), and checks
   `bench/`; `tests/service.rs` drives the HTTP/SQLite service, request
   isolation, HTTP limits, and streaming (`tests/http`) with a real client.
-- `tests/stress/*.lang` are self-checking concurrency programs (message
+- `tests/stress/*.bdg` are self-checking concurrency programs (message
   conservation across prompt, batch, and rendezvous channels, selections
   committing exactly once, cancellation and timeout storms with cleanup
-  invariants). `crates/lang_cli/tests/stress.rs` runs each on 1, 4, and 8
+  invariants). `crates/badger_cli/tests/stress.rs` runs each on 1, 4, and 8
   workers under chaos scheduling, heap verification, and optimized code;
-  `LANG_STRESS_SECS=N cargo test -p lang_cli --test stress` soaks
+  `BADGER_STRESS_SECS=N cargo test -p badger_cli --test stress` soaks
   randomized configurations (also GC stress and binary MIR) and reports
   the exact configuration of any failure.
 - `tests/adversarial` holds the retained independent regressions and
   controls behind `reports/2026-10-15-adversarial.md`.
 - Unit tests cover the formatter (spacing and indentation), layout, and
-  unification; `crates/lang_syntax/tests/format_repo.rs` formats every
+  unification; `crates/badger_syntax/tests/format_repo.rs` formats every
   repository source.
-- `crates/lang_cli/tests/fuzz.rs` mutates corpus programs (deleted ranges,
+- `crates/badger_cli/tests/fuzz.rs` mutates corpus programs (deleted ranges,
   inserted tokens, duplicated and swapped lines, truncation) and requires
-  `lang check` (and `lang compile` when they check) to answer with
-  diagnostics, never a panic or signal; `LANG_FUZZ_SECS=N` soaks, and a
+  `badger check` (and `badger compile` when they check) to answer with
+  diagnostics, never a panic or signal; `BADGER_FUZZ_SECS=N` soaks, and a
   failing input is saved. It also checks that the formatter never panics
   and is idempotent on mutants, and that reformatting every corpus program
   leaves its diagnostics unchanged.
 - `tests/lsp.rs` and `tests/mcp.rs` drive the language server and the MCP
-  server over their protocols; `programs.rs` also covers `lang query`,
-  `lang graph`, contracts, the sampling profiler, and (when gdb is
+  server over their protocols; `programs.rs` also covers `badger query`,
+  `badger graph`, contracts, the sampling profiler, and (when gdb is
   installed) debugging generated code.
 
-Debug switches: `LANG_GC_STRESS=1` (collect before every allocation, to
-expose missing roots), `LANG_GC_VERIFY=1` (check every root and traced
+Debug switches: `BADGER_GC_STRESS=1` (collect before every allocation, to
+expose missing roots), `BADGER_GC_VERIFY=1` (check every root and traced
 pointer at each collection; freed objects are poisoned and quarantined so
 a use-after-free aborts with the object's type instead of corrupting
-memory), `LANG_CHAOS=<seed>` (random task budgets, random choice among
+memory), `BADGER_CHAOS=<seed>` (random task budgets, random choice among
 ready tasks, yields and short sleeps around runtime entry and exit, and
 collections at random allocations; reproducible on one worker),
-`LANG_DEBUG_INSTANCE` (instances as lowered),
-`LANG_DEBUG_SCHED` (scheduler state on idle), `LANG_DEBUG_LIVE` (reload
-entries), `LANG_TRACE` (export trace events to stderr), `LANG_SCHED_SEED`
-(seeded scheduling in tests), `LANG_DUMP_CLIF`, `LANG_DUMP_ASM=NAME,...`
+`BADGER_DEBUG_INSTANCE` (instances as lowered),
+`BADGER_DEBUG_SCHED` (scheduler state on idle), `BADGER_DEBUG_LIVE` (reload
+entries), `BADGER_TRACE` (export trace events to stderr), `BADGER_SCHED_SEED`
+(seeded scheduling in tests), `BADGER_DUMP_CLIF`, `BADGER_DUMP_ASM=NAME,...`
 (machine code of generated functions whose names contain a pattern; `1` for
-all), and `lang run --dump-mir`.
+all), and `badger run --dump-mir`.
 
-Profiling: `LANG_PROFILE=FILE` samples CPU time at 1 kHz (`SIGPROF`; the
+Profiling: `BADGER_PROFILE=FILE` samples CPU time at 1 kHz (`SIGPROF`; the
 handler walks frame pointers with fault-tolerant reads) and writes
 collapsed stacks to `FILE` (flamegraph/speedscope input) plus a self/total
 summary on stderr. Generated code keeps frame pointers and is symbolized by
 source function name; build with `RUSTFLAGS="-C force-frame-pointers=yes"`
-to also see callers of runtime functions. `LANG_PERF_MAP=1` writes
+to also see callers of runtime functions. `BADGER_PERF_MAP=1` writes
 `/tmp/perf-PID.map` so external profilers attribute generated code.
 
 ## Scope notes

@@ -34,7 +34,7 @@ reports a task defect on an invalid index. No release-only unchecked behavior.
 
 ## Structural record inference
 
-```lang
+```badger
 let person = { name: "Ada", age: 36, needs_glasses: false }
 
 fn greet(person) {
@@ -77,7 +77,7 @@ concrete representation and do not project or erase unknown fields.
 Ordinary labels are lowercase identifiers. Qualified symbol labels allow
 library-specific extensions without unrelated name collisions:
 
-```lang fragment
+```badger fragment
 let authenticated = { ..request, [:auth/user]: user }
 let current_user = authenticated[:auth/user]
 let { name, age, .. } = person
@@ -94,7 +94,7 @@ and may change a field's type. Two explicit occurrences of the same label are
 errors, even if their types match. The result is a new value; observed aliases
 to the old record are preserved.
 
-```lang fragment
+```badger fragment
 let changed = { ..person, age: 37 }
 let extended = { ..person, email: "ada@example.test" }
 let relocated = { ..person, address.city: "Cork" }
@@ -114,7 +114,7 @@ common shape. Homogeneous collections follow the same rule.
 
 ## Aliases, structs, and enums
 
-```lang
+```badger
 pub type Person = { name: String, age: Int, needs_glasses: Bool }
 
 pub struct UserId {

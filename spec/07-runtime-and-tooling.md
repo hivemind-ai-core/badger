@@ -44,7 +44,7 @@ an HTTP framework on a CLI program.
 
 The [standard library reference](../docs/api/README.md) lists every public
 type, function, and method with its declaration and documentation; it is
-generated from the checked interfaces (`lang doc std --out docs/api`) and
+generated from the checked interfaces (`badger doc std --out docs/api`) and
 the test suite keeps it current.
 
 The prelude provides primitive types, `Option`, `Result`, common protocols,
@@ -94,9 +94,9 @@ returns a lazy `Seq<String>`).
 - `std.postgres` has the same shape (`connect`, `execute`, `query`,
   `query_one`, `query_as`, `query_one_as`, `transaction`, `describe`, and
   a `postgres.pool` provider) over pooled server connections.
-- SQL as SQL: `lang generate sql FILE.sql` turns a file of named queries
+- SQL as SQL: `badger generate sql FILE.sql` turns a file of named queries
   (`-- name: find_user :one`, with `:one`, `:opt`, `:many`, or `:exec`,
-  and `:name` parameters) into `FILE.lang`: a row record type and a typed
+  and `:name` parameters) into `FILE.bdg`: a row record type and a typed
   function per query, taking a pool or transaction. Types come from the
   database: Postgres describes each statement (`--database`, or
   `DATABASE_URL`), SQLite prepares it against the schema. See
@@ -196,14 +196,14 @@ pass it briefly.
 
 ## Project tool and machine interface
 
-The project file is `lang.toml`, with package identity, dependencies,
+The project file is `badger.toml`, with package identity, dependencies,
 entry modules, toolchain version, and runtime profiles. Resolve dependencies with
 a lockfile and content/version verification. **Implementation:** a
 dependency is a directory (`path`) or a git repository (`git`, with `rev`
 and `subdir`), cloned once into a cache and checked out per commit; the
-lockfile pins each git dependency's commit, and `lang update` resolves
+lockfile pins each git dependency's commit, and `badger update` resolves
 revisions again. `[workspace] members` groups packages sharing one
-lockfile (`lang check`, `lang test`, and `lang update` at the root cover
+lockfile (`badger check`, `badger test`, and `badger update` at the root cover
 them all), and `[package] kind = "library"` marks a package that others
 import and nothing runs. `[env] dotenv` loads environment files before a
 program starts (set variables win), and `[config]` values may read the
@@ -232,45 +232,45 @@ reproduction bundles record them.
 Commands:
 
 ```text
-lang check [path] [--json]
-lang run [entry] [--profile name] [--record bundle] [-- args...]
-lang replay bundle [--compare]
-lang test [filter] [--json]
-lang task name [-- args...]
-lang compile [path] [-o out]
-lang release [path] [-o dir]
-lang start dir [-- args...]
-lang format [path] [--check]
-lang repl [--connect endpoint]
-lang inspect [plans|config|runtime] [path] [--json]
-lang inspect [system|tasks|channels|heap|code|all] --connect addr [--json]
-lang explain [type|effect|diagnostic] target [--json]
-lang query kind [path] [--line l --col c] [--overlays file]
-lang graph [calls|modules|types|systems] [path]
-lang doc [std|std.module|path] [--out dir] [--check]
-lang update [path]
-lang lsp
-lang mcp
+badger check [path] [--json]
+badger run [entry] [--profile name] [--record bundle] [-- args...]
+badger replay bundle [--compare]
+badger test [filter] [--json]
+badger task name [-- args...]
+badger compile [path] [-o out]
+badger release [path] [-o dir]
+badger start dir [-- args...]
+badger format [path] [--check]
+badger repl [--connect endpoint]
+badger inspect [plans|config|runtime] [path] [--json]
+badger inspect [system|tasks|channels|heap|code|all] --connect addr [--json]
+badger explain [type|effect|diagnostic] target [--json]
+badger query kind [path] [--line l --col c] [--overlays file]
+badger graph [calls|modules|types|systems] [path]
+badger doc [std|std.module|path] [--out dir] [--check]
+badger update [path]
+badger lsp
+badger mcp
 ```
 
 All of these commands are implemented; a missing path means the current
-directory's project, and `lang run NAME` selects a manifest `[entries]`
-module. User tasks are `[tasks]` entries (`name = "src/file.lang#function"`)
-run by `lang task NAME [-- args]`. Runtime settings live in `[runtime]`, with
-`[profile.NAME.runtime]` overrides and `LANG_<SETTING>` environment
-overrides; `lang inspect runtime` prints the effective values and their
-sources. Unknown manifest sections and keys are errors; `lang inspect runtime` lists
+directory's project, and `badger run NAME` selects a manifest `[entries]`
+module. User tasks are `[tasks]` entries (`name = "src/file.bdg#function"`)
+run by `badger task NAME [-- args]`. Runtime settings live in `[runtime]`, with
+`[profile.NAME.runtime]` overrides and `BADGER_<SETTING>` environment
+overrides; `badger inspect runtime` prints the effective values and their
+sources. Unknown manifest sections and keys are errors; `badger inspect runtime` lists
 every setting, including defaults, and invalid environment overrides are
-errors. `lang check`/`lang test` cover every entry and task module of a
+errors. `badger check`/`badger test` cover every entry and task module of a
 project; entry and task functions take no parameters or `List<String>`. `inspect` reads
 `plans` and the effective `config` from a project, and `system`, `tasks`,
 `channels`, `heap`, and the code version from a program started with
-`lang run --inspect ADDR` (`--connect ADDR`), which also serves
-`lang repl --connect`. `lang run --watch` performs compatible live
+`badger run --inspect ADDR` (`--connect ADDR`), which also serves
+`badger repl --connect`. `badger run --watch` performs compatible live
 replacement from source changes; `--reconstruct` adds controlled
 reconstruction for incompatible changes.
 
-`lang run --record FILE` writes a reproduction bundle: the program's
+`badger run --record FILE` writes a reproduction bundle: the program's
 identity (toolchain version and executable digest, every source file's
 digest, arguments, a digest of the effective configuration), the outcome of
 every external operation (HTTP requests, subprocesses, file reads, writes,
@@ -280,7 +280,7 @@ write or request sends, the program's output, and how it ended (exit code,
 failure, and the failing source line). The run uses one worker. Values of
 environment variables whose names look like credentials (`TOKEN`, `SECRET`,
 `PASSWORD`, `API_KEY`, `AUTH`, ...) and credential-like URL query values
-are not stored. `lang replay FILE` runs the same program with every
+are not stored. `badger replay FILE` runs the same program with every
 operation answered from the bundle: nothing is requested, run, or written,
 and an operation the bundle does not hold (or that sends different content,
 or needs a redacted value, a database, or an HTTP server) ends the replay
@@ -319,7 +319,7 @@ to controlled or recorded inputs; arbitrary native I/O is not replayable by
 declaration. Implementation: `std.test` provides a controlled clock
 (sleeps complete by virtual time, advanced explicitly or automatically once
 nothing else can run; each test starts on the real clock), seeded scheduling
-(`schedule_seed`, `LANG_SCHED_SEED`), recording and replay of scheduling
+(`schedule_seed`, `BADGER_SCHED_SEED`), recording and replay of scheduling
 decisions, `explore` (run a body under many schedules and report the failing
 seed with its decisions), and `property` (seeded generators; failures report
 the value and seed). Assertion failures report the caller's location.
@@ -330,11 +330,11 @@ in debug profiles, but runtime assertions do not replace the static contracts.
 
 Compile modules into typed HIR, explicit MIR, specialized layouts, and Cranelift
 code. Deployment uses source, or a checked program saved as binary MIR
-(`lang compile`; only code generation remains when it runs), plus a
-versioned runtime. **Implementation:** `lang release` writes a
+(`badger compile`; only code generation remains when it runs), plus a
+versioned runtime. **Implementation:** `badger release` writes a
 self-contained release directory (the executable, the program, the native
 libraries it calls, its lockfile, and a manifest of target and digests;
-see [docs/releases.md](../docs/releases.md)); `lang start DIR` (or
+see [docs/releases.md](../docs/releases.md)); `badger start DIR` (or
 `DIR/run`) checks it and starts it without the sources. **Proposed:** a native machine-code cache keyed by
 target/ISA, compiler, runtime ABI, dependencies, and source/interface
 hashes, and a standalone AOT backend as a separate output mode (not an
@@ -346,7 +346,7 @@ changes new dispatches; existing stacks keep their code version. Changing a
 record shape, effect/ownership contract, or resource layout requires rechecking
 and controlled reconstruction/migration. Failed checks leave the old running
 system intact. Reload never reinterprets live bytes as a new type.
-**Implementation:** `lang run --watch` replaces compatible functions;
+**Implementation:** `badger run --watch` replaces compatible functions;
 `--reconstruct` cancels the running `main` (its scopes settle and halt
 their resources in reverse order) and starts the new version.
 **Proposed:** resource reload that suspends and resumes, or restarts, only
@@ -385,8 +385,8 @@ the declaration's name differs), linked into the executable or loaded
 from `libNAME.so`; `std.sqlite`, `std.postgres`, `std.fetch`, `std.http`,
 `std.valkey`, the formats (`std.toml`, `std.yaml`, `std.csv`),
 `std.template`, and `std.encoding`/`std.crypto`/`std.uuid` are built on
-the `lang_sqlite`, `lang_postgres`, `lang_fetch`, `lang_http`, `lang_fs`,
-`lang_valkey`, `lang_formats`, `lang_template`, and `lang_crypto`
+the `badger_sqlite`, `badger_postgres`, `badger_fetch`, `badger_http`, `badger_fs`,
+`badger_valkey`, `badger_formats`, `badger_template`, and `badger_crypto`
 modules.
 Arguments and results cross by copy in a typed wire format, so module code
 never sees managed memory: values of the declared types (primitives,
@@ -400,7 +400,7 @@ the completion). A module's panic, a malformed result, or a result that
 does not fit the declared type is a defect of the calling task. Handles
 name module-owned state, released when unreachable. Native functions are
 ambient authority in restricted projects. [docs/native-modules.md](../docs/native-modules.md)
-describes the ABI and the Rust crate (`lang_native`) for writing modules.
+describes the ABI and the Rust crate (`badger_native`) for writing modules.
 
 ## Compiler and runtime obligations
 

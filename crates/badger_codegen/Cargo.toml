@@ -1,0 +1,21 @@
+[package]
+name = "badger_codegen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+badger_base.workspace = true
+badger_mir.workspace = true
+badger_runtime.workspace = true
+cranelift-codegen.workspace = true
+cranelift-frontend.workspace = true
+cranelift-module.workspace = true
+cranelift-jit.workspace = true
+cranelift-native.workspace = true
+slotmap.workspace = true
+index_vec.workspace = true
+rustc-hash.workspace = true
+thiserror.workspace = true
+gimli = { version = "0.33", default-features = false, features = ["write", "std"] }

@@ -18,7 +18,7 @@ or mandatory component object is required.
 
 ## Typed system descriptions
 
-```lang fragment
+```badger fragment
 let plan = system {
     database: component(sqlite.pool, { path: config.database_path }),
     api: component(api.provider, { database: ref(:database) }),
@@ -140,7 +140,7 @@ to forwarding. A terminal handler is required. Replies travel separately from
 context fields, so earlier stages can always observe/transform a reply without
 pretending that a later-added `response` field existed on their input.
 
-```lang fragment
+```badger fragment
 let plan = pipeline {
     tracing(),
     authentication(database),

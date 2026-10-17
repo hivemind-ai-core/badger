@@ -1,7 +1,0 @@
-[package]
-name = "framework-baseline"
-entry = "src/main.lang"
-restricted = true
-
-[runtime]
-workers = 1

@@ -111,7 +111,7 @@ explicit rooting and cannot survive an unregistered lifetime boundary.
 builder. List literals and `list.collect` construct through a unique builder and
 then freeze. `finish` transfers the page directory without moving elements.
 
-```lang fragment
+```badger fragment
 let builder = list.builder<Event>()
 for event in source {
     builder.append(event)

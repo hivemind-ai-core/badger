@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-default-members = ["crates/lang_cli"]
+default-members = ["crates/badger_cli"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,26 +11,26 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # --- internal crates -------------------------------------------------------
-lang_base = { path = "crates/lang_base" }
-lang_syntax = { path = "crates/lang_syntax" }
-lang_hir = { path = "crates/lang_hir" }
-lang_typeck = { path = "crates/lang_typeck" }
-lang_mir = { path = "crates/lang_mir" }
-lang_codegen = { path = "crates/lang_codegen" }
-lang_runtime = { path = "crates/lang_runtime" }
-lang_driver = { path = "crates/lang_driver" }
-lang_native = { path = "crates/lang_native" }
-lang_sqlite = { path = "crates/lang_sqlite" }
-lang_fetch = { path = "crates/lang_fetch" }
-lang_http = { path = "crates/lang_http" }
-lang_formats = { path = "crates/lang_formats" }
-lang_template = { path = "crates/lang_template" }
-lang_crypto = { path = "crates/lang_crypto" }
-lang_valkey = { path = "crates/lang_valkey" }
-lang_postgres = { path = "crates/lang_postgres" }
-lang_datetime = { path = "crates/lang_datetime" }
-lang_compress = { path = "crates/lang_compress" }
-lang_fs = { path = "crates/lang_fs" }
+badger_base = { path = "crates/badger_base" }
+badger_syntax = { path = "crates/badger_syntax" }
+badger_hir = { path = "crates/badger_hir" }
+badger_typeck = { path = "crates/badger_typeck" }
+badger_mir = { path = "crates/badger_mir" }
+badger_codegen = { path = "crates/badger_codegen" }
+badger_runtime = { path = "crates/badger_runtime" }
+badger_driver = { path = "crates/badger_driver" }
+badger_native = { path = "crates/badger_native" }
+badger_sqlite = { path = "crates/badger_sqlite" }
+badger_fetch = { path = "crates/badger_fetch" }
+badger_http = { path = "crates/badger_http" }
+badger_formats = { path = "crates/badger_formats" }
+badger_template = { path = "crates/badger_template" }
+badger_crypto = { path = "crates/badger_crypto" }
+badger_valkey = { path = "crates/badger_valkey" }
+badger_postgres = { path = "crates/badger_postgres" }
+badger_datetime = { path = "crates/badger_datetime" }
+badger_compress = { path = "crates/badger_compress" }
+badger_fs = { path = "crates/badger_fs" }
 
 # --- parsing ---------------------------------------------------------------
 pest = "2.9.3"

@@ -2,7 +2,7 @@
 
 Work branch: `perf/memory-management-2026-10-17`.
 Initial source revision: `926cdbd19e2bcc889d2499d646a8a0ad0eb69b0c`.
-Main remains untouched. Commit each completed implementation slice with its
+Initial work was isolated from main. Commit each completed implementation slice with its
 correctness checks, raw benchmark evidence, and results recorded here.
 
 ## Measurement and acceptance
@@ -328,3 +328,24 @@ incomplete broad debug run are explicitly retained in the
 Next implementation priority: G1 allocation/survival attribution to guide G2/G3
 and the R1 ring prototype. R1–R6, lifetime-based placement, and multiple-collector
 architecture are still unimplemented; R0 is a design/protocol checkpoint only.
+
+### Integration with Badger rename
+
+The user authorized merging completed work to main and continuing on this branch.
+Committed main updates through `4bb3386` were integrated, including the Badger
+rename. Runtime paths now use `crates/badger_runtime`, new sources use `.bdg`,
+saved MIR uses `.bdgmir`, and current diagnostic controls use `BADGER_*`.
+Historical performance reports and their original source/binary hashes remain
+unchanged. Current commands are in `bench/gc/README.md`.
+
+The rename was rehearsed separately while it was uncommitted. Main committed it
+before publication; a state guard caught that update before any writes to main.
+The final merge therefore uses the committed rename directly. Resolutions retain
+both the sampling-scope guard and the new Badger names, relocate our diagnostics
+module/tests, and update the new benchmark runner/source extensions.
+
+Focused release HAMT/saved-MIR stress tests and diagnostic-feature runtime model
+tests passed in the renamed rehearsal; benchmark-harness tests (7) and formatting
+also passed. Final merged-tree GC retention, scalar enums, sequence fusion and
+transient-map focused checks passed; logs are in `reports/memory-management/integration/`.
+G1 attribution remains the next implementation slice.

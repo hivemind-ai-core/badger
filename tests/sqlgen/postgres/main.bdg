@@ -1,0 +1,37 @@
+// Typed SQL on Postgres: queries.bdg is generated from queries.sql by
+// describing each statement on the server.
+import std.env
+import std.fs
+import std.io
+import std.postgres
+import queries
+
+pub enum AppError {
+    io(source: io.Error),
+    postgres(source: postgres.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = postgres.connect(env.get("POSTGRES_URL").unwrap_or("postgres://localhost/postgres"))?
+    let _ = postgres.execute(db, fs.read_text("tests/sqlgen/postgres/schema.sql")?, [])?
+    let ada = queries.create_author(db, "ada", Option.some("engines"))?
+    let bob = queries.create_author(db, "bob", Option.none)?
+    let p1 = queries.create_post(db, ada.id, "Notes", ["math", "engines"], Data.object(map { "pages" => Data.int(12) }))?
+    let p2 = queries.create_post(db, ada.id, "Letters", ["math"], Data.null)?
+    io.println($"posts {p1.id} {p1.status} {p2.id}")?
+    let changed = queries.publish(db, "9.50", p1.id)?
+    io.println($"published {changed}")?
+    match queries.post(db, p1.id)? {
+        .some(p) => io.println($"{p.title} by {p.author} ({p.bio.unwrap_or("-")}): {p.status} {p.tags} {p.score.unwrap_or("-")} {p.meta}")?,
+        .none => io.println("no post")?,
+    }
+    io.println($"missing: {queries.post(db, 99)?.is_none()}")?
+    for p in queries.posts_tagged(db, "math")? {
+        io.println($"tagged: {p.id} {p.title}")?
+    }
+    for s in queries.author_stats(db)? {
+        io.println($"{s.name}: {s.posts} posts, average {s.average.unwrap_or(0.0)}")?
+    }
+    let _ = bob
+    ok(())
+}

@@ -16,9 +16,9 @@ LLM benefits below are hypotheses. They should be measured through real editing 
 
 **P0 · Small to medium · Confirmed gap.**
 
-The core [diagnostic representation](crates/lang_base/src/diagnostics.rs) carries labels, expected/actual shapes, enclosing scope, and related declarations. The analysis/query path reduces that information: expected/actual become prose notes, and the CLI query serialization omits secondary locations. MCP `check` uses that query path. Its result is then wrapped as text.
+The core [diagnostic representation](crates/badger_base/src/diagnostics.rs) carries labels, expected/actual shapes, enclosing scope, and related declarations. The analysis/query path reduces that information: expected/actual become prose notes, and the CLI query serialization omits secondary locations. MCP `check` uses that query path. Its result is then wrapped as text.
 
-This was reproduced with a failed piped call: `lang check --json` identifies the enclosing function and the called function's declaration; `lang query diagnostics` drops those fields. An LLM receives less useful evidence through its dedicated tool than through the ordinary compiler command.
+This was reproduced with a failed piped call: `badger check --json` identifies the enclosing function and the called function's declaration; `badger query diagnostics` drops those fields. An LLM receives less useful evidence through its dedicated tool than through the ordinary compiler command.
 
 Use one versioned diagnostic schema across CLI, LSP, MCP, and `std.compiler`. Preserve:
 
@@ -37,7 +37,7 @@ Start by retaining existing information. Richer constraint explanations are a la
 
 MCP `check(source=...)` writes a standalone temporary file. It does not offer a way to check a replacement module against its actual project, imports, configuration, and sibling edits. Agents therefore have to write files before checking a multi-file change.
 
-The underlying [analysis entry point](crates/lang_driver/src/analysis.rs) already accepts source overlays, and LSP uses them. Expose that capability to MCP and `std.compiler`: a project path plus a set of proposed file contents. Return the identities of the inputs checked and the entry/task roots covered.
+The underlying [analysis entry point](crates/badger_driver/src/analysis.rs) already accepts source overlays, and LSP uses them. Expose that capability to MCP and `std.compiler`: a project path plus a set of proposed file contents. Return the identities of the inputs checked and the entry/task roots covered.
 
 The first implementation can perform a full check. Persistent incremental compilation is a separate optimization. Checking edits should remain read-only; applying them is a distinct operation.
 
@@ -47,7 +47,7 @@ The first implementation can perform a full check. Persistent incremental compil
 
 **P1 · Small per correction · Confirmed documentation gaps.**
 
-[SPEC.md](SPEC.md) still refers to an implemented placeholder grammar, while the compiler uses the substantial [pest grammar](crates/lang_syntax/src/grammar.pest). Chapter 07 calls some reference APIs unimplemented proposals while also documenting their implementation. These contradictions make it harder for an agent to decide what code it can actually use.
+[SPEC.md](SPEC.md) still refers to an implemented placeholder grammar, while the compiler uses the substantial [pest grammar](crates/badger_syntax/src/grammar.pest). Chapter 07 calls some reference APIs unimplemented proposals while also documenting their implementation. These contradictions make it harder for an agent to decide what code it can actually use.
 
 Keep a clear distinction between normative semantics, implementation limits, and proposed additions. Generate API reference material from checked interfaces and retain hand-written explanations and examples around it. Compile documentation examples in CI. Put version/toolchain information on generated material.
 
@@ -59,7 +59,7 @@ Do not describe existing record shorthand, dotted record updates, interpolation,
 
 **P1 · Small to medium · Confirmed API gaps.**
 
-MCP has API and graph queries, but [std.compiler](crates/lang_hir/std/compiler.lang) does not wrap them. LSP supports rename, while the agent query interface has no equivalent semantic edit operation. Some agent documentation also understates the debugging and profiling capabilities already present in MCP `run`.
+MCP has API and graph queries, but [std.compiler](crates/badger_hir/std/compiler.bdg) does not wrap them. LSP supports rename, while the agent query interface has no equivalent semantic edit operation. Some agent documentation also understates the debugging and profiling capabilities already present in MCP `run`.
 
 Expose shared compiler services consistently rather than maintaining separate implementations. Keep the small MCP tool set and extend its operations. An operation should report unsupported inputs explicitly, rather than returning an empty result that resembles successful analysis.
 
@@ -83,7 +83,7 @@ Keep bug-first priority. The enhancements here should not delay a reproduced cor
 
 Currently:
 
-```lang
+```badger
 let n = (41 |> increment())?   // checks
 let n = 41 |> increment()?     // fails
 ```
@@ -92,13 +92,13 @@ The second form currently treats `increment()?` as the pipe's callable, producin
 
 Propose a narrow rule:
 
-```lang
+```badger
 input |> decode<Config>()? |> validate()?
 ```
 
 At each stage, insert the left value into the call first, then apply `?` to that call's result. Keep the current direct error-conversion rules and nearest-function/callback boundary.
 
-The existing AST already represents pipes, calls, and `Try`; [pipe lowering](crates/lang_hir/src/lower.rs) is the likely implementation point. No new runtime mechanism is needed. Specify the behavior of parenthesized function-producing expressions separately so the rule is predictable.
+The existing AST already represents pipes, calls, and `Try`; [pipe lowering](crates/badger_hir/src/lower.rs) is the likely implementation point. No new runtime mechanism is needed. Specify the behavior of parenthesized function-producing expressions separately so the rule is predictable.
 
 **Acceptance:** equivalent explicit calls and piped calls have the same results, errors, evaluation order, and cleanup; each left operand runs once. Cover multiple fallible stages and `use` callbacks.
 
@@ -106,7 +106,7 @@ The existing AST already represents pipes, calls, and `Try`; [pipe lowering](cra
 
 **P1 · Small · Parser/formatter change using the existing lambda AST.**
 
-```lang
+```badger
 events
     |> seq.filter(fn(event) => event.enabled)
     |> seq.map(fn(event) => event.name)
@@ -125,7 +125,7 @@ Choose one formatter convention: expression bodies for simple expressions, block
 
 The channel example currently needs a `loop` containing a `match`, with a `.none => break` arm. Prefer:
 
-```lang
+```badger
 while let .some(job) = receiver.recv() {
     process(job)?
 }
@@ -145,7 +145,7 @@ For `Result`, examples should encourage explicit error handling when a nonmatchi
 
 **P2 · Medium · Requires checking divergence and binding scope.**
 
-```lang
+```badger
 let .some(user) = users.get(id) else {
     return err(AppError.not_found(id))
 }
@@ -161,7 +161,7 @@ This is a modest extension, but less purely syntactic than expression lambdas. I
 
 The Go/Elixir report proposes a local block form of `use`. Much of that benefit is already available:
 
-```lang
+```badger
 let count = {
     use tx <- sqlite.transaction(pool)
     let count = insert_notes(tx, notes)?
@@ -201,7 +201,7 @@ User direction, 2026-10-16: the existing system/pipeline example exposes substan
 
 Candidate provider syntax, not currently implemented:
 
-```lang
+```badger
 provider greeter {
     init(scope, config) -> Result<_, AppError> {
         ok({
@@ -217,7 +217,7 @@ This could lower to the existing `let greeter = system.provider({ name, init: fn
 
 Candidate interceptor-factory syntax, not currently implemented:
 
-```lang
+```badger
 stage logging() {
     enter(ctx) -> Result<_, AppError> {
         io.println($"Request for {ctx.name}")?
@@ -267,7 +267,7 @@ Choose consuming versus borrowing signatures deliberately. A borrowed helper mus
 
 Add `try_map`, `try_fold`, `try_each`, and collection of `Result` values. Keep a simple default: evaluate in source order and stop at the first error.
 
-```lang
+```badger
 let orders = list.try_map(rows, decode_order)?
 let total = list.try_fold(orders, 0, add_total)?
 ```
@@ -425,10 +425,10 @@ Proposed commands, not existing CLI features:
 
 ```text
 lang new service orders-api
-lang generate module orders
-lang generate endpoint orders.create
-lang generate interceptor request_metrics
-lang generate worker import_jobs
+badger generate module orders
+badger generate endpoint orders.create
+badger generate interceptor request_metrics
+badger generate worker import_jobs
 ```
 
 Generate ordinary editable language code, using compiler-checked templates. An endpoint generator should connect its input/output schemas, named errors, handler, route, application composition, and tests. An interceptor generator should show its required/established fields and unwind behavior. A worker generator should include ownership, restart, shutdown, and queue policy decisions.

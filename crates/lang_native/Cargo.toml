@@ -1,9 +1,0 @@
-[package]
-name = "lang_native"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-description = "Native modules for the language: the C ABI, the value wire format, and helpers for writing modules in Rust"
-
-[dependencies]

@@ -1,7 +1,7 @@
 # Typed SQL
 
 SQL stays SQL. Write queries in a `.sql` file, name them, and
-`lang generate sql` writes a module of typed functions next to it, with
+`badger generate sql` writes a module of typed functions next to it, with
 types from the database itself (in the style of sqlc and pgtyped).
 
 ```sql
@@ -20,15 +20,15 @@ UPDATE users SET name = :name WHERE id = :id;
 ```
 
 ```sh
-lang generate sql --database postgres://localhost/app queries.sql   # Postgres
-lang generate sql queries.sql                                      # SQLite, [database] schema
-lang generate sql --check queries.sql                              # CI: fail if stale
+badger generate sql --database postgres://localhost/app queries.sql   # Postgres
+badger generate sql queries.sql                                      # SQLite, [database] schema
+badger generate sql --check queries.sql                              # CI: fail if stale
 ```
 
 Each query becomes a function taking a connection (a pool or a
 transaction) and its parameters:
 
-```lang fragment
+```badger fragment
 pub type FindUserRow = { id: Int, name: String, email: Option<String> }
 
 pub fn find_user<C>(db: C, id: Int) -> Result<Option<FindUserRow>, postgres.Error> !{Io, Wait} where C: postgres.Connection
@@ -76,7 +76,7 @@ SQLite prepares each statement against the project's `[database] schema`
 alias gives a type), and the schema gives nullability. SQLite does not
 know parameter types: they are `Data` unless `-- params:` gives them.
 
-The generated module is ordinary code: `lang check` also checks its
+The generated module is ordinary code: `badger check` also checks its
 statements against the schema (for SQLite), and it can be read, diffed,
 and committed. Regenerate it after changing the queries or the schema;
 `--check` in CI catches a stale one.

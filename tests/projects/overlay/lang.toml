@@ -1,6 +1,0 @@
-[package]
-name = "overlay"
-entry = "src/main.lang"
-
-[tasks]
-summary = "src/jobs.lang#summary"

@@ -1,6 +1,0 @@
-[package]
-name = "typed_sql"
-entry = "src/main.lang"
-
-[database]
-schema = "schema.sql"

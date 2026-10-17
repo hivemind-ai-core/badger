@@ -1,6 +1,0 @@
-[package]
-name = "multicore"
-entry = "src/main.lang"
-
-[runtime]
-workers = 4

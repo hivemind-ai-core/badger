@@ -1,7 +1,7 @@
 GC/application attribution and coverage
 =====================================
 
-`coverage.lang` adds construction-inclusive byte/word buffer churn, a larger
+`coverage.bdg` adds construction-inclusive byte/word buffer churn, a larger
 survivor window, persistent-map snapshot histories, and equivalent visible,
 stored, collected and eager pipelines. Checksums include retained data. The
 Python oracle independently checks every workload; telemetry reuses its full
@@ -12,21 +12,21 @@ Build an ordinary fixed-revision compiler and copy it to an immutable path.
 Build a separate diagnostic compiler (frame pointers and symbols matter):
 
 ```
-CARGO_TARGET_DIR=/tmp/gc-diagnostic-target CARGO_PROFILE_RELEASE_DEBUG=1 RUSTFLAGS='-C force-frame-pointers=yes' cargo build --offline --release -p lang_cli -p lang_runtime --features lang_runtime/gc-profile
+CARGO_TARGET_DIR=/tmp/gc-diagnostic-target CARGO_PROFILE_RELEASE_DEBUG=1 RUSTFLAGS='-C force-frame-pointers=yes' cargo build --offline --release -p badger_cli -p badger_runtime --features badger_runtime/gc-profile
 ```
 
-`gc-profile` adds per-collection phase timings with `LANG_GC_PROFILE=path.json`.
+`gc-profile` adds per-collection phase timings with `BADGER_GC_PROFILE=path.json`.
 It records stop-world rendezvous, preparation, root enumeration, tracing,
 weak-page clearing, verification, sweep/finalization, accounting, pool trimming
 and finishing. Counts include examined objects, survivors, remembered objects,
 external pressure/live bytes and pool reservation. Phase timings are disjoint
 wall-clock intervals; parallel sweep CPU can exceed its wall time.
 
-Only that feature accepts experimental `LANG_GC_MINOR_BYTES`,
-`LANG_GC_MAX_MINORS` and `LANG_GC_TRIM=0`. They are attribution tools, not proposed
+Only that feature accepts experimental `BADGER_GC_MINOR_BYTES`,
+`BADGER_GC_MAX_MINORS` and `BADGER_GC_TRIM=0`. They are attribution tools, not proposed
 defaults. The young-budget override applies after the first collection. Normal
 builds contain neither instrumentation nor these policy controls. Diagnostics
-are buffered and written at exit. `LANG_PROFILE_SCOPE=runtime` excludes frontend
+are buffered and written at exit. `BADGER_PROFILE_SCOPE=runtime` excludes frontend
 and JIT samples; its default retains existing whole-process profiling. With
 sampling active, diagnostic sweep helper threads are sampled too.
 

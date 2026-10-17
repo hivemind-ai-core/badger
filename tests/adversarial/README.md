@@ -7,10 +7,10 @@ Each input has either an `.out` with exact expected stdout or a `.code` with
 the required rejection diagnostic.
 
 `cargo test --workspace` includes the Rust integration runner in
-`crates/lang_cli/tests/adversarial.rs`. To run only this suite:
+`crates/badger_cli/tests/adversarial.rs`. To run only this suite:
 
 ```sh
-cargo test -p lang_cli --test adversarial
+cargo test -p badger_cli --test adversarial
 ```
 
 The 23 runtime programs run with one worker, four workers, and optimized JIT

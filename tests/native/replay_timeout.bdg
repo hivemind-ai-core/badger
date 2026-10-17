@@ -1,0 +1,15 @@
+// An async native call the task stops waiting for (a timeout), then one it
+// waits out: a recording notes the first as abandoned, so a replay waits
+// on it until the same timeout fires.
+import std.io
+import std.task
+import std.time
+
+extern "native badger_native_demo" fn later(ms: Int, value: Int) -> Int !{Wait}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let first = task.timeout(time.millis(50), fn() { later(30000, 1) })
+    io.println($"timed out: {first.is_err()}")?
+    io.println($"later: {later(10, 2)}")?
+    ok(())
+}

@@ -26,7 +26,7 @@ stack commitments, captures, inboxes, and roots. No fixed task-size promise.
 Alternative stack representations may replace this without changing source
 semantics. Migration requires a proven-safe suspension boundary and transferable
 task state, not merely moving a saved stack pointer to another thread.
-Implementation: each task snapshot (`lang inspect tasks`, `inspect.tasks()`)
+Implementation: each task snapshot (`badger inspect tasks`, `inspect.tasks()`)
 has `memory`: `stack_reserved` and `stack_resident` (address space and
 pages in use), `captures` (its closure object), `roots` (values the
 runtime holds for it), and `channels` (registrations).
@@ -38,7 +38,7 @@ safe points, not a hard wall-clock deadline or arbitrary native preemption.
 Uninstrumented foreign code has a separate contract.
 
 Cancelling a task that waits on an operation outside the scheduler
-(**Implementation**, tested by `tests/run/cancel_matrix.lang`): a
+(**Implementation**, tested by `tests/run/cancel_matrix.bdg`): a
 subprocess is killed (the task waits for it to exit, then leaves); a
 SQLite query is interrupted and a native module's async call withdrawn
 (its `cancel` hook runs, a late result's handles are released); a blocking
@@ -51,7 +51,7 @@ every operation is waited for, so the bundle holds its outcome.
 
 ## Scopes, children, and results
 
-```lang fragment
+```badger fragment
 use scope <- task.scope()
 let first = scope.spawn(fn() { load_first() })
 let second = scope.spawn(fn() { load_second() })
@@ -158,7 +158,7 @@ sender sends one value (a second send, or one after `close`, returns
 sender closed without one. A reply is one small object — no queue — so a
 request carries its own reply sender:
 
-```lang fragment
+```badger fragment
 type Lookup = { key: Int, reply: channel.ReplySender<String> }
 let tag = channel.call(lookups, fn(r) { { key: 42, reply: r } })   // Option<String>
 ```

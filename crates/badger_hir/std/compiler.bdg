@@ -1,0 +1,283 @@
+// Compiler services: diagnostics, types, definitions, references, symbols,
+// and completions of a source file (checked with its project, if any),
+// checks of proposed edits in their project, and diagnostic explanations. Each call runs `badger query` (the language
+// server's analysis) as a subprocess; positions are 1-based lines and
+// columns in characters.
+
+import std.prelude
+import std.io
+import std.env
+import std.process
+import std.codec
+import std.map
+import std.text
+
+/// A compiler service failed (the tool could not run, or a request was
+/// invalid).
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String { self.message }
+}
+
+impl prelude.Error for Error {}
+
+pub struct Location {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+} derive(Codec, Display)
+
+pub struct Diagnostic {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+    /// `error`, `warning`, or `note`.
+    pub severity: String,
+    pub code: Option<String>,
+    pub message: String,
+    pub notes: List<String>,
+    /// The primary label's text (also part of `message`).
+    pub label: String,
+    /// Expected and actual shapes (types, effects, field sets), when known.
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    /// The enclosing definition (`fn app.main`).
+    pub scope: Option<String>,
+    /// Secondary locations with their labels.
+    pub related: List<Related>,
+    /// Related definitions (a called function, the expected type) and where
+    /// they are declared.
+    pub declarations: List<Declaration>,
+} derive(Codec, Display)
+
+pub struct Related {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+    pub message: String,
+} derive(Codec, Display)
+
+pub struct Declaration {
+    pub name: String,
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+} derive(Codec, Display)
+
+pub struct Symbol {
+    pub name: String,
+    /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, `value`,
+    /// or `impl`.
+    pub kind: String,
+    /// Its type or declared shape.
+    pub detail: String,
+    pub line: Int,
+    pub col: Int,
+    /// The impl a method belongs to.
+    pub container: Option<String>,
+} derive(Codec, Display)
+
+pub struct Completion {
+    pub name: String,
+    pub detail: Option<String>,
+} derive(Codec, Display)
+
+/// A file a check read: whether it was proposed content (rather than the
+/// file on disk), its size in bytes, and a hash of its text.
+pub struct Input {
+    pub file: String,
+    pub proposed: Bool,
+    pub bytes: Int,
+    pub hash: String,
+} derive(Codec, Display)
+
+/// An entry point a check covered: `main`, an `[entries]` name, or
+/// `task:NAME`, with its module and function when they resolved.
+pub struct Root {
+    pub entry: String,
+    pub module: Option<String>,
+    pub function: Option<String>,
+} derive(Codec, Display)
+
+/// Where a task is spawned (`spawn` or `capture`), and the function
+/// containing it.
+pub struct TaskSite {
+    pub function: String,
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+} derive(Codec, Display)
+
+/// The result of checking a project with proposed file contents.
+pub struct Check {
+    /// No errors (warnings may remain).
+    pub ok: Bool,
+    pub diagnostics: List<Diagnostic>,
+    /// Every file checked, the project's `badger.toml` included.
+    pub inputs: List<Input>,
+    /// Proposed files no checked module imports (a typo, or a module not
+    /// yet imported).
+    pub unused_overlays: List<String>,
+    pub roots: List<Root>,
+    pub tests: List<String>,
+    pub tasks: List<TaskSite>,
+} derive(Codec, Display)
+
+/// A public item of a module's interface.
+pub struct ApiItem {
+    /// The module (`std.list`, or a program's source file).
+    pub module: String,
+    pub name: String,
+    /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, or
+    /// `value`.
+    pub kind: String,
+    /// Its type, with effects and contract clauses.
+    pub signature: String,
+    /// A function's declaration as written (parameter names included);
+    /// empty for other kinds.
+    pub declaration: String,
+    pub doc: String,
+} derive(Codec, Display)
+
+/// Program structure: named nodes and directed edges.
+pub struct Graph {
+    pub nodes: List<String>,
+    pub edges: List<Edge>,
+} derive(Codec, Display)
+
+pub struct Edge {
+    pub from: String,
+    pub to: String,
+} derive(Codec, Display)
+
+/// A replacement of the text between two positions.
+pub struct Edit {
+    pub file: String,
+    pub line: Int,
+    pub col: Int,
+    pub end_line: Int,
+    pub end_col: Int,
+    pub text: String,
+} derive(Codec, Display)
+
+struct Edits {
+    edits: List<Edit>,
+} derive(Codec)
+
+struct Hover {
+    text: String,
+} derive(Codec)
+
+/// The `badger` executable (`BADGER_EXE`, set by `badger` itself).
+fn exe() -> String !{Io} { env.get("BADGER_EXE").unwrap_or("badger") }
+
+fn ask(args: List<String>) -> Result<String, Error> !{Io, Wait} { reply(process.run(exe(), args)) }
+
+/// `ask` with `input` as the tool's standard input.
+fn ask_input(args: List<String>, input: String) -> Result<String, Error> !{Io, Wait} {
+    reply(process.run_input(exe(), args, input))
+}
+
+fn reply(r: Result<process.Output, io.Error>) -> Result<String, Error> !{Io} {
+    match r {
+        .ok(o) => if o.status == 0 { ok(o.stdout) } else { err({ message: tool_error(o.stderr) }) },
+        .err(e) => err({ message: $"cannot run {exe()}: {e}" }),
+    }
+}
+
+/// The tool's error message, without its `error: ` prefix.
+fn tool_error(stderr: String) -> String {
+    let m = stderr.trim()
+    if m.starts_with("error: ") { text.slice(m, 7, m.len()).unwrap_or(m) } else { m }
+}
+
+fn decode<T>(text: String) -> Result<T, Error> where T: Codec {
+    match codec.decode_text<T>(text) {
+        .ok(v) => ok(v),
+        .err(e) => err({ message: $"unexpected reply: {e}" }),
+    }
+}
+
+fn at(kind: String, path: String, line: Int, col: Int) -> List<String> {
+    ["query", kind, path, "--line", $"{line}", "--col", $"{col}"]
+}
+
+/// Diagnostics of the program `path` belongs to (empty when it checks).
+pub fn diagnostics(path: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
+    decode(ask(["query", "diagnostics", path])?)
+}
+
+/// Diagnostics of a source text, checked as a file on its own.
+pub fn check_source(source: String) -> Result<List<Diagnostic>, Error> !{Io, Wait} {
+    decode(ask_input(["query", "diagnostics", "--source", "-"], source)?)
+}
+
+/// Check the program `path` belongs to (each entry point and task, as
+/// `badger check` does) with `files` (path, relative to the program's
+/// directory, to proposed text) in place of the files on disk. Nothing is
+/// written: check an interface change and its consumers together before
+/// saving any of them.
+pub fn check_project(path: String, files: Map<String, String>) -> Result<Check, Error> !{Io, Wait} {
+    decode(ask_input(["query", "check", path, "--overlays", "-"], codec.encode_text(files))?)
+}
+
+/// The type or signature at a position.
+pub fn hover(path: String, line: Int, col: Int) -> Result<Option<String>, Error> !{Io, Wait} {
+    let h: Option<Hover> = decode(ask(at("hover", path, line, col))?)?
+    ok(h.map(fn(x) { x.text }))
+}
+
+/// Where the name at a position is defined.
+pub fn definition(path: String, line: Int, col: Int) -> Result<Option<Location>, Error> !{Io, Wait} {
+    decode(ask(at("definition", path, line, col))?)
+}
+
+/// Every use and the declaration of the name at a position.
+pub fn references(path: String, line: Int, col: Int) -> Result<List<Location>, Error> !{Io, Wait} {
+    decode(ask(at("references", path, line, col))?)
+}
+
+/// Definitions in a file, with their types.
+pub fn symbols(path: String) -> Result<List<Symbol>, Error> !{Io, Wait} {
+    decode(ask(["query", "symbols", path])?)
+}
+
+/// Names that can be written at a position (after `x.`: members of `x`).
+pub fn completions(path: String, line: Int, col: Int) -> Result<List<Completion>, Error> !{Io, Wait} {
+    decode(ask(at("completion", path, line, col))?)
+}
+
+/// The public interface of a standard module (`std.list`) or of the
+/// program at `path`: each item with its signature and documentation.
+pub fn api(target: String) -> Result<List<ApiItem>, Error> !{Io, Wait} {
+    decode(ask(["query", "api", target])?)
+}
+
+/// The program's `calls`, `modules`, `types`, or `systems` graph.
+pub fn graph(kind: String, path: String) -> Result<Graph, Error> !{Io, Wait} {
+    decode(ask(["graph", kind, path, "--format", "json"])?)
+}
+
+/// The edits renaming what is at a position to `name`, everywhere it is
+/// used (in every entry point and task of a project). Nothing is written:
+/// apply the edits, or check them first with `check_project`.
+pub fn rename(path: String, line: Int, col: Int, name: String) -> Result<List<Edit>, Error> !{Io, Wait} {
+    let e: Edits = decode(ask(at("rename", path, line, col).concat([$"--name={name}"]))?)?
+    ok(e.edits)
+}
+
+/// The explanation of a diagnostic code such as `E0301`.
+pub fn explain(code: String) -> Result<String, Error> !{Io, Wait} {
+    ask(["explain", "diagnostic", code])
+}

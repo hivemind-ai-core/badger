@@ -40,7 +40,7 @@ def main():
         modes["baseline"] = args.peer_bin_dir.resolve()
     args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=True)
-    env = {k: v for k, v in os.environ.items() if not k.startswith("LANG_")}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_")}
 
     def run(command, extra=None):
         out, err, resources = run_process([str(x) for x in command], {**env, **(extra or {})}, 180)
@@ -50,14 +50,14 @@ def main():
                   dirty=subprocess.check_output(["git", "status", "--short"], cwd=ROOT).decode(),
                   platform=platform.platform(), affinity=sorted(os.sched_getaffinity(0)),
                   binaries={mode: {p.name: sha(p) for p in directory.iterdir() if p.is_file()} for mode, directory in modes.items()},
-                  sources={str(p.relative_to(ROOT)): sha(p) for p in [*HERE.glob("*.lang"),
-                      Path(__file__), ROOT / "crates/lang_runtime/examples/opportunities.rs",
-                      ROOT / "crates/lang_codegen/examples/mir_audit.rs"]}, samples=[], summaries={}, diagnostics={})
+                  sources={str(p.relative_to(ROOT)): sha(p) for p in [*HERE.glob("*.bdg"),
+                      Path(__file__), ROOT / "crates/badger_runtime/examples/opportunities.rs",
+                      ROOT / "crates/badger_codegen/examples/mir_audit.rs"]}, samples=[], summaries={}, diagnostics={})
     files = subprocess.check_output(["git", "ls-files", "crates", "Cargo.toml", "Cargo.lock"], cwd=ROOT).decode().splitlines()
     report["production_sha256"] = {f: sha(ROOT / f) for f in files if "/examples/" not in f}
 
     def sample(mode, case, workers):
-        result = run([modes[mode] / "lang", "run", "--release", "--workers", workers, HERE / f"{case}.lang"])
+        result = run([modes[mode] / "lang", "run", "--release", "--workers", workers, HERE / f"{case}.bdg"])
         if case == "text":
             matches = re.findall(r"kind=(\S+) chars=(\d+) repetitions=100 slice_ns=(\d+) check=(\d+)", result["stdout"])
             assert len(matches) == 8 and all(int(check) == 100 for _, _, _, check in matches), result
@@ -88,12 +88,12 @@ def main():
         report["summaries"][f"{mode}-{case}-w{w}"]["process_peak_rss_kib"] = statistics.median(r["peak_rss_kib"] for r in samples)
     for case in ["buffer", "prefix", "pool", "old"]:
         for gen in ["0", "1"]:
-            records = [run([bins / "opportunities", case], {"LANG_GC_GENERATIONAL": gen}) for _ in range(args.reps)]
+            records = [run([bins / "opportunities", case], {"BADGER_GC_GENERATIONAL": gen}) for _ in range(args.reps)]
             report["diagnostics"][f"{case}-gen{gen}"] = records
-    report["diagnostics"]["lifetimes"] = run([bins / "lang", "run", "--release", "--workers", 1, HERE / "lifetimes.lang"])
+    report["diagnostics"]["lifetimes"] = run([bins / "lang", "run", "--release", "--workers", 1, HERE / "lifetimes.bdg"])
     for case in ["compute", "arrays"]:
-        saved = args.out / f"{case}.langmir"
-        report["diagnostics"][f"{case}-compile"] = [run([bins / "lang", "compile", HERE / f"{case}.lang", "-o", saved], {"LANG_TIMINGS": "1"}) for _ in range(args.reps)]
+        saved = args.out / f"{case}.bdgmir"
+        report["diagnostics"][f"{case}-compile"] = [run([bins / "lang", "compile", HERE / f"{case}.bdg", "-o", saved], {"BADGER_TIMINGS": "1"}) for _ in range(args.reps)]
         metrics = run([bins / "mir_audit", saved])
         metrics["saved_mir_bytes"] = saved.stat().st_size
         report["diagnostics"][f"{case}-code"] = metrics

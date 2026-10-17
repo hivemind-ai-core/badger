@@ -1,0 +1,6 @@
+[package]
+name = "multicore"
+entry = "src/main.bdg"
+
+[runtime]
+workers = 4

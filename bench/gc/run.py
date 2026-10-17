@@ -35,9 +35,9 @@ COVERAGE = {
 }
 POLICIES = {
     "control": {},
-    "young64m": {"LANG_GC_MINOR_BYTES": str(64 << 20)},
-    "no-trim": {"LANG_GC_TRIM": "0"},
-    "minors32": {"LANG_GC_MAX_MINORS": "32"},
+    "young64m": {"BADGER_GC_MINOR_BYTES": str(64 << 20)},
+    "no-trim": {"BADGER_GC_TRIM": "0"},
+    "minors32": {"BADGER_GC_MAX_MINORS": "32"},
 }
 
 
@@ -131,7 +131,7 @@ def main():
     if args.suite == "policy":
         variants = {k: ("diagnostic", v) for k, v in POLICIES.items() if k in args.policies}
     if args.suite == "samples":
-        variants = {"samples": ("diagnostic", {"LANG_PROFILE_SCOPE": "runtime", "LANG_RUNTIME_STATS": "1"})}
+        variants = {"samples": ("diagnostic", {"BADGER_PROFILE_SCOPE": "runtime", "BADGER_RUNTIME_STATS": "1"})}
     coverage = args.suite in ["coverage", "smoke"]
     cases = {k: v.copy() for k, v in COVERAGE.items()} if coverage else {
         name: {**t.DEFAULT, **t.PROFILES[name], "events": args.events} for name in args.profiles}
@@ -174,7 +174,7 @@ def main():
         host=t.command_output(["uname", "-a"]), toolchain=t.command_output(["rustc", "-Vv"]),
         production_tree=t.command_output(["git", "ls-tree", "HEAD", "crates", "Cargo.lock", "Cargo.toml"]),
         binaries={k: dict(path=str(p), sha256=sha(p)) for k, p in binaries.items()},
-        sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), rss_source, ROOT / "bench/gc/coverage.lang", ROOT / "bench/telemetry.lang", ROOT / "bench/telemetry.py"]},
+        sources={str(p.relative_to(ROOT)): sha(p) for p in [Path(__file__).resolve(), rss_source, ROOT / "bench/gc/coverage.bdg", ROOT / "bench/telemetry.bdg", ROOT / "bench/telemetry.py"]},
         runs=runs)
     for rep in range(-1, args.reps):
         order = cells.copy()
@@ -182,19 +182,19 @@ def main():
         for name, workers, variant in order:
             print(f"{args.suite} rep={rep} {name} w{workers} {variant}", flush=True)
             binary, settings = variants[variant]
-            env = {k: v for k, v in os.environ.items() if not k.startswith("LANG_") and k not in ["TELEMETRY_CONFIG", "GC_BENCH_CONFIG"]}
+            env = {k: v for k, v in os.environ.items() if not k.startswith("BADGER_") and k not in ["TELEMETRY_CONFIG", "GC_BENCH_CONFIG"]}
             env.update(settings)
             env["LC_ALL"] = "C"
             stem = f"{name}-w{workers}-{variant}-{rep}"
             gc_path = args.out.resolve() / f"{stem}.gc.json"
             if binary == "diagnostic" and variant != "diagnostic-off":
-                env["LANG_GC_PROFILE"] = str(gc_path)
+                env["BADGER_GC_PROFILE"] = str(gc_path)
             if args.suite == "samples":
-                env["LANG_PROFILE"] = str(args.out.resolve() / f"{stem}.folded")
+                env["BADGER_PROFILE"] = str(args.out.resolve() / f"{stem}.folded")
             config = cases[name]
             env["GC_BENCH_CONFIG" if coverage else "TELEMETRY_CONFIG"] = json.dumps(config)
             command = [str(binaries[binary]), "run", "--release", "--bench", "--workers", str(workers),
-                       "bench/gc/coverage.lang" if coverage else "bench/telemetry.lang"]
+                       "bench/gc/coverage.bdg" if coverage else "bench/telemetry.bdg"]
             out, err, process = t.run_process([str(rss_helper), *command], env, 180)
             rss = re.search(r"^\[gc-bench child rss\] (\d+)$", err, re.MULTILINE)
             if rss is None:

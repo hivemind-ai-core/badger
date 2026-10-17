@@ -1,0 +1,7 @@
+[package]
+name = "textutil"
+version = "0.2.1"
+entry = "src/lib.bdg"
+
+[dependencies]
+mathlib = { path = "../mathlib" }

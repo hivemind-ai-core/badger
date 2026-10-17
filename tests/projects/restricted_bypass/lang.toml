@@ -1,4 +1,0 @@
-[package]
-name = "restricted_bypass"
-entry = "src/main.lang"
-restricted = true

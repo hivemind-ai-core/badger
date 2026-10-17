@@ -1,0 +1,39 @@
+// Run with BADGER_GC_STRESS=1 (crates/badger_cli/tests/programs.rs): receiving
+// a batch allocates its lease while the messages must stay reachable.
+import std.io
+import std.channel
+
+struct Msg {
+    producer: Int,
+    seq: Int,
+}
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Msg>({ capacity: 64, max_batch: 8, byte_budget: 0 })?
+    for i in 0..32 {
+        let m: Msg = { producer: i % 4, seq: i }
+        let _ = b.sender.append(m)
+    }
+    b.sender.close()
+    var total = 0
+    var sum = 0
+    loop {
+        match b.receiver.recv_batch() {
+            .some(batch) => {
+                for m in batch.items() {
+                    total = total + 1
+                    sum = sum + m.producer * 1000 + m.seq
+                }
+                batch.release()
+            },
+            .none => { break },
+        }
+    }
+    io.println($"{total} messages, checksum {sum}")?
+    ok(())
+}

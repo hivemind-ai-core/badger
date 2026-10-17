@@ -1,0 +1,32 @@
+   Compiling memchr v2.8.3
+   Compiling serde_core v1.0.229
+   Compiling adler2 v2.0.1
+   Compiling cfg-if v1.0.5
+   Compiling scopeguard v1.2.0
+   Compiling itoa v1.0.18
+   Compiling libc v0.2.190
+   Compiling zmij v1.0.23
+   Compiling badger_native v0.1.0 (/tmp/language-memory-rename-integration-2026-10-17/crates/badger_native)
+   Compiling miniz_oxide v0.8.9
+   Compiling aho-corasick v1.1.5
+   Compiling object v0.37.3
+   Compiling corosensei v0.3.4
+   Compiling regex-automata v0.4.18
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling backtrace v0.3.76
+   Compiling regex v1.13.1
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-rename-integration-2026-10-17/crates/badger_runtime)
+    Finished `release` profile [optimized] target(s) in 19.14s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/badger_runtime-ecb2abb4df5eab90)
+
+running 6 tests
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test string::tests::scalar_slice_matches_character_reference ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test telemetry::tests::rfc3339_dates ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

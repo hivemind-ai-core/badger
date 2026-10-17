@@ -1,0 +1,27 @@
+[package]
+name = "badger_cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+badger_driver.workspace = true
+badger_base.workspace = true
+badger_syntax.workspace = true
+clap.workspace = true
+libc = "0.2"
+serde_json = "1.0.154"
+
+[[bin]]
+name = "badger"
+path = "src/main.rs"
+
+[dev-dependencies]
+# a native module for the native ABI tests (its cdylib lands in target/*/deps)
+badger_native_demo = { path = "../badger_native_demo" }
+
+[features]
+# ThreadSanitizer fiber annotations (see badger_runtime)
+tsan = ["badger_driver/tsan"]
+asan = ["badger_driver/asan"]
