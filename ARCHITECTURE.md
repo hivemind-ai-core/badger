@@ -43,9 +43,18 @@ error. `badger_cli` is the `badger` binary.
 | `badger_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
 | `badger_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
 | `badger_native` | native module ABI, wire format, helpers for modules in Rust | — |
-| `badger_sqlite` | the `badger_sqlite` native module behind `std.sqlite` | rusqlite |
-| `badger_fetch` | the `badger_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
-| `badger_http` | the `badger_http` native module behind `std.http` (the HTTP/1.1 server) | hyper, tokio |
+| `badger_sqlite` | the native module behind `std.sqlite` | rusqlite |
+| `badger_postgres` | the native module behind `std.postgres` | tokio-postgres, deadpool-postgres, rustls |
+| `badger_valkey` | the native module behind `std.valkey` (Valkey/Redis) | redis, tokio |
+| `badger_fetch` | the native module behind `std.fetch` (outbound HTTP(S)) | ureq |
+| `badger_http` | the native module behind `std.http` (the HTTP/1.1 server, SSE, WebSockets) | hyper, tokio, tokio-tungstenite |
+| `badger_formats` | the native module behind `std.toml`, `std.yaml`, `std.csv`, `std.markdown` | toml, serde_yaml_ng, csv, pulldown-cmark |
+| `badger_template` | the native module behind `std.template` | minijinja |
+| `badger_crypto` | the native module behind `std.encoding`, `std.crypto`, `std.uuid` | base64, sha2, hmac, getrandom, uuid |
+| `badger_datetime` | the native module behind `std.datetime` | jiff |
+| `badger_compress` | the native module behind `std.compress` (gzip, zlib, deflate, zstd) | flate2, zstd |
+| `badger_fs` | the native module behind `std.fs` beyond the runtime's text reads and writes | — |
+| `badger_native_demo` | a native module for the native-ABI tests (`tests/native`) | — |
 | `badger_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
 | `badger_cli` | command-line interface | clap |
 
@@ -68,7 +77,7 @@ error. `badger_cli` is the `badger` binary.
   stage runners), `system { ... }` (topologically ordered nodes with typed
   `ref(:key)` outputs; missing keys and cycles are reported here), and
   `system.select(plan, [:keys])` (a typed output projection).
-- **Standard library.** `crates/badger_hir/std/*.bdg` (42 modules) are ordinary
+- **Standard library.** `crates/badger_hir/std/*.bdg` (60 modules) are ordinary
   language modules. A program loads the core modules (the prelude,
   collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
@@ -256,7 +265,7 @@ error. `badger_cli` is the `badger` binary.
   runtime roots. Floats display their own width's shortest round-trip
   digits, with `.0` on any finite whole number.
   Off-heap memory owned by objects (map tries) counts toward collection.
-  Small objects (up to 256 bytes) come from per-worker size-class pools
+  Small objects (header and payload up to 512 bytes) come from per-worker size-class pools
   (2 MiB huge-page chunks after a worker's first); larger ones from the
   system allocator. A survivor keeps its mark (sticky mark bits): marked
   objects are the old generation. A minor collection marks young objects
@@ -576,7 +585,7 @@ the nodes they reference (a node without references is drawn alone).
 ## Agent tooling (MCP)
 
 `badger mcp` is a Model Context Protocol server on stdio
-(`crates/badger_cli/src/mcp.rs`) with four tools. `eval` is code mode: a
+(`crates/badger_cli/src/mcp.rs`) with five tools. `eval` is code mode: a
 persistent REPL session (the `badger repl` machinery: an in-process session
 program served over the inspection endpoint) where definitions accumulate
 and expressions evaluate; with `import std.compiler` the agent queries and
@@ -585,7 +594,9 @@ narrow tools. Evaluations have a time limit (`evalt` requests: the
 endpoint cancels the evaluation task when it expires, so the session stays
 usable). `check` (a path or source text, or a project with proposed `files`), `query` (the `badger query` kinds,
 diagnostic explanations, and standard module sources as API reference) and
-`run` (a program or its tests, with a time limit) run in subprocesses,
+`contracts` (each contract clause and what the compiler decided, with test
+coverage) and `run` (a program or its tests, with a time limit; under gdb
+with breakpoints) run in subprocesses,
 isolated from the session. The session's standard output is redirected to
 a pipe and returned with each evaluation, since stdout carries the
 protocol. Setup in [docs/agents.md](docs/agents.md).

@@ -16,17 +16,27 @@ fn lang() -> Command {
     c
 }
 
-/// The Markdown files whose examples are checked.
+/// The Markdown files whose examples are checked: the specification, the
+/// architecture notes, and the guides (every `docs` directory but the
+/// generated `docs/api`).
 fn documents() -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let mut v: Vec<PathBuf> =
+            std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok().map(|e| e.path())).collect();
+        v.sort();
+        for p in v {
+            if p.is_dir() {
+                if !p.ends_with("docs/api") {
+                    walk(&p, out);
+                }
+            } else if p.extension().is_some_and(|x| x == "md") {
+                out.push(p);
+            }
+        }
+    }
     let mut out = vec![root().join("SPEC.md"), root().join("ARCHITECTURE.md")];
     for dir in ["spec", "docs"] {
-        let mut v: Vec<PathBuf> = std::fs::read_dir(root().join(dir))
-            .unwrap()
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().is_some_and(|x| x == "md"))
-            .collect();
-        v.sort();
-        out.extend(v);
+        walk(&root().join(dir), &mut out);
     }
     out
 }

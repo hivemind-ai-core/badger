@@ -1,0 +1,58 @@
+# Badger
+
+> Badger is a statically typed language for services and automation. The `badger` tool checks a program, compiles it with Cranelift, and runs it in-process on the Badger runtime (lightweight tasks, channels, lifecycle-managed systems, typed interceptor pipelines). Sources are `.bdg` files; a project has a `badger.toml`.
+
+Points that differ from languages you may know:
+
+- `x |> f(a)` means `f(x, a)`: the piped value is the first argument.
+- Strings have no `+`; use interpolation, `$"{name} is {age}"`.
+- `pub` functions must state parameter and result types; private ones may leave them to inference.
+- Records (`{ name: "Ada" }`) are structural; `struct` and `enum` are nominal. Type names start uppercase; values, fields, functions, and variants start lowercase.
+- No implicit numeric conversions: widen with `T.from`, narrow with `T.try_from` (a `Result`). Integer overflow stops the task.
+- Errors are values: `Option`, `Result`, and `?`. Effects (`Io`, `Spawn`, ...) are part of function types and are checked.
+- No or-patterns in `match` and no named or default arguments.
+- `badger check PATH` prints nothing on success. `badger explain diagnostic E0301` explains a diagnostic code. `badger query api std.list` prints a module's public interface as JSON.
+- `badger mcp` is a Model Context Protocol server (a persistent REPL session, checking, queries, runs); see the MCP reference.
+
+## Learn
+
+- [Learn Badger in 30 minutes](docs/tour.md): one commented walk through the language, every program checked and its output shown.
+- [Guide index](docs/guide/README.md): ten chapters, one topic each.
+- [Values and functions](docs/guide/01-values-and-functions.md): literals, bindings, operators, functions, lambdas, pipes, control flow.
+- [Types and records](docs/guide/02-types-and-records.md): records, structs, enums, patterns, protocols, methods, generics.
+- [Errors](docs/guide/03-errors.md): Option, Result, `?`, the Error protocol, defects.
+- [Collections](docs/guide/04-collections.md): List, Map, Set, Array, Bytes, Seq, Stream.
+- [Modules and projects](docs/guide/05-modules-and-projects.md): imports, visibility, `badger.toml`, dependencies.
+- [Tasks and channels](docs/guide/06-tasks-and-channels.md): task scopes, cancellation, timeouts, channels, broadcast.
+- [Effects and ownership](docs/guide/07-effects-and-ownership.md): effect rows, Transfer and Share, affine values, scoped regions.
+- [Systems and pipelines](docs/guide/08-systems-and-pipelines.md): typed systems with lifecycles, interceptor pipelines.
+- [Testing and contracts](docs/guide/09-testing-and-contracts.md): `badger test`, std.test, `requires`/`ensures`, record and replay.
+- [Services](docs/guide/10-services.md): HTTP, databases, configuration, logging, releases.
+
+## Reference
+
+- [Standard library](docs/api/README.md): every standard module, generated from the checked interfaces (`badger doc std`).
+- [CLI](docs/reference/cli.md): every `badger` command and flag.
+- [REPL](docs/reference/repl.md): the interactive session and its commands.
+- [MCP server](docs/reference/mcp.md): tools, arguments, and results of `badger mcp`.
+- [Configuration](docs/reference/config.md): `badger.toml`, `badger.lock`, runtime settings, `BADGER_*` environment variables.
+- [Documentation index](docs/README.md): all docs, including topic notes.
+
+## Specification
+
+- [Language specification](SPEC.md): draft-0 syntax and semantics, with links to each chapter.
+- [Grammar](spec/grammar.ebnf): EBNF grammar.
+- [Worked examples](spec/08-worked-examples.md): semantic acceptance cases and their test status.
+
+## Optional
+
+- [Collections notes](docs/collections.md): data structure choice and costs.
+- [Typed SQL](docs/typed-sql.md): `badger generate sql`.
+- [Releases](docs/releases.md): `badger release` and `badger start`.
+- [Native modules](docs/native-modules.md): writing runtime features in Rust.
+- [Debugging](docs/debugging.md): gdb with `badger run --debug`, profiling, reproduction bundles.
+- [Editors](docs/editors.md): LSP and tree-sitter setup.
+- [Agents](docs/agents.md): registering `badger mcp` with an MCP client.
+- [Internals](docs/internals.md): how the compiler and runtime fit together.
+- [Architecture](ARCHITECTURE.md): compiler architecture and implementation status.
+- [Examples](examples/README.md): example programs.
