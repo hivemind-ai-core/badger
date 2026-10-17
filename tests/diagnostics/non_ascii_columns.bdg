@@ -1,0 +1,6 @@
+// Non-ASCII text before an error: columns count characters, in the
+// rendered report and in JSON.
+pub fn f() -> Int {
+    let s = "héllo wörld"; let n: Int = "x"
+    n
+}

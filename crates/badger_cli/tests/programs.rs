@@ -1270,6 +1270,16 @@ fn diagnostics_early_phases() {
         text.contains(r#""module":"resolve_phase""#) && text.contains(r#""scope":"fn resolve_phase.bad""#),
         "{text}"
     );
+    // columns count characters (not bytes): in JSON, and in the rendered
+    // report, whose label must sit under the right text
+    let f = "tests/diagnostics/non_ascii_columns.bdg";
+    let out = lang().args(["check", "--json", f]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains(r#""start":{"line":4,"column":41}"#), "{text}");
+    let out = lang().args(["check", f]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert!(text.contains("non_ascii_columns.bdg:4:41 ]"), "{text}");
+    assert!(!text.contains("╭─▶"), "the label spans one line: {text}");
     // a `.source` file is outside the formatting check (it does not parse)
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);

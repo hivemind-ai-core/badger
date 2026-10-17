@@ -162,7 +162,9 @@ impl Diagnostics {
             if let Some(code) = d.code {
                 report = report.with_code(code);
             }
-            report = report.with_config(Config::default().with_color(color));
+            // spans are byte ranges
+            report = report
+                .with_config(Config::default().with_color(color).with_index_type(ariadne::IndexType::Byte));
             let mut notes: Vec<String> = vec![];
             if let (Some(e), Some(a)) = (&d.expected, &d.actual) {
                 notes.push(format!("expected: {e}\n   found: {a}"));
@@ -173,7 +175,7 @@ impl Diagnostics {
             for (name, sp) in &d.related {
                 if !sp.is_dummy() {
                     let f = sources.get(sp.file);
-                    let (line, col) = f.line_col(sp.start as usize);
+                    let (line, col) = f.line_char_col(sp.start as usize);
                     notes.push(format!("related: `{name}` declared at {}:{line}:{col}", f.name));
                 }
             }
@@ -230,8 +232,8 @@ impl Diagnostics {
                     out.push(',');
                 }
                 let f = sources.get(l.span.file);
-                let (line, col) = f.line_col(l.span.start as usize);
-                let (eline, ecol) = f.line_col(l.span.end as usize);
+                let (line, col) = f.line_char_col(l.span.start as usize);
+                let (eline, ecol) = f.line_char_col(l.span.end as usize);
                 out.push_str(&format!(
                     "{{\"file\":{},\"module\":{},\"start\":{{\"line\":{line},\"column\":{col}}},\"end\":{{\"line\":{eline},\"column\":{ecol}}},\"message\":{}}}",
                     json_str(&f.name),
@@ -258,7 +260,7 @@ impl Diagnostics {
                     out.push(',');
                 }
                 let f = sources.get(sp.file);
-                let (line, col) = f.line_col(sp.start as usize);
+                let (line, col) = f.line_char_col(sp.start as usize);
                 out.push_str(&format!(
                     "{{\"name\":{},\"file\":{},\"module\":{},\"line\":{line},\"column\":{col}}}",
                     json_str(name),

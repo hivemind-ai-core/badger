@@ -127,7 +127,7 @@ workspace root, every member package. A single file need not have a
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`. |
+| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`. Lines and columns are 1-based; columns count characters. (`badger query diagnostics` gives the same diagnostics flattened to one location each.) |
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
@@ -382,7 +382,8 @@ heap_max_bytes = 0    # default
 ### `badger query KIND [PATH] [FLAGS]`
 
 Answer one question about a program as JSON on standard output. Positions
-are 1-based. PATH is a source file, checked with its project if it is in
+are 1-based; columns count characters (Unicode scalar values), as in
+`badger check --json`. PATH is a source file, checked with its project if it is in
 one.
 
 | KIND | Needs | Answer |
