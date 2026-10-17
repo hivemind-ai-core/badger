@@ -990,6 +990,7 @@ fn run_entry(built: Built, bench: Option<std::time::Duration>) -> i32 {
         }
         let exit = badger_codegen::run_main(&built.compiled, &built.prog);
         let ran = run_start.elapsed();
+        inspect::withdraw_tokens();
         let (code, failure) = report_exit(exit, &built.prog);
         let code = badger_runtime::repro::finish(code, failure);
         if let Some(compile) = bench {
