@@ -124,6 +124,7 @@ define_intrinsics! {
         decode_result(rdesc(ret), codec::decode(targ(targs, 0), &text))
     }
     fn codec_from_data(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_data(targ(targs, 0), d)) }
+    fn codec_from_sql_row(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_sql_row(targ(targs, 0), d)) }
     fn codec_to_data(ctx, targs, ret, v) {
         let text = codec::encode(targ(targs, 0), v);
         let j: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);

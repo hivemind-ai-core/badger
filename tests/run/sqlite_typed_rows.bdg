@@ -14,6 +14,12 @@ struct Total {
     newest: Option<String>,
 } derive(Codec)
 
+// SQLite has no boolean type: a `Bool` field reads an INTEGER 0 or 1
+struct Flag {
+    name: String,
+    active: Bool,
+} derive(Codec)
+
 pub enum AppError {
     database(source: sqlite.Error),
     output(source: io.Error),
@@ -31,6 +37,16 @@ pub fn main() -> Result<Unit, AppError> {
     io.println($"{t.n} users, last {t.newest.unwrap_or("-")}")?
     // a row that does not decode is an error, not a defect
     match sqlite.query_one_as<User>(db, "SELECT 'x' AS id, name, email FROM users WHERE id = ?", [Data.int(1)]) {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"{e.code}")?,
+    }
+    sqlite.execute(db, "CREATE TABLE flags (name TEXT NOT NULL, active INTEGER NOT NULL)", [])?
+    sqlite.execute(db, "INSERT INTO flags VALUES ('on', 1), ('off', 0)", [])?
+    for f in sqlite.query_as<Flag>(db, "SELECT name, active FROM flags ORDER BY name", [])? {
+        io.println($"{f.name} {f.active}")?
+    }
+    // any other integer is not a Bool
+    match sqlite.query_one_as<Flag>(db, "SELECT name, 2 AS active FROM flags WHERE name = 'on'", []) {
         .ok(_) => io.println("unexpected")?,
         .err(e) => io.println($"{e.code}")?,
     }
