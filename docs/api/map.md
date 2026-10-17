@@ -60,6 +60,14 @@ fn contains<K, V>(m: Map<K, V>, key: K) -> Bool
 fn empty<K, V>() -> Map<K, V> where K: Hash
 ```
 
+### `filter`
+
+```lang
+fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash
+```
+
+The entries `keep` accepts.
+
 ### `from_list`
 
 ```lang
@@ -74,17 +82,63 @@ Bulk construction from entries (later duplicates win).
 fn get<K, V>(m: Map<K, V>, key: K) -> Option<V>
 ```
 
+### `get_or`
+
+```lang
+fn get_or<K, V>(m: Map<K, V>, key: K, default: V) -> V
+```
+
+The value at `key`, or `default`.
+
 ### `insert`
 
 ```lang
 fn insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 ```
 
+### `is_empty`
+
+```lang
+fn is_empty<K, V>(m: Map<K, V>) -> Bool
+```
+
+### `keys`
+
+```lang
+fn keys<K, V>(m: Map<K, V>) -> List<K>
+```
+
+The keys, in the map's (unspecified but stable) entry order.
+
 ### `len`
 
 ```lang
 fn len<K, V>(m: Map<K, V>) -> Int
 ```
+
+### `map_values`
+
+```lang
+fn map_values<K, V, W>(m: Map<K, V>, f: fn(V) -> W) -> Map<K, W> where K: Hash
+```
+
+The same keys with `f` applied to each value.
+
+### `merge`
+
+```lang
+fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> where K: Hash
+```
+
+Both maps' entries; `b`'s win where both have a key.
+
+### `merge_with`
+
+```lang
+fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash
+```
+
+Both maps' entries; where both have a key, `combine(a's, b's)` decides.
 
 ### `remove`
 
@@ -100,6 +154,23 @@ fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)>
 
 Entries in unspecified order.
 
+### `update`
+
+```lang
+fn update<K, V>(m: Map<K, V>, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V>
+```
+
+Change the entry at `key`: `f` gets the current value (`none` if
+absent) and returns the new one (`none` removes the entry).
+
+### `values`
+
+```lang
+fn values<K, V>(m: Map<K, V>) -> List<V>
+```
+
+The values, in the map's entry order.
+
 ## Methods on other types
 
 ### `Map.contains`
@@ -108,10 +179,28 @@ Entries in unspecified order.
 fn contains(self: &Self, key: K) -> Bool
 ```
 
+### `Map.entries`
+
+```lang
+fn entries(self: &Self) -> List<(K, V)>
+```
+
+### `Map.filter`
+
+```lang
+fn filter(self: &Self, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash
+```
+
 ### `Map.get`
 
 ```lang
 fn get(self: &Self, key: K) -> Option<V>
+```
+
+### `Map.get_or`
+
+```lang
+fn get_or(self: &Self, key: K, default: V) -> V
 ```
 
 ### `Map.insert`
@@ -120,9 +209,57 @@ fn get(self: &Self, key: K) -> Option<V>
 fn insert(self: &Self, key: K, value: V) -> Map<K, V>
 ```
 
+### `Map.is_empty`
+
+```lang
+fn is_empty(self: &Self) -> Bool
+```
+
+### `Map.keys`
+
+```lang
+fn keys(self: &Self) -> List<K>
+```
+
 ### `Map.len`
 
 ```lang
 fn len(self: &Self) -> Int
+```
+
+### `Map.map_values`
+
+```lang
+fn map_values<W>(self: &Self, f: fn(V) -> W) -> Map<K, W> where K: Hash
+```
+
+### `Map.merge`
+
+```lang
+fn merge(self: &Self, other: Map<K, V>) -> Map<K, V> where K: Hash
+```
+
+### `Map.merge_with`
+
+```lang
+fn merge_with(self: &Self, other: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash
+```
+
+### `Map.remove`
+
+```lang
+fn remove(self: &Self, key: K) -> Map<K, V>
+```
+
+### `Map.update`
+
+```lang
+fn update(self: &Self, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V>
+```
+
+### `Map.values`
+
+```lang
+fn values(self: &Self) -> List<V>
 ```
 

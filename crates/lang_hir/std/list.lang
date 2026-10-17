@@ -38,6 +38,30 @@ impl<T> ElementRef<T> {
 
 impl<T> List<T> {
     pub fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, E> { try_map(self, f) }
+    pub fn filter_map<U>(self: &Self, f: fn(T) -> Option<U>) -> List<U> { filter_map(self, f) }
+    pub fn flat_map<U>(self: &Self, f: fn(T) -> List<U>) -> List<U> { flat_map(self, f) }
+    pub fn find(self: &Self, matches: fn(T) -> Bool) -> Option<T> { find(self, matches) }
+    pub fn position(self: &Self, matches: fn(T) -> Bool) -> Option<Int> { position(self, matches) }
+    pub fn find_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Option<U> { find_map(self, f) }
+    pub fn any(self: &Self, test: fn(T) -> Bool) -> Bool { any(self, test) }
+    pub fn all(self: &Self, test: fn(T) -> Bool) -> Bool { all(self, test) }
+    pub fn count(self: &Self, test: fn(T) -> Bool) -> Int { count(self, test) }
+    pub fn enumerate(self: &Self) -> List<(Int, T)> { enumerate(self) }
+    pub fn take(self: &Self, n: Int) -> List<T> { take(self, n) }
+    pub fn skip(self: &Self, n: Int) -> List<T> { skip(self, n) }
+    pub fn take_while(self: &Self, keep: fn(T) -> Bool) -> List<T> { take_while(self, keep) }
+    pub fn skip_while(self: &Self, skip: fn(T) -> Bool) -> List<T> { skip_while(self, skip) }
+    pub fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> List<A> { scan(self, initial, f) }
+    pub fn zip<U>(self: &Self, other: List<U>) -> List<(T, U)> { zip(self, other) }
+    pub fn min_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd { min_by(self, key) }
+    pub fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd { max_by(self, key) }
+    pub fn partition(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>) { partition(self, keep) }
+    pub fn sort_by<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd { sort_by(self, key) }
+    pub fn sort_with(self: &Self, compare: fn(T, T) -> Int) -> List<T> { sort_with(self, compare) }
+    pub fn dedup(self: &Self) -> List<T> where T: PartialEq { dedup(self) }
+    pub fn unique(self: &Self) -> List<T> where T: Hash { unique(self) }
+    pub fn chunks_of(self: &Self, size: Int) -> List<List<T>> { chunks_of(self, size) }
+    pub fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
     pub fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> { try_fold(self, initial, f) }
     pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> { try_each(self, f) }
     pub fn validate<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>> { validate(self, f) }
@@ -213,6 +237,347 @@ pub fn partition_results<T, E>(results: List<Result<T, E>>) -> (List<T>, List<E>
         }
     }
     (list_finish(good), list_finish(bad))
+}
+
+// ---------------------------------------------------------------- everyday operations
+
+fn at<T>(l: List<T>, i: Int) -> T {
+    match list_get(l, i) {
+        .some(x) => x,
+        .none => panic("list index out of range"),
+    }
+}
+
+/// `f`'s values, skipping the items it maps to `none`.
+pub fn filter_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> List<U> {
+    let b = list_builder()
+    for x in list {
+        match f(x) {
+            .some(y) => list_builder_append(b, y),
+            .none => (),
+        }
+    }
+    list_finish(b)
+}
+
+/// Each item's results, flattened in order.
+pub fn flat_map<T, U>(list: List<T>, f: fn(T) -> List<U>) -> List<U> {
+    let b = list_builder()
+    for x in list {
+        for y in f(x) {
+            list_builder_append(b, y)
+        }
+    }
+    list_finish(b)
+}
+
+/// The first item `matches` accepts.
+pub fn find<T>(list: List<T>, matches: fn(T) -> Bool) -> Option<T> {
+    for x in list {
+        if matches(x) {
+            return Option.some(x)
+        }
+    }
+    Option.none
+}
+
+/// The position of the first item `matches` accepts.
+pub fn position<T>(list: List<T>, matches: fn(T) -> Bool) -> Option<Int> {
+    var i = 0
+    for x in list {
+        if matches(x) {
+            return Option.some(i)
+        }
+        i = i + 1
+    }
+    Option.none
+}
+
+/// The first `some` that `f` gives.
+pub fn find_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> Option<U> {
+    for x in list {
+        match f(x) {
+            .some(y) => { return Option.some(y) },
+            .none => (),
+        }
+    }
+    Option.none
+}
+
+pub fn any<T>(list: List<T>, test: fn(T) -> Bool) -> Bool {
+    for x in list {
+        if test(x) {
+            return true
+        }
+    }
+    false
+}
+
+pub fn all<T>(list: List<T>, test: fn(T) -> Bool) -> Bool {
+    for x in list {
+        if !test(x) {
+            return false
+        }
+    }
+    true
+}
+
+/// How many items satisfy `test`.
+pub fn count<T>(list: List<T>, test: fn(T) -> Bool) -> Int {
+    var n = 0
+    for x in list {
+        if test(x) {
+            n = n + 1
+        }
+    }
+    n
+}
+
+/// Each item with its position, from 0.
+pub fn enumerate<T>(list: List<T>) -> List<(Int, T)> {
+    let b = list_builder()
+    var i = 0
+    for x in list {
+        list_builder_append(b, (i, x))
+        i = i + 1
+    }
+    list_finish(b)
+}
+
+/// The first `n` items (all of them if there are fewer).
+pub fn take<T>(list: List<T>, n: Int) -> List<T> { list_slice(list, 0, if n < 0 { 0 } else { n }) }
+
+/// All but the first `n` items.
+pub fn skip<T>(list: List<T>, n: Int) -> List<T> { list_slice(list, if n < 0 { 0 } else { n }, list_len(list)) }
+
+/// The leading items `keep` accepts.
+pub fn take_while<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T> {
+    var n = 0
+    for x in list {
+        if !keep(x) {
+            break
+        }
+        n = n + 1
+    }
+    list_slice(list, 0, n)
+}
+
+/// The items after the leading ones `skip` accepts.
+pub fn skip_while<T>(list: List<T>, skip: fn(T) -> Bool) -> List<T> {
+    var n = 0
+    for x in list {
+        if !skip(x) {
+            break
+        }
+        n = n + 1
+    }
+    list_slice(list, n, list_len(list))
+}
+
+/// Running states: `f(state, item)` for each item, from `initial`.
+pub fn scan<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> List<A> {
+    let b = list_builder()
+    var state = initial
+    for x in list {
+        state = f(state, x)
+        list_builder_append(b, state)
+    }
+    list_finish(b)
+}
+
+/// Pairs of items at the same positions (as long as the shorter list).
+pub fn zip<A, B>(a: List<A>, b: List<B>) -> List<(A, B)> {
+    let out = list_builder()
+    let n = if list_len(a) < list_len(b) { list_len(a) } else { list_len(b) }
+    var i = 0
+    while i < n {
+        list_builder_append(out, (at(a, i), at(b, i)))
+        i = i + 1
+    }
+    list_finish(out)
+}
+
+/// The item with the smallest key (the first, on ties).
+pub fn min_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    for x in list {
+        let k = key(x)
+        best = match best {
+            .some((bk, bx)) => if k < bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+            .none => Option.some((k, x)),
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
+/// The item with the largest key (the first, on ties).
+pub fn max_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    for x in list {
+        let k = key(x)
+        best = match best {
+            .some((bk, bx)) => if k > bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+            .none => Option.some((k, x)),
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
+/// The items `keep` accepts and those it refuses, each in order.
+pub fn partition<T>(list: List<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>) {
+    let yes = list_builder()
+    let no = list_builder()
+    for x in list {
+        if keep(x) { list_builder_append(yes, x) } else { list_builder_append(no, x) }
+    }
+    (list_finish(yes), list_finish(no))
+}
+
+/// Sorted by `key`, stably (equal keys keep their order). O(n log n);
+/// each key is computed once.
+pub fn sort_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialOrd {
+    let keyed = list_builder()
+    var i = 0
+    for x in list {
+        // the position breaks ties, so items themselves are never compared
+        list_builder_append(keyed, (key(x), i, x))
+        i = i + 1
+    }
+    map(list_sort(list_finish(keyed)), fn(t) => t.2)
+}
+
+/// Sorted by `compare` (negative: the first argument goes first; 0:
+/// equal), stably. A bottom-up merge sort: O(n log n) comparisons.
+pub fn sort_with<T>(list: List<T>, compare: fn(T, T) -> Int) -> List<T> {
+    let n = list_len(list)
+    var run = list
+    var width = 1
+    while width < n {
+        let b = list_builder()
+        var lo = 0
+        while lo < n {
+            let mid = if lo + width < n { lo + width } else { n }
+            let hi = if lo + 2 * width < n { lo + 2 * width } else { n }
+            var i = lo
+            var j = mid
+            while i < mid && j < hi {
+                let (x, y) = (at(run, i), at(run, j))
+                // on a tie the left run's item goes first: stable
+                if compare(y, x) < 0 {
+                    list_builder_append(b, y)
+                    j = j + 1
+                } else {
+                    list_builder_append(b, x)
+                    i = i + 1
+                }
+            }
+            while i < mid {
+                list_builder_append(b, at(run, i))
+                i = i + 1
+            }
+            while j < hi {
+                list_builder_append(b, at(run, j))
+                j = j + 1
+            }
+            lo = hi
+        }
+        run = list_finish(b)
+        width = width * 2
+    }
+    run
+}
+
+/// Consecutive equal items collapsed to one.
+pub fn dedup<T>(list: List<T>) -> List<T> where T: PartialEq {
+    let b = list_builder()
+    var prev: Option<T> = Option.none
+    for x in list {
+        let same = match prev {
+            .some(p) => p == x,
+            .none => false,
+        }
+        if !same {
+            list_builder_append(b, x)
+        }
+        prev = Option.some(x)
+    }
+    list_finish(b)
+}
+
+extern "intrinsic" fn map_empty<K, V>() -> Map<K, V>
+extern "intrinsic" fn map_contains<K, V>(m: Map<K, V>, key: K) -> Bool
+extern "intrinsic" fn map_insert_mut<K, V>(m: Map<K, V>, key: K, value: V) -> Unit
+extern "intrinsic" fn map_get<K, V>(m: Map<K, V>, key: K) -> Option<V>
+
+/// The first of each set of equal items, in order.
+pub fn unique<T>(list: List<T>) -> List<T> where T: Hash {
+    let seen: Map<T, Unit> = map_empty()
+    let b = list_builder()
+    for x in list {
+        if !map_contains(seen, x) {
+            map_insert_mut(seen, x, ())
+            list_builder_append(b, x)
+        }
+    }
+    list_finish(b)
+}
+
+/// Consecutive groups of `size` items (the last may be shorter).
+pub fn chunks_of<T>(list: List<T>, size: Int) -> List<List<T>> {
+    let out = list_builder()
+    let n = list_len(list)
+    let step = if size < 1 { 1 } else { size }
+    var i = 0
+    while i < n {
+        list_builder_append(out, list_slice(list, i, i + step))
+        i = i + step
+    }
+    list_finish(out)
+}
+
+/// The items grouped by `key`, each group in order.
+pub fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash {
+    // positions per key, then each group sliced out in one pass
+    let index: Map<K, Int> = map_empty()
+    let keys = list_builder()
+    let members = list_builder()
+    for x in list {
+        let k = key(x)
+        let g = match map_get(index, k) {
+            .some(g) => g,
+            .none => {
+                let g = list_builder_len(keys)
+                map_insert_mut(index, k, g)
+                list_builder_append(keys, k)
+                g
+            },
+        }
+        list_builder_append(members, (g, x))
+    }
+    let ks = list_finish(keys)
+    let ordered = list_sort(map(list_finish(members), fn(p) => (p.0, 0, p.1)))
+    let out: Map<K, List<T>> = map_empty()
+    var i = 0
+    var g = 0
+    let n = list_len(ordered)
+    while i < n {
+        let b = list_builder()
+        while i < n && at(ordered, i).0 == g {
+            list_builder_append(b, at(ordered, i).2)
+            i = i + 1
+        }
+        map_insert_mut(out, at(ks, g), list_finish(b))
+        g = g + 1
+    }
+    out
+}
+
+pub fn sum(list: List<Int>) -> Int {
+    var total = 0
+    for x in list {
+        total = total + x
+    }
+    total
 }
 
 pub fn range(start: Int, end: Int) -> List<Int> {

@@ -1,5 +1,7 @@
 // Persistent maps with value semantics.
 
+import std.list
+
 extern "intrinsic" fn map_empty<K, V>() -> Map<K, V>
 extern "intrinsic" fn map_insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 extern "intrinsic" fn map_remove<K, V>(m: Map<K, V>, key: K) -> Map<K, V>
@@ -49,7 +51,82 @@ pub fn len<K, V>(m: Map<K, V>) -> Int { map_len(m) }
 /// Entries in unspecified order.
 pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map_entries(m) }
 
+/// The keys, in the map's (unspecified but stable) entry order.
+pub fn keys<K, V>(m: Map<K, V>) -> List<K> { list.map(map_entries(m), fn(e) => e.0) }
+
+/// The values, in the map's entry order.
+pub fn values<K, V>(m: Map<K, V>) -> List<V> { list.map(map_entries(m), fn(e) => e.1) }
+
+/// The value at `key`, or `default`.
+pub fn get_or<K, V>(m: Map<K, V>, key: K, default: V) -> V {
+    match map_get(m, key) {
+        .some(v) => v,
+        .none => default,
+    }
+}
+
+/// Change the entry at `key`: `f` gets the current value (`none` if
+/// absent) and returns the new one (`none` removes the entry).
+pub fn update<K, V>(m: Map<K, V>, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V> {
+    match f(map_get(m, key)) {
+        .some(v) => map_insert(m, key, v),
+        .none => if map_contains(m, key) { map_remove(m, key) } else { m },
+    }
+}
+
+/// Both maps' entries; where both have a key, `combine(a's, b's)` decides.
+pub fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash {
+    let out = map_empty()
+    for (k, v) in map_entries(a) {
+        map_insert_mut(out, k, v)
+    }
+    for (k, v) in map_entries(b) {
+        let merged = match map_get(a, k) {
+            .some(x) => combine(x, v),
+            .none => v,
+        }
+        map_insert_mut(out, k, merged)
+    }
+    out
+}
+
+/// Both maps' entries; `b`'s win where both have a key.
+pub fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> where K: Hash { merge_with(a, b, fn(_x, y) => y) }
+
+/// The same keys with `f` applied to each value.
+pub fn map_values<K, V, W>(m: Map<K, V>, f: fn(V) -> W) -> Map<K, W> where K: Hash {
+    let out = map_empty()
+    for (k, v) in map_entries(m) {
+        map_insert_mut(out, k, f(v))
+    }
+    out
+}
+
+/// The entries `keep` accepts.
+pub fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash {
+    let out = map_empty()
+    for (k, v) in map_entries(m) {
+        if keep(k, v) {
+            map_insert_mut(out, k, v)
+        }
+    }
+    out
+}
+
+pub fn is_empty<K, V>(m: Map<K, V>) -> Bool { map_len(m) == 0 }
+
 impl<K, V> Map<K, V> {
+    pub fn remove(self: &Self, key: K) -> Map<K, V> { map_remove(self, key) }
+    pub fn keys(self: &Self) -> List<K> { keys(self) }
+    pub fn values(self: &Self) -> List<V> { values(self) }
+    pub fn entries(self: &Self) -> List<(K, V)> { map_entries(self) }
+    pub fn get_or(self: &Self, key: K, default: V) -> V { get_or(self, key, default) }
+    pub fn update(self: &Self, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V> { update(self, key, f) }
+    pub fn merge(self: &Self, other: Map<K, V>) -> Map<K, V> where K: Hash { merge(self, other) }
+    pub fn merge_with(self: &Self, other: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash { merge_with(self, other, combine) }
+    pub fn map_values<W>(self: &Self, f: fn(V) -> W) -> Map<K, W> where K: Hash { map_values(self, f) }
+    pub fn filter(self: &Self, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash { filter(self, keep) }
+    pub fn is_empty(self: &Self) -> Bool { map_len(self) == 0 }
     pub fn get(self: &Self, key: K) -> Option<V> { map_get(self, key) }
     pub fn insert(self: &Self, key: K, value: V) -> Map<K, V> { map_insert(self, key, value) }
     pub fn contains(self: &Self, key: K) -> Bool { map_contains(self, key) }

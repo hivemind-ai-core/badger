@@ -52,11 +52,27 @@ fn collect<T>(items: Seq<T>) -> Set<T> where T: Hash
 fn contains<T>(s: Set<T>, value: T) -> Bool
 ```
 
+### `difference`
+
+```lang
+fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
+```
+
+The items of `a` not in `b`.
+
 ### `empty`
 
 ```lang
 fn empty<T>() -> Set<T> where T: Hash
 ```
+
+### `filter`
+
+```lang
+fn filter<T>(s: Set<T>, keep: fn(T) -> Bool) -> Set<T> where T: Hash
+```
+
+The items `keep` accepts.
 
 ### `from_list`
 
@@ -69,6 +85,28 @@ fn from_list<T>(items: List<T>) -> Set<T> where T: Hash
 ```lang
 fn insert<T>(s: Set<T>, value: T) -> Set<T>
 ```
+
+### `intersection`
+
+```lang
+fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
+```
+
+The items in both sets.
+
+### `is_empty`
+
+```lang
+fn is_empty<T>(s: Set<T>) -> Bool
+```
+
+### `is_subset`
+
+```lang
+fn is_subset<T>(a: Set<T>, b: Set<T>) -> Bool
+```
+
+Whether every item of `a` is in `b`.
 
 ### `len`
 
@@ -90,6 +128,14 @@ fn to_list<T>(s: Set<T>) -> List<T>
 
 Members in unspecified order.
 
+### `union`
+
+```lang
+fn union<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
+```
+
+The items in either set.
+
 ## Methods on other types
 
 ### `Set.contains`
@@ -98,9 +144,63 @@ Members in unspecified order.
 fn contains(self: &Self, value: T) -> Bool
 ```
 
+### `Set.difference`
+
+```lang
+fn difference(self: &Self, other: Set<T>) -> Set<T> where T: Hash
+```
+
+### `Set.filter`
+
+```lang
+fn filter(self: &Self, keep: fn(T) -> Bool) -> Set<T> where T: Hash
+```
+
+### `Set.insert`
+
+```lang
+fn insert(self: &Self, value: T) -> Set<T>
+```
+
+### `Set.intersection`
+
+```lang
+fn intersection(self: &Self, other: Set<T>) -> Set<T> where T: Hash
+```
+
+### `Set.is_empty`
+
+```lang
+fn is_empty(self: &Self) -> Bool
+```
+
+### `Set.is_subset`
+
+```lang
+fn is_subset(self: &Self, other: Set<T>) -> Bool
+```
+
 ### `Set.len`
 
 ```lang
 fn len(self: &Self) -> Int
+```
+
+### `Set.remove`
+
+```lang
+fn remove(self: &Self, value: T) -> Set<T>
+```
+
+### `Set.to_list`
+
+```lang
+fn to_list(self: &Self) -> List<T>
+```
+
+### `Set.union`
+
+```lang
+fn union(self: &Self, other: Set<T>) -> Set<T> where T: Hash
 ```
 

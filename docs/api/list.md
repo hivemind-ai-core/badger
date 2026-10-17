@@ -24,6 +24,12 @@ fn get(self: &Self) -> T
 
 ## Functions
 
+### `all`
+
+```lang
+fn all<T>(list: List<T>, test: fn(T) -> Bool) -> Bool
+```
+
 ### `all_ok`
 
 ```lang
@@ -31,6 +37,12 @@ fn all_ok<T, E>(results: List<Result<T, E>>) -> Result<List<T>, E>
 ```
 
 The values of all-successful results, or the first error.
+
+### `any`
+
+```lang
+fn any<T>(list: List<T>, test: fn(T) -> Bool) -> Bool
+```
 
 ### `append`
 
@@ -43,6 +55,14 @@ fn append<T>(list: List<T>, value: T) -> List<T>
 ```lang
 fn builder<T>() -> ListBuilder<T>
 ```
+
+### `chunks_of`
+
+```lang
+fn chunks_of<T>(list: List<T>, size: Int) -> List<List<T>>
+```
+
+Consecutive groups of `size` items (the last may be shorter).
 
 ### `collect`
 
@@ -58,11 +78,35 @@ Collect a sequence into a list.
 fn concat<T>(a: List<T>, b: List<T>) -> List<T>
 ```
 
+### `count`
+
+```lang
+fn count<T>(list: List<T>, test: fn(T) -> Bool) -> Int
+```
+
+How many items satisfy `test`.
+
+### `dedup`
+
+```lang
+fn dedup<T>(list: List<T>) -> List<T> where T: PartialEq
+```
+
+Consecutive equal items collapsed to one.
+
 ### `empty`
 
 ```lang
 fn empty<T>() -> List<T>
 ```
+
+### `enumerate`
+
+```lang
+fn enumerate<T>(list: List<T>) -> List<(Int, T)>
+```
+
+Each item with its position, from 0.
 
 ### `filter`
 
@@ -70,11 +114,51 @@ fn empty<T>() -> List<T>
 fn filter<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T>
 ```
 
+### `filter_map`
+
+```lang
+fn filter_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> List<U>
+```
+
+`f`'s values, skipping the items it maps to `none`.
+
+### `find`
+
+```lang
+fn find<T>(list: List<T>, matches: fn(T) -> Bool) -> Option<T>
+```
+
+The first item `matches` accepts.
+
+### `find_map`
+
+```lang
+fn find_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> Option<U>
+```
+
+The first `some` that `f` gives.
+
+### `flat_map`
+
+```lang
+fn flat_map<T, U>(list: List<T>, f: fn(T) -> List<U>) -> List<U>
+```
+
+Each item's results, flattened in order.
+
 ### `fold`
 
 ```lang
 fn fold<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> A
 ```
+
+### `group_by`
+
+```lang
+fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+```
+
+The items grouped by `key`, each group in order.
 
 ### `len`
 
@@ -88,6 +172,22 @@ fn len<T>(list: List<T>) -> Int
 fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U>
 ```
 
+### `max_by`
+
+```lang
+fn max_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+The item with the largest key (the first, on ties).
+
+### `min_by`
+
+```lang
+fn min_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+The item with the smallest key (the first, on ties).
+
 ### `of`
 
 ```lang
@@ -96,6 +196,14 @@ fn of<T>(list: List<T>) -> Seq<T>
 
 A lazy sequence over a list.
 
+### `partition`
+
+```lang
+fn partition<T>(list: List<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+The items `keep` accepts and those it refuses, each in order.
+
 ### `partition_results`
 
 ```lang
@@ -103,6 +211,14 @@ fn partition_results<T, E>(results: List<Result<T, E>>) -> (List<T>, List<E>)
 ```
 
 The successes and the failures, each in order.
+
+### `position`
+
+```lang
+fn position<T>(list: List<T>, matches: fn(T) -> Bool) -> Option<Int>
+```
+
+The position of the first item `matches` accepts.
 
 ### `range`
 
@@ -116,6 +232,30 @@ fn range(start: Int, end: Int) -> List<Int>
 fn reverse<T>(list: List<T>) -> List<T>
 ```
 
+### `scan`
+
+```lang
+fn scan<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> List<A>
+```
+
+Running states: `f(state, item)` for each item, from `initial`.
+
+### `skip`
+
+```lang
+fn skip<T>(list: List<T>, n: Int) -> List<T>
+```
+
+All but the first `n` items.
+
+### `skip_while`
+
+```lang
+fn skip_while<T>(list: List<T>, skip: fn(T) -> Bool) -> List<T>
+```
+
+The items after the leading ones `skip` accepts.
+
 ### `slice`
 
 ```lang
@@ -127,6 +267,46 @@ fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T>
 ```lang
 fn sort<T>(list: List<T>) -> List<T>
 ```
+
+### `sort_by`
+
+```lang
+fn sort_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialOrd
+```
+
+Sorted by `key`, stably (equal keys keep their order). O(n log n);
+each key is computed once.
+
+### `sort_with`
+
+```lang
+fn sort_with<T>(list: List<T>, compare: fn(T, T) -> Int) -> List<T>
+```
+
+Sorted by `compare` (negative: the first argument goes first; 0:
+equal), stably. A bottom-up merge sort: O(n log n) comparisons.
+
+### `sum`
+
+```lang
+fn sum(list: List<Int>) -> Int
+```
+
+### `take`
+
+```lang
+fn take<T>(list: List<T>, n: Int) -> List<T>
+```
+
+The first `n` items (all of them if there are fewer).
+
+### `take_while`
+
+```lang
+fn take_while<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T>
+```
+
+The leading items `keep` accepts.
 
 ### `try_each`
 
@@ -152,6 +332,14 @@ fn try_map<T, U, E>(list: List<T>, f: fn(T) -> Result<U, E>) -> Result<List<U>, 
 
 `f` over each item in order, stopping at the first error.
 
+### `unique`
+
+```lang
+fn unique<T>(list: List<T>) -> List<T> where T: Hash
+```
+
+The first of each set of equal items, in order.
+
 ### `validate`
 
 ```lang
@@ -161,7 +349,27 @@ fn validate<T, U, E>(list: List<T>, f: fn(T) -> Result<U, E>) -> Result<List<U>,
 Validation: `f` over every item, collecting every error (in order)
 rather than stopping at the first.
 
+### `zip`
+
+```lang
+fn zip<A, B>(a: List<A>, b: List<B>) -> List<(A, B)>
+```
+
+Pairs of items at the same positions (as long as the shorter list).
+
 ## Methods on other types
+
+### `List.all`
+
+```lang
+fn all(self: &Self, test: fn(T) -> Bool) -> Bool
+```
+
+### `List.any`
+
+```lang
+fn any(self: &Self, test: fn(T) -> Bool) -> Bool
+```
 
 ### `List.append`
 
@@ -179,6 +387,12 @@ fn chunks(self: &Self) -> List<Array<T>>
 
 Read-only contiguous views of the list's pages.
 
+### `List.chunks_of`
+
+```lang
+fn chunks_of(self: &Self, size: Int) -> List<List<T>>
+```
+
 ### `List.concat`
 
 ```lang
@@ -191,6 +405,18 @@ fn concat(self: &Self, other: List<T>) -> List<T>
 fn contains(self: &Self, value: T) -> Bool
 ```
 
+### `List.count`
+
+```lang
+fn count(self: &Self, test: fn(T) -> Bool) -> Int
+```
+
+### `List.dedup`
+
+```lang
+fn dedup(self: &Self) -> List<T> where T: PartialEq
+```
+
 ### `List.element_ref`
 
 ```lang
@@ -199,16 +425,46 @@ fn element_ref(self: &Self, index: Int) -> ElementRef<T> where T: Share
 
 Stable reference to an element (shareable elements only).
 
+### `List.enumerate`
+
+```lang
+fn enumerate(self: &Self) -> List<(Int, T)>
+```
+
 ### `List.filter`
 
 ```lang
 fn filter(self: &Self, keep: fn(T) -> Bool) -> List<T>
 ```
 
+### `List.filter_map`
+
+```lang
+fn filter_map<U>(self: &Self, f: fn(T) -> Option<U>) -> List<U>
+```
+
+### `List.find`
+
+```lang
+fn find(self: &Self, matches: fn(T) -> Bool) -> Option<T>
+```
+
+### `List.find_map`
+
+```lang
+fn find_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Option<U>
+```
+
 ### `List.first`
 
 ```lang
 fn first(self: &Self) -> Option<T>
+```
+
+### `List.flat_map`
+
+```lang
+fn flat_map<U>(self: &Self, f: fn(T) -> List<U>) -> List<U>
 ```
 
 ### `List.fold`
@@ -224,6 +480,12 @@ fn get<I>(self: &Self, index: I) -> Option<T> where I: Integer
 ```
 
 Checked lookup: `none` when out of range (any integer index type).
+
+### `List.group_by`
+
+```lang
+fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+```
 
 ### `List.is_empty`
 
@@ -249,6 +511,18 @@ fn len(self: &Self) -> Int
 fn map<U>(self: &Self, f: fn(T) -> U) -> List<U>
 ```
 
+### `List.max_by`
+
+```lang
+fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+### `List.min_by`
+
+```lang
+fn min_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
 ### `List.page_count`
 
 ```lang
@@ -257,10 +531,28 @@ fn page_count(self: &Self) -> Int
 
 Read-only contiguous page views (page directory size).
 
+### `List.partition`
+
+```lang
+fn partition(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+### `List.position`
+
+```lang
+fn position(self: &Self, matches: fn(T) -> Bool) -> Option<Int>
+```
+
 ### `List.reverse`
 
 ```lang
 fn reverse(self: &Self) -> List<T>
+```
+
+### `List.scan`
+
+```lang
+fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> List<A>
 ```
 
 ### `List.seq`
@@ -270,6 +562,18 @@ fn seq(self: &Self) -> Seq<T>
 ```
 
 Lazy view over the elements.
+
+### `List.skip`
+
+```lang
+fn skip(self: &Self, n: Int) -> List<T>
+```
+
+### `List.skip_while`
+
+```lang
+fn skip_while(self: &Self, skip: fn(T) -> Bool) -> List<T>
+```
 
 ### `List.slice`
 
@@ -281,6 +585,30 @@ fn slice(self: &Self, start: Int, end: Int) -> List<T>
 
 ```lang
 fn sort(self: &Self) -> List<T>
+```
+
+### `List.sort_by`
+
+```lang
+fn sort_by<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd
+```
+
+### `List.sort_with`
+
+```lang
+fn sort_with(self: &Self, compare: fn(T, T) -> Int) -> List<T>
+```
+
+### `List.take`
+
+```lang
+fn take(self: &Self, n: Int) -> List<T>
+```
+
+### `List.take_while`
+
+```lang
+fn take_while(self: &Self, keep: fn(T) -> Bool) -> List<T>
 ```
 
 ### `List.to_array`
@@ -309,10 +637,22 @@ fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Resul
 fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, E>
 ```
 
+### `List.unique`
+
+```lang
+fn unique(self: &Self) -> List<T> where T: Hash
+```
+
 ### `List.validate`
 
 ```lang
 fn validate<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>>
+```
+
+### `List.zip`
+
+```lang
+fn zip<U>(self: &Self, other: List<U>) -> List<(T, U)>
 ```
 
 ### `ListBuilder.append`

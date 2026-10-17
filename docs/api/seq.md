@@ -8,6 +8,30 @@ iteration, in order, not when the view is constructed.
 
 ## Functions
 
+### `all`
+
+```lang
+fn all<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool
+```
+
+Whether every item satisfies `test` (stopping at the first that does not).
+
+### `any`
+
+```lang
+fn any<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool
+```
+
+Whether some item satisfies `test` (stopping at the first).
+
+### `chunks`
+
+```lang
+fn chunks<T>(items: Seq<T>, size: Int) -> Seq<List<T>>
+```
+
+Consecutive groups of `size` items (the last may be shorter).
+
 ### `close_iter`
 
 ```lang
@@ -23,10 +47,48 @@ already closed). `for` loops call this when they exit early.
 fn count<T>(items: Seq<T>) -> Int
 ```
 
+### `enumerate`
+
+```lang
+fn enumerate<T>(items: Seq<T>) -> Seq<(Int, T)>
+```
+
+Each item with its position, from 0.
+
 ### `filter`
 
 ```lang
 fn filter<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T>
+```
+
+### `filter_map`
+
+```lang
+fn filter_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Seq<U>
+```
+
+`f`'s values, skipping the items it maps to `none`.
+
+### `find`
+
+```lang
+fn find<T>(items: Seq<T>, matches: fn(T) -> Bool) -> Option<T>
+```
+
+The first item `matches` accepts (consuming no further).
+
+### `find_map`
+
+```lang
+fn find_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Option<U>
+```
+
+The first `some` that `f` gives.
+
+### `first`
+
+```lang
+fn first<T>(items: Seq<T>) -> Option<T>
 ```
 
 ### `flat_map`
@@ -64,17 +126,55 @@ fn group_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Ha
 
 Group items by key. Groups keep the items' iteration order.
 
+### `last`
+
+```lang
+fn last<T>(items: Seq<T>) -> Option<T>
+```
+
 ### `map`
 
 ```lang
 fn map<T, U>(items: Seq<T>, f: fn(T) -> U) -> Seq<U>
 ```
 
+### `max_by`
+
+```lang
+fn max_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+The item with the largest key (the first, on ties).
+
+### `min_by`
+
+```lang
+fn min_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+The item with the smallest key (the first, on ties).
+
+### `partition`
+
+```lang
+fn partition<T>(items: Seq<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+The items `keep` accepts and those it refuses, each in order.
+
 ### `range`
 
 ```lang
 fn range(start: Int, end: Int) -> Seq<Int>
 ```
+
+### `scan`
+
+```lang
+fn scan<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> Seq<A>
+```
+
+Running states: `f(state, item)` for each item, starting from `initial`.
 
 ### `scoped`
 
@@ -87,11 +187,42 @@ resource is closed exactly once when iteration is exhausted, when the
 consumer terminates early (`break`, `return`, `?`, `take`), or when the
 iterating task exits by defect or cancellation.
 
+### `skip`
+
+```lang
+fn skip<T>(items: Seq<T>, n: Int) -> Seq<T>
+```
+
+All but the first `n` items.
+
+### `skip_while`
+
+```lang
+fn skip_while<T>(items: Seq<T>, skip: fn(T) -> Bool) -> Seq<T>
+```
+
+Items after the leading ones `skip` accepts.
+
+### `sum`
+
+```lang
+fn sum(items: Seq<Int>) -> Int
+```
+
 ### `take`
 
 ```lang
 fn take<T>(items: Seq<T>, n: Int) -> Seq<T>
 ```
+
+### `take_while`
+
+```lang
+fn take_while<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T>
+```
+
+Items while `keep` accepts them; the first it refuses ends the
+sequence (and closes the source).
 
 ### `try_collect`
 
@@ -128,6 +259,24 @@ fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)>
 
 ## Methods on other types
 
+### `Seq.all`
+
+```lang
+fn all(self: &Self, test: fn(T) -> Bool) -> Bool
+```
+
+### `Seq.any`
+
+```lang
+fn any(self: &Self, test: fn(T) -> Bool) -> Bool
+```
+
+### `Seq.chunks`
+
+```lang
+fn chunks(self: &Self, size: Int) -> Seq<List<T>>
+```
+
 ### `Seq.collect`
 
 ```lang
@@ -140,10 +289,40 @@ fn collect(self: &Self) -> List<T>
 fn count(self: &Self) -> Int
 ```
 
+### `Seq.enumerate`
+
+```lang
+fn enumerate(self: &Self) -> Seq<(Int, T)>
+```
+
 ### `Seq.filter`
 
 ```lang
 fn filter(self: &Self, keep: fn(T) -> Bool) -> Seq<T>
+```
+
+### `Seq.filter_map`
+
+```lang
+fn filter_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Seq<U>
+```
+
+### `Seq.find`
+
+```lang
+fn find(self: &Self, matches: fn(T) -> Bool) -> Option<T>
+```
+
+### `Seq.find_map`
+
+```lang
+fn find_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Option<U>
+```
+
+### `Seq.first`
+
+```lang
+fn first(self: &Self) -> Option<T>
 ```
 
 ### `Seq.flat_map`
@@ -164,16 +343,64 @@ fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A
 fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
 ```
 
+### `Seq.last`
+
+```lang
+fn last(self: &Self) -> Option<T>
+```
+
 ### `Seq.map`
 
 ```lang
 fn map<U>(self: &Self, f: fn(T) -> U) -> Seq<U>
 ```
 
+### `Seq.max_by`
+
+```lang
+fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+### `Seq.min_by`
+
+```lang
+fn min_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+```
+
+### `Seq.partition`
+
+```lang
+fn partition(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+### `Seq.scan`
+
+```lang
+fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> Seq<A>
+```
+
+### `Seq.skip`
+
+```lang
+fn skip(self: &Self, n: Int) -> Seq<T>
+```
+
+### `Seq.skip_while`
+
+```lang
+fn skip_while(self: &Self, skip: fn(T) -> Bool) -> Seq<T>
+```
+
 ### `Seq.take`
 
 ```lang
 fn take(self: &Self, n: Int) -> Seq<T>
+```
+
+### `Seq.take_while`
+
+```lang
+fn take_while(self: &Self, keep: fn(T) -> Bool) -> Seq<T>
 ```
 
 ### `Seq.try_each`
