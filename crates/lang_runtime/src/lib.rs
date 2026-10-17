@@ -38,6 +38,7 @@ pub mod list;
 pub mod live;
 pub mod map;
 pub mod native;
+pub mod observe;
 pub mod parse;
 pub mod profile;
 pub mod reply;
@@ -250,6 +251,7 @@ pub fn symbols() -> Vec<(&'static str, *const u8)> {
     let mut v = abi::symbols();
     v.extend(intrinsics::symbols());
     v.extend(ffi::symbols());
+    v.extend(observe::symbols());
     v.extend([
         ("lang_rt_enter", task::lang_rt_enter as *const u8),
         ("lang_rt_leave", task::lang_rt_leave as *const u8),

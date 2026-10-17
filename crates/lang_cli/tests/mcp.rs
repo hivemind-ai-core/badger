@@ -46,7 +46,7 @@ fn mcp_tools() {
     let tools = req("tools/list", json!({}));
     let names: Vec<&str> =
         tools["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, vec!["eval", "check", "query", "run"]);
+    assert_eq!(names, vec!["eval", "check", "query", "contracts", "run"]);
     let mut call = |name: &str, args: Value| -> (String, bool) {
         let r = req("tools/call", json!({ "name": name, "arguments": args }));
         (
@@ -54,6 +54,14 @@ fn mcp_tools() {
             r["result"]["isError"] == json!(true),
         )
     };
+
+    // the compiler reports its contract decisions, and with tests the gaps
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/contracts/inventory.lang");
+    let (out, err) = call("contracts", json!({ "path": root.display().to_string(), "tests": true }));
+    assert!(
+        !err && out.contains("2 proven") && out.contains("1 unproven clause(s) no test reaches"),
+        "{out}"
+    );
 
     // code mode: definitions accumulate; printed output is returned
     assert!(!call("eval", json!({ "code": "fn sq(x: Int) -> Int { x * x }" })).1);

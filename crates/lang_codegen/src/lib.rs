@@ -130,6 +130,7 @@ fn runtime_sig_of(name: &str) -> Option<(usize, bool)> {
     Some(match name {
         "lang_rt_alloc" => (2, true),
         "lang_rt_panic" | "lang_rt_defect" => (2, true),
+        "lang_rt_observe_int" | "lang_rt_observe_clause" => (2, true),
         "lang_rt_precondition" => (3, true),
         "lang_rt_contract_site" => (1, false),
         "lang_rt_poll" => (0, false),

@@ -75,6 +75,18 @@ fn tools() -> Value {
             }
         },
         {
+            "name": "contracts",
+            "description": "The program's contract clauses (`requires`, `ensures`) and what the compiler decided about each: `proven` (checked statically; its runtime check is compiled out), `refuted` (an error), or `runtime` (checked when the program runs), with the reason. With `tests: true` it also runs the `test_*` functions observing the program: each clause's test coverage (`tested.evaluated`, `tested.held`; 0 evaluated is a gap no test reaches) and `suggestions`, candidate clauses that held in every observed call. The loop: write tests for the gaps and for clauses the compiler cannot prove, state the suggestions that are really intended, and ask again; the compiler checks what is stated.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "tests": { "type": "boolean" }
+                },
+                "required": ["path"]
+            }
+        },
+        {
             "name": "run",
             "description": "Run a program (file or project directory) or, with `test: true`, its `test_*` functions, in a fresh process. Returns the exit status, stdout, and stderr. With `breakpoints` (`file:line`, optionally `file:line if CONDITION`), it runs under gdb with debug information and reports, at each stop, the innermost frames, arguments, and locals (or the gdb `commands` given), up to `max_stops`. With `profile: true`, it also returns a CPU profile (functions by self and total time).",
             "inputSchema": {
@@ -236,6 +248,45 @@ impl Mcp {
                         text(format!("{summary}\n{out}"), !r["ok"].as_bool().unwrap_or(false))
                     }
                     Ok((_, _, err)) => text(err, true),
+                    Err(e) => text(e, true),
+                }
+            }
+            "contracts" => {
+                let Some(path) = a["path"].as_str() else { return text("give `path`", true) };
+                let mut args = vec!["contracts".to_string(), "--json".into()];
+                if a["tests"].as_bool().unwrap_or(false) {
+                    args.push("--tests".into());
+                }
+                args.push(arg_path(path));
+                match lang(&args, Duration::from_secs(300)) {
+                    Ok((_, out, err)) => match serde_json::from_str::<Value>(&out) {
+                        Ok(v) => {
+                            let clauses = v["clauses"].as_array().cloned().unwrap_or_default();
+                            let count = |s: &str| clauses.iter().filter(|c| c["status"] == s).count();
+                            let gaps: Vec<&Value> = clauses
+                                .iter()
+                                .filter(|c| c["tested"]["evaluated"] == 0 && c["status"] != "proven")
+                                .collect();
+                            let mut summary = format!(
+                                "{} clause(s): {} proven, {} checked at run time, {} refuted",
+                                clauses.len(),
+                                count("proven"),
+                                count("runtime"),
+                                count("refuted")
+                            );
+                            if v.get("tests").is_some() {
+                                summary.push_str(&format!(
+                                    "; {} test(s) ran, {} failed; {} unproven clause(s) no test reaches; {} suggestion(s)",
+                                    v["tests"]["ran"],
+                                    v["tests"]["failed"],
+                                    gaps.len(),
+                                    v["suggestions"].as_array().map_or(0, |s| s.len())
+                                ));
+                            }
+                            text(format!("{summary}\n{out}"), !v["ok"].as_bool().unwrap_or(false))
+                        }
+                        Err(_) => text(format!("{out}{err}"), true),
+                    },
                     Err(e) => text(e, true),
                 }
             }

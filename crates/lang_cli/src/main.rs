@@ -251,6 +251,10 @@ enum Command {
         path: PathBuf,
         #[arg(long)]
         json: bool,
+        /// Also run the tests, observing the program: each clause's test
+        /// coverage, and candidate clauses that held in every call.
+        #[arg(long)]
+        tests: bool,
     },
     /// Explain a diagnostic code, or the type/effect of a definition.
     Explain {
@@ -355,6 +359,7 @@ fn main() -> ExitCode {
                 debug,
                 record,
                 replay: None,
+                observe: false,
             };
             match session.run(&path, args, &opts) {
                 Ok(code) => {
@@ -470,7 +475,47 @@ fn main() -> ExitCode {
             }
             exit_now(lang_driver::finish_tests(json))
         }
-        Command::Contracts { path, json } => {
+        Command::Contracts { path, json, tests: true } => match session.contract_test_report(&path) {
+            Ok((clauses, suggestions, (ran, failed))) => {
+                if json {
+                    let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();
+                    let s: Vec<serde_json::Value> = suggestions.iter().map(|c| c.to_json()).collect();
+                    println!(
+                        "{}",
+                        serde_json::json!({ "ok": failed == 0, "tests": { "ran": ran, "failed": failed }, "clauses": v, "suggestions": s })
+                    );
+                } else {
+                    report(&session, false);
+                    println!("{ran} test(s) ran, {failed} failed");
+                    for c in &clauses {
+                        let (e, h) = c.tested.unwrap_or((0, 0));
+                        let tested = if e == 0 {
+                            "never exercised by a test".to_string()
+                        } else if h == e {
+                            format!("held all {e} time(s) the tests evaluated it")
+                        } else {
+                            format!("FAILED {} of {e} time(s)", e - h)
+                        };
+                        println!(
+                            "{}:{}: {} {} `{}`: {} ({}); {tested}",
+                            c.file, c.line, c.function, c.kind, c.text, c.status, c.reason
+                        );
+                    }
+                    for s in &suggestions {
+                        println!(
+                            "{}:{}: {} could state `{}` ({})",
+                            s.file, s.line, s.function, s.clause, s.basis
+                        );
+                    }
+                }
+                if failed == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+            }
+            Err(_) => {
+                report(&session, json);
+                ExitCode::FAILURE
+            }
+        },
+        Command::Contracts { path, json, tests: false } => {
             let (outcome, clauses) = session.contract_report(&path);
             if json {
                 let v: Vec<serde_json::Value> = clauses.iter().map(|c| c.to_json()).collect();

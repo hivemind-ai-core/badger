@@ -587,6 +587,32 @@ impl Session {
         (outcome, clauses)
     }
 
+    /// Run the tests of `path` observing the program, then report each
+    /// clause with its static status and test coverage, and candidate
+    /// clauses that held in every observed call (`lang contracts --tests`).
+    pub fn contract_test_report(
+        &mut self,
+        path: &Path,
+    ) -> Result<(Vec<contracts::Clause>, Vec<contracts::Suggestion>, (usize, usize)), Outcome> {
+        let opts = RunOptions { tests: true, json: true, observe: true, ..Default::default() };
+        select_entry(None);
+        self.run(path, vec![], &opts)?;
+        let (ran, failed, _) = take_tests();
+        let (slots, outcomes) = lang_runtime::observe::take();
+        let (mut clauses, mut suggestions) = contracts::merge_observations(&slots, &outcomes);
+        for c in &mut clauses {
+            let f = self.sources.get(c.span.file);
+            c.file = f.name.clone();
+            c.line = f.line_col(c.span.start as usize).0;
+        }
+        for s in &mut suggestions {
+            let f = self.sources.get(s.span.file);
+            s.file = f.name.clone();
+            s.line = f.line_col(s.span.start as usize).0;
+        }
+        Ok((clauses, suggestions, (ran, failed)))
+    }
+
     pub fn check(&mut self, path: &Path) -> Outcome {
         let packages = packages_of(path);
         if packages.len() != 1 || packages[0] != path {
@@ -995,6 +1021,16 @@ impl Session {
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
+        // `lang contracts --tests`: instrument the program's functions and
+        // clauses, and check every clause (no elision)
+        if opts.observe {
+            lang_mir::lower::set_observe(contracts::observe_plan(&hir));
+            contracts::resolve_names(&self.interner);
+            lang_mir::lower::set_elided(Default::default());
+            lang_runtime::observe::reset();
+        } else {
+            lang_mir::lower::set_observe(Default::default());
+        }
         let entry_fn = entry_fn();
         let (mut prog, errors) =
             timed("lower", || lang_mir::lower_program(&checked.g, &self.sources, opts.tests, &entry_fn));
@@ -1306,6 +1342,9 @@ pub struct RunOptions {
     /// Replay this reproduction bundle (with `true`: compare a changed
     /// program against it).
     pub replay: Option<(PathBuf, bool)>,
+    /// Observe integer arguments, results, and contract outcomes while
+    /// the tests run (`lang contracts --tests`).
+    pub observe: bool,
 }
 
 /// Read a reproduction bundle written by `lang run --record`.
@@ -1476,6 +1515,13 @@ struct TestTally {
 static TALLY: std::sync::Mutex<Option<TestTally>> = std::sync::Mutex::new(None);
 
 /// Print the summary of every test run in this process; returns the exit code.
+/// The tests run so far: how many, how many failed, and their JSON
+/// results (consumed).
+pub fn take_tests() -> (usize, usize, Vec<String>) {
+    let t = TALLY.lock().unwrap().take();
+    t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]))
+}
+
 pub fn finish_tests(json: bool) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));

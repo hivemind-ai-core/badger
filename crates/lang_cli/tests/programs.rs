@@ -1651,6 +1651,32 @@ fn contract_report() {
     assert_eq!(status("largest", "ensures"), "runtime");
 }
 
+/// `lang contracts --tests`: which clauses the tests exercise, and
+/// candidate clauses from what held in every observed call.
+#[test]
+fn contract_test_report() {
+    let out =
+        lang().args(["contracts", "--tests", "--json", "tests/contracts/inventory.lang"]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["tests"]["ran"], 3);
+    let clause =
+        |f: &str| v["clauses"].as_array().unwrap().iter().find(|c| c["function"] == f).cloned().unwrap();
+    assert_eq!(clause("restock")["tested"]["evaluated"], 3);
+    assert_eq!(clause("restock")["tested"]["held"], 3);
+    // a clause no test reaches is a gap
+    assert_eq!(clause("reorder_after")["tested"]["evaluated"], 0);
+    let suggested: Vec<String> = v["suggestions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| format!("{} {}", s["function"].as_str().unwrap(), s["clause"].as_str().unwrap()))
+        .collect();
+    assert!(suggested.contains(&"take ensures result >= 0".to_string()), "{suggested:?}");
+    // nothing is suggested about what a clause already states
+    assert!(!suggested.iter().any(|s| s.starts_with("restock requires qty")), "{suggested:?}");
+}
+
 /// `lang query api`: a standard module's public functions, types, and
 /// methods with signatures and documentation, and a program's own.
 #[test]

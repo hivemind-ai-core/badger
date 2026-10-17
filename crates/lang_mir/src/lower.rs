@@ -428,10 +428,24 @@ impl<'g, 'a> Mono<'g, 'a> {
                 }
                 fl.func.params = params.iter().map(|p| p.0).collect();
                 fl.emit(Stmt::Poll);
+                // `lang contracts --tests`: integer arguments as observed
+                let observed = observing(def);
+                if observed {
+                    for (k, (l, _, t)) in params.iter().enumerate() {
+                        if fl.m.lay.num_ty(t) == Some(NumTy::I(64, true)) {
+                            fl.rt(
+                                "lang_rt_observe_int",
+                                vec![int(slot(def, k)), Operand::Local(*l)],
+                                Repr::I64,
+                            );
+                        }
+                    }
+                }
                 for (l, pat, t) in params {
                     fl.bind_irrefutable(pat, Operand::Local(l), &t);
                 }
-                if !f.ensures.is_empty() {
+                let observe_result = observed && fl.m.lay.num_ty(&fl.ret_ty) == Some(NumTy::I(64, true));
+                if !f.ensures.is_empty() || observe_result {
                     let rl = fl.fresh(fl.func.ret, Some("result".into()));
                     let epi = fl.block();
                     fl.epilogue = Some((epi, rl));
@@ -446,11 +460,21 @@ impl<'g, 'a> Mono<'g, 'a> {
                     if let Some(r) = f.result {
                         fl.locals.insert(r, rl);
                     }
+                    if observe_result {
+                        fl.rt(
+                            "lang_rt_observe_int",
+                            vec![int(slot(def, RESULT_SLOT)), Operand::Local(rl)],
+                            Repr::I64,
+                        );
+                    }
                     for (k, pc) in f.ensures.iter().enumerate() {
                         if elided_post(def, k) {
                             continue;
                         }
                         let Some(c) = fl.lower(pc.cond) else { continue };
+                        if let Some(id) = observed_post(def, k) {
+                            fl.rt("lang_rt_observe_clause", vec![int(id as i64), c], Repr::I64);
+                        }
                         let (ok, bad) = (fl.block(), fl.block());
                         fl.term(Term::Branch(c, ok, bad));
                         fl.switch(bad);
@@ -1489,6 +1513,21 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             ExprKind::Lambda(l) => Some(self.lower_lambda(e, &l, &ty)),
             // a precondition check the contract analysis proved never fails
             ExprKind::If { .. } if elided_check(e) => Some(int(0)),
+            // a precondition check under observation: count its outcome,
+            // then fail as usual
+            ExprKind::If { then, .. } if observed_pre(e).is_some() => {
+                let (id, held_cond) = observed_pre(e).unwrap();
+                let c = self.lower(held_cond)?;
+                self.rt("lang_rt_observe_clause", vec![int(id as i64), c], Repr::I64);
+                let (fail, join) = (self.block(), self.block());
+                self.term(Term::Branch(c, join, fail));
+                self.switch(fail);
+                if self.lower(then).is_some() {
+                    self.term(Term::Goto(join));
+                }
+                self.switch(join);
+                Some(int(0))
+            }
             ExprKind::If { cond, then, els } => {
                 let c = self.lower(cond)?;
                 let (tb, eb, join) = (self.block(), self.block(), self.block());
@@ -3421,4 +3460,44 @@ fn elided_check(e: ExprId) -> bool {
 
 fn elided_post(def: DefId, k: usize) -> bool {
     ELIDED.with(|x| x.borrow().posts.contains(&(def, k)))
+}
+
+/// What `lang contracts --tests` observes: the functions whose integer
+/// arguments and results are recorded, and the contract clauses whose
+/// outcomes are counted (precondition checks by expression, with the
+/// condition that holds; postconditions by function and index).
+#[derive(Default, Clone)]
+pub struct Observe {
+    pub fns: std::collections::HashSet<DefId>,
+    pub pre: std::collections::HashMap<ExprId, (u32, ExprId)>,
+    pub post: std::collections::HashMap<(DefId, usize), u32>,
+}
+
+/// The slot index of a function's result in observations.
+pub const RESULT_SLOT: usize = 255;
+
+/// The observation slot of parameter `k` (or the result) of `def`.
+pub fn slot(def: DefId, k: usize) -> i64 {
+    ((def.into_raw().into_u32() as i64) << 8) | (k.min(255) as i64)
+}
+
+thread_local! {
+    static OBSERVE: std::cell::RefCell<Observe> = Default::default();
+}
+
+/// Set what the next lowering on this thread instruments.
+pub fn set_observe(o: Observe) {
+    OBSERVE.with(|x| *x.borrow_mut() = o);
+}
+
+fn observing(def: DefId) -> bool {
+    OBSERVE.with(|x| x.borrow().fns.contains(&def))
+}
+
+fn observed_pre(e: ExprId) -> Option<(u32, ExprId)> {
+    OBSERVE.with(|x| x.borrow().pre.get(&e).copied())
+}
+
+fn observed_post(def: DefId, k: usize) -> Option<u32> {
+    OBSERVE.with(|x| x.borrow().post.get(&(def, k)).copied())
 }

@@ -717,6 +717,184 @@ pub struct Clause {
     pub calls: usize,
     /// Where the clause is (the caller fills in `file` and `line`).
     pub span: Span,
+    /// Under `lang contracts --tests`: how often the tests evaluated it,
+    /// and how often it held.
+    pub tested: Option<(u64, u64)>,
+}
+
+/// A clause that held in every call the tests made (a candidate to state).
+#[derive(Debug, Clone)]
+pub struct Suggestion {
+    pub function: String,
+    /// The clause to add (`requires n >= 1`).
+    pub clause: String,
+    /// What was observed (`n was 1..=40 in 12 calls`).
+    pub basis: String,
+    pub file: String,
+    pub line: usize,
+    pub span: Span,
+}
+
+impl Suggestion {
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "function": self.function,
+            "clause": self.clause,
+            "basis": self.basis,
+            "file": self.file,
+            "line": self.line,
+        })
+    }
+}
+
+/// What `observe_plan` instrumented, to read the observations back.
+#[derive(Default)]
+struct Plan {
+    /// Clause id → index into the static report.
+    clauses: HashMap<u32, usize>,
+    report: Vec<Clause>,
+    /// Instrumented functions: name, span, parameter names (by slot), the
+    /// clauses they already state.
+    fns: Vec<(DefId, String, Span, Vec<Option<String>>, Vec<String>)>,
+}
+
+thread_local! {
+    static PLAN: std::cell::RefCell<Plan> = Default::default();
+}
+
+/// Instrument the program's own functions for `lang contracts --tests`.
+pub fn observe_plan(hir: &Hir) -> lang_mir::lower::Observe {
+    let report = last_report();
+    let mut o = lang_mir::lower::Observe::default();
+    let mut plan = Plan::default();
+    let mut next = 0u32;
+    for (d, def) in hir.defs.iter() {
+        let DefKind::Fn(f) = &def.kind else { continue };
+        if f.body.is_none() || is_std(hir, def.span) {
+            continue;
+        }
+        o.fns.insert(d);
+        let name = def.name;
+        let pnames = f
+            .params
+            .iter()
+            .map(|p| match &hir.pats[p.pat].kind {
+                PatKind::Bind(l) => Some(hir.locals[*l].name),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        plan.fns.push((d, String::new(), def.span, vec![], f.contracts.clone()));
+        let idx = plan.fns.len() - 1;
+        PLAN_NAMES.with(|n| n.borrow_mut().push((idx, name, pnames)));
+        for pc in &f.requires {
+            o.pre.insert(pc.check, (next, pc.cond));
+            if let Some(i) = report.iter().position(|c| c.span == pc.span) {
+                plan.clauses.insert(next, i);
+            }
+            next += 1;
+        }
+        for (k, pc) in f.ensures.iter().enumerate() {
+            o.post.insert((d, k), next);
+            if let Some(i) = report.iter().position(|c| c.span == pc.span) {
+                plan.clauses.insert(next, i);
+            }
+            next += 1;
+        }
+    }
+    plan.report = report;
+    PLAN.with(|p| *p.borrow_mut() = plan);
+    o
+}
+
+thread_local! {
+    /// Interned names of the instrumented functions and their parameters
+    /// (resolved to text by `resolve_names` with the interner).
+    static PLAN_NAMES: std::cell::RefCell<Vec<(usize, lang_base::Symbol, Vec<Option<lang_base::Symbol>>)>> = Default::default();
+}
+
+/// Give the plan its function and parameter names (needs the interner).
+pub fn resolve_names(interner: &Interner) {
+    let names = PLAN_NAMES.with(|n| std::mem::take(&mut *n.borrow_mut()));
+    PLAN.with(|p| {
+        let mut p = p.borrow_mut();
+        for (idx, name, params) in names {
+            if let Some(f) = p.fns.get_mut(idx) {
+                f.1 = interner.resolve(name).to_string();
+                f.3 = params.iter().map(|x| x.map(|s| interner.resolve(s).to_string())).collect();
+            }
+        }
+    });
+}
+
+/// The static report with the tests' outcomes, and candidate clauses: an
+/// integer argument or result whose observed range suggests a bound the
+/// function does not already state.
+pub fn merge_observations(
+    slots: &HashMap<u64, lang_runtime::observe::Range>,
+    outcomes: &HashMap<u64, lang_runtime::observe::Clause>,
+) -> (Vec<Clause>, Vec<Suggestion>) {
+    PLAN.with(|p| {
+        let p = p.borrow();
+        let mut report = p.report.clone();
+        for c in &mut report {
+            c.tested = Some((0, 0));
+        }
+        for (id, i) in &p.clauses {
+            if let (Some(o), Some(c)) = (outcomes.get(&(*id as u64)), report.get_mut(*i)) {
+                c.tested = Some((o.evaluated, o.held));
+            }
+        }
+        let mut suggestions = vec![];
+        for (d, name, span, params, stated) in &p.fns {
+            let mut slots_of: Vec<(usize, lang_runtime::observe::Range)> = slots
+                .iter()
+                .filter(|(k, _)| (**k >> 8) as u32 == d.into_raw().into_u32())
+                .map(|(k, r)| ((*k & 0xff) as usize, *r))
+                .collect();
+            slots_of.sort_by_key(|s| s.0);
+            for (k, r) in slots_of {
+                if r.count < 3 {
+                    continue;
+                }
+                let (word, var) = if k == lang_mir::lower::RESULT_SLOT {
+                    ("ensures", "result".to_string())
+                } else {
+                    match params.get(k).cloned().flatten() {
+                        Some(n) => ("requires", n),
+                        None => continue,
+                    }
+                };
+                let bound = if r.min >= 1 {
+                    Some(format!("{var} >= 1"))
+                } else if r.min >= 0 {
+                    Some(format!("{var} >= 0"))
+                } else if r.max <= -1 {
+                    Some(format!("{var} < 0"))
+                } else {
+                    None
+                };
+                let Some(bound) = bound else { continue };
+                // nothing already stated about it
+                if stated.iter().any(|c| c.starts_with(word) && mentions(c, &var)) {
+                    continue;
+                }
+                suggestions.push(Suggestion {
+                    function: name.clone(),
+                    clause: format!("{word} {bound}"),
+                    basis: format!("{var} was {}..={} in {} call(s)", r.min, r.max, r.count),
+                    file: String::new(),
+                    line: 0,
+                    span: *span,
+                });
+            }
+        }
+        (report, suggestions)
+    })
+}
+
+/// Whether clause text mentions `name` as a whole word.
+fn mentions(clause: &str, name: &str) -> bool {
+    clause.split(|c: char| !(c.is_alphanumeric() || c == '_')).any(|w| w == name)
 }
 
 impl Clause {
@@ -730,6 +908,7 @@ impl Clause {
             "status": self.status,
             "reason": self.reason,
             "calls": self.calls,
+            "tested": self.tested.map(|(e, h)| serde_json::json!({ "evaluated": e, "held": h })),
         })
     }
 }
@@ -893,5 +1072,6 @@ fn clause(
         reason,
         calls,
         span,
+        tested: None,
     }
 }

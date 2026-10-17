@@ -175,6 +175,15 @@ directly (not used as a value). Everything else is checked at run time as
 above. `lang contracts PATH` lists each clause with its status
 (`proven`, `refuted`, or `runtime`) and why; `--json` gives it to tools.
 
+Tests and contracts inform each other. `lang contracts --tests PATH` runs
+the tests with the program observed: each clause reports how often the
+tests evaluated it and how often it held (a clause no test reaches is a
+gap), and integer arguments and results whose every observed value fit a
+bound become candidate clauses (`take could state ensures result >= 0`).
+Candidates are suggestions from the tests' data, for a person or an agent
+to accept, sharpen, or refute with another test; the compiler then checks
+what is stated as above.
+
 ## Task defects and cancellation
 
 Checked overflow, bounds violations, failed assertions, and explicit `panic`
