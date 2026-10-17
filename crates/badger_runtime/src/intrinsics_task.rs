@@ -1,7 +1,7 @@
 //! Task, scope, channel, time, and cleanup intrinsics (uniform ABI).
 
 use crate::channel::{self, Free, RecvResult, SendResult};
-use crate::desc::{Kind, TypeDesc};
+use crate::desc::TypeDesc;
 use crate::gc::Roots;
 use crate::intrinsics::{Targs, rdesc, targ};
 use crate::string::new_string;
@@ -725,11 +725,6 @@ task_intrinsics! {
     }
     fn batch_release(ctx, targs, ret, b) { channel::release(b); 0 }
     fn batches_published(ctx, targs, ret, ch) { channel::data(ch).published_batches }
-}
-
-#[allow(dead_code)]
-fn is_list(d: &TypeDesc) -> bool {
-    matches!(d.kind, Kind::List { .. })
 }
 
 /// Post a parked selection's cases so a rendezvous partner can commit one.

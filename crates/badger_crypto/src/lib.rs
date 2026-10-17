@@ -42,11 +42,13 @@ fn hex_decode(a: &Args) -> Outcome {
     if t.len() % 2 != 0 {
         return Err(Error::new("encoding/hex", "an odd number of hex digits"));
     }
-    (0..t.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&t[i..i + 2], 16)
-                .map_err(|_| Error::new("encoding/hex", format!("`{}` is not hex", &t[i..i + 2])))
+    // by bytes: a non-ASCII character is an error, not a split codepoint
+    t.as_bytes()
+        .chunks(2)
+        .map(|pair| {
+            std::str::from_utf8(pair).ok().and_then(|p| u8::from_str_radix(p, 16).ok()).ok_or_else(|| {
+                Error::new("encoding/hex", format!("`{}` is not hex", String::from_utf8_lossy(pair)))
+            })
         })
         .collect::<Result<Vec<u8>, _>>()
         .map(Value::Bytes)

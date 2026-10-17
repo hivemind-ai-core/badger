@@ -95,11 +95,14 @@ fn datetime_value(dt: DateTime) -> Value {
     Value::Map(vec![("date".into(), date_value(dt.date())), ("time".into(), time_value(dt.time()))])
 }
 
-fn zone_name(tz: &TimeZone) -> String {
-    tz.iana_name().map(str::to_string).unwrap_or_else(|| {
-        let off = tz.to_offset(Timestamp::now());
-        off.to_string()
-    })
+/// A zone's IANA name, or (a zone without one) its offset now.
+fn tz_name(tz: &TimeZone) -> String {
+    tz.iana_name().map(str::to_string).unwrap_or_else(|| tz.to_offset(Timestamp::now()).to_string())
+}
+
+/// The zone's IANA name, or (a fixed offset) its offset at that time.
+fn zone_name(z: &Zoned) -> String {
+    z.time_zone().iana_name().map(str::to_string).unwrap_or_else(|| z.offset().to_string())
 }
 
 fn zoned_value(z: &Zoned) -> Result<Value, Error> {
@@ -108,7 +111,7 @@ fn zoned_value(z: &Zoned) -> Result<Value, Error> {
     Ok(Value::Map(vec![
         ("datetime".into(), datetime_value(z.datetime())),
         ("offset_seconds".into(), Value::Int(z.offset().seconds().into())),
-        ("zone".into(), Value::Str(zone_name(z.time_zone()))),
+        ("zone".into(), Value::Str(zone_name(z))),
         ("timestamp_nanos".into(), Value::Int(nanos)),
     ]))
 }
@@ -130,13 +133,14 @@ fn zoned_of(v: &Value) -> Result<Zoned, Error> {
         Some(Value::Str(s)) => s.clone(),
         _ => return Err(Error::new("datetime/argument", "missing `zone`")),
     };
-    let tz = match zone(&name) {
-        Ok(tz) => tz,
-        // a fixed offset (`+02:00`) from a value parsed without a zone name
-        Err(_) => {
-            let secs = narrow::<i32>(field(v, "offset_seconds")?, "offset")?;
-            TimeZone::fixed(jiff::tz::Offset::from_seconds(secs).map_err(bad)?)
-        }
+    // a fixed offset (`+02:00`, from a value parsed without a zone name);
+    // any other name must be a known zone (a misspelled one is an error,
+    // not silently a fixed offset that gets daylight saving wrong)
+    let tz = if name.starts_with(['+', '-']) {
+        let secs = narrow::<i32>(field(v, "offset_seconds")?, "offset")?;
+        TimeZone::fixed(jiff::tz::Offset::from_seconds(secs).map_err(bad)?)
+    } else {
+        zone(&name)?
     };
     Ok(timestamp(nanos)?.to_zoned(tz))
 }
@@ -296,12 +300,12 @@ fn timestamp_text(a: &Args) -> Outcome {
 
 fn check_zone(a: &Args) -> Outcome {
     let tz = zone(a.str(0)?)?;
-    Ok(Value::Str(zone_name(&tz)))
+    Ok(Value::Str(tz_name(&tz)))
 }
 
 /// The system's time zone (`TZ`, else `/etc/localtime`); UTC if unknown.
 fn system_zone(_: &Args) -> Outcome {
-    Ok(Value::Str(TimeZone::try_system().map(|tz| zone_name(&tz)).unwrap_or_else(|_| "UTC".into())))
+    Ok(Value::Str(TimeZone::try_system().map(|tz| tz_name(&tz)).unwrap_or_else(|_| "UTC".into())))
 }
 
 pub static DEF: ModuleDef = ModuleDef {

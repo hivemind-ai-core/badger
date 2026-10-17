@@ -225,11 +225,6 @@ pub fn drain() -> Vec<String> {
     EXPORT.lock().unwrap().records.drain(..).collect()
 }
 
-/// Records written, and records the export buffer dropped.
-pub fn counts() -> (u64, u64) {
-    (EMITTED.load(Ordering::Relaxed), EXPORT.lock().unwrap().dropped)
-}
-
 // ------------------------------------------------------------------ spans
 
 /// Random ids for traces and spans (never 0).
@@ -644,8 +639,6 @@ log_intrinsics! {
         0
     }
     fn log_attach(ctx, targs, ret, capacity) { attach(capacity as usize); 0 }
-    fn log_drain(ctx, targs, ret) { strings(rdesc(ret), drain()) }
-    fn log_dropped(ctx, targs, ret) { counts().1 }
     fn span_begin_i(ctx, targs, ret, name, attrs) {
         span_begin(str_of(name), crate::codec::encode(targ(targs, 0), attrs))
     }
@@ -657,10 +650,6 @@ log_intrinsics! {
         }
     }
     fn span_adopt(ctx, targs, ret, tp) { adopt(str_of(tp)) as u64 }
-    fn span_drain(ctx, targs, ret) {
-        let recs: Vec<String> = EXPORT_SPANS.lock().unwrap().drain(..).collect();
-        strings(rdesc(ret), recs)
-    }
     fn metric_add_i(ctx, targs, ret, name, v, attrs) {
         metric_add(str_of(name), f64::from_bits(v), crate::codec::encode(targ(targs, 0), attrs));
         0

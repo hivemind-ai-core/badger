@@ -116,29 +116,6 @@ os_intrinsics! {
         let v = std::path::Path::new(str_of(p)).components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
         strings(rdesc(ret), v)
     }
-    fn fs_list_dir(ctx, targs, ret, p) {
-        // Result<List<String>, io.Error>
-        let path = str_of(p).to_string();
-        let r = crate::repro::external("list", &path.clone(), None, false, move || {
-            crate::task::run_blocking_abandonable(move || {
-                std::fs::read_dir(&path).map(|it| {
-                    let mut v: Vec<String> = it.flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
-                    v.sort();
-                    v
-                })
-            })
-            .map_err(|e| crate::intrinsics_io::io_pair(&e))
-        });
-        match r {
-            Ok(v) => {
-                let g = Roots::new();
-                let list_desc = rdesc(ret).variant(0).unwrap().fields[0].desc;
-                let l = g.add(strings(list_desc, v));
-                io_ok(rdesc(ret), l)
-            }
-            Err((k, m)) => io_err_msg(rdesc(ret), &k, &m),
-        }
-    }
 
     // ---------------------------------------------------------------- process
     // Run a subprocess to completion on the blocking pool:
@@ -374,11 +351,6 @@ os_intrinsics! {
         let loc = crate::task::current().map(|t| t.caller_loc).filter(|l| *l != 0).map(|l| str_of(l).to_string()).unwrap_or_default();
         crate::task::panic_current(str_of(msg).to_string(), loc)
     }
-}
-
-#[allow(dead_code)]
-fn unused(ret: &'static TypeDesc) -> u64 {
-    io_err_msg(ret, "x", "y")
 }
 
 /// A tool hook run when the program ends itself with `process.exit` (for

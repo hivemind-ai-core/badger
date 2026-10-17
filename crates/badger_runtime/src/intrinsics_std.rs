@@ -407,7 +407,8 @@ std_intrinsics! {
     fn text_to_lower(ctx, targs, ret, s) { new_string(&str_of(s).to_lowercase()) }
     fn text_replace(ctx, targs, ret, s, a, b) { new_string(&str_of(s).replace(str_of(a), str_of(b))) }
     fn text_concat(ctx, targs, ret, a, b) { new_string(&format!("{}{}", str_of(a), str_of(b))) }
-    fn text_repeat(ctx, targs, ret, s, n) { new_string(&str_of(s).repeat(n as usize)) }
+    // a count of zero or less repeats nothing
+    fn text_repeat(ctx, targs, ret, s, n) { new_string(&str_of(s).repeat((n as i64).max(0) as usize)) }
     fn text_join(ctx, targs, ret, l, sep) {
         let parts: Vec<&str> = list::to_vec(l).into_iter().map(str_of).collect();
         new_string(&parts.join(str_of(sep)))

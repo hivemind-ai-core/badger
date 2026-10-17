@@ -35,6 +35,7 @@ fn runtime() -> &'static tokio::runtime::Runtime {
     static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RT.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
+            .on_thread_start(badger_native::module_thread)
             .worker_threads(2)
             .thread_name("badger-postgres")
             .enable_all()

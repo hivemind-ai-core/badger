@@ -1166,7 +1166,15 @@ fn take_stack() -> DefaultStack {
             STACK_POOL.with(|p| p.borrow_mut().extend(batch));
             s
         }
-        None => DefaultStack::new(STACK_SIZE.load(Ordering::Relaxed)).expect("task stack"),
+        // out of address space or memory maps: like running out of memory,
+        // the process cannot continue (and it is not a compiler bug)
+        None => DefaultStack::new(STACK_SIZE.load(Ordering::Relaxed)).unwrap_or_else(|e| {
+            eprintln!(
+                "fatal: cannot allocate a task stack ({e}): the program runs more tasks than this system allows \
+                 (address-space limit `ulimit -v`, or `vm.max_map_count`)"
+            );
+            std::process::exit(71)
+        }),
     }
 }
 
