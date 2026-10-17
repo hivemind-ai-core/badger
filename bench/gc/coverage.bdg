@@ -193,7 +193,7 @@ fn buffer_growth(c: Config) -> Int {
     var total = 0
     for i in 0..c.n {
         let capacity = if c.mode == "buffers-capacity" { c.payload }
-            else if c.mode == "buffers-capacity-grow" { c.payload / 2 } else { 0 }
+        else if c.mode == "buffers-capacity-grow" { c.payload / 2 } else { 0 }
         var b = buffer.with_capacity<Int>(capacity)
         for j in 0..c.payload { b.push(i * 31 + j) }
         let done = b.freeze()
