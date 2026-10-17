@@ -41,6 +41,9 @@ class CoverageOracle(unittest.TestCase):
         self.assertEqual(run.expected_coverage(c | dict(mode="buffers-pointers")), sum(values) + sum(values[-3:]))
         self.assertEqual(run.expected_coverage(c | dict(mode="buffers-pointers", retain=9)), sum(values) * 2)
         self.assertEqual(run.expected_coverage(c | dict(mode="buffers-empty")), 5)
+        for mode in ["buffers-capacity", "buffers-capacity-grow"]:
+            self.assertEqual(run.expected_coverage(c | dict(mode=mode)), run.expected_coverage(c))
+        self.assertEqual(run.expected_coverage(c | dict(mode="buffers-capacity-pointers")), sum(values) + sum(values[-3:]))
 
     def test_pool_burst_includes_full_burst_scattered_survivors_and_churn(self):
         c = dict(mode="pool-burst", n=7, retain=3, payload=5, rounds=70)

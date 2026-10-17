@@ -710,3 +710,15 @@ Next priority is G5b: small fixed-capacity payloads (especially 256-byte message
 arrays) still allocate native element storage and later dispatch finalizers.
 Embedding that storage under existing GC ownership is a smaller next step than
 arenas and can reduce native churn without requiring escape/topology proofs.
+
+### G5b baseline — small fixed-capacity element storage
+
+Before changing production storage, saved 12 smoke, 68 coverage and 32
+application measurements from immutable direct-metadata binary `b8b6935`. New
+cases cover 31/32/33-word capacities (248/256/264 bytes), small pointer arrays,
+preallocated buffers that outgrow their embedded capacity, and packed bytes
+just above the proposed limit. All checks pass. Existing format-6 layout and
+MIR field offsets will remain compatible; inline state fits native metadata
+padding. Native growth must copy the initialized prefix, charge its entire new
+capacity (old inline bytes remain managed), and retain ordinary finalization.
+Only frozen storage that owns no native allocation may skip finalizer dispatch.

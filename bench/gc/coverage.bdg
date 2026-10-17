@@ -192,7 +192,9 @@ fn buffer_growth(c: Config) -> Int {
     let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.empty<Int>()) })
     var total = 0
     for i in 0..c.n {
-        var b = buffer.new<Int>()
+        let capacity = if c.mode == "buffers-capacity" { c.payload }
+            else if c.mode == "buffers-capacity-grow" { c.payload / 2 } else { 0 }
+        var b = buffer.with_capacity<Int>(capacity)
         for j in 0..c.payload { b.push(i * 31 + j) }
         let done = b.freeze()
         for word in done { total = total + word }
@@ -214,7 +216,8 @@ fn buffer_pointers(c: Config) -> Int {
     let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.empty<String>()) })
     var total = 0
     for i in 0..c.n {
-        var b = buffer.new<String>()
+        let capacity = if c.mode == "buffers-capacity-pointers" { c.payload } else { 0 }
+        var b = buffer.with_capacity<String>(capacity)
         for j in 0..c.payload {
             b.push(text.repeat(if i % 2 == 0 { "x" } else { "y" }, 32 + i % 3 + j))
         }
@@ -368,8 +371,8 @@ pub fn main() -> Result<Unit, io.Error> {
         total
     }
     else if c.mode == "buffers-empty" { empty_buffers(c) }
-    else if c.mode == "buffers-grow" { buffer_growth(c) }
-    else if c.mode == "buffers-pointers" { buffer_pointers(c) }
+    else if c.mode == "buffers-grow" || c.mode == "buffers-capacity" || c.mode == "buffers-capacity-grow" { buffer_growth(c) }
+    else if c.mode == "buffers-pointers" || c.mode == "buffers-capacity-pointers" { buffer_pointers(c) }
     else if c.mode == "bytes" { buffers(c, true) }
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }

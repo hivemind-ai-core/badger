@@ -41,6 +41,11 @@ COVERAGE = {
     "buffers-empty": dict(mode="buffers-empty", n=524288, rounds=1, payload=1, retain=1),
     "buffers-grow": dict(mode="buffers-grow", n=65536, rounds=1, payload=32, retain=64),
     "buffers-pointers": dict(mode="buffers-pointers", n=32768, rounds=1, payload=8, retain=128),
+    **{f"buffers-capacity-{width}": dict(mode="buffers-capacity", n=65536, rounds=1, payload=width, retain=64)
+       for width in [31, 32, 33]},
+    "buffers-capacity-grow": dict(mode="buffers-capacity-grow", n=65536, rounds=1, payload=65, retain=64),
+    "buffers-capacity-pointers": dict(mode="buffers-capacity-pointers", n=32768, rounds=1, payload=8, retain=128),
+    "bytes-257": dict(mode="bytes", n=65536, rounds=1, payload=257, retain=32),
     "snapshots": dict(mode="snapshots", n=65536, rounds=1, payload=96, retain=32),
     **{f"persistent-{size}": dict(mode="persistent-int", n=131072, rounds=1, payload=1, retain=size)
        for size in [64, 256, 4096]},
@@ -112,9 +117,9 @@ def benchmark_lock(path=None):
 def expected_coverage(c):
     if c["mode"] == "buffers-empty":
         return c["n"]
-    if c["mode"] in ["buffers-grow", "buffers-pointers"]:
+    if c["mode"] in ["buffers-grow", "buffers-pointers", "buffers-capacity", "buffers-capacity-grow", "buffers-capacity-pointers"]:
         def value(i):
-            first = i * 31 if c["mode"] == "buffers-grow" else 32 + i % 3
+            first = 32 + i % 3 if c["mode"].endswith("pointers") else i * 31
             return first * c["payload"] + c["payload"] * (c["payload"] - 1) // 2
         return sum(value(i) for i in range(c["n"])) + sum(value(i) for i in range(max(0, c["n"] - c["retain"]), c["n"]))
     if c["mode"] == "pool-burst":
