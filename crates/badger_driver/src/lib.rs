@@ -82,7 +82,7 @@ fn entry_fn() -> String {
 /// with `\n` escapes, or `'...'` taken literally). A variable already set
 /// keeps its value; a listed file that does not exist is skipped.
 pub fn load_dotenv(project: &Path) -> Result<(), String> {
-    let Ok(m) = manifest::Manifest::load(&project.join("badger.toml")) else { return Ok(()) };
+    let Ok(m) = manifest::Manifest::in_dir(project) else { return Ok(()) };
     for f in &m.dotenv {
         let p = project.join(f);
         let Ok(text) = std::fs::read_to_string(&p) else { continue };
@@ -133,7 +133,7 @@ pub fn parse_dotenv(text: &str) -> Result<Vec<(String, String)>, String> {
 /// workspace whose root `path` is, else `path` itself.
 pub fn packages_of(path: &Path) -> Vec<PathBuf> {
     if path.is_dir()
-        && let Ok(m) = manifest::Manifest::load(&path.join("badger.toml"))
+        && let Ok(m) = manifest::Manifest::in_dir(path)
         && m.workspace.is_some()
     {
         return deps::workspace_packages(path, &m);
@@ -147,7 +147,7 @@ pub fn project_entry_points(path: &Path) -> Vec<String> {
     if !path.is_dir() {
         return vec![];
     }
-    let Ok(m) = manifest::Manifest::load(&path.join("badger.toml")) else { return vec![] };
+    let Ok(m) = manifest::Manifest::in_dir(path) else { return vec![] };
     let mut out: Vec<String> = m.entries.iter().map(|(n, _)| n.clone()).collect();
     out.extend(m.tasks.iter().map(|(n, _, _)| format!("task:{n}")));
     out
@@ -293,7 +293,7 @@ impl Session {
             .map(|(k, v)| (k.to_string(), v.to_string(), "default".to_string()))
             .collect();
         if path.is_dir() {
-            let m = manifest::Manifest::load(&path.join("badger.toml"))?;
+            let m = manifest::Manifest::in_dir(path)?;
             if let Some(p) = profile
                 && !m.profiles.iter().any(|(n, _)| n == p)
             {
@@ -342,7 +342,7 @@ impl Session {
                 None => Ok(vec![]),
             };
         }
-        let m = manifest::Manifest::load(&path.join("badger.toml"))?;
+        let m = manifest::Manifest::in_dir(path)?;
         m.effective(profile)
     }
 
@@ -368,8 +368,7 @@ impl Session {
             }
         };
         let deps = if path.is_dir() {
-            let verified =
-                manifest::Manifest::load(&path.join("badger.toml")).and_then(|m| deps::verified(path, &m));
+            let verified = manifest::Manifest::in_dir(path).and_then(|m| deps::verified(path, &m));
             match verified {
                 Ok(d) => d,
                 Err(e) => {
@@ -421,7 +420,13 @@ impl Session {
                 .collect();
         }
         let entry = modules.len();
-        modules.push(ParsedModule { path: vec![self.sym(&stem)], file, ast, is_std: false, dependency: false });
+        modules.push(ParsedModule {
+            path: vec![self.sym(&stem)],
+            file,
+            ast,
+            is_std: false,
+            dependency: false,
+        });
         // breadth-first discovery of imported user modules; each module
         // resolves imports relative to its own package
         let mut module_pkg: Vec<usize> = vec![0; modules.len()];
@@ -478,7 +483,13 @@ impl Session {
                 self.sources.set_module(file, mname.join("."));
                 if let Some(ast) = self.parse(file) {
                     // modules are addressable by both the written and stripped path
-                    modules.push(ParsedModule { path: p.clone(), file, ast, is_std: false, dependency: target != 0 });
+                    modules.push(ParsedModule {
+                        path: p.clone(),
+                        file,
+                        ast,
+                        is_std: false,
+                        dependency: target != 0,
+                    });
                     module_pkg.push(target);
                 }
             }
@@ -563,7 +574,7 @@ impl Session {
         match r {
             Ok(ast) => Some(ast),
             Err(e) => {
-                self.diagnostics.push(e.into());
+                self.diagnostics.extend(e.errors);
                 None
             }
         }
@@ -681,8 +692,7 @@ impl Session {
                 // a single file need not be a program (a library module),
                 // and a library package has no `main`
                 None if !path.is_dir() => {}
-                None if name == "main"
-                    && manifest::Manifest::load(&path.join("badger.toml")).is_ok_and(|m| m.library) => {}
+                None if name == "main" && manifest::Manifest::in_dir(path).is_ok_and(|m| m.library) => {}
                 None => self
                     .diagnostics
                     .push(Diagnostic::error(format!("no `{name}` function in {file}")).with_code("E0012")),
@@ -819,7 +829,7 @@ impl Session {
         }
         // an invalid manifest is a project error (as `badger check` reports it)
         if path.is_dir() {
-            match manifest::Manifest::load(&path.join("badger.toml")) {
+            match manifest::Manifest::in_dir(path) {
                 Err(e) => {
                     self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
                     return Err(Outcome::Errors);
@@ -1138,7 +1148,7 @@ impl Session {
     /// runtime settings still apply when it runs).
     pub fn compile_binary(&mut self, path: &Path, opts: &RunOptions) -> Result<Vec<u8>, Outcome> {
         if path.is_dir()
-            && let Err(e) = manifest::Manifest::load(&path.join("badger.toml"))
+            && let Err(e) = manifest::Manifest::in_dir(path)
         {
             self.diagnostics.push(Diagnostic::error(e).with_code("E0010"));
             return Err(Outcome::Errors);
@@ -1600,7 +1610,12 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
             Exit::Returned(w) if !ok => match prog.test_errors.iter().find(|(n, _)| n == name) {
                 Some((_, ed)) => format!(
                     "returned an error: {}",
-                    badger_runtime::value::display(std::ptr::null_mut(), ed, badger_runtime::enum_parts(*w).1[0], true)
+                    badger_runtime::value::display(
+                        std::ptr::null_mut(),
+                        ed,
+                        badger_runtime::enum_parts(*w).1[0],
+                        true
+                    )
                 ),
                 None => "returned an error".into(),
             },
@@ -1725,7 +1740,7 @@ impl PlanInfo {
 }
 
 fn collect_ast_refs(a: &ast::Ast, e: ast::ExprId, out: &mut Vec<Symbol>) {
-    // walk the configuration expression for `ref(:key)`
+    // walk the configuration expression for `ref(#key)`
     for (_, x) in a.exprs.iter() {
         let _ = x;
     }
@@ -1975,9 +1990,7 @@ pub fn project_root(path: &Path) -> Option<PathBuf> {
 /// Whether the project `path` belongs to is restricted (`[package]
 /// restricted = true`).
 pub fn restricted(path: &Path) -> bool {
-    project_root(path)
-        .and_then(|root| manifest::Manifest::load(&root.join("badger.toml")).ok())
-        .is_some_and(|m| m.restricted)
+    project_root(path).and_then(|root| manifest::Manifest::in_dir(&root).ok()).is_some_and(|m| m.restricted)
 }
 
 /// `--workers` is 1 to 64.
@@ -2004,7 +2017,7 @@ fn env_runtime_settings() -> Result<Vec<(String, String)>, String> {
 /// The `[database] schema` file of the project `path` belongs to.
 pub(crate) fn database_schema(path: &Path) -> Option<PathBuf> {
     let root = project_root(path)?;
-    let m = manifest::Manifest::load(&root.join("badger.toml")).ok()?;
+    let m = manifest::Manifest::in_dir(&root).ok()?;
     m.schema.map(|s| root.join(s))
 }
 

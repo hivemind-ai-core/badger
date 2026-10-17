@@ -382,7 +382,7 @@ pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
             if top {
                 str_of(w).to_string()
             } else {
-                format!(":{}", str_of(w))
+                format!("#{}", str_of(w))
             }
         }
         Kind::String => {

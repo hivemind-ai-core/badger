@@ -7,8 +7,8 @@ license.workspace = true
 
 [dependencies]
 badger_base.workspace = true
-pest.workspace = true
-pest_derive.workspace = true
+logos.workspace = true
+chumsky.workspace = true
 la-arena.workspace = true
 smallvec.workspace = true
 smol_str.workspace = true

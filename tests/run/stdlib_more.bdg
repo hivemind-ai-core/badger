@@ -69,18 +69,18 @@ pub fn main() -> Result<Unit, AppError> {
     r?
     // routes: validation and URL construction
     let routes = [
-        route.get("/orders/:id", :orders/show, fn(_req, params) -> Result<_, AppError> {
+        route.get("/orders/:id", #orders/show, fn(_req, params) -> Result<_, AppError> {
             ok({ status: 200, headers: map {}, body: bytes.from_text(params["id"]) })
         }),
-        route.post("/orders", :orders/create, fn(_req, _params) -> Result<_, AppError> {
+        route.post("/orders", #orders/create, fn(_req, _params) -> Result<_, AppError> {
             ok({ status: 201, headers: map {}, body: bytes.from_text("created") })
         }),
     ]
     let _ = route.table(routes)?
-    say(route.url(routes, :orders/show, map { "id" => "7" }).unwrap_or("?"))
+    say(route.url(routes, #orders/show, map { "id" => "7" }).unwrap_or("?"))
     let conflicting = [
-        route.get("/a/:x", :one, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
-        route.get("/a/:y", :two, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
+        route.get("/a/:x", #one, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
+        route.get("/a/:y", #two, fn(_r, _p) -> Result<_, AppError> { ok({ status: 200, headers: map {}, body: bytes.from_text("") }) }),
     ]
     match route.table(conflicting) {
         .ok(_) => say("conflict not detected"),

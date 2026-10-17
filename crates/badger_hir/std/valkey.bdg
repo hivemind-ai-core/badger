@@ -59,7 +59,7 @@ fn lift<T>(r: Result<T, native.Error>) -> Result<T, Error> {
 }
 
 fn unexpected<T>(command: String, reply: Data) -> Result<T, Error> {
-    err({ code: :valkey/reply, message: $"unexpected reply to {command}: {reply}" })
+    err({ code: #valkey/reply, message: $"unexpected reply to {command}: {reply}" })
 }
 
 /// Connect to the server at `url`.
@@ -106,7 +106,7 @@ impl Client {
         match self.get_bytes(key)? {
             .some(b) => match codec.decode<T>(b) {
                 .ok(v) => ok(Option.some(v)),
-                .err(e) => err({ code: :valkey/decode, message: $"{key}: {e.message}" }),
+                .err(e) => err({ code: #valkey/decode, message: $"{key}: {e.message}" }),
             },
             .none => ok(Option.none),
         }
@@ -275,4 +275,4 @@ fn client_init(scope: system.InitScope, config: { url: String }) -> Result<Clien
 }
 
 /// Provider of a client for `{url: String}`, closed when the system halts.
-pub let client = system.provider({ name: :valkey/client, init: client_init })
+pub let client = system.provider({ name: #valkey/client, init: client_init })

@@ -6,7 +6,7 @@ import std.system.{component}
 pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
-let p = system.provider({ name: :t/p, init: fn(scope, c: { x: Int }) -> Result<fn() -> Int, F> { scope.on_halt(fn() -> Result<Unit, F> { let _ = io.println("halted a"); ok(()) }); ok(fn() { c.x }) } })
+let p = system.provider({ name: #t/p, init: fn(scope, c: { x: Int }) -> Result<fn() -> Int, F> { scope.on_halt(fn() -> Result<Unit, F> { let _ = io.println("halted a"); ok(()) }); ok(fn() { c.x }) } })
 pub fn main() -> Result<Unit, system.Error> {
     let plan = system { a: component(p, { x: 7 }) }
     let cell: Cell<Option<fn() -> Int>> = Cell.new(Option.none)

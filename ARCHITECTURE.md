@@ -1,6 +1,6 @@
 # Architecture
 
-The compiler parses with **pest**, resolves and desugars into HIR, infers and
+The compiler lexes with **logos**, parses with **chumsky**, resolves and desugars into HIR, infers and
 checks types, effects, regions, and ownership, monomorphizes into MIR, and
 compiles MIR with **Cranelift** into machine code that runs in-process on the
 runtime. The language contract is [SPEC.md](SPEC.md); this document describes
@@ -8,7 +8,7 @@ the implementation.
 
 ```text
  source text
-     │  badger_syntax   layout pass (newline separators) → pest grammar → arena AST (Pratt operators)
+     │  badger_syntax   lexer (logos) → layout (newline separators) → chumsky grammar → syntax tree → arena AST
      ▼
     AST
      │  badger_hir      modules/imports, name resolution, prelude, desugaring, const checks
@@ -36,25 +36,43 @@ error. `badger_cli` is the `badger` binary.
 | Crate | Role | Key deps |
 |---|---|---|
 | `badger_base` | spans, source map, interner, diagnostics (codes, JSON, ariadne), diagnostic catalog | lasso, ariadne |
-| `badger_syntax` | layout pass, `grammar.pest`, parser, AST, formatter | pest |
+| `badger_syntax` | lexer, layout, grammar, lowering to the AST, formatter | logos, chumsky |
 | `badger_hir` | resolution, desugaring, lang items, embedded `std/*.bdg` | la-arena, petgraph |
 | `badger_typeck` | types, unification, solver, schemes, exhaustiveness, ownership | ena, petgraph |
 | `badger_mir` | monomorphization, layouts and type descriptors, MIR | index_vec |
 | `badger_codegen` | MIR → CLIF, JIT module, program entry | cranelift-* |
 | `badger_runtime` | heap/GC, tasks/scheduler, collections, channels, codecs, native module host, parsing | corosensei, serde_json, regex, backtrace |
 | `badger_native` | native module ABI, wire format, helpers for modules in Rust | — |
-| `badger_sqlite` | the `badger_sqlite` native module behind `std.sqlite` | rusqlite |
-| `badger_fetch` | the `badger_fetch` native module behind `std.fetch` (outbound HTTP(S)) | ureq |
-| `badger_http` | the `badger_http` native module behind `std.http` (the HTTP/1.1 server) | hyper, tokio |
+| `badger_sqlite` | the native module behind `std.sqlite` | rusqlite |
+| `badger_postgres` | the native module behind `std.postgres` | tokio-postgres, deadpool-postgres, rustls |
+| `badger_valkey` | the native module behind `std.valkey` (Valkey/Redis) | redis, tokio |
+| `badger_fetch` | the native module behind `std.fetch` (outbound HTTP(S)) | ureq |
+| `badger_http` | the native module behind `std.http` (the HTTP/1.1 server, SSE, WebSockets) | hyper, tokio, tokio-tungstenite |
+| `badger_formats` | the native module behind `std.toml`, `std.yaml`, `std.csv`, `std.markdown` | toml, serde_yaml_ng, csv, pulldown-cmark |
+| `badger_template` | the native module behind `std.template` | minijinja |
+| `badger_crypto` | the native module behind `std.encoding`, `std.crypto`, `std.uuid` | base64, sha2, hmac, getrandom, uuid |
+| `badger_datetime` | the native module behind `std.datetime` | jiff |
+| `badger_compress` | the native module behind `std.compress` (gzip, zlib, deflate, zstd) | flate2, zstd |
+| `badger_fs` | the native module behind `std.fs` beyond the runtime's text reads and writes | — |
+| `badger_native_demo` | a native module for the native-ABI tests (`tests/native`) | — |
 | `badger_driver` | sessions, manifests/profiles, test runner, live reload, compile-time SQL checks; links the standard native modules | all of the above, rusqlite |
 | `badger_cli` | command-line interface | clap |
 
 ## Front end
 
-- **Layout.** Newlines that end statements become separator tokens; comments
-  are blanked with offsets preserved, so spans stay exact.
-- **Grammar.** Keywords are matched as whole words; uppercase/lowercase roles
-  are lexical (types and protocols uppercase, values lowercase).
+- **Lexer and layout.** logos scans tokens (words, literals, punctuation;
+  interpolation holes as ordinary tokens); newlines that end statements
+  become separator tokens. Words are one token kind, so a keyword can still
+  name a field; symbols (`#name`), `>>`, and `>=` are adjacent tokens the
+  parser joins, so `List<List<Int>>` closes two argument lists.
+- **Grammar.** chumsky parsers over the token slice build an owned syntax
+  tree, lowered to the arena AST. The first pass tracks no errors and
+  dispatches on the next token; a file that fails is parsed again with rich
+  errors and recovery (each broken statement or declaration is skipped to
+  the next separator), so one run reports all syntax errors, and an
+  unbalanced bracket is reported at both ends. Uppercase/lowercase roles
+  are checked when lowering (types and protocols uppercase, values
+  lowercase).
 - **Formatter** (`badger format`): one canonical layout. Lines inside brackets
   indent one level past the line that opened them; spacing within a line is
   normalized token by token (operators, commas, colons, braces, generic
@@ -66,9 +84,9 @@ error. `badger_cli` is the `badger` binary.
   captures) and desugars pipes, `use` continuations, dotted record updates,
   field assignment, `pipeline.stage({...})`, `pipeline { ... }` (into nested
   stage runners), `system { ... }` (topologically ordered nodes with typed
-  `ref(:key)` outputs; missing keys and cycles are reported here), and
-  `system.select(plan, [:keys])` (a typed output projection).
-- **Standard library.** `crates/badger_hir/std/*.bdg` (42 modules) are ordinary
+  `ref(#key)` outputs; missing keys and cycles are reported here), and
+  `system.select(plan, [#keys])` (a typed output projection).
+- **Standard library.** `crates/badger_hir/std/*.bdg` (60 modules) are ordinary
   language modules. A program loads the core modules (the prelude,
   collections, text, numbers, options and results, codecs, records:
   implementations on prelude types and items the compiler uses without an
@@ -256,7 +274,7 @@ error. `badger_cli` is the `badger` binary.
   runtime roots. Floats display their own width's shortest round-trip
   digits, with `.0` on any finite whole number.
   Off-heap memory owned by objects (map tries) counts toward collection.
-  Small objects (up to 256 bytes) come from per-worker size-class pools
+  Small objects (header and payload up to 512 bytes) come from per-worker size-class pools
   (2 MiB huge-page chunks after a worker's first); larger ones from the
   system allocator. A survivor keeps its mark (sticky mark bits): marked
   objects are the old generation. A minor collection marks young objects
@@ -576,7 +594,7 @@ the nodes they reference (a node without references is drawn alone).
 ## Agent tooling (MCP)
 
 `badger mcp` is a Model Context Protocol server on stdio
-(`crates/badger_cli/src/mcp.rs`) with four tools. `eval` is code mode: a
+(`crates/badger_cli/src/mcp.rs`) with five tools. `eval` is code mode: a
 persistent REPL session (the `badger repl` machinery: an in-process session
 program served over the inspection endpoint) where definitions accumulate
 and expressions evaluate; with `import std.compiler` the agent queries and
@@ -585,7 +603,9 @@ narrow tools. Evaluations have a time limit (`evalt` requests: the
 endpoint cancels the evaluation task when it expires, so the session stays
 usable). `check` (a path or source text, or a project with proposed `files`), `query` (the `badger query` kinds,
 diagnostic explanations, and standard module sources as API reference) and
-`run` (a program or its tests, with a time limit) run in subprocesses,
+`contracts` (each contract clause and what the compiler decided, with test
+coverage) and `run` (a program or its tests, with a time limit; under gdb
+with breakpoints) run in subprocesses,
 isolated from the session. The session's standard output is redirected to
 a pipe and returned with each evaluation, since stdout carries the
 protocol. Setup in [docs/agents.md](docs/agents.md).

@@ -193,7 +193,7 @@ fn transaction<P: Scope, R, E>(pool: Pool<P>, body: for<S: Scope> fn(Tx<S>) -> R
 Run `body` in a transaction: commit after `ok`, roll back after `err`,
 defect, or cancellation. A failed begin or commit is returned even when
 the body succeeded; so is a commit after a statement in the body failed
-(the server aborted the transaction: `:postgres/tx_aborted`). A failed
+(the server aborted the transaction: `#postgres/tx_aborted`). A failed
 rollback after a body error is returned as a
-`:postgres/rollback_failed` error whose `cause` is the body's error.
+`#postgres/rollback_failed` error whose `cause` is the body's error.
 

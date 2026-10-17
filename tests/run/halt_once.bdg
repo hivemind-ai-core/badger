@@ -8,7 +8,7 @@ impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
 pub enum AppError { system(source: system.Error), failed(source: Failure) } derive(Error, From)
 fn consume(b: Buffer<Int>) -> Int { b.len() }
-let p = system.provider({ name: :t/p, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> {
+let p = system.provider({ name: #t/p, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> {
     let b: Buffer<Int> = buffer.new()
     b.push(config.v)
     scope.on_halt(fn() -> Result<Unit, Failure> { let _ = io.println($"halt consumed {consume(b)}"); ok(()) })

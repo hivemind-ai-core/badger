@@ -22,7 +22,7 @@ fn counter(name: Symbol) -> pipeline.Stage<Ctx, Ctx, String, String> {
 
 fn log() {
     pipeline.stage({
-        name: :app/log,
+        name: #app/log,
         leave: fn(ctx, reply) { pipeline.leave(ctx, $"{reply} [log]") },
     })
 }
@@ -39,8 +39,8 @@ pub fn main() -> Result<Unit, io.Error> {
     }
     io.println(base.stages)?
     // the selection is a runtime value
-    let wanted = [:app/a, :app/b, :app/c]
-    let chosen = [counter(:app/a), counter(:app/b), counter(:app/c)]
+    let wanted = [#app/a, #app/b, #app/c]
+    let chosen = [counter(#app/a), counter(#app/b), counter(#app/c)]
     let plan = pipeline.with_stages(chosen, base)
     io.println(plan.stages)?
     let run = pipeline.compile(plan)

@@ -431,7 +431,8 @@ impl Ix<'_> {
                 // the doc comment may stand above the contract clauses
                 None if contracts
                     && lines.is_empty()
-                    && (l.trim_start().starts_with("requires ") || l.trim_start().starts_with("ensures ")) => {}
+                    && (l.trim_start().starts_with("requires ")
+                        || l.trim_start().starts_with("ensures ")) => {}
                 None => break,
             }
         }

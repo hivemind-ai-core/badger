@@ -36,9 +36,9 @@ pub fn main() -> Result<Unit, Never> {
     assert(name == "Ada")
     assert(email == original.email)
 
-    let tagged = { ..contact, [:import/source]: "contacts.csv" }
-    assert(tagged[:import/source] == "contacts.csv")
-    let untagged = records.remove(tagged, :import/source)
+    let tagged = { ..contact, [#import/source]: "contacts.csv" }
+    assert(tagged[#import/source] == "contacts.csv")
+    let untagged = records.remove(tagged, #import/source)
     assert(untagged == contact)
 
     let settings = records.merge({ retries: 2, enabled: true }, { retries: 4 })

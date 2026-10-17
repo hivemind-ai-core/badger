@@ -114,6 +114,16 @@ fn exe() -> String {
     std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "badger".into())
 }
 
+/// Run `badger ARGS` (120 seconds at most): its standard output when it
+/// succeeds, else its standard error as an error result.
+fn subprocess_result(args: &[String]) -> Value {
+    match badger_cmd(args, Duration::from_secs(120)) {
+        Ok((0, out, _)) => text(out.trim(), false),
+        Ok((_, _, err)) => text(err.trim(), true),
+        Err(e) => text(e, true),
+    }
+}
+
 /// Run `badger ARGS` with a time limit: (status, stdout, stderr).
 fn badger_cmd(args: &[String], limit: Duration) -> Result<(i32, String, String), String> {
     badger_cmd_env(args, &[], limit)
@@ -354,22 +364,14 @@ impl Mcp {
                             return text("give `name` (e.g. std.list) or `path`", true);
                         };
                         let args = vec!["query".into(), "api".into(), arg_path(target)];
-                        match badger_cmd(&args, Duration::from_secs(120)) {
-                            Ok((0, out, _)) => text(out.trim(), false),
-                            Ok((_, _, err)) => text(err.trim(), true),
-                            Err(e) => text(e, true),
-                        }
+                        subprocess_result(&args)
                     }
                     "graph" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let which = a["name"].as_str().unwrap_or("calls").to_string();
                         let args =
                             vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
-                        match badger_cmd(&args, Duration::from_secs(120)) {
-                            Ok((0, out, _)) => text(out.trim(), false),
-                            Ok((_, _, err)) => text(err.trim(), true),
-                            Err(e) => text(e, true),
-                        }
+                        subprocess_result(&args)
                     }
                     "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
                     | "diagnostics" => {
@@ -386,11 +388,7 @@ impl Mcp {
                         {
                             args.push(format!("--name={n}"));
                         }
-                        match badger_cmd(&args, Duration::from_secs(120)) {
-                            Ok((0, out, _)) => text(out.trim(), false),
-                            Ok((_, _, err)) => text(err.trim(), true),
-                            Err(e) => text(e, true),
-                        }
+                        subprocess_result(&args)
                     }
                     // `check` has its own tool
                     other => text(
@@ -411,7 +409,10 @@ impl Mcp {
                     }
                 }
                 if debugging && a["profile"] == json!(true) {
-                    return text("`profile` cannot be used with `breakpoints`: a debugged run is not profiled", true);
+                    return text(
+                        "`profile` cannot be used with `breakpoints`: a debugged run is not profiled",
+                        true,
+                    );
                 }
                 if a["test"] == json!(true) {
                     for (opt, why) in [
@@ -558,42 +559,15 @@ pub fn serve() -> std::process::ExitCode {
         });
         (std::fs::File::from_raw_fd(proto), output)
     };
-    let dir = match badger_driver::private_temp_dir("badger-mcp") {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("error: cannot create a session directory: {e}");
-            return std::process::ExitCode::FAILURE;
-        }
-    };
-    let file = dir.join("session.bdg");
-    let session = "// MCP session program\nimport std.io\nimport std.task\n\npub fn main() -> Unit {\n    loop {\n        task.sleep(3600s)\n    }\n}\n";
-    if std::fs::write(&file, session).is_err() {
-        eprintln!("error: cannot write the session file");
-        return std::process::ExitCode::FAILURE;
-    }
-    let port = match std::net::TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()) {
-        Ok(a) => a.port(),
-        Err(e) => {
-            eprintln!("error: cannot reserve a local port: {e}");
-            return std::process::ExitCode::FAILURE;
-        }
-    };
-    let addr = format!("127.0.0.1:{port}");
-    let mcp = Mcp { addr: addr.clone(), output, scratch: dir.clone() };
+    let Some(setup) = crate::prepare_session("badger-mcp") else { return std::process::ExitCode::FAILURE };
+    let mcp = Mcp { addr: setup.addr.clone(), output, scratch: setup.dir.clone() };
     std::thread::spawn(move || {
         let mut proto = std::io::LineWriter::new(proto);
         let mut send = |v: Value| {
             let _ = writeln!(proto, "{v}");
             let _ = proto.flush();
         };
-        let start = std::time::Instant::now();
-        while std::net::TcpStream::connect(&mcp.addr).is_err() {
-            if start.elapsed() > Duration::from_secs(30) {
-                eprintln!("error: the session did not start");
-                crate::exit_now(1);
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
+        crate::wait_for_session(&mcp.addr);
         // lines as bytes: invalid UTF-8 is an unparsable request, not the end
         for line in std::io::stdin().lock().split(b'\n') {
             let Ok(line) = line else { break };
@@ -632,15 +606,6 @@ pub fn serve() -> std::process::ExitCode {
         let _ = std::fs::remove_dir_all(&mcp.scratch);
         crate::exit_now(0)
     });
-    badger_driver::set_repl_session();
     badger_driver::forbid_exit();
-    let mut s = badger_driver::Session::new();
-    let opts = badger_driver::RunOptions { inspect: Some(addr), ..Default::default() };
-    match s.run(&file, vec![], &opts) {
-        Ok(code) => crate::exit_now(code),
-        Err(_) => {
-            crate::report(&s, false);
-            std::process::ExitCode::FAILURE
-        }
-    }
+    crate::run_session(&setup)
 }

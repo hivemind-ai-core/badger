@@ -14,11 +14,11 @@ fn total(prices: Map<Symbol, Int>) -> Int {
 pub fn main() -> Result<Unit, io.Error> {
     let prices: Map<Symbol, Int> = { apple: 3, pear: 5 }
     io.println(prices.len())?
-    io.println(prices.get(:pear).unwrap_or(0))?
+    io.println(prices.get(#pear).unwrap_or(0))?
     io.println(total({ fig: 10, kiwi: 2, lime: 1 }))?
 
     let fields: Map<Symbol, Data> = { name: "Ada", age: 36, tags: ["math", "engines"] }
-    io.println(fields.get(:age).is_some())?
+    io.println(fields.get(#age).is_some())?
 
     let doc: Data = { title: "Notes", pages: 12, draft: false }
     io.println(codec.encode_text(doc))?

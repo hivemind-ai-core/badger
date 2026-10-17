@@ -9,7 +9,7 @@ impl Error for F {}
 pub enum AppError { system(source: system.Error) } derive(Error, From)
 fn say(s: String) -> Unit { let _ = io.println(s) }
 let p = system.provider({
-    name: :t/p,
+    name: #t/p,
     init: fn(scope, c: { v: Int }) -> Result<Int, F> {
         scope.on_halt(fn() -> Result<Unit, F> { say("first registered halt still runs"); ok(()) })
         scope.on_halt(fn() -> Result<Unit, F> { panic("halt boom") })

@@ -38,7 +38,7 @@ fn chunks(produced: Atom<Int>) -> Seq<Bytes> {
 }
 
 let api = system.provider({
-    name: :test/stream,
+    name: #test/stream,
     init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
         let produced = Atom.new(0)
         let streaming = http.streaming_handler(fn(request) -> Result<http.Streamed, http.Error> {
@@ -55,8 +55,8 @@ pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("BP_")?
     let plan = system {
         api: component(api, {}),
-        streaming: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).streaming }),
-        count: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).count }),
+        streaming: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(#api).streaming }),
+        count: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(#api).count }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

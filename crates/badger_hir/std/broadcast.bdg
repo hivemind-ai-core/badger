@@ -3,19 +3,19 @@
 //
 // Retention is per subscriber: a bounded backlog of `backlog` messages.
 // When a subscriber's backlog is full, the policy decides:
-// - `:drop_oldest` (default): the oldest pending message is dropped and the
+// - `#drop_oldest` (default): the oldest pending message is dropped and the
 //   subscriber's `lagged()` count grows; publishing never waits.
-// - `:block`: publishing waits for the slow subscriber.
+// - `#block`: publishing waits for the slow subscriber.
 //
 // A subscriber that is done calls `close()`: publishing then stops
-// delivering to it (and, under `:block`, stops waiting for it). One that is
+// delivering to it (and, under `#block`, stops waiting for it). One that is
 // only dropped stays subscribed, since the broadcaster still holds its end.
 
 import std.channel
 import std.list
 
 pub type Options = { backlog: Int, policy: Symbol }
-pub let defaults = { backlog: 64, policy: :drop_oldest }
+pub let defaults = { backlog: 64, policy: #drop_oldest }
 
 pub type Error = channel.ConfigError
 
@@ -39,14 +39,14 @@ pub fn create<T>(options: Options) -> Result<Broadcaster<T>, Error> where T: Sha
     if options.backlog <= 0 {
         return err({ message: "broadcast backlog must be positive" })
     }
-    if options.policy != :drop_oldest && options.policy != :block {
-        return err({ message: "broadcast policy is :drop_oldest or :block" })
+    if options.policy != #drop_oldest && options.policy != #block {
+        return err({ message: "broadcast policy is #drop_oldest or #block" })
     }
     ok({
         subs: Atom.new([]),
         next_id: Atom.new(0),
         backlog: options.backlog,
-        blocking: options.policy == :block,
+        blocking: options.policy == #block,
         closed: Atom.new(false),
     })
 }
@@ -84,7 +84,7 @@ impl<T> Broadcaster<T> {
                     match s.sender.try_send(value) {
                         .ok(_) => { delivered = true },
                         .err(e) => {
-                            if e.reason == :channel/closed {
+                            if e.reason == #channel/closed {
                                 attempts = 2
                                 gone = gone.append(s.id)
                             } else {

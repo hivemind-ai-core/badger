@@ -9,9 +9,9 @@
 // be left out; a `List` field may repeat (`--tag a --tag b`; absent is
 // empty); an enum field takes one of its variant names. A field named
 // `args` (`List<String>`) collects the positional arguments, and `--`
-// ends the options. `-h`/`--help` returns a `:cli/help` error whose
-// `usage` is the help text; other problems are `:cli/unknown`,
-// `:cli/missing`, and `:cli/invalid` errors that carry it too.
+// ends the options. `-h`/`--help` returns a `#cli/help` error whose
+// `usage` is the help text; other problems are `#cli/unknown`,
+// `#cli/missing`, and `#cli/invalid` errors that carry it too.
 
 import std.prelude
 
@@ -29,7 +29,7 @@ pub struct Error {
 
 impl Display for Error {
     fn display(self: &Self) -> String {
-        if self.code == :cli/help { self.usage } else { $"{self.message}\n\n{self.usage}" }
+        if self.code == #cli/help { self.usage } else { $"{self.message}\n\n{self.usage}" }
     }
 }
 
@@ -212,10 +212,10 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
             continue
         }
         if a == "--help" || a == "-h" {
-            return err(fail(:cli/help, "help"))
+            return err(fail(#cli/help, "help"))
         }
         if !texts.starts_with(a, "--") {
-            return err(fail(:cli/unknown, $"unknown option `{a}`"))
+            return err(fail(#cli/unknown, $"unknown option `{a}`"))
         }
         let body = texts.slice(a, 2, texts.len(a)).unwrap_or("")
         let parts = texts.split(body, "=")
@@ -231,7 +231,7 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
                     let v = match inline {
                         .some(raw) => match convert("boolean", [], raw) {
                             .ok(d) => d,
-                            .err(m) => { return err(fail(:cli/invalid, $"--{o.flag}: {m}")) },
+                            .err(m) => { return err(fail(#cli/invalid, $"--{o.flag}: {m}")) },
                         },
                         .none => Data.bool(true),
                     }
@@ -242,7 +242,7 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
                     .some(r) => r,
                     .none => {
                         if i >= args.len() {
-                            return err(fail(:cli/missing, $"--{o.flag} needs a value"))
+                            return err(fail(#cli/missing, $"--{o.flag} needs a value"))
                         }
                         i = i + 1
                         args.get(i - 1).unwrap_or("")
@@ -251,7 +251,7 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
                 let kind = if o.kind == "array" { o.item } else { o.kind }
                 let v = match convert(kind, o.choices, raw) {
                     .ok(d) => d,
-                    .err(m) => { return err(fail(:cli/invalid, $"--{o.flag}: {m}")) },
+                    .err(m) => { return err(fail(#cli/invalid, $"--{o.flag}: {m}")) },
                 }
                 if o.kind == "array" {
                     lists = lists.insert(o.field, lists.get(o.field).unwrap_or([]).append(v))
@@ -261,7 +261,7 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
             },
             .none => match negated.first() {
                 .some(o) => { values = values.insert(o.field, Data.bool(false)) },
-                .none => { return err(fail(:cli/unknown, $"unknown option `--{name}`")) },
+                .none => { return err(fail(#cli/unknown, $"unknown option `--{name}`")) },
             },
         }
     }
@@ -281,15 +281,15 @@ fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -
             } else if o.optional {
                 values = values.insert(o.field, Data.null)
             } else {
-                return err(fail(:cli/missing, $"--{o.flag} is required"))
+                return err(fail(#cli/missing, $"--{o.flag} is required"))
             }
         }
     }
     if !positional.is_empty() && opts.filter(fn(o: Opt) -> Bool { o.field == "args" }).is_empty() {
-        return err(fail(:cli/unknown, $"unexpected argument `{positional.first().unwrap_or("")}`"))
+        return err(fail(#cli/unknown, $"unexpected argument `{positional.first().unwrap_or("")}`"))
     }
     match codec.from_data<T>(Data.object(values)) {
         .ok(v) => ok(v),
-        .err(e) => err(fail(:cli/invalid, $"{e}")),
+        .err(e) => err(fail(#cli/invalid, $"{e}")),
     }
 }

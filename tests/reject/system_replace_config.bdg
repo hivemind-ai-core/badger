@@ -8,12 +8,12 @@ pub struct Failure { pub message: String }
 impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
 pub enum AppError { system(source: system.Error), failed(source: Failure) } derive(Error, From)
-let constant = system.provider({ name: :t/c, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v) } })
-let stringy = system.provider({ name: :t/s, init: fn(scope, config: { v: Int }) -> Result<String, Failure> { ok("s") } })
-let otherconf = system.provider({ name: :t/o, init: fn(scope, config: { w: String }) -> Result<Int, Failure> { ok(5) } })
+let constant = system.provider({ name: #t/c, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v) } })
+let stringy = system.provider({ name: #t/s, init: fn(scope, config: { v: Int }) -> Result<String, Failure> { ok("s") } })
+let otherconf = system.provider({ name: #t/o, init: fn(scope, config: { w: String }) -> Result<Int, Failure> { ok(5) } })
 pub fn main() -> Result<Unit, AppError> {
     let base = system { value: component(constant, { v: 21 }) }
-    let swapped = system.replace(base, :value, otherconf)?
+    let swapped = system.replace(base, #value, otherconf)?
     let v = system.run(swapped, fn(running) -> Result<Int, AppError> { ok(running.value) })?
     let _ = io.println($"{v}")
     ok(())

@@ -38,10 +38,10 @@ pub fn main() -> Result<Unit, io.Error> {
         }, fn(_c: Cell<Int>) { let _ = closed.update(fn(n: Int) -> Int { n + 1 }) })
         ok(scope.stream(200, "text/plain", src))
     })
-    io.println(show(http.call(h, http.request(:post, "/echo", "abcdefgh"))))?
-    io.println(show(http.call(h, http.request(:post, "/order", "{\"title\":\"pens\"}"))))?
-    io.println(show(http.call(h, http.request(:post, "/order", "{}"))))?
-    io.println(show(http.call(h, http.request(:get, "/stream", ""))))?
+    io.println(show(http.call(h, http.request(#post, "/echo", "abcdefgh"))))?
+    io.println(show(http.call(h, http.request(#post, "/order", "{\"title\":\"pens\"}"))))?
+    io.println(show(http.call(h, http.request(#post, "/order", "{}"))))?
+    io.println(show(http.call(h, http.request(#get, "/stream", ""))))?
     io.println($"stream source closed {closed.get()} time(s)")?
     ok(())
 }

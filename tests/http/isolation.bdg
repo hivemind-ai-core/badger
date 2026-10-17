@@ -42,7 +42,7 @@ fn result_http(r: Result<http.Response, http.Error>) -> Result<http.Response, Ap
 }
 
 let api = system.provider({
-    name: :test/api,
+    name: #test/api,
     init: fn(_scope, cfg) -> Result<_, AppError> {
         sqlite.execute(cfg.db, "CREATE TABLE IF NOT EXISTS hits (path TEXT)", [])?
         let db = cfg.db
@@ -54,8 +54,8 @@ pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("ISO_")?
     let plan = system {
         db: component(sqlite.pool, { path: ":memory:" }),
-        api: component(api, { db: ref(:db) }),
-        server: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api) }),
+        api: component(api, { db: ref(#db) }),
+        server: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(#api) }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

@@ -85,7 +85,7 @@ how bundles treat it:
 ## Failures
 
 A module reports expected failures as `err` values: a `native.Error` with a
-`kind` (such as `:sqlite/constraint`) and a `message`, or any declared error
+`kind` (such as `#sqlite/constraint`) and a `message`, or any declared error
 type with those fields. Everything else is a **defect of the calling
 task** — contained by `capture`, a scope, or supervision like any other —
 never undefined behavior:

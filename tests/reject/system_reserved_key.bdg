@@ -5,7 +5,7 @@ import std.system.{component}
 pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
-let p = system.provider({ name: :t/p, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
+let p = system.provider({ name: #t/p, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
 pub fn main() -> Unit {
     let plan = system { started: component(p, { v: 1 }) }
 }

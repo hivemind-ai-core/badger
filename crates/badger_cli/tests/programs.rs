@@ -1270,6 +1270,16 @@ fn diagnostics_early_phases() {
         text.contains(r#""module":"resolve_phase""#) && text.contains(r#""scope":"fn resolve_phase.bad""#),
         "{text}"
     );
+    // columns count characters (not bytes): in JSON, and in the rendered
+    // report, whose label must sit under the right text
+    let f = "tests/diagnostics/non_ascii_columns.bdg";
+    let out = lang().args(["check", "--json", f]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains(r#""start":{"line":4,"column":41}"#), "{text}");
+    let out = lang().args(["check", f]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert!(text.contains("non_ascii_columns.bdg:4:41 ]"), "{text}");
+    assert!(!text.contains("╭─▶"), "the label spans one line: {text}");
     // a `.source` file is outside the formatting check (it does not parse)
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
@@ -2245,13 +2255,22 @@ fn config_env_replays() {
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&rec.stdout), "a:1\n", "{}", String::from_utf8_lossy(&rec.stderr));
-    let rep = lang().current_dir(&dir).args(["replay", "b.json"]).env("DEMO_PORT", "2").env_remove("DEMO_NAME").output().unwrap();
+    let rep = lang()
+        .current_dir(&dir)
+        .args(["replay", "b.json"])
+        .env("DEMO_PORT", "2")
+        .env_remove("DEMO_NAME")
+        .output()
+        .unwrap();
     let err = String::from_utf8_lossy(&rep.stderr).to_string();
     let _ = std::fs::remove_dir_all(&dir);
     assert!(rep.status.success() && err.contains("reproduced the recorded outcome"), "{err}");
     assert_eq!(String::from_utf8_lossy(&rep.stdout), "a:1\n");
     // a recording runs on one worker: asking for more is refused, not ignored
-    let many = lang().args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"]).output().unwrap();
+    let many = lang()
+        .args(["run", "--record", "/dev/null", "--workers", "4", "examples/01_basics.bdg"])
+        .output()
+        .unwrap();
     assert!(!many.status.success() && String::from_utf8_lossy(&many.stderr).contains("run on one worker"));
 }
 

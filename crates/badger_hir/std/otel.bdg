@@ -53,7 +53,7 @@ pub fn start(options: Options) -> Result<Exporter, io.Error> !{Io} {
     ok({ stop: ch.sender, scope, options })
 }
 
-fn io_error(message: String) -> io.Error { { kind: :io/other, message } }
+fn io_error(message: String) -> io.Error { { kind: #io/other, message } }
 
 fn export_until_stopped(options: Options, stop: channel.Receiver<Bool>) -> Unit {
     loop {
@@ -106,4 +106,4 @@ fn exporter_init(scope: system.InitScope, config: Options) -> Result<Exporter, i
 
 /// Provider of an exporter for `{endpoint, service, interval}` (see
 /// `from_env`); it stops, exporting what is left, when its system halts.
-pub let exporter = system.provider({ name: :otel/exporter, init: exporter_init })
+pub let exporter = system.provider({ name: #otel/exporter, init: exporter_init })

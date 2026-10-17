@@ -16,7 +16,7 @@ fn say(s: String) -> Unit {
 // Stage A: adds `verified` and `count`; observes them while unwinding.
 fn stage_a() {
     pipeline.stage({
-        name: :test/a,
+        name: #test/a,
         enter: fn(ctx) { pipeline.next({ ..ctx, verified: false, count: 0 }) },
         leave: fn(ctx, reply) {
             say($"A.leave verified={ctx.verified} count={ctx.count} reply={reply}")
@@ -32,7 +32,7 @@ fn stage_a() {
 // Stage B: commits `verified = true` and a later-only `token`.
 fn stage_b(fail_enter: Bool, fail_leave: Bool, recover: Bool) {
     pipeline.stage({
-        name: :test/b,
+        name: #test/b,
         enter: fn(ctx) {
             if fail_enter {
                 return err(Failure.in_enter)

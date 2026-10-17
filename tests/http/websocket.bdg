@@ -39,7 +39,7 @@ fn echo(ws: websocket.WebSocket) -> Result<Unit, websocket.Error> {
 }
 
 let api = system.provider({
-    name: :test/ws,
+    name: #test/ws,
     init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
         let plain = http.websocket_handler(fn(_request, ws) -> Result<Unit, websocket.Error> { echo(ws) })
         let scoped = http.scoped(fn(scope) -> Result<http.Sent, http.Error> { ok(scope.websocket(echo)) })
@@ -59,8 +59,8 @@ pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("WS_")?
     let plan = system {
         api: component(api, {}),
-        plain: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).plain }),
-        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).scoped }),
+        plain: component(http.server, { address: "127.0.0.1", port: settings.port, handler: ref(#api).plain }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(#api).scoped }),
     }
     use running <- system.run(plan)
     for port in [settings.port, settings.port + 1] {

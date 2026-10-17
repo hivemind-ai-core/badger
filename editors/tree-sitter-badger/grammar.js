@@ -414,7 +414,7 @@ module.exports = grammar({
         ),
       ),
     duration: (_) => token(seq(/[0-9][0-9_]*/, choice('ns', 'us', 'ms', 'min', 's', 'h'))),
-    symbol: (_) => token(seq(':', /[A-Za-z][A-Za-z0-9_]*/, optional(seq('/', /[A-Za-z][A-Za-z0-9_]*/)))),
+    symbol: (_) => token(seq('#', /[A-Za-z][A-Za-z0-9_]*/, optional(seq('/', /[A-Za-z][A-Za-z0-9_]*/)))),
     char: (_) => token(seq("'", choice(/\\(u\{[0-9A-Fa-f]+\}|[nrt\\"'0])/, /[^'\\]/), "'")),
     escape_sequence: (_) => token.immediate(/\\(u\{[0-9A-Fa-f]+\}|[nrt\\"'0])/),
     string: ($) => seq('"', repeat(choice(token.immediate(prec(1, /[^"\\\n]+/)), $.escape_sequence)), token.immediate('"')),

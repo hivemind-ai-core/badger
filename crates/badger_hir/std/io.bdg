@@ -109,7 +109,7 @@ impl Writer for Console {
     }
     fn flush(self: &Self) -> Result<Unit, Error> !{Io, Wait, State} {
         if bytes_len(self.pending.get()) > 0 {
-            return err({ kind: :io/invalid_data, message: "not UTF-8 text: the output ends inside a character" })
+            return err({ kind: #io/invalid_data, message: "not UTF-8 text: the output ends inside a character" })
         }
         ok(())
     }
@@ -138,7 +138,7 @@ fn incomplete_tail(b: Bytes) -> Int {
 fn utf8(b: Bytes) -> Result<String, Error> {
     match text_from_bytes(b) {
         .ok(t) => ok(t),
-        .err(e) => err({ kind: :io/invalid_data, message: $"not UTF-8 text: {e}" }),
+        .err(e) => err({ kind: #io/invalid_data, message: $"not UTF-8 text: {e}" }),
     }
 }
 

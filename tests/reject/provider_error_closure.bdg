@@ -20,6 +20,6 @@ fn bad_init(scope: system.InitScope, c: { path: String }) -> Result<Int, Leaky> 
     }
 }
 
-let bad = system.provider({ name: :t/bad, init: bad_init })
+let bad = system.provider({ name: #t/bad, init: bad_init })
 
 pub fn main() {}

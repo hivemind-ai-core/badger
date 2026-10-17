@@ -177,7 +177,7 @@ pub fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !E
             match f(scope) {
                 .ok(_) => Reply.sent,
                 .err(e) => {
-                    trace_event(:http/handler_error, { message: e.display() })
+                    trace_event(#http/handler_error, { message: e.display() })
                     Reply.full(error_response(500, "internal server error"))
                 },
             }
@@ -249,7 +249,7 @@ pub fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler wh
             match f(request) {
                 .ok(r) => Reply.full(r),
                 .err(e) => {
-                    trace_event(:http/handler_error, { message: e.display() })
+                    trace_event(#http/handler_error, { message: e.display() })
                     Reply.full(error_response(500, "internal server error"))
                 },
             }
@@ -265,7 +265,7 @@ pub fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> 
             match f(request) {
                 .ok(s) => Reply.stream(s),
                 .err(e) => {
-                    trace_event(:http/handler_error, { message: e.display() })
+                    trace_event(#http/handler_error, { message: e.display() })
                     Reply.full(error_response(500, "internal server error"))
                 },
             }
@@ -317,12 +317,12 @@ fn run_websocket<E>(ex: Exchange, request: Request, session: fn(websocket.WebSoc
             let guard = cleanup_push(fn() { let _ = ws.close() })
             match session(ws) {
                 .ok(_) => (),
-                .err(e) => trace_event(:http/websocket_error, { message: e.display() }),
+                .err(e) => trace_event(#http/websocket_error, { message: e.display() }),
             }
             cleanup_remove(guard)
             let _ = ws.close()
         },
-        .err(e) => trace_event(:http/websocket_error, { message: e.message }),
+        .err(e) => trace_event(#http/websocket_error, { message: e.message }),
     }
     { status: 101 }
 }
@@ -574,7 +574,7 @@ fn server_init(scope: system.InitScope, config: { address: String, port: U16, ha
 
 /// Provider of a managed server for `{address, port, handler}` (default
 /// limits from the runtime configuration).
-pub let server = system.provider({ name: :http/server, init: server_init })
+pub let server = system.provider({ name: #http/server, init: server_init })
 
 fn limited_server_init(scope: system.InitScope, config: { address: String, port: U16, handler: Handler, limits: Limits }) -> Result<Server, Error> {
     let s = listen_with(config.address, config.port, config.handler, config.limits)?
@@ -586,4 +586,4 @@ fn limited_server_init(scope: system.InitScope, config: { address: String, port:
 }
 
 /// Provider of a managed server with explicit `limits`.
-pub let limited_server = system.provider({ name: :http/limited_server, init: limited_server_init })
+pub let limited_server = system.provider({ name: #http/limited_server, init: limited_server_init })

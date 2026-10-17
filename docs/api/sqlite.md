@@ -146,6 +146,6 @@ fn transaction<P: Scope, R, E>(pool: Pool<P>, body: for<S: Scope> fn(Tx<S>) -> R
 Run `body` in a transaction: commit after `ok`, roll back after `err`,
 defect, or cancellation. A failed begin or commit is returned even when
 the body succeeded. A failed rollback after a body error is returned as a
-`:sqlite/rollback_failed` error whose `cause` is the body's error, so
+`#sqlite/rollback_failed` error whose `cause` is the body's error, so
 neither failure is discarded.
 

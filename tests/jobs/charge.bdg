@@ -36,7 +36,7 @@ fn send(c: fetch.Client, e: jobs.Entry, crash: Bool) -> jobs.Outcome !{Io, Wait}
             }
         },
         .err(e) => {
-            if e.kind == :io/connection_failed {
+            if e.kind == #io/connection_failed {
                 jobs.Outcome.not_sent($"{e}")
             } else {
                 jobs.Outcome.uncertain($"{e}")

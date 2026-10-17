@@ -70,11 +70,80 @@ never NULL, `"note?"` may be, and `"total!: Int"` also gives the type.
 
 Other types are refused with advice to cast them (`::text`).
 
-SQLite prepares each statement against the project's `[database] schema`
-(or `--schema FILE`): declared column types give `Int`, `Float`, or
-`String` (other declared types, and expressions, are `Data` unless the
-alias gives a type), and the schema gives nullability. SQLite does not
-know parameter types: they are `Data` unless `-- params:` gives them.
+SQLite prepares each statement against the project's schema (see
+[below](#sqlite-the-project-schema)): declared column types give `Int`,
+`Float`, or `String` (other declared types, and expressions, are `Data`
+unless the alias gives a type), and the schema gives nullability. SQLite
+does not know parameter types: they are `Data` unless `-- params:` gives
+them.
+
+## SQLite: the project schema
+
+Postgres answers type questions itself. SQLite has no server to ask, so a
+project names a schema file in `badger.toml`:
+
+```toml
+[package]
+name = "app"
+entry = "src/main.bdg"
+
+[database]
+schema = "schema.sql"     # relative to the directory of badger.toml
+```
+
+`schema` is the only key of `[database]`, and the section only matters
+for SQLite. The file is plain SQL: the `CREATE TABLE`, `CREATE INDEX`, and
+`CREATE VIEW` statements of the database the program uses.
+
+What reads it:
+
+- `badger check` (and `run`, `test`, the language server, and MCP
+  `check`) runs the file into an empty in-memory SQLite database, then
+  prepares every literal SQL string the program passes to `std.sqlite`
+  against it. Nothing touches a real database file. An unknown table or
+  column is E0180, a wrong parameter count E0181, and a `query_as` row
+  type that does not fit the columns E0182.
+- `badger generate sql` uses it when there is no `--schema FILE`. It looks
+  for the `badger.toml` nearest above each `.sql` file.
+
+The program's own literal `CREATE` and `ALTER` statements are run after
+the file, in source order, so a program that creates its tables at start
+is checked without a schema file. Without either, only SQL syntax is
+checked. A schema file that cannot be read, or whose SQL fails, is E0180.
+
+### Getting the schema
+
+From an existing database file, with the `sqlite3` command-line tool:
+
+```sh
+sqlite3 app.db '.schema --nosys' > schema.sql
+```
+
+`--nosys` leaves out SQLite's internal tables. Plain `.schema` includes
+`CREATE TABLE sqlite_sequence(...)` when a table uses `AUTOINCREMENT`, and
+that statement fails when the file is loaded ("object name reserved for
+internal use").
+
+Without the `sqlite3` tool, the same text is in the database itself:
+
+```sql
+SELECT sql || ';' FROM sqlite_schema
+WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%';
+```
+
+From migrations: the schema is every migration applied in order, so
+concatenate them (`cat migrations/*.sql > schema.sql`, when the file
+names sort in order), or apply them to a scratch database and dump that:
+
+```sh
+rm -f /tmp/scratch.db
+for f in migrations/*.sql; do sqlite3 /tmp/scratch.db < "$f"; done
+sqlite3 /tmp/scratch.db '.schema --nosys' > schema.sql
+```
+
+Regenerate `schema.sql` whenever the database changes, then run
+`badger check` and `badger generate sql --check` to find the code that no
+longer fits.
 
 The generated module is ordinary code: `badger check` also checks its
 statements against the schema (for SQLite), and it can be read, diffed,

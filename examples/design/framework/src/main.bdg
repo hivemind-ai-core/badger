@@ -12,7 +12,7 @@ fn exercise() -> Result<(api.Order, List<String>), providers.Error> {
     let log: Atom<List<String>> = Atom.new([])
     let plan = system {
         orders: component(providers.orders, {
-            store: ref(:store),
+            store: ref(#store),
             log,
             fail_start: false,
         }),
@@ -73,7 +73,7 @@ fn test_partial_start_cleanup() -> Unit {
     let plan = system {
         store: component(providers.store, { log }),
         orders: component(providers.orders, {
-            store: ref(:store),
+            store: ref(#store),
             log,
             fail_start: true,
         }),
@@ -91,7 +91,7 @@ fn test_operation_error_cleanup() -> Unit {
     let plan = system {
         store: component(providers.store, { log }),
         orders: component(providers.orders, {
-            store: ref(:store),
+            store: ref(#store),
             log,
             fail_start: false,
         }),
@@ -107,7 +107,7 @@ fn test_operation_error_cleanup() -> Unit {
 
 fn test_supervised_worker_retries_factory() -> Unit {
     let attempts = Atom.new(0)
-    worker.supervise(:baseline/worker, fn() -> Result<Unit, api.Error> {
+    worker.supervise(#baseline/worker, fn() -> Result<Unit, api.Error> {
         let attempt = attempts.update(fn(n) { n + 1 })
         if attempt == 1 {
             return err(api.Error.unavailable)

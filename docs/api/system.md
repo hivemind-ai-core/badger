@@ -111,7 +111,7 @@ fn worker_with<E, Eff>(self: &Self, name: Symbol, factory: fn() -> Result<Unit, 
 struct Node<C, O> { pub index: Int, erased: system.ErasedNode }
 ```
 
-A typed node handle: `ref(:key)` reads its output through `output`;
+A typed node handle: `ref(#key)` reads its output through `output`;
 `C` is its provider's configuration type.
 
 ### `Outputs`
@@ -249,7 +249,7 @@ errors, carry no resources).
 fn replace<Os: Row, Cs: Row, C, O, E>(plan: SystemPlan<Os, Cs>, key: Symbol, provider: Provider<C, O, E>) -> Result<SystemPlan<Os, Cs>, Error> where E: prelude.Error
 ```
 
-`system.replace(plan, :key, provider)`: the same plan with one node's
+`system.replace(plan, #key, provider)`: the same plan with one node's
 provider replaced (tests). The replacement keeps the node's declared
 configuration and output contract, checked statically (the compiler
 supplies `pick` and `pick_config`).
@@ -276,7 +276,7 @@ attach to the original error.
 fn select<Os: Row, Cs: Row>(plan: SystemPlan<Os, Cs>, keys: List<Symbol>) -> SystemPlan<Os, Cs>
 ```
 
-`system.select(plan, [:key, ...])`: the sub-plan that starts only the
+`system.select(plan, [#key, ...])`: the sub-plan that starts only the
 selected keys and their dependency closure (in the original order), with
 just those keys' outputs. The keys must be a literal list; the compiler
 rewrites the call to `select_keys` with a typed projection.

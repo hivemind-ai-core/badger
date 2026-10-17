@@ -36,11 +36,11 @@ extern "intrinsic" fn time_wall_nanos() -> Int
 fn now_ms() -> Int !{Io} { time_wall_nanos() / 1000000 }
 
 /// A job store operation failed: a database error (`code` from SQLite), a
-/// state that does not decode (`:jobs/decode`), a transition by a worker
-/// that lost its claim (`:jobs/lease_lost`) or whose job was cancelled
-/// (`:jobs/cancelled`), an operation key reused with a different payload
-/// (`:jobs/operation_conflict`), or an unknown store layout
-/// (`:jobs/schema`).
+/// state that does not decode (`#jobs/decode`), a transition by a worker
+/// that lost its claim (`#jobs/lease_lost`) or whose job was cancelled
+/// (`#jobs/cancelled`), an operation key reused with a different payload
+/// (`#jobs/operation_conflict`), or an unknown store layout
+/// (`#jobs/schema`).
 pub struct Error {
     pub code: Symbol,
     pub message: String,
@@ -59,7 +59,7 @@ impl From<sqlite.Error> for Error {
 }
 
 impl From<codec.DecodeError> for Error {
-    fn from(e: codec.DecodeError) -> Self { { code: :jobs/decode, message: $"{e}" } }
+    fn from(e: codec.DecodeError) -> Self { { code: #jobs/decode, message: $"{e}" } }
 }
 
 fn failure<T>(code: Symbol, message: String) -> Result<T, Error> { err({ code: code, message: message }) }
@@ -222,7 +222,7 @@ pub fn open<S: Scope>(path: String) -> Result<Store<S>, Error> !{Io, Wait} {
     }
     let v = codec.from_data<Version>(sqlite.query_one(pool, "SELECT value FROM jobs_meta WHERE key = 'schema'", [])?)?
     if v.value != "1" {
-        return failure(:jobs/schema, $"{path} has job store layout {v.value}; this library reads layout 1")
+        return failure(#jobs/schema, $"{path} has job store layout {v.value}; this library reads layout 1")
     }
     let s: Store<S> = { pool: pool }
     ok(s)
@@ -251,12 +251,12 @@ fn lost<C, T>(tx: C, c: &Claim) -> Result<T, Error> !{Io, Wait} where C: sqlite.
         .some(row) => {
             let f = codec.from_data<Fenced>(row)?
             if f.status == "cancelled" {
-                failure(:jobs/cancelled, $"job {c.id} was cancelled")
+                failure(#jobs/cancelled, $"job {c.id} was cancelled")
             } else {
-                failure(:jobs/lease_lost, $"the claim on job {c.id} (fence {c.fence}) is no longer held (now {f.status}, fence {f.fence})")
+                failure(#jobs/lease_lost, $"the claim on job {c.id} (fence {c.fence}) is no longer held (now {f.status}, fence {f.fence})")
             }
         },
-        .none => failure(:jobs/lease_lost, $"job {c.id} no longer exists"),
+        .none => failure(#jobs/lease_lost, $"job {c.id} no longer exists"),
     }
 }
 
@@ -354,7 +354,7 @@ impl<S> Store<S> {
             if added == 0 {
                 let p = codec.from_data<Payload>(sqlite.query_one(tx, "SELECT payload FROM jobs_outbox WHERE key = ?", [str(s.key)])?)?
                 if p.payload != s.payload {
-                    return failure(:jobs/operation_conflict, $"operation {s.key} was already added with a different payload")
+                    return failure(#jobs/operation_conflict, $"operation {s.key} was already added with a different payload")
                 }
             }
         }

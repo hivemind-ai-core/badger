@@ -18,7 +18,7 @@ struct OrderV2 {
 
 fn say(s: String) -> Unit { let _ = io.println(s) }
 
-fn must<T>(o: Option<T>) -> Result<T, jobs.Error> { o.ok_or({ code: :test/missing, message: "expected a value" }) }
+fn must<T>(o: Option<T>) -> Result<T, jobs.Error> { o.ok_or({ code: #test/missing, message: "expected a value" }) }
 
 fn charge(id: String, amount: Int) -> jobs.Send { { key: $"{id}/charge", kind: "charge", payload: $"{amount}" } }
 

@@ -13,7 +13,7 @@ pub enum AppError {
 } derive(Error, From)
 
 let flaky = system.provider({
-    name: :demo/flaky,
+    name: #demo/flaky,
     init: fn(scope, config: { port: Int }) -> Result<Int, StartError> { err(StartError.unavailable(config.port)) },
 })
 

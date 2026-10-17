@@ -453,9 +453,11 @@ impl Cx<'_> {
                     } else {
                         let span = self.hir.defs[def].span;
                         self.diags.push(
-                            Diagnostic::warning(format!("`{name}` takes parameters, so `badger test` does not run it"))
-                                .with_code("E0142")
-                                .with_label(span, "a test takes no parameters"),
+                            Diagnostic::warning(format!(
+                                "`{name}` takes parameters, so `badger test` does not run it"
+                            ))
+                            .with_code("E0142")
+                            .with_label(span, "a test takes no parameters"),
                         );
                     }
                 }
@@ -1024,6 +1026,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = te.span;
         let kind = match &te.kind {
             ast::TypeKind::Hole => HTyKind::Hole,
+            // only in a tree recovered from syntax errors
+            ast::TypeKind::Error => HTyKind::Error,
             ast::TypeKind::Unit => HTyKind::Unit,
             ast::TypeKind::Tuple(ts) => HTyKind::Tuple(ts.iter().map(|t| self.lower_ty(*t)).collect()),
             ast::TypeKind::Record { fields, rest } => {
@@ -1195,6 +1199,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = expr.span;
         let kind = match &expr.kind {
             ast::ExprKind::Lit(l) => ExprKind::Lit(self.lower_lit(l)),
+            ast::ExprKind::Error => ExprKind::Error,
             ast::ExprKind::Interp(parts) => ExprKind::Interp(
                 parts
                     .iter()
@@ -2095,12 +2100,12 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     /// handles bound in dependency order, followed by `system.plan([...])`:
     ///
     /// ```text
-    /// { let __node_k = system.node(:k, index, [deps], provider, fn(__outputs) { config })
+    /// { let __node_k = system.node(#k, index, [deps], provider, fn(__outputs) { config })
     ///   ...
     ///   system.plan([system.erase(__node_a), ...]) }
     /// ```
     ///
-    /// `ref(:k)` inside a configuration becomes `system.output(__outputs, __node_k)`,
+    /// `ref(#k)` inside a configuration becomes `system.output(__outputs, __node_k)`,
     /// so reference types follow from ordinary inference.
     fn lower_system(&mut self, entries: &[(ast::Label, ast::ExprId)], span: Span) -> ExprId {
         let component = self.cx.hir.try_lang("system.component");
@@ -2155,9 +2160,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             for (r, rspan) in &p.3 {
                 if !labels.contains(r) {
                     let s = self.sym(*r);
-                    let keys: Vec<String> = labels.iter().map(|l| format!(":{}", self.sym(*l))).collect();
+                    let keys: Vec<String> = labels.iter().map(|l| format!("#{}", self.sym(*l))).collect();
                     self.cx.diags.push(
-                        Diagnostic::error(format!("system reference `:{s}` names no plan key"))
+                        Diagnostic::error(format!("system reference `#{s}` names no plan key"))
                             .with_code("E0601")
                             .with_label(*rspan, "missing reference")
                             .with_note(format!("plan keys: {}", keys.join(", "))),
@@ -2301,14 +2306,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             let mut stack = vec![];
             if let Some(cyc) = dfs(u, entries, &idx, &mut color, &mut stack) {
                 let path: Vec<String> =
-                    cyc.iter().map(|&i| format!(":{}", self.sym(entries[i].0.sym))).collect();
+                    cyc.iter().map(|&i| format!("#{}", self.sym(entries[i].0.sym))).collect();
                 let mut d = Diagnostic::error(format!("system dependency cycle: {}", path.join(" -> ")))
                     .with_code("E0604");
                 for w in cyc.windows(2) {
                     let (a, b) = (w[0], w[1]);
                     let span = entries[a].3.iter().find(|r| r.0 == entries[b].0.sym).map(|r| r.1).unwrap();
                     let (la, lb) = (self.sym(entries[a].0.sym), self.sym(entries[b].0.sym));
-                    d = d.with_label(span, format!("`:{la}` depends on `:{lb}`"));
+                    d = d.with_label(span, format!("`#{la}` depends on `#{lb}`"));
                 }
                 self.cx.diags.push(d);
                 return true;
@@ -2409,8 +2414,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         id
     }
 
-    /// `system.select(plan, [:a, :b])` becomes
-    /// `system.select_keys(plan, [:a, :b], fn(all) { { a: all.a, b: all.b } })`:
+    /// `system.select(plan, [#a, #b])` becomes
+    /// `system.select_keys(plan, [#a, #b], fn(all) { { a: all.a, b: all.b } })`:
     /// the projection types the selected output record (and rejects unknown
     /// keys statically); the runtime starts only the keys' dependency closure.
     fn lower_select(&mut self, plan: ast::ExprId, keys: ast::ExprId, span: Span) -> ExprId {
@@ -2431,7 +2436,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 "E0605",
                 kspan,
                 "`system.select` takes a literal list of plan keys",
-                "e.g. `[:database, :api]`",
+                "e.g. `[#database, #api]`",
             );
             return self.alloc(ExprKind::Error, span);
         };
@@ -2460,7 +2465,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 "E0702",
                 span,
                 "`pipeline.stage` expects a record literal",
-                "e.g. `{ name: :app/stage, enter: ... }`",
+                "e.g. `{ name: #app/stage, enter: ... }`",
             );
             return self.alloc(ExprKind::Error, span);
         };
@@ -2498,7 +2503,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let name = match fields.remove("name") {
             Some(n) => n,
             None => {
-                self.err("E0702", span, "a stage needs a `name`", "add `name: :app/stage`");
+                self.err("E0702", span, "a stage needs a `name`", "add `name: #app/stage`");
                 self.alloc(ExprKind::Error, span)
             }
         };
@@ -2538,6 +2543,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let span = pat.span;
         let kind = match &pat.kind {
             ast::PatKind::Discard => PatKind::Discard,
+            ast::PatKind::Error => PatKind::Error,
             ast::PatKind::Bind(n) => PatKind::Bind(self.bind_local(*n, mutable)),
             ast::PatKind::Lit { lit, negative } => {
                 let mut l = self.lower_lit(lit);
@@ -2619,13 +2625,13 @@ enum LambdaBody<'s> {
     SystemConfig(ast::ExprId, FxHashMap<Symbol, LocalId>),
 }
 
-/// Collect `ref(:label)` occurrences in an expression tree.
+/// Collect `ref(#label)` occurrences in an expression tree.
 fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
     use ast::ExprKind as K;
     let mut go = |x: ast::ExprId| collect_refs(ast, x, out);
     match &ast.exprs[e].kind {
         K::Ref(l) => out.push((l.sym, l.span)),
-        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue => {}
+        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue | K::Error => {}
         K::Interp(parts) => parts.iter().for_each(|p| {
             if let ast::InterpPart::Expr(x) = p {
                 go(*x)

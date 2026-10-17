@@ -14,12 +14,12 @@ impl Display for Failure {
 impl Error for Failure {}
 
 fn value() -> system.Provider<{ v: Int }, Int, Failure> {
-    system.provider({ name: :test/value, init: fn(scope, config) -> Result<Int, Failure> { ok(config.v) } })
+    system.provider({ name: #test/value, init: fn(scope, config) -> Result<Int, Failure> { ok(config.v) } })
 }
 
 pub fn main() -> Unit {
     let plan = system {
         a: component(value(), { v: 1 }),
     }
-    let _ = system.select(plan, [:b])
+    let _ = system.select(plan, [#b])
 }

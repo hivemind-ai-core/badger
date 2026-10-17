@@ -38,7 +38,7 @@ fn chunks(n: Int) -> Seq<Bytes> {
 }
 
 let api = system.provider({
-    name: :test/api,
+    name: #test/api,
     init: fn(_scope, _cfg: {}) -> Result<_, AppError> {
         let plain = http.handler(fn(request) -> Result<http.Response, http.Error> {
             if request.path == "/slow" {
@@ -61,9 +61,9 @@ pub fn main() -> Result<Unit, AppError> {
     let limits: http.Limits = { ..http.limits(), max_body_bytes: 64, max_in_flight: 1 }
     let plan = system {
         api: component(api, {}),
-        plain: component(http.limited_server, { address: "127.0.0.1", port: settings.port, handler: ref(:api).plain, limits }),
-        streaming: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(:api).streaming }),
-        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(:api).scoped }),
+        plain: component(http.limited_server, { address: "127.0.0.1", port: settings.port, handler: ref(#api).plain, limits }),
+        streaming: component(http.server, { address: "127.0.0.1", port: settings.port + 1, handler: ref(#api).streaming }),
+        scoped: component(http.server, { address: "127.0.0.1", port: settings.port + 2, handler: ref(#api).scoped }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

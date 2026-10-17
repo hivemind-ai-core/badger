@@ -394,7 +394,7 @@ pub type Entry = unsafe extern "C" fn(host: *const Host) -> *const Module;
 
 /// An expected failure, returned to the program as `err` (or a defect
 /// where the declared result is not a `Result`): a map with `kind`
-/// (a symbol such as `:sqlite/constraint`, written without the colon) and
+/// (a symbol such as `#sqlite/constraint`, written without the `#`) and
 /// `message`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Error {
@@ -422,7 +422,7 @@ impl Error {
 pub type Outcome = Result<Value, Error>;
 
 /// A call's arguments, with typed accessors that fail with an
-/// `:native/argument` error.
+/// `#native/argument` error.
 pub struct Args {
     pub values: Vec<Value>,
 }

@@ -30,19 +30,19 @@ pub enum AppError {
 
 fn timing() {
     pipeline.stage({
-        name: :orders/timing,
+        name: #orders/timing,
         enter: fn(ctx) {
-            pipeline.next({ ..ctx, [:orders/started]: time.now() })
+            pipeline.next({ ..ctx, [#orders/started]: time.now() })
         },
         leave: fn(ctx, response) {
-            trace.event(:orders/completed, {
-                elapsed: time.now() - ctx[:orders/started],
+            trace.event(#orders/completed, {
+                elapsed: time.now() - ctx[#orders/started],
             })
             pipeline.leave(ctx, response)
         },
         error: fn(ctx, error) {
-            trace.event(:orders/failed, {
-                elapsed: time.now() - ctx[:orders/started],
+            trace.event(#orders/failed, {
+                elapsed: time.now() - ctx[#orders/started],
                 message: error.display(),
             })
             pipeline.propagate(ctx, error)
@@ -52,7 +52,7 @@ fn timing() {
 
 fn decode_order() {
     pipeline.stage({
-        name: :orders/decode,
+        name: #orders/decode,
         enter: fn(ctx) -> Result<_, AppError> {
             let input = codec.decode<OrderInput>(ctx.request.body)?
             if input.title == "" {
@@ -65,7 +65,7 @@ fn decode_order() {
 
 fn respond_to_errors() {
     pipeline.stage({
-        name: :orders/errors,
+        name: #orders/errors,
         error: fn(ctx, error: AppError) {
             let reply = match error {
                 .decode(_) => http.json(400, { error: "invalid JSON request" }),
@@ -93,7 +93,7 @@ fn save_order(ctx) -> Result<_, AppError> {
 }
 
 let api_provider = system.provider({
-    name: :orders/api,
+    name: #orders/api,
     init: fn(_scope, settings) -> Result<_, AppError> {
         let database = settings.database
         sqlite.execute(
@@ -110,7 +110,7 @@ let api_provider = system.provider({
         })
 
         ok(http.handler(fn(request) -> Result<_, AppError> {
-            if request.method != :post || request.path != "/orders" {
+            if request.method != #post || request.path != "/orders" {
                 return http.json(404, { error: "not found" })
                     |> result.map_err(AppError.http)
             }
@@ -123,11 +123,11 @@ pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Config>("ORDERS_")?
     let plan = system {
         database: component(sqlite.pool, { path: settings.database_path }),
-        api: component(api_provider, { database: ref(:database) }),
+        api: component(api_provider, { database: ref(#database) }),
         server: component(http.server, {
             address: settings.address,
             port: settings.port,
-            handler: ref(:api),
+            handler: ref(#api),
         }),
     }
 

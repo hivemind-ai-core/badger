@@ -596,7 +596,7 @@ pub fn generate(source: &str, text: &str, backend: &Backend) -> Result<String, V
             Kind::Many => out.push_str(&format!("    {module}.query_as<{row}, C>(db, {sql}, {args})\n")),
             Kind::Exec => out.push_str(&format!("    {module}.execute(db, {sql}, {args})\n")),
             Kind::Opt => out.push_str(&format!(
-                "    let rows = {module}.query_as<{row}, C>(db, {sql}, {args})?\n    if rows.len() > 1 {{\n        return err({{ code: :{module}/row_count, message: $\"expected at most one row, got {{rows.len()}}\", cause: Option.none }})\n    }}\n    ok(rows.first())\n"
+                "    let rows = {module}.query_as<{row}, C>(db, {sql}, {args})?\n    if rows.len() > 1 {{\n        return err({{ code: #{module}/row_count, message: $\"expected at most one row, got {{rows.len()}}\", cause: Option.none }})\n    }}\n    ok(rows.first())\n"
             )),
         }
         out.push_str("}\n");
@@ -609,7 +609,7 @@ pub fn generate(source: &str, text: &str, backend: &Backend) -> Result<String, V
 pub fn project_schema(file: &Path) -> Option<std::path::PathBuf> {
     let file = std::path::absolute(file).ok()?;
     let root = file.ancestors().skip(1).find(|d| d.join("badger.toml").is_file())?;
-    let m = crate::manifest::Manifest::load(&root.join("badger.toml")).ok()?;
+    let m = crate::manifest::Manifest::in_dir(root).ok()?;
     m.schema.map(|s| root.join(s))
 }
 

@@ -25,7 +25,7 @@ pub type FindUserRow = { id: Int, name: String, email: Option<String>, karma: In
 pub fn find_user<C>(db: C, id: Int) -> Result<Option<FindUserRow>, sqlite.Error> !{Io, Wait} where C: sqlite.Connection {
     let rows = sqlite.query_as<FindUserRow, C>(db, "SELECT id, name, email, karma FROM users WHERE id = ?1", [codec.to_data(id)])?
     if rows.len() > 1 {
-        return err({ code: :sqlite/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
+        return err({ code: #sqlite/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
     }
     ok(rows.first())
 }

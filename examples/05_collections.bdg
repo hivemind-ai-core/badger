@@ -39,8 +39,8 @@ pub fn main() -> Result<Unit, Never> {
         .some(value) => { assert(value == "application/json") },
         .none => { assert(false) },
     }
-    let verbs = set { :get, :post }
-    let same_verbs = set { :post, :get }
+    let verbs = set { #get, #post }
+    let same_verbs = set { #post, #get }
     assert(verbs == same_verbs)
     ok(())
 }

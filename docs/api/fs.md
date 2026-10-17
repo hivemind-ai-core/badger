@@ -165,7 +165,7 @@ Closed by `close`, or once nothing can reach it.
 fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
 ```
 
-Flush and close; later reads and writes fail with `:io/closed`.
+Flush and close; later reads and writes fail with `#io/closed`.
 
 #### `File.flush`
 
@@ -197,8 +197,8 @@ fn write_text(self: &Self, text: String) -> Result<Unit, io.Error> !{Io, Wait}
 pub type Metadata = { kind: Symbol, size: Int, modified_nanos: Int, readonly: Bool }
 ```
 
-What is at a path: `:file`, `:dir`, `:symlink` (not followed), or
-`:other`, with its size in bytes and when it last changed.
+What is at a path: `#file`, `#dir`, `#symlink` (not followed), or
+`#other`, with its size in bytes and when it last changed.
 
 ### `ReadDir`
 
@@ -322,7 +322,7 @@ Create a directory and any missing parents (fine if it exists).
 fn create_new(path: String) -> Result<File, io.Error> !{Io, Wait}
 ```
 
-Create a new file for writing (`:io/already_exists` if there is one).
+Create a new file for writing (`#io/already_exists` if there is one).
 
 ### `exists`
 

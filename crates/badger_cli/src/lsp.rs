@@ -192,6 +192,37 @@ fn canonical(p: &Path) -> PathBuf {
     std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
+/// `canonical` of an analysed file's path, cached: requests compare every
+/// analysed file against the request's document.
+fn canonical_cached(p: &str) -> PathBuf {
+    thread_local! {
+        static CACHE: std::cell::RefCell<HashMap<String, PathBuf>> = Default::default();
+    }
+    CACHE.with(|c| c.borrow_mut().entry(p.to_string()).or_insert_with(|| canonical(Path::new(p))).clone())
+}
+
+/// The request's document, as a canonical path.
+fn doc_path(params: &Value) -> PathBuf {
+    canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")))
+}
+
+/// The analysed entry of `file` (a canonical path) in `a`.
+fn file_of<'a>(a: &'a Analysis, file: &Path) -> Option<&'a analysis::FileIndex> {
+    a.files.iter().find(|f| canonical_cached(&f.path) == file)
+}
+
+/// Analyse the program `prog` that `file` belongs to; when the file is not
+/// reachable from the program's entry, analyse the file on its own. Returns
+/// the program analysed.
+fn analyze_owning(prog: &Path, file: &Path, overlays: &HashMap<PathBuf, String>) -> (PathBuf, Analysis) {
+    let a = analysis::analyze(prog, overlays.clone());
+    if prog != file && file.is_file() && file_of(&a, file).is_none() {
+        // not reachable from the project's entry: a module on its own
+        return (file.to_path_buf(), analysis::analyze(file, overlays.clone()));
+    }
+    (prog.to_path_buf(), a)
+}
+
 /// A file's index, the program's module members, and the file's own items.
 type Indexed = (FileIndex, HashMap<String, Vec<Item>>, Vec<Item>);
 
@@ -242,7 +273,7 @@ impl Server {
         if p != file
             && let Some(a) = self.programs.get(&p)
             && a.file(&file.display().to_string()).is_none()
-            && a.files.iter().all(|f| canonical(Path::new(&f.path)) != file)
+            && file_of(a, file).is_none()
         {
             return file.to_path_buf();
         }
@@ -256,29 +287,20 @@ impl Server {
         }
         let mut done: HashSet<PathBuf> = HashSet::new();
         for file in dirty {
-            let mut prog = program_of(&file);
+            let prog = program_of(&file);
             if !done.insert(prog.clone()) {
                 continue;
             }
-            let mut a = analysis::analyze(&prog, self.docs.clone());
-            if prog != file
-                && file.is_file()
-                && !a.files.iter().any(|f| canonical(Path::new(&f.path)) == file)
-            {
-                // not reachable from the project's entry: a module on its own
-                prog = file.clone();
-                a = analysis::analyze(&prog, self.docs.clone());
-            }
+            let (prog, a) = analyze_owning(&prog, &file, &self.docs);
             self.publish(&a, out);
             for f in &a.files {
                 if !f.refs.is_empty() || !f.symbols.is_empty() {
                     let globals = a.globals.get(&f.path).cloned().unwrap_or_default();
-                    self.last_good
-                        .insert(canonical(Path::new(&f.path)), (f.clone(), a.modules.clone(), globals));
+                    self.last_good.insert(canonical_cached(&f.path), (f.clone(), a.modules.clone(), globals));
                 }
             }
             for f in &a.files {
-                self.owner.insert(canonical(Path::new(&f.path)), prog.clone());
+                self.owner.insert(canonical_cached(&f.path), prog.clone());
             }
             self.owner.insert(file.clone(), prog.clone());
             self.programs.insert(prog, a);
@@ -360,11 +382,12 @@ impl Server {
 
     /// The analysed file entry for `file` and its byte offset of `pos`.
     fn locate(&mut self, params: &Value) -> Option<(PathBuf, String, usize)> {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str()?));
+        params["textDocument"]["uri"].as_str()?;
+        let file = doc_path(params);
         let text = self.text(&file);
         let off = offset(&text, &params["position"]);
         let a = self.analysis_for(&file)?;
-        let f = a.files.iter().find(|f| canonical(Path::new(&f.path)) == file)?;
+        let f = file_of(a, &file)?;
         Some((file, f.path.clone(), off))
     }
 
@@ -439,9 +462,7 @@ impl Server {
         let Some((file, _, off)) = self.locate(params) else { return vec![] };
         let prog = program_of(&file);
         self.ensure_entries(&prog);
-        let index_of = |a: &Analysis, p: &Path| {
-            a.files.iter().find(|f| canonical(Path::new(&f.path)) == p).map(|f| f.path.clone())
-        };
+        let index_of = |a: &Analysis, p: &Path| file_of(a, p).map(|f| f.path.clone());
         let mut all: Vec<&Analysis> = self.analysis_for(&file).into_iter().collect();
         if let Some(a) = self.programs.get(&prog)
             && !all.iter().any(|x| std::ptr::eq(*x, a))
@@ -486,25 +507,24 @@ impl Server {
         if out.is_empty() { None } else { Some(out) }
     }
 
-    fn loc_json(&mut self, _file: &Path, l: &analysis::Loc) -> Value {
-        let text = self.text(&canonical(Path::new(&l.path)));
+    fn loc_json(&mut self, l: &analysis::Loc) -> Value {
+        let text = self.text(&canonical_cached(&l.path));
         json!({ "uri": path_to_uri(&l.path), "range": range(&text, l.start, l.end) })
     }
 
     fn references(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
         let Some(locs) = self.occurrences(params) else { return json!([]) };
-        let v: Vec<Value> = locs.iter().map(|l| self.loc_json(&file, l)).collect();
+        let v: Vec<Value> = locs.iter().map(|l| self.loc_json(l)).collect();
         json!(v)
     }
 
     fn highlights(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+        let file = doc_path(params);
         let Some(locs) = self.occurrences(params) else { return json!([]) };
         let text = self.text(&file);
         let v: Vec<Value> = locs
             .iter()
-            .filter(|l| canonical(Path::new(&l.path)) == file)
+            .filter(|l| canonical_cached(&l.path) == file)
             .map(|l| json!({ "range": range(&text, l.start, l.end) }))
             .collect();
         json!(v)
@@ -587,10 +607,9 @@ impl Server {
         if !locs.iter().any(|(l, _)| l.path == path && l.start <= off && off <= l.end) {
             return Err("nothing to rename here".into());
         }
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
         let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
         for (l, shorthand) in &locs {
-            let mut e = self.loc_json(&file, l);
+            let mut e = self.loc_json(l);
             let uri = e["uri"].as_str().unwrap_or("").to_string();
             e["newText"] = json!(if *shorthand { format!("{old}: {new}") } else { new.to_string() });
             e.as_object_mut().map(|o| o.remove("uri"));
@@ -600,7 +619,7 @@ impl Server {
     }
 
     fn prepare_rename(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+        let file = doc_path(params);
         let Some((_, path, off)) = self.locate(params) else { return Value::Null };
         let Some((name, locs)) = self.renamable(params) else { return Value::Null };
         let text = self.text(&file);
@@ -611,10 +630,10 @@ impl Server {
     }
 
     fn symbols(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+        let file = doc_path(params);
         let text = self.text(&file);
         let Some(a) = self.analysis_for(&file) else { return json!([]) };
-        let Some(f) = a.files.iter().find(|f| canonical(Path::new(&f.path)) == file) else {
+        let Some(f) = file_of(a, &file) else {
             return json!([]);
         };
         fn conv(text: &str, s: &SymbolInfo) -> Value {
@@ -652,7 +671,7 @@ impl Server {
     }
 
     fn format(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+        let file = doc_path(params);
         let text = self.text(&file);
         let formatted = badger_syntax::format::format(&text);
         if formatted == text {
@@ -662,7 +681,7 @@ impl Server {
     }
 
     fn completion(&mut self, params: &Value) -> Value {
-        let file = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+        let file = doc_path(params);
         let text = self.text(&file);
         let off = offset(&text, &params["position"]);
         let line_start = text[..off].rfind('\n').map(|i| i + 1).unwrap_or(0);
@@ -784,7 +803,7 @@ pub fn serve() -> i32 {
                     server.dirty.insert(p);
                 }
                 "textDocument/didChange" => {
-                    let p = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+                    let p = doc_path(params);
                     if let Some(changes) = params["contentChanges"].as_array() {
                         for c in changes {
                             let text = server.docs.entry(p.clone()).or_default();
@@ -801,11 +820,11 @@ pub fn serve() -> i32 {
                     server.dirty.insert(p);
                 }
                 "textDocument/didSave" => {
-                    let p = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+                    let p = doc_path(params);
                     server.dirty.insert(p);
                 }
                 "textDocument/didClose" => {
-                    let p = canonical(&uri_to_path(params["textDocument"]["uri"].as_str().unwrap_or("")));
+                    let p = doc_path(params);
                     server.docs.remove(&p);
                     server.dirty.insert(p);
                 }
@@ -1005,7 +1024,7 @@ pub fn query(
                 )
             };
             let Some(a) = server.analysis_for(&file) else { return Err(unindexed()) };
-            let Some(f) = a.files.iter().find(|f| canonical(Path::new(&f.path)) == file) else {
+            let Some(f) = file_of(a, &file) else {
                 return Err(unindexed());
             };
             let mut out = vec![];
@@ -1138,17 +1157,16 @@ fn check_report(path: &Path, overlays: &HashMap<PathBuf, String>) -> Value {
     while i < selections.len() {
         let sel = selections[i].clone();
         badger_driver::select_entry(sel.clone());
-        let mut a = analysis::analyze(&prog, overlays.clone());
-        if i == 0
-            && prog != file
-            && file.is_file()
-            && !a.files.iter().any(|f| canonical(Path::new(&f.path)) == file)
-        {
-            // not reachable from the project's entry: a module on its own
-            prog = file.clone();
-            selections.truncate(1);
-            a = analysis::analyze(&prog, overlays.clone());
-        }
+        let a = if i == 0 {
+            let (owner, a) = analyze_owning(&prog, &file, overlays);
+            if owner != prog {
+                prog = owner;
+                selections.truncate(1);
+            }
+            a
+        } else {
+            analysis::analyze(&prog, overlays.clone())
+        };
         for d in &a.diagnostics {
             errors |= d.severity == badger_base::Severity::Error;
             let v = diagnostic_json(&a, d, &text_of);

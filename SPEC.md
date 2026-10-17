@@ -72,9 +72,10 @@ std.NAME` gives the same facts as JSON.
 8. [Worked programs and semantic acceptance cases](spec/08-worked-examples.md)
 
 [Reference EBNF](spec/grammar.ebnf) accompanies the prose syntax rules. The
-grammar the compiler accepts is the pest grammar in
-[crates/badger_syntax/src/grammar.pest](crates/badger_syntax/src/grammar.pest);
-where the two differ, the pest grammar is authoritative.
+grammar the compiler accepts is the parser in
+[crates/badger_syntax/src/grammar.rs](crates/badger_syntax/src/grammar.rs)
+(with the lexer in `token.rs`); where the two differ, the parser is
+authoritative.
 
 [DESIGN.md](DESIGN.md) retains the earlier reasoning and alternatives. When it
 conflicts with this draft, this draft states the current proposal. The original

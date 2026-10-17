@@ -57,5 +57,5 @@ impl Runner {
 }
 
 fn denied(program: String) -> Result<Output, io.Error> {
-    err({ kind: :io/permission_denied, message: $"running `{program}` is not allowed by this capability" })
+    err({ kind: #io/permission_denied, message: $"running `{program}` is not allowed by this capability" })
 }

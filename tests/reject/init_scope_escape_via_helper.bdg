@@ -15,7 +15,7 @@ fn keep(a: Atom<List<system.InitScope<Unit>>>, s: system.InitScope<Unit>) -> Uni
 pub fn main() -> Result<Unit, AppError> {
     let empty: List<system.InitScope<Unit>> = []
     let stash = Atom.new(empty)
-    let leaky = system.provider({ name: :t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
+    let leaky = system.provider({ name: #t/leaky, init: fn(scope, c: { x: Int }) -> Result<Int, Failure> {
         keep(stash, scope)
         ok(1)
     } })

@@ -9,11 +9,11 @@ pub enum AppError {
 } derive(Error, From)
 
 let greeting_provider = system.provider({
-    name: :example/greeting,
+    name: #example/greeting,
     init: fn(scope, config) -> Result<_, AppError> {
-        trace.event(:greeting/started, { prefix: config.prefix })
+        trace.event(#greeting/started, { prefix: config.prefix })
         scope.on_halt(fn() -> Result<Unit, AppError> {
-            trace.event(:greeting/stopped, {})
+            trace.event(#greeting/stopped, {})
             ok(())
         })
         // The component's public interface is simply a record of functions.
@@ -22,10 +22,10 @@ let greeting_provider = system.provider({
 })
 
 let announcement_provider = system.provider({
-    name: :example/announcement,
+    name: #example/announcement,
     init: fn(scope, config) -> Result<_, AppError> {
         scope.on_halt(fn() -> Result<Unit, AppError> {
-            trace.event(:announcement/stopped, {})
+            trace.event(#announcement/stopped, {})
             ok(())
         })
         ok({ announce: fn(name: String) { config.greeting.greet(name) } })
@@ -35,7 +35,7 @@ let announcement_provider = system.provider({
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
         // References establish startup order even when declarations differ.
-        announcement: component(announcement_provider, { greeting: ref(:greeting) }),
+        announcement: component(announcement_provider, { greeting: ref(#greeting) }),
         greeting: component(greeting_provider, { prefix: "Welcome" }),
     }
 

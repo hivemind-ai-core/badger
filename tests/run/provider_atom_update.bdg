@@ -23,7 +23,7 @@ pub enum AppError {
 pub fn main() -> Result<Unit, AppError> {
     let log: Atom<List<String>> = Atom.new([])
     let p = system.provider({
-        name: :test/logged,
+        name: #test/logged,
         init: fn(scope, cfg: { label: String }) -> Result<Int, Never> {
             let _ = log.update(fn(xs: List<String>) -> List<String> { xs.append(cfg.label) })
             let _ = scope

@@ -477,8 +477,7 @@ fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix:
             let path = e.path.trim_start_matches('$').trim_start_matches('.');
             let field = path.split('[').next().unwrap_or(path);
             let env_key = format!("{pre}{}", field.replace('.', "_").to_uppercase());
-            let key =
-                if profile && env_var(&env_key).is_none() { field.to_string() } else { env_key };
+            let key = if profile && env_var(&env_key).is_none() { field.to_string() } else { env_key };
             err(&key, &e.message)
         }
     }

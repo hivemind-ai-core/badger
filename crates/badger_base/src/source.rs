@@ -24,6 +24,17 @@ impl SourceFile {
     }
 }
 
+impl SourceFile {
+    /// 1-based line and column (in Unicode scalar values, as editors and
+    /// `badger query` count) of byte `offset`.
+    pub fn line_char_col(&self, offset: usize) -> (usize, usize) {
+        let (line, byte_col) = self.line_col(offset);
+        let start = offset.min(self.text.len()) + 1 - byte_col;
+        let end = offset.min(self.text.len());
+        (line, self.text.get(start..end).map_or(byte_col, |t| t.chars().count() + 1))
+    }
+}
+
 /// Owns every source text the compiler has loaded.
 #[derive(Debug, Default)]
 pub struct SourceMap {

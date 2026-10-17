@@ -1,5 +1,5 @@
 // expect-error: E0341
 // Provider errors implement `Error`.
 import std.system
-let p = system.provider({ name: :t/p, init: fn(scope, c: { v: Int }) -> Result<Int, Int> { ok(c.v) } })
+let p = system.provider({ name: #t/p, init: fn(scope, c: { v: Int }) -> Result<Int, Int> { ok(c.v) } })
 pub fn main() -> Unit {}

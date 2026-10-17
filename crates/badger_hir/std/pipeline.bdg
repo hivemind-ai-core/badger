@@ -164,7 +164,7 @@ pub fn run_stage<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: fn(
     // a defect or cancellation skips recovery but leaves a trace of the
     // aborted chain (one event per entered stage, innermost first)
     let name = stage.name
-    let guard = cleanup_push(fn() { trace.event(:pipeline/aborted, { stage: name }) })
+    let guard = cleanup_push(fn() { trace.event(#pipeline/aborted, { stage: name }) })
     // introspection shows the stages a task is inside
     task_stage_push(name)
     let r = run_stage_inner(stage, rest, ctx)
