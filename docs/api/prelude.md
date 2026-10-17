@@ -475,10 +475,12 @@ protocol Scope {  }
 ### `Seq`
 
 ```lang
-struct Seq<T> { pub start: fn() -> fn() -> Option<T> }
+struct Seq<T, Eff> { pub start: fn() -> fn() -> Option<T> }
 ```
 
 Typed lazy sequence: a reusable description producing fresh iterators.
+`Eff` is what iterating may do (and whether the description captures
+task-local state); an iterator itself always stays on its task.
 
 ### `Set`
 

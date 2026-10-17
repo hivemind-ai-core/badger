@@ -3,16 +3,18 @@
 
 import std.channel
 
-pub struct Stream<T> {
-    pub next: fn() -> Option<T>,
+/// `Eff` is what pulling may do (and whether the stream captures task-local
+/// state).
+pub struct Stream<T, Eff: Effect> {
+    pub next: fn() -> Option<T> !Eff,
 }
 
 /// Messages from a receiver until it is closed and drained.
-pub fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T> {
+pub fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T, !{Wait}> {
     { next: fn() { r.recv() } }
 }
 
-pub fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U> {
+pub fn map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> U !Eff) -> Stream<U, Eff> {
     {
         next: fn() {
             match s.next() {
@@ -23,7 +25,7 @@ pub fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U> {
     }
 }
 
-pub fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T> {
+pub fn filter<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff> {
     {
         next: fn() -> Option<T> {
             loop {
@@ -37,7 +39,7 @@ pub fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T> {
 }
 
 /// Read every remaining item.
-pub fn collect<T>(s: Stream<T>) -> List<T> !{Wait} {
+pub fn collect<T, Eff>(s: Stream<T, Eff>) -> List<T> !{Wait, Eff} {
     let b = list.builder<T>()
     loop {
         match s.next() {

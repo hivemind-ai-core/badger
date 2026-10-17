@@ -173,7 +173,10 @@ keys. Map lookup returns `Option<V>` or a borrowed view, never implicit null.
 `zip`, `fold`, `group_by`, and explicit collection are standard operations.
 Pure sequence descriptions can be reused when their inputs permit it; consuming
 an affine iterator is one-shot and inferred as such. Effects happen during
-iteration, in order, not when constructing a lazy view. Early termination closes
+iteration, in order, not when constructing a lazy view (**Implementation:**
+`Seq<T, Eff>` carries the effects of iterating; the omitted argument is
+inferred in signatures. A sequence description may cross tasks when what it
+captures may; an iterator taken from one stays on its task). Early termination closes
 scoped iterators and their resources. APIs cannot return a lazy view borrowing
 a resource that has already closed. Tasks/channels expose `Stream<T>` for
 suspending input; an arbitrary stream is not silently a pure sequence.

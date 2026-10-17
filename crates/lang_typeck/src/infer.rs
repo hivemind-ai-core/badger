@@ -591,7 +591,7 @@ impl<'g, 'a> Infer<'g, 'a> {
         }
         let (ty, args) = self.instantiate(&scheme, &explicit, span);
         self.record_res(e, Res::Callee { def, args });
-        open_effects(&mut self.icx, &ty)
+        open_effects(&mut self.icx, &self.g.env, self.g.hir, &ty)
     }
 
     /// Instantiate a scheme: fresh variables for all quantified variables
@@ -701,14 +701,14 @@ impl<'g, 'a> Infer<'g, 'a> {
         let (TyKind::Con(ed, eargs), TyKind::Con(ad, aargs)) = (&*exp, &*act) else { return false };
         let (en, an) = (self.lang_name(*ed), self.lang_name(*ad));
         match (en.as_deref(), an.as_deref()) {
-            (Some("Seq"), Some("List" | "Array")) if eargs.len() == 1 && aargs.len() == 1 => {
+            (Some("Seq"), Some("List" | "Array")) if !eargs.is_empty() && aargs.len() == 1 => {
                 let (x, y) = (eargs[0].clone(), aargs[0].clone());
                 let span = self.g.hir.exprs[e].span;
                 self.expect(span, &x, &y);
                 self.coercions.insert(e, Coercion::ToSeq);
                 true
             }
-            (Some("Seq"), Some("Range")) if eargs.len() == 1 && aargs.len() == 1 => {
+            (Some("Seq"), Some("Range")) if !eargs.is_empty() && aargs.len() == 1 => {
                 let int = self.int_ty();
                 let span = self.g.hir.exprs[e].span;
                 self.expect(span, &int, &aargs[0].clone());
@@ -997,6 +997,14 @@ impl<'g, 'a> Infer<'g, 'a> {
                 let it = self.infer(iter);
                 let item = self.icx.fresh();
                 let ispan = hir.exprs[iter].span;
+                // iterating a sequence or stream performs its effects
+                if let TyKind::Con(d, args) = &*self.deref(&it)
+                    && matches!(self.lang_name(*d).as_deref(), Some("Seq" | "Stream"))
+                    && let Some(eff) = args.get(1)
+                {
+                    let eff = eff.clone();
+                    self.add_effects(&eff, ispan);
+                }
                 self.pending.push(Constraint::Iter {
                     coll: it,
                     item: item.clone(),
@@ -1187,6 +1195,8 @@ impl<'g, 'a> Infer<'g, 'a> {
 
             open_effects(
                 &mut self.icx,
+                &self.g.env,
+                self.g.hir,
                 &mk(TyKind::Fn(FnTy {
                     params: fields.into_iter().map(|f| f.1).collect(),
                     ret: result,
@@ -1387,8 +1397,20 @@ impl<'g, 'a> Infer<'g, 'a> {
                 self.add_effects(&f.eff, span);
                 // callback effects propagate to the caller: functions passed
                 // in (directly or inside records/tuples) may be called
-                for p in &f.params {
-                    self.add_callback_effects(p, span);
+                // (except by the audited constructors that only store them)
+                let stores = match &self.g.hir.exprs[_e].kind {
+                    ExprKind::Call { callee, .. } => match &self.g.hir.exprs[*callee].kind {
+                        ExprKind::Def { def, .. } => {
+                            STORING_CONSTRUCTORS.iter().any(|name| self.g.hir.try_lang(name) == Some(*def))
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                };
+                if !stores {
+                    for p in &f.params {
+                        self.add_callback_effects(p, span);
+                    }
                 }
                 f.ret.clone()
             }
@@ -1523,7 +1545,8 @@ impl<'g, 'a> Infer<'g, 'a> {
                 let _ = self.icx.unify(elem, &int);
             }
             self.coercions.insert(recv, Coercion::RangeToSeq);
-            rt = mk(TyKind::Con(seq, vec![int]));
+            let eff = self.icx.fresh_row();
+            rt = mk(TyKind::Con(seq, vec![int, eff]));
             r = rt.clone();
         }
         // Record field holding a function: call it.
@@ -1963,7 +1986,22 @@ impl<'g, 'a> Infer<'g, 'a> {
             (None, None) => self.icx.fresh(),
         };
         let eff = self.icx.fresh_row();
-        let bound = l.effect.as_ref().map(|ef| self.effect_bound(ef));
+        let mut bound = l.effect.as_ref().map(|ef| self.effect_bound(ef));
+        // an annotation naming an effect variable (`!Eff`, `!{Io, Eff}`):
+        // the closure performs that variable's effects, and its body's own
+        // effects are checked against the listed labels
+        let declared_tail = match &l.effect {
+            Some(lang_hir::HEffect::Var(g)) | Some(lang_hir::HEffect::Set { rest: Some(g), .. }) => {
+                self.generics.get(g).cloned()
+            }
+            _ => None,
+        };
+        if declared_tail.is_some()
+            && let Some((_, s)) = &mut bound
+            && *s == Span::dummy()
+        {
+            *s = span;
+        }
         self.fns.push(FnCtx {
             owner: Owner::Lambda(e),
             ret: ret.clone(),
@@ -1990,7 +2028,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                         fields.push((l, t));
                     }
                 }
-                row(fields, row_empty())
+                row(fields, declared_tail.unwrap_or_else(row_empty))
             }
             None => eff,
         };
@@ -2080,6 +2118,13 @@ impl<'g, 'a> Infer<'g, 'a> {
             TyKind::Tuple(ts) => ts.clone().iter().any(|x| self.holds_confined(x, seen)),
             TyKind::Record(r) => row_fields(r).0.iter().any(|(_, x)| self.holds_confined(x, seen)),
             TyKind::Ref(_, x) => self.holds_confined(&x.clone(), seen),
+            // a stored function capturing task-confined state, or a stored
+            // standard-library function whose effects (and so captures) are
+            // untracked
+            TyKind::Fn(f) => {
+                let (labels, tail) = self.icx.flatten_row(&f.eff.clone());
+                matches!(&*tail, TyKind::Error) || labels.iter().any(|(l, _)| self.sym(*l) == "%confined")
+            }
             _ => false,
         }
     }
@@ -2215,10 +2260,6 @@ impl<'g, 'a> Infer<'g, 'a> {
     }
 
     fn add_callback_effects(&mut self, p: &Ty, span: Span) {
-        // a module value stores functions (e.g. providers) without calling them
-        if self.fns.last().is_some_and(|f| matches!(f.owner, lang_hir::Owner::Global(_))) {
-            return;
-        }
         let p = self.icx.resolve(p);
         let mut labels: Vec<Symbol> = vec![];
         let mut stack = vec![p];
@@ -2285,7 +2326,7 @@ impl<'g, 'a> Infer<'g, 'a> {
 
     pub fn effect_bound(&mut self, e: &lang_hir::HEffect) -> (Vec<Symbol>, Span) {
         match e {
-            lang_hir::HEffect::Set { labels, span } => {
+            lang_hir::HEffect::Set { labels, span, .. } => {
                 for l in labels {
                     let s = self.sym(*l);
                     if !matches!(s, "Io" | "Wait" | "State" | "Foreign") {
@@ -2672,14 +2713,73 @@ pub fn diverges(hir: &lang_hir::Hir, e: ExprId) -> bool {
 
 /// Open closed effect rows of a function type so a less effectful function
 /// can be used where more effects are allowed.
-pub fn open_effects(icx: &mut InferCtxt, t: &Ty) -> Ty {
+/// Standard-library functions that store the functions they are given
+/// without calling them (a trusted boundary, audited by hand): passing an
+/// effectful callback to one does not perform its effects, so a module value
+/// may hold the result.
+const STORING_CONSTRUCTORS: &[&str] = &["system.provider"];
+
+pub fn open_effects(icx: &mut InferCtxt, env: &TypeEnv, hir: &lang_hir::Hir, t: &Ty) -> Ty {
     let t = icx.shallow(t);
     match &*t {
         TyKind::Fn(f) => {
-            let (labels, tail) = icx.flatten_row(&f.eff);
-            let eff =
-                if matches!(&*tail, TyKind::RowEmpty) { row(labels, icx.fresh_row()) } else { f.eff.clone() };
-            mk(TyKind::Fn(FnTy { params: f.params.clone(), ret: f.ret.clone(), eff, once: f.once }))
+            let eff = open_row(icx, &f.eff);
+            let ret = open_covariant(icx, env, hir, &f.ret, 0);
+            mk(TyKind::Fn(FnTy { params: f.params.clone(), ret, eff, once: f.once }))
+        }
+        _ => t,
+    }
+}
+
+/// An explicit effect annotation is an upper bound: a closed row may grow.
+fn open_row(icx: &mut InferCtxt, eff: &Ty) -> Ty {
+    let (labels, tail) = icx.flatten_row(eff);
+    if matches!(&*tail, TyKind::RowEmpty) { row(labels, icx.fresh_row()) } else { eff.clone() }
+}
+
+/// Open the closed effect rows a function's result carries in covariant
+/// positions (returned functions, effect arguments like `Seq<T, !{Io}>`,
+/// immutable records, tuples, options, and results): a value annotated with
+/// fewer effects may be used where more are allowed. Parameters of returned
+/// functions and the arguments of other constructors (a `Cell` is written
+/// to) keep their rows.
+fn open_covariant(icx: &mut InferCtxt, env: &TypeEnv, hir: &lang_hir::Hir, t: &Ty, depth: u32) -> Ty {
+    if depth > 16 {
+        return t.clone();
+    }
+    let t = icx.shallow(t);
+    match &*t {
+        TyKind::Fn(f) => {
+            let eff = open_row(icx, &f.eff);
+            let ret = open_covariant(icx, env, hir, &f.ret, depth + 1);
+            mk(TyKind::Fn(FnTy { params: f.params.clone(), ret, eff, once: f.once }))
+        }
+        TyKind::Tuple(ts) => {
+            mk(TyKind::Tuple(ts.iter().map(|x| open_covariant(icx, env, hir, x, depth + 1)).collect()))
+        }
+        TyKind::Record(r) => {
+            let (fs, tail) = icx.flatten_row(r);
+            let fs: Vec<(Symbol, Ty)> =
+                fs.into_iter().map(|(l, x)| (l, open_covariant(icx, env, hir, &x, depth + 1))).collect();
+            mk(TyKind::Record(row(fs, tail)))
+        }
+        TyKind::Con(d, args) => {
+            let d = *d;
+            let data = [hir.try_lang("Option"), hir.try_lang("Result")].contains(&Some(d));
+            let args = args
+                .iter()
+                .enumerate()
+                .map(|(i, a)| {
+                    if env.param_has_kind(hir, d, i, "Effect") {
+                        open_row(icx, a)
+                    } else if data {
+                        open_covariant(icx, env, hir, a, depth + 1)
+                    } else {
+                        a.clone()
+                    }
+                })
+                .collect();
+            mk(TyKind::Con(d, args))
         }
         _ => t,
     }

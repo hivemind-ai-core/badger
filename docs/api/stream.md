@@ -10,15 +10,18 @@ a stream may wait, and a stream is consumed as it is read.
 ### `Stream`
 
 ```lang
-struct Stream<T> { pub next: fn() -> Option<T> }
+struct Stream<T, Eff> { pub next: fn() -> Option<T> }
 ```
+
+`Eff` is what pulling may do (and whether the stream captures task-local
+state).
 
 ## Functions
 
 ### `collect`
 
 ```lang
-fn collect<T>(s: Stream<T>) -> List<T> !{Wait}
+fn collect<T, Eff>(s: Stream<T, Eff>) -> List<T> !{Wait, Eff}
 ```
 
 Read every remaining item.
@@ -26,13 +29,13 @@ Read every remaining item.
 ### `filter`
 
 ```lang
-fn filter<T>(s: Stream<T>, keep: fn(T) -> Bool) -> Stream<T>
+fn filter<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff>
 ```
 
 ### `from_receiver`
 
 ```lang
-fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T>
+fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T, !{Wait}>
 ```
 
 Messages from a receiver until it is closed and drained.
@@ -40,6 +43,6 @@ Messages from a receiver until it is closed and drained.
 ### `map`
 
 ```lang
-fn map<T, U>(s: Stream<T>, f: fn(T) -> U) -> Stream<U>
+fn map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> U !Eff) -> Stream<U, Eff>
 ```
 

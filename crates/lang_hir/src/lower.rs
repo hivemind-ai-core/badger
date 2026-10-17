@@ -929,8 +929,26 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         match e {
             ast::Effect::Set(ts, span) => {
                 let mut labels = vec![];
+                let mut rest = None;
                 for &t in ts {
                     match &self.ast.types[t].kind {
+                        // an effect variable extends the row: `!{Io, Eff}`
+                        ast::TypeKind::Path { module, name, args }
+                            if module.is_empty()
+                                && args.is_empty()
+                                && self.find_generic(name.sym).is_some() =>
+                        {
+                            if rest.is_some() {
+                                let span = self.ast.types[t].span;
+                                self.err(
+                                    "E0119",
+                                    span,
+                                    "an effect row has at most one effect variable",
+                                    "keep one variable and list the labels",
+                                );
+                            }
+                            rest = self.find_generic(name.sym);
+                        }
                         ast::TypeKind::Path { module, name, args }
                             if module.is_empty() && args.is_empty() =>
                         {
@@ -942,7 +960,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         }
                     }
                 }
-                HEffect::Set { labels, span: *span }
+                HEffect::Set { labels, rest, span: *span }
             }
             ast::Effect::Var(n) => match self.find_generic(n.sym) {
                 Some(g) => HEffect::Var(g),
@@ -954,7 +972,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         format!("unknown effect variable `{s}`"),
                         "declare it as a generic parameter",
                     );
-                    HEffect::Set { labels: vec![], span: n.span }
+                    HEffect::Set { labels: vec![], rest: None, span: n.span }
                 }
             },
         }
@@ -1005,6 +1023,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::TypeKind::Ref { mutable, inner } => {
                 HTyKind::Ref { mutable: *mutable, inner: Box::new(self.lower_ty(*inner)) }
             }
+            ast::TypeKind::Effect(e) => HTyKind::Effect(self.lower_effect(e)),
             ast::TypeKind::Dyn { module, name, args } => {
                 let args: Vec<HTy> = args.iter().map(|t| self.lower_ty(*t)).collect();
                 match self.resolve_type_path(module, *name) {

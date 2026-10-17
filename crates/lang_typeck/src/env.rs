@@ -181,6 +181,10 @@ pub struct TypeEnv {
     /// Every modeled effect: the bound of a function type stored without an
     /// effect annotation in user declarations (nothing can be inferred there).
     pub all_effects: Vec<Symbol>,
+    /// `Local` (standard library only): the function may capture
+    /// task-confined state, so it stays on its task (the `%confined` mark).
+    local: Symbol,
+    confined: Symbol,
 }
 
 /// How generic parameters map to types while converting annotations.
@@ -207,6 +211,8 @@ impl TypeEnv {
             structural_impls: vec![],
             aliases: FxHashMap::default(),
             all_effects: ["Io", "Wait", "State", "Foreign"].iter().map(|l| interner.intern(l)).collect(),
+            local: interner.intern("Local"),
+            confined: interner.intern("%confined"),
         };
         for (id, def) in hir.defs.iter() {
             if let DefKind::Alias(a) = &def.kind {
@@ -1072,6 +1078,7 @@ impl TypeEnv {
                 let args = args.iter().map(|x| self.lower(hir, icx, x, sub, holes, diags)).collect();
                 mk(TyKind::Dyn(*protocol, args))
             }
+            HTyKind::Effect(e) => self.lower_effect(hir, icx, e, sub, diags),
             HTyKind::EffectLabel(_) => {
                 diags.push(
                     Diagnostic::error("effect names are not types")
@@ -1156,6 +1163,12 @@ impl TypeEnv {
                 if holes && args.len() + 1 == expected && self.last_param_is_region(hir, *def) {
                     args.push(icx.fresh());
                 }
+                // so is a trailing effect parameter (`Seq<Int>`): inferred
+                // where holes are allowed, any modeled effect elsewhere (as
+                // for an unannotated function type)
+                if args.len() + 1 == expected && self.param_has_kind(hir, *def, expected - 1, "Effect") {
+                    args.push(if holes { icx.fresh_row() } else { self.any_effect() });
+                }
                 // so is a system plan's configuration row (`SystemPlan<Os>`)
                 if args.len() + 1 == expected && hir.try_lang("system.SystemPlan") == Some(*def) {
                     args.push(icx.fresh_row());
@@ -1220,9 +1233,14 @@ impl TypeEnv {
         sub: &Subst<'_>,
         diags: &mut Vec<Diagnostic>,
     ) -> Ty {
-        let _ = (hir, icx, diags);
+        let _ = (icx, diags);
         match e {
-            HEffect::Set { labels, .. } => row(labels.iter().map(|l| (*l, unit())), row_empty()),
+            HEffect::Set { labels, rest, span } => {
+                let std = hir.modules.iter().any(|(_, m)| m.is_std && m.file == span.file);
+                let labels = labels.iter().map(|l| if std && *l == self.local { self.confined } else { *l });
+                let tail = rest.and_then(|g| sub.generics.get(&g).cloned()).unwrap_or_else(row_empty);
+                row(labels.map(|l| (l, unit())), tail)
+            }
             HEffect::Var(g) => sub.generics.get(g).cloned().unwrap_or_else(row_empty),
         }
     }

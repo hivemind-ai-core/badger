@@ -1,0 +1,23 @@
+// A struct holding a closure that captures a `Cell` stays on its task.
+// expect-error: E0402
+import std.io
+import std.task
+
+struct Gen<Eff: Effect> {
+    pub next: fn() -> Option<Int> !Eff,
+}
+
+fn counter() -> Gen<_> {
+    let c = Cell.new(0)
+    { next: fn() { c.set(c.get() + 1); Option.some(c.get()) } }
+}
+
+fn pull<Eff: Effect>(g: Gen<Eff>) -> Option<Int> !Eff { g.next() }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let g = counter()
+    use scope <- task.scope()
+    let t = scope.spawn(fn() { pull(g) })
+    let _ = t.join()
+    ok(())
+}

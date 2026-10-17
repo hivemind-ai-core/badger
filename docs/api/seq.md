@@ -11,7 +11,7 @@ iteration, in order, not when the view is constructed.
 ### `all`
 
 ```lang
-fn all<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool
+fn all<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool
 ```
 
 Whether every item satisfies `test` (stopping at the first that does not).
@@ -19,7 +19,7 @@ Whether every item satisfies `test` (stopping at the first that does not).
 ### `any`
 
 ```lang
-fn any<T>(items: Seq<T>, test: fn(T) -> Bool) -> Bool
+fn any<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool
 ```
 
 Whether some item satisfies `test` (stopping at the first).
@@ -27,7 +27,7 @@ Whether some item satisfies `test` (stopping at the first).
 ### `chunks`
 
 ```lang
-fn chunks<T>(items: Seq<T>, size: Int) -> Seq<List<T>>
+fn chunks<T, Eff>(items: Seq<T, Eff>, size: Int) -> Seq<List<T>, Eff>
 ```
 
 Consecutive groups of `size` items (the last may be shorter).
@@ -44,13 +44,13 @@ already closed). `for` loops call this when they exit early.
 ### `count`
 
 ```lang
-fn count<T>(items: Seq<T>) -> Int
+fn count<T, Eff>(items: Seq<T, Eff>) -> Int
 ```
 
 ### `enumerate`
 
 ```lang
-fn enumerate<T>(items: Seq<T>) -> Seq<(Int, T)>
+fn enumerate<T, Eff>(items: Seq<T, Eff>) -> Seq<(Int, T), Eff>
 ```
 
 Each item with its position, from 0.
@@ -58,13 +58,13 @@ Each item with its position, from 0.
 ### `filter`
 
 ```lang
-fn filter<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T>
+fn filter<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 ### `filter_map`
 
 ```lang
-fn filter_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Seq<U>
+fn filter_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Seq<U, Eff>
 ```
 
 `f`'s values, skipping the items it maps to `none`.
@@ -72,7 +72,7 @@ fn filter_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Seq<U>
 ### `find`
 
 ```lang
-fn find<T>(items: Seq<T>, matches: fn(T) -> Bool) -> Option<T>
+fn find<T, Eff>(items: Seq<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<T>
 ```
 
 The first item `matches` accepts (consuming no further).
@@ -80,7 +80,7 @@ The first item `matches` accepts (consuming no further).
 ### `find_map`
 
 ```lang
-fn find_map<T, U>(items: Seq<T>, f: fn(T) -> Option<U>) -> Option<U>
+fn find_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Option<U>
 ```
 
 The first `some` that `f` gives.
@@ -88,31 +88,31 @@ The first `some` that `f` gives.
 ### `first`
 
 ```lang
-fn first<T>(items: Seq<T>) -> Option<T>
+fn first<T, Eff>(items: Seq<T, Eff>) -> Option<T>
 ```
 
 ### `flat_map`
 
 ```lang
-fn flat_map<T, U>(items: Seq<T>, f: fn(T) -> Seq<U>) -> Seq<U>
+fn flat_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Seq<U, Eff> !Eff) -> Seq<U, Eff>
 ```
 
 ### `fold`
 
 ```lang
-fn fold<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> A
+fn fold<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> A
 ```
 
 ### `from_fn`
 
 ```lang
-fn from_fn<T>(start: fn() -> fn() -> Option<T>) -> Seq<T>
+fn from_fn<T, Eff>(start: fn() -> (fn() -> Option<T> !{Local, Eff}) !Eff) -> Seq<T, Eff>
 ```
 
 ### `from_range`
 
 ```lang
-fn from_range(r: Range<Int>) -> Seq<Int>
+fn from_range(r: Range<Int>) -> Seq<Int, !{}>
 ```
 
 The integers of a range (`a..b` or `a..=b`), as a sequence. A range is
@@ -121,7 +121,7 @@ used where a `Seq<Int>` is expected through this view.
 ### `group_by`
 
 ```lang
-fn group_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+fn group_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Map<K, List<T>> where K: Hash
 ```
 
 Group items by key. Groups keep the items' iteration order.
@@ -129,19 +129,19 @@ Group items by key. Groups keep the items' iteration order.
 ### `last`
 
 ```lang
-fn last<T>(items: Seq<T>) -> Option<T>
+fn last<T, Eff>(items: Seq<T, Eff>) -> Option<T>
 ```
 
 ### `map`
 
 ```lang
-fn map<T, U>(items: Seq<T>, f: fn(T) -> U) -> Seq<U>
+fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff>
 ```
 
 ### `max_by`
 
 ```lang
-fn max_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+fn max_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```
 
 The item with the largest key (the first, on ties).
@@ -149,7 +149,7 @@ The item with the largest key (the first, on ties).
 ### `min_by`
 
 ```lang
-fn min_by<T, K>(items: Seq<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+fn min_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```
 
 The item with the smallest key (the first, on ties).
@@ -157,7 +157,7 @@ The item with the smallest key (the first, on ties).
 ### `partition`
 
 ```lang
-fn partition<T>(items: Seq<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+fn partition<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> (List<T>, List<T>)
 ```
 
 The items `keep` accepts and those it refuses, each in order.
@@ -165,13 +165,13 @@ The items `keep` accepts and those it refuses, each in order.
 ### `range`
 
 ```lang
-fn range(start: Int, end: Int) -> Seq<Int>
+fn range(start: Int, end: Int) -> Seq<Int, !{}>
 ```
 
 ### `scan`
 
 ```lang
-fn scan<T, A>(items: Seq<T>, initial: A, f: fn(A, T) -> A) -> Seq<A>
+fn scan<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> Seq<A, Eff>
 ```
 
 Running states: `f(state, item)` for each item, starting from `initial`.
@@ -179,7 +179,7 @@ Running states: `f(state, item)` for each item, starting from `initial`.
 ### `scoped`
 
 ```lang
-fn scoped<R, T>(open: fn() -> R, next: fn(R) -> Option<T>, close: fn(R) -> Unit) -> Seq<T>
+fn scoped<R, T, Eff>(open: fn() -> R !Eff, next: fn(R) -> Option<T> !Eff, close: fn(R) -> Unit !Eff) -> Seq<T, Eff>
 ```
 
 A sequence over a scoped resource. Each iteration calls `open`; the
@@ -190,7 +190,7 @@ iterating task exits by defect or cancellation.
 ### `skip`
 
 ```lang
-fn skip<T>(items: Seq<T>, n: Int) -> Seq<T>
+fn skip<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff>
 ```
 
 All but the first `n` items.
@@ -198,7 +198,7 @@ All but the first `n` items.
 ### `skip_while`
 
 ```lang
-fn skip_while<T>(items: Seq<T>, skip: fn(T) -> Bool) -> Seq<T>
+fn skip_while<T, Eff>(items: Seq<T, Eff>, skip: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 Items after the leading ones `skip` accepts.
@@ -206,19 +206,19 @@ Items after the leading ones `skip` accepts.
 ### `sum`
 
 ```lang
-fn sum(items: Seq<Int>) -> Int
+fn sum<Eff>(items: Seq<Int, Eff>) -> Int
 ```
 
 ### `take`
 
 ```lang
-fn take<T>(items: Seq<T>, n: Int) -> Seq<T>
+fn take<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff>
 ```
 
 ### `take_while`
 
 ```lang
-fn take_while<T>(items: Seq<T>, keep: fn(T) -> Bool) -> Seq<T>
+fn take_while<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 Items while `keep` accepts them; the first it refuses ends the
@@ -227,7 +227,7 @@ sequence (and closes the source).
 ### `try_collect`
 
 ```lang
-fn try_collect<T, E>(items: Seq<Result<T, E>>) -> Result<List<T>, E>
+fn try_collect<T, E, Eff>(items: Seq<Result<T, E>, Eff>) -> Result<List<T>, E>
 ```
 
 The items of a sequence of results, or the first error (the rest are
@@ -236,7 +236,7 @@ not produced, and a scoped source is closed).
 ### `try_each`
 
 ```lang
-fn try_each<T, E>(items: Seq<T>, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+fn try_each<T, E, Eff>(items: Seq<T, Eff>, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E>
 ```
 
 Run `f` on each item, stopping at the first error (closing a scoped
@@ -245,7 +245,7 @@ source).
 ### `try_fold`
 
 ```lang
-fn try_fold<T, A, E>(items: Seq<T>, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
+fn try_fold<T, A, E, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> Result<A, E>
 ```
 
 Fold in order, stopping at the first error; a scoped source is closed
@@ -254,7 +254,7 @@ either way.
 ### `zip`
 
 ```lang
-fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)>
+fn zip<A, B, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>) -> Seq<(A, B), Eff>
 ```
 
 ## Methods on other types
@@ -262,19 +262,19 @@ fn zip<A, B>(a: Seq<A>, b: Seq<B>) -> Seq<(A, B)>
 ### `Seq.all`
 
 ```lang
-fn all(self: &Self, test: fn(T) -> Bool) -> Bool
+fn all(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
 ```
 
 ### `Seq.any`
 
 ```lang
-fn any(self: &Self, test: fn(T) -> Bool) -> Bool
+fn any(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
 ```
 
 ### `Seq.chunks`
 
 ```lang
-fn chunks(self: &Self, size: Int) -> Seq<List<T>>
+fn chunks(self: &Self, size: Int) -> Seq<List<T>, Eff>
 ```
 
 ### `Seq.collect`
@@ -292,31 +292,31 @@ fn count(self: &Self) -> Int
 ### `Seq.enumerate`
 
 ```lang
-fn enumerate(self: &Self) -> Seq<(Int, T)>
+fn enumerate(self: &Self) -> Seq<(Int, T), Eff>
 ```
 
 ### `Seq.filter`
 
 ```lang
-fn filter(self: &Self, keep: fn(T) -> Bool) -> Seq<T>
+fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 ### `Seq.filter_map`
 
 ```lang
-fn filter_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Seq<U>
+fn filter_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Seq<U, Eff>
 ```
 
 ### `Seq.find`
 
 ```lang
-fn find(self: &Self, matches: fn(T) -> Bool) -> Option<T>
+fn find(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<T>
 ```
 
 ### `Seq.find_map`
 
 ```lang
-fn find_map<U>(self: &Self, f: fn(T) -> Option<U>) -> Option<U>
+fn find_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Option<U>
 ```
 
 ### `Seq.first`
@@ -328,19 +328,19 @@ fn first(self: &Self) -> Option<T>
 ### `Seq.flat_map`
 
 ```lang
-fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U>) -> Seq<U>
+fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U, Eff> !Eff) -> Seq<U, Eff>
 ```
 
 ### `Seq.fold`
 
 ```lang
-fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A
+fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A
 ```
 
 ### `Seq.group_by`
 
 ```lang
-fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+fn group_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Map<K, List<T>> where K: Hash
 ```
 
 ### `Seq.last`
@@ -352,72 +352,72 @@ fn last(self: &Self) -> Option<T>
 ### `Seq.map`
 
 ```lang
-fn map<U>(self: &Self, f: fn(T) -> U) -> Seq<U>
+fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Seq<U, Eff>
 ```
 
 ### `Seq.max_by`
 
 ```lang
-fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+fn max_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```
 
 ### `Seq.min_by`
 
 ```lang
-fn min_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
+fn min_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```
 
 ### `Seq.partition`
 
 ```lang
-fn partition(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+fn partition(self: &Self, keep: fn(T) -> Bool !Eff) -> (List<T>, List<T>)
 ```
 
 ### `Seq.scan`
 
 ```lang
-fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> Seq<A>
+fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> Seq<A, Eff>
 ```
 
 ### `Seq.skip`
 
 ```lang
-fn skip(self: &Self, n: Int) -> Seq<T>
+fn skip(self: &Self, n: Int) -> Seq<T, Eff>
 ```
 
 ### `Seq.skip_while`
 
 ```lang
-fn skip_while(self: &Self, skip: fn(T) -> Bool) -> Seq<T>
+fn skip_while(self: &Self, skip: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 ### `Seq.take`
 
 ```lang
-fn take(self: &Self, n: Int) -> Seq<T>
+fn take(self: &Self, n: Int) -> Seq<T, Eff>
 ```
 
 ### `Seq.take_while`
 
 ```lang
-fn take_while(self: &Self, keep: fn(T) -> Bool) -> Seq<T>
+fn take_while(self: &Self, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
 
 ### `Seq.try_each`
 
 ```lang
-fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E>
+fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E>
 ```
 
 ### `Seq.try_fold`
 
 ```lang
-fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E>
+fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> Result<A, E>
 ```
 
 ### `Seq.zip`
 
 ```lang
-fn zip<U>(self: &Self, other: Seq<U>) -> Seq<(T, U)>
+fn zip<U>(self: &Self, other: Seq<U, Eff>) -> Seq<(T, U), Eff>
 ```
 

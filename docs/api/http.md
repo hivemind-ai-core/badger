@@ -106,7 +106,7 @@ sink (`call`).
 ### `Handler`
 
 ```lang
-struct Handler { run: fn({method: Symbol, path: String, headers: Map<String, String>, body: Bytes}, http.Exchange) -> http.Reply }
+struct Handler { run: fn({method: Symbol, path: String, headers: Map<String, String>, body: Bytes}, http.Exchange) -> http.Reply !{Io, Wait, State, Foreign} }
 ```
 
 A packaged request handler; handler errors become 500 replies.
@@ -235,7 +235,7 @@ and request tasks.
 ### `Streamed`
 
 ```lang
-struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes> }
+struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes, {Io: Unit, Wait: Unit, State: Unit, Foreign: Unit}> }
 ```
 
 A streamed reply: the head is sent first, then each chunk as the
@@ -347,7 +347,7 @@ The runtime-configured default limits.
 ### `listen`
 
 ```lang
-fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error> !{Io}
+fn listen(address: String, port: U16, h: Handler) -> Result<Server, Error>
 ```
 
 Start serving with the default limits; requests run as isolated sibling
@@ -356,7 +356,7 @@ tasks of the server.
 ### `listen_with`
 
 ```lang
-fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error> !{Io}
+fn listen_with(address: String, port: U16, h: Handler, limits: Limits) -> Result<Server, Error>
 ```
 
 Start serving with explicit limits.

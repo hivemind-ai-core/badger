@@ -113,7 +113,9 @@ global_decl = { pub_kw? ~ let_kind ~ pattern ~ (":" ~ type_expr)? ~ "=" ~ expr }
 type_expr   = { hole_type | fn_type | forall_type | ref_type | dyn_type | record_type | unit_type | tuple_type | paren_type | path_type }
 hole_type   = { discard }
 path_type   = { (value_ident ~ ".")* ~ type_ident ~ ("." ~ type_ident)? ~ type_args? }
-type_args   = { "<" ~ type_expr ~ ("," ~ type_expr)* ~ ","? ~ ">" }
+type_args   = { "<" ~ type_arg ~ ("," ~ type_arg)* ~ ","? ~ ">" }
+// an effect row argument of an effect-generic type (`Seq<Int, !{Io}>`)
+type_arg    = _{ effect | type_expr }
 unit_type   = { "(" ~ ")" }
 paren_type  = { "(" ~ type_expr ~ ")" }
 tuple_type  = { "(" ~ type_expr ~ "," ~ (type_expr ~ ("," ~ type_expr)*)? ~ ","? ~ ")" }

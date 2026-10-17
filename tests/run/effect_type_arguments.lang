@@ -1,0 +1,59 @@
+// Effect-generic types: an `Eff: Effect` parameter may be passed explicitly
+// (`Gen<!{Io}>`), named (`Gen<Eff>`, `!{Io, Eff}`), or omitted (inferred in
+// signatures, any effect in a stored field). An annotation is an upper
+// bound, so a less effectful value fits where more is allowed.
+import std.io
+import std.seq
+
+struct Gen<Eff: Effect> {
+    pub next: fn() -> Option<Int> !Eff,
+}
+
+struct Holder {
+    pub g: Gen,
+}
+
+fn pure_gen() -> Gen<!{}> {
+    { next: fn() { Option.none } }
+}
+
+fn noisy_gen() -> Gen<!{Io}> {
+    { next: fn() { let _ = io.println("noisy"); Option.none } }
+}
+
+fn logged<Eff: Effect>(g: Gen<Eff>) -> Gen<!{Io, Eff}> {
+    { next: fn() { let _ = io.println("pull"); g.next() } }
+}
+
+fn pull(g: Gen) -> Option<Int> !{} { g.next() }
+
+fn quiet() -> Option<Int> !{} { pull(pure_gen()) }
+
+fn wrap<Eff: Effect>(f: fn(Int) -> Int !Eff) -> fn(Int) -> Int !Eff {
+    fn(x: Int) -> Int !Eff { f(x) + 1 }
+}
+
+fn printer() -> fn() -> Int !{Io} { fn() { let _ = io.println("printer"); 1 } }
+
+struct Slot {
+    pub f: fn() -> Int,
+}
+
+/// A pure pipeline over a pure sequence stays pure.
+fn total(n: Int) -> Int !{} {
+    seq.range(0, n).map(fn(x) { x * 2 }).filter(fn(x) { x % 3 != 0 }).fold(0, fn(a, x) { a + x })
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let _ = quiet()
+    let _ = pull(noisy_gen())
+    let _ = pull(logged(pure_gen()))
+    let h: Holder = { g: noisy_gen() }
+    let _ = pull(h.g)
+    let g = wrap(fn(x) { x * 2 })
+    io.println($"{g(1)}")?
+    let s: Slot = { f: printer() }
+    io.println($"{s.f()}")?
+    io.println($"{total(10)}")?
+    ok(())
+}

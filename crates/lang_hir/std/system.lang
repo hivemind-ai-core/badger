@@ -133,7 +133,7 @@ impl InitScope<Unit> {
 
 pub struct Provider<C, O, E> {
     pub name: Symbol,
-    pub init: fn(InitScope<Unit>, C) -> Result<O, E>,
+    pub init: fn(InitScope<Unit>, C) -> Result<O, E> !{Io, Wait, State},
 }
 
 /// Create a typed provider. Its errors implement `Error` (and, being
@@ -173,7 +173,7 @@ pub struct ErasedNode {
     /// diagnostics).
     pub provider: Symbol,
     pub at: String,
-    start: fn(InitScope<Unit>, Outputs) -> Result<Erased, Error>,
+    start: fn(InitScope<Unit>, Outputs) -> Result<Erased, Error> !{Io, Wait, State},
     /// The configuration function (erased) and its type, for `replace`.
     config: Erased,
     config_type: Int,
@@ -234,8 +234,8 @@ pub fn output<C, O>(outputs: Outputs, n: Node<C, O>) -> O {
 /// `Cs` (one field per plan key; `Cs` may be elided in annotations).
 pub struct SystemPlan<Os: Row, Cs: Row> {
     pub nodes: List<ErasedNode>,
-    view: fn(Outputs) -> { ..Os },
-    configs: fn(Outputs) -> { ..Cs },
+    view: fn(Outputs) -> { ..Os } !{Io, Wait, State},
+    configs: fn(Outputs) -> { ..Cs } !{Io, Wait, State},
 }
 
 pub fn plan<Os: Row, Cs: Row>(nodes: List<ErasedNode>, view: fn(Outputs) -> { ..Os }, configs: fn(Outputs) -> { ..Cs }) -> SystemPlan<Os, Cs> { { nodes, view, configs } }

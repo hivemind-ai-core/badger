@@ -1,0 +1,10 @@
+// A module value cannot run an effectful callback while it is computed.
+// expect-error: E0137
+import std.io
+import std.list
+
+let x = list.map([1, 2], fn(v) { let _ = io.println("init io"); v })
+
+pub fn main() {
+    let _ = x
+}
