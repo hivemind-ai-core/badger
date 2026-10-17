@@ -433,7 +433,31 @@ The before-change baseline is saved under `reports/memory-management/G2-baseline
 ordinary binary `main-0d34cee`, benchmark revision `55d0a43`, workers 1/2/4/8,
 five measured repetitions and one warmup. All 60 measured checksums pass.
 Diagnostic builds can compare fixed 256/512/1024-byte pool limits in the same
-binary. Normal builds still use 256 bytes. Unit tests isolate their global heap
+binary. The initial normal baseline uses 256 bytes; a 512-byte normal-build
+candidate is under evaluation. Unit tests isolate their global heap
 in child processes and cover every payload size through 1,040 bytes, cleared
 reuse, crossing chunk boundaries, a retained quarantined cell, and purging all
 links before chunk retirement (with verification both enabled and disabled).
+
+### G2 integration checkpoint: latest main before remeasurement
+
+Merged committed main `09580597ddb62a2db732ec20b70325abacbf5cea` at
+`8596e6d23b3774e71111d275edfa1ab77700d2b5` before further benchmarking.
+Main's unrelated uncommitted changes remain outside this worktree. Earlier
+unpublished G2 matrices are archived under `reports/memory-management/G2-pre-main/`;
+they are historical evidence, not acceptance results for the merged tree.
+
+The matched baseline `e8f91e0a1b42d35816e9154023b016f9e7cfe572` differs from
+the merged candidate only in the pooled-cell limit (256 versus 512 bytes).
+Both ordinary compilers were rebuilt and copied to immutable paths. A shared
+Cargo target initially reused the baseline artifact; that copy was rejected
+before timing, runtime artifacts were cleaned and the candidate rebuilt.
+`bench/gc/check_pool_limit.py` verifies actual allocator behavior as well as
+distinct executable hashes: identical retained data reserves 0.25 MiB versus
+6.25 MiB of pools, with no intervening collection. Fresh performance comparisons
+and the production-policy decision remain pending.
+
+Merged-tree validation passes: 7 ordinary runtime tests, 9 diagnostic runtime
+tests, 67 CLI/program/retention/builder tests, 9 Python harness tests, strict
+diagnostic runtime Clippy and formatting. Build identities and logs are saved in
+`G2-main-binaries.json` and `G2-main-validation/` beneath the report directory.

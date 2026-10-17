@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "path": "/tmp/badger-G1-binaries/main-0d34cee",
+    "sha256": "4de40fc0acabd75dd1a5e372714882ab36ac4e238756c9231cf3be8110a04b42",
+    "revision": "0d34ceebacaa28997a4f80013e60b575f5aa4d87",
+    "features": "default",
+    "build": "cargo build --offline --release -p badger_cli --target-dir /tmp/language-gc-profile-target"
+  },
+  "diagnostic": {
+    "path": "/tmp/badger-G2-binaries/pool-experiments-e183128",
+    "sha256": "358d5a0d66816eaa25a2ed09a40bf9c67a8325ab364ebb2f85515930fe070687",
+    "revision": "e18312820a768d0655fb5e79324798f89b3a8dfb",
+    "features": "badger_runtime/gc-profile",
+    "build": "cargo build --offline --release -p badger_cli -p badger_runtime --features badger_runtime/gc-profile --target-dir /tmp/language-gc-profile-target"
+  },
+  "candidate": {
+    "path": "/tmp/badger-G2-binaries/pool512-1e311f0",
+    "sha256": "ea4e17450a37a55ed7b5fb0d630f7b7522dd742e19097f06ccc41f0f29b5ce56",
+    "revision": "1e311f041d61e80d6174902405d5a684cb304e0d",
+    "features": "default",
+    "build": "cargo build --offline --release -p badger_cli --target-dir /tmp/language-gc-profile-target"
+  }
+}

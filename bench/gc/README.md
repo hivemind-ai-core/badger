@@ -157,3 +157,15 @@ Capture a baseline-only run before editing production code, then compare both
 binaries interleaved after each slice. Peak RSS includes frontend/JIT and is
 not a live-heap or allocation-volume measurement. Never reuse output directories
 for a different experiment.
+
+When sharing a Cargo target between worktrees, force a rebuild of changed packages
+before copying each executable. Older source mtimes can otherwise reuse another
+worktree's artifacts. Record the build log and compare executable hashes. For the
+256/512-byte pool experiment, also verify allocator behavior before timing:
+
+```
+python3 bench/gc/check_pool_limit.py --baseline /tmp/base/badger --candidate /tmp/candidate/badger --out /tmp/pool-check.json
+```
+
+This retains strings with 288/304-byte cells below the first collection threshold
+and checks their pool reservation, independently of binary labels or hashes.

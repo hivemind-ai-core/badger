@@ -1,0 +1,1 @@
+Historical G2 experiments before merging main 0958059. These results use ordinary baseline 0d34cee and candidate 1e311f0; they are not the final comparison on current main. Initial persistent-map baselines remain in ../G2-baseline/. G2-summary.md describes the pre-main experiment only.

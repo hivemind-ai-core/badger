@@ -1,0 +1,21 @@
+{
+  "main": "09580597ddb62a2db732ec20b70325abacbf5cea",
+  "binaries": {
+    "baseline": {
+      "path": "/tmp/badger-G2-binaries/main095-pool256-e8f91e0",
+      "sha256": "7ecc20754fb688b2dfd1ba9be4911b91ced22995c14a5023cb6424af01ba2d81",
+      "revision": "e8f91e0a1b42d35816e9154023b016f9e7cfe572",
+      "pool_max_bytes": 256,
+      "diagnostic": false
+    },
+    "candidate": {
+      "path": "/tmp/badger-G2-binaries/main095-pool512-8596e6d",
+      "sha256": "547735103d1652338f8a762d148ac2c9a30874468e50ee28d04cff7d0e2e67da",
+      "revision": "8596e6d23b3774e71111d275edfa1ab77700d2b5",
+      "pool_max_bytes": 512,
+      "diagnostic": false
+    }
+  },
+  "source_diff": "diff --git a/crates/badger_runtime/src/gc.rs b/crates/badger_runtime/src/gc.rs\nindex 69d3300..b23d4db 100644\n--- a/crates/badger_runtime/src/gc.rs\n+++ b/crates/badger_runtime/src/gc.rs\n@@ -164,7 +164,7 @@ fn layout(payload: usize) -> Layout {\n /// allocates from them without the lock (like its object list). Small\n /// cells are reused, not returned to the system. Larger objects use the\n /// system allocator.\n-const SMALL_MAX: usize = 256;\n+const SMALL_MAX: usize = 512;\n // Diagnostic builds can compare larger classes without changing their binary.\n const CLASSES: usize = if cfg!(feature = \"gc-profile\") { 1024 / 16 } else { SMALL_MAX / 16 };\n fn small_max() -> usize {\n",
+  "cache_note": "Candidate runtime artifacts were cleaned and rebuilt after detecting an identical baseline binary reused by the shared target; no measurements used that rejected copy. pool-limit-check.json verifies actual allocator behavior."
+}

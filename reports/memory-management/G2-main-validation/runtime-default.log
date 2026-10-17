@@ -1,0 +1,16 @@
+   Compiling badger_native v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.74s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/debug/deps/badger_runtime-ab48fa7deed5e03f)
+
+running 7 tests
+test string::tests::scalar_slice_matches_character_reference ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test telemetry::tests::rfc3339_dates ... ok
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
