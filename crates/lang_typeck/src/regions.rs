@@ -669,9 +669,6 @@ pub(crate) fn store_summaries(
     loop {
         let mut changed = false;
         for (id, def) in hir.defs.iter() {
-            if hir.modules[def.module].is_std {
-                continue;
-            }
             let lang_hir::DefKind::Fn(f) = &def.kind else { continue };
             let Some(body) = f.body else { continue };
             let params: Vec<Option<LocalId>> = f

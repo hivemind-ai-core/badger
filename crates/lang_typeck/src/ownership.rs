@@ -211,9 +211,6 @@ fn transfer_params(inf: &mut Infer<'_, '_>) -> FxHashMap<DefId, Vec<usize>> {
     loop {
         let mut changed = false;
         for (id, def) in hir.defs.iter() {
-            if hir.modules[def.module].is_std {
-                continue;
-            }
             let DefKind::Fn(f) = &def.kind else { continue };
             let Some(body) = f.body else { continue };
             let params: Vec<Option<LocalId>> = f
@@ -393,9 +390,6 @@ pub fn check_task_params(inf: &mut Infer<'_, '_>) {
     let tp = transfer_params(inf);
     let mut reports: Vec<(Span, String)> = vec![];
     for (_, def) in hir.defs.iter() {
-        if hir.modules[def.module].is_std {
-            continue;
-        }
         let body = match &def.kind {
             DefKind::Fn(f) => f.body,
             DefKind::Global(g) => Some(g.value),
@@ -475,9 +469,6 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
     // bound earlier)
     let mut inits: FxHashMap<LocalId, ExprId> = FxHashMap::default();
     for (_, def) in hir.defs.iter() {
-        if hir.modules[def.module].is_std {
-            continue;
-        }
         let body = match &def.kind {
             DefKind::Fn(f) => f.body,
             DefKind::Global(g) => Some(g.value),
@@ -584,7 +575,7 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
     loop {
         let mut changed = false;
         for (id, def) in hir.defs.iter() {
-            if hir.modules[def.module].is_std || returning.contains_key(&id) {
+            if returning.contains_key(&id) {
                 continue;
             }
             let DefKind::Fn(f) = &def.kind else { continue };
@@ -632,7 +623,7 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
     loop {
         let mut grew = false;
         for (id, def) in hir.defs.iter() {
-            if hir.modules[def.module].is_std || dyn_state.contains_key(&id) {
+            if dyn_state.contains_key(&id) {
                 continue;
             }
             let DefKind::Fn(f) = &def.kind else { continue };
@@ -651,9 +642,6 @@ pub fn check_module_closures(inf: &mut Infer<'_, '_>) {
     }
     let mut reports = vec![];
     for (id, def) in hir.defs.iter() {
-        if hir.modules[def.module].is_std {
-            continue;
-        }
         let DefKind::Global(g) = &def.kind else { continue };
         if let Some(s) = captured_state(inf, g.value, &returning, &inits, 0) {
             reports.push((def.span, inf.g.interner.resolve(def.name).to_string(), s));
@@ -1632,7 +1620,7 @@ impl Own<'_, '_, '_> {
         if !required {
             // a user function may still hand it to a task: decided once
             // every body is checked (`check_task_params`)
-            if !captured.is_empty() && !hir.modules[hir.defs[def].module].is_std {
+            if !captured.is_empty() {
                 let after = span.range().end;
                 let later: Vec<(LocalId, Span)> = captured
                     .iter()

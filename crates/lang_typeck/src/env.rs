@@ -475,9 +475,6 @@ impl TypeEnv {
             })
             .collect();
         for &d in &ids {
-            if hir.modules[hir.defs[d].module].is_std {
-                continue;
-            }
             // reachable from itself through inline edges?
             let mut stack = edges.get(&d).cloned().unwrap_or_default();
             let mut seen: Vec<DefId> = vec![];
@@ -594,8 +591,7 @@ impl TypeEnv {
         for imp in &self.impls {
             let (Some(def), Some((p, _))) = (imp.def, &imp.protocol) else { continue };
             // memory capabilities are verified by the compiler, never asserted
-            if !is_std(def)
-                && is_std(*p)
+            if is_std(*p)
                 && matches!(
                     pname(*p).as_str(),
                     "Transfer" | "Share" | "Integer" | "Row" | "Scope" | "Effect" | "Unscoped"
@@ -661,9 +657,11 @@ impl TypeEnv {
             for (k, &i) in idxs.iter().enumerate() {
                 for &j in &idxs[k + 1..] {
                     let (a, b) = (&self.impls[i], &self.impls[j]);
-                    // reported for user code only; std impls are trusted
+                    // the label points at user code where one side is
                     let user = |x: &ImplInfo| x.def.is_some_and(|d| !is_std(d));
-                    if !user(a) && !user(b) {
+                    // derived implementations are generated consistently
+                    // with each other and with the library's own
+                    if !user(a) && !user(b) && (a.def.is_none() || b.def.is_none()) {
                         continue;
                     }
                     let snap = icx.snapshot();
@@ -784,7 +782,7 @@ impl TypeEnv {
                     if let Some(x) = args.iter().find_map(|x| bad(env, hir, interner, x, proto, seen)) {
                         return Some(x);
                     }
-                    if !std && !seen.contains(d) {
+                    if !seen.contains(d) {
                         seen.push(*d);
                         let inner: Vec<Ty> = if let Some(si) = env.structs.get(d) {
                             si.fields.iter().map(|f| f.1.clone()).collect()
