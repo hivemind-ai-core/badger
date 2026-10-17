@@ -34,3 +34,8 @@ lang_fs.workspace = true
 [dev-dependencies]
 insta.workspace = true
 pretty_assertions.workspace = true
+
+[features]
+# ThreadSanitizer fiber annotations (see lang_runtime)
+tsan = ["lang_runtime/tsan"]
+asan = ["lang_runtime/asan"]
