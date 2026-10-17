@@ -1,0 +1,21 @@
+// Sorting compares compound values structurally: tuples by position,
+// records field by field in label order, enums by variant then payload,
+// lists lexicographically (a regression: these used to compare equal, so
+// sort left them unsorted).
+import std.codec
+import std.io
+
+type Person = { name: String, age: Int }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let people: List<Person> = [{ name: "b", age: 2 }, { name: "a", age: 9 }, { name: "a", age: 1 }]
+    io.println(codec.encode_text(people.sort()))?
+    let pairs: List<(Int, String)> = [(2, "x"), (1, "z"), (1, "y")]
+    io.println(codec.encode_text(pairs.sort()))?
+    io.println($"{[[2], [1, 5], [1], []].sort()}")?
+    let options: List<Option<Int>> = [Option.some(2), Option.none, Option.some(1)]
+    io.println(codec.encode_text(options.sort()))?
+    let results: List<Result<Int, String>> = [err("b"), ok(3), err("a"), ok(1)]
+    io.println(codec.encode_text(results.sort()))?
+    ok(())
+}
