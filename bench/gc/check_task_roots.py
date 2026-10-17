@@ -47,8 +47,8 @@ def main():
         probe.write_text(INSPECT)
         command = [str(binary), 'compile', 'tests/run/task_input_lifetime.bdg', '-o', str(mir)]
         subprocess.run(command, cwd=ROOT, env=clean, capture_output=True, check=True, timeout=60)
-        def execute(source, workers, generation, chaos, config=None):
-            env = clean | dict(BADGER_GC_STRESS='1', BADGER_GC_VERIFY='1', BADGER_GC_GENERATIONAL=str(generation))
+        def execute(source, workers, generation, chaos, verify, config=None):
+            env = clean | dict(BADGER_GC_STRESS='1', BADGER_GC_VERIFY=str(verify), BADGER_GC_GENERATIONAL=str(generation))
             if chaos:
                 env['BADGER_CHAOS'] = str(chaos)
             if config:
@@ -64,17 +64,18 @@ def main():
                 assert done and all(t['memory']['captures'] == 0 for t in done), tasks
             else:
                 assert output.stdout == (ROOT / 'tests/run/task_input_lifetime.out').read_text(), output.stdout
-            results.append(dict(command=command, generational=generation, chaos=chaos, config=config,
+            results.append(dict(command=command, generational=generation, chaos=chaos, verify=verify, config=config,
                                 stdout=output.stdout, stderr=output.stderr))
-        for generation in [0, 1]:
-            for workers in [1, 4, 8]:
-                for chaos in [0, 731]:
-                    for source in [Path('tests/run/task_input_lifetime.bdg'), mir, probe]:
-                        execute(source, workers, generation, chaos)
-            for workers in [1, 8]:
-                for mode in ['tasks-input', 'tasks-result']:
-                    execute(Path('bench/gc/coverage.bdg'), workers, generation, 947,
-                            dict(mode=mode, n=8, rounds=4096, payload=257, retain=64))
+        for verify in [0, 1]:
+            for generation in [0, 1]:
+                for workers in [1, 4, 8]:
+                    for chaos in [0, 731]:
+                        for source in [Path('tests/run/task_input_lifetime.bdg'), mir, probe]:
+                            execute(source, workers, generation, chaos, verify)
+                for workers in [1, 8]:
+                    for mode in ['tasks-input', 'tasks-result']:
+                        execute(Path('bench/gc/coverage.bdg'), workers, generation, 947, verify,
+                                dict(mode=mode, n=8, rounds=4096, payload=257, retain=64))
     with binary.open('rb') as file:
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
     sources = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in

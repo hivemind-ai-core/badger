@@ -1,0 +1,314 @@
+{
+  "baseline_revision": "a0a9838076b5ce70222edd76542dcc81b367f000",
+  "candidate_revision": "82642bb5ba80b020f6186f929772bcc22745d685",
+  "integrated_main": "56f5983",
+  "binaries": {
+    "ordinary-baseline": {
+      "path": "/tmp/badger-G5b-binaries/inline256",
+      "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054",
+      "bytes": 30545488
+    },
+    "ordinary-task-inputs": {
+      "path": "/tmp/badger-G6a-binaries/completed-inputs",
+      "sha256": "99f8fb45ef266e7e4946422fc8feb83ace368afab61e18a05a62a071b38eaa2a",
+      "bytes": 30545640
+    }
+  },
+  "source_sha256": {
+    "crates/badger_runtime/src/task.rs": "9f099d0cc681beb493cadf03b3227e6e635e46705a35d86746059860b354cd65",
+    "crates/badger_runtime/src/buffer.rs": "848159946dbff09d52068c04d9f932b50dd504e63d5490a375943efd2f31ba9f",
+    "crates/badger_runtime/src/gc.rs": "91eac2b0098da95fe1fc9b06a6c34088958abf985ddaed33b2edc91ed9f18b65",
+    "crates/badger_runtime/src/gc/allocations.rs": "303d11a6be79a8cd06b106a432602971c3732f22b9fb8e383f50a4a3de5fdea9",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "08a765c5270b11887053e8981fbb47f223d2a2f280a72f17f9a3e67658ba260d"
+  },
+  "final_harness_sha256": {
+    "bench/gc/run.py": "acbf0b6377501d7ffe150f259f255089f8e437fb64bdeba1ebf72ffc146217bd",
+    "bench/gc/analyze.py": "b089e131dd0b9b2c0684d55b0abeb97d60c12759836a8855216c6210b4092322",
+    "bench/gc/coverage.bdg": "adbfc228fe82354a12c9ad62e6d0f4e29b3deb6228b80bf73ce26915da6c2f95",
+    "bench/gc/test_gc_bench.py": "2f6078ce825a846e5d752dd8dbf5f4efd733bc00a10d7d06983d8d94c983c66a",
+    "bench/gc/check_task_roots.py": "b5ff6a52a5c1b6b6c3f7dfa278e495e05a9bac4330c62f8d3d66f491136cbf14",
+    "tests/run/task_input_lifetime.bdg": "efccb2811253f64def16265bbde091212c1c9ec37214dbe4748de975db2a458a"
+  },
+  "datasets": {
+    "G6a-smoke-baseline": {
+      "measured_runs": 4,
+      "arguments": {
+        "baseline": "/tmp/badger-G5b-binaries/inline256",
+        "candidate": "None",
+        "baseline_revision": "a0a9838",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "smoke",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 20261017,
+        "paired": false,
+        "cases": [
+          "tasks-input",
+          "tasks-result"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G6a-smoke-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "acbf0b6377501d7ffe150f259f255089f8e437fb64bdeba1ebf72ffc146217bd",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "adbfc228fe82354a12c9ad62e6d0f4e29b3deb6228b80bf73ce26915da6c2f95",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      }
+    },
+    "G6a-coverage-baseline": {
+      "measured_runs": 24,
+      "arguments": {
+        "baseline": "/tmp/badger-G5b-binaries/inline256",
+        "candidate": "None",
+        "baseline_revision": "a0a9838",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101743,
+        "paired": false,
+        "cases": [
+          "tasks-input",
+          "tasks-result"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G6a-coverage-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "acbf0b6377501d7ffe150f259f255089f8e437fb64bdeba1ebf72ffc146217bd",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "adbfc228fe82354a12c9ad62e6d0f4e29b3deb6228b80bf73ce26915da6c2f95",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      }
+    },
+    "G6a-retention": {
+      "measured_runs": 112,
+      "arguments": {
+        "baseline": "/tmp/badger-G5b-binaries/inline256",
+        "candidate": "/tmp/badger-G6a-binaries/completed-inputs",
+        "baseline_revision": "a0a9838",
+        "candidate_revision": "82642bb",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101744,
+        "paired": true,
+        "cases": [
+          "tasks-input",
+          "tasks-result"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G6a-retention"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G6a-binaries/completed-inputs",
+          "sha256": "99f8fb45ef266e7e4946422fc8feb83ace368afab61e18a05a62a071b38eaa2a"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "acbf0b6377501d7ffe150f259f255089f8e437fb64bdeba1ebf72ffc146217bd",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "adbfc228fe82354a12c9ad62e6d0f4e29b3deb6228b80bf73ce26915da6c2f95",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      }
+    },
+    "G6a-applications": {
+      "measured_runs": 224,
+      "arguments": {
+        "baseline": "/tmp/badger-G5b-binaries/inline256",
+        "candidate": "/tmp/badger-G6a-binaries/completed-inputs",
+        "baseline_revision": "a0a9838",
+        "candidate_revision": "82642bb",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101745,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "cpu",
+          "fanout"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G6a-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-G5b-binaries/inline256",
+          "sha256": "89f5dbcbae23224d17a577ef3fa5141ee069492acff1ba77a97796421208d054"
+        },
+        "candidate": {
+          "path": "/tmp/badger-G6a-binaries/completed-inputs",
+          "sha256": "99f8fb45ef266e7e4946422fc8feb83ace368afab61e18a05a62a071b38eaa2a"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "acbf0b6377501d7ffe150f259f255089f8e437fb64bdeba1ebf72ffc146217bd",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "adbfc228fe82354a12c9ad62e6d0f4e29b3deb6228b80bf73ce26915da6c2f95",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      }
+    }
+  },
+  "interval_audit": {
+    "saved_measured_intervals": 364,
+    "overlaps": 0
+  },
+  "proof": {
+    "input_after_churn_native_bytes": {
+      "baseline": 16777216,
+      "candidate": 0
+    },
+    "returned_alias_after_churn_native_bytes": {
+      "baseline": 16777728,
+      "candidate": 16777728
+    },
+    "matched_full_size_runs": 112
+  },
+  "notes": [
+    "No own builds/tests/benchmarks overlap these measured intervals; shared-host load is uncontrolled.",
+    "Input roots are omitted only after terminal Done. Result roots and every other task root remain.",
+    "Only task.rs changes production behavior relative to the G5b baseline; buffer.rs also has expanded cfg(test) code.",
+    "No eager free, new collection request, escape analysis, task-record reuse or arena policy."
+  ]
+}

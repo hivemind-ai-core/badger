@@ -93,6 +93,10 @@ negative results; do not mark architectural sketches as implemented.
     resources remain. Prove grow-to-native, packed tracing, budgets and handoff.
 - [ ] G6: Shorten unnecessary shadow-root retention, including pointer provenance
   through word-based runtime calls, with stress coverage for hidden aliases.
+  - [x] G6a: Stop tracing entry closures/arguments after terminal task completion;
+    preserve results/cleanup aliases and avoid stale-entry inspection.
+  - [ ] G6b: Investigate unnecessary runtime delivery/auxiliary and compiler
+    shadow roots with lifetime/provenance proof and broader coverage.
 
 ### Request regions and producer/consumer ring arenas
 
@@ -775,3 +779,37 @@ pointers after GC can reclaim them. This avoids introducing concurrent writes
 to currently immutable entry/argument fields, which inspection reads while
 other workers run. It retains the small native argument vector until record
 release; it does not recycle task records or coroutine stacks.
+
+### G6a complete — consumed completed-task inputs can be reclaimed
+
+Production `82642bb` uses the existing acquire/release terminal Done state to
+omit only entry-closure/argument roots. Results and all other roots remain;
+fields stay immutable, and inspection avoids following completed stale entries.
+No new GC collection or scheduling policy, arena, uniqueness inference or task
+record reuse is added. Native argument-vector capacity remains until removal.
+
+Saved four smoke/24 full-size baseline runs first. Final paired coverage has
+112 runs: consumed native payload storage falls exactly 16 MiB→0 after churn
+and idle in all 1/2/4/8-worker cases/repetitions. Returned-alias controls retain
+all useful payloads and pass full checksums again after collections. The 224-run
+application comparison ranges −3.3% to +3.6% work time, with noisy small mixed
+RSS/pause changes; no broad speedup is established.
+
+Memory improves at a measured cost: the short consumed-input benchmark changes
++5.7%/+7.1%/+0.3%/+12.2% elapsed at 1/2/4/8 workers and GC pause medians rise.
+One-worker peak RSS falls about 7.1 MiB; multiworker peak changes are smaller.
+Accept earlier reclaimability without claiming equal RSS return or faster GC.
+All 364 saved measured intervals are nonoverlapping. Full tradeoffs and exact
+checkpoint/binary proof: [G6a results](reports/memory-management/G6a-summary.md).
+
+Validation: all 66 program tests, 10 ordinary/12 diagnostic runtime tests,
+88 dedicated source/MIR lifecycle and inspection stress checks with actual
+freeing and quarantine, 16 harness tests, strict Clippy in both modes and scoped
+formatting pass. Cancellation/failure cleanups and returned closure aliases
+retain their pointer graphs safely.
+
+Next priority I2: eliminate lookup-result boxing across proven local intrinsic
+boundaries. The fresh application census still has about 0.76M MapNode/0.38M
+Option allocations at one worker; channel split-results provide a mechanism
+to evaluate for lookup calls. Immutable-node/record allocation and targeted
+pool/finalizer work follow; architectural regions/rings remain unimplemented.
