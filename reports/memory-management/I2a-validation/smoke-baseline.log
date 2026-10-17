@@ -1,0 +1,402 @@
+smoke rep=-1 lookup-map-pointers w8 baseline
+smoke rep=-1 lookup-array-int w8 baseline
+smoke rep=-1 lookup-array-int w1 baseline
+smoke rep=-1 lookup-map-int w8 baseline
+smoke rep=-1 lookup-list-pointers w8 baseline
+smoke rep=-1 lookup-list-pointers w1 baseline
+smoke rep=-1 lookup-map-int w1 baseline
+smoke rep=-1 lookup-map-stored w8 baseline
+smoke rep=-1 lookup-map-stored w1 baseline
+smoke rep=-1 lookup-map-pointers w1 baseline
+smoke rep=0 lookup-array-int w8 baseline
+smoke rep=0 lookup-map-pointers w8 baseline
+smoke rep=0 lookup-list-pointers w1 baseline
+smoke rep=0 lookup-map-int w1 baseline
+smoke rep=0 lookup-map-pointers w1 baseline
+smoke rep=0 lookup-map-stored w8 baseline
+smoke rep=0 lookup-list-pointers w8 baseline
+smoke rep=0 lookup-map-stored w1 baseline
+smoke rep=0 lookup-array-int w1 baseline
+smoke rep=0 lookup-map-int w8 baseline
+[
+  {
+    "case": "lookup-array-int",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.004107,
+      "min": 0.004107,
+      "max": 0.004107,
+      "runs": [
+        0.004107
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29108,
+      "min": 29108,
+      "max": 29108,
+      "runs": [
+        29108
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.008897,
+      "min": 0.008897,
+      "max": 0.008897,
+      "runs": [
+        0.008897
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 28944,
+      "min": 28944,
+      "max": 28944,
+      "runs": [
+        28944
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.012423,
+      "min": 0.012423,
+      "max": 0.012423,
+      "runs": [
+        0.012423
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29220,
+      "min": 29220,
+      "max": 29220,
+      "runs": [
+        29220
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.013705,
+      "min": 0.013705,
+      "max": 0.013705,
+      "runs": [
+        0.013705
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31308,
+      "min": 31308,
+      "max": 31308,
+      "runs": [
+        31308
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.008746,
+      "min": 0.008746,
+      "max": 0.008746,
+      "runs": [
+        0.008746
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29008,
+      "min": 29008,
+      "max": 29008,
+      "runs": [
+        29008
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.009157,
+      "min": 0.009157,
+      "max": 0.009157,
+      "runs": [
+        0.009157
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30852,
+      "min": 30852,
+      "max": 30852,
+      "runs": [
+        30852
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.012444,
+      "min": 0.012444,
+      "max": 0.012444,
+      "runs": [
+        0.012444
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29652,
+      "min": 29652,
+      "max": 29652,
+      "runs": [
+        29652
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.024566,
+      "min": 0.024566,
+      "max": 0.024566,
+      "runs": [
+        0.024566
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29736,
+      "min": 29736,
+      "max": 29736,
+      "runs": [
+        29736
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.011802,
+      "min": 0.011802,
+      "max": 0.011802,
+      "runs": [
+        0.011802
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29488,
+      "min": 29488,
+      "max": 29488,
+      "runs": [
+        29488
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.013535,
+      "min": 0.013535,
+      "max": 0.013535,
+      "runs": [
+        0.013535
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29000,
+      "min": 29000,
+      "max": 29000,
+      "runs": [
+        29000
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  }
+]

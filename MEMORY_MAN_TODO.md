@@ -38,6 +38,8 @@ negative results; do not mark architectural sketches as implemented.
   collision handling, pointer tracing, and old-to-young write barriers.
 - [ ] I2: Broaden enum/record/closure scalar replacement across proven nonescaping
   uses and specialized call boundaries; preserve scheduling and GC liveness.
+  - [ ] I2a: Elide proven local Map/List lookup Option boxes using split results;
+    retain boxed escaping/stored results, typed roots and live-reload behavior.
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
 - [ ] I4: Pack fixed-size pointer-free records directly into collection storage,
@@ -813,3 +815,22 @@ boundaries. The fresh application census still has about 0.76M MapNode/0.38M
 Option allocations at one worker; channel split-results provide a mechanism
 to evaluate for lookup calls. Immutable-node/record allocation and targeted
 pool/finalizer work follow; architectural regions/rings remain unimplemented.
+
+### Main integration and I2a baseline
+
+Completed memory work `adf29aa` and committed main `40291dc` are integrated at
+`fab8a02`, now on local main as requested. Its parser/symbol/driver changes
+build and pass 10 runtime, 3 MIR and all 66 program tests, 88 task-root and
+42 buffer/MIR stress checks. All 87 unrelated dirty files and the index were
+preserved exactly while advancing main. No remote is configured. Validation:
+[main integration](reports/memory-management/main-integration-2026-10-17/README.md).
+
+I2a starts from a fresh immutable ordinary/diagnostic pair built from `fab8a02`.
+Before changing production code, saved 10 smoke, 60 mixed-lookup coverage,
+32 application and 10 separate diagnostic census runs. New map/list immediate
+lookups, stored-Option control and array control include misses/negative indices,
+independent arithmetic and full pointer-string comparisons without per-read
+expected-value allocation. The full-size one-worker census allocates 524,289
+Options in map/list/stored cases, but only one in array control: existing MIR
+lowering already eliminates local array result boxes. Focus this slice on Map
+and List intrinsic boundaries; do not claim a newly discovered array win.

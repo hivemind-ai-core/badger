@@ -379,6 +379,104 @@ fn task_retention(c: Config) -> (Int, List<Data>) {
     }))
 }
 
+// Mixed hit/miss lookups include a negative index/key. Immediate results may
+// split into tag/payload; stored Options must keep their ordinary boxed ABI.
+fn lookup_int(c: Config) -> Int {
+    var builder = map.builder<Int, Int>()
+    for k in 0..c.retain { builder.insert(k, k * 31 + 7) }
+    let values = builder.finish()
+    var total = 0
+    if c.mode == "lookup-map-stored" {
+        let options = array.build(c.n, fn(i: Int) { values.get(i % (c.retain * 2) - 1) })
+        var i = 0
+        for value in options {
+            let k = i % (c.retain * 2) - 1
+            match value {
+                .some(v) => {
+                    assert(k >= 0 && k < c.retain && v == k * 31 + 7)
+                    total = total + v
+                },
+                .none => { assert(k < 0 || k >= c.retain) },
+            }
+            i = i + 1
+        }
+        assert(i == c.n)
+    } else {
+        for i in 0..c.n {
+            let k = i % (c.retain * 2) - 1
+            let value = values.get(k)
+            match value {
+                .some(v) => {
+                    assert(k >= 0 && k < c.retain && v == k * 31 + 7)
+                    total = total + v
+                },
+                .none => { assert(k < 0 || k >= c.retain) },
+            }
+        }
+    }
+    total
+}
+
+fn lookup_array_int(c: Config) -> Int {
+    let words = array.build(c.retain, fn(k: Int) { k * 31 + 7 })
+    var total = 0
+    for i in 0..c.n {
+        let k = i % (c.retain * 2) - 1
+        match words.get(k) {
+            .some(v) => {
+                assert(k >= 0 && k < c.retain && v == k * 31 + 7)
+                total = total + v
+            },
+            .none => { assert(k < 0 || k >= c.retain) },
+        }
+    }
+    total
+}
+
+fn lookup_map_pointers(c: Config) -> Int {
+    let words = array.build(c.retain, fn(k: Int) { text.repeat("x", c.payload + k % 3) })
+    var builder = map.builder<Int, String>()
+    for k in 0..c.retain { builder.insert(k, words[k]) }
+    let values = builder.finish()
+    var total = 0
+    for i in 0..c.n {
+        let k = i % (c.retain * 2) - 1
+        let value = values.get(k)
+        match value {
+            .some(v) => {
+                assert(k >= 0 && k < c.retain)
+                // Full byte comparison against prebuilt data, no new expected
+                // String per lookup to hide Option allocation costs.
+                assert(v == words[k])
+                total = total + v.len()
+            },
+            .none => { assert(k < 0 || k >= c.retain) },
+        }
+    }
+    total
+}
+
+fn lookup_list_pointers(c: Config) -> Int {
+    let words = array.build(c.retain, fn(k: Int) { text.repeat("x", c.payload + k % 3) })
+    let items = words.to_list()
+    var total = 0
+    for i in 0..c.n {
+        let k = i % (c.retain * 2) - 1
+        let value = items.get(k)
+        match value {
+            .some(v) => {
+                assert(k >= 0 && k < c.retain)
+                // Full byte comparison against prebuilt data, no new expected
+                // String per lookup to hide Option allocation costs.
+                assert(v == words[k])
+                total = total + v.len()
+            },
+            .none => { assert(k < 0 || k >= c.retain) },
+        }
+    }
+    total
+}
+
 fn pipeline(c: Config) -> Int {
     var total = 0
     for _ in 0..c.rounds {
@@ -416,6 +514,12 @@ pub fn main() -> Result<Unit, io.Error> {
         let (total, shots) = task_retention(c)
         checkpoints = shots
         total
+    }
+    else if c.mode.starts_with("lookup-") {
+        if c.mode == "lookup-map-pointers" { lookup_map_pointers(c) }
+        else if c.mode == "lookup-list-pointers" { lookup_list_pointers(c) }
+        else if c.mode == "lookup-array-int" { lookup_array_int(c) }
+        else { lookup_int(c) }
     }
     else if c.mode == "buffers-empty" { empty_buffers(c) }
     else if c.mode == "buffers-grow" || c.mode == "buffers-capacity" || c.mode == "buffers-capacity-grow" { buffer_growth(c) }

@@ -1,0 +1,23 @@
+   Compiling hashbrown v0.15.5
+   Compiling syn v2.0.119
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling chumsky v0.13.0
+   Compiling petgraph v0.8.3
+   Compiling logos-codegen v0.16.1
+   Compiling logos-derive v0.16.1
+   Compiling logos v0.16.1
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Finished `release` profile [optimized] target(s) in 1m 31s
+     Running unittests src/lib.rs (/tmp/language-gc-profile-target/release/deps/badger_mir-a9d26c30ddc36547)
+
+running 3 tests
+test roots::tests::roots_expire_between_safe_points_but_word_sources_stay_pinned ... ok
+test reach::tests::callbacks_and_relocation_origins_survive_renumbering ... ok
+test serial::tests::former_indirect_buffer_layout_is_refused_before_decoding ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

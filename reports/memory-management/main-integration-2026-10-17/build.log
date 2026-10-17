@@ -1,0 +1,35 @@
+   Compiling badger_native v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native)
+   Compiling memchr v2.8.3
+   Compiling regex-syntax v0.8.11
+   Compiling fnv v1.0.7
+   Compiling hashbrown v0.15.5
+   Compiling unicode-segmentation v1.13.3
+   Compiling unicode-ident v1.0.27
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling aho-corasick v1.1.5
+   Compiling badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+   Compiling badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+   Compiling badger_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_postgres)
+   Compiling badger_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fetch)
+   Compiling badger_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_crypto)
+   Compiling badger_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_http)
+   Compiling badger_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fs)
+   Compiling badger_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_template)
+   Compiling badger_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_datetime)
+   Compiling badger_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_compress)
+   Compiling badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+   Compiling chumsky v0.13.0
+   Compiling petgraph v0.8.3
+   Compiling regex-automata v0.4.18
+   Compiling logos-codegen v0.16.1
+   Compiling logos-derive v0.16.1
+   Compiling logos v0.16.1
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 1m 48s

@@ -23,6 +23,9 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    **{name: dict(mode=name, n=1048576, rounds=1, payload=32, retain=1024)
+       for name in ["lookup-map-int", "lookup-map-pointers", "lookup-array-int",
+                    "lookup-list-pointers", "lookup-map-stored"]},
     **{name: dict(mode=name, n=64, rounds=524288, payload=32768, retain=64)
        for name in ["tasks-input", "tasks-result"]},
     "map-new": dict(mode="map-new", n=8192, rounds=16, payload=1, retain=8192),
@@ -119,6 +122,13 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"].startswith("lookup-"):
+        total = 0
+        for i in range(c["n"]):
+            k = i % (2 * c["retain"]) - 1
+            if 0 <= k < c["retain"]:
+                total += c["payload"] + k % 3 if c["mode"].endswith("pointers") else k * 31 + 7
+        return total
     if c["mode"] in ["tasks-input", "tasks-result"]:
         payload_sum = 31 * c["payload"] * c["n"] * (c["n"] - 1) // 2
         payload_sum += c["n"] * c["payload"] * (c["payload"] - 1) // 2

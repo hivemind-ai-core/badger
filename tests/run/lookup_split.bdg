@@ -1,0 +1,113 @@
+// Local lookup results can split; stored results keep the boxed ABI. Payload
+// words include packed scalars, pointers, nested Options and dynamic null.
+import std.array
+import std.buffer
+import std.io
+import std.map
+import std.task
+import std.text
+
+fn owned_lookup() -> String {
+    let values = map.from_list([(7, text.repeat("payload", 256))])
+    values.get(7).unwrap_or("missing")
+}
+
+fn churn() -> Unit {
+    for i in 0..256 {
+        let words = array.build(256, fn(j: Int) { i + j })
+        assert(words[255] == i + 255)
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let values = map.from_list([(0, 11), (1, -17), (7, 0)])
+    assert(values.get(0).is_some())
+    assert(values.get(1).unwrap_or(0) == -17)
+    assert(values.get(7).unwrap_or(1) == 0)
+    assert(values.get(-1).is_none() && values.get(8).is_none())
+    let stored = Cell.new(values.get(1))
+    churn()
+    assert(stored.get() == Option.some(-17))
+    let options = array.build(32, fn(i: Int) { values.get(i % 8) })
+    for i in 0..32 {
+        assert(options[i] == values.get(i % 8))
+    }
+
+    let bytes = array.from_list([0U8, 255U8])
+    let signed = array.from_list([-128I8, 127I8])
+    let shorts = array.from_list([-32768I16, 32767I16])
+    let ushorts = array.from_list([0U16, 65535U16])
+    let ints = array.from_list([-2147483648I32, 2147483647I32])
+    let uints = array.from_list([0U32, 4294967295U32])
+    let longs = array.from_list([0U64, 18446744073709551615U64])
+    let f32s = array.from_list([1.5F32, -2.25F32])
+    let f64s = array.from_list([1.5F64, -2.25F64])
+    assert(bytes.get(1).unwrap_or(0U8) == 255U8)
+    assert(signed.get(0).unwrap_or(0I8) == -128I8)
+    assert(shorts.get(0).unwrap_or(0I16) == -32768I16)
+    assert(ushorts.get(1).unwrap_or(0U16) == 65535U16)
+    assert(ints.get(0).unwrap_or(0I32) == -2147483648I32)
+    assert(uints.get(1).unwrap_or(0U32) == 4294967295U32)
+    assert(longs.get(1).unwrap_or(0U64) == 18446744073709551615U64)
+    assert(f32s.get(1).unwrap_or(0F32) == -2.25F32)
+    assert(f64s.get(1).unwrap_or(0F64) == -2.25F64)
+    assert(bytes.get(-1).is_none() && bytes.get(2).is_none())
+    let float_map = map.from_list([(1, -2.25F32)])
+    assert(float_map.get(1).unwrap_or(0F32) == -2.25F32)
+    assert([-32768I16, 32767I16].get(0).unwrap_or(0I16) == -32768I16)
+    assert([-2.25F32].get(0).unwrap_or(0F32) == -2.25F32)
+    let nested_map: Map<Int, Option<Int>> = map.from_list([(1, Option.none)])
+    match nested_map.get(1) {
+        .some(v) => { assert(v.is_none()) },
+        .none => panic("map nested none became outer none"),
+    }
+    let flags = [true, false]
+    assert(flags.get(0).unwrap_or(false) && !flags.get(1).unwrap_or(true))
+    assert(flags.get(-1).is_none() && flags.get(2).is_none())
+    assert([(), ()].get(1).is_some() && [()].get(1).is_none())
+
+    var mutable = buffer.with_capacity<I16>(1)
+    mutable.push(-17I16)
+    assert(mutable.get(0).unwrap_or(0I16) == -17I16)
+    mutable.push(31I16)
+    assert(mutable.get(1).unwrap_or(0I16) == 31I16)
+    assert(mutable.get(-1).is_none() && mutable.get(2).is_none())
+    let frozen = mutable.freeze()
+    assert(frozen.get(0).unwrap_or(0I16) == -17I16)
+
+    let nested: Array<Option<Int>> = array.from_list([Option.none, Option.some(7)])
+    match nested.get(0) {
+        .some(v) => { assert(v.is_none()) },
+        .none => panic("nested none became outer none"),
+    }
+    assert(nested.get(1).unwrap_or(Option.none).unwrap_or(0) == 7)
+    assert(nested.get(2).is_none())
+    let dynamic: Array<Data> = array.from_list([Data.null, Data.string("value")])
+    match dynamic.get(0) {
+        .some(v) => { assert(v == Data.null) },
+        .none => panic("some null became none"),
+    }
+    assert(dynamic.get(2).is_none())
+    let dynamic_list = [Data.null]
+    match dynamic_list.get(0) {
+        .some(v) => { assert(v == Data.null) },
+        .none => panic("list some null became none"),
+    }
+    let dynamic_map = map.from_list([(1, Data.null)])
+    match dynamic_map.get(1) {
+        .some(v) => { assert(v == Data.null) },
+        .none => panic("map some null became none"),
+    }
+
+    let got = task.scope(fn(s) -> Result<String, String> {
+        let job = s.spawn(fn() { owned_lookup() })
+        let value = job.join()
+        task.yield_now()
+        churn()
+        assert(value == text.repeat("payload", 256))
+        ok(value)
+    }).unwrap_or("missing")
+    assert(got == text.repeat("payload", 256))
+    io.println("lookup split ok")?
+    ok(())
+}
