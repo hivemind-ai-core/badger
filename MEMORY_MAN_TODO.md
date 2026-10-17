@@ -542,3 +542,24 @@ builds still select scoped helpers until measurements accept a default change.
 An isolated native test covers sparse worker indices, old prefixes, sticky and
 cleared marks, exact collector-thread finalizer order, reuse, joining, repeated
 shutdown and scoped fallback. Default/diagnostic runtime and harness tests pass.
+
+The five-repeat diagnostic policy comparison (`G3-helper-policies/`, 160 runs)
+reduces eight-worker native helper creation from roughly 147–294 to 7 per
+process. GC medians improve about 3–9% there, while elapsed results remain mixed.
+This selects a candidate, not an ordinary-build performance claim. Integrated
+main's new archive cleanup `36091e7` at `b3602ac` before the ordinary comparison;
+a separate clean main checkout supplies its fixed baseline. The normal-build
+cached-helper candidate is pending full integration and performance acceptance.
+
+Added two fixed-eight-task coverage cases, `parallel-maps` and
+`parallel-snapshots`, since existing collection cases run on one task. Parallel
+snapshots additionally check every retained key/string against its capture step
+after churn; old root lengths alone cannot detect lost descendants. A fresh
+24-run baseline with this stronger validation is saved in `G3-parallel-baseline/`.
+The earlier shallow exploratory run is excluded from accepted comparisons.
+
+The ordinary candidate passes 8 default/10 diagnostic runtime tests, strict
+Clippy, 68 CLI/retention/builder tests, 11 harness tests and formatting. A procfs
+behavior probe checks independent final maps and GC activity, observes 0 versus
+3 cached helpers, and rejects diagnostic-feature binaries. Baseline/candidate
+runtime artifacts were explicitly cleaned/rebuilt across source checkouts.

@@ -81,6 +81,26 @@ Allocation censuses also include requested-size buckets through 1,024 bytes,
 independent of which limit is pooled. Histogram volumes conserve the same
 objects, requested bytes and actual cell-layout bytes as the other counters.
 
+`BADGER_GC_SWEEP_REUSE=0|1` compares scoped and cached native sweep helpers in a
+diagnostic build (`--suite policy --policies sweep-scoped sweep-reuse`). The
+profile records per-worker work, dispatched helper work, and newly created native
+threads separately. The runner checks conservation; `analyze.py` summarizes skew
+and small jobs over workload collections. These counters do not directly time
+thread creation. All helper results are joined/received before serial finalizers
+or worker resumption; profiler/process finish closes the cache and joins helpers.
+Later collections use scoped helpers. The cache is bounded by `MAX_WORKERS` and
+created lazily, but idle native stacks/channels consume resources until finish.
+
+Before timing an ordinary scoped/cached comparison on Linux, verify actual policy:
+
+```
+python3 bench/gc/check_sweep_reuse.py --baseline /tmp/base/badger --candidate /tmp/candidate/badger --out /tmp/sweep-check.json
+```
+
+This validates independent final-map contents and GC activity, then counts named
+cached helpers through procfs while still inside the language program. It detects
+accidental Cargo artifact reuse independently of executable labels/hashes.
+
 ```
 python3 bench/gc/run.py --baseline /tmp/base/lang --diagnostic /tmp/diag/lang --suite telemetry --out /tmp/gc-telemetry
 python3 bench/gc/run.py --baseline /tmp/base/lang --suite coverage --out /tmp/gc-coverage
@@ -125,6 +145,11 @@ while holding the payload, bounded retention past dequeue, and immutable fanout.
 Every payload word contributes to the independent oracle. These use ordinary
 channels as the baseline; no ring arena or topology specialization is implied.
 Map cases execute on one task even when the runtime has several workers.
+`parallel-maps` and `parallel-snapshots` add eight fixed independent allocating
+tasks across every worker count. The snapshot case checks every retained string
+against the insertion step of its captured version after all churn, so a correct
+root length cannot hide prematurely reclaimed descendants. Setup, task joining
+and retained-data validation are included in workload time.
 `persistent-64`, `persistent-256` and `persistent-4096` replace integer keys in
 ordinary persistent maps. They complement builder-only and string/snapshot
 cases and isolate path-copy churn at different trie shapes. Final validation

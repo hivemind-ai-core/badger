@@ -191,13 +191,30 @@ fn buffers(c: Config, narrow: Bool) -> Int {
 fn snapshots(c: Config) -> Int {
     var current: Map<Int, String> = map.empty()
     let history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, String>()) })
+    let history_step = array.build(c.retain, fn(_: Int) { Cell.new(-1) })
     var total = 0
     for i in 0..c.n {
         current = current.insert(i % 1024, text.repeat("x", c.payload + i % 3))
         total = total + current.get(i % 1024).unwrap_or("").len()
-        if i % 64 == 0 { history[(i / 64) % c.retain].set(current) }
+        if i % 64 == 0 {
+            history[(i / 64) % c.retain].set(current)
+            history_step[(i / 64) % c.retain].set(i)
+        }
     }
-    for old in history { total = total + old.get().len() }
+    for slot in 0..c.retain {
+        let old = history[slot].get()
+        total = total + old.len()
+        if c.mode == "parallel-snapshots" {
+            // Root lengths alone cannot catch prematurely freed descendants.
+            // Read every retained string after the full churn phase.
+            let at = history_step[slot].get()
+            for (k, v) in old {
+                assert(at >= 0 && k >= 0 && k <= at && k < 1024)
+                let last = at - (at - k) % 1024
+                assert(v == text.repeat("x", c.payload + last % 3))
+            }
+        }
+    }
     total + current.len()
 }
 
@@ -214,6 +231,22 @@ fn persistent_int(c: Config) -> Int {
         total = total + k + v
     }
     total
+}
+
+// Eight fixed independent tasks keep allocation topology constant across worker
+// sweeps. The ordinary map/snapshot cases above execute on one language task.
+fn parallel_maps(c: Config) -> Int {
+    must(task.scope(fn(s) -> Result<Int, String> {
+        let jobs = array.build(c.rounds, fn(_: Int) {
+            s.spawn(fn() {
+                if c.mode == "parallel-persistent-int" { persistent_int(c) }
+                else { snapshots(c) }
+            })
+        })
+        var total = 0
+        for job in jobs { total = total + job.join() }
+        ok(total)
+    }))
 }
 
 fn pipeline(c: Config) -> Int {
@@ -247,6 +280,7 @@ pub fn main() -> Result<Unit, io.Error> {
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
     else if c.mode == "persistent-int" { persistent_int(c) }
+    else if c.mode.starts_with("parallel-") { parallel_maps(c) }
     else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
     else if c.mode.starts_with("messages-int") { messages_int(c) }
     else if c.mode.starts_with("messages") { messages(c) }

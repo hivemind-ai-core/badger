@@ -1046,7 +1046,7 @@ fn verify_minor(h: &Heap) {
 /// Heaps with at least this many objects (spread over several workers'
 /// lists) are swept in parallel.
 const PARALLEL_SWEEP: usize = 32 << 10;
-const REUSE_SWEEP_HELPERS: bool = false;
+const REUSE_SWEEP_HELPERS: bool = true;
 
 type SweptList = (usize, Vec<*mut Header>);
 

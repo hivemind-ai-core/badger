@@ -7,6 +7,10 @@ class CoverageOracle(unittest.TestCase):
         self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=5, retain=3)), 3 + 3 + 9)
         self.assertEqual(run.expected_coverage(dict(mode="persistent-int", n=2, retain=9)), 2 + 1 + 1)
 
+    def test_parallel_maps_keep_task_count_fixed_and_check_each_result(self):
+        self.assertEqual(run.expected_coverage(dict(mode="parallel-persistent-int", n=5, retain=3, rounds=8)), 8 * (3 + 3 + 9))
+        self.assertEqual(run.expected_coverage(dict(mode="parallel-snapshots", n=130, retain=2, payload=5, rounds=8)), 8 * (5 * 130 + 129 + 65 + 129 + 130))
+
     def test_builders_check_last_replacements_and_keys(self):
         c = dict(mode="map-replace", n=5, retain=3, rounds=2, payload=7)
         self.assertEqual(run.expected_coverage(c), (3 + 0 + 1 + 2 + 3 + 4 + 2) * 2)

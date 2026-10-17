@@ -40,6 +40,8 @@ COVERAGE = {
     **{f"persistent-{size}-major": dict(mode="persistent-int", n=524288, rounds=1, payload=1, retain=size)
        for size in [64, 4096]},
     "snapshots-major": dict(mode="snapshots", n=262144, rounds=1, payload=96, retain=32),
+    "parallel-maps": dict(mode="parallel-persistent-int", n=131072, rounds=8, payload=1, retain=1024),
+    "parallel-snapshots": dict(mode="parallel-snapshots", n=65536, rounds=8, payload=96, retain=32),
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
        for name in ["visible", "stored", "collected", "eager"]},
 }
@@ -57,6 +59,8 @@ POLICIES = {
 
 
 def expected_coverage(c):
+    if c["mode"] in ["parallel-persistent-int", "parallel-snapshots"]:
+        return c["rounds"] * expected_coverage(c | dict(mode=c["mode"].removeprefix("parallel-"), rounds=1))
     if c["mode"] == "persistent-int":
         latest = {i % c["retain"]: i for i in range(c["n"])}
         return len(latest) + sum(latest) + sum(latest.values())
