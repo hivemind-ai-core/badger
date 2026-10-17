@@ -226,3 +226,12 @@ both binaries run the same strengthened fixture. Application fixtures are unchan
 
 Default workspace/all-target Clippy and diagnostic runtime/all-target Clippy both
 pass with `-D warnings`; runtime unit/integration tests and formatting pass.
+
+### Investigated candidate — finalizer guard
+
+The source-level serial finalizer helper writes a debug allocation guard even for
+objects without a finalizer. Inspection of the ordinary optimized binary found
+no `gc::FINALIZING` storage or standalone `gc::finalize` symbol (`nm -a -C`).
+The release optimizer appears to eliminate the guard already; no production cost
+or improvement is established. Do not spend a performance change on this source
+pattern without generated-code or profile evidence. No runtime change was made.

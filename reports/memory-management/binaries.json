@@ -1,0 +1,16 @@
+{
+  "baseline": {
+    "path": "/tmp/language-memory-binaries/baseline",
+    "sha256": "deeaad7fe5d4ae6641b89cb6ed2cffc1e97d2ff9a36f03a722032e56b8d09165",
+    "revision": "c7c7e25fc382f41df1c5b8c8053a12f0f9551abf",
+    "build": "cargo build --release --offline -p lang_cli --target-dir /tmp/language-gc-profile-target",
+    "features": "default; gc-profile disabled"
+  },
+  "I1": {
+    "path": "/tmp/language-memory-binaries/transient-hamt",
+    "sha256": "902304066ae59feedb88cff945b808b62a633c18df1df27224bee178fed8a06a",
+    "revision": "19d35fc3a7593fa1464bd23a2b447dcd52182ec3",
+    "build": "cargo build --release --offline -p lang_cli --target-dir /tmp/language-gc-profile-target",
+    "features": "default; gc-profile disabled"
+  }
+}
