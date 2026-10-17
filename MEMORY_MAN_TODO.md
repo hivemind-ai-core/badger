@@ -372,3 +372,12 @@ reclamation, first survival and later reclamation. Benchmark diagnostics also
 record small-pool allocation classes. Remaining objects are unswept, not a
 reachability census; native/immortal allocations and true escape classification
 remain G1b. Profiling overhead is measured separately and is not an optimization.
+
+The first census exposed a coverage confound: the existing U64 message workloads
+perform checked numeric conversions in payload generation and every-word oracle
+validation. Boxed `Result` values make up over 99% of their managed requested
+bytes; this does not include native payload buffers. Added four `messages-int*`
+controls with the same 64-bit payload width, topology and checksum, retaining
+the original cases to measure conversion costs. This is additional coverage,
+not a language/runtime performance change. The raw reports pin each workload
+source hash; the earlier coverage report uses the original workload revision.

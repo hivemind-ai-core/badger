@@ -115,6 +115,13 @@ Every payload word contributes to the independent oracle. These use ordinary
 channels as the baseline; no ring arena or topology specialization is implied.
 Map cases execute on one task even when the runtime has several workers.
 
+`messages-int`, `messages-int-slow`, `messages-int-retained` and
+`messages-int-fanout` mirror the original `U64` message workloads using signed
+machine words. Payload width, topology, retention, suspension and checksum are
+the same; the new cases avoid per-word checked numeric conversions in generation
+and validation. Keep both families: conversion-result boxing can dominate the
+managed allocation count in the original cases and obscure payload-storage gains.
+
 Use `--cases map-new map-replace map-strings set-builder` to select coverage.
 For before/after comparisons, copy binaries before rebuilding and run:
 

@@ -132,12 +132,7 @@ pub(super) fn record(
     if path().is_none() {
         return;
     }
-    let key = Key {
-        descriptor: desc.id,
-        file: caller.file(),
-        line: caller.line(),
-        column: caller.column(),
-    };
+    let key = Key { descriptor: desc.id, file: caller.file(), line: caller.line(), column: caller.column() };
     let mut w = WORKERS[worker].lock().unwrap();
     assert_eq!(w.objects.len() + 1, length, "allocation census lost object alignment");
     let site = if let Some(&site) = w.by_key.get(&key) {

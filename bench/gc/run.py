@@ -25,7 +25,9 @@ COVERAGE = {
     "set-builder": dict(mode="set-builder", n=65536, rounds=8, payload=1, retain=1024),
     **{name: dict(mode=name, n=16384, rounds=1, payload=32, retain=capacity)
        for name, capacity in [("messages", 64), ("messages-slow", 1),
-                              ("messages-retained", 256), ("messages-fanout", 64)]},
+                              ("messages-retained", 256), ("messages-fanout", 64),
+                              ("messages-int", 64), ("messages-int-slow", 1),
+                              ("messages-int-retained", 256), ("messages-int-fanout", 64)]},
     "bytes-transient": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=32),
     "words-transient": dict(mode="words", n=65536, rounds=1, payload=256, retain=32),
     "bytes-survivors": dict(mode="bytes", n=65536, rounds=1, payload=256, retain=8192),
@@ -55,9 +57,9 @@ def expected_coverage(c):
             return (31 * c["payload"] * (first + end - 1) * (end - first) // 2
                     + (end - first) * c["payload"] * (c["payload"] - 1) // 2)
         total = payload_sum(0, c["n"])
-        if c["mode"] == "messages-retained":
+        if c["mode"].endswith("-retained"):
             total += payload_sum(max(0, c["n"] - c["retain"]), c["n"])
-        return total * (2 if c["mode"] == "messages-fanout" else 1)
+        return total * (2 if c["mode"].endswith("-fanout") else 1)
     if c["mode"] in ["bytes", "words"]:
         n = c["n"]
         q, r = divmod(n, 251)

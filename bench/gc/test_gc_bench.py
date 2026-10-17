@@ -16,6 +16,9 @@ class CoverageOracle(unittest.TestCase):
         self.assertEqual(run.expected_coverage(c | dict(mode="messages-retained")), sum(messages) + sum(messages[-3:]))
         self.assertEqual(run.expected_coverage(c | dict(mode="messages-retained", retain=9)), sum(messages) * 2)
         self.assertEqual(run.expected_coverage(c | dict(mode="messages-fanout")), sum(messages) * 2)
+        for suffix in ["", "-slow", "-retained", "-fanout"]:
+            self.assertEqual(run.expected_coverage(c | dict(mode="messages-int" + suffix)),
+                             run.expected_coverage(c | dict(mode="messages" + suffix)))
 
     def test_buffers_include_retained_tail_and_wrap(self):
         c = dict(mode="bytes", n=253, retain=4, payload=17)

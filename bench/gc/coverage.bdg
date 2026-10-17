@@ -113,6 +113,57 @@ fn messages(c: Config) -> Int {
     }))
 }
 
+// Same-width payload/control without a checked numeric conversion per word.
+// Keep the U64 version above: it measures an important language-level cost too.
+fn consume_int(c: Config, rx: channel.Receiver<Array<Int>>) -> Int {
+    let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0])) })
+    var count = 0
+    var total = 0
+    loop {
+        match rx.recv() {
+            .none => { break },
+            .some(words) => {
+                if c.mode == "messages-int-slow" { task.yield_now() }
+                var index = 0
+                for word in words {
+                    assert(word == count * 31 + index)
+                    total = total + word
+                    index = index + 1
+                }
+                assert(index == c.payload)
+                if c.mode == "messages-int-retained" { retained[count % c.retain].set(words) }
+                count = count + 1
+            },
+        }
+    }
+    assert(count == c.n)
+    if c.mode == "messages-int-retained" {
+        for slot in retained { for word in slot.get() { total = total + word } }
+    }
+    total
+}
+
+fn messages_int(c: Config) -> Int {
+    let a = must(channel.create<Array<Int>>({ ..channel.defaults, capacity: c.retain }))
+    let b = must(channel.create<Array<Int>>({ ..channel.defaults, capacity: c.retain }))
+    must(task.scope(fn(s) -> Result<Int, String> {
+        let producer = s.spawn(fn() {
+            for i in 0..c.n {
+                let words = array.build(c.payload, fn(j: Int) { i * 31 + j })
+                let _ = must(a.sender.send(words))
+                if c.mode == "messages-int-fanout" { let _ = must(b.sender.send(words)) }
+            }
+            a.sender.close()
+            b.sender.close()
+        })
+        let consumer = s.spawn(fn() { consume_int(c, a.receiver) })
+        let extra = if c.mode == "messages-int-fanout" { consume_int(c, b.receiver) } else { 0 }
+        let total = consumer.join()
+        producer.join()
+        ok(total + extra)
+    }))
+}
+
 fn buffers(c: Config, narrow: Bool) -> Int {
     var total = 0
     if narrow {
@@ -181,6 +232,7 @@ pub fn main() -> Result<Unit, io.Error> {
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
     else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
+    else if c.mode.starts_with("messages-int") { messages_int(c) }
     else if c.mode.starts_with("messages") { messages(c) }
     else { pipeline(c) }
     let elapsed_ns = time.as_nanos(time.now() - start)
