@@ -381,3 +381,37 @@ controls with the same 64-bit payload width, topology and checksum, retaining
 the original cases to measure conversion costs. This is additional coverage,
 not a language/runtime performance change. The raw reports pin each workload
 source hash; the earlier coverage report uses the original workload revision.
+
+G1a measurements and validation are saved in
+[`reports/memory-management/G1-summary.md`](reports/memory-management/G1-summary.md).
+The fixed ordinary baseline is main `0d34cee`; immutable diagnostic compilers
+are pinned to `82e409e` / `a015467` in `G1-binaries.json`. All matrices use a
+warmup plus three measured repetitions with workers 1/2/4/8:
+
+| Matrix | Measured runs | Evidence |
+|---|---:|---|
+| Original allocation/survival coverage | 384 | `G1-coverage/` |
+| Original/Int matched message controls | 384 | `G1-message-controls/` |
+| Application attribution, 65,536 events/profile | 192 | `G1-telemetry/` |
+| Sustained Int messages, 262,144 messages/case | 192 | `G1-sustained/` |
+
+All 1,152 runs pass independent oracles; census variants also pass object/byte
+conservation across sites, size classes and reclamation. Runtime unit tests,
+CLI retention/builder suites, strict diagnostic Clippy, default runtime checking,
+formatting, eight Python runner tests and census stress/verification (both
+collection modes, all four worker counts) pass. Logs are under `G1-validation/`.
+
+Key findings: matched Int message cases allocate 0.38–0.46 MiB managed requested
+bytes at one worker, versus 48.38–80.42 MiB for the original U64 conversion-heavy
+cases. This is a coverage comparison, not a compiler speedup. Small Int cases
+perform no collections; sustained versions perform five in every ordinary cell.
+External pressure remains substantial (74.31 MiB accumulated at five collection
+boundaries in one phase-only FIFO run, versus 5.89 MiB managed pressure).
+
+Application managed allocations are dominated by `MapNode` (61.9–66.5% of bytes
+across the one-worker profiles); the ordinary persistent path-copy helper is the
+main site. Ordinary GC pause/elapsed ratios range about 9–28% across the worker
+matrix. G1a confirms G3 and I5 as strong follow-ups, while G1b native-buffer
+accounting is needed before making arena claims. G2/G3/I5 and all arena
+implementation boxes remain unchecked. No default collector policy or production
+representation changed in this measurement slice.

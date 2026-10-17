@@ -1,0 +1,32 @@
+{
+  "binaries": {
+    "main-0d34cee": {
+      "path": "/tmp/badger-G1-binaries/main-0d34cee",
+      "revision": "0d34ceebacaa28997a4f80013e60b575f5aa4d87",
+      "sha256": "4de40fc0acabd75dd1a5e372714882ab36ac4e238756c9231cf3be8110a04b42",
+      "features": "default",
+      "build": "cargo build --offline --release -p badger_cli --target-dir /tmp/language-gc-profile-target"
+    },
+    "census-82e409e": {
+      "path": "/tmp/badger-G1-binaries/census-82e409e",
+      "revision": "82e409e4f94caa51fed8e93e1cfc6e7d44739130",
+      "sha256": "b231266010c0605fb01ac5f984a5a9b6a38a9a52e931303ca0670b4fb16bcaaf",
+      "features": "badger_runtime/gc-profile",
+      "build": "cargo test --offline --release -p badger_cli -p badger_runtime --features badger_runtime/gc-profile --test transient_maps --test gc_retention --target-dir /tmp/language-gc-profile-target (ordinary CLI executable built for integration tests; copied after this build)"
+    },
+    "census-a015467": {
+      "path": "/tmp/badger-G1-binaries/census-a015467",
+      "revision": "a0154679f25c0380260036e918915df99352d352",
+      "sha256": "92d2c276913771f44c3461845ee1e0e4ca1a38463d22e9094fd2856d0503a8be",
+      "features": "badger_runtime/gc-profile",
+      "build": "cargo build --offline --release -p badger_cli -p badger_runtime --features badger_runtime/gc-profile --target-dir /tmp/language-gc-profile-target"
+    }
+  },
+  "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n",
+  "build_environment": {
+    "RUSTFLAGS": null,
+    "CARGO_PROFILE_RELEASE_DEBUG": null,
+    "CARGO_ENCODED_RUSTFLAGS": null
+  },
+  "note": "Immutable copied binaries. Coverage uses census-82e409e; message controls and telemetry use census-a015467. Descriptor ids added in a015467; 59da171 changes only runtime formatting and benchmark coverage. A preliminary baseline overlapped compilation and was discarded; it is not in the retained measurements."
+}

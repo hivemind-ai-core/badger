@@ -32,6 +32,8 @@ output encoding and other diagnostic native storage add further overhead.
 `type_id` is process-local: generic instantiations can share a display name, so
 use the id to distinguish descriptors within a report and names for family-level
 summaries across processes.
+Counters flush at the first profiler finish, one worker at a time. Early process
+exit while workers still run does not produce a coherent global heap snapshot.
 
 To repeat the stress/verification checks and summarize saved measurements:
 

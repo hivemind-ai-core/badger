@@ -1,0 +1,22 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native_demo)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 1m 02s
+     Running tests/gc_retention.rs (/tmp/language-gc-profile-target/release/deps/gc_retention-cf04f9d44d5abaec)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.38s
+
+     Running tests/transient_maps.rs (/tmp/language-gc-profile-target/release/deps/transient_maps-6aab0dd019a35ae8)
+
+running 2 tests
+test finished_builder_maps_survive_saved_mir ... ok
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
+
