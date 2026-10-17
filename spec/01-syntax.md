@@ -114,8 +114,16 @@ fn identity<T>(value: T) -> T {
 }
 
 let increment = fn(value) { value + 1 }
+let double = fn(value) => value * 2
 let answer = identity<Int>(42)
 ```
+
+A lambda's body is a block, or `=> expression`: `fn(x) => e` is
+`fn(x) { e }`, with the same parameters, captures, effects, `once`, and
+`return`/`?` boundary. The expression extends as far as an expression
+can (to the closing `)` or `,` of an enclosing call, or the end of a
+match arm), so `fn(n) => fn(k) => k + n` nests. Use the short form for a
+single expression and a block for statements.
 
 Calls are explicit and positional. Use an options record when several arguments
 need labels or defaults. There is no automatic currying or parameter default
@@ -132,8 +140,8 @@ Ordinary module functions compose through calls and pipelines.
 
 ```lang fragment
 events
-    |> seq.filter(fn(event) { event.enabled })
-    |> seq.map(fn(event) { event.name })
+    |> seq.filter(fn(event) => event.enabled)
+    |> seq.map(fn(event) => event.name)
     |> list.collect()
 ```
 

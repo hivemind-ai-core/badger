@@ -202,7 +202,9 @@ shorthand    = { value_ident }
 label        = { member | "[" ~ symbol ~ "]" }
 label_path   = { label ~ ("." ~ label)* }
 
-lambda      = { once_kw? ~ K_fn ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ block }
+lambda      = { once_kw? ~ K_fn ~ "(" ~ params ~ ")" ~ ret_type? ~ effect? ~ (block | lambda_expr) }
+// `fn(x) => x + 1`: an expression body, the same as `{ x + 1 }`
+lambda_expr = { "=>" ~ expr }
 if_expr     = { K_if ~ expr ~ block ~ (NL? ~ K_else ~ (if_expr | block))? }
 match_expr  = { K_match ~ expr ~ "{" ~ sepc* ~ (match_arm ~ (sepc+ ~ match_arm)*)? ~ sepc* ~ "}" }
 match_arm   = { pattern ~ guard? ~ "=>" ~ expr }

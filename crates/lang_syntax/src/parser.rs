@@ -1274,6 +1274,7 @@ impl Lower<'_> {
                 Rule::ret_type => l.ret = Some(self.type_expr(q.into_inner().next().unwrap())),
                 Rule::effect => l.effect = Some(self.effect(q)),
                 Rule::block => l.body = self.block(q),
+                Rule::lambda_expr => l.body = self.expr(q.into_inner().next().unwrap()),
                 _ => {}
             }
         }
