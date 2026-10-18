@@ -349,9 +349,12 @@ impl<'g, 'a> Mono<'g, 'a> {
     }
 
     /// Does a ground type implement `proto`? (Nominal types are checked
-    /// against their implementations; structural types are assumed to.)
+    /// against their implementations; structural types are assumed to,
+    /// except for `Display`, which only unit has among them.)
     fn has_impl(&self, proto: DefId, ty: &Ty, depth: u32) -> bool {
-        let TyKind::Con(head, _) = &**ty else { return true };
+        let TyKind::Con(head, _) = &**ty else {
+            return proto != self.g.env.b.display || matches!(&**ty, TyKind::Tuple(ts) if ts.is_empty());
+        };
         if depth > 16 {
             return true;
         }

@@ -1,0 +1,24 @@
+// A boxed value whose type has no `Display` (a tuple) does not instantiate
+// `Box`'s conditional `Display` (this was an internal compiler error).
+import std.io
+
+enum Chain {
+    end,
+    link(cell: Box<(Int, Chain)>),
+}
+
+fn total(c: Chain) -> Int {
+    match c {
+        .end => 0,
+        .link(cell) => {
+            let (n, rest) = cell.get()
+            n + total(rest)
+        },
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c = Chain.link(Box.new((1, Chain.link(Box.new((2, Chain.end))))))
+    io.println(total(c))?
+    ok(())
+}
