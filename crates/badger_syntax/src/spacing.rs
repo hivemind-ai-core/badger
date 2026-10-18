@@ -489,12 +489,22 @@ fn respace(line: &str) -> Option<(Vec<Tok>, String)> {
         } else {
             true
         };
+        // never join tokens that would lex as others (`! =>` is not `!=>`)
+        let space = space || (p.k == K::Op && t.k == K::Op && !lexes_apart(&p.text, &t.text));
         if space {
             out.push(' ');
         }
         out.push_str(&t.text);
     }
     Some((ts, out))
+}
+
+/// Whether `a` and `b` written together still lex as `a` then `b`.
+fn lexes_apart(a: &str, b: &str) -> bool {
+    match lex(&format!("{a}{b}")) {
+        Some(ts) => ts.len() == 2 && ts[0].text == a && ts[1].text == b,
+        None => false,
+    }
 }
 
 #[cfg(test)]
@@ -536,6 +546,8 @@ mod tests {
             ),
             ("import std.system.{component, ref}", "import std.system.{component, ref}"),
             ("let x = a<<2 | b>>1", "let x = a << 2 | b >> 1"),
+            // an effect marker before `=>` stays apart from it
+            (".real(f)! => x", ".real(f) ! => x"),
             ("use tx<-sqlite.transaction(db)", "use tx <- sqlite.transaction(db)"),
             ("body: for<S: Scope> fn(Tx<S>) -> R", "body: for<S: Scope> fn(Tx<S>) -> R"),
             ("xs[i]=xs[i-1]*2", "xs[i] = xs[i - 1] * 2"),
