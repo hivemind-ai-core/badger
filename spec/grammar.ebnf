@@ -51,7 +51,7 @@ method_decl      = { contract }, "fn", value_name, [ generic_params ], "(", type
                    ( block | separator ) ;
 function_decl    = { contract }, visibility, "fn", value_name, [ generic_params ],
                    "(", params, ")", [ "->", type_expr ], [ effect ],
-                   [ where_clause ], block ;
+                   [ where_clause ], ( block | "=>", expr ) ;
 contract         = ( "requires" | "ensures" ), expr, [ ",", STRING ], separator ;
 extern_decl      = visibility, "extern", STRING, "fn", value_name,
                    "(", typed_params, ")", "->", type_expr, separator ;

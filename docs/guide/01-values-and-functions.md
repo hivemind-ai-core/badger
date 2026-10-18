@@ -453,6 +453,8 @@ negative
 ```
 
 - The last expression of the body is the result. `return` exits early.
+- A body of one expression can follow `=>`: `fn double(n: Int) -> Int =>
+  n * 2` (methods too).
 - Private functions may omit types; they are inferred from the body and
   the calls.
 - `pub` functions must declare every parameter and the result type

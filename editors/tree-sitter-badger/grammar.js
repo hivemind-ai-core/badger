@@ -154,7 +154,7 @@ module.exports = grammar({
         optional(seq('->', field('return_type', $._type))),
         optional($.effect),
         optional($.where_clause),
-        optional(field('body', $.block)),
+        optional(choice(field('body', $.block), seq('=>', field('body', $._expression)))),
       ),
 
     // `provider name [as #sym](scope, config) [-> Result<O, E>] { ... }`

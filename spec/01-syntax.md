@@ -128,7 +128,8 @@ A lambda's body is a block, or `=> expression`: `fn(x) => e` is
 `return`/`?` boundary. The expression extends as far as an expression
 can (to the closing `)` or `,` of an enclosing call, or the end of a
 match arm), so `fn(n) => fn(k) => k + n` nests. Use the short form for a
-single expression and a block for statements.
+single expression and a block for statements. A named function's body may
+take the same form: `fn double(n: Int) -> Int => n * 2`.
 
 Calls are explicit and positional. Use an options record when several arguments
 need labels or defaults. There is no automatic currying or parameter default

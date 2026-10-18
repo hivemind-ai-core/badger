@@ -1049,7 +1049,16 @@ where
             .then(ret.clone().or_not())
             .then(effect.clone().or_not())
             .then(where_clause.clone().or_not())
-            .then(block.clone().or_not())
+            // `=> expr` is a body of one expression, as a lambda's
+            .then(
+                choice((
+                    block.clone(),
+                    just(Tok::FatArrow)
+                        .ignore_then(expr.clone())
+                        .map(|e: E<'s>| Block { span: e.1, items: vec![BlockItem::Stmt(Stmt::Expr(e))] }),
+                ))
+                .or_not(),
+            )
             .map_with(
                 |(
                     (((((((contracts, is_pub), name), generics), params), ret), effect), where_preds),

@@ -319,3 +319,25 @@ fn f(e: E) -> Int {
         (match_arm
           (wildcard)
           (integer))))))
+
+==================
+Expression-bodied function
+==================
+
+fn double(n: Int) -> Int => n * 2
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (type_path
+      (type_identifier))
+    (binary_expression
+      (identifier)
+      (integer))))
