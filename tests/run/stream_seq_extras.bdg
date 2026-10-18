@@ -1,0 +1,21 @@
+// Stream filter_map, enumerate, scan, and find; lazy seq.try_map.
+import std.io
+import std.seq
+import std.stream
+
+pub fn main() -> Result<Unit, io.Error> {
+    let s = stream.from_list(["1", "x", "3", "4"])
+    io.println(stream.collect(s.filter_map(fn(t) { t.parse_int() })))?
+    io.println(stream.collect(stream.from_list(["a", "b"]).enumerate().map(fn(p) { $"{p.0}:{p.1}" })))?
+    io.println(stream.collect(stream.from_list([1, 2, 3]).scan(0, fn(a, x) { a + x })))?
+    io.println(stream.from_list([5, 8, 13]).find(fn(x) { x > 6 }))?
+    io.println(stream.from_list([1, 2]).find(fn(x) { x > 6 }))?
+    // try_map is lazy: after the error, nothing more is mapped
+    let mapped = Atom.new(0)
+    let r = seq.try_collect(seq.range(0, 10).try_map(fn(n) -> Result<Int, String> {
+        let _ = mapped.update(fn(m) { m + 1 })
+        if n == 3 { err($"bad {n}") } else { ok(n * 2) }
+    }))
+    io.println($"{r.map_err(fn(e) { e })} after {mapped.get()} calls")?
+    ok(())
+}

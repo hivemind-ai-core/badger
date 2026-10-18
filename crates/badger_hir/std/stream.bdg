@@ -72,6 +72,75 @@ pub fn filter<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, 
     }
 }
 
+/// `f`'s results that are `some`.
+pub fn filter_map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Stream<U, Eff> {
+    {
+        next: fn() -> Option<U> {
+            loop {
+                match s.next() {
+                    .some(x) => match f(x) {
+                        .some(y) => { return Option.some(y) },
+                        .none => (),
+                    },
+                    .none => { return Option.none },
+                }
+            }
+        },
+        close: s.close,
+    }
+}
+
+/// Each item with its position, from 0.
+pub fn enumerate<T, Eff>(s: Stream<T, Eff>) -> Stream<(Int, T), !{State, Eff}> {
+    let i = Atom.new(0)
+    {
+        next: fn() {
+            match s.next() {
+                .some(x) => {
+                    let n = i.get()
+                    i.set(n + 1)
+                    Option.some((n, x))
+                },
+                .none => Option.none,
+            }
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// The running results of `f`, starting from `initial` (not itself
+/// produced): `scan([1, 2, 3], 0, +)` is 1, 3, 6.
+pub fn scan<T, A, Eff>(s: Stream<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> Stream<A, !{State, Eff}> {
+    let acc = Atom.new(initial)
+    {
+        next: fn() {
+            match s.next() {
+                .some(x) => {
+                    let a = f(acc.get(), x)
+                    acc.set(a)
+                    Option.some(a)
+                },
+                .none => Option.none,
+            }
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// The first item `matches` accepts, reading no further (the stream is
+/// closed when one is found).
+pub fn find<T, Eff>(s: Stream<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<T> {
+    loop {
+        match s.next() {
+            .some(x) => if matches(x) {
+                s.close()
+                return Option.some(x)
+            },
+            .none => { return Option.none },
+        }
+    }
+}
+
 /// At most `n` items; the rest of `s` stays readable.
 pub fn take<T, Eff>(s: Stream<T, Eff>, n: Int) -> Stream<T, !{State, Eff}> {
     let left = Atom.new(n)
@@ -246,6 +315,10 @@ pub fn try_collect<T, E, Eff>(s: Stream<Result<T, E>, Eff>) -> Result<List<T>, E
 impl<T, Eff> Stream<T, Eff> {
     pub fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Stream<U, Eff> { map(self, f) }
     pub fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff> { filter(self, keep) }
+    pub fn filter_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Stream<U, Eff> { filter_map(self, f) }
+    pub fn enumerate(self: &Self) -> Stream<(Int, T), !{State, Eff}> { enumerate(self) }
+    pub fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> Stream<A, !{State, Eff}> { scan(self, initial, f) }
+    pub fn find(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<T> { find(self, matches) }
     pub fn take(self: &Self, n: Int) -> Stream<T, !{State, Eff}> { take(self, n) }
     pub fn batches(self: &Self, size: Int) -> Stream<List<T>, Eff> { batches(self, size) }
     pub fn each(self: &Self, f: fn(T) -> Unit !Eff) -> Unit { each(self, f) }

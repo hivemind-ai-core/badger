@@ -883,11 +883,13 @@ impl<'a, N: TyNames> Printer<'a, N> {
                         n.starts_with(|c: char| c.is_ascii_uppercase()) || n.starts_with('%')
                     });
                 if effects {
-                    let labels: Vec<_> = fields
+                    let mut labels: Vec<_> = fields
                         .iter()
                         .map(|(l, _)| self.names.sym(*l).to_string())
                         .filter(|l| !l.starts_with('%'))
                         .collect();
+                    let mut seen = std::collections::HashSet::new();
+                    labels.retain(|l| seen.insert(l.clone()));
                     let _ = write!(s, "!{{{}}}", labels.join(", "));
                     return;
                 }
