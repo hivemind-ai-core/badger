@@ -224,14 +224,11 @@ fn cell_size(payload: usize) -> usize {
     (HEADER + payload.max(8) + 15) & !15
 }
 
-/// A cell owned by worker `w`; ZEROED=false leaves its contents unspecified.
-fn alloc_cell<const ZEROED: bool>(w: usize, payload: usize) -> *mut Header {
+/// A zeroed cell for an object with `payload` bytes, owned by worker `w`.
+fn alloc_cell(w: usize, payload: usize) -> *mut Header {
     let size = cell_size(payload);
     if size > small_max() {
-        return unsafe {
-            (if ZEROED { alloc_zeroed(layout(payload)) } else { std::alloc::alloc(layout(payload)) })
-                as *mut Header
-        };
+        return unsafe { alloc_zeroed(layout(payload)) as *mut Header };
     }
     let pool = unsafe { &mut *POOLS.0[w].get() };
     let class = size / 16 - 1;
@@ -239,9 +236,7 @@ fn alloc_cell<const ZEROED: bool>(w: usize, payload: usize) -> *mut Header {
     if !p.is_null() {
         unsafe {
             pool.free[class] = *(p as *mut *mut u8);
-            if ZEROED {
-                std::ptr::write_bytes(p, 0, size);
-            }
+            std::ptr::write_bytes(p, 0, size);
         }
         return p as *mut Header;
     }
@@ -338,6 +333,7 @@ fn freed_use(w: u64, by: &str) -> ! {
     std::process::abort();
 }
 
+/// Allocate a zeroed object with `payload` bytes. May collect first.
 struct Finalized;
 
 impl Drop for Finalized {
@@ -346,28 +342,8 @@ impl Drop for Finalized {
     }
 }
 
-/// Allocate a zeroed object with `payload` bytes. May collect first.
 #[cfg_attr(feature = "gc-profile", track_caller)]
-#[inline]
 pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
-    alloc_impl::<true>(desc, payload)
-}
-
-/// Allocate an object with an initialized header and unspecified payload.
-/// May collect before allocation, just like `alloc`.
-///
-/// # Safety
-/// The caller must initialize the entire declared payload without reading it,
-/// publishing the object, invoking callbacks or reaching another safepoint.
-/// Rounded cell padding is not initialized and must never be read.
-#[cfg_attr(feature = "gc-profile", track_caller)]
-#[inline]
-pub(crate) unsafe fn alloc_uninit(desc: &'static TypeDesc, payload: usize) -> u64 {
-    alloc_impl::<false>(desc, payload)
-}
-
-#[cfg_attr(feature = "gc-profile", track_caller)]
-fn alloc_impl<const ZEROED: bool>(desc: &'static TypeDesc, payload: usize) -> u64 {
     debug_assert!(!FINALIZING.load(Ordering::Relaxed), "a finalizer allocated");
     let chaos = crate::task::chaos().is_some() && crate::task::chaos_next().is_multiple_of(512);
     let due = || {
@@ -393,7 +369,7 @@ fn alloc_impl<const ZEROED: bool>(desc: &'static TypeDesc, payload: usize) -> u6
         let w = crate::task::worker_index();
         #[cfg(feature = "gc-profile")]
         let source = allocations::cell_source(w, payload);
-        let p = alloc_cell::<ZEROED>(w, payload);
+        let p = alloc_cell(w, payload);
         if p.is_null() {
             eprintln!("fatal: out of memory");
             std::process::abort();
@@ -1404,51 +1380,26 @@ mod pool_tests {
         for payload in 0..=1040 {
             let bytes =
                 if cell_size(payload) <= small_max() { cell_size(payload) } else { layout(payload).size() };
-            let p = alloc_cell::<true>(w, payload);
+            let p = alloc_cell(w, payload);
             assert!(!p.is_null());
             unsafe {
                 assert!(std::slice::from_raw_parts(p as *const u8, bytes).iter().all(|&b| b == 0));
                 std::ptr::write_bytes(p as *mut u8, 0xAB, bytes);
             }
             free_cell(w, p, payload);
-            let q = alloc_cell::<true>(w, payload);
+            let q = alloc_cell(w, payload);
             if cell_size(payload) <= small_max() {
                 assert_eq!(p, q);
             }
             unsafe {
                 assert!(std::slice::from_raw_parts(q as *const u8, bytes).iter().all(|&b| b == 0));
             }
-            // Poison a reused cell: uninitialized allocation must not clear
-            // its payload, while the ordinary API must still clear every byte.
-            unsafe { std::ptr::write_bytes(q as *mut u8, 0xAB, bytes) };
             free_cell(w, q, payload);
-            let r = alloc_cell::<false>(w, payload);
-            assert!(!r.is_null());
-            if cell_size(payload) <= small_max() {
-                assert_eq!(q, r);
-                unsafe {
-                    assert!(
-                        std::slice::from_raw_parts((r as *const u8).add(HEADER), payload)
-                            .iter()
-                            .all(|&b| b == 0xAB)
-                    );
-                }
-            }
-            // Never read unspecified system storage. Initialize it before
-            // returning it, then check switching back to zeroed allocation.
-            unsafe { std::ptr::write_bytes(r as *mut u8, 0xCD, bytes) };
-            free_cell(w, r, payload);
-            let cleared = alloc_cell::<true>(w, payload);
-            assert!(!cleared.is_null());
-            unsafe {
-                assert!(std::slice::from_raw_parts(cleared as *const u8, bytes).iter().all(|&b| b == 0));
-            }
-            free_cell(w, cleared, payload);
         }
         // Cross a chunk boundary, then retain just one quarantined cell from
         // the first chunk. Free-list links into retired chunks must be purged.
         let payload = small_max() - HEADER;
-        let cells: Vec<_> = (0..CHUNK / small_max() + 8).map(|_| alloc_cell::<true>(w, payload)).collect();
+        let cells: Vec<_> = (0..CHUNK / small_max() + 8).map(|_| alloc_cell(w, payload)).collect();
         assert!(unsafe { &*POOLS.0[w].get() }.chunks.len() >= 2);
         assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks[1].bytes, refill_bytes());
         let held = cells[0];
@@ -1484,14 +1435,14 @@ mod pool_tests {
 
         // Quarantine may release a different worker's pooled cell. It must
         // return to that worker, while system cells need no pool lookup.
-        let p = alloc_cell::<true>(7, 8);
+        let p = alloc_cell(7, 8);
         assert!(!p.is_null());
         free_quarantined(p, 8);
-        let q = alloc_cell::<true>(7, 8);
+        let q = alloc_cell(7, 8);
         assert_eq!(p, q);
         free_cell(7, q, 8);
         let large = small_max() + 1;
-        let p = alloc_cell::<true>(7, large);
+        let p = alloc_cell(7, large);
         assert!(!p.is_null());
         free_quarantined(p, large);
         trim_empty_chunks(heap());
