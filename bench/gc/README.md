@@ -15,6 +15,12 @@ It records all samples, command/output, executable/source hashes, child-only
 peak RSS and host pressure. Source and executable hashes must remain unchanged.
 Worker sweeps of serial programs measure runtime context, not parallel speedup.
 
+`parallel-scalar-snapshots` holds eight independent tasks constant across workers
+1/2/4/8. Each retains a scalar-map version every 64 updates and checks every
+entry in every retained version. Its independent Python oracle models partial
+windows too. Compare it with `scalar-snapshots`, private `parallel-maps`, and
+pointer-bearing `parallel-snapshots`; those exercise different ownership proofs.
+
 ```sh
 python3 -m unittest discover -s bench/gc -p 'test_*.py'
 python3 bench/gc/applications.py --baseline /fixed/base/badger --candidate /fixed/new/badger --baseline-revision BASE --candidate-revision NEW --reps 7 --workers 1 2 4 8 --out /tmp/gc-applications

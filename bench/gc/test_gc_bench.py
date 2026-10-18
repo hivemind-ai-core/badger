@@ -144,6 +144,7 @@ class CoverageOracle(unittest.TestCase):
             saved.append(current.copy())
             expected = sum(len(m) + sum(m) + sum(m.values()) for m in saved)
             self.assertEqual(run.expected_coverage(dict(mode="scalar-snapshots", n=n, retain=4)), expected)
+            self.assertEqual(run.expected_coverage(dict(mode="parallel-scalar-snapshots", n=n, retain=4, rounds=8)), 8 * expected)
 
     def test_corruption_and_wrong_configuration_rejected(self):
         c = dict(mode="visible", n=7, rounds=2)

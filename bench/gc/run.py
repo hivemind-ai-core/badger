@@ -63,6 +63,7 @@ COVERAGE = {
     "snapshots-major": dict(mode="snapshots", n=262144, rounds=1, payload=96, retain=32),
     "parallel-maps": dict(mode="parallel-persistent-int", n=131072, rounds=8, payload=1, retain=1024),
     "parallel-snapshots": dict(mode="parallel-snapshots", n=65536, rounds=8, payload=96, retain=32),
+    "parallel-scalar-snapshots": dict(mode="parallel-scalar-snapshots", n=65536, rounds=8, payload=1, retain=256),
     **{f"pool-burst-{retain}": dict(mode="pool-burst", n=65536, rounds=524288, payload=256, retain=retain)
        for retain in [1, 16, 256]},
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
@@ -167,7 +168,7 @@ def expected_coverage(c):
         retained = sum(c["payload"] + (slot * c["n"] // c["retain"]) % 3 for slot in range(c["retain"]))
         drained = expected_coverage(c | dict(mode="persistent-int", n=c["rounds"], retain=64))
         return allocated + retained + drained
-    if c["mode"] in ["parallel-persistent-int", "parallel-snapshots"]:
+    if c["mode"] in ["parallel-persistent-int", "parallel-snapshots", "parallel-scalar-snapshots"]:
         return c["rounds"] * expected_coverage(c | dict(mode=c["mode"].removeprefix("parallel-"), rounds=1))
     if c["mode"] == "persistent-int":
         latest = {i % c["retain"]: i for i in range(c["n"])}

@@ -376,6 +376,7 @@ fn parallel_maps(c: Config) -> Int {
         let jobs = array.build(c.rounds, fn(_: Int) {
             s.spawn(fn() {
                 if c.mode == "parallel-persistent-int" { persistent_int(c) }
+                else if c.mode == "parallel-scalar-snapshots" { scalar_snapshots(c) }
                 else { snapshots(c) }
             })
         })
