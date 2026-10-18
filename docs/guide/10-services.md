@@ -361,6 +361,10 @@ pool. Differences:
 - `postgres.describe(pool, sql)` reports parameter and column types without
   running the statement.
 - In a system, use the `postgres.pool` provider with `{ url }`.
+- `postgres.migrate`, `postgres.schema`, and `postgres.require_current`
+  are the [SQLite migrations](#migrations) for Postgres: each migration
+  runs in its own transaction (Postgres DDL is transactional), and
+  concurrent migrators take turns on an advisory lock.
 
 See [std.postgres](../api/postgres.md) and [Typed SQL](../typed-sql.md).
 

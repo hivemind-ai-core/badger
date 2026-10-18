@@ -5,7 +5,9 @@
 PostgreSQL with pooled connections and scoped transactions; the same
 shape as `std.sqlite`. Statements use `$1`, `$2`, ... parameters, given
 as `Data` and parsed by the server as the parameter's type. Rows are
-`Data` objects by column name, or records (`query_as`).
+`Data` objects by column name, or records (`query_as`). Versioned schema
+migrations are `migrate`, `schema`, and `require_current`, as in
+`std.sqlite`.
 
 ## Types
 
@@ -51,6 +53,15 @@ fn code(self: &Self) -> Symbol
 fn display(self: &Self) -> String
 ```
 
+### `Migration`
+
+```badger
+pub type Migration = { version: Int, name: String, sql: String }
+```
+
+A schema migration: a positive version (applied in increasing order),
+a name, and the SQL that moves the schema to this version.
+
 ### `Options`
 
 ```badger
@@ -73,6 +84,16 @@ callback that opened it). Each statement takes a connection of its own.
 ```badger
 fn connection(self: &Self) -> native.Handle
 ```
+
+### `Schema`
+
+```badger
+pub type Schema = { current: Int, latest: Int, pending: List<Int> }
+```
+
+A database's schema relative to a program's migrations: the latest
+version applied, the latest the program knows, and the versions still
+to apply.
 
 ### `Tx`
 
@@ -145,6 +166,17 @@ together (a schema script); the count is the last one's.
 fn is_closed<S: Scope>(pool: Pool<S>) -> Bool
 ```
 
+### `migrate`
+
+```badger
+fn migrate<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<List<Int>, Error> !{Io, Wait}
+```
+
+Apply the pending migrations in order, each in its own transaction with
+its record (a failing one rolls back and stops, leaving the earlier
+ones applied; Postgres DDL is transactional). Concurrent migrators
+take turns on an advisory lock. Returns the versions applied.
+
 ### `pool`
 
 ```badger
@@ -183,6 +215,26 @@ fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Err
 ```
 
 Exactly one row, as `T` (see `query_as`).
+
+### `require_current`
+
+```badger
+fn require_current<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<Unit, Error> !{Io, Wait}
+```
+
+Refuse to serve with a schema other than the program's: pending
+migrations, a newer database, or a changed migration are errors (run
+the migration command first).
+
+### `schema`
+
+```badger
+fn schema<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<Schema, Error> !{Io, Wait}
+```
+
+Compare the database with `migrations`: an applied migration whose SQL
+changed since, or an applied version the program does not know (the
+database is newer than the program), is an error.
 
 ### `transaction`
 

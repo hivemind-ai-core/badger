@@ -1,0 +1,11 @@
+[1, 2]
+[]
+current 2 latest 3 pending [3]
+ok
+postgres/schema_behind: the database is at version 2; migrations 3 are pending
+[3]
+postgres/schema_ahead: the database has migration 3 (tags), which this program does not know
+postgres/migration_changed: migration 1 (tasks) changed after it was applied
+postgres/migrations_invalid: migration 1 (tasks) is out of order: versions increase from 1
+postgres/undefined_table: relation "missing" does not exist (SQLSTATE 42P01)
+3

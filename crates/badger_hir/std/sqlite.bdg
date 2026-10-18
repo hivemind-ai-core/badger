@@ -226,12 +226,18 @@ pub fn migrate<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<L
     var done: List<Int> = []
     for m in migrations {
         if s.pending.contains(m.version) {
-            transaction(pool, fn(tx) -> Result<Unit, Error> {
+            let applied = transaction(pool, fn(tx) -> Result<Bool, Error> {
+                // another process may have applied it meanwhile
+                if !query(tx, "SELECT version FROM badger_migrations WHERE version = ?", [Data.int(m.version)])?.is_empty() {
+                    return ok(false)
+                }
                 let _ = execute(tx, m.sql, [])?
                 let _ = execute(tx, "INSERT INTO badger_migrations (version, name, checksum) VALUES (?, ?, ?)", [Data.int(m.version), Data.string(m.name), Data.string(checksum(m))])?
-                ok(())
+                ok(true)
             })?
-            done = done.append(m.version)
+            if applied {
+                done = done.append(m.version)
+            }
         }
     }
     ok(done)
