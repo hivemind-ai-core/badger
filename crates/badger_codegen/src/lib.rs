@@ -1694,6 +1694,8 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_map_empty",
     "badger_rt_i_map_insert",
     "badger_rt_i_map_insert_private",
+    "badger_rt_i_map_insert_owned",
+    "badger_rt_i_map_freeze",
     "badger_rt_i_map_remove",
     "badger_rt_i_map_get",
     "badger_rt_i_map_get_split",

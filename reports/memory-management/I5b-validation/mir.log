@@ -1,0 +1,22 @@
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.60s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/badger_mir-34e62101cc7fda82)
+
+running 14 tests
+test maps::tests::independent_groups_and_live_dispatch_have_separate_boundaries ... ok
+test maps::tests::a_chain_can_be_read_then_frozen_or_returned ... ok
+test maps::tests::epoch_forks_pass_alias_liveness_and_freeze_final_publications ... ok
+test maps::tests::epochs_freeze_before_observation_and_reject_legacy_mutators ... ok
+test maps::tests::any_live_old_alias_or_fork_rejects_every_update ... ok
+test maps::tests::hidden_publications_and_cursors_before_updates_escape ... ok
+test maps::tests::loop_backedges_preserve_old_aliases_and_cursor_lifetimes ... ok
+test split::tests::escaped_reassigned_and_live_results_keep_the_boxed_abi ... ok
+test reach::tests::callbacks_and_relocation_origins_survive_renumbering ... ok
+test split::tests::multiple_sites_keep_their_arguments_and_unrelated_calls ... ok
+test maps::tests::unknown_origins_inputs_and_pointer_maps_stay_persistent ... ok
+test serial::tests::former_indirect_buffer_layout_is_refused_before_decoding ... ok
+test roots::tests::roots_expire_between_safe_points_but_word_sources_stay_pinned ... ok
+test split::tests::pointer_payloads_remain_roots_and_packed_words_keep_their_repr ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

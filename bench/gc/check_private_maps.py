@@ -55,6 +55,9 @@ def main():
                 count = capture["stderr"].count('name: "badger_rt_i_map_insert_private"')
                 wanted = calls if compiler == binary and optimized and not no_inline else 0
                 assert count == wanted, (name, optimized, no_inline, count, wanted, capture)
+                owned = capture["stderr"].count('name: "badger_rt_i_map_insert_owned"')
+                wanted_owned = (2 if name in ["snapshot", "hidden", "cursor"] else 0) if compiler == binary and optimized and not no_inline else 0
+                assert owned == wanted_owned, (name, optimized, no_inline, owned, wanted_owned, capture)
                 probes.append(capture | dict(case=name, optimized=optimized, no_inline=no_inline))
         saved = []
         for name, compiler in [("current", binary), ("previous", previous)]:
@@ -87,6 +90,25 @@ def main():
                                       settings | dict(GC_BENCH_CONFIG=json.dumps(config)), output=None)
                     validate_coverage(json.loads(capture["stdout"]), config)
                     runs.append(capture | dict(settings=settings, config=config))
+        # Real snapshot epochs: all saved values, packed/floating scalars, local
+        # forks, deletion after sharing and a concurrently reading task.
+        snapshot_source = ROOT / "tests/run/snapshot_map_updates.bdg"
+        snapshot_expected = snapshot_source.with_suffix(".out").read_text()
+        snapshot_saved = []
+        for name, compiler in [("current", binary), ("previous", previous)]:
+            mir = tmp / f"snapshots-{name}.bdgmir"
+            execute([compiler, "compile", snapshot_source, "-o", mir], output=None)
+            snapshot_saved.append(mir)
+        for verify in [0, 1]:
+            for generation in [0, 1]:
+                settings = dict(BADGER_GC_STRESS="1", BADGER_GC_VERIFY=str(verify),
+                                BADGER_GC_GENERATIONAL=str(generation), BADGER_CHAOS="839")
+                for workers in [1, 2, 4, 8]:
+                    for target, optimized in [(snapshot_source, False), (snapshot_source, True),
+                                             *[(mir, True) for mir in snapshot_saved]]:
+                        capture = execute([binary, "run", *(["--release"] if optimized else []),
+                                           "--workers", workers, target], settings, snapshot_expected)
+                        runs.append(capture | dict(settings=settings))
         # Independent Python maps model snapshots and dead aliases in generated
         # source. Include snapshots before updates, final-only publication, and
         # entirely private loops; keep every key/value check, not just a sum.
@@ -135,7 +157,7 @@ pub fn main() -> Result<Unit, io.Error> {
         with path.open("rb") as stream:
             return hashlib.file_digest(stream, "sha256").hexdigest()
     report = dict(binary=dict(path=str(binary), sha256=sha(binary)), compatible=dict(path=str(previous), sha256=sha(previous)),
-                  sources={p: sha(ROOT / p) for p in ["bench/gc/check_private_maps.py", "tests/run/private_map_updates.bdg",
+                  sources={p: sha(ROOT / p) for p in ["bench/gc/check_private_maps.py", "tests/run/private_map_updates.bdg", "tests/run/snapshot_map_updates.bdg",
                                                       "bench/gc/coverage.bdg"]}, runs=runs, probes=probes, generated=generated)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(gzip.compress((json.dumps(report, indent=2) + "\n").encode(), mtime=0))

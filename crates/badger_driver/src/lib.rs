@@ -1192,6 +1192,7 @@ impl Session {
         if opts.optimize && !prog.live && std::env::var_os("BADGER_NO_INLINE").is_none() {
             timed("inline", || badger_mir::inline::inline(&mut prog));
             timed("maps", || badger_mir::maps::reuse_private_maps(&mut prog));
+            timed("snapshots", || badger_mir::maps::reuse_snapshot_maps(&mut prog));
             // receives whose result is only examined skip building it
             timed("split", || badger_mir::split::split_receives(&mut prog));
             timed("niche", || badger_mir::niche::elide_local_options(&mut prog));

@@ -14,6 +14,8 @@ use crate::mir::*;
 const EMPTY: &str = "badger_rt_i_map_empty";
 const INSERT: &str = "badger_rt_i_map_insert";
 const PRIVATE: &str = "badger_rt_i_map_insert_private";
+const OWNED: &str = "badger_rt_i_map_insert_owned";
+const FREEZE: &str = "badger_rt_i_map_freeze";
 
 fn find(parent: &[usize], mut index: usize) -> usize {
     while parent[index] != index {
@@ -143,6 +145,41 @@ pub fn reuse_private_maps(program: &mut Program) -> usize {
 }
 
 fn reuse(f: &mut Func) -> usize {
+    reuse_with(f, false)
+}
+
+/// Scalar snapshots use runtime ownership epochs. Run after private-map reuse:
+/// never add token/freeze overhead to the cheaper all-private construction path.
+pub fn reuse_snapshot_maps(program: &mut Program) -> usize {
+    if program.live {
+        return 0;
+    }
+    program.funcs.iter_mut().map(|f| reuse_with(f, true)).sum()
+}
+
+fn safe_use(stmt: &Stmt, in_group: impl Fn(&Operand) -> bool) -> bool {
+    match stmt {
+        Stmt::Assign(dst, Rvalue::Use(value)) => in_group(value) && in_group(&Operand::Local(*dst)),
+        Stmt::Assign(_, Rvalue::Call { callee, args, .. }) => {
+            let safe = match callee {
+                Callee::Intrinsic { name, .. } => matches!(
+                    name.as_str(),
+                    INSERT
+                        | "badger_rt_i_map_get"
+                        | "badger_rt_i_map_get_split"
+                        | "badger_rt_i_map_len"
+                        | "badger_rt_i_map_contains"
+                ),
+                Callee::Runtime("badger_rt_map_index") => true,
+                _ => false,
+            };
+            safe && args.first().is_some_and(&in_group) && !args[1..].iter().any(in_group)
+        }
+        _ => false,
+    }
+}
+
+fn reuse_with(f: &mut Func, snapshots: bool) -> usize {
     let mut parent: Vec<usize> = (0..f.locals.len()).collect();
     for block in &f.blocks {
         for stmt in &block.stmts {
@@ -221,6 +258,22 @@ fn reuse(f: &mut Func) -> usize {
     if sites.is_empty() {
         return 0;
     }
+    // Producer/origin failures are never relaxed. The epoch path only relaxes
+    // old-alias liveness and publication restrictions of private construction.
+    let mut owned_bad = bad.clone();
+    for block in &f.blocks {
+        for stmt in &block.stmts {
+            if let Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, args, .. }) = stmt
+                && matches!(name.as_str(), PRIVATE | "badger_rt_i_map_insert_mut")
+            {
+                for arg in args {
+                    if let Operand::Local(l) = arg {
+                        owned_bad.insert(group[l.index()]);
+                    }
+                }
+            }
+        }
+    }
     let after = live_after(f, |local| origins.contains_key(&group[local.index()]));
     for (&g, updates) in &sites {
         if bad.contains(&g) {
@@ -273,18 +326,69 @@ fn reuse(f: &mut Func) -> usize {
         }
     }
     let mut changed = 0;
+    let mut owned_groups = FxHashSet::default();
     for (g, updates) in sites {
-        if bad.contains(&g) {
+        if if snapshots { owned_bad.contains(&g) || !bad.contains(&g) } else { bad.contains(&g) } {
             continue;
         }
-        for (bid, index, _) in updates {
-            let Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, .. }) =
+        for (bid, index, dst) in updates {
+            let Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, args, .. }) =
                 &mut f.blocks[bid].stmts[index]
             else {
                 unreachable!()
             };
-            *name = PRIVATE.into();
+            *name = if snapshots { OWNED } else { PRIVATE }.into();
+            if snapshots {
+                let alias = after[bid.index()][index].iter().any(|&l| l != dst && group[l.index()] == g);
+                args.push(Operand::Const(Const::Int(i64::from(alias), Repr::I64)));
+                owned_groups.insert(g);
+            }
             changed += 1;
+        }
+    }
+    if !owned_groups.is_empty() {
+        // Build freezes from the original local groups; fresh ignored result
+        // locals are deliberately not added to any alias group.
+        for block in &mut f.blocks {
+            let mut out = Vec::new();
+            let mut freeze = |values: Vec<Operand>, out: &mut Vec<Stmt>| {
+                let mut seen = FxHashSet::default();
+                for value in values {
+                    if let Operand::Local(l) = value
+                        && owned_groups.contains(&group[l.index()])
+                        && seen.insert(l)
+                    {
+                        let dst = f.locals.push(LocalDecl { repr: Repr::Ptr, name: None });
+                        out.push(Stmt::Assign(
+                            dst,
+                            Rvalue::Call {
+                                callee: Callee::Intrinsic {
+                                    name: FREEZE.into(),
+                                    targs: 0,
+                                    ret: origins[&group[l.index()]].0,
+                                },
+                                args: vec![value],
+                                ret: Repr::Ptr,
+                            },
+                        ));
+                    }
+                }
+            };
+            for stmt in std::mem::take(&mut block.stmts) {
+                // Owned inserts perform any necessary alias freeze themselves.
+                let owned_insert = matches!(&stmt, Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, .. }) if name == OWNED);
+                if !owned_insert {
+                    let values = reads(&stmt).into_iter().filter(|value| {
+                        if let Operand::Local(l) = value {
+                            owned_groups.contains(&group[l.index()]) && !safe_use(&stmt, |op| matches!(op, Operand::Local(other) if group[other.index()] == group[l.index()]))
+                        } else { false }
+                    }).collect();
+                    freeze(values, &mut out);
+                }
+                out.push(stmt);
+            }
+            freeze(term_read(&block.term).into_iter().collect(), &mut out);
+            block.stmts = out;
         }
     }
     changed
@@ -421,6 +525,9 @@ mod tests {
             let last = insert(&mut f, b, d, start);
             len(&mut f, b, last);
             assert_eq!(reuse(&mut f), 0, "{case}");
+            assert_eq!(reuse_with(&mut f, true), 1, "epoch path for {case}");
+            assert_eq!(count(&f, OWNED), 1);
+            assert_eq!(count(&f, FREEZE), 1);
         }
     }
 
@@ -456,6 +563,7 @@ mod tests {
             let last = insert(&mut f, b, d, start);
             len(&mut f, b, last);
             assert_eq!(reuse(&mut f), 0, "{case}");
+            assert_eq!(reuse_with(&mut f, true), 0, "{case}");
         }
     }
 
@@ -504,9 +612,73 @@ mod tests {
         let mut p = Program { live: true, ..Default::default() };
         p.funcs.push(f);
         assert_eq!(reuse_private_maps(&mut p), 0);
+        assert_eq!(reuse_snapshot_maps(&mut p), 0);
         p.live = false;
         assert_eq!(reuse_private_maps(&mut p), 1);
         assert_eq!(count(&p.funcs[FuncId::from(0)], PRIVATE), 1);
         assert_eq!(count(&p.funcs[FuncId::from(0)], INSERT), 1);
+        assert_eq!(reuse_snapshot_maps(&mut p), 1);
+        assert_eq!(count(&p.funcs[FuncId::from(0)], PRIVATE), 1);
+        assert_eq!(count(&p.funcs[FuncId::from(0)], OWNED), 1);
+    }
+
+    #[test]
+    fn epoch_forks_pass_alias_liveness_and_freeze_final_publications() {
+        let d = desc(false);
+        let b = BlockId::from(0);
+        let mut f = Func::new("forks".into(), FuncKind::Normal, Repr::Ptr);
+        let start = fresh(&mut f, d);
+        let a = insert(&mut f, b, d, start);
+        let fork = insert(&mut f, b, d, a);
+        len(&mut f, b, a); // a must survive the fork.
+        let changed = insert(&mut f, b, d, fork);
+        f.blocks[b].term = Some(Term::Return(Operand::Local(changed)));
+        assert_eq!(reuse(&mut f), 0);
+        assert_eq!(reuse_with(&mut f, true), 3);
+        let flags: Vec<_> = f.blocks[b]
+            .stmts
+            .iter()
+            .filter_map(|stmt| {
+                if let Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, args, .. }) =
+                    stmt
+                    && name == OWNED
+                {
+                    match args[3] {
+                        Operand::Const(Const::Int(n, Repr::I64)) => Some(n),
+                        _ => panic!("alias flag must be a constant"),
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(flags, vec![0, 1, 0]);
+        assert_eq!(count(&f, FREEZE), 1);
+        assert!(
+            matches!(f.blocks[b].stmts.last(), Some(Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, args, .. })) if name == FREEZE && matches!(args.as_slice(), [Operand::Local(l)] if *l == changed))
+        );
+    }
+
+    #[test]
+    fn epochs_freeze_before_observation_and_reject_legacy_mutators() {
+        for observer in ["observer", "badger_rt_i_map_insert_mut"] {
+            let d = desc(false);
+            let b = BlockId::from(0);
+            let mut f = Func::new(observer.into(), FuncKind::Normal, Repr::I64);
+            let start = fresh(&mut f, d);
+            let first = insert(&mut f, b, d, start);
+            call(&mut f, b, observer, 0, Repr::I64, vec![Operand::Local(first)]);
+            let last = insert(&mut f, b, d, first);
+            len(&mut f, b, last);
+            assert_eq!(reuse_with(&mut f, true), if observer == "observer" { 2 } else { 0 });
+            if observer == "observer" {
+                assert!(
+                    matches!(&f.blocks[b].stmts[2], Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, .. }) if name == FREEZE)
+                );
+                assert!(
+                    matches!(&f.blocks[b].stmts[3], Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, .. }) if name == observer)
+                );
+            }
+        }
     }
 }

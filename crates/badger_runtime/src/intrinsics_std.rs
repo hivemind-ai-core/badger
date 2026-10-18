@@ -342,6 +342,14 @@ define_intrinsics! {
         map::insert_mut(m, k, v);
         m
     }
+    fn map_insert_owned(ctx, targs, ret, m, k, v, old_alias_live) {
+        gc::budget_check(256);
+        map::insert_owned(m, k, v, old_alias_live != 0)
+    }
+    fn map_freeze(ctx, targs, ret, m) {
+        map::freeze(m);
+        m
+    }
     fn map_remove(ctx, targs, ret, m, k) { map::remove(m, k) }
     fn map_get(ctx, targs, ret, m, k) {
         match map::get(m, k) { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }

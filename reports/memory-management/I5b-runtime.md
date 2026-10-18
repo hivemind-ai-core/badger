@@ -33,3 +33,12 @@ ordinary halves in G7d-applications / G7d-coverage, plus the immediately precedi
 G7e-trace-baseline ordinary runs. Exact hashes and raw data are retained in their
 manifests. Reuse unchanged workloads and run fresh adjacent baseline/candidate
 pairs after compiler integration; diagnostics are separate.
+
+Compiler integration: the second MIR pass handles scalar groups rejected by I5a
+only for alias liveness/publication. It keeps origin/producer/descriptor rejection,
+rejects legacy transient mutators, passes old-alias liveness to every owned insert,
+and freezes every other uncertain read before the statement and every map-valued
+terminator. Private-only groups retain I5a. Optimization stays gated by release,
+inlining and non-live dispatch. Runtime helpers keep the 256-byte budget poll.
+14 MIR tests and the new end-to-end fixture pass at integration; broad validation
+and benchmark retention are pending in the next evidence commit.

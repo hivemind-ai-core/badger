@@ -1,0 +1,89 @@
+import std.io
+import std.list
+import std.map
+import std.task
+
+fn snapshots(interval: Int) {
+    var current: Map<Int, Int> = map.empty()
+    let versions = list.builder<Map<Int, Int>>()
+    for i in 0..513 {
+        current = current.insert(-(i % 37), i)
+        if (i + 1) % interval == 0 { versions.append(current) }
+        if i % 31 == 0 { task.yield_now() }
+    }
+    let saved = versions.finish()
+    assert(saved.len() == 513 / interval)
+    for index in 0..saved.len() {
+        let stop = (index + 1) * interval
+        let old = saved[index]
+        assert(old.len() == stop.min(37))
+        for key in 0..stop.min(37) {
+            assert(old.get_or(-key, -1) == stop - 1 - (stop - 1 - key) % 37)
+        }
+    }
+    let alias = current
+    current = current.insert(0, 9001)
+    let fork = alias.insert(1, 9002)
+    assert(alias.get_or(0, -1) == 481)
+    assert(current.get_or(0, -1) == 9001)
+    assert(fork.get_or(0, -1) == 481 && fork.get_or(1, -1) == 9002)
+    let removed = current.remove(0)
+    assert(!removed.contains(0) && current.contains(0))
+}
+
+fn scalar_encodings() {
+    var packed: Map<U8, I16> = map.empty()
+    let versions = list.builder<Map<U8, I16>>()
+    for i in 0..65 {
+        packed = packed.insert(U8.try_from(i % 13).unwrap_or(0U8), I16.try_from(i).unwrap_or(0I16))
+        if i % 2 == 0 { versions.append(packed) }
+    }
+    let saved = versions.finish()
+    for index in 0..saved.len() {
+        let old = saved[index]
+        let stop = index * 2
+        assert(old.len() == (stop + 1).min(13))
+        for key in 0..(stop + 1).min(13) {
+            assert(Int.try_from(old.get_or(U8.try_from(key).unwrap_or(0U8), -1I16)).unwrap_or(-1) == stop - (stop - key) % 13)
+        }
+    }
+    var floats: Map<Int, F64> = map.empty()
+    floats = floats.insert(0, -0.0)
+    let old = floats
+    floats = floats.insert(0, 3.5)
+    assert(old.get_or(0, 1.0) == 0.0 && floats.get_or(0, 0.0) == 3.5)
+}
+
+fn handoff() {
+    task.scope(fn(s) -> Result<Unit, Never> {
+        var current: Map<Int, Int> = map.empty()
+        for i in 0..65 { current = current.insert(i % 7, i) }
+        let captured = current
+        let child = s.spawn(fn() {
+            for round in 0..7 {
+                assert(captured.len() == 7)
+                for key in 0..7 { assert(captured.get_or(key, -1) == 64 - (64 - key) % 7) }
+                task.yield_now()
+            }
+            captured.len()
+        })
+        for i in 0..65 {
+            current = current.insert(i % 7, 1000 + i)
+            if i % 7 == 0 { task.yield_now() }
+        }
+        assert(child.join() == 7)
+        for key in 0..7 { assert(current.get_or(key, -1) == 1064 - (64 - key) % 7) }
+        ok(())
+    }).unwrap_or(())
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    snapshots(1)
+    snapshots(2)
+    snapshots(64)
+    snapshots(256)
+    scalar_encodings()
+    handoff()
+    io.println("snapshot map updates ok")?
+    ok(())
+}
