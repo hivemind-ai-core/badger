@@ -732,18 +732,21 @@ mod tests {
 
     fn owned_collision_buckets_preserve_all_epochs() {
         // More than 64 equal full hashes must not alias entry count with tokens.
+        // Full-bucket lookups make this quadratic. Keep 24 saved epochs and
+        // >64 entries under Miri without interpreting millions of comparisons.
+        let keys = if cfg!(miri) { 128 } else { 512 };
         let mut root = 0;
         let mut model = std::collections::HashMap::new();
         let mut versions = vec![];
         let mut token = MAX_OWNER;
-        for step in 0..3072 {
-            let k = (step * 173) % 512;
+        for step in 0..keys * 6 {
+            let k = (step * 173) % keys;
             let (next, added) =
                 insert_owned(root, Entry { hash: 42, key: k, val: step }, 0, &|a, b| a == b, token);
             assert_eq!(added, model.insert(k, step).is_none());
             root = next;
             assert_eq!(Node::of(root).owner(), token);
-            if (step + 1) % 128 == 0 {
+            if (step + 1) % (keys / 4) == 0 {
                 versions.push((root, model.clone()));
                 token -= 1;
             }
@@ -756,7 +759,7 @@ mod tests {
                 assert_eq!(reference.get(&e.key), Some(&e.val));
             });
             assert_eq!(count, reference.len());
-            for k in 0..512 {
+            for k in 0..keys {
                 assert_eq!(get(version, 42, k, &|a, b| a == b), reference.get(&k).copied());
             }
             // Legacy persistent cloning strips owner tags from new nodes.

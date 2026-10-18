@@ -25,6 +25,7 @@ def main():
     expected = (ROOT / "tests/run/private_map_updates.out").read_text()
     runs, probes, generated = [], [], []
     compatible_private = None
+    compatible_owned = None
 
     def execute(command, settings=None, output=expected):
         result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env | (settings or {}),
@@ -64,7 +65,18 @@ def main():
                     calls * compatible_private if compiler == previous else 0)
                 assert count == wanted, (name, optimized, no_inline, count, wanted, capture)
                 owned = capture["stderr"].count('name: "badger_rt_i_map_insert_owned"')
-                wanted_owned = (2 if name in ["snapshot", "hidden", "cursor"] else 0) if compiler == binary and optimized and not no_inline else 0
+                if compiler == previous and name == "snapshot":
+                    # A compatible executable can also include snapshot epochs.
+                    # Calibrate its two-site snapshot probe; current compiler
+                    # expectations and alias/retention checks remain strict.
+                    assert owned in [0, 2], capture
+                    compatible_owned = owned
+                wanted_owned = 0
+                if name in ["snapshot", "hidden", "cursor"]:
+                    if compiler == binary and optimized and not no_inline:
+                        wanted_owned = 2
+                    elif compiler == previous:
+                        wanted_owned = compatible_owned
                 assert owned == wanted_owned, (name, optimized, no_inline, owned, wanted_owned, capture)
                 probes.append(capture | dict(case=name, optimized=optimized, no_inline=no_inline))
         saved = []
