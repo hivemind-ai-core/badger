@@ -44,6 +44,9 @@ pub struct Global<'a> {
     /// Scheme parameters a generic function may duplicate (use more than
     /// once): instantiating them with an affine type is rejected.
     pub dup_params: RefCell<FxHashMap<DefId, Vec<u32>>>,
+    /// The definitions whose `dup_params` the generic pass running now has
+    /// read (so a later change to one of them re-runs only its readers).
+    pub dup_reads: RefCell<FxHashSet<DefId>>,
     /// Generic functions whose duplication analysis ran, and calls to ones
     /// not yet analysed (checked once every group is done).
     pub dup_done: RefCell<FxHashSet<DefId>>,
@@ -405,7 +408,17 @@ fn repl_session() -> bool {
     REPL_SESSION.load(std::sync::atomic::Ordering::SeqCst)
 }
 
+/// `BADGER_TIMINGS=1`: the time since `start`, as a phase of type checking.
+fn mark(start: &mut std::time::Instant, phase: &str) {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if *ON.get_or_init(|| std::env::var_os("BADGER_TIMINGS").is_some_and(|v| v == "1")) {
+        eprintln!("[timings] typecheck.{phase}: {:.3} ms", start.elapsed().as_secs_f64() * 1e3);
+    }
+    *start = std::time::Instant::now();
+}
+
 pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, Vec<Diagnostic>) {
+    let mut clock = std::time::Instant::now();
     let mut diags = vec![];
     for s in ["%confined", "display", "S", "Foreign", "Io", "Wait", "State"] {
         interner.intern(s);
@@ -420,6 +433,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         poly_globals: FxHashSet::default(),
         pending_schemes: RefCell::new(FxHashMap::default()),
         dup_params: RefCell::new(FxHashMap::default()),
+        dup_reads: RefCell::new(FxHashSet::default()),
         node_params: RefCell::new(FxHashMap::default()),
         dup_done: RefCell::new(FxHashSet::default()),
         dup_deferred: RefCell::new(vec![]),
@@ -460,6 +474,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     }
     check_impl_signatures(&g, &mut diags);
     check_impl_supers(&g, &mut diags);
+    mark(&mut clock, "env");
     // Binding groups over value definitions.
     let values: Vec<DefId> = hir
         .defs
@@ -561,6 +576,9 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         let gref: &Global = &g;
         let mut inf = Infer::new(gref, Mode::Generic);
         let mut new_schemes: Vec<(DefId, Scheme)> = vec![];
+        // `BADGER_TIMINGS=2`: the slowest binding groups
+        let detail = std::env::var_os("BADGER_TIMINGS").is_some_and(|v| v == "2");
+        let mut slow: Vec<(f64, String)> = vec![];
         for scc in sccs {
             let defs: Vec<DefId> = scc.iter().map(|n| graph[*n]).collect();
             // globals referring to each other cyclically
@@ -572,13 +590,40 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
                         .with_label(hir.defs[*d].span, "this value depends on itself"),
                 );
             }
+            let group_start = std::time::Instant::now();
             let schemes = check_group(&mut inf, &defs, &declared);
+            if detail {
+                let name =
+                    defs.iter().map(|d| interner.resolve(hir.defs[*d].name)).collect::<Vec<_>>().join(", ");
+                let module = hir.modules[hir.defs[defs[0]].module]
+                    .path
+                    .iter()
+                    .map(|s| interner.resolve(*s))
+                    .collect::<Vec<_>>()
+                    .join(".");
+                slow.push((group_start.elapsed().as_secs_f64() * 1e3, format!("{module}.{name}")));
+            }
             for (d, s) in schemes {
                 inf.g.pending_schemes.borrow_mut().insert(d, s.clone());
                 new_schemes.push((d, s));
             }
         }
+        if detail {
+            slow.sort_by(|a, b| b.0.total_cmp(&a.0));
+            let total: f64 = slow.iter().map(|x| x.0).sum();
+            eprintln!("[timings] typecheck groups: {} in {total:.3} ms; slowest:", slow.len());
+            for (ms, name) in slow.iter().take(15) {
+                eprintln!("[timings]   {ms:>8.3} ms  {name}");
+            }
+            let std_ms: f64 = slow.iter().filter(|x| x.1.starts_with("std.")).map(|x| x.0).sum();
+            eprintln!("[timings]   standard library groups: {std_ms:.3} ms");
+        }
+        mark(&mut clock, "groups");
+        let solve_start = std::time::Instant::now();
         inf.solve(true);
+        if detail {
+            eprintln!("[timings] typecheck final solve: {:.3} ms", solve_start.elapsed().as_secs_f64() * 1e3);
+        }
         // calls to generic functions analysed after their callers
         crate::ownership::check_deferred_dups(&mut inf);
         crate::ownership::check_task_params(&mut inf);
@@ -587,6 +632,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         if !repl_session() {
             crate::ownership::check_module_closures(&mut inf);
         }
+        mark(&mut clock, "after-groups");
         // monomorphic schemes (e.g. module-level values) may mention variables
         // resolved by later uses: resolve them against the final substitution
         {
@@ -680,8 +726,10 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         }
     }
     diags.extend(inf_diags);
+    mark(&mut clock, "schemes");
     effect_fixpoint(&mut g, &call_targets, &mut diags);
     check_impl_effects(&g, &mut diags);
+    mark(&mut clock, "effects");
     // module values are pure immutable data: no task-confined mutable cells,
     // affine builders/buffers, or open transactions (a local REPL session's
     // bindings are interactive state instead)
@@ -705,6 +753,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
             );
         }
     }
+    mark(&mut clock, "module-values");
     (Checked { g, types }, diags)
 }
 

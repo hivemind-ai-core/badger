@@ -680,6 +680,10 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
         .filter(|(_, d)| matches!(&d.kind, DefKind::Fn(f) if f.body.is_some()))
         .map(|(id, _)| id)
         .collect();
+    // each round re-runs only the functions that read a fact the previous
+    // round changed (the first runs them all)
+    let mut todo = fns.clone();
+    let mut reads: FxHashMap<DefId, FxHashSet<DefId>> = FxHashMap::default();
     for _ in 0..4 {
         let before = inf.g.dup_params.borrow().clone();
         // a protocol method duplicates `Self` when an implementation does
@@ -697,14 +701,29 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
                 }
             }
         }
-        for &d in &fns {
+        for &d in &todo {
             if let Some(s) = inf.g.scheme(d) {
+                inf.g.dup_reads.borrow_mut().clear();
                 generic_pass(inf, d, &s);
+                reads.insert(d, std::mem::take(&mut *inf.g.dup_reads.borrow_mut()));
             }
         }
-        if *inf.g.dup_params.borrow() == before {
+        let after = inf.g.dup_params.borrow();
+        if *after == before {
             break;
         }
+        let changed: FxHashSet<DefId> = after
+            .iter()
+            .filter(|(k, v)| before.get(*k) != Some(*v))
+            .map(|(k, _)| *k)
+            .chain(before.keys().filter(|k| !after.contains_key(*k)).copied())
+            .collect();
+        drop(after);
+        todo = fns
+            .iter()
+            .copied()
+            .filter(|d| reads.get(d).is_some_and(|r| r.iter().any(|x| changed.contains(x))))
+            .collect();
     }
     inf.g.dups_final.set(true);
     let calls = std::mem::take(&mut *inf.g.dup_deferred.borrow_mut());
@@ -1728,6 +1747,9 @@ impl Own<'_, '_, '_> {
             let args: Vec<Ty> = args.iter().map(|a| self.inf.icx.resolve(a)).collect();
             self.inf.g.dup_deferred.borrow_mut().push((def, args, span));
             return;
+        }
+        if self.generic {
+            self.inf.g.dup_reads.borrow_mut().insert(def);
         }
         let Some(dup) = self.inf.g.dup_params.borrow().get(&def).cloned() else { return };
         for k in dup {
