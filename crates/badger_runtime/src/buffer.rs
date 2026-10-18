@@ -273,7 +273,11 @@ pub fn freeze(w: u64) -> u64 {
         // This nonallocating intrinsic runs in compiled execution (or under
         // the runtime lock), so stop-the-world excludes concurrent GC reads.
         // Freezing is irreversible: native growth/mutation is no longer legal.
-        unsafe { (*(w as *mut Header)).desc = frozen_inline_desc() };
+        unsafe {
+            let p = w as *mut Header;
+            (*p).desc = frozen_inline_desc();
+            (*p).meta &= !gc::HAS_FINALIZER;
+        }
     }
     w
 }
@@ -350,6 +354,7 @@ mod tests {
                 assert!(is_buffer(w));
                 let Kind::Opaque { finalize, .. } = &unsafe { obj(w) }.desc().kind else { unreachable!() };
                 assert_eq!(finalize.is_none(), inline);
+                assert_eq!(unsafe { obj(w) }.meta & gc::HAS_FINALIZER == 0, inline);
                 arrays.push((w, cap));
             }
             let mut packed = vec![];

@@ -156,6 +156,21 @@ mod tests {
         .leak();
         let mut expected = vec![];
         let coordinator = thread::current().id();
+        // The serial path uses the same flag, including for pointer-free
+        // objects that still own a native resource and need finalization.
+        for (i, desc) in [leaf, opaque].into_iter().enumerate() {
+            let p = gc::alloc_cell(0, 8);
+            let _ = p.expose_provenance();
+            unsafe {
+                (*p).desc = desc;
+                (*p).meta = (8 << 32) | desc.header_flags();
+                *(*p).payload().cast::<u64>() = i as u64;
+            }
+            gc::finalize(p);
+            gc::free_cell(0, p, 8);
+        }
+        assert_eq!(*FINALIZED.lock().unwrap(), vec![(coordinator, 1)]);
+        FINALIZED.lock().unwrap().clear();
         let lists = [0, 3, 7];
         for w in lists {
             assert!(gc::objects(w).is_empty());
@@ -168,7 +183,7 @@ mod tests {
                 let value = ((w as u64) << 32) | i as u64;
                 unsafe {
                     (*p).desc = if i % 3 == 1 { opaque } else { leaf };
-                    (*p).meta = (8 << 32) | if i % 3 == 0 { MARK } else { 0 };
+                    (*p).meta = (8 << 32) | (*p).desc().header_flags() | if i % 3 == 0 { MARK } else { 0 };
                     *(*p).payload().cast::<u64>() = value;
                 }
                 gc::objects(w).push(p);
@@ -197,7 +212,7 @@ mod tests {
         for w in lists {
             for (i, &p) in gc::objects(w).iter().enumerate() {
                 unsafe {
-                    (*p).meta = (8 << 32) | if i == 0 { MARK } else { 0 };
+                    (*p).meta = (8 << 32) | (*p).desc().header_flags() | if i == 0 { MARK } else { 0 };
                 }
             }
             for i in [1, 4] {

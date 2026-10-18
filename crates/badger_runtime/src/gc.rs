@@ -37,7 +37,7 @@ mod sweep;
 #[repr(C)]
 pub struct Header {
     pub desc: *const TypeDesc,
-    /// bit 0: mark, bit 1: immortal, bits 32..64: payload size.
+    /// bits 0..4: mark/immortal/remembered/finalizer, bits 32..64: payload size.
     pub meta: u64,
 }
 
@@ -49,6 +49,7 @@ pub const HEADER: usize = std::mem::size_of::<Header>();
 pub const MARK: u64 = 1;
 pub const IMMORTAL: u64 = 2;
 pub const REMEMBERED: u64 = 4;
+pub(crate) const HAS_FINALIZER: u64 = 8;
 
 impl Header {
     pub fn desc(&self) -> &'static TypeDesc {
@@ -368,7 +369,7 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
             std::process::abort();
         }
         (*p).desc = desc;
-        (*p).meta = (payload as u64) << 32;
+        (*p).meta = ((payload as u64) << 32) | desc.header_flags();
         let list = objects(w);
         list.push(p);
         #[cfg(feature = "gc-profile")]
@@ -425,7 +426,7 @@ pub fn alloc_immortal(desc: &'static TypeDesc, payload: usize) -> u64 {
     unsafe {
         let p = alloc_zeroed(layout(payload)) as *mut Header;
         (*p).desc = desc;
-        (*p).meta = ((payload as u64) << 32) | IMMORTAL;
+        (*p).meta = ((payload as u64) << 32) | IMMORTAL | desc.header_flags();
         if verify() {
             heap().immortals.insert(p as usize);
         }
@@ -682,6 +683,16 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     MINOR_COLLECTION.store(minor, Ordering::Relaxed);
     let mut stack: Vec<u64> = Vec::new();
     let checking = verify();
+    if checking {
+        for p in all_objects() {
+            let o = unsafe { &*p };
+            let finalizer = matches!(&o.desc().kind, Kind::Opaque { finalize: Some(_), .. });
+            if (o.meta & HAS_FINALIZER != 0) != finalizer {
+                eprintln!("fatal: heap verification: incorrect finalizer flag for `{}`", o.desc().name);
+                std::process::abort();
+            }
+        }
+    }
     if sticky && !minor {
         // a full collection: every object is unmarked (young) again
         for p in all_objects() {
@@ -1085,7 +1096,7 @@ fn sweep_list(wl: usize, start: usize, sticky: bool) -> SweptList {
         sticky,
         |p| live += HEADER + unsafe { (*p).payload_size() },
         |p| unsafe {
-            if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+            if (*p).meta & HAS_FINALIZER != 0 {
                 fin.push(p);
             } else {
                 free_cell(wl, p, (*p).payload_size());
@@ -1135,7 +1146,7 @@ fn sweep_parallel(
             sticky,
             |p| live += HEADER + unsafe { (*p).payload_size() },
             |p| unsafe {
-                if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+                if (*p).meta & HAS_FINALIZER != 0 {
                     fin.push(p);
                 } else {
                     free_cell(wl, p, (*p).payload_size());
@@ -1189,6 +1200,9 @@ fn finish_sweep(lists: &[usize], results: Vec<SweptList>) -> usize {
 static FINALIZING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn finalize(p: *mut Header) {
+    if unsafe { (*p).meta } & HAS_FINALIZER == 0 {
+        return;
+    }
     let desc = unsafe { (*p).desc() };
     FINALIZING.store(true, Ordering::Relaxed);
     let _done = Finalized;
