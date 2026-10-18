@@ -236,14 +236,7 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
     if !p.is_null() {
         unsafe {
             pool.free[class] = *(p as *mut *mut u8);
-            // Constant small clears can become inline stores. Preserve the
-            // full zeroed-cell contract, including the header and padding.
-            match size {
-                32 => std::ptr::write_bytes(p, 0, 32),
-                48 => std::ptr::write_bytes(p, 0, 48),
-                64 => std::ptr::write_bytes(p, 0, 64),
-                _ => std::ptr::write_bytes(p, 0, size),
-            }
+            std::ptr::write_bytes(p, 0, size);
         }
         return p as *mut Header;
     }
