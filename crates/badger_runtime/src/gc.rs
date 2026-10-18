@@ -268,9 +268,17 @@ fn free_cell(w: usize, p: *mut Header, payload: usize) {
     if size > small_max() {
         return unsafe { dealloc(p as *mut u8, layout(payload)) };
     }
-    // Quarantine drains on the collector thread, possibly for a different
-    // worker. Return each cell to its owning chunk's pool.
-    let w = if verify() {
+    let pool = unsafe { &mut *POOLS.0[w].get() };
+    let class = size / 16 - 1;
+    unsafe { *(p as *mut *mut u8) = pool.free[class] };
+    pool.free[class] = p as *mut u8;
+}
+
+/// Quarantine drains on the collector thread without the original worker's
+/// identity. Find the owning pool only here, rather than checking verifier
+/// state for every ordinary sweep return. Large cells have no pool owner.
+fn free_quarantined(p: *mut Header, payload: usize) {
+    let w = if cell_size(payload) <= small_max() {
         POOLS
             .0
             .iter()
@@ -282,12 +290,9 @@ fn free_cell(w: usize, p: *mut Header, payload: usize) {
             })
             .expect("quarantined pool cell has an owner")
     } else {
-        w
+        0
     };
-    let pool = unsafe { &mut *POOLS.0[w].get() };
-    let class = size / 16 - 1;
-    unsafe { *(p as *mut *mut u8) = pool.free[class] };
-    pool.free[class] = p as *mut u8;
+    free_cell(w, p, payload);
 }
 
 /// `BADGER_GC_STRESS=1`: collect before every allocation (a debugging aid
@@ -858,7 +863,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
             let size = (*p).payload_size();
             h.quarantine_bytes -= HEADER + size;
             h.freed.remove(&(p as usize));
-            free_cell(0, p, size);
+            free_quarantined(p, size);
         }
     }
     for (wl, c) in COUNTS.iter().enumerate() {
@@ -1367,6 +1372,22 @@ mod pool_tests {
         assert!(pool.free.iter().all(|p| p.is_null()));
         assert!(pool.active.is_null());
         assert_eq!(pool.left, 0);
+        assert_eq!(pool_reserved_bytes(), 0);
+
+        // Quarantine may release a different worker's pooled cell. It must
+        // return to that worker, while system cells need no pool lookup.
+        let p = alloc_cell(7, 8);
+        assert!(!p.is_null());
+        free_quarantined(p, 8);
+        let q = alloc_cell(7, 8);
+        assert_eq!(p, q);
+        free_cell(7, q, 8);
+        let large = small_max() + 1;
+        let p = alloc_cell(7, large);
+        assert!(!p.is_null());
+        free_quarantined(p, large);
+        trim_empty_chunks(heap());
+        assert!(unsafe { &*POOLS.0[7].get() }.chunks.is_empty());
         assert_eq!(pool_reserved_bytes(), 0);
     }
 }
