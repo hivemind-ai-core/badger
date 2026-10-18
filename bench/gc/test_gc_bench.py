@@ -156,6 +156,19 @@ class CoverageOracle(unittest.TestCase):
 
 
 class SweepAccounting(unittest.TestCase):
+    def test_mark_and_remembered_trace_conservation(self):
+        heap = dict(mark_candidates=110, marked_objects=50, marked_leaf_objects=30,
+                    traced_objects=27, remembered_traced_objects=7)
+        run.validate_sweep(dict(collections=[dict(heap=heap)]))
+        for patch in [dict(mark_candidates=49), dict(marked_leaf_objects=51),
+                      dict(traced_objects=26), dict(remembered_traced_objects=-1),
+                      dict(marked_objects=True)]:
+            with self.assertRaisesRegex(ValueError, 'marking/trace'):
+                run.validate_sweep(dict(collections=[dict(heap=heap | patch)]))
+        del heap['marked_leaf_objects']
+        with self.assertRaisesRegex(ValueError, 'marking/trace'):
+            run.validate_sweep(dict(collections=[dict(heap=heap)]))
+
     def test_work_and_helper_conservation(self):
         heap = dict(swept=100, sweep_work_per_worker=[95, 5, 0],
                     sweep_helpers=1, sweep_work_per_helper=[5])

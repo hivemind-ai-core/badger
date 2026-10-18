@@ -705,10 +705,17 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         eprintln!("fatal: heap verification: {} holds {w:#x}, which is not a heap object", by());
         std::process::abort();
     };
+    #[cfg(feature = "gc-profile")]
+    let (candidates, marked, leaves) =
+        (std::cell::Cell::new(0), std::cell::Cell::new(0), std::cell::Cell::new(0));
+    #[cfg(feature = "gc-profile")]
+    let (mut traced, mut remembered_traced) = (0, 0);
     let mark = |w: u64, stack: &mut Vec<u64>| {
         if w == 0 {
             return;
         }
+        #[cfg(feature = "gc-profile")]
+        candidates.set(candidates.get() + 1);
         let o = w as *mut Header;
         unsafe {
             // immortal objects (literals, static closures) never reference
@@ -717,8 +724,12 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
                 return;
             }
             (*o).meta |= MARK;
+            #[cfg(feature = "gc-profile")]
+            marked.set(marked.get() + 1);
             // nothing inside to trace (scalar records, strings, bytes)
             if (*o).desc().is_leaf() {
+                #[cfg(feature = "gc-profile")]
+                leaves.set(leaves.get() + 1);
                 return;
             }
         }
@@ -759,6 +770,11 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     for &o in &remembered {
         unsafe { (*(o as *mut Header)).meta &= !REMEMBERED };
         if minor {
+            #[cfg(feature = "gc-profile")]
+            {
+                traced += 1;
+                remembered_traced += 1;
+            }
             trace(o, &mut |c| {
                 check(c, &|| format!("a remembered `{}` object", unsafe { obj(o) }.desc().name));
                 mark(c, &mut stack);
@@ -768,6 +784,10 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     // trace: children are marked as they are visited (no per-object
     // scratch storage during the pause)
     while let Some(w) = stack.pop() {
+        #[cfg(feature = "gc-profile")]
+        {
+            traced += 1;
+        }
         let mut pending = std::mem::take(&mut stack);
         trace(w, &mut |c| {
             check(c, &|| format!("a `{}` object", unsafe { obj(w) }.desc().name));
@@ -776,7 +796,14 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         stack = pending;
     }
     #[cfg(feature = "gc-profile")]
-    profile.phase("trace");
+    {
+        profile.snapshot("mark_candidates", candidates.get());
+        profile.snapshot("marked_objects", marked.get());
+        profile.snapshot("marked_leaf_objects", leaves.get());
+        profile.snapshot("traced_objects", traced);
+        profile.snapshot("remembered_traced_objects", remembered_traced);
+        profile.phase("trace");
+    }
     if !minor {
         crate::list::clear_unmarked_directory_pages();
     }

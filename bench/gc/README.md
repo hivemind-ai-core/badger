@@ -113,6 +113,15 @@ and finishing. Counts include examined objects, survivors, remembered objects,
 external pressure/live bytes and pool reservation. Phase timings are disjoint
 wall-clock intervals; parallel sweep CPU can exceed its wall time.
 
+Diagnostic collections also count nonzero root/edge words presented to marking,
+newly marked objects, their descriptor-classified leaf subset, traced objects
+and remembered-object traces. Duplicates, immortals and old-generation skips are
+included in candidate words; newly marked counts exclude them. The harness checks
+`traced = marked - leaf + remembered_traces`. These counts include roots and
+edges across the collection and do not by themselves measure per-edge cache
+latency. Counters add overhead even without a phase output path; ordinary builds
+contain none of them.
+
 Only that feature accepts experimental `BADGER_GC_MINOR_BYTES`,
 `BADGER_GC_MAX_MINORS` and `BADGER_GC_TRIM=0`. They are attribution tools, not proposed
 defaults. The young-budget override applies after the first collection. Normal

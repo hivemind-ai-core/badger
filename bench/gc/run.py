@@ -219,6 +219,16 @@ def validate_coverage(record, config):
 def validate_sweep(profile):
     for collection in profile["collections"]:
         heap = collection["heap"]
+        trace_fields = {"mark_candidates", "marked_objects", "marked_leaf_objects",
+                        "traced_objects", "remembered_traced_objects"}
+        if trace_fields & heap.keys():
+            if (not trace_fields <= heap.keys()
+                    or any(type(heap[k]) is not int or heap[k] < 0 for k in trace_fields)
+                    or heap["mark_candidates"] < heap["marked_objects"]
+                    or heap["marked_objects"] < heap["marked_leaf_objects"]
+                    or heap["traced_objects"] != heap["marked_objects"] - heap["marked_leaf_objects"]
+                        + heap["remembered_traced_objects"]):
+                raise ValueError("invalid marking/trace work accounting")
         if "sweep_work_per_worker" not in heap:
             continue
         work, helpers = heap["sweep_work_per_worker"], heap["sweep_work_per_helper"]
