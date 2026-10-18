@@ -183,7 +183,9 @@ pub(crate) const MAX_OWNER: u64 = (1 << 59) - 1;
 
 /// Allocate a node and fill it. Child pointers must be reachable or rooted.
 fn alloc_node(datamap: u32, nodemap: u32, flags: u32, entries: &[Entry], children: &[u64]) -> u64 {
-    let w = gc::alloc(node_desc(), HDR + entries.len() * 24 + children.len() * 8);
+    // All declared payload words are written below without a safepoint,
+    // callback or publication; inputs stay reachable across allocation.
+    let w = unsafe { gc::alloc_uninit(node_desc(), HDR + entries.len() * 24 + children.len() * 8) };
     unsafe {
         let p = obj(w).payload();
         *(p as *mut u32) = datamap;
@@ -249,7 +251,9 @@ fn splice_owned<M: Mutation>(
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
     let new_nc = nc - c.del + c.ins.is_some() as usize;
-    let out = gc::alloc(node_desc(), HDR + new_ne * 24 + new_nc * 8);
+    // Header, prefix, inserted words and suffix cover the entire declared
+    // payload below, before any safepoint, callback or publication.
+    let out = unsafe { gc::alloc_uninit(node_desc(), HDR + new_ne * 24 + new_nc * 8) };
     unsafe {
         let p = obj(out).payload();
         *(p as *mut u32) = datamap;

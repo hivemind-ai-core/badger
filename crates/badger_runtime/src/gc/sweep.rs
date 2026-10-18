@@ -160,7 +160,7 @@ mod tests {
         for w in lists {
             assert!(gc::objects(w).is_empty());
             for i in 0..(50 + w * 17) {
-                let p = gc::alloc_cell(w, 8);
+                let p = gc::alloc_cell::<true>(w, 8);
                 assert!(!p.is_null());
                 // Raw test allocations bypass the pointer-word publication
                 // that Header::payload relies on for exposed provenance.
