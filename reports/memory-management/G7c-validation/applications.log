@@ -1,0 +1,2198 @@
+rep=0 realworld/messaging w1 candidate
+rep=0 realworld/messaging w1 baseline
+rep=0 realworld/pipeline w2 candidate
+rep=0 realworld/pipeline w2 baseline
+rep=0 compare/batches w8 candidate
+rep=0 compare/batches w8 baseline
+rep=0 realworld/pipeline w4 candidate
+rep=0 realworld/pipeline w4 baseline
+rep=0 compare/snapshots w2 baseline
+rep=0 compare/snapshots w2 candidate
+rep=0 realworld/cpu w1 candidate
+rep=0 realworld/cpu w1 baseline
+rep=0 realworld/messaging w4 candidate
+rep=0 realworld/messaging w4 baseline
+rep=0 compare/snapshots w1 baseline
+rep=0 compare/snapshots w1 candidate
+rep=0 realworld/state w2 baseline
+rep=0 realworld/state w2 candidate
+rep=0 realworld/state w1 baseline
+rep=0 realworld/state w1 candidate
+rep=0 realworld/messaging w8 candidate
+rep=0 realworld/messaging w8 baseline
+rep=0 realworld/reconcile w2 baseline
+rep=0 realworld/reconcile w2 candidate
+rep=0 realworld/reconcile w4 candidate
+rep=0 realworld/reconcile w4 baseline
+rep=0 compare/records w8 baseline
+rep=0 compare/records w8 candidate
+rep=0 realworld/pipeline w8 candidate
+rep=0 realworld/pipeline w8 baseline
+rep=0 compare/snapshots w8 candidate
+rep=0 compare/snapshots w8 baseline
+rep=0 realworld/cpu w4 candidate
+rep=0 realworld/cpu w4 baseline
+rep=0 realworld/messaging w2 candidate
+rep=0 realworld/messaging w2 baseline
+rep=0 realworld/state w4 baseline
+rep=0 realworld/state w4 candidate
+rep=0 compare/records w4 candidate
+rep=0 compare/records w4 baseline
+rep=0 realworld/json w1 candidate
+rep=0 realworld/json w1 baseline
+rep=0 realworld/json w8 baseline
+rep=0 realworld/json w8 candidate
+rep=0 realworld/pipeline w1 baseline
+rep=0 realworld/pipeline w1 candidate
+rep=0 compare/batches w1 candidate
+rep=0 compare/batches w1 baseline
+rep=0 realworld/state w8 candidate
+rep=0 realworld/state w8 baseline
+rep=0 realworld/cpu w8 baseline
+rep=0 realworld/cpu w8 candidate
+rep=0 compare/batches w2 candidate
+rep=0 compare/batches w2 baseline
+rep=0 compare/records w1 baseline
+rep=0 compare/records w1 candidate
+rep=0 realworld/json w2 candidate
+rep=0 realworld/json w2 baseline
+rep=0 compare/records w2 candidate
+rep=0 compare/records w2 baseline
+rep=0 compare/snapshots w4 candidate
+rep=0 compare/snapshots w4 baseline
+rep=0 realworld/json w4 candidate
+rep=0 realworld/json w4 baseline
+rep=0 realworld/reconcile w1 candidate
+rep=0 realworld/reconcile w1 baseline
+rep=0 compare/batches w4 baseline
+rep=0 compare/batches w4 candidate
+rep=0 realworld/reconcile w8 candidate
+rep=0 realworld/reconcile w8 baseline
+rep=0 realworld/cpu w2 baseline
+rep=0 realworld/cpu w2 candidate
+rep=1 compare/snapshots w8 baseline
+rep=1 compare/snapshots w8 candidate
+rep=1 realworld/messaging w8 baseline
+rep=1 realworld/messaging w8 candidate
+rep=1 compare/batches w8 candidate
+rep=1 compare/batches w8 baseline
+rep=1 compare/batches w2 candidate
+rep=1 compare/batches w2 baseline
+rep=1 compare/records w2 candidate
+rep=1 compare/records w2 baseline
+rep=1 realworld/messaging w4 baseline
+rep=1 realworld/messaging w4 candidate
+rep=1 realworld/pipeline w8 baseline
+rep=1 realworld/pipeline w8 candidate
+rep=1 realworld/reconcile w8 candidate
+rep=1 realworld/reconcile w8 baseline
+rep=1 compare/snapshots w4 baseline
+rep=1 compare/snapshots w4 candidate
+rep=1 compare/records w4 candidate
+rep=1 compare/records w4 baseline
+rep=1 realworld/messaging w2 baseline
+rep=1 realworld/messaging w2 candidate
+rep=1 compare/snapshots w2 baseline
+rep=1 compare/snapshots w2 candidate
+rep=1 compare/snapshots w1 baseline
+rep=1 compare/snapshots w1 candidate
+rep=1 realworld/state w2 candidate
+rep=1 realworld/state w2 baseline
+rep=1 realworld/state w8 baseline
+rep=1 realworld/state w8 candidate
+rep=1 realworld/cpu w2 baseline
+rep=1 realworld/cpu w2 candidate
+rep=1 realworld/json w4 baseline
+rep=1 realworld/json w4 candidate
+rep=1 compare/records w1 baseline
+rep=1 compare/records w1 candidate
+rep=1 realworld/pipeline w2 baseline
+rep=1 realworld/pipeline w2 candidate
+rep=1 compare/batches w1 baseline
+rep=1 compare/batches w1 candidate
+rep=1 compare/batches w4 candidate
+rep=1 compare/batches w4 baseline
+rep=1 realworld/state w1 candidate
+rep=1 realworld/state w1 baseline
+rep=1 realworld/json w8 candidate
+rep=1 realworld/json w8 baseline
+rep=1 realworld/pipeline w1 baseline
+rep=1 realworld/pipeline w1 candidate
+rep=1 realworld/reconcile w2 baseline
+rep=1 realworld/reconcile w2 candidate
+rep=1 realworld/reconcile w4 baseline
+rep=1 realworld/reconcile w4 candidate
+rep=1 realworld/state w4 baseline
+rep=1 realworld/state w4 candidate
+rep=1 realworld/messaging w1 candidate
+rep=1 realworld/messaging w1 baseline
+rep=1 realworld/reconcile w1 baseline
+rep=1 realworld/reconcile w1 candidate
+rep=1 realworld/json w2 baseline
+rep=1 realworld/json w2 candidate
+rep=1 compare/records w8 baseline
+rep=1 compare/records w8 candidate
+rep=1 realworld/json w1 baseline
+rep=1 realworld/json w1 candidate
+rep=1 realworld/cpu w1 baseline
+rep=1 realworld/cpu w1 candidate
+rep=1 realworld/pipeline w4 baseline
+rep=1 realworld/pipeline w4 candidate
+rep=1 realworld/cpu w8 candidate
+rep=1 realworld/cpu w8 baseline
+rep=1 realworld/cpu w4 candidate
+rep=1 realworld/cpu w4 baseline
+rep=2 realworld/cpu w4 baseline
+rep=2 realworld/cpu w4 candidate
+rep=2 realworld/json w2 baseline
+rep=2 realworld/json w2 candidate
+rep=2 realworld/state w4 baseline
+rep=2 realworld/state w4 candidate
+rep=2 realworld/json w8 baseline
+rep=2 realworld/json w8 candidate
+rep=2 realworld/state w1 baseline
+rep=2 realworld/state w1 candidate
+rep=2 realworld/messaging w2 candidate
+rep=2 realworld/messaging w2 baseline
+rep=2 realworld/reconcile w1 baseline
+rep=2 realworld/reconcile w1 candidate
+rep=2 realworld/cpu w1 baseline
+rep=2 realworld/cpu w1 candidate
+rep=2 realworld/pipeline w8 baseline
+rep=2 realworld/pipeline w8 candidate
+rep=2 realworld/messaging w4 candidate
+rep=2 realworld/messaging w4 baseline
+rep=2 realworld/state w8 candidate
+rep=2 realworld/state w8 baseline
+rep=2 compare/records w8 candidate
+rep=2 compare/records w8 baseline
+rep=2 compare/batches w4 baseline
+rep=2 compare/batches w4 candidate
+rep=2 realworld/messaging w1 baseline
+rep=2 realworld/messaging w1 candidate
+rep=2 realworld/reconcile w8 baseline
+rep=2 realworld/reconcile w8 candidate
+rep=2 compare/snapshots w1 candidate
+rep=2 compare/snapshots w1 baseline
+rep=2 realworld/json w4 baseline
+rep=2 realworld/json w4 candidate
+rep=2 realworld/pipeline w1 candidate
+rep=2 realworld/pipeline w1 baseline
+rep=2 compare/snapshots w4 baseline
+rep=2 compare/snapshots w4 candidate
+rep=2 compare/records w4 candidate
+rep=2 compare/records w4 baseline
+rep=2 compare/batches w2 baseline
+rep=2 compare/batches w2 candidate
+rep=2 realworld/cpu w8 candidate
+rep=2 realworld/cpu w8 baseline
+rep=2 realworld/pipeline w4 baseline
+rep=2 realworld/pipeline w4 candidate
+rep=2 realworld/cpu w2 candidate
+rep=2 realworld/cpu w2 baseline
+rep=2 realworld/reconcile w2 baseline
+rep=2 realworld/reconcile w2 candidate
+rep=2 compare/records w1 candidate
+rep=2 compare/records w1 baseline
+rep=2 compare/records w2 baseline
+rep=2 compare/records w2 candidate
+rep=2 realworld/messaging w8 candidate
+rep=2 realworld/messaging w8 baseline
+rep=2 compare/batches w1 candidate
+rep=2 compare/batches w1 baseline
+rep=2 compare/snapshots w8 candidate
+rep=2 compare/snapshots w8 baseline
+rep=2 compare/snapshots w2 candidate
+rep=2 compare/snapshots w2 baseline
+rep=2 realworld/reconcile w4 baseline
+rep=2 realworld/reconcile w4 candidate
+rep=2 compare/batches w8 baseline
+rep=2 compare/batches w8 candidate
+rep=2 realworld/json w1 candidate
+rep=2 realworld/json w1 baseline
+rep=2 realworld/state w2 candidate
+rep=2 realworld/state w2 baseline
+rep=2 realworld/pipeline w2 baseline
+rep=2 realworld/pipeline w2 candidate
+rep=3 realworld/messaging w2 candidate
+rep=3 realworld/messaging w2 baseline
+rep=3 realworld/cpu w4 candidate
+rep=3 realworld/cpu w4 baseline
+rep=3 compare/records w8 candidate
+rep=3 compare/records w8 baseline
+rep=3 compare/records w1 candidate
+rep=3 compare/records w1 baseline
+rep=3 compare/snapshots w2 baseline
+rep=3 compare/snapshots w2 candidate
+rep=3 realworld/json w8 baseline
+rep=3 realworld/json w8 candidate
+rep=3 realworld/state w4 candidate
+rep=3 realworld/state w4 baseline
+rep=3 realworld/reconcile w2 candidate
+rep=3 realworld/reconcile w2 baseline
+rep=3 realworld/state w1 baseline
+rep=3 realworld/state w1 candidate
+rep=3 realworld/json w2 candidate
+rep=3 realworld/json w2 baseline
+rep=3 compare/records w2 baseline
+rep=3 compare/records w2 candidate
+rep=3 realworld/json w1 candidate
+rep=3 realworld/json w1 baseline
+rep=3 realworld/pipeline w1 candidate
+rep=3 realworld/pipeline w1 baseline
+rep=3 realworld/reconcile w8 candidate
+rep=3 realworld/reconcile w8 baseline
+rep=3 compare/snapshots w4 candidate
+rep=3 compare/snapshots w4 baseline
+rep=3 realworld/messaging w8 candidate
+rep=3 realworld/messaging w8 baseline
+rep=3 realworld/reconcile w1 candidate
+rep=3 realworld/reconcile w1 baseline
+rep=3 compare/batches w2 candidate
+rep=3 compare/batches w2 baseline
+rep=3 compare/batches w8 candidate
+rep=3 compare/batches w8 baseline
+rep=3 compare/batches w1 baseline
+rep=3 compare/batches w1 candidate
+rep=3 realworld/reconcile w4 candidate
+rep=3 realworld/reconcile w4 baseline
+rep=3 realworld/state w2 candidate
+rep=3 realworld/state w2 baseline
+rep=3 realworld/pipeline w2 candidate
+rep=3 realworld/pipeline w2 baseline
+rep=3 compare/snapshots w1 baseline
+rep=3 compare/snapshots w1 candidate
+rep=3 realworld/cpu w2 candidate
+rep=3 realworld/cpu w2 baseline
+rep=3 realworld/messaging w4 baseline
+rep=3 realworld/messaging w4 candidate
+rep=3 realworld/state w8 candidate
+rep=3 realworld/state w8 baseline
+rep=3 realworld/cpu w8 candidate
+rep=3 realworld/cpu w8 baseline
+rep=3 realworld/pipeline w8 baseline
+rep=3 realworld/pipeline w8 candidate
+rep=3 realworld/pipeline w4 candidate
+rep=3 realworld/pipeline w4 baseline
+rep=3 compare/batches w4 baseline
+rep=3 compare/batches w4 candidate
+rep=3 realworld/cpu w1 candidate
+rep=3 realworld/cpu w1 baseline
+rep=3 compare/snapshots w8 baseline
+rep=3 compare/snapshots w8 candidate
+rep=3 realworld/messaging w1 baseline
+rep=3 realworld/messaging w1 candidate
+rep=3 realworld/json w4 baseline
+rep=3 realworld/json w4 candidate
+rep=3 compare/records w4 candidate
+rep=3 compare/records w4 baseline
+rep=4 realworld/json w2 baseline
+rep=4 realworld/json w2 candidate
+rep=4 realworld/reconcile w4 baseline
+rep=4 realworld/reconcile w4 candidate
+rep=4 realworld/state w4 baseline
+rep=4 realworld/state w4 candidate
+rep=4 compare/batches w4 candidate
+rep=4 compare/batches w4 baseline
+rep=4 compare/records w8 candidate
+rep=4 compare/records w8 baseline
+rep=4 realworld/pipeline w1 candidate
+rep=4 realworld/pipeline w1 baseline
+rep=4 compare/records w4 baseline
+rep=4 compare/records w4 candidate
+rep=4 realworld/json w1 baseline
+rep=4 realworld/json w1 candidate
+rep=4 realworld/cpu w1 baseline
+rep=4 realworld/cpu w1 candidate
+rep=4 realworld/json w8 baseline
+rep=4 realworld/json w8 candidate
+rep=4 compare/batches w2 baseline
+rep=4 compare/batches w2 candidate
+rep=4 realworld/cpu w4 baseline
+rep=4 realworld/cpu w4 candidate
+rep=4 realworld/pipeline w8 candidate
+rep=4 realworld/pipeline w8 baseline
+rep=4 realworld/cpu w8 baseline
+rep=4 realworld/cpu w8 candidate
+rep=4 realworld/messaging w2 candidate
+rep=4 realworld/messaging w2 baseline
+rep=4 realworld/state w1 baseline
+rep=4 realworld/state w1 candidate
+rep=4 realworld/cpu w2 baseline
+rep=4 realworld/cpu w2 candidate
+rep=4 realworld/json w4 baseline
+rep=4 realworld/json w4 candidate
+rep=4 realworld/messaging w8 baseline
+rep=4 realworld/messaging w8 candidate
+rep=4 realworld/reconcile w1 candidate
+rep=4 realworld/reconcile w1 baseline
+rep=4 compare/batches w1 candidate
+rep=4 compare/batches w1 baseline
+rep=4 compare/snapshots w4 candidate
+rep=4 compare/snapshots w4 baseline
+rep=4 compare/records w1 baseline
+rep=4 compare/records w1 candidate
+rep=4 compare/batches w8 candidate
+rep=4 compare/batches w8 baseline
+rep=4 realworld/state w2 candidate
+rep=4 realworld/state w2 baseline
+rep=4 compare/snapshots w2 baseline
+rep=4 compare/snapshots w2 candidate
+rep=4 compare/snapshots w8 candidate
+rep=4 compare/snapshots w8 baseline
+rep=4 realworld/reconcile w8 candidate
+rep=4 realworld/reconcile w8 baseline
+rep=4 realworld/pipeline w4 candidate
+rep=4 realworld/pipeline w4 baseline
+rep=4 realworld/pipeline w2 baseline
+rep=4 realworld/pipeline w2 candidate
+rep=4 realworld/messaging w4 baseline
+rep=4 realworld/messaging w4 candidate
+rep=4 compare/snapshots w1 candidate
+rep=4 compare/snapshots w1 baseline
+rep=4 compare/records w2 candidate
+rep=4 compare/records w2 baseline
+rep=4 realworld/state w8 baseline
+rep=4 realworld/state w8 candidate
+rep=4 realworld/reconcile w2 candidate
+rep=4 realworld/reconcile w2 baseline
+rep=4 realworld/messaging w1 baseline
+rep=4 realworld/messaging w1 candidate
+rep=5 compare/batches w4 baseline
+rep=5 compare/batches w4 candidate
+rep=5 realworld/pipeline w2 baseline
+rep=5 realworld/pipeline w2 candidate
+rep=5 realworld/state w8 candidate
+rep=5 realworld/state w8 baseline
+rep=5 compare/snapshots w2 baseline
+rep=5 compare/snapshots w2 candidate
+rep=5 compare/records w2 baseline
+rep=5 compare/records w2 candidate
+rep=5 compare/batches w1 candidate
+rep=5 compare/batches w1 baseline
+rep=5 realworld/reconcile w2 baseline
+rep=5 realworld/reconcile w2 candidate
+rep=5 compare/snapshots w8 candidate
+rep=5 compare/snapshots w8 baseline
+rep=5 realworld/pipeline w8 baseline
+rep=5 realworld/pipeline w8 candidate
+rep=5 compare/snapshots w4 candidate
+rep=5 compare/snapshots w4 baseline
+rep=5 realworld/reconcile w4 baseline
+rep=5 realworld/reconcile w4 candidate
+rep=5 realworld/json w4 candidate
+rep=5 realworld/json w4 baseline
+rep=5 compare/batches w8 candidate
+rep=5 compare/batches w8 baseline
+rep=5 realworld/cpu w8 baseline
+rep=5 realworld/cpu w8 candidate
+rep=5 realworld/cpu w4 candidate
+rep=5 realworld/cpu w4 baseline
+rep=5 realworld/state w2 candidate
+rep=5 realworld/state w2 baseline
+rep=5 realworld/reconcile w8 baseline
+rep=5 realworld/reconcile w8 candidate
+rep=5 compare/batches w2 candidate
+rep=5 compare/batches w2 baseline
+rep=5 realworld/pipeline w1 baseline
+rep=5 realworld/pipeline w1 candidate
+rep=5 realworld/cpu w2 candidate
+rep=5 realworld/cpu w2 baseline
+rep=5 realworld/reconcile w1 candidate
+rep=5 realworld/reconcile w1 baseline
+rep=5 realworld/state w1 candidate
+rep=5 realworld/state w1 baseline
+rep=5 realworld/cpu w1 candidate
+rep=5 realworld/cpu w1 baseline
+rep=5 realworld/messaging w1 candidate
+rep=5 realworld/messaging w1 baseline
+rep=5 compare/records w1 candidate
+rep=5 compare/records w1 baseline
+rep=5 realworld/json w1 baseline
+rep=5 realworld/json w1 candidate
+rep=5 compare/records w8 baseline
+rep=5 compare/records w8 candidate
+rep=5 realworld/messaging w8 candidate
+rep=5 realworld/messaging w8 baseline
+rep=5 realworld/messaging w2 baseline
+rep=5 realworld/messaging w2 candidate
+rep=5 realworld/json w8 candidate
+rep=5 realworld/json w8 baseline
+rep=5 compare/records w4 baseline
+rep=5 compare/records w4 candidate
+rep=5 realworld/json w2 candidate
+rep=5 realworld/json w2 baseline
+rep=5 realworld/pipeline w4 candidate
+rep=5 realworld/pipeline w4 baseline
+rep=5 realworld/state w4 candidate
+rep=5 realworld/state w4 baseline
+rep=5 compare/snapshots w1 candidate
+rep=5 compare/snapshots w1 baseline
+rep=5 realworld/messaging w4 baseline
+rep=5 realworld/messaging w4 candidate
+rep=6 realworld/cpu w1 candidate
+rep=6 realworld/cpu w1 baseline
+rep=6 compare/batches w2 baseline
+rep=6 compare/batches w2 candidate
+rep=6 realworld/messaging w8 candidate
+rep=6 realworld/messaging w8 baseline
+rep=6 realworld/cpu w8 baseline
+rep=6 realworld/cpu w8 candidate
+rep=6 realworld/pipeline w4 candidate
+rep=6 realworld/pipeline w4 baseline
+rep=6 realworld/pipeline w2 candidate
+rep=6 realworld/pipeline w2 baseline
+rep=6 compare/snapshots w8 candidate
+rep=6 compare/snapshots w8 baseline
+rep=6 realworld/cpu w4 candidate
+rep=6 realworld/cpu w4 baseline
+rep=6 compare/batches w4 candidate
+rep=6 compare/batches w4 baseline
+rep=6 compare/records w1 candidate
+rep=6 compare/records w1 baseline
+rep=6 realworld/json w1 candidate
+rep=6 realworld/json w1 baseline
+rep=6 compare/records w8 candidate
+rep=6 compare/records w8 baseline
+rep=6 compare/snapshots w4 baseline
+rep=6 compare/snapshots w4 candidate
+rep=6 realworld/reconcile w2 baseline
+rep=6 realworld/reconcile w2 candidate
+rep=6 realworld/state w4 candidate
+rep=6 realworld/state w4 baseline
+rep=6 compare/batches w1 candidate
+rep=6 compare/batches w1 baseline
+rep=6 realworld/json w2 candidate
+rep=6 realworld/json w2 baseline
+rep=6 realworld/state w2 baseline
+rep=6 realworld/state w2 candidate
+rep=6 realworld/messaging w1 baseline
+rep=6 realworld/messaging w1 candidate
+rep=6 compare/snapshots w2 baseline
+rep=6 compare/snapshots w2 candidate
+rep=6 realworld/cpu w2 baseline
+rep=6 realworld/cpu w2 candidate
+rep=6 realworld/state w8 baseline
+rep=6 realworld/state w8 candidate
+rep=6 realworld/state w1 baseline
+rep=6 realworld/state w1 candidate
+rep=6 compare/records w2 candidate
+rep=6 compare/records w2 baseline
+rep=6 compare/snapshots w1 baseline
+rep=6 compare/snapshots w1 candidate
+rep=6 realworld/reconcile w8 candidate
+rep=6 realworld/reconcile w8 baseline
+rep=6 realworld/reconcile w1 candidate
+rep=6 realworld/reconcile w1 baseline
+rep=6 realworld/json w8 baseline
+rep=6 realworld/json w8 candidate
+rep=6 realworld/pipeline w8 candidate
+rep=6 realworld/pipeline w8 baseline
+rep=6 realworld/reconcile w4 candidate
+rep=6 realworld/reconcile w4 baseline
+rep=6 realworld/pipeline w1 baseline
+rep=6 realworld/pipeline w1 candidate
+rep=6 compare/batches w8 baseline
+rep=6 compare/batches w8 candidate
+rep=6 compare/records w4 candidate
+rep=6 compare/records w4 baseline
+rep=6 realworld/json w4 baseline
+rep=6 realworld/json w4 candidate
+rep=6 realworld/messaging w2 baseline
+rep=6 realworld/messaging w2 candidate
+rep=6 realworld/messaging w4 candidate
+rep=6 realworld/messaging w4 baseline
+[
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 703134,
+          "min": 695000,
+          "max": 788353,
+          "count": 7,
+          "cv": 0.042315327704630895
+        },
+        "peak_rss_bytes": {
+          "median": 34213888,
+          "min": 33763328,
+          "max": 34541568,
+          "count": 7,
+          "cv": 0.006953988964024631
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 767775,
+          "min": 694298,
+          "max": 922892,
+          "count": 7,
+          "cv": 0.10314328927433522
+        },
+        "peak_rss_bytes": {
+          "median": 34385920,
+          "min": 33673216,
+          "max": 36806656,
+          "count": 7,
+          "cv": 0.03464867414616142
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.04070791366906468,
+      "min": -0.011976422840586642,
+      "max": 0.27886548723825566,
+      "count": 7,
+      "cv": 1.041622512295992
+    },
+    "faster_pairs": 1
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 732058,
+          "min": 694708,
+          "max": 1221546,
+          "count": 7,
+          "cv": 0.2159201849835858
+        },
+        "peak_rss_bytes": {
+          "median": 34803712,
+          "min": 33992704,
+          "max": 40591360,
+          "count": 7,
+          "cv": 0.05999323818429848
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 776882,
+          "min": 757605,
+          "max": 1214193,
+          "count": 7,
+          "cv": 0.18139121672994582
+        },
+        "peak_rss_bytes": {
+          "median": 34918400,
+          "min": 34107392,
+          "max": 40595456,
+          "count": 7,
+          "cv": 0.05858218833482616
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.0808931227666232,
+      "min": -0.3568085033228384,
+      "max": 0.587846665071226,
+      "count": 7,
+      "cv": 2.9303797663797786
+    },
+    "faster_pairs": 2
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 733000,
+          "min": 709626,
+          "max": 1186201,
+          "count": 7,
+          "cv": 0.19605138130865213
+        },
+        "peak_rss_bytes": {
+          "median": 34533376,
+          "min": 34103296,
+          "max": 41209856,
+          "count": 7,
+          "cv": 0.0709017165730019
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 772974,
+          "min": 743289,
+          "max": 977253,
+          "count": 7,
+          "cv": 0.09587708990340353
+        },
+        "peak_rss_bytes": {
+          "median": 34615296,
+          "min": 34144256,
+          "max": 35950592,
+          "count": 7,
+          "cv": 0.016423427731571856
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.07239056081436979,
+      "min": -0.3733869723596591,
+      "max": 0.28389620080876354,
+      "count": 7,
+      "cv": 25.43962738627028
+    },
+    "faster_pairs": 2
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 738841,
+          "min": 694158,
+          "max": 1220123,
+          "count": 7,
+          "cv": 0.2549018650626494
+        },
+        "peak_rss_bytes": {
+          "median": 34512896,
+          "min": 33828864,
+          "max": 43048960,
+          "count": 7,
+          "cv": 0.09562504424099937
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 769257,
+          "min": 749230,
+          "max": 1213441,
+          "count": 7,
+          "cv": 0.22782809029606657
+        },
+        "peak_rss_bytes": {
+          "median": 34680832,
+          "min": 34197504,
+          "max": 43102208,
+          "count": 7,
+          "cv": 0.0992751675381468
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.07933640468020253,
+      "min": -0.358637738468227,
+      "max": 0.6927876902473389,
+      "count": 7,
+      "cv": 2.1627894986498815
+    },
+    "faster_pairs": 2
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3934851,
+          "min": 3866604,
+          "max": 4729365,
+          "count": 7,
+          "cv": 0.06907507217707472
+        },
+        "peak_rss_bytes": {
+          "median": 70975488,
+          "min": 70873088,
+          "max": 71102464,
+          "count": 7,
+          "cv": 0.0009682078756632328
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3853640,
+          "min": 3701948,
+          "max": 4253612,
+          "count": 7,
+          "cv": 0.04391004405797778
+        },
+        "peak_rss_bytes": {
+          "median": 71266304,
+          "min": 71049216,
+          "max": 71606272,
+          "count": 7,
+          "cv": 0.0024085133794357508
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.020638900939323968,
+      "min": -0.21724206103779264,
+      "max": 0.026742883098451964,
+      "count": 7,
+      "cv": -1.9706133011516358
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4091521,
+          "min": 3949919,
+          "max": 4724185,
+          "count": 7,
+          "cv": 0.05940141644966651
+        },
+        "peak_rss_bytes": {
+          "median": 70987776,
+          "min": 70799360,
+          "max": 73310208,
+          "count": 7,
+          "cv": 0.014178027641704845
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3956952,
+          "min": 3683624,
+          "max": 4395565,
+          "count": 7,
+          "cv": 0.06875026328303531
+        },
+        "peak_rss_bytes": {
+          "median": 71061504,
+          "min": 70537216,
+          "max": 71561216,
+          "count": 7,
+          "cv": 0.004015097375275517
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.05699332062252416,
+      "min": -0.206851128819045,
+      "max": 0.09296954102671728,
+      "count": 7,
+      "cv": -2.1003970853711196
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3959997,
+          "min": 3811622,
+          "max": 4698708,
+          "count": 7,
+          "cv": 0.07042315576724385
+        },
+        "peak_rss_bytes": {
+          "median": 71213056,
+          "min": 70483968,
+          "max": 73428992,
+          "count": 7,
+          "cv": 0.015079653869804838
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3877494,
+          "min": 3747332,
+          "max": 4497464,
+          "count": 7,
+          "cv": 0.061907038615776774
+        },
+        "peak_rss_bytes": {
+          "median": 71254016,
+          "min": 70746112,
+          "max": 73252864,
+          "count": 7,
+          "cv": 0.011026824270047458
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.05324656964636665,
+      "min": -0.16086805138774318,
+      "max": 0.15556896200428016,
+      "count": 7,
+      "cv": -4.913503681855568
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3904454,
+          "min": 3749948,
+          "max": 5490877,
+          "count": 7,
+          "cv": 0.1336734642790134
+        },
+        "peak_rss_bytes": {
+          "median": 71311360,
+          "min": 71045120,
+          "max": 73039872,
+          "count": 7,
+          "cv": 0.008921886821809846
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3936815,
+          "min": 3671141,
+          "max": 4425511,
+          "count": 7,
+          "cv": 0.06603467717721713
+        },
+        "peak_rss_bytes": {
+          "median": 71442432,
+          "min": 70959104,
+          "max": 72253440,
+          "count": 7,
+          "cv": 0.005804274190872119
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.017506734024197446,
+      "min": -0.2830261905338619,
+      "max": 0.1373100236970053,
+      "count": 7,
+      "cv": -5.729046494108105
+    },
+    "faster_pairs": 3
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3635595,
+          "min": 3415988,
+          "max": 4575229,
+          "count": 7,
+          "cv": 0.09846187514482223
+        },
+        "peak_rss_bytes": {
+          "median": 48365568,
+          "min": 48070656,
+          "max": 48623616,
+          "count": 7,
+          "cv": 0.0035805880502517867
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3633601,
+          "min": 3175882,
+          "max": 4070613,
+          "count": 7,
+          "cv": 0.08211178345746424
+        },
+        "peak_rss_bytes": {
+          "median": 48594944,
+          "min": 48238592,
+          "max": 50634752,
+          "count": 7,
+          "cv": 0.015725440732311594
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.02549100907353019,
+      "min": -0.1554042431537307,
+      "max": 0.18811613297541485,
+      "count": 7,
+      "cv": -4.221416873286441
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4021421,
+          "min": 3594640,
+          "max": 4391268,
+          "count": 7,
+          "cv": 0.06253382348237083
+        },
+        "peak_rss_bytes": {
+          "median": 48525312,
+          "min": 48005120,
+          "max": 50798592,
+          "count": 7,
+          "cv": 0.021375355835320842
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3458367,
+          "min": 3201730,
+          "max": 4436491,
+          "count": 7,
+          "cv": 0.12334481923048499
+        },
+        "peak_rss_bytes": {
+          "median": 48324608,
+          "min": 47927296,
+          "max": 50511872,
+          "count": 7,
+          "cv": 0.016576454718891964
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.13626594245729595,
+      "min": -0.2125348584392872,
+      "max": 0.23419619210825005,
+      "count": 7,
+      "cv": -2.1886122709411024
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3713189,
+          "min": 3276089,
+          "max": 3875029,
+          "count": 7,
+          "cv": 0.04789601904272025
+        },
+        "peak_rss_bytes": {
+          "median": 48390144,
+          "min": 47804416,
+          "max": 50552832,
+          "count": 7,
+          "cv": 0.020081825371253786
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3585633,
+          "min": 3277551,
+          "max": 3748846,
+          "count": 7,
+          "cv": 0.05156251895309161
+        },
+        "peak_rss_bytes": {
+          "median": 48508928,
+          "min": 48283648,
+          "max": 48627712,
+          "count": 7,
+          "cv": 0.002338453669003587
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.07468227979713182,
+      "min": -0.10309838306144625,
+      "max": 0.14099006467773,
+      "count": 7,
+      "cv": -3.3652066832329544
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3792286,
+          "min": 3293812,
+          "max": 4363717,
+          "count": 7,
+          "cv": 0.08024177897166579
+        },
+        "peak_rss_bytes": {
+          "median": 48492544,
+          "min": 48234496,
+          "max": 48787456,
+          "count": 7,
+          "cv": 0.004109476722000703
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3510543,
+          "min": 3259708,
+          "max": 4118932,
+          "count": 7,
+          "cv": 0.08174172604201307
+        },
+        "peak_rss_bytes": {
+          "median": 48558080,
+          "min": 48152576,
+          "max": 48721920,
+          "count": 7,
+          "cv": 0.0036792849307582397
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0955761247964948,
+      "min": -0.19268000193413093,
+      "max": 0.19110289233265276,
+      "count": 7,
+      "cv": -2.906123788136234
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 50747615,
+          "min": 50668348,
+          "max": 51362966,
+          "count": 7,
+          "cv": 0.004620554551676622
+        },
+        "peak_rss_bytes": {
+          "median": 27467776,
+          "min": 27144192,
+          "max": 27918336,
+          "count": 7,
+          "cv": 0.00988327626061814
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 50943498,
+          "min": 50571850,
+          "max": 51234158,
+          "count": 7,
+          "cv": 0.0048523452624435895
+        },
+        "peak_rss_bytes": {
+          "median": 27897856,
+          "min": 27131904,
+          "max": 29564928,
+          "count": 7,
+          "cv": 0.025495079490418775
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0019045025900588097,
+      "min": -0.008166740215119206,
+      "max": 0.005525265277914304,
+      "count": 7,
+      "cv": -27.588860647832732
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51160020,
+          "min": 50521977,
+          "max": 52747055,
+          "count": 7,
+          "cv": 0.015002205644612146
+        },
+        "peak_rss_bytes": {
+          "median": 27901952,
+          "min": 27258880,
+          "max": 30347264,
+          "count": 7,
+          "cv": 0.034588004113954615
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 51237655,
+          "min": 50484808,
+          "max": 51695404,
+          "count": 7,
+          "cv": 0.008251304313471014
+        },
+        "peak_rss_bytes": {
+          "median": 28164096,
+          "min": 27090944,
+          "max": 28659712,
+          "count": 7,
+          "cv": 0.018318691984586282
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.000735699634240361,
+      "min": -0.029258960523957267,
+      "max": 0.00709350778205331,
+      "count": 7,
+      "cv": -2.2827846238658465
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51099699,
+          "min": 50767572,
+          "max": 52602747,
+          "count": 7,
+          "cv": 0.011526760164195965
+        },
+        "peak_rss_bytes": {
+          "median": 28073984,
+          "min": 27181056,
+          "max": 30314496,
+          "count": 7,
+          "cv": 0.03285714725112929
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 51008789,
+          "min": 50460733,
+          "max": 51289841,
+          "count": 7,
+          "cv": 0.006558664968550554
+        },
+        "peak_rss_bytes": {
+          "median": 28291072,
+          "min": 27357184,
+          "max": 30068736,
+          "count": 7,
+          "cv": 0.035655996642444836
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.009705435188181566,
+      "min": -0.025605107657210358,
+      "max": 0.010287452785805895,
+      "count": 7,
+      "cv": -1.3879495182675838
+    },
+    "faster_pairs": 6
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51558359,
+          "min": 51299599,
+          "max": 53314177,
+          "count": 7,
+          "cv": 0.015372842983951402
+        },
+        "peak_rss_bytes": {
+          "median": 28299264,
+          "min": 28073984,
+          "max": 29868032,
+          "count": 7,
+          "cv": 0.025440869357439725
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 50775226,
+          "min": 50635908,
+          "max": 51751879,
+          "count": 7,
+          "cv": 0.007128712190223712
+        },
+        "peak_rss_bytes": {
+          "median": 27865088,
+          "min": 27258880,
+          "max": 29528064,
+          "count": 7,
+          "cv": 0.024731126082471654
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.01789139565128517,
+      "min": -0.04172561490215665,
+      "max": -0.007988808055711338,
+      "count": 7,
+      "cv": -0.5327535528325905
+    },
+    "faster_pairs": 7
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18268585,
+          "min": 17349840,
+          "max": 18734269,
+          "count": 7,
+          "cv": 0.02290797883309614
+        },
+        "peak_rss_bytes": {
+          "median": 52326400,
+          "min": 51437568,
+          "max": 55320576,
+          "count": 7,
+          "cv": 0.02514971939530834
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 17985049,
+          "min": 17616144,
+          "max": 24575497,
+          "count": 7,
+          "cv": 0.12067178794150857
+        },
+        "peak_rss_bytes": {
+          "median": 52338688,
+          "min": 51961856,
+          "max": 54140928,
+          "count": 7,
+          "cv": 0.013198475720083966
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.002612601707254969,
+      "min": -0.04624450518992762,
+      "max": 0.3583365188421095,
+      "count": 7,
+      "cv": 2.9636036905937884
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 19287345,
+          "min": 18321052,
+          "max": 24190192,
+          "count": 7,
+          "cv": 0.10996533017514952
+        },
+        "peak_rss_bytes": {
+          "median": 52531200,
+          "min": 51671040,
+          "max": 56496128,
+          "count": 7,
+          "cv": 0.03890264044056802
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 18616481,
+          "min": 17994075,
+          "max": 18785974,
+          "count": 7,
+          "cv": 0.016226385535604702
+        },
+        "peak_rss_bytes": {
+          "median": 52670464,
+          "min": 52137984,
+          "max": 54358016,
+          "count": 7,
+          "cv": 0.01633774304188362
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.03207999856900989,
+      "min": -0.2531779408778566,
+      "max": 0.02067146580884116,
+      "count": 7,
+      "cv": -1.290273760292301
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18601463,
+          "min": 18180010,
+          "max": 19679052,
+          "count": 7,
+          "cv": 0.024524696265853876
+        },
+        "peak_rss_bytes": {
+          "median": 54038528,
+          "min": 52432896,
+          "max": 56791040,
+          "count": 7,
+          "cv": 0.022699958578407085
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 18364683,
+          "min": 17914197,
+          "max": 19716802,
+          "count": 7,
+          "cv": 0.03241313020408548
+        },
+        "peak_rss_bytes": {
+          "median": 53403648,
+          "min": 51724288,
+          "max": 54681600,
+          "count": 7,
+          "cv": 0.01764145450226359
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.010056595128385526,
+      "min": -0.06679026001862287,
+      "max": 0.06542546442684971,
+      "count": 7,
+      "cv": -2.986400774945184
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18655192,
+          "min": 18391734,
+          "max": 19816647,
+          "count": 7,
+          "cv": 0.028631192925646955
+        },
+        "peak_rss_bytes": {
+          "median": 54067200,
+          "min": 53641216,
+          "max": 54452224,
+          "count": 7,
+          "cv": 0.004482763383920613
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 18294753,
+          "min": 18017358,
+          "max": 18775626,
+          "count": 7,
+          "cv": 0.013836221097877122
+        },
+        "peak_rss_bytes": {
+          "median": 53739520,
+          "min": 52477952,
+          "max": 54751232,
+          "count": 7,
+          "cv": 0.012929054778742897
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.015708345278230396,
+      "min": -0.07318615090911562,
+      "max": 0.0064557898948454095,
+      "count": 7,
+      "cv": -0.9300773698631325
+    },
+    "faster_pairs": 6
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 934764,
+          "min": 927340,
+          "max": 974708,
+          "count": 7,
+          "cv": 0.016734969880132403
+        },
+        "peak_rss_bytes": {
+          "median": 30175232,
+          "min": 29515776,
+          "max": 32067584,
+          "count": 7,
+          "cv": 0.03268099809824437
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 916170,
+          "min": 895111,
+          "max": 1121692,
+          "count": 7,
+          "cv": 0.07875237633249677
+        },
+        "peak_rss_bytes": {
+          "median": 32395264,
+          "min": 30072832,
+          "max": 32571392,
+          "count": 7,
+          "cv": 0.03550517814549666
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.022960435107177157,
+      "min": -0.050779124903281625,
+      "max": 0.1507979825752943,
+      "count": 7,
+      "cv": -40.656199124863
+    },
+    "faster_pairs": 6
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 861879,
+          "min": 779967,
+          "max": 1489874,
+          "count": 7,
+          "cv": 0.23771832986042246
+        },
+        "peak_rss_bytes": {
+          "median": 33542144,
+          "min": 31838208,
+          "max": 35422208,
+          "count": 7,
+          "cv": 0.030027591806917133
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 970741,
+          "min": 937890,
+          "max": 1219072,
+          "count": 7,
+          "cv": 0.10110122455092341
+        },
+        "peak_rss_bytes": {
+          "median": 33427456,
+          "min": 30371840,
+          "max": 37027840,
+          "count": 7,
+          "cv": 0.06915074910243481
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.09531848438121826,
+      "min": -0.1817616791755544,
+      "max": 0.3091548066755867,
+      "count": 7,
+      "cv": 1.23830153394724
+    },
+    "faster_pairs": 1
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 1250450,
+          "min": 1039368,
+          "max": 1384368,
+          "count": 7,
+          "cv": 0.10732545367732399
+        },
+        "peak_rss_bytes": {
+          "median": 36397056,
+          "min": 31477760,
+          "max": 38248448,
+          "count": 7,
+          "cv": 0.056041625273567465
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 1142329,
+          "min": 1044508,
+          "max": 1468685,
+          "count": 7,
+          "cv": 0.14016782406769634
+        },
+        "peak_rss_bytes": {
+          "median": 35721216,
+          "min": 33845248,
+          "max": 36331520,
+          "count": 7,
+          "cv": 0.021361748661557545
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.004945312920928924,
+      "min": -0.17483718202096554,
+      "max": 0.16038470776368263,
+      "count": 7,
+      "cv": -33.82807330524914
+    },
+    "faster_pairs": 3
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 1360334,
+          "min": 1310161,
+          "max": 1430905,
+          "count": 7,
+          "cv": 0.029382375190190057
+        },
+        "peak_rss_bytes": {
+          "median": 37613568,
+          "min": 34181120,
+          "max": 40820736,
+          "count": 7,
+          "cv": 0.0589619302020322
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 1328375,
+          "min": 1245842,
+          "max": 1919381,
+          "count": 7,
+          "cv": 0.15774800270582928
+        },
+        "peak_rss_bytes": {
+          "median": 37130240,
+          "min": 33853440,
+          "max": 43708416,
+          "count": 7,
+          "cv": 0.07587065133790492
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.038513040104691476,
+      "min": -0.07848378783799381,
+      "max": 0.37020443332697983,
+      "count": 7,
+      "cv": 4.922359843867004
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 52173631,
+          "min": 51898981,
+          "max": 52693465,
+          "count": 7,
+          "cv": 0.005163161898570128
+        },
+        "peak_rss_bytes": {
+          "median": 30846976,
+          "min": 30699520,
+          "max": 33177600,
+          "count": 7,
+          "cv": 0.026200082295640113
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 52306738,
+          "min": 52006681,
+          "max": 53149932,
+          "count": 7,
+          "cv": 0.0070125377622994286
+        },
+        "peak_rss_bytes": {
+          "median": 32890880,
+          "min": 30392320,
+          "max": 33636352,
+          "count": 7,
+          "cv": 0.03867751538203074
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.001330790202844101,
+      "min": -0.006297420776014917,
+      "max": 0.02410357536692298,
+      "count": 7,
+      "cv": 2.86934592739842
+    },
+    "faster_pairs": 3
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 26698365,
+          "min": 26562383,
+          "max": 27107895,
+          "count": 7,
+          "cv": 0.006537771963260473
+        },
+        "peak_rss_bytes": {
+          "median": 37855232,
+          "min": 36274176,
+          "max": 37904384,
+          "count": 7,
+          "cv": 0.014650046758008737
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 26599622,
+          "min": 26447750,
+          "max": 26974417,
+          "count": 7,
+          "cv": 0.00651470778137046
+        },
+        "peak_rss_bytes": {
+          "median": 37302272,
+          "min": 34807808,
+          "max": 37773312,
+          "count": 7,
+          "cv": 0.02796972870768639
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0021521759145846087,
+      "min": -0.0187499988471993,
+      "max": 0.01551193656081229,
+      "count": 7,
+      "cv": -5.1700465485063845
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 13741055,
+          "min": 13606836,
+          "max": 14005155,
+          "count": 7,
+          "cv": 0.01001591850032814
+        },
+        "peak_rss_bytes": {
+          "median": 39854080,
+          "min": 37871616,
+          "max": 40210432,
+          "count": 7,
+          "cv": 0.02779430361525585
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 13812988,
+          "min": 13637272,
+          "max": 14356837,
+          "count": 7,
+          "cv": 0.016953323214491493
+        },
+        "peak_rss_bytes": {
+          "median": 38440960,
+          "min": 37683200,
+          "max": 40239104,
+          "count": 7,
+          "cv": 0.02232388022583634
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.00625999968706914,
+      "min": -0.02045377003210025,
+      "max": 0.048110780223194594,
+      "count": 7,
+      "cv": 2.8196899375429347
+    },
+    "faster_pairs": 2
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 7848813,
+          "min": 7707741,
+          "max": 7918321,
+          "count": 7,
+          "cv": 0.011148851244872053
+        },
+        "peak_rss_bytes": {
+          "median": 39800832,
+          "min": 39178240,
+          "max": 42565632,
+          "count": 7,
+          "cv": 0.02629330848485348
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 7930353,
+          "min": 7778472,
+          "max": 8041049,
+          "count": 7,
+          "cv": 0.009910434766965749
+        },
+        "peak_rss_bytes": {
+          "median": 41562112,
+          "min": 39186432,
+          "max": 44048384,
+          "count": 7,
+          "cv": 0.046774826958652135
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.013741489241243299,
+      "min": -0.008961992087211157,
+      "max": 0.04324327971061814,
+      "count": 7,
+      "cv": 1.317642544893477
+    },
+    "faster_pairs": 3
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4854868,
+          "min": 4549310,
+          "max": 6470615,
+          "count": 7,
+          "cv": 0.12427494198016578
+        },
+        "peak_rss_bytes": {
+          "median": 51720192,
+          "min": 50827264,
+          "max": 53465088,
+          "count": 7,
+          "cv": 0.014957572159828288
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 5042866,
+          "min": 4634850,
+          "max": 5751290,
+          "count": 7,
+          "cv": 0.07195138556732139
+        },
+        "peak_rss_bytes": {
+          "median": 51396608,
+          "min": 51048448,
+          "max": 53936128,
+          "count": 7,
+          "cv": 0.02131073822989535
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.00023095930983418889,
+      "min": -0.2837079628443355,
+      "max": 0.24678158619647594,
+      "count": 7,
+      "cv": 30.96883735909378
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4505820,
+          "min": 4433025,
+          "max": 5799350,
+          "count": 7,
+          "cv": 0.09854413136013174
+        },
+        "peak_rss_bytes": {
+          "median": 51871744,
+          "min": 50958336,
+          "max": 53760000,
+          "count": 7,
+          "cv": 0.01892443612565083
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4651020,
+          "min": 4474622,
+          "max": 5966390,
+          "count": 7,
+          "cv": 0.11769296739969685
+        },
+        "peak_rss_bytes": {
+          "median": 51511296,
+          "min": 50524160,
+          "max": 52334592,
+          "count": 7,
+          "cv": 0.01211575475700695
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.009830968288404351,
+      "min": -0.19801012182399746,
+      "max": 0.34589586117831495,
+      "count": 7,
+      "cv": 2.675944893489924
+    },
+    "faster_pairs": 2
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4685082,
+          "min": 4474382,
+          "max": 5815881,
+          "count": 7,
+          "cv": 0.09786795817938393
+        },
+        "peak_rss_bytes": {
+          "median": 51773440,
+          "min": 51068928,
+          "max": 53862400,
+          "count": 7,
+          "cv": 0.020814089035315342
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4536948,
+          "min": 4412547,
+          "max": 6603933,
+          "count": 7,
+          "cv": 0.15009257096223896
+        },
+        "peak_rss_bytes": {
+          "median": 51744768,
+          "min": 50720768,
+          "max": 53481472,
+          "count": 7,
+          "cv": 0.015281280982088887
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.005505819695400649,
+      "min": -0.22338679213003154,
+      "max": 0.3208243755771416,
+      "count": 7,
+      "cv": -27.018993623230365
+    },
+    "faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4597219,
+          "min": 4530266,
+          "max": 5036644,
+          "count": 7,
+          "cv": 0.040162427993741125
+        },
+        "peak_rss_bytes": {
+          "median": 51634176,
+          "min": 50905088,
+          "max": 53420032,
+          "count": 7,
+          "cv": 0.01731851444570077
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4570170,
+          "min": 4494540,
+          "max": 5458658,
+          "count": 7,
+          "cv": 0.06674679056819183
+        },
+        "peak_rss_bytes": {
+          "median": 51453952,
+          "min": 50835456,
+          "max": 54218752,
+          "count": 7,
+          "cv": 0.020648005066262874
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.007886071149023066,
+      "min": -0.09261603559830711,
+      "max": 0.134876423985959,
+      "count": 7,
+      "cv": 100.95407294206372
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4474101,
+          "min": 4090029,
+          "max": 6333421,
+          "count": 7,
+          "cv": 0.15078956279328362
+        },
+        "peak_rss_bytes": {
+          "median": 40939520,
+          "min": 40431616,
+          "max": 42688512,
+          "count": 7,
+          "cv": 0.020841190403789484
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4305157,
+          "min": 3921386,
+          "max": 4936108,
+          "count": 7,
+          "cv": 0.08160441214875636
+        },
+        "peak_rss_bytes": {
+          "median": 40636416,
+          "min": 40583168,
+          "max": 41324544,
+          "count": 7,
+          "cv": 0.006250164325069904
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0760944396237705,
+      "min": -0.32004678040509227,
+      "max": 0.1817735277671626,
+      "count": 7,
+      "cv": -1.9944286750135738
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4557857,
+          "min": 3846026,
+          "max": 4824832,
+          "count": 7,
+          "cv": 0.0628524988437001
+        },
+        "peak_rss_bytes": {
+          "median": 40787968,
+          "min": 40665088,
+          "max": 40927232,
+          "count": 7,
+          "cv": 0.0023224514578305336
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4503466,
+          "min": 4242662,
+          "max": 4947299,
+          "count": 7,
+          "cv": 0.05112076280207279
+        },
+        "peak_rss_bytes": {
+          "median": 40980480,
+          "min": 40804352,
+          "max": 43036672,
+          "count": 7,
+          "cv": 0.021549293938923273
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.013138638457983354,
+      "min": -0.12066119607895154,
+      "max": 0.21424686156567851,
+      "count": 7,
+      "cv": 8.193676379988169
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4404442,
+          "min": 4111598,
+          "max": 5485268,
+          "count": 7,
+          "cv": 0.10046403106368709
+        },
+        "peak_rss_bytes": {
+          "median": 40624128,
+          "min": 40157184,
+          "max": 43347968,
+          "count": 7,
+          "cv": 0.024087445657406913
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4568717,
+          "min": 3876302,
+          "max": 4824501,
+          "count": 7,
+          "cv": 0.08475828460603092
+        },
+        "peak_rss_bytes": {
+          "median": 40853504,
+          "min": 40624128,
+          "max": 42696704,
+          "count": 7,
+          "cv": 0.016450183900799734
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.026727352731120035,
+      "min": -0.2775754985900415,
+      "max": 0.13457604797460165,
+      "count": 7,
+      "cv": -5.757763126702361
+    },
+    "faster_pairs": 3
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4871418,
+          "min": 4254404,
+          "max": 5176645,
+          "count": 7,
+          "cv": 0.07184432221712395
+        },
+        "peak_rss_bytes": {
+          "median": 41168896,
+          "min": 40452096,
+          "max": 42901504,
+          "count": 7,
+          "cv": 0.017471179926942887
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4387881,
+          "min": 4080741,
+          "max": 5276289,
+          "count": 7,
+          "cv": 0.08518472206764895
+        },
+        "peak_rss_bytes": {
+          "median": 40693760,
+          "min": 40484864,
+          "max": 41132032,
+          "count": 7,
+          "cv": 0.005556819580321102
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.06921526781455967,
+      "min": -0.1623094138092851,
+      "max": 0.13576308220845967,
+      "count": 7,
+      "cv": -1.8953426786219885
+    },
+    "faster_pairs": 5
+  }
+]

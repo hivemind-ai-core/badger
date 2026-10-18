@@ -1,0 +1,38 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Finished `release` profile [optimized] target(s) in 19.97s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger_mir-a9d26c30ddc36547)
+
+running 12 tests
+test maps::tests::a_chain_can_be_read_then_frozen_or_returned ... ok
+test maps::tests::any_live_old_alias_or_fork_rejects_every_update ... ok
+test maps::tests::hidden_publications_and_cursors_before_updates_escape ... ok
+test maps::tests::loop_backedges_preserve_old_aliases_and_cursor_lifetimes ... ok
+test maps::tests::independent_groups_and_live_dispatch_have_separate_boundaries ... ok
+test roots::tests::roots_expire_between_safe_points_but_word_sources_stay_pinned ... ok
+test reach::tests::callbacks_and_relocation_origins_survive_renumbering ... ok
+test serial::tests::former_indirect_buffer_layout_is_refused_before_decoding ... ok
+test maps::tests::unknown_origins_inputs_and_pointer_maps_stay_persistent ... ok
+test split::tests::multiple_sites_keep_their_arguments_and_unrelated_calls ... ok
+test split::tests::escaped_reassigned_and_live_results_keep_the_boxed_abi ... ok
+test split::tests::pointer_payloads_remain_roots_and_packed_words_keep_their_repr ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger_runtime-6d04552aef4f0dcc)
+
+running 11 tests
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test desc::tests::cached_shape_keeps_leaf_and_finalizer_independent_and_resets ... ok
+test string::tests::scalar_slice_matches_character_reference ... ok
+test telemetry::tests::rfc3339_dates ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test gc::sweep::tests::helpers_reuse_join_and_preserve_prefix_marks_and_finalizer_order ... ok
+test buffer::tests::inline_metadata_traces_grows_and_reclaims_native_storage ... ok
+test gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine ... ok
+test buffer::tests::inline_elements_trace_freeze_and_grow_without_native_leaks ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
