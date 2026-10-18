@@ -1,0 +1,56 @@
+// Exact paths, wire-name precedence, packed fields and containers stay stable.
+import std.array
+import std.codec
+import std.io
+import std.schema
+
+struct Leaf { amount: Int, note: String }
+enum Choice { item(value: Leaf), empty }
+struct Envelope {
+    choice: Choice,
+    maybe: Option<Leaf>,
+    pairs: List<(Int, Leaf)>,
+    table: Map<String, Leaf>,
+    values: Array<U8>,
+}
+
+fn report<T>(r: Result<T, codec.DecodeError>) -> Unit {
+    match r {
+        .ok(_) => { let _ = io.println("ok") },
+        .err(e) => { let _ = io.println($"{e.path}: {e.message}") },
+    }
+}
+
+fn must<T>(r: Result<T, codec.DecodeError>) -> T {
+    match r { .ok(v) => v, .err(_) => panic("decode failed") }
+}
+
+fn main() {
+    let valid = "{\"choice\":{\"item\":{\"value\":{\"amount\":17,\"note\":\"é\\n\\\"\"}}},\"pairs\":[[1,{\"amount\":2,\"note\":\"pair\"}]],\"table\":{\"key\":{\"amount\":3,\"note\":\"map\"}},\"values\":[0,255]}"
+    let first = must(codec.decode_text<Envelope>(valid))
+    let saved = codec.encode_text(first)
+    for _ in 0..32 {
+        let next = must(codec.decode<Envelope>(codec.encode(first)))
+        assert(next == first && codec.encode_text(next) == saved)
+        assert(next.values[1] == 255 && next.maybe.is_none())
+    }
+    report(codec.decode_text<Envelope>(valid))
+    report(codec.decode_text<List<(Int, Leaf)>>("[[1,{\"amount\":\"bad\",\"note\":\"x\"}]]"))
+    report(codec.decode_text<Map<String, Array<U8>>>("{\"key\":[1,256]}"))
+    report(codec.decode_text<Choice>("{\"item\":{\"value\":{\"note\":\"x\"}}}"))
+    report(codec.decode_text<Choice>("{\"item\":false}"))
+    report(codec.decode_text<Choice>("\"unknown\""))
+    report(codec.decode_text<(Int, Int)>("[1]"))
+    report(codec.decode_text<Array<Leaf>>("[{\"amount\":1,\"note\":false}]"))
+    let wire = schema.wire(schema.of<Leaf>(), 2).rename("Leaf.amount", "total").accept("Leaf.amount", "amount").accept("Leaf.amount", "old")
+    assert(must(wire.decode_text("{\"total\":9,\"amount\":8,\"old\":7,\"note\":\"x\"}")).amount == 9)
+    assert(must(wire.decode_text("{\"amount\":8,\"old\":7,\"note\":\"x\"}")).amount == 8)
+    report(wire.decode_text("{\"old\":false,\"note\":\"x\"}"))
+    report(wire.decode_text("{\"note\":\"x\"}"))
+    let variant = schema.wire(schema.of<Choice>(), 2).rename("Choice.item", "job").accept("Choice.item", "item").rename("Choice.item.value", "payload").accept("Choice.item.value", "value")
+    report(variant.decode_text("{\"item\":{\"value\":{\"amount\":false,\"note\":\"x\"}}}"))
+    report(variant.decode_text("{\"job\":{}}"))
+    report(codec.decode_text<U64>("18446744073709551615"))
+    report(codec.decode_text<I8>("128"))
+    report(codec.decode_text<F32>("1.25"))
+}

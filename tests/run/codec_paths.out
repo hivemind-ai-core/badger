@@ -1,0 +1,15 @@
+ok
+$[0][1].amount: expected an integer
+$.key[1]: integer out of range for U8
+$.item.value.amount: missing required field
+$.item: expected an object
+$: unknown variant `unknown`
+$: expected 2 elements
+$[0].note: expected a string
+$.total: expected an integer
+$.total: missing required field
+$.item.payload.amount: expected an integer
+$.job.payload: missing required field
+ok
+$: integer out of range for I8
+ok

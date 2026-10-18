@@ -9,6 +9,7 @@ import std.io
 import std.list
 import std.map
 import std.seq
+import std.schema
 import std.set
 import std.task
 import std.text
@@ -603,6 +604,66 @@ fn pipeline(c: Config) -> Int {
     total
 }
 
+// Codec work previously appeared only in startup and flat JSON applications.
+struct BenchCodecRow { amount: Int, note: String }
+struct BenchCodecEnvelope {
+    rows: List<BenchCodecRow>, table: Map<String, BenchCodecRow>,
+    values: Array<U8>, maybe: Option<BenchCodecRow>, pair: (Int, String),
+}
+
+fn codec_work(c: Config) -> Int {
+    var total = 0
+    if c.mode == "codec-flat" {
+        let input = "{\"amount\":17,\"note\":\"é\\n\\\"x\"}"
+        for _ in 0..c.n {
+            match codec.decode_text<BenchCodecRow>(input) {
+                .ok(row) => {
+                    assert(row.amount == 17 && row.note == "é\n\"x")
+                    total = total + row.amount + text.byte_len(row.note)
+                },
+                .err(_) => panic("flat codec benchmark failed"),
+            }
+        }
+    } else if c.mode == "codec-nested" {
+        let input = "{\"rows\":[{\"amount\":17,\"note\":\"é\\n\\\"x\"},{\"amount\":19,\"note\":\"tail\"}],\"table\":{\"first\":{\"amount\":17,\"note\":\"é\\n\\\"x\"}},\"values\":[1,2,255],\"maybe\":{\"amount\":17,\"note\":\"é\\n\\\"x\"},\"pair\":[3,\"pair\"]}"
+        for _ in 0..c.n {
+            match codec.decode_text<BenchCodecEnvelope>(input) {
+                .ok(v) => {
+                    assert(v.rows.len() == 2 && v.values[2] == 255)
+                    assert(v.table.get("first").map(fn(r) { r.amount }).unwrap_or(-1) == 17)
+                    total = total + v.rows[0].amount + v.rows[1].amount + Int.from(v.values[2])
+                    total = total + v.maybe.map(fn(r) { r.amount }).unwrap_or(-1) + v.pair.0
+                },
+                .err(_) => panic("nested codec benchmark failed"),
+            }
+        }
+    } else if c.mode == "codec-wire" {
+        let wire = schema.wire(schema.of<BenchCodecRow>(), 2).rename("BenchCodecRow.amount", "total").accept("BenchCodecRow.amount", "amount")
+        let input = "{\"amount\":17,\"note\":\"é\\n\\\"x\"}"
+        for _ in 0..c.n {
+            match wire.decode_text(input) {
+                .ok(row) => {
+                    assert(row.amount == 17 && row.note == "é\n\"x")
+                    total = total + row.amount + text.byte_len(row.note)
+                },
+                .err(_) => panic("wire codec benchmark failed"),
+            }
+        }
+    } else {
+        let input = "[[1,{\"amount\":17,\"note\":\"é\\n\\\"x\"}],[2,{\"amount\":false,\"note\":\"x\"}]]"
+        for _ in 0..c.n {
+            match codec.decode_text<List<(Int, BenchCodecRow)>>(input) {
+                .ok(_) => panic("invalid input decoded"),
+                .err(e) => {
+                    assert(e.path == "$[1][1].amount" && e.message == "expected an integer")
+                    total = total + text.byte_len(e.path) + text.byte_len(e.message)
+                },
+            }
+        }
+    }
+    total
+}
+
 pub fn main() -> Result<Unit, io.Error> {
     let c = match codec.decode_text<Config>(env.get("GC_BENCH_CONFIG").unwrap_or("")) {
         .ok(c) => c,
@@ -613,6 +674,7 @@ pub fn main() -> Result<Unit, io.Error> {
     let start = time.now()
     var checkpoints: List<Data> = []
     let checksum = if c.mode.starts_with("entries-") { map_entries(c) }
+    else if c.mode.starts_with("codec-") { codec_work(c) }
     else if c.mode == "records-window" { records_window(c) }
     else if c.mode == "pool-burst" {
         let (total, shots) = pool_burst(c)

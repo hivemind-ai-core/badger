@@ -33,6 +33,11 @@ class MeasurementOrder(unittest.TestCase):
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_codec_oracles_include_utf8_and_exact_nested_error_paths(self):
+        for mode, expected in [("codec-flat", 154), ("codec-wire", 154),
+                               ("codec-nested", 2177), ("codec-invalid", 231)]:
+            self.assertEqual(run.expected_coverage(dict(mode=mode, n=7)), expected)
+
     def test_lookup_misses_negatives_and_stored_control(self):
         c = dict(mode="lookup-map-int", n=13, retain=3, payload=11)
         for mode in ["lookup-map-misses", "lookup-list-misses"]:

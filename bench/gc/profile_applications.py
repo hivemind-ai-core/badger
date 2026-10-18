@@ -8,8 +8,10 @@ GC diagnostics perturb costs; these samples attribute work, not speedups.
 """
 import argparse
 from collections import Counter
+import ctypes
 import gzip
 import json
+import os
 from pathlib import Path
 import random
 import subprocess
@@ -48,6 +50,17 @@ def main():
         parser.error("positive counts and 1..64 workers required")
     if args.out.exists():
         parser.error("output directory must be new to preserve existing profiles")
+    # The sandbox can permit timers but deny self-memory reads, silently
+    # reducing the sampler to leaf PCs. Check before collecting attribution.
+    class IOVec(ctypes.Structure):
+        _fields_ = [("base", ctypes.c_void_p), ("size", ctypes.c_size_t)]
+    source, destination = ctypes.c_uint64(0x1234), ctypes.c_uint64()
+    local = IOVec(ctypes.addressof(destination), 8)
+    remote = IOVec(ctypes.addressof(source), 8)
+    libc = ctypes.CDLL(None, use_errno=True)
+    copied = libc.process_vm_readv(os.getpid(), ctypes.byref(local), 1, ctypes.byref(remote), 1, 0)
+    if copied != 8 or destination.value != source.value:
+        parser.error(f"self process_vm_readv unavailable (errno {ctypes.get_errno()}); native caller attribution requires permitted execution")
     with app.gc.benchmark_lock():
         run(args)
 

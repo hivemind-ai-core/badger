@@ -23,6 +23,8 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    **{name: dict(mode=name, n=32768, rounds=1, payload=1, retain=1)
+       for name in ["codec-flat", "codec-nested", "codec-wire", "codec-invalid"]},
     "scalar-snapshots": dict(mode="scalar-snapshots", n=65536, rounds=1, payload=1, retain=256),
     **{name: dict(mode=name, n=1024, rounds=512, payload=32, retain=1024)
        for name in ["entries-immediate", "entries-stored"]},
@@ -128,6 +130,12 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"].startswith("codec-"):
+        per_row = {"codec-flat": 17 + len('é\n"x'.encode()),
+                   "codec-wire": 17 + len('é\n"x'.encode()),
+                   "codec-nested": 17 + 19 + 255 + 17 + 3,
+                   "codec-invalid": len("$[1][1].amount") + len("expected an integer")}
+        return c["n"] * per_row[c["mode"]]
     if c["mode"] == "scalar-snapshots":
         total = 0
         for stop in [*range(64, c["n"] + 1, 64), c["n"]]:
