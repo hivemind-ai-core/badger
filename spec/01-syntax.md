@@ -164,7 +164,9 @@ function, which then receives the value.
 
 `let` binds an immutable name; shadowing is allowed. `var` makes a binding
 assignable but does not make its value mutable. Assignment returns `Unit` and
-preserves the binding's type. Mutable containers have separate ownership rules.
+preserves the binding's type. `place op= value` (`+=`, `-=`, `*=`, `/=`, `%=`)
+is `place = place op value`; an index in the place must be a name or a literal,
+since it is evaluated for the read and the write. Mutable containers have separate ownership rules.
 `const` permits literal/constructor aggregates and supported pure constant
 operators; arbitrary function evaluation is not part of draft 0.
 
@@ -191,7 +193,10 @@ a source-level stack-space guarantee.
 establish exhaustiveness. Patterns include literals, bindings, `_`, tuples,
 records, and enum variants. Record patterns may use `..` to ignore other fields;
 closed patterns require an exact shape. A refutable pattern belongs in `match`,
-not plain `let` or a function parameter.
+`if let`, or `let ... else`, not plain `let` or a function parameter. An arm
+may list alternatives, `p | q => body`: it is one arm per alternative with the
+same guard and body, every alternative binds the same names, and each counts
+toward exhaustiveness. Alternatives appear only at the top of an arm.
 
 ```badger fragment
 match result {

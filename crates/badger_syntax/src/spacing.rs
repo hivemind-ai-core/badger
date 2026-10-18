@@ -238,7 +238,9 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
             i += 2;
             continue;
         }
-        if ["->", "=>", "|>", "<-", "==", "!=", "<=", ">=", "&&", "||"].contains(&two.as_str()) {
+        if ["->", "=>", "|>", "<-", "==", "!=", "<=", ">=", "&&", "||", "+=", "-=", "*=", "/=", "%="]
+            .contains(&two.as_str())
+        {
             push(&mut out, K::Op, two, &mut spaced);
             i += 2;
             continue;

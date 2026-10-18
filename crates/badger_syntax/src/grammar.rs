@@ -467,10 +467,11 @@ where
         });
         let arm = pattern
             .clone()
+            .then(just(Tok::Bar).ignore_then(pattern.clone()).repeated().collect::<Vec<_>>())
             .then(kw("if").ignore_then(expr.clone()).or_not())
             .then_ignore(just(Tok::FatArrow))
             .then(expr.clone())
-            .map_with(|((pat, guard), body), e| Arm { pat, guard, body, span: e.span() });
+            .map_with(|(((pat, alts), guard), body), e| Arm { pat, alts, guard, body, span: e.span() });
         let arms = sepc
             .clone()
             .repeated()
@@ -961,12 +962,20 @@ where
         just(Tok::Dot).ignore_then(member.clone()).map(PlaceElem::Field),
         expr.clone().delimited_by(just(Tok::LBracket), just(Tok::RBracket)).map(PlaceElem::Index),
     ));
+    let assign_op = choice((
+        just(Tok::Assign).to(None),
+        just(Tok::PlusAssign).to(Some(BinOp::Add)),
+        just(Tok::MinusAssign).to(Some(BinOp::Sub)),
+        just(Tok::StarAssign).to(Some(BinOp::Mul)),
+        just(Tok::SlashAssign).to(Some(BinOp::Div)),
+        just(Tok::PercentAssign).to(Some(BinOp::Rem)),
+    ));
     let assign = value_ident
         .clone()
         .then(place_elem.repeated().collect::<Vec<_>>())
-        .then_ignore(just(Tok::Assign))
+        .then(assign_op)
         .then(expr.clone())
-        .map_with(|((base, path), value), e| Stmt::Assign { base, path, value, span: e.span() });
+        .map_with(|(((base, path), op), value), e| Stmt::Assign { base, path, op, value, span: e.span() });
     // a statement that does not parse is skipped to the next separator
     // (or the block's `}`), keeping brackets balanced
     let skip_balanced = |stop: &'static [Tok<'static>]| {

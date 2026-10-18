@@ -275,3 +275,47 @@ fn f(o: Option<Int>) -> Int {
           (return_expression
             (integer))))
       (identifier))))
+
+==================
+Or-patterns and compound assignment
+==================
+
+fn f(e: E) -> Int {
+    var n = 0
+    n += 2
+    match e {
+        .a | .b => n,
+        _ => 0,
+    }
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (type_path
+      (type_identifier))
+    (block
+      (let_statement
+        (identifier)
+        (integer))
+      (assignment
+        (identifier)
+        (integer))
+      (match_expression
+        (identifier)
+        (match_arm
+          (variant_pattern
+            (identifier))
+          (variant_pattern
+            (identifier))
+          (identifier))
+        (match_arm
+          (wildcard)
+          (integer))))))

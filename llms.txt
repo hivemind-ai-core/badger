@@ -10,7 +10,7 @@ Points that differ from languages you may know:
 - Records (`{ name: "Ada" }`) are structural; `struct` and `enum` are nominal. Type names start uppercase; values, fields, functions, and variants start lowercase.
 - No implicit numeric conversions: widen with `T.from`, narrow with `T.try_from` (a `Result`). Integer overflow stops the task.
 - Errors are values: `Option`, `Result`, and `?`. Effects (`Io`, `Spawn`, ...) are part of function types and are checked.
-- No or-patterns in `match` and no named or default arguments.
+- No named or default arguments. `match` arms may list alternatives (`.a | .b =>`); `x += 1` and `let .some(v) = o else { return ... }` exist.
 - `badger check PATH` prints nothing on success. `badger explain diagnostic E0301` explains a diagnostic code. `badger query api std.list` prints a module's public interface as JSON.
 - `badger mcp` is a Model Context Protocol server (a persistent REPL session, checking, queries, runs); see the MCP reference.
 

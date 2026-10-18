@@ -812,8 +812,39 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let call = self.expr(call);
                 Stmt::Use { pats, call, span }
             }
-            cst::Stmt::Assign { base, path, value, span } => {
-                let span = self.span(span);
+            cst::Stmt::Assign { base, path, op, value, span: cspan } => {
+                // `place op= v` is `place = place op v`; an index is read
+                // again, so it must be a name or a literal
+                let value = match op {
+                    None => value,
+                    Some(op) => {
+                        let mut read: cst::E<'_> = (cst::Expr::Name(base), base.span);
+                        for p in &path {
+                            read = match p {
+                                cst::PlaceElem::Field(m) => {
+                                    (cst::Expr::Field { base: Box::new(read), name: *m }, cspan)
+                                }
+                                cst::PlaceElem::Index(e) => {
+                                    if !matches!(e.0, cst::Expr::Name(_) | cst::Expr::Lit(_)) {
+                                        let at = self.span(e.1);
+                                        self.error(
+                                            "E0002",
+                                            at,
+                                            "a compound assignment's index is evaluated twice",
+                                            "use a name or a literal (bind the index first)",
+                                        );
+                                    }
+                                    (
+                                        cst::Expr::Index { base: Box::new(read), index: Box::new(e.clone()) },
+                                        cspan,
+                                    )
+                                }
+                            };
+                        }
+                        (cst::Expr::Binary { op, lhs: Box::new(read), rhs: Box::new(value) }, cspan)
+                    }
+                };
+                let span = self.span(cspan);
                 let base = self.name(base);
                 let path = path
                     .into_iter()
@@ -959,17 +990,45 @@ impl<'a, 'i> Lower<'a, 'i> {
             },
             cst::Expr::Match { scrutinee, arms } => {
                 let scrutinee = self.expr(*scrutinee);
-                let arms = arms
-                    .into_iter()
-                    .map(|a| {
-                        let aspan = self.span(a.span);
+                let mut out = vec![];
+                for a in arms {
+                    let aspan = self.span(a.span);
+                    if a.alts.is_empty() {
                         let pat = self.pattern(a.pat);
                         let guard = a.guard.map(|g| self.expr(g));
                         let body = self.expr(a.body);
-                        MatchArm { pat, guard, body, span: aspan }
-                    })
-                    .collect();
-                self.alloc_expr(ExprKind::Match { scrutinee, arms }, span)
+                        out.push(MatchArm { pat, guard, body, span: aspan });
+                        continue;
+                    }
+                    // `p | q => body` is one arm per alternative, each with
+                    // its own copy of the guard and body; every alternative
+                    // binds the same names
+                    let mut first: Option<Vec<badger_base::Symbol>> = None;
+                    for alt in std::iter::once(a.pat).chain(a.alts) {
+                        let pat = self.pattern(alt);
+                        let mut names = vec![];
+                        bound_names(&self.ast, pat, &mut names);
+                        let mut syms: Vec<badger_base::Symbol> = names.iter().map(|n| n.sym).collect();
+                        syms.sort();
+                        match &first {
+                            None => first = Some(syms),
+                            Some(f) if *f != syms => {
+                                let at = self.ast.pats[pat].span;
+                                self.error(
+                                    "E0002",
+                                    at,
+                                    "the alternatives of a pattern bind different names",
+                                    "every alternative must bind the same names",
+                                );
+                            }
+                            _ => {}
+                        }
+                        let guard = a.guard.clone().map(|g| self.expr(g));
+                        let body = self.expr(a.body.clone());
+                        out.push(MatchArm { pat, guard, body, span: aspan });
+                    }
+                }
+                self.alloc_expr(ExprKind::Match { scrutinee, arms: out }, span)
             }
             cst::Expr::While { cond, body } => match cond {
                 // `while let p = e { body }` is

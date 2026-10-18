@@ -343,9 +343,11 @@ pub enum Stmt<'a> {
         call: E<'a>,
         span: Span,
     },
+    /// `op`: a compound assignment (`x += v` is `x = x + v`).
     Assign {
         base: Ident<'a>,
         path: Vec<PlaceElem<'a>>,
+        op: Option<BinOp>,
         value: E<'a>,
         span: Span,
     },
@@ -355,6 +357,8 @@ pub enum Stmt<'a> {
 #[derive(Debug, Clone)]
 pub struct Arm<'a> {
     pub pat: P<'a>,
+    /// Further alternatives (`.a | .b =>`): the arm is one arm per pattern.
+    pub alts: Vec<P<'a>>,
     pub guard: Option<E<'a>>,
     pub body: E<'a>,
     pub span: Span,

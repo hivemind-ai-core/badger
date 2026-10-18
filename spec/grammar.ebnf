@@ -89,7 +89,7 @@ statement        = binding | assignment | use_stmt | return_stmt
                  | break_stmt | "continue" | expr ;
 binding          = ("let" | "var" | "const"), pattern,
                    [ ":", type_expr ], "=", expr, [ "else", block ] ;
-assignment       = place, "=", expr ;
+assignment       = place, ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ), expr ;
 place            = value_name, { ".", value_name | "[", expr, "]" } ;
 use_stmt         = "use", pattern, { ",", pattern }, "<-", callable ;
 callable         = value_path, [ type_args ], [ "(", arguments, ")" ] ;
@@ -123,7 +123,7 @@ lambda           = [ "once" ], "fn", "(", params, ")",
 condition        = expr | "let", pattern, "=", expr ;
 if_expr          = "if", condition, block, [ "else", (block | if_expr) ] ;
 match_expr       = "match", expr, "{", { match_arm }, "}" ;
-match_arm        = pattern, [ "if", expr ], "=>", expr, [ "," ], { NEWLINE } ;
+match_arm        = pattern, { "|", pattern }, [ "if", expr ], "=>", expr, [ "," ], { NEWLINE } ;
 while_expr       = "while", condition, block ;
 for_expr         = "for", pattern, "in", expr, block ;
 loop_expr        = "loop", block ;

@@ -1,0 +1,9 @@
+// expect-error: E0002
+// Every alternative of an or-pattern binds the same names: the body is
+// shared, so a name bound by one alternative only would have no value.
+pub fn main() -> Unit {
+    let r: Result<Int, String> = ok(1)
+    let _ = match r {
+        .ok(n) | .err(_) => n,
+    }
+}

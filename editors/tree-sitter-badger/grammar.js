@@ -265,7 +265,15 @@ module.exports = grammar({
         optional(seq('else', $.block)),
       ),
     use_statement: ($) => seq('use', sep1($._pattern, ','), '<-', $._expression),
-    assignment: ($) => prec(-1, seq(field('target', $._place), '=', field('value', $._expression))),
+    assignment: ($) =>
+      prec(
+        -1,
+        seq(
+          field('target', $._place),
+          field('operator', choice('=', '+=', '-=', '*=', '/=', '%=')),
+          field('value', $._expression),
+        ),
+      ),
     _place: ($) => choice($.identifier, $.field_expression, $.index_expression),
 
     // ------------------------------------------------------------ expressions
@@ -372,7 +380,8 @@ module.exports = grammar({
       ),
     let_condition: ($) => seq('let', $._pattern, '=', $._expression),
     match_expression: ($) => seq('match', $._expression, '{', commaSep($.match_arm), '}'),
-    match_arm: ($) => seq($._pattern, optional(seq('if', $._expression)), '=>', $._expression),
+    match_arm: ($) =>
+      seq($._pattern, repeat(seq('|', $._pattern)), optional(seq('if', $._expression)), '=>', $._expression),
     while_expression: ($) => seq('while', choice($.let_condition, $._expression), $.block),
     for_expression: ($) => seq('for', $._pattern, 'in', $._expression, $.block),
     loop_expression: ($) => seq('loop', $.block),

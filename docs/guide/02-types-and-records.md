@@ -370,8 +370,10 @@ Patterns appear in `match` arms, `let`, function parameters, `for`,
 | `.variant(p1, p2)` | an enum variant; the enum comes from the value being matched |
 | `Type.variant(p1)` | the same, naming the enum |
 | `.variant` | a variant without payload |
+| `p \| q` | either (at the top of a `match` arm); both bind the same names |
 
-Patterns nest. A guard `PATTERN if COND =>` adds a condition.
+Patterns nest. A guard `PATTERN if COND =>` adds a condition (to every
+alternative of an or-pattern).
 
 ```badger
 import std.io

@@ -362,6 +362,9 @@ Ada Lovelace 1 4096
   syntax error (E0001). Targets are a `var`, a field of one (`p.x = 2`), or
   an index of one (`buf[i] = v`, which calls the collection's `set`
   method; frozen lists have none).
+- `x += e` is `x = x + e`, and likewise `-=`, `*=`, `/=`, and `%=`, for
+  the same targets. An index in the target is read and written, so it
+  must be a name or a literal (E0002).
 
 ## Operators
 

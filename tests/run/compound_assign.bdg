@@ -1,0 +1,25 @@
+// Compound assignment: `place op= value` is `place = place op value`, for
+// `+`, `-`, `*`, `/`, and `%`, on a `var` or a field path of one.
+import std.io
+
+type Point = { x: Int, y: Int }
+type Shape = { origin: Point, scale: Float }
+
+pub fn main() -> Result<Unit, io.Error> {
+    var n = 1
+    n += 4
+    n *= 3
+    n -= 1
+    n /= 2
+    n %= 4
+    var total = 0
+    for i in 1..=10 {
+        total += i * i
+    }
+    var shape: Shape = { origin: { x: 1, y: 2 }, scale: 1.5 }
+    shape.origin.x += 10
+    shape.origin.y *= -3
+    shape.scale *= 2.0
+    io.println($"{n} {total} {shape.origin.x} {shape.origin.y} {shape.scale}")?
+    ok(())
+}
