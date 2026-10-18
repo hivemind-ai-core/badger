@@ -1076,3 +1076,15 @@ about 69 ms while sweep is about 18 ms after prefetch. Add trace-work counts
 before inferring per-object cost. Audit order-sensitive/weak tracers before a
 bounded mark queue; drain every pending word before weak clearing/verification/
 sweep. I5b remains the next allocation-reduction proposal, and G7 stays open.
+
+### G7e0 complete — trace cardinality and calibration saved
+
+108 measured processes establish workload trace counts at 1/2/4/8 workers.
+Eight fixed pointer-snapshot tasks have 2.69M → 5.46M candidates and 145,560 →
+284,404 traces from one to eight workers; trace wall time grows 23.3 → 66.3 ms.
+This includes substantially more live-graph work, not just scheduler/collector
+cost per object. Serial records/scalar snapshot counts stay identical. Instrumented
+builds have material overhead; retain ordinary binaries for performance claims.
+12 diagnostic runtime/23 harness tests and strict runtime Clippy pass.
+[G7e0 evidence](reports/memory-management/G7e-summary.md). G7e batching is not
+implemented; move to I5b snapshot ownership epochs next, preserving I5a's path.

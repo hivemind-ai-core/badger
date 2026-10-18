@@ -126,6 +126,28 @@ def main():
     for key, counts in sorted(groups.items()):
         if counts:
             lines.append(f"- {key}: " + ", ".join(f"{k} {v/1e6:.3f} ms" for k, v in counts.most_common()))
+    trace_groups = collections.defaultdict(list)
+    trace_keys = ["mark_candidates", "marked_objects", "marked_leaf_objects",
+                  "traced_objects", "remembered_traced_objects"]
+    for run in d["runs"]:
+        cs = list(workload_collections(run))
+        if cs and all(all(k in c["heap"] for k in trace_keys) for c in cs):
+            totals = {k: sum(c["heap"][k] for c in cs) for k in trace_keys}
+            totals["collections"] = len(cs)
+            totals["trace_ms"] = phase_totals(run)["trace"] / 1e6
+            trace_groups[(run["case"], run["workers"], run["variant"])].append(totals)
+    if trace_groups:
+        lines += ["", "Trace cardinality: medians of workload totals per fresh process.",
+                  "Candidates include duplicate, old and immortal pointers; trace counts include remembered parents.",
+                  "Timing is instrumented wall time, not per-object latency. Separate medians need not conserve counts.", "",
+                  "| Case | Workers | Variant | Collections | Candidates | Newly marked | Marked leaves | Traced | Remembered traces | Trace ms |",
+                  "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
+        for (case, workers, variant), runs in sorted(trace_groups.items()):
+            values = [statistics.median(r[k] for r in runs)
+                      for k in ["collections", *trace_keys, "trace_ms"]]
+            lines.append(f"| {case} | {workers} | {variant} | "
+                         + " | ".join(f"{v:.3f}" if i == 6 else f"{v:g}"
+                                      for i, v in enumerate(values)) + " |")
     sweep_groups = collections.defaultdict(list)
     for run in d["runs"]:
         for c in workload_collections(run):

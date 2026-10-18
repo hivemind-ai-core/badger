@@ -1,0 +1,22 @@
+{
+  "revision": "4814c06",
+  "binaries": {
+    "baseline": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/prefetch32-candidate",
+      "sha256": "77b7a92fd49a6c09b3100f15912fb31f8e6d790c987220b7d50d69c71ab4c50c"
+    },
+    "diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/trace-work-diagnostic",
+      "sha256": "20ed77dd8748b38281135d3692e26b6c9a6e1b2a80b589ffe1b50662dbd7f17c"
+    }
+  },
+  "dataset": {
+    "path": "reports/memory-management/G7e-trace-baseline/measurements.json.gz",
+    "sha256": "423afe64610be823817b9ab47caec8bc41f93dd4635931de60d49e8de3b7bc7b",
+    "runs": 108
+  },
+  "production_sha256": {
+    "crates/badger_runtime/src/gc.rs": "06d99bd9f9af3d151f58abe3f87725e679f4f5774e972ea38f4e919e7db84551",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "d8d90e2101eec5f31403150582d48f57bff574446d67608105dac49c8d8c9e2b"
+  }
+}
