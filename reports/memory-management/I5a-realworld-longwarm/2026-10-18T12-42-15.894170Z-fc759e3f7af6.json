@@ -1,0 +1,2584 @@
+{
+  "schema": 1,
+  "suite": "realworld-v1",
+  "stamp": "2026-10-18T12-42-15.894170Z",
+  "status": "complete",
+  "smoke": false,
+  "revision": "fc759e3f7af6ed7e125593cf52dd71170e3c42a5",
+  "dirty": "?? reports/memory-management/I5a-app-census/\n?? reports/memory-management/I5a-applications/\n?? reports/memory-management/I5a-census-after/\n?? reports/memory-management/I5a-coverage/\n?? reports/memory-management/I5a-realworld/\n?? reports/memory-management/I5a-self-control/\n?? reports/memory-management/I5a-snapshot-followup/\n?? reports/memory-management/I5a-validation/app-census.log\n?? reports/memory-management/I5a-validation/applications.log\n?? reports/memory-management/I5a-validation/binary-identity.json\n?? reports/memory-management/I5a-validation/candidate-build.log\n?? reports/memory-management/I5a-validation/candidate-diagnostic-build.log\n?? reports/memory-management/I5a-validation/census-after.log\n?? reports/memory-management/I5a-validation/clippy-default.log\n?? reports/memory-management/I5a-validation/clippy-diagnostic.log\n?? reports/memory-management/I5a-validation/coverage.log\n?? reports/memory-management/I5a-validation/first-fixture.mir.gz\n?? reports/memory-management/I5a-validation/first-fixture.out\n?? reports/memory-management/I5a-validation/format.log\n?? reports/memory-management/I5a-validation/four-language.log\n?? reports/memory-management/I5a-validation/harness.log\n?? reports/memory-management/I5a-validation/json-longwarm.log\n?? reports/memory-management/I5a-validation/libraries-diagnostic.log\n?? reports/memory-management/I5a-validation/mir.log\n?? reports/memory-management/I5a-validation/private-stress.json.gz\n?? reports/memory-management/I5a-validation/private-stress.log\n?? reports/memory-management/I5a-validation/programs.log\n?? reports/memory-management/I5a-validation/realworld-smoke.mir.gz\n?? reports/memory-management/I5a-validation/realworld-smoke.out\n?? reports/memory-management/I5a-validation/runtime-default.log\n?? reports/memory-management/I5a-validation/self-control.log\n?? reports/memory-management/I5a-validation/snapshot-followup.log",
+  "host_before": {
+    "hostname": "helium",
+    "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+    "machine": "x86_64",
+    "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+    "logical_cpus": 16,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "load": [
+      1.06689453125,
+      1.2744140625,
+      1.197265625
+    ],
+    "cpu_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=9300565959\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "meminfo": "MemTotal:       61475156 kB\nMemFree:         3226464 kB\nMemAvailable:   33207136 kB\nBuffers:         3028208 kB\nCached:         24255556 kB\nSwapCached:      2779828 kB\nActive:         15566468 kB\nInactive:       27682144 kB\nActive(anon):   13061792 kB\nInactive(anon):  6230384 kB\nActive(file):    2504676 kB\nInactive(file): 21451760 kB\nUnevictable:       75464 kB\nMlocked:            9568 kB\nSwapTotal:      62434640 kB\nSwapFree:       43018344 kB\nZswap:            950188 kB\nZswapped:        2671284 kB\nDirty:              3992 kB\nWriteback:             0 kB\nAnonPages:      14637236 kB\nMapped:          2319460 kB\nShmem:           3254372 kB\nKReclaimable:    6719196 kB\nSlab:            7687264 kB\nSReclaimable:    6719196 kB\nSUnreclaim:       968068 kB\nKernelStack:       38848 kB\nPageTables:       145564 kB\nSecPageTables:      4824 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    93172216 kB\nCommitted_AS:   62369084 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:      201160 kB\nVmallocChunk:          0 kB\nPercpu:            18752 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:   1339392 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    925696 kB\nFilePmdMapped:    696320 kB\nCmaTotal:              0 kB\nCmaFree:               0 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nGPUActive:        191928 kB\nGPUReclaim:        70652 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:     4246296 kB\nDirectMap2M:    57393152 kB\nDirectMap1G:     2097152 kB",
+    "cgroup_membership": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/orca-daemon-b8d0a41a-3963-49e2-84f5-0c5bd51a926e.scope",
+    "cgroup_hierarchy": [
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/orca-daemon-b8d0a41a-3963-49e2-84f5-0c5bd51a926e.scope",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max",
+        "cpuset.cpus.effective": "0-15"
+      },
+      {
+        "path": "/sys/fs/cgroup",
+        "cpuset.cpus.effective": "0-15"
+      }
+    ],
+    "resource_limits": {
+      "cpu.max": [
+        "max 100000"
+      ],
+      "memory.max": [
+        "max"
+      ],
+      "cpuset.cpus.effective": [
+        "0-15"
+      ]
+    }
+  },
+  "tools": {
+    "badger": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+      "sha256": "a92053ca22f41d8e59f98614851a0227ad4d324e70b396b9eefd85b093ce3c2a",
+      "version": "badger 0.1.0"
+    },
+    "go": {
+      "path": "/usr/lib/go/bin/go",
+      "sha256": "3144268876ba974458f06ab523581fabac9e967855e2a1bb9de9ba950167b542",
+      "version": "go version go1.27.0-X:nodwarf5 linux/amd64"
+    },
+    "node": {
+      "path": "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+      "sha256": "02deeca25470eb95255f60147927a1b9785dcb784c9d7690cc712f359331ac8e",
+      "version": "v26.6.0"
+    },
+    "java": {
+      "path": "/usr/lib/jvm/java-25-openjdk/bin/java",
+      "sha256": "7152ca6a1afc68a4d582a508589fbbf1dabbab5334e85639a26f0bf03c059c43",
+      "version": "openjdk 25.0.4.1 2026-08-18\nOpenJDK Runtime Environment (build 25.0.4.1)\nOpenJDK 64-Bit Server VM (build 25.0.4.1, mixed mode, sharing)",
+      "jdk": {
+        "home": "/usr/lib/jvm/java-25-openjdk",
+        "runtime_hashes": {
+          "lib/libattach.so": "2380759a93cad27a8ba7f2b3658002a6fef77847dd3d7db1872eb947a1a3c5ff",
+          "lib/libawt.so": "a51723bc917bb73a3bd71613f746152966dc6296b1d3ec0ee5a01d2cf69b5df6",
+          "lib/libawt_headless.so": "ac048d18c60ac8510d2a4260cdc34b9d14bdd69442d4a8e331a2a6c4851836b0",
+          "lib/libawt_xawt.so": "0c711c310cfbd62a453e609c099e982187d451e63f82a46d72f1530b3b2f06e9",
+          "lib/libdt_socket.so": "aa1d49774d380a2ae41a93e5751ed3ec4e618177e6232425860641792657e65a",
+          "lib/libextnet.so": "d94c3d65806ca63c7aa35fe23c5324b04c92317bbf76cfe7ca038ea652ac985f",
+          "lib/libfontmanager.so": "ae954124ccacd34a709f02f7b59509d42a321d98bd1e1ba61464467f56c66ada",
+          "lib/libinstrument.so": "49566c990d96008b0733d91506b2a4b1afeedac8a3f86279758f9aa32edf961c",
+          "lib/libj2gss.so": "56e19903fc3803a0b22b2669fb6556a1c42c5efd8e095c8aecbd09d5cdc107b4",
+          "lib/libj2pcsc.so": "3233e24c9e4c7cfd1b9f93ff951f01c242b19426906101a9c53685a633aed8e5",
+          "lib/libj2pkcs11.so": "8f0841f16c9d320ad05c9984f9812ba3085ccf082aecef9ee14f34bbbb7eb446",
+          "lib/libjaas.so": "68155925cb2eabde70dc5cd609a58514a7b21d5006ad101c90d6d13eec8b1af5",
+          "lib/libjava.so": "895a731aa3ed90d4710da5d48228f507703ff3d4b366dbe2c3776a7423d4f313",
+          "lib/libjavajpeg.so": "256bf640e48657cad4d2dd0110ba22ff315d21ad559fd413b9aabde8c9086ae3",
+          "lib/libjawt.so": "be4807c0f8daff9edd7ed7d1237fe520fd6591b576c6bc3ae040363b20147011",
+          "lib/libjdwp.so": "cf1a6e9014c704395baf542bda6b3454d2a40218fcbffa783d100f687fd8ce6f",
+          "lib/libjimage.so": "f2c12c81a3788248dd7b1ca239b274f439091d802278ed7c8d33636eeb657f67",
+          "lib/libjli.so": "b0a0b8aacff0ffd33d3def74a24ae01a53db0b2ba82bd8cd5be8d07b8a316ca3",
+          "lib/libjsig.so": "2029591f7440d21d357ee61e4e2ca6e26cc38bfe4bb920a0337315e9ddcfe2d6",
+          "lib/libjsound.so": "3d8192be4a6e7f47d0d3aec8d0ad3068def6f0855917cc2fd8b5c881cec096bf",
+          "lib/libjsvml.so": "12e255868841569549e8bbec234b5b111d39e5904f0c836b05211859b4ca89ec",
+          "lib/liblcms.so": "9fb2b03ada0b451ba9a6fbd4ad9c9c6876dc7350cea348efe61da1ac0afd64f1",
+          "lib/libmanagement.so": "28c2354ceb8dfde16d042e76b76c13bec113bb8c2156fa656ac9c3824b25b1dd",
+          "lib/libmanagement_agent.so": "3c807a6bcabfc27e3561b5166b6d6eff735909522c48ef2f1e663bddcb82bcd2",
+          "lib/libmanagement_ext.so": "17f10344e7153f2e60ae0d2f75b942308e9bcf3f34996ee15bfad4cb045115bc",
+          "lib/libmlib_image.so": "ae1582f513ed06c2b7710069463e91ad02446b4e413d067c51d10eef11dfc424",
+          "lib/libnet.so": "50a97c2d9b9f35cd994500d6ecda64a72c544024de92b8c3c10a850552373383",
+          "lib/libnio.so": "f32eb5972fd0bf6ab097c7a45c1b79885f890c76144067b21014a386bb437704",
+          "lib/libprefs.so": "1e1d86db535bb5d52a6b18d6e1aee2afc9fb8e7af1a81e3c06aea4cf9ec2f2d6",
+          "lib/librmi.so": "dbfb9c0d194f2f6c72b6861949d53f7ab034bd90eaec1875f9c4425d855ef0b7",
+          "lib/libsaproc.so": "91d0722d01a4a66f56e06724b48b432bcbd789bf0b77c7276a944f1762261d7c",
+          "lib/libsctp.so": "3e98e2935a6dc71060e3e5fa375808a27ecf4df0778ab57bf44f515b039d7471",
+          "lib/libsimdsort.so": "ec25af102feb2d39e2b661dbfe7315cd144413d498cd6e0d5e592f6d38732016",
+          "lib/libsplashscreen.so": "4a0024d208005970f2f0c185c815fb7ba9deceffe13d6582244155db2b3f0ab8",
+          "lib/libsyslookup.so": "849fbc2a686ea1f3ef06f96e8d6fea57aa7ad916d747be453d92aeecde44778f",
+          "lib/libverify.so": "1e6e88003edf241d8e3f0bb58a3caa1789dd41815d2f7fdb24604f2184f72584",
+          "lib/libzip.so": "8be98fddc0c24358c59f3e26addf36a2cdae5b02c00de48f9631a034bba61626",
+          "lib/modules": "84ac59ce90c23d6be36e298ade5cc63b5a0496ee7e7faa1c0fc08000b2db75e6",
+          "lib/server/libjsig.so": "2029591f7440d21d357ee61e4e2ca6e26cc38bfe4bb920a0337315e9ddcfe2d6",
+          "lib/server/libjvm.so": "acc893f3fe1160dc2c04cbfd732ea323470f14f8045f5745543272fc854f007f",
+          "release": "699417ef4057d6bcc8982fecda1b37581eeed49ca940f5bb27895ae4eaa1ade8"
+        },
+        "gson": {
+          "path": "/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+          "version": "2.14.0",
+          "sha256": "2cbd119bf1961c28788310963dc80ba65f58cdeec1dd139c8bdb1240faa2c36f",
+          "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.14.0/gson-2.14.0.jar"
+        }
+      }
+    },
+    "javac": {
+      "path": "/usr/lib/jvm/java-25-openjdk/bin/javac",
+      "sha256": "864a5fd9aa588c8677b0fec55a3ffc473c88f95de1e4d6d63a74fe4c2ebe2241",
+      "version": "javac 25.0.4.1"
+    }
+  },
+  "source_hashes": {
+    "Cargo.lock": "bb74656968da8243a2f86ed2017507aad26f32b31e7bb8f745b20c92afbb3349",
+    "Cargo.toml": "d2ac6f0e1303c89f801be33d5b32eb67f65b44ff4dcc54a72b481d5386743ea8",
+    "bench/realworld/measure.c": "d206301c3fde9eb67cded2e69d33abfb7a9e8c9d7611ef7c499b53148e507ab2",
+    "bench/realworld/programs/Workload.java": "cc9b7d4582b8ec6ce6f73c6c03d5cbcecbad56a60b3b948e098cf92126e99cce",
+    "bench/realworld/programs/workload.bdg": "1f1b7194186913ea1b3d09b73651b6b774b08432b165ab35a91e69aadc921610",
+    "bench/realworld/programs/workload.go": "7b92d8186545b0ff4166069d4c86068c73740c8a439630277a7414b0b67b0311",
+    "bench/realworld/programs/workload.js": "f61df8e45d3456436abc43a21c8a1ff8222acb75008b23300ebcffb4596600f8",
+    "bench/realworld/run.py": "66ac7a576083bc416b1c4a7bb27a7048d5bc8f2e0f35300703a844dcf333521c",
+    "crates/badger_base/src/catalog.rs": "279be0b2e9130d1ba2ec4f3d11f47c5504d90ab30748b3013e9ea2f66527d15f",
+    "crates/badger_base/src/diagnostics.rs": "71eea2de77c38be698061db1e3eef97a4ae5582c94c4b272aa874585e4b31c08",
+    "crates/badger_base/src/intern.rs": "24b8156678ef4bf5f9568e9fa3d8811e7f996f78ed6731f2062974869a5b7d18",
+    "crates/badger_base/src/lib.rs": "13e2e6f5196b993625c20ccf252206caf85e49c02704f507938fe95b2e2ff2a5",
+    "crates/badger_base/src/source.rs": "633aef4eb864f9f4db65d5b9a459338e8728815e53f50489f01793bba3e56d96",
+    "crates/badger_cli/src/doc.rs": "07aebb983480be6ffbaf8e5c2856205065d8a1694c42ba6e4ed661ad5fef04f1",
+    "crates/badger_cli/src/generate.rs": "6b7ca8235c7cca42dba21a7840334ab9d997d1928a316c876d440c189f725976",
+    "crates/badger_cli/src/graph.rs": "e676c46741202b690b9ff55ed66e734be2014a797405c1c72c931a66604b4636",
+    "crates/badger_cli/src/lsp.rs": "247853da945af3b4ac26c745f9fcded4103ffd8ab2b24fdeadd0a38f53e00182",
+    "crates/badger_cli/src/main.rs": "c1f287af26576b992a04f915b797070354d32e85b2d6988ed255dba2dbab5d5d",
+    "crates/badger_cli/src/mcp.rs": "864f839ca3a86e844a8747cb4ddda4b634d34a987726864454283145efb9d33a",
+    "crates/badger_cli/tests/adversarial.rs": "8d4f0abe6979e6ab0c88948568dfeae088948cf38160a47b6470ad52444cc0e5",
+    "crates/badger_cli/tests/common/mod.rs": "247bce6866631223954a88c4ca8aaae7b56ba58f6e39c872bbbdbfb61f9fd057",
+    "crates/badger_cli/tests/docs.rs": "01d4f563eb8fbb09867e649920072fe4b367477c5b5c522b351f38a08ad05439",
+    "crates/badger_cli/tests/fuzz.rs": "f218640df1a7d38e29ba003f4c8c8a02bd989b13fd80431d2ce8092e553d6074",
+    "crates/badger_cli/tests/gc_retention.rs": "673a66716f553189289f3a72e1188c70cf5959beea3cf7691c86eef1e607bbe4",
+    "crates/badger_cli/tests/lsp.rs": "d6b631df9bfc2ccd38ac3ccfcfcd1bdfaf611c70c5f9a908085f73653d45ce53",
+    "crates/badger_cli/tests/mcp.rs": "72f0e30bdc2bfd511f1913b56e42ca113a76712df6cf55d4cc14106e8bac4096",
+    "crates/badger_cli/tests/option_niche.rs": "611561ae4d463a1739085bc3e9384733f4cd222efd0ab88f23930ffaa94ade54",
+    "crates/badger_cli/tests/packed_arrays.rs": "94feac6a1c4e00193abe6eecedbc8877b418d9affd7a5f355c1ef970f9183cc1",
+    "crates/badger_cli/tests/postgres.rs": "b02415b602f8de76cf70fc1005cb9752c736c4d4af85ef65e0415d4aeb32e529",
+    "crates/badger_cli/tests/programs.rs": "3abdb0d06b25f398fc61bedb2eb38c2cd88515bcf59f9303a12f3da7480da628",
+    "crates/badger_cli/tests/scalar_enums.rs": "5393e44b8388dbc8e6d210e9cd9333cce55d8e8c104ca2692d5db8856a511352",
+    "crates/badger_cli/tests/sequence_fusion.rs": "6e31e9b9e1e519d14cc5a8468d8bcc1576f37f0676514d817879406f0c314a15",
+    "crates/badger_cli/tests/service.rs": "c02cc254aba98d6e9b503a594cf85651c1642b4bbdfaa59b9ae705baed71ce5f",
+    "crates/badger_cli/tests/stress.rs": "7e0268dc2d07a9a2f17628c2d0e9dd7d0ac6ba657d31ec3bf28859a954c0002d",
+    "crates/badger_cli/tests/transient_maps.rs": "8ca809561568d5cb35f27a65573816c1786cd16c16f72a42695c45dd3289f9a8",
+    "crates/badger_cli/tests/valkey.rs": "c5648efcfc71129b784591fe2a3b5f09c67689c8aa5d5665a19868a8282d4f92",
+    "crates/badger_codegen/examples/mir_audit.rs": "f82627be9ea5636c26282fee34b51e1bca5130ae9da54a026339288c0ee0a80c",
+    "crates/badger_codegen/src/debuginfo.rs": "0e6806af5ab1038655d24681298dd3db69a9059ac7bb31b39cea0cd67ce5509f",
+    "crates/badger_codegen/src/lib.rs": "106056400d4d29edd8f11647b91deb5f4cbcd5d64134b3b981e4809635109c63",
+    "crates/badger_compress/src/lib.rs": "86b6cd0b553192df5a2fc2cfc6d7cda85df16d87cdee1a4e5d5aa1ecfbf8de51",
+    "crates/badger_crypto/src/lib.rs": "d3836f2ea883818a3c8f1ad998c599694b907ee215f2f8fed5af611d8668d4de",
+    "crates/badger_datetime/src/lib.rs": "7279db4a4c98a8fa9e585044b7a47be11eea0438fce73e8069f84855387cfde0",
+    "crates/badger_driver/src/analysis.rs": "0b39cca873a1b09236d9016b432ee55a660864cd4a88434bb4450a4015a71fb5",
+    "crates/badger_driver/src/authority.rs": "a18ad3e1ffab0660c954b339c4b5977a79199f4fa339d3910f1dd4a56a57732b",
+    "crates/badger_driver/src/contracts.rs": "5316c98ceb0cb876b3831852e77eed7a4d3042c2fad1022a22a535682e49ccdf",
+    "crates/badger_driver/src/deps.rs": "4c4fdc174fbc7bf11048aef2c47402a2c935bad02828f424f8f80f47f0fd5b46",
+    "crates/badger_driver/src/inspect.rs": "18f67e7cf022c1c4fc60d0e25d7eb8be77a70e3f985d992c47af39d650cf3888",
+    "crates/badger_driver/src/lib.rs": "365d3d13486d194ccbc40e2d45a798cb55b0362c8f02b9a614e9d71eaa34e9ec",
+    "crates/badger_driver/src/live.rs": "14cb26d70957ac67138a16369a173f29f8a2ca6c5164a4da60330118c77c0739",
+    "crates/badger_driver/src/manifest.rs": "6524b2822d33c81632a219467707ee45989a708f3727b0d7fff91a6cad53c5cd",
+    "crates/badger_driver/src/release.rs": "41a145fb81fb1385eb05a93fbb6acb1ffa834c804e7f8bb061fe2c28edfc6ac5",
+    "crates/badger_driver/src/sql.rs": "c0be3e572880bb997fd1dc65723d4d9ee3df0bb7e00be323d28069e7589195e1",
+    "crates/badger_driver/src/sqlcheck.rs": "66eab575970dcd680f7df03cc5bb613aa3e2e81d190324545d2dd0a43648a3e7",
+    "crates/badger_driver/src/sqlgen.rs": "95169ee17e564fb8aff8c457d6f9b3a1aa25a2ce759ca114830275219107437a",
+    "crates/badger_fetch/src/lib.rs": "146aa00803af32cab0cccb689973b54f540bef5115ba0e660174cb9f7069d471",
+    "crates/badger_formats/src/lib.rs": "cd4346d453556124f94d19f699b4ded44f4540a2e4262e4a1b65fe36f06df818",
+    "crates/badger_fs/src/lib.rs": "76cbc961a903bf2a3fca563acdbaacc4179bdab574b7f77071c04cbf109ab873",
+    "crates/badger_hir/src/hir.rs": "1fee0ea0eb003ea054da8492f3ae2b9f9282f7f157fb1732e32b6fca8307c32a",
+    "crates/badger_hir/src/lib.rs": "bab461aeb2ed403e48a9795025b6251dac490d56199aa27af317568f1d36fde9",
+    "crates/badger_hir/src/lower.rs": "5895831a638cbf9372d807966a36d6d606c7f6e8055579f69c2be43e92577d97",
+    "crates/badger_hir/src/stdlib.rs": "df3a6aefe815aa24b48cb5e4c73ec821bc9c6856a120946dd2990286fa05712c",
+    "crates/badger_hir/std/admission.bdg": "632283944b28483f7c099869623abcff2f11532377d174f366c16a8c7fba145c",
+    "crates/badger_hir/std/app.bdg": "7216033766c29dd61f39694e93a7f9383ab5b09d71560379898af48efc0d7fa7",
+    "crates/badger_hir/std/array.bdg": "0172e4ca7868f0796f3e673b95988d7eea07394ea24d2b1b85a6f0c7f80ac9e8",
+    "crates/badger_hir/std/bits.bdg": "3d487400d05cc3ad76f26a8a50f64acf1fd30114510351a7788978b5d4d9c095",
+    "crates/badger_hir/std/broadcast.bdg": "bc6e08ad47ef8e34c919fed0ec0c7f46b09e25a5772c896a65a524abfc3bd7db",
+    "crates/badger_hir/std/buffer.bdg": "0eba10bf0f3361e51ca2a79e2ebf3c4b65d3566d3fd337321adf06df4c456562",
+    "crates/badger_hir/std/bytes.bdg": "631138253bbe878691e2b219918b45b9b1b6ac1f12f28466fc26a398fbd9640b",
+    "crates/badger_hir/std/channel.bdg": "8eeadc9ea182d2372d379cf72fc4e22d4bc7cfb8bab101c0d93b0cf206ccf86f",
+    "crates/badger_hir/std/cli.bdg": "9b27dbe6b8d7ebb6e12a3f7f212042569ec3d0f258b035ef1458d71fd8c61bda",
+    "crates/badger_hir/std/codec.bdg": "7061973143618f85e386a5e146655722285df504b26af978f15c51e6dd4e7f3c",
+    "crates/badger_hir/std/command.bdg": "13deabcce7041ad3627586fb5a478493a30b842625806d3f06ab6547ffaa1bd2",
+    "crates/badger_hir/std/compiler.bdg": "2541c3da466c367280fc354d102b4d7ca8707d2fd1d5393b3b26a3fff0b997d4",
+    "crates/badger_hir/std/compress.bdg": "2d480798ca587b991144e4191657debed4ca75cc61ba88328c04d22b9d8d359c",
+    "crates/badger_hir/std/config.bdg": "d16f159902865f646c03cf346362d641fa762bbe695d0308e81c8f2856f616c3",
+    "crates/badger_hir/std/crypto.bdg": "fb68c81241f72ab5dafa66334eb3a34c0064bcf739fc48693d87441c28b0bd6e",
+    "crates/badger_hir/std/csv.bdg": "b4fbdfa1956e39089f61bb19386eacfa23b2c092f951cf1721d4f0197f2c0001",
+    "crates/badger_hir/std/datetime.bdg": "2846379c19a984ad29551eb31f0df67e0cfddb298946afc6b7bfd3e08e87d946",
+    "crates/badger_hir/std/decide.bdg": "d56f9e94b0ca62f1245adeb784ccd336cfc155aa852bc11985603584875f34f1",
+    "crates/badger_hir/std/deque.bdg": "b4dc2006a71ec5e629fc8bfaab8ac62823ef30a7e7c5ce15d688c8c9f73df83d",
+    "crates/badger_hir/std/encoding.bdg": "4809aa0b8592c1eddd6fd4a0e55ff0c9e6664b4ba8d8d68e9c310cd2e12803c9",
+    "crates/badger_hir/std/endpoint.bdg": "7439d80ea30d3494cd6c0a575da0cbca1a511732a6b28cc9b3ecefbd0c39beb4",
+    "crates/badger_hir/std/env.bdg": "503aa9549d5b18ede0e29ec087859960a1a011412020d8987afaf2f941a78e33",
+    "crates/badger_hir/std/fetch.bdg": "9d2c246970c655f484231a393386f41ecd628b29d0ae100dbc28debcbe5addae",
+    "crates/badger_hir/std/ffi.bdg": "fb467342d3a9427ab81f61d8e6e21fa3abdee0b6e90d9030ce5f90c3e0f23c15",
+    "crates/badger_hir/std/fs.bdg": "3eb0d2b3d2cffa8b729b11e81d5c6ce5c3bef45f7bd74efc0f1bad9924d1fd53",
+    "crates/badger_hir/std/heap.bdg": "1172d259703d1777a81013d6399773627fe14304fc4344e5dee99224c7420187",
+    "crates/badger_hir/std/http.bdg": "e2268269bb09c10038bea5a64da37c8411c78ec5c02d37e9ce2b014c0709d716",
+    "crates/badger_hir/std/inspect.bdg": "4b73cfb301fb69a4c2b4d21e7e3a29ae6a0404a97bddb3c0ab1cfa15107b2343",
+    "crates/badger_hir/std/io.bdg": "6c9c1280104ed5b3489a690b8785e9a7f381cb04b7a44fe955f0262b098020fe",
+    "crates/badger_hir/std/jobs.bdg": "9094c0a8df1855c150a2850f185cef222e003f2da6cffa5c950dcf0f12a3e156",
+    "crates/badger_hir/std/list.bdg": "77e39a85819c88e601e6b46651e15d72747fa7fab44b74bea25d05e252ca0858",
+    "crates/badger_hir/std/log.bdg": "024b17e5e55084613a72bb0748891cd6d17990bb462d3847b0faf8d7a46ee6f4",
+    "crates/badger_hir/std/lru.bdg": "67617ddabe532404e6d8c61b9f01297a928f5732720e52bbbd996e362e0d3472",
+    "crates/badger_hir/std/map.bdg": "d94fcde6ecee7fbd7ab2f92a15510aed397489994717733034012fbdfaf7d11e",
+    "crates/badger_hir/std/markdown.bdg": "27a5b6dede9e3f5fe661b47e3f0f9c85a6652dce6b8184633a4e65ccc915fd9d",
+    "crates/badger_hir/std/metrics.bdg": "27bfdfb360347f89d3d2524e34388136251a3fa9358a76e80e9c24b0fe8c1586",
+    "crates/badger_hir/std/native.bdg": "897d5638219a467084c9dae1b9700d3fe406baabb16ae5ea9cfb05aa49685815",
+    "crates/badger_hir/std/num.bdg": "6aac410e6732fe546081d29ae42b6e344c31871c4c6ed65d5270207c47debe03",
+    "crates/badger_hir/std/option.bdg": "cd2d26724a0e7aab1e8431cfbe24b52033bfface4de6088d6147977f3e13d457",
+    "crates/badger_hir/std/otel.bdg": "3b47fbbcf734efa8145e6cbd15ab832fb89d598c3da51d8a0a10b84cc17205ce",
+    "crates/badger_hir/std/parse.bdg": "9d2b8c835bf3725eb518243991fcca24ff59da294805b9a3f5ea3dfff09ebce9",
+    "crates/badger_hir/std/path.bdg": "df2f9ffea1bed57b0eabe9eed3ad5fd101a7e25ddce370f280df004631c640f1",
+    "crates/badger_hir/std/pipeline.bdg": "d72b0bfb38714422f8b891abb7b1872e329e4b171b08328a1dad6bed7a61815d",
+    "crates/badger_hir/std/postgres.bdg": "215b2933843c24567a22a71f0c5ad2f40f24416a75ce2be0666c90a90ec4b8c2",
+    "crates/badger_hir/std/prelude.bdg": "87e5f6fbeb54ddbe7af6e4e8753027302c5d2632a76bdae7b84b98eaa4f9796a",
+    "crates/badger_hir/std/process.bdg": "dba94aa7469b309ce788b46b66550bb747a7d21785d87e6a431cf2909a748636",
+    "crates/badger_hir/std/random.bdg": "4ed8a731bbc7ae70032e4e6efb9639de9e89592b6fc3be3714ce82e60385955b",
+    "crates/badger_hir/std/records.bdg": "4b04d798168bdc77182089152c5e149592ee6f037c764b3b2c54a944b6321753",
+    "crates/badger_hir/std/regex.bdg": "186cae3a947266afa79bdfcce5419473434ec2edd45c1bb6d07c4a9caa880990",
+    "crates/badger_hir/std/result.bdg": "ec52c0beb4a9dd9b292912bbd04a331f5a6cd1308dab4d4077503c1df2a15d56",
+    "crates/badger_hir/std/route.bdg": "10c9de95830e9814dd8cb7428df56672cb6ce1645cc49aaf4a768f0bbb02568e",
+    "crates/badger_hir/std/schema.bdg": "ce81c3d84208c9a5f8519234490ed1391445e6d7ee9cfa2c811c0d4d1f597ae8",
+    "crates/badger_hir/std/seq.bdg": "34b2d1c12bf0e3359313f5ab7826f7a81fbfda29e20d173cff63fc02a8619325",
+    "crates/badger_hir/std/set.bdg": "a7c9b5efa6ad55f80a30a38f184db7bd0bf15f0828f382ea8430ed306bb7c1b2",
+    "crates/badger_hir/std/sorted.bdg": "b5a905e3440eef75add58a189754782398e43d4bdfa5709d1e4cedf0f89888be",
+    "crates/badger_hir/std/sqlite.bdg": "2a6cbbdc650153c8c601d58094fefc788e85bc3b66b605c7841aa5b77193cfeb",
+    "crates/badger_hir/std/stream.bdg": "425eb5ea3aa43122c2111749ae5014e405aa70803535d876af3dd09536c687e0",
+    "crates/badger_hir/std/system.bdg": "a83b06c7649836bcb20f22e6df4c8d2f64f52266f0c771b311b0b48abe6a3936",
+    "crates/badger_hir/std/task.bdg": "87a107e279aa6da3d74eb77b24e1539df63c1a1ecc63cd63f26efd7698ac7905",
+    "crates/badger_hir/std/template.bdg": "9c2e2fc777ccfd9dbe2e44cc252e39c12076f7e1421e5bb97c17a37c4bdb0bd0",
+    "crates/badger_hir/std/test.bdg": "6c48d7b7248cc7bfe330473c540984cfe39b0230e4e05421ae176acebd60fabf",
+    "crates/badger_hir/std/text.bdg": "bccc8db78384cb79985943c83836ea1ea418fa167463aa0dc2e9b6859e7275b6",
+    "crates/badger_hir/std/time.bdg": "447cd7a85efab1dbeb9766ab497205a2b3593d7f09a85d20f8b8847dc6147d7c",
+    "crates/badger_hir/std/toml.bdg": "62753a9870e8687c9cdb7eff162453af3013cbcea45e37138ecf865d878be06f",
+    "crates/badger_hir/std/trace.bdg": "d84a84dbd7b34dce6f0842c58d1b277e97fa54aec05e2b60a3a11dfa07bc5c53",
+    "crates/badger_hir/std/uuid.bdg": "6d1505bd0718997dad932620f4db5d3c5cda9e660ff8a101c4f78de28b430b14",
+    "crates/badger_hir/std/valkey.bdg": "d343b37f0ed42760a40b15f456183befdf4b2031e4acf9f8c9e2a9df1173904d",
+    "crates/badger_hir/std/websocket.bdg": "2ce1115ba26ce85f4c213bb0917dfeb5aa544984282fe0a18f4d58324274d173",
+    "crates/badger_hir/std/worker.bdg": "8f99255db5f3d8c58673f252ad31cce15844579231bd503471866dc7946e81e1",
+    "crates/badger_hir/std/yaml.bdg": "1c26934dbb5c8ecaa94a57666b35e27911082ce836652e4ff15926bb34fe116b",
+    "crates/badger_http/src/lib.rs": "30ede771fea64f0507c5d0e2e5b99e37240475dc924874b54acac51c32b29e3b",
+    "crates/badger_http/src/ws.rs": "73bc6998e9d4e55777be88d96d11da86fe447176a08b2f38d08f7c7866dbfdd2",
+    "crates/badger_mir/src/enums.rs": "aa2c61d196a5b290f5a1aa4da9155d48a3b6dc5c67e1e2c98b90058adad2172e",
+    "crates/badger_mir/src/inline.rs": "291d9d4ff5196e0412b82d85d22f58af0ad0f366642a402b14a332c02572e53e",
+    "crates/badger_mir/src/layout.rs": "e13df66b13d024014a8b97e71db8fd323d8afafb3eaa9160cb5998f62c774423",
+    "crates/badger_mir/src/lib.rs": "a2e3e69f2d9f9cada3662657c8246a36271e03bbda7b31289c987904a461de72",
+    "crates/badger_mir/src/lower/fusion.rs": "e5a71e77a5f59f24f9b8e845e15354c2fe590ae80b63786a74bf653f3a6d9b66",
+    "crates/badger_mir/src/lower.rs": "eb70a5d50ede252f35c007dde23d1b4da3968a855285f8deba90cfb95c1a5211",
+    "crates/badger_mir/src/maps.rs": "28a823a4acfaffa483662d7b57b46420d45ed5c1d242ff5ffbd9dcf333eea427",
+    "crates/badger_mir/src/mir.rs": "f6fb36690eeeb94dbe99ff00788c1bbf9613a06a5a106887657ef526294b0f2b",
+    "crates/badger_mir/src/niche.rs": "152b3fa14605119068ea4426ea5319fdab70720d304658553309b4855c596de7",
+    "crates/badger_mir/src/reach.rs": "65ed7e1f7892d32ef2d6ea0a46bf013204fde26d716289c196e8f8ce8a419249",
+    "crates/badger_mir/src/roots.rs": "d7fd96bf6e837740258a84131ef622eadefcb24a42d74848c0409f819793da4c",
+    "crates/badger_mir/src/serial.rs": "7d019968e84aeae6ed3c56611fe20bec8682cce46ce40739530bf1aa6fa7f224",
+    "crates/badger_mir/src/split.rs": "aecb95fdb91f19a4cc94db617bb041ee0c59d1a7e680d17366ce4293fea18728",
+    "crates/badger_mir/src/sra.rs": "29dc663bc707cb9bd5e57fb633de750d7f9dc507731262c93724d8485ad46281",
+    "crates/badger_mir/src/verify.rs": "69e7e9df49d87b670fe6988d304ab43efd78a124428cb3963d92ccf7c53ac174",
+    "crates/badger_native/src/lib.rs": "5beada57e59ef22cc0fb58798431a03d0ca89f70109375422dd240592083b9c2",
+    "crates/badger_native_demo/src/lib.rs": "b155c8e007d9a1215db584cbdab3beead85ddefefdc326b9fa47f6fc61016b1a",
+    "crates/badger_postgres/src/lib.rs": "fb6174b6af8bbbd1525b93aeacdc4abb9db246da024e3755998f84261cb825e2",
+    "crates/badger_runtime/examples/opportunities.rs": "8706720c1bd1f092a6efaa8983605f6d7e446048512017d83ac63c5af0d4de95",
+    "crates/badger_runtime/examples/performance_audit.rs": "348d217f12bf7e58bc1cae669c45d729c0859105454331ad16afa8defb205836",
+    "crates/badger_runtime/src/abi.rs": "04070ba9d2b7a47b5535f42da7a447cd6fb2750f7d9ea915585872006693f956",
+    "crates/badger_runtime/src/admission.rs": "0e26b0e2e6662fb1edab982ca9d07938134a12ed68c2ba2b19bf4c180618c1ea",
+    "crates/badger_runtime/src/buffer.rs": "848159946dbff09d52068c04d9f932b50dd504e63d5490a375943efd2f31ba9f",
+    "crates/badger_runtime/src/channel.rs": "7e8110f17b382445bdf06b576d3d1beb022d006c68d5ffaf371cb5868e5ec657",
+    "crates/badger_runtime/src/codec.rs": "104266fd4f0af6c6ec34de46268860d1d9d2533a2c1bc7f8f504014ffe2de425",
+    "crates/badger_runtime/src/desc.rs": "22e416b82bfb77be47f280574a27faf4d314a5d673d52dc8b84f0ed501dd4674",
+    "crates/badger_runtime/src/ffi.rs": "685f49c6067bcce4b9b2e1dff51b19483d2987d57ccff1eed4afb8bec5ab48ac",
+    "crates/badger_runtime/src/gc/allocations.rs": "303d11a6be79a8cd06b106a432602971c3732f22b9fb8e383f50a4a3de5fdea9",
+    "crates/badger_runtime/src/gc/diagnostics.rs": "08a765c5270b11887053e8981fbb47f223d2a2f280a72f17f9a3e67658ba260d",
+    "crates/badger_runtime/src/gc/sweep.rs": "51bf8bf152284f7deff4c55bfb3cc3f1906d22ff97258339cbe9ae5d1d0a5435",
+    "crates/badger_runtime/src/gc.rs": "79cec27d78f85ba5155aa871ae675ac6c6cd1afdff74d22ae05102cc0f39705b",
+    "crates/badger_runtime/src/hamt.rs": "7f691734e5257ba3e301ded299be09760a7c5174e633473eebd6329fd9eece9c",
+    "crates/badger_runtime/src/http.rs": "9210828354e8e5d4baafacb29e0b13313b51c9f288c9ff124e8ae054c78b1ca9",
+    "crates/badger_runtime/src/inspect.rs": "f68f2fde93334ce853eb82c9cffbd55bb9f76d2ac16bfae4d273ed84dd7f0073",
+    "crates/badger_runtime/src/intrinsics.rs": "09d2b4169cae465f945db793d1bd31152112f27fd7d4d73eca78af5e167b7030",
+    "crates/badger_runtime/src/intrinsics_codec.rs": "a98b0ce6353a160164d43594f4a1aaa56a689cf048d46d3b290037065e25a24a",
+    "crates/badger_runtime/src/intrinsics_io.rs": "5560c158c0b45113f5d3a1a14c20f68e3c2b6cd58ce1587deac135305da684cf",
+    "crates/badger_runtime/src/intrinsics_os.rs": "e91886b5f7172b75ceed065756a9e79ca4c5eb92c83f51cac5eb08a23f0e7df1",
+    "crates/badger_runtime/src/intrinsics_std.rs": "4053e6b335b1a8a7a1f5e0ed12c9b1a9553f073dad7777386a60b95050d34b73",
+    "crates/badger_runtime/src/intrinsics_task.rs": "f309d9d9e0ce64e57c7c5ecc450136c3cbc4c56112c7fe7572c129306f5e974c",
+    "crates/badger_runtime/src/lib.rs": "46356cc8947469cff0f187b915bb2add0b5b36a644486d39733ca64aa5b75e57",
+    "crates/badger_runtime/src/list.rs": "34268da6e43a561f5996c85b3a2539f40664f33cd16978adf877292670029f0e",
+    "crates/badger_runtime/src/live.rs": "d1e0430887d97907c9ef5ce9a1037053f67371149745fc07d2e9e4f83a907bae",
+    "crates/badger_runtime/src/map.rs": "df80e7079ad9461bb36c6223b480fe9e8abf862e37e8742d195074f23e9a87af",
+    "crates/badger_runtime/src/native.rs": "e42240c01edd2ef608ad3aaf0e5cf7b929d5c5cc897dd7b09b1dbbdf15a538b4",
+    "crates/badger_runtime/src/observe.rs": "2a8b489e0fe553a1e4a6d4b683baada90ba921d8a6f047c2c320e2d5f5c5a168",
+    "crates/badger_runtime/src/parse.rs": "fae69cbc6d9af2867f86819bcb5be7551f0d952102e2d92680af4ac7eaaaa470",
+    "crates/badger_runtime/src/profile.rs": "f3efdc0e1da43cb7527f6c5e37167d53552ff5432913c84deb17f7233a9b11bb",
+    "crates/badger_runtime/src/reply.rs": "578f1ff50cc2e9b8a9a5b0e1eea2a1dd06e19ccf42ba49f05861c0a74221ac9d",
+    "crates/badger_runtime/src/repro.rs": "fcc9ba2ecfceee9c4c78de2dce94863e3f2dddbf394375169f6debe58e052fb0",
+    "crates/badger_runtime/src/scope.rs": "1ab8f89abd7af062608ae874351c6252b546baaaf4fdf60bfbd92a4c6aea7eba",
+    "crates/badger_runtime/src/string.rs": "48512c5c338fe953d68624dc0a1767458277a71c9d7fb2f149f9dd501caeef6b",
+    "crates/badger_runtime/src/task.rs": "150331b612e703093879acd8b3cbf83f54017c9d4f62dcc070401f5b1dc40608",
+    "crates/badger_runtime/src/telemetry.rs": "c73165a3232bd0aed06d4676a00106ad4458577b50d6ef0ff3d3dda206d3bf06",
+    "crates/badger_runtime/src/value.rs": "9e94c77ee4cada9184e61ed4ef38c2368394a6a578f28c4c5fd850f535ff0bdc",
+    "crates/badger_runtime/tests/cancelled_waiters.rs": "af395f8077787f6e75a80f9e99c3240500be39ceddd6e1eccb442a1ff9c273e8",
+    "crates/badger_runtime/tests/retention.rs": "9bb65288b83f7cd24d8da3d9d1f1e4d7eba8034888f71c9d0ab425f6a9c73e15",
+    "crates/badger_runtime/tests/task_ids.rs": "a431db5210f2e5fcc45b1a451ade42a03472017dbeb6a12f9daabb5cc7ccd289",
+    "crates/badger_sqlite/src/lib.rs": "91628e34347fa36060bc6a67591d08c34c36870af05ba6349d3da85523aa4a3b",
+    "crates/badger_syntax/examples/parse_bench.rs": "5d403be5170cbfe10ab3b1227884334883f9d2553054b8daaf353e5b20c281bf",
+    "crates/badger_syntax/src/ast.rs": "4dd50cd57c155073405339070d2029a2220cf49a8a9d656868d1e9ae4f70a716",
+    "crates/badger_syntax/src/cst.rs": "a0ed9981f456351296171fdc36e05ea42367e27b0eed9b8458c13d0c7cd24d3f",
+    "crates/badger_syntax/src/format.rs": "18eb42b637c13b336bfcbca297f65c80dcbc472328bf3ca0901a87d51938a5b7",
+    "crates/badger_syntax/src/grammar.rs": "ee46d69c5cc0d689048ab5bf8b0eb57e3559fe4ab285f5227903d9e16b7d2c21",
+    "crates/badger_syntax/src/lib.rs": "67bdd3b884650a551339ff377780645a85c69e0434888fe31799f5ac6833d2fa",
+    "crates/badger_syntax/src/lower.rs": "7f80be40bd16ad0fe3631efdee7656104acb8cb0699f5ebfd8fcd4ebcd547d68",
+    "crates/badger_syntax/src/parser.rs": "035a4f84ac2cae2d12f24a25a0c027c5417fb89ed88cf104befe87f100cf983c",
+    "crates/badger_syntax/src/spacing.rs": "55e7d843c41db7b46071f80ba3277b321911ab45e3d198674cdf953eb92e9ee2",
+    "crates/badger_syntax/src/token.rs": "cd5af03b9e5c1041098882edc035368b1a58f8b1a0ef85f551f4dd4e03d16c6e",
+    "crates/badger_syntax/tests/format_repo.rs": "d38ab30a13151a537aa83670c4395e4a1dfa576027cf050c1695d63b2612dcc5",
+    "crates/badger_template/src/lib.rs": "c3946597958f1c3e1003f02e8163078634f327064982b1578506926d48752847",
+    "crates/badger_typeck/src/concurrency.rs": "8cc73daf5f784bece176b4e6d5152a85a4e2d8b8911f94c9cd46465192cc9cd0",
+    "crates/badger_typeck/src/env.rs": "98b4e873329f029de6fa38baaeeedf22eb52ef1460f3fab82e5cda280b354a59",
+    "crates/badger_typeck/src/exhaust.rs": "eaeb0355329c6ff8dfd8edc52f615d40bf67056f3165f6d7c38e969ccd7c9df8",
+    "crates/badger_typeck/src/infer.rs": "7de46a7d2b9ed414a993b488a599b6977c0b9737a81cf11dcbc9269f7339d98c",
+    "crates/badger_typeck/src/lib.rs": "5c725a799da9542ab6870ad36fc596453bdffdbadf45f3c9588e9c831eb988fd",
+    "crates/badger_typeck/src/ownership.rs": "6baefec8bc28338226cf305b4f2eb28aaa9021a8e71ce368eaad01b364570438",
+    "crates/badger_typeck/src/program.rs": "6effe15d9bf77c6d42ef7d7b37ec864ca3f8923294e9accdfd99ac549af5eae4",
+    "crates/badger_typeck/src/regions.rs": "bdda32fca0a2579548be4fc787f44b8961f80e6d9467736d323be8f73f0c3cb1",
+    "crates/badger_typeck/src/solve.rs": "3d96218cfd624ec0da7459c3101b78ff1ce664fe28c641ed5678fa35016f7ac8",
+    "crates/badger_typeck/src/ty.rs": "5efc56c410352575e6b0f267c9f22f4030b0b806f971211c984e21850d161002",
+    "crates/badger_valkey/src/lib.rs": "e27db73447ff782ecc8c0661fc78d897fb103259fc49b7ea52cbb0913f970ed9"
+  },
+  "config": {
+    "sizes": {
+      "json": 8000
+    },
+    "seed": 37,
+    "workers": [
+      1
+    ],
+    "languages": [
+      "badger",
+      "go",
+      "node",
+      "java"
+    ],
+    "processes": 3,
+    "warmups": 15,
+    "samples": 15,
+    "build_samples": 1,
+    "order_seed": 2026101827
+  },
+  "builds": {
+    "badger": {
+      "samples": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+            "compile",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+            "-o",
+            "/tmp/badger-realworld-acrrvgkp/workload.bdgmir"
+          ],
+          "wall_ns": 56030730,
+          "ready_ns": null,
+          "stdout": "wrote /tmp/badger-realworld-acrrvgkp/workload.bdgmir (71783 bytes)\n",
+          "stderr": "[realworld child] 25240 45050 9428 2 8\n",
+          "peak_rss_bytes": 25845760,
+          "user_ns": 45050000,
+          "system_ns": 9428000,
+          "voluntary_switches": 2,
+          "involuntary_switches": 8,
+          "launcher_tree_peak_rss_bytes": 28258304
+        }
+      ],
+      "wall_ns": {
+        "median": 56030730,
+        "min": 56030730,
+        "max": 56030730,
+        "count": 1,
+        "cv": 0.0
+      },
+      "artifact_bytes": 71783,
+      "files": {
+        "workload.bdgmir": "8f1059fd72ddb6908d62652d13e0524124afe4964656a434172772892d2cc101"
+      },
+      "sha256": "8f1059fd72ddb6908d62652d13e0524124afe4964656a434172772892d2cc101"
+    },
+    "go": {
+      "samples": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/usr/lib/go/bin/go",
+            "build",
+            "-trimpath",
+            "-o",
+            "/tmp/badger-realworld-acrrvgkp/workload-go",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.go"
+          ],
+          "wall_ns": 105734211,
+          "ready_ns": null,
+          "stdout": "",
+          "stderr": "[realworld child] 86740 152633 49107 1716 54\n",
+          "peak_rss_bytes": 88821760,
+          "user_ns": 152633000,
+          "system_ns": 49107000,
+          "voluntary_switches": 1716,
+          "involuntary_switches": 54,
+          "launcher_tree_peak_rss_bytes": 88821760
+        }
+      ],
+      "wall_ns": {
+        "median": 105734211,
+        "min": 105734211,
+        "max": 105734211,
+        "count": 1,
+        "cv": 0.0
+      },
+      "artifact_bytes": 4054741,
+      "files": {
+        "workload-go": "889f5aa4af4dad77b20fc69f56228ee7aad8b454961221019e56c1f217b8102e"
+      },
+      "sha256": "889f5aa4af4dad77b20fc69f56228ee7aad8b454961221019e56c1f217b8102e"
+    },
+    "java": {
+      "samples": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/usr/lib/jvm/java-25-openjdk/bin/javac",
+            "--release",
+            "21",
+            "-encoding",
+            "UTF-8",
+            "-cp",
+            "/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+            "-d",
+            "/tmp/badger-realworld-acrrvgkp/java-classes",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/Workload.java"
+          ],
+          "wall_ns": 456494131,
+          "ready_ns": null,
+          "stdout": "",
+          "stderr": "[realworld child] 141120 1253681 139976 24688 153\n",
+          "peak_rss_bytes": 144506880,
+          "user_ns": 1253681000,
+          "system_ns": 139976000,
+          "voluntary_switches": 24688,
+          "involuntary_switches": 153,
+          "launcher_tree_peak_rss_bytes": 144506880
+        }
+      ],
+      "wall_ns": {
+        "median": 456494131,
+        "min": 456494131,
+        "max": 456494131,
+        "count": 1,
+        "cv": 0.0
+      },
+      "artifact_bytes": 11344,
+      "files": {
+        "Workload$Order.class": "f8f3606c85020fdb923c9dd780860067c294a3d508a56e2b75372f6e06f7e6f4",
+        "Workload$Pipeline.class": "15c2a01c849f53cb1c8916901577b53a2c5a449b6dd3f131c783691c57aef006",
+        "Workload.class": "c3c6201a96f5911714d486079113e7b63761e0384c89db59cda2232ed8223980"
+      },
+      "sha256": "1418b014cdd66f13ea8d635d45d900876b5abe2245c5f22ed026279f5a5bd3ef"
+    },
+    "node": null
+  },
+  "cells": [
+    {
+      "language": "badger",
+      "workload": "json",
+      "workers": 1,
+      "n": 8000,
+      "expected": 190161474496,
+      "validation": [
+        {
+          "n": 1,
+          "seed": 0,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+              "run",
+              "--release",
+              "--bench",
+              "--workers",
+              "1",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+              "--",
+              "json",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 71092022,
+            "ready_ns": 69054873,
+            "stdout": "READY\nBENCH 0 20909 0\n",
+            "stderr": "bench: run 0.265 ms (compilation 66.610 ms, not included)\n[realworld child] 28464 58664 10925 4 2\n",
+            "peak_rss_bytes": 29147136,
+            "user_ns": 58664000,
+            "system_ns": 10925000,
+            "voluntary_switches": 4,
+            "involuntary_switches": 2,
+            "launcher_tree_peak_rss_bytes": 29147136,
+            "iterations_ns": [
+              20909
+            ],
+            "first_ns": 20909,
+            "warm_ns": [
+              20909
+            ],
+            "compile_ns": 66610000
+          }
+        },
+        {
+          "n": 65,
+          "seed": 991,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+              "run",
+              "--release",
+              "--bench",
+              "--workers",
+              "1",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+              "--",
+              "json",
+              "65",
+              "991",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 68543023,
+            "ready_ns": 66186572,
+            "stdout": "READY\nBENCH 0 162121 5039925\n",
+            "stderr": "bench: run 0.415 ms (compilation 62.927 ms, not included)\n[realworld child] 28492 58058 8995 4 0\n",
+            "peak_rss_bytes": 29175808,
+            "user_ns": 58058000,
+            "system_ns": 8995000,
+            "voluntary_switches": 4,
+            "involuntary_switches": 0,
+            "launcher_tree_peak_rss_bytes": 29175808,
+            "iterations_ns": [
+              162121
+            ],
+            "first_ns": 162121,
+            "warm_ns": [
+              162121
+            ],
+            "compile_ns": 62927000
+          }
+        },
+        {
+          "n": 257,
+          "seed": 37,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+              "run",
+              "--release",
+              "--bench",
+              "--workers",
+              "1",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+              "--",
+              "json",
+              "257",
+              "37",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 71857653,
+            "ready_ns": 68891780,
+            "stdout": "READY\nBENCH 0 569577 182053272\n",
+            "stderr": "bench: run 0.818 ms (compilation 65.791 ms, not included)\n[realworld child] 27436 60173 9988 4 4\n",
+            "peak_rss_bytes": 28094464,
+            "user_ns": 60173000,
+            "system_ns": 9988000,
+            "voluntary_switches": 4,
+            "involuntary_switches": 4,
+            "launcher_tree_peak_rss_bytes": 28839936,
+            "iterations_ns": [
+              569577
+            ],
+            "first_ns": 569577,
+            "warm_ns": [
+              569577
+            ],
+            "compile_ns": 65791000
+          }
+        },
+        {
+          "n": 1025,
+          "seed": 7,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+              "run",
+              "--release",
+              "--bench",
+              "--workers",
+              "1",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+              "--",
+              "json",
+              "1025",
+              "7",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 73431041,
+            "ready_ns": 68416087,
+            "stdout": "READY\nBENCH 0 2830912 11405290377\n",
+            "stderr": "bench: run 3.166 ms (compilation 65.152 ms, not included)\n[realworld child] 29976 64643 7058 4 5\n",
+            "peak_rss_bytes": 30695424,
+            "user_ns": 64643000,
+            "system_ns": 7058000,
+            "voluntary_switches": 4,
+            "involuntary_switches": 5,
+            "launcher_tree_peak_rss_bytes": 30695424,
+            "iterations_ns": [
+              2830912
+            ],
+            "first_ns": 2830912,
+            "warm_ns": [
+              2830912
+            ],
+            "compile_ns": 65152000
+          }
+        }
+      ],
+      "records": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+            "run",
+            "--release",
+            "--bench",
+            "--workers",
+            "1",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+            "--",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 608357522,
+          "ready_ns": 71399503,
+          "stdout": "READY\nBENCH 0 17303632 190161474496\nBENCH 1 16962239 190161474496\nBENCH 2 17087782 190161474496\nBENCH 3 20155653 190161474496\nBENCH 4 17591726 190161474496\nBENCH 5 17272023 190161474496\nBENCH 6 17849475 190161474496\nBENCH 7 18037373 190161474496\nBENCH 8 18588346 190161474496\nBENCH 9 17172179 190161474496\nBENCH 10 19423054 190161474496\nBENCH 11 17043129 190161474496\nBENCH 12 18221886 190161474496\nBENCH 13 18177754 190161474496\nBENCH 14 17979106 190161474496\nBENCH 15 17688336 190161474496\nBENCH 16 17264169 190161474496\nBENCH 17 17265772 190161474496\nBENCH 18 17786779 190161474496\nBENCH 19 17627904 190161474496\nBENCH 20 17515525 190161474496\nBENCH 21 16930209 190161474496\nBENCH 22 18079632 190161474496\nBENCH 23 17468158 190161474496\nBENCH 24 17093773 190161474496\nBENCH 25 17969898 190161474496\nBENCH 26 19186806 190161474496\nBENCH 27 17501309 190161474496\nBENCH 28 16867933 190161474496\nBENCH 29 18362787 190161474496\n",
+          "stderr": "bench: run 534.736 ms (compilation 68.568 ms, not included)\n[realworld child] 60516 590067 14898 4 10\n",
+          "peak_rss_bytes": 61968384,
+          "user_ns": 590067000,
+          "system_ns": 14898000,
+          "voluntary_switches": 4,
+          "involuntary_switches": 10,
+          "launcher_tree_peak_rss_bytes": 61968384,
+          "iterations_ns": [
+            17303632,
+            16962239,
+            17087782,
+            20155653,
+            17591726,
+            17272023,
+            17849475,
+            18037373,
+            18588346,
+            17172179,
+            19423054,
+            17043129,
+            18221886,
+            18177754,
+            17979106,
+            17688336,
+            17264169,
+            17265772,
+            17786779,
+            17627904,
+            17515525,
+            16930209,
+            18079632,
+            17468158,
+            17093773,
+            17969898,
+            19186806,
+            17501309,
+            16867933,
+            18362787
+          ],
+          "first_ns": 17303632,
+          "warm_ns": [
+            17688336,
+            17264169,
+            17265772,
+            17786779,
+            17627904,
+            17515525,
+            16930209,
+            18079632,
+            17468158,
+            17093773,
+            17969898,
+            19186806,
+            17501309,
+            16867933,
+            18362787
+          ],
+          "compile_ns": 68568000
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+            "run",
+            "--release",
+            "--bench",
+            "--workers",
+            "1",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+            "--",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 745363329,
+          "ready_ns": 65202165,
+          "stdout": "READY\nBENCH 0 23526016 190161474496\nBENCH 1 22742382 190161474496\nBENCH 2 21855547 190161474496\nBENCH 3 23449775 190161474496\nBENCH 4 22132470 190161474496\nBENCH 5 21297601 190161474496\nBENCH 6 22088079 190161474496\nBENCH 7 23197917 190161474496\nBENCH 8 22158700 190161474496\nBENCH 9 23108070 190161474496\nBENCH 10 23682126 190161474496\nBENCH 11 22227537 190161474496\nBENCH 12 22336099 190161474496\nBENCH 13 23286131 190161474496\nBENCH 14 27539352 190161474496\nBENCH 15 22544094 190161474496\nBENCH 16 22733586 190161474496\nBENCH 17 23324202 190161474496\nBENCH 18 22472913 190161474496\nBENCH 19 21612356 190161474496\nBENCH 20 24250460 190161474496\nBENCH 21 20988068 190161474496\nBENCH 22 22198904 190161474496\nBENCH 23 21297551 190161474496\nBENCH 24 21295919 190161474496\nBENCH 25 22625125 190161474496\nBENCH 26 23202406 190161474496\nBENCH 27 21808429 190161474496\nBENCH 28 19823457 190161474496\nBENCH 29 22154903 190161474496\n",
+          "stderr": "bench: run 678.183 ms (compilation 62.321 ms, not included)\n[realworld child] 61840 728913 11935 4 18\n",
+          "peak_rss_bytes": 63324160,
+          "user_ns": 728913000,
+          "system_ns": 11935000,
+          "voluntary_switches": 4,
+          "involuntary_switches": 18,
+          "launcher_tree_peak_rss_bytes": 63324160,
+          "iterations_ns": [
+            23526016,
+            22742382,
+            21855547,
+            23449775,
+            22132470,
+            21297601,
+            22088079,
+            23197917,
+            22158700,
+            23108070,
+            23682126,
+            22227537,
+            22336099,
+            23286131,
+            27539352,
+            22544094,
+            22733586,
+            23324202,
+            22472913,
+            21612356,
+            24250460,
+            20988068,
+            22198904,
+            21297551,
+            21295919,
+            22625125,
+            23202406,
+            21808429,
+            19823457,
+            22154903
+          ],
+          "first_ns": 23526016,
+          "warm_ns": [
+            22544094,
+            22733586,
+            23324202,
+            22472913,
+            21612356,
+            24250460,
+            20988068,
+            22198904,
+            21297551,
+            21295919,
+            22625125,
+            23202406,
+            21808429,
+            19823457,
+            22154903
+          ],
+          "compile_ns": 62321000
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+            "run",
+            "--release",
+            "--bench",
+            "--workers",
+            "1",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.bdg",
+            "--",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 597232673,
+          "ready_ns": 66222007,
+          "stdout": "READY\nBENCH 0 18622398 190161474496\nBENCH 1 17259520 190161474496\nBENCH 2 16775682 190161474496\nBENCH 3 17730524 190161474496\nBENCH 4 17236667 190161474496\nBENCH 5 17788982 190161474496\nBENCH 6 17346713 190161474496\nBENCH 7 18234920 190161474496\nBENCH 8 18353560 190161474496\nBENCH 9 17213735 190161474496\nBENCH 10 18562748 190161474496\nBENCH 11 17316036 190161474496\nBENCH 12 17763746 190161474496\nBENCH 13 17669951 190161474496\nBENCH 14 17999714 190161474496\nBENCH 15 17031267 190161474496\nBENCH 16 17063977 190161474496\nBENCH 17 17077192 190161474496\nBENCH 18 17862478 190161474496\nBENCH 19 17681443 190161474496\nBENCH 20 17348886 190161474496\nBENCH 21 16828761 190161474496\nBENCH 22 18198001 190161474496\nBENCH 23 17164585 190161474496\nBENCH 24 17281511 190161474496\nBENCH 25 18245660 190161474496\nBENCH 26 17652910 190161474496\nBENCH 27 17347323 190161474496\nBENCH 28 16633219 190161474496\nBENCH 29 17929945 190161474496\n",
+          "stderr": "bench: run 528.657 ms (compilation 62.923 ms, not included)\n[realworld child] 60604 584381 8984 4 10\n",
+          "peak_rss_bytes": 62058496,
+          "user_ns": 584381000,
+          "system_ns": 8984000,
+          "voluntary_switches": 4,
+          "involuntary_switches": 10,
+          "launcher_tree_peak_rss_bytes": 62058496,
+          "iterations_ns": [
+            18622398,
+            17259520,
+            16775682,
+            17730524,
+            17236667,
+            17788982,
+            17346713,
+            18234920,
+            18353560,
+            17213735,
+            18562748,
+            17316036,
+            17763746,
+            17669951,
+            17999714,
+            17031267,
+            17063977,
+            17077192,
+            17862478,
+            17681443,
+            17348886,
+            16828761,
+            18198001,
+            17164585,
+            17281511,
+            18245660,
+            17652910,
+            17347323,
+            16633219,
+            17929945
+          ],
+          "first_ns": 18622398,
+          "warm_ns": [
+            17031267,
+            17063977,
+            17077192,
+            17862478,
+            17681443,
+            17348886,
+            16828761,
+            18198001,
+            17164585,
+            17281511,
+            18245660,
+            17652910,
+            17347323,
+            16633219,
+            17929945
+          ],
+          "compile_ns": 62923000
+        }
+      ],
+      "fixture_sha256": "e8731f5a8e16a4818c0b6b67347e6ed6af6c0a82eebcbf6ecb7dd478467607b6",
+      "summary": {
+        "kernel_ns": {
+          "median": 17515525,
+          "min": 17347323,
+          "max": 22198904,
+          "count": 3,
+          "cv": 0.11821195582102949
+        },
+        "first_ns": {
+          "median": 18622398,
+          "min": 17303632,
+          "max": 23526016,
+          "count": 3,
+          "cv": 0.1350896450963752
+        },
+        "startup_ns": {
+          "median": 66222007,
+          "min": 65202165,
+          "max": 71399503,
+          "count": 3,
+          "cv": 0.0401315468032141
+        },
+        "wall_ns": {
+          "median": 608357522,
+          "min": 597232673,
+          "max": 745363329,
+          "count": 3,
+          "cv": 0.10358103085673624
+        },
+        "peak_rss_bytes": {
+          "median": 62058496,
+          "min": 61968384,
+          "max": 63324160,
+          "count": 3,
+          "cv": 0.009911450690960728
+        },
+        "compile_ns": {
+          "median": 62923000,
+          "min": 62321000,
+          "max": 68568000,
+          "count": 3,
+          "cv": 0.04355341854557325
+        },
+        "cpu_ns": {
+          "median": 604965000,
+          "min": 593365000,
+          "max": 740848000,
+          "count": 3,
+          "cv": 0.10358670368281607
+        }
+      }
+    },
+    {
+      "language": "go",
+      "workload": "json",
+      "workers": 1,
+      "n": 8000,
+      "expected": 190161474496,
+      "validation": [
+        {
+          "n": 1,
+          "seed": 0,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/tmp/badger-realworld-acrrvgkp/workload-go",
+              "json",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 2669312,
+            "ready_ns": 2340873,
+            "stdout": "READY\nBENCH 0 74208 0\n",
+            "stderr": "[realworld child] 6568 851 846 9 3\n",
+            "peak_rss_bytes": 6725632,
+            "user_ns": 851000,
+            "system_ns": 846000,
+            "voluntary_switches": 9,
+            "involuntary_switches": 3,
+            "launcher_tree_peak_rss_bytes": 28839936,
+            "iterations_ns": [
+              74208
+            ],
+            "first_ns": 74208,
+            "warm_ns": [
+              74208
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 65,
+          "seed": 991,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/tmp/badger-realworld-acrrvgkp/workload-go",
+              "json",
+              "65",
+              "991",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 2972405,
+            "ready_ns": 2441760,
+            "stdout": "READY\nBENCH 0 146201 5039925\n",
+            "stderr": "[realworld child] 4584 0 1785 10 0\n",
+            "peak_rss_bytes": 4694016,
+            "user_ns": 0,
+            "system_ns": 1785000,
+            "voluntary_switches": 10,
+            "involuntary_switches": 0,
+            "launcher_tree_peak_rss_bytes": 28839936,
+            "iterations_ns": [
+              146201
+            ],
+            "first_ns": 146201,
+            "warm_ns": [
+              146201
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 257,
+          "seed": 37,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/tmp/badger-realworld-acrrvgkp/workload-go",
+              "json",
+              "257",
+              "37",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 2471705,
+            "ready_ns": 1684725,
+            "stdout": "READY\nBENCH 0 452089 182053272\n",
+            "stderr": "[realworld child] 4588 942 940 13 0\n",
+            "peak_rss_bytes": 4698112,
+            "user_ns": 942000,
+            "system_ns": 940000,
+            "voluntary_switches": 13,
+            "involuntary_switches": 0,
+            "launcher_tree_peak_rss_bytes": 28839936,
+            "iterations_ns": [
+              452089
+            ],
+            "first_ns": 452089,
+            "warm_ns": [
+              452089
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 1025,
+          "seed": 7,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/tmp/badger-realworld-acrrvgkp/workload-go",
+              "json",
+              "1025",
+              "7",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 4042029,
+            "ready_ns": 1954496,
+            "stdout": "READY\nBENCH 0 1690245 11405290377\n",
+            "stderr": "[realworld child] 6652 1616 1618 30 0\n",
+            "peak_rss_bytes": 6811648,
+            "user_ns": 1616000,
+            "system_ns": 1618000,
+            "voluntary_switches": 30,
+            "involuntary_switches": 0,
+            "launcher_tree_peak_rss_bytes": 28839936,
+            "iterations_ns": [
+              1690245
+            ],
+            "first_ns": 1690245,
+            "warm_ns": [
+              1690245
+            ],
+            "compile_ns": null
+          }
+        }
+      ],
+      "records": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/tmp/badger-realworld-acrrvgkp/workload-go",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 444207226,
+          "ready_ns": 2121136,
+          "stdout": "READY\nBENCH 0 14436373 190161474496\nBENCH 1 16146436 190161474496\nBENCH 2 14710972 190161474496\nBENCH 3 16526841 190161474496\nBENCH 4 13852579 190161474496\nBENCH 5 14048584 190161474496\nBENCH 6 14979470 190161474496\nBENCH 7 13984294 190161474496\nBENCH 8 14558259 190161474496\nBENCH 9 14208560 190161474496\nBENCH 10 13399008 190161474496\nBENCH 11 15288324 190161474496\nBENCH 12 14384236 190161474496\nBENCH 13 15243851 190161474496\nBENCH 14 14506423 190161474496\nBENCH 15 14470406 190161474496\nBENCH 16 14951899 190161474496\nBENCH 17 15545801 190161474496\nBENCH 18 14033726 190161474496\nBENCH 19 14194524 190161474496\nBENCH 20 15437821 190161474496\nBENCH 21 14301242 190161474496\nBENCH 22 14992955 190161474496\nBENCH 23 14343941 190161474496\nBENCH 24 15234443 190161474496\nBENCH 25 14854449 190161474496\nBENCH 26 14808653 190161474496\nBENCH 27 14625494 190161474496\nBENCH 28 14282186 190161474496\nBENCH 29 14440010 190161474496\n",
+          "stderr": "[realworld child] 11408 439135 2993 112 9\n",
+          "peak_rss_bytes": 11681792,
+          "user_ns": 439135000,
+          "system_ns": 2993000,
+          "voluntary_switches": 112,
+          "involuntary_switches": 9,
+          "launcher_tree_peak_rss_bytes": 30806016,
+          "iterations_ns": [
+            14436373,
+            16146436,
+            14710972,
+            16526841,
+            13852579,
+            14048584,
+            14979470,
+            13984294,
+            14558259,
+            14208560,
+            13399008,
+            15288324,
+            14384236,
+            15243851,
+            14506423,
+            14470406,
+            14951899,
+            15545801,
+            14033726,
+            14194524,
+            15437821,
+            14301242,
+            14992955,
+            14343941,
+            15234443,
+            14854449,
+            14808653,
+            14625494,
+            14282186,
+            14440010
+          ],
+          "first_ns": 14436373,
+          "warm_ns": [
+            14470406,
+            14951899,
+            15545801,
+            14033726,
+            14194524,
+            15437821,
+            14301242,
+            14992955,
+            14343941,
+            15234443,
+            14854449,
+            14808653,
+            14625494,
+            14282186,
+            14440010
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/tmp/badger-realworld-acrrvgkp/workload-go",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 448991201,
+          "ready_ns": 2390665,
+          "stdout": "READY\nBENCH 0 15133626 190161474496\nBENCH 1 14370591 190161474496\nBENCH 2 14995039 190161474496\nBENCH 3 14264083 190161474496\nBENCH 4 15991968 190161474496\nBENCH 5 14158727 190161474496\nBENCH 6 16123783 190161474496\nBENCH 7 13963015 190161474496\nBENCH 8 14820315 190161474496\nBENCH 9 15365567 190161474496\nBENCH 10 14072779 190161474496\nBENCH 11 15320573 190161474496\nBENCH 12 14273291 190161474496\nBENCH 13 16136797 190161474496\nBENCH 14 14289821 190161474496\nBENCH 15 15463558 190161474496\nBENCH 16 14714519 190161474496\nBENCH 17 16552278 190161474496\nBENCH 18 14844289 190161474496\nBENCH 19 14137047 190161474496\nBENCH 20 14486386 190161474496\nBENCH 21 14187010 190161474496\nBENCH 22 13760108 190161474496\nBENCH 23 15284907 190161474496\nBENCH 24 13979495 190161474496\nBENCH 25 14691756 190161474496\nBENCH 26 14629602 190161474496\nBENCH 27 15059358 190161474496\nBENCH 28 14512745 190161474496\nBENCH 29 15476082 190161474496\n",
+          "stderr": "[realworld child] 11592 442972 3966 113 28\n",
+          "peak_rss_bytes": 11870208,
+          "user_ns": 442972000,
+          "system_ns": 3966000,
+          "voluntary_switches": 113,
+          "involuntary_switches": 28,
+          "launcher_tree_peak_rss_bytes": 30806016,
+          "iterations_ns": [
+            15133626,
+            14370591,
+            14995039,
+            14264083,
+            15991968,
+            14158727,
+            16123783,
+            13963015,
+            14820315,
+            15365567,
+            14072779,
+            15320573,
+            14273291,
+            16136797,
+            14289821,
+            15463558,
+            14714519,
+            16552278,
+            14844289,
+            14137047,
+            14486386,
+            14187010,
+            13760108,
+            15284907,
+            13979495,
+            14691756,
+            14629602,
+            15059358,
+            14512745,
+            15476082
+          ],
+          "first_ns": 15133626,
+          "warm_ns": [
+            15463558,
+            14714519,
+            16552278,
+            14844289,
+            14137047,
+            14486386,
+            14187010,
+            13760108,
+            15284907,
+            13979495,
+            14691756,
+            14629602,
+            15059358,
+            14512745,
+            15476082
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/tmp/badger-realworld-acrrvgkp/workload-go",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 438941868,
+          "ready_ns": 2233464,
+          "stdout": "READY\nBENCH 0 15521176 190161474496\nBENCH 1 14684323 190161474496\nBENCH 2 14010483 190161474496\nBENCH 3 14274232 190161474496\nBENCH 4 14860189 190161474496\nBENCH 5 14084240 190161474496\nBENCH 6 14903850 190161474496\nBENCH 7 13852820 190161474496\nBENCH 8 14905714 190161474496\nBENCH 9 14142177 190161474496\nBENCH 10 14338652 190161474496\nBENCH 11 14979099 190161474496\nBENCH 12 14318704 190161474496\nBENCH 13 14740056 190161474496\nBENCH 14 14407469 190161474496\nBENCH 15 14345104 190161474496\nBENCH 16 14247903 190161474496\nBENCH 17 14125867 190161474496\nBENCH 18 14726651 190161474496\nBENCH 19 15126974 190161474496\nBENCH 20 14557658 190161474496\nBENCH 21 14605227 190161474496\nBENCH 22 14287227 190161474496\nBENCH 23 14779359 190161474496\nBENCH 24 13811984 190161474496\nBENCH 25 15032378 190161474496\nBENCH 26 14587864 190161474496\nBENCH 27 14281967 190161474496\nBENCH 28 14373476 190161474496\nBENCH 29 14273761 190161474496\n",
+          "stderr": "[realworld child] 9652 432838 3974 106 7\n",
+          "peak_rss_bytes": 9883648,
+          "user_ns": 432838000,
+          "system_ns": 3974000,
+          "voluntary_switches": 106,
+          "involuntary_switches": 7,
+          "launcher_tree_peak_rss_bytes": 30806016,
+          "iterations_ns": [
+            15521176,
+            14684323,
+            14010483,
+            14274232,
+            14860189,
+            14084240,
+            14903850,
+            13852820,
+            14905714,
+            14142177,
+            14338652,
+            14979099,
+            14318704,
+            14740056,
+            14407469,
+            14345104,
+            14247903,
+            14125867,
+            14726651,
+            15126974,
+            14557658,
+            14605227,
+            14287227,
+            14779359,
+            13811984,
+            15032378,
+            14587864,
+            14281967,
+            14373476,
+            14273761
+          ],
+          "first_ns": 15521176,
+          "warm_ns": [
+            14345104,
+            14247903,
+            14125867,
+            14726651,
+            15126974,
+            14557658,
+            14605227,
+            14287227,
+            14779359,
+            13811984,
+            15032378,
+            14587864,
+            14281967,
+            14373476,
+            14273761
+          ],
+          "compile_ns": null
+        }
+      ],
+      "fixture_sha256": "e8731f5a8e16a4818c0b6b67347e6ed6af6c0a82eebcbf6ecb7dd478467607b6",
+      "summary": {
+        "kernel_ns": {
+          "median": 14625494,
+          "min": 14373476,
+          "max": 14691756,
+          "count": 3,
+          "cv": 0.009414959766070811
+        },
+        "first_ns": {
+          "median": 15133626,
+          "min": 14436373,
+          "max": 15521176,
+          "count": 3,
+          "cv": 0.029862477076297477
+        },
+        "startup_ns": {
+          "median": 2233464,
+          "min": 2121136,
+          "max": 2390665,
+          "count": 3,
+          "cv": 0.04916422356610932
+        },
+        "wall_ns": {
+          "median": 444207226,
+          "min": 438941868,
+          "max": 448991201,
+          "count": 3,
+          "cv": 0.009242701492422198
+        },
+        "peak_rss_bytes": {
+          "median": 11681792,
+          "min": 9883648,
+          "max": 11870208,
+          "count": 3,
+          "cv": 0.0803370238004463
+        },
+        "compile_ns": null,
+        "cpu_ns": {
+          "median": 442128000,
+          "min": 436812000,
+          "max": 446938000,
+          "count": 3,
+          "cv": 0.009357517641133996
+        }
+      }
+    },
+    {
+      "language": "node",
+      "workload": "json",
+      "workers": 1,
+      "n": 8000,
+      "expected": 190161474496,
+      "validation": [
+        {
+          "n": 1,
+          "seed": 0,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+              "json",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 19869312,
+            "ready_ns": 18154561,
+            "stdout": "READY\nBENCH 0 83365 0\n",
+            "stderr": "[realworld child] 80948 8959 10928 25 3\n",
+            "peak_rss_bytes": 82890752,
+            "user_ns": 8959000,
+            "system_ns": 10928000,
+            "voluntary_switches": 25,
+            "involuntary_switches": 3,
+            "launcher_tree_peak_rss_bytes": 82890752,
+            "iterations_ns": [
+              83365
+            ],
+            "first_ns": 83365,
+            "warm_ns": [
+              83365
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 65,
+          "seed": 991,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+              "json",
+              "65",
+              "991",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 21974588,
+            "ready_ns": 19805774,
+            "stdout": "READY\nBENCH 0 179713 5039925\n",
+            "stderr": "[realworld child] 81180 15182 6630 23 4\n",
+            "peak_rss_bytes": 83128320,
+            "user_ns": 15182000,
+            "system_ns": 6630000,
+            "voluntary_switches": 23,
+            "involuntary_switches": 4,
+            "launcher_tree_peak_rss_bytes": 83128320,
+            "iterations_ns": [
+              179713
+            ],
+            "first_ns": 179713,
+            "warm_ns": [
+              179713
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 257,
+          "seed": 37,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+              "json",
+              "257",
+              "37",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 19725094,
+            "ready_ns": 17528389,
+            "stdout": "READY\nBENCH 0 442041 182053272\n",
+            "stderr": "[realworld child] 81352 13948 5809 45 1\n",
+            "peak_rss_bytes": 83304448,
+            "user_ns": 13948000,
+            "system_ns": 5809000,
+            "voluntary_switches": 45,
+            "involuntary_switches": 1,
+            "launcher_tree_peak_rss_bytes": 83304448,
+            "iterations_ns": [
+              442041
+            ],
+            "first_ns": 442041,
+            "warm_ns": [
+              442041
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 1025,
+          "seed": 7,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+              "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+              "json",
+              "1025",
+              "7",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 24592384,
+            "ready_ns": 16636765,
+            "stdout": "READY\nBENCH 0 5034721 11405290377\n",
+            "stderr": "[realworld child] 82752 12954 9968 40 1\n",
+            "peak_rss_bytes": 84738048,
+            "user_ns": 12954000,
+            "system_ns": 9968000,
+            "voluntary_switches": 40,
+            "involuntary_switches": 1,
+            "launcher_tree_peak_rss_bytes": 84738048,
+            "iterations_ns": [
+              5034721
+            ],
+            "first_ns": 5034721,
+            "warm_ns": [
+              5034721
+            ],
+            "compile_ns": null
+          }
+        }
+      ],
+      "records": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 237569075,
+          "ready_ns": 17978113,
+          "stdout": "READY\nBENCH 0 9933028 190161474496\nBENCH 1 6755153 190161474496\nBENCH 2 6942199 190161474496\nBENCH 3 7489074 190161474496\nBENCH 4 8115075 190161474496\nBENCH 5 6436371 190161474496\nBENCH 6 6563377 190161474496\nBENCH 7 10149309 190161474496\nBENCH 8 7053515 190161474496\nBENCH 9 6527480 190161474496\nBENCH 10 6519004 190161474496\nBENCH 11 6586710 190161474496\nBENCH 12 7065539 190161474496\nBENCH 13 6607859 190161474496\nBENCH 14 6605254 190161474496\nBENCH 15 8237192 190161474496\nBENCH 16 7232277 190161474496\nBENCH 17 8685724 190161474496\nBENCH 18 6327779 190161474496\nBENCH 19 6540403 190161474496\nBENCH 20 6324914 190161474496\nBENCH 21 6701543 190161474496\nBENCH 22 6677649 190161474496\nBENCH 23 6358336 190161474496\nBENCH 24 6593964 190161474496\nBENCH 25 6341736 190161474496\nBENCH 26 6828178 190161474496\nBENCH 27 6644487 190161474496\nBENCH 28 6337157 190161474496\nBENCH 29 6583093 190161474496\n",
+          "stderr": "[realworld child] 110312 220021 22050 290 4\n",
+          "peak_rss_bytes": 112959488,
+          "user_ns": 220021000,
+          "system_ns": 22050000,
+          "voluntary_switches": 290,
+          "involuntary_switches": 4,
+          "launcher_tree_peak_rss_bytes": 112959488,
+          "iterations_ns": [
+            9933028,
+            6755153,
+            6942199,
+            7489074,
+            8115075,
+            6436371,
+            6563377,
+            10149309,
+            7053515,
+            6527480,
+            6519004,
+            6586710,
+            7065539,
+            6607859,
+            6605254,
+            8237192,
+            7232277,
+            8685724,
+            6327779,
+            6540403,
+            6324914,
+            6701543,
+            6677649,
+            6358336,
+            6593964,
+            6341736,
+            6828178,
+            6644487,
+            6337157,
+            6583093
+          ],
+          "first_ns": 9933028,
+          "warm_ns": [
+            8237192,
+            7232277,
+            8685724,
+            6327779,
+            6540403,
+            6324914,
+            6701543,
+            6677649,
+            6358336,
+            6593964,
+            6341736,
+            6828178,
+            6644487,
+            6337157,
+            6583093
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 241563275,
+          "ready_ns": 19813829,
+          "stdout": "READY\nBENCH 0 12991553 190161474496\nBENCH 1 6728222 190161474496\nBENCH 2 6999275 190161474496\nBENCH 3 7415087 190161474496\nBENCH 4 8903889 190161474496\nBENCH 5 6661087 190161474496\nBENCH 6 6493267 190161474496\nBENCH 7 7096606 190161474496\nBENCH 8 6979539 190161474496\nBENCH 9 6543610 190161474496\nBENCH 10 6554901 190161474496\nBENCH 11 6558909 190161474496\nBENCH 12 7110061 190161474496\nBENCH 13 6751425 190161474496\nBENCH 14 6497855 190161474496\nBENCH 15 7791615 190161474496\nBENCH 16 7239832 190161474496\nBENCH 17 8945415 190161474496\nBENCH 18 6371460 190161474496\nBENCH 19 6573626 190161474496\nBENCH 20 6331977 190161474496\nBENCH 21 6980691 190161474496\nBENCH 22 6952789 190161474496\nBENCH 23 6381218 190161474496\nBENCH 24 6591969 190161474496\nBENCH 25 6344511 190161474496\nBENCH 26 6979188 190161474496\nBENCH 27 6676477 190161474496\nBENCH 28 6365760 190161474496\nBENCH 29 6517852 190161474496\n",
+          "stderr": "[realworld child] 110336 231192 15809 292 8\n",
+          "peak_rss_bytes": 112984064,
+          "user_ns": 231192000,
+          "system_ns": 15809000,
+          "voluntary_switches": 292,
+          "involuntary_switches": 8,
+          "launcher_tree_peak_rss_bytes": 112984064,
+          "iterations_ns": [
+            12991553,
+            6728222,
+            6999275,
+            7415087,
+            8903889,
+            6661087,
+            6493267,
+            7096606,
+            6979539,
+            6543610,
+            6554901,
+            6558909,
+            7110061,
+            6751425,
+            6497855,
+            7791615,
+            7239832,
+            8945415,
+            6371460,
+            6573626,
+            6331977,
+            6980691,
+            6952789,
+            6381218,
+            6591969,
+            6344511,
+            6979188,
+            6676477,
+            6365760,
+            6517852
+          ],
+          "first_ns": 12991553,
+          "warm_ns": [
+            7791615,
+            7239832,
+            8945415,
+            6371460,
+            6573626,
+            6331977,
+            6980691,
+            6952789,
+            6381218,
+            6591969,
+            6344511,
+            6979188,
+            6676477,
+            6365760,
+            6517852
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/home/dan/.config/nvm/versions/node/v26.6.0/bin/node",
+            "/tmp/language-memory-management-2026-10-17/bench/realworld/programs/workload.js",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 238149671,
+          "ready_ns": 19507761,
+          "stdout": "READY\nBENCH 0 10864586 190161474496\nBENCH 1 6862261 190161474496\nBENCH 2 7143953 190161474496\nBENCH 3 7484335 190161474496\nBENCH 4 8029877 190161474496\nBENCH 5 6595506 190161474496\nBENCH 6 6563297 190161474496\nBENCH 7 7019022 190161474496\nBENCH 8 7206329 190161474496\nBENCH 9 6600455 190161474496\nBENCH 10 6560602 190161474496\nBENCH 11 6552947 190161474496\nBENCH 12 6915159 190161474496\nBENCH 13 6616104 190161474496\nBENCH 14 6592891 190161474496\nBENCH 15 8113022 190161474496\nBENCH 16 7087469 190161474496\nBENCH 17 8613260 190161474496\nBENCH 18 6385387 190161474496\nBENCH 19 6693879 190161474496\nBENCH 20 6339000 190161474496\nBENCH 21 6546425 190161474496\nBENCH 22 7186793 190161474496\nBENCH 23 6431962 190161474496\nBENCH 24 6599945 190161474496\nBENCH 25 6747699 190161474496\nBENCH 26 6575479 190161474496\nBENCH 27 6689140 190161474496\nBENCH 28 6575319 190161474496\nBENCH 29 6678761 190161474496\n",
+          "stderr": "[realworld child] 110064 222702 23243 290 4\n",
+          "peak_rss_bytes": 112705536,
+          "user_ns": 222702000,
+          "system_ns": 23243000,
+          "voluntary_switches": 290,
+          "involuntary_switches": 4,
+          "launcher_tree_peak_rss_bytes": 112705536,
+          "iterations_ns": [
+            10864586,
+            6862261,
+            7143953,
+            7484335,
+            8029877,
+            6595506,
+            6563297,
+            7019022,
+            7206329,
+            6600455,
+            6560602,
+            6552947,
+            6915159,
+            6616104,
+            6592891,
+            8113022,
+            7087469,
+            8613260,
+            6385387,
+            6693879,
+            6339000,
+            6546425,
+            7186793,
+            6431962,
+            6599945,
+            6747699,
+            6575479,
+            6689140,
+            6575319,
+            6678761
+          ],
+          "first_ns": 10864586,
+          "warm_ns": [
+            8113022,
+            7087469,
+            8613260,
+            6385387,
+            6693879,
+            6339000,
+            6546425,
+            7186793,
+            6431962,
+            6599945,
+            6747699,
+            6575479,
+            6689140,
+            6575319,
+            6678761
+          ],
+          "compile_ns": null
+        }
+      ],
+      "fixture_sha256": "e8731f5a8e16a4818c0b6b67347e6ed6af6c0a82eebcbf6ecb7dd478467607b6",
+      "summary": {
+        "kernel_ns": {
+          "median": 6593964,
+          "min": 6591969,
+          "max": 6678761,
+          "count": 3,
+          "cv": 0.006109147470789904
+        },
+        "first_ns": {
+          "median": 10864586,
+          "min": 9933028,
+          "max": 12991553,
+          "count": 3,
+          "cv": 0.11364883576944074
+        },
+        "startup_ns": {
+          "median": 19507761,
+          "min": 17978113,
+          "max": 19813829,
+          "count": 3,
+          "cv": 0.04204236663889017
+        },
+        "wall_ns": {
+          "median": 238149671,
+          "min": 237569075,
+          "max": 241563275,
+          "count": 3,
+          "cv": 0.007369700106216904
+        },
+        "peak_rss_bytes": {
+          "median": 112959488,
+          "min": 112705536,
+          "max": 112984064,
+          "count": 3,
+          "cv": 0.0011153769451025428
+        },
+        "compile_ns": null,
+        "cpu_ns": {
+          "median": 245945000,
+          "min": 242071000,
+          "max": 247001000,
+          "count": 3,
+          "cv": 0.008650541062239425
+        }
+      }
+    },
+    {
+      "language": "java",
+      "workload": "json",
+      "workers": 1,
+      "n": 8000,
+      "expected": 190161474496,
+      "validation": [
+        {
+          "n": 1,
+          "seed": 0,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/usr/lib/jvm/java-25-openjdk/bin/java",
+              "-cp",
+              "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+              "Workload",
+              "json",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 73943291,
+            "ready_ns": 18652033,
+            "stdout": "READY\nBENCH 0 17755821 0\n",
+            "stderr": "[realworld child] 60616 110425 28229 637 16\n",
+            "peak_rss_bytes": 62070784,
+            "user_ns": 110425000,
+            "system_ns": 28229000,
+            "voluntary_switches": 637,
+            "involuntary_switches": 16,
+            "launcher_tree_peak_rss_bytes": 62070784,
+            "iterations_ns": [
+              17755821
+            ],
+            "first_ns": 17755821,
+            "warm_ns": [
+              17755821
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 65,
+          "seed": 991,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/usr/lib/jvm/java-25-openjdk/bin/java",
+              "-cp",
+              "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+              "Workload",
+              "json",
+              "65",
+              "991",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 81849660,
+            "ready_ns": 17335301,
+            "stdout": "READY\nBENCH 0 22156015 5039925\n",
+            "stderr": "[realworld child] 64796 134528 33673 1290 22\n",
+            "peak_rss_bytes": 66351104,
+            "user_ns": 134528000,
+            "system_ns": 33673000,
+            "voluntary_switches": 1290,
+            "involuntary_switches": 22,
+            "launcher_tree_peak_rss_bytes": 66351104,
+            "iterations_ns": [
+              22156015
+            ],
+            "first_ns": 22156015,
+            "warm_ns": [
+              22156015
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 257,
+          "seed": 37,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/usr/lib/jvm/java-25-openjdk/bin/java",
+              "-cp",
+              "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+              "Workload",
+              "json",
+              "257",
+              "37",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 84366650,
+            "ready_ns": 18332441,
+            "stdout": "READY\nBENCH 0 27245286 182053272\n",
+            "stderr": "[realworld child] 67908 167792 23269 1140 28\n",
+            "peak_rss_bytes": 69537792,
+            "user_ns": 167792000,
+            "system_ns": 23269000,
+            "voluntary_switches": 1140,
+            "involuntary_switches": 28,
+            "launcher_tree_peak_rss_bytes": 69537792,
+            "iterations_ns": [
+              27245286
+            ],
+            "first_ns": 27245286,
+            "warm_ns": [
+              27245286
+            ],
+            "compile_ns": null
+          }
+        },
+        {
+          "n": 1025,
+          "seed": 7,
+          "result": {
+            "command": [
+              "/tmp/badger-realworld-acrrvgkp/measure",
+              "/usr/lib/jvm/java-25-openjdk/bin/java",
+              "-cp",
+              "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+              "Workload",
+              "json",
+              "1025",
+              "7",
+              "1",
+              "0",
+              "1",
+              "/tmp/badger-realworld-acrrvgkp/validation.ndjson"
+            ],
+            "wall_ns": 99412703,
+            "ready_ns": 18536660,
+            "stdout": "READY\nBENCH 0 36874430 11405290377\n",
+            "stderr": "[realworld child] 83436 245258 41234 1261 34\n",
+            "peak_rss_bytes": 85438464,
+            "user_ns": 245258000,
+            "system_ns": 41234000,
+            "voluntary_switches": 1261,
+            "involuntary_switches": 34,
+            "launcher_tree_peak_rss_bytes": 85438464,
+            "iterations_ns": [
+              36874430
+            ],
+            "first_ns": 36874430,
+            "warm_ns": [
+              36874430
+            ],
+            "compile_ns": null
+          }
+        }
+      ],
+      "records": [
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/usr/lib/jvm/java-25-openjdk/bin/java",
+            "-cp",
+            "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+            "Workload",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 595767955,
+          "ready_ns": 18237745,
+          "stdout": "READY\nBENCH 0 81946560 190161474496\nBENCH 1 18924990 190161474496\nBENCH 2 16850551 190161474496\nBENCH 3 16012246 190161474496\nBENCH 4 16048624 190161474496\nBENCH 5 16724568 190161474496\nBENCH 6 17866336 190161474496\nBENCH 7 13980146 190161474496\nBENCH 8 11036425 190161474496\nBENCH 9 11121042 190161474496\nBENCH 10 13058446 190161474496\nBENCH 11 13558805 190161474496\nBENCH 12 17084776 190161474496\nBENCH 13 34621742 190161474496\nBENCH 14 38889468 190161474496\nBENCH 15 17930495 190161474496\nBENCH 16 10796380 190161474496\nBENCH 17 11951914 190161474496\nBENCH 18 10256037 190161474496\nBENCH 19 10744152 190161474496\nBENCH 20 11520624 190161474496\nBENCH 21 12224039 190161474496\nBENCH 22 13066091 190161474496\nBENCH 23 12334364 190161474496\nBENCH 24 10845501 190161474496\nBENCH 25 11695608 190161474496\nBENCH 26 11317547 190161474496\nBENCH 27 10632536 190161474496\nBENCH 28 10494249 190161474496\nBENCH 29 10581050 190161474496\n",
+          "stderr": "[realworld child] 665856 1116308 179102 3456 99\n",
+          "peak_rss_bytes": 681836544,
+          "user_ns": 1116308000,
+          "system_ns": 179102000,
+          "voluntary_switches": 3456,
+          "involuntary_switches": 99,
+          "launcher_tree_peak_rss_bytes": 681836544,
+          "iterations_ns": [
+            81946560,
+            18924990,
+            16850551,
+            16012246,
+            16048624,
+            16724568,
+            17866336,
+            13980146,
+            11036425,
+            11121042,
+            13058446,
+            13558805,
+            17084776,
+            34621742,
+            38889468,
+            17930495,
+            10796380,
+            11951914,
+            10256037,
+            10744152,
+            11520624,
+            12224039,
+            13066091,
+            12334364,
+            10845501,
+            11695608,
+            11317547,
+            10632536,
+            10494249,
+            10581050
+          ],
+          "first_ns": 81946560,
+          "warm_ns": [
+            17930495,
+            10796380,
+            11951914,
+            10256037,
+            10744152,
+            11520624,
+            12224039,
+            13066091,
+            12334364,
+            10845501,
+            11695608,
+            11317547,
+            10632536,
+            10494249,
+            10581050
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/usr/lib/jvm/java-25-openjdk/bin/java",
+            "-cp",
+            "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+            "Workload",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 585508892,
+          "ready_ns": 19544740,
+          "stdout": "READY\nBENCH 0 90661377 190161474496\nBENCH 1 21672408 190161474496\nBENCH 2 16349502 190161474496\nBENCH 3 20714570 190161474496\nBENCH 4 16106141 190161474496\nBENCH 5 15635918 190161474496\nBENCH 6 17839847 190161474496\nBENCH 7 13646888 190161474496\nBENCH 8 11288974 190161474496\nBENCH 9 11738327 190161474496\nBENCH 10 11282241 190161474496\nBENCH 11 11302459 190161474496\nBENCH 12 12829231 190161474496\nBENCH 13 27209460 190161474496\nBENCH 14 38407224 190161474496\nBENCH 15 17065761 190161474496\nBENCH 16 10515909 190161474496\nBENCH 17 10411045 190161474496\nBENCH 18 10300580 190161474496\nBENCH 19 10456399 190161474496\nBENCH 20 10390246 190161474496\nBENCH 21 12171431 190161474496\nBENCH 22 10688690 190161474496\nBENCH 23 11693464 190161474496\nBENCH 24 10251939 190161474496\nBENCH 25 10416896 190161474496\nBENCH 26 10363567 190161474496\nBENCH 27 10309777 190161474496\nBENCH 28 10297454 190161474496\nBENCH 29 10566333 190161474496\n",
+          "stderr": "[realworld child] 675620 1165436 207857 3227 82\n",
+          "peak_rss_bytes": 691834880,
+          "user_ns": 1165436000,
+          "system_ns": 207857000,
+          "voluntary_switches": 3227,
+          "involuntary_switches": 82,
+          "launcher_tree_peak_rss_bytes": 691834880,
+          "iterations_ns": [
+            90661377,
+            21672408,
+            16349502,
+            20714570,
+            16106141,
+            15635918,
+            17839847,
+            13646888,
+            11288974,
+            11738327,
+            11282241,
+            11302459,
+            12829231,
+            27209460,
+            38407224,
+            17065761,
+            10515909,
+            10411045,
+            10300580,
+            10456399,
+            10390246,
+            12171431,
+            10688690,
+            11693464,
+            10251939,
+            10416896,
+            10363567,
+            10309777,
+            10297454,
+            10566333
+          ],
+          "first_ns": 90661377,
+          "warm_ns": [
+            17065761,
+            10515909,
+            10411045,
+            10300580,
+            10456399,
+            10390246,
+            12171431,
+            10688690,
+            11693464,
+            10251939,
+            10416896,
+            10363567,
+            10309777,
+            10297454,
+            10566333
+          ],
+          "compile_ns": null
+        },
+        {
+          "command": [
+            "/tmp/badger-realworld-acrrvgkp/measure",
+            "/usr/lib/jvm/java-25-openjdk/bin/java",
+            "-cp",
+            "/tmp/badger-realworld-acrrvgkp/java-classes:/home/dan/orca/projects/language/bench/realworld/.tools/gson-2.14.0.jar",
+            "Workload",
+            "json",
+            "8000",
+            "37",
+            "1",
+            "15",
+            "15",
+            "/tmp/badger-realworld-acrrvgkp/input.ndjson"
+          ],
+          "wall_ns": 576635681,
+          "ready_ns": 18884615,
+          "stdout": "READY\nBENCH 0 82513111 190161474496\nBENCH 1 20240982 190161474496\nBENCH 2 16605026 190161474496\nBENCH 3 15543717 190161474496\nBENCH 4 17251987 190161474496\nBENCH 5 15685079 190161474496\nBENCH 6 18276848 190161474496\nBENCH 7 13788301 190161474496\nBENCH 8 12814604 190161474496\nBENCH 9 11227389 190161474496\nBENCH 10 11110883 190161474496\nBENCH 11 12367234 190161474496\nBENCH 12 11303210 190161474496\nBENCH 13 34530982 190161474496\nBENCH 14 35395888 190161474496\nBENCH 15 17998741 190161474496\nBENCH 16 10448805 190161474496\nBENCH 17 10287326 190161474496\nBENCH 18 10567205 190161474496\nBENCH 19 10266657 190161474496\nBENCH 20 10378034 190161474496\nBENCH 21 12452622 190161474496\nBENCH 22 10464614 190161474496\nBENCH 23 11574834 190161474496\nBENCH 24 10471467 190161474496\nBENCH 25 10259193 190161474496\nBENCH 26 10417046 190161474496\nBENCH 27 10527611 190161474496\nBENCH 28 10455508 190161474496\nBENCH 29 10459855 190161474496\n",
+          "stderr": "[realworld child] 673956 1197838 158771 3603 87\n",
+          "peak_rss_bytes": 690130944,
+          "user_ns": 1197838000,
+          "system_ns": 158771000,
+          "voluntary_switches": 3603,
+          "involuntary_switches": 87,
+          "launcher_tree_peak_rss_bytes": 690130944,
+          "iterations_ns": [
+            82513111,
+            20240982,
+            16605026,
+            15543717,
+            17251987,
+            15685079,
+            18276848,
+            13788301,
+            12814604,
+            11227389,
+            11110883,
+            12367234,
+            11303210,
+            34530982,
+            35395888,
+            17998741,
+            10448805,
+            10287326,
+            10567205,
+            10266657,
+            10378034,
+            12452622,
+            10464614,
+            11574834,
+            10471467,
+            10259193,
+            10417046,
+            10527611,
+            10455508,
+            10459855
+          ],
+          "first_ns": 82513111,
+          "warm_ns": [
+            17998741,
+            10448805,
+            10287326,
+            10567205,
+            10266657,
+            10378034,
+            12452622,
+            10464614,
+            11574834,
+            10471467,
+            10259193,
+            10417046,
+            10527611,
+            10455508,
+            10459855
+          ],
+          "compile_ns": null
+        }
+      ],
+      "fixture_sha256": "e8731f5a8e16a4818c0b6b67347e6ed6af6c0a82eebcbf6ecb7dd478467607b6",
+      "summary": {
+        "kernel_ns": {
+          "median": 10459855,
+          "min": 10416896,
+          "max": 11317547,
+          "count": 3,
+          "cv": 0.03865432881977068
+        },
+        "first_ns": {
+          "median": 82513111,
+          "min": 81946560,
+          "max": 90661377,
+          "count": 3,
+          "cv": 0.046817667487574516
+        },
+        "startup_ns": {
+          "median": 18884615,
+          "min": 18237745,
+          "max": 19544740,
+          "count": 3,
+          "cv": 0.028248540382065413
+        },
+        "wall_ns": {
+          "median": 585508892,
+          "min": 576635681,
+          "max": 595767955,
+          "count": 3,
+          "cv": 0.013341185102249893
+        },
+        "peak_rss_bytes": {
+          "median": 690130944,
+          "min": 681836544,
+          "max": 691834880,
+          "count": 3,
+          "cv": 0.006348564631418424
+        },
+        "compile_ns": null,
+        "cpu_ns": {
+          "median": 1356609000,
+          "min": 1295410000,
+          "max": 1373293000,
+          "count": 3,
+          "cv": 0.024953638462185405
+        }
+      }
+    }
+  ],
+  "failures": [],
+  "order": [
+    [
+      0,
+      "java",
+      "json",
+      1
+    ],
+    [
+      0,
+      "badger",
+      "json",
+      1
+    ],
+    [
+      0,
+      "node",
+      "json",
+      1
+    ],
+    [
+      0,
+      "go",
+      "json",
+      1
+    ],
+    [
+      1,
+      "badger",
+      "json",
+      1
+    ],
+    [
+      1,
+      "java",
+      "json",
+      1
+    ],
+    [
+      1,
+      "go",
+      "json",
+      1
+    ],
+    [
+      1,
+      "node",
+      "json",
+      1
+    ],
+    [
+      2,
+      "java",
+      "json",
+      1
+    ],
+    [
+      2,
+      "node",
+      "json",
+      1
+    ],
+    [
+      2,
+      "go",
+      "json",
+      1
+    ],
+    [
+      2,
+      "badger",
+      "json",
+      1
+    ]
+  ],
+  "cohort": "a458f83bc8f4ac6dc1e75b5a2d004e9cabd988c3f9b018f94c52e9f65cb3d6cb",
+  "cohort_identity": {
+    "contract": "realworld-v1",
+    "runner_sha256": "66ac7a576083bc416b1c4a7bb27a7048d5bc8f2e0f35300703a844dcf333521c",
+    "launcher_sha256": "d206301c3fde9eb67cded2e69d33abfb7a9e8c9d7611ef7c499b53148e507ab2",
+    "config": {
+      "sizes": {
+        "json": 8000
+      },
+      "seed": 37,
+      "workers": [
+        1
+      ],
+      "languages": [
+        "badger",
+        "go",
+        "node",
+        "java"
+      ],
+      "processes": 3,
+      "warmups": 15,
+      "samples": 15,
+      "build_samples": 1,
+      "order_seed": 2026101827
+    },
+    "workload_hashes": {
+      "workload.js": "f61df8e45d3456436abc43a21c8a1ff8222acb75008b23300ebcffb4596600f8",
+      "workload.go": "7b92d8186545b0ff4166069d4c86068c73740c8a439630277a7414b0b67b0311",
+      "workload.bdg": "1f1b7194186913ea1b3d09b73651b6b774b08432b165ab35a91e69aadc921610",
+      "Workload.java": "cc9b7d4582b8ec6ce6f73c6c03d5cbcecbad56a60b3b948e098cf92126e99cce"
+    },
+    "machine": {
+      "hostname": "helium",
+      "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+      "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+      "affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "resource_limits": {
+        "cpu.max": [
+          "max 100000"
+        ],
+        "memory.max": [
+          "max"
+        ],
+        "cpuset.cpus.effective": [
+          "0-15"
+        ]
+      }
+    },
+    "controls": {
+      "go": "3144268876ba974458f06ab523581fabac9e967855e2a1bb9de9ba950167b542",
+      "node": "02deeca25470eb95255f60147927a1b9785dcb784c9d7690cc712f359331ac8e",
+      "java": "7152ca6a1afc68a4d582a508589fbbf1dabbab5334e85639a26f0bf03c059c43",
+      "javac": "864a5fd9aa588c8677b0fec55a3ffc473c88f95de1e4d6d63a74fe4c2ebe2241"
+    },
+    "java_runtime": {
+      "lib/libattach.so": "2380759a93cad27a8ba7f2b3658002a6fef77847dd3d7db1872eb947a1a3c5ff",
+      "lib/libawt.so": "a51723bc917bb73a3bd71613f746152966dc6296b1d3ec0ee5a01d2cf69b5df6",
+      "lib/libawt_headless.so": "ac048d18c60ac8510d2a4260cdc34b9d14bdd69442d4a8e331a2a6c4851836b0",
+      "lib/libawt_xawt.so": "0c711c310cfbd62a453e609c099e982187d451e63f82a46d72f1530b3b2f06e9",
+      "lib/libdt_socket.so": "aa1d49774d380a2ae41a93e5751ed3ec4e618177e6232425860641792657e65a",
+      "lib/libextnet.so": "d94c3d65806ca63c7aa35fe23c5324b04c92317bbf76cfe7ca038ea652ac985f",
+      "lib/libfontmanager.so": "ae954124ccacd34a709f02f7b59509d42a321d98bd1e1ba61464467f56c66ada",
+      "lib/libinstrument.so": "49566c990d96008b0733d91506b2a4b1afeedac8a3f86279758f9aa32edf961c",
+      "lib/libj2gss.so": "56e19903fc3803a0b22b2669fb6556a1c42c5efd8e095c8aecbd09d5cdc107b4",
+      "lib/libj2pcsc.so": "3233e24c9e4c7cfd1b9f93ff951f01c242b19426906101a9c53685a633aed8e5",
+      "lib/libj2pkcs11.so": "8f0841f16c9d320ad05c9984f9812ba3085ccf082aecef9ee14f34bbbb7eb446",
+      "lib/libjaas.so": "68155925cb2eabde70dc5cd609a58514a7b21d5006ad101c90d6d13eec8b1af5",
+      "lib/libjava.so": "895a731aa3ed90d4710da5d48228f507703ff3d4b366dbe2c3776a7423d4f313",
+      "lib/libjavajpeg.so": "256bf640e48657cad4d2dd0110ba22ff315d21ad559fd413b9aabde8c9086ae3",
+      "lib/libjawt.so": "be4807c0f8daff9edd7ed7d1237fe520fd6591b576c6bc3ae040363b20147011",
+      "lib/libjdwp.so": "cf1a6e9014c704395baf542bda6b3454d2a40218fcbffa783d100f687fd8ce6f",
+      "lib/libjimage.so": "f2c12c81a3788248dd7b1ca239b274f439091d802278ed7c8d33636eeb657f67",
+      "lib/libjli.so": "b0a0b8aacff0ffd33d3def74a24ae01a53db0b2ba82bd8cd5be8d07b8a316ca3",
+      "lib/libjsig.so": "2029591f7440d21d357ee61e4e2ca6e26cc38bfe4bb920a0337315e9ddcfe2d6",
+      "lib/libjsound.so": "3d8192be4a6e7f47d0d3aec8d0ad3068def6f0855917cc2fd8b5c881cec096bf",
+      "lib/libjsvml.so": "12e255868841569549e8bbec234b5b111d39e5904f0c836b05211859b4ca89ec",
+      "lib/liblcms.so": "9fb2b03ada0b451ba9a6fbd4ad9c9c6876dc7350cea348efe61da1ac0afd64f1",
+      "lib/libmanagement.so": "28c2354ceb8dfde16d042e76b76c13bec113bb8c2156fa656ac9c3824b25b1dd",
+      "lib/libmanagement_agent.so": "3c807a6bcabfc27e3561b5166b6d6eff735909522c48ef2f1e663bddcb82bcd2",
+      "lib/libmanagement_ext.so": "17f10344e7153f2e60ae0d2f75b942308e9bcf3f34996ee15bfad4cb045115bc",
+      "lib/libmlib_image.so": "ae1582f513ed06c2b7710069463e91ad02446b4e413d067c51d10eef11dfc424",
+      "lib/libnet.so": "50a97c2d9b9f35cd994500d6ecda64a72c544024de92b8c3c10a850552373383",
+      "lib/libnio.so": "f32eb5972fd0bf6ab097c7a45c1b79885f890c76144067b21014a386bb437704",
+      "lib/libprefs.so": "1e1d86db535bb5d52a6b18d6e1aee2afc9fb8e7af1a81e3c06aea4cf9ec2f2d6",
+      "lib/librmi.so": "dbfb9c0d194f2f6c72b6861949d53f7ab034bd90eaec1875f9c4425d855ef0b7",
+      "lib/libsaproc.so": "91d0722d01a4a66f56e06724b48b432bcbd789bf0b77c7276a944f1762261d7c",
+      "lib/libsctp.so": "3e98e2935a6dc71060e3e5fa375808a27ecf4df0778ab57bf44f515b039d7471",
+      "lib/libsimdsort.so": "ec25af102feb2d39e2b661dbfe7315cd144413d498cd6e0d5e592f6d38732016",
+      "lib/libsplashscreen.so": "4a0024d208005970f2f0c185c815fb7ba9deceffe13d6582244155db2b3f0ab8",
+      "lib/libsyslookup.so": "849fbc2a686ea1f3ef06f96e8d6fea57aa7ad916d747be453d92aeecde44778f",
+      "lib/libverify.so": "1e6e88003edf241d8e3f0bb58a3caa1789dd41815d2f7fdb24604f2184f72584",
+      "lib/libzip.so": "8be98fddc0c24358c59f3e26addf36a2cdae5b02c00de48f9631a034bba61626",
+      "lib/modules": "84ac59ce90c23d6be36e298ade5cc63b5a0496ee7e7faa1c0fc08000b2db75e6",
+      "lib/server/libjsig.so": "2029591f7440d21d357ee61e4e2ca6e26cc38bfe4bb920a0337315e9ddcfe2d6",
+      "lib/server/libjvm.so": "acc893f3fe1160dc2c04cbfd732ea323470f14f8045f5745543272fc854f007f",
+      "release": "699417ef4057d6bcc8982fecda1b37581eeed49ca940f5bb27895ae4eaa1ade8"
+    },
+    "gson_sha256": "2cbd119bf1961c28788310963dc80ba65f58cdeec1dd139c8bdb1240faa2c36f"
+  },
+  "environment": {
+    "overrides": {
+      "LC_ALL": "C",
+      "GOTOOLCHAIN": "local",
+      "GOWORK": "off",
+      "GOMAXPROCS": "per-cell worker count"
+    },
+    "removed_keys": [
+      "LD_LIBRARY_PATH"
+    ]
+  },
+  "instrumentation": {
+    "source_sha256": "d206301c3fde9eb67cded2e69d33abfb7a9e8c9d7611ef7c499b53148e507ab2",
+    "executable_sha256": "4f802076efbd0b73e40200d78aae2813d869ee00d7d33fa11a8f5717a28b4dc0",
+    "compiler": "cc (GCC) 16.2.1 20260810\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+    "preparation": {
+      "command": [
+        "/usr/bin/cc",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/language-memory-management-2026-10-17/bench/realworld/measure.c",
+        "-o",
+        "/tmp/badger-realworld-acrrvgkp/measure"
+      ],
+      "wall_ns": 42684881,
+      "ready_ns": null,
+      "stdout": "",
+      "stderr": "",
+      "peak_rss_bytes": 43765760,
+      "user_ns": 28047000,
+      "system_ns": 14115000,
+      "voluntary_switches": 13,
+      "involuntary_switches": 5
+    }
+  },
+  "host_after": {
+    "hostname": "helium",
+    "platform": "Linux-7.2.2-arch1-1-x86_64-with-glibc2.44",
+    "machine": "x86_64",
+    "cpu": "AMD Ryzen 7 8745HS w/ Radeon 780M Graphics",
+    "logical_cpus": 16,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "load": [
+      1.96044921875,
+      1.46240234375,
+      1.259765625
+    ],
+    "cpu_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=9300583571\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "meminfo": "MemTotal:       61475156 kB\nMemFree:         3234644 kB\nMemAvailable:   33215428 kB\nBuffers:         3028220 kB\nCached:         24255688 kB\nSwapCached:      2779828 kB\nActive:         15526960 kB\nInactive:       27682256 kB\nActive(anon):   13022284 kB\nInactive(anon):  6230384 kB\nActive(file):    2504676 kB\nInactive(file): 21451872 kB\nUnevictable:       75464 kB\nMlocked:            9568 kB\nSwapTotal:      62434640 kB\nSwapFree:       43018344 kB\nZswap:            950188 kB\nZswapped:        2671284 kB\nDirty:              5088 kB\nWriteback:             0 kB\nAnonPages:      14598252 kB\nMapped:          2319524 kB\nShmem:           3254404 kB\nKReclaimable:    6719196 kB\nSlab:            7687264 kB\nSReclaimable:    6719196 kB\nSUnreclaim:       968068 kB\nKernelStack:       38704 kB\nPageTables:       145460 kB\nSecPageTables:      4824 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    93172216 kB\nCommitted_AS:   62481204 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:      200952 kB\nVmallocChunk:          0 kB\nPercpu:            18752 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:   1333248 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    925696 kB\nFilePmdMapped:    696320 kB\nCmaTotal:              0 kB\nCmaFree:               0 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nGPUActive:        187832 kB\nGPUReclaim:        72700 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:     4246296 kB\nDirectMap2M:    57393152 kB\nDirectMap1G:     2097152 kB",
+    "cgroup_membership": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/orca-daemon-b8d0a41a-3963-49e2-84f5-0c5bd51a926e.scope",
+    "cgroup_hierarchy": [
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/orca-daemon-b8d0a41a-3963-49e2-84f5-0c5bd51a926e.scope",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice/user-1000.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max"
+      },
+      {
+        "path": "/sys/fs/cgroup/user.slice",
+        "cpu.max": "max 100000",
+        "memory.max": "max",
+        "cpuset.cpus.effective": "0-15"
+      },
+      {
+        "path": "/sys/fs/cgroup",
+        "cpuset.cpus.effective": "0-15"
+      }
+    ],
+    "resource_limits": {
+      "cpu.max": [
+        "max 100000"
+      ],
+      "memory.max": [
+        "max"
+      ],
+      "cpuset.cpus.effective": [
+        "0-15"
+      ]
+    }
+  },
+  "finished": "2026-10-18T12:42:23.558052+00:00"
+}

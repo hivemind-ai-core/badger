@@ -1,0 +1,27 @@
+{
+  "private-map-candidate": {
+    "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-candidate",
+    "sha256": "a92053ca22f41d8e59f98614851a0227ad4d324e70b396b9eefd85b093ce3c2a",
+    "diagnostic": false,
+    "profile": null
+  },
+  "private-map-diagnostic": {
+    "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/private-map-diagnostic",
+    "sha256": "50e8b535bdef43d6ae90c598b698403f705604e0e13e1a20a5fbff48d42c692d",
+    "diagnostic": true,
+    "profile": {
+      "collections": [],
+      "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution.",
+      "policy": {
+        "buffer_inline_bytes": 256,
+        "max_minors": null,
+        "minor_bytes": null,
+        "pool_max_bytes": 512,
+        "pool_refill_bytes": 2097152,
+        "reuse_sweep_helpers": false,
+        "trim": true
+      },
+      "schema": 1
+    }
+  }
+}

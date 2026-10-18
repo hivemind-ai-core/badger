@@ -1,0 +1,198 @@
+rep=0 realworld/reconcile w1 candidate
+rep=0 realworld/reconcile w1 baseline
+rep=0 realworld/state w8 baseline
+rep=0 realworld/state w8 candidate
+rep=0 realworld/state w1 baseline
+rep=0 realworld/state w1 candidate
+rep=0 realworld/reconcile w8 candidate
+rep=0 realworld/reconcile w8 baseline
+[
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 23944775,
+          "min": 23944775,
+          "max": 23944775,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 71204864,
+          "min": 71204864,
+          "max": 71204864,
+          "count": 1,
+          "cv": 0.0
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 6214560,
+          "min": 6214560,
+          "max": 6214560,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 61722624,
+          "min": 61722624,
+          "max": 61722624,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.7404627940751166,
+      "min": -0.7404627940751166,
+      "max": -0.7404627940751166,
+      "count": 1,
+      "cv": -0.0
+    },
+    "faster_pairs": 1
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 22502019,
+          "min": 22502019,
+          "max": 22502019,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 71041024,
+          "min": 71041024,
+          "max": 71041024,
+          "count": 1,
+          "cv": 0.0
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 7982780,
+          "min": 7982780,
+          "max": 7982780,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 60203008,
+          "min": 60203008,
+          "max": 60203008,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.6452416114305121,
+      "min": -0.6452416114305121,
+      "max": -0.6452416114305121,
+      "count": 1,
+      "cv": -0.0
+    },
+    "faster_pairs": 1
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4802680,
+          "min": 4802680,
+          "max": 4802680,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 43356160,
+          "min": 43356160,
+          "max": 43356160,
+          "count": 1,
+          "cv": 0.0
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4604733,
+          "min": 4604733,
+          "max": 4604733,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 43261952,
+          "min": 43261952,
+          "max": 43261952,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0412159460967626,
+      "min": -0.0412159460967626,
+      "max": -0.0412159460967626,
+      "count": 1,
+      "cv": -0.0
+    },
+    "faster_pairs": 1
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4886036,
+          "min": 4886036,
+          "max": 4886036,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 44044288,
+          "min": 44044288,
+          "max": 44044288,
+          "count": 1,
+          "cv": 0.0
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4755503,
+          "min": 4755503,
+          "max": 4755503,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 43806720,
+          "min": 43806720,
+          "max": 43806720,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.02671552153934187,
+      "min": -0.02671552153934187,
+      "max": -0.02671552153934187,
+      "count": 1,
+      "cv": -0.0
+    },
+    "faster_pairs": 1
+  }
+]

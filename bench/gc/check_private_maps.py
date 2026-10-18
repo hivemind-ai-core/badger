@@ -79,6 +79,14 @@ def main():
                                           settings | dict(GC_BENCH_CONFIG=json.dumps(config)), output=None)
                         validate_coverage(json.loads(capture["stdout"]), config)
                         runs.append(capture | dict(settings=settings, config=config))
+                # Grow several trie levels while every allocation collects;
+                # old private nodes must retain newly allocated descendants.
+                for workers in [1, 8]:
+                    config = dict(mode="persistent-int", n=4097, rounds=1, payload=17, retain=4096)
+                    capture = execute([binary, "run", "--release", "--workers", workers, "bench/gc/coverage.bdg"],
+                                      settings | dict(GC_BENCH_CONFIG=json.dumps(config)), output=None)
+                    validate_coverage(json.loads(capture["stdout"]), config)
+                    runs.append(capture | dict(settings=settings, config=config))
         # Independent Python maps model snapshots and dead aliases in generated
         # source. Include snapshots before updates, final-only publication, and
         # entirely private loops; keep every key/value check, not just a sum.

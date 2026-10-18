@@ -1,0 +1,6 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 48.85s

@@ -49,7 +49,7 @@ negative results; do not mark architectural sketches as implemented.
   then evaluate pointer-bearing layouts with precise tracing.
 - [ ] I5: Reuse consumed immutable structures when uniqueness is proven, including
   descendant ownership; retain copying when versions share nodes.
-  - [ ] I5a: Reuse private, fresh-origin scalar-map updates only when all old
+  - [x] I5a: Reuse private, fresh-origin scalar-map updates only when all old
     aliases die and no earlier version/cursor escapes before later mutations.
 - [ ] I6: Evaluate compact small-map, singleton-collection, and short-string forms
   against observed size distributions and object-size inflation.
@@ -966,3 +966,41 @@ All 76 program/six MIR tests, 72 focused source/MIR GC checks and eight MIR
 probes, 21 harness tests, strict MIR Clippy in both modes and formatting pass.
 Next I5a: prove private, empty-origin scalar maps can reuse transient updates;
 preserve any live aliases and every observable snapshot. [I2b results](reports/memory-management/I2b-summary.md).
+
+### I5a complete — prove private scalar maps can reuse their trie
+
+Keep `fc759e3`: one fresh empty origin, consistent scalar K/V descriptors,
+copy/insert-only producers, no old aliases live after an update, and no cursor
+or publication before reachable later updates. Convert every insert in a group
+or none. Reuse existing transient roots/barriers and retain the budget check.
+Final maps are ordinary immutable shared values; inputs/pointer maps/uncertain
+cases retain persistence. New optimized MIR requires the private helper, while
+old format-6 saved programs continue to run.
+
+Saved 132 baseline measurements before code edits. Final evidence: 1116 GC/
+application comparison processes with no interval overlap/outlier removal,
+plus separately scoped official four-language short/long-warm studies.
+Reconcile improves 71–73% at all worker counts (all seven pairs faster); RSS
+falls 18–19%. Diagnostic eight-iteration MapNode counts 897,160→7,848 and Map
+wrappers 411,432→8 remove about 394 MiB allocation traffic; collections 28→3.
+True snapshot counts/bytes remain exact controls, with noisy small timing changes.
+
+Eight fixed independent map tasks improve 201.0→30.4 ms at one worker and
+65.7→6.9 ms at eight: scaling grows 3.1x→4.4x; eight-worker RSS -50.9%, workload
+collections 62→0. Serial state/actor stages are not claimed to scale from this.
+
+Fresh four-language reconcile: Badger 4.561 ms, Go 3.056, Node 8.548, Java
+2.678 (noisy). State remains behind Go/Java; record and JSON gaps remain. Longer
+JSON warmup changes Java's result substantially, exposing a benchmark convergence
+issue; both cohorts are retained. No universal language or p99 win is claimed.
+
+All 76 program/12 MIR tests, 10 ordinary/12 diagnostic runtime tests, 72 focused
+source/saved-MIR GC checks, 28 MIR probes, 36 differential cases, 22 harness tests,
+strict four-crate Clippy in both modes and formatting pass. Full proof, counts,
+controls and cross-language evidence: [I5a report](reports/memory-management/I5a-summary.md).
+
+Next G7b experiment: cache finalizer presence in spare object metadata bits and
+reuse descriptor shape-cache initialization, avoiding dead nonfinalizer descriptor
+lookups without changing object layout or pool policy. Preserve lazy kind
+backpatch/reset semantics and old MIR compatibility. Broader I5, pointer-map
+ownership, true-snapshot epochs, packed records and arenas remain open.

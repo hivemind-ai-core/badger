@@ -1,0 +1,21 @@
+Report: reports/memory-management/I5a-realworld-longwarm/2026-10-18T12-42-15.894170Z-fc759e3f7af6.json
+Preparing badger
+Preparing go
+Preparing java
+Verify badger json       w1
+Verify go     json       w1
+Verify node   json       w1
+Verify java   json       w1
+Measure 1/3 java   json       w1
+Measure 1/3 badger json       w1
+Measure 1/3 node   json       w1
+Measure 1/3 go     json       w1
+Measure 2/3 badger json       w1
+Measure 2/3 java   json       w1
+Measure 2/3 go     json       w1
+Measure 2/3 node   json       w1
+Measure 3/3 java   json       w1
+Measure 3/3 node   json       w1
+Measure 3/3 go     json       w1
+Measure 3/3 badger json       w1
+complete: reports/memory-management/I5a-realworld-longwarm/2026-10-18T12-42-15.894170Z-fc759e3f7af6.json

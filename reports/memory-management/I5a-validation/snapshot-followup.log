@@ -1,0 +1,442 @@
+coverage rep=-1 scalar-snapshots w8 candidate
+coverage rep=-1 scalar-snapshots w8 baseline
+coverage rep=-1 scalar-snapshots w1 candidate
+coverage rep=-1 scalar-snapshots w1 baseline
+coverage rep=0 scalar-snapshots w1 candidate
+coverage rep=0 scalar-snapshots w1 baseline
+coverage rep=0 scalar-snapshots w8 candidate
+coverage rep=0 scalar-snapshots w8 baseline
+coverage rep=1 scalar-snapshots w8 baseline
+coverage rep=1 scalar-snapshots w8 candidate
+coverage rep=1 scalar-snapshots w1 baseline
+coverage rep=1 scalar-snapshots w1 candidate
+coverage rep=2 scalar-snapshots w8 baseline
+coverage rep=2 scalar-snapshots w8 candidate
+coverage rep=2 scalar-snapshots w1 candidate
+coverage rep=2 scalar-snapshots w1 baseline
+coverage rep=3 scalar-snapshots w8 baseline
+coverage rep=3 scalar-snapshots w8 candidate
+coverage rep=3 scalar-snapshots w1 candidate
+coverage rep=3 scalar-snapshots w1 baseline
+coverage rep=4 scalar-snapshots w8 candidate
+coverage rep=4 scalar-snapshots w8 baseline
+coverage rep=4 scalar-snapshots w1 candidate
+coverage rep=4 scalar-snapshots w1 baseline
+coverage rep=5 scalar-snapshots w8 baseline
+coverage rep=5 scalar-snapshots w8 candidate
+coverage rep=5 scalar-snapshots w1 baseline
+coverage rep=5 scalar-snapshots w1 candidate
+coverage rep=6 scalar-snapshots w1 candidate
+coverage rep=6 scalar-snapshots w1 baseline
+coverage rep=6 scalar-snapshots w8 baseline
+coverage rep=6 scalar-snapshots w8 candidate
+coverage rep=7 scalar-snapshots w1 baseline
+coverage rep=7 scalar-snapshots w1 candidate
+coverage rep=7 scalar-snapshots w8 baseline
+coverage rep=7 scalar-snapshots w8 candidate
+coverage rep=8 scalar-snapshots w8 candidate
+coverage rep=8 scalar-snapshots w8 baseline
+coverage rep=8 scalar-snapshots w1 baseline
+coverage rep=8 scalar-snapshots w1 candidate
+coverage rep=9 scalar-snapshots w8 baseline
+coverage rep=9 scalar-snapshots w8 candidate
+coverage rep=9 scalar-snapshots w1 baseline
+coverage rep=9 scalar-snapshots w1 candidate
+coverage rep=10 scalar-snapshots w1 baseline
+coverage rep=10 scalar-snapshots w1 candidate
+coverage rep=10 scalar-snapshots w8 candidate
+coverage rep=10 scalar-snapshots w8 baseline
+coverage rep=11 scalar-snapshots w1 baseline
+coverage rep=11 scalar-snapshots w1 candidate
+coverage rep=11 scalar-snapshots w8 baseline
+coverage rep=11 scalar-snapshots w8 candidate
+coverage rep=12 scalar-snapshots w8 candidate
+coverage rep=12 scalar-snapshots w8 baseline
+coverage rep=12 scalar-snapshots w1 baseline
+coverage rep=12 scalar-snapshots w1 candidate
+coverage rep=13 scalar-snapshots w1 baseline
+coverage rep=13 scalar-snapshots w1 candidate
+coverage rep=13 scalar-snapshots w8 candidate
+coverage rep=13 scalar-snapshots w8 baseline
+coverage rep=14 scalar-snapshots w1 baseline
+coverage rep=14 scalar-snapshots w1 candidate
+coverage rep=14 scalar-snapshots w8 baseline
+coverage rep=14 scalar-snapshots w8 candidate
+[
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 15,
+    "elapsed_ms": {
+      "median": 14.238756,
+      "min": 12.421354,
+      "max": 18.256149,
+      "runs": [
+        18.256149,
+        14.105268,
+        14.029267,
+        15.490247,
+        15.79851,
+        13.062043,
+        13.588149,
+        14.146295,
+        14.330004,
+        14.238756,
+        12.421354,
+        13.421961,
+        14.943263,
+        14.239748,
+        15.518711
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52688,
+      "min": 51608,
+      "max": 52992,
+      "runs": [
+        52384,
+        51916,
+        52892,
+        52992,
+        52760,
+        52780,
+        52864,
+        51732,
+        52520,
+        52688,
+        52732,
+        51608,
+        52728,
+        51700,
+        52564
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 3.544354,
+      "min": 2.861529,
+      "max": 4.181687,
+      "runs": [
+        3.786645,
+        3.683654,
+        3.483121,
+        3.857907,
+        3.863457,
+        2.861529,
+        3.316913,
+        2.997652,
+        3.715924,
+        3.579501,
+        2.894971,
+        2.904509,
+        3.462263,
+        3.544354,
+        4.181687
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 15,
+    "elapsed_ms": {
+      "median": 14.177102,
+      "min": 12.890104,
+      "max": 17.959919,
+      "runs": [
+        13.753886,
+        14.814565,
+        15.589202,
+        15.990055,
+        13.257496,
+        14.636674,
+        17.959919,
+        14.549221,
+        13.171907,
+        13.032929,
+        14.177102,
+        13.40539,
+        12.890104,
+        16.437986,
+        13.733729
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52784,
+      "min": 51844,
+      "max": 54888,
+      "runs": [
+        52524,
+        52612,
+        52036,
+        52832,
+        51844,
+        54636,
+        52568,
+        52848,
+        52444,
+        52880,
+        54888,
+        52812,
+        52784,
+        54140,
+        52476
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 3.30955,
+      "min": 2.821805,
+      "max": 4.776802,
+      "runs": [
+        3.30955,
+        3.480928,
+        3.853058,
+        4.361712,
+        3.000627,
+        3.434572,
+        4.776802,
+        3.27229,
+        2.859856,
+        2.821805,
+        3.575494,
+        3.183817,
+        2.932841,
+        4.443884,
+        2.930256
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 15,
+    "elapsed_ms": {
+      "median": 14.103485,
+      "min": 12.422406,
+      "max": 18.084831,
+      "runs": [
+        14.09534,
+        12.792903,
+        13.06566,
+        18.084831,
+        16.263502,
+        14.450278,
+        13.218613,
+        14.06856,
+        15.053748,
+        13.645536,
+        12.422406,
+        14.103485,
+        14.493158,
+        16.032544,
+        14.56462
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52804,
+      "min": 52196,
+      "max": 55372,
+      "runs": [
+        52972,
+        55340,
+        52860,
+        52504,
+        52488,
+        52724,
+        55372,
+        54616,
+        55024,
+        52804,
+        52732,
+        52940,
+        52284,
+        52532,
+        52196
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 3.173769,
+      "min": 2.746286,
+      "max": 4.155991,
+      "runs": [
+        3.130156,
+        2.771161,
+        2.746286,
+        4.155991,
+        3.925994,
+        3.177134,
+        2.854666,
+        2.816656,
+        3.552691,
+        2.944823,
+        2.758388,
+        3.30947,
+        3.294923,
+        4.0157,
+        3.173769
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 15,
+    "elapsed_ms": {
+      "median": 14.411286,
+      "min": 12.20858,
+      "max": 17.071891,
+      "runs": [
+        17.071891,
+        15.009245,
+        14.674775,
+        14.277328,
+        15.224665,
+        14.411286,
+        15.476132,
+        12.20858,
+        14.148719,
+        14.036851,
+        13.6966,
+        12.745516,
+        15.643041,
+        14.607821,
+        13.78264
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52788,
+      "min": 51880,
+      "max": 54452,
+      "runs": [
+        52952,
+        52044,
+        52788,
+        52728,
+        52612,
+        52884,
+        52820,
+        52100,
+        54452,
+        51880,
+        53084,
+        52936,
+        52608,
+        53800,
+        52524
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 3.491036,
+      "min": 2.567824,
+      "max": 5.133734,
+      "runs": [
+        5.133734,
+        3.264226,
+        3.491036,
+        3.605379,
+        3.629974,
+        3.58479,
+        3.866864,
+        2.567824,
+        3.279263,
+        3.180791,
+        3.306333,
+        2.614891,
+        3.830887,
+        3.743044,
+        2.989206
+      ]
+    }
+  }
+]

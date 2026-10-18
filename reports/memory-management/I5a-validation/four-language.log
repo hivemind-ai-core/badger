@@ -1,0 +1,293 @@
+Report: reports/memory-management/I5a-realworld/2026-10-18T12-36-54.536840Z-fc759e3f7af6.json
+Preparing badger
+Preparing go
+Preparing java
+Verify badger cpu        w1
+Verify go     cpu        w1
+Verify node   cpu        w1
+Verify java   cpu        w1
+Verify badger reconcile  w1
+Verify go     reconcile  w1
+Verify node   reconcile  w1
+Verify java   reconcile  w1
+Verify badger json       w1
+Verify go     json       w1
+Verify node   json       w1
+Verify java   json       w1
+Verify badger state      w1
+Verify go     state      w1
+Verify node   state      w1
+Verify java   state      w1
+Verify badger messaging  w1
+Verify go     messaging  w1
+Verify node   messaging  w1
+Verify java   messaging  w1
+Verify badger messaging  w2
+Verify go     messaging  w2
+Verify node   messaging  w2
+Verify java   messaging  w2
+Verify badger messaging  w4
+Verify go     messaging  w4
+Verify node   messaging  w4
+Verify java   messaging  w4
+Verify badger messaging  w8
+Verify go     messaging  w8
+Verify node   messaging  w8
+Verify java   messaging  w8
+Verify badger pipeline   w1
+Verify go     pipeline   w1
+Verify node   pipeline   w1
+Verify java   pipeline   w1
+Verify badger pipeline   w2
+Verify go     pipeline   w2
+Verify node   pipeline   w2
+Verify java   pipeline   w2
+Verify badger pipeline   w4
+Verify go     pipeline   w4
+Verify node   pipeline   w4
+Verify java   pipeline   w4
+Verify badger pipeline   w8
+Verify go     pipeline   w8
+Verify node   pipeline   w8
+Verify java   pipeline   w8
+Measure 1/5 badger state      w1
+Measure 1/5 go     messaging  w2
+Measure 1/5 go     pipeline   w4
+Measure 1/5 java   messaging  w2
+Measure 1/5 java   reconcile  w1
+Measure 1/5 node   pipeline   w2
+Measure 1/5 java   pipeline   w8
+Measure 1/5 node   state      w1
+Measure 1/5 node   reconcile  w1
+Measure 1/5 go     messaging  w4
+Measure 1/5 go     json       w1
+Measure 1/5 java   cpu        w1
+Measure 1/5 node   messaging  w1
+Measure 1/5 badger cpu        w1
+Measure 1/5 badger pipeline   w4
+Measure 1/5 badger reconcile  w1
+Measure 1/5 badger pipeline   w8
+Measure 1/5 node   pipeline   w8
+Measure 1/5 badger messaging  w2
+Measure 1/5 badger json       w1
+Measure 1/5 go     pipeline   w8
+Measure 1/5 java   pipeline   w2
+Measure 1/5 node   pipeline   w4
+Measure 1/5 badger pipeline   w2
+Measure 1/5 go     pipeline   w1
+Measure 1/5 java   messaging  w4
+Measure 1/5 go     reconcile  w1
+Measure 1/5 node   pipeline   w1
+Measure 1/5 go     messaging  w8
+Measure 1/5 node   messaging  w2
+Measure 1/5 java   messaging  w1
+Measure 1/5 go     messaging  w1
+Measure 1/5 java   messaging  w8
+Measure 1/5 node   cpu        w1
+Measure 1/5 java   pipeline   w4
+Measure 1/5 badger messaging  w1
+Measure 1/5 java   json       w1
+Measure 1/5 node   json       w1
+Measure 1/5 badger messaging  w8
+Measure 1/5 node   messaging  w8
+Measure 1/5 go     cpu        w1
+Measure 1/5 go     pipeline   w2
+Measure 1/5 badger messaging  w4
+Measure 1/5 java   pipeline   w1
+Measure 1/5 badger pipeline   w1
+Measure 1/5 node   messaging  w4
+Measure 1/5 go     state      w1
+Measure 1/5 java   state      w1
+Measure 2/5 java   reconcile  w1
+Measure 2/5 java   cpu        w1
+Measure 2/5 badger pipeline   w1
+Measure 2/5 java   pipeline   w1
+Measure 2/5 go     messaging  w4
+Measure 2/5 java   pipeline   w2
+Measure 2/5 node   pipeline   w1
+Measure 2/5 node   pipeline   w2
+Measure 2/5 badger state      w1
+Measure 2/5 java   messaging  w1
+Measure 2/5 go     messaging  w1
+Measure 2/5 java   messaging  w8
+Measure 2/5 java   state      w1
+Measure 2/5 java   messaging  w4
+Measure 2/5 node   cpu        w1
+Measure 2/5 java   pipeline   w8
+Measure 2/5 go     state      w1
+Measure 2/5 node   messaging  w4
+Measure 2/5 node   json       w1
+Measure 2/5 badger messaging  w1
+Measure 2/5 go     messaging  w2
+Measure 2/5 badger reconcile  w1
+Measure 2/5 java   pipeline   w4
+Measure 2/5 go     pipeline   w2
+Measure 2/5 node   state      w1
+Measure 2/5 badger messaging  w4
+Measure 2/5 badger cpu        w1
+Measure 2/5 go     pipeline   w8
+Measure 2/5 node   messaging  w2
+Measure 2/5 go     pipeline   w1
+Measure 2/5 node   messaging  w8
+Measure 2/5 java   json       w1
+Measure 2/5 badger pipeline   w2
+Measure 2/5 badger messaging  w2
+Measure 2/5 badger json       w1
+Measure 2/5 badger pipeline   w8
+Measure 2/5 node   messaging  w1
+Measure 2/5 go     pipeline   w4
+Measure 2/5 node   pipeline   w8
+Measure 2/5 node   reconcile  w1
+Measure 2/5 go     reconcile  w1
+Measure 2/5 node   pipeline   w4
+Measure 2/5 go     messaging  w8
+Measure 2/5 java   messaging  w2
+Measure 2/5 go     json       w1
+Measure 2/5 go     cpu        w1
+Measure 2/5 badger pipeline   w4
+Measure 2/5 badger messaging  w8
+Measure 3/5 badger messaging  w2
+Measure 3/5 java   pipeline   w2
+Measure 3/5 java   reconcile  w1
+Measure 3/5 node   state      w1
+Measure 3/5 java   messaging  w8
+Measure 3/5 node   messaging  w1
+Measure 3/5 node   json       w1
+Measure 3/5 go     messaging  w8
+Measure 3/5 badger messaging  w8
+Measure 3/5 java   messaging  w1
+Measure 3/5 badger state      w1
+Measure 3/5 badger pipeline   w2
+Measure 3/5 go     pipeline   w4
+Measure 3/5 node   pipeline   w8
+Measure 3/5 node   cpu        w1
+Measure 3/5 go     state      w1
+Measure 3/5 node   messaging  w4
+Measure 3/5 java   json       w1
+Measure 3/5 go     messaging  w1
+Measure 3/5 java   pipeline   w1
+Measure 3/5 go     messaging  w2
+Measure 3/5 go     pipeline   w1
+Measure 3/5 go     messaging  w4
+Measure 3/5 go     pipeline   w2
+Measure 3/5 java   cpu        w1
+Measure 3/5 node   reconcile  w1
+Measure 3/5 node   pipeline   w1
+Measure 3/5 badger cpu        w1
+Measure 3/5 node   pipeline   w2
+Measure 3/5 go     reconcile  w1
+Measure 3/5 go     json       w1
+Measure 3/5 java   messaging  w2
+Measure 3/5 badger pipeline   w8
+Measure 3/5 badger reconcile  w1
+Measure 3/5 java   messaging  w4
+Measure 3/5 java   pipeline   w4
+Measure 3/5 node   messaging  w2
+Measure 3/5 badger pipeline   w1
+Measure 3/5 node   pipeline   w4
+Measure 3/5 java   state      w1
+Measure 3/5 node   messaging  w8
+Measure 3/5 go     pipeline   w8
+Measure 3/5 badger messaging  w1
+Measure 3/5 java   pipeline   w8
+Measure 3/5 go     cpu        w1
+Measure 3/5 badger messaging  w4
+Measure 3/5 badger pipeline   w4
+Measure 3/5 badger json       w1
+Measure 4/5 badger messaging  w8
+Measure 4/5 go     messaging  w1
+Measure 4/5 go     reconcile  w1
+Measure 4/5 badger pipeline   w1
+Measure 4/5 go     cpu        w1
+Measure 4/5 badger messaging  w2
+Measure 4/5 badger pipeline   w8
+Measure 4/5 go     pipeline   w4
+Measure 4/5 java   json       w1
+Measure 4/5 node   messaging  w2
+Measure 4/5 java   messaging  w1
+Measure 4/5 go     messaging  w8
+Measure 4/5 java   pipeline   w2
+Measure 4/5 java   state      w1
+Measure 4/5 go     pipeline   w1
+Measure 4/5 badger messaging  w1
+Measure 4/5 java   messaging  w4
+Measure 4/5 node   state      w1
+Measure 4/5 node   messaging  w8
+Measure 4/5 badger state      w1
+Measure 4/5 java   cpu        w1
+Measure 4/5 node   pipeline   w2
+Measure 4/5 java   reconcile  w1
+Measure 4/5 go     state      w1
+Measure 4/5 badger reconcile  w1
+Measure 4/5 go     pipeline   w2
+Measure 4/5 node   pipeline   w4
+Measure 4/5 go     messaging  w4
+Measure 4/5 badger pipeline   w4
+Measure 4/5 java   pipeline   w4
+Measure 4/5 badger cpu        w1
+Measure 4/5 badger messaging  w4
+Measure 4/5 node   messaging  w4
+Measure 4/5 java   pipeline   w8
+Measure 4/5 node   reconcile  w1
+Measure 4/5 badger json       w1
+Measure 4/5 node   json       w1
+Measure 4/5 go     json       w1
+Measure 4/5 go     pipeline   w8
+Measure 4/5 java   pipeline   w1
+Measure 4/5 node   pipeline   w8
+Measure 4/5 go     messaging  w2
+Measure 4/5 java   messaging  w2
+Measure 4/5 node   pipeline   w1
+Measure 4/5 java   messaging  w8
+Measure 4/5 badger pipeline   w2
+Measure 4/5 node   messaging  w1
+Measure 4/5 node   cpu        w1
+Measure 5/5 node   messaging  w8
+Measure 5/5 node   state      w1
+Measure 5/5 go     pipeline   w4
+Measure 5/5 go     messaging  w2
+Measure 5/5 badger pipeline   w8
+Measure 5/5 java   pipeline   w2
+Measure 5/5 java   json       w1
+Measure 5/5 node   messaging  w1
+Measure 5/5 go     pipeline   w2
+Measure 5/5 go     messaging  w8
+Measure 5/5 java   messaging  w8
+Measure 5/5 java   messaging  w4
+Measure 5/5 java   reconcile  w1
+Measure 5/5 java   pipeline   w4
+Measure 5/5 node   pipeline   w1
+Measure 5/5 badger pipeline   w2
+Measure 5/5 node   cpu        w1
+Measure 5/5 java   state      w1
+Measure 5/5 badger reconcile  w1
+Measure 5/5 badger pipeline   w4
+Measure 5/5 node   reconcile  w1
+Measure 5/5 badger messaging  w4
+Measure 5/5 node   messaging  w4
+Measure 5/5 java   pipeline   w8
+Measure 5/5 badger cpu        w1
+Measure 5/5 go     json       w1
+Measure 5/5 badger pipeline   w1
+Measure 5/5 node   pipeline   w2
+Measure 5/5 badger state      w1
+Measure 5/5 node   pipeline   w8
+Measure 5/5 java   cpu        w1
+Measure 5/5 go     messaging  w1
+Measure 5/5 go     pipeline   w8
+Measure 5/5 go     pipeline   w1
+Measure 5/5 go     reconcile  w1
+Measure 5/5 java   messaging  w2
+Measure 5/5 node   json       w1
+Measure 5/5 badger messaging  w8
+Measure 5/5 java   pipeline   w1
+Measure 5/5 java   messaging  w1
+Measure 5/5 badger messaging  w1
+Measure 5/5 node   pipeline   w4
+Measure 5/5 go     state      w1
+Measure 5/5 badger messaging  w2
+Measure 5/5 node   messaging  w2
+Measure 5/5 badger json       w1
+Measure 5/5 go     messaging  w4
+Measure 5/5 go     cpu        w1
+complete: reports/memory-management/I5a-realworld/2026-10-18T12-36-54.536840Z-fc759e3f7af6.json

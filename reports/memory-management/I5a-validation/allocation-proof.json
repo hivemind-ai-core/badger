@@ -1,0 +1,894 @@
+[
+  {
+    "case": "persistent-64-major",
+    "workers": 1,
+    "before": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 48,
+        "objects": 1,
+        "requested_bytes": 48
+      },
+      "Map": {
+        "cell_bytes": 16777312,
+        "objects": 524291,
+        "requested_bytes": 16777312
+      },
+      "MapCursor": {
+        "cell_bytes": 272,
+        "objects": 1,
+        "requested_bytes": 264
+      },
+      "MapNode": {
+        "cell_bytes": 223997920,
+        "objects": 999422,
+        "requested_bytes": 222293704
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1382,
+        "objects": 19,
+        "requested_bytes": 1254
+      }
+    },
+    "after": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 48,
+        "objects": 1,
+        "requested_bytes": 48
+      },
+      "Map": {
+        "cell_bytes": 96,
+        "objects": 3,
+        "requested_bytes": 96
+      },
+      "MapCursor": {
+        "cell_bytes": 272,
+        "objects": 1,
+        "requested_bytes": 264
+      },
+      "MapNode": {
+        "cell_bytes": 9296,
+        "objects": 70,
+        "requested_bytes": 9056
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1360,
+        "objects": 19,
+        "requested_bytes": 1228
+      }
+    }
+  },
+  {
+    "case": "persistent-64-major",
+    "workers": 8,
+    "before": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 48,
+        "objects": 1,
+        "requested_bytes": 48
+      },
+      "Map": {
+        "cell_bytes": 16777312,
+        "objects": 524291,
+        "requested_bytes": 16777312
+      },
+      "MapCursor": {
+        "cell_bytes": 272,
+        "objects": 1,
+        "requested_bytes": 264
+      },
+      "MapNode": {
+        "cell_bytes": 223997920,
+        "objects": 999422,
+        "requested_bytes": 222293704
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1382,
+        "objects": 19,
+        "requested_bytes": 1254
+      }
+    },
+    "after": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 48,
+        "objects": 1,
+        "requested_bytes": 48
+      },
+      "Map": {
+        "cell_bytes": 96,
+        "objects": 3,
+        "requested_bytes": 96
+      },
+      "MapCursor": {
+        "cell_bytes": 272,
+        "objects": 1,
+        "requested_bytes": 264
+      },
+      "MapNode": {
+        "cell_bytes": 9296,
+        "objects": 70,
+        "requested_bytes": 9056
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1360,
+        "objects": 19,
+        "requested_bytes": 1228
+      }
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "before": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 144,
+        "objects": 3,
+        "requested_bytes": 144
+      },
+      "ListBuilder": {
+        "cell_bytes": 96,
+        "objects": 2,
+        "requested_bytes": 96
+      },
+      "Map": {
+        "cell_bytes": 2097248,
+        "objects": 65539,
+        "requested_bytes": 2097248
+      },
+      "MapCursor": {
+        "cell_bytes": 278800,
+        "objects": 1025,
+        "requested_bytes": 270600
+      },
+      "MapNode": {
+        "cell_bytes": 33625344,
+        "objects": 131056,
+        "requested_bytes": 33558816
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Page": {
+        "cell_bytes": 30336,
+        "objects": 12,
+        "requested_bytes": 30336
+      },
+      "PageDirectory": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1386,
+        "objects": 19,
+        "requested_bytes": 1262
+      }
+    },
+    "after": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 144,
+        "objects": 3,
+        "requested_bytes": 144
+      },
+      "ListBuilder": {
+        "cell_bytes": 96,
+        "objects": 2,
+        "requested_bytes": 96
+      },
+      "Map": {
+        "cell_bytes": 2097248,
+        "objects": 65539,
+        "requested_bytes": 2097248
+      },
+      "MapCursor": {
+        "cell_bytes": 278800,
+        "objects": 1025,
+        "requested_bytes": 270600
+      },
+      "MapNode": {
+        "cell_bytes": 33625344,
+        "objects": 131056,
+        "requested_bytes": 33558816
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Page": {
+        "cell_bytes": 30336,
+        "objects": 12,
+        "requested_bytes": 30336
+      },
+      "PageDirectory": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1386,
+        "objects": 19,
+        "requested_bytes": 1262
+      }
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "before": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 144,
+        "objects": 3,
+        "requested_bytes": 144
+      },
+      "ListBuilder": {
+        "cell_bytes": 96,
+        "objects": 2,
+        "requested_bytes": 96
+      },
+      "Map": {
+        "cell_bytes": 2097248,
+        "objects": 65539,
+        "requested_bytes": 2097248
+      },
+      "MapCursor": {
+        "cell_bytes": 278800,
+        "objects": 1025,
+        "requested_bytes": 270600
+      },
+      "MapNode": {
+        "cell_bytes": 33625344,
+        "objects": 131056,
+        "requested_bytes": 33558816
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Page": {
+        "cell_bytes": 30336,
+        "objects": 12,
+        "requested_bytes": 30336
+      },
+      "PageDirectory": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1386,
+        "objects": 19,
+        "requested_bytes": 1262
+      }
+    },
+    "after": {
+      "Data": {
+        "cell_bytes": 576,
+        "objects": 18,
+        "requested_bytes": 576
+      },
+      "List": {
+        "cell_bytes": 144,
+        "objects": 3,
+        "requested_bytes": 144
+      },
+      "ListBuilder": {
+        "cell_bytes": 96,
+        "objects": 2,
+        "requested_bytes": 96
+      },
+      "Map": {
+        "cell_bytes": 2097248,
+        "objects": 65539,
+        "requested_bytes": 2097248
+      },
+      "MapCursor": {
+        "cell_bytes": 278800,
+        "objects": 1025,
+        "requested_bytes": 270600
+      },
+      "MapNode": {
+        "cell_bytes": 33625344,
+        "objects": 131056,
+        "requested_bytes": 33558816
+      },
+      "Option": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "Page": {
+        "cell_bytes": 30336,
+        "objects": 12,
+        "requested_bytes": 30336
+      },
+      "PageDirectory": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "Record": {
+        "cell_bytes": 128,
+        "objects": 2,
+        "requested_bytes": 120
+      },
+      "Result": {
+        "cell_bytes": 32,
+        "objects": 1,
+        "requested_bytes": 32
+      },
+      "String": {
+        "cell_bytes": 1386,
+        "objects": 19,
+        "requested_bytes": 1262
+      }
+    }
+  },
+  {
+    "case": "reconcile",
+    "workers": 1,
+    "before": {
+      "Buffer": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "List": {
+        "cell_bytes": 1200,
+        "objects": 25,
+        "requested_bytes": 1200
+      },
+      "ListBuilder": {
+        "cell_bytes": 1152,
+        "objects": 24,
+        "requested_bytes": 1152
+      },
+      "Map": {
+        "cell_bytes": 13165824,
+        "objects": 411432,
+        "requested_bytes": 13165824
+      },
+      "MapCursor": {
+        "cell_bytes": 2176,
+        "objects": 8,
+        "requested_bytes": 2112
+      },
+      "MapNode": {
+        "cell_bytes": 402771648,
+        "objects": 897160,
+        "requested_bytes": 402750912
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Order": {
+        "cell_bytes": 57051136,
+        "objects": 891424,
+        "requested_bytes": 49919744
+      },
+      "Page": {
+        "cell_bytes": 10634656,
+        "objects": 2633,
+        "requested_bytes": 10634656
+      },
+      "PageDirectory": {
+        "cell_bytes": 57664,
+        "objects": 217,
+        "requested_bytes": 57664
+      },
+      "String": {
+        "cell_bytes": 1696,
+        "objects": 39,
+        "requested_bytes": 1424
+      }
+    },
+    "after": {
+      "Buffer": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "List": {
+        "cell_bytes": 1200,
+        "objects": 25,
+        "requested_bytes": 1200
+      },
+      "ListBuilder": {
+        "cell_bytes": 1152,
+        "objects": 24,
+        "requested_bytes": 1152
+      },
+      "Map": {
+        "cell_bytes": 256,
+        "objects": 8,
+        "requested_bytes": 256
+      },
+      "MapCursor": {
+        "cell_bytes": 2176,
+        "objects": 8,
+        "requested_bytes": 2112
+      },
+      "MapNode": {
+        "cell_bytes": 2835712,
+        "objects": 7848,
+        "requested_bytes": 2816640
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Order": {
+        "cell_bytes": 57051136,
+        "objects": 891424,
+        "requested_bytes": 49919744
+      },
+      "Page": {
+        "cell_bytes": 10634656,
+        "objects": 2633,
+        "requested_bytes": 10634656
+      },
+      "PageDirectory": {
+        "cell_bytes": 57664,
+        "objects": 217,
+        "requested_bytes": 57664
+      },
+      "String": {
+        "cell_bytes": 1696,
+        "objects": 39,
+        "requested_bytes": 1408
+      }
+    },
+    "baseline_collections": 28,
+    "candidate_collections": 3
+  },
+  {
+    "case": "state",
+    "workers": 8,
+    "before": {
+      "List": {
+        "cell_bytes": 432,
+        "objects": 9,
+        "requested_bytes": 432
+      },
+      "ListBuilder": {
+        "cell_bytes": 384,
+        "objects": 8,
+        "requested_bytes": 384
+      },
+      "Map": {
+        "cell_bytes": 4194560,
+        "objects": 131080,
+        "requested_bytes": 4194560
+      },
+      "MapCursor": {
+        "cell_bytes": 141440,
+        "objects": 520,
+        "requested_bytes": 137280
+      },
+      "MapNode": {
+        "cell_bytes": 126898688,
+        "objects": 285200,
+        "requested_bytes": 126877056
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Page": {
+        "cell_bytes": 22432,
+        "objects": 25,
+        "requested_bytes": 22432
+      },
+      "PageDirectory": {
+        "cell_bytes": 1600,
+        "objects": 25,
+        "requested_bytes": 1600
+      },
+      "String": {
+        "cell_bytes": 1680,
+        "objects": 39,
+        "requested_bytes": 1404
+      }
+    },
+    "after": {
+      "List": {
+        "cell_bytes": 432,
+        "objects": 9,
+        "requested_bytes": 432
+      },
+      "ListBuilder": {
+        "cell_bytes": 384,
+        "objects": 8,
+        "requested_bytes": 384
+      },
+      "Map": {
+        "cell_bytes": 4194560,
+        "objects": 131080,
+        "requested_bytes": 4194560
+      },
+      "MapCursor": {
+        "cell_bytes": 141440,
+        "objects": 520,
+        "requested_bytes": 137280
+      },
+      "MapNode": {
+        "cell_bytes": 126898688,
+        "objects": 285200,
+        "requested_bytes": 126877056
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Page": {
+        "cell_bytes": 22432,
+        "objects": 25,
+        "requested_bytes": 22432
+      },
+      "PageDirectory": {
+        "cell_bytes": 1600,
+        "objects": 25,
+        "requested_bytes": 1600
+      },
+      "String": {
+        "cell_bytes": 1680,
+        "objects": 39,
+        "requested_bytes": 1404
+      }
+    },
+    "baseline_collections": 7,
+    "candidate_collections": 7
+  },
+  {
+    "case": "state",
+    "workers": 1,
+    "before": {
+      "List": {
+        "cell_bytes": 432,
+        "objects": 9,
+        "requested_bytes": 432
+      },
+      "ListBuilder": {
+        "cell_bytes": 384,
+        "objects": 8,
+        "requested_bytes": 384
+      },
+      "Map": {
+        "cell_bytes": 4194560,
+        "objects": 131080,
+        "requested_bytes": 4194560
+      },
+      "MapCursor": {
+        "cell_bytes": 141440,
+        "objects": 520,
+        "requested_bytes": 137280
+      },
+      "MapNode": {
+        "cell_bytes": 126898688,
+        "objects": 285200,
+        "requested_bytes": 126877056
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Page": {
+        "cell_bytes": 22432,
+        "objects": 25,
+        "requested_bytes": 22432
+      },
+      "PageDirectory": {
+        "cell_bytes": 1600,
+        "objects": 25,
+        "requested_bytes": 1600
+      },
+      "String": {
+        "cell_bytes": 1680,
+        "objects": 39,
+        "requested_bytes": 1404
+      }
+    },
+    "after": {
+      "List": {
+        "cell_bytes": 432,
+        "objects": 9,
+        "requested_bytes": 432
+      },
+      "ListBuilder": {
+        "cell_bytes": 384,
+        "objects": 8,
+        "requested_bytes": 384
+      },
+      "Map": {
+        "cell_bytes": 4194560,
+        "objects": 131080,
+        "requested_bytes": 4194560
+      },
+      "MapCursor": {
+        "cell_bytes": 141440,
+        "objects": 520,
+        "requested_bytes": 137280
+      },
+      "MapNode": {
+        "cell_bytes": 126898688,
+        "objects": 285200,
+        "requested_bytes": 126877056
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Page": {
+        "cell_bytes": 22432,
+        "objects": 25,
+        "requested_bytes": 22432
+      },
+      "PageDirectory": {
+        "cell_bytes": 1600,
+        "objects": 25,
+        "requested_bytes": 1600
+      },
+      "String": {
+        "cell_bytes": 1680,
+        "objects": 39,
+        "requested_bytes": 1404
+      }
+    },
+    "baseline_collections": 7,
+    "candidate_collections": 7
+  },
+  {
+    "case": "reconcile",
+    "workers": 8,
+    "before": {
+      "Buffer": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "List": {
+        "cell_bytes": 1200,
+        "objects": 25,
+        "requested_bytes": 1200
+      },
+      "ListBuilder": {
+        "cell_bytes": 1152,
+        "objects": 24,
+        "requested_bytes": 1152
+      },
+      "Map": {
+        "cell_bytes": 13165824,
+        "objects": 411432,
+        "requested_bytes": 13165824
+      },
+      "MapCursor": {
+        "cell_bytes": 2176,
+        "objects": 8,
+        "requested_bytes": 2112
+      },
+      "MapNode": {
+        "cell_bytes": 402771648,
+        "objects": 897160,
+        "requested_bytes": 402750912
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Order": {
+        "cell_bytes": 57051136,
+        "objects": 891424,
+        "requested_bytes": 49919744
+      },
+      "Page": {
+        "cell_bytes": 10634656,
+        "objects": 2633,
+        "requested_bytes": 10634656
+      },
+      "PageDirectory": {
+        "cell_bytes": 57664,
+        "objects": 217,
+        "requested_bytes": 57664
+      },
+      "String": {
+        "cell_bytes": 1696,
+        "objects": 39,
+        "requested_bytes": 1424
+      }
+    },
+    "after": {
+      "Buffer": {
+        "cell_bytes": 512,
+        "objects": 8,
+        "requested_bytes": 512
+      },
+      "List": {
+        "cell_bytes": 1200,
+        "objects": 25,
+        "requested_bytes": 1200
+      },
+      "ListBuilder": {
+        "cell_bytes": 1152,
+        "objects": 24,
+        "requested_bytes": 1152
+      },
+      "Map": {
+        "cell_bytes": 256,
+        "objects": 8,
+        "requested_bytes": 256
+      },
+      "MapCursor": {
+        "cell_bytes": 2176,
+        "objects": 8,
+        "requested_bytes": 2112
+      },
+      "MapNode": {
+        "cell_bytes": 2835712,
+        "objects": 7848,
+        "requested_bytes": 2816640
+      },
+      "Option": {
+        "cell_bytes": 160,
+        "objects": 5,
+        "requested_bytes": 160
+      },
+      "Order": {
+        "cell_bytes": 57051136,
+        "objects": 891424,
+        "requested_bytes": 49919744
+      },
+      "Page": {
+        "cell_bytes": 10634656,
+        "objects": 2633,
+        "requested_bytes": 10634656
+      },
+      "PageDirectory": {
+        "cell_bytes": 57664,
+        "objects": 217,
+        "requested_bytes": 57664
+      },
+      "String": {
+        "cell_bytes": 1696,
+        "objects": 39,
+        "requested_bytes": 1408
+      }
+    },
+    "baseline_collections": 28,
+    "candidate_collections": 3
+  }
+]
