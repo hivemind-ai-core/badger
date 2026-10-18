@@ -68,5 +68,3 @@ so these are correctness-and-scale work to schedule against new profiles.
   semantic wiring of generated modules into a composition root.
 - T9: run the evaluation (eval/) with agents, and grow the task set.
 - S5: capacity-aware builders and bulk operations.
-- Type checking: `Never` in nested positions (`List<Never>` against
-  `List<Int>`) still unifies symmetrically.

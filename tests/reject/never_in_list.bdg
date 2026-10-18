@@ -1,0 +1,15 @@
+// expect-error: E0300
+// `Never` inside a type counts too: a `List<Int>` is not a `List<Never>`,
+// or reading an element would give an `Int` typed as anything (this
+// reached code generation and failed there).
+import std.io
+
+fn first(xs: List<Never>) -> String {
+    xs[0]
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let ys = [1, 2]
+    io.println(first(ys))?
+    ok(())
+}

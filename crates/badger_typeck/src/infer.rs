@@ -437,7 +437,23 @@ impl<'g, 'a> Infer<'g, 'a> {
     fn never_expected(&mut self, span: Span, expected: &Ty, actual: &Ty) -> bool {
         let e = self.icx.shallow(expected);
         let a = self.icx.shallow(actual);
-        if !self.icx.is_never(&e) || self.icx.is_never(&a) || matches!(&*a, TyKind::Error) {
+        if !self.icx.is_never(&e) {
+            // `Never` inside the expected type (`List<Never>`): the actual
+            // type must have `Never` there too, or reading one would give a
+            // value of another type
+            if self.never_inside(span, &e, &a, 0) {
+                let (want, found) = (self.show(&e), self.show(&a));
+                self.push_diag(
+                    Diagnostic::error(format!("expected `{want}`, found `{found}`"))
+                        .with_code("E0300")
+                        .with_label(span, "a value of this type is where only `Never` may be")
+                        .with_shapes(want, found),
+                );
+                return true;
+            }
+            return false;
+        }
+        if self.icx.is_never(&a) || matches!(&*a, TyKind::Error) {
             return false;
         }
         if matches!(&*a, TyKind::Var(_)) {
@@ -447,6 +463,51 @@ impl<'g, 'a> Infer<'g, 'a> {
         }
         self.report_never(span, &a);
         true
+    }
+
+    /// Whether `actual` has a value of a known non-`Never` type where
+    /// `expected` (of the same shape) has `Never`: in constructor arguments,
+    /// tuple elements, record fields, and function results (a function
+    /// taking `Never` is never called, so parameters do not count).
+    fn never_inside(&mut self, span: Span, expected: &Ty, actual: &Ty, depth: u32) -> bool {
+        if depth > 8 {
+            return false;
+        }
+        let e = self.icx.shallow(expected);
+        let a = self.icx.shallow(actual);
+        if depth > 0 && self.icx.is_never(&e) {
+            if matches!(&*a, TyKind::Var(_)) {
+                // decided later: checked after solving
+                self.never_required.push((a, span));
+                return false;
+            }
+            return !self.icx.is_never(&a) && !matches!(&*a, TyKind::Error);
+        }
+        match (&*e, &*a) {
+            (TyKind::Con(d1, xs), TyKind::Con(d2, ys)) if d1 == d2 && xs.len() == ys.len() => {
+                let pairs: Vec<(Ty, Ty)> = xs.iter().cloned().zip(ys.iter().cloned()).collect();
+                pairs.iter().any(|(x, y)| self.never_inside(span, x, y, depth + 1))
+            }
+            (TyKind::Tuple(xs), TyKind::Tuple(ys)) if xs.len() == ys.len() => {
+                let pairs: Vec<(Ty, Ty)> = xs.iter().cloned().zip(ys.iter().cloned()).collect();
+                pairs.iter().any(|(x, y)| self.never_inside(span, x, y, depth + 1))
+            }
+            (TyKind::Fn(f), TyKind::Fn(g)) => {
+                let (r1, r2) = (f.ret.clone(), g.ret.clone());
+                self.never_inside(span, &r1, &r2, depth + 1)
+            }
+            (TyKind::Record(r1), TyKind::Record(r2)) => {
+                let (fs1, _) = row_fields(r1);
+                let (fs2, _) = row_fields(r2);
+                fs1.iter().any(|(l, x)| {
+                    fs2.iter().find(|(m, _)| m == l).is_some_and(|(_, y)| {
+                        let (x, y) = (x.clone(), y.clone());
+                        self.never_inside(span, &x, &y, depth + 1)
+                    })
+                })
+            }
+            _ => false,
+        }
     }
 
     fn report_never(&mut self, span: Span, a: &Ty) {
