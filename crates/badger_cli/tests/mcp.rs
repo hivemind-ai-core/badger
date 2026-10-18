@@ -161,6 +161,14 @@ fn mcp_tools() {
     assert!(err && out.contains("only with `breakpoints`"), "{out}");
     let (out, err) = call("query", json!({ "kind": "check", "path": path }));
     assert!(err && out.contains("unknown query kind"), "{out}");
+    // JSON results also come as structured content
+    let r = req(
+        "tools/call",
+        json!({ "name": "check", "arguments": { "source": "pub fn main() -> Int { \"x\" }" } }),
+    );
+    let diags = &r["result"]["structuredContent"]["result"];
+    assert_eq!(diags[0]["code"], "E0300", "{r}");
+    assert_eq!(diags[0]["schema_version"], 1, "{r}");
 
     drop(stdin);
     assert!(child.wait().unwrap().success());

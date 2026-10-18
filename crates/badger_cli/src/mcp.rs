@@ -202,6 +202,22 @@ fn arg_path(p: &str) -> String {
     if p.starts_with('-') { format!("./{p}") } else { p.to_string() }
 }
 
+/// A result whose text is JSON (or a summary line and then JSON, as
+/// `contracts` gives) also carries it as `structuredContent` (an object; a
+/// list is `{"result": [...]}`), so clients need not parse the text.
+fn structured(mut r: Value) -> Value {
+    let Some(t) = r["content"][0]["text"].as_str() else { return r };
+    let json = serde_json::from_str::<Value>(t)
+        .ok()
+        .or_else(|| t.split_once('\n').and_then(|(_, rest)| serde_json::from_str::<Value>(rest).ok()));
+    match json {
+        Some(v @ Value::Object(_)) => r["structuredContent"] = v,
+        Some(v @ Value::Array(_)) => r["structuredContent"] = json!({ "result": v }),
+        _ => {}
+    }
+    r
+}
+
 fn text(t: impl Into<String>, is_error: bool) -> Value {
     json!({ "content": [{ "type": "text", "text": t.into() }], "isError": is_error })
 }
@@ -633,7 +649,7 @@ pub fn serve() -> std::process::ExitCode {
                 "tools/list" => Ok(json!({ "tools": tools() })),
                 "tools/call" => {
                     let name = params["name"].as_str().unwrap_or("");
-                    Ok(mcp.call(name, &params["arguments"]))
+                    Ok(structured(mcp.call(name, &params["arguments"])))
                 }
                 other => Err(json!({ "code": -32601, "message": format!("method not found: {other}") })),
             };
