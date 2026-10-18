@@ -45,12 +45,14 @@ def clean_env():
                 "LC_ALL": "C", "GOTOOLCHAIN": "local", "GOWORK": "off"}
 
 
-def process(command, env, timeout, expect_ready=False):
+def process(command, env, timeout, expect_ready=False, launcher=None):
     """One isolated process; wait4 RSS includes all threads, not previous children.
 
     Observe READY with a pipe (no clock synchronization across processes).
     Drain output concurrently; kill the entire process group on any error/timeout.
     """
+    if launcher is not None:
+        command = [str(launcher), *command]
     with tempfile.TemporaryFile() as errors, selectors.DefaultSelector() as selector:
         start = time.perf_counter_ns()
         child = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
@@ -96,11 +98,18 @@ def process(command, env, timeout, expect_ready=False):
             raise RuntimeError(f"exit {child.returncode}: {command}\n{stderr[-6000:]}\n{stdout[-2000:]}")
         if expect_ready and ready is None:
             raise ValueError(f"missing observed READY marker: {stdout[:200]}")
-        return dict(command=command, wall_ns=elapsed, ready_ns=ready,
-                    peak_rss_bytes=usage.ru_maxrss * 1024,
-                    user_ns=round(usage.ru_utime * 1e9), system_ns=round(usage.ru_stime * 1e9),
-                    voluntary_switches=usage.ru_nvcsw, involuntary_switches=usage.ru_nivcsw,
-                    stdout=stdout, stderr=stderr)
+        metrics = dict(peak_rss_bytes=usage.ru_maxrss * 1024,
+                       user_ns=round(usage.ru_utime * 1e9), system_ns=round(usage.ru_stime * 1e9),
+                       voluntary_switches=usage.ru_nvcsw, involuntary_switches=usage.ru_nivcsw)
+        if launcher is not None:
+            found = re.findall(r"^\[realworld child\] (\d+) (\d+) (\d+) (\d+) (\d+)$", stderr, re.M)
+            if len(found) != 1:
+                raise ValueError("missing/duplicate native child metrics")
+            rss, user, system, voluntary, involuntary = map(int, found[0])
+            metrics = dict(peak_rss_bytes=rss * 1024, user_ns=user * 1000, system_ns=system * 1000,
+                           voluntary_switches=voluntary, involuntary_switches=involuntary,
+                           launcher_tree_peak_rss_bytes=usage.ru_maxrss * 1024)
+        return dict(command=command, wall_ns=elapsed, ready_ns=ready, stdout=stdout, stderr=stderr, **metrics)
 
 
 def score_sum(n, seed, rounds):
@@ -191,7 +200,7 @@ def summarize(records):
 
 
 def source_hashes():
-    paths = [*PROGRAMS.glob("*"), SUITE / "run.py"]
+    paths = [*PROGRAMS.glob("*"), SUITE / "run.py", SUITE / "measure.c"]
     paths += list((ROOT / "crates").rglob("*.rs")) + list((ROOT / "crates").rglob("*.bdg"))
     paths += [ROOT / "Cargo.lock", ROOT / "Cargo.toml"]
     return {str(p.relative_to(ROOT)): digest(p) for p in sorted(paths) if p.is_file()}
@@ -207,6 +216,27 @@ def host():
                        ("memory_max", "/sys/fs/cgroup/memory.max"), ("meminfo", "/proc/meminfo")]:
         if Path(path).exists():
             result[name] = Path(path).read_text().strip()
+    # Linux cgroup v2 limits apply through the current membership and its parents,
+    # not just /sys/fs/cgroup (the root often has no cpu.max at all).
+    membership = Path("/proc/self/cgroup").read_text()
+    result["cgroup_membership"] = membership.strip()
+    hierarchy = []
+    for line in membership.splitlines():
+        if line.startswith("0::"):
+            cgroup_root = Path("/sys/fs/cgroup")
+            current = cgroup_root / line.split(":", 2)[2].lstrip("/")
+            while current.is_relative_to(cgroup_root):
+                entry = dict(path=str(current))
+                for name in ["cpu.max", "memory.max", "cpuset.cpus.effective"]:
+                    if (current / name).is_file():
+                        entry[name] = (current / name).read_text().strip()
+                hierarchy.append(entry)
+                if current == cgroup_root:
+                    break
+                current = current.parent
+    result["cgroup_hierarchy"] = hierarchy
+    result["resource_limits"] = {name: sorted({entry[name] for entry in hierarchy if name in entry})
+                                 for name in ["cpu.max", "memory.max", "cpuset.cpus.effective"]}
     return result
 
 
@@ -241,10 +271,11 @@ def run(args):
                       warmups=args.warmups, samples=args.samples, build_samples=args.build_samples,
                       order_seed=args.order_seed), builds={}, cells=[], failures=[], order=[])
     # Workload/config/machine identity, intentionally independent of Badger compiler revision/hash.
-    identity = dict(contract=CONTRACT, runner_sha256=digest(SUITE / "run.py"), config=report["config"],
+    identity = dict(contract=CONTRACT, runner_sha256=digest(SUITE / "run.py"),
+                    launcher_sha256=digest(SUITE / "measure.c"), config=report["config"],
                     workload_hashes={p.name: digest(p) for p in PROGRAMS.glob("*")},
                     machine={k: report["host_before"].get(k) for k in
-                             ["hostname", "platform", "cpu", "affinity", "cpu_max", "memory_max"]},
+                             ["hostname", "platform", "cpu", "affinity", "resource_limits"]},
                     controls={k: tools[k]["sha256"] for k in ["node", "go"]})
     report["cohort"] = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     report["cohort_identity"] = identity
@@ -257,6 +288,15 @@ def run(args):
     try:
         with tempfile.TemporaryDirectory(prefix="badger-realworld-") as temporary:
             tmp = Path(temporary)
+            launcher = tmp / "measure"
+            cc = shutil.which(args.cc)
+            if cc is None:
+                raise ValueError(f"missing C compiler for RSS instrumentation: {args.cc}")
+            setup = process([cc, "-O2", "-Wall", "-Wextra", "-Werror", str(SUITE / "measure.c"),
+                             "-o", str(launcher)], env, args.timeout)
+            report["instrumentation"] = dict(source_sha256=digest(SUITE / "measure.c"),
+                                              executable_sha256=digest(launcher), compiler=output([cc, "--version"]),
+                                              preparation=setup)
             go_exe = tmp / "workload-go"
             mir = tmp / "workload.bdgmir"
             build_commands = {
@@ -265,7 +305,7 @@ def run(args):
             }
             for language, command in build_commands.items():
                 print(f"Preparing {language}", flush=True)
-                trials = [process(command, env, args.timeout) for _ in range(args.build_samples)]
+                trials = [process(command, env, args.timeout, launcher=launcher) for _ in range(args.build_samples)]
                 artifact = mir if language == "badger" else go_exe
                 report["builds"][language] = dict(samples=trials, wall_ns=stats([t["wall_ns"] for t in trials]),
                                                 artifact_bytes=artifact.stat().st_size, sha256=digest(artifact))
@@ -293,7 +333,7 @@ def run(args):
                             if name == "json":
                                 fixture(input_path, small, seed)
                             trial = process(command(language, name, small, seed, workers, 0, 1, input_path),
-                                            env | {"GOMAXPROCS": str(workers)}, args.timeout, True)
+                                            env | {"GOMAXPROCS": str(workers)}, args.timeout, True, launcher=launcher)
                             validate(trial, oracle(name, small, seed), 0, 1)
                             cell["validation"].append(dict(n=small, seed=seed, result=trial))
             # All cells must pass before any performance samples are eligible.
@@ -311,7 +351,7 @@ def run(args):
                         cell["fixture_sha256"] = digest(input_path)
                     record = process(command(language, name, cell["n"], args.seed, workers,
                                              args.warmups, args.samples, input_path),
-                                     env | {"GOMAXPROCS": str(workers)}, args.timeout, True)
+                                     env | {"GOMAXPROCS": str(workers)}, args.timeout, True, launcher=launcher)
                     cell["records"].append(validate(record, cell["expected"], args.warmups, args.samples))
             for cell in report["cells"]:
                 cell["summary"] = summarize(cell["records"])
@@ -344,6 +384,7 @@ def main():
     parser.add_argument("--badger", type=Path, default=ROOT / "target/release/badger")
     parser.add_argument("--go", default="go")
     parser.add_argument("--node", default="node")
+    parser.add_argument("--cc", default="cc", help="C compiler for the measurement-only native launcher")
     parser.add_argument("--reports", type=Path, default=ROOT / "reports/realworld/runs")
     parser.add_argument("--html", type=Path, default=ROOT / "reports/realworld/index.html")
     parser.add_argument("--workloads", nargs="+", choices=list(SIZES), default=list(SIZES))

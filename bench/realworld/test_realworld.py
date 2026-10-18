@@ -83,16 +83,37 @@ class ProtocolTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == "linux", "Linux wait4 metrics")
 class ProcessTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.launcher = Path(cls.temporary.name) / "measure"
+        subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", str(bench.SUITE / "measure.c"),
+                        "-o", str(cls.launcher)], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temporary.cleanup()
+
+    def process(self, *args, **kwargs):
+        return bench.process(*args, **kwargs, launcher=self.launcher)
+
+    def test_rss_excludes_resident_parent_allocations(self):
+        retained = bytearray(96 * 1024 * 1024)
+        r = self.process([sys.executable, "-c", "pass"], bench.clean_env(), 5)
+        self.assertLess(r["peak_rss_bytes"], 32 * 1024 * 1024)
+        self.assertGreater(r["launcher_tree_peak_rss_bytes"], 64 * 1024 * 1024)
+        self.assertEqual(len(retained), 96 * 1024 * 1024)
+
     def test_ready_arrives_before_completion_and_large_output_does_not_deadlock(self):
         source = "import time; print('READY', flush=True); time.sleep(.08); print('x'*200000)"
-        r = bench.process([sys.executable, "-c", source], bench.clean_env(), 5, True)
+        r = self.process([sys.executable, "-c", source], bench.clean_env(), 5, True)
         self.assertLess(r["ready_ns"] + 40_000_000, r["wall_ns"])
         self.assertGreater(len(r["stdout"]), 200000)
         self.assertGreater(r["peak_rss_bytes"], 0)
 
     def test_peak_rss_does_not_inherit_the_previous_child_maximum(self):
-        large = bench.process([sys.executable, "-c", "x=bytearray(64*1024*1024)"], bench.clean_env(), 5)
-        small = bench.process([sys.executable, "-c", "pass"], bench.clean_env(), 5)
+        large = self.process([sys.executable, "-c", "x=bytearray(64*1024*1024)"], bench.clean_env(), 5)
+        small = self.process([sys.executable, "-c", "pass"], bench.clean_env(), 5)
         self.assertGreater(large["peak_rss_bytes"], small["peak_rss_bytes"] + 32 * 1024 * 1024)
 
     def test_timeout_kills_descendants(self):
@@ -102,7 +123,7 @@ class ProcessTests(unittest.TestCase):
                       "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
                       f"pathlib.Path({str(path)!r}).write_text(str(child.pid)); time.sleep(30)")
             with self.assertRaises(TimeoutError):
-                bench.process([sys.executable, "-c", source], bench.clean_env(), .2)
+                self.process([sys.executable, "-c", source], bench.clean_env(), .2)
             child = int(path.read_text())
             for _ in range(30):
                 state = Path(f"/proc/{child}/stat")
@@ -115,9 +136,9 @@ class ProcessTests(unittest.TestCase):
 
     def test_missing_ready_and_failed_commands_are_rejected(self):
         with self.assertRaises(ValueError):
-            bench.process([sys.executable, "-c", "print('wrong')"], bench.clean_env(), 5, True)
+            self.process([sys.executable, "-c", "print('wrong')"], bench.clean_env(), 5, True)
         with self.assertRaises(RuntimeError):
-            bench.process([sys.executable, "-c", "raise RuntimeError('failure')"], bench.clean_env(), 5)
+            self.process([sys.executable, "-c", "raise RuntimeError('failure')"], bench.clean_env(), 5)
 
 
 @unittest.skipUnless(os.environ.get("REALWORLD_BADGER"), "set REALWORLD_BADGER for Badger report integration")

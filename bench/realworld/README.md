@@ -18,7 +18,7 @@ a more elaborate Badger service topology. It does not replace either suite.
 ## Run it
 
 Build from the same clean revision you intend to measure. Requires Python 3.10+,
-Linux, Go 1.21+, Node.js 22+, and the release Badger executable. No dependencies
+Linux, a C compiler (`cc`, instrumentation only), Go 1.21+, Node.js 22+, and the release Badger executable. No dependencies
 are downloaded or installed. Run commands from the repository root:
 
 ```sh
@@ -100,7 +100,8 @@ CPU work. A main-thread dispatcher keeps at most four materialized input batches
 queued and one batch in flight per worker; result events are reduced immediately.
 `postMessage` structured-clones normal arrays. Go/Badger pass references. Node's
 pool starts inside the first kernel execution and is reused by later iterations;
-Go/Badger reuse runtime threads but recreate tasks/channels. The pipeline measures
+Go/Badger reuse runtime threads but recreate tasks/channels. Node has N worker threads plus its coordinating main thread; this is a consumer
+count sweep, not a strict equal total-thread or total-CPU cap. The pipeline measures
 normal application choices, not identical queues, memory budgets or task APIs.
 It fixes the batch boundary, per-ID work and digest, not internal scheduling.
 
@@ -129,7 +130,12 @@ It fixes the batch boundary, per-ID work and digest, not internal scheduling.
    All warmups/raw iteration values remain in JSON. CV > 10% is flagged; short
    samples/noisy cells warrant a longer run, not a precise universal ranking.
 6. `wait4` records **per-process peak RSS**, user/system CPU time and context
-   switches; no cumulative-child RSS maxima or sampled-process memory guesses.
+   switches. A tiny clean native launcher measures the actual workload child,
+   preventing Python's retained report/hash allocations becoming an inherited
+   RSS floor. No workload logic runs in the launcher. Its setup/build identity
+   is retained but excluded from workload preparation timings. Startup and whole-
+   process wall time include this common extra fork/exec (usually sub-millisecond).
+   There are no cumulative-child RSS maxima or sampled-process memory guesses.
    Timeout kills the whole process group. Source/tool hash changes reject the run.
 
 Kernel timing includes input generation (except the JSON fixture), collection
