@@ -1,0 +1,3922 @@
+coverage rep=-1 lookup-array-int w2 baseline
+coverage rep=-1 lookup-array-int w2 candidate
+coverage rep=-1 lookup-array-int w1 baseline
+coverage rep=-1 lookup-array-int w1 candidate
+coverage rep=-1 lookup-list-pointers w8 candidate
+coverage rep=-1 lookup-list-pointers w8 baseline
+coverage rep=-1 lookup-map-misses w4 candidate
+coverage rep=-1 lookup-map-misses w4 baseline
+coverage rep=-1 lookup-map-misses w1 candidate
+coverage rep=-1 lookup-map-misses w1 baseline
+coverage rep=-1 lookup-map-stored w1 baseline
+coverage rep=-1 lookup-map-stored w1 candidate
+coverage rep=-1 lookup-list-pointers w4 candidate
+coverage rep=-1 lookup-list-pointers w4 baseline
+coverage rep=-1 lookup-list-misses w2 baseline
+coverage rep=-1 lookup-list-misses w2 candidate
+coverage rep=-1 lookup-list-misses w8 candidate
+coverage rep=-1 lookup-list-misses w8 baseline
+coverage rep=-1 lookup-map-pointers w1 baseline
+coverage rep=-1 lookup-map-pointers w1 candidate
+coverage rep=-1 lookup-list-pointers w2 candidate
+coverage rep=-1 lookup-list-pointers w2 baseline
+coverage rep=-1 lookup-map-stored w4 candidate
+coverage rep=-1 lookup-map-stored w4 baseline
+coverage rep=-1 lookup-map-int w1 candidate
+coverage rep=-1 lookup-map-int w1 baseline
+coverage rep=-1 lookup-map-misses w2 baseline
+coverage rep=-1 lookup-map-misses w2 candidate
+coverage rep=-1 lookup-map-pointers w8 candidate
+coverage rep=-1 lookup-map-pointers w8 baseline
+coverage rep=-1 lookup-array-int w8 baseline
+coverage rep=-1 lookup-array-int w8 candidate
+coverage rep=-1 lookup-map-int w4 baseline
+coverage rep=-1 lookup-map-int w4 candidate
+coverage rep=-1 lookup-array-int w4 candidate
+coverage rep=-1 lookup-array-int w4 baseline
+coverage rep=-1 lookup-map-stored w8 baseline
+coverage rep=-1 lookup-map-stored w8 candidate
+coverage rep=-1 lookup-list-misses w4 baseline
+coverage rep=-1 lookup-list-misses w4 candidate
+coverage rep=-1 lookup-map-pointers w4 baseline
+coverage rep=-1 lookup-map-pointers w4 candidate
+coverage rep=-1 lookup-map-int w2 candidate
+coverage rep=-1 lookup-map-int w2 baseline
+coverage rep=-1 lookup-list-pointers w1 candidate
+coverage rep=-1 lookup-list-pointers w1 baseline
+coverage rep=-1 lookup-map-pointers w2 candidate
+coverage rep=-1 lookup-map-pointers w2 baseline
+coverage rep=-1 lookup-map-stored w2 candidate
+coverage rep=-1 lookup-map-stored w2 baseline
+coverage rep=-1 lookup-map-misses w8 baseline
+coverage rep=-1 lookup-map-misses w8 candidate
+coverage rep=-1 lookup-list-misses w1 baseline
+coverage rep=-1 lookup-list-misses w1 candidate
+coverage rep=-1 lookup-map-int w8 baseline
+coverage rep=-1 lookup-map-int w8 candidate
+coverage rep=0 lookup-map-pointers w1 candidate
+coverage rep=0 lookup-map-pointers w1 baseline
+coverage rep=0 lookup-list-misses w4 baseline
+coverage rep=0 lookup-list-misses w4 candidate
+coverage rep=0 lookup-map-misses w8 baseline
+coverage rep=0 lookup-map-misses w8 candidate
+coverage rep=0 lookup-map-misses w4 baseline
+coverage rep=0 lookup-map-misses w4 candidate
+coverage rep=0 lookup-map-stored w2 baseline
+coverage rep=0 lookup-map-stored w2 candidate
+coverage rep=0 lookup-list-misses w2 candidate
+coverage rep=0 lookup-list-misses w2 baseline
+coverage rep=0 lookup-list-pointers w2 candidate
+coverage rep=0 lookup-list-pointers w2 baseline
+coverage rep=0 lookup-map-stored w4 baseline
+coverage rep=0 lookup-map-stored w4 candidate
+coverage rep=0 lookup-list-pointers w8 baseline
+coverage rep=0 lookup-list-pointers w8 candidate
+coverage rep=0 lookup-array-int w1 baseline
+coverage rep=0 lookup-array-int w1 candidate
+coverage rep=0 lookup-map-pointers w8 baseline
+coverage rep=0 lookup-map-pointers w8 candidate
+coverage rep=0 lookup-list-misses w8 baseline
+coverage rep=0 lookup-list-misses w8 candidate
+coverage rep=0 lookup-map-pointers w2 candidate
+coverage rep=0 lookup-map-pointers w2 baseline
+coverage rep=0 lookup-array-int w2 baseline
+coverage rep=0 lookup-array-int w2 candidate
+coverage rep=0 lookup-list-misses w1 candidate
+coverage rep=0 lookup-list-misses w1 baseline
+coverage rep=0 lookup-map-int w4 candidate
+coverage rep=0 lookup-map-int w4 baseline
+coverage rep=0 lookup-array-int w8 candidate
+coverage rep=0 lookup-array-int w8 baseline
+coverage rep=0 lookup-map-int w1 candidate
+coverage rep=0 lookup-map-int w1 baseline
+coverage rep=0 lookup-map-stored w1 candidate
+coverage rep=0 lookup-map-stored w1 baseline
+coverage rep=0 lookup-map-misses w1 candidate
+coverage rep=0 lookup-map-misses w1 baseline
+coverage rep=0 lookup-map-pointers w4 candidate
+coverage rep=0 lookup-map-pointers w4 baseline
+coverage rep=0 lookup-map-stored w8 baseline
+coverage rep=0 lookup-map-stored w8 candidate
+coverage rep=0 lookup-map-int w2 baseline
+coverage rep=0 lookup-map-int w2 candidate
+coverage rep=0 lookup-map-int w8 candidate
+coverage rep=0 lookup-map-int w8 baseline
+coverage rep=0 lookup-list-pointers w1 baseline
+coverage rep=0 lookup-list-pointers w1 candidate
+coverage rep=0 lookup-array-int w4 candidate
+coverage rep=0 lookup-array-int w4 baseline
+coverage rep=0 lookup-list-pointers w4 candidate
+coverage rep=0 lookup-list-pointers w4 baseline
+coverage rep=0 lookup-map-misses w2 baseline
+coverage rep=0 lookup-map-misses w2 candidate
+coverage rep=1 lookup-map-misses w8 baseline
+coverage rep=1 lookup-map-misses w8 candidate
+coverage rep=1 lookup-map-int w8 baseline
+coverage rep=1 lookup-map-int w8 candidate
+coverage rep=1 lookup-map-pointers w2 candidate
+coverage rep=1 lookup-map-pointers w2 baseline
+coverage rep=1 lookup-map-misses w4 candidate
+coverage rep=1 lookup-map-misses w4 baseline
+coverage rep=1 lookup-list-misses w1 baseline
+coverage rep=1 lookup-list-misses w1 candidate
+coverage rep=1 lookup-list-misses w4 baseline
+coverage rep=1 lookup-list-misses w4 candidate
+coverage rep=1 lookup-map-stored w1 candidate
+coverage rep=1 lookup-map-stored w1 baseline
+coverage rep=1 lookup-list-pointers w8 candidate
+coverage rep=1 lookup-list-pointers w8 baseline
+coverage rep=1 lookup-map-int w2 baseline
+coverage rep=1 lookup-map-int w2 candidate
+coverage rep=1 lookup-list-pointers w1 candidate
+coverage rep=1 lookup-list-pointers w1 baseline
+coverage rep=1 lookup-list-misses w8 candidate
+coverage rep=1 lookup-list-misses w8 baseline
+coverage rep=1 lookup-map-misses w2 candidate
+coverage rep=1 lookup-map-misses w2 baseline
+coverage rep=1 lookup-map-pointers w8 baseline
+coverage rep=1 lookup-map-pointers w8 candidate
+coverage rep=1 lookup-map-pointers w1 baseline
+coverage rep=1 lookup-map-pointers w1 candidate
+coverage rep=1 lookup-map-stored w4 baseline
+coverage rep=1 lookup-map-stored w4 candidate
+coverage rep=1 lookup-list-misses w2 baseline
+coverage rep=1 lookup-list-misses w2 candidate
+coverage rep=1 lookup-array-int w1 candidate
+coverage rep=1 lookup-array-int w1 baseline
+coverage rep=1 lookup-map-pointers w4 baseline
+coverage rep=1 lookup-map-pointers w4 candidate
+coverage rep=1 lookup-array-int w2 candidate
+coverage rep=1 lookup-array-int w2 baseline
+coverage rep=1 lookup-map-int w1 candidate
+coverage rep=1 lookup-map-int w1 baseline
+coverage rep=1 lookup-map-int w4 candidate
+coverage rep=1 lookup-map-int w4 baseline
+coverage rep=1 lookup-map-misses w1 baseline
+coverage rep=1 lookup-map-misses w1 candidate
+coverage rep=1 lookup-array-int w4 candidate
+coverage rep=1 lookup-array-int w4 baseline
+coverage rep=1 lookup-array-int w8 candidate
+coverage rep=1 lookup-array-int w8 baseline
+coverage rep=1 lookup-map-stored w2 baseline
+coverage rep=1 lookup-map-stored w2 candidate
+coverage rep=1 lookup-list-pointers w2 baseline
+coverage rep=1 lookup-list-pointers w2 candidate
+coverage rep=1 lookup-map-stored w8 candidate
+coverage rep=1 lookup-map-stored w8 baseline
+coverage rep=1 lookup-list-pointers w4 baseline
+coverage rep=1 lookup-list-pointers w4 candidate
+coverage rep=2 lookup-map-pointers w1 baseline
+coverage rep=2 lookup-map-pointers w1 candidate
+coverage rep=2 lookup-map-int w1 baseline
+coverage rep=2 lookup-map-int w1 candidate
+coverage rep=2 lookup-map-int w4 baseline
+coverage rep=2 lookup-map-int w4 candidate
+coverage rep=2 lookup-list-pointers w8 baseline
+coverage rep=2 lookup-list-pointers w8 candidate
+coverage rep=2 lookup-array-int w2 candidate
+coverage rep=2 lookup-array-int w2 baseline
+coverage rep=2 lookup-map-stored w8 baseline
+coverage rep=2 lookup-map-stored w8 candidate
+coverage rep=2 lookup-map-misses w1 baseline
+coverage rep=2 lookup-map-misses w1 candidate
+coverage rep=2 lookup-map-misses w8 candidate
+coverage rep=2 lookup-map-misses w8 baseline
+coverage rep=2 lookup-map-misses w4 candidate
+coverage rep=2 lookup-map-misses w4 baseline
+coverage rep=2 lookup-map-int w8 baseline
+coverage rep=2 lookup-map-int w8 candidate
+coverage rep=2 lookup-list-pointers w1 baseline
+coverage rep=2 lookup-list-pointers w1 candidate
+coverage rep=2 lookup-list-misses w1 baseline
+coverage rep=2 lookup-list-misses w1 candidate
+coverage rep=2 lookup-map-stored w4 baseline
+coverage rep=2 lookup-map-stored w4 candidate
+coverage rep=2 lookup-map-misses w2 baseline
+coverage rep=2 lookup-map-misses w2 candidate
+coverage rep=2 lookup-list-misses w2 candidate
+coverage rep=2 lookup-list-misses w2 baseline
+coverage rep=2 lookup-array-int w4 baseline
+coverage rep=2 lookup-array-int w4 candidate
+coverage rep=2 lookup-map-pointers w2 candidate
+coverage rep=2 lookup-map-pointers w2 baseline
+coverage rep=2 lookup-map-pointers w4 candidate
+coverage rep=2 lookup-map-pointers w4 baseline
+coverage rep=2 lookup-map-stored w1 baseline
+coverage rep=2 lookup-map-stored w1 candidate
+coverage rep=2 lookup-map-pointers w8 baseline
+coverage rep=2 lookup-map-pointers w8 candidate
+coverage rep=2 lookup-array-int w1 candidate
+coverage rep=2 lookup-array-int w1 baseline
+coverage rep=2 lookup-list-misses w8 candidate
+coverage rep=2 lookup-list-misses w8 baseline
+coverage rep=2 lookup-map-int w2 baseline
+coverage rep=2 lookup-map-int w2 candidate
+coverage rep=2 lookup-array-int w8 candidate
+coverage rep=2 lookup-array-int w8 baseline
+coverage rep=2 lookup-list-misses w4 baseline
+coverage rep=2 lookup-list-misses w4 candidate
+coverage rep=2 lookup-list-pointers w2 baseline
+coverage rep=2 lookup-list-pointers w2 candidate
+coverage rep=2 lookup-list-pointers w4 baseline
+coverage rep=2 lookup-list-pointers w4 candidate
+coverage rep=2 lookup-map-stored w2 baseline
+coverage rep=2 lookup-map-stored w2 candidate
+coverage rep=3 lookup-array-int w8 candidate
+coverage rep=3 lookup-array-int w8 baseline
+coverage rep=3 lookup-map-pointers w4 baseline
+coverage rep=3 lookup-map-pointers w4 candidate
+coverage rep=3 lookup-map-misses w1 baseline
+coverage rep=3 lookup-map-misses w1 candidate
+coverage rep=3 lookup-list-misses w2 baseline
+coverage rep=3 lookup-list-misses w2 candidate
+coverage rep=3 lookup-map-stored w8 baseline
+coverage rep=3 lookup-map-stored w8 candidate
+coverage rep=3 lookup-list-pointers w8 baseline
+coverage rep=3 lookup-list-pointers w8 candidate
+coverage rep=3 lookup-map-pointers w8 candidate
+coverage rep=3 lookup-map-pointers w8 baseline
+coverage rep=3 lookup-list-pointers w1 candidate
+coverage rep=3 lookup-list-pointers w1 baseline
+coverage rep=3 lookup-map-stored w2 candidate
+coverage rep=3 lookup-map-stored w2 baseline
+coverage rep=3 lookup-map-misses w4 baseline
+coverage rep=3 lookup-map-misses w4 candidate
+coverage rep=3 lookup-map-int w8 baseline
+coverage rep=3 lookup-map-int w8 candidate
+coverage rep=3 lookup-list-misses w8 candidate
+coverage rep=3 lookup-list-misses w8 baseline
+coverage rep=3 lookup-list-pointers w4 baseline
+coverage rep=3 lookup-list-pointers w4 candidate
+coverage rep=3 lookup-map-misses w8 baseline
+coverage rep=3 lookup-map-misses w8 candidate
+coverage rep=3 lookup-map-int w1 candidate
+coverage rep=3 lookup-map-int w1 baseline
+coverage rep=3 lookup-map-stored w4 candidate
+coverage rep=3 lookup-map-stored w4 baseline
+coverage rep=3 lookup-map-int w4 baseline
+coverage rep=3 lookup-map-int w4 candidate
+coverage rep=3 lookup-map-stored w1 candidate
+coverage rep=3 lookup-map-stored w1 baseline
+coverage rep=3 lookup-list-misses w1 baseline
+coverage rep=3 lookup-list-misses w1 candidate
+coverage rep=3 lookup-map-int w2 baseline
+coverage rep=3 lookup-map-int w2 candidate
+coverage rep=3 lookup-map-pointers w1 baseline
+coverage rep=3 lookup-map-pointers w1 candidate
+coverage rep=3 lookup-list-pointers w2 candidate
+coverage rep=3 lookup-list-pointers w2 baseline
+coverage rep=3 lookup-map-pointers w2 baseline
+coverage rep=3 lookup-map-pointers w2 candidate
+coverage rep=3 lookup-list-misses w4 baseline
+coverage rep=3 lookup-list-misses w4 candidate
+coverage rep=3 lookup-array-int w1 candidate
+coverage rep=3 lookup-array-int w1 baseline
+coverage rep=3 lookup-array-int w2 candidate
+coverage rep=3 lookup-array-int w2 baseline
+coverage rep=3 lookup-map-misses w2 candidate
+coverage rep=3 lookup-map-misses w2 baseline
+coverage rep=3 lookup-array-int w4 candidate
+coverage rep=3 lookup-array-int w4 baseline
+coverage rep=4 lookup-map-int w8 candidate
+coverage rep=4 lookup-map-int w8 baseline
+coverage rep=4 lookup-map-misses w8 baseline
+coverage rep=4 lookup-map-misses w8 candidate
+coverage rep=4 lookup-list-pointers w2 candidate
+coverage rep=4 lookup-list-pointers w2 baseline
+coverage rep=4 lookup-map-stored w8 candidate
+coverage rep=4 lookup-map-stored w8 baseline
+coverage rep=4 lookup-map-misses w2 baseline
+coverage rep=4 lookup-map-misses w2 candidate
+coverage rep=4 lookup-array-int w4 candidate
+coverage rep=4 lookup-array-int w4 baseline
+coverage rep=4 lookup-map-pointers w1 candidate
+coverage rep=4 lookup-map-pointers w1 baseline
+coverage rep=4 lookup-map-stored w2 candidate
+coverage rep=4 lookup-map-stored w2 baseline
+coverage rep=4 lookup-map-stored w1 candidate
+coverage rep=4 lookup-map-stored w1 baseline
+coverage rep=4 lookup-map-misses w1 baseline
+coverage rep=4 lookup-map-misses w1 candidate
+coverage rep=4 lookup-list-misses w2 baseline
+coverage rep=4 lookup-list-misses w2 candidate
+coverage rep=4 lookup-map-pointers w4 candidate
+coverage rep=4 lookup-map-pointers w4 baseline
+coverage rep=4 lookup-map-int w2 candidate
+coverage rep=4 lookup-map-int w2 baseline
+coverage rep=4 lookup-map-pointers w8 baseline
+coverage rep=4 lookup-map-pointers w8 candidate
+coverage rep=4 lookup-list-misses w1 candidate
+coverage rep=4 lookup-list-misses w1 baseline
+coverage rep=4 lookup-array-int w8 baseline
+coverage rep=4 lookup-array-int w8 candidate
+coverage rep=4 lookup-map-pointers w2 baseline
+coverage rep=4 lookup-map-pointers w2 candidate
+coverage rep=4 lookup-map-int w4 candidate
+coverage rep=4 lookup-map-int w4 baseline
+coverage rep=4 lookup-list-misses w8 baseline
+coverage rep=4 lookup-list-misses w8 candidate
+coverage rep=4 lookup-list-misses w4 candidate
+coverage rep=4 lookup-list-misses w4 baseline
+coverage rep=4 lookup-list-pointers w1 candidate
+coverage rep=4 lookup-list-pointers w1 baseline
+coverage rep=4 lookup-array-int w1 baseline
+coverage rep=4 lookup-array-int w1 candidate
+coverage rep=4 lookup-map-stored w4 baseline
+coverage rep=4 lookup-map-stored w4 candidate
+coverage rep=4 lookup-map-int w1 candidate
+coverage rep=4 lookup-map-int w1 baseline
+coverage rep=4 lookup-list-pointers w8 baseline
+coverage rep=4 lookup-list-pointers w8 candidate
+coverage rep=4 lookup-array-int w2 candidate
+coverage rep=4 lookup-array-int w2 baseline
+coverage rep=4 lookup-list-pointers w4 candidate
+coverage rep=4 lookup-list-pointers w4 baseline
+coverage rep=4 lookup-map-misses w4 candidate
+coverage rep=4 lookup-map-misses w4 baseline
+coverage rep=5 lookup-map-misses w1 baseline
+coverage rep=5 lookup-map-misses w1 candidate
+coverage rep=5 lookup-list-pointers w8 candidate
+coverage rep=5 lookup-list-pointers w8 baseline
+coverage rep=5 lookup-list-misses w2 baseline
+coverage rep=5 lookup-list-misses w2 candidate
+coverage rep=5 lookup-array-int w1 baseline
+coverage rep=5 lookup-array-int w1 candidate
+coverage rep=5 lookup-map-stored w8 candidate
+coverage rep=5 lookup-map-stored w8 baseline
+coverage rep=5 lookup-map-misses w2 candidate
+coverage rep=5 lookup-map-misses w2 baseline
+coverage rep=5 lookup-map-int w1 baseline
+coverage rep=5 lookup-map-int w1 candidate
+coverage rep=5 lookup-array-int w4 baseline
+coverage rep=5 lookup-array-int w4 candidate
+coverage rep=5 lookup-map-pointers w1 candidate
+coverage rep=5 lookup-map-pointers w1 baseline
+coverage rep=5 lookup-map-stored w1 candidate
+coverage rep=5 lookup-map-stored w1 baseline
+coverage rep=5 lookup-map-pointers w8 candidate
+coverage rep=5 lookup-map-pointers w8 baseline
+coverage rep=5 lookup-map-misses w4 baseline
+coverage rep=5 lookup-map-misses w4 candidate
+coverage rep=5 lookup-map-stored w4 baseline
+coverage rep=5 lookup-map-stored w4 candidate
+coverage rep=5 lookup-list-misses w4 candidate
+coverage rep=5 lookup-list-misses w4 baseline
+coverage rep=5 lookup-array-int w2 baseline
+coverage rep=5 lookup-array-int w2 candidate
+coverage rep=5 lookup-map-pointers w4 candidate
+coverage rep=5 lookup-map-pointers w4 baseline
+coverage rep=5 lookup-map-pointers w2 baseline
+coverage rep=5 lookup-map-pointers w2 candidate
+coverage rep=5 lookup-map-int w8 candidate
+coverage rep=5 lookup-map-int w8 baseline
+coverage rep=5 lookup-map-int w4 baseline
+coverage rep=5 lookup-map-int w4 candidate
+coverage rep=5 lookup-map-stored w2 baseline
+coverage rep=5 lookup-map-stored w2 candidate
+coverage rep=5 lookup-map-misses w8 candidate
+coverage rep=5 lookup-map-misses w8 baseline
+coverage rep=5 lookup-list-misses w1 baseline
+coverage rep=5 lookup-list-misses w1 candidate
+coverage rep=5 lookup-list-misses w8 baseline
+coverage rep=5 lookup-list-misses w8 candidate
+coverage rep=5 lookup-map-int w2 candidate
+coverage rep=5 lookup-map-int w2 baseline
+coverage rep=5 lookup-list-pointers w4 baseline
+coverage rep=5 lookup-list-pointers w4 candidate
+coverage rep=5 lookup-list-pointers w2 baseline
+coverage rep=5 lookup-list-pointers w2 candidate
+coverage rep=5 lookup-array-int w8 candidate
+coverage rep=5 lookup-array-int w8 baseline
+coverage rep=5 lookup-list-pointers w1 candidate
+coverage rep=5 lookup-list-pointers w1 baseline
+coverage rep=6 lookup-map-int w1 baseline
+coverage rep=6 lookup-map-int w1 candidate
+coverage rep=6 lookup-map-misses w8 candidate
+coverage rep=6 lookup-map-misses w8 baseline
+coverage rep=6 lookup-list-pointers w4 baseline
+coverage rep=6 lookup-list-pointers w4 candidate
+coverage rep=6 lookup-map-int w2 baseline
+coverage rep=6 lookup-map-int w2 candidate
+coverage rep=6 lookup-map-misses w2 candidate
+coverage rep=6 lookup-map-misses w2 baseline
+coverage rep=6 lookup-map-int w8 baseline
+coverage rep=6 lookup-map-int w8 candidate
+coverage rep=6 lookup-map-pointers w2 baseline
+coverage rep=6 lookup-map-pointers w2 candidate
+coverage rep=6 lookup-map-int w4 baseline
+coverage rep=6 lookup-map-int w4 candidate
+coverage rep=6 lookup-list-misses w4 baseline
+coverage rep=6 lookup-list-misses w4 candidate
+coverage rep=6 lookup-array-int w1 baseline
+coverage rep=6 lookup-array-int w1 candidate
+coverage rep=6 lookup-list-misses w8 candidate
+coverage rep=6 lookup-list-misses w8 baseline
+coverage rep=6 lookup-map-stored w4 candidate
+coverage rep=6 lookup-map-stored w4 baseline
+coverage rep=6 lookup-array-int w8 candidate
+coverage rep=6 lookup-array-int w8 baseline
+coverage rep=6 lookup-list-pointers w8 baseline
+coverage rep=6 lookup-list-pointers w8 candidate
+coverage rep=6 lookup-map-stored w1 baseline
+coverage rep=6 lookup-map-stored w1 candidate
+coverage rep=6 lookup-list-pointers w2 baseline
+coverage rep=6 lookup-list-pointers w2 candidate
+coverage rep=6 lookup-map-stored w2 candidate
+coverage rep=6 lookup-map-stored w2 baseline
+coverage rep=6 lookup-array-int w2 candidate
+coverage rep=6 lookup-array-int w2 baseline
+coverage rep=6 lookup-map-pointers w8 baseline
+coverage rep=6 lookup-map-pointers w8 candidate
+coverage rep=6 lookup-array-int w4 baseline
+coverage rep=6 lookup-array-int w4 candidate
+coverage rep=6 lookup-map-misses w4 candidate
+coverage rep=6 lookup-map-misses w4 baseline
+coverage rep=6 lookup-list-misses w1 candidate
+coverage rep=6 lookup-list-misses w1 baseline
+coverage rep=6 lookup-list-pointers w1 baseline
+coverage rep=6 lookup-list-pointers w1 candidate
+coverage rep=6 lookup-list-misses w2 candidate
+coverage rep=6 lookup-list-misses w2 baseline
+coverage rep=6 lookup-map-pointers w4 baseline
+coverage rep=6 lookup-map-pointers w4 candidate
+coverage rep=6 lookup-map-pointers w1 baseline
+coverage rep=6 lookup-map-pointers w1 candidate
+coverage rep=6 lookup-map-misses w1 candidate
+coverage rep=6 lookup-map-misses w1 baseline
+coverage rep=6 lookup-map-stored w8 baseline
+coverage rep=6 lookup-map-stored w8 candidate
+[
+  {
+    "case": "lookup-array-int",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.853127,
+      "min": 2.780914,
+      "max": 4.451435,
+      "runs": [
+        4.451435,
+        2.804818,
+        2.883274,
+        2.780914,
+        2.911686,
+        2.798226,
+        2.853127
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29660,
+      "min": 29152,
+      "max": 32208,
+      "runs": [
+        29156,
+        29660,
+        32208,
+        29860,
+        29764,
+        29152,
+        29192
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.839823,
+      "min": 2.785391,
+      "max": 3.740775,
+      "runs": [
+        3.078226,
+        2.839823,
+        2.842889,
+        3.740775,
+        2.798917,
+        2.785391,
+        2.838801
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29876,
+      "min": 29080,
+      "max": 31412,
+      "runs": [
+        30040,
+        29888,
+        29540,
+        29256,
+        29876,
+        29080,
+        31412
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.839863,
+      "min": 2.800178,
+      "max": 3.116807,
+      "runs": [
+        3.116807,
+        2.825947,
+        2.844652,
+        2.839863,
+        2.800178,
+        2.825997,
+        2.88111
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29772,
+      "min": 29116,
+      "max": 30132,
+      "runs": [
+        30084,
+        29840,
+        29772,
+        29148,
+        30132,
+        29116,
+        29624
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.916506,
+      "min": 2.833812,
+      "max": 4.587688,
+      "runs": [
+        3.142576,
+        3.034143,
+        2.833812,
+        2.834443,
+        2.842347,
+        4.587688,
+        2.916506
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30028,
+      "min": 29068,
+      "max": 32168,
+      "runs": [
+        29068,
+        31872,
+        29996,
+        31228,
+        32168,
+        30028,
+        29824
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.880428,
+      "min": 2.835835,
+      "max": 3.126895,
+      "runs": [
+        3.126895,
+        2.923538,
+        2.835835,
+        2.884245,
+        2.880278,
+        2.880428,
+        2.864598
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29304,
+      "min": 29112,
+      "max": 30176,
+      "runs": [
+        29168,
+        29304,
+        30176,
+        29136,
+        29112,
+        29820,
+        29500
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 2.86536,
+      "min": 2.788768,
+      "max": 3.144048,
+      "runs": [
+        3.144048,
+        2.869117,
+        2.873004,
+        2.86536,
+        2.788768,
+        2.828422,
+        2.842106
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30012,
+      "min": 29052,
+      "max": 31716,
+      "runs": [
+        29864,
+        29836,
+        31716,
+        30168,
+        30056,
+        30012,
+        29052
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 3.234575,
+      "min": 2.846786,
+      "max": 4.645596,
+      "runs": [
+        4.299984,
+        3.234575,
+        4.645596,
+        2.846786,
+        2.857846,
+        3.334882,
+        2.937114
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29604,
+      "min": 29252,
+      "max": 31916,
+      "runs": [
+        29344,
+        29252,
+        29312,
+        29604,
+        31916,
+        30144,
+        30404
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 3.147504,
+      "min": 2.81697,
+      "max": 4.116864,
+      "runs": [
+        3.147504,
+        2.850272,
+        3.207095,
+        4.116864,
+        2.846516,
+        3.613829,
+        2.81697
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29920,
+      "min": 29080,
+      "max": 30288,
+      "runs": [
+        29080,
+        29928,
+        29920,
+        29776,
+        30288,
+        29344,
+        29956
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.879032,
+      "min": 6.752627,
+      "max": 7.588921,
+      "runs": [
+        7.588921,
+        7.161917,
+        7.43792,
+        6.804133,
+        6.879032,
+        6.752627,
+        6.869394
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29376,
+      "min": 28928,
+      "max": 29776,
+      "runs": [
+        29376,
+        29776,
+        29764,
+        29640,
+        29004,
+        29312,
+        28928
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 7.086427,
+      "min": 6.840952,
+      "max": 7.772581,
+      "runs": [
+        7.772581,
+        7.1737,
+        6.85076,
+        7.008853,
+        7.474728,
+        6.840952,
+        7.086427
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29656,
+      "min": 29092,
+      "max": 31552,
+      "runs": [
+        31552,
+        29656,
+        29600,
+        29560,
+        29720,
+        29092,
+        29884
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.868854,
+      "min": 6.797391,
+      "max": 7.500006,
+      "runs": [
+        7.500006,
+        6.868854,
+        7.49707,
+        6.8345,
+        6.834901,
+        6.88329,
+        6.797391
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29808,
+      "min": 29208,
+      "max": 31816,
+      "runs": [
+        29996,
+        29348,
+        30060,
+        31816,
+        29808,
+        29332,
+        29208
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.593382,
+      "min": 6.509827,
+      "max": 8.725892,
+      "runs": [
+        8.725892,
+        6.573846,
+        6.793294,
+        6.593382,
+        6.509827,
+        8.278591,
+        6.563326
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29844,
+      "min": 29288,
+      "max": 30144,
+      "runs": [
+        30144,
+        30080,
+        29336,
+        29592,
+        29288,
+        29856,
+        29844
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.896425,
+      "min": 6.834861,
+      "max": 8.36977,
+      "runs": [
+        6.834861,
+        6.896425,
+        6.844188,
+        6.901965,
+        6.837716,
+        6.979619,
+        8.36977
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29852,
+      "min": 29180,
+      "max": 32128,
+      "runs": [
+        29180,
+        30088,
+        32128,
+        29836,
+        29852,
+        31792,
+        29436
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.584766,
+      "min": 6.540424,
+      "max": 8.695324,
+      "runs": [
+        6.625041,
+        6.617126,
+        6.540424,
+        6.584766,
+        6.574537,
+        6.577022,
+        8.695324
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29676,
+      "min": 28612,
+      "max": 31416,
+      "runs": [
+        31416,
+        29516,
+        29280,
+        28612,
+        29832,
+        29676,
+        29856
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.930087,
+      "min": 6.79756,
+      "max": 7.811674,
+      "runs": [
+        7.811674,
+        7.193787,
+        6.819572,
+        6.930087,
+        7.29248,
+        6.896455,
+        6.79756
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31024,
+      "min": 29212,
+      "max": 32040,
+      "runs": [
+        31024,
+        29568,
+        32040,
+        31236,
+        29212,
+        29656,
+        32040
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.616815,
+      "min": 6.530536,
+      "max": 8.34235,
+      "runs": [
+        7.805894,
+        6.637835,
+        6.530536,
+        8.34235,
+        6.58652,
+        6.557866,
+        6.616815
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30292,
+      "min": 29320,
+      "max": 31976,
+      "runs": [
+        29924,
+        31976,
+        31160,
+        31540,
+        29744,
+        30292,
+        29320
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 25.070388,
+      "min": 23.969995,
+      "max": 27.294549,
+      "runs": [
+        27.294549,
+        24.329794,
+        24.835493,
+        26.06205,
+        23.969995,
+        25.070388,
+        25.670422
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51800,
+      "min": 50632,
+      "max": 54788,
+      "runs": [
+        51800,
+        52432,
+        50632,
+        52404,
+        50816,
+        51740,
+        54788
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.126642,
+      "min": 1.070617,
+      "max": 1.161236,
+      "runs": [
+        1.127935,
+        1.134366,
+        1.085145,
+        1.126642,
+        1.070617,
+        1.161236,
+        1.120741
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 16.80413,
+      "min": 16.058826,
+      "max": 19.310664,
+      "runs": [
+        17.510823,
+        16.340891,
+        17.26167,
+        19.310664,
+        16.80413,
+        16.380103,
+        16.058826
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29932,
+      "min": 29392,
+      "max": 31956,
+      "runs": [
+        29932,
+        30004,
+        29476,
+        31956,
+        31864,
+        29392,
+        29412
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 30.364238,
+      "min": 28.890751,
+      "max": 33.393683,
+      "runs": [
+        32.555578,
+        33.393683,
+        30.542879,
+        30.364238,
+        29.007769,
+        29.776185,
+        28.890751
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52512,
+      "min": 50280,
+      "max": 52656,
+      "runs": [
+        52656,
+        52512,
+        52524,
+        52532,
+        52248,
+        50280,
+        50636
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.139065,
+      "min": 1.089543,
+      "max": 1.745451,
+      "runs": [
+        1.119188,
+        1.139065,
+        1.092448,
+        1.089543,
+        1.183337,
+        1.745451,
+        1.201531
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 24.453103,
+      "min": 23.169429,
+      "max": 26.461943,
+      "runs": [
+        25.315996,
+        26.461943,
+        23.224612,
+        23.705244,
+        24.453103,
+        25.190201,
+        23.169429
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29388,
+      "min": 29120,
+      "max": 31772,
+      "runs": [
+        31484,
+        29388,
+        29368,
+        29152,
+        29120,
+        31772,
+        29864
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 29.742082,
+      "min": 29.662124,
+      "max": 31.231439,
+      "runs": [
+        30.369339,
+        31.231439,
+        29.683063,
+        29.662124,
+        29.742082,
+        29.987758,
+        29.687971
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52616,
+      "min": 51936,
+      "max": 54844,
+      "runs": [
+        51936,
+        52544,
+        52616,
+        53868,
+        54844,
+        52484,
+        52680
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.125891,
+      "min": 1.04434,
+      "max": 1.218021,
+      "runs": [
+        1.126892,
+        1.149725,
+        1.218021,
+        1.125891,
+        1.065919,
+        1.04434,
+        1.092879
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 23.621799,
+      "min": 23.224781,
+      "max": 26.965849,
+      "runs": [
+        26.965849,
+        23.621799,
+        23.338132,
+        25.436508,
+        23.224781,
+        25.215829,
+        23.467793
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29568,
+      "min": 29188,
+      "max": 30192,
+      "runs": [
+        29476,
+        30192,
+        29568,
+        29316,
+        29188,
+        29888,
+        29956
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 30.837325,
+      "min": 29.095531,
+      "max": 32.125299,
+      "runs": [
+        32.075787,
+        32.125299,
+        31.911341,
+        29.777378,
+        30.3169,
+        30.837325,
+        29.095531
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52180,
+      "min": 50736,
+      "max": 54056,
+      "runs": [
+        52628,
+        54056,
+        52180,
+        51848,
+        50736,
+        52424,
+        50988
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.112727,
+      "min": 1.069115,
+      "max": 1.167868,
+      "runs": [
+        1.167868,
+        1.167678,
+        1.105443,
+        1.093681,
+        1.153983,
+        1.069115,
+        1.112727
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 24.125815,
+      "min": 23.437836,
+      "max": 26.106241,
+      "runs": [
+        25.631392,
+        25.675403,
+        23.699413,
+        23.634743,
+        24.125815,
+        23.437836,
+        26.106241
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29736,
+      "min": 29016,
+      "max": 31160,
+      "runs": [
+        29104,
+        29232,
+        30080,
+        29736,
+        30040,
+        29016,
+        31160
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 27.78652,
+      "min": 26.726253,
+      "max": 29.657837,
+      "runs": [
+        29.008311,
+        29.657837,
+        27.388434,
+        28.119561,
+        26.726253,
+        26.960538,
+        27.78652
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52452,
+      "min": 51484,
+      "max": 52724,
+      "runs": [
+        52680,
+        52724,
+        52436,
+        51916,
+        51484,
+        52452,
+        52568
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.132794,
+      "min": 1.091106,
+      "max": 1.173178,
+      "runs": [
+        1.173178,
+        1.132794,
+        1.097498,
+        1.111855,
+        1.164653,
+        1.091106,
+        1.144294
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 17.537041,
+      "min": 16.834778,
+      "max": 18.488498,
+      "runs": [
+        18.406266,
+        17.537041,
+        16.989304,
+        16.834778,
+        17.698962,
+        18.488498,
+        17.197921
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29572,
+      "min": 28888,
+      "max": 30188,
+      "runs": [
+        30188,
+        29888,
+        29980,
+        28888,
+        29528,
+        29388,
+        29572
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 27.827637,
+      "min": 26.341449,
+      "max": 30.039265,
+      "runs": [
+        30.039265,
+        28.74417,
+        27.134762,
+        26.341449,
+        26.341909,
+        29.279954,
+        27.827637
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52580,
+      "min": 51984,
+      "max": 52740,
+      "runs": [
+        51984,
+        52656,
+        52404,
+        52740,
+        52580,
+        52628,
+        52392
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.100082,
+      "min": 1.053837,
+      "max": 1.230425,
+      "runs": [
+        1.149775,
+        1.114119,
+        1.230425,
+        1.053837,
+        1.100082,
+        1.063815,
+        1.054137
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.492235,
+      "min": 16.814209,
+      "max": 19.347012,
+      "runs": [
+        18.331116,
+        18.492235,
+        19.347012,
+        17.490576,
+        16.814209,
+        18.842966,
+        18.956146
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29420,
+      "min": 29184,
+      "max": 29752,
+      "runs": [
+        29216,
+        29752,
+        29480,
+        29632,
+        29392,
+        29420,
+        29184
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 26.685427,
+      "min": 26.251141,
+      "max": 31.895542,
+      "runs": [
+        31.895542,
+        27.402249,
+        27.081342,
+        26.251141,
+        26.685427,
+        26.322332,
+        26.593907
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52532,
+      "min": 51080,
+      "max": 54096,
+      "runs": [
+        52804,
+        52060,
+        52532,
+        54096,
+        52820,
+        51080,
+        51840
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.085004,
+      "min": 1.052674,
+      "max": 1.230145,
+      "runs": [
+        1.230145,
+        1.085004,
+        1.140206,
+        1.083642,
+        1.052674,
+        1.062663,
+        1.155596
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 17.276697,
+      "min": 17.098136,
+      "max": 19.667037,
+      "runs": [
+        19.667037,
+        17.113265,
+        17.238668,
+        17.27791,
+        18.354649,
+        17.098136,
+        17.276697
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29788,
+      "min": 28816,
+      "max": 30064,
+      "runs": [
+        29952,
+        29264,
+        29552,
+        29808,
+        28816,
+        30064,
+        29788
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 27.095408,
+      "min": 26.466772,
+      "max": 29.870241,
+      "runs": [
+        28.720577,
+        29.870241,
+        26.466772,
+        27.095408,
+        29.007819,
+        26.580762,
+        26.824615
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52444,
+      "min": 51620,
+      "max": 54676,
+      "runs": [
+        51620,
+        52468,
+        51904,
+        52400,
+        54676,
+        52680,
+        52444
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.127985,
+      "min": 1.060759,
+      "max": 1.165785,
+      "runs": [
+        1.127985,
+        1.165785,
+        1.060759,
+        1.107456,
+        1.149013,
+        1.079815,
+        1.153212
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 17.812794,
+      "min": 16.831761,
+      "max": 19.027148,
+      "runs": [
+        18.369227,
+        18.599385,
+        17.440252,
+        19.027148,
+        17.812794,
+        16.831761,
+        17.57448
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29764,
+      "min": 29424,
+      "max": 30024,
+      "runs": [
+        29844,
+        29424,
+        30024,
+        29940,
+        29688,
+        29764,
+        29696
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 15.64031,
+      "min": 15.105346,
+      "max": 16.569666,
+      "runs": [
+        16.569666,
+        15.64031,
+        15.652142,
+        16.231697,
+        15.342396,
+        15.537188,
+        15.105346
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29620,
+      "min": 29268,
+      "max": 30116,
+      "runs": [
+        29544,
+        29440,
+        29268,
+        29684,
+        29620,
+        30116,
+        29816
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 14.098296,
+      "min": 13.611302,
+      "max": 14.95099,
+      "runs": [
+        14.95099,
+        14.098296,
+        13.665984,
+        13.611302,
+        14.517165,
+        13.681191,
+        14.125477
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29548,
+      "min": 29132,
+      "max": 29976,
+      "runs": [
+        29860,
+        29548,
+        29832,
+        29132,
+        29496,
+        29976,
+        29256
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 15.383713,
+      "min": 15.18252,
+      "max": 16.438192,
+      "runs": [
+        16.438192,
+        15.741959,
+        15.200644,
+        15.383713,
+        15.18252,
+        16.099922,
+        15.28028
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29548,
+      "min": 28952,
+      "max": 30132,
+      "runs": [
+        29672,
+        29548,
+        29060,
+        28952,
+        30132,
+        29100,
+        29800
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 14.064684,
+      "min": 13.361929,
+      "max": 14.487941,
+      "runs": [
+        14.212138,
+        14.487941,
+        13.760158,
+        14.084852,
+        13.632251,
+        14.064684,
+        13.361929
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29956,
+      "min": 28948,
+      "max": 32188,
+      "runs": [
+        29664,
+        28948,
+        30244,
+        30120,
+        29956,
+        29924,
+        32188
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 15.508836,
+      "min": 15.338901,
+      "max": 17.541039,
+      "runs": [
+        15.338901,
+        17.521433,
+        15.864737,
+        17.541039,
+        15.508836,
+        15.393341,
+        15.391838
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29904,
+      "min": 29288,
+      "max": 31828,
+      "runs": [
+        29288,
+        29900,
+        31828,
+        29904,
+        29980,
+        29768,
+        29952
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 14.155894,
+      "min": 13.605602,
+      "max": 14.806392,
+      "runs": [
+        13.746885,
+        14.806392,
+        13.605602,
+        14.490866,
+        14.155894,
+        14.248415,
+        13.769806
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29648,
+      "min": 28912,
+      "max": 30028,
+      "runs": [
+        30028,
+        29752,
+        29208,
+        29648,
+        29884,
+        28912,
+        29000
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 16.046313,
+      "min": 15.260515,
+      "max": 16.930916,
+      "runs": [
+        15.260515,
+        16.387577,
+        16.18466,
+        15.512432,
+        16.046313,
+        15.622817,
+        16.930916
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29920,
+      "min": 29484,
+      "max": 30064,
+      "runs": [
+        29932,
+        29988,
+        29484,
+        29532,
+        29616,
+        30064,
+        29920
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 14.360653,
+      "min": 13.64192,
+      "max": 15.665487,
+      "runs": [
+        13.64192,
+        14.195969,
+        15.665487,
+        13.865615,
+        15.097041,
+        14.3752,
+        14.360653
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29664,
+      "min": 29204,
+      "max": 32200,
+      "runs": [
+        29204,
+        29384,
+        32200,
+        29696,
+        29644,
+        29800,
+        29664
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 35.62693,
+      "min": 33.350522,
+      "max": 40.203236,
+      "runs": [
+        37.473319,
+        35.62693,
+        35.668066,
+        33.587002,
+        40.203236,
+        33.350522,
+        35.237465
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51840,
+      "min": 51652,
+      "max": 52524,
+      "runs": [
+        51812,
+        52524,
+        51652,
+        52240,
+        52324,
+        51840,
+        51712
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.124769,
+      "min": 1.073002,
+      "max": 1.735452,
+      "runs": [
+        1.19593,
+        1.124769,
+        1.146318,
+        1.094492,
+        1.735452,
+        1.101876,
+        1.073002
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 24.833418,
+      "min": 23.708689,
+      "max": 30.235278,
+      "runs": [
+        25.701251,
+        24.753672,
+        24.115406,
+        25.432581,
+        30.235278,
+        24.833418,
+        23.708689
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31692,
+      "min": 30884,
+      "max": 32204,
+      "runs": [
+        32204,
+        30884,
+        31660,
+        31588,
+        32056,
+        31692,
+        32000
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 39.386861,
+      "min": 38.081195,
+      "max": 42.392251,
+      "runs": [
+        42.392251,
+        40.055944,
+        39.386861,
+        38.389649,
+        39.364047,
+        40.059939,
+        38.081195
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52020,
+      "min": 50704,
+      "max": 54888,
+      "runs": [
+        51684,
+        54888,
+        51588,
+        50704,
+        54496,
+        52528,
+        52020
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.12009,
+      "min": 1.104471,
+      "max": 1.175863,
+      "runs": [
+        1.167609,
+        1.175863,
+        1.110773,
+        1.135378,
+        1.104471,
+        1.105703,
+        1.12009
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 32.813506,
+      "min": 31.023761,
+      "max": 34.759179,
+      "runs": [
+        34.462659,
+        34.759179,
+        32.813506,
+        31.693025,
+        33.862152,
+        32.633751,
+        31.023761
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31792,
+      "min": 31080,
+      "max": 34112,
+      "runs": [
+        31468,
+        32024,
+        33636,
+        31080,
+        34112,
+        31792,
+        31224
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 40.302561,
+      "min": 38.264746,
+      "max": 42.745728,
+      "runs": [
+        42.745728,
+        42.293028,
+        40.302561,
+        40.418266,
+        39.032672,
+        38.264746,
+        39.182168
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52424,
+      "min": 52352,
+      "max": 54716,
+      "runs": [
+        52492,
+        54716,
+        52352,
+        52360,
+        52380,
+        52424,
+        52548
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.12014,
+      "min": 1.066931,
+      "max": 1.839495,
+      "runs": [
+        1.295967,
+        1.114961,
+        1.12014,
+        1.839495,
+        1.246534,
+        1.066931,
+        1.08802
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 31.641128,
+      "min": 30.825585,
+      "max": 34.375577,
+      "runs": [
+        34.375577,
+        32.397543,
+        30.825585,
+        30.862744,
+        31.641128,
+        30.992233,
+        31.985838
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31788,
+      "min": 31148,
+      "max": 33668,
+      "runs": [
+        31896,
+        31788,
+        33668,
+        31372,
+        33356,
+        31320,
+        31148
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 39.786963,
+      "min": 38.132642,
+      "max": 40.783714,
+      "runs": [
+        40.386468,
+        39.257381,
+        40.783714,
+        38.132642,
+        39.786963,
+        38.975626,
+        40.397024
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51924,
+      "min": 50564,
+      "max": 53032,
+      "runs": [
+        53032,
+        51724,
+        52516,
+        51700,
+        51924,
+        50564,
+        52544
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.117465,
+      "min": 1.07708,
+      "max": 1.141119,
+      "runs": [
+        1.141119,
+        1.117465,
+        1.07708,
+        1.084112,
+        1.096255,
+        1.122604,
+        1.117796
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 31.664192,
+      "min": 30.900634,
+      "max": 32.935343,
+      "runs": [
+        32.935343,
+        31.664192,
+        31.330822,
+        30.900634,
+        32.116461,
+        31.156118,
+        31.737928
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31576,
+      "min": 31528,
+      "max": 34264,
+      "runs": [
+        31892,
+        34264,
+        31568,
+        31528,
+        31548,
+        31916,
+        31576
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 37.945245,
+      "min": 35.615018,
+      "max": 38.707718,
+      "runs": [
+        37.945245,
+        37.982664,
+        35.615018,
+        35.764815,
+        38.151947,
+        38.707718,
+        37.479688
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60912,
+      "min": 58896,
+      "max": 62868,
+      "runs": [
+        58896,
+        60912,
+        59052,
+        62868,
+        61704,
+        61040,
+        60116
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.360964,
+      "min": 2.045758,
+      "max": 3.879714,
+      "runs": [
+        3.879714,
+        2.469786,
+        2.220653,
+        2.360964,
+        2.395909,
+        2.27817,
+        2.045758
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 36.913869,
+      "min": 34.483646,
+      "max": 40.013946,
+      "runs": [
+        40.013946,
+        36.34279,
+        37.756283,
+        36.913869,
+        38.44962,
+        36.614632,
+        34.483646
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59776,
+      "min": 59020,
+      "max": 60848,
+      "runs": [
+        60800,
+        59020,
+        59676,
+        59776,
+        60848,
+        60192,
+        59092
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.221825,
+      "min": 2.038424,
+      "max": 2.307825,
+      "runs": [
+        2.243516,
+        2.307825,
+        2.221825,
+        2.205856,
+        2.262149,
+        2.211185,
+        2.038424
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 38.079552,
+      "min": 34.672747,
+      "max": 40.222281,
+      "runs": [
+        36.30488,
+        38.262002,
+        40.222281,
+        38.172445,
+        35.208933,
+        38.079552,
+        34.672747
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60676,
+      "min": 59940,
+      "max": 62748,
+      "runs": [
+        60676,
+        61752,
+        60336,
+        61288,
+        59940,
+        62748,
+        60284
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.275766,
+      "min": 2.064072,
+      "max": 2.422128,
+      "runs": [
+        2.363629,
+        2.275766,
+        2.282588,
+        2.422128,
+        2.229159,
+        2.122581,
+        2.064072
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 37.11369,
+      "min": 35.703191,
+      "max": 40.871769,
+      "runs": [
+        40.871769,
+        38.731665,
+        38.139534,
+        35.703191,
+        37.11369,
+        36.244054,
+        35.738605
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60656,
+      "min": 58940,
+      "max": 62572,
+      "runs": [
+        62572,
+        58940,
+        60656,
+        60240,
+        60924,
+        60444,
+        60800
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.231172,
+      "min": 2.059754,
+      "max": 2.396049,
+      "runs": [
+        2.396049,
+        2.25672,
+        2.280675,
+        2.207589,
+        2.231172,
+        2.059754,
+        2.209813
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 36.624652,
+      "min": 34.57716,
+      "max": 39.547691,
+      "runs": [
+        39.547691,
+        37.675634,
+        36.624652,
+        37.534901,
+        34.57716,
+        34.827644,
+        35.354742
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60484,
+      "min": 58984,
+      "max": 60996,
+      "runs": [
+        60904,
+        60484,
+        60536,
+        60444,
+        58984,
+        59256,
+        60996
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.277809,
+      "min": 2.18131,
+      "max": 2.340225,
+      "runs": [
+        2.248414,
+        2.277809,
+        2.340225,
+        2.318785,
+        2.199594,
+        2.294881,
+        2.18131
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 37.774278,
+      "min": 35.532482,
+      "max": 43.628056,
+      "runs": [
+        37.774278,
+        37.020397,
+        43.628056,
+        38.15353,
+        37.611795,
+        37.991619,
+        35.532482
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60096,
+      "min": 59544,
+      "max": 61880,
+      "runs": [
+        60096,
+        61116,
+        59832,
+        61880,
+        60904,
+        59812,
+        59544
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.331779,
+      "min": 2.204643,
+      "max": 2.48272,
+      "runs": [
+        2.34842,
+        2.48272,
+        2.436243,
+        2.204643,
+        2.205234,
+        2.331779,
+        2.258433
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 36.018115,
+      "min": 35.386313,
+      "max": 39.155702,
+      "runs": [
+        39.155702,
+        35.386313,
+        36.740307,
+        36.018115,
+        35.442637,
+        36.032792,
+        35.451572
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60676,
+      "min": 58504,
+      "max": 61168,
+      "runs": [
+        60884,
+        58504,
+        61168,
+        60676,
+        60764,
+        59772,
+        60312
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.234919,
+      "min": 2.163527,
+      "max": 2.721453,
+      "runs": [
+        2.21922,
+        2.234919,
+        2.721453,
+        2.339424,
+        2.202068,
+        2.242633,
+        2.163527
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 36.709429,
+      "min": 35.655361,
+      "max": 39.582565,
+      "runs": [
+        39.582565,
+        36.918769,
+        37.402847,
+        35.806503,
+        36.709429,
+        35.655361,
+        36.391157
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 60724,
+      "min": 60040,
+      "max": 62084,
+      "runs": [
+        60040,
+        62084,
+        60724,
+        60824,
+        60660,
+        60804,
+        60048
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.212228,
+      "min": 2.076385,
+      "max": 2.941261,
+      "runs": [
+        2.166703,
+        2.296023,
+        2.941261,
+        2.207569,
+        2.400697,
+        2.076385,
+        2.212228
+      ]
+    }
+  }
+]

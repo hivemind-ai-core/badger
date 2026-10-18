@@ -1,0 +1,1364 @@
+{
+  "schema": 1,
+  "baseline_revision": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+  "candidate_revision": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+  "superseded_revision": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+  "production_files_sha256": {
+    "crates/badger_mir/src/split.rs": "aecb95fdb91f19a4cc94db617bb041ee0c59d1a7e680d17366ce4293fea18728",
+    "crates/badger_runtime/src/intrinsics.rs": "09d2b4169cae465f945db793d1bd31152112f27fd7d4d73eca78af5e167b7030",
+    "crates/badger_runtime/src/intrinsics_std.rs": "c7ccffff3467685f468707894b6f20419aecc50e3b5a517f9ec295d1f344a026",
+    "crates/badger_codegen/src/lib.rs": "135945e47caf2b1d8893554225df03bcfed4532200047a6f9c81a7b1f2d66ded"
+  },
+  "harness_files_sha256": {
+    "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+    "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+    "bench/gc/analyze.py": "b089e131dd0b9b2c0684d55b0abeb97d60c12759836a8855216c6210b4092322",
+    "bench/gc/test_gc_bench.py": "6e34d633e58804c14d5effe3f130bcf26667964b19ca935e8afec69ef9377781",
+    "bench/gc/check_lookup_split.py": "b7b685e0ea7aca012343e3e8de30a93c2ec5bbb094320e17c70c6fc59c53c22d",
+    "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+    "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+    "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf",
+    "tests/run/lookup_split.bdg": "88c825472fabd6b7391f79cf4e08b7a76b10f4950dd52f15ecb75ff7446341c4",
+    "tests/run/lookup_split.out": "ac3bc064797f0136be05cf01375f772940b7b56c501105b921600da8e6ed9666"
+  },
+  "binaries": {
+    "baseline-fab8a02": {
+      "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+      "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450",
+      "bytes": 31534528,
+      "revision": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "features": [],
+      "status": "baseline"
+    },
+    "diagnostic-baseline": {
+      "path": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+      "sha256": "7582cd56e279188f74da141bae7690e6f3bc555d4cbd8b03ae22e959e24ef96e",
+      "bytes": 31910536,
+      "revision": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "features": [
+        "gc-profile"
+      ],
+      "status": "baseline"
+    },
+    "split-candidate": {
+      "path": "/tmp/badger-I2a-binaries/split-candidate",
+      "sha256": "c22b46bc632a50a17a53a3bd94c1d9e6412be2ea7d2451f45d87915e0001cb5f",
+      "bytes": 31535752,
+      "revision": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "features": [],
+      "status": "superseded"
+    },
+    "diagnostic-candidate": {
+      "path": "/tmp/badger-I2a-binaries/diagnostic-candidate",
+      "sha256": "a0eca6ffa2766086e820281c33b9ca630058201e8fcf1cba50253a9ef74afb07",
+      "bytes": 31912208,
+      "revision": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "features": [
+        "gc-profile"
+      ],
+      "status": "superseded"
+    },
+    "fast-miss-candidate": {
+      "path": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+      "sha256": "46122b133ae23321222d40919933c662996a3d1b14057b947754ac046b6511c2",
+      "bytes": 31535536,
+      "revision": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "features": [],
+      "status": "accepted"
+    },
+    "diagnostic-fast-miss": {
+      "path": "/tmp/badger-I2a-binaries/diagnostic-fast-miss",
+      "sha256": "92fbe350615b7eee5f47f68ce5e57a72b286de36e19f799aa0711ceadfa98e0e",
+      "bytes": 31911992,
+      "revision": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "features": [
+        "gc-profile"
+      ],
+      "status": "accepted"
+    }
+  },
+  "datasets": [
+    {
+      "path": "reports/memory-management/I2a-app-baseline/measurements.json.gz",
+      "sha256": "24f1bd44cf8f4f1e2b7d9d43e897a228ef4ee7a46543da2700eb90847ca374e2",
+      "measured_runs": 32,
+      "revision_when_run": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 2,
+        "seed": 2026101753,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "cpu",
+          "fanout"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-app-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 8ff0af20c61c15bb0b172cbd0c0843e91f996d92\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-app-census-after/measurements.json.gz",
+      "sha256": "14dfe49f7f0a107bc9692178531d87199def8ba9b213b89e990fe02d478061bb",
+      "measured_runs": 4,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-candidate",
+        "allocations": true,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101760,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "fanout"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-app-census-after"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-candidate",
+          "sha256": "a0eca6ffa2766086e820281c33b9ca630058201e8fcf1cba50253a9ef74afb07"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-app-census-before/measurements.json.gz",
+      "sha256": "408c2c6b30d6f28204c0eb15f979317353e6c6670d84d7d429c3381bf2cd9fda",
+      "measured_runs": 4,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+        "allocations": true,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101759,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "fanout"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-app-census-before"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+          "sha256": "7582cd56e279188f74da141bae7690e6f3bc555d4cbd8b03ae22e959e24ef96e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-applications/measurements.json.gz",
+      "sha256": "575f4b7f8dbf0eaec3c2f6641d0a1b2b536188086a71d5a506741eaf83c88a23",
+      "measured_runs": 224,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/split-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "0c0feda",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101756,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "cpu",
+          "fanout"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/split-candidate",
+          "sha256": "c22b46bc632a50a17a53a3bd94c1d9e6412be2ea7d2451f45d87915e0001cb5f"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-census-after/measurements.json.gz",
+      "sha256": "cf7dde7693406eeff63d72a21c0127a6c875e5d380004abe85f4db3a8aa19c6e",
+      "measured_runs": 10,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-candidate",
+        "allocations": true,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101758,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-census-after"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-candidate",
+          "sha256": "a0eca6ffa2766086e820281c33b9ca630058201e8fcf1cba50253a9ef74afb07"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-census-before/measurements.json.gz",
+      "sha256": "db01eb4e4e8e410aca56b7813fde76d53bcbec67c2e770756108508d48d901a3",
+      "measured_runs": 10,
+      "revision_when_run": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+        "allocations": true,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101754,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-census-before"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+          "sha256": "7582cd56e279188f74da141bae7690e6f3bc555d4cbd8b03ae22e959e24ef96e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 8ff0af20c61c15bb0b172cbd0c0843e91f996d92\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-coverage/measurements.json.gz",
+      "sha256": "b9da608151d09f4773c9242314ee4a12bac1481507c6b89d672a815c6cd531ae",
+      "measured_runs": 280,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/split-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "0c0feda",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101755,
+        "paired": true,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/split-candidate",
+          "sha256": "c22b46bc632a50a17a53a3bd94c1d9e6412be2ea7d2451f45d87915e0001cb5f"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-coverage-baseline/measurements.json.gz",
+      "sha256": "65709292ae9081df6a3fd6835089ec2f7a152f60c4deae52916731e39bb151e0",
+      "measured_runs": 60,
+      "revision_when_run": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101752,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-coverage-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 8ff0af20c61c15bb0b172cbd0c0843e91f996d92\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-fast-miss-probe/measurements.json.gz",
+      "sha256": "60d256a887394a98dcb51ff7115d002dbd6bbd1eb5a317e40603965d08bb8222",
+      "measured_runs": 72,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fast-miss-uncommitted",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 9,
+        "seed": 2026101762,
+        "paired": true,
+        "cases": [
+          "lookup-map-misses",
+          "lookup-list-misses"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-fast-miss-probe"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+          "sha256": "46122b133ae23321222d40919933c662996a3d1b14057b947754ac046b6511c2"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-app-census-after/measurements.json.gz",
+      "sha256": "293eece8a56e21635be6c29fde9e2026809516d4ee6e1061cf677e52e7c953bb",
+      "measured_runs": 4,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-fast-miss",
+        "allocations": true,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101769,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "fanout"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-final-app-census-after"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-fast-miss",
+          "sha256": "92fbe350615b7eee5f47f68ce5e57a72b286de36e19f799aa0711ceadfa98e0e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-app-census-before/measurements.json.gz",
+      "sha256": "43d334a3e8dec487310ad879e8b146a4a6688778759b4ec28eee4a747faa7368",
+      "measured_runs": 4,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+        "allocations": true,
+        "suite": "policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101768,
+        "paired": false,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "fanout"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-final-app-census-before"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+          "sha256": "7582cd56e279188f74da141bae7690e6f3bc555d4cbd8b03ae22e959e24ef96e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-applications/measurements.json.gz",
+      "sha256": "d43c88c42b9e7a326ebdbf5981a6813bed984b6b0edd56d0a29940c2e64cd4c1",
+      "measured_runs": 224,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fd333a5",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101764,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "cpu",
+          "fanout"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-final-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+          "sha256": "46122b133ae23321222d40919933c662996a3d1b14057b947754ac046b6511c2"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-census-after/measurements.json.gz",
+      "sha256": "021ba77cf7298dc70aa7df513b66e81edc9ce89824c0f19af8f5d3a2be7c7de0",
+      "measured_runs": 14,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-fast-miss",
+        "allocations": true,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101767,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored",
+          "lookup-map-misses",
+          "lookup-list-misses"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-final-census-after"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-fast-miss",
+          "sha256": "92fbe350615b7eee5f47f68ce5e57a72b286de36e19f799aa0711ceadfa98e0e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-census-before/measurements.json.gz",
+      "sha256": "a76edcb5b065638753b7eb02b4cbe496224d141846d06e882a176367f728f13c",
+      "measured_runs": 14,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+        "allocations": true,
+        "suite": "coverage-policy",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101766,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored",
+          "lookup-map-misses",
+          "lookup-list-misses"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control"
+        ],
+        "out": "reports/memory-management/I2a-final-census-before"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "diagnostic": {
+          "path": "/tmp/badger-I2a-binaries/diagnostic-baseline",
+          "sha256": "7582cd56e279188f74da141bae7690e6f3bc555d4cbd8b03ae22e959e24ef96e"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-coverage/measurements.json.gz",
+      "sha256": "606f41cbee2a23a87a0b932e04997702fa80722908e208b0e2ebcf0e071c1a5c",
+      "measured_runs": 392,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fd333a5",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101763,
+        "paired": true,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored",
+          "lookup-map-misses",
+          "lookup-list-misses"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-final-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+          "sha256": "46122b133ae23321222d40919933c662996a3d1b14057b947754ac046b6511c2"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-followup/measurements.json.gz",
+      "sha256": "4cea16ac7b07be3ffaa1a9379695e7937d210d38a1c79c18673d2c400df25d1b",
+      "measured_runs": 120,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fd333a5",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 15,
+        "seed": 2026101770,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "fanout"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-final-followup"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/fast-miss-candidate",
+          "sha256": "46122b133ae23321222d40919933c662996a3d1b14057b947754ac046b6511c2"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-final-self-control/measurements.json.gz",
+      "sha256": "a01bf5ef9e046b0eb539b3e6388125a1b31fc3aa5a4866d916298a3f805e4f5c",
+      "measured_runs": 40,
+      "revision_when_run": "fd333a56f56c71b1ccedcdd4685e6665923cdcbf",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fab8a02",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 5,
+        "seed": 2026101765,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-final-self-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 88d3ea07cd8494618743548b56b2baff5becb433\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-misses/measurements.json.gz",
+      "sha256": "c7d4e1ecb074af54fdc3d7aa4605317e2910f7cfc84e1974c028f0dd7a80d52a",
+      "measured_runs": 72,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/split-candidate",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "0c0feda",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 9,
+        "seed": 2026101761,
+        "paired": true,
+        "cases": [
+          "lookup-map-misses",
+          "lookup-list-misses"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-misses"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/split-candidate",
+          "sha256": "c22b46bc632a50a17a53a3bd94c1d9e6412be2ea7d2451f45d87915e0001cb5f"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "4fc2570f982c3630dc51b57036463ff1ec85ac1db621d3e633b3ba037a4c6409",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "edc056277e445e4ba711bd1229dac0332dfbf65bb29a3b57b4a9d7087a6fad66",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-self-control/measurements.json.gz",
+      "sha256": "c8340280586be98be593df0820b19bccab433ddd72fc1a3cd9c3c9117161506f",
+      "measured_runs": 40,
+      "revision_when_run": "0c0fedae19a97ba7f41f5811327d4559b277c9f8",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "fab8a02",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "telemetry",
+        "workers": [
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 5,
+        "seed": 2026101757,
+        "paired": true,
+        "cases": null,
+        "profiles": [
+          "balanced",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-self-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        },
+        "candidate": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree acc305bb36acaa4c8aa315c0608d0a29e8b729c9\tcrates"
+    },
+    {
+      "path": "reports/memory-management/I2a-smoke-baseline/measurements.json.gz",
+      "sha256": "f06d438f10aa6f47b8a0d3cd888bb4919d395e206d5f99fe2b0912313974c32c",
+      "measured_runs": 10,
+      "revision_when_run": "fab8a02f23b93a3b84ffabc2a484a4c262679f6c",
+      "arguments": {
+        "baseline": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+        "candidate": "None",
+        "baseline_revision": "fab8a02",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "smoke",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 1,
+        "seed": 2026101751,
+        "paired": false,
+        "cases": [
+          "lookup-map-int",
+          "lookup-map-pointers",
+          "lookup-array-int",
+          "lookup-list-pointers",
+          "lookup-map-stored"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2a-smoke-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/tmp/badger-I2a-binaries/baseline-fab8a02",
+          "sha256": "175429553f67d08d7fe177bb1a84ceb7e9d3555422f0958934c02a51c5aed450"
+        }
+      },
+      "sources": {
+        "bench/gc/run.py": "44a5f6cd4fd2e5a5a38dc2a981577c61fe4a856d0718fb7376a1c396221770d3",
+        "bench/gc/rss_spawn.c": "03cff71715ddc0d4a657c7d7de59762eb5ced92b40c0906890c0f9ca0b02c34f",
+        "bench/gc/coverage.bdg": "5e12ff0174c11302bb5d42a42b117d5a8fcde0c75feeee74dc105acf027598c8",
+        "bench/telemetry.bdg": "7049ade947fc420159bd7a883f73e4ef5351d3513b3dfa8fb444401b7fa68c9f",
+        "bench/telemetry.py": "d2f216816904fa949c0a76e6bddbe5ba890f282083e62036d0534057bec1b2cf"
+      },
+      "production_tree": "100644 blob c3b31e4516ca8f2579a721a2b702967df8d5f6b0\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree 8ff0af20c61c15bb0b172cbd0c0843e91f996d92\tcrates"
+    }
+  ],
+  "interval_audit": {
+    "measured_runs": 1630,
+    "datasets": 20,
+    "first_start_wall_time_ns": 1792274564004423890,
+    "last_end_wall_time_ns": 1792276444967210357,
+    "overlapping_measured_intervals": [],
+    "outliers_removed": 0
+  },
+  "notes": [
+    "Ordinary timings and diagnostic allocation/phase measurements are separate. Diagnostic runs use the diagnostic binary even when baseline metadata also appears.",
+    "The exploratory fast-miss probe was recorded with HEAD 0c0feda and label fast-miss-uncommitted; its immutable executable SHA256 is identical to the fd333a5 final candidate. Treat it as exploratory.",
+    "Both self-control labels use the identical baseline executable.",
+    "All raw runs are retained, including host-pressure outliers. No own builds or correctness tests overlapped accepted timing intervals; external host activity is uncontrolled.",
+    "Main f11f33d changes only indentation in bench/gc/coverage.bdg. It is integrated after measurements; recorded source hashes identify the measured form. Production Rust is unchanged by this integration.",
+    "Binary files are retained at the listed temporary paths rather than committed. The source revisions, build logs, hashes and full commands in raw records identify their provenance."
+  ]
+}

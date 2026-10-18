@@ -1,0 +1,344 @@
+[
+  {
+    "case": "lookup-array-int",
+    "workers": 1,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-array-int",
+    "workers": 8,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 1,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 8,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 1,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-list-pointers",
+    "workers": 8,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 1,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-map-int",
+    "workers": 8,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 1,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 8,
+    "before": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 1,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-map-pointers",
+    "workers": 8,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 1,
+      "cell_bytes": 32,
+      "requested_bytes": 32
+    },
+    "removed": {
+      "objects": 524288,
+      "cell_bytes": 16777216,
+      "requested_bytes": 16777216
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 1,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "lookup-map-stored",
+    "workers": 8,
+    "before": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "after": {
+      "objects": 524289,
+      "cell_bytes": 16777248,
+      "requested_bytes": 16777248
+    },
+    "removed": {
+      "objects": 0,
+      "cell_bytes": 0,
+      "requested_bytes": 0
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 1,
+    "before": {
+      "objects": 439989,
+      "cell_bytes": 14079648,
+      "requested_bytes": 14079648
+    },
+    "after": {
+      "objects": 73,
+      "cell_bytes": 2336,
+      "requested_bytes": 2336
+    },
+    "removed": {
+      "objects": 439916,
+      "cell_bytes": 14077312,
+      "requested_bytes": 14077312
+    }
+  },
+  {
+    "case": "balanced",
+    "workers": 8,
+    "before": {
+      "objects": 440055,
+      "cell_bytes": 14081760,
+      "requested_bytes": 14081760
+    },
+    "after": {
+      "objects": 73,
+      "cell_bytes": 2336,
+      "requested_bytes": 2336
+    },
+    "removed": {
+      "objects": 439982,
+      "cell_bytes": 14079424,
+      "requested_bytes": 14079424
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 1,
+    "before": {
+      "objects": 897949,
+      "cell_bytes": 28734368,
+      "requested_bytes": 28734368
+    },
+    "after": {
+      "objects": 73,
+      "cell_bytes": 2336,
+      "requested_bytes": 2336
+    },
+    "removed": {
+      "objects": 897876,
+      "cell_bytes": 28732032,
+      "requested_bytes": 28732032
+    }
+  },
+  {
+    "case": "fanout",
+    "workers": 8,
+    "before": {
+      "objects": 897988,
+      "cell_bytes": 28735616,
+      "requested_bytes": 28735616
+    },
+    "after": {
+      "objects": 73,
+      "cell_bytes": 2336,
+      "requested_bytes": 2336
+    },
+    "removed": {
+      "objects": 897915,
+      "cell_bytes": 28733280,
+      "requested_bytes": 28733280
+    }
+  }
+]

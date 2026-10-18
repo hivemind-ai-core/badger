@@ -1,0 +1,642 @@
+coverage rep=-1 lookup-list-misses w1 baseline
+coverage rep=-1 lookup-list-misses w1 candidate
+coverage rep=-1 lookup-map-misses w1 baseline
+coverage rep=-1 lookup-map-misses w1 candidate
+coverage rep=-1 lookup-map-misses w8 baseline
+coverage rep=-1 lookup-map-misses w8 candidate
+coverage rep=-1 lookup-list-misses w8 baseline
+coverage rep=-1 lookup-list-misses w8 candidate
+coverage rep=0 lookup-list-misses w1 candidate
+coverage rep=0 lookup-list-misses w1 baseline
+coverage rep=0 lookup-map-misses w1 baseline
+coverage rep=0 lookup-map-misses w1 candidate
+coverage rep=0 lookup-list-misses w8 baseline
+coverage rep=0 lookup-list-misses w8 candidate
+coverage rep=0 lookup-map-misses w8 candidate
+coverage rep=0 lookup-map-misses w8 baseline
+coverage rep=1 lookup-list-misses w1 candidate
+coverage rep=1 lookup-list-misses w1 baseline
+coverage rep=1 lookup-list-misses w8 candidate
+coverage rep=1 lookup-list-misses w8 baseline
+coverage rep=1 lookup-map-misses w1 candidate
+coverage rep=1 lookup-map-misses w1 baseline
+coverage rep=1 lookup-map-misses w8 candidate
+coverage rep=1 lookup-map-misses w8 baseline
+coverage rep=2 lookup-map-misses w8 candidate
+coverage rep=2 lookup-map-misses w8 baseline
+coverage rep=2 lookup-map-misses w1 candidate
+coverage rep=2 lookup-map-misses w1 baseline
+coverage rep=2 lookup-list-misses w1 baseline
+coverage rep=2 lookup-list-misses w1 candidate
+coverage rep=2 lookup-list-misses w8 baseline
+coverage rep=2 lookup-list-misses w8 candidate
+coverage rep=3 lookup-list-misses w8 candidate
+coverage rep=3 lookup-list-misses w8 baseline
+coverage rep=3 lookup-map-misses w8 baseline
+coverage rep=3 lookup-map-misses w8 candidate
+coverage rep=3 lookup-list-misses w1 baseline
+coverage rep=3 lookup-list-misses w1 candidate
+coverage rep=3 lookup-map-misses w1 candidate
+coverage rep=3 lookup-map-misses w1 baseline
+coverage rep=4 lookup-list-misses w8 candidate
+coverage rep=4 lookup-list-misses w8 baseline
+coverage rep=4 lookup-list-misses w1 baseline
+coverage rep=4 lookup-list-misses w1 candidate
+coverage rep=4 lookup-map-misses w1 candidate
+coverage rep=4 lookup-map-misses w1 baseline
+coverage rep=4 lookup-map-misses w8 baseline
+coverage rep=4 lookup-map-misses w8 candidate
+coverage rep=5 lookup-map-misses w8 baseline
+coverage rep=5 lookup-map-misses w8 candidate
+coverage rep=5 lookup-list-misses w1 baseline
+coverage rep=5 lookup-list-misses w1 candidate
+coverage rep=5 lookup-list-misses w8 baseline
+coverage rep=5 lookup-list-misses w8 candidate
+coverage rep=5 lookup-map-misses w1 candidate
+coverage rep=5 lookup-map-misses w1 baseline
+coverage rep=6 lookup-map-misses w1 baseline
+coverage rep=6 lookup-map-misses w1 candidate
+coverage rep=6 lookup-list-misses w8 baseline
+coverage rep=6 lookup-list-misses w8 candidate
+coverage rep=6 lookup-list-misses w1 candidate
+coverage rep=6 lookup-list-misses w1 baseline
+coverage rep=6 lookup-map-misses w8 candidate
+coverage rep=6 lookup-map-misses w8 baseline
+coverage rep=7 lookup-list-misses w1 candidate
+coverage rep=7 lookup-list-misses w1 baseline
+coverage rep=7 lookup-map-misses w1 candidate
+coverage rep=7 lookup-map-misses w1 baseline
+coverage rep=7 lookup-map-misses w8 baseline
+coverage rep=7 lookup-map-misses w8 candidate
+coverage rep=7 lookup-list-misses w8 candidate
+coverage rep=7 lookup-list-misses w8 baseline
+coverage rep=8 lookup-map-misses w1 candidate
+coverage rep=8 lookup-map-misses w1 baseline
+coverage rep=8 lookup-map-misses w8 baseline
+coverage rep=8 lookup-map-misses w8 candidate
+coverage rep=8 lookup-list-misses w8 candidate
+coverage rep=8 lookup-list-misses w8 baseline
+coverage rep=8 lookup-list-misses w1 baseline
+coverage rep=8 lookup-list-misses w1 candidate
+[
+  {
+    "case": "lookup-list-misses",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 7.84059,
+      "min": 7.420129,
+      "max": 8.25537,
+      "runs": [
+        8.109069,
+        8.134295,
+        7.956155,
+        7.670193,
+        7.503263,
+        7.70629,
+        7.84059,
+        8.25537,
+        7.420129
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29496,
+      "min": 29232,
+      "max": 31508,
+      "runs": [
+        29304,
+        29232,
+        30000,
+        31508,
+        29624,
+        29612,
+        29496,
+        29368,
+        29272
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 7.794744,
+      "min": 7.233002,
+      "max": 9.097163,
+      "runs": [
+        9.097163,
+        8.344505,
+        8.363241,
+        7.773735,
+        7.553486,
+        7.233002,
+        8.005506,
+        7.794744,
+        7.551753
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29976,
+      "min": 29076,
+      "max": 31152,
+      "runs": [
+        31152,
+        30048,
+        29596,
+        30208,
+        29976,
+        30120,
+        29404,
+        29872,
+        29076
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 7.86254,
+      "min": 7.158553,
+      "max": 8.797777,
+      "runs": [
+        8.189678,
+        8.298961,
+        8.105562,
+        7.86254,
+        7.622495,
+        8.797777,
+        7.678118,
+        7.158553,
+        7.724764
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29840,
+      "min": 29252,
+      "max": 32036,
+      "runs": [
+        29840,
+        29252,
+        29588,
+        29316,
+        30368,
+        30256,
+        29876,
+        32036,
+        29252
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-list-misses",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 7.337425,
+      "min": 6.999618,
+      "max": 8.573019,
+      "runs": [
+        7.970631,
+        8.573019,
+        7.748328,
+        7.159144,
+        7.337425,
+        7.0654,
+        7.314642,
+        6.999618,
+        7.42648
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30104,
+      "min": 28960,
+      "max": 30276,
+      "runs": [
+        30276,
+        30104,
+        30108,
+        29348,
+        30108,
+        28960,
+        29736,
+        30128,
+        30056
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 17.396514,
+      "min": 16.259743,
+      "max": 19.421425,
+      "runs": [
+        17.743679,
+        17.709546,
+        19.421425,
+        16.773417,
+        16.415222,
+        17.396514,
+        16.944846,
+        17.610792,
+        16.259743
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29648,
+      "min": 29376,
+      "max": 30012,
+      "runs": [
+        29792,
+        29940,
+        29740,
+        29480,
+        29648,
+        29376,
+        30012,
+        29472,
+        29648
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 15.992908,
+      "min": 14.918272,
+      "max": 17.268627,
+      "runs": [
+        17.268627,
+        16.520137,
+        16.380047,
+        15.483793,
+        15.324627,
+        15.992908,
+        15.565363,
+        14.918272,
+        16.564879
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 29848,
+      "min": 28952,
+      "max": 31924,
+      "runs": [
+        29848,
+        28952,
+        29608,
+        29896,
+        31516,
+        29684,
+        29080,
+        31924,
+        30048
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 17.311486,
+      "min": 16.486374,
+      "max": 22.605427,
+      "runs": [
+        22.605427,
+        18.704532,
+        18.380742,
+        17.311486,
+        17.417313,
+        16.840331,
+        16.486374,
+        16.903719,
+        16.980913
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30140,
+      "min": 29144,
+      "max": 32160,
+      "runs": [
+        29144,
+        29372,
+        30140,
+        30160,
+        29336,
+        30384,
+        31936,
+        32160,
+        29716
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "lookup-map-misses",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 9,
+    "elapsed_ms": {
+      "median": 15.197,
+      "min": 14.540241,
+      "max": 18.01357,
+      "runs": [
+        16.43532,
+        18.01357,
+        16.892528,
+        15.032074,
+        15.192131,
+        15.48208,
+        15.001857,
+        14.540241,
+        15.197
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30176,
+      "min": 29468,
+      "max": 31812,
+      "runs": [
+        30452,
+        30204,
+        29664,
+        29468,
+        31812,
+        30024,
+        29956,
+        30176,
+        30296
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+]

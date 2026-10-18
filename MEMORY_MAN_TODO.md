@@ -38,7 +38,7 @@ negative results; do not mark architectural sketches as implemented.
   collision handling, pointer tracing, and old-to-young write barriers.
 - [ ] I2: Broaden enum/record/closure scalar replacement across proven nonescaping
   uses and specialized call boundaries; preserve scheduling and GC liveness.
-  - [ ] I2a: Elide proven local Map/List lookup Option boxes using split results;
+  - [x] I2a: Elide proven local Map/List lookup Option boxes using split results;
     retain boxed escaping/stored results, typed roots and live-reload behavior.
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
@@ -834,3 +834,36 @@ expected-value allocation. The full-size one-worker census allocates 524,289
 Options in map/list/stored cases, but only one in array control: existing MIR
 lowering already eliminates local array result boxes. Focus this slice on Map
 and List intrinsic boundaries; do not claim a newly discovered array win.
+
+### I2a complete — local Map/List lookup Option elimination
+
+Keep production `fd333a5`: optimized nonescaping Map/List lookup results use a
+split tag/payload protocol with immediate auxiliary-slot clearing and typed
+roots. Escaping/stored/compared/reassigned results retain the boxed ABI; live
+reload remains unchanged. Backward traversal fixes insertion offsets for
+multiple eligible calls within a block. Standard Option tags preserve zero,
+dynamic null, nested Options and packed values; MIR format remains 6.
+
+Baselines were saved before implementation. There are now 1,630 measured runs
+across 20 datasets, with no overlapping measured intervals and no outlier
+removal. Seven-pair final lookup coverage at 1/2/4/8 workers improves mixed
+Map/List work about 20–37%, with 39–44% lower process peak RSS. Diagnostic
+family counts prove 524,288 Option objects / exactly 16 MiB allocation traffic
+removed per mixed case; array/stored/miss controls remove zero. All-miss list
+coverage caught the initial +35% regression; the refined fast miss path removes
+it, though final one-worker misses still measure +3.0% (about 0.2 ns/lookup).
+
+The final application matrix is mostly faster with noisy contrary cells. A
+separate 15-pair follow-up at 4/8 workers gives balanced -8.1%/-6.8% and fanout
+-5.9%/-5.2% group-median elapsed time; fanout paired medians are only -1.9%/
+-3.2%. Application diagnostic census removes about 13.43 MiB balanced and
+27.40 MiB fanout Option cell traffic, leaving 73 setup/escaping objects.
+RSS and sampled p99 remain mixed; no universal memory or latency win is claimed.
+
+Validation: 10 ordinary/12 diagnostic runtime tests, six MIR tests, all 66
+program tests, 88 focused source/saved-MIR GC stress checks plus two MIR
+probes, 17 harness tests, strict all-target runtime/MIR/codegen Clippy in both
+modes and scoped formatting pass. Actual baseline format-6 programs still run.
+I2 remains open for broader scalar replacement; architectural arenas/rings and
+other unchecked items remain unimplemented. Full results, provenance, raw runs,
+miss regression/refinement and controls: [I2a report](reports/memory-management/I2a-summary.md).
