@@ -88,8 +88,29 @@ impl Tx {
     }
 }
 
+/// The path a pool opens: `:memory:` becomes a database of its own in the
+/// `memdb` VFS, so every connection of the pool sees the same in-memory
+/// database (with ordinary locking), where each `:memory:` connection
+/// would otherwise get a separate empty one.
+fn pool_path(path: &str) -> String {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    if path == ":memory:" || path.is_empty() {
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        format!("file:/badger-memory-{}-{n}?vfs=memdb", std::process::id())
+    } else {
+        path.to_string()
+    }
+}
+
 fn open_conn(path: &str) -> rusqlite::Result<Connection> {
-    let c = Connection::open(path)?;
+    let c = if path.starts_with("file:/badger-memory-") {
+        Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::default() | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+        )?
+    } else {
+        Connection::open(path)?
+    };
     c.busy_timeout(Duration::from_secs(5))?;
     Ok(c)
 }
@@ -326,7 +347,7 @@ fn statement(a: Args, done: Completion, op: Op) {
 
 fn open(a: Args, done: Completion) {
     let path = match a.str(0) {
-        Ok(p) => p.to_string(),
+        Ok(p) => pool_path(p),
         Err(e) => return done.complete(Err(e)),
     };
     std::thread::spawn(move || {
