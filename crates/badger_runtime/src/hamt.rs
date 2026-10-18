@@ -119,6 +119,53 @@ fn collision(shift: u32) -> bool {
     shift >= 64
 }
 
+// Distinct monomorphizations keep owner words, token tests and metadata reads
+// out of the existing persistent/private paths. Builder and Persistent are zero
+// sized: only Epoch carries a runtime argument through the recursive insertion.
+trait Mutation: Copy {
+    fn token(self) -> u64;
+    fn can_edit(self, node: Node) -> bool;
+}
+
+#[derive(Clone, Copy)]
+struct Persistent;
+impl Mutation for Persistent {
+    #[inline(always)]
+    fn token(self) -> u64 {
+        0
+    }
+    #[inline(always)]
+    fn can_edit(self, _node: Node) -> bool {
+        false
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Builder;
+impl Mutation for Builder {
+    #[inline(always)]
+    fn token(self) -> u64 {
+        0
+    }
+    #[inline(always)]
+    fn can_edit(self, _node: Node) -> bool {
+        true
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Epoch(u64);
+impl Mutation for Epoch {
+    #[inline(always)]
+    fn token(self) -> u64 {
+        self.0
+    }
+    #[inline(always)]
+    fn can_edit(self, node: Node) -> bool {
+        node.owner() == self.0
+    }
+}
+
 /// Stamp only a newly allocated node, never a shared one. Low owner bits live
 /// above pointer flags; high bits use GC-reserved client metadata. This keeps
 /// entry counts, offsets, and ordinary node size unchanged.
@@ -155,17 +202,17 @@ fn alloc_node(datamap: u32, nodemap: u32, flags: u32, entries: &[Entry], childre
     w
 }
 
-fn alloc_owned(
+fn alloc_owned<M: Mutation>(
     datamap: u32,
     nodemap: u32,
     flags: u32,
     entries: &[Entry],
     children: &[u64],
-    owner: u64,
+    mode: M,
 ) -> u64 {
     let w = alloc_node(datamap, nodemap, flags, entries, children);
-    if owner != 0 {
-        stamp_owner(w, owner);
+    if mode.token() != 0 {
+        stamp_owner(w, mode.token());
     }
     w
 }
@@ -187,10 +234,17 @@ impl<T> Edit<T> {
 /// A copy of node `w` with new bitmaps and one edit to its entries and one
 /// to its children.
 fn splice(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>) -> u64 {
-    splice_owned(w, datamap, nodemap, e, c, 0)
+    splice_owned(w, datamap, nodemap, e, c, Persistent)
 }
 
-fn splice_owned(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>, owner: u64) -> u64 {
+fn splice_owned<M: Mutation>(
+    w: u64,
+    datamap: u32,
+    nodemap: u32,
+    e: Edit<Entry>,
+    c: Edit<u64>,
+    mode: M,
+) -> u64 {
     let n = Node::of(w);
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
@@ -226,34 +280,27 @@ fn splice_owned(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>
         }
         std::ptr::copy_nonoverlapping(src.add(c.at + c.del), dst.add(k), nc - c.at - c.del);
     }
-    if owner != 0 {
-        stamp_owner(out, owner);
+    if mode.token() != 0 {
+        stamp_owner(out, mode.token());
     }
     out
 }
 
 /// Builder or epoch-owned edit. Every node reachable from `w` must be exclusively owned
-/// by the unfinished builder when owner is zero. With a nonzero owner, only
-/// nodes bearing that token can be edited. Persistent maps use MUTABLE = false.
+/// by the unfinished builder for Builder. Epoch only edits nodes bearing its
+/// token. Persistent always copies.
 /// Keep the allocation's original payload size: shrinking the logical node can
 /// leave spare capacity, but must not change how the collector frees its cell.
-fn edit<const MUTABLE: bool>(
-    w: u64,
-    datamap: u32,
-    nodemap: u32,
-    e: Edit<Entry>,
-    c: Edit<u64>,
-    owner: u64,
-) -> u64 {
+fn edit<M: Mutation>(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit<u64>, mode: M) -> u64 {
     let n = Node::of(w);
-    if !MUTABLE || (owner != 0 && n.owner() != owner) {
-        return splice_owned(w, datamap, nodemap, e, c, owner);
+    if !mode.can_edit(n) {
+        return splice_owned(w, datamap, nodemap, e, c, mode);
     }
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
     let new_nc = nc - c.del + c.ins.is_some() as usize;
     if HDR + new_ne * 24 + new_nc * 8 > unsafe { obj(w).payload_size() } {
-        return splice_owned(w, datamap, nodemap, e, c, owner);
+        return splice_owned(w, datamap, nodemap, e, c, mode);
     }
     // Insertion never deletes a child without replacing it. Consequently
     // relocating the old children fits whenever the final layout fits.
@@ -301,19 +348,19 @@ fn edit<const MUTABLE: bool>(
 }
 
 /// A node holding two entries whose hashes agree below `shift`.
-fn pair(a: Entry, b: Entry, shift: u32, flags: u32, owner: u64) -> u64 {
+fn pair<M: Mutation>(a: Entry, b: Entry, shift: u32, flags: u32, mode: M) -> u64 {
     if collision(shift) {
-        return alloc_owned(0, 0, flags, &[a, b], &[], owner);
+        return alloc_owned(0, 0, flags, &[a, b], &[], mode);
     }
     let (ba, bb) = (bit(a.hash, shift), bit(b.hash, shift));
     if ba == bb {
         let r = gc::Roots::new();
-        let c = r.add(pair(a, b, shift + BITS, flags, owner));
-        alloc_owned(0, ba, flags, &[], &[c], owner)
+        let c = r.add(pair(a, b, shift + BITS, flags, mode));
+        alloc_owned(0, ba, flags, &[], &[c], mode)
     } else if ba < bb {
-        alloc_owned(ba | bb, 0, flags, &[a, b], &[], owner)
+        alloc_owned(ba | bb, 0, flags, &[a, b], &[], mode)
     } else {
-        alloc_owned(ba | bb, 0, flags, &[b, a], &[], owner)
+        alloc_owned(ba | bb, 0, flags, &[b, a], &[], mode)
     }
 }
 
@@ -346,13 +393,13 @@ pub fn get(root: u64, hash: u64, key: u64, eq: &dyn Fn(u64, u64) -> bool) -> Opt
 
 /// Insert or replace: the new root, and whether the key was new.
 pub fn insert(root: u64, e: Entry, flags: u32, eq: &dyn Fn(u64, u64) -> bool) -> (u64, bool) {
-    insert_with::<false>(root, e, flags, eq, 0)
+    insert_with(root, e, flags, eq, Persistent)
 }
 
 /// Insert into a fresh builder. The root and every descendant must be private:
 /// never call this on a finished map or on a trie sharing persistent nodes.
 pub(crate) fn insert_mut(root: u64, e: Entry, flags: u32, eq: &dyn Fn(u64, u64) -> bool) -> (u64, bool) {
-    insert_with::<true>(root, e, flags, eq, 0)
+    insert_with(root, e, flags, eq, Builder)
 }
 
 /// Reuse only nodes owned by this active, globally unique nonzero epoch.
@@ -365,45 +412,39 @@ pub(crate) fn insert_owned(
     owner: u64,
 ) -> (u64, bool) {
     assert!(owner != 0 && owner <= MAX_OWNER);
-    insert_with::<true>(root, e, flags, eq, owner)
+    insert_with(root, e, flags, eq, Epoch(owner))
 }
 
-fn insert_with<const MUTABLE: bool>(
+fn insert_with<M: Mutation>(
     root: u64,
     e: Entry,
     flags: u32,
     eq: &dyn Fn(u64, u64) -> bool,
-    owner: u64,
+    mode: M,
 ) -> (u64, bool) {
     if root == 0 {
-        return (alloc_owned(bit(e.hash, 0), 0, flags, &[e], &[], owner), true);
+        return (alloc_owned(bit(e.hash, 0), 0, flags, &[e], &[], mode), true);
     }
-    insert_at::<MUTABLE>(root, e, 0, flags, eq, owner)
+    insert_at(root, e, 0, flags, eq, mode)
 }
 
-fn insert_at<const MUTABLE: bool>(
+fn insert_at<M: Mutation>(
     w: u64,
     e: Entry,
     shift: u32,
     flags: u32,
     eq: &dyn Fn(u64, u64) -> bool,
-    owner: u64,
+    mode: M,
 ) -> (u64, bool) {
     let n = Node::of(w);
     if collision(shift) {
         for i in 0..n.entries() {
             let x = n.entry(i);
             if x.hash == e.hash && eq(x.key, e.key) {
-                return (
-                    edit::<MUTABLE>(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), owner),
-                    false,
-                );
+                return (edit(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), mode), false);
             }
         }
-        return (
-            edit::<MUTABLE>(w, 0, 0, Edit { at: n.entries(), del: 0, ins: Some(e) }, Edit::none(), owner),
-            true,
-        );
+        return (edit(w, 0, 0, Edit { at: n.entries(), del: 0, ins: Some(e) }, Edit::none(), mode), true);
     }
     let b = bit(e.hash, shift);
     let (dm, nm) = (n.datamap(), n.nodemap());
@@ -411,43 +452,34 @@ fn insert_at<const MUTABLE: bool>(
         let i = index(dm, b);
         let x = n.entry(i);
         if x.hash == e.hash && eq(x.key, e.key) {
-            return (
-                edit::<MUTABLE>(w, dm, nm, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), owner),
-                false,
-            );
+            return (edit(w, dm, nm, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), mode), false);
         }
         // the resident entry and the new one move into a child
         let r = gc::Roots::new();
-        let c = r.add(pair(x, e, shift + BITS, flags, owner));
+        let c = r.add(pair(x, e, shift + BITS, flags, mode));
         let j = index(nm, b);
-        let out = edit::<MUTABLE>(
+        let out = edit(
             w,
             dm & !b,
             nm | b,
             Edit { at: i, del: 1, ins: None },
             Edit { at: j, del: 0, ins: Some(c) },
-            owner,
+            mode,
         );
         return (out, true);
     }
     if nm & b != 0 {
         let j = index(nm, b);
         let old_child = n.child(j);
-        let (c, added) = insert_at::<MUTABLE>(old_child, e, shift + BITS, flags, eq, owner);
-        if MUTABLE && c == old_child && (owner == 0 || n.owner() == owner) {
+        let (c, added) = insert_at(old_child, e, shift + BITS, flags, eq, mode);
+        if c == old_child && mode.can_edit(n) {
             return (w, added);
         }
         let r = gc::Roots::new();
         r.add(c);
-        return (
-            edit::<MUTABLE>(w, dm, nm, Edit::none(), Edit { at: j, del: 1, ins: Some(c) }, owner),
-            added,
-        );
+        return (edit(w, dm, nm, Edit::none(), Edit { at: j, del: 1, ins: Some(c) }, mode), added);
     }
-    (
-        edit::<MUTABLE>(w, dm | b, nm, Edit { at: index(dm, b), del: 0, ins: Some(e) }, Edit::none(), owner),
-        true,
-    )
+    (edit(w, dm | b, nm, Edit { at: index(dm, b), del: 0, ins: Some(e) }, Edit::none(), mode), true)
 }
 
 enum Removed {
