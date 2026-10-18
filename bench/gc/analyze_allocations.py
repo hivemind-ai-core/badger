@@ -10,6 +10,30 @@ import statistics
 from run import validate_allocations
 
 
+def allocation_paths(groups):
+    """Optional fields preserve compatibility with censuses predating G8b."""
+    lines = []
+    for (case, workers), profiles in sorted(groups.items()):
+        profiles = [p for p in profiles if "cell_sources" in p]
+        if not profiles:
+            continue
+        if not lines:
+            lines = ["", "Allocation paths: median process fractions of managed allocation requests; each reuse counts a new object, not a distinct cell.",
+                     "Pool bytes below are native chunk reservations. They exclude system cells and other native storage.", "",
+                     "| Case | Workers | Reuse objects | Bump objects | System objects | Reuse cell bytes | Bump cell bytes | System cell bytes | Refill chunks | Refill MiB | Trim chunks | Trim MiB | Reserved MiB |",
+                     "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        shares = [statistics.median(p["cell_sources"][source][metric] /
+                                    p["totals"]["allocated"][metric] * 100 for p in profiles)
+                  for metric in ["objects", "cell_bytes"]
+                  for source in ["pooled_reuse", "pooled_bump", "system"]]
+        events = [statistics.median(p["pool_events"][event][metric] for p in profiles)
+                  for event in ["refills", "trimmed"] for metric in ["chunks", "bytes"]]
+        reserved = statistics.median(p["pool_events"]["reserved_bytes_remaining"] for p in profiles)
+        lines.append(f"| {case} | {workers} | " + " | ".join(f"{s:.1f}%" for s in shares) +
+                     f" | {events[0]:,.0f} | {events[1] / 2**20:.2f} | {events[2]:,.0f} | {events[3] / 2**20:.2f} | {reserved / 2**20:.2f} |")
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
@@ -36,6 +60,7 @@ def main():
             return statistics.median(p["totals"][category]["requested_bytes"] / p["totals"]["allocated"]["requested_bytes"] * 100 for p in profiles)
         capacity = statistics.median(p["object_metadata_capacity_bytes"] for p in profiles) / 2**20
         lines.append(f"| {case} | {workers} | {median('allocated', 'objects'):,.0f} | {median('allocated') / 2**20:.2f} | {median('allocated', 'cell_bytes') / 2**20:.2f} | {fraction('reclaimed_before_survival'):.1f}% | {fraction('first_survival'):.1f}% | {fraction('remaining'):.1f}% | {capacity:.2f} |")
+    lines += allocation_paths(groups)
     lines += ["", "Calibration: workload time medians; positive change means slower. Shared-host ranges are in summary.md.",
               "", "| Case | Workers | Phase-off vs ordinary | Phase-only vs phase-off | Census vs phase-only |",
               "|---|---:|---:|---:|---:|"]

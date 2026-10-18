@@ -927,6 +927,13 @@ Work in this order, keeping only measured improvements:
    evidence. Benchmark per-worker paths, zeroing and allocation debt separately.
    Do not remove required initialization/accounting or shrink chunks blindly:
    earlier small-refill experiments traded speed for memory and were rejected.
+   - [x] G8a experiment: Evaluate constant-size recycled-cell clearing; revert
+     the prototype after byte-heavy coverage regresses 9–17% and application
+     repeats stay small/mixed. [Negative evidence](reports/memory-management/G8a-summary.md).
+   - [x] G8b: Count pooled reuse/bump/system allocation requests and native pool
+     refill/trim events in diagnostic builds. Calibrate instrumentation and
+     save both coverage and application censuses. This is measurement, not a
+     GC speed improvement. [Allocation-path evidence](reports/memory-management/G8b-summary.md).
 4. [ ] I9/G9: Extend escape/lifetime proofs to stack or region storage. First
    specify roots across suspension, failure cleanup, aliases and cross-task
    publication. Evaluate scoped transient regions before general shared arenas;

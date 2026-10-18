@@ -1,0 +1,274 @@
+{
+  "prototype_revision": "e41aa39",
+  "revert_revision": "772d9ee",
+  "baseline_revision": "b080078",
+  "candidate_binary_sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af",
+  "measured_processes": 724,
+  "measured_intervals_overlap": false,
+  "metadata_correction": {
+    "field": "arguments.candidate_revision",
+    "original": "26",
+    "corrected": "e41aa39618942204625ff39d56b93cf3fcfc542b",
+    "reason": "CLI revision-label typo; immutable executable hash and all measurements are unchanged",
+    "original_file": "original-measurements.json.gz",
+    "original_sha256": "9959c708f7f8f425b0f8afcd75f934eae9cbd03a96030a5607124a36d1cd3c33"
+  },
+  "datasets": [
+    {
+      "path": "reports/memory-management/G8a-baseline/measurements.json.gz",
+      "sha256": "db518a9a243b4cafc614c3ba31d51e5feacf21af9f197a0da526326db978d53a",
+      "runs": 36,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "None",
+        "baseline_revision": "b080078",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101916,
+        "paired": true,
+        "cases": [
+          "records-window",
+          "persistent-64",
+          "map-new",
+          "buffers-capacity-32",
+          "bytes-transient",
+          "scalar-snapshots"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G8a-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8a-applications/measurements.json.gz",
+      "sha256": "b2ce8afa1c554197983d151ba6068b8de5097c37d5996d94e1805e9a7fe17ad8",
+      "runs": 112,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+        "baseline_revision": "b080078",
+        "candidate_revision": "e41aa39618942204625ff39d56b93cf3fcfc542b",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101917,
+        "cases": [
+          "compare/records",
+          "realworld/reconcile",
+          "realworld/json",
+          "realworld/state"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8a-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+          "sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8a-repeat/measurements.json.gz",
+      "sha256": "9e1afe2705e6d7360c134035ecf1ef2c9f22f350b4d55c089b100e544d144bcc",
+      "runs": 120,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+        "baseline_revision": "b080078",
+        "candidate_revision": "e41aa39",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101918,
+        "cases": [
+          "compare/records",
+          "realworld/reconcile"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8a-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+          "sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8a-control/measurements.json.gz",
+      "sha256": "51af2f20af1d3edcfc591a694b504153c5e84913f352ec014cb18d1b39cab569",
+      "runs": 120,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+        "baseline_revision": "e41aa39",
+        "candidate_revision": "e41aa39",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101919,
+        "cases": [
+          "compare/records",
+          "realworld/reconcile"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8a-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+          "sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+          "sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8a-coverage/measurements.json.gz",
+      "sha256": "9fbf838731f0ed39526359df97f44f71752a7ef412781637b5f96d0fb009c2f4",
+      "runs": 336,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+        "baseline_revision": "b080078",
+        "candidate_revision": "e41aa39",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101920,
+        "paired": true,
+        "cases": [
+          "records-window",
+          "persistent-64",
+          "map-new",
+          "buffers-capacity-32",
+          "bytes-transient",
+          "scalar-snapshots"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G8a-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/pool-clear-candidate",
+          "sha256": "af0a3a6e7f10e1f2aeeb62b0f58b8f2048c2d2d75f475f7853a276274e8506af"
+        }
+      }
+    }
+  ]
+}
