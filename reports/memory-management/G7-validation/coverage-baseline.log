@@ -1,0 +1,1602 @@
+coverage rep=-1 snapshots-major w2 baseline
+coverage rep=-1 persistent-64-major w4 baseline
+coverage rep=-1 persistent-64-major w8 baseline
+coverage rep=-1 buffers-grow w4 baseline
+coverage rep=-1 parallel-snapshots w4 baseline
+coverage rep=-1 buffers-grow w2 baseline
+coverage rep=-1 bytes-transient w4 baseline
+coverage rep=-1 parallel-snapshots w1 baseline
+coverage rep=-1 persistent-64-major w1 baseline
+coverage rep=-1 parallel-maps w8 baseline
+coverage rep=-1 persistent-4096-major w8 baseline
+coverage rep=-1 records-window w4 baseline
+coverage rep=-1 records-window w2 baseline
+coverage rep=-1 persistent-4096-major w2 baseline
+coverage rep=-1 persistent-4096-major w1 baseline
+coverage rep=-1 snapshots-major w1 baseline
+coverage rep=-1 bytes-transient w2 baseline
+coverage rep=-1 buffers-grow w1 baseline
+coverage rep=-1 parallel-maps w4 baseline
+coverage rep=-1 persistent-4096-major w4 baseline
+coverage rep=-1 bytes-transient w8 baseline
+coverage rep=-1 buffers-grow w8 baseline
+coverage rep=-1 parallel-snapshots w8 baseline
+coverage rep=-1 bytes-transient w1 baseline
+coverage rep=-1 parallel-maps w1 baseline
+coverage rep=-1 snapshots-major w8 baseline
+coverage rep=-1 records-window w8 baseline
+coverage rep=-1 parallel-snapshots w2 baseline
+coverage rep=-1 persistent-64-major w2 baseline
+coverage rep=-1 snapshots-major w4 baseline
+coverage rep=-1 records-window w1 baseline
+coverage rep=-1 parallel-maps w2 baseline
+coverage rep=0 buffers-grow w4 baseline
+coverage rep=0 buffers-grow w8 baseline
+coverage rep=0 parallel-maps w4 baseline
+coverage rep=0 records-window w8 baseline
+coverage rep=0 parallel-maps w8 baseline
+coverage rep=0 bytes-transient w1 baseline
+coverage rep=0 snapshots-major w4 baseline
+coverage rep=0 persistent-4096-major w1 baseline
+coverage rep=0 buffers-grow w2 baseline
+coverage rep=0 records-window w2 baseline
+coverage rep=0 snapshots-major w2 baseline
+coverage rep=0 persistent-64-major w1 baseline
+coverage rep=0 persistent-64-major w4 baseline
+coverage rep=0 parallel-snapshots w1 baseline
+coverage rep=0 parallel-snapshots w4 baseline
+coverage rep=0 parallel-snapshots w2 baseline
+coverage rep=0 bytes-transient w8 baseline
+coverage rep=0 parallel-snapshots w8 baseline
+coverage rep=0 persistent-4096-major w2 baseline
+coverage rep=0 persistent-64-major w8 baseline
+coverage rep=0 persistent-64-major w2 baseline
+coverage rep=0 buffers-grow w1 baseline
+coverage rep=0 snapshots-major w8 baseline
+coverage rep=0 bytes-transient w4 baseline
+coverage rep=0 parallel-maps w1 baseline
+coverage rep=0 snapshots-major w1 baseline
+coverage rep=0 persistent-4096-major w4 baseline
+coverage rep=0 persistent-4096-major w8 baseline
+coverage rep=0 bytes-transient w2 baseline
+coverage rep=0 records-window w4 baseline
+coverage rep=0 parallel-maps w2 baseline
+coverage rep=0 records-window w1 baseline
+coverage rep=1 buffers-grow w4 baseline
+coverage rep=1 persistent-4096-major w1 baseline
+coverage rep=1 parallel-maps w8 baseline
+coverage rep=1 parallel-maps w2 baseline
+coverage rep=1 records-window w8 baseline
+coverage rep=1 buffers-grow w8 baseline
+coverage rep=1 persistent-64-major w8 baseline
+coverage rep=1 persistent-4096-major w8 baseline
+coverage rep=1 persistent-64-major w4 baseline
+coverage rep=1 persistent-4096-major w4 baseline
+coverage rep=1 records-window w2 baseline
+coverage rep=1 parallel-snapshots w8 baseline
+coverage rep=1 bytes-transient w8 baseline
+coverage rep=1 snapshots-major w1 baseline
+coverage rep=1 parallel-snapshots w4 baseline
+coverage rep=1 parallel-maps w1 baseline
+coverage rep=1 snapshots-major w8 baseline
+coverage rep=1 bytes-transient w4 baseline
+coverage rep=1 records-window w1 baseline
+coverage rep=1 bytes-transient w2 baseline
+coverage rep=1 persistent-64-major w1 baseline
+coverage rep=1 records-window w4 baseline
+coverage rep=1 snapshots-major w4 baseline
+coverage rep=1 parallel-snapshots w2 baseline
+coverage rep=1 bytes-transient w1 baseline
+coverage rep=1 snapshots-major w2 baseline
+coverage rep=1 buffers-grow w1 baseline
+coverage rep=1 persistent-64-major w2 baseline
+coverage rep=1 buffers-grow w2 baseline
+coverage rep=1 persistent-4096-major w2 baseline
+coverage rep=1 parallel-snapshots w1 baseline
+coverage rep=1 parallel-maps w4 baseline
+coverage rep=2 persistent-64-major w4 baseline
+coverage rep=2 bytes-transient w2 baseline
+coverage rep=2 persistent-4096-major w1 baseline
+coverage rep=2 parallel-maps w8 baseline
+coverage rep=2 parallel-snapshots w8 baseline
+coverage rep=2 parallel-snapshots w2 baseline
+coverage rep=2 buffers-grow w4 baseline
+coverage rep=2 parallel-snapshots w1 baseline
+coverage rep=2 snapshots-major w2 baseline
+coverage rep=2 persistent-4096-major w8 baseline
+coverage rep=2 parallel-maps w4 baseline
+coverage rep=2 buffers-grow w1 baseline
+coverage rep=2 persistent-4096-major w4 baseline
+coverage rep=2 snapshots-major w8 baseline
+coverage rep=2 parallel-snapshots w4 baseline
+coverage rep=2 records-window w1 baseline
+coverage rep=2 persistent-4096-major w2 baseline
+coverage rep=2 persistent-64-major w8 baseline
+coverage rep=2 records-window w8 baseline
+coverage rep=2 bytes-transient w1 baseline
+coverage rep=2 parallel-maps w1 baseline
+coverage rep=2 bytes-transient w8 baseline
+coverage rep=2 snapshots-major w4 baseline
+coverage rep=2 persistent-64-major w2 baseline
+coverage rep=2 bytes-transient w4 baseline
+coverage rep=2 parallel-maps w2 baseline
+coverage rep=2 records-window w4 baseline
+coverage rep=2 snapshots-major w1 baseline
+coverage rep=2 records-window w2 baseline
+coverage rep=2 persistent-64-major w1 baseline
+coverage rep=2 buffers-grow w2 baseline
+coverage rep=2 buffers-grow w8 baseline
+[
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 29.641721,
+      "min": 27.261369,
+      "max": 29.789776,
+      "runs": [
+        27.261369,
+        29.641721,
+        29.789776
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 42768,
+      "min": 42436,
+      "max": 42984,
+      "runs": [
+        42436,
+        42984,
+        42768
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.37033,
+      "min": 1.29497,
+      "max": 1.782865,
+      "runs": [
+        1.37033,
+        1.29497,
+        1.782865
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 27.565473,
+      "min": 27.470467,
+      "max": 30.346878,
+      "runs": [
+        30.346878,
+        27.565473,
+        27.470467
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 42952,
+      "min": 42672,
+      "max": 45048,
+      "runs": [
+        42672,
+        42952,
+        45048
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.283619,
+      "min": 1.25138,
+      "max": 1.378275,
+      "runs": [
+        1.283619,
+        1.25138,
+        1.378275
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 27.773248,
+      "min": 27.619852,
+      "max": 27.803353,
+      "runs": [
+        27.619852,
+        27.803353,
+        27.773248
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 43004,
+      "min": 42960,
+      "max": 43160,
+      "runs": [
+        42960,
+        43004,
+        43160
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.192611,
+      "min": 1.192029,
+      "max": 1.237874,
+      "runs": [
+        1.237874,
+        1.192611,
+        1.192029
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 28.834604,
+      "min": 27.366845,
+      "max": 30.048344,
+      "runs": [
+        28.834604,
+        30.048344,
+        27.366845
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 42904,
+      "min": 42864,
+      "max": 44832,
+      "runs": [
+        42864,
+        44832,
+        42904
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.23555,
+      "min": 1.184996,
+      "max": 1.422056,
+      "runs": [
+        1.23555,
+        1.422056,
+        1.184996
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 99.215218,
+      "min": 94.673238,
+      "max": 99.942721,
+      "runs": [
+        99.942721,
+        94.673238,
+        99.215218
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47584,
+      "min": 47404,
+      "max": 47836,
+      "runs": [
+        47836,
+        47584,
+        47404
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.50135,
+      "min": 0.42075,
+      "max": 1.025361,
+      "runs": [
+        0.42075,
+        0.50135,
+        1.025361
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 90.694854,
+      "min": 90.347638,
+      "max": 90.929689,
+      "runs": [
+        90.347638,
+        90.929689,
+        90.694854
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49600,
+      "min": 48264,
+      "max": 49660,
+      "runs": [
+        48264,
+        49600,
+        49660
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.405392,
+      "min": 0.381918,
+      "max": 0.452429,
+      "runs": [
+        0.405392,
+        0.381918,
+        0.452429
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 89.82584,
+      "min": 85.168643,
+      "max": 96.636656,
+      "runs": [
+        89.82584,
+        96.636656,
+        85.168643
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48276,
+      "min": 48252,
+      "max": 48496,
+      "runs": [
+        48276,
+        48252,
+        48496
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.436019,
+      "min": 0.411573,
+      "max": 0.446287,
+      "runs": [
+        0.411573,
+        0.436019,
+        0.446287
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 90.99122,
+      "min": 87.867322,
+      "max": 95.526841,
+      "runs": [
+        90.99122,
+        87.867322,
+        95.526841
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47652,
+      "min": 47460,
+      "max": 49476,
+      "runs": [
+        49476,
+        47652,
+        47460
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.401745,
+      "min": 0.400933,
+      "max": 0.413196,
+      "runs": [
+        0.401745,
+        0.400933,
+        0.413196
+      ]
+    }
+  },
+  {
+    "case": "parallel-maps",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 227.149258,
+      "min": 215.961745,
+      "max": 229.5131,
+      "runs": [
+        227.149258,
+        215.961745,
+        229.5131
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 45296,
+      "min": 43308,
+      "max": 45444,
+      "runs": [
+        43308,
+        45296,
+        45444
+      ]
+    },
+    "collections": {
+      "median": 63,
+      "min": 63,
+      "max": 63,
+      "runs": [
+        63,
+        63,
+        63
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 67.823799,
+      "min": 64.984509,
+      "max": 69.379885,
+      "runs": [
+        69.379885,
+        64.984509,
+        67.823799
+      ]
+    }
+  },
+  {
+    "case": "parallel-maps",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 151.207763,
+      "min": 149.291366,
+      "max": 153.825966,
+      "runs": [
+        151.207763,
+        153.825966,
+        149.291366
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53280,
+      "min": 52724,
+      "max": 53936,
+      "runs": [
+        53280,
+        52724,
+        53936
+      ]
+    },
+    "collections": {
+      "median": 63,
+      "min": 63,
+      "max": 63,
+      "runs": [
+        63,
+        63,
+        63
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 49.800778,
+      "min": 45.659479,
+      "max": 50.330562,
+      "runs": [
+        45.659479,
+        49.800778,
+        50.330562
+      ]
+    }
+  },
+  {
+    "case": "parallel-maps",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 92.617829,
+      "min": 92.363352,
+      "max": 92.740556,
+      "runs": [
+        92.363352,
+        92.617829,
+        92.740556
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 64480,
+      "min": 64308,
+      "max": 65516,
+      "runs": [
+        64480,
+        65516,
+        64308
+      ]
+    },
+    "collections": {
+      "median": 62,
+      "min": 62,
+      "max": 62,
+      "runs": [
+        62,
+        62,
+        62
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 29.313388,
+      "min": 28.979974,
+      "max": 29.766548,
+      "runs": [
+        29.313388,
+        29.766548,
+        28.979974
+      ]
+    }
+  },
+  {
+    "case": "parallel-maps",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 65.802857,
+      "min": 64.535466,
+      "max": 71.614325,
+      "runs": [
+        71.614325,
+        64.535466,
+        65.802857
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 72828,
+      "min": 70060,
+      "max": 79276,
+      "runs": [
+        79276,
+        70060,
+        72828
+      ]
+    },
+    "collections": {
+      "median": 62,
+      "min": 62,
+      "max": 62,
+      "runs": [
+        62,
+        62,
+        62
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 25.255872,
+      "min": 23.898959,
+      "max": 26.136694,
+      "runs": [
+        26.136694,
+        25.255872,
+        23.898959
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 303.063734,
+      "min": 302.745533,
+      "max": 305.324181,
+      "runs": [
+        305.324181,
+        302.745533,
+        303.063734
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 81836,
+      "min": 81332,
+      "max": 84716,
+      "runs": [
+        81332,
+        81836,
+        84716
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 99.621514,
+      "min": 98.808646,
+      "max": 101.81681,
+      "runs": [
+        99.621514,
+        101.81681,
+        98.808646
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 239.915868,
+      "min": 238.86947,
+      "max": 242.611182,
+      "runs": [
+        239.915868,
+        242.611182,
+        238.86947
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 79884,
+      "min": 78072,
+      "max": 80036,
+      "runs": [
+        78072,
+        80036,
+        79884
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 83.385564,
+      "min": 80.944881,
+      "max": 88.698584,
+      "runs": [
+        83.385564,
+        88.698584,
+        80.944881
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 234.304288,
+      "min": 229.223506,
+      "max": 236.289929,
+      "runs": [
+        234.304288,
+        229.223506,
+        236.289929
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 101316,
+      "min": 99176,
+      "max": 105272,
+      "runs": [
+        105272,
+        99176,
+        101316
+      ]
+    },
+    "collections": {
+      "median": 36,
+      "min": 36,
+      "max": 36,
+      "runs": [
+        36,
+        36,
+        36
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 92.577054,
+      "min": 86.834336,
+      "max": 93.620904,
+      "runs": [
+        93.620904,
+        86.834336,
+        92.577054
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 422.740768,
+      "min": 409.907253,
+      "max": 424.734697,
+      "runs": [
+        424.734697,
+        409.907253,
+        422.740768
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 142700,
+      "min": 137392,
+      "max": 147928,
+      "runs": [
+        137392,
+        147928,
+        142700
+      ]
+    },
+    "collections": {
+      "median": 33,
+      "min": 32,
+      "max": 33,
+      "runs": [
+        32,
+        33,
+        33
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 114.156886,
+      "min": 112.680342,
+      "max": 120.693839,
+      "runs": [
+        114.156886,
+        112.680342,
+        120.693839
+      ]
+    }
+  },
+  {
+    "case": "persistent-4096-major",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 104.104469,
+      "min": 101.924704,
+      "max": 105.075917,
+      "runs": [
+        101.924704,
+        105.075917,
+        104.104469
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50660,
+      "min": 50480,
+      "max": 52240,
+      "runs": [
+        52240,
+        50480,
+        50660
+      ]
+    },
+    "collections": {
+      "median": 23,
+      "min": 23,
+      "max": 23,
+      "runs": [
+        23,
+        23,
+        23
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 26.199492,
+      "min": 23.689627,
+      "max": 26.374193,
+      "runs": [
+        23.689627,
+        26.374193,
+        26.199492
+      ]
+    }
+  },
+  {
+    "case": "persistent-4096-major",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 104.143839,
+      "min": 102.792599,
+      "max": 111.979776,
+      "runs": [
+        104.143839,
+        111.979776,
+        102.792599
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50264,
+      "min": 49492,
+      "max": 50708,
+      "runs": [
+        50708,
+        50264,
+        49492
+      ]
+    },
+    "collections": {
+      "median": 23,
+      "min": 23,
+      "max": 23,
+      "runs": [
+        23,
+        23,
+        23
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 24.765027,
+      "min": 24.081125,
+      "max": 31.342937,
+      "runs": [
+        24.081125,
+        31.342937,
+        24.765027
+      ]
+    }
+  },
+  {
+    "case": "persistent-4096-major",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 103.569965,
+      "min": 101.41922,
+      "max": 104.117945,
+      "runs": [
+        103.569965,
+        101.41922,
+        104.117945
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50716,
+      "min": 50412,
+      "max": 50860,
+      "runs": [
+        50860,
+        50716,
+        50412
+      ]
+    },
+    "collections": {
+      "median": 23,
+      "min": 23,
+      "max": 23,
+      "runs": [
+        23,
+        23,
+        23
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.266342,
+      "min": 22.955517,
+      "max": 23.908474,
+      "runs": [
+        23.266342,
+        22.955517,
+        23.908474
+      ]
+    }
+  },
+  {
+    "case": "persistent-4096-major",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 110.164272,
+      "min": 102.947231,
+      "max": 116.712496,
+      "runs": [
+        102.947231,
+        116.712496,
+        110.164272
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50468,
+      "min": 49712,
+      "max": 50588,
+      "runs": [
+        49712,
+        50588,
+        50468
+      ]
+    },
+    "collections": {
+      "median": 23,
+      "min": 23,
+      "max": 23,
+      "runs": [
+        23,
+        23,
+        23
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 30.796002,
+      "min": 26.728351,
+      "max": 33.572979,
+      "runs": [
+        26.728351,
+        33.572979,
+        30.796002
+      ]
+    }
+  },
+  {
+    "case": "persistent-64-major",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 60.973585,
+      "min": 57.231581,
+      "max": 61.006464,
+      "runs": [
+        61.006464,
+        60.973585,
+        57.231581
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48132,
+      "min": 48060,
+      "max": 50192,
+      "runs": [
+        48132,
+        50192,
+        48060
+      ]
+    },
+    "collections": {
+      "median": 14,
+      "min": 14,
+      "max": 14,
+      "runs": [
+        14,
+        14,
+        14
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 14.794372,
+      "min": 13.469956,
+      "max": 16.715482,
+      "runs": [
+        16.715482,
+        14.794372,
+        13.469956
+      ]
+    }
+  },
+  {
+    "case": "persistent-64-major",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 60.012333,
+      "min": 56.618134,
+      "max": 64.598913,
+      "runs": [
+        64.598913,
+        60.012333,
+        56.618134
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48264,
+      "min": 47916,
+      "max": 48452,
+      "runs": [
+        48452,
+        48264,
+        47916
+      ]
+    },
+    "collections": {
+      "median": 14,
+      "min": 14,
+      "max": 14,
+      "runs": [
+        14,
+        14,
+        14
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 16.88819,
+      "min": 13.68692,
+      "max": 19.330909,
+      "runs": [
+        16.88819,
+        19.330909,
+        13.68692
+      ]
+    }
+  },
+  {
+    "case": "persistent-64-major",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 59.646123,
+      "min": 57.813609,
+      "max": 61.430882,
+      "runs": [
+        59.646123,
+        61.430882,
+        57.813609
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48212,
+      "min": 48084,
+      "max": 48356,
+      "runs": [
+        48084,
+        48356,
+        48212
+      ]
+    },
+    "collections": {
+      "median": 14,
+      "min": 14,
+      "max": 14,
+      "runs": [
+        14,
+        14,
+        14
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 14.244454,
+      "min": 12.538811,
+      "max": 14.499575,
+      "runs": [
+        14.244454,
+        14.499575,
+        12.538811
+      ]
+    }
+  },
+  {
+    "case": "persistent-64-major",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 58.603482,
+      "min": 56.616931,
+      "max": 63.164845,
+      "runs": [
+        63.164845,
+        58.603482,
+        56.616931
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47624,
+      "min": 47540,
+      "max": 48640,
+      "runs": [
+        48640,
+        47540,
+        47624
+      ]
+    },
+    "collections": {
+      "median": 14,
+      "min": 14,
+      "max": 14,
+      "runs": [
+        14,
+        14,
+        14
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.861335,
+      "min": 13.769613,
+      "max": 16.341401,
+      "runs": [
+        16.341401,
+        13.861335,
+        13.769613
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 125.24232,
+      "min": 124.635703,
+      "max": 125.887631,
+      "runs": [
+        125.887631,
+        124.635703,
+        125.24232
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53272,
+      "min": 52400,
+      "max": 53496,
+      "runs": [
+        53272,
+        52400,
+        53496
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.711719,
+      "min": 21.107292,
+      "max": 24.627224,
+      "runs": [
+        24.627224,
+        21.107292,
+        23.711719
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 124.998304,
+      "min": 124.235034,
+      "max": 125.754703,
+      "runs": [
+        125.754703,
+        124.998304,
+        124.235034
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53512,
+      "min": 53140,
+      "max": 53720,
+      "runs": [
+        53140,
+        53512,
+        53720
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.374876,
+      "min": 21.595915,
+      "max": 24.513546,
+      "runs": [
+        23.374876,
+        21.595915,
+        24.513546
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 125.789872,
+      "min": 123.219271,
+      "max": 178.814742,
+      "runs": [
+        178.814742,
+        125.789872,
+        123.219271
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52832,
+      "min": 52428,
+      "max": 53920,
+      "runs": [
+        52832,
+        52428,
+        53920
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 21.68991,
+      "min": 21.378706,
+      "max": 23.013508,
+      "runs": [
+        21.68991,
+        23.013508,
+        21.378706
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 127.595064,
+      "min": 125.743986,
+      "max": 128.901482,
+      "runs": [
+        127.595064,
+        125.743986,
+        128.901482
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53800,
+      "min": 53028,
+      "max": 55300,
+      "runs": [
+        55300,
+        53800,
+        53028
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 22.791365,
+      "min": 21.867062,
+      "max": 23.763196,
+      "runs": [
+        23.763196,
+        22.791365,
+        21.867062
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 99.965029,
+      "min": 98.609072,
+      "max": 102.50926,
+      "runs": [
+        102.50926,
+        98.609072,
+        99.965029
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50436,
+      "min": 50376,
+      "max": 52372,
+      "runs": [
+        52372,
+        50436,
+        50376
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 24.68257,
+      "min": 24.161144,
+      "max": 27.015425,
+      "runs": [
+        27.015425,
+        24.68257,
+        24.161144
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 101.899082,
+      "min": 101.648994,
+      "max": 109.126677,
+      "runs": [
+        101.648994,
+        109.126677,
+        101.899082
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50536,
+      "min": 50124,
+      "max": 50628,
+      "runs": [
+        50536,
+        50628,
+        50124
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.710487,
+      "min": 22.806158,
+      "max": 28.384508,
+      "runs": [
+        22.806158,
+        28.384508,
+        23.710487
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 102.434466,
+      "min": 102.232368,
+      "max": 112.744379,
+      "runs": [
+        112.744379,
+        102.232368,
+        102.434466
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50800,
+      "min": 50348,
+      "max": 52536,
+      "runs": [
+        52536,
+        50348,
+        50800
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 24.562386,
+      "min": 23.66323,
+      "max": 24.576571,
+      "runs": [
+        24.576571,
+        24.562386,
+        23.66323
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 3,
+    "elapsed_ms": {
+      "median": 105.284876,
+      "min": 103.758669,
+      "max": 120.159062,
+      "runs": [
+        120.159062,
+        105.284876,
+        103.758669
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50440,
+      "min": 49996,
+      "max": 50716,
+      "runs": [
+        50440,
+        50716,
+        49996
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.609279,
+      "min": 23.014648,
+      "max": 34.96599,
+      "runs": [
+        34.96599,
+        23.014648,
+        23.609279
+      ]
+    }
+  }
+]

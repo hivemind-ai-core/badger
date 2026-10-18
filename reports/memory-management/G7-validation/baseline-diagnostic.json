@@ -1,0 +1,8 @@
+{
+  "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/baseline-diagnostic",
+  "sha256": "d19cc19b27ce3c266ebe2ea8cdc4e1aabe12c25ace326d1e8b957f6350620ca6",
+  "production_revision": "fdf36dc",
+  "features": [
+    "gc-profile"
+  ]
+}

@@ -1,0 +1,434 @@
+rep=0 realworld/state w4 baseline
+rep=0 compare/batches w4 baseline
+rep=0 realworld/messaging w4 baseline
+rep=0 realworld/pipeline w4 baseline
+rep=0 compare/batches w1 baseline
+rep=0 compare/snapshots w1 baseline
+rep=0 compare/snapshots w4 baseline
+rep=0 realworld/state w1 baseline
+rep=0 realworld/cpu w1 baseline
+rep=0 realworld/reconcile w4 baseline
+rep=0 realworld/cpu w4 baseline
+rep=0 compare/records w1 baseline
+rep=0 realworld/messaging w1 baseline
+rep=0 realworld/json w4 baseline
+rep=0 compare/records w4 baseline
+rep=0 realworld/reconcile w1 baseline
+rep=0 realworld/pipeline w1 baseline
+rep=0 realworld/json w1 baseline
+[
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 2975.0,
+          "min": 2975.0,
+          "max": 2975.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 29765632,
+          "min": 29765632,
+          "max": 29765632,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 17562.5,
+          "min": 17562.5,
+          "max": 17562.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 28094464,
+          "min": 28094464,
+          "max": 28094464,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 7919.5,
+          "min": 7919.5,
+          "max": 7919.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 29577216,
+          "min": 29577216,
+          "max": 29577216,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 7564.5,
+          "min": 7564.5,
+          "max": 7564.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 29749248,
+          "min": 29749248,
+          "max": 29749248,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 82733.5,
+          "min": 82733.5,
+          "max": 82733.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 29827072,
+          "min": 29827072,
+          "max": 29827072,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 99599.0,
+          "min": 99599.0,
+          "max": 99599.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 32636928,
+          "min": 32636928,
+          "max": 32636928,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 106722.5,
+          "min": 106722.5,
+          "max": 106722.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 28057600,
+          "min": 28057600,
+          "max": 28057600,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 109839.0,
+          "min": 109839.0,
+          "max": 109839.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 27664384,
+          "min": 27664384,
+          "max": 27664384,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 584093.0,
+          "min": 584093.0,
+          "max": 584093.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 31399936,
+          "min": 31399936,
+          "max": 31399936,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 608768.5,
+          "min": 608768.5,
+          "max": 608768.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 31137792,
+          "min": 31137792,
+          "max": 31137792,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 9808.0,
+          "min": 9808.0,
+          "max": 9808.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 28594176,
+          "min": 28594176,
+          "max": 28594176,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 97004.5,
+          "min": 97004.5,
+          "max": 97004.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 31424512,
+          "min": 31424512,
+          "max": 31424512,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 114387.0,
+          "min": 114387.0,
+          "max": 114387.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 28766208,
+          "min": 28766208,
+          "max": 28766208,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "pipeline",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 147388.5,
+          "min": 147388.5,
+          "max": 147388.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 31158272,
+          "min": 31158272,
+          "max": 31158272,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 123814.5,
+          "min": 123814.5,
+          "max": 123814.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 30638080,
+          "min": 30638080,
+          "max": 30638080,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 135060.5,
+          "min": 135060.5,
+          "max": 135060.5,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 30326784,
+          "min": 30326784,
+          "max": 30326784,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 96664.0,
+          "min": 96664.0,
+          "max": 96664.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 30986240,
+          "min": 30986240,
+          "max": 30986240,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 116256.0,
+          "min": 116256.0,
+          "max": 116256.0,
+          "count": 1,
+          "cv": 0.0
+        },
+        "peak_rss_bytes": {
+          "median": 30621696,
+          "min": 30621696,
+          "max": 30621696,
+          "count": 1,
+          "cv": 0.0
+        }
+      }
+    }
+  }
+]

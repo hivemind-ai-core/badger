@@ -1,0 +1,162 @@
+smoke rep=-1 records-window w8 baseline
+smoke rep=-1 records-window w2 baseline
+smoke rep=-1 records-window w1 baseline
+smoke rep=-1 records-window w4 baseline
+smoke rep=0 records-window w8 baseline
+smoke rep=0 records-window w1 baseline
+smoke rep=0 records-window w4 baseline
+smoke rep=0 records-window w2 baseline
+[
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.014226,
+      "min": 0.014226,
+      "max": 0.014226,
+      "runs": [
+        0.014226
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30924,
+      "min": 30924,
+      "max": 30924,
+      "runs": [
+        30924
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.014246,
+      "min": 0.014246,
+      "max": 0.014246,
+      "runs": [
+        0.014246
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 31732,
+      "min": 31732,
+      "max": 31732,
+      "runs": [
+        31732
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.013675,
+      "min": 0.013675,
+      "max": 0.013675,
+      "runs": [
+        0.013675
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30068,
+      "min": 30068,
+      "max": 30068,
+      "runs": [
+        30068
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 0.017112,
+      "min": 0.017112,
+      "max": 0.017112,
+      "runs": [
+        0.017112
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 30924,
+      "min": 30924,
+      "max": 30924,
+      "runs": [
+        30924
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  }
+]
