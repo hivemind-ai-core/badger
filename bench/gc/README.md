@@ -43,6 +43,14 @@ python3 bench/gc/check_map_entries.py --ordinary /fixed/new/badger --compatible 
 Managed allocation census (G1a)
 ------------------------------
 
+To check collector finalization changes across source and old/new saved MIR,
+run `python3 bench/gc/check_finalizers.py --ordinary /fixed/new/badger
+--compatible /fixed/base/badger --out /tmp/finalizer-checks.json.gz`. This retains
+buffer/old-container assertions across real reuse/quarantine, both generation
+modes, workers 1/8 and chaos. Its old-container variant bounds churn to eight
+iterations because stress already collects at every allocation; the full source
+fixture remains in the program suite.
+
 The diagnostic build also accepts `BADGER_ALLOC_PROFILE=path.json`, independently
 of phase profiling. It records process-wide managed allocations by type descriptor
 and Rust runtime call site, plus small-pool size classes. Requested bytes include
@@ -127,6 +135,15 @@ threads separately. The runner checks conservation; `analyze.py` summarizes skew
 and small jobs over workload collections. These counters do not directly time
 thread creation. All helper results are joined/received before serial finalizers
 or worker resumption; profiler/process finish closes the cache and joins helpers.
+
+`BADGER_GC_SWEEP_PREFETCH=0|8|16|32|64|128` compares ahead-of-use object-header
+hints on x86-64 within the same diagnostic executable. Select `--suite
+coverage-policy --policies prefetch0 prefetch16 prefetch32 prefetch64 --paired`.
+Distances count objects; zero disables hints. The runner rejects unsupported or
+unapplied policies. These instrumented variable-distance experiments need separate
+ordinary fixed-distance application comparisons before retention; other
+architectures keep their original sweep path. No new allocation or GC policy is
+implied by a prefetch hint.
 Later collections use scoped helpers. The cache is bounded by `MAX_WORKERS` and
 created lazily, but idle native stacks/channels consume resources until finish.
 Ordinary builds retain scoped helpers. Reuse was rejected as a default after

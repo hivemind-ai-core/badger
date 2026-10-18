@@ -890,6 +890,11 @@ Work in this order, keeping only measured improvements:
    worker publication, verifier quarantine and actual freeing must remain valid.
    - [x] G7a: Separate known-owner pool returns from quarantine routing; keep
      narrow wide-map improvements and record mixed applications (69b3a61).
+   - [x] G7b experiment: Measure per-object finalizer flags; leave the production
+     prototype out of main due to mixed applications and repeat state regression.
+     Keep the benchmark evidence and saved-MIR stress checker.
+   - [x] G7c experiment: Measure descriptor-only finalizer caching; do not retain
+     the prototype because application/phase evidence overlaps noise controls.
    Source-level finalizer guard stores are already removed by release LLVM;
    do not claim savings for deleting them.
 2. [ ] I2b/I8: Remove materialized map entry tuples/lists when immediate iteration
@@ -1004,3 +1009,33 @@ reuse descriptor shape-cache initialization, avoiding dead nonfinalizer descript
 lookups without changing object layout or pool policy. Preserve lazy kind
 backpatch/reset semantics and old MIR compatibility. Broader I5, pointer-map
 ownership, true-snapshot epochs, packed records and arenas remain open.
+
+### G7b evaluated — object-header finalizer flag not retained
+
+972 measured processes across six nonoverlapping datasets compare `fc759e3`
+with `957ff40`. Descriptor and buffer-transition flags pass 76 program tests,
+11 normal/13 diagnostic runtime tests, 72 source/saved-MIR stress checks,
+allocation-census checks and Clippy. Phase savings do not translate uniformly:
+the 15-pair repeat has true compare snapshots -11.7% group/-11.4% paired, but
+state +2.7%/+6.6% (only 5/15 faster); the state same-binary control is near flat.
+All initial/repeat/control results remain, including the initial snapshot
+regression and noisy control. Revert the production prototype before publishing.
+
+Next G7c tests descriptor-only cached classification, avoiding per-allocation
+flag stamping and buffer-transition maintenance. G7 remains open. [G7b report](reports/memory-management/G7b-summary.md).
+
+### G7c evaluated — descriptor-only finalizer cache not retained
+
+996 measured processes across six disjoint datasets compare `fc759e3` with
+`b1fffcf`. All 76 program/12 MIR/11 normal/13 diagnostic runtime tests,
+source/saved-MIR GC checks, allocation conservation and strict Clippy pass.
+Some snapshot coverage improves, but the 15-pair application repeat and its
+same-binary controls do not establish a broad throughput win. Diagnostic sweep
+totals also vary: compare snapshots -6.9%/+4.5% at workers 1/8, records +4.8%/+3.4%.
+Revert this production prototype too; keep the evidence. [G7c report](reports/memory-management/G7c-summary.md).
+
+Next G7d: test ahead-of-use header prefetching in sweep, with diagnostic same-binary
+distance controls before ordinary application comparisons. No allocator/object
+metadata changes. Prefetch is a hypothesis about memory latency, not a measured
+attribution yet. Keep the allocation-elision wins and avoid publishing collector
+complexity justified only by isolated microbenchmarks.
