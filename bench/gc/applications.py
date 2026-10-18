@@ -79,6 +79,7 @@ def main():
     ap.add_argument("--seed", type=int, default=20261018)
     ap.add_argument("--cases", nargs="+", choices=CASES, default=CASES)
     ap.add_argument("--diagnostic", action="store_true", help="collect GC phases in separately built diagnostic binaries")
+    ap.add_argument("--allocations", action="store_true", help="add perturbed process-wide allocation counts to diagnostics")
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
@@ -86,6 +87,8 @@ def main():
         ap.error("positive counts and 1..64 workers required")
     if args.candidate and not args.candidate_revision:
         ap.error("--candidate requires --candidate-revision")
+    if args.allocations and not args.diagnostic:
+        ap.error("--allocations requires --diagnostic")
     with gc.benchmark_lock():
         run(args)
 
@@ -137,6 +140,9 @@ def run(args):
                                str(program), "--", *map(str, arguments)]
                     phases = tmp / "gc.json"
                     child_env = env | ({"BADGER_GC_PROFILE": str(phases)} if args.diagnostic else {})
+                    allocations_path = tmp / "allocations.json"
+                    if args.allocations:
+                        child_env["BADGER_ALLOC_PROFILE"] = str(allocations_path)
                     before = gc.host_context()
                     process = rw.process(command, child_env, 180, expect_ready=suite == "realworld", launcher=launcher)
                     after = gc.host_context()
@@ -145,8 +151,13 @@ def run(args):
                     if profile is not None:
                         gc.validate_sweep(profile)
                         phases.unlink()
+                    allocations = None
+                    if args.allocations:
+                        allocations = json.loads(allocations_path.read_text())
+                        gc.validate_allocations(allocations)
+                        allocations_path.unlink()
                     runs.append(dict(suite=suite, case=name, workers=workers, variant=variant,
-                                     repetition=repetition, n=n, process=process, gc=profile,
+                                     repetition=repetition, n=n, process=process, gc=profile, allocations=allocations,
                                      host_before=before, host_after=after))
                     print(f"rep={repetition} {suite}/{name} w{workers} {variant}", flush=True)
                     report["summary"] = summarize(runs)

@@ -27,6 +27,19 @@ from ordinary timing comparisons. `records-window` in coverage reproduces
 spawn/cancellation phases. Existing pointer buffers and snapshot cases provide
 finalizer and retained-graph controls.
 
+Select focused contracts with `--cases realworld/state compare/snapshots`.
+For a diagnostic-only application allocation census, add `--diagnostic
+--allocations` and supply diagnostic binaries. Family/site counts cover the
+whole process, including warmups and output; their conservation checks reuse
+the GC harness. They do not measure ordinary execution speed or live retained
+memory. `entries-immediate` versus `entries-stored` covers temporary map method
+views and deliberately retained entry-list results. Run the map/snapshot/
+receiver/pointer-lifetime checker with:
+
+```sh
+python3 bench/gc/check_map_entries.py --ordinary /fixed/new/badger --compatible /fixed/base/badger --out /tmp/entry-checks.json.gz
+```
+
 Managed allocation census (G1a)
 ------------------------------
 
