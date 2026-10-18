@@ -327,6 +327,9 @@ impl Infer<'_, '_> {
             self.icx.settle_never();
             self.solve(false);
         }
+        if final_ {
+            self.check_never_required();
+        }
     }
 
     /// Finish constraints whose variables are private to the given types'

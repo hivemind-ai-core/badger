@@ -1,0 +1,9 @@
+// expect-error: E0300
+// `Never` is the bottom type: a value of it fits anywhere, but nothing that
+// finishes with a value fits where `Never` is expected (this used to give
+// an `Int` out of `()`).
+fn absurd(n: Never) -> Int { n }
+
+pub fn main() -> Unit {
+    let _ = absurd(())
+}
