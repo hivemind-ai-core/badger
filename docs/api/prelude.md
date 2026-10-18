@@ -635,6 +635,16 @@ fn describe_error<E>(e: E) -> String where E: Error
 The report of an error that ends a program: its code, message, causal
 chain, and structured details.
 
+### `diverge`
+
+```badger
+fn diverge<T>(never: Never) -> T
+```
+
+Terminate the current task with a defect.
+A value of a block that never finishes, as any type: `let p = e else`
+requires its block to leave (`return`, `break`, `continue`, or panic).
+
 ### `err`
 
 ```badger
@@ -672,8 +682,6 @@ fn ok<T, E>(value: T) -> Result<T, E>
 ```badger
 fn panic
 ```
-
-Terminate the current task with a defect.
 
 ### `schema`
 

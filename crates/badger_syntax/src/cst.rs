@@ -329,9 +329,26 @@ pub enum PlaceElem<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'a> {
-    Let { kind: LetKind, pat: P<'a>, ty: Option<T<'a>>, value: E<'a>, span: Span },
-    Use { pats: Vec<P<'a>>, call: E<'a>, span: Span },
-    Assign { base: Ident<'a>, path: Vec<PlaceElem<'a>>, value: E<'a>, span: Span },
+    /// `els`: `let PATTERN = VALUE else { ... }` (the block must diverge).
+    Let {
+        kind: LetKind,
+        pat: P<'a>,
+        ty: Option<T<'a>>,
+        value: E<'a>,
+        els: Option<Box<Block<'a>>>,
+        span: Span,
+    },
+    Use {
+        pats: Vec<P<'a>>,
+        call: E<'a>,
+        span: Span,
+    },
+    Assign {
+        base: Ident<'a>,
+        path: Vec<PlaceElem<'a>>,
+        value: E<'a>,
+        span: Span,
+    },
     Expr(E<'a>),
 }
 

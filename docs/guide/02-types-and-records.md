@@ -427,7 +427,7 @@ Common mistakes:
 | Mistake | Diagnostic |
 |---|---|
 | A `match` that misses a case (guarded arms do not count) | E0342 |
-| A refutable pattern in `let` or a parameter (`let .some(x) = o`) | E0318: use `match` or `if let` |
+| A refutable pattern in `let` or a parameter (`let .some(x) = o`) | E0318: use `match`, `if let`, or `let ... else` |
 | A variant the enum does not have | E0322 |
 | The wrong number of payload patterns | E0323 |
 | A struct pattern that omits fields without `..` | E0319 |

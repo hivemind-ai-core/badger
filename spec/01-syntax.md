@@ -220,6 +220,20 @@ if let .some(user) = users.get(id) {
 A pattern condition that ignores `.err` silently drops a failure: match a
 `Result` when the error matters.
 
+`let PATTERN = EXPR else { ... }` binds a refutable pattern's names for
+the rest of the block when it matches; otherwise the `else` block runs,
+and it must not finish (its type is `Never`: it ends in `return`,
+`break`, `continue`, a panic, or another call returning `Never`; E0300
+otherwise). It is `let (names) = match EXPR { PATTERN => (names), _ =>
+block }`; it takes no type annotation.
+
+```badger fragment
+let .some(user) = users.get(id) else {
+    return err(Error.unknown_user(id))
+}
+greet(user)
+```
+
 A leading-dot variant pattern takes its enum from the scrutinee. Constructor
 expressions use `Enum.variant(...)`, or an imported ordinary helper such as
 `ok(...)`; draft 0 does not infer an enum by searching for a bare variant name.

@@ -238,3 +238,40 @@ fn main() {
                   (field_initializer
                     (identifier)
                     (string)))))))))))
+
+==================
+Let else
+==================
+
+fn f(o: Option<Int>) -> Int {
+    let .some(n) = o else {
+        return 0
+    }
+    n
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier)
+          (type_arguments
+            (type_path
+              (type_identifier))))))
+    (type_path
+      (type_identifier))
+    (block
+      (let_statement
+        (variant_pattern
+          (identifier)
+          (identifier))
+        (identifier)
+        (block
+          (return_expression
+            (integer))))
+      (identifier))))

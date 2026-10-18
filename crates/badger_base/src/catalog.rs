@@ -361,7 +361,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0318",
         "refutable binding",
-        "`let` and parameters need irrefutable patterns; use `match` for literals and variants.",
+        "`let` and parameters need irrefutable patterns; use `match`, `if let`, or `let PATTERN = VALUE else { ... }` (whose block must leave) for literals and variants.",
     ),
     ("E0319", "incomplete struct pattern", "Mention every field or add `..`."),
     (

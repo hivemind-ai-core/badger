@@ -1,0 +1,49 @@
+// `let PATTERN = VALUE else { ... }`: the pattern's names are bound after
+// the statement when it matches; otherwise the block runs and must leave
+// (`return`, `break`, `continue`, or panic).
+import std.io
+
+type Pair = { a: Int, b: Int }
+
+fn first(xs: List<Int>) -> Int {
+    let .some(x) = xs.first() else {
+        return -1
+    }
+    x * 10
+}
+
+fn sum(r: Result<Pair, String>) -> Result<Int, String> {
+    let .ok({ a, b }) = r else {
+        return err("no pair")
+    }
+    ok(a + b)
+}
+
+fn parse(text: String) -> Result<(Int, Int), String> {
+    let .some((x, y)) = text.split_once(",") else {
+        return err($"expected two numbers in `{text}`")
+    }
+    let .some(n) = x.parse_int() else { return err($"`{x}` is not a number") }
+    let .some(m) = y.parse_int() else { return err($"`{y}` is not a number") }
+    ok((n, m))
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(first([4, 5]))?
+    io.println(first([]))?
+    io.println(sum(ok({ a: 1, b: 2 })).unwrap_or(0))?
+    io.println(sum(err("x")).unwrap_or(0))?
+    var total = 0
+    for x in [Option.some(1), Option.none, Option.some(3)] {
+        let .some(v) = x else { continue }
+        total = total + v
+    }
+    io.println(total)?
+    for t in ["3,4", "3", "a,4"] {
+        match parse(t) {
+            .ok((n, m)) => io.println(n * m)?,
+            .err(e) => io.println(e)?,
+        }
+    }
+    ok(())
+}

@@ -943,7 +943,15 @@ where
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
-        .map_with(|(((kind, pat), ty), value), e| Stmt::Let { kind, pat, ty, value, span: e.span() });
+        .then(kw("else").ignore_then(block.clone()).map(Box::new).or_not())
+        .map_with(|((((kind, pat), ty), value), els), e| Stmt::Let {
+            kind,
+            pat,
+            ty,
+            value,
+            els,
+            span: e.span(),
+        });
     let use_stmt = kw("use")
         .ignore_then(pattern.clone().separated_by(just(Tok::Comma)).at_least(1).collect::<Vec<_>>())
         .then_ignore(just(Tok::LArrow))

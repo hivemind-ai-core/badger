@@ -254,6 +254,10 @@ pub fn err<T, E>(error: E) -> Result<T, E> {
 }
 
 /// Terminate the current task with a defect.
+/// A value of a block that never finishes, as any type: `let p = e else`
+/// requires its block to leave (`return`, `break`, `continue`, or panic).
+pub fn diverge<T>(never: Never) -> T { never }
+
 pub extern "intrinsic" fn panic(message: String) -> Never
 // function contracts: where the contracted function was called from (read
 // once, on entry), and a failed precondition blamed on that call

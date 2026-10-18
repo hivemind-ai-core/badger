@@ -877,6 +877,16 @@ hello stranger
   when it does not match.
 - An `if let .ok(x) = r` that ignores `.err` drops the error silently.
   Match the `Result` when the error matters.
+- `let P = e else { ... }` keeps the names `P` binds for the rest of the
+  block; when `e` does not match, the block runs and must leave
+  (`return`, `break`, `continue`, or a panic):
+
+```badger fragment
+let .some(user) = users.get(id) else {
+    return err(Error.unknown_user(id))
+}
+greet(user)
+```
 
 ---
 

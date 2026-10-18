@@ -256,7 +256,14 @@ module.exports = grammar({
     block: ($) => seq('{', repeat(choice($._statement, ';')), '}'),
     _statement: ($) => choice($.let_statement, $.use_statement, $.assignment, $._expression),
     let_statement: ($) =>
-      seq(choice('let', 'var', 'const'), $._pattern, optional(seq(':', $._type)), '=', $._expression),
+      seq(
+        choice('let', 'var', 'const'),
+        $._pattern,
+        optional(seq(':', $._type)),
+        '=',
+        $._expression,
+        optional(seq('else', $.block)),
+      ),
     use_statement: ($) => seq('use', sep1($._pattern, ','), '<-', $._expression),
     assignment: ($) => prec(-1, seq(field('target', $._place), '=', field('value', $._expression))),
     _place: ($) => choice($.identifier, $.field_expression, $.index_expression),

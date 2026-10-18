@@ -761,12 +761,50 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     fn stmt(&mut self, s: cst::Stmt<'_>) -> Stmt {
         match s {
-            cst::Stmt::Let { kind, pat, ty, value, span } => {
+            cst::Stmt::Let { kind, pat, ty, value, els: None, span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
                 let ty = ty.map(|t| self.ty(t));
                 let value = self.expr(value);
                 Stmt::Let { kind: let_kind(kind), pat, ty, value, span }
+            }
+            // `let p = e else { b }` is `let (x, ..) = match e { p => (x, ..), _ => diverge(b) }`
+            // over the names `p` binds; `b` must not finish (its type is `Never`)
+            cst::Stmt::Let { kind, pat, ty, value, els: Some(els), span } => {
+                let span = self.span(span);
+                let pat = self.pattern(pat);
+                let ty = ty.map(|t| self.ty(t));
+                let value = self.expr(value);
+                let mut names = vec![];
+                bound_names(&self.ast, pat, &mut names);
+                let values: Vec<ExprId> =
+                    names.iter().map(|n| self.alloc_expr(ExprKind::Name(*n), n.span)).collect();
+                let binds: Vec<PatId> =
+                    names.iter().map(|n| self.alloc_pat(PatKind::Bind(*n), n.span)).collect();
+                let (matched, target) = match values.len() {
+                    1 => (values[0], binds[0]),
+                    _ => (
+                        self.alloc_expr(ExprKind::Tuple(values), span),
+                        self.alloc_pat(PatKind::Tuple(binds), span),
+                    ),
+                };
+                let otherwise = self.block(*els);
+                let diverge = self.alloc_expr(ExprKind::Std("diverge"), span);
+                let otherwise = self.alloc_expr(
+                    ExprKind::Call { callee: diverge, args: vec![otherwise], type_args: vec![] },
+                    span,
+                );
+                if let Some(t) = ty {
+                    self.error(
+                        "E0002",
+                        self.ast.types[t].span,
+                        "`let ... else` takes no type annotation",
+                        "annotate the value instead (`let v: T = e`, then `let p = v else { ... }`)",
+                    );
+                }
+                let arms = self.let_arms(pat, matched, otherwise, span);
+                let whole = self.alloc_expr(ExprKind::Match { scrutinee: value, arms }, span);
+                Stmt::Let { kind: let_kind(kind), pat: target, ty: None, value: whole, span }
             }
             cst::Stmt::Use { pats, call, span } => {
                 let span = self.span(span);
