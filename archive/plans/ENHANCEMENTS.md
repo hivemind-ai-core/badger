@@ -1,10 +1,25 @@
 # Language, library, framework, and tooling enhancements
 
+> **Archived 2026-10-18.** Implemented: F1 (versioned diagnostics, LSP
+> `data`), F2, F3, F4, L1, L2 (also named `=>` functions), L3, L4
+> (`let ... else`), L5, L6 (`+=` and friends, or-patterns), L7
+> (`task.map_bounded`; deadlines and permits via `app.Call` and
+> `std.admission`), L8 (provider/stage declarations), S1, S2, S3 (stream
+> `filter_map`/`enumerate`/`scan`/`find`, `seq.try_map`), S4 (`std.sorted`,
+> `std.heap`, `std.deque`, `std.lru`, `std.bits`), the framework (§4; see
+> FRAMEWORK_DESIGN.md §25), T1 (`badger query symbol`), T2 (MCP structured
+> content), T3 (insert-import quick fix), T4 (import error cascades), T5
+> (`badger test --list/--exact`, failure kinds), T6 (`[layers]` import
+> rules), T7 (`badger generate feature`/`worker`), T8 (the guide and its
+> checked examples over MCP), T9 (`eval/` tasks and scorer). What remains
+> is in [BACKLOG.md](../../BACKLOG.md). References to files below use the
+> paths of the time (pest grammar, `lang_*` crates).
+
 Assessment date: 2026-10-16. Status: proposals for review, with accepted directions explicitly identified below. This document does not change the language specification or reorder active work.
 
 The aim is to make the language easier to read, write, compose, and verify, for people and LLMs. Prefer local syntax desugaring, additive library APIs, and extensions to existing compiler services. Preserve the uppercase type convention, explicit errors and dependencies, immutable records, scoped resources, and sequential code within concurrent tasks.
 
-This assessment reads Claude's consolidated work order, backlog, priorities, and end-of-list plan; [SPEC.md](SPEC.md) and its chapters; the actual parser, lowering, standard modules, and tooling; and the [Go/Elixir design report](reports/2026-10-16-go-elixir-alternative-design-report.md). The backlog already covers performance, FFI/library extraction, supervision, configuration, observability, and a collaborative compiler. The proposals below refine those directions rather than treating them as new discoveries.
+This assessment reads Claude's consolidated work order, backlog, priorities, and end-of-list plan; [SPEC.md](../../SPEC.md) and its chapters; the actual parser, lowering, standard modules, and tooling; and the [Go/Elixir design report](../../reports/2026-10-16-go-elixir-alternative-design-report.md). The backlog already covers performance, FFI/library extraction, supervision, configuration, observability, and a collaborative compiler. The proposals below refine those directions rather than treating them as new discoveries.
 
 Priority: **P0** fixes or prerequisites; **P1** recommended next enhancements; **P2** useful follow-ups. Size: **small** means a local change using existing machinery; **medium** crosses several existing subsystems; **larger** means a sequence of library/tooling slices. These are scope estimates, not delivery promises. Each item needs appropriate validation.
 
@@ -16,7 +31,7 @@ LLM benefits below are hypotheses. They should be measured through real editing 
 
 **P0 · Small to medium · Confirmed gap.**
 
-The core [diagnostic representation](crates/badger_base/src/diagnostics.rs) carries labels, expected/actual shapes, enclosing scope, and related declarations. The analysis/query path reduces that information: expected/actual become prose notes, and the CLI query serialization omits secondary locations. MCP `check` uses that query path. Its result is then wrapped as text.
+The core [diagnostic representation](../../crates/badger_base/src/diagnostics.rs) carries labels, expected/actual shapes, enclosing scope, and related declarations. The analysis/query path reduces that information: expected/actual become prose notes, and the CLI query serialization omits secondary locations. MCP `check` uses that query path. Its result is then wrapped as text.
 
 This was reproduced with a failed piped call: `badger check --json` identifies the enclosing function and the called function's declaration; `badger query diagnostics` drops those fields. An LLM receives less useful evidence through its dedicated tool than through the ordinary compiler command.
 
@@ -37,7 +52,7 @@ Start by retaining existing information. Richer constraint explanations are a la
 
 MCP `check(source=...)` writes a standalone temporary file. It does not offer a way to check a replacement module against its actual project, imports, configuration, and sibling edits. Agents therefore have to write files before checking a multi-file change.
 
-The underlying [analysis entry point](crates/badger_driver/src/analysis.rs) already accepts source overlays, and LSP uses them. Expose that capability to MCP and `std.compiler`: a project path plus a set of proposed file contents. Return the identities of the inputs checked and the entry/task roots covered.
+The underlying [analysis entry point](../../crates/badger_driver/src/analysis.rs) already accepts source overlays, and LSP uses them. Expose that capability to MCP and `std.compiler`: a project path plus a set of proposed file contents. Return the identities of the inputs checked and the entry/task roots covered.
 
 The first implementation can perform a full check. Persistent incremental compilation is a separate optimization. Checking edits should remain read-only; applying them is a distinct operation.
 
@@ -47,7 +62,7 @@ The first implementation can perform a full check. Persistent incremental compil
 
 **P1 · Small per correction · Confirmed documentation gaps.**
 
-[SPEC.md](SPEC.md) still refers to an implemented placeholder grammar, while the compiler uses the substantial [pest grammar](crates/badger_syntax/src/grammar.pest). Chapter 07 calls some reference APIs unimplemented proposals while also documenting their implementation. These contradictions make it harder for an agent to decide what code it can actually use.
+[SPEC.md](../../SPEC.md) still refers to an implemented placeholder grammar, while the compiler uses the substantial [pest grammar](../../crates/badger_syntax/src/grammar.pest). Chapter 07 calls some reference APIs unimplemented proposals while also documenting their implementation. These contradictions make it harder for an agent to decide what code it can actually use.
 
 Keep a clear distinction between normative semantics, implementation limits, and proposed additions. Generate API reference material from checked interfaces and retain hand-written explanations and examples around it. Compile documentation examples in CI. Put version/toolchain information on generated material.
 
@@ -59,7 +74,7 @@ Do not describe existing record shorthand, dotted record updates, interpolation,
 
 **P1 · Small to medium · Confirmed API gaps.**
 
-MCP has API and graph queries, but [std.compiler](crates/badger_hir/std/compiler.bdg) does not wrap them. LSP supports rename, while the agent query interface has no equivalent semantic edit operation. Some agent documentation also understates the debugging and profiling capabilities already present in MCP `run`.
+MCP has API and graph queries, but [std.compiler](../../crates/badger_hir/std/compiler.bdg) does not wrap them. LSP supports rename, while the agent query interface has no equivalent semantic edit operation. Some agent documentation also understates the debugging and profiling capabilities already present in MCP `run`.
 
 Expose shared compiler services consistently rather than maintaining separate implementations. Keep the small MCP tool set and extend its operations. An operation should report unsupported inputs explicitly, rather than returning an empty result that resembles successful analysis.
 
@@ -98,7 +113,7 @@ input |> decode<Config>()? |> validate()?
 
 At each stage, insert the left value into the call first, then apply `?` to that call's result. Keep the current direct error-conversion rules and nearest-function/callback boundary.
 
-The existing AST already represents pipes, calls, and `Try`; [pipe lowering](crates/badger_hir/src/lower.rs) is the likely implementation point. No new runtime mechanism is needed. Specify the behavior of parenthesized function-producing expressions separately so the rule is predictable.
+The existing AST already represents pipes, calls, and `Try`; [pipe lowering](../../crates/badger_hir/src/lower.rs) is the likely implementation point. No new runtime mechanism is needed. Specify the behavior of parenthesized function-producing expressions separately so the rule is predictable.
 
 **Acceptance:** equivalent explicit calls and piped calls have the same results, errors, evaluation order, and cleanup; each left operand runs once. Cover multiple fallible stages and `use` callbacks.
 
@@ -235,7 +250,7 @@ This could lower to the existing function returning `pipeline.stage({ name, ente
 
 Also evaluate shorter system entries that replace explicit `component(provider, config)` markers with direct provider application inside `system { ... }`. Such syntax must still build a deferred plan: it must not acquire resources while constructing the description. Keep dependency references explicit and checked.
 
-Design these forms together with the extended core framework's representative applications, while recording the language rules here and framework APIs in [FRAMEWORK_DESIGN.md](FRAMEWORK_DESIGN.md). Prefer a few consistent declaration forms to framework-specific syntax for routes, databases, authentication, or workers. Ordinary descriptor APIs should remain usable for programmatic composition and tooling.
+Design these forms together with the extended core framework's representative applications, while recording the language rules here and framework APIs in [FRAMEWORK_DESIGN.md](../../FRAMEWORK_DESIGN.md). Prefer a few consistent declaration forms to framework-specific syntax for routes, databases, authentication, or workers. Ordinary descriptor APIs should remain usable for programmatic composition and tooling.
 
 **Acceptance:** rewrite the combined greeter/API system-and-pipeline example with substantially less plumbing. The new forms must retain typed provider configuration/output checking, dependency ordering, partial-start cleanup, callback-local `return`/`?`, effects/capture/region checks, prefix-visible live context, separate replies, and cancellation/defect behavior. Generated names and source spans must remain useful in diagnostics, inspection, LSP, and MCP. Compare old and new forms under success, error, cancellation, and shutdown; test parser/formatter round-trips. These proposals do not require custom derives or a general macro system.
 
@@ -324,7 +339,7 @@ Expand `std.text` and `std.bytes` with common service needs such as checked spli
 
 **Accepted first-release scope:** HTTP APIs, workers/durable jobs, and CLI entry points, with HTML and administration added later. The framework draft also selects browser forms/session facilities for the later web layer.
 
-[FRAMEWORK_DESIGN.md](FRAMEWORK_DESIGN.md) is the current authority for the framework proposal. It develops the eight requested inspirations into selected architecture/API defaults, operation and module contracts, middleware, configuration, lifecycle/supervision, transport/data/durability rules, tooling, and runnable delivery slices. Detailed framework decisions belong there so this assessment stays focused on overall ergonomics.
+[FRAMEWORK_DESIGN.md](../../FRAMEWORK_DESIGN.md) is the current authority for the framework proposal. It develops the eight requested inspirations into selected architecture/API defaults, operation and module contracts, middleware, configuration, lifecycle/supervision, transport/data/durability rules, tooling, and runnable delivery slices. Detailed framework decisions belong there so this assessment stays focused on overall ergonomics.
 
 The shared ergonomic requirements are:
 

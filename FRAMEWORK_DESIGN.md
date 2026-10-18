@@ -2,7 +2,7 @@
 
 Date: 2026-10-16. Status: draft 1. Accepted user decisions are identified explicitly; other decisions are selected design defaults for review. The framework APIs below are proposed. Existing-language examples and implementation evidence are identified separately.
 
-This is the current authority for the framework proposal. [SPEC.md](SPEC.md) governs the language and runtime semantics; [ENHANCEMENTS.md](ENHANCEMENTS.md) owns general ergonomic changes, including proposed provider/stage syntax. This design does not reorder the active compiler/runtime work queue.
+This is the current authority for the framework proposal. [SPEC.md](SPEC.md) governs the language and runtime semantics; [ENHANCEMENTS.md](archive/plans/ENHANCEMENTS.md) (archived; leftovers in [BACKLOG.md](BACKLOG.md)) owned general ergonomic changes, including the provider/stage syntax. This design does not reorder the active compiler/runtime work queue.
 
 ## Accepted direction
 
@@ -23,7 +23,7 @@ The user requested inspiration from:
 - ClojureScript re-frame.
 - Clojure Duct.
 
-Co-design the framework with general language ergonomics using concrete examples. Record proposed language syntax in [ENHANCEMENTS.md, L8](ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations); keep framework conventions, packages, APIs, and delivery slices here. [Section 4 of the enhancement assessment](ENHANCEMENTS.md#4-framework-a-cohesive-application-service-stack) links the two workstreams.
+Co-design the framework with general language ergonomics using concrete examples. Record proposed language syntax in [ENHANCEMENTS.md, L8](archive/plans/ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations); keep framework conventions, packages, APIs, and delivery slices here. [Section 4 of the enhancement assessment](archive/plans/ENHANCEMENTS.md#4-framework-a-cohesive-application-service-stack) links the two workstreams.
 
 ## Inspiration and ideas to evaluate
 

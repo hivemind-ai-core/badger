@@ -13,7 +13,7 @@ states the revision it measured; newer work can change its numbers.
 | [memory-management/](memory-management/) | The memory-management work in progress (see `MEMORY_MAN_TODO.md`) |
 | [realworld/](realworld/README.md) | Badger, Go and Node.js application workloads: stamped reports, latest comparisons and performance history |
 | [language-comparison/2026-10-16/](language-comparison/2026-10-16/README.md) | The same workloads in other languages (`bench/compare`) |
-| [benchmarks/](benchmarks/) | `bench/baseline.py` snapshots (the latest, and the one `LOCK_OPTIMIZATION.md` cites) |
+| [benchmarks/](benchmarks/) | `bench/baseline.py` snapshots (the latest, and the one `archive/plans/LOCK_OPTIMIZATION.md` cites) |
 | [2026-10-15-adversarial.md](2026-10-15-adversarial.md) | Defects found by adversarial testing (cited by `tests/adversarial`) |
 
 ## Archive
