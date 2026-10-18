@@ -1358,7 +1358,7 @@
     "The exploratory fast-miss probe was recorded with HEAD 0c0feda and label fast-miss-uncommitted; its immutable executable SHA256 is identical to the fd333a5 final candidate. Treat it as exploratory.",
     "Both self-control labels use the identical baseline executable.",
     "All raw runs are retained, including host-pressure outliers. No own builds or correctness tests overlapped accepted timing intervals; external host activity is uncontrolled.",
-    "Main f11f33d changes only indentation in bench/gc/coverage.bdg. It is integrated after measurements; recorded source hashes identify the measured form. Production Rust is unchanged by this integration.",
+    "Main f11f33d changes only indentation in bench/gc/coverage.bdg. Later integration 1c4963c also includes newer main 1c8d910 JIT/frontend/library changes. This manifest describes the original measured source; separate integration checks identify the newer combined tree.",
     "Binary files are retained at the listed temporary paths rather than committed. The source revisions, build logs, hashes and full commands in raw records identify their provenance."
   ]
 }

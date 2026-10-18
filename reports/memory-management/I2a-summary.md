@@ -69,8 +69,8 @@ its source commit but uses the identical final executable hash. Same-binary
 controls use the exact baseline executable under both labels.
 
 Main's subsequent `f11f33d` commit changes only benchmark indentation. The
-final integration retains that formatting after measurement; raw source hashes retain the measured form,
-and the four changed production Rust files match final candidate `fd333a5`.
+final integration retains that formatting after measurement. Raw source hashes
+retain the measured form; later main integration is validated separately below.
 
 | Dataset | Measured runs |
 |---|---:|
@@ -196,3 +196,13 @@ lookup predicates, preserving copy snapshots, escaping ABI, roots and scheduler
 semantics. Use these new miss-heavy cases to prevent protocol overhead from
 being hidden by successful lookups. Immutable-node/record allocation and targeted
 pool reservation remain candidates; arena/ring ownership work is unimplemented.
+
+## Integration with newer main (2026-10-18)
+
+Evidence was committed at `c1eed2b`; merge `1c4963c` integrates current main
+`1c8d910` without conflicts. This includes newer JIT relocation/PIC handling,
+frontend/library and application benchmark work, so the historical timings above
+remain specific to `fab8a02` versus `fd333a5`. They are not measurements of this
+newer combined tree. The lookup protocol itself is unchanged. Integration checks
+and combined-source hashes are saved separately in
+[main-integration-2026-10-18](main-integration-2026-10-18/).

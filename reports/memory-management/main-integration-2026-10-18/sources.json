@@ -1,0 +1,10 @@
+{
+  "merged_tree": "1c4963c",
+  "integrated_main": "1c8d910",
+  "changed_sources_sha256": {
+    "crates/badger_runtime/src/intrinsics.rs": "09d2b4169cae465f945db793d1bd31152112f27fd7d4d73eca78af5e167b7030",
+    "crates/badger_runtime/src/intrinsics_std.rs": "2289f2863f133a94c7533e0349dd3b65a86bda70994a238b8007906514bac7c7",
+    "crates/badger_mir/src/split.rs": "aecb95fdb91f19a4cc94db617bb041ee0c59d1a7e680d17366ce4293fea18728",
+    "crates/badger_codegen/src/lib.rs": "b2b105511a9bd32bbb5d450240308a451fbb6d2d4c850c3ae11c6cdce3f03a71"
+  }
+}

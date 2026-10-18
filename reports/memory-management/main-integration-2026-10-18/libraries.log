@@ -1,0 +1,62 @@
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.16.1
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling memmap2 v0.9.11
+   Compiling region v3.0.2
+   Compiling hashbrown v0.17.1
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling indexmap v2.14.2
+   Compiling wasmtime-internal-core v49.0.3
+   Compiling regalloc2 v0.15.2
+   Compiling cranelift-bitset v0.136.3
+   Compiling wasmtime-internal-jit-icache-coherence v49.0.3
+   Compiling cranelift-entity v0.136.3
+   Compiling gimli v0.33.0
+   Compiling petgraph v0.8.3
+   Compiling cranelift-bforest v0.136.3
+   Compiling cranelift-codegen v0.136.3
+   Compiling cranelift-module v0.136.3
+   Compiling cranelift-native v0.136.3
+   Compiling cranelift-frontend v0.136.3
+   Compiling cranelift-jit v0.136.3
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+    Finished `release` profile [optimized] target(s) in 1m 57s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger_codegen-6fd2cabe7a7a8f90)
+
+running 1 test
+test jit_tests::symbol_addresses_can_be_more_than_two_gib_from_code ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger_mir-bea7a40de569175d)
+
+running 6 tests
+test reach::tests::callbacks_and_relocation_origins_survive_renumbering ... ok
+test roots::tests::roots_expire_between_safe_points_but_word_sources_stay_pinned ... ok
+test serial::tests::former_indirect_buffer_layout_is_refused_before_decoding ... ok
+test split::tests::escaped_reassigned_and_live_results_keep_the_boxed_abi ... ok
+test split::tests::multiple_sites_keep_their_arguments_and_unrelated_calls ... ok
+test split::tests::pointer_payloads_remain_roots_and_packed_words_keep_their_repr ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger_runtime-6d04552aef4f0dcc)
+
+running 10 tests
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test string::tests::scalar_slice_matches_character_reference ... ok
+test telemetry::tests::rfc3339_dates ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test gc::sweep::tests::helpers_reuse_join_and_preserve_prefix_marks_and_finalizer_order ... ok
+test buffer::tests::inline_metadata_traces_grows_and_reclaims_native_storage ... ok
+test gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine ... ok
+test buffer::tests::inline_elements_trace_freeze_and_grow_without_native_leaks ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
