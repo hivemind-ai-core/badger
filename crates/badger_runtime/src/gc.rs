@@ -37,7 +37,7 @@ mod sweep;
 #[repr(C)]
 pub struct Header {
     pub desc: *const TypeDesc,
-    /// bit 0: mark, bit 1: immortal, bits 32..64: payload size.
+    /// Bits 0..3: GC flags; 3..32: client metadata; 32..64: payload size.
     pub meta: u64,
 }
 
@@ -49,6 +49,9 @@ pub const HEADER: usize = std::mem::size_of::<Header>();
 pub const MARK: u64 = 1;
 pub const IMMORTAL: u64 = 2;
 pub const REMEMBERED: u64 = 4;
+/// Reserved for object-specific scalar metadata. GC flag updates must preserve
+/// these bits; allocation/reuse starts them at zero. HAMT ownership uses them.
+pub(crate) const CLIENT_META: u64 = 0xffff_fff8;
 
 impl Header {
     pub fn desc(&self) -> &'static TypeDesc {
