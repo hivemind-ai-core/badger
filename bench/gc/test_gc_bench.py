@@ -255,6 +255,27 @@ class AllocationCensus(unittest.TestCase):
         bad["remaining_metadata_objects"] = 3
         with self.assertRaises(ValueError):
             run.validate_allocations(bad)
+        profile["cell_sources"] = dict(pooled_reuse=dict(objects=3, requested_bytes=72, cell_bytes=96),
+                                       pooled_bump=dict(objects=7, requested_bytes=168, cell_bytes=224),
+                                       system=dict(objects=0, requested_bytes=0, cell_bytes=0))
+        profile["pool_events"] = dict(refills=dict(chunks=1, bytes=262144), trimmed=dict(chunks=0, bytes=0),
+                                      reserved_bytes_remaining=262144)
+        run.validate_allocations(profile)
+        for source, metric, value in [("pooled_reuse", "objects", 4),
+                                      ("pooled_bump", "cell_bytes", -1),
+                                      ("system", "requested_bytes", 1)]:
+            bad = copy.deepcopy(profile)
+            bad["cell_sources"][source][metric] = value
+            with self.assertRaises(ValueError):
+                run.validate_allocations(bad)
+        bad = copy.deepcopy(profile)
+        bad["cell_sources"]["system"], bad["cell_sources"]["pooled_reuse"] = bad["cell_sources"]["pooled_reuse"], bad["cell_sources"]["system"]
+        with self.assertRaises(ValueError):
+            run.validate_allocations(bad)
+        bad = copy.deepcopy(profile)
+        bad["pool_events"]["reserved_bytes_remaining"] += 1
+        with self.assertRaises(ValueError):
+            run.validate_allocations(bad)
 
 
 if __name__ == "__main__":

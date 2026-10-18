@@ -281,6 +281,27 @@ def validate_allocations(profile):
         raise ValueError("allocation metadata disagrees with remaining objects")
     if totals["allocated"]["objects"] <= 0:
         raise ValueError("empty allocation census")
+    if ("cell_sources" in profile) != ("pool_events" in profile):
+        raise ValueError("incomplete allocator path census")
+    if "cell_sources" in profile:
+        paths, events = profile["cell_sources"], profile["pool_events"]
+        metrics = {"objects", "requested_bytes", "cell_bytes"}
+        if (set(paths) != {"pooled_reuse", "pooled_bump", "system"}
+                or any(set(v) != metrics or any(type(n) is not int or n < 0 for n in v.values())
+                       for v in paths.values())):
+            raise ValueError("invalid allocator path volumes")
+        for metric in metrics:
+            if (sum(v[metric] for v in paths.values()) != totals["allocated"][metric]
+                    or paths["system"][metric] != profile["allocation_sizes"]["large_system_cells"][metric]):
+                raise ValueError("allocator paths do not conserve managed allocations")
+        if (set(events) != {"refills", "trimmed", "reserved_bytes_remaining"}
+                or any(set(events[k]) != {"chunks", "bytes"} for k in ["refills", "trimmed"])
+                or any(type(v) is not int or v < 0 for k in ["refills", "trimmed"] for v in events[k].values())
+                or type(events["reserved_bytes_remaining"]) is not int
+                or events["trimmed"]["chunks"] > events["refills"]["chunks"]
+                or events["trimmed"]["bytes"] > events["refills"]["bytes"]
+                or events["reserved_bytes_remaining"] != events["refills"]["bytes"] - events["trimmed"]["bytes"]):
+            raise ValueError("pool events do not conserve reserved storage")
     if "buffer_storage" in profile:
         storage = profile["buffer_storage"]
         events = storage["events"]

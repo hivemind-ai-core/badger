@@ -254,6 +254,8 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         pool.chunks.push(Chunk { base: chunk, bytes, align });
         pool.active = chunk;
         POOL_RESERVED.fetch_add(bytes, Ordering::Relaxed);
+        #[cfg(feature = "gc-profile")]
+        allocations::record_pool_event(allocations::PoolEvent::Refill, bytes);
         pool.bump = chunk;
         pool.left = bytes;
     }
@@ -365,6 +367,8 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     }
     unsafe {
         let w = crate::task::worker_index();
+        #[cfg(feature = "gc-profile")]
+        let source = allocations::cell_source(w, payload);
         let p = alloc_cell(w, payload);
         if p.is_null() {
             eprintln!("fatal: out of memory");
@@ -375,7 +379,7 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
         let list = objects(w);
         list.push(p);
         #[cfg(feature = "gc-profile")]
-        allocations::record(w, desc, payload, list.len(), std::panic::Location::caller());
+        allocations::record(w, desc, payload, list.len(), std::panic::Location::caller(), source);
         COUNTS[w].0.store(list.len(), Ordering::Relaxed);
         // collection pressure is published in blocks: every worker adding
         // to one shared counter per allocation would contend on it
@@ -1010,6 +1014,8 @@ fn trim_empty_chunks(h: &Heap) {
     for c in retired {
         unsafe { dealloc(c.base, Layout::from_size_align(c.bytes, c.align).unwrap()) };
         POOL_RESERVED.fetch_sub(c.bytes, Ordering::Relaxed);
+        #[cfg(feature = "gc-profile")]
+        allocations::record_pool_event(allocations::PoolEvent::Trim, c.bytes);
     }
 }
 

@@ -15,6 +15,51 @@ fn path() -> Option<&'static str> {
     PATH.get_or_init(|| std::env::var("BADGER_ALLOC_PROFILE").ok()).as_deref()
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum CellSource {
+    Reused,
+    Bump,
+    System,
+}
+
+/// Classify immediately before allocation: this worker alone mutates its
+/// pool, and no safepoint or managed allocation intervenes before alloc_cell.
+pub(super) fn cell_source(worker: usize, payload: usize) -> Option<CellSource> {
+    path()?;
+    let size = cell_size(payload);
+    Some(if size > small_max() {
+        CellSource::System
+    } else {
+        let pool = unsafe { &*super::POOLS.0[worker].get() };
+        if pool.free[size / 16 - 1].is_null() { CellSource::Bump } else { CellSource::Reused }
+    })
+}
+
+pub(super) enum PoolEvent {
+    Refill,
+    Trim,
+}
+static POOL_EVENTS: Mutex<([u64; 2], [u64; 2])> = Mutex::new(([0; 2], [0; 2]));
+
+pub(super) fn record_pool_event(event: PoolEvent, bytes: usize) {
+    if path().is_none() {
+        return;
+    }
+    let event = event as usize;
+    let mut events = POOL_EVENTS.lock().unwrap();
+    events.0[event] += 1;
+    events.1[event] += bytes as u64;
+}
+
+fn pool_events_report() -> serde_json::Value {
+    let events = POOL_EVENTS.lock().unwrap();
+    let (calls, bytes) = *events;
+    assert!(calls[0] >= calls[1] && bytes[0] >= bytes[1], "pool event ownership underflow");
+    json!({"refills": {"chunks": calls[0], "bytes": bytes[0]},
+           "trimmed": {"chunks": calls[1], "bytes": bytes[1]},
+           "reserved_bytes_remaining": bytes[0] - bytes[1]})
+}
+
 /// Items storage only: allocator calls, Vec adoption and owned capacity.
 /// Inline bytes are a subset of managed payloads, never extra native bytes.
 pub(crate) enum BufferStorageEvent {
@@ -155,6 +200,7 @@ struct Worker {
     // Exact small-cell classes, followed by all system-allocated large cells.
     sizes: [Volume; super::CLASSES + 1],
     requested_sizes: [Volume; 65],
+    cell_sources: [Volume; 3],
 }
 impl Default for Worker {
     fn default() -> Self {
@@ -164,6 +210,7 @@ impl Default for Worker {
             objects: Vec::new(),
             sizes: [Volume::default(); super::CLASSES + 1],
             requested_sizes: [Volume::default(); 65],
+            cell_sources: [Volume::default(); 3],
         }
     }
 }
@@ -174,6 +221,7 @@ static WORKERS: [Mutex<Worker>; crate::task::MAX_WORKERS] = [const {
         objects: Vec::new(),
         sizes: [Volume { objects: 0, requested_bytes: 0, cell_bytes: 0 }; super::CLASSES + 1],
         requested_sizes: [Volume { objects: 0, requested_bytes: 0, cell_bytes: 0 }; 65],
+        cell_sources: [Volume { objects: 0, requested_bytes: 0, cell_bytes: 0 }; 3],
     })
 }; crate::task::MAX_WORKERS];
 
@@ -183,6 +231,7 @@ pub(super) fn record(
     payload: usize,
     length: usize,
     caller: &'static Location<'static>,
+    source: Option<CellSource>,
 ) {
     if path().is_none() {
         return;
@@ -199,6 +248,7 @@ pub(super) fn record(
         site
     };
     let volume = Volume::object(payload);
+    w.cell_sources[source.expect("enabled census has a cell source") as usize].add(volume);
     w.sites[site].counts.allocated.add(volume);
     let class = if cell_size(payload) <= small_max() { cell_size(payload) / 16 - 1 } else { super::CLASSES };
     w.sizes[class].add(volume);
@@ -255,6 +305,7 @@ pub(super) fn finish() {
     let mut remaining_objects = 0;
     let mut sizes = [Volume::default(); super::CLASSES + 1];
     let mut requested_sizes = [Volume::default(); 65];
+    let mut cell_sources = [Volume::default(); 3];
     for worker in &WORKERS {
         let worker = worker.lock().unwrap();
         metadata_capacity += worker.objects.capacity() * std::mem::size_of::<Object>();
@@ -263,6 +314,9 @@ pub(super) fn finish() {
             total.add(volume);
         }
         for (total, volume) in requested_sizes.iter_mut().zip(worker.requested_sizes) {
+            total.add(volume);
+        }
+        for (total, volume) in cell_sources.iter_mut().zip(worker.cell_sources) {
             total.add(volume);
         }
         for site in &worker.sites {
@@ -286,6 +340,11 @@ pub(super) fn finish() {
         "schema": 1,
         "scope": "process-managed-allocations",
         "buffer_storage": buffer_storage_report(),
+        "cell_sources": {"pooled_reuse": cell_sources[0].report(),
+                         "pooled_bump": cell_sources[1].report(),
+                         "system": cell_sources[2].report()},
+        "pool_events": pool_events_report(),
+        "cell_sources_note": "Successful managed allocation requests by allocator path. Bump includes carving existing zeroed chunk capacity and refills; reuse counts each new object served from a free list, not distinct cells. Pool events count successful chunk acquisition and trim release, not native per-object buffers. Counters are diagnostic-only and add overhead even when no census is written; do not infer speedups, liveness or escape from these counts.",
         "note": "Runtime Rust call sites, not language source locations. Includes startup/output allocation. Managed totals exclude immortals, external buffers, task stacks and other native allocations; buffer_storage separately reports Items allocator API calls and owned capacity. Reclaimed means removed by sweep, including quarantined cells; remaining is unswept, not proven reachable. Minor collections do not examine old objects. Survivor observations can count an object repeatedly. Survival is not escape/uniqueness proof. Diagnostic counters, mutexes and side metadata perturb timing and memory.",
         "object_metadata_capacity_bytes": metadata_capacity,
         "remaining_metadata_objects": remaining_objects,
