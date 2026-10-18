@@ -353,6 +353,11 @@ fn listen(a: &Args) -> Outcome {
     };
     SERVERS.lock().unwrap().push(server.clone());
     let s = server.clone();
+    // open connections are bounded too (a slow or idle client holds one
+    // without being in flight): past the cap, accepting waits and new
+    // connections queue in the listen backlog
+    let connections =
+        Arc::new(Semaphore::new((limits.in_flight.saturating_mul(4)).clamp(256, Semaphore::MAX_PERMITS)));
     rt.spawn(async move {
         loop {
             let stopped = s.stop.notified();
@@ -360,6 +365,11 @@ fn listen(a: &Args) -> Outcome {
             if s.stopped.load(Ordering::SeqCst) {
                 break;
             }
+            let permit = tokio::select! {
+                _ = &mut stopped => break,
+                p = connections.clone().acquire_owned() => p,
+            };
+            let Ok(permit) = permit else { break };
             let conn = tokio::select! {
                 _ = &mut stopped => break,
                 c = listener.accept() => c,
@@ -367,6 +377,7 @@ fn listen(a: &Args) -> Outcome {
             let Ok((stream, _)) = conn else { continue };
             let s = s.clone();
             tokio::spawn(async move {
+                let _permit = permit;
                 let max_buf = (s.limits.header + 1024).max(8192);
                 let svc = service_fn(move |req| handle(s.clone(), req));
                 // every reply says `connection: close` (but a websocket
