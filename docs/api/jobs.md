@@ -51,6 +51,16 @@ fn state<T>(self: &Self) -> Result<T, Error> where T: Codec
 
 The job's state (of the claim's `version`).
 
+### `Dispatching`
+
+```badger
+pub type Dispatching = { kind: String, limit: Int, timeout: Duration, idle: Duration }
+```
+
+How a dispatcher sends one kind of outbox operation: at most `limit` per
+round, each `sending` for at most `timeout` (after that, an interrupted
+send is uncertain), looking again every `idle` when none was due.
+
 ### `Entry`
 
 ```badger
@@ -331,6 +341,27 @@ One recorded transition of a job.
 
 ## Functions
 
+### `attach`
+
+```badger
+fn attach<S: Scope>(pool: sqlite.Pool<S>) -> Result<Store<S>, Error> !{Io, Wait}
+```
+
+The job store in a database the application already uses (creating its
+tables if needed), so a domain change and the job that follows it can
+commit in one transaction (`submit_in`).
+
+### `dispatcher`
+
+```badger
+fn dispatcher<S>(store: Store<S>, d: Dispatching, send: fn(Entry) -> Outcome) -> fn() -> Result<Unit, Error> !{Io, Wait, State}
+```
+
+A worker that dispatches outbox operations of `d.kind` with `send` until
+it is cancelled (for `scope.worker`). A dispatcher that crashes while
+sending leaves the operation `sending`; it becomes `uncertain` after its
+timeout and is not sent again (`reconcile` or an operator settles it).
+
 ### `open`
 
 ```badger
@@ -372,4 +403,14 @@ store: system.Provider<{path: String}, jobs.Store<{error}>, jobs.Error>
 ```
 
 Provider of a job store for `{ path: String }`, closed when its node halts.
+
+### `submit_in`
+
+```badger
+fn submit_in<S, T>(tx: sqlite.Tx<S>, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec
+```
+
+`Store.submit` in the caller's transaction (on the store's database):
+the job exists exactly when the rest of the transaction commits. The
+tables must exist (`attach`).
 

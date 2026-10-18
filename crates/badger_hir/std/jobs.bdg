@@ -222,16 +222,43 @@ pub fn open<S: Scope>(path: String) -> Result<Store<S>, Error> !{Io, Wait} {
     let pool = sqlite.open(path)?
     sqlite.query(pool, "PRAGMA journal_mode = WAL", [])?
     sqlite.execute(pool, "PRAGMA synchronous = FULL", [])?
+    attach(pool)
+}
+
+/// The job store in a database the application already uses (creating its
+/// tables if needed), so a domain change and the job that follows it can
+/// commit in one transaction (`submit_in`).
+pub fn attach<S: Scope>(pool: sqlite.Pool<S>) -> Result<Store<S>, Error> !{Io, Wait} {
     sqlite.query(pool, "PRAGMA busy_timeout = 5000", [])?
     for statement in schema {
         sqlite.execute(pool, statement, [])?
     }
     let v = codec.from_data<Version>(sqlite.query_one(pool, "SELECT value FROM jobs_meta WHERE key = 'schema'", [])?)?
     if v.value != "1" {
-        return failure(#jobs/schema, $"{path} has job store layout {v.value}; this library reads layout 1")
+        return failure(#jobs/schema, $"the database has job store layout {v.value}; this library reads layout 1")
     }
     let s: Store<S> = { pool: pool }
     ok(s)
+}
+
+/// `Store.submit` in the caller's transaction (on the store's database):
+/// the job exists exactly when the rest of the transaction commits. The
+/// tables must exist (`attach`).
+pub fn submit_in<S, T>(tx: sqlite.Tx<S>, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
+    let id = $"{kind}:{event}"
+    let text = codec.encode_text(state)
+    let t = now_ms()
+    let fresh = sqlite.execute(tx, "INSERT OR IGNORE INTO jobs_events (key, job, received) VALUES (?, ?, ?)", [str(id), str(id), int(t)])?
+    if fresh == 0 {
+        return ok(Submitted.duplicate(id))
+    }
+    sqlite.execute(
+        tx,
+        "INSERT INTO jobs (id, kind, version, state, status, step, attempts, max_attempts, run_at, owner, lease_until, fence, error, created, updated) VALUES (?, ?, ?, ?, 'ready', 'submitted', 0, ?, ?, NULL, 0, 0, NULL, ?, ?)",
+        [str(id), str(kind), int(version), str(text), int(max_attempts), int(t), int(t), int(t)],
+    )?
+    record(tx, id, t, "submitted", "ready", Option.none)?
+    ok(Submitted.created(id))
 }
 
 fn str(s: String) -> Data { Data.string(s) }
@@ -271,21 +298,8 @@ impl<S> Store<S> {
     /// an event with this key was ingested before (then nothing changes).
     /// The job may fail `max_attempts` times before it fails for good.
     pub fn submit<T>(self: &Self, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
-        let id = $"{kind}:{event}"
-        let text = codec.encode_text(state)
-        let t = now_ms()
         use tx <- sqlite.transaction(self.pool)
-        let fresh = sqlite.execute(tx, "INSERT OR IGNORE INTO jobs_events (key, job, received) VALUES (?, ?, ?)", [str(id), str(id), int(t)])?
-        if fresh == 0 {
-            return ok(Submitted.duplicate(id))
-        }
-        sqlite.execute(
-            tx,
-            "INSERT INTO jobs (id, kind, version, state, status, step, attempts, max_attempts, run_at, owner, lease_until, fence, error, created, updated) VALUES (?, ?, ?, ?, 'ready', 'submitted', 0, ?, ?, NULL, 0, 0, NULL, ?, ?)",
-            [str(id), str(kind), int(version), str(text), int(max_attempts), int(t), int(t), int(t)],
-        )?
-        record(tx, id, t, "submitted", "ready", Option.none)?
-        ok(Submitted.created(id))
+        submit_in(tx, kind, event, version, state, max_attempts)
     }
 
     /// Claim the next due job of `kind` for `owner` for `lease`: a ready job
@@ -615,6 +629,25 @@ pub fn processor<S, T, E>(store: Store<S>, p: Processing, handle: fn(Claim, T) -
             match process_one(store, p, handle)? {
                 .some(_) => (),
                 .none => task.sleep(p.idle),
+            }
+        }
+    }
+}
+
+/// How a dispatcher sends one kind of outbox operation: at most `limit` per
+/// round, each `sending` for at most `timeout` (after that, an interrupted
+/// send is uncertain), looking again every `idle` when none was due.
+pub type Dispatching = { kind: String, limit: Int, timeout: Duration, idle: Duration }
+
+/// A worker that dispatches outbox operations of `d.kind` with `send` until
+/// it is cancelled (for `scope.worker`). A dispatcher that crashes while
+/// sending leaves the operation `sending`; it becomes `uncertain` after its
+/// timeout and is not sent again (`reconcile` or an operator settles it).
+pub fn dispatcher<S>(store: Store<S>, d: Dispatching, send: fn(Entry) -> Outcome) -> fn() -> Result<Unit, Error> !{Io, Wait, State} {
+    fn() -> Result<Unit, Error> {
+        loop {
+            if store.dispatch(d.kind, d.limit, d.timeout, send)?.is_empty() {
+                task.sleep(d.idle)
             }
         }
     }

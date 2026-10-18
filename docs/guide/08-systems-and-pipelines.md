@@ -281,6 +281,19 @@ restarts by its policy; the job it held is claimed again once its lease
 expires (and the old claim can no longer commit). A job whose process died
 is continued the same way by another process sharing the store.
 
+To make a domain change and its follow-up atomic, keep the job store in
+the application's database (`jobs.attach(pool)`) and submit in the same
+transaction (`jobs.submit_in(tx, kind, event, version, state,
+max_attempts)`): the job exists exactly when the change commits. A step's
+`sends` are outbox operations, each with a stable key that destinations
+should treat as an idempotency key; `jobs.dispatcher(store, dispatching,
+send)` is a worker that sends them. An operation is marked `sending`
+before it is sent, so a dispatcher that crashes mid-send leaves it
+`sending` until its timeout and then `uncertain`; uncertain operations are
+never sent again automatically. `store.reconcile(kind, check)` asks the
+destination about them by key, and `store.resolve(key, outcome)` records
+an operator's decision.
+
 ## Select and replace nodes
 
 ```badger

@@ -1,0 +1,125 @@
+// A transactional outbox (framework F08): an order and the job that
+// confirms it commit in one transaction (or neither does); the job's step
+// adds an email operation by its key; a supervised dispatcher sends it.
+// Destination outcomes: confirmed, rejected, and unknown. A dispatcher that
+// crashes mid-send leaves its operation uncertain: it is never sent again
+// blindly, and reconciliation by key settles it.
+import std.fs
+import std.io
+import std.jobs
+import std.sqlite
+import std.system
+import std.task
+import std.time
+import std.worker
+
+type Order = { id: Int, email: String }
+
+pub enum AppError {
+    io(source: io.Error),
+    db(source: sqlite.Error),
+    jobs(source: jobs.Error),
+    system(source: system.Error),
+    refused,
+    timeout,
+} derive(Error, From)
+
+// an order and its confirmation job, in one transaction; `fail` aborts it
+fn place(pool: sqlite.Pool, order: Order, fail: Bool) -> Result<Unit, AppError> {
+    use tx <- sqlite.transaction(pool)
+    let _ = sqlite.execute(tx, "INSERT INTO orders (id, email) VALUES (?, ?)", [Data.int(order.id), Data.string(order.email)])?
+    let _ = jobs.submit_in(tx, "confirm", $"{order.id}", 1, order, 3)?
+    if fail {
+        return err(AppError.refused)
+    }
+    ok(())
+}
+
+fn confirm(c: jobs.Claim, o: Order) -> Result<jobs.Step<Order>, AppError> {
+    ok({ step: "emailed", state: o, next: jobs.Next.done, sends: [{ key: $"{c.id}/email", kind: "email", payload: o.email }] })
+}
+
+// the mail service: accepts, refuses, or answers nothing (unknown); the
+// dispatcher crashes once while sending to "crash@"
+fn mail(sent: Atom<List<String>>, crashed: Atom<Bool>) -> fn(jobs.Entry) -> jobs.Outcome {
+    fn(e: jobs.Entry) -> jobs.Outcome {
+        let _ = sent.update(fn(l) { l.append(e.payload) })
+        if e.payload == "crash@" && !crashed.get() {
+            crashed.set(true)
+            panic("the dispatcher crashed while sending")
+        }
+        if e.payload == "bounce@" {
+            jobs.Outcome.rejected("no such mailbox")
+        } else if e.payload == "silent@" {
+            jobs.Outcome.uncertain("no answer within the timeout")
+        } else {
+            jobs.Outcome.confirmed($"message for {e.payload}")
+        }
+    }
+}
+
+provider workers(scope, config: { store: jobs.Store, sent: Atom<List<String>>, crashed: Atom<Bool> }) -> Result<Unit, AppError> {
+    let p: jobs.Processing = { kind: "confirm", owner: "confirmer", version: 1, lease: 1s, backoff: 0ms, idle: 5ms }
+    scope.worker_with(#confirmer, jobs.processor(config.store, p, confirm), worker.on_failure({ max_restarts: 3, window: 10s, backoff: 1ms }), worker.cancel())
+    let d: jobs.Dispatching = { kind: "email", limit: 10, timeout: 50ms, idle: 5ms }
+    scope.worker_with(#dispatcher, jobs.dispatcher(config.store, d, mail(config.sent, config.crashed)), worker.on_failure({ max_restarts: 3, window: 10s, backoff: 1ms }), worker.cancel())
+    ok(())
+}
+
+fn settled(store: jobs.Store, n: Int) -> Result<Unit, AppError> {
+    let started = time.now()
+    loop {
+        let open = store.count("ready")? + store.count("running")? + store.operations("pending")?.len() + store.operations("sending")?.len()
+        if store.count("done")? >= n && open == 0 {
+            return ok(())
+        }
+        if time.now() - started > 10s {
+            return err(AppError.timeout)
+        }
+        task.sleep(10ms)
+    }
+}
+
+fn run(path: String) -> Result<Unit, AppError> {
+    let sent: Atom<List<String>> = Atom.new([])
+    let crashed = Atom.new(false)
+    let db = sqlite.open(path)?
+    let _ = sqlite.execute(db, "CREATE TABLE orders (id INTEGER PRIMARY KEY, email TEXT NOT NULL)", [])?
+    let store = jobs.attach(db)?
+
+    // the domain change and its follow-up commit together, or not at all
+    place(db, { id: 1, email: "ada@" }, false)?
+    io.println($"aborted: {place(db, { id: 2, email: "lost@" }, true).is_err()}")?
+    io.println($"orders {sqlite.query(db, "SELECT id FROM orders", [])?.len()}, jobs {store.count("ready")?}")?
+    for (id, email) in [(3, "bounce@"), (4, "silent@"), (5, "crash@")] {
+        place(db, { id, email }, false)?
+    }
+
+    let plan = system {
+        workers: workers({ store, sent, crashed }),
+    }
+    use _running <- system.run(plan)
+    settled(store, 4)?
+    for key in ["confirm:1/email", "confirm:3/email", "confirm:4/email", "confirm:5/email"] {
+        let e = store.operation(key)?.ok_or(AppError.timeout)?
+        io.println($"{key}: {e.status} ({e.receipt.unwrap_or("")})")?
+    }
+    // nothing uncertain was sent again
+    io.println($"sends {sent.get().len()}")?
+    // the mail service knows the crashed send by its key: settle it
+    let checked = store.reconcile("email", fn(e) {
+        if e.payload == "crash@" { jobs.Outcome.confirmed("found by key") } else { jobs.Outcome.uncertain("still unknown") }
+    })?
+    io.println(checked.map(fn(e) { $"{e.key} {e.status}" }))?
+    // an operator settles the other
+    io.println(store.resolve("confirm:4/email", jobs.Outcome.rejected("never delivered (checked with the provider)"))?)?
+    io.println($"uncertain {store.operations("uncertain")?.len()}")?
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let dir = fs.make_temp_dir("badger-outbox").unwrap_or(fs.temp_dir())
+    let result = run($"{dir}/app.db")
+    let _ = fs.remove_all(dir)
+    result
+}
