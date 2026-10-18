@@ -145,6 +145,20 @@ include fixture loading and warmups as well as kernels; GC instrumentation and
 sampling perturb timings, so use the ordinary paired harness for speed claims.
 Inclusive counts count a symbol once per sampled stack, including recursion.
 
+The coverage cases `codec-flat`, `codec-nested`, `codec-wire` and `codec-invalid`
+decode fixed checked inputs 32,768 times. They cover escaped UTF-8 strings,
+lists/tuples/maps/packed arrays/Options, renamed fields with legacy aliases and
+exact nested failure paths. `check_codecs.py --baseline /fixed/old --candidate
+/fixed/new --out /new/checks.json.gz` additionally checks source and both saved
+MIR versions under collection-before-allocation, heap verification/quarantine
+and ordinary cell reuse, both generation modes, and 1/2/4/8 workers.
+
+Both application runners accept `--consumers 8` to keep eight logical consumers
+plus producer/collector fixed while varying runtime `--workers 1 2 4 8` for
+`realworld/messaging` and `realworld/pipeline`. Without this flag, their original
+contract uses as many consumers as workers. Keep these cohorts separate: changing
+task count while changing worker count does not isolate scheduler scaling.
+
 `BADGER_GC_POOL_MAX=256|512|1024` is another diagnostic-only experiment. It fixes
 the pooled cell limit for the process, including headers and size-class rounding.
 Allocation and reclamation always use the same limit. Compare it with

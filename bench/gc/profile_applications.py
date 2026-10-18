@@ -14,7 +14,6 @@ import json
 import os
 from pathlib import Path
 import random
-import subprocess
 import tempfile
 
 import applications as app
@@ -39,6 +38,7 @@ def main():
     parser.add_argument("--revision", required=True)
     parser.add_argument("--cases", nargs="+", choices=app.CASES, required=True)
     parser.add_argument("--workers", nargs="+", type=int, default=[1])
+    parser.add_argument("--consumers", type=int, help="fixed messaging/pipeline consumer count")
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--warmups", type=int, default=15)
     parser.add_argument("--samples", type=int, default=300)
@@ -50,6 +50,8 @@ def main():
         parser.error("positive counts and 1..64 workers required")
     if args.out.exists():
         parser.error("output directory must be new to preserve existing profiles")
+    if args.consumers is not None and not 1 <= args.consumers <= 64:
+        parser.error("--consumers must be in 1..64")
     # The sandbox can permit timers but deny self-memory reads, silently
     # reducing the sampler to leaf PCs. Check before collecting attribution.
     class IOVec(ctypes.Structure):
@@ -94,7 +96,8 @@ def run(args):
             folded, phases = args.out / f"{stem}.folded", tmp / "gc.json"
             program = (app.rw.PROGRAMS if suite == "realworld" else app.compare.PROGRAMS) / "workload.bdg"
             n, checksum = expected[case]
-            arguments = [name, n, 37, *([workers] if suite == "realworld" else []),
+            consumers = args.consumers if name in ["messaging", "pipeline"] and args.consumers else workers
+            arguments = [name, n, 37, *([consumers] if suite == "realworld" else []),
                          args.warmups, args.samples, *([str(fixture)] if suite == "realworld" else [])]
             command = [str(binary), "run", "--release", "--bench", "--workers", str(workers),
                        str(program), "--", *map(str, arguments)]

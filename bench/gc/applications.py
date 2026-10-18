@@ -82,6 +82,7 @@ def main():
     ap.add_argument("--warmups", type=int, default=3)
     ap.add_argument("--samples", type=int, default=5)
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
+    ap.add_argument("--consumers", type=int, help="fixed messaging/pipeline consumer count across runtime worker settings")
     ap.add_argument("--seed", type=int, default=20261018)
     ap.add_argument("--cases", nargs="+", choices=CASES, default=CASES)
     ap.add_argument("--diagnostic", action="store_true", help="collect GC phases in separately built diagnostic binaries")
@@ -95,6 +96,8 @@ def main():
         ap.error("--candidate requires --candidate-revision")
     if args.allocations and not args.diagnostic:
         ap.error("--allocations requires --diagnostic")
+    if args.consumers is not None and not 1 <= args.consumers <= 64:
+        ap.error("--consumers must be in 1..64")
     with gc.benchmark_lock():
         run(args)
 
@@ -140,7 +143,8 @@ def run(args):
                 for variant in variants:
                     binary = binaries[variant]
                     program = (rw.PROGRAMS if suite == "realworld" else compare.PROGRAMS) / "workload.bdg"
-                    arguments = [name, n, 37, *([workers] if suite == "realworld" else []),
+                    consumers = args.consumers if name in ["messaging", "pipeline"] and args.consumers else workers
+                    arguments = [name, n, 37, *([consumers] if suite == "realworld" else []),
                                  args.warmups, args.samples, *([str(fixture)] if suite == "realworld" else [])]
                     command = [str(binary), "run", "--release", "--bench", "--workers", str(workers),
                                str(program), "--", *map(str, arguments)]
