@@ -290,6 +290,7 @@ module.exports = grammar({
 
     _primary: ($) =>
       choice(
+        alias('_', $.hole),
         $._literal,
         $.lambda,
         $.if_expression,

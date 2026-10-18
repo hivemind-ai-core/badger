@@ -442,6 +442,8 @@ pub enum Expr<'a> {
     },
     Try(Box<E<'a>>),
     /// An expression that did not parse (the error is reported).
+    /// `_`: a hole, reported with the type expected there.
+    Hole,
     Error,
 }
 

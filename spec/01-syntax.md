@@ -226,6 +226,10 @@ if let .some(user) = users.get(id) {
 A pattern condition that ignores `.err` silently drops a failure: match a
 `Result` when the error matters.
 
+`_` in an expression is a hole: the program is checked around it, and each
+hole is an error (E0345) that states the type expected there, so a partial
+program reports what each missing piece must be.
+
 `let PATTERN = EXPR else { ... }` binds a refutable pattern's names for
 the rest of the block when it matches; otherwise the `else` block runs,
 and it must not finish (its type is `Never`: it ends in `return`,

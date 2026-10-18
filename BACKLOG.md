@@ -65,7 +65,7 @@ so these are correctness-and-scale work to schedule against new profiles.
 
 - T3: more code actions: protocol method stubs, hash preconditions on
   edits.
-- T4: expression holes for partial programs.
+- T4: holes could list the locals in scope that have the hole's type.
 - T6: lints (immutable appends in loops, unbounded `stream.collect`).
 - T7: endpoint- and interceptor-only generators, and
   semantic wiring of generated modules into a composition root.

@@ -2930,6 +2930,15 @@
       "type": "CHOICE",
       "members": [
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "STRING",
+            "value": "_"
+          },
+          "named": true,
+          "value": "hole"
+        },
+        {
           "type": "SYMBOL",
           "name": "_literal"
         },

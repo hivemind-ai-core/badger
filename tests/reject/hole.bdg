@@ -1,0 +1,8 @@
+// expect-error: E0345
+// `_` in an expression is a hole: the program is checked around it, and
+// the hole is reported with the type expected there.
+fn area(width: Int, height: Int) -> Int {
+    width * _
+}
+
+pub fn main() -> Unit {}

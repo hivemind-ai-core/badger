@@ -254,6 +254,10 @@ pub fn err<T, E>(error: E) -> Result<T, E> {
 }
 
 /// Terminate the current task with a defect.
+/// What `_` in an expression means: a hole, an error reported with the
+/// type expected there (so a partial program checks as far as it can).
+pub fn hole<T>() -> T { panic("a hole (`_`) was not filled in") }
+
 /// A value of a block that never finishes, as any type: `let p = e else`
 /// requires its block to leave (`return`, `break`, `continue`, or panic).
 pub fn diverge<T>(never: Never) -> T { never }

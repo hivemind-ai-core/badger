@@ -13,6 +13,12 @@ or in a client's JSON configuration:
 { "mcpServers": { "badger": { "command": "badger", "args": ["mcp"] } } }
 ```
 
+## Partial programs
+
+Write `_` where an expression is not known yet: `badger check` (and the
+`check` tool) reports each hole as E0345 with the type expected there,
+and checks everything around it. Fill the holes one at a time.
+
 ## Tools
 
 | Tool | Arguments | Result |

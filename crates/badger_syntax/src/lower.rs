@@ -1131,6 +1131,12 @@ impl<'a, 'i> Lower<'a, 'i> {
                 self.alloc_expr(ExprKind::Try(base), span)
             }
             cst::Expr::Error => self.alloc_expr(ExprKind::Error, span),
+            // a hole is a call of `prelude.hole`, which the checker reports
+            // with the type it was given
+            cst::Expr::Hole => {
+                let callee = self.alloc_expr(ExprKind::Std("hole"), span);
+                self.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![] }, span)
+            }
         }
     }
 

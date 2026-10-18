@@ -1,4 +1,6 @@
-// expect-error: E0001
+// expect-error: E0345
+// `_` discards in a pattern; as a value it is a hole, an error that
+// names the type expected there.
 pub fn main() {
     let _ = 1
     let y = _

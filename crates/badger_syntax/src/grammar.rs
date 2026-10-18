@@ -588,6 +588,7 @@ where
         let if_expr = if_expr.map(|(e, _)| e);
         let block_e = block.clone().map(Expr::Block);
         let name_e = value_ident.clone().map(Expr::Name);
+        let hole = kw("_").to(Expr::Hole);
         let type_e = type_ident.clone().map(Expr::TypeName);
         let brace = choice((record, block_e));
         let paren = choice((unit, group));
@@ -621,6 +622,7 @@ where
             paren.clone(),
             list.clone(),
             type_e.clone(),
+            hole.clone(),
             name_e.clone(),
         ))
         .map_with(|x, e| (x, e.span()))
@@ -655,6 +657,7 @@ where
                 Some(Tok::Word("map")) => inp.parse(&map_lit),
                 Some(Tok::Word("set")) => inp.parse(&set_lit),
                 Some(Tok::Word("ref")) => inp.parse(&ref_expr),
+                Some(Tok::Word("_")) => inp.parse(&hole),
                 Some(Tok::Word(w)) if is_type_ident(w) => inp.parse(&type_e),
                 Some(Tok::Word(_)) => inp.parse(&name_e),
                 Some(Tok::LBrace) => inp.parse(&brace),

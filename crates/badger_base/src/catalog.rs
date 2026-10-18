@@ -268,6 +268,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`records.remove(record, #label)` needs a literal label (`#name` or `#ns/name`) naming a field the record has.",
     ),
     (
+        "E0345",
+        "hole",
+        "`_` in an expression is a hole: the program is checked around it, and the hole is reported with the type expected there. Replace it with an expression of that type.",
+    ),
+    (
         "E0139",
         "constant arithmetic",
         "`const` initializers are evaluated when the program is checked; integer arithmetic in them that overflows its type, divides by zero, or shifts out of range is reported then.",

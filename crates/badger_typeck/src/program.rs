@@ -621,6 +621,33 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         mark(&mut clock, "groups");
         let solve_start = std::time::Instant::now();
         inf.solve(true);
+        // holes: each `_` in an expression, with the type it was given
+        if let Some(hole) = hir.try_lang("hole") {
+            let holes: Vec<(ExprId, Span)> = hir
+                .exprs
+                .iter()
+                .filter(|(_, x)| {
+                    matches!(&x.kind, ExprKind::Call { callee, args } if args.is_empty()
+                        && matches!(hir.exprs[*callee].kind, ExprKind::Def { def, .. } if def == hole))
+                })
+                .map(|(e, x)| (e, x.span))
+                .collect();
+            for (e, span) in holes {
+                let shown = match inf.exprs.get(&e).cloned() {
+                    Some(t) => {
+                        let t = inf.icx.resolve(&t);
+                        inf.show(&t)
+                    }
+                    None => "_".into(),
+                };
+                inf.diags.push(
+                    Diagnostic::error(format!("a hole of type `{shown}`"))
+                        .with_code("E0345")
+                        .with_label(span, format!("an expression of type `{shown}` goes here"))
+                        .with_shapes(shown.clone(), "_"),
+                );
+            }
+        }
         if detail {
             eprintln!("[timings] typecheck final solve: {:.3} ms", solve_start.elapsed().as_secs_f64() * 1e3);
         }

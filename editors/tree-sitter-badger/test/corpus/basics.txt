@@ -341,3 +341,25 @@ fn double(n: Int) -> Int => n * 2
     (binary_expression
       (identifier)
       (integer))))
+
+==================
+Hole
+==================
+
+fn f(w: Int) -> Int => w * _
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (type_path
+      (type_identifier))
+    (binary_expression
+      (identifier)
+      (hole))))

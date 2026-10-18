@@ -641,7 +641,6 @@ chain, and structured details.
 fn diverge<T>(never: Never) -> T
 ```
 
-Terminate the current task with a defect.
 A value of a block that never finishes, as any type: `let p = e else`
 requires its block to leave (`return`, `break`, `continue`, or panic).
 
@@ -658,6 +657,16 @@ fn error_chain(e: dyn Error) -> List<String>
 ```
 
 The causal chain of an error, outermost first.
+
+### `hole`
+
+```badger
+fn hole<T>() -> T
+```
+
+Terminate the current task with a defect.
+What `_` in an expression means: a hole, an error reported with the
+type expected there (so a partial program checks as far as it can).
 
 ### `located`
 
