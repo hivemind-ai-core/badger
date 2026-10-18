@@ -164,6 +164,69 @@ fn test_routes() -> Result<Unit, TestError> {
 }
 "#;
 
+const WORKER: &str = r#"// The @name@ worker: durable jobs of kind "@name@" (std.jobs), each run by
+// a supervised worker that retries a failed attempt and survives restarts.
+// `Job` and `step` are placeholders for the job's own state and work.
+import std.jobs
+import std.system
+import std.task
+import std.time
+import std.worker
+
+/// A job's state (what the work needs; stored as JSON).
+pub type Job = { id: Int }
+
+pub enum Failure {
+    failed(message: String),
+} derive(Error)
+
+/// One step of a job: do the work and decide what happens next (`done`,
+/// `again`, `after(delay)`, or `failed(reason)`); external effects go in
+/// `sends`, dispatched once the step commits. An `err` is a failed attempt.
+fn step(_claim: jobs.Claim, job: Job) -> Result<jobs.Step<Job>, Failure> {
+    ok({ step: "done", state: job, next: jobs.Next.done, sends: [] })
+}
+
+/// How the jobs run: their kind, the state version `step` reads, the
+/// lease each attempt holds, the delay before a retry, and how often to
+/// look for work.
+pub let processing: jobs.Processing = { kind: "@name@", owner: "@name@", version: 1, lease: 30s, backoff: 5s, idle: 100ms }
+
+/// A supervised worker processing the jobs in `store`.
+pub provider processor(scope, config: { store: jobs.Store }) -> Result<Unit, Failure> {
+    scope.worker(jobs.processor(config.store, processing, step), worker.on_failure({ max_restarts: 3, window: 1min, backoff: 1s }))
+    ok(())
+}
+
+/// Submit a job, once per `event` (a repeated event is a duplicate).
+pub fn submit(store: jobs.Store, event: String, job: Job) -> Result<jobs.Submitted, jobs.Error> {
+    store.submit(processing.kind, event, processing.version, job, 5)
+}
+
+pub enum TestError {
+    jobs(source: jobs.Error),
+    system(source: system.Error),
+    timeout,
+} derive(Error, From)
+
+fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
+    let plan = system {
+        store: jobs.store({ path: ":memory:" }),
+        work: processor({ store: ref(#store) }),
+    }
+    use running <- system.run(plan)
+    let _ = submit(running.store, "first", { id: 1 })?
+    let started = time.now()
+    while running.store.count("done")? < 1 {
+        if time.now() - started > 5s {
+            return err(TestError.timeout)
+        }
+        task.sleep(5ms)
+    }
+    ok(())
+}
+"#;
+
 const KEYWORDS: &[&str] = &[
     "and", "as", "break", "const", "continue", "derive", "dyn", "else", "enum", "extern", "false", "fn",
     "for", "if", "impl", "import", "in", "let", "loop", "match", "once", "or", "protocol", "provider", "pub",
@@ -203,6 +266,36 @@ fn pascal(s: &str) -> String {
 pub struct Plan {
     pub root: PathBuf,
     pub files: Vec<(PathBuf, String)>,
+    /// The modules a probe imports to check the files (and run their tests).
+    pub imports: Vec<String>,
+}
+
+/// Plan worker `name`: one module, `NAME.bdg` under the entry's directory,
+/// with a durable job kind, its supervised processor, `submit`, and a test.
+pub fn plan_worker(dir: &Path, name: &str) -> Result<Plan, String> {
+    let manifest = badger_driver::manifest::Manifest::in_dir(dir)?;
+    if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        || KEYWORDS.contains(&name)
+    {
+        return Err(format!("`{name}` is not a module name: use a lowercase identifier such as `emails`"));
+    }
+    if RESERVED.contains(&name) || ["jobs", "system", "task", "time", "worker"].contains(&name) {
+        return Err(format!("`{name}` is a module the generated file imports: choose another name"));
+    }
+    let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
+    let file = src.join(format!("{name}.bdg"));
+    if dir.join(&file).exists() || dir.join(src.join(name)).exists() {
+        return Err(format!(
+            "{} already exists: a worker is generated only into new files",
+            dir.join(&file).display()
+        ));
+    }
+    Ok(Plan {
+        root: src.join(name),
+        files: vec![(file, WORKER.replace("@name@", name))],
+        imports: vec![name.to_string()],
+    })
 }
 
 /// Plan feature `name` in the project at `dir`. `item` names one record
@@ -241,7 +334,8 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
         .iter()
         .map(|(f, t)| (root.join(format!("{f}.bdg")), fill(t)))
         .collect();
-    Ok(Plan { root, files })
+    let imports = ["http", "memory", "model", "service"].iter().map(|m| format!("{name}.{m}")).collect();
+    Ok(Plan { root, files, imports })
 }
 
 fn copy_project(from: &Path, to: &Path) -> std::io::Result<()> {
@@ -274,10 +368,8 @@ pub fn verify(dir: &Path, plan: &Plan) -> Result<String, String> {
             std::fs::create_dir_all(f.parent().unwrap()).map_err(|e| e.to_string())?;
             std::fs::write(&f, text).map_err(|e| e.to_string())?;
         }
-        let name = plan.root.file_name().unwrap().to_string_lossy().to_string();
         let probe = copy.join(plan.root.parent().unwrap_or(Path::new(""))).join("generate_probe.bdg");
-        let imports: String =
-            ["http", "memory", "model", "service"].iter().map(|m| format!("import {name}.{m}\n")).collect();
+        let imports: String = plan.imports.iter().map(|m| format!("import {m}\n")).collect();
         std::fs::write(&probe, format!("{imports}\npub fn main() -> Unit {{}}\n"))
             .map_err(|e| e.to_string())?;
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;

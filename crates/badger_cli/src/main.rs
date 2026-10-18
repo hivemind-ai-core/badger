@@ -736,13 +736,18 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Generate { what, files, item, dry_run, .. } if what == "feature" => {
+        Command::Generate { what, files, item, dry_run, .. } if what == "feature" || what == "worker" => {
             let Some(name) = files.first().map(|f| f.to_string_lossy().to_string()) else {
-                eprintln!("error: `badger generate feature` needs a name (`badger generate feature orders`)");
+                eprintln!("error: `badger generate {what}` needs a name (`badger generate {what} orders`)");
                 return ExitCode::from(2);
             };
             let dir = files.get(1).cloned().unwrap_or_else(|| PathBuf::from("."));
-            let plan = match generate::plan(&dir, &name, item.as_deref()) {
+            let planned = if what == "worker" {
+                generate::plan_worker(&dir, &name)
+            } else {
+                generate::plan(&dir, &name, item.as_deref())
+            };
+            let plan = match planned {
                 Ok(p) => p,
                 Err(e) => {
                     eprintln!("error: {e}");
@@ -771,6 +776,14 @@ fn command(mut cli: Cli) -> ExitCode {
                 eprintln!("error: {e}");
                 return ExitCode::FAILURE;
             }
+            if what == "worker" {
+                println!(
+                    "\nnext: import {name} where the application is composed:\n\n    \
+                     store: jobs.store({{ path: settings.jobs }}),\n    {name}: {name}.processor({{ store: ref(#store) }}),\n\n\
+                     and call `{name}.submit(store, event, job)`; replace `Job` and `step` with the work."
+                );
+                return ExitCode::SUCCESS;
+            }
             println!(
                 "\nnext: import {name}.memory, {name}.service, and {name}.http where the application is composed:\n\n    \
                  store: memory.store(),\n    {name}: service.{name}({{ store: ref(#store) }}),\n\n\
@@ -780,7 +793,7 @@ fn command(mut cli: Cli) -> ExitCode {
         }
         Command::Generate { what, files, database, schema, check, .. } => {
             if what != "sql" {
-                eprintln!("error: unknown generator `{what}` (available: sql, feature)");
+                eprintln!("error: unknown generator `{what}` (available: sql, feature, worker)");
                 return ExitCode::FAILURE;
             }
             if files.is_empty() {

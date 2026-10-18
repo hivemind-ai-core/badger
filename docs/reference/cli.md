@@ -540,6 +540,15 @@ are placeholders for the feature's own.
 badger generate feature orders
 ```
 
+### `badger generate worker NAME [DIR] [--dry-run]`
+
+Adds `NAME.bdg` under the entry's directory: a durable job kind
+(`std.jobs`) with `Job` (its state), `step` (one attempt's work, a
+placeholder), `processing`, a `processor` provider running a supervised
+worker, `submit`, and a test that a submitted job is processed. It is
+checked, and its test run, in a copy of the project first, like
+`generate feature`; an existing module is never replaced.
+
 ### `badger update [PATH]`
 
 Resolve dependencies again (git `rev`s included) and rewrite the
