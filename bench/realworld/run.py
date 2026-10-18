@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Correctness-gated Badger/Go/Node application benchmarks (Linux, stdlib only)."""
+"""Correctness-gated Badger/Go/Node/Java application benchmarks (Linux)."""
 import argparse
 from contextlib import contextmanager
 import datetime as dt
@@ -27,19 +27,28 @@ SIZES = dict(cpu=120000, reconcile=60000, json=8000, state=16384,
              messaging=65539, pipeline=120003)
 PARALLEL = {"messaging", "pipeline"}
 CONTRACT = "realworld-v1"
+LANGUAGES = ["badger", "go", "node", "java"]
+GSON_VERSION = "2.14.0"
+GSON_SHA256 = "2cbd119bf1961c28788310963dc80ba65f58cdeec1dd139c8bdb1240faa2c36f"
+GSON_URL = f"https://repo.maven.apache.org/maven2/com/google/code/gson/gson/{GSON_VERSION}/gson-{GSON_VERSION}.jar"
 
 
 def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    value = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(block)
+    return value.hexdigest()
 
 
 def output(command):
-    return subprocess.check_output(command, cwd=ROOT, text=True, stderr=subprocess.STDOUT).strip()
+    return subprocess.check_output(command, cwd=ROOT, text=True, stderr=subprocess.STDOUT, env=clean_env()).strip()
 
 
 def clean_env():
     removed = {"NODE_OPTIONS", "NODE_PATH", "GODEBUG", "GOGC", "GOMEMLIMIT", "GOMAXPROCS",
-               "GOFLAGS", "GOEXPERIMENT", "GOTOOLCHAIN", "GOWORK", "LD_PRELOAD", "LD_LIBRARY_PATH"}
+               "GOFLAGS", "GOEXPERIMENT", "GOTOOLCHAIN", "GOWORK", "LD_PRELOAD", "LD_LIBRARY_PATH",
+               "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVAC_OPTIONS", "CLASSPATH"}
     return {k: v for k, v in os.environ.items()
             if k not in removed and not k.startswith(("BADGER_", "LANG_"))} | {
                 "LC_ALL": "C", "GOTOOLCHAIN": "local", "GOWORK": "off"}
@@ -251,23 +260,58 @@ def benchmark_lock():
         yield
 
 
+def java_dependencies(java, javac, gson):
+    if not gson.is_file() or digest(gson) != GSON_SHA256:
+        raise ValueError(f"Java requires pinned Gson {GSON_VERSION} (SHA256 {GSON_SHA256}). "
+                         f"Place {GSON_URL} at {gson}, or use --gson with that jar.")
+    home = java.parent.parent
+    if javac.parent.parent != home:
+        raise ValueError("--java and --javac must come from the same JDK 21+ installation")
+    runtime = [home / "release", home / "lib/modules", home / "lib/server/libjvm.so"]
+    runtime += sorted((home / "lib").rglob("*.so"))
+    files = sorted(set(runtime))
+    if any(not path.is_file() for path in files):
+        raise ValueError(f"expected a complete Linux JDK 21+ at {home}")
+    return dict(home=str(home), runtime_hashes={str(p.relative_to(home)): digest(p) for p in files},
+                gson=dict(path=str(gson), version=GSON_VERSION, sha256=GSON_SHA256, url=GSON_URL))
+
+
+def artifact_identity(path):
+    files = sorted(path.rglob("*.class")) if path.is_dir() else [path]
+    if not files:
+        raise ValueError(f"no build artifacts: {path}")
+    hashes = {str(p.relative_to(path)) if path.is_dir() else p.name: digest(p) for p in files}
+    return dict(artifact_bytes=sum(p.stat().st_size for p in files), files=hashes,
+                sha256=hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+                       if path.is_dir() else digest(path))
+
+
 def run(args):
     env = clean_env()
     sizes = {w: 257 if args.smoke else SIZES[w] * args.scale for w in args.workloads}
-    paths = dict(badger=args.badger.resolve(), go=Path(shutil.which(args.go) or args.go).resolve(),
-                 node=Path(shutil.which(args.node) or args.node).resolve())
+    candidates = dict(badger=str(args.badger), go=args.go, node=args.node, java=args.java, javac=args.javac)
+    required = set(args.languages)
+    if "java" in required:
+        required.add("javac")
+    if not args.no_html:
+        required.add("badger")
+    paths = {name: Path(shutil.which(value) or value).resolve() for name, value in candidates.items()
+             if name in required}
     for name, path in paths.items():
         if not path.is_file():
             raise ValueError(f"missing {name} executable: {path}")
     tools = {name: dict(path=str(path), sha256=digest(path), version=output([str(path),
                        "version" if name == "go" else "--version"])) for name, path in paths.items()}
+    java_info = java_dependencies(paths["java"], paths["javac"], args.gson.resolve()) if "java" in args.languages else None
+    if java_info:
+        tools["java"]["jdk"] = java_info
     before = source_hashes()
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H-%M-%S.%fZ")
     report = dict(schema=1, suite=CONTRACT, stamp=stamp, status="running", smoke=args.smoke,
                   revision=output(["git", "rev-parse", "HEAD"]),
                   dirty=output(["git", "status", "--porcelain"]),
                   host_before=host(), tools=tools, source_hashes=before, config=dict(
-                      sizes=sizes, seed=args.seed, workers=args.workers, processes=args.processes,
+                      sizes=sizes, seed=args.seed, workers=args.workers, languages=args.languages, processes=args.processes,
                       warmups=args.warmups, samples=args.samples, build_samples=args.build_samples,
                       order_seed=args.order_seed), builds={}, cells=[], failures=[], order=[])
     # Workload/config/machine identity, intentionally independent of Badger compiler revision/hash.
@@ -276,7 +320,10 @@ def run(args):
                     workload_hashes={p.name: digest(p) for p in PROGRAMS.glob("*")},
                     machine={k: report["host_before"].get(k) for k in
                              ["hostname", "platform", "cpu", "affinity", "resource_limits"]},
-                    controls={k: tools[k]["sha256"] for k in ["node", "go"]})
+                    controls={k: tools[k]["sha256"] for k in paths if k != "badger"})
+    if java_info:
+        identity["java_runtime"] = java_info["runtime_hashes"]
+        identity["gson_sha256"] = java_info["gson"]["sha256"]
     report["cohort"] = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     report["cohort_identity"] = identity
     report["environment"] = dict(overrides={"LC_ALL": "C", "GOTOOLCHAIN": "local", "GOWORK": "off",
@@ -299,23 +346,36 @@ def run(args):
                                               preparation=setup)
             go_exe = tmp / "workload-go"
             mir = tmp / "workload.bdgmir"
-            build_commands = {
-                "badger": [str(paths["badger"]), "compile", str(PROGRAMS / "workload.bdg"), "-o", str(mir)],
-                "go": [str(paths["go"]), "build", "-trimpath", "-o", str(go_exe), str(PROGRAMS / "workload.go")],
-            }
+            classes = tmp / "java-classes"
+            classes.mkdir()
+            build_commands = {}
+            if "badger" in args.languages:
+                build_commands["badger"] = [str(paths["badger"]), "compile", str(PROGRAMS / "workload.bdg"), "-o", str(mir)]
+            if "go" in args.languages:
+                build_commands["go"] = [str(paths["go"]), "build", "-trimpath", "-o", str(go_exe), str(PROGRAMS / "workload.go")]
+            if "java" in args.languages:
+                build_commands["java"] = [str(paths["javac"]), "--release", "21", "-encoding", "UTF-8",
+                                          "-cp", str(args.gson.resolve()), "-d", str(classes),
+                                          str(PROGRAMS / "Workload.java")]
             for language, command in build_commands.items():
                 print(f"Preparing {language}", flush=True)
                 trials = [process(command, env, args.timeout, launcher=launcher) for _ in range(args.build_samples)]
-                artifact = mir if language == "badger" else go_exe
+                artifact = {"badger": mir, "go": go_exe, "java": classes}[language]
                 report["builds"][language] = dict(samples=trials, wall_ns=stats([t["wall_ns"] for t in trials]),
-                                                artifact_bytes=artifact.stat().st_size, sha256=digest(artifact))
-            report["builds"]["node"] = None
+                                                **artifact_identity(artifact))
+            if "node" in args.languages:
+                report["builds"]["node"] = None
 
             def command(language, name, n, seed, workers, warmups, samples, input_path):
-                prefix = {"badger": [str(paths["badger"]), "run", "--release", "--bench", "--workers",
-                                     str(workers), str(PROGRAMS / "workload.bdg"), "--"],
-                          "go": [str(go_exe)],
-                          "node": [str(paths["node"]), str(PROGRAMS / "workload.js")]}[language]
+                if language == "badger":
+                    prefix = [str(paths["badger"]), "run", "--release", "--bench", "--workers",
+                              str(workers), str(PROGRAMS / "workload.bdg"), "--"]
+                elif language == "go":
+                    prefix = [str(go_exe)]
+                elif language == "java":
+                    prefix = [str(paths["java"]), "-cp", os.pathsep.join([str(classes), str(args.gson.resolve())]), "Workload"]
+                else:
+                    prefix = [str(paths["node"]), str(PROGRAMS / "workload.js")]
                 return prefix + list(map(str, [name, n, seed, workers, warmups, samples, input_path]))
 
             # Check queue/partial-batch and snapshot boundaries, multiple input seeds, every port/worker.
@@ -323,7 +383,7 @@ def run(args):
             for name, n in sizes.items():
                 workers_list = args.workers if name in PARALLEL else [1]
                 for workers in workers_list:
-                    for language in paths:
+                    for language in args.languages:
                         cell = dict(language=language, workload=name, workers=workers, n=n,
                                     expected=oracle(name, n, args.seed), validation=[], records=[])
                         report["cells"].append(cell)
@@ -357,6 +417,8 @@ def run(args):
                 cell["summary"] = summarize(cell["records"])
             if source_hashes() != before or any(digest(paths[k]) != tools[k]["sha256"] for k in paths):
                 raise RuntimeError("source or executable changed during measurement; reject this run")
+            if java_info and java_dependencies(paths["java"], paths["javac"], args.gson.resolve()) != java_info:
+                raise RuntimeError("Java runtime or Gson changed during measurement; reject this run")
             report["status"] = "complete"
     except Exception as error:
         report["status"] = "failed"
@@ -382,6 +444,10 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--badger", type=Path, default=ROOT / "target/release/badger")
+    parser.add_argument("--languages", nargs="+", choices=LANGUAGES, default=LANGUAGES)
+    parser.add_argument("--java", default="java")
+    parser.add_argument("--javac", default="javac")
+    parser.add_argument("--gson", type=Path, default=SUITE / ".tools" / f"gson-{GSON_VERSION}.jar")
     parser.add_argument("--go", default="go")
     parser.add_argument("--node", default="node")
     parser.add_argument("--cc", default="cc", help="C compiler for the measurement-only native launcher")
@@ -403,6 +469,7 @@ def main():
     if sys.platform != "linux":
         parser.error("Linux is required for wait4 peak RSS units and host provenance")
     if (min(args.processes, args.warmups, args.samples, args.build_samples, args.scale, *args.workers) < 1
+            or len(set(args.languages)) != len(args.languages)
             or len(set(args.workers)) != len(args.workers) or len(set(args.workloads)) != len(args.workloads)
             or max(args.workers) > 64 or not 0 <= args.seed <= 1000000 or args.timeout <= 0
             or args.scale > 100):

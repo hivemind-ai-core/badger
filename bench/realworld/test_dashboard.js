@@ -19,13 +19,13 @@ function report(stamp,cohort,revision) {
     const sizes={cpu:100,reconcile:100,json:100,state:100,messaging:100,pipeline:100};
     const cells=Object.keys(sizes).flatMap(workload=>
         (['messaging','pipeline'].includes(workload)?[1,2,4,8]:[1]).flatMap(workers=>
-            ['badger','go','node'].map(language=>({language,workload,workers,n:100,expected:123,
+            ['badger','go','node','java'].map(language=>({language,workload,workers,n:100,expected:123,
                 summary:{kernel_ns:summary(1000000),first_ns:summary(2000000),
                     startup_ns:summary(4000000),wall_ns:summary(5000000),peak_rss_bytes:summary(1048576),
                     compile_ns:language==='badger'?summary(3000000):null}}))));
     return {schema:1,suite:'realworld-v1',stamp,cohort,revision,status:'complete',smoke:false,
         config:{sizes,workers:[1,2,4,8],processes:5,warmups:3,samples:5},cells,
-        builds:{badger:{wall_ns:summary(6e6)},go:{wall_ns:summary(7e6)},node:null},
+        builds:{badger:{wall_ns:summary(6e6)},go:{wall_ns:summary(7e6)},node:null,java:{wall_ns:summary(8e6)}},
         host_before:{hostname:'test',cpu:'test CPU',affinity:[0,1]},dirty:'',tools:{},source_hashes:{}};
 }
 function load(reports) {
@@ -50,7 +50,7 @@ assert.equal(get('cohort').value,'a','most recently measured cohort must be sele
 assert.equal(get('run').value,c.stamp,'latest eligible run must be selected');
 assert.match(get('badge').textContent,/3 complete runs · 2 smoke\/failed excluded/);
 assert.equal((get('comparison').innerHTML.match(/<svg/g)||[]).length,6);
-assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,6,'two reports × three languages');
+assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,8,'two reports × four languages');
 for (const metric of ['kernel_ns','first_ns','startup_ns','wall_ns','peak_rss_bytes','compile_ns','build_ns','throughput']) {
     get('metric').value=metric;
     get('metric').onchange();
@@ -63,11 +63,20 @@ get('workers').onchange();
 assert.match(get('comparison').innerHTML,/8 worker\(s\)/);
 get('history-workload').value='pipeline';
 get('history-workload').onchange();
-assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,6);
+assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,8);
+assert.match(get('comparison').innerHTML,/viewBox="0 0 380 180"/,'four bars must fit without clipping');
+assert.match(get('legend').innerHTML,/Java/);
 get('cohort').value='b';
 get('cohort').onchange();
-assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,3);
+assert.equal((get('history').innerHTML.match(/<circle/g)||[]).length,4);
 assert.match(get('history-note').textContent,/Baseline recorded/);
 const empty=load([bad,smoke]);
 assert.match(empty.get('badge').textContent,/no performance baseline/);
 console.log('Dashboard checks passed: latest run, cohorts, history, all 8 metrics, workers, exclusions.');
+
+const legacy={...a,cells:a.cells.filter(c=>c.language!=='java')};
+const legacyView=load([legacy]);
+assert.doesNotMatch(legacyView.get('legend').innerHTML,/Java/,'old reports must not imply Java was measured');
+assert.equal((legacyView.get('history').innerHTML.match(/<circle/g)||[]).length,3);
+assert.match(legacyView.get('comparison').innerHTML,/viewBox="0 0 380 140"/);
+console.log('Legacy three-language report and Java bar height/legend checks passed.');

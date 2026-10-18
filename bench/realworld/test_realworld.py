@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("realworld", Path(__file__).with_name("run.py"))
 bench = importlib.util.module_from_spec(SPEC)
@@ -49,6 +50,37 @@ class OracleTests(unittest.TestCase):
             expected = sum((r["customer"] + 1) * (r["amount"] * 6 // 5) +
                            r["id"] + len(r["note"].encode()) for r in rows if r["active"])
             self.assertEqual(bench.oracle("json", 65, 37), expected)
+
+
+class JavaEvidenceTests(unittest.TestCase):
+    def test_java_injected_options_and_classpath_are_removed(self):
+        names = ["JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVAC_OPTIONS", "CLASSPATH"]
+        with patch.dict(os.environ, {name: "injected" for name in names}):
+            env = bench.clean_env()
+        self.assertFalse(set(names) & set(env))
+
+    def test_java_requires_exact_pinned_json_library(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            jar = root / "gson.jar"
+            with self.assertRaisesRegex(ValueError, "pinned Gson"):
+                bench.java_dependencies(root / "java", root / "javac", jar)
+            jar.write_bytes(b"wrong jar at the right path")
+            with self.assertRaisesRegex(ValueError, "pinned Gson"):
+                bench.java_dependencies(root / "java", root / "javac", jar)
+
+    def test_java_artifact_identity_covers_nested_classes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Workload.class").write_bytes(b"main")
+            nested = root / "Workload$Order.class"
+            nested.write_bytes(b"record")
+            before = bench.artifact_identity(root)
+            self.assertEqual(before["artifact_bytes"], 10)
+            self.assertEqual(len(before["files"]), 2)
+            nested.write_bytes(b"changed record")
+            after = bench.artifact_identity(root)
+            self.assertNotEqual(before["sha256"], after["sha256"])
 
 
 class ProtocolTests(unittest.TestCase):
