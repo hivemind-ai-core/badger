@@ -342,6 +342,7 @@ impl<'g, 'a> Layouts<'g, 'a> {
         unsafe {
             (*p).kind = kind;
             (*p).leaf.store(0, std::sync::atomic::Ordering::Relaxed);
+            (*p).floats.store(0, std::sync::atomic::Ordering::Relaxed);
         }
         d
     }

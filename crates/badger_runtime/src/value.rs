@@ -122,7 +122,15 @@ fn may_hold_float(d: &TypeDesc) -> bool {
             _ => false,
         }
     }
-    go(d, &mut vec![])
+    match d.floats.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => {
+            let may = go(d, &mut vec![]);
+            d.floats.store(if may { 2 } else { 1 }, std::sync::atomic::Ordering::Relaxed);
+            may
+        }
+    }
 }
 
 fn mask(d: &TypeDesc) -> u64 {
