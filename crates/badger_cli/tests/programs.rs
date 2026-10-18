@@ -270,6 +270,48 @@ fn framework_example() {
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 
+/// `badger generate feature`: the plan is checked (and its tests run) in a
+/// copy of the project before anything is written; existing files are
+/// never replaced; the generated tests pass in the project.
+#[test]
+fn generate_feature() {
+    let dir = std::env::temp_dir().join(format!("badger-generate-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"shop\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "pub fn main() -> Unit {}\n").unwrap();
+    let generate =
+        |args: &[&str]| lang().arg("generate").arg("feature").args(args).arg(&dir).output().unwrap();
+    let dry = generate(&["orders", "--dry-run"]);
+    let text = String::from_utf8_lossy(&dry.stdout).to_string();
+    assert!(dry.status.success() && text.contains("3 passed") && text.contains("nothing written"), "{text}");
+    assert!(!dir.join("src/orders").exists());
+    let out = generate(&["orders"]);
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(out.status.success() && text.contains("create src/orders/service.bdg"), "{text}");
+    for f in ["model", "memory", "service", "http"] {
+        assert!(dir.join(format!("src/orders/{f}.bdg")).is_file(), "{f}");
+    }
+    // the feature is ordinary code: its tests run once an entry imports it
+    std::fs::write(
+        dir.join("src/main.bdg"),
+        "import orders.http\nimport orders.memory\nimport orders.service\n\npub fn main() -> Unit {}\n",
+    )
+    .unwrap();
+    let test = lang().arg("test").arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&test.stdout).to_string();
+    assert!(test.status.success() && text.contains("3 passed; 0 failed"), "{text}");
+    let fmt = lang().arg("format").arg("--check").arg(dir.join("src")).output().unwrap();
+    assert!(fmt.status.success(), "{}", String::from_utf8_lossy(&fmt.stderr));
+    // never over existing files, and not under a name its imports use
+    let again = generate(&["orders"]);
+    assert!(!again.status.success() && String::from_utf8_lossy(&again.stderr).contains("already exists"));
+    let reserved = generate(&["http"]);
+    assert!(!reserved.status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn example_projects_check() {
     let mut failures = vec![];

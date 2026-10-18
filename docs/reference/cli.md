@@ -500,8 +500,7 @@ $ badger contracts
 ### `badger generate sql FILES... [--database URL] [--schema FILE] [--check]`
 
 Turn SQL files of named queries (`-- name: find_user :one`) into typed
-functions: `NAME.bdg` next to each `NAME.sql`. `sql` is the only
-generator. Guide: [typed-sql.md](../typed-sql.md).
+functions: `NAME.bdg` next to each `NAME.sql`. Guide: [typed-sql.md](../typed-sql.md).
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -511,6 +510,31 @@ generator. Guide: [typed-sql.md](../typed-sql.md).
 
 ```sh
 badger generate sql src/queries.sql --schema schema.sql
+```
+
+### `badger generate feature NAME [DIR] [--item NAME] [--dry-run]`
+
+Adds a typed feature module to the project in `DIR` (default `.`), under
+the entry's directory: `NAME/model.bdg` (a record type, its errors, the
+`Store` it needs, and its `Operations`), `NAME/memory.bdg` (an in-memory
+store provider), `NAME/service.bdg` (the feature's provider with `create`,
+`find`, and `list` operations, and tests), and `NAME/http.bdg` (routes
+binding the operations, and a test).
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--item NAME` | `NAME` without a final `s` | The record's name (`--item stock_item` gives `StockItem`). |
+| `--dry-run` | | Print the plan and check it, but write nothing. |
+
+Before anything is written, the generated files are checked and their
+tests run in a copy of the project. The command refuses a name that
+exists as a module or directory, and never replaces a file. Nothing else
+changes: it prints the plan nodes to add where the application is
+composed. Generated code is ordinary code to edit; its storage and rules
+are placeholders for the feature's own.
+
+```sh
+badger generate feature orders
 ```
 
 ### `badger update [PATH]`

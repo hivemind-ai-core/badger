@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 mod doc;
+mod generate;
 mod graph;
 mod lsp;
 mod mcp;
@@ -275,12 +276,24 @@ enum Command {
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
     /// to each `NAME.sql`. Types come from Postgres (`--database`, or
     /// `DATABASE_URL`) or from a SQLite schema (`--schema`, or the
-    /// project's `[database] schema`).
+    /// project's `[database] schema`). `feature NAME [DIR]` adds a typed
+    /// feature module (types, an in-memory store, operations, an HTTP
+    /// binding, and tests) to the project, after checking it and running
+    /// its tests in a copy of the project; existing files are never
+    /// replaced.
     Generate {
-        /// What to generate: `sql`.
+        /// What to generate: `sql` or `feature`.
         what: String,
-        /// The SQL files.
+        /// The SQL files; for `feature`, its name and the project directory
+        /// (default `.`).
         files: Vec<PathBuf>,
+        /// `feature`: the name of one record (default: the feature's name
+        /// without a final `s`).
+        #[arg(long)]
+        item: Option<String>,
+        /// `feature`: print the plan and check it, but write nothing.
+        #[arg(long)]
+        dry_run: bool,
         /// Postgres URL to take types from (default: `DATABASE_URL`).
         #[arg(long)]
         database: Option<String>,
@@ -712,9 +725,51 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Generate { what, files, database, schema, check } => {
+        Command::Generate { what, files, item, dry_run, .. } if what == "feature" => {
+            let Some(name) = files.first().map(|f| f.to_string_lossy().to_string()) else {
+                eprintln!("error: `badger generate feature` needs a name (`badger generate feature orders`)");
+                return ExitCode::from(2);
+            };
+            let dir = files.get(1).cloned().unwrap_or_else(|| PathBuf::from("."));
+            let plan = match generate::plan(&dir, &name, item.as_deref()) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            for (p, text) in &plan.files {
+                println!("create {} ({} lines)", p.display(), text.lines().count());
+            }
+            match generate::verify(&dir, &plan) {
+                Ok(report) => {
+                    let passed =
+                        report.lines().find(|l| l.starts_with("test result:")).unwrap_or("").to_string();
+                    println!("checked in a copy of the project: {passed}");
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+            if dry_run {
+                println!("dry run: nothing written");
+                return ExitCode::SUCCESS;
+            }
+            if let Err(e) = generate::write(&dir, &plan) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            println!(
+                "\nnext: import {name}.memory, {name}.service, and {name}.http where the application is composed:\n\n    \
+                 store: memory.store(),\n    {name}: service.{name}({{ store: ref(#store) }}),\n\n\
+                 and serve `http.routes(running.{name})`; its tests run once an entry imports it (`badger test`)."
+            );
+            ExitCode::SUCCESS
+        }
+        Command::Generate { what, files, database, schema, check, .. } => {
             if what != "sql" {
-                eprintln!("error: unknown generator `{what}` (available: sql)");
+                eprintln!("error: unknown generator `{what}` (available: sql, feature)");
                 return ExitCode::FAILURE;
             }
             if files.is_empty() {

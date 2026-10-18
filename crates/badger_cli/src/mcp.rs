@@ -89,6 +89,21 @@ fn tools() -> Value {
             }
         },
         {
+            "name": "generate",
+            "description": "Generate a typed feature module into a project (`what`: `feature`): `NAME/model.bdg` (a record type, its errors, the `Store` it needs, its `Operations`), `NAME/memory.bdg`, `NAME/service.bdg` (create/find/list operations and tests), and `NAME/http.bdg` (routes and a test), under the entry's directory. The files are checked and their tests run in a copy of the project first; existing files are never replaced. With `dry_run: true` it reports the plan and the check without writing. The generated rules and storage are placeholders to replace with the feature's own.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "what": { "type": "string", "enum": ["feature"] },
+                    "name": { "type": "string", "description": "The feature (a lowercase identifier, e.g. `orders`)." },
+                    "path": { "type": "string", "description": "The project directory." },
+                    "item": { "type": "string", "description": "One record's name (default: `name` without a final `s`)." },
+                    "dry_run": { "type": "boolean" }
+                },
+                "required": ["what", "name", "path"]
+            }
+        },
+        {
             "name": "run",
             "description": "Run a program (file or project directory) or, with `test: true`, its `test_*` functions, in a fresh process. Returns the exit status, stdout, and stderr. With `breakpoints` (`file:line`, optionally `file:line if CONDITION`), it runs under gdb with debug information and reports, at each stop, the innermost frames, arguments, and locals (or the gdb `commands` given), up to `max_stops`. With `profile: true`, it also returns a CPU profile (functions by self and total time).",
             "inputSchema": {
@@ -263,6 +278,27 @@ impl Mcp {
                         text(format!("{summary}\n{out}"), !r["ok"].as_bool().unwrap_or(false))
                     }
                     Ok((_, _, err)) => text(err, true),
+                    Err(e) => text(e, true),
+                }
+            }
+            "generate" => {
+                if a["what"].as_str() != Some("feature") {
+                    return text("`what` must be `feature`", true);
+                }
+                let (Some(name), Some(path)) = (a["name"].as_str(), a["path"].as_str()) else {
+                    return text("give `name` and `path`", true);
+                };
+                let mut args =
+                    vec!["generate".to_string(), "feature".into(), name.to_string(), arg_path(path)];
+                if let Some(item) = a["item"].as_str() {
+                    args.push("--item".into());
+                    args.push(item.to_string());
+                }
+                if a["dry_run"].as_bool().unwrap_or(false) {
+                    args.push("--dry-run".into());
+                }
+                match badger_cmd(&args, Duration::from_secs(300)) {
+                    Ok((code, out, err)) => text(format!("{out}{err}"), code != 0),
                     Err(e) => text(e, true),
                 }
             }

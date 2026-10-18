@@ -1,9 +1,10 @@
 # MCP server
 
 `badger mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
-server on standard input and output. It gives an agent five tools: a
+server on standard input and output. It gives an agent six tools: a
 persistent REPL session (`eval`), checking (`check`), compiler queries
-(`query`), contract analysis (`contracts`), and program runs (`run`).
+(`query`), contract analysis (`contracts`), checked code generation
+(`generate`), and program runs (`run`).
 
 This page is the reference. Setup examples, `std.compiler` in code mode,
 and how to work with contracts and proposed edits are in
@@ -179,6 +180,23 @@ seconds.
 ```text
 → {"name":"contracts","arguments":{"path":"demo"}}
 ← {"content":[{"text":"2 clause(s): 0 proven, 2 checked at run time, 0 refuted\n{\"clauses\":[{\"calls\":2,\"file\":\"demo/src/main.bdg\",\"function\":\"half\",\"kind\":\"requires\",\"line\":16,\"reason\":\"not proven at 2 of 2 call(s)\",\"status\":\"runtime\",\"tested\":null,\"text\":\"n % 2 == 0\"},{\"calls\":2,\"file\":\"demo/src/main.bdg\",\"function\":\"half\",\"kind\":\"ensures\",\"line\":17,\"reason\":\"not proven at every return\",\"status\":\"runtime\",\"tested\":null,\"text\":\"result * 2 == n\"}],\"diagnostics\":[],\"ok\":true}\n","type":"text"}],"isError":false}
+```
+
+## `generate`
+
+Arguments: `what` (`feature`), `name`, `path` (the project directory),
+`item` (optional), `dry_run` (optional). It is `badger generate feature`
+([cli.md](cli.md#badger-generate-feature-name-dir---item-name---dry-run)):
+the plan (files and line counts), then the test report of the generated
+files checked in a copy of the project; nothing is written on a dry run or
+a failed check, and an existing feature is an error.
+
+```text
+→ { "what": "feature", "name": "orders", "path": "/work/shop", "dry_run": true }
+← create src/orders/model.bdg (24 lines)
+  ...
+  checked in a copy of the project: test result: ok. 3 passed; 0 failed
+  dry run: nothing written
 ```
 
 ## `run`

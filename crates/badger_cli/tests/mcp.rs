@@ -46,7 +46,7 @@ fn mcp_tools() {
     let tools = req("tools/list", json!({}));
     let names: Vec<&str> =
         tools["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, vec!["eval", "check", "query", "contracts", "run"]);
+    assert_eq!(names, vec!["eval", "check", "query", "contracts", "generate", "run"]);
     let mut call = |name: &str, args: Value| -> (String, bool) {
         let r = req("tools/call", json!({ "name": name, "arguments": args }));
         (
@@ -62,6 +62,22 @@ fn mcp_tools() {
         !err && out.contains("2 proven") && out.contains("1 unproven clause(s) no test reaches"),
         "{out}"
     );
+
+    // a generated feature is checked before it is written (a dry run writes nothing)
+    let project = std::env::temp_dir().join(format!("badger-mcp-generate-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&project);
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    std::fs::write(project.join("badger.toml"), "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    std::fs::write(project.join("src/main.bdg"), "pub fn main() -> Unit {}\n").unwrap();
+    let at = project.display().to_string();
+    let (out, err) =
+        call("generate", json!({ "what": "feature", "name": "orders", "path": at, "dry_run": true }));
+    assert!(!err && out.contains("3 passed") && !project.join("src/orders").exists(), "{out}");
+    let (out, err) = call("generate", json!({ "what": "feature", "name": "orders", "path": at }));
+    assert!(!err && project.join("src/orders/service.bdg").is_file(), "{out}");
+    assert!(call("generate", json!({ "what": "feature", "name": "orders", "path": at })).1);
+    let _ = std::fs::remove_dir_all(&project);
 
     // code mode: definitions accumulate; printed output is returned
     assert!(!call("eval", json!({ "code": "fn sq(x: Int) -> Int { x * x }" })).1);
