@@ -51,8 +51,10 @@ pub struct Dep {
 
 const LOCK: &str = "badger.lock";
 
-fn fnv(bytes: &[u8]) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
+const FNV_START: u64 = 0xcbf29ce484222325;
+
+/// Continue an FNV-1a hash over `bytes`.
+fn fnv_feed(mut h: u64, bytes: &[u8]) -> u64 {
     for b in bytes {
         h ^= *b as u64;
         h = h.wrapping_mul(0x100000001b3);
@@ -60,9 +62,10 @@ fn fnv(bytes: &[u8]) -> u64 {
     h
 }
 
-/// FNV-1a over the manifest and every `.bdg` file (sorted relative paths).
+/// FNV-1a over the manifest and every `.bdg` file (sorted relative paths),
+/// one file at a time (the contents are not all held at once).
 fn content_hash(dir: &Path) -> String {
-    fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+    fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
         let Ok(rd) = std::fs::read_dir(dir) else { return };
         for e in rd.flatten() {
             let p = e.path();
@@ -78,21 +81,21 @@ fn content_hash(dir: &Path) -> String {
                 || p.file_name().is_some_and(|n| n == "badger.toml")
             {
                 let rel = p.strip_prefix(base).unwrap_or(&p).to_string_lossy().replace('\\', "/");
-                out.push((rel, std::fs::read(&p).unwrap_or_default()));
+                out.push((rel, p));
             }
         }
     }
     let mut files = vec![];
     walk(dir, dir, &mut files);
     files.sort();
-    let mut bytes = vec![];
-    for (name, content) in files {
-        bytes.extend(name.bytes());
-        bytes.push(0);
-        bytes.extend(content);
-        bytes.push(0);
+    let mut h = FNV_START;
+    for (name, path) in files {
+        h = fnv_feed(h, name.as_bytes());
+        h = fnv_feed(h, &[0]);
+        h = fnv_feed(h, &std::fs::read(&path).unwrap_or_default());
+        h = fnv_feed(h, &[0]);
     }
-    format!("fnv1a64:{:016x}", fnv(&bytes))
+    format!("fnv1a64:{h:016x}")
 }
 
 /// Where cloned repositories and their checkouts live.
@@ -152,7 +155,7 @@ fn checkout(
     refresh: bool,
 ) -> Result<(PathBuf, String), String> {
     let fail = |e: String| format!("dependency `{name}` ({url}): {e}");
-    let key = format!("{:016x}", fnv(url.as_bytes()));
+    let key = format!("{:016x}", fnv_feed(FNV_START, url.as_bytes()));
     let repos = cache_dir().join("git/repos");
     std::fs::create_dir_all(&repos).map_err(|e| fail(format!("cannot create {}: {e}", repos.display())))?;
     let repo = repos.join(&key);

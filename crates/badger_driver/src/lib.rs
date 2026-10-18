@@ -368,7 +368,9 @@ impl Session {
             }
         };
         let deps = if path.is_dir() {
-            let verified = manifest::Manifest::in_dir(path).and_then(|m| deps::verified(path, &m));
+            let verified = timed("parse.deps", || {
+                manifest::Manifest::in_dir(path).and_then(|m| deps::verified(path, &m))
+            });
             match verified {
                 Ok(d) => d,
                 Err(e) => {
@@ -498,7 +500,7 @@ impl Session {
         // the standard library: the modules the program can reach (imported
         // directly or by other standard modules) and the core modules whose
         // implementations apply to prelude types; std modules come first
-        let std_mods = self.load_std(&modules);
+        let std_mods = timed("parse.std", || self.load_std(&modules));
         let n = std_mods.len();
         let mut all = std_mods;
         all.extend(modules);
@@ -562,8 +564,7 @@ impl Session {
             }
         };
         for m in user {
-            let text = self.sources.get(m.file).text.clone();
-            add_imports(&m.ast, &text, &mut wanted, &self.interner);
+            add_imports(&m.ast, &self.sources.get(m.file).text, &mut wanted, &self.interner);
         }
         // close over the standard modules' own imports
         let mut parsed: Vec<(usize, ParsedModule)> = vec![];
@@ -586,9 +587,9 @@ impl Session {
     }
 
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {
-        let text = self.sources.get(file).text.clone();
         let mut diags = vec![];
-        let r = badger_syntax::parse(file, &text, &mut self.interner, &mut diags);
+        // (disjoint borrows: the text is not copied)
+        let r = badger_syntax::parse(file, &self.sources.get(file).text, &mut self.interner, &mut diags);
         self.diagnostics.extend(diags);
         match r {
             Ok(ast) => Some(ast),

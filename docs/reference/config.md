@@ -377,7 +377,7 @@ For working on Badger itself. Output goes to stderr unless noted.
 
 | Variable | Effect |
 |---|---|
-| `BADGER_TIMINGS=1` | Print each compiler phase's duration (`[timings] typecheck: 12.345 ms`). |
+| `BADGER_TIMINGS=1` | Print each compiler phase's duration (`[timings] typecheck: 12.345 ms`); `parse.deps` (dependency resolution and verification) and `parse.std` (standard modules) are parts of `parse`. |
 | `BADGER_RUNTIME_STATS=1` | Print per-worker lock and scheduling counters when the program ends. |
 | `BADGER_NO_INLINE` | Set: turn off MIR inlining and the passes after it in optimized builds. |
 | `BADGER_NO_CONTRACT_ELISION` | Set: skip static contract analysis; every contract check stays in the code. |
