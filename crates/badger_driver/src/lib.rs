@@ -497,6 +497,7 @@ impl Session {
             }
             i += 1;
         }
+        self.check_layers(&root, &modules);
         // the standard library: the modules the program can reach (imported
         // directly or by other standard modules) and the core modules whose
         // implementations apply to prelude types; std modules come first
@@ -584,6 +585,42 @@ impl Session {
         // in the library's own order
         parsed.sort_by_key(|(i, _)| *i);
         parsed.into_iter().map(|(_, m)| m).collect()
+    }
+
+    /// `[layers.NAME] forbid = [...]`: a package module `NAME` or `NAME.*`
+    /// importing a forbidden module (or one below it) is an error at the
+    /// import (E0017).
+    fn check_layers(&mut self, root: &Path, modules: &[ParsedModule]) {
+        // the project's manifest: at the module root or above it
+        let Some(dir) = root.ancestors().find(|d| d.join("badger.toml").is_file()) else { return };
+        let Ok(m) = manifest::Manifest::in_dir(dir) else { return };
+        if m.layers.is_empty() {
+            return;
+        }
+        let under = |path: &str, prefix: &str| path == prefix || path.starts_with(&format!("{prefix}."));
+        for module in modules.iter().filter(|x| !x.dependency) {
+            let name: Vec<&str> = module.path.iter().map(|s| self.interner.resolve(*s)).collect();
+            let name = name.join(".");
+            for (layer, forbid) in &m.layers {
+                if !under(&name, layer) {
+                    continue;
+                }
+                for item in &module.ast.items {
+                    let ast::ItemKind::Import(imp) = &item.kind else { continue };
+                    let target: Vec<&str> = imp.path.iter().map(|n| self.interner.resolve(n.sym)).collect();
+                    let target = target.join(".");
+                    if let Some(f) = forbid.iter().find(|f| under(&target, f)) {
+                        let span = imp.path.last().unwrap().span.to(imp.path[0].span);
+                        self.diagnostics.push(
+                            Diagnostic::error(format!("module `{name}` imports `{target}`, which layer `{layer}` forbids"))
+                                .with_code("E0017")
+                                .with_label(span, format!("`[layers.{layer}]` forbids `{f}`"))
+                                .with_note("keep the dependency out of this layer (pass what it needs in), or change the rule in badger.toml"),
+                        );
+                    }
+                }
+            }
+        }
     }
 
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {

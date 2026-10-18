@@ -54,6 +54,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`badger replay` could not use the bundle: it is unreadable or not a bundle of this format, or the program is not the one it recorded (a source file, the toolchain, or the configuration changed). `badger replay --compare` runs a changed program against the recording and reports how the operations and the outcome differ.",
     ),
     (
+        "E0017",
+        "forbidden import",
+        "A module imports a module its layer forbids: badger.toml's `[layers.NAME] forbid = [...]` keeps modules `NAME` and `NAME.*` from importing the listed modules (and modules below them). Pass the dependency in instead, or change the rule.",
+    ),
+    (
         "E0101",
         "lowercase type name",
         "Every named type starts uppercase, including primitives and type parameters: `type Person = ...`.",

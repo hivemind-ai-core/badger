@@ -46,7 +46,9 @@ curl -X POST localhost:8080/tasks -d '{"title": ""}'    # 400 {"error":"tasks/in
 
 What to notice:
 
-- The feature never names HTTP, the command line, or a particular store.
+- The feature never names HTTP, the command line, or a particular store,
+  and `[layers.tasks.model]` / `[layers.tasks.service]` in badger.toml
+  make the compiler hold it to that (E0017).
   Each binding depends on the `Tasks` interface; `ref(#tasks)` in a plan
   connects them, and startup follows those references.
 - One operation implementation serves both transports. A binding states

@@ -255,6 +255,20 @@ db.pool = 4    # from [config]
 |---|---|---|
 | `schema` | string | SQL file (relative to the project) that literal SQL statements given to `std.sqlite` are prepared against at check time (E0180 to E0182), and the default `--schema` of `badger generate sql`. See [typed-sql.md](../typed-sql.md). |
 
+### `[layers.NAME]`
+
+Import rules between the package's modules. `forbid` lists module paths
+that the module `NAME` and every module below it (`NAME.*`) may not
+import, directly or as a module below one of them. A forbidden import is
+E0017 at the import. Standard modules are named as imported
+(`std.http`).
+
+```toml
+# the feature's core knows nothing of HTTP or of a particular store
+[layers.orders.service]
+forbid = ["web", "orders.sqlite_store", "std.http", "std.sqlite"]
+```
+
 ### `[env]`
 
 | Key | Type | Meaning |

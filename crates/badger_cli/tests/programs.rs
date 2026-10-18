@@ -270,6 +270,36 @@ fn framework_example() {
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 
+/// `[layers.NAME] forbid`: an import a layer forbids is E0017 at the
+/// import; the framework example obeys its own rules.
+#[test]
+fn layer_rules() {
+    let out = lang().arg("check").arg(root().join("examples/framework")).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let dir = std::env::temp_dir().join(format!("badger-layers-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src/core")).unwrap();
+    std::fs::write(
+        dir.join("badger.toml"),
+        "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n\n[layers.core]\nforbid = [\"web\", \"std.http\"]\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "import core.rules\nimport web\n\npub fn main() -> Unit {}\n")
+        .unwrap();
+    std::fs::write(dir.join("src/web.bdg"), "pub fn route() -> Int { 1 }\n").unwrap();
+    std::fs::write(dir.join("src/core/rules.bdg"), "import web\n\npub fn rule() -> Int { web.route() }\n")
+        .unwrap();
+    let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !out.status.success() && text.contains("\"E0017\"") && text.contains("layer `core` forbids"),
+        "{text}"
+    );
+    // the entry, outside the layer, may import it
+    assert_eq!(text.matches("\"E0017\"").count(), 1, "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `badger query symbol`: a definition by qualified name, with its type
 /// and references, and effect arguments displayed as effects.
 #[test]
@@ -366,6 +396,13 @@ fn generate_feature() {
     assert!(!again.status.success() && String::from_utf8_lossy(&again.stderr).contains("already exists"));
     let reserved = generate(&["http"]);
     assert!(!reserved.status.success());
+    // a worker: one module with a durable job kind, checked and tested
+    let worker = lang().args(["generate", "worker", "emails"]).arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&worker.stdout).to_string();
+    assert!(
+        worker.status.success() && text.contains("1 passed") && dir.join("src/emails.bdg").is_file(),
+        "{text}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
