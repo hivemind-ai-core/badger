@@ -1,9 +1,16 @@
 import unittest
 
 import applications as app
+import profile_applications as cpu
 
 
 class Contracts(unittest.TestCase):
+    def test_cpu_inclusive_counts_do_not_double_count_recursive_frames(self):
+        result = cpu.counts("entry;decode;decode;allocate 7\nentry;decode 3\nworker;allocate 2\n")
+        self.assertEqual(result["samples"], 12)
+        self.assertEqual(result["self"], {"allocate": 9, "decode": 3})
+        self.assertEqual(result["inclusive"], {"entry": 10, "decode": 10, "allocate": 9, "worker": 2})
+
     def test_both_protocols_reject_wrong_results_and_sample_counts(self):
         for suite, name in [("realworld", "state"), ("compare", "snapshots")]:
             expected = (app.rw if suite == "realworld" else app.compare).oracle(name, 257, 37)

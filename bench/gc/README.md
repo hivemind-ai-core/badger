@@ -136,6 +136,15 @@ are buffered and written at exit. `BADGER_PROFILE_SCOPE=runtime` excludes fronte
 and JIT samples; its default retains existing whole-process profiling. With
 sampling active, diagnostic sweep helper threads are sampled too.
 
+`profile_applications.py --binary /fixed/frame-pointer-binary --revision REV
+--diagnostic --cases realworld/reconcile realworld/json compare/records
+--workers 1 8 --reps 3 --warmups 15 --samples 300 --out /new/profile-directory`
+saves checked application CPU profiles, source/binary hashes, process intervals,
+GC phases and both self/inclusive symbol counts. Build as above first. Profiles
+include fixture loading and warmups as well as kernels; GC instrumentation and
+sampling perturb timings, so use the ordinary paired harness for speed claims.
+Inclusive counts count a symbol once per sampled stack, including recursion.
+
 `BADGER_GC_POOL_MAX=256|512|1024` is another diagnostic-only experiment. It fixes
 the pooled cell limit for the process, including headers and size-class rounding.
 Allocation and reclamation always use the same limit. Compare it with
