@@ -146,6 +146,7 @@ Ask about code. Positions are 1-based.
 | `completion` | `path`, `line`, `col` | Completion items. |
 | `rename` | `path`, `line`, `col`, `name` | `{"edits": [{file, line, col, end_line, end_col, text}]}`, not applied. |
 | `symbols` | `path` | The file's definitions. |
+| `symbol` | `path`, `name` | A definition by qualified name (`orders.service.create`, `Order.total`): kind, signature, location, and references. |
 | `diagnostics` | `path` | The diagnostics array. |
 | `explain` | `name` (a code such as `E0301`) | The catalog explanation. |
 | `module` | `name` (`list`, `std.list`), or nothing | The standard module's source (its API and documentation); without `name`, the list of modules. |

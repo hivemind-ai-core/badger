@@ -270,6 +270,37 @@ fn framework_example() {
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 
+/// `badger query symbol`: a definition by qualified name, with its type
+/// and references, and effect arguments displayed as effects.
+#[test]
+fn query_symbol() {
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "tasks.service.valid_title"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let hits = v.as_array().unwrap();
+    assert_eq!(hits.len(), 1, "{v}");
+    assert_eq!(hits[0]["kind"], "function");
+    assert!(hits[0]["file"].as_str().unwrap().ends_with("tasks/service.bdg"));
+    assert_eq!(hits[0]["references"].as_array().unwrap().len(), 2, "{v}");
+    // a qualifier that matches no file finds nothing
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "nowhere.valid_title"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "[]");
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "tasks.service.tasks"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("!{Io, Wait, State}>") && !text.contains("Io: Unit"), "{text}");
+}
+
 /// `badger test --list`, `--exact`, and the structured failure kinds of
 /// `--json`.
 #[test]

@@ -935,6 +935,7 @@ pub fn query(
         "completion",
         "rename",
         "symbols",
+        "symbol",
         "api",
     ];
     if !KINDS.contains(&kind) {
@@ -950,6 +951,13 @@ pub fn query(
     if (positional || kind == "symbols") && path.is_dir() {
         return Err(format!("`{kind}` needs a source file, not a directory"));
     }
+    // `symbol` reads a project from its entry module
+    let entry = if kind == "symbol" && path.is_dir() {
+        badger_driver::Session::entry_of(path).map(|(f, _, _)| f).map_err(|e| e.to_string())?
+    } else {
+        path.to_path_buf()
+    };
+    let path = entry.as_path();
     let file = canonical(path);
     let mut server = Server { docs: overlays.clone(), dirty: HashSet::from([file.clone()]), ..Server::new() };
     if !matches!(kind, "diagnostics" | "check") {
@@ -1025,6 +1033,97 @@ pub fn query(
                         .collect::<Vec<_>>())
                     .unwrap_or_default()
             )
+        }
+        // a definition by its qualified name (`orders.service.create`,
+        // `Order.total`, or just `create`): where it is, its signature and
+        // type, and every reference to it
+        "symbol" => {
+            let Some(want) = name else {
+                return Err("`symbol` needs --name (e.g. `orders.service.create`)".into());
+            };
+            let Some(a) = server.analysis_for(&file) else {
+                return Err(format!("{} does not parse and resolve (see `diagnostics`)", path.display()));
+            };
+            let parts: Vec<&str> = want.split('.').collect();
+            let (last, scope) = parts.split_last().map(|(l, s)| (*l, s.to_vec())).unwrap_or((want, vec![]));
+            // every definition named `last`
+            struct Hit {
+                path: String,
+                name: String,
+                start: usize,
+                kind: String,
+                detail: String,
+                container: Option<String>,
+            }
+            let mut found: Vec<Hit> = vec![];
+            fn walk(
+                f: &badger_driver::analysis::FileIndex,
+                s: &SymbolInfo,
+                container: Option<&str>,
+                last: &str,
+                out: &mut Vec<Hit>,
+            ) {
+                if s.name == last {
+                    out.push(Hit {
+                        path: f.path.clone(),
+                        name: s.name.clone(),
+                        start: s.name_start,
+                        kind: format!("{:?}", s.kind).to_lowercase(),
+                        detail: s.detail.clone(),
+                        container: container.map(str::to_string),
+                    });
+                }
+                for ch in &s.children {
+                    walk(f, ch, Some(&s.name), last, out);
+                }
+            }
+            for f in &a.files {
+                for s in &f.symbols {
+                    walk(f, s, None, last, &mut found);
+                }
+            }
+            // the qualifying segments name the container, or end the
+            // file's path (`orders.service` is `.../orders/service.bdg`)
+            let matches = |h: &Hit| {
+                if scope.is_empty() {
+                    return true;
+                }
+                let mut rest = scope.clone();
+                if h.container.as_deref() == rest.last().copied() {
+                    rest.pop();
+                } else if h.container.is_some() {
+                    return false;
+                }
+                if rest.is_empty() {
+                    return true;
+                }
+                let stem = h.path.trim_end_matches(".bdg");
+                stem.ends_with(&format!("/{}", rest.join("/"))) || stem == rest.join("/")
+            };
+            let hits: Vec<_> = found.into_iter().filter(|h| matches(h)).collect();
+            let texts: HashMap<String, String> =
+                a.files.iter().map(|f| (f.path.clone(), f.text.clone())).collect();
+            let mut out = vec![];
+            for Hit { path: fpath, name: sname, start, kind, detail, container } in hits {
+                let text = texts.get(&fpath).cloned().unwrap_or_default();
+                let (l, c) = line_col(&text, start);
+                let line_text = text.lines().nth(l.saturating_sub(1)).unwrap_or("");
+                let units: usize = line_text.chars().take(c.saturating_sub(1)).map(char::len_utf16).sum();
+                let at = json!({ "textDocument": { "uri": path_to_uri(&fpath) }, "position": { "line": l - 1, "character": units } });
+                let refs: Vec<Value> = server
+                    .references(&at)
+                    .as_array()
+                    .map(|v| v.iter().map(loc).collect())
+                    .unwrap_or_default();
+                let hover = server.hover(&at)["contents"]["value"]
+                    .as_str()
+                    .map(|v| v.trim_start_matches("```badger\n").trim_end_matches("\n```").to_string());
+                out.push(json!({
+                    "name": sname, "kind": kind, "container": container, "detail": detail, "hover": hover,
+                    "file": fpath, "line": l, "col": c, "references": refs,
+                }));
+            }
+            json!(out)
         }
         "symbols" => {
             let unindexed = || {

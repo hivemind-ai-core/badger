@@ -393,6 +393,7 @@ one.
 | `diagnostics` | PATH | Array of diagnostics (`file`, `line`, `col`, `end_line`, `end_col`, `severity`, `code`, `message`, `notes`, `label`, `expected`, `actual`, `scope`, `related`, `declarations`). |
 | `check` | PATH (file or project) | `{ok, diagnostics, inputs, unused_overlays, roots, tests, tasks}`; with `--overlays`, of the proposed contents. See [agents.md](../agents.md#checking-proposed-edits). |
 | `symbols` | PATH | The file's definitions (`name`, `kind`, `detail`, `line`, `col`, `container`). |
+| `symbol` | PATH, `--name` | A definition by name: `orders.service.create` (module path and name), `Order.total` (a type's member), or just `create`. Each match has `name`, `kind`, `container`, `detail`, `hover`, `file`, `line`, `col`, and `references`. PATH may be a project. |
 | `api` | PATH, or a standard module (`std.list`) | The public interface: declarations, signatures with effects and contracts, docs. |
 | `hover` | PATH, `--line`, `--col` | `{"text": ...}`: type or signature at the position. |
 | `definition` | PATH, `--line`, `--col` | Location of the definition. |

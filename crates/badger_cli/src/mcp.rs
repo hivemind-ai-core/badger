@@ -429,7 +429,7 @@ impl Mcp {
                         subprocess_result(&args)
                     }
                     "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
-                    | "diagnostics" => {
+                    | "symbol" | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {
@@ -438,7 +438,7 @@ impl Mcp {
                                 args.push(v.to_string());
                             }
                         }
-                        if kind == "rename"
+                        if matches!(kind, "rename" | "symbol")
                             && let Some(n) = a["name"].as_str()
                         {
                             args.push(format!("--name={n}"));
@@ -448,7 +448,7 @@ impl Mcp {
                     // `check` has its own tool
                     other => text(
                         format!(
-                            "unknown query kind `{other}` (hover, definition, references, completion, rename, symbols, diagnostics, explain, module, graph, api; diagnostics of proposed contents: the `check` tool)"
+                            "unknown query kind `{other}` (hover, definition, references, completion, rename, symbols, symbol, diagnostics, explain, module, graph, api; diagnostics of proposed contents: the `check` tool)"
                         ),
                         true,
                     ),
