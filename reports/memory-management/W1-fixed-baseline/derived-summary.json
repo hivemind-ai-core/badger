@@ -1,0 +1,249 @@
+{
+  "raw_sha256": "65bbdd3dd19c53b0c3b1fd86c9d94e40e570526c589519973571e2a0e7933344",
+  "analysis_sha256": {
+    "analyze_applications.py": "7bc6a0c6404c3cfa14bcc530ede09f4bc7142e5269477e83832b60b8a1890d79",
+    "applications.py": "71c487a3dd45795c6337c3daa2c356cc57c3e1af4a06050fcc30f3e511ee04fa"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1323396,
+            "min": 1302798,
+            "max": 1500425,
+            "count": 7,
+            "cv": 0.04776568170816154
+          },
+          "kernel_block_mean_ns": {
+            "median": 1345177.3333333333,
+            "min": 1317722.2666666666,
+            "max": 1568816.9333333333,
+            "count": 7,
+            "cv": 0.0595701151730809
+          },
+          "peak_rss_bytes": {
+            "median": 41762816,
+            "min": 41664512,
+            "max": 42106880,
+            "count": 7,
+            "cv": 0.0036212670821939193
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 861198,
+            "min": 851561,
+            "max": 1301886,
+            "count": 7,
+            "cv": 0.17443739045454298
+          },
+          "kernel_block_mean_ns": {
+            "median": 1078112.1333333333,
+            "min": 874746.0,
+            "max": 1285771.5333333334,
+            "count": 7,
+            "cv": 0.121109595328219
+          },
+          "peak_rss_bytes": {
+            "median": 46628864,
+            "min": 46473216,
+            "max": 47357952,
+            "count": 7,
+            "cv": 0.006020701511132401
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1253245,
+            "min": 1179900,
+            "max": 1385642,
+            "count": 7,
+            "cv": 0.04860266805551438
+          },
+          "kernel_block_mean_ns": {
+            "median": 1382560.5333333334,
+            "min": 1272839.6666666667,
+            "max": 1500042.0,
+            "count": 7,
+            "cv": 0.05325537499447329
+          },
+          "peak_rss_bytes": {
+            "median": 54542336,
+            "min": 53620736,
+            "max": 55533568,
+            "count": 7,
+            "cv": 0.01275475607770692
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1420075,
+            "min": 1347541,
+            "max": 1579311,
+            "count": 7,
+            "cv": 0.054711840377010025
+          },
+          "kernel_block_mean_ns": {
+            "median": 1467113.5333333334,
+            "min": 1426382.5333333334,
+            "max": 1599562.2,
+            "count": 7,
+            "cv": 0.03768872957139665
+          },
+          "peak_rss_bytes": {
+            "median": 55496704,
+            "min": 50819072,
+            "max": 58646528,
+            "count": 7,
+            "cv": 0.04652402094365465
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 50103529,
+            "min": 49814253,
+            "max": 51547720,
+            "count": 7,
+            "cv": 0.011288167583652411
+          },
+          "kernel_block_mean_ns": {
+            "median": 50710455.333333336,
+            "min": 50404044.666666664,
+            "max": 51431758.4,
+            "count": 7,
+            "cv": 0.006290546542964046
+          },
+          "peak_rss_bytes": {
+            "median": 41721856,
+            "min": 40497152,
+            "max": 41857024,
+            "count": 7,
+            "cv": 0.010502606367661649
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 25338187,
+            "min": 25282553,
+            "max": 25832433,
+            "count": 7,
+            "cv": 0.007168889091587635
+          },
+          "kernel_block_mean_ns": {
+            "median": 25558671.333333332,
+            "min": 25500273.4,
+            "max": 26031693.266666666,
+            "count": 7,
+            "cv": 0.0066285980113889266
+          },
+          "peak_rss_bytes": {
+            "median": 46592000,
+            "min": 46112768,
+            "max": 46919680,
+            "count": 7,
+            "cv": 0.0055791833052230184
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 13044510,
+            "min": 12806748,
+            "max": 13125290,
+            "count": 7,
+            "cv": 0.009607013626239789
+          },
+          "kernel_block_mean_ns": {
+            "median": 13151266.733333332,
+            "min": 12898701.266666668,
+            "max": 13269421.2,
+            "count": 7,
+            "cv": 0.010355941182266022
+          },
+          "peak_rss_bytes": {
+            "median": 53817344,
+            "min": 50491392,
+            "max": 54435840,
+            "count": 7,
+            "cv": 0.02601519158760019
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 7454406,
+            "min": 7229497,
+            "max": 7624260,
+            "count": 7,
+            "cv": 0.015557618505546584
+          },
+          "kernel_block_mean_ns": {
+            "median": 7528664.066666666,
+            "min": 7346940.4,
+            "max": 7694877.133333334,
+            "count": 7,
+            "cv": 0.014108814924871472
+          },
+          "peak_rss_bytes": {
+            "median": 50417664,
+            "min": 47648768,
+            "max": 51470336,
+            "count": 7,
+            "cv": 0.022433798804138202
+          }
+        }
+      }
+    }
+  ]
+}

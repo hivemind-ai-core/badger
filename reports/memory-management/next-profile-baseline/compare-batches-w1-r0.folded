@@ -1,0 +1,82 @@
+<[u8] as core::cmp::PartialEq>::eq 1
+<alloc::collections::vec_deque::VecDeque<usize>>::is_empty 1
+<alloc::raw_vec::RawVecInner>::non_null::<*mut badger_runtime::gc::Header> 2
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 1
+<alloc::vec::Vec<u64>>::len 1
+<alloc::vec::Vec<u64>>::push_mut 1
+<badger_runtime::desc::TypeDesc>::repr 8
+<badger_runtime::list::Hdr>::page 6
+<core::option::Option<&mut badger_runtime::task::Task>>::is_some_and::<badger_runtime::task::is_done::{closure#0}> 1
+<core::option::Option<std::collections::hash::map::HashMap<u64, alloc::boxed::Box<badger_runtime::task::Task>, rustc_hash::FxBuildHasher>>>::get_or_insert_with::<<std::collections::hash::map::HashMap<u64, alloc::boxed::Box<badger_runtime::task::Task>, rustc_hash::FxBuildHasher> as core::default::Default>::default> 1
+<core::option::Option<usize>>::unwrap_or 1
+<hashbrown::map::HashMap<u64, alloc::boxed::Box<badger_runtime::task::Task>, rustc_hash::FxBuildHasher>>::get_mut::<u64> 1
+<hashbrown::raw::RawTableInner>::find_inner 1
+[libc.so.6+0x18f400] 2
+[libc.so.6+0x18f436] 1
+[libc.so.6+0x18fc84] 1
+[libc.so.6+0x18fc8a] 5
+[libc.so.6+0x18fcaa] 4
+[libc.so.6+0x18fcd6] 1
+[libc.so.6+0xa4f23] 1
+[libc.so.6+0xa4f3b] 1
+[libc.so.6+0xa4ffe] 1
+[libc.so.6+0xa6328] 1
+[libc.so.6+0xa633f] 2
+[libc.so.6+0xa65cd] 3
+[libc.so.6+0xa6ecb] 1
+[libc.so.6+0xa7cab] 1
+[libc.so.6+0xa7d67] 1
+[profile-beb0139-diagnostic+0xafddb0] 1
+[profile-beb0139-diagnostic+0xb32160] 1
+[profile-beb0139-diagnostic+0xb3bef0] 1
+[profile-beb0139-diagnostic+0xb51d00] 1
+[profile-beb0139-diagnostic+0xb81600] 1
+[profile-beb0139-diagnostic+0xb86730] 1
+[profile-beb0139-diagnostic+0xb86df0] 1
+__libc_free 2
+badger_runtime::channel::admit_sender_fast 1
+badger_runtime::channel::recv_fast 1
+badger_runtime::channel::send_fast 3
+badger_runtime::gc::alloc 8
+badger_runtime::gc::alloc_cell 4
+badger_runtime::gc::barrier 1
+badger_runtime::gc::collect_inner 1
+badger_runtime::gc::free_cell 1
+badger_runtime::gc::obj 2
+badger_runtime::gc::objects 2
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 6
+badger_runtime::intrinsics_std::list_builder_append 1
+badger_runtime::intrinsics_task::chan_send 1
+badger_runtime::list::copy_tail 4
+badger_runtime::list::finish 2
+badger_runtime::list::hdr 8
+badger_runtime::list::new 1
+badger_runtime::list::new_page 1
+badger_runtime::list::push 1
+badger_runtime::list::slots 1
+badger_runtime::make_enum 1
+badger_runtime::task::begin_park::{closure#0} 1
+badger_runtime::task::current 2
+badger_runtime::task::current_raw 1
+badger_runtime::task::current_temp_roots 2
+badger_runtime::task::rt 1
+badger_runtime::task::suspended_free 1
+calloc 1
+core::core_arch::x86::sse::_mm_prefetch::<3> 3
+core::mem::replace::<*mut badger_runtime::task::Task> 1
+core::mem::replace::<u64> 2
+core::ptr::copy_nonoverlapping::<u64> 1
+core::ptr::write::<(u64, u64, usize, u64, usize)> 1
+core::ptr::write::<u64> 1
+core::ptr::write_bytes::<u8> 1
+core::sync::atomic::atomic_compare_exchange::<u32> 1
+core::sync::atomic::atomic_compare_exchange::<u64> 2
+core::sync::atomic::atomic_compare_exchange_weak::<u8> 3
+core::sync::atomic::atomic_load::<u32> 3
+core::sync::atomic::atomic_load::<u64> 2
+core::sync::atomic::atomic_load::<u8> 2
+core::sync::atomic::atomic_load::<usize> 1
+corosensei::arch::x86_64::switch_and_link 1
+mprotect 1
+workload.batches#10.lambda8580 25
+workload.batches#10.lambda8580.lambda8582 54

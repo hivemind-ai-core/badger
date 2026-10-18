@@ -1,0 +1,147 @@
+{
+  "raw_sha256": "1dc9d17918ba90338ce5e35e86bc47a46447a5ecf4dbece2ed290975c7f67176",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1112515,
+            "min": 974158,
+            "max": 1585524,
+            "count": 15,
+            "cv": 0.13176855041371666
+          },
+          "kernel_block_mean_ns": {
+            "median": 1271520.8,
+            "min": 1096354.0,
+            "max": 1683273.6666666667,
+            "count": 15,
+            "cv": 0.10662139455382211
+          },
+          "peak_rss_bytes": {
+            "median": 54628352,
+            "min": 51412992,
+            "max": 57450496,
+            "count": 15,
+            "cv": 0.030797357529215717
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1151037,
+            "min": 989968,
+            "max": 1427891,
+            "count": 15,
+            "cv": 0.10840355100053771
+          },
+          "kernel_block_mean_ns": {
+            "median": 1286188.6,
+            "min": 1105978.0,
+            "max": 1648001.6,
+            "count": 15,
+            "cv": 0.10325120157583172
+          },
+          "peak_rss_bytes": {
+            "median": 54755328,
+            "min": 53039104,
+            "max": 59441152,
+            "count": 15,
+            "cv": 0.02558300680540638
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.022423730983786916,
+        "min": -0.15469081515007022,
+        "max": 0.4153467814757801,
+        "count": 15,
+        "cv": 9.954931750355092
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.01749860677245596,
+        "min": -0.19446772469756857,
+        "max": 0.29608701642946,
+        "count": 15,
+        "cv": 10.391810603450407
+      },
+      "block_mean_faster_pairs": 8
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1332394,
+            "min": 1290657,
+            "max": 1524129,
+            "count": 15,
+            "cv": 0.05261047411931303
+          },
+          "kernel_block_mean_ns": {
+            "median": 1470498.6,
+            "min": 1395503.5333333334,
+            "max": 1667781.0,
+            "count": 15,
+            "cv": 0.05236221347784404
+          },
+          "peak_rss_bytes": {
+            "median": 54759424,
+            "min": 49315840,
+            "max": 61329408,
+            "count": 15,
+            "cv": 0.061131193177013425
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1374001,
+            "min": 1232157,
+            "max": 1481991,
+            "count": 15,
+            "cv": 0.044471799918570795
+          },
+          "kernel_block_mean_ns": {
+            "median": 1477919.8666666667,
+            "min": 1351177.8666666667,
+            "max": 1622887.7333333334,
+            "count": 15,
+            "cv": 0.04986771096273305
+          },
+          "peak_rss_bytes": {
+            "median": 55635968,
+            "min": 52973568,
+            "max": 61038592,
+            "count": 15,
+            "cv": 0.044723253967123844
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.023930422399569107,
+        "min": -0.14874950517006602,
+        "max": 0.10096881386605094,
+        "count": 15,
+        "cv": 23.427216339728737
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": 0.03318978317238597,
+        "min": -0.11384056619744032,
+        "max": 0.1600912258392324,
+        "count": 15,
+        "cv": 10.482342883227956
+      },
+      "block_mean_faster_pairs": 6
+    }
+  ]
+}

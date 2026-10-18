@@ -1,0 +1,5 @@
+codec_paths: 48 source/old/new MIR GC stress checks passed
+schema_wire: 48 source/old/new MIR GC stress checks passed
+array_values: 48 source/old/new MIR GC stress checks passed
+data_symbol_keys: 48 source/old/new MIR GC stress checks passed
+224 codec checks passed

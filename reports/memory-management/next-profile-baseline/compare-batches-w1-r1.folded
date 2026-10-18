@@ -1,0 +1,81 @@
+<alloc::collections::vec_deque::VecDeque<usize>>::push_back_mut 1
+<alloc::raw_vec::RawVecInner>::non_null::<*mut badger_runtime::gc::Header> 1
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 1
+<alloc::vec::Vec<u64>>::truncate 1
+<badger_runtime::desc::TypeDesc>::repr 11
+<core::ops::range::Range<usize> as core::iter::range::RangeIteratorImpl>::spec_next 1
+<core::option::Option<&*mut badger_runtime::gc::Header>>::copied 1
+<core::slice::iter::Iter<badger_runtime::desc::Variant> as core::iter::traits::iterator::Iterator>::next 1
+<corosensei::coroutine::Coroutine<(), badger_runtime::task::Signal, ()>>::resume_inner 1
+<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get 1
+<u8 as core::slice::cmp::SlicePartialEq<u8>>::equal_same_length 2
+<usize as core::cmp::Ord>::max 1
+[libc.so.6+0x18f400] 2
+[libc.so.6+0x18f404] 1
+[libc.so.6+0x18f413] 1
+[libc.so.6+0x18f42e] 1
+[libc.so.6+0x18f453] 1
+[libc.so.6+0x18fc80] 2
+[libc.so.6+0x18fc8a] 2
+[libc.so.6+0x18fca2] 1
+[libc.so.6+0x18fcaa] 1
+[libc.so.6+0x18fcee] 1
+[libc.so.6+0x18fd36] 1
+[libc.so.6+0x18fd44] 1
+[libc.so.6+0xa0952] 1
+[libc.so.6+0xa4f3b] 1
+[libc.so.6+0xa4ffe] 1
+[libc.so.6+0xa5023] 1
+[libc.so.6+0xa6198] 1
+[libc.so.6+0xa633f] 1
+[libc.so.6+0xa65cd] 2
+[libc.so.6+0xa6ecb] 1
+[libc.so.6+0xa6f09] 1
+[libc.so.6+0xa7291] 1
+[libc.so.6+0xa7794] 1
+[libc.so.6+0xa78aa] 2
+[libc.so.6+0xa7c1b] 1
+[libc.so.6+0xa7cab] 1
+[libc.so.6+0xa7d6d] 1
+[libc.so.6+0xa8e90] 1
+[profile-beb0139-diagnostic+0xb44090] 1
+[profile-beb0139-diagnostic+0xb51d00] 1
+[profile-beb0139-diagnostic+0xb864b0] 1
+__libc_free 2
+badger_runtime::abi::badger_rt_list_len 1
+badger_runtime::channel::done_waiting::{closure#0} 1
+badger_runtime::channel::recv_free 1
+badger_runtime::channel::send 1
+badger_runtime::channel::send_free 1
+badger_runtime::gc::alloc 2
+badger_runtime::gc::alloc_cell 1
+badger_runtime::gc::collect_inner 1
+badger_runtime::gc::finalize 2
+badger_runtime::gc::free_cell 2
+badger_runtime::gc::objects 1
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 5
+badger_runtime::gc::trim_empty_chunks 2
+badger_runtime::intrinsics_std::list_builder_append 1
+badger_runtime::intrinsics_task::chan_recv_split 3
+badger_runtime::intrinsics_task::chan_recv_split::{closure#0} 1
+badger_runtime::intrinsics_task::task_stage_pop 1
+badger_runtime::list::copy_tail 1
+badger_runtime::list::hdr 8
+badger_runtime::list::new 1
+badger_runtime::list::new_page 2
+badger_runtime::list::push 1
+badger_runtime::list::slots 1
+badger_runtime::task::current 2
+badger_runtime::task::current_raw 1
+core::core_arch::x86::sse::_mm_prefetch::<3> 1
+core::mem::replace::<*mut badger_runtime::task::Task> 1
+core::ptr::eq::<badger_runtime::desc::TypeDesc> 1
+core::ptr::write::<(u64, u64, usize)> 1
+core::ptr::write::<(u64, u64, usize, u64, usize)> 1
+core::ptr::write::<(u64, usize)> 1
+core::ptr::write::<u64> 3
+core::sync::atomic::atomic_compare_exchange_weak::<u8> 1
+core::sync::atomic::atomic_load::<u32> 2
+mprotect 1
+workload.batches#10.lambda8580 42
+workload.batches#10.lambda8580.lambda8582 60

@@ -1,0 +1,147 @@
+{
+  "raw_sha256": "595e7f1e497753bfcd492c5bfb2a8d640e867a26368459042917a56b5534ddf7",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1170032,
+            "min": 996801,
+            "max": 1455512,
+            "count": 15,
+            "cv": 0.12280648911691407
+          },
+          "kernel_block_mean_ns": {
+            "median": 1334390.0,
+            "min": 1203998.0,
+            "max": 1525863.4666666666,
+            "count": 15,
+            "cv": 0.07317325097275976
+          },
+          "peak_rss_bytes": {
+            "median": 55025664,
+            "min": 50917376,
+            "max": 58880000,
+            "count": 15,
+            "cv": 0.03952886552952329
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1263766,
+            "min": 1008482,
+            "max": 1518289,
+            "count": 15,
+            "cv": 0.14821104441533278
+          },
+          "kernel_block_mean_ns": {
+            "median": 1316289.0666666667,
+            "min": 1119597.9333333333,
+            "max": 1625763.0,
+            "count": 15,
+            "cv": 0.09444521391725093
+          },
+          "peak_rss_bytes": {
+            "median": 54460416,
+            "min": 51400704,
+            "max": 59990016,
+            "count": 15,
+            "cv": 0.035949536762991646
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.04749926875000443,
+        "min": -0.26880110885979824,
+        "max": 0.511101012137829,
+        "count": 15,
+        "cv": 2.5369617697788502
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": 0.04567048369645588,
+        "min": -0.16096648406138137,
+        "max": 0.32441001260898306,
+        "count": 15,
+        "cv": 4.960360372282452
+      },
+      "block_mean_faster_pairs": 6
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1390903,
+            "min": 1265850,
+            "max": 1508600,
+            "count": 15,
+            "cv": 0.054733451552303185
+          },
+          "kernel_block_mean_ns": {
+            "median": 1472827.1333333333,
+            "min": 1373414.5333333334,
+            "max": 1701044.0,
+            "count": 15,
+            "cv": 0.06550719608916651
+          },
+          "peak_rss_bytes": {
+            "median": 54599680,
+            "min": 52387840,
+            "max": 60088320,
+            "count": 15,
+            "cv": 0.040627862563922944
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1325761,
+            "min": 1252586,
+            "max": 1437158,
+            "count": 15,
+            "cv": 0.04046283151997188
+          },
+          "kernel_block_mean_ns": {
+            "median": 1419863.4666666666,
+            "min": 1322902.7333333334,
+            "max": 1545638.2,
+            "count": 15,
+            "cv": 0.04264402187096313
+          },
+          "peak_rss_bytes": {
+            "median": 56180736,
+            "min": 49721344,
+            "max": 59973632,
+            "count": 15,
+            "cv": 0.049691746617826625
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.038457750109101796,
+        "min": -0.16224285463955168,
+        "max": 0.09832207607536447,
+        "count": 15,
+        "cv": -1.9293211030168806
+      },
+      "faster_pairs": 10,
+      "paired_block_mean_change": {
+        "median": -0.027389121285211204,
+        "min": -0.22229952115681106,
+        "max": 0.09444436731847605,
+        "count": 15,
+        "cv": -1.943578467112013
+      },
+      "block_mean_faster_pairs": 11
+    }
+  ]
+}

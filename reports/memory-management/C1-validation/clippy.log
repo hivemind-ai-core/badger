@@ -1,0 +1,27 @@
+    Checking badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Checking bitflags v2.13.2
+    Checking utf8parse v0.2.2
+    Checking fastrand v2.5.0
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-query v1.1.5
+    Checking colorchoice v1.0.5
+    Checking anstyle v1.0.14
+    Checking clap_lex v1.1.1
+    Checking strsim v0.11.1
+    Checking badger_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native_demo)
+    Checking anstyle-parse v1.0.0
+    Checking backon v1.6.0
+    Checking pulldown-cmark v0.13.4
+    Checking rusqlite v0.38.0
+    Checking anstream v1.0.0
+    Checking redis v1.7.1
+    Checking clap_builder v4.6.7
+    Checking badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+    Checking badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+    Checking clap v4.6.7
+    Checking badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Checking badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+    Checking badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+    Checking badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+    Checking badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 5.17s

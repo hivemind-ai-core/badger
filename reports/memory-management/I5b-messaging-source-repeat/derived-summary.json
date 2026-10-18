@@ -1,0 +1,78 @@
+{
+  "raw_sha256": "fd7cd3eca1486d8d834fb397d0c3922eb5f908b0da3c5f8ba512b10f37204930",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 950775,
+            "min": 828478,
+            "max": 1268886,
+            "count": 15,
+            "cv": 0.1358044847063276
+          },
+          "kernel_block_mean_ns": {
+            "median": 1030376.9333333333,
+            "min": 957410.1333333333,
+            "max": 1240033.4666666666,
+            "count": 15,
+            "cv": 0.07349566022570307
+          },
+          "peak_rss_bytes": {
+            "median": 38309888,
+            "min": 34156544,
+            "max": 42033152,
+            "count": 15,
+            "cv": 0.05195921536485857
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1032828,
+            "min": 896665,
+            "max": 1293431,
+            "count": 15,
+            "cv": 0.1283660021930996
+          },
+          "kernel_block_mean_ns": {
+            "median": 1139242.2666666666,
+            "min": 998615.4666666667,
+            "max": 1432624.9333333333,
+            "count": 15,
+            "cv": 0.09536879070568394
+          },
+          "peak_rss_bytes": {
+            "median": 37076992,
+            "min": 34369536,
+            "max": 43040768,
+            "count": 15,
+            "cv": 0.07759698153028374
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.13319865344169068,
+        "min": -0.23281760536407525,
+        "max": 0.4200436924566129,
+        "count": 15,
+        "cv": 1.2980587409379538
+      },
+      "faster_pairs": 2,
+      "paired_block_mean_change": {
+        "median": 0.110788228306955,
+        "min": -0.11919705177849493,
+        "max": 0.32634982708807425,
+        "count": 15,
+        "cv": 0.9634930732322976
+      },
+      "block_mean_faster_pairs": 2
+    }
+  ]
+}

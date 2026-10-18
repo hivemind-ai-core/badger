@@ -1,0 +1,67 @@
+<[u8] as core::cmp::PartialEq>::eq 1
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 1
+<alloc::vec::Vec<u64>>::push_mut 2
+<badger_runtime::desc::TypeDesc>::repr 4
+<badger_runtime::list::Hdr>::page 1
+<core::slice::iter::Iter<badger_runtime::desc::Variant> as core::iter::traits::iterator::Iterator>::position::<<badger_runtime::desc::TypeDesc>::variant_index::{closure#0}> 1
+<corosensei::coroutine::Coroutine<(), badger_runtime::task::Signal, ()>>::resume_inner 1
+<usize as core::cmp::Ord>::max 1
+<usize as core::slice::index::SliceIndex<[*mut badger_runtime::gc::Header]>>::get 1
+[[vdso]+0xd4c] 5
+[libc.so.6+0x18fc63] 1
+[libc.so.6+0x18fc80] 2
+[libc.so.6+0x18fc8a] 3
+[libc.so.6+0x18fcaa] 1
+[libc.so.6+0x18fcc9] 1
+[libc.so.6+0x18fccf] 1
+[libc.so.6+0x18fd2f] 1
+[libc.so.6+0x18fd3d] 1
+[libc.so.6+0x18fd44] 1
+[libc.so.6+0xa0952] 1
+[libc.so.6+0xa4ffe] 1
+[libc.so.6+0xa6328] 1
+[libc.so.6+0xa653f] 1
+[libc.so.6+0xa65cd] 6
+[libc.so.6+0xa7d31] 2
+[libc.so.6+0xa97f0] 1
+[profile-beb0139-diagnostic+0xb48ff0] 1
+[profile-beb0139-diagnostic+0xb86df0] 1
+__mmap 1
+__sched_yield 1
+badger_runtime::channel::note_waiting 1
+badger_runtime::channel::recv_fast 1
+badger_runtime::channel::send_free 1
+badger_runtime::gc::alloc 4
+badger_runtime::gc::alloc_cell 4
+badger_runtime::gc::budget_check 1
+badger_runtime::gc::collect_inner 2
+badger_runtime::gc::finalize 1
+badger_runtime::gc::obj 3
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 3
+badger_runtime::gc::trim_empty_chunks 5
+badger_runtime::gc::trim_empty_chunks::{closure#4} 1
+badger_runtime::intrinsics_task::chan_recv_split 2
+badger_runtime::list::copy_tail 2
+badger_runtime::list::finish 2
+badger_runtime::list::hdr 3
+badger_runtime::list::new_page 1
+badger_runtime::list::push 4
+badger_runtime::make_enum 1
+badger_runtime::task::current 2
+badger_runtime::task::current_raw 1
+badger_runtime::task::holds_lock 1
+badger_runtime::task::in_compiled 1
+badger_runtime::task::worker_index 2
+core::ptr::copy_nonoverlapping::<u8> 1
+core::ptr::write::<(u64, u64, usize, u64, usize)> 2
+core::ptr::write::<*mut badger_runtime::gc::Header> 1
+core::sync::atomic::atomic_add::<isize, isize> 1
+core::sync::atomic::atomic_compare_exchange::<u64> 1
+core::sync::atomic::atomic_compare_exchange_weak::<u8> 2
+core::sync::atomic::atomic_load::<u32> 3
+core::sync::atomic::atomic_load::<usize> 2
+core::sync::atomic::atomic_sub::<isize, isize> 1
+mprotect 3
+syscall 2
+workload.batches#10.lambda8580 43
+workload.batches#10.lambda8580.lambda8582 74

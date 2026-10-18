@@ -1,0 +1,78 @@
+{
+  "raw_sha256": "8b390cf64be317bf8c04818a7105475ec3450f482795c0128769b98812283139",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1315032,
+            "min": 1263346,
+            "max": 1414548,
+            "count": 15,
+            "cv": 0.031739906999591755
+          },
+          "kernel_block_mean_ns": {
+            "median": 1381076.8,
+            "min": 1295967.4666666666,
+            "max": 1516206.7333333334,
+            "count": 15,
+            "cv": 0.052430084615769354
+          },
+          "peak_rss_bytes": {
+            "median": 33902592,
+            "min": 29589504,
+            "max": 36028416,
+            "count": 15,
+            "cv": 0.055965270504516065
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1279607,
+            "min": 1230586,
+            "max": 1437971,
+            "count": 15,
+            "cv": 0.04062034200796989
+          },
+          "kernel_block_mean_ns": {
+            "median": 1342070.4,
+            "min": 1269468.2666666666,
+            "max": 1496616.8,
+            "count": 15,
+            "cv": 0.050900175331212834
+          },
+          "peak_rss_bytes": {
+            "median": 31850496,
+            "min": 29745152,
+            "max": 36290560,
+            "count": 15,
+            "cv": 0.05300488963042122
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.03195333252953392,
+        "min": -0.09236935521001788,
+        "max": 0.09412894394644589,
+        "count": 15,
+        "cv": -1.9345238237579387
+      },
+      "faster_pairs": 12,
+      "paired_block_mean_change": {
+        "median": -0.027548586395257146,
+        "min": -0.14334232974872319,
+        "max": 0.09585828778176864,
+        "count": 15,
+        "cv": -1.79528461717535
+      },
+      "block_mean_faster_pairs": 12
+    }
+  ]
+}

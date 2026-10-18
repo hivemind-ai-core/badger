@@ -167,3 +167,11 @@ Next profile the remaining record/JSON and generic scalar-map read costs, and
 isolate the two-worker messaging shift with native/source layout controls.
 Pointer-map tracing/scaling, broader parameter/interprocedural ownership proofs,
 packed records and task/transfer arenas remain open; this is not GC bypass.
+
+Followup on `b080078`: [fresh source/native controls](W1-followup.md) reproduce
+the two-worker source slowdown (+13.3% paired median/+11.1% block mean), while
+identical old MIR across native binaries is -3.2%/-2.8% versus a near-zero control.
+The source/JIT/layout question remains open. Fixed-eight-consumer coverage now
+separates task count from runtime workers; its profiles identify growing channel
+spin and worker wake/park CPU in the cheap messaging shape. This does not revise
+the historical I5b measurements or attribute the source regression to one cause.

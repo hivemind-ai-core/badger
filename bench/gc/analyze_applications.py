@@ -24,18 +24,29 @@ def main():
     (args.directory / 'derived-summary.json').write_text(json.dumps(report, indent=2) + '\n')
     lines = ['# Application kernel medians', '',
              'Each fresh process contributes one median; all inner outputs are checked. Negative changes are faster/smaller. Paired ranges are not confidence intervals.', '']
+    baselines = [r for r in rows if len(r['variants']) == 1]
+    comparisons = [r for r in rows if len(r['variants']) == 2]
+    if baselines:
+        lines += ['## Single-variant baselines', '',
+                  '| Suite/case | Workers | Variant | Kernel ms median [min, max] | Block mean ms | Peak RSS MiB | Processes |',
+                  '|---|---:|---|---:|---:|---:|---:|']
+        for row in baselines:
+            variant, values = next(iter(row['variants'].items()))
+            k = values['kernel_ns']
+            lines.append(f"| {row['suite']}/{row['case']} | {row['workers']} | {variant} | {k['median']/1e6:.3f} [{k['min']/1e6:.3f}, {k['max']/1e6:.3f}] | {values['kernel_block_mean_ns']['median']/1e6:.3f} | {values['peak_rss_bytes']['median']/2**20:.1f} | {k['count']} |")
+        lines += ['']
     for metric, paired, faster, title in [
         ('kernel_ns', 'paired_work_change', 'faster_pairs', None),
         ('kernel_block_mean_ns', 'paired_block_mean_change', 'block_mean_faster_pairs', 'Block means retain expensive iterations'),
     ]:
+        if not comparisons:
+            break
         if title:
             lines += ['', '## ' + title, '',
                       'One arithmetic mean of measured kernel iterations per process. This includes costly GC iterations but excludes fixture/I/O time as in the original contract. Inner iterations remain correlated.', '']
         lines += ['| Suite/case | Workers | Base / candidate ms | Group change | Paired median [min, max] | Faster pairs | RSS change |',
                   '|---|---:|---:|---:|---:|---:|---:|']
-        for s in rows:
-            if len(s['variants']) != 2:
-                continue
+        for s in comparisons:
             a, b = s['variants']['baseline'], s['variants']['candidate']
             x, y, q = a[metric]['median'], b[metric]['median'], s[paired]
             rss = (b['peak_rss_bytes']['median'] / a['peak_rss_bytes']['median'] - 1) * 100

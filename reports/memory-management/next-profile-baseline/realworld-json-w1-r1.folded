@@ -1,0 +1,484 @@
+<&mut alloc::string::String as core::fmt::Write::write_fmt::SpecWriteFmt>::spec_write_fmt 2
+<&mut serde_json::de::Deserializer<serde_json::read::StrRead> as serde_core::de::Deserializer>::deserialize_any::<<serde_json::value::Value as serde_core::de::Deserialize>::deserialize::ValueVisitor> 79
+<&str as core::fmt::Display>::fmt 5
+<*mut core::mem::maybe_uninit::MaybeUninit<alloc::string::String>>::add 3
+<*mut u8>::add 17
+<<serde_json::value::Value as serde_core::de::Deserialize>::deserialize::ValueVisitor as serde_core::de::Visitor>::visit_map::<serde_json::de::MapAccess<serde_json::read::StrRead>> 148
+<[(usize, usize)]>::binary_search_by::<<[(usize, usize)]>::partition_point<badger_runtime::gc::trim_empty_chunks::{closure#4}::{closure#0}>::{closure#0}> 2
+<[u8] as core::cmp::PartialEq>::eq 5
+<alloc::alloc::Global>::alloc_impl_runtime 6
+<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value> as core::iter::traits::collect::IntoIterator>::into_iter 2
+<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>>::entry 20
+<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>>::insert 71
+<alloc::collections::btree::map::IntoIter<alloc::string::String, serde_json::value::Value> as core::ops::drop::Drop>::drop 4
+<alloc::collections::btree::map::IntoIter<alloc::string::String, serde_json::value::Value>>::dying_next 26
+<alloc::collections::btree::map::entry::VacantEntry<alloc::string::String, serde_json::value::Value>>::insert 2
+<alloc::collections::btree::map::entry::VacantEntry<alloc::string::String, serde_json::value::Value>>::insert_entry 18
+<alloc::collections::btree::navigate::LazyLeafRange<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value>>::init_front 3
+<alloc::collections::btree::node::Handle<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>, alloc::collections::btree::node::marker::Edge>>::deallocating_next::<alloc::alloc::Global> 3
+<alloc::collections::btree::node::Handle<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>, alloc::collections::btree::node::marker::KV>>::right_edge 2
+<alloc::collections::btree::node::Handle<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>, alloc::collections::btree::node::marker::Edge>>::right_kv 2
+<alloc::collections::btree::node::Handle<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Mut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>, alloc::collections::btree::node::marker::Edge>>::insert_fit 14
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>>::len 1
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Immut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>>::find_key_index::<alloc::string::String> 19
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Immut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>>::keys 3
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Mut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>>::len 1
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Mut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>>::push_with_handle 4
+<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Mut, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>>::find_key_index::<alloc::string::String> 17
+<alloc::raw_vec::RawVec<alloc::boxed::Box<regex_automata::meta::regex::Cache>>>::grow_one 4
+<alloc::raw_vec::RawVecInner<_>>::reserve::do_reserve_and_handle::<alloc::alloc::Global> 25
+<alloc::raw_vec::RawVecInner>::capacity 56
+<alloc::raw_vec::RawVecInner>::current_memory 42
+<alloc::raw_vec::RawVecInner>::finish_grow 64
+<alloc::raw_vec::RawVecInner>::grow_amortized 17
+<alloc::raw_vec::RawVecInner>::needs_to_grow 1
+<alloc::raw_vec::RawVecInner>::non_null::<*mut badger_runtime::gc::Header> 22
+<alloc::raw_vec::RawVecInner>::non_null::<alloc::string::String> 30
+<alloc::raw_vec::RawVecInner>::non_null::<badger_runtime::desc::Variant> 2
+<alloc::raw_vec::RawVecInner>::non_null::<u64> 9
+<alloc::raw_vec::RawVecInner>::non_null::<u8> 70
+<alloc::raw_vec::RawVecInner>::reserve 12
+<alloc::raw_vec::RawVecInner>::set_ptr_and_cap 9
+<alloc::raw_vec::RawVecInner>::try_allocate_in 1
+<alloc::string::String as core::fmt::Display>::fmt 5
+<alloc::string::String as core::fmt::Write>::write_str 33
+<alloc::string::String>::new 1
+<alloc::string::String>::with_capacity 1
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::len 4
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 11
+<alloc::vec::Vec<badger_runtime::desc::Field>>::as_slice 5
+<alloc::vec::Vec<badger_runtime::desc::Variant>>::as_slice 1
+<alloc::vec::Vec<u64>>::len 2
+<alloc::vec::Vec<u64>>::push_mut 7
+<alloc::vec::Vec<u64>>::truncate 4
+<alloc::vec::Vec<u8>>::append_elements 37
+<alloc::vec::Vec<u8>>::as_slice 13
+<alloc::vec::Vec<u8>>::len 10
+<alloc::vec::Vec<u8>>::push_mut 3
+<badger_runtime::desc::Repr>::load 7
+<badger_runtime::desc::Repr>::store 15
+<badger_runtime::desc::TypeDesc>::payload_size 1
+<badger_runtime::desc::TypeDesc>::repr 8
+<badger_runtime::gc::Header>::desc 2
+<badger_runtime::gc::Header>::payload_size 4
+<badger_runtime::gc::Roots>::new 4
+<badger_runtime::list::Hdr>::page 4
+<core::alloc::layout::Layout>::is_size_alignment_valid 1
+<core::cell::Cell<std::sys::thread_local::native::eager::State>>::get 14
+<core::fmt::Arguments>::estimated_capacity 52
+<core::fmt::Formatter>::new 13
+<core::fmt::Formatter>::pad 40
+<core::fmt::Formatter>::write_str 1
+<core::iter::adapters::zip::Zip<core::slice::iter::Iter<badger_runtime::desc::Field>, core::slice::iter::Iter<u64>> as core::iter::adapters::zip::ZipImpl<core::slice::iter::Iter<badger_runtime::desc::Field>, core::slice::iter::Iter<u64>>>::next 3
+<core::marker::PhantomData<serde_json::value::Value> as serde_core::de::DeserializeSeed>::deserialize::<&mut serde_json::de::Deserializer<serde_json::read::StrRead>> 3
+<core::mem::maybe_uninit::MaybeUninit<alloc::string::String>>::write 15
+<core::mem::maybe_uninit::MaybeUninit<serde_json::value::Value>>::write 8
+<core::mem::maybe_uninit::MaybeUninit<u16>>::write 1
+<core::mem::maybe_uninit::MaybeUninit<u8>>::write 1
+<core::ops::range::RangeFrom<usize> as core::slice::index::SliceIndex<[u8]>>::index 1
+<core::option::Option<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Owned, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>>>::insert 3
+<core::option::Option<core::iter::adapters::copied::Copied<core::slice::iter::Iter<*mut badger_runtime::gc::Header>>>>::as_mut 1
+<core::option::Option<core::ptr::non_null::NonNull<alloc::collections::btree::node::InternalNode<alloc::string::String, serde_json::value::Value>>>>::as_ref 2
+<core::option::Option<serde_json::number::Number>>::map_or::<serde_json::value::Value, serde_json::value::Value::Number> 2
+<core::ptr::non_null::NonNull<alloc::string::String> as core::cmp::PartialEq>::eq 5
+<core::ptr::non_null::NonNull<alloc::string::String>>::add 2
+<core::ptr::non_null::NonNull<badger_runtime::desc::Field> as core::cmp::PartialEq>::eq 2
+<core::ptr::non_null::NonNull<core::fmt::rt::Argument>>::add 8
+<core::ptr::non_null::NonNull<u64> as core::cmp::PartialEq>::eq 1
+<core::ptr::non_null::NonNull<u8> as core::cmp::PartialEq>::eq 2
+<core::ptr::non_null::NonNull<u8>>::add 13
+<core::result::Result<&[u8; 8], core::array::TryFromSliceError>>::copied 4
+<core::result::Result<&str, serde_json::error::Error>>::map::<serde_json::read::Reference<str>, serde_json::read::Reference<str>::Borrowed> 2
+<core::result::Result<&str, serde_json::error::Error>>::map::<serde_json::read::Reference<str>, serde_json::read::Reference<str>::Copied> 5
+<core::result::Result<core::ptr::non_null::NonNull<[u8]>, alloc::collections::TryReserveError> as core::ops::try_trait::Try>::branch 33
+<core::result::Result<serde_json::value::Value, serde_json::error::Error>>::map_err::<badger_runtime::codec::DecodeError, badger_runtime::codec::decode::{closure#0}> 1
+<core::result::Result<u64, badger_runtime::codec::DecodeError> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, badger_runtime::codec::DecodeError>>>::from_residual 1
+<core::result::Result<u64, badger_runtime::codec::DecodeError> as core::ops::try_trait::Try>::branch 3
+<core::slice::iter::Iter<alloc::string::String> as core::iter::traits::iterator::Iterator>::find_map::<&serde_json::value::Value, badger_runtime::codec::lookup::{closure#0}> 13
+<core::slice::iter::Iter<badger_runtime::desc::Field> as core::iter::traits::iterator::Iterator>::next 6
+<core::str::iter::SplitInternal<&str>>::next 4
+<core::str::pattern::StrSearcher as core::str::pattern::Searcher>::next_match 3
+<core::str::pattern::TwoWaySearcher>::next::<core::str::pattern::MatchOnly> 87
+<i64 as alloc::string::SpecToString>::spec_to_string 15
+<i64 as alloc::string::ToString>::to_string 1
+<isize as core::cmp::Ord>::cmp 41
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::new 16
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::parse_any_number 10
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::parse_ident 2
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::parse_integer 30
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::parse_number 13
+<serde_json::de::Deserializer<serde_json::read::StrRead>>::parse_object_colon 4
+<serde_json::de::MapAccess<_> as serde_core::de::MapAccess>::next_key_seed::has_next_key::<serde_json::read::StrRead> 23
+<serde_json::de::MapAccess<serde_json::read::StrRead> as serde_core::de::MapAccess>::next_entry_seed::<core::marker::PhantomData<alloc::string::String>, core::marker::PhantomData<serde_json::value::Value>> 108
+<serde_json::de::MapAccess<serde_json::read::StrRead> as serde_core::de::MapAccess>::next_key_seed::<core::marker::PhantomData<alloc::string::String>> 9
+<serde_json::de::MapAccess<serde_json::read::StrRead> as serde_core::de::MapAccess>::next_key_seed::<serde_json::value::de::KeyClassifier> 3
+<serde_json::de::MapAccess<serde_json::read::StrRead> as serde_core::de::MapAccess>::next_value_seed::<core::marker::PhantomData<serde_json::value::Value>> 3
+<serde_json::de::MapKey<serde_json::read::StrRead> as serde_core::de::Deserializer>::deserialize_any::<serde_core::de::impls::StringVisitor> 18
+<serde_json::de::MapKey<serde_json::read::StrRead> as serde_core::de::Deserializer>::deserialize_any::<serde_json::value::de::KeyClassifier> 2
+<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>::insert 2
+<serde_json::number::Number>::as_f64 2
+<serde_json::number::Number>::as_i64 4
+<serde_json::read::SliceRead as serde_json::read::Read>::discard 16
+<serde_json::read::SliceRead as serde_json::read::Read>::next 18
+<serde_json::read::SliceRead as serde_json::read::Read>::peek 60
+<serde_json::read::SliceRead>::parse_str_bytes::<str, <serde_json::read::StrRead as serde_json::read::Read>::parse_str::{closure#0}> 87
+<serde_json::read::SliceRead>::skip_to_escape 98
+<serde_json::read::SliceRead>::skip_to_escape_slow 5
+<serde_json::read::StrRead as serde_json::read::Read>::parse_str 26
+<serde_json::read::StrRead>::new 1
+<serde_json::value::Value as serde_core::de::Deserialize>::deserialize::<&mut serde_json::de::Deserializer<serde_json::read::StrRead>> 26
+<serde_json::value::Value>::as_object 1
+<std::alloc::System as core::alloc::global::GlobalAlloc>::dealloc 18
+<std::alloc::System as core::alloc::global::GlobalAlloc>::realloc 1
+<std::thread::local::LocalKey<core::cell::RefCell<core::option::Option<alloc::rc::Rc<badger_runtime::codec::WireNames>>>>>::with::<badger_runtime::codec::wire_name::{closure#0}, alloc::string::String> 12
+<str as core::fmt::Display>::fmt 7
+<str>::is_empty 11
+<u64>::_fmt_inner 16
+<u64>::trailing_zeros 9
+<u64>::wrapping_sub 4
+<u8 as core::slice::cmp::SliceOrd>::compare 70
+<u8 as core::slice::cmp::SlicePartialEq<u8>>::equal_same_length 4
+<usize as core::cmp::Ord>::max 9
+<usize as core::cmp::Ord>::min 1
+<usize as core::slice::index::SliceIndex<[(usize, usize)]>>::get_unchecked 1
+<usize as core::slice::index::SliceIndex<[core::mem::maybe_uninit::MaybeUninit<alloc::string::String>]>>::get_unchecked_mut 12
+<usize as core::slice::index::SliceIndex<[u8]>>::get 1
+<usize>::checked_add 11
+<usize>::overflowing_mul 19
+<usize>::saturating_add 2
+<usize>::wrapping_sub 15
+[libc.so.6+0x185dc0] 36
+[libc.so.6+0x185dc4] 25
+[libc.so.6+0x185dd8] 40
+[libc.so.6+0x185dde] 12
+[libc.so.6+0x185de5] 49
+[libc.so.6+0x185de9] 2
+[libc.so.6+0x185deb] 39
+[libc.so.6+0x185df7] 43
+[libc.so.6+0x185dfb] 8
+[libc.so.6+0x185dfd] 15
+[libc.so.6+0x18f400] 88
+[libc.so.6+0x18f404] 61
+[libc.so.6+0x18f413] 3
+[libc.so.6+0x18f428] 2
+[libc.so.6+0x18f42e] 6
+[libc.so.6+0x18f436] 6
+[libc.so.6+0x18f439] 28
+[libc.so.6+0x18f43c] 4
+[libc.so.6+0x18f43e] 24
+[libc.so.6+0x18f441] 10
+[libc.so.6+0x18f468] 1
+[libc.so.6+0x18f46c] 2
+[libc.so.6+0x18f46e] 1
+[libc.so.6+0x18f473] 3
+[libc.so.6+0x18f478] 14
+[libc.so.6+0x18f47a] 20
+[libc.so.6+0x18f484] 3
+[libc.so.6+0x18f48a] 1
+[libc.so.6+0x18f494] 2
+[libc.so.6+0x18f4b1] 3
+[libc.so.6+0x18f4b7] 3
+[libc.so.6+0x18f4bd] 13
+[libc.so.6+0x18f4c2] 8
+[libc.so.6+0x18fc63] 1
+[libc.so.6+0x18fc69] 3
+[libc.so.6+0x18fc80] 3
+[libc.so.6+0x18fc84] 2
+[libc.so.6+0x18fca2] 7
+[libc.so.6+0x18fcaa] 6
+[libc.so.6+0x18fcc9] 9
+[libc.so.6+0x18fd07] 1
+[libc.so.6+0x18fd0e] 1
+[libc.so.6+0x18fd60] 1
+[libc.so.6+0xa4f10] 2
+[libc.so.6+0xa4f15] 2
+[libc.so.6+0xa4f23] 14
+[libc.so.6+0xa4f2d] 1
+[libc.so.6+0xa4f31] 2
+[libc.so.6+0xa4f3b] 8
+[libc.so.6+0xa4f41] 2
+[libc.so.6+0xa4f45] 2
+[libc.so.6+0xa4f4c] 1
+[libc.so.6+0xa4f77] 2
+[libc.so.6+0xa4fe0] 1
+[libc.so.6+0xa4fe4] 1
+[libc.so.6+0xa4fee] 5
+[libc.so.6+0xa4ff1] 5
+[libc.so.6+0xa4ff8] 1
+[libc.so.6+0xa4ffe] 2
+[libc.so.6+0xa5000] 2
+[libc.so.6+0xa5005] 3
+[libc.so.6+0xa502a] 1
+[libc.so.6+0xa502e] 3
+[libc.so.6+0xa503e] 1
+[libc.so.6+0xa5042] 1
+[libc.so.6+0xa5047] 3
+[libc.so.6+0xa5050] 1
+[libc.so.6+0xa505b] 2
+[libc.so.6+0xa506c] 1
+[libc.so.6+0xa5070] 2
+[libc.so.6+0xa5082] 2
+[libc.so.6+0xa5089] 1
+[libc.so.6+0xa5091] 5
+[libc.so.6+0xa5094] 5
+[libc.so.6+0xa5098] 19
+[libc.so.6+0xa509d] 4
+[libc.so.6+0xa50a7] 3
+[libc.so.6+0xa50b2] 3
+[libc.so.6+0xa5b21] 1
+[libc.so.6+0xa6190] 4
+[libc.so.6+0xa6191] 2
+[libc.so.6+0xa6194] 2
+[libc.so.6+0xa6198] 1
+[libc.so.6+0xa6199] 1
+[libc.so.6+0xa619d] 6
+[libc.so.6+0xa61a1] 7
+[libc.so.6+0xa61bb] 4
+[libc.so.6+0xa61c1] 3
+[libc.so.6+0xa61c5] 3
+[libc.so.6+0xa61e4] 3
+[libc.so.6+0xa6230] 1
+[libc.so.6+0xa6233] 4
+[libc.so.6+0xa623e] 2
+[libc.so.6+0xa6244] 1
+[libc.so.6+0xa6265] 1
+[libc.so.6+0xa6267] 1
+[libc.so.6+0xa6269] 5
+[libc.so.6+0xa626a] 1
+[libc.so.6+0xa630e] 1
+[libc.so.6+0xa631f] 1
+[libc.so.6+0xa6328] 17
+[libc.so.6+0xa6337] 2
+[libc.so.6+0xa633b] 1
+[libc.so.6+0xa633f] 21
+[libc.so.6+0xa6342] 1
+[libc.so.6+0xa6e20] 9
+[libc.so.6+0xa6e2e] 1
+[libc.so.6+0xa6e3b] 4
+[libc.so.6+0xa6e51] 1
+[libc.so.6+0xa6e8b] 25
+[libc.so.6+0xa6ebd] 1
+[libc.so.6+0xa6ecb] 2
+[libc.so.6+0xa6f09] 1
+[libc.so.6+0xa6fe7] 1
+[libc.so.6+0xa6ff0] 2
+[libc.so.6+0xa6ff4] 3
+[libc.so.6+0xa7107] 1
+[libc.so.6+0xa7111] 1
+[libc.so.6+0xa7113] 2
+[libc.so.6+0xa711d] 1
+[libc.so.6+0xa7162] 6
+[libc.so.6+0xa7166] 15
+[libc.so.6+0xa7170] 1
+[libc.so.6+0xa717d] 1
+[libc.so.6+0xa7192] 1
+[libc.so.6+0xa7196] 2
+[libc.so.6+0xa71a1] 1
+[libc.so.6+0xa71cc] 1
+[libc.so.6+0xa71dc] 3
+[libc.so.6+0xa71e4] 1
+[libc.so.6+0xa71e8] 1
+[libc.so.6+0xa71f4] 1
+[libc.so.6+0xa71f8] 1
+[libc.so.6+0xa71fc] 1
+[libc.so.6+0xa71fd] 1
+[libc.so.6+0xa7273] 4
+[libc.so.6+0xa7286] 1
+[libc.so.6+0xa7291] 4
+[libc.so.6+0xa729e] 1
+[libc.so.6+0xa73e4] 1
+[libc.so.6+0xa73fc] 1
+[libc.so.6+0xa7400] 2
+[libc.so.6+0xa7407] 1
+[libc.so.6+0xa740e] 1
+[libc.so.6+0xa7421] 1
+[libc.so.6+0xa7425] 1
+[libc.so.6+0xa750d] 1
+[libc.so.6+0xa758d] 1
+[libc.so.6+0xa7594] 1
+[libc.so.6+0xa7597] 2
+[libc.so.6+0xa75a1] 1
+[libc.so.6+0xa75a8] 1
+[libc.so.6+0xa75b3] 2
+[libc.so.6+0xa75b5] 1
+[libc.so.6+0xa75c4] 2
+[libc.so.6+0xa75c6] 1
+[libc.so.6+0xa75ce] 1
+[libc.so.6+0xa75d4] 3
+[libc.so.6+0xa75e9] 1
+[libc.so.6+0xa7794] 3
+[libc.so.6+0xa7798] 4
+[libc.so.6+0xa77ae] 3
+[libc.so.6+0xa77ba] 1
+[libc.so.6+0xa77be] 2
+[libc.so.6+0xa77c7] 3
+[libc.so.6+0xa77cf] 1
+[libc.so.6+0xa77d3] 1
+[libc.so.6+0xa77df] 1
+[libc.so.6+0xa77e9] 2
+[libc.so.6+0xa77fb] 1
+[libc.so.6+0xa783c] 1
+[libc.so.6+0xa7847] 1
+[libc.so.6+0xa78b6] 1
+[libc.so.6+0xa79a0] 1
+[libc.so.6+0xa79a8] 8
+[libc.so.6+0xa79d2] 1
+[libc.so.6+0xa79d7] 1
+[libc.so.6+0xa79dd] 17
+[libc.so.6+0xa79ee] 2
+[libc.so.6+0xa79f9] 4
+[libc.so.6+0xa7a06] 1
+[libc.so.6+0xa7a2c] 1
+[libc.so.6+0xa7aeb] 2
+[libc.so.6+0xa7aee] 1
+[libc.so.6+0xa7f20] 1
+[libc.so.6+0xa7f29] 3
+[libc.so.6+0xa7f31] 3
+[libc.so.6+0xa7f4d] 3
+[libc.so.6+0xa7f69] 3
+[libc.so.6+0xa7f6d] 2
+[libc.so.6+0xa7f74] 2
+[libc.so.6+0xa7f81] 4
+[libc.so.6+0xa7fcf] 2
+[libc.so.6+0xa7fd0] 4
+[libc.so.6+0xa7fe8] 27
+[libc.so.6+0xa7fee] 7
+[libc.so.6+0xa7ffd] 1
+[libc.so.6+0xa800a] 3
+[libc.so.6+0xa800d] 1
+[libc.so.6+0xa8010] 1
+[libc.so.6+0xa8016] 1
+[libc.so.6+0xa801a] 7
+[libc.so.6+0xa801e] 5
+[libc.so.6+0xa80a0] 1
+[libc.so.6+0xa80a3] 1
+[libc.so.6+0xa80af] 1
+[libc.so.6+0xa80c0] 1
+[libc.so.6+0xa80e4] 2
+[libc.so.6+0xa80eb] 1
+[libc.so.6+0xa80f3] 4
+[libc.so.6+0xa80f7] 10
+[libc.so.6+0xa80fb] 1
+[libc.so.6+0xa8101] 1
+[libc.so.6+0xa8115] 6
+[libc.so.6+0xa89a0] 46
+[libc.so.6+0xa8e90] 55
+[libc.so.6+0xa9130] 9
+[profile-beb0139-diagnostic+0x124ab10] 2
+[profile-beb0139-diagnostic+0x1562ed0] 5
+[profile-beb0139-diagnostic+0x15630d0] 2
+[profile-beb0139-diagnostic+0x1565260] 14
+[profile-beb0139-diagnostic+0x635a10] 5
+[profile-beb0139-diagnostic+0x637340] 1
+[profile-beb0139-diagnostic+0x637670] 14
+[profile-beb0139-diagnostic+0x637cc0] 16
+[profile-beb0139-diagnostic+0xa86a40] 1
+[profile-beb0139-diagnostic+0xab0300] 1
+[profile-beb0139-diagnostic+0xab21a0] 2
+[profile-beb0139-diagnostic+0xab2b20] 1
+[profile-beb0139-diagnostic+0xab61b0] 1
+[profile-beb0139-diagnostic+0xad08e0] 2
+[profile-beb0139-diagnostic+0xadeba0] 1
+[profile-beb0139-diagnostic+0xadf3b0] 3
+[profile-beb0139-diagnostic+0xae0490] 3
+[profile-beb0139-diagnostic+0xaeba50] 7
+[profile-beb0139-diagnostic+0xb26a80] 1
+[profile-beb0139-diagnostic+0xb320e0] 1
+[profile-beb0139-diagnostic+0xb32160] 8
+[profile-beb0139-diagnostic+0xb44090] 3
+[profile-beb0139-diagnostic+0xb48ff0] 4
+[profile-beb0139-diagnostic+0xb51d00] 7
+[profile-beb0139-diagnostic+0xb5ca20] 1
+[profile-beb0139-diagnostic+0xb5d5f0] 5
+[profile-beb0139-diagnostic+0xb5dab0] 41
+[profile-beb0139-diagnostic+0xba8f00] 5
+[profile-beb0139-diagnostic+0xbabae0] 8
+[profile-beb0139-diagnostic+0xe843e0] 4
+__libc_free 370
+__madvise 2
+__rustc::__rust_alloc 3
+alloc::collections::btree::node::slice_insert::<alloc::string::String> 1
+alloc::fmt::format::format_inner 38
+badger_runtime::codec::accepted 285
+badger_runtime::codec::dec 88
+badger_runtime::codec::decode 4
+badger_runtime::codec::enc 32
+badger_runtime::codec::encode 3
+badger_runtime::codec::lookup 17
+badger_runtime::codec::root 4
+badger_runtime::codec::wire_name 59
+badger_runtime::codec::wire_name::{closure#0} 16
+badger_runtime::desc::builtin::string 1
+badger_runtime::gc::alloc 37
+badger_runtime::gc::alloc_cell 53
+badger_runtime::gc::allocations::record 1
+badger_runtime::gc::budget_check 1
+badger_runtime::gc::collect_inner 11
+badger_runtime::gc::collect_inner::{closure#3} 3
+badger_runtime::gc::finalize 18
+badger_runtime::gc::free_cell 18
+badger_runtime::gc::obj 5
+badger_runtime::gc::objects 4
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 30
+badger_runtime::gc::trim_empty_chunks 56
+badger_runtime::gc::trim_empty_chunks::{closure#4} 2
+badger_runtime::intrinsics::targ 2
+badger_runtime::intrinsics_codec::codec_decode_text 8
+badger_runtime::intrinsics_io::json_quote 80
+badger_runtime::intrinsics_os::bytes_len 1
+badger_runtime::intrinsics_std::text_is_empty 2
+badger_runtime::intrinsics_std::text_split 1
+badger_runtime::list::addr 2
+badger_runtime::list::hdr 1
+badger_runtime::list::push 12
+badger_runtime::list::slots 1
+badger_runtime::make_enum 23
+badger_runtime::make_variant 2
+badger_runtime::string::bytes_of 1
+badger_runtime::task::current 8
+badger_runtime::task::current_raw 7
+badger_runtime::task::current_temp_roots 6
+badger_runtime::task::worker_index 11
+badger_runtime::value::as_i64 2
+core::cell::is_reading 5
+core::char::methods::encode_utf8_raw_unchecked 39
+core::char::methods::len_utf8 1
+core::core_arch::x86::sse::_mm_prefetch::<3> 4
+core::fmt::write 24
+core::hint::must_use::<alloc::string::String> 2
+core::intrinsics::unlikely 11
+core::mem::replace::<core::option::Option<alloc::collections::btree::navigate::LazyLeafHandle<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value>>> 2
+core::ptr::copy::<core::mem::maybe_uninit::MaybeUninit<alloc::string::String>> 2
+core::ptr::copy::<core::mem::maybe_uninit::MaybeUninit<serde_json::value::Value>> 3
+core::ptr::copy_nonoverlapping::<u8> 15
+core::ptr::drop_glue::<alloc::string::String> 4
+core::ptr::drop_glue::<core::option::Option<serde_json::value::Value>> 5
+core::ptr::drop_glue::<serde_json::value::Value> 15
+core::ptr::drop_in_place::<serde_json::value::Value> 5
+core::ptr::eq::<badger_runtime::desc::TypeDesc> 10
+core::ptr::read::<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::LeafOrInternal>> 1
+core::ptr::read::<u64> 1
+core::ptr::read::<u8> 61
+core::ptr::write::<*mut badger_runtime::gc::Header> 8
+core::ptr::write::<alloc::collections::btree::node::Handle<alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Dying, alloc::string::String, serde_json::value::Value, alloc::collections::btree::node::marker::Leaf>, alloc::collections::btree::node::marker::Edge>> 2
+core::ptr::write::<core::option::Option<core::ptr::non_null::NonNull<alloc::collections::btree::node::InternalNode<alloc::string::String, serde_json::value::Value>>>> 2
+core::ptr::write::<core::ptr::Packed<u32>> 14
+core::ptr::write::<core::ptr::Packed<u64>> 4
+core::ptr::write::<u64> 30
+core::ptr::write_bytes::<u8> 2
+core::slice::index::get_offset_len_noubcheck::<u8> 2
+core::slice::sort::shared::pivot::median3::<usize, <usize as core::cmp::PartialOrd>::lt> 1
+core::str::validations::next_code_point::<core::slice::iter::Iter<u8>> 13
+core::sync::atomic::atomic_compare_exchange::<u64> 2
+core::sync::atomic::atomic_load::<u32> 3
+core::sync::atomic::atomic_load::<u8> 1
+core::sync::atomic::atomic_load::<usize> 12
+core::sync::atomic::atomic_store::<usize> 2
+malloc 293
+mremap 2
+munmap 1
+realloc 85
+serde_json::de::from_trait::<serde_json::read::StrRead, serde_json::value::Value> 30
+serde_json::read::is_escape 11
+serde_json::read::parse_escape::<serde_json::read::SliceRead> 13
+workload.json_orders#10 27

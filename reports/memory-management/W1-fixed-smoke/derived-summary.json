@@ -1,0 +1,129 @@
+{
+  "raw_sha256": "06c1b5c744d4462595044be3aa4f55d9ab584ae29603cd3fb1ef734b518bef44",
+  "analysis_sha256": {
+    "analyze_applications.py": "7bc6a0c6404c3cfa14bcc530ede09f4bc7142e5269477e83832b60b8a1890d79",
+    "applications.py": "71c487a3dd45795c6337c3daa2c356cc57c3e1af4a06050fcc30f3e511ee04fa"
+  },
+  "summary": [
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 10630,
+            "min": 10630,
+            "max": 10630,
+            "count": 1,
+            "cv": 0.0
+          },
+          "kernel_block_mean_ns": {
+            "median": 10630.0,
+            "min": 10630.0,
+            "max": 10630.0,
+            "count": 1,
+            "cv": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 31342592,
+            "min": 31342592,
+            "max": 31342592,
+            "count": 1,
+            "cv": 0.0
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 264791,
+            "min": 264791,
+            "max": 264791,
+            "count": 1,
+            "cv": 0.0
+          },
+          "kernel_block_mean_ns": {
+            "median": 264791.0,
+            "min": 264791.0,
+            "max": 264791.0,
+            "count": 1,
+            "cv": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 33886208,
+            "min": 33886208,
+            "max": 33886208,
+            "count": 1,
+            "cv": 0.0
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 121195,
+            "min": 121195,
+            "max": 121195,
+            "count": 1,
+            "cv": 0.0
+          },
+          "kernel_block_mean_ns": {
+            "median": 121195.0,
+            "min": 121195.0,
+            "max": 121195.0,
+            "count": 1,
+            "cv": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 30830592,
+            "min": 30830592,
+            "max": 30830592,
+            "count": 1,
+            "cv": 0.0
+          }
+        }
+      }
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 113060,
+            "min": 113060,
+            "max": 113060,
+            "count": 1,
+            "cv": 0.0
+          },
+          "kernel_block_mean_ns": {
+            "median": 113060.0,
+            "min": 113060.0,
+            "max": 113060.0,
+            "count": 1,
+            "cv": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 33632256,
+            "min": 33632256,
+            "max": 33632256,
+            "count": 1,
+            "cv": 0.0
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+<*mut u64>::add 5
+<*mut u8>::add 1
+<[(usize, usize)]>::binary_search_by::<<[(usize, usize)]>::partition_point<badger_runtime::gc::trim_empty_chunks::{closure#4}::{closure#0}>::{closure#0}> 6
+<[badger_runtime::desc::Field]>::first 1
+<alloc::raw_vec::RawVecInner>::capacity 1
+<alloc::raw_vec::RawVecInner>::current_memory 1
+<alloc::raw_vec::RawVecInner>::non_null::<*mut badger_runtime::gc::Header> 47
+<alloc::raw_vec::RawVecInner>::non_null::<u64> 4
+<alloc::vec::Vec<*mut badger_runtime::gc::Header> as core::ops::index::Index<usize>>::index 1
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::len 8
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 5
+<alloc::vec::Vec<u64>>::len 5
+<alloc::vec::Vec<u64>>::pop 3
+<alloc::vec::Vec<u64>>::push_mut 1
+<alloc::vec::Vec<u64>>::truncate 5
+<badger_runtime::buffer::Items>::get::{closure#0} 2
+<badger_runtime::desc::Repr as core::cmp::PartialEq>::eq 4
+<badger_runtime::desc::Repr>::size 1
+<badger_runtime::desc::TypeDesc>::repr 2
+<badger_runtime::desc::TypeDesc>::variant 6
+<badger_runtime::gc::Header>::desc 7
+<badger_runtime::gc::Header>::payload_size 6
+<badger_runtime::hamt::Edit<u64>>::none 4
+<badger_runtime::hamt::Node>::child 9
+<badger_runtime::hamt::Node>::entry 29
+<badger_runtime::hamt::Node>::u32_at 42
+<badger_runtime::hamt::Node>::word 74
+<bool>::then::<u64, <badger_runtime::buffer::Items>::get::{closure#0}> 1
+<bool>::then_some::<u64> 1
+<core::option::Option<&*mut badger_runtime::gc::Header>>::copied 3
+<core::option::Option<&badger_runtime::desc::TypeDesc>>::is_some_and::<badger_runtime::map::root_args::{closure#0}> 1
+<core::option::Option<alloc::string::String>>::as_ref 1
+<core::option::Option<alloc::string::String>>::expect 1
+<core::option::Option<core::iter::adapters::copied::Copied<core::slice::iter::Iter<*mut badger_runtime::gc::Header>>>>::as_mut 4
+<core::option::Option<usize>>::unwrap_or 1
+<core::ptr::non_null::NonNull<*mut badger_runtime::gc::Header>>::add 1
+<core::ptr::non_null::NonNull<badger_runtime::desc::Field> as core::cmp::PartialEq>::eq 1
+<core::slice::iter::Iter<badger_runtime::desc::Field> as core::iter::traits::iterator::Iterator>::next 3
+<hashbrown::raw::RawTableInner>::probe_seq 1
+<rustc_hash::FxHasher as core::hash::Hasher>::finish 12
+<rustc_hash::FxHasher>::default 1
+<serde_json::value::Value as serde_core::ser::Serialize>::serialize::<serde_json::value::ser::Serializer> 1
+<std::sync::once_lock::OnceLock<badger_runtime::gc::diagnostics::Settings>>::get 1
+<std::sync::once_lock::OnceLock<bool>>::get 3
+<std::sync::poison::Flag>::done 1
+<std::thread::local::LocalKey<core::cell::Cell<u64>>>::try_with::<badger_runtime::task::current_raw::{closure#0}, u64> 5
+<std::thread::local::LocalKey<core::cell::Cell<usize>>>::try_with::<badger_runtime::task::worker_index::{closure#0}, usize> 1
+<u32>::count_ones 156
+<usize as core::cmp::Ord>::max 3
+<usize as core::cmp::PartialOrd>::lt 1
+<usize as core::slice::index::SliceIndex<[(usize, usize)]>>::get_unchecked 4
+<usize as core::slice::index::SliceIndex<[(usize, usize)]>>::index 1
+<usize>::saturating_add 1
+[libc.so.6+0x18f400] 2
+[libc.so.6+0x18f404] 1
+[libc.so.6+0x18f413] 1
+[libc.so.6+0x18f568] 1
+[libc.so.6+0x18f58f] 1
+[libc.so.6+0x18f636] 1
+[libc.so.6+0x18f65e] 1
+[libc.so.6+0x18fc80] 6
+[libc.so.6+0x18fc84] 4
+[libc.so.6+0x18fc8a] 3
+[libc.so.6+0x18fca2] 9
+[libc.so.6+0x18fcaa] 10
+[libc.so.6+0x18fcc9] 19
+[libc.so.6+0x18fcd6] 1
+[libc.so.6+0x18fd0e] 5
+[libc.so.6+0x18fd15] 6
+[libc.so.6+0x18fd1c] 4
+[libc.so.6+0x18fd36] 1
+[libc.so.6+0xa4f23] 10
+[libc.so.6+0xa4f31] 2
+[libc.so.6+0xa4f3b] 1
+[libc.so.6+0xa4ffe] 7
+[libc.so.6+0xa61c5] 4
+[libc.so.6+0xa65cd] 1
+[libc.so.6+0xa6ecb] 1
+[libc.so.6+0xa6f90] 1
+[libc.so.6+0xa6ff0] 1
+[libc.so.6+0xa73e8] 2
+[libc.so.6+0xa73ee] 1
+[libc.so.6+0xa7444] 2
+[libc.so.6+0xa7468] 1
+[libc.so.6+0xa7794] 1
+[libc.so.6+0xa77f7] 2
+[libc.so.6+0xa7cb9] 1
+[libc.so.6+0xa7d47] 1
+[libc.so.6+0xa7e26] 2
+[libc.so.6+0xa82f6] 1
+[libc.so.6+0xe4990] 1
+[profile-beb0139-diagnostic+0xa8a0a0] 1
+[profile-beb0139-diagnostic+0xac7d40] 2
+[profile-beb0139-diagnostic+0xac8470] 5
+[profile-beb0139-diagnostic+0xac8800] 7
+[profile-beb0139-diagnostic+0xae0880] 2
+[profile-beb0139-diagnostic+0xb01e80] 2
+[profile-beb0139-diagnostic+0xb26a80] 11
+[profile-beb0139-diagnostic+0xb32160] 12
+[profile-beb0139-diagnostic+0xb356f0] 2
+[profile-beb0139-diagnostic+0xb37a80] 4
+[profile-beb0139-diagnostic+0xb38990] 3
+[profile-beb0139-diagnostic+0xb3a130] 2
+[profile-beb0139-diagnostic+0xb48ff0] 11
+[profile-beb0139-diagnostic+0xb51d00] 12
+[profile-beb0139-diagnostic+0xb6bb60] 4
+__libc_free 1
+__madvise 1
+__mmap 2
+badger_runtime::abi::badger_rt_alloc 13
+badger_runtime::abi::badger_rt_list_get 13
+badger_runtime::abi::badger_rt_poll 3
+badger_runtime::abi::badger_rt_take_aux 1
+badger_runtime::buffer::finalize 2
+badger_runtime::buffer::is_buffer 11
+badger_runtime::channel::release_claims 1
+badger_runtime::gc::alloc 75
+badger_runtime::gc::alloc_cell 41
+badger_runtime::gc::alloc_checked 8
+badger_runtime::gc::allocations::record 4
+badger_runtime::gc::barrier 1
+badger_runtime::gc::budget_check 28
+badger_runtime::gc::collect_inner 38
+badger_runtime::gc::collect_inner::{closure#16} 1
+badger_runtime::gc::collect_inner::{closure#17} 1
+badger_runtime::gc::collect_inner::{closure#2} 14
+badger_runtime::gc::collect_inner::{closure#3} 14
+badger_runtime::gc::collect_inner::{closure#9} 6
+badger_runtime::gc::diagnostics::pool_max 4
+badger_runtime::gc::finalize 34
+badger_runtime::gc::free_cell 25
+badger_runtime::gc::obj 23
+badger_runtime::gc::objects 5
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 55
+badger_runtime::gc::trace 36
+badger_runtime::gc::trace::{closure#0} 4
+badger_runtime::gc::trim_empty_chunks 15
+badger_runtime::gc::trim_empty_chunks::{closure#4} 13
+badger_runtime::gc::trim_empty_chunks::{closure#4}::{closure#0} 7
+badger_runtime::hamt::bit 16
+badger_runtime::hamt::collision 2
+badger_runtime::hamt::edit::<badger_runtime::hamt::Builder> 27
+badger_runtime::hamt::get 65
+badger_runtime::hamt::index 6
+badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder> 36
+badger_runtime::hamt::insert_with::<badger_runtime::hamt::Builder> 8
+badger_runtime::intrinsics::split_option 4
+badger_runtime::intrinsics_std::map_get_split 4
+badger_runtime::intrinsics_std::map_insert_private 20
+badger_runtime::list::addr 1
+badger_runtime::list::clear_unmarked_directory_pages::{closure#0} 1
+badger_runtime::list::push 3
+badger_runtime::list::trace_page 1
+badger_runtime::map::descs 18
+badger_runtime::map::eq::{closure#0} 3
+badger_runtime::map::get 12
+badger_runtime::map::hash 4
+badger_runtime::map::insert_mut 19
+badger_runtime::map::root_args 11
+badger_runtime::task::current 9
+badger_runtime::task::current_raw 1
+badger_runtime::task::current_temp_roots 2
+badger_runtime::task::worker_index 15
+badger_runtime::value::as_i64 10
+badger_runtime::value::eq 19
+badger_runtime::value::hash::<rustc_hash::FxHasher> 84
+calloc 3
+core::core_arch::x86::sse::_mm_prefetch::<3> 7
+core::intrinsics::rotate_left::<usize> 4
+core::mem::replace::<alloc::vec::Vec<u64>> 2
+core::mem::replace::<u64> 3
+core::mem::replace::<usize> 6
+core::ptr::copy::<usize> 2
+core::ptr::eq::<badger_runtime::desc::TypeDesc> 23
+core::ptr::read::<core::ptr::Packed<u64>> 2
+core::ptr::read::<u64> 4
+core::ptr::write::<*mut badger_runtime::gc::Header> 16
+core::ptr::write::<u64> 13
+core::ptr::write_bytes::<u8> 2
+core::sync::atomic::atomic_compare_exchange::<u64> 2
+core::sync::atomic::atomic_compare_exchange_weak::<u8> 1
+core::sync::atomic::atomic_load::<u32> 20
+core::sync::atomic::atomic_load::<u8> 6
+core::sync::atomic::atomic_load::<usize> 17
+core::sync::atomic::atomic_store::<usize> 1
+mprotect 1
+mremap 4
+munmap 7
+syscall 5
+workload.reconcile#9 307

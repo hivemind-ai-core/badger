@@ -1,0 +1,110 @@
+<[(usize, usize)]>::binary_search_by::<<[(usize, usize)]>::partition_point<badger_runtime::gc::trim_empty_chunks::{closure#4}::{closure#0}>::{closure#0}> 17
+<alloc::raw_vec::RawVecInner>::non_null::<*mut badger_runtime::gc::Header> 58
+<alloc::vec::Vec<*mut badger_runtime::gc::Header> as core::ops::index::Index<usize>>::index 3
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::len 1
+<alloc::vec::Vec<*mut badger_runtime::gc::Header>>::push_mut 16
+<alloc::vec::Vec<u64>>::len 1
+<alloc::vec::Vec<u64>>::push_mut 1
+<alloc::vec::Vec<usize>>::extend_desugared::<core::iter::adapters::chain::Chain<core::iter::adapters::map::Map<core::iter::adapters::flatten::FlatMap<core::ops::range::Range<usize>, core::iter::adapters::copied::Copied<core::slice::iter::Iter<*mut badger_runtime::gc::Header>>, badger_runtime::gc::all_objects::{closure#0}>, badger_runtime::gc::trim_empty_chunks::{closure#0}>, core::iter::adapters::map::Map<alloc::collections::vec_deque::iter::Iter<(*mut badger_runtime::gc::Header, &badger_runtime::desc::TypeDesc)>, badger_runtime::gc::trim_empty_chunks::{closure#1}>>> 2
+<badger_runtime::gc::Header>::desc 2
+<badger_runtime::gc::Header>::payload_size 9
+<badger_runtime::list::Hdr>::page 1
+<core::option::Option<&*mut badger_runtime::gc::Header>>::copied 4
+<core::option::Option<alloc::string::String>>::as_ref 1
+<core::option::Option<core::iter::adapters::copied::Copied<core::slice::iter::Iter<*mut badger_runtime::gc::Header>>>>::as_mut 2
+<core::option::Option<usize>>::unwrap_or 1
+<usize as core::cmp::Ord>::max 2
+<usize as core::cmp::PartialOrd>::lt 5
+<usize as core::slice::index::SliceIndex<[(usize, usize)]>>::get_unchecked 8
+<usize as core::slice::index::SliceIndex<[(usize, usize)]>>::index 8
+<usize>::saturating_add 21
+[[vdso]+0xd4c] 1
+[libc.so.6+0x18fc63] 9
+[libc.so.6+0x18fc69] 2
+[libc.so.6+0x18fc80] 7
+[libc.so.6+0x18fc84] 5
+[libc.so.6+0x18fc8a] 8
+[libc.so.6+0x18fcc9] 48
+[libc.so.6+0x18fd07] 12
+[libc.so.6+0x18fd0e] 8
+[libc.so.6+0x18fd15] 8
+[libc.so.6+0x18fd1c] 3
+[libc.so.6+0x18fd36] 1
+[libc.so.6+0x18fd3d] 1
+[libc.so.6+0x18fd44] 1
+[libc.so.6+0x18fd87] 1
+[libc.so.6+0xa0952] 2
+[libc.so.6+0xa4f10] 1
+[libc.so.6+0xa4f11] 1
+[libc.so.6+0xa4f23] 1
+[libc.so.6+0xa4f31] 1
+[libc.so.6+0xa4f3b] 1
+[libc.so.6+0xa4ffe] 2
+[libc.so.6+0xa5b21] 1
+[libc.so.6+0xa61c5] 4
+[libc.so.6+0xa65cd] 8
+[libc.so.6+0xa6f90] 1
+[libc.so.6+0xa6ff0] 1
+[libc.so.6+0xa7048] 1
+[libc.so.6+0xa7468] 3
+[libc.so.6+0xa74a3] 2
+[libc.so.6+0xa768c] 2
+[libc.so.6+0xa7696] 1
+[libc.so.6+0xa7794] 3
+[libc.so.6+0xa7d47] 1
+[profile-beb0139-diagnostic+0xae0880] 8
+[profile-beb0139-diagnostic+0xb26a80] 16
+[profile-beb0139-diagnostic+0xb32160] 15
+[profile-beb0139-diagnostic+0xb48ff0] 18
+__libc_free 1
+__madvise 4
+__mmap 2
+badger_runtime::abi::badger_rt_alloc 9
+badger_runtime::abi::badger_rt_poll 6
+badger_runtime::gc::alloc 94
+badger_runtime::gc::alloc_cell 34
+badger_runtime::gc::alloc_checked 24
+badger_runtime::gc::allocations::record 1
+badger_runtime::gc::budget_check 14
+badger_runtime::gc::collect_inner 53
+badger_runtime::gc::collect_inner::{closure#16} 8
+badger_runtime::gc::collect_inner::{closure#17} 3
+badger_runtime::gc::collect_inner::{closure#2} 26
+badger_runtime::gc::collect_inner::{closure#3} 8
+badger_runtime::gc::collect_inner::{closure#9} 18
+badger_runtime::gc::diagnostics::pool_max 2
+badger_runtime::gc::finalize 48
+badger_runtime::gc::free_cell 47
+badger_runtime::gc::objects 6
+badger_runtime::gc::sweep_from::<badger_runtime::gc::collect_inner::{closure#16}, badger_runtime::gc::collect_inner::{closure#17}> 85
+badger_runtime::gc::trim_empty_chunks 11
+badger_runtime::gc::trim_empty_chunks::{closure#4} 30
+badger_runtime::gc::trim_empty_chunks::{closure#4}::{closure#0} 21
+badger_runtime::list::clear_unmarked_directory_pages::{closure#0} 1
+badger_runtime::list::hdr 1
+badger_runtime::list::push 2
+badger_runtime::list::put_page 1
+badger_runtime::list::trace_page 7
+badger_runtime::task::worker_index 14
+core::core_arch::x86::sse::_mm_prefetch::<3> 10
+core::mem::replace::<usize> 21
+core::ptr::copy::<usize> 11
+core::ptr::copy_nonoverlapping::<usize> 1
+core::ptr::eq::<badger_runtime::desc::TypeDesc> 43
+core::ptr::write::<*mut badger_runtime::gc::Header> 2
+core::ptr::write::<serde_json::value::Value> 1
+core::ptr::write_bytes::<u8> 10
+core::slice::sort::unstable::quicksort::partition_lomuto_branchless_cyclic::<usize, <usize as core::cmp::PartialOrd>::lt>::{closure#0} 1
+core::slice::sort::unstable::quicksort::quicksort::<usize, <usize as core::cmp::PartialOrd>::lt> 1
+core::sync::atomic::atomic_compare_exchange::<u64> 2
+core::sync::atomic::atomic_load::<u32> 20
+core::sync::atomic::atomic_load::<u8> 9
+core::sync::atomic::atomic_load::<usize> 164
+core::sync::atomic::atomic_store::<u64> 1
+core::sync::atomic::atomic_store::<usize> 13
+malloc 1
+mprotect 3
+mremap 8
+munmap 6
+workload.main 1
+workload.records#7 348

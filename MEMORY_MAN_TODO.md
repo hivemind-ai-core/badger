@@ -64,6 +64,13 @@ negative results; do not mark architectural sketches as implemented.
   against observed size distributions and object-size inflation.
 - [ ] I7: Borrow parsing/string/byte views where lifetime permits; copy small
   escaping views when necessary to avoid retaining large source buffers.
+  - [x] I7a/C1: Borrow rooted codec input; remove successful-path error strings,
+    cloned wire-name lists and temporary encoder quoting/integer buffers.
+    JSON improves about 39–40%; managed cell traffic stays unchanged, RSS does
+    not improve. [Results and limits](reports/memory-management/C1-summary.md).
+  - [ ] I7b/C2: Evaluate eliminating the owned intermediate JSON tree with
+    schema-directed/borrowed parsing. Preserve validation/error precedence,
+    aliases, unknown fields, depth limits, rooting and saved-MIR behavior.
 
 ### Allocator, collector, and runtime work
 
@@ -930,6 +937,12 @@ Work in this order, keeping only measured improvements:
    already scales about 6.6x in the supplied baseline. Serial map loops and
    serialized actor stages cannot gain from idle extra workers alone; investigate
    independent allocation-heavy tasks before changing scheduler/GC synchronization.
+   - [x] W1a: Add fixed-eight-consumer baselines and CPU profiles at 1/2/4/8
+     workers. CPU-heavy pipeline scales 6.72x; cheap messages stop gaining after
+     two. Idle/wake and channel spinning grow; GC is a small sampled share in
+     that message shape. [Attribution and unresolved source regression](reports/memory-management/W1-followup.md).
+   - [ ] W1b: Count channel spins/fallbacks, wake/idle/steal paths and useful
+     per-worker work before changing backoff, wake or reserved-slot policy.
 
 Add the unchanged realworld and compare contracts to adjacent-pair compiler
 comparisons, including records and snapshots. Save current-production baselines
@@ -1134,3 +1147,48 @@ Next prioritize fresh profiles of remaining record/JSON allocation and generic
 scalar-map read costs. Investigate the two-worker messaging shift with native/
 source layout controls. I5c parameter/call-boundary ownership, I4 packed records,
 G7e marking, G8 allocator work and I9 stack/region proofs remain unchecked.
+
+### I7a/C1 complete — codec temporaries removed, fixed-task baselines saved
+
+Retain production `b080078` after fresh profiles identify native accepted-name,
+path formatting and encoder scratch work in JSON. Inputs stay rooted while
+borrowed; current wire names precede aliases, and nested error paths/validation
+stay exact. Encoding appends quoted text/integers to its output buffer. The
+owned serde JSON tree and managed result allocation remain.
+
+The before-edit coverage baseline is saved. Final ordinary seven-pair matrices:
+JSON 17.473→10.585 ms at one worker, about 39–40% faster throughout 1/2/4/8;
+all seven pairs improve medians and block means at each setting. New flat,
+nested, wire-alias and invalid-path codec coverage improves 30–37%, 46–50%,
+46–48% and 23–24% group medians; every pair is faster in every cell.
+
+All 36 diagnostic census runs conserve exact managed object/cell-byte traffic:
+JSON 576,265 objects / 40,132,939 bytes; records 1,603,420 / 89,865,136;
+reconcile 902,239 / 70,586,320 across eight inner iterations plus startup/output.
+This removes native temporary allocation work, not managed GC traffic. Peak
+RSS is small/mixed and often higher, including +0.4–0.5% for JSON. Initial
+messaging/four +18.5% paired median shrinks to +2.2% in 15-pair repeats, within
+wide same-binary controls; small eight-worker tradeoffs remain possible.
+
+Fresh official JSON: Badger 10.507 ms, Go 13.980, Node 6.511, Java 10.592.
+The Java difference is too small to rank; Node still leads, and Badger's RSS
+remains much higher than Go's. No general language/cold-start ranking is claimed.
+
+All 76 program tests, ordinary/diagnostic runtime suites, strict runtime/CLI
+Clippy, formatting, 25 harness tests and 224 source/old/new-MIR codec checks pass.
+1,168 measured processes in 16 disjoint datasets retain profiles, unfavorable
+results, controls and worker baselines; the official 20 performance/16 validation
+processes are separate. [Full results, audit and limitations](reports/memory-management/C1-summary.md).
+
+W1a fixes eight consumers while varying runtime workers: messaging 1.323/0.861/
+1.253/1.420 ms versus CPU pipeline 50.104/25.338/13.045/7.454. Fixed-topology
+profiles show growing spin and wake/park CPU; GC is small in that cheap-message
+shape. The earlier I5b source regression also reproduces (+13.3% paired median),
+while identical saved-MIR/native controls do not isolate it. Preserve that open
+question. [Worker attribution and baseline](reports/memory-management/W1-followup.md).
+
+Next prioritize G8 record/leaf-object allocation and collection work, with
+initialization/root/publication proofs before changing the fast path. Keep W1b
+channel spin/wake/idle/steal counters as a separate measured followup. Scalar-map
+reads, packed records, bounded marking, parameter ownership, and task/transfer
+arenas remain open; C1 implements none of those architectural proposals.

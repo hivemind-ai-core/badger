@@ -1,0 +1,712 @@
+{
+  "candidate_revision": "b080078",
+  "baseline_revision": "49f281c",
+  "binaries": {
+    "snapshot-epochs-specialized-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+      "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+    },
+    "snapshot-epochs-specialized-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-diagnostic",
+      "sha256": "b9d577b06f7749bb5dbf3b039e30498a7692e900bba8666044b94120f369991d"
+    },
+    "prefetch32-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/prefetch32-candidate",
+      "sha256": "77b7a92fd49a6c09b3100f15912fb31f8e6d790c987220b7d50d69c71ab4c50c"
+    },
+    "codec-temporaries-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+      "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+    },
+    "codec-temporaries-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-diagnostic",
+      "sha256": "8fe627972abb968acfc9d2f9b4739ef57257a9f18cd47e0e8b1fb6889e0a33e3"
+    },
+    "profile-beb0139-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-beb0139-diagnostic",
+      "sha256": "71b854003691caa29211cffd3f85a2e682db61e21b1f50796c1d5eb0c57ccedb"
+    },
+    "profile-b080078-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-b080078-diagnostic",
+      "sha256": "e8cd650c8c3315a75c5e7fe2c0f93511cd052f8146cdc6be20bc4ba4aef3c10f"
+    }
+  },
+  "production_sha256": {
+    "beb0139": {
+      "crates/badger_runtime/src/codec.rs": "104266fd4f0af6c6ec34de46268860d1d9d2533a2c1bc7f8f504014ffe2de425",
+      "crates/badger_runtime/src/intrinsics_codec.rs": "a98b0ce6353a160164d43594f4a1aaa56a689cf048d46d3b290037065e25a24a",
+      "crates/badger_runtime/src/intrinsics_io.rs": "5560c158c0b45113f5d3a1a14c20f68e3c2b6cd58ce1587deac135305da684cf",
+      "crates/badger_runtime/src/gc.rs": "28699e40290555b61042c6af0a51e2cdc84e812572ebd54e38968a4cfa66c631",
+      "crates/badger_runtime/src/map.rs": "387cbb423a25e5c84cdb3bbd9a5e732cbc61c508916471a38acb802a67d59b49",
+      "crates/badger_runtime/src/hamt.rs": "8733025df00e9d80377f1fc47a80e3065cd89258e1080d7a6152cb1dbf55d319"
+    },
+    "b080078": {
+      "crates/badger_runtime/src/codec.rs": "224f2b7e4905bec28136447e307e633ebdc1caf42c658fbe7be5cc3d9836b898",
+      "crates/badger_runtime/src/intrinsics_codec.rs": "82ec19a999930f4b9bf42d89baa981c983fcf410e4c5761e8a40b4ae7e4c6d46",
+      "crates/badger_runtime/src/intrinsics_io.rs": "9673b5977c6c118fb7254f3204cb8a7fde94ffd34e389be5e9d8f55710fd3c70",
+      "crates/badger_runtime/src/gc.rs": "28699e40290555b61042c6af0a51e2cdc84e812572ebd54e38968a4cfa66c631",
+      "crates/badger_runtime/src/map.rs": "387cbb423a25e5c84cdb3bbd9a5e732cbc61c508916471a38acb802a67d59b49",
+      "crates/badger_runtime/src/hamt.rs": "8733025df00e9d80377f1fc47a80e3065cd89258e1080d7a6152cb1dbf55d319"
+    }
+  },
+  "datasets": [
+    {
+      "path": "reports/memory-management/C1-baseline/measurements.json.gz",
+      "sha256": "aee94af37e5e79c7f7dde5f25f808f5229200f3e22501369e669f085a8c2e189",
+      "runs": 56,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+        "candidate": "None",
+        "baseline_revision": "49f281c",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 20261017,
+        "paired": true,
+        "cases": [
+          "codec-flat",
+          "codec-nested",
+          "codec-wire",
+          "codec-invalid"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/C1-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/C1-applications/measurements.json.gz",
+      "sha256": "f7b10d00b5a28a4ff584f7405efb4fdd4f87eb506b5dba8e22d24feb5bbdf74c",
+      "runs": 504,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "baseline_revision": "49f281c",
+        "candidate_revision": "b080078",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "seed": 2026101903,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/C1-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/C1-coverage/measurements.json.gz",
+      "sha256": "f7bbe6f3f492838e07e7ec9a40bc583fb0a913d1f682a27969d95204aab12a6e",
+      "runs": 224,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "baseline_revision": "49f281c",
+        "candidate_revision": "b080078",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101905,
+        "paired": true,
+        "cases": [
+          "codec-flat",
+          "codec-nested",
+          "codec-wire",
+          "codec-invalid"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/C1-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/C1-census/measurements.json.gz",
+      "sha256": "98a9aa4079ab0aade65778314ef83c3377fb435a49762f9f67800087b70364ab",
+      "runs": 36,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-diagnostic",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-diagnostic",
+        "baseline_revision": "49f281c",
+        "candidate_revision": "b080078",
+        "reps": 3,
+        "warmups": 3,
+        "samples": 5,
+        "workers": [
+          1,
+          8
+        ],
+        "seed": 2026101909,
+        "cases": [
+          "realworld/json",
+          "realworld/reconcile",
+          "compare/records"
+        ],
+        "diagnostic": true,
+        "allocations": true,
+        "smoke": false,
+        "out": "reports/memory-management/C1-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-diagnostic",
+          "sha256": "b9d577b06f7749bb5dbf3b039e30498a7692e900bba8666044b94120f369991d"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-diagnostic",
+          "sha256": "8fe627972abb968acfc9d2f9b4739ef57257a9f18cd47e0e8b1fb6889e0a33e3"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/C1-messaging-repeat/measurements.json.gz",
+      "sha256": "1dc9d17918ba90338ce5e35e86bc47a46447a5ecf4dbece2ed290975c7f67176",
+      "runs": 60,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "baseline_revision": "49f281c",
+        "candidate_revision": "b080078",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          4,
+          8
+        ],
+        "seed": 2026101906,
+        "cases": [
+          "realworld/messaging"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/C1-messaging-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/C1-messaging-control/measurements.json.gz",
+      "sha256": "595e7f1e497753bfcd492c5bfb2a8d640e867a26368459042917a56b5534ddf7",
+      "runs": 60,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "baseline_revision": "b080078",
+        "candidate_revision": "b080078",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          4,
+          8
+        ],
+        "seed": 2026101907,
+        "cases": [
+          "realworld/messaging"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/C1-messaging-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/I5b-native-mir/measurements.json.gz",
+      "sha256": "8b390cf64be317bf8c04818a7105475ec3450f482795c0128769b98812283139",
+      "runs": 30,
+      "arguments": {
+        "reps": 15,
+        "workers": [
+          2
+        ],
+        "warmups": 5,
+        "samples": 15,
+        "baseline_revision": "38855c7",
+        "candidate_revision": "49f281c",
+        "compiler_revision": "38855c7",
+        "seed": 2026101901
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/prefetch32-candidate",
+          "sha256": "77b7a92fd49a6c09b3100f15912fb31f8e6d790c987220b7d50d69c71ab4c50c"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/I5b-native-mir-control/measurements.json.gz",
+      "sha256": "5d981d1eee2f9bc6153fd653b39cae75e6b87192de2cdd66ad296d040cf94195",
+      "runs": 30,
+      "arguments": {
+        "reps": 15,
+        "workers": [
+          2
+        ],
+        "warmups": 5,
+        "samples": 15,
+        "baseline_revision": "49f281c",
+        "candidate_revision": "49f281c",
+        "compiler_revision": "38855c7",
+        "seed": 2026101902
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/I5b-messaging-source-repeat/measurements.json.gz",
+      "sha256": "fd7cd3eca1486d8d834fb397d0c3922eb5f908b0da3c5f8ba512b10f37204930",
+      "runs": 30,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/prefetch32-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+        "baseline_revision": "38855c7",
+        "candidate_revision": "49f281c",
+        "reps": 15,
+        "warmups": 5,
+        "samples": 15,
+        "workers": [
+          2
+        ],
+        "seed": 2026101908,
+        "cases": [
+          "realworld/messaging"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I5b-messaging-source-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/prefetch32-candidate",
+          "sha256": "77b7a92fd49a6c09b3100f15912fb31f8e6d790c987220b7d50d69c71ab4c50c"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate",
+          "sha256": "22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/W1-fixed-smoke/measurements.json.gz",
+      "sha256": "06c1b5c744d4462595044be3aa4f55d9ab584ae29603cd3fb1ef734b518bef44",
+      "runs": 4,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "None",
+        "baseline_revision": "b080078",
+        "candidate_revision": null,
+        "reps": 1,
+        "warmups": 1,
+        "samples": 1,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": 8,
+        "seed": 2026101913,
+        "cases": [
+          "realworld/messaging",
+          "realworld/pipeline"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": true,
+        "out": "reports/memory-management/W1-fixed-smoke"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/W1-fixed-baseline/measurements.json.gz",
+      "sha256": "65bbdd3dd19c53b0c3b1fd86c9d94e40e570526c589519973571e2a0e7933344",
+      "runs": 56,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+        "candidate": "None",
+        "baseline_revision": "b080078",
+        "candidate_revision": null,
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": 8,
+        "seed": 2026101914,
+        "cases": [
+          "realworld/messaging",
+          "realworld/pipeline"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/W1-fixed-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/codec-temporaries-candidate",
+          "sha256": "abe10a77767eb3d39e5f0fac14603b97e891ce468597af823c59fe712a05f81b"
+        }
+      },
+      "binary_sha256": null
+    },
+    {
+      "path": "reports/memory-management/next-profile-baseline/profiles.json.gz",
+      "sha256": "4e0887bc2ab039bb52fafe7dd941da3a7675662f332595317064b3603c667c6a",
+      "runs": 24,
+      "arguments": {
+        "binary": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-beb0139-diagnostic",
+        "revision": "beb0139",
+        "cases": [
+          "realworld/reconcile",
+          "realworld/json",
+          "compare/records",
+          "compare/batches"
+        ],
+        "workers": [
+          1,
+          8
+        ],
+        "reps": 3,
+        "warmups": 15,
+        "samples": 300,
+        "seed": 20261019,
+        "diagnostic": true,
+        "out": "reports/memory-management/next-profile-baseline"
+      },
+      "binaries": null,
+      "binary_sha256": "71b854003691caa29211cffd3f85a2e682db61e21b1f50796c1d5eb0c57ccedb"
+    },
+    {
+      "path": "reports/memory-management/next-profile-callers/profiles.json.gz",
+      "sha256": "a3c41dceaf62677548e01a883b3a80a68691237f7a24684bbd3005c9ce29bae3",
+      "runs": 24,
+      "arguments": {
+        "binary": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-beb0139-diagnostic",
+        "revision": "beb0139",
+        "cases": [
+          "realworld/reconcile",
+          "realworld/json",
+          "compare/records",
+          "compare/batches"
+        ],
+        "workers": [
+          1,
+          8
+        ],
+        "reps": 3,
+        "warmups": 15,
+        "samples": 300,
+        "seed": 20261019,
+        "diagnostic": true,
+        "out": "reports/memory-management/next-profile-callers"
+      },
+      "binaries": null,
+      "binary_sha256": "71b854003691caa29211cffd3f85a2e682db61e21b1f50796c1d5eb0c57ccedb"
+    },
+    {
+      "path": "reports/memory-management/C1-profile/profiles.json.gz",
+      "sha256": "d18653befe79b73b98e6db4f01fe512e8a227af34b5d09b870bee44196885fc0",
+      "runs": 6,
+      "arguments": {
+        "binary": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-b080078-diagnostic",
+        "revision": "b080078",
+        "cases": [
+          "realworld/json"
+        ],
+        "workers": [
+          1,
+          8
+        ],
+        "reps": 3,
+        "warmups": 15,
+        "samples": 300,
+        "seed": 2026101911,
+        "diagnostic": true,
+        "out": "reports/memory-management/C1-profile"
+      },
+      "binaries": null,
+      "binary_sha256": "e8cd650c8c3315a75c5e7fe2c0f93511cd052f8146cdc6be20bc4ba4aef3c10f"
+    },
+    {
+      "path": "reports/memory-management/I5b-messaging-profile/profiles.json.gz",
+      "sha256": "3242639e2684cbbb2bc594ad592c5f185ef371be4ea7b4b61e7649bf7cdd964b",
+      "runs": 12,
+      "arguments": {
+        "binary": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-beb0139-diagnostic",
+        "revision": "beb0139",
+        "cases": [
+          "realworld/messaging"
+        ],
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "reps": 3,
+        "warmups": 15,
+        "samples": 1000,
+        "seed": 2026101912,
+        "diagnostic": true,
+        "out": "reports/memory-management/I5b-messaging-profile"
+      },
+      "binaries": null,
+      "binary_sha256": "71b854003691caa29211cffd3f85a2e682db61e21b1f50796c1d5eb0c57ccedb"
+    },
+    {
+      "path": "reports/memory-management/W1-fixed-profile/profiles.json.gz",
+      "sha256": "302de3765cc2ac238942de73e7c36d0dc4cce1d312fe2bafc158e7e674701f51",
+      "runs": 12,
+      "arguments": {
+        "binary": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/profile-b080078-diagnostic",
+        "revision": "b080078",
+        "cases": [
+          "realworld/messaging"
+        ],
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": 8,
+        "reps": 3,
+        "warmups": 15,
+        "samples": 1000,
+        "seed": 2026101915,
+        "diagnostic": true,
+        "out": "reports/memory-management/W1-fixed-profile"
+      },
+      "binaries": null,
+      "binary_sha256": "e8cd650c8c3315a75c5e7fe2c0f93511cd052f8146cdc6be20bc4ba4aef3c10f"
+    }
+  ],
+  "measured_processes": 1168,
+  "measured_intervals_overlap": false,
+  "managed_traffic": [
+    {
+      "case": "json",
+      "runs": 12,
+      "allocated_objects": 576265,
+      "allocated_cell_bytes": 40132939,
+      "requested_bytes_range": [
+        36948853,
+        36948853
+      ]
+    },
+    {
+      "case": "records",
+      "runs": 12,
+      "allocated_objects": 1603420,
+      "allocated_cell_bytes": 89865136,
+      "requested_bytes_range": [
+        77064809,
+        77064825
+      ]
+    },
+    {
+      "case": "reconcile",
+      "runs": 12,
+      "allocated_objects": 902239,
+      "allocated_cell_bytes": 70586320,
+      "requested_bytes_range": [
+        63435504,
+        63435506
+      ]
+    }
+  ],
+  "profiling_flags": {
+    "CARGO_PROFILE_RELEASE_DEBUG": "1",
+    "RUSTFLAGS": "-C force-frame-pointers=yes",
+    "feature": "badger_runtime/gc-profile"
+  },
+  "validation_artifacts": {
+    "reports/memory-management/C1-validation/build-diagnostic.log": "bfa9f65f97baa7e6ac42c92d27ea3ff587c759a80499d65a9008f02727c6c495",
+    "reports/memory-management/C1-validation/build-profile.log": "87b4cdf99750003d1af8ad61abc7d1ada91f1bdf6e250b6fd004e61399038863",
+    "reports/memory-management/C1-validation/clippy-diagnostic.log": "6bb2ea0a2d869172a44ca8f24192d954cd5d540386669d3005c676834899efef",
+    "reports/memory-management/C1-validation/clippy.log": "eff5d9773b75541567315b1eece9cde8ffcf18485e6a88a3dbce369f6ddfa9e3",
+    "reports/memory-management/C1-validation/codecs.json.gz": "66541be791fd3a0c92bde192479d58532a27ed17689b15ccf21da0ec7b8b8ec8",
+    "reports/memory-management/C1-validation/codecs.log": "aaa760cc27ad02406e0ef77b5c6918c177a6517c36f08d9a5159e04cddbb9a79",
+    "reports/memory-management/C1-validation/format-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/C1-validation/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/C1-validation/harness-final.log": "bbc7dd9ed0ec3626d82c9964470697c807bcf82bd4d27554b1aa296455f2daf2",
+    "reports/memory-management/C1-validation/harness.log": "ff477b827676657eaaf3291dbda10f526c8e3f539098ca0333b72cdf1df58b40",
+    "reports/memory-management/C1-validation/native-attribution.log": "8f5bdd40461af2aedd9b1e268daee60c85659ade04e0eb337cead1fd33dea360",
+    "reports/memory-management/C1-validation/profile-baseline-summary.json": "34730fbce00d45d5e7fe513050eb10dd958a0737430659b3fd9492fa0ff85ca8",
+    "reports/memory-management/C1-validation/programs.log": "fbea2fc6499a9f777ac61b69300cf37427fec478115de5fc1e3cd461f537bf1f",
+    "reports/memory-management/C1-validation/runtime-diagnostic.log": "b4852937335d073a82ddff025418cd2b484c11591ba5a16335ad09eb74a8f58c"
+  },
+  "validation_scripts": {
+    "reports/memory-management/C1-validation/audit.py": "665be272b1a600ab828c05fc389348f67c599ebaf1f9ab1583a1b05613157440",
+    "reports/memory-management/C1-validation/native-attribution.py": "8ccfee38c4b12bc2b7b1aa21c677e090d73ec1281a4a28de5ad622b9b5c80371"
+  },
+  "harness_sha256": {
+    "bench/gc/check_codecs.py": "68c3131c3d66ca2b8a523c90d932f21015425b14081d72c15a0915ee79fe5b52",
+    "bench/gc/profile_applications.py": "3156779e366910bff47d4aadd86b5bd89f237787d9c2bb9ab09c80a1d10b44d0",
+    "bench/gc/applications.py": "71c487a3dd45795c6337c3daa2c356cc57c3e1af4a06050fcc30f3e511ee04fa"
+  },
+  "audit_sha256": "665be272b1a600ab828c05fc389348f67c599ebaf1f9ab1583a1b05613157440"
+}
