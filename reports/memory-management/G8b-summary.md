@@ -70,7 +70,13 @@ snapshot ending pooled reservation varies substantially (median 18.25–54 MiB
 across worker settings), so benchmark any expanded pool against retained memory,
 not only allocator throughput.
 
-## Next allocator experiment
+## Follow-up allocator experiment
+
+Update: [G8c evaluated and rejected](G8c-summary.md). Its fully initialized HAMT
+prototype passes correctness checks, but small/mixed application results and
+byte-heavy regressions fail the retention bar. Production allocation is restored.
+The original proposed experiment below has been completed; allocation-byte
+fractions did not establish a large clearing-time bottleneck.
 
 Try an explicit unsafe fully-initialized allocation contract for HAMT nodes.
 Both node construction and splice paths write the entire declared payload

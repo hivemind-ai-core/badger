@@ -1,0 +1,6 @@
+{
+  "allocation-paths-ordinary": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5",
+  "allocation-paths-diagnostic": "97b4aabc442a1dd9fd9e6739ce5f2abeaba2e4e8237616f2b685089c6c9ebba5",
+  "hamt-init-candidate": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0",
+  "hamt-init-diagnostic": "7d62a2a7dadf0cf72580668966a015a115804723a09049d1aca84f6f82bdc051"
+}

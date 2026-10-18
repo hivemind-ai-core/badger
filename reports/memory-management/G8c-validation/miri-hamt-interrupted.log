@@ -1,0 +1,209 @@
+   Compiling badger_native v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+warning: use of deprecated method `std::sync::atomic::Atomic::<i64>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/badger_runtime/src/intrinsics_os.rs:44:10
+   |
+44 |         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |          ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+44 -         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+44 +         .try_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/badger_runtime/src/map.rs:148:10
+    |
+148 |         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |          ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+148 -         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+148 +         .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |
+
+warning: `badger_runtime` (lib) generated 2 warnings (run `cargo fix --lib -p badger_runtime` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.35s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/68af9c3c3c4abbc9/out/badger_runtime-68af9c3c3c4abbc9)
+warning: use of deprecated method `std::sync::atomic::Atomic::<i64>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/badger_runtime/src/intrinsics_os.rs:44:10
+   |
+44 |         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |          ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+44 -         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+44 +         .try_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/badger_runtime/src/map.rs:148:10
+    |
+148 |         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |          ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+148 -         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+148 +         .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |
+
+
+running 1 test
+test hamt::tests::matches_a_model_across_versions ... warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/gc.rs:83:24
+   |
+83 |     let o = unsafe { &*(w as *const Header) };
+   |                        ^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = help: this program is using integer-to-pointer casts or (equivalently) `ptr::with_exposed_provenance`, which means that Miri might miss pointer bugs in this program
+   = help: see https://doc.rust-lang.org/nightly/std/ptr/fn.with_exposed_provenance.html for more details on that operation
+   = help: to ensure that Miri does not miss bugs in your program, use Strict Provenance APIs (https://doc.rust-lang.org/nightly/std/ptr/index.html#strict-provenance, https://crates.io/crates/sptr) instead
+   = help: you can then set `MIRIFLAGS=-Zmiri-strict-provenance` to ensure you are not relying on `with_exposed_provenance` semantics
+   = help: alternatively, `MIRIFLAGS=-Zmiri-permissive-provenance` disables this warning
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: gc::obj::<'_>
+               at crates/badger_runtime/src/gc.rs:83:24: 83:44
+           1: hamt::alloc_node
+               at crates/badger_runtime/src/hamt.rs:190:17: 190:23
+           2: hamt::alloc_owned::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:215:13: 215:67
+           3: hamt::insert_with::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+           4: hamt::insert
+               at crates/badger_runtime/src/hamt.rs:400:5: 400:48
+           5: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:705:34: 705:92
+           6: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/gc.rs:66:9
+   |
+66 |         std::ptr::with_exposed_provenance_mut((self as *const Header).addr() + HEADER)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: gc::Header::payload
+               at crates/badger_runtime/src/gc.rs:66:9: 66:87
+           1: hamt::alloc_node
+               at crates/badger_runtime/src/hamt.rs:190:17: 190:33
+           2: hamt::alloc_owned::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:215:13: 215:67
+           3: hamt::insert_with::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+           4: hamt::insert
+               at crates/badger_runtime/src/hamt.rs:400:5: 400:48
+           5: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:705:34: 705:92
+           6: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+   --> crates/badger_runtime/src/gc.rs:653:28
+    |
+653 |     let meta = unsafe { &*((o as *const u8).add(8) as *const std::sync::atomic::AtomicU64) };
+    |                            ^^^^^^^^^^^^^^^^ integer-to-pointer cast
+    |
+    = note: this is on thread `hamt::tests::ma`
+    = note: stack backtrace:
+            0: gc::barrier
+                at crates/badger_runtime/src/gc.rs:653:28: 653:44
+            1: hamt::edit::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:350:5: 350:19
+            2: hamt::insert_at::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:465:19: 472:10
+            3: hamt::insert_with::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:432:5: 432:43
+            4: hamt::insert_mut
+                at crates/badger_runtime/src/hamt.rs:406:5: 406:45
+            5: hamt::tests::transient_matches_a_model_and_stops_allocating_for_replacements
+                at crates/badger_runtime/src/hamt.rs:785:37: 785:99
+            6: hamt::tests::matches_a_model_across_versions
+                at crates/badger_runtime/src/hamt.rs:729:9: 729:74
+            7: hamt::tests::matches_a_model_across_versions::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+   --> crates/badger_runtime/src/hamt.rs:175:17
+    |
+175 |         let h = w as *mut Header;
+    |                 ^^^^^^^^^^^^^^^^ integer-to-pointer cast
+    |
+    = note: this is on thread `hamt::tests::ma`
+    = note: stack backtrace:
+            0: hamt::stamp_owner
+                at crates/badger_runtime/src/hamt.rs:175:17: 175:33
+            1: hamt::alloc_owned::<hamt::Epoch>
+                at crates/badger_runtime/src/hamt.rs:217:9: 217:37
+            2: hamt::insert_with::<hamt::Epoch>
+                at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+            3: hamt::insert_owned
+                at crates/badger_runtime/src/hamt.rs:419:5: 419:50
+            4: hamt::tests::owned_collision_buckets_preserve_all_epochs
+                at crates/badger_runtime/src/hamt.rs:742:17: 742:100
+            5: hamt::tests::matches_a_model_across_versions
+                at crates/badger_runtime/src/hamt.rs:730:9: 730:54
+            6: hamt::tests::matches_a_model_across_versions::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/hamt.rs:91:22
+   |
+91 |         let header = std::ptr::with_exposed_provenance::<Header>(self.0.addr() - gc::HEADER);
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: hamt::Node::owner
+               at crates/badger_runtime/src/hamt.rs:91:22: 91:93
+           1: hamt::tests::owned_collision_buckets_preserve_all_epochs
+               at crates/badger_runtime/src/hamt.rs:745:24: 745:46
+           2: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:730:9: 730:54
+           3: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+error: interpretation was interrupted
+   --> crates/badger_runtime/src/hamt.rs:380:26
+    |
+380 |                 .map(|i| n.entry(i))
+    |                          ^ error occurred here
+    |
+    = note: this is on thread `hamt::tests::ma`
+    = note: stack backtrace:
+            0: hamt::get::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:380:26: 380:27
+            1: std::iter::adapters::map::map_try_fold::<'_, usize, hamt::Entry, (), std::ops::ControlFlow<hamt::Entry>, {closure@crates/badger_runtime/src/hamt.rs:380:22: 380:25}, {closure@std::iter::Iterator::find::check<hamt::Entry, {closure@crates/badger_runtime/src/hamt.rs:381:23: 381:26}>::{closure#0}}>::{closure#0}
+                at /home/dan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/adapters/map.rs:95:28: 95:34
+            2: <std::ops::Range<usize> as std::iter::Iterator>::try_fold::<(), {closure@std::iter::adapters::map::map_try_fold<'_, usize, hamt::Entry, (), std::ops::ControlFlow<hamt::Entry>, {closure@crates/badger_runtime/src/hamt.rs:380:22: 380:25}, {closure@std::iter::Iterator::find::check<hamt::Entry, {closure@crates/badger_runtime/src/hamt.rs:381:23: 381:26}>::{closure#0}}>::{closure#0}}, std::ops::ControlFlow<hamt::Entry>>
+                at /home/dan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs:2490:21: 2490:32
+            3: <std::iter::Map<std::ops::Range<usize>, {closure@crates/badger_runtime/src/hamt.rs:380:22: 380:25}> as std::iter::Iterator>::try_fold::<(), {closure@std::iter::Iterator::find::check<hamt::Entry, {closure@crates/badger_runtime/src/hamt.rs:381:23: 381:26}>::{closure#0}}, std::ops::ControlFlow<hamt::Entry>>
+                at /home/dan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/adapters/map.rs:121:9: 121:63
+            4: <std::iter::Map<std::ops::Range<usize>, {closure@crates/badger_runtime/src/hamt.rs:380:22: 380:25}> as std::iter::Iterator>::find::<{closure@crates/badger_runtime/src/hamt.rs:381:23: 381:26}>
+                at /home/dan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs:2967:9: 2967:44
+            5: hamt::get
+                at crates/badger_runtime/src/hamt.rs:379:20: 381:60
+            6: hamt::tests::owned_collision_buckets_preserve_all_epochs
+                at crates/badger_runtime/src/hamt.rs:760:28: 760:63
+            7: hamt::tests::matches_a_model_across_versions
+                at crates/badger_runtime/src/hamt.rs:730:9: 730:54
+            8: hamt::tests::matches_a_model_across_versions::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error; 7 warnings emitted
+
+error: test failed, to rerun pass `-p badger_runtime --lib`
+
+Caused by:
+  process didn't exit successfully: `/home/dan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/cargo-miri runner /home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/68af9c3c3c4abbc9/out/badger_runtime-68af9c3c3c4abbc9 'hamt::tests::matches_a_model_across_versions' --exact` (exit status: 1)
+note: test exited abnormally; to see the full output pass --no-capture to the harness.

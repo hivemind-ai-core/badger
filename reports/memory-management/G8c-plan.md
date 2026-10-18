@@ -1,4 +1,10 @@
-# G8c experiment: fully initialized HAMT allocation
+# G8c experiment: fully initialized HAMT allocation (evaluated, rejected)
+
+Completed: [results and exact validation boundaries](G8c-summary.md).
+Prototype 5b91953 passes its correctness checks, but application repeats remain
+small/mixed and byte-heavy coverage regresses 8–14%. Revert a9d51d7 restores
+production code. Keep the benchmark and test improvements. The original
+hypothesis and acceptance criteria follow.
 
 Baseline main: 27e9653, after the rejected G8a prototype was reverted. Immutable
 ordinary `allocation-paths-ordinary` and diagnostic `allocation-paths-diagnostic`

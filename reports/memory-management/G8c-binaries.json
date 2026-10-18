@@ -1,0 +1,403 @@
+{
+  "baseline_revision": "27e9653",
+  "prototype_build_revision": "5b91953",
+  "validation_revision": "9f96361",
+  "production_revert": "a9d51d7",
+  "measured_processes": 1460,
+  "measured_intervals_overlap": false,
+  "datasets": [
+    {
+      "path": "reports/memory-management/G8c-baseline/measurements.json.gz",
+      "sha256": "c50c404c6cf0c09324e56e5cd47284ddf8ab8a9012d2f9a5b34850e38baac5b9",
+      "runs": 36,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+        "candidate": "None",
+        "baseline_revision": "27e9653",
+        "candidate_revision": null,
+        "reps": 3,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101923,
+        "cases": [
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8c-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+          "sha256": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8c-applications/measurements.json.gz",
+      "sha256": "5bd61cbddc3929b02d33f5c4ed65b03c4ed0a1e2524e2165b1952ab53609425e",
+      "runs": 504,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+        "baseline_revision": "27e9653",
+        "candidate_revision": "5b91953",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101924,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8c-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+          "sha256": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+          "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8c-coverage/measurements.json.gz",
+      "sha256": "f54c9eb081dfc25b40da1a1333c0957a05b76f31150e9a2ff7ec323dfa1af2a3",
+      "runs": 392,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+        "baseline_revision": "27e9653",
+        "candidate_revision": "5b91953",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101925,
+        "paired": true,
+        "cases": [
+          "parallel-maps",
+          "parallel-snapshots",
+          "parallel-scalar-snapshots",
+          "persistent-4096-major",
+          "records-window",
+          "bytes-transient",
+          "buffers-capacity-32"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/G8c-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+          "sha256": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+          "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8c-census/measurements.json.gz",
+      "sha256": "4d757666a42d364a0b021e09a39f564467f06b572739ca6dd922e4c0f7cd6c23",
+      "runs": 48,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-diagnostic",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-diagnostic",
+        "baseline_revision": "27e9653",
+        "candidate_revision": "5b91953",
+        "reps": 3,
+        "warmups": 3,
+        "samples": 5,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101926,
+        "cases": [
+          "compare/records",
+          "compare/snapshots",
+          "realworld/state",
+          "realworld/reconcile"
+        ],
+        "diagnostic": true,
+        "allocations": true,
+        "smoke": false,
+        "out": "reports/memory-management/G8c-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-diagnostic",
+          "sha256": "97b4aabc442a1dd9fd9e6739ce5f2abeaba2e4e8237616f2b685089c6c9ebba5"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-diagnostic",
+          "sha256": "7d62a2a7dadf0cf72580668966a015a115804723a09049d1aca84f6f82bdc051"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8c-repeat/measurements.json.gz",
+      "sha256": "e30b352905a7a1c92a67feacad584f8fc82d44f59a898f55028726dc8c8ddee7",
+      "runs": 240,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+        "baseline_revision": "27e9653",
+        "candidate_revision": "5b91953",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101927,
+        "cases": [
+          "compare/records",
+          "compare/snapshots",
+          "realworld/state",
+          "realworld/json"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8c-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+          "sha256": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+          "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8c-control/measurements.json.gz",
+      "sha256": "c701a421b91ca8b41c6e73a538f4dcb2349b79c2a739d27c1ac28b6c7a313198",
+      "runs": 240,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+        "baseline_revision": "5b91953",
+        "candidate_revision": "5b91953",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101928,
+        "cases": [
+          "compare/records",
+          "compare/snapshots",
+          "realworld/state",
+          "realworld/json"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8c-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+          "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+          "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+        }
+      }
+    }
+  ],
+  "managed_traffic": [
+    {
+      "case": "records",
+      "runs": 12,
+      "objects": 1603420,
+      "cell_bytes": 89865136,
+      "requested_bytes_range": [
+        77064809,
+        77064813
+      ]
+    },
+    {
+      "case": "snapshots",
+      "runs": 12,
+      "objects": 57628,
+      "cell_bytes": 12725696,
+      "requested_bytes_range": [
+        12629130,
+        12629130
+      ]
+    },
+    {
+      "case": "state",
+      "runs": 12,
+      "objects": 47455,
+      "cell_bytes": 15490432,
+      "requested_bytes_range": [
+        15462764,
+        15462764
+      ]
+    },
+    {
+      "case": "reconcile",
+      "runs": 12,
+      "objects": 902239,
+      "cell_bytes": 70586320,
+      "requested_bytes_range": [
+        63435504,
+        63435506
+      ]
+    }
+  ],
+  "source_sha256": {
+    "27e9653": {
+      "crates/badger_runtime/src/gc.rs": "5ce9f57106548a6828458c998fed56ad3fbb4941f5bf26fda61b83bdde7b4f81",
+      "crates/badger_runtime/src/gc/sweep.rs": "51bf8bf152284f7deff4c55bfb3cc3f1906d22ff97258339cbe9ae5d1d0a5435",
+      "crates/badger_runtime/src/hamt.rs": "8733025df00e9d80377f1fc47a80e3065cd89258e1080d7a6152cb1dbf55d319"
+    },
+    "5b91953": {
+      "crates/badger_runtime/src/gc.rs": "b0882cfbf46a771f61b5862049acc93b2abfbad53a471acbeaee5730e3bfc391",
+      "crates/badger_runtime/src/gc/sweep.rs": "1c6f3db8cda77ca290a17703c06ca980fad23677a81be394ee005d30ca476337",
+      "crates/badger_runtime/src/hamt.rs": "189b2c0d181b830f17eeda78a8b22bbf0a410113faa165008c92a0e22df3865b"
+    },
+    "9f96361": {
+      "crates/badger_runtime/src/gc.rs": "b0882cfbf46a771f61b5862049acc93b2abfbad53a471acbeaee5730e3bfc391",
+      "crates/badger_runtime/src/gc/sweep.rs": "1c6f3db8cda77ca290a17703c06ca980fad23677a81be394ee005d30ca476337",
+      "crates/badger_runtime/src/hamt.rs": "d0eab70d54f87f3146968a83528836ab8024eaec71122e2115591de7f4f39c4e"
+    },
+    "a9d51d7": {
+      "crates/badger_runtime/src/gc.rs": "5ce9f57106548a6828458c998fed56ad3fbb4941f5bf26fda61b83bdde7b4f81",
+      "crates/badger_runtime/src/gc/sweep.rs": "51bf8bf152284f7deff4c55bfb3cc3f1906d22ff97258339cbe9ae5d1d0a5435",
+      "crates/badger_runtime/src/hamt.rs": "1d14003bac38bdc6995a635c060986218534e07ab3d0fce0ed3d3e49e05ebdd9"
+    }
+  },
+  "binaries": {
+    "allocation-paths-ordinary": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-ordinary",
+      "sha256": "e64de7f6de9d962fe87a7b64d0b1bcaed5df684d163c07bfb80918d1a0709aa5"
+    },
+    "allocation-paths-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/allocation-paths-diagnostic",
+      "sha256": "97b4aabc442a1dd9fd9e6739ce5f2abeaba2e4e8237616f2b685089c6c9ebba5"
+    },
+    "hamt-init-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-candidate",
+      "sha256": "d15a7dc0f8cdd4fa9f0cc71694975634f1e12b765d88bb115f64d81e97b313b0"
+    },
+    "hamt-init-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/hamt-init-diagnostic",
+      "sha256": "7d62a2a7dadf0cf72580668966a015a115804723a09049d1aca84f6f82bdc051"
+    }
+  },
+  "validation_artifacts": {
+    "reports/memory-management/G8c-validation/audit.py": "469fc5be925f494c78e531dd9d26e5b7727895aca51319aef9bbf0c61a517e10",
+    "reports/memory-management/G8c-validation/baseline-alloc.asm": "18fb880ef4519cbe06efea207fc2b982f0354600d0704c55cb876bed2c26d5cb",
+    "reports/memory-management/G8c-validation/binary-hashes.json": "8ec746aaa9b9a7bc455933aec78da6bad5951856ae95299c4589b6ee7999702f",
+    "reports/memory-management/G8c-validation/build-diagnostic.log": "61fb790bd968c447df92b9fa3d02a8b842aec2a622dd4db92dea3f5179ca2a9f",
+    "reports/memory-management/G8c-validation/build-ordinary.log": "d46d6ebc55ddefc877f98d70daeb5b5f9d2e7d9657d993f60fa67c9cc88e88ff",
+    "reports/memory-management/G8c-validation/clippy-diagnostic.log": "2a1c6515dcf275c72daa0c2418c5e0119543808107453c071ea8eeb9f0c24104",
+    "reports/memory-management/G8c-validation/clippy-ordinary.log": "59c21b014c90905dba6f6b7ddd8786584997f0c84e64dfd475c25b94861e2a02",
+    "reports/memory-management/G8c-validation/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/G8c-validation/harness.log": "a60f14fd5b8d5a853cf16df7bec61e9ec3a741e9a61f701e7797cf9ec7d2d4a3",
+    "reports/memory-management/G8c-validation/miri-hamt-interrupted.log": "446438a6827daf6867a5ef1e45facba272bb8039ae84e054082955a6ba1c7149",
+    "reports/memory-management/G8c-validation/miri-hamt.log": "446ab09a02118586da139c1f94a2a57ec64559baf957be5cf33872d5abacb2ae",
+    "reports/memory-management/G8c-validation/private-maps-harness-failure.log": "64a60ed8c2670763df9fce2786d7f6b89fc54c6a6236a4e1a4cbce7f0bffc206",
+    "reports/memory-management/G8c-validation/private-maps.json.gz": "22a0235135c20200a6653865a7b1ade03925dce17ffbf0deee0a9f158add541a",
+    "reports/memory-management/G8c-validation/private-maps.log": "ae19b15cf6e125fdda36c5f02f5519bf712eba349869c4f5e1284bbe7871de4b",
+    "reports/memory-management/G8c-validation/programs.log": "fd3868811b83de25b56f489b9fb033d5cf9a703035bf149440bd32437f96ac50",
+    "reports/memory-management/G8c-validation/retained-clippy-diagnostic.log": "6bb2ea0a2d869172a44ca8f24192d954cd5d540386669d3005c676834899efef",
+    "reports/memory-management/G8c-validation/retained-clippy-ordinary.log": "13cd5dcbcdf894540ee61ed666fe70454c6c19cf52cf134e17e29568ea80510f",
+    "reports/memory-management/G8c-validation/retained-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/G8c-validation/retained-harness.log": "ff477b827676657eaaf3291dbda10f526c8e3f539098ca0333b72cdf1df58b40",
+    "reports/memory-management/G8c-validation/retained-private-maps.json.gz": "c5da066a4b921838b51619fe8db0e2dbb19273be5e9542382c09322dfa72dbfa",
+    "reports/memory-management/G8c-validation/retained-private-maps.log": "ae19b15cf6e125fdda36c5f02f5519bf712eba349869c4f5e1284bbe7871de4b",
+    "reports/memory-management/G8c-validation/retained-runtime-diagnostic.log": "ce350b3f5ae23342a854279c77f88f304dd3d6708c6259695ca34e28c356bc8a",
+    "reports/memory-management/G8c-validation/retained-runtime-ordinary.log": "fa5ad660796a06632317651ecc9ebf364c8a827d6408a84df209a9c29f162a33",
+    "reports/memory-management/G8c-validation/runtime-diagnostic-final.log": "3698a0634fe997a8a47c4913607cbaf6197320d21f35953437d69bb353f8ff86",
+    "reports/memory-management/G8c-validation/runtime-diagnostic.log": "bd0be7e188ccb7439a0c7d7458724389cca0612e9aa2e56e8f5e9094f8d7bd66",
+    "reports/memory-management/G8c-validation/runtime-ordinary-final.log": "7835ff9dd519ec53d1f419892e5da2be67f24ee7517b34a0dcea946e4e7f2916",
+    "reports/memory-management/G8c-validation/runtime-ordinary.log": "134a825cc234e3e89b5e019ba6d3e392a06fd9976df3d2b95e15a26e6c288235",
+    "reports/memory-management/G8c-validation/uninit-alloc.asm": "5e20c6840f0848005995371161860362d9208315298a2c92dd66a5d7b99e5caa",
+    "reports/memory-management/G8c-validation/zeroed-alloc.asm": "dae1029b2b90c0fbd74f24bb187f2b5f140e6b543f60cfe9ce8b17ac2a2e73fa"
+  },
+  "retained_production_matches_main_27e9653": true
+}

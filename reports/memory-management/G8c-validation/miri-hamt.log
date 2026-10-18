@@ -1,0 +1,196 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+warning: use of deprecated method `std::sync::atomic::Atomic::<i64>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/badger_runtime/src/intrinsics_os.rs:44:10
+   |
+44 |         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |          ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+44 -         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+44 +         .try_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/badger_runtime/src/map.rs:148:10
+    |
+148 |         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |          ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+148 -         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+148 +         .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |
+
+warning: `badger_runtime` (lib) generated 2 warnings (run `cargo fix --lib -p badger_runtime` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.49s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/68af9c3c3c4abbc9/out/badger_runtime-68af9c3c3c4abbc9)
+warning: use of deprecated method `std::sync::atomic::Atomic::<i64>::fetch_update`: renamed to `try_update` for consistency
+  --> crates/badger_runtime/src/intrinsics_os.rs:44:10
+   |
+44 |         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |          ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+44 -         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+44 +         .try_update(Ordering::AcqRel, Ordering::Acquire, |t| (t != REAL_CLOCK).then(|| f(t)))
+   |
+
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates/badger_runtime/src/map.rs:148:10
+    |
+148 |         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |          ^^^^^^^^^^^^
+    |
+help: replace the use of the deprecated method
+    |
+148 -         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+148 +         .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| (n <= hamt::MAX_OWNER).then(|| n + 1))
+    |
+
+
+running 1 test
+test hamt::tests::matches_a_model_across_versions ... warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/gc.rs:83:24
+   |
+83 |     let o = unsafe { &*(w as *const Header) };
+   |                        ^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = help: this program is using integer-to-pointer casts or (equivalently) `ptr::with_exposed_provenance`, which means that Miri might miss pointer bugs in this program
+   = help: see https://doc.rust-lang.org/nightly/std/ptr/fn.with_exposed_provenance.html for more details on that operation
+   = help: to ensure that Miri does not miss bugs in your program, use Strict Provenance APIs (https://doc.rust-lang.org/nightly/std/ptr/index.html#strict-provenance, https://crates.io/crates/sptr) instead
+   = help: you can then set `MIRIFLAGS=-Zmiri-strict-provenance` to ensure you are not relying on `with_exposed_provenance` semantics
+   = help: alternatively, `MIRIFLAGS=-Zmiri-permissive-provenance` disables this warning
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: gc::obj::<'_>
+               at crates/badger_runtime/src/gc.rs:83:24: 83:44
+           1: hamt::alloc_node
+               at crates/badger_runtime/src/hamt.rs:190:17: 190:23
+           2: hamt::alloc_owned::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:215:13: 215:67
+           3: hamt::insert_with::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+           4: hamt::insert
+               at crates/badger_runtime/src/hamt.rs:400:5: 400:48
+           5: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:705:34: 705:92
+           6: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/gc.rs:66:9
+   |
+66 |         std::ptr::with_exposed_provenance_mut((self as *const Header).addr() + HEADER)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: gc::Header::payload
+               at crates/badger_runtime/src/gc.rs:66:9: 66:87
+           1: hamt::alloc_node
+               at crates/badger_runtime/src/hamt.rs:190:17: 190:33
+           2: hamt::alloc_owned::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:215:13: 215:67
+           3: hamt::insert_with::<hamt::Persistent>
+               at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+           4: hamt::insert
+               at crates/badger_runtime/src/hamt.rs:400:5: 400:48
+           5: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:705:34: 705:92
+           6: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+   --> crates/badger_runtime/src/gc.rs:653:28
+    |
+653 |     let meta = unsafe { &*((o as *const u8).add(8) as *const std::sync::atomic::AtomicU64) };
+    |                            ^^^^^^^^^^^^^^^^ integer-to-pointer cast
+    |
+    = note: this is on thread `hamt::tests::ma`
+    = note: stack backtrace:
+            0: gc::barrier
+                at crates/badger_runtime/src/gc.rs:653:28: 653:44
+            1: hamt::edit::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:350:5: 350:19
+            2: hamt::insert_at::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:465:19: 472:10
+            3: hamt::insert_with::<hamt::Builder>
+                at crates/badger_runtime/src/hamt.rs:432:5: 432:43
+            4: hamt::insert_mut
+                at crates/badger_runtime/src/hamt.rs:406:5: 406:45
+            5: hamt::tests::transient_matches_a_model_and_stops_allocating_for_replacements
+                at crates/badger_runtime/src/hamt.rs:788:37: 788:99
+            6: hamt::tests::matches_a_model_across_versions
+                at crates/badger_runtime/src/hamt.rs:729:9: 729:74
+            7: hamt::tests::matches_a_model_across_versions::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+   --> crates/badger_runtime/src/hamt.rs:175:17
+    |
+175 |         let h = w as *mut Header;
+    |                 ^^^^^^^^^^^^^^^^ integer-to-pointer cast
+    |
+    = note: this is on thread `hamt::tests::ma`
+    = note: stack backtrace:
+            0: hamt::stamp_owner
+                at crates/badger_runtime/src/hamt.rs:175:17: 175:33
+            1: hamt::alloc_owned::<hamt::Epoch>
+                at crates/badger_runtime/src/hamt.rs:217:9: 217:37
+            2: hamt::insert_with::<hamt::Epoch>
+                at crates/badger_runtime/src/hamt.rs:430:17: 430:71
+            3: hamt::insert_owned
+                at crates/badger_runtime/src/hamt.rs:419:5: 419:50
+            4: hamt::tests::owned_collision_buckets_preserve_all_epochs
+                at crates/badger_runtime/src/hamt.rs:745:17: 745:100
+            5: hamt::tests::matches_a_model_across_versions
+                at crates/badger_runtime/src/hamt.rs:730:9: 730:54
+            6: hamt::tests::matches_a_model_across_versions::{closure#0}
+                at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+warning: integer-to-pointer cast
+  --> crates/badger_runtime/src/hamt.rs:91:22
+   |
+91 |         let header = std::ptr::with_exposed_provenance::<Header>(self.0.addr() - gc::HEADER);
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ integer-to-pointer cast
+   |
+   = note: this is on thread `hamt::tests::ma`
+   = note: stack backtrace:
+           0: hamt::Node::owner
+               at crates/badger_runtime/src/hamt.rs:91:22: 91:93
+           1: hamt::tests::owned_collision_buckets_preserve_all_epochs
+               at crates/badger_runtime/src/hamt.rs:748:24: 748:46
+           2: hamt::tests::matches_a_model_across_versions
+               at crates/badger_runtime/src/hamt.rs:730:9: 730:54
+           3: hamt::tests::matches_a_model_across_versions::{closure#0}
+               at crates/badger_runtime/src/hamt.rs:681:41: 681:41
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 441.64s
+
+warning: 7 warnings emitted
+
+     Running tests/cancelled_waiters.rs (/home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/90c20e0d43d1b709/out/cancelled_waiters-90c20e0d43d1b709)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.04s
+
+     Running tests/retention.rs (/home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/620a0dcd3f21d99f/out/retention-620a0dcd3f21d99f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.04s
+
+     Running tests/task_ids.rs (/home/dan/orca/projects/language/target/miri/miri/x86_64-unknown-linux-gnu/debug/build/badger_runtime/fb3b9ab1ffc24406/out/task_ids-fb3b9ab1ffc24406)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.04s
+

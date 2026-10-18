@@ -934,6 +934,10 @@ Work in this order, keeping only measured improvements:
      refill/trim events in diagnostic builds. Calibrate instrumentation and
      save both coverage and application censuses. This is measurement, not a
      GC speed improvement. [Allocation-path evidence](reports/memory-management/G8b-summary.md).
+   - [x] G8c experiment: Evaluate skipping redundant HAMT initialization;
+     reject/revert after small application gains, repeated JSON regression and
+     8–14% byte-heavy coverage regression. Keep modern-compiler compatibility
+     checks and bounded Miri model coverage. [Evidence](reports/memory-management/G8c-summary.md).
 4. [ ] I9/G9: Extend escape/lifetime proofs to stack or region storage. First
    specify roots across suspension, failure cleanup, aliases and cross-task
    publication. Evaluate scoped transient regions before general shared arenas;
@@ -1199,3 +1203,19 @@ initialization/root/publication proofs before changing the fast path. Keep W1b
 channel spin/wake/idle/steal counters as a separate measured followup. Scalar-map
 reads, packed records, bounded marking, parameter ownership, and task/transfer
 arenas remain open; C1 implements none of those architectural proposals.
+
+### G8 allocation-path census and rejected initialization experiments
+
+G8a and G8c are evaluated, reverted production experiments; G8b's diagnostic
+source-path and refill/trim counters are retained. The new coverage distinguishes
+fresh bump allocation from recycled cells, and includes parallel, collection-heavy
+snapshots alongside the shorter comparison/application blocks. Raw baselines,
+all samples, controls and rejected-prototype hashes remain in the linked G8
+reports. Neither clearing experiment establishes a broad application win.
+
+The G8c census conserves object/cell-byte totals exactly across its 48 diagnostic
+processes. High system-allocation byte shares alone did not establish a large
+clearing-time bottleneck. Next prefer existing I2/I4/I9 allocation elimination
+and packing work, plus G7e trace-cardinality attribution, over another zeroing
+micro-optimization without ordinary allocation-call CPU evidence. G8, regions,
+ring ownership and the broader memory-management roadmap remain open.
