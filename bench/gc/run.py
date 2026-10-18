@@ -78,6 +78,7 @@ POLICIES = {
     "pool1024": {"BADGER_GC_POOL_MAX": "1024"},
     "sweep-scoped": {"BADGER_GC_SWEEP_REUSE": "0"},
     "sweep-reuse": {"BADGER_GC_SWEEP_REUSE": "1"},
+    **{f"prefetch{n}": {"BADGER_GC_SWEEP_PREFETCH": str(n)} for n in [0, 8, 16, 32, 64, 128]},
     **{f"refill{kib}": {"BADGER_GC_POOL_REFILL_KIB": str(kib)} for kib in [256, 512, 2048]},
     **{f"inline{n}": {"BADGER_BUFFER_INLINE_BYTES": str(n)} for n in [0, 128, 256]},
     "inline256-pool256": {"BADGER_BUFFER_INLINE_BYTES": "256", "BADGER_GC_POOL_MAX": "256"},
@@ -435,6 +436,11 @@ def run_benchmarks(args):
             if "BADGER_GC_SWEEP_REUSE" in settings:
                 if phases is None or phases["policy"].get("reuse_sweep_helpers") != (settings["BADGER_GC_SWEEP_REUSE"] == "1"):
                     raise ValueError("diagnostic binary did not apply the sweep-helper policy")
+            if "BADGER_GC_SWEEP_PREFETCH" in settings:
+                distance = int(settings["BADGER_GC_SWEEP_PREFETCH"])
+                if (phases is None or phases["policy"].get("sweep_prefetch_objects") != distance
+                        or (distance and not phases["policy"].get("sweep_prefetch_supported"))):
+                    raise ValueError("diagnostic binary did not apply the sweep-prefetch policy")
             if "BADGER_GC_POOL_REFILL_KIB" in settings:
                 if phases is None or phases["policy"].get("pool_refill_bytes") != int(settings["BADGER_GC_POOL_REFILL_KIB"]) << 10:
                     raise ValueError("diagnostic binary did not apply the pool-refill policy")

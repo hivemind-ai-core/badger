@@ -983,6 +983,9 @@ fn trim_empty_chunks(h: &Heap) {
     }
 }
 
+#[cfg(any(target_arch = "x86_64", feature = "gc-profile"))]
+const SWEEP_PREFETCH: usize = 32;
+
 /// Sweep `list[start..]` in place: marked objects survive (`keep`; their
 /// marks stay when `sticky`), the others are handed to `free`.
 fn sweep_from(
@@ -992,8 +995,28 @@ fn sweep_from(
     mut keep: impl FnMut(*mut Header),
     mut free: impl FnMut(*mut Header),
 ) {
+    #[cfg(target_arch = "x86_64")]
+    let ahead = {
+        #[cfg(feature = "gc-profile")]
+        {
+            diagnostics::sweep_prefetch(SWEEP_PREFETCH)
+        }
+        #[cfg(not(feature = "gc-profile"))]
+        {
+            SWEEP_PREFETCH
+        }
+    };
     let mut j = start;
     for i in start..list.len() {
+        // The world is stopped and this job owns the list: future entries
+        // have not been compacted or freed. Hint only, with no extra reads
+        // of object contents or changes to finalization/reclamation order.
+        #[cfg(target_arch = "x86_64")]
+        if ahead != 0
+            && let Some(&next) = list.get(i + ahead)
+        {
+            unsafe { std::arch::x86_64::_mm_prefetch(next.cast(), std::arch::x86_64::_MM_HINT_T0) };
+        }
         let p = list[i];
         unsafe {
             if (*p).meta & MARK != 0 {

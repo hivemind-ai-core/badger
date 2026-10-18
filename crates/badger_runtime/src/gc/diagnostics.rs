@@ -16,6 +16,7 @@ struct Settings {
     pool_refill: Option<usize>,
     buffer_inline: Option<usize>,
     reuse_sweep: Option<bool>,
+    sweep_prefetch: Option<usize>,
 }
 fn settings() -> &'static Settings {
     static SETTINGS: OnceLock<Settings> = OnceLock::new();
@@ -32,6 +33,11 @@ fn settings() -> &'static Settings {
         );
         let pool_refill = number("BADGER_GC_POOL_REFILL_KIB");
         let buffer_inline = number("BADGER_BUFFER_INLINE_BYTES");
+        let sweep_prefetch = number("BADGER_GC_SWEEP_PREFETCH");
+        assert!(
+            matches!(sweep_prefetch, None | Some(0 | 8 | 16 | 32 | 64 | 128)),
+            "BADGER_GC_SWEEP_PREFETCH must be 0, 8, 16, 32, 64 or 128"
+        );
         assert!(
             matches!(buffer_inline, None | Some(0 | 128 | 256)),
             "BADGER_BUFFER_INLINE_BYTES must be 0, 128 or 256"
@@ -48,6 +54,7 @@ fn settings() -> &'static Settings {
             pool_max,
             pool_refill: pool_refill.map(|kib| kib << 10),
             buffer_inline,
+            sweep_prefetch,
             reuse_sweep: std::env::var("BADGER_GC_SWEEP_REUSE").ok().map(|v| match v.as_str() {
                 "0" => false,
                 "1" => true,
@@ -76,6 +83,9 @@ pub(crate) fn buffer_inline_bytes(default: usize) -> usize {
 }
 pub(super) fn reuse_sweep_helpers(default: bool) -> bool {
     settings().reuse_sweep.unwrap_or(default)
+}
+pub(super) fn sweep_prefetch(default: usize) -> usize {
+    settings().sweep_prefetch.unwrap_or(default)
 }
 
 pub(super) struct Collection {
@@ -129,6 +139,8 @@ pub fn finish() {
                    "trim": settings().trim, "pool_max_bytes": pool_max(super::SMALL_MAX),
                    "pool_refill_bytes": pool_refill(super::BIG_CHUNK),
                    "buffer_inline_bytes": buffer_inline_bytes(crate::buffer::INLINE_BYTES),
+                   "sweep_prefetch_objects": sweep_prefetch(super::SWEEP_PREFETCH),
+                   "sweep_prefetch_supported": cfg!(target_arch = "x86_64"),
                    "reuse_sweep_helpers": reuse_sweep_helpers(super::REUSE_SWEEP_HELPERS)},
         "note": "Diagnostic wall times. Phases are disjoint within each collection; stop_world includes rendezvous. Sampling/lock stats perturb execution."});
     if let Err(e) = std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()) {

@@ -135,6 +135,15 @@ threads separately. The runner checks conservation; `analyze.py` summarizes skew
 and small jobs over workload collections. These counters do not directly time
 thread creation. All helper results are joined/received before serial finalizers
 or worker resumption; profiler/process finish closes the cache and joins helpers.
+
+`BADGER_GC_SWEEP_PREFETCH=0|8|16|32|64|128` compares ahead-of-use object-header
+hints on x86-64 within the same diagnostic executable. Select `--suite
+coverage-policy --policies prefetch0 prefetch16 prefetch32 prefetch64 --paired`.
+Distances count objects; zero disables hints. The runner rejects unsupported or
+unapplied policies. These instrumented variable-distance experiments need separate
+ordinary fixed-distance application comparisons before retention; other
+architectures keep their original sweep path. No new allocation or GC policy is
+implied by a prefetch hint.
 Later collections use scoped helpers. The cache is bounded by `MAX_WORKERS` and
 created lazily, but idle native stacks/channels consume resources until finish.
 Ordinary builds retain scoped helpers. Reuse was rejected as a default after
