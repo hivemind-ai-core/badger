@@ -1,0 +1,41 @@
+// Generated fixed-work topology probe: 1 producer(s), 1 consumer(s).
+import std.channel
+import std.io
+import std.task
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+    io(source: io.Error),
+} derive(Error, From)
+pub fn main() -> Result<Unit, AppError> {
+    let per = 200000
+    let ends = channel.create<Int>({ ..channel.defaults, capacity: 64, byte_budget: 0 })?
+    let got = task.scope(fn(s) -> Result<List<{ count: Int, sum: Int }>, AppError> {
+        let ps = (0..1).map(fn(p: Int) {
+            s.spawn(fn() -> Result<Unit, AppError> {
+                for i in 0..per { ends.sender.send(p * per + i)? }
+                ok(())
+            })
+        }).collect()
+        let cs = (0..1).map(fn(_c: Int) {
+            s.spawn(fn() {
+                var count = 0
+                var sum = 0
+                loop {
+                    match ends.receiver.recv() {
+                        .some(v) => { count = count + 1; sum = sum + v },
+                        .none => { break },
+                    }
+                }
+                { count, sum }
+            })
+        }).collect()
+        s.try_all(ps)?
+        ends.sender.close()
+        ok(cs.map(fn(t) { t.join() }))
+    })?
+    assert(got.fold(0, fn(a: Int, v: { count: Int, sum: Int }) { a + v.count }) == 200000)
+    assert(got.fold(0, fn(a: Int, v: { count: Int, sum: Int }) { a + v.sum }) == 19999900000)
+    io.println("200000 messages: count and sum conserved")?
+    ok(())
+}

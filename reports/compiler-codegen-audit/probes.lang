@@ -1,0 +1,46 @@
+import std.io
+
+fn identity(n: Int) -> Int { n }
+
+fn area(s) { s.w * s.h }
+
+fn scalarized(n: Int) -> Int {
+    let r = { w: n, h: 2 }
+    r.w * r.h
+}
+
+fn through_call(n: Int) -> Int {
+    let r = { w: n, h: 2 }
+    area(r)
+}
+
+fn unused_record(n: Int) -> Int {
+    let _ = { w: n, h: 2 }
+    n
+}
+
+fn sum_list(items: List<Int>) -> Int {
+    var sum = 0
+    for x in items {
+        sum = sum + x
+    }
+    sum
+}
+
+fn records_equal(a: { x: Int, y: Int }, b: { x: Int, y: Int }) -> Bool { a == b }
+
+fn immediate_closure(n: Int) -> Int {
+    let add = fn(x: Int) -> Int { x + n }
+    add(1)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(identity(7))?
+    io.println(scalarized(7))?
+    io.println(through_call(7))?
+    io.println(unused_record(7))?
+    io.println(sum_list([1, 2, 3]))?
+    io.println(records_equal({ x: 1, y: 2 }, { x: 1, y: 2 }))?
+    io.println(immediate_closure(7))?
+    ok(())
+}
