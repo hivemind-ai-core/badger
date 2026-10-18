@@ -601,7 +601,9 @@ impl Server {
         Some((name, out))
     }
 
-    /// Quick fixes for the diagnostics in the request's context: an unknown
+    /// Quick fixes for the diagnostics in the request's context: a missing
+    /// `match` arm (added with a `panic` body, so it stays visibly
+    /// unfinished), and for an unknown
     /// name that is a standard module gets an action inserting its import
     /// after the file's last import.
     fn code_actions(&mut self, params: &Value) -> Value {
@@ -611,6 +613,12 @@ impl Server {
         let modules = badger_driver::std_modules();
         let mut actions = vec![];
         for d in params["context"]["diagnostics"].as_array().cloned().unwrap_or_default() {
+            if d["code"] == "E0342"
+                && let Some(action) = missing_arm(&uri, &text, &d)
+            {
+                actions.push(action);
+                continue;
+            }
             if d["code"] != "E0127" {
                 continue;
             }
@@ -938,6 +946,74 @@ pub fn serve() -> i32 {
         }
     }
     0
+}
+
+/// The action adding an arm for the pattern a non-exhaustive `match`
+/// misses (E0342 names it): before the match's closing brace, with a body
+/// that panics until it is written.
+fn missing_arm(uri: &str, text: &str, d: &Value) -> Option<Value> {
+    let label = d["data"]["label"].as_str()?;
+    let pattern = label.strip_prefix("pattern `")?.strip_suffix("` is not covered")?;
+    // the scrutinee's end, then the match's braces
+    let line = d["range"]["end"]["line"].as_u64()? as usize;
+    let character = d["range"]["end"]["character"].as_u64()? as usize;
+    let line_start: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+    let line_text = text[line_start..].lines().next().unwrap_or("");
+    let mut offset = line_start;
+    let mut units = 0;
+    for c in line_text.chars() {
+        if units >= character {
+            break;
+        }
+        units += c.len_utf16();
+        offset += c.len_utf8();
+    }
+    let bytes = text.as_bytes();
+    let open = offset + text[offset..].find('{')?;
+    let (mut depth, mut i, mut in_string) = (0usize, open, false);
+    let close = loop {
+        let c = *bytes.get(i)?;
+        if in_string {
+            if c == b'\\' {
+                i += 1;
+            } else if c == b'"' {
+                in_string = false;
+            }
+        } else if c == b'"' {
+            in_string = true;
+        } else if c == b'{' {
+            depth += 1;
+        } else if c == b'}' {
+            depth -= 1;
+            if depth == 0 {
+                break i;
+            }
+        }
+        i += 1;
+    };
+    let close_line_start = text[..close].rfind('\n').map(|p| p + 1).unwrap_or(0);
+    let before = &text[close_line_start..close];
+    let message = pattern.replace('\\', "\\\\").replace('"', "\\\"");
+    let (at, new_text) = if before.trim().is_empty() {
+        // `}` on its own line: a new line above it, indented one level more
+        (close_line_start, format!("{before}    {pattern} => panic(\"not handled yet: {message}\"),\n"))
+    } else {
+        // one line: `match x { .a => 1 }`
+        let prev = text[..close].trim_end();
+        let sep = if prev.ends_with(',') || prev.ends_with('{') { " " } else { ", " };
+        (prev.len(), format!("{sep}{pattern} => panic(\"not handled yet: {message}\"),"))
+    };
+    let pos = |o: usize| {
+        let l = text[..o].matches('\n').count();
+        let ls = text[..o].rfind('\n').map(|p| p + 1).unwrap_or(0);
+        json!({ "line": l, "character": text[ls..o].chars().map(char::len_utf16).sum::<usize>() })
+    };
+    Some(json!({
+        "title": format!("Add an arm for `{pattern}`"),
+        "kind": "quickfix",
+        "diagnostics": [d],
+        "edit": { "changes": { uri: [{ "range": { "start": pos(at), "end": pos(at) }, "newText": new_text }] } },
+    }))
 }
 
 /// 1-based line and column (in characters) of byte `offset`.

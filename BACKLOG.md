@@ -61,8 +61,8 @@ so these are correctness-and-scale work to schedule against new profiles.
 
 ## Language, libraries, and tools (ENHANCEMENTS.md)
 
-- T3: more code actions: fill the arms of a non-exhaustive `match`,
-  protocol method stubs, hash preconditions on edits.
+- T3: more code actions: protocol method stubs, hash preconditions on
+  edits.
 - T4: expression holes for partial programs.
 - T6: lints (immutable appends in loops, unbounded `stream.collect`).
 - T7: `badger new`, endpoint- and interceptor-only generators, and

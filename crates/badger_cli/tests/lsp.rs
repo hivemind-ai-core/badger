@@ -333,3 +333,41 @@ fn code_action_inserts_import() {
     assert_eq!(edit["range"]["start"]["line"], 1, "after the last import");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A quick fix adds the arm a non-exhaustive `match` misses, with a body
+/// that panics until it is written; the result checks.
+#[test]
+fn code_action_adds_missing_arm() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-arm-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "enum Shape {\n    circle(r: Int),\n    square(s: Int),\n    point,\n}\n\nfn size(s: Shape) -> Int {\n    match s {\n        .circle(r) => r,\n        .point => 0,\n    }\n}\n\npub fn main() -> Unit {}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let edit = &r["result"][0]["edit"]["changes"][&uri][0];
+    assert_eq!(edit["newText"], "        .square(_) => panic(\"not handled yet: .square(_)\"),\n", "{r}");
+    // apply it: the program checks
+    let line = edit["range"]["start"]["line"].as_u64().unwrap() as usize;
+    let mut lines: Vec<String> = src.lines().map(str::to_string).collect();
+    lines.insert(line, edit["newText"].as_str().unwrap().trim_end_matches('\n').to_string());
+    let fixed = lines.join("\n") + "\n";
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 2 }, "contentChanges": [{ "text": fixed }] }),
+    );
+    assert!(c.diagnostics(&uri).is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
