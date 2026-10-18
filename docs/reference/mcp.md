@@ -147,6 +147,8 @@ Ask about code. Positions are 1-based.
 | `rename` | `path`, `line`, `col`, `name` | `{"edits": [{file, line, col, end_line, end_col, text}]}`, not applied. |
 | `symbols` | `path` | The file's definitions. |
 | `symbol` | `path`, `name` | A definition by qualified name (`orders.service.create`, `Order.total`): kind, signature, location, and references. |
+| `guide` | optional `name` | The guide built into this toolchain: a chapter by number or a word of its name (`3`, `errors`); without `name`, the orientation page (llms.txt) and the chapter list. |
+| `examples` | `name` | The guide's code examples containing `name` (up to 20, with the total count): chapter, heading, whether the block is a complete program, and the code. The documentation tests check every one. |
 | `diagnostics` | `path` | The diagnostics array. |
 | `explain` | `name` (a code such as `E0301`) | The catalog explanation. |
 | `module` | `name` (`list`, `std.list`), or nothing | The standard module's source (its API and documentation); without `name`, the list of modules. |

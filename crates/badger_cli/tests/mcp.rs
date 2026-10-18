@@ -161,6 +161,13 @@ fn mcp_tools() {
     assert!(err && out.contains("only with `breakpoints`"), "{out}");
     let (out, err) = call("query", json!({ "kind": "check", "path": path }));
     assert!(err && out.contains("unknown query kind"), "{out}");
+    // the guide and its checked examples, as built into this toolchain
+    let (out, err) = call("query", json!({ "kind": "guide", "name": "3" }));
+    assert!(!err && out.starts_with("# 3. Errors"), "{}", &out[..out.len().min(200)]);
+    let (out, err) = call("query", json!({ "kind": "guide" }));
+    assert!(!err && out.contains("chapters: 01-values-and-functions"), "{out}");
+    let (out, err) = call("query", json!({ "kind": "examples", "name": "let .some(" }));
+    assert!(!err && out.contains("\"chapter\""), "{out}");
     // JSON results also come as structured content
     let r = req(
         "tools/call",
