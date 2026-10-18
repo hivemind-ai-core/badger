@@ -24,6 +24,8 @@ def module(name, path):
 
 rw = module("realworld_contract", gc.ROOT / "bench/realworld/run.py")
 compare = module("compare_contract", gc.ROOT / "bench/compare/run.py")
+CASES = [*(f"realworld/{name}" for name in ["cpu", "reconcile", "state", "json", "messaging", "pipeline"]),
+         *(f"compare/{name}" for name in ["records", "snapshots", "batches"])]
 
 
 def validate(record, suite, name, n, seed, warmups, samples, checksum=None):
@@ -75,6 +77,7 @@ def main():
     ap.add_argument("--samples", type=int, default=5)
     ap.add_argument("--workers", type=int, nargs="+", default=[1, 2, 4, 8])
     ap.add_argument("--seed", type=int, default=20261018)
+    ap.add_argument("--cases", nargs="+", choices=CASES, default=CASES)
     ap.add_argument("--diagnostic", action="store_true", help="collect GC phases in separately built diagnostic binaries")
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
@@ -91,10 +94,8 @@ def run(args):
     binaries = {"baseline": args.baseline.resolve()}
     if args.candidate:
         binaries["candidate"] = args.candidate.resolve()
-    cells = [(suite, name, workers) for suite, names in [
-        ("realworld", ["cpu", "reconcile", "state", "json", "messaging", "pipeline"]),
-        ("compare", ["records", "snapshots", "batches"]),
-    ] for name in names for workers in args.workers]
+    cells = [(suite, name, workers) for case in args.cases
+             for suite, name in [case.split("/")] for workers in args.workers]
     runs = []
     sources = rw.source_hashes()
     for path in [Path(__file__), Path(gc.__file__), gc.ROOT / "bench/compare/run.py", compare.PROGRAMS / "workload.bdg"]:

@@ -884,6 +884,8 @@ Work in this order, keeping only measured improvements:
    pool returns and verification-only quarantine routing; then measure batched
    dead-cell handling, sweep partitioning and cache locality. Finalizer ordering,
    worker publication, verifier quarantine and actual freeing must remain valid.
+   - [x] G7a: Separate known-owner pool returns from quarantine routing; keep
+     narrow wide-map improvements and record mixed applications (69b3a61).
    Source-level finalizer guard stores are already removed by release LLVM;
    do not claim savings for deleting them.
 2. [ ] I2b/I8: Remove materialized map entry tuples/lists when immediate iteration
@@ -910,3 +912,25 @@ Work in this order, keeping only measured improvements:
 Add the unchanged realworld and compare contracts to adjacent-pair compiler
 comparisons, including records and snapshots. Save current-production baselines
 before edits and keep controls, negative results and all raw measurements.
+
+### G7a complete — bounded pool-return simplification, mixed broader results
+
+Keep `69b3a61` on the isolated follow-up branch. Normal sweep returns no longer
+check verification or discover owners; only quarantine draining searches pools.
+Cross-worker pooled/system release, zeroing and trimming are regression checked.
+No allocation-count, GC-policy, layout or finalizer-order change is made.
+
+Saved 242 baselines before production edits; final evidence has 1762 measured
+runs with independent oracles and nonoverlapping intervals. Wide persistent-map
+coverage improves 4–7% elapsed / 12–20% GC pause, but record-window work stays
+about +1–2% and applications remain mixed. The 15-pair follow-up has messaging/
+four +5.4% group / +2.5% paired, state/one -3.1% / -3.4%, state/four +2.2% /
++1.3%. Same-binary application controls have large records/state swings too.
+Messaging diagnostic probes perform zero GCs, so do not attribute its timing
+changes to the modified sweep. No general RSS, p99 or scaling win is established.
+
+All 76 program tests, 10 ordinary/12 diagnostic runtime tests, 88 focused
+source/MIR GC checks plus two MIR probes, 20 harness tests, strict runtime
+Clippy in both modes and scoped formatting pass. G7 remains open; reducing
+materialized map-entry allocations is the next bounded change. Complete raw
+results, controls and limits: [G7 report](reports/memory-management/G7-summary.md).

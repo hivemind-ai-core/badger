@@ -1,0 +1,926 @@
+rep=0 realworld/state w8 baseline
+rep=0 realworld/state w8 candidate
+rep=0 realworld/cpu w4 candidate
+rep=0 realworld/cpu w4 baseline
+rep=0 realworld/messaging w4 baseline
+rep=0 realworld/messaging w4 candidate
+rep=0 realworld/cpu w1 baseline
+rep=0 realworld/cpu w1 candidate
+rep=0 compare/records w1 candidate
+rep=0 compare/records w1 baseline
+rep=0 compare/records w4 candidate
+rep=0 compare/records w4 baseline
+rep=0 realworld/state w1 baseline
+rep=0 realworld/state w1 candidate
+rep=0 realworld/cpu w8 baseline
+rep=0 realworld/cpu w8 candidate
+rep=0 realworld/messaging w1 baseline
+rep=0 realworld/messaging w1 candidate
+rep=0 realworld/messaging w8 candidate
+rep=0 realworld/messaging w8 baseline
+rep=0 compare/records w8 baseline
+rep=0 compare/records w8 candidate
+rep=0 realworld/state w4 baseline
+rep=0 realworld/state w4 candidate
+rep=1 realworld/state w8 baseline
+rep=1 realworld/state w8 candidate
+rep=1 compare/records w8 candidate
+rep=1 compare/records w8 baseline
+rep=1 compare/records w4 baseline
+rep=1 compare/records w4 candidate
+rep=1 realworld/state w4 baseline
+rep=1 realworld/state w4 candidate
+rep=1 realworld/cpu w1 candidate
+rep=1 realworld/cpu w1 baseline
+rep=1 compare/records w1 candidate
+rep=1 compare/records w1 baseline
+rep=1 realworld/messaging w8 baseline
+rep=1 realworld/messaging w8 candidate
+rep=1 realworld/messaging w4 baseline
+rep=1 realworld/messaging w4 candidate
+rep=1 realworld/state w1 baseline
+rep=1 realworld/state w1 candidate
+rep=1 realworld/cpu w4 baseline
+rep=1 realworld/cpu w4 candidate
+rep=1 realworld/messaging w1 baseline
+rep=1 realworld/messaging w1 candidate
+rep=1 realworld/cpu w8 candidate
+rep=1 realworld/cpu w8 baseline
+rep=2 realworld/state w1 candidate
+rep=2 realworld/state w1 baseline
+rep=2 realworld/messaging w4 baseline
+rep=2 realworld/messaging w4 candidate
+rep=2 realworld/cpu w1 candidate
+rep=2 realworld/cpu w1 baseline
+rep=2 realworld/messaging w1 candidate
+rep=2 realworld/messaging w1 baseline
+rep=2 compare/records w4 candidate
+rep=2 compare/records w4 baseline
+rep=2 compare/records w8 baseline
+rep=2 compare/records w8 candidate
+rep=2 realworld/cpu w8 candidate
+rep=2 realworld/cpu w8 baseline
+rep=2 realworld/state w4 candidate
+rep=2 realworld/state w4 baseline
+rep=2 compare/records w1 baseline
+rep=2 compare/records w1 candidate
+rep=2 realworld/cpu w4 baseline
+rep=2 realworld/cpu w4 candidate
+rep=2 realworld/messaging w8 baseline
+rep=2 realworld/messaging w8 candidate
+rep=2 realworld/state w8 candidate
+rep=2 realworld/state w8 baseline
+rep=3 realworld/state w4 baseline
+rep=3 realworld/state w4 candidate
+rep=3 compare/records w8 candidate
+rep=3 compare/records w8 baseline
+rep=3 realworld/state w1 candidate
+rep=3 realworld/state w1 baseline
+rep=3 realworld/messaging w8 candidate
+rep=3 realworld/messaging w8 baseline
+rep=3 realworld/cpu w1 candidate
+rep=3 realworld/cpu w1 baseline
+rep=3 realworld/messaging w4 candidate
+rep=3 realworld/messaging w4 baseline
+rep=3 realworld/cpu w8 candidate
+rep=3 realworld/cpu w8 baseline
+rep=3 realworld/messaging w1 baseline
+rep=3 realworld/messaging w1 candidate
+rep=3 realworld/state w8 baseline
+rep=3 realworld/state w8 candidate
+rep=3 compare/records w1 candidate
+rep=3 compare/records w1 baseline
+rep=3 realworld/cpu w4 candidate
+rep=3 realworld/cpu w4 baseline
+rep=3 compare/records w4 candidate
+rep=3 compare/records w4 baseline
+rep=4 realworld/state w1 candidate
+rep=4 realworld/state w1 baseline
+rep=4 realworld/messaging w4 candidate
+rep=4 realworld/messaging w4 baseline
+rep=4 compare/records w4 candidate
+rep=4 compare/records w4 baseline
+rep=4 realworld/cpu w4 baseline
+rep=4 realworld/cpu w4 candidate
+rep=4 realworld/cpu w8 candidate
+rep=4 realworld/cpu w8 baseline
+rep=4 realworld/messaging w1 candidate
+rep=4 realworld/messaging w1 baseline
+rep=4 realworld/state w8 candidate
+rep=4 realworld/state w8 baseline
+rep=4 realworld/cpu w1 candidate
+rep=4 realworld/cpu w1 baseline
+rep=4 compare/records w1 baseline
+rep=4 compare/records w1 candidate
+rep=4 compare/records w8 candidate
+rep=4 compare/records w8 baseline
+rep=4 realworld/messaging w8 baseline
+rep=4 realworld/messaging w8 candidate
+rep=4 realworld/state w4 candidate
+rep=4 realworld/state w4 baseline
+rep=5 realworld/cpu w4 baseline
+rep=5 realworld/cpu w4 candidate
+rep=5 realworld/cpu w1 candidate
+rep=5 realworld/cpu w1 baseline
+rep=5 realworld/state w1 candidate
+rep=5 realworld/state w1 baseline
+rep=5 compare/records w4 baseline
+rep=5 compare/records w4 candidate
+rep=5 realworld/state w8 candidate
+rep=5 realworld/state w8 baseline
+rep=5 realworld/cpu w8 candidate
+rep=5 realworld/cpu w8 baseline
+rep=5 realworld/state w4 baseline
+rep=5 realworld/state w4 candidate
+rep=5 compare/records w8 candidate
+rep=5 compare/records w8 baseline
+rep=5 realworld/messaging w8 baseline
+rep=5 realworld/messaging w8 candidate
+rep=5 compare/records w1 candidate
+rep=5 compare/records w1 baseline
+rep=5 realworld/messaging w4 candidate
+rep=5 realworld/messaging w4 baseline
+rep=5 realworld/messaging w1 candidate
+rep=5 realworld/messaging w1 baseline
+rep=6 realworld/cpu w1 candidate
+rep=6 realworld/cpu w1 baseline
+rep=6 compare/records w4 baseline
+rep=6 compare/records w4 candidate
+rep=6 realworld/state w1 candidate
+rep=6 realworld/state w1 baseline
+rep=6 realworld/cpu w8 baseline
+rep=6 realworld/cpu w8 candidate
+rep=6 realworld/messaging w8 baseline
+rep=6 realworld/messaging w8 candidate
+rep=6 realworld/messaging w4 candidate
+rep=6 realworld/messaging w4 baseline
+rep=6 realworld/state w4 candidate
+rep=6 realworld/state w4 baseline
+rep=6 realworld/cpu w4 candidate
+rep=6 realworld/cpu w4 baseline
+rep=6 compare/records w8 candidate
+rep=6 compare/records w8 baseline
+rep=6 realworld/messaging w1 baseline
+rep=6 realworld/messaging w1 candidate
+rep=6 compare/records w1 baseline
+rep=6 compare/records w1 candidate
+rep=6 realworld/state w8 baseline
+rep=6 realworld/state w8 candidate
+rep=7 realworld/state w4 candidate
+rep=7 realworld/state w4 baseline
+rep=7 compare/records w4 candidate
+rep=7 compare/records w4 baseline
+rep=7 realworld/state w8 baseline
+rep=7 realworld/state w8 candidate
+rep=7 realworld/cpu w1 candidate
+rep=7 realworld/cpu w1 baseline
+rep=7 realworld/cpu w8 candidate
+rep=7 realworld/cpu w8 baseline
+rep=7 realworld/cpu w4 baseline
+rep=7 realworld/cpu w4 candidate
+rep=7 realworld/messaging w8 candidate
+rep=7 realworld/messaging w8 baseline
+rep=7 compare/records w8 candidate
+rep=7 compare/records w8 baseline
+rep=7 realworld/state w1 candidate
+rep=7 realworld/state w1 baseline
+rep=7 realworld/messaging w1 baseline
+rep=7 realworld/messaging w1 candidate
+rep=7 compare/records w1 baseline
+rep=7 compare/records w1 candidate
+rep=7 realworld/messaging w4 candidate
+rep=7 realworld/messaging w4 baseline
+rep=8 compare/records w8 candidate
+rep=8 compare/records w8 baseline
+rep=8 realworld/cpu w8 candidate
+rep=8 realworld/cpu w8 baseline
+rep=8 realworld/cpu w4 candidate
+rep=8 realworld/cpu w4 baseline
+rep=8 realworld/state w4 baseline
+rep=8 realworld/state w4 candidate
+rep=8 realworld/messaging w1 baseline
+rep=8 realworld/messaging w1 candidate
+rep=8 realworld/cpu w1 candidate
+rep=8 realworld/cpu w1 baseline
+rep=8 compare/records w1 baseline
+rep=8 compare/records w1 candidate
+rep=8 realworld/state w1 baseline
+rep=8 realworld/state w1 candidate
+rep=8 realworld/messaging w8 baseline
+rep=8 realworld/messaging w8 candidate
+rep=8 compare/records w4 baseline
+rep=8 compare/records w4 candidate
+rep=8 realworld/state w8 baseline
+rep=8 realworld/state w8 candidate
+rep=8 realworld/messaging w4 candidate
+rep=8 realworld/messaging w4 baseline
+rep=9 realworld/state w8 baseline
+rep=9 realworld/state w8 candidate
+rep=9 compare/records w4 baseline
+rep=9 compare/records w4 candidate
+rep=9 compare/records w1 candidate
+rep=9 compare/records w1 baseline
+rep=9 realworld/messaging w4 baseline
+rep=9 realworld/messaging w4 candidate
+rep=9 realworld/state w1 candidate
+rep=9 realworld/state w1 baseline
+rep=9 realworld/messaging w8 candidate
+rep=9 realworld/messaging w8 baseline
+rep=9 realworld/cpu w4 candidate
+rep=9 realworld/cpu w4 baseline
+rep=9 realworld/state w4 baseline
+rep=9 realworld/state w4 candidate
+rep=9 realworld/messaging w1 baseline
+rep=9 realworld/messaging w1 candidate
+rep=9 compare/records w8 candidate
+rep=9 compare/records w8 baseline
+rep=9 realworld/cpu w8 candidate
+rep=9 realworld/cpu w8 baseline
+rep=9 realworld/cpu w1 baseline
+rep=9 realworld/cpu w1 candidate
+rep=10 realworld/state w4 baseline
+rep=10 realworld/state w4 candidate
+rep=10 realworld/cpu w4 candidate
+rep=10 realworld/cpu w4 baseline
+rep=10 compare/records w8 baseline
+rep=10 compare/records w8 candidate
+rep=10 compare/records w4 baseline
+rep=10 compare/records w4 candidate
+rep=10 realworld/cpu w8 candidate
+rep=10 realworld/cpu w8 baseline
+rep=10 realworld/cpu w1 candidate
+rep=10 realworld/cpu w1 baseline
+rep=10 realworld/messaging w1 baseline
+rep=10 realworld/messaging w1 candidate
+rep=10 compare/records w1 baseline
+rep=10 compare/records w1 candidate
+rep=10 realworld/state w1 baseline
+rep=10 realworld/state w1 candidate
+rep=10 realworld/messaging w4 baseline
+rep=10 realworld/messaging w4 candidate
+rep=10 realworld/state w8 baseline
+rep=10 realworld/state w8 candidate
+rep=10 realworld/messaging w8 baseline
+rep=10 realworld/messaging w8 candidate
+rep=11 realworld/cpu w8 candidate
+rep=11 realworld/cpu w8 baseline
+rep=11 compare/records w8 candidate
+rep=11 compare/records w8 baseline
+rep=11 compare/records w4 candidate
+rep=11 compare/records w4 baseline
+rep=11 realworld/messaging w4 baseline
+rep=11 realworld/messaging w4 candidate
+rep=11 realworld/state w1 baseline
+rep=11 realworld/state w1 candidate
+rep=11 compare/records w1 candidate
+rep=11 compare/records w1 baseline
+rep=11 realworld/messaging w8 baseline
+rep=11 realworld/messaging w8 candidate
+rep=11 realworld/cpu w1 baseline
+rep=11 realworld/cpu w1 candidate
+rep=11 realworld/cpu w4 baseline
+rep=11 realworld/cpu w4 candidate
+rep=11 realworld/state w4 baseline
+rep=11 realworld/state w4 candidate
+rep=11 realworld/state w8 baseline
+rep=11 realworld/state w8 candidate
+rep=11 realworld/messaging w1 candidate
+rep=11 realworld/messaging w1 baseline
+rep=12 realworld/messaging w4 candidate
+rep=12 realworld/messaging w4 baseline
+rep=12 realworld/state w8 candidate
+rep=12 realworld/state w8 baseline
+rep=12 realworld/messaging w8 baseline
+rep=12 realworld/messaging w8 candidate
+rep=12 realworld/cpu w8 candidate
+rep=12 realworld/cpu w8 baseline
+rep=12 realworld/messaging w1 baseline
+rep=12 realworld/messaging w1 candidate
+rep=12 realworld/state w1 baseline
+rep=12 realworld/state w1 candidate
+rep=12 realworld/state w4 candidate
+rep=12 realworld/state w4 baseline
+rep=12 realworld/cpu w4 baseline
+rep=12 realworld/cpu w4 candidate
+rep=12 compare/records w4 candidate
+rep=12 compare/records w4 baseline
+rep=12 compare/records w8 candidate
+rep=12 compare/records w8 baseline
+rep=12 realworld/cpu w1 baseline
+rep=12 realworld/cpu w1 candidate
+rep=12 compare/records w1 candidate
+rep=12 compare/records w1 baseline
+rep=13 compare/records w8 baseline
+rep=13 compare/records w8 candidate
+rep=13 realworld/state w1 baseline
+rep=13 realworld/state w1 candidate
+rep=13 realworld/messaging w4 baseline
+rep=13 realworld/messaging w4 candidate
+rep=13 compare/records w1 candidate
+rep=13 compare/records w1 baseline
+rep=13 compare/records w4 baseline
+rep=13 compare/records w4 candidate
+rep=13 realworld/messaging w8 candidate
+rep=13 realworld/messaging w8 baseline
+rep=13 realworld/state w4 candidate
+rep=13 realworld/state w4 baseline
+rep=13 realworld/cpu w1 baseline
+rep=13 realworld/cpu w1 candidate
+rep=13 realworld/cpu w8 candidate
+rep=13 realworld/cpu w8 baseline
+rep=13 realworld/cpu w4 baseline
+rep=13 realworld/cpu w4 candidate
+rep=13 realworld/state w8 candidate
+rep=13 realworld/state w8 baseline
+rep=13 realworld/messaging w1 candidate
+rep=13 realworld/messaging w1 baseline
+rep=14 compare/records w1 baseline
+rep=14 compare/records w1 candidate
+rep=14 realworld/messaging w4 candidate
+rep=14 realworld/messaging w4 baseline
+rep=14 compare/records w4 baseline
+rep=14 compare/records w4 candidate
+rep=14 realworld/messaging w1 candidate
+rep=14 realworld/messaging w1 baseline
+rep=14 realworld/messaging w8 baseline
+rep=14 realworld/messaging w8 candidate
+rep=14 compare/records w8 candidate
+rep=14 compare/records w8 baseline
+rep=14 realworld/cpu w8 baseline
+rep=14 realworld/cpu w8 candidate
+rep=14 realworld/state w4 candidate
+rep=14 realworld/state w4 baseline
+rep=14 realworld/cpu w1 candidate
+rep=14 realworld/cpu w1 baseline
+rep=14 realworld/cpu w4 candidate
+rep=14 realworld/cpu w4 baseline
+rep=14 realworld/state w8 baseline
+rep=14 realworld/state w8 candidate
+rep=14 realworld/state w1 baseline
+rep=14 realworld/state w1 candidate
+[
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3879035,
+          "min": 3674976,
+          "max": 4573782,
+          "count": 15,
+          "cv": 0.06796005748069202
+        },
+        "peak_rss_bytes": {
+          "median": 70914048,
+          "min": 70561792,
+          "max": 72888320,
+          "count": 15,
+          "cv": 0.00764999845113602
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3777796,
+          "min": 3581002,
+          "max": 4335541,
+          "count": 15,
+          "cv": 0.055386759922420155
+        },
+        "peak_rss_bytes": {
+          "median": 72130560,
+          "min": 71778304,
+          "max": 72347648,
+          "count": 15,
+          "cv": 0.0025768779423096166
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.05144190040568608,
+      "min": -0.19084184598216536,
+      "max": 0.113138243534598,
+      "count": 15,
+      "cv": -1.7671499709518455
+    },
+    "faster_pairs": 10
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3930840,
+          "min": 3635312,
+          "max": 4341761,
+          "count": 15,
+          "cv": 0.058035446509849715
+        },
+        "peak_rss_bytes": {
+          "median": 71376896,
+          "min": 70758400,
+          "max": 73846784,
+          "count": 15,
+          "cv": 0.014880322859433576
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3955486,
+          "min": 3724958,
+          "max": 4243530,
+          "count": 15,
+          "cv": 0.04206285406070031
+        },
+        "peak_rss_bytes": {
+          "median": 72151040,
+          "min": 71921664,
+          "max": 74477568,
+          "count": 15,
+          "cv": 0.01260982675262478
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.010463649170086353,
+      "min": -0.08896735679370649,
+      "max": 0.12587952497691735,
+      "count": 15,
+      "cv": 9.470070063174429
+    },
+    "faster_pairs": 8
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3868003,
+          "min": 3753782,
+          "max": 4403686,
+          "count": 15,
+          "cv": 0.04528696958264252
+        },
+        "peak_rss_bytes": {
+          "median": 71159808,
+          "min": 70795264,
+          "max": 73867264,
+          "count": 15,
+          "cv": 0.013642622564763335
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 3966466,
+          "min": 3639740,
+          "max": 4343845,
+          "count": 15,
+          "cv": 0.06226726080125518
+        },
+        "peak_rss_bytes": {
+          "median": 72089600,
+          "min": 71770112,
+          "max": 74280960,
+          "count": 15,
+          "cv": 0.01119356593604188
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.014336340206185572,
+      "min": -0.11106763742919001,
+      "max": 0.12302007004648141,
+      "count": 15,
+      "cv": 4.6101688884873795
+    },
+    "faster_pairs": 7
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51212586,
+          "min": 49876778,
+          "max": 52037447,
+          "count": 15,
+          "cv": 0.011855081583992299
+        },
+        "peak_rss_bytes": {
+          "median": 27869184,
+          "min": 27136000,
+          "max": 30277632,
+          "count": 15,
+          "cv": 0.029732128633313815
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 51411815,
+          "min": 51054943,
+          "max": 51767035,
+          "count": 15,
+          "cv": 0.0043476833819640626
+        },
+        "peak_rss_bytes": {
+          "median": 29093888,
+          "min": 27426816,
+          "max": 30875648,
+          "count": 15,
+          "cv": 0.03257954928776479
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.0027896052135272242,
+      "min": -0.010515257843171977,
+      "max": 0.025066597605062135,
+      "count": 15,
+      "cv": 2.0213620302305504
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51520488,
+          "min": 50575344,
+          "max": 51944873,
+          "count": 15,
+          "cv": 0.006582411321152548
+        },
+        "peak_rss_bytes": {
+          "median": 27959296,
+          "min": 27000832,
+          "max": 30085120,
+          "count": 15,
+          "cv": 0.027165817484168756
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 51324875,
+          "min": 50364002,
+          "max": 52130439,
+          "count": 15,
+          "cv": 0.007805600972508582
+        },
+        "peak_rss_bytes": {
+          "median": 28454912,
+          "min": 27443200,
+          "max": 29454336,
+          "count": 15,
+          "cv": 0.01860375735633218
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0021825620188148376,
+      "min": -0.019026395617694813,
+      "max": 0.012046957110168233,
+      "count": 15,
+      "cv": -4.440131607942889
+    },
+    "faster_pairs": 8
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51581240,
+          "min": 50272602,
+          "max": 52906368,
+          "count": 15,
+          "cv": 0.011002433645815842
+        },
+        "peak_rss_bytes": {
+          "median": 27779072,
+          "min": 27447296,
+          "max": 30277632,
+          "count": 15,
+          "cv": 0.031207939452638892
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 51582063,
+          "min": 51127598,
+          "max": 52530331,
+          "count": 15,
+          "cv": 0.007500951788806525
+        },
+        "peak_rss_bytes": {
+          "median": 29093888,
+          "min": 28463104,
+          "max": 31490048,
+          "count": 15,
+          "cv": 0.029735023294260657
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.00044809453033267665,
+      "min": -0.0248605045048641,
+      "max": 0.033093294037177534,
+      "count": 15,
+      "cv": 4.095058439042737
+    },
+    "faster_pairs": 6
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 896592,
+          "min": 878399,
+          "max": 950342,
+          "count": 15,
+          "cv": 0.022312922659232997
+        },
+        "peak_rss_bytes": {
+          "median": 30318592,
+          "min": 29446144,
+          "max": 32583680,
+          "count": 15,
+          "cv": 0.03726063163361165
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 886955,
+          "min": 871476,
+          "max": 987421,
+          "count": 15,
+          "cv": 0.03863500942489766
+        },
+        "peak_rss_bytes": {
+          "median": 31326208,
+          "min": 29851648,
+          "max": 33546240,
+          "count": 15,
+          "cv": 0.03970489901032719
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.010948273867688707,
+      "min": -0.03502649550700565,
+      "max": 0.10514401650974392,
+      "count": 15,
+      "cv": -38.93444021752675
+    },
+    "faster_pairs": 10
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 1044457,
+          "min": 949521,
+          "max": 1575422,
+          "count": 15,
+          "cv": 0.14760777730773397
+        },
+        "peak_rss_bytes": {
+          "median": 35729408,
+          "min": 33599488,
+          "max": 37273600,
+          "count": 15,
+          "cv": 0.02856997591296539
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 1100952,
+          "min": 970099,
+          "max": 1571264,
+          "count": 15,
+          "cv": 0.16441145114662722
+        },
+        "peak_rss_bytes": {
+          "median": 36634624,
+          "min": 35143680,
+          "max": 38559744,
+          "count": 15,
+          "cv": 0.02406680212499701
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.025070624172223388,
+      "min": -0.32014025448419536,
+      "max": 0.4908856165884965,
+      "count": 15,
+      "cv": 2.04386178797522
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 1285334,
+          "min": 1231294,
+          "max": 1465548,
+          "count": 15,
+          "cv": 0.05889308117416686
+        },
+        "peak_rss_bytes": {
+          "median": 37068800,
+          "min": 33964032,
+          "max": 41254912,
+          "count": 15,
+          "cv": 0.04602337030621755
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 1277980,
+          "min": 1209393,
+          "max": 1391561,
+          "count": 15,
+          "cv": 0.04688401847659268
+        },
+        "peak_rss_bytes": {
+          "median": 38293504,
+          "min": 34459648,
+          "max": 41644032,
+          "count": 15,
+          "cv": 0.05316416173766382
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.017746134553738524,
+      "min": -0.17405980561537393,
+      "max": 0.111240947938678,
+      "count": 15,
+      "cv": -3.3375722262629277
+    },
+    "faster_pairs": 9
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8576716,
+          "min": 7976653,
+          "max": 9859465,
+          "count": 15,
+          "cv": 0.06722171469028927
+        },
+        "peak_rss_bytes": {
+          "median": 52453376,
+          "min": 51892224,
+          "max": 54771712,
+          "count": 15,
+          "cv": 0.01829926254363584
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 8310993,
+          "min": 7748379,
+          "max": 8965056,
+          "count": 15,
+          "cv": 0.042026370522766136
+        },
+        "peak_rss_bytes": {
+          "median": 53538816,
+          "min": 53284864,
+          "max": 55590912,
+          "count": 15,
+          "cv": 0.012599479672407536
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.033620630196179,
+      "min": -0.13430198622296474,
+      "max": 0.12391199667329134,
+      "count": 15,
+      "cv": -1.6437554738336295
+    },
+    "faster_pairs": 13
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8384329,
+          "min": 7765271,
+          "max": 9609471,
+          "count": 15,
+          "cv": 0.06673785147466577
+        },
+        "peak_rss_bytes": {
+          "median": 52707328,
+          "min": 52113408,
+          "max": 54620160,
+          "count": 15,
+          "cv": 0.010372581549856924
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 8568881,
+          "min": 8038939,
+          "max": 9379345,
+          "count": 15,
+          "cv": 0.04146213247149592
+        },
+        "peak_rss_bytes": {
+          "median": 53731328,
+          "min": 52731904,
+          "max": 53870592,
+          "count": 15,
+          "cv": 0.0055507198695597506
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.013208104113058727,
+      "min": -0.0891165350032026,
+      "max": 0.09113783299199918,
+      "count": 15,
+      "cv": 10.083189933961593
+    },
+    "faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8384429,
+          "min": 7674472,
+          "max": 9360951,
+          "count": 15,
+          "cv": 0.04905761600828297
+        },
+        "peak_rss_bytes": {
+          "median": 52846592,
+          "min": 52338688,
+          "max": 54923264,
+          "count": 15,
+          "cv": 0.0159795785238111
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 8279996,
+          "min": 7608291,
+          "max": 9845419,
+          "count": 15,
+          "cv": 0.06658874434718412
+        },
+        "peak_rss_bytes": {
+          "median": 53563392,
+          "min": 52613120,
+          "max": 55693312,
+          "count": 15,
+          "cv": 0.012284574803620118
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.008453137371349895,
+      "min": -0.10345543537330226,
+      "max": 0.14659859925835095,
+      "count": 15,
+      "cv": -26.634823205980013
+    },
+    "faster_pairs": 9
+  }
+]

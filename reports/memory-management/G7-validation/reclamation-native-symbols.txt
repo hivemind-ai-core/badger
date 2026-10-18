@@ -1,0 +1,3 @@
+baseline-fdf36dc
+0000000000b69f00 t badger_runtime::gc::free_cell
+owned-return-candidate
