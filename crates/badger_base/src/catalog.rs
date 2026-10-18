@@ -194,6 +194,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     ),
     ("E0204", "underivable protocol", "Supported derivations: Eq, Hash, Display, Codec, From, Error."),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
+    (
+        "E0206",
+        "inherent methods on a structural type",
+        "`impl T { ... }` attaches methods to a nominal type (a struct or enum). A record alias, tuple, or function type has no identity of its own to carry them, so they could never be called; declare a `struct`, or write functions that take the value.",
+    ),
     ("E0207", "effect used as type", "Effect names appear only inside `!{...}`."),
     (
         "E0208",

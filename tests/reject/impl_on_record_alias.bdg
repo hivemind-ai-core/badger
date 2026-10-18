@@ -1,0 +1,10 @@
+// expect-error: E0206
+// Methods attach to nominal types: a record alias has no identity of its
+// own, so methods on it could never be called.
+type Point = { x: Int, y: Int }
+
+impl Point {
+    fn sum(self: &Self) -> Int { self.x + self.y }
+}
+
+pub fn main() -> Unit {}
