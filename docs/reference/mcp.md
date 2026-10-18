@@ -36,6 +36,10 @@ For a client configured in JSON:
   `instructions` (a short guide to the tools).
 - An unknown method is error `-32601` (`method not found: NAME`). A line
   that is not JSON is error `-32700` (`parse error`) with `id: null`.
+- A tool result is text content; when the text is JSON (or a summary
+  line and then JSON), the result also carries it as
+  `structuredContent`: the object, or `{"result": [...]}` for a list.
+  Diagnostics in it have a `schema_version`.
 - The server exits (status 0) when standard input closes.
 
 Every tool result has the MCP text form:
