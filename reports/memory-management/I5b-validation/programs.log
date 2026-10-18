@@ -1,0 +1,242 @@
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling memchr v2.8.3
+   Compiling chumsky v0.13.0
+   Compiling petgraph v0.8.3
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_template)
+   Compiling badger_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_crypto)
+   Compiling badger_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_compress)
+   Compiling badger_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_datetime)
+   Compiling badger_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fetch)
+   Compiling badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+   Compiling badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+   Compiling badger_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fs)
+   Compiling badger_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native_demo)
+   Compiling aho-corasick v1.1.5
+   Compiling regex-automata v0.4.18
+   Compiling synstructure v0.14.0
+   Compiling logos-codegen v0.16.1
+   Compiling der_derive v0.7.3
+   Compiling tracing-attributes v0.1.31
+   Compiling zerofrom-derive v0.1.8
+   Compiling tokio-macros v2.7.2
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.21
+   Compiling logos-derive v0.16.1
+   Compiling async-trait v0.1.92
+   Compiling logos v0.16.1
+   Compiling clap_derive v4.6.7
+   Compiling der v0.7.10
+   Compiling spki v0.7.3
+   Compiling x509-cert v0.2.5
+   Compiling tracing v0.1.44
+   Compiling tokio v1.53.3
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling thiserror v2.0.21
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling tungstenite v0.30.0
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling icu_locale_core v2.3.0
+   Compiling clap v4.6.7
+   Compiling tokio-util v0.7.20
+   Compiling tokio-rustls v0.26.6
+   Compiling deadpool-runtime v0.3.1
+   Compiling hyper v1.11.1
+   Compiling deadpool v0.13.1
+   Compiling tokio-tungstenite v0.30.0
+   Compiling tokio-postgres v0.7.18
+   Compiling combine v4.6.9
+   Compiling icu_provider v2.3.1
+   Compiling hyper-util v0.1.21
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling badger_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_http)
+   Compiling tokio-postgres-rustls v0.14.0
+   Compiling deadpool-postgres v0.14.2
+   Compiling url v2.5.8
+   Compiling redis v1.7.1
+   Compiling badger_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_postgres)
+   Compiling badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 41s
+     Running tests/programs.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/programs-da4edf98dc6559eb)
+
+running 76 tests
+test conflicting_imports_are_reported ... ok
+test durable_jobs_survive_crashes ... FAILED
+test contract_report ... ok
+wrote /tmp/badger-mir-5482/dyn_protocol.bdgmir (14190 bytes)
+test contract_test_report ... ok
+error[E0014]: cannot listen on 127.0.0.1:25482: Operation not permitted (os error 1)
+test batch_receive_under_gc_stress ... ok
+wrote /tmp/badger-mir-5482/broadcast.bdgmir (39895 bytes)
+test dependencies ... ok
+test diagnostics_early_phases ... ok
+test dotenv_and_env_references ... ok
+test api_export ... ok
+test deadlock_report_names_waits ... ok
+wrote /tmp/badger-mir-5482/multicore.bdgmir (36910 bytes)
+test contract_violations ... ok
+wrote /tmp/badger-mir-5482/multicore2.bdgmir (36910 bytes)
+test compiled_programs_run ... ok
+test inlined_lambda_defect_location ... ok
+test debugger_sees_generated_code ... FAILED
+test inlining_removes_helper_calls_and_allocations ... ok
+test config_resolve ... ok
+error[E0014]: cannot listen on 127.0.0.1:21482: Operation not permitted (os error 1)
+test internal_error_exits_promptly ... ok
+test explain_types ... ok
+test deep_nesting_is_refused_cleanly ... ok
+test local_repl_session ... FAILED
+test main_error_report ... ok
+test grace_escalation_keeps_resources ... ok
+test bench_programs_check ... ok
+test main_int_exit_status ... ok
+test multicore_migration ... ok
+test generate_feature ... ok
+test otel_export ... FAILED
+test outbound_http ... FAILED
+test outbound_http_send ... FAILED
+test live_reconstruct ... ok
+test private_method_call ... ok
+test live_reload ... ok
+test new_project ... ok
+test map_versions_under_gc_stress ... ok
+test private_struct_update ... ok
+test layer_rules ... ok
+test example_projects_check ... ok
+test provider_precondition_at_startup ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test profiles ... ok
+test module_values_under_gc_stress ... ok
+test program_graphs ... ok
+test reproduction_bundles ... FAILED
+error[E0014]: cannot listen on 127.0.0.1:23482: Operation not permitted (os error 1)
+test examples_run ... ok
+test query_check_overlays ... ok
+test run_bench_reports_execution_time ... ok
+test release_starts_without_sources ... ok
+test restricted_projects ... ok
+test eval_tasks_are_solvable ... ok
+test config_env_replays ... ok
+test query_rename_and_unsupported_inputs ... ok
+test project_tooling ... ok
+test inspect_running_program ... FAILED
+test standard_input ... ok
+test sampling_profile ... ok
+test sql_generation_sqlite ... ok
+test test_runner_controlled_clock ... ok
+test structured_diagnostics ... ok
+test eval_in_busy_program ... FAILED
+test structured_logs ... ok
+test stuck_cleanup_is_bounded ... ok
+test test_runner_simulation ... ok
+test remote_repl ... FAILED
+test typed_sql_schema ... ok
+test warning_programs ... ok
+test framework_example ... ok
+test query_symbol ... ok
+test workspaces_and_git_dependencies ... ok
+test native_modules ... ok
+test test_runner_options ... ok
+test heap_budget_contains_a_task has been running for over 60 seconds
+test reject_programs has been running for over 60 seconds
+test run_programs has been running for over 60 seconds
+test run_programs_compiled has been running for over 60 seconds
+test run_programs_multicore has been running for over 60 seconds
+test run_programs_release has been running for over 60 seconds
+test heap_budget_contains_a_task ... ok
+test run_programs ... ok
+test run_programs_release ... ok
+test run_programs_compiled ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+failures:
+
+---- durable_jobs_survive_crashes stdout ----
+
+thread 'durable_jobs_survive_crashes' (5557) panicked at crates/badger_cli/tests/programs.rs:2203:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- debugger_sees_generated_code stdout ----
+
+thread 'debugger_sees_generated_code' (5495) panicked at crates/badger_cli/tests/programs.rs:1960:5:
+Breakpoint 1 (dbgprog.bdg:5) pending.
+
+
+---- local_repl_session stdout ----
+
+thread 'local_repl_session' (5887) panicked at crates/badger_cli/tests/programs.rs:1672:5:
+assertion `left == right` failed: 
+  left: []
+ right: ["5", "{a: 1, b: \"s\"}", "10", "P { x: 3 }"]
+
+---- otel_export stdout ----
+
+thread 'otel_export' (6085) panicked at crates/badger_cli/tests/programs.rs:897:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- outbound_http stdout ----
+
+thread 'outbound_http' (6086) panicked at crates/badger_cli/tests/programs.rs:2203:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- outbound_http_send stdout ----
+
+thread 'outbound_http_send' (6087) panicked at crates/badger_cli/tests/programs.rs:2203:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- reproduction_bundles stdout ----
+
+thread 'reproduction_bundles' (6324) panicked at crates/badger_cli/tests/programs.rs:2203:63:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- inspect_running_program stdout ----
+
+thread 'inspect_running_program' (5780) panicked at crates/badger_cli/tests/programs.rs:743:5:
+
+
+---- eval_in_busy_program stdout ----
+
+thread 'eval_in_busy_program' (5558) panicked at crates/badger_cli/tests/programs.rs:1917:5:
+
+
+---- remote_repl stdout ----
+
+thread 'remote_repl' (6311) panicked at crates/badger_cli/tests/programs.rs:781:9:
+endpoint never came up
+
+
+failures:
+    debugger_sees_generated_code
+    durable_jobs_survive_crashes
+    eval_in_busy_program
+    inspect_running_program
+    local_repl_session
+    otel_export
+    outbound_http
+    outbound_http_send
+    remote_repl
+    reproduction_bundles
+
+test result: FAILED. 66 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 214.73s
+
+error: test failed, to rerun pass `-p badger_cli --test programs`

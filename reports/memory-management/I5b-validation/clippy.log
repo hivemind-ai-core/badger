@@ -1,0 +1,31 @@
+   Compiling aho-corasick v1.1.5
+   Compiling regex-syntax v0.8.11
+    Checking hashbrown v0.15.5
+    Checking badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Checking unicode-ident v1.0.27
+    Checking unicode-segmentation v1.13.3
+    Checking badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+    Checking badger_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_compress)
+    Checking badger_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_postgres)
+    Checking badger_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_crypto)
+    Checking badger_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_http)
+    Checking badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+    Checking badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+    Checking badger_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fetch)
+    Checking badger_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_datetime)
+    Checking badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+    Checking badger_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_template)
+    Checking badger_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fs)
+    Checking chumsky v0.13.0
+    Checking petgraph v0.8.3
+   Compiling regex-automata v0.4.18
+   Compiling logos-codegen v0.16.1
+   Compiling logos-derive v0.16.1
+    Checking logos v0.16.1
+    Checking badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+    Checking badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+    Checking badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+    Checking badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Checking badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+    Checking badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 00s
