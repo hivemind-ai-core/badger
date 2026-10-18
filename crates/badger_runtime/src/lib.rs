@@ -40,6 +40,7 @@ macro_rules! define_intrinsics {
 }
 
 pub mod abi;
+pub mod admission;
 pub mod buffer;
 pub mod channel;
 pub mod codec;

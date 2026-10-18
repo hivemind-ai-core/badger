@@ -1,0 +1,9 @@
+admitted 4, full 2
+peak 2
+executing 0 waiting 0 admitted 4 full 2
+deadline after the deadline: true
+deadline
+waiting 1
+waiting after cancel 0
+executing after cancel 0
+admitted

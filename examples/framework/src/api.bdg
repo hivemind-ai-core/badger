@@ -5,6 +5,7 @@
 //     curl localhost:8080/tasks
 //     curl -X POST localhost:8080/tasks/1/done
 //     curl localhost:8080/health/ready
+import std.admission
 import std.app
 import std.command
 import std.config
@@ -25,6 +26,7 @@ pub enum AppError {
     system(source: system.Error),
     io(source: io.Error),
     route(source: route.RouteError),
+    admission(source: admission.Error),
 } derive(Error, From)
 
 type Settings = { address: String, port: U16 }
@@ -112,7 +114,7 @@ fn test_descriptions() -> Result<Unit, AppError> {
         tasks: service.tasks({ store: ref(#store), max_title: 80 }),
     }
     use running <- system.run(plan)
-    let routes = web.routes(running.tasks)
+    let routes = web.routes(running.tasks, admission.gate(#tasks/writes, { capacity: 1, queue: 0 })?)
     assert(route.url(routes, #tasks/complete, map { "id" => "4" })? == "/tasks/4/done")
     let doc = route.openapi(routes, "Tasks", "1")?
     assert(text.contains(doc, "\"operationId\":\"tasks/create\",\"summary\":\"Add a task.\""))

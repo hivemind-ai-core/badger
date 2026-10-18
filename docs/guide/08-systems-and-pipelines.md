@@ -606,6 +606,39 @@ use running <- app.run(plan, health)
 running.wait_for_shutdown()?
 ```
 
+### Identity, policies, and admission
+
+`app.guard(op, policy)` runs `policy(call, input)` before the operation;
+its error is the operation's, so a refused call never reaches the
+operation. `app.require_role(role, refuse)` is a policy over the call's
+verified actor.
+
+`admission.gate(name, { capacity, queue })` admits at most `capacity`
+calls at once and lets at most `queue` more wait; `gate.admit(call, body)`
+runs `body` once admitted or returns `Rejected.full` or
+`Rejected.deadline`. A waiter waits until its call's deadline, a released
+permit goes to the longest waiter, and a permit is returned once the body
+settles (also when its task is cancelled). `gate.stats()` gives the
+counters.
+
+`endpoint.bind_in(context, binding)` applies transport policies to an
+endpoint: `identify` (for example `endpoint.bearer(verify)`, which reads
+`Authorization: Bearer TOKEN`), a `timeout` counted from the request's
+arrival (so time in the queue uses the same budget), a `gate`, and
+`max_body`. It checks the body size (413), identity (401), and input
+(400), then admits (503) and calls the operation with the actor and
+deadline in its call. `endpoint.bind` is `bind_in(endpoint.public(), ...)`.
+
+```badger fragment
+let context: endpoint.Context = {
+    ..endpoint.public(),
+    identify: endpoint.bearer(sessions.verify),
+    timeout: Option.some(2s),
+    gate: Option.some(admission.gate(#orders/writes, { capacity: 16, queue: 64 })?),
+}
+endpoint.bind_in(context, { method: #post, path: "/orders", operation: app.guard(create, writers), ... })
+```
+
 `app.index(infos)` validates a set of operations' metadata (unique ids,
 versions from 1, documentation) without erasing their types.
 [`examples/framework`](../../examples/framework) is a small application

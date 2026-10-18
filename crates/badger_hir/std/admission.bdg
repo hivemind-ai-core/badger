@@ -1,0 +1,100 @@
+// Admission control (FRAMEWORK_DESIGN.md §11): a gate admits at most
+// `capacity` calls at once and lets at most `queue` more wait, each until
+// its call's deadline (time spent waiting consumes the same budget the
+// operation then has). A released permit passes to the longest waiter.
+//
+//     let gate = admission.gate(#orders/writes, { capacity: 8, queue: 32 })?
+//     match gate.admit(call, fn() { orders.create.call(call, input) }) { ... }
+//
+// A permit is released when the admitted body has settled: it returned,
+// failed, or its task was cancelled. A waiter that is cancelled leaves the
+// queue (and returns a permit handed to it meanwhile). What a gate counts
+// is admitted calls, not bytes or the work they start.
+import std.app
+import std.prelude
+import std.time
+
+extern "intrinsic" fn gate_new(capacity: Int, queue: Int) -> Int
+extern "intrinsic" fn gate_acquire(gate: Int, wait: Int) -> Int
+extern "intrinsic" fn gate_release(gate: Int) -> Unit
+extern "intrinsic" fn gate_stat(gate: Int, which: Int) -> Int
+extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
+extern "intrinsic" fn cleanup_remove(h: Int) -> Unit
+
+/// Why a call was not admitted: the queue was full, or its deadline passed
+/// while it waited (or before it arrived).
+pub enum Rejected {
+    full(gate: Symbol),
+    deadline(gate: Symbol),
+} derive(Error)
+
+/// A problem with a gate's limits.
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String {
+        self.message
+    }
+}
+
+impl prelude.Error for Error {}
+
+/// A gate's counters: `executing` and `waiting` now; `admitted`,
+/// `rejected_full`, and `rejected_deadline` since it was made.
+pub type Stats = { capacity: Int, queue: Int, executing: Int, waiting: Int, admitted: Int, rejected_full: Int, rejected_deadline: Int }
+
+pub struct Gate {
+    id: Int,
+    pub name: Symbol,
+    pub capacity: Int,
+    pub queue: Int,
+}
+
+/// A gate admitting `capacity` calls at once, with `queue` more waiting.
+/// Gates live as long as the process (make them at startup).
+pub fn gate(name: Symbol, limits: { capacity: Int, queue: Int }) -> Result<Gate, Error> {
+    if limits.capacity < 1 {
+        return err({ message: $"gate {name}: capacity must be at least 1, not {limits.capacity}" })
+    }
+    if limits.queue < 0 {
+        return err({ message: $"gate {name}: queue must not be negative, not {limits.queue}" })
+    }
+    ok({ id: gate_new(limits.capacity, limits.queue), name, capacity: limits.capacity, queue: limits.queue })
+}
+
+impl Gate {
+    /// Run `body` once admitted, waiting at most until `call`'s deadline
+    /// (without one, as long as it takes).
+    pub fn admit<R>(self: &Self, call: app.Call, body: fn() -> R) -> Result<R, Rejected> !{Io, Wait, State} {
+        let wait = match call.remaining() {
+            .some(d) => time.as_nanos(d),
+            .none => -1,
+        }
+        match gate_acquire(self.id, wait) {
+            0 => (),
+            1 => return err(Rejected.full(self.name)),
+            _ => return err(Rejected.deadline(self.name)),
+        }
+        let id = self.id
+        let guard = cleanup_push(fn() { gate_release(id) })
+        let r = body()
+        cleanup_remove(guard)
+        gate_release(id)
+        ok(r)
+    }
+
+    pub fn stats(self: &Self) -> Stats {
+        let id = self.id
+        {
+            capacity: self.capacity,
+            queue: self.queue,
+            executing: gate_stat(id, 0),
+            waiting: gate_stat(id, 1),
+            admitted: gate_stat(id, 2),
+            rejected_full: gate_stat(id, 3),
+            rejected_deadline: gate_stat(id, 4),
+        }
+    }
+}

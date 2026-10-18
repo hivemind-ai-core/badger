@@ -123,6 +123,29 @@ impl<I, O, E, Eff> Operation<I, O, E, Eff> {
     }
 }
 
+/// An operation that runs only when `policy` allows the call: the policy
+/// sees the call (its verified actor, deadline) and the input, and its
+/// error is the operation's, so a refused call never reaches the wrapped
+/// operation. The guarded operation keeps the same identity.
+pub fn guard<I, O, E, Eff>(operation: Operation<I, O, E, Eff>, policy: fn(Call, I) -> Result<Unit, E> !Eff) -> Operation<I, O, E, Eff> {
+    let invoke = operation.invoke
+    { info: operation.info, invoke: fn(call: Call, input: I) {
+        policy(call, input)?
+        invoke(call, input)
+    } }
+}
+
+/// A policy allowing calls whose actor has `role`; `refuse` makes the
+/// operation's error for the others (`none` when there is no actor).
+pub fn require_role<I, E>(role: String, refuse: fn(Option<Actor>) -> E) -> fn(Call, I) -> Result<Unit, E> {
+    fn(call: Call, _input: I) -> Result<Unit, E> {
+        match call.actor {
+            .some(a) => if a.roles.contains(role) { ok(()) } else { err(refuse(Option.some(a))) },
+            .none => err(refuse(Option.none)),
+        }
+    }
+}
+
 /// A problem with operation metadata.
 pub struct Error {
     pub code: Symbol,

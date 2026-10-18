@@ -1,0 +1,106 @@
+// Identity and admission at an endpoint (framework F05): an invalid
+// identity or a refused policy never reaches the mutation; overload is
+// refused at the gate; a request's deadline starts when it arrives, so
+// queue time counts; permits are returned after every outcome.
+import std.admission
+import std.app
+import std.endpoint
+import std.http
+import std.io
+import std.route
+import std.task
+
+type Created = { count: Int, deadline: Bool, actor: String }
+
+pub enum OrderError {
+    unauthenticated,
+    forbidden(actor: String),
+} derive(Error)
+
+pub enum AppError {
+    io(source: io.Error),
+    route(source: route.RouteError),
+    admission(source: admission.Error),
+} derive(Error, From)
+
+fn verify(token: String) -> Option<app.Actor> {
+    if token == "w-token" {
+        Option.some({ id: "ada", roles: ["writer"] })
+    } else if token == "r-token" {
+        Option.some({ id: "bob", roles: ["reader"] })
+    } else {
+        Option.none
+    }
+}
+
+fn failure(e: OrderError) -> endpoint.Failure {
+    match e {
+        .unauthenticated => endpoint.failure(401, #orders/unauthenticated, "sign in first"),
+        .forbidden(who) => endpoint.failure(403, #orders/forbidden, $"{who} may not create orders"),
+    }
+}
+
+fn send(api: http.Handler, token: String, body: String) -> Int {
+    let request = http.request(#post, "/orders", body)
+    let headers = if token == "" { request.headers } else { request.headers.insert("authorization", $"Bearer {token}") }
+    http.call(api, { ..request, headers }).status
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let mutations = Atom.new(0)
+    let delay = Atom.new(0ms)
+    let create = app.guard(app.from_fn({ id: #orders/create, version: 1, doc: "Create an order." }, fn(call, _input: {}) -> Result<Created, OrderError> {
+        task.sleep(delay.get())
+        let count = mutations.update(fn(n) { n + 1 })
+        ok({ count, deadline: call.remaining().is_some(), actor: call.actor.map(fn(a) { a.id }).unwrap_or("") })
+    }), app.require_role("writer", fn(actor: Option<app.Actor>) {
+        match actor {
+            .some(a) => OrderError.forbidden(a.id),
+            .none => OrderError.unauthenticated,
+        }
+    }))
+    let gate = admission.gate(#orders/writes, { capacity: 1, queue: 1 })?
+    let context: endpoint.Context = { ..endpoint.public(), identify: endpoint.bearer(verify), timeout: Option.some(100ms), gate: Option.some(gate), max_body: 64 }
+    let api = route.table([
+        endpoint.bind_in(context, {
+            method: #post,
+            path: "/orders",
+            operation: create,
+            input: fn(_params: {}, body: {}) { body },
+            status: 201,
+            errors: failure,
+        }),
+    ])?
+
+    // identity and policy come before the mutation
+    io.println($"anonymous {send(api, "", "")}, bad token {send(api, "forged", "")}, reader {send(api, "r-token", "")}")?
+    io.println($"mutations {mutations.get()}")?
+    let ok_reply = http.call(api, { ..http.request(#post, "/orders", ""), headers: map { "authorization" => "Bearer w-token" } })
+    io.println($"writer {ok_reply.status} {ok_reply.body.to_text().unwrap_or("?")}")?
+    io.println($"too large {send(api, "w-token", "{\"padding\": \"................................................................\"}")}")?
+
+    // overload: one executing, one waiting, the rest refused at once
+    delay.set(50ms)
+    let statuses = task.scope(fn(scope) -> Result<List<Int>, AppError> {
+        var tasks = []
+        for _ in 0..4 {
+            tasks = tasks.append(scope.spawn(fn() { send(api, "w-token", "") }))
+        }
+        ok(tasks.map(fn(t) { t.join() }))
+    })?
+    io.println($"created {statuses.filter(fn(s) { s == 201 }).len()}, refused {statuses.filter(fn(s) { s == 503 }).len()}")?
+
+    // the deadline includes queue time: behind a 150ms call, a request
+    // with a 100ms budget is refused when its budget runs out in the queue
+    delay.set(150ms)
+    let waited = task.scope(fn(scope) -> Result<(Int, Int), AppError> {
+        let first = scope.spawn(fn() { send(api, "w-token", "") })
+        task.sleep(10ms)
+        let second = send(api, "w-token", "")
+        ok((first.join(), second))
+    })?
+    io.println($"first {waited.0}, queued {waited.1}")?
+    let s = gate.stats()
+    io.println($"executing {s.executing} waiting {s.waiting} full {s.rejected_full} deadline {s.rejected_deadline}")?
+    ok(())
+}

@@ -47,6 +47,7 @@ std_modules![
     "system",
     "app",
     "endpoint",
+    "admission",
     "command",
     "sqlite",
     "valkey",

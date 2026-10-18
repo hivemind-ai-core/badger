@@ -268,6 +268,17 @@ fn from_pipeline<I, O, E, Eff>(info: Info, plan: pipeline.Plan<{ call: Call, inp
 An operation from a pipeline whose input context is `{ call, input }`:
 its stages see both, and its handler's reply is the operation's output.
 
+### `guard`
+
+```badger
+fn guard<I, O, E, Eff>(operation: Operation<I, O, E, Eff>, policy: fn(Call, I) -> Result<Unit, E> !Eff) -> Operation<I, O, E, Eff>
+```
+
+An operation that runs only when `policy` allows the call: the policy
+sees the call (its verified actor, deadline) and the input, and its
+error is the operation's, so a refused call never reaches the wrapped
+operation. The guarded operation keeps the same identity.
+
 ### `health`
 
 ```badger
@@ -279,6 +290,15 @@ fn health(checks: List<Check>) -> Health
 ```badger
 fn index(infos: List<Info>) -> Result<Index, Error>
 ```
+
+### `require_role`
+
+```badger
+fn require_role<I, E>(role: String, refuse: fn(Option<Actor>) -> E) -> fn(Call, I) -> Result<Unit, E>
+```
+
+A policy allowing calls whose actor has `role`; `refuse` makes the
+operation's error for the others (`none` when there is no actor).
 
 ### `run`
 

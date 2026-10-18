@@ -2237,6 +2237,39 @@ pub fn sleep(d: Duration) -> Wake {
     w
 }
 
+/// Park until woken or until `limit` passes (`Wake::Timeout`); without a
+/// limit, like [`park_for`]. A timer left from an earlier wake is ignored.
+pub fn park_until(limit: Option<Duration>, reason: &'static str) -> Wake {
+    let Some(d) = limit else { return park_for(reason) };
+    let r = rt();
+    let id = current_id();
+    r.timer_seq += 1;
+    if let Some(now) = crate::intrinsics_os::manual_clock() {
+        r.virtual_timers.push((now + d.as_nanos() as i64, r.timer_seq, id));
+    } else {
+        r.timers.push(Timer { at: Instant::now() + d, seq: r.timer_seq, task: id });
+        note_timers();
+    }
+    if let Some(t) = current() {
+        t.sleep_seq = r.timer_seq;
+    }
+    let w = park_for(reason);
+    if let Some(t) = current() {
+        t.sleep_seq = 0;
+    }
+    w
+}
+
+/// Nanoseconds on the monotonic clock `time.now()` reads (the controlled
+/// clock when one is set).
+pub fn monotonic_nanos() -> i64 {
+    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    if let Some(t) = crate::intrinsics_os::manual_clock() {
+        return t;
+    }
+    START.get_or_init(Instant::now).elapsed().as_nanos() as i64
+}
+
 /// Run `f` on a blocking-pool thread, parking the current task meanwhile.
 /// Cancellation waits for `f` to finish (it may use the task's memory, as
 /// a blocking foreign call does), then takes effect.

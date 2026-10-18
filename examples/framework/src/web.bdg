@@ -1,6 +1,7 @@
 // The HTTP binding of the tasks feature: each operation bound to a method
 // and path (typed parameters, body, and reply; explicit replies for the
 // feature's errors), and the health routes, behind an access-log stage.
+import std.admission
 import std.app
 import std.endpoint
 import std.http
@@ -12,6 +13,7 @@ import tasks.model
 
 pub enum Error {
     route(source: route.RouteError),
+    admission(source: admission.Error),
 } derive(Error, From)
 
 // Log each request's outcome; `leave` sees the reply of every later stage.
@@ -35,7 +37,10 @@ fn failure(e: model.Error) -> endpoint.Failure {
     }
 }
 
-pub fn routes(tasks: model.Tasks) -> List<route.Route> {
+pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
+    // writes are admitted through a gate (a bounded queue), each within 5s
+    // of its arrival
+    let writing: endpoint.Context = { ..endpoint.public(), timeout: Option.some(5s), gate: Option.some(writes) }
     [
         endpoint.bind({
             method: #get,
@@ -45,7 +50,7 @@ pub fn routes(tasks: model.Tasks) -> List<route.Route> {
             status: 200,
             errors: failure,
         }),
-        endpoint.bind({
+        endpoint.bind_in(writing, {
             method: #post,
             path: "/tasks",
             operation: tasks.create,
@@ -53,7 +58,7 @@ pub fn routes(tasks: model.Tasks) -> List<route.Route> {
             status: 201,
             errors: failure,
         }),
-        endpoint.bind({
+        endpoint.bind_in(writing, {
             method: #post,
             path: "/tasks/:id/done",
             operation: tasks.complete,
@@ -66,7 +71,8 @@ pub fn routes(tasks: model.Tasks) -> List<route.Route> {
 
 // The feature's routes and the application's health routes.
 pub provider api(config: { tasks: model.Tasks, health: app.Health }) -> Result<http.Handler, Error> {
-    let table = route.table(routes(config.tasks).concat(endpoint.health(config.health)))?
+    let writes = admission.gate(#tasks/writes, { capacity: 16, queue: 64 })?
+    let table = route.table(routes(config.tasks, writes).concat(endpoint.health(config.health)))?
     let process = pipeline.compile(pipeline {
         access_log(),
         handle(fn(ctx) -> Result<http.Response, Error> { ok(http.call(table, ctx.request)) }),
