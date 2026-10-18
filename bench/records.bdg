@@ -47,6 +47,17 @@ pub fn main() -> Result<Unit, io.Error> {
         let moved = { ..small, w: i }
         sum = sum + moved.w % 7
     }
-    report("record update (allocates)", n, time.now() - t, sum)?
+    // scalar replacement removes the copy: no allocation
+    report("record update (local, scalar-replaced)", n, time.now() - t, sum)?
+
+    // the copy escapes into a cell: one allocation per iteration
+    sum = 0
+    let kept = Atom.new(small)
+    t = time.now()
+    for i in 0..n {
+        kept.set({ ..small, w: i })
+        sum = sum + kept.get().w % 7
+    }
+    report("record update (escaping, allocates)", n, time.now() - t, sum)?
     ok(())
 }

@@ -28,9 +28,13 @@ pub fn main() -> Result<Unit, io.Error> {
     }
     report("paged list iterate", n, time.now() - t, sum)?
 
+    // `chunks()` copies each page into an array: timed apart from the walk
+    t = time.now()
+    let pages = items.chunks()
+    report("paged list chunks (copy pages)", n, time.now() - t, pages.len())?
     sum = 0
     t = time.now()
-    for page in items.chunks() {
+    for page in pages {
         for x in page {
             sum = sum + x
         }
