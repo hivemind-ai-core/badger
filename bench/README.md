@@ -1,5 +1,19 @@
 # Benchmarks
 
+## Badger / Go / Node.js workload history
+
+[`realworld/`](realworld/README.md) compares CPU scoring, reconciliation, JSON
+orders, retained state, messaging and worker pipelines at 1/2/4/8 workers. Each
+run writes stamped JSON evidence and invokes a Badger script to generate offline
+HTML with latest comparisons, history, startup/compilation and peak RSS charts.
+The retained baseline is in [`reports/realworld/`](../reports/realworld/README.md).
+
+```sh
+python3 bench/realworld/run.py
+# Regenerate charts from all existing reports:
+target/release/badger run --release bench/realworld/report.bdg -- reports/realworld/runs reports/realworld/index.html
+```
+
 ## Cross-language comparison
 
 [`compare/`](compare/README.md) runs correctness-gated application workloads
