@@ -1,0 +1,126 @@
+// Pure decisions over events (FRAMEWORK_DESIGN.md §17): a decider is an
+// initial state, a pure `decide` (state, command, and the coeffects it
+// needs, such as the time or a fresh id, given as data) that returns the
+// events to record or a domain error, and a pure `evolve` that applies an
+// event. Being pure (`!{}`), both are tested directly.
+//
+//     let orders: decide.Decider<Order, Command, Event, Refusal, Context> = {
+//         initial: { status: #none },
+//         decide: fn(order, command, context) { ... },
+//         evolve: fn(order, event) { ... },
+//     }
+//     let (state, events) = decide.decide(orders, history, Command.pay(10), context)?
+//
+// `execute` runs a command against a stream with optimistic concurrency:
+// it loads the events and their version, decides, and appends only if the
+// version is unchanged; after a conflict it loads again and decides again
+// (on the new state, with fresh coeffects). Act on the events it returns
+// (send email, submit jobs) only after it returns: they are committed.
+import std.list
+
+extern "intrinsic" fn atom_cas<T>(atom: Atom<T>, expected: T, value: T) -> Bool
+
+pub type Decider<S, C, Ev, E, Co> = {
+    initial: S,
+    decide: fn(S, C, Co) -> Result<List<Ev>, E> !{},
+    evolve: fn(S, Ev) -> S !{},
+}
+
+/// The state after `events`.
+pub fn fold<S, C, Ev, E, Co>(d: Decider<S, C, Ev, E, Co>, events: List<Ev>) -> S {
+    let evolve = d.evolve
+    list.fold(events, d.initial, fn(s, e) { evolve(s, e) })
+}
+
+/// Decide `command` after `history`: the new events and the state after
+/// them, or the domain's refusal.
+pub fn decide<S, C, Ev, E, Co>(d: Decider<S, C, Ev, E, Co>, history: List<Ev>, command: C, coeffects: Co) -> Result<(S, List<Ev>), E> {
+    let state = fold(d, history)
+    let f = d.decide
+    let events = f(state, command, coeffects)?
+    let evolve = d.evolve
+    ok((list.fold(events, state, fn(s, e) { evolve(s, e) }), events))
+}
+
+/// An event stream with a version (the number of events): `load` reads
+/// it, and `append(expected, events)` adds events only if the version is
+/// still `expected` (returning `false` on a conflict).
+pub type Stream<Ev, X> = {
+    load: fn() -> Result<(List<Ev>, Int), X>,
+    append: fn(Int, List<Ev>) -> Result<Bool, X>,
+}
+
+/// Why `execute` did not record a decision: the domain refused the
+/// command, the stream failed, or other writers kept changing it.
+pub enum Failure<E, X> {
+    refused(error: E),
+    stream(error: X),
+    conflict(attempts: Int),
+}
+
+impl<E, X> Display for Failure<E, X> where E: Display, X: Display {
+    fn display(self: &Self) -> String {
+        match self {
+            .refused(e) => e.display(),
+            .stream(e) => e.display(),
+            .conflict(n) => $"the stream kept changing ({n} attempts)",
+        }
+    }
+}
+
+impl<E, X> Error for Failure<E, X> where E: Display, X: Display {}
+
+/// A committed decision: the state after it, its events, and the stream's
+/// new version.
+pub type Committed<S, Ev> = { state: S, events: List<Ev>, version: Int }
+
+/// Decide and append with optimistic concurrency, deciding again after a
+/// conflict, at most `attempts` times. `coeffects` is called for each
+/// attempt (a retried decision sees the current time, not a stale one).
+pub fn execute<S, C, Ev, E, Co, X>(d: Decider<S, C, Ev, E, Co>, stream: Stream<Ev, X>, command: C, coeffects: fn() -> Co, attempts: Int) -> Result<Committed<S, Ev>, Failure<E, X>> {
+    let load = stream.load
+    let append = stream.append
+    var n = 0
+    while n < attempts {
+        n = n + 1
+        let (history, version) = match load() {
+            .ok(x) => x,
+            .err(e) => return err(Failure.stream(e)),
+        }
+        let (state, events) = match decide(d, history, command, coeffects()) {
+            .ok(x) => x,
+            .err(e) => return err(Failure.refused(e)),
+        }
+        if events.is_empty() {
+            return ok({ state, events, version })
+        }
+        match append(version, events) {
+            .ok(true) => return ok({ state, events, version: version + events.len() }),
+            .ok(false) => (),
+            .err(e) => return err(Failure.stream(e)),
+        }
+    }
+    err(Failure.conflict(attempts))
+}
+
+/// An in-memory stream (for tests and single-process use).
+pub fn memory<Ev>() -> Stream<Ev, Never> {
+    let events: Atom<List<Ev>> = Atom.new([])
+    {
+        load: fn() -> Result<(List<Ev>, Int), Never> {
+            let all = events.get()
+            ok((all, all.len()))
+        },
+        append: fn(expected: Int, new: List<Ev>) -> Result<Bool, Never> {
+            loop {
+                let all = events.get()
+                if all.len() != expected {
+                    return ok(false)
+                }
+                if atom_cas(events, all, all.concat(new)) {
+                    return ok(true)
+                }
+            }
+        },
+    }
+}

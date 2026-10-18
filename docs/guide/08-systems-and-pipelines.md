@@ -294,6 +294,25 @@ never sent again automatically. `store.reconcile(kind, check)` asks the
 destination about them by key, and `store.resolve(key, outcome)` records
 an operator's decision.
 
+### Decisions and events
+
+[std.decide](../api/decide.md) keeps a domain's rules pure. A
+`decide.Decider` is an `initial` state, a `decide(state, command,
+coeffects)` that returns the events to record or a refusal, and an
+`evolve(state, event)`; both functions are `!{}`, so what a decision
+needs from the world (the time, a fresh id) arrives as the `coeffects`
+value and the rules are tested directly with `decide.decide(decider,
+history, command, coeffects)`.
+
+`decide.execute(decider, stream, command, coeffects, attempts)` runs a
+command against an event stream with optimistic concurrency: it loads the
+events and their version, decides, and appends only if the version is
+unchanged; after a conflict it loads and decides again, calling
+`coeffects` afresh. Its result holds the committed events: act on them
+(send email, `jobs.submit_in`) only after it returns. `decide.memory()`
+is an in-memory stream; a durable one implements `load` and `append`
+(`decide.Stream`).
+
 ## Select and replace nodes
 
 ```badger

@@ -41,6 +41,7 @@
 | [`std.app`](app.md) | Application operations: a feature's significant entry points as typed |
 | [`std.endpoint`](endpoint.md) | HTTP bindings of operations (FRAMEWORK_DESIGN.md §14): an endpoint is a |
 | [`std.admission`](admission.md) | Admission control (FRAMEWORK_DESIGN.md §11): a gate admits at most |
+| [`std.decide`](decide.md) | Pure decisions over events (FRAMEWORK_DESIGN.md §17): a decider is an |
 | [`std.command`](command.md) | Command-line bindings of operations (FRAMEWORK_DESIGN.md §14): a command |
 | [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions, and versioned schema |
 | [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |

@@ -1,0 +1,21 @@
+// expect-error: E0501
+// A decider's `decide` is pure: what it needs from the world (the time,
+// an id) comes in as coeffects, so it cannot read the clock itself.
+import std.decide
+import std.time
+
+type Context = { now: Instant }
+
+fn stamps() -> decide.Decider<Int, Unit, Instant, String, Context> {
+    {
+        initial: 0,
+        decide: fn(_n: Int, _c: Unit, _cx: Context) -> Result<List<Instant>, String> {
+            ok([time.now()])
+        },
+        evolve: fn(n: Int, _e: Instant) -> Int { n + 1 },
+    }
+}
+
+pub fn main() -> Unit {
+    let _ = stamps()
+}
