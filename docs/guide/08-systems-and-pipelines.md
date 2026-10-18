@@ -255,6 +255,32 @@ A worker that still has not settled after the cleanup grace period
 alive: the remaining halts are skipped and reported. `worker.supervise(name,
 factory, policy)` runs the same restart loop in any task, outside a system.
 
+### Durable jobs
+
+A worker's restart does not replay lost work: anything that must survive a
+crash goes through [std.jobs](../api/jobs.md), a SQLite job store with
+leases, fencing, retries, and an outbox. `jobs.store({ path })` provides
+a store in a system, and `jobs.processor(store, processing, handle)` makes
+the factory of a worker that runs one kind of job: it claims a due job,
+decodes its state, and calls `handle(claim, state)`, whose `jobs.Step`
+(the step reached, the new state, `next`, and operations to dispatch)
+commits only while the claim still holds.
+
+```badger fragment
+provider mailer(scope, config: { store: jobs.Store }) -> Result<Unit, Error> {
+    let p: jobs.Processing = { kind: "mail", owner: "mailer", version: 1, lease: 30s, backoff: 5s, idle: 100ms }
+    scope.worker(jobs.processor(config.store, p, send_mail), worker.on_failure({ max_restarts: 3, window: 1min, backoff: 1s }))
+    ok(())
+}
+```
+
+Two kinds of failure stay distinct. An expected error from `handle` is a
+failed attempt of the job: it runs again after `backoff` until its
+`max_attempts` are used. A defect or a store error fails the worker, which
+restarts by its policy; the job it held is claimed again once its lease
+expires (and the old claim can no longer commit). A job whose process died
+is continued the same way by another process sharing the store.
+
 ## Select and replace nodes
 
 ```badger

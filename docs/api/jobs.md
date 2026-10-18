@@ -22,6 +22,10 @@ automatically: `reconcile` asks the destination by operation key, or an
 operator `resolve`s them. Destinations should treat the operation key as
 an idempotency key.
 
+In a system, the `store` provider opens a store, and `processor` makes a
+worker that runs one kind of job with a typed handler (claim, decode,
+handle, commit or retry).
+
 Errors from SQLite (including a full disk) are returned and roll the
 transaction back. Not provided: replication or recovery from losing the
 machine, and persisting anything but `Codec` values (no closures, tasks,
@@ -111,6 +115,17 @@ enum Outcome { confirmed(receipt: String), rejected(reason: String), not_sent(re
 
 What happened to a sent (or checked) operation.
 
+### `Processing`
+
+```badger
+pub type Processing = { kind: String, owner: String, version: Int, lease: Duration, backoff: Duration, idle: Duration }
+```
+
+How a processor runs jobs of one kind: who claims them, the state
+version its handler reads, the lease each claim holds, the delay
+before a failed attempt runs again, and how often to look for work
+when there is none.
+
 ### `Send`
 
 ```badger
@@ -120,6 +135,16 @@ struct Send { pub key: String, pub kind: String, pub payload: String }
 An external operation to dispatch after the transition commits. `key`
 identifies it for good (an idempotency key): adding the same key again
 (for example from a retried step) does nothing.
+
+### `Step`
+
+```badger
+pub type Step<T> = { step: String, state: T, next: Next, sends: List<Send> }
+```
+
+What a handler decides for a claimed job: the step it reached, the new
+state, what happens next, and the external operations to dispatch once
+the step commits.
 
 ### `Store`
 
@@ -313,4 +338,38 @@ fn open<S: Scope>(path: String) -> Result<Store<S>, Error> !{Io, Wait}
 ```
 
 Open (creating if needed) the job store in the SQLite database `path`.
+
+### `process_one`
+
+```badger
+fn process_one<S, T, E>(store: Store<S>, p: Processing, handle: fn(Claim, T) -> Result<Step<T>, E>) -> Result<Option<String>, Error> !{Io, Wait, State} where T: Codec, E: Display
+```
+
+Claim and handle one due job of `p.kind`, returning its id (`none` when
+no job was due). The handler's step commits only while the claim holds.
+An expected error from the handler is a failed attempt: the job runs
+again after `p.backoff`, until its attempts are used up. A claim lost
+meanwhile (its lease expired, or the job was cancelled) is given up.
+A job whose state has another version is a failed attempt (migrate it).
+A store error is returned: the worker running this fails, and its
+policy decides whether it restarts (a worker's restart is not a job's
+retry: the job's lease expires, and another claim continues it).
+
+### `processor`
+
+```badger
+fn processor<S, T, E>(store: Store<S>, p: Processing, handle: fn(Claim, T) -> Result<Step<T>, E>) -> fn() -> Result<Unit, Error> !{Io, Wait, State} where T: Codec, E: Display
+```
+
+A worker that processes jobs of `p.kind` until it is cancelled (for
+`scope.worker(jobs.processor(...), policy)`), looking for work every
+`p.idle` when none is due.
+
+### `store`
+
+```badger
+store: system.Provider<{path: String}, jobs.Store<{error}>, jobs.Error>
+```
+
+Provider of a job store for `{ path: String }`, closed when its node halts.
 
