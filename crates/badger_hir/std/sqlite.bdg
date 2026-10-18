@@ -1,11 +1,16 @@
-// Embedded SQLite storage with scoped transactions.
+// Embedded SQLite storage with scoped transactions, and versioned schema
+// migrations (`migrate` applies them; `require_current` lets a server
+// refuse a schema other than the one it was written for).
 
 import std.prelude
 
 import std.system
 import std.codec
+import std.crypto
+import std.encoding
 import std.native
 import std.list
+import std.text
 
 pub struct Error {
     pub code: Symbol,
@@ -156,3 +161,89 @@ fn pool_init<S: Scope>(scope: system.InitScope, config: { path: String }) -> Res
 
 /// Provider of a pool for `{path: String}`.
 pub let pool = system.provider({ name: #sqlite/pool, init: pool_init })
+
+/// A schema migration: a positive version (applied in increasing order),
+/// a name, and the SQL that moves the schema to this version.
+pub type Migration = { version: Int, name: String, sql: String }
+
+/// A database's schema relative to a program's migrations: the latest
+/// version applied, the latest the program knows, and the versions still
+/// to apply.
+pub type Schema = { current: Int, latest: Int, pending: List<Int> }
+
+fn checksum(m: Migration) -> String {
+    encoding.hex(crypto.sha256(m.sql.to_bytes()))
+}
+
+fn migration_error(code: Symbol, message: String) -> Error {
+    { code, message, cause: Option.none }
+}
+
+fn checked(migrations: List<Migration>) -> Result<Unit, Error> {
+    var last = 0
+    for m in migrations {
+        if m.version <= last {
+            return err(migration_error(#sqlite/migrations_invalid, $"migration {m.version} ({m.name}) is out of order: versions increase from 1"))
+        }
+        last = m.version
+    }
+    ok(())
+}
+
+type Applied = { version: Int, name: String, checksum: String }
+
+fn ensure_table<S: Scope>(pool: Pool<S>) -> Result<Unit, Error> !{Io, Wait} {
+    let _ = execute(pool, "CREATE TABLE IF NOT EXISTS badger_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, checksum TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)", [])?
+    ok(())
+}
+
+/// Compare the database with `migrations`: an applied migration whose SQL
+/// changed since, or an applied version the program does not know (the
+/// database is newer than the program), is an error.
+pub fn schema<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<Schema, Error> !{Io, Wait} {
+    checked(migrations)?
+    ensure_table(pool)?
+    let applied = query_as<Applied, Pool<S>>(pool, "SELECT version, name, checksum FROM badger_migrations ORDER BY version", [])?
+    for a in applied {
+        match list.find(migrations, fn(m) { m.version == a.version }) {
+            .none => return err(migration_error(#sqlite/schema_ahead, $"the database has migration {a.version} ({a.name}), which this program does not know")),
+            .some(m) => if checksum(m) != a.checksum {
+                return err(migration_error(#sqlite/migration_changed, $"migration {a.version} ({a.name}) changed after it was applied"))
+            },
+        }
+    }
+    let current = list.fold(applied, 0, fn(v, a) { if a.version > v { a.version } else { v } })
+    let latest = list.fold(migrations, 0, fn(v, m) { if m.version > v { m.version } else { v } })
+    let pending = list.map(list.filter(migrations, fn(m) { !list.any(applied, fn(a) { a.version == m.version }) }), fn(m) { m.version })
+    ok({ current, latest, pending })
+}
+
+/// Apply the pending migrations in order, each in its own transaction with
+/// its record (a failing one rolls back and stops, leaving the earlier
+/// ones applied). Returns the versions applied.
+pub fn migrate<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<List<Int>, Error> !{Io, Wait} {
+    let s = schema(pool, migrations)?
+    var done: List<Int> = []
+    for m in migrations {
+        if s.pending.contains(m.version) {
+            transaction(pool, fn(tx) -> Result<Unit, Error> {
+                let _ = execute(tx, m.sql, [])?
+                let _ = execute(tx, "INSERT INTO badger_migrations (version, name, checksum) VALUES (?, ?, ?)", [Data.int(m.version), Data.string(m.name), Data.string(checksum(m))])?
+                ok(())
+            })?
+            done = done.append(m.version)
+        }
+    }
+    ok(done)
+}
+
+/// Refuse to serve with a schema other than the program's: pending
+/// migrations, a newer database, or a changed migration are errors (run
+/// the migration command first).
+pub fn require_current<S: Scope>(pool: Pool<S>, migrations: List<Migration>) -> Result<Unit, Error> !{Io, Wait} {
+    let s = schema(pool, migrations)?
+    if !s.pending.is_empty() {
+        return err(migration_error(#sqlite/schema_behind, $"the database is at version {s.current}; migrations {text.join(s.pending.map(fn(v) { $"{v}" }), ", ")} are pending"))
+    }
+    ok(())
+}

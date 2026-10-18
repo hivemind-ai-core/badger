@@ -6,18 +6,18 @@ import tasks.model
 pub provider store(config: { first_id: Int }) -> Result<model.Store, model.Error> {
     let rows: Atom<List<model.Task>> = Atom.new([])
     ok({
-        insert: fn(title: String) -> model.Task {
+        insert: fn(title: String) -> Result<model.Task, model.Error> {
             let all = rows.update(fn(current) {
                 current.append({ id: config.first_id + current.len(), title, done: false })
             })
-            all[all.len() - 1]
+            ok(all[all.len() - 1])
         },
-        all: fn() { rows.get() },
-        complete: fn(id: Int) -> Option<model.Task> {
+        all: fn() -> Result<List<model.Task>, model.Error> { ok(rows.get()) },
+        complete: fn(id: Int) -> Result<Option<model.Task>, model.Error> {
             let all = rows.update(fn(current) {
                 list.map(current, fn(t) { if t.id == id { { ..t, done: true } } else { t } })
             })
-            list.find(all, fn(t) { t.id == id })
+            ok(list.find(all, fn(t) { t.id == id }))
         },
     })
 }

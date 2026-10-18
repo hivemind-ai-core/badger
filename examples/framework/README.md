@@ -10,23 +10,27 @@ point composes the parts it needs in a `system { ... }`.
 | File | Role |
 |---|---|
 | `src/tasks/model.bdg` | The feature's types: `Task`, its errors, the `Store` it needs, and the `Tasks` operations it offers |
-| `src/tasks/memory.bdg` | `memory.store`: an in-memory `Store` (another adapter would provide the same interface) |
+| `src/tasks/memory.bdg` | `memory.store`: an in-memory `Store` |
+| `src/tasks/sqlite_store.bdg` | `sqlite_store.store`: the same `Store` over SQLite, with the schema's migrations; it refuses any other schema |
 | `src/tasks/service.bdg` | `service.tasks`: the operations (one a pipeline with title validation as a stage) |
 | `src/web.bdg` | `web.api`: each operation bound to a method and path, behind an access-log stage |
 | `src/api.bdg` | The HTTP service (the default entry), and tests calling the API and the commands in-process |
 | `src/cli.bdg` | The command line: a command per operation, with typed options and exit statuses, without a server |
 | `src/worker.bdg` | A supervised background activity owned by a node |
+| `src/migrate.bdg` | The migration task |
+| `src/settings.bdg` | The settings every entry resolves |
 
 Run them from this directory:
 
 ```sh
+badger run migrate                           # create or update tasks.db
 badger run                                   # serve on 127.0.0.1:8080 ([config] in badger.toml)
 TASKS_PORT=9000 badger run                   # configuration from the environment
 badger run -- port=9000                      # or an override (unknown keys are errors)
 badger run cli -- add --title "Write the docs"
 badger run cli -- help                       # the commands, from the operations' documentation
 badger run worker
-badger test                                  # the API tests, without opening a port
+badger test                                  # the API, command, and store-contract tests, without a port
 badger inspect plans .                       # each plan's nodes and startup order
 ```
 
@@ -53,6 +57,10 @@ What to notice:
   point gets it. The access-log stage wraps only the HTTP binding.
 - Route names, URLs, OpenAPI summaries, and command help come from the
   operations' identities and documentation.
+- The service and the command line keep tasks in SQLite (`tasks.db`); the
+  worker and most tests use the in-memory store. Both stores pass the same
+  contract test. The SQLite store refuses to start until `badger run
+  migrate` has brought the database to the application's schema.
 - The CLI and the worker select a smaller plan (no server); the tests run
   the service's plan without its server and call the handler directly.
 - `app.run` is `system.run` with health: the service is ready once every

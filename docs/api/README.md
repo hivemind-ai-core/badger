@@ -42,7 +42,7 @@
 | [`std.endpoint`](endpoint.md) | HTTP bindings of operations (FRAMEWORK_DESIGN.md §14): an endpoint is a |
 | [`std.admission`](admission.md) | Admission control (FRAMEWORK_DESIGN.md §11): a gate admits at most |
 | [`std.command`](command.md) | Command-line bindings of operations (FRAMEWORK_DESIGN.md §14): a command |
-| [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions. |
+| [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions, and versioned schema |
 | [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |
 | [`std.postgres`](postgres.md) | PostgreSQL with pooled connections and scoped transactions; the same |
 | [`std.websocket`](websocket.md) | WebSockets: client connections (`connect`), and the server side of an |

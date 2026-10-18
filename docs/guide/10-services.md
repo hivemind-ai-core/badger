@@ -308,6 +308,22 @@ statements:
 [Typed SQL](../typed-sql.md) generates typed functions from `.sql` files
 of named queries, for SQLite and Postgres. See [std.sqlite](../api/sqlite.md).
 
+### Migrations
+
+A schema is a list of `sqlite.Migration` values (`{ version, name, sql }`,
+versions increasing from 1). `sqlite.migrate(pool, migrations)` applies
+the pending ones in order, each in its own transaction together with its
+record in `badger_migrations` (version, name, and a checksum of the SQL),
+and returns the versions it applied; a failing migration rolls back and
+stops. `sqlite.schema(pool, migrations)` compares the database with the
+program, and `sqlite.require_current(pool, migrations)` refuses to
+continue when migrations are pending (`#sqlite/schema_behind`), the
+database has a migration the program does not know (`#sqlite/schema_ahead`),
+or an applied migration's SQL changed (`#sqlite/migration_changed`). A
+store provider calls `require_current` so a server never starts on the
+wrong schema, and a separate entry runs `migrate`
+([`examples/framework`](../../examples/framework) has both).
+
 ## Postgres
 
 ```badger

@@ -27,16 +27,16 @@ pub provider tasks(config: { store: model.Store, max_title: Int }) -> Result<mod
     ok({
         create: app.from_pipeline({ id: #tasks/create, version: 1, doc: "Add a task." }, pipeline {
             valid_title(config.max_title),
-            handle(fn(ctx) -> Result<model.Task, model.Error> { ok(store.insert(ctx.input.title)) }),
+            handle(fn(ctx) -> Result<model.Task, model.Error> { store.insert(ctx.input.title) }),
         }),
         list: app.from_fn({ id: #tasks/list, version: 1, doc: "Every task, in the order added." }, fn(_call, _input: {}) -> Result<List<model.Task>, model.Error> {
-            ok(store.all())
+            store.all()
         }),
         open: app.from_fn({ id: #tasks/open, version: 1, doc: "The tasks not yet done." }, fn(_call, _input: {}) -> Result<List<model.Task>, model.Error> {
-            ok(list.filter(store.all(), fn(t) { !t.done }))
+            ok(list.filter(store.all()?, fn(t) { !t.done }))
         }),
         complete: app.from_fn({ id: #tasks/complete, version: 1, doc: "Mark a task done." }, fn(_call, id: Int) -> Result<model.Task, model.Error> {
-            match store.complete(id) {
+            match store.complete(id)? {
                 .some(t) => ok(t),
                 .none => err(model.Error.not_found(id)),
             }

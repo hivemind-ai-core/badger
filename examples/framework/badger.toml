@@ -5,7 +5,9 @@ entry = "src/api.bdg"
 [entries]
 cli = "src/cli.bdg"
 worker = "src/worker.bdg"
+migrate = "src/migrate.bdg"
 
 [config]
 address = "127.0.0.1"
 port = 8080
+database = "tasks.db"

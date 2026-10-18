@@ -34,6 +34,7 @@ fn failure(e: model.Error) -> endpoint.Failure {
     match e {
         .invalid_title(message) => endpoint.failure(400, #tasks/invalid_title, message),
         .not_found(id) => endpoint.failure(404, #tasks/not_found, $"no task {id}"),
+        .storage(_) => endpoint.failure(503, #tasks/unavailable, "the task store is unavailable"),
     }
 }
 

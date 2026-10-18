@@ -238,14 +238,21 @@ fn framework_example() {
     let out = lang().arg("test").arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(
-        out.status.success() && text.contains("5 passed; 0 failed"),
+        out.status.success() && text.contains("8 passed; 0 failed"),
         "{text}{}",
         String::from_utf8_lossy(&out.stderr)
     );
+    // the command line and the migration task share a SQLite database
+    let db = std::env::temp_dir().join(format!("badger-framework-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&db);
     let run = |args: &[&str]| {
-        let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
+        let out = lang().current_dir(&dir).env("TASKS_DATABASE", &db).arg("run").args(args).output().unwrap();
         (out.status.code(), String::from_utf8_lossy(&out.stdout).to_string())
     };
+    // the command line refuses a database without the application's schema
+    assert_eq!(run(&["cli", "--", "list"]).0, Some(70));
+    assert_eq!(run(&["migrate"]), (Some(0), "applied 1, 2\n".to_string()));
+    assert_eq!(run(&["migrate"]), (Some(0), "the schema is current\n".to_string()));
     assert_eq!(
         run(&["cli", "--", "add", "--title", "Write the docs"]),
         (Some(0), "added 1: Write the docs\n".to_string())
@@ -253,6 +260,8 @@ fn framework_example() {
     // an expected error's exit status, and a usage problem's
     assert_eq!(run(&["cli", "--", "done", "--id", "4"]), (Some(3), String::new()));
     assert_eq!(run(&["cli", "--", "remove"]).0, Some(2));
+    assert_eq!(run(&["cli", "--", "list"]), (Some(0), "[ ] 1 Write the docs\n".to_string()));
+    let _ = std::fs::remove_file(&db);
     let run = |args: &[&str]| {
         let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
         assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));

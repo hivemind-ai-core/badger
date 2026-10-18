@@ -14,10 +14,14 @@ import std.http
 import std.io
 import std.log
 import std.route
+import std.sqlite
 import std.system
 import std.text
+import settings
 import tasks.memory
+import tasks.model
 import tasks.service
+import tasks.sqlite_store
 import cli
 import web
 
@@ -27,25 +31,25 @@ pub enum AppError {
     io(source: io.Error),
     route(source: route.RouteError),
     admission(source: admission.Error),
+    db(source: sqlite.Error),
+    tasks(source: model.Error),
 } derive(Error, From)
 
-type Settings = { address: String, port: U16 }
-
 pub fn main() -> Result<Unit, AppError> {
-    // [config] < profile < TASKS_* variables < `key=value` arguments; an
-    // unknown key or variable is an error
-    let settings = config.resolve<Settings>("TASKS_", env.args())?.value
+    // [config] < profile < TASKS_* variables < `key=value` arguments
+    let s = settings.resolve(env.args())?
     let health = app.health([])
     let plan = system {
-        store: memory.store({ first_id: 1 }),
+        db: sqlite.pool({ path: s.database }),
+        store: sqlite_store.store({ pool: ref(#db) }),
         tasks: service.tasks({ store: ref(#store), max_title: 80 }),
         api: web.api({ tasks: ref(#tasks), health }),
-        server: http.server({ address: settings.address, port: settings.port, handler: ref(#api) }),
+        server: http.server({ address: s.address, port: s.port, handler: ref(#api) }),
     }
     // ready (GET /health/ready) once every node started; unready while
     // stopping
     use running <- app.run(plan, health)
-    log.info("serving", { address: settings.address, port: settings.port })
+    log.info("serving", { address: s.address, port: s.port })
     running.wait_for_shutdown()?
     ok(())
 }
@@ -133,4 +137,48 @@ fn test_health() -> Result<Unit, AppError> {
     assert(call(running.api, #get, "/health/live", "").0 == 200)
     assert(call(running.api, #get, "/health/ready", "") == (200, "{\"checks\":[],\"ready\":true,\"status\":\"ready\"}"))
     ok(())
+}
+
+// Every store meets the same contract.
+fn store_contract(store: model.Store) -> Result<Unit, model.Error> {
+    let a = store.insert("first")?
+    let b = store.insert("second")?
+    assert(a.id != b.id && !a.done && a.title == "first")
+    assert(store.all()?.map(fn(t) { t.title }) == ["first", "second"])
+    assert(store.complete(a.id)?.map(fn(t) { t.done }) == Option.some(true))
+    assert(store.complete(999)?.is_none())
+    assert(store.all()?.map(fn(t) { t.done }) == [true, false])
+    ok(())
+}
+
+fn test_memory_store_contract() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+    }
+    use running <- system.run(plan)
+    store_contract(running.store)?
+    ok(())
+}
+
+fn test_sqlite_store_contract() -> Result<Unit, AppError> {
+    let plan = system {
+        db: sqlite.pool({ path: ":memory:" }),
+        store: sqlite_store.migrated({ pool: ref(#db) }),
+    }
+    use running <- system.run(plan)
+    store_contract(running.store)?
+    ok(())
+}
+
+// The store refuses a database whose schema is not the application's.
+fn test_sqlite_store_refuses_old_schema() -> Unit {
+    let plan = system {
+        db: sqlite.pool({ path: ":memory:" }),
+        store: sqlite_store.store({ pool: ref(#db) }),
+    }
+    let started: Result<Unit, AppError> = {
+        use _running <- system.run(plan)
+        ok(())
+    }
+    assert(started.is_err())
 }
