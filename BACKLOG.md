@@ -40,8 +40,10 @@ so these are correctness-and-scale work to schedule against new profiles.
   `[tasks]` (each entry re-parses and re-checks today).
 - C1.3/C1.4: a reusable compiler context with a content-keyed parse cache
   (remapping spans, file ids, and symbols), then checked-library reuse.
-- C2: an effect worklist (or SCC summaries) in `effect_fixpoint`; solver
-  retry counters; scaling fixtures.
+- C2: measured (`BADGER_TIMINGS=1`): the effect fixpoint takes under
+  1 ms; the standard library's binding groups take ~39 ms of every check
+  (`BADGER_TIMINGS=2`), which is C1.4's case. Solver retry counters and
+  scaling fixtures remain.
 - C3: cross-build instance and code reuse for watch/REPL, and code
   reclamation instead of leaking replaced builds.
 - C4: a root-store/frame counter to prove the landed root reductions.
@@ -65,7 +67,7 @@ so these are correctness-and-scale work to schedule against new profiles.
   edits.
 - T4: expression holes for partial programs.
 - T6: lints (immutable appends in loops, unbounded `stream.collect`).
-- T7: `badger new`, endpoint- and interceptor-only generators, and
+- T7: endpoint- and interceptor-only generators, and
   semantic wiring of generated modules into a composition root.
 - T9: run the evaluation (eval/) with agents, and grow the task set.
 - S5: capacity-aware builders and bulk operations.

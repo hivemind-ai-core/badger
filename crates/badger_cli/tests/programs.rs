@@ -382,6 +382,26 @@ fn test_runner_options() {
     let _ = std::fs::remove_file(&file);
 }
 
+/// `badger new`: a project that runs and tests; never into an existing
+/// directory.
+#[test]
+fn new_project() {
+    let dir = std::env::temp_dir().join(format!("badger-new-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let new = |name: &str| lang().current_dir(&dir).args(["new", name]).output().unwrap();
+    assert!(new("shop").status.success());
+    let run = lang().current_dir(dir.join("shop")).arg("run").output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "Hello, shop!\n");
+    let test = lang().current_dir(dir.join("shop")).arg("test").output().unwrap();
+    assert!(String::from_utf8_lossy(&test.stdout).contains("1 passed; 0 failed"));
+    let fmt = lang().current_dir(dir.join("shop")).args(["format", "--check", "src"]).output().unwrap();
+    assert!(fmt.status.success());
+    assert!(!new("shop").status.success());
+    assert!(!new("Shop").status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `badger generate feature`: the plan is checked (and its tests run) in a
 /// copy of the project before anything is written; existing files are
 /// never replaced; the generated tests pass in the project.

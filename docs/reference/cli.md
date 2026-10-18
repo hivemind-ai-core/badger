@@ -515,6 +515,12 @@ functions: `NAME.bdg` next to each `NAME.sql`. Guide: [typed-sql.md](../typed-sq
 badger generate sql src/queries.sql --schema schema.sql
 ```
 
+### `badger new NAME`
+
+Creates the directory `NAME` with `badger.toml` (package `NAME`, entry
+`src/main.bdg`) and `src/main.bdg`: a program with a `main` and one test.
+`NAME` is a lowercase identifier; an existing directory is an error.
+
 ### `badger generate feature NAME [DIR] [--item NAME] [--dry-run]`
 
 Adds a typed feature module to the project in `DIR` (default `.`), under

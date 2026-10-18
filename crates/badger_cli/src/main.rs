@@ -279,6 +279,13 @@ enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Create a project: `NAME/badger.toml` and `NAME/src/main.bdg` (a
+    /// program with a test). An existing directory is never written into.
+    New {
+        /// The package name, also the directory (lowercase, `_` between
+        /// words).
+        name: String,
+    },
     /// Generate code: `sql` turns SQL files of named queries
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
     /// to each `NAME.sql`. Types come from Postgres (`--database`, or
@@ -736,6 +743,47 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::New { name } => {
+            if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+                || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            {
+                eprintln!(
+                    "error: `{name}` is not a package name: use a lowercase identifier such as `inventory`"
+                );
+                return ExitCode::FAILURE;
+            }
+            let dir = PathBuf::from(&name);
+            if dir.exists() {
+                eprintln!("error: {} already exists", dir.display());
+                return ExitCode::FAILURE;
+            }
+            let files = [
+                ("badger.toml", format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
+                (
+                    "src/main.bdg",
+                    format!(
+                        "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
+                         import std.io\n\n\
+                         fn greeting(name: String) -> String {{\n    $\"Hello, {{name}}!\"\n}}\n\n\
+                         pub fn main() -> Result<Unit, io.Error> {{\n    io.println(greeting(\"{name}\"))?\n    ok(())\n}}\n\n\
+                         fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
+                    ),
+                ),
+            ];
+            for (f, text) in &files {
+                let p = dir.join(f);
+                if let Err(e) =
+                    std::fs::create_dir_all(p.parent().unwrap()).and_then(|_| std::fs::write(&p, text))
+                {
+                    eprintln!("error: {}: {e}", p.display());
+                    return ExitCode::FAILURE;
+                }
+            }
+            println!(
+                "created {name}/badger.toml and {name}/src/main.bdg\n\nnext:\n    cd {name}\n    badger run\n    badger test\n    badger generate feature orders   # a typed feature module"
+            );
+            ExitCode::SUCCESS
+        }
         Command::Generate { what, files, item, dry_run, .. } if what == "feature" || what == "worker" => {
             let Some(name) = files.first().map(|f| f.to_string_lossy().to_string()) else {
                 eprintln!("error: `badger generate {what}` needs a name (`badger generate {what} orders`)");
