@@ -14,6 +14,14 @@ states the revision it measured; newer work can change its numbers.
 | [realworld/](realworld/README.md) | Badger, Go, Node.js and Java application workloads: stamped reports, latest comparisons and performance history |
 | [language-comparison/2026-10-16/](language-comparison/2026-10-16/README.md) | The same workloads in other languages (`bench/compare`) |
 | [benchmarks/](benchmarks/) | `bench/baseline.py` snapshots (the latest, and the one `archive/plans/LOCK_OPTIMIZATION.md` cites) |
+| [2026-10-16-go-elixir-alternative-design-report.md](2026-10-16-go-elixir-alternative-design-report.md) | The Go/Elixir alternative design report and its recommendations |
+| [2026-10-16-channel-topology-investigation.md](2026-10-16-channel-topology-investigation.md) | Channel topology, specialization, and the SPSC experiment in [channel-topology-investigation/](channel-topology-investigation/) |
+| [2026-10-16-channel-latest-comparison.md](2026-10-16-channel-latest-comparison.md) | Channel-fixes benchmark comparison on latest committed main |
+| [2026-10-16-runtime-benchmark-update.md](2026-10-16-runtime-benchmark-update.md) | Runtime benchmark update after the receive optimization |
+| [2026-10-15-codebase-audit.md](2026-10-15-codebase-audit.md) | Codebase robustness and memory-safety audit |
+| [2026-10-15-runtime-concurrency-review.md](2026-10-15-runtime-concurrency-review.md) | Runtime concurrency and memory performance review |
+| [2026-10-15-compiler-codegen-optimization-audit.md](2026-10-15-compiler-codegen-optimization-audit.md) | Compiler codegen optimization audit; probes in [compiler-codegen-audit/](compiler-codegen-audit/) |
+| [2026-10-15-memory-optimization-plan.md](2026-10-15-memory-optimization-plan.md) | Memory management optimization plan and findings |
 | [2026-10-15-adversarial.md](2026-10-15-adversarial.md) | Defects found by adversarial testing (cited by `tests/adversarial`) |
 
 ## Archive

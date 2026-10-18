@@ -14,12 +14,12 @@ original production revisions; this is integration correctness evidence.
 - Ordinary release compiler rebuild succeeds. Production source hashes are
   retained in `sources.json`; no new speed claim is based on this integration.
 
-Commands used the isolated worktree and target directory
-`/home/dan/orca/projects/language/target/memory-2026-10-18`:
+Commands used an isolated worktree and a dedicated target directory
+(`$WORKTREE/target/memory-2026-10-18`, shown here as `…/target/memory-2026-10-18`):
 
 ```sh
 cargo test --release --locked --offline -p badger_cli --test programs
 cargo test --release --locked --offline -p badger_runtime -p badger_mir -p badger_codegen --lib
 cargo build --release --locked --offline -p badger_cli
-python3 bench/gc/check_lookup_split.py --ordinary /home/dan/orca/projects/language/target/memory-2026-10-18/release/badger --compatible /tmp/badger-I2a-binaries/baseline-fab8a02 --out reports/memory-management/main-integration-2026-10-18/lookup.json.gz
+python3 bench/gc/check_lookup_split.py --ordinary …/target/memory-2026-10-18/release/badger --compatible /tmp/badger-I2a-binaries/baseline-fab8a02 --out reports/memory-management/main-integration-2026-10-18/lookup.json.gz
 ```

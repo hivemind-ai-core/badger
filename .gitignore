@@ -4,3 +4,55 @@
 /notes.sqlite
 # `badger release` output (default `release/<package>`)
 /release
+
+# Raw benchmark/profiling data under reports/. The .md reports and summary
+# JSONs are kept; the bulky intermediates stay local for re-analysis but
+# should not reach GitHub.
+/reports/profiling/
+/reports/telemetry/*.json
+/reports/realworld/runs/
+/reports/gc-profile-2026-10-17/samples/
+/reports/gc-profile-2026-10-17/coverage/measurements.json.gz
+/reports/gc-profile-2026-10-17/sustained/measurements.json.gz
+/reports/gc-profile-2026-10-17/policy/measurements.json.gz
+/reports/gc-profile-2026-10-17/telemetry/measurements.json.gz
+/reports/language-comparison/*/comparison.json
+/reports/language-comparison/*/tool-downloads.json
+/reports/language-comparison/*/validation.json
+/reports/channel-topology-investigation/*.json
+/reports/channel-topology-investigation/*.mir
+/reports/compiler-codegen-audit/evidence/
+/reports/runtime-audit/
+/reports/memory-management/*-applications/
+/reports/memory-management/*-coverage/
+/reports/memory-management/*-telemetry/
+/reports/memory-management/*-validation/
+/reports/memory-management/*-baseline/
+/reports/memory-management/*-followup/
+/reports/memory-management/*-sustained/
+/reports/memory-management/*-controls/
+/reports/memory-management/*-retention/
+/reports/memory-management/*-census-*/
+/reports/memory-management/*-paired*/
+/reports/memory-management/*-paired-*/
+/reports/memory-management/*-diagnostic*/
+/reports/memory-management/*-self-control/
+/reports/memory-management/*-helper-policies/
+/reports/memory-management/*-misses/
+/reports/memory-management/*-fast-miss-probe/
+/reports/memory-management/*-refill*/
+/reports/memory-management/*-smoke-baseline/
+/reports/memory-management/*-final*/
+/reports/memory-management/*-overlap-exclusion.json
+/reports/memory-management/*-cpu-confirmation/
+/reports/memory-management/*-storage-census/
+/reports/memory-management/*-parallel-baseline/
+/reports/memory-management/integration/
+/reports/memory-management/main-integration-*/
+/reports/memory-management/main-applications/
+/reports/memory-management/baseline-coverage/
+/reports/memory-management/baseline-telemetry/
+/reports/archive/telemetry-indexer/
+/reports/2026-10-15-optimization-baseline.json
+/reports/2026-10-15-runtime-concurrency-measurements.json
+/reports/benchmarks/main-*.json
