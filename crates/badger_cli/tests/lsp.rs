@@ -163,6 +163,9 @@ fn language_server() {
     assert_eq!(ds.len(), 1, "{ds:?}");
     assert_eq!(ds[0]["code"], "E0309");
     assert_eq!(ds[0]["range"]["start"]["line"], 10);
+    // the structured facts travel in `data` too
+    assert_eq!(ds[0]["data"]["schema_version"], 1, "{ds:?}");
+    assert!(ds[0]["data"].get("expected").is_some() && ds[0]["data"]["label"].is_string(), "{ds:?}");
     c.notify(
         "textDocument/didChange",
         json!({ "textDocument": { "uri": uri, "version": 3 }, "contentChanges": [{ "text": SRC }] }),

@@ -352,6 +352,16 @@ impl Server {
             if let Some(c) = &d.code {
                 v["code"] = json!(c);
             }
+            // the structured facts (also in the message as prose), for
+            // clients and agents that act on them
+            v["data"] = json!({
+                "schema_version": 1,
+                "label": d.label,
+                "expected": d.expected,
+                "actual": d.actual,
+                "scope": d.scope,
+                "notes": d.notes,
+            });
             by_file.entry(d.path.clone()).or_default().push(v);
         }
         for p in self.published.clone() {
@@ -1129,6 +1139,7 @@ fn diagnostic_json(a: &Analysis, d: &analysis::FileDiag, text_of: &dyn Fn(&str) 
         "code": d.code, "message": d.message, "notes": d.notes,
         "label": d.label, "expected": d.expected, "actual": d.actual, "scope": d.scope,
         "related": related, "declarations": declarations,
+        "schema_version": 1,
     })
 }
 

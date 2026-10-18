@@ -127,7 +127,7 @@ workspace root, every member package. A single file need not have a
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`. Lines and columns are 1-based; columns count characters. (`badger query diagnostics` gives the same diagnostics flattened to one location each.) |
+| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`, and `schema_version` (1; it changes when a field changes meaning or is removed). Lines and columns are 1-based; columns count characters. (`badger query diagnostics` gives the same diagnostics flattened to one location each, with the same `schema_version`; the language server sends `label`, `expected`, `actual`, `scope`, and `notes` in each diagnostic's `data`.) |
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
