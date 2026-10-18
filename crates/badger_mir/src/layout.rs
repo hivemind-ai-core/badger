@@ -341,7 +341,8 @@ impl<'g, 'a> Layouts<'g, 'a> {
         let kind = self.kind_of(t);
         unsafe {
             (*p).kind = kind;
-            (*p).reset_kind_caches();
+            (*p).leaf.store(0, std::sync::atomic::Ordering::Relaxed);
+            (*p).floats.store(0, std::sync::atomic::Ordering::Relaxed);
         }
         d
     }

@@ -1088,7 +1088,8 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Vec<(String, String)>), String> 
         unsafe {
             (*p).name = name;
             (*p).kind = kind;
-            (*p).reset_kind_caches();
+            (*p).leaf.store(0, std::sync::atomic::Ordering::Relaxed);
+            (*p).floats.store(0, std::sync::atomic::Ordering::Relaxed);
         }
     }
     // objects made from descriptors
