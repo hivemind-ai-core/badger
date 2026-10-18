@@ -1,0 +1,2402 @@
+coverage-policy rep=-1 snapshots-major w1 prefetch64
+coverage-policy rep=-1 snapshots-major w1 prefetch16
+coverage-policy rep=-1 snapshots-major w1 prefetch0
+coverage-policy rep=-1 snapshots-major w1 prefetch32
+coverage-policy rep=-1 buffers-pointers w1 prefetch32
+coverage-policy rep=-1 buffers-pointers w1 prefetch16
+coverage-policy rep=-1 buffers-pointers w1 prefetch64
+coverage-policy rep=-1 buffers-pointers w1 prefetch0
+coverage-policy rep=-1 parallel-snapshots w8 prefetch32
+coverage-policy rep=-1 parallel-snapshots w8 prefetch64
+coverage-policy rep=-1 parallel-snapshots w8 prefetch0
+coverage-policy rep=-1 parallel-snapshots w8 prefetch16
+coverage-policy rep=-1 parallel-snapshots w1 prefetch0
+coverage-policy rep=-1 parallel-snapshots w1 prefetch16
+coverage-policy rep=-1 parallel-snapshots w1 prefetch64
+coverage-policy rep=-1 parallel-snapshots w1 prefetch32
+coverage-policy rep=-1 records-window w1 prefetch64
+coverage-policy rep=-1 records-window w1 prefetch16
+coverage-policy rep=-1 records-window w1 prefetch32
+coverage-policy rep=-1 records-window w1 prefetch0
+coverage-policy rep=-1 scalar-snapshots w8 prefetch32
+coverage-policy rep=-1 scalar-snapshots w8 prefetch64
+coverage-policy rep=-1 scalar-snapshots w8 prefetch0
+coverage-policy rep=-1 scalar-snapshots w8 prefetch16
+coverage-policy rep=-1 snapshots-major w8 prefetch0
+coverage-policy rep=-1 snapshots-major w8 prefetch32
+coverage-policy rep=-1 snapshots-major w8 prefetch16
+coverage-policy rep=-1 snapshots-major w8 prefetch64
+coverage-policy rep=-1 records-window w8 prefetch32
+coverage-policy rep=-1 records-window w8 prefetch64
+coverage-policy rep=-1 records-window w8 prefetch16
+coverage-policy rep=-1 records-window w8 prefetch0
+coverage-policy rep=-1 buffers-pointers w8 prefetch32
+coverage-policy rep=-1 buffers-pointers w8 prefetch64
+coverage-policy rep=-1 buffers-pointers w8 prefetch16
+coverage-policy rep=-1 buffers-pointers w8 prefetch0
+coverage-policy rep=-1 scalar-snapshots w1 prefetch0
+coverage-policy rep=-1 scalar-snapshots w1 prefetch32
+coverage-policy rep=-1 scalar-snapshots w1 prefetch64
+coverage-policy rep=-1 scalar-snapshots w1 prefetch16
+coverage-policy rep=0 snapshots-major w1 prefetch16
+coverage-policy rep=0 snapshots-major w1 prefetch0
+coverage-policy rep=0 snapshots-major w1 prefetch64
+coverage-policy rep=0 snapshots-major w1 prefetch32
+coverage-policy rep=0 parallel-snapshots w8 prefetch64
+coverage-policy rep=0 parallel-snapshots w8 prefetch16
+coverage-policy rep=0 parallel-snapshots w8 prefetch0
+coverage-policy rep=0 parallel-snapshots w8 prefetch32
+coverage-policy rep=0 scalar-snapshots w1 prefetch0
+coverage-policy rep=0 scalar-snapshots w1 prefetch32
+coverage-policy rep=0 scalar-snapshots w1 prefetch16
+coverage-policy rep=0 scalar-snapshots w1 prefetch64
+coverage-policy rep=0 records-window w1 prefetch32
+coverage-policy rep=0 records-window w1 prefetch0
+coverage-policy rep=0 records-window w1 prefetch16
+coverage-policy rep=0 records-window w1 prefetch64
+coverage-policy rep=0 buffers-pointers w1 prefetch32
+coverage-policy rep=0 buffers-pointers w1 prefetch16
+coverage-policy rep=0 buffers-pointers w1 prefetch0
+coverage-policy rep=0 buffers-pointers w1 prefetch64
+coverage-policy rep=0 parallel-snapshots w1 prefetch32
+coverage-policy rep=0 parallel-snapshots w1 prefetch0
+coverage-policy rep=0 parallel-snapshots w1 prefetch16
+coverage-policy rep=0 parallel-snapshots w1 prefetch64
+coverage-policy rep=0 snapshots-major w8 prefetch32
+coverage-policy rep=0 snapshots-major w8 prefetch64
+coverage-policy rep=0 snapshots-major w8 prefetch0
+coverage-policy rep=0 snapshots-major w8 prefetch16
+coverage-policy rep=0 buffers-pointers w8 prefetch16
+coverage-policy rep=0 buffers-pointers w8 prefetch64
+coverage-policy rep=0 buffers-pointers w8 prefetch0
+coverage-policy rep=0 buffers-pointers w8 prefetch32
+coverage-policy rep=0 scalar-snapshots w8 prefetch16
+coverage-policy rep=0 scalar-snapshots w8 prefetch0
+coverage-policy rep=0 scalar-snapshots w8 prefetch32
+coverage-policy rep=0 scalar-snapshots w8 prefetch64
+coverage-policy rep=0 records-window w8 prefetch32
+coverage-policy rep=0 records-window w8 prefetch16
+coverage-policy rep=0 records-window w8 prefetch0
+coverage-policy rep=0 records-window w8 prefetch64
+coverage-policy rep=1 parallel-snapshots w1 prefetch16
+coverage-policy rep=1 parallel-snapshots w1 prefetch32
+coverage-policy rep=1 parallel-snapshots w1 prefetch64
+coverage-policy rep=1 parallel-snapshots w1 prefetch0
+coverage-policy rep=1 parallel-snapshots w8 prefetch64
+coverage-policy rep=1 parallel-snapshots w8 prefetch32
+coverage-policy rep=1 parallel-snapshots w8 prefetch16
+coverage-policy rep=1 parallel-snapshots w8 prefetch0
+coverage-policy rep=1 snapshots-major w1 prefetch0
+coverage-policy rep=1 snapshots-major w1 prefetch16
+coverage-policy rep=1 snapshots-major w1 prefetch64
+coverage-policy rep=1 snapshots-major w1 prefetch32
+coverage-policy rep=1 scalar-snapshots w8 prefetch16
+coverage-policy rep=1 scalar-snapshots w8 prefetch0
+coverage-policy rep=1 scalar-snapshots w8 prefetch64
+coverage-policy rep=1 scalar-snapshots w8 prefetch32
+coverage-policy rep=1 records-window w1 prefetch16
+coverage-policy rep=1 records-window w1 prefetch64
+coverage-policy rep=1 records-window w1 prefetch0
+coverage-policy rep=1 records-window w1 prefetch32
+coverage-policy rep=1 buffers-pointers w1 prefetch0
+coverage-policy rep=1 buffers-pointers w1 prefetch32
+coverage-policy rep=1 buffers-pointers w1 prefetch64
+coverage-policy rep=1 buffers-pointers w1 prefetch16
+coverage-policy rep=1 snapshots-major w8 prefetch32
+coverage-policy rep=1 snapshots-major w8 prefetch0
+coverage-policy rep=1 snapshots-major w8 prefetch64
+coverage-policy rep=1 snapshots-major w8 prefetch16
+coverage-policy rep=1 scalar-snapshots w1 prefetch64
+coverage-policy rep=1 scalar-snapshots w1 prefetch16
+coverage-policy rep=1 scalar-snapshots w1 prefetch0
+coverage-policy rep=1 scalar-snapshots w1 prefetch32
+coverage-policy rep=1 buffers-pointers w8 prefetch64
+coverage-policy rep=1 buffers-pointers w8 prefetch32
+coverage-policy rep=1 buffers-pointers w8 prefetch16
+coverage-policy rep=1 buffers-pointers w8 prefetch0
+coverage-policy rep=1 records-window w8 prefetch32
+coverage-policy rep=1 records-window w8 prefetch0
+coverage-policy rep=1 records-window w8 prefetch64
+coverage-policy rep=1 records-window w8 prefetch16
+coverage-policy rep=2 records-window w8 prefetch0
+coverage-policy rep=2 records-window w8 prefetch32
+coverage-policy rep=2 records-window w8 prefetch16
+coverage-policy rep=2 records-window w8 prefetch64
+coverage-policy rep=2 parallel-snapshots w1 prefetch0
+coverage-policy rep=2 parallel-snapshots w1 prefetch64
+coverage-policy rep=2 parallel-snapshots w1 prefetch16
+coverage-policy rep=2 parallel-snapshots w1 prefetch32
+coverage-policy rep=2 snapshots-major w1 prefetch16
+coverage-policy rep=2 snapshots-major w1 prefetch64
+coverage-policy rep=2 snapshots-major w1 prefetch32
+coverage-policy rep=2 snapshots-major w1 prefetch0
+coverage-policy rep=2 scalar-snapshots w8 prefetch0
+coverage-policy rep=2 scalar-snapshots w8 prefetch32
+coverage-policy rep=2 scalar-snapshots w8 prefetch16
+coverage-policy rep=2 scalar-snapshots w8 prefetch64
+coverage-policy rep=2 parallel-snapshots w8 prefetch16
+coverage-policy rep=2 parallel-snapshots w8 prefetch32
+coverage-policy rep=2 parallel-snapshots w8 prefetch0
+coverage-policy rep=2 parallel-snapshots w8 prefetch64
+coverage-policy rep=2 buffers-pointers w1 prefetch64
+coverage-policy rep=2 buffers-pointers w1 prefetch0
+coverage-policy rep=2 buffers-pointers w1 prefetch16
+coverage-policy rep=2 buffers-pointers w1 prefetch32
+coverage-policy rep=2 buffers-pointers w8 prefetch64
+coverage-policy rep=2 buffers-pointers w8 prefetch0
+coverage-policy rep=2 buffers-pointers w8 prefetch16
+coverage-policy rep=2 buffers-pointers w8 prefetch32
+coverage-policy rep=2 records-window w1 prefetch16
+coverage-policy rep=2 records-window w1 prefetch0
+coverage-policy rep=2 records-window w1 prefetch32
+coverage-policy rep=2 records-window w1 prefetch64
+coverage-policy rep=2 scalar-snapshots w1 prefetch16
+coverage-policy rep=2 scalar-snapshots w1 prefetch64
+coverage-policy rep=2 scalar-snapshots w1 prefetch0
+coverage-policy rep=2 scalar-snapshots w1 prefetch32
+coverage-policy rep=2 snapshots-major w8 prefetch0
+coverage-policy rep=2 snapshots-major w8 prefetch32
+coverage-policy rep=2 snapshots-major w8 prefetch16
+coverage-policy rep=2 snapshots-major w8 prefetch64
+coverage-policy rep=3 snapshots-major w1 prefetch0
+coverage-policy rep=3 snapshots-major w1 prefetch16
+coverage-policy rep=3 snapshots-major w1 prefetch32
+coverage-policy rep=3 snapshots-major w1 prefetch64
+coverage-policy rep=3 buffers-pointers w1 prefetch32
+coverage-policy rep=3 buffers-pointers w1 prefetch16
+coverage-policy rep=3 buffers-pointers w1 prefetch0
+coverage-policy rep=3 buffers-pointers w1 prefetch64
+coverage-policy rep=3 records-window w1 prefetch32
+coverage-policy rep=3 records-window w1 prefetch16
+coverage-policy rep=3 records-window w1 prefetch64
+coverage-policy rep=3 records-window w1 prefetch0
+coverage-policy rep=3 scalar-snapshots w8 prefetch32
+coverage-policy rep=3 scalar-snapshots w8 prefetch0
+coverage-policy rep=3 scalar-snapshots w8 prefetch64
+coverage-policy rep=3 scalar-snapshots w8 prefetch16
+coverage-policy rep=3 records-window w8 prefetch16
+coverage-policy rep=3 records-window w8 prefetch64
+coverage-policy rep=3 records-window w8 prefetch0
+coverage-policy rep=3 records-window w8 prefetch32
+coverage-policy rep=3 parallel-snapshots w1 prefetch16
+coverage-policy rep=3 parallel-snapshots w1 prefetch32
+coverage-policy rep=3 parallel-snapshots w1 prefetch0
+coverage-policy rep=3 parallel-snapshots w1 prefetch64
+coverage-policy rep=3 parallel-snapshots w8 prefetch32
+coverage-policy rep=3 parallel-snapshots w8 prefetch0
+coverage-policy rep=3 parallel-snapshots w8 prefetch16
+coverage-policy rep=3 parallel-snapshots w8 prefetch64
+coverage-policy rep=3 snapshots-major w8 prefetch32
+coverage-policy rep=3 snapshots-major w8 prefetch16
+coverage-policy rep=3 snapshots-major w8 prefetch0
+coverage-policy rep=3 snapshots-major w8 prefetch64
+coverage-policy rep=3 buffers-pointers w8 prefetch32
+coverage-policy rep=3 buffers-pointers w8 prefetch0
+coverage-policy rep=3 buffers-pointers w8 prefetch16
+coverage-policy rep=3 buffers-pointers w8 prefetch64
+coverage-policy rep=3 scalar-snapshots w1 prefetch64
+coverage-policy rep=3 scalar-snapshots w1 prefetch32
+coverage-policy rep=3 scalar-snapshots w1 prefetch0
+coverage-policy rep=3 scalar-snapshots w1 prefetch16
+coverage-policy rep=4 buffers-pointers w1 prefetch32
+coverage-policy rep=4 buffers-pointers w1 prefetch0
+coverage-policy rep=4 buffers-pointers w1 prefetch64
+coverage-policy rep=4 buffers-pointers w1 prefetch16
+coverage-policy rep=4 buffers-pointers w8 prefetch16
+coverage-policy rep=4 buffers-pointers w8 prefetch32
+coverage-policy rep=4 buffers-pointers w8 prefetch64
+coverage-policy rep=4 buffers-pointers w8 prefetch0
+coverage-policy rep=4 snapshots-major w1 prefetch32
+coverage-policy rep=4 snapshots-major w1 prefetch16
+coverage-policy rep=4 snapshots-major w1 prefetch64
+coverage-policy rep=4 snapshots-major w1 prefetch0
+coverage-policy rep=4 scalar-snapshots w1 prefetch0
+coverage-policy rep=4 scalar-snapshots w1 prefetch32
+coverage-policy rep=4 scalar-snapshots w1 prefetch16
+coverage-policy rep=4 scalar-snapshots w1 prefetch64
+coverage-policy rep=4 parallel-snapshots w8 prefetch64
+coverage-policy rep=4 parallel-snapshots w8 prefetch16
+coverage-policy rep=4 parallel-snapshots w8 prefetch0
+coverage-policy rep=4 parallel-snapshots w8 prefetch32
+coverage-policy rep=4 parallel-snapshots w1 prefetch32
+coverage-policy rep=4 parallel-snapshots w1 prefetch16
+coverage-policy rep=4 parallel-snapshots w1 prefetch64
+coverage-policy rep=4 parallel-snapshots w1 prefetch0
+coverage-policy rep=4 records-window w8 prefetch32
+coverage-policy rep=4 records-window w8 prefetch16
+coverage-policy rep=4 records-window w8 prefetch0
+coverage-policy rep=4 records-window w8 prefetch64
+coverage-policy rep=4 snapshots-major w8 prefetch64
+coverage-policy rep=4 snapshots-major w8 prefetch0
+coverage-policy rep=4 snapshots-major w8 prefetch32
+coverage-policy rep=4 snapshots-major w8 prefetch16
+coverage-policy rep=4 records-window w1 prefetch32
+coverage-policy rep=4 records-window w1 prefetch16
+coverage-policy rep=4 records-window w1 prefetch64
+coverage-policy rep=4 records-window w1 prefetch0
+coverage-policy rep=4 scalar-snapshots w8 prefetch0
+coverage-policy rep=4 scalar-snapshots w8 prefetch64
+coverage-policy rep=4 scalar-snapshots w8 prefetch16
+coverage-policy rep=4 scalar-snapshots w8 prefetch32
+[
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 18.280766,
+      "min": 17.998913,
+      "max": 18.921756,
+      "runs": [
+        18.921756,
+        17.998913,
+        18.582326,
+        18.177525,
+        18.280766
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49860,
+      "min": 49156,
+      "max": 51412,
+      "runs": [
+        51412,
+        49272,
+        49976,
+        49860,
+        49156
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.491247,
+      "min": 1.479425,
+      "max": 1.631958,
+      "runs": [
+        1.56278,
+        1.491247,
+        1.479425,
+        1.484314,
+        1.631958
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 18.4604,
+      "min": 18.188535,
+      "max": 20.319719,
+      "runs": [
+        18.273073,
+        20.319719,
+        18.188535,
+        19.75417,
+        18.4604
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50348,
+      "min": 49216,
+      "max": 52064,
+      "runs": [
+        49216,
+        50348,
+        49684,
+        50592,
+        52064
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.539496,
+      "min": 1.517796,
+      "max": 3.303409,
+      "runs": [
+        1.517796,
+        3.303409,
+        1.51939,
+        1.539496,
+        1.581194
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 18.332262,
+      "min": 18.159882,
+      "max": 18.744005,
+      "runs": [
+        18.159882,
+        18.176253,
+        18.386373,
+        18.332262,
+        18.744005
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49880,
+      "min": 49584,
+      "max": 51480,
+      "runs": [
+        50248,
+        49880,
+        49584,
+        49636,
+        51480
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.530991,
+      "min": 1.507206,
+      "max": 1.578649,
+      "runs": [
+        1.507206,
+        1.530951,
+        1.578649,
+        1.551278,
+        1.530991
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 1,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 18.569222,
+      "min": 18.189718,
+      "max": 20.302848,
+      "runs": [
+        19.093795,
+        18.23406,
+        18.569222,
+        18.189718,
+        20.302848
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49864,
+      "min": 49216,
+      "max": 50044,
+      "runs": [
+        49216,
+        49948,
+        49864,
+        49472,
+        50044
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.71363,
+      "min": 1.504261,
+      "max": 1.78385,
+      "runs": [
+        1.759014,
+        1.504261,
+        1.71363,
+        1.53072,
+        1.78385
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 24.324419,
+      "min": 24.247277,
+      "max": 25.222515,
+      "runs": [
+        24.324419,
+        25.005543,
+        24.276851,
+        24.247277,
+        25.222515
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50532,
+      "min": 49128,
+      "max": 51976,
+      "runs": [
+        49128,
+        51976,
+        50532,
+        50792,
+        50424
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.782397,
+      "min": 1.522214,
+      "max": 1.95108,
+      "runs": [
+        1.95108,
+        1.621338,
+        1.782397,
+        1.522214,
+        1.794399
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 25.027173,
+      "min": 23.865648,
+      "max": 25.737231,
+      "runs": [
+        25.129995,
+        25.027173,
+        24.254831,
+        25.737231,
+        23.865648
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50444,
+      "min": 49920,
+      "max": 50788,
+      "runs": [
+        50444,
+        50788,
+        49968,
+        49920,
+        50512
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.555656,
+      "min": 1.465659,
+      "max": 1.644991,
+      "runs": [
+        1.538003,
+        1.644991,
+        1.628772,
+        1.465659,
+        1.555656
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 24.719422,
+      "min": 24.013943,
+      "max": 26.738318,
+      "runs": [
+        24.212151,
+        26.738318,
+        24.013943,
+        25.094238,
+        24.719422
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50228,
+      "min": 49188,
+      "max": 51320,
+      "runs": [
+        50504,
+        49188,
+        51320,
+        50228,
+        49844
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.538324,
+      "min": 1.511374,
+      "max": 2.142185,
+      "runs": [
+        1.538324,
+        1.607202,
+        1.511374,
+        2.142185,
+        1.520341
+      ]
+    }
+  },
+  {
+    "case": "buffers-pointers",
+    "workers": 8,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 24.861295,
+      "min": 23.870958,
+      "max": 28.134127,
+      "runs": [
+        28.065,
+        23.870958,
+        28.134127,
+        24.423123,
+        24.861295
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50348,
+      "min": 49608,
+      "max": 50600,
+      "runs": [
+        50548,
+        50600,
+        49856,
+        50348,
+        49608
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.523186,
+      "min": 1.448818,
+      "max": 1.701717,
+      "runs": [
+        1.701717,
+        1.523186,
+        1.448818,
+        1.49834,
+        1.533035
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 1,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 322.46295,
+      "min": 314.882505,
+      "max": 338.980184,
+      "runs": [
+        338.980184,
+        322.46295,
+        328.531189,
+        320.132376,
+        314.882505
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83384,
+      "min": 81116,
+      "max": 84836,
+      "runs": [
+        83288,
+        81116,
+        83384,
+        83816,
+        84836
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 124.324026,
+      "min": 115.952998,
+      "max": 133.630192,
+      "runs": [
+        133.630192,
+        124.324026,
+        124.849334,
+        120.832743,
+        115.952998
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 1,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 290.257669,
+      "min": 285.704973,
+      "max": 301.232441,
+      "runs": [
+        288.545392,
+        290.257669,
+        291.624795,
+        301.232441,
+        285.704973
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83328,
+      "min": 81436,
+      "max": 83772,
+      "runs": [
+        83772,
+        83328,
+        83164,
+        83640,
+        81436
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 90.171399,
+      "min": 88.567991,
+      "max": 94.710518,
+      "runs": [
+        88.567991,
+        91.398829,
+        90.171399,
+        94.710518,
+        90.090944
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 1,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 285.660239,
+      "min": 280.620799,
+      "max": 306.332112,
+      "runs": [
+        285.660239,
+        306.332112,
+        283.433999,
+        280.620799,
+        287.900846
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83416,
+      "min": 81480,
+      "max": 83656,
+      "runs": [
+        81480,
+        83416,
+        83176,
+        83464,
+        83656
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 86.848545,
+      "min": 84.864411,
+      "max": 94.637947,
+      "runs": [
+        84.864411,
+        94.637947,
+        85.794536,
+        86.848545,
+        87.463503
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 1,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 283.102564,
+      "min": 281.072567,
+      "max": 287.762991,
+      "runs": [
+        283.102564,
+        287.762991,
+        285.527704,
+        281.072567,
+        282.933049
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 83704,
+      "min": 83520,
+      "max": 83812,
+      "runs": [
+        83520,
+        83604,
+        83776,
+        83812,
+        83704
+      ]
+    },
+    "collections": {
+      "median": 37,
+      "min": 37,
+      "max": 37,
+      "runs": [
+        37,
+        37,
+        37,
+        37,
+        37
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 87.645218,
+      "min": 84.578259,
+      "max": 88.291051,
+      "runs": [
+        84.578259,
+        87.645218,
+        88.291051,
+        84.603604,
+        87.752378
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 8,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 425.880392,
+      "min": 409.576743,
+      "max": 431.857258,
+      "runs": [
+        431.136334,
+        431.857258,
+        425.880392,
+        424.463483,
+        409.576743
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 141456,
+      "min": 136592,
+      "max": 144100,
+      "runs": [
+        136592,
+        141456,
+        141316,
+        143008,
+        144100
+      ]
+    },
+    "collections": {
+      "median": 32,
+      "min": 32,
+      "max": 33,
+      "runs": [
+        32,
+        32,
+        32,
+        33,
+        33
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 125.496908,
+      "min": 116.976154,
+      "max": 134.640269,
+      "runs": [
+        130.887461,
+        123.796494,
+        125.496908,
+        134.640269,
+        116.976154
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 8,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 413.234589,
+      "min": 403.089818,
+      "max": 429.877478,
+      "runs": [
+        411.43458,
+        424.413701,
+        429.877478,
+        403.089818,
+        413.234589
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 140128,
+      "min": 137392,
+      "max": 144304,
+      "runs": [
+        144304,
+        143412,
+        137392,
+        140128,
+        139540
+      ]
+    },
+    "collections": {
+      "median": 33,
+      "min": 32,
+      "max": 33,
+      "runs": [
+        33,
+        33,
+        32,
+        33,
+        32
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 117.017084,
+      "min": 106.010448,
+      "max": 124.477005,
+      "runs": [
+        118.139486,
+        117.017084,
+        124.477005,
+        110.887178,
+        106.010448
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 8,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 408.850897,
+      "min": 396.416807,
+      "max": 418.839969,
+      "runs": [
+        410.208766,
+        396.416807,
+        408.850897,
+        418.839969,
+        397.455844
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 144432,
+      "min": 142476,
+      "max": 145132,
+      "runs": [
+        145132,
+        142476,
+        143756,
+        144476,
+        144432
+      ]
+    },
+    "collections": {
+      "median": 33,
+      "min": 32,
+      "max": 33,
+      "runs": [
+        32,
+        33,
+        33,
+        33,
+        33
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 112.340956,
+      "min": 100.816164,
+      "max": 123.481448,
+      "runs": [
+        112.340956,
+        105.584222,
+        116.564994,
+        123.481448,
+        100.816164
+      ]
+    }
+  },
+  {
+    "case": "parallel-snapshots",
+    "workers": 8,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 422.805738,
+      "min": 394.654057,
+      "max": 436.078572,
+      "runs": [
+        424.827808,
+        422.805738,
+        395.020366,
+        394.654057,
+        436.078572
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 140488,
+      "min": 138336,
+      "max": 148244,
+      "runs": [
+        138424,
+        140488,
+        148244,
+        141336,
+        138336
+      ]
+    },
+    "collections": {
+      "median": 32,
+      "min": 32,
+      "max": 33,
+      "runs": [
+        32,
+        32,
+        33,
+        33,
+        32
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 110.523176,
+      "min": 104.769772,
+      "max": 120.57219,
+      "runs": [
+        119.578194,
+        110.523176,
+        108.430141,
+        104.769772,
+        120.57219
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 136.340615,
+      "min": 133.4868,
+      "max": 138.864598,
+      "runs": [
+        135.490828,
+        138.864598,
+        137.117776,
+        133.4868,
+        136.340615
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52860,
+      "min": 52008,
+      "max": 53724,
+      "runs": [
+        52860,
+        53480,
+        52068,
+        52008,
+        53724
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 25.709759,
+      "min": 24.732855,
+      "max": 26.384764,
+      "runs": [
+        24.732855,
+        26.384764,
+        25.709759,
+        25.688363,
+        25.88255
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 139.538718,
+      "min": 134.68371,
+      "max": 142.397803,
+      "runs": [
+        134.68371,
+        142.397803,
+        136.154729,
+        139.538718,
+        140.25659
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52680,
+      "min": 52532,
+      "max": 53056,
+      "runs": [
+        52532,
+        52680,
+        53056,
+        52560,
+        52896
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 25.65588,
+      "min": 24.824847,
+      "max": 27.442152,
+      "runs": [
+        24.914134,
+        27.442152,
+        25.65588,
+        24.824847,
+        25.933677
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 136.797222,
+      "min": 134.968179,
+      "max": 142.860742,
+      "runs": [
+        134.968179,
+        137.670472,
+        142.860742,
+        136.075453,
+        136.797222
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52772,
+      "min": 52360,
+      "max": 54252,
+      "runs": [
+        52360,
+        52504,
+        54252,
+        52788,
+        52772
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 24.418516,
+      "min": 23.738552,
+      "max": 28.771532,
+      "runs": [
+        24.418516,
+        25.135144,
+        28.771532,
+        23.738552,
+        23.886116
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 133.443419,
+      "min": 132.02072,
+      "max": 146.071067,
+      "runs": [
+        133.443419,
+        133.246013,
+        146.071067,
+        132.02072,
+        136.739975
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52660,
+      "min": 52292,
+      "max": 53844,
+      "runs": [
+        53844,
+        52452,
+        52660,
+        52292,
+        53304
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 23.711355,
+      "min": 23.236242,
+      "max": 26.44221,
+      "runs": [
+        23.236242,
+        23.377493,
+        26.44221,
+        23.711355,
+        24.224746
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 138.76371,
+      "min": 133.586454,
+      "max": 142.080664,
+      "runs": [
+        133.586454,
+        138.76371,
+        134.10688,
+        142.080664,
+        139.440105
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53328,
+      "min": 52340,
+      "max": 55172,
+      "runs": [
+        52884,
+        54028,
+        55172,
+        52340,
+        53328
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 26.138717,
+      "min": 24.780413,
+      "max": 27.494229,
+      "runs": [
+        24.780413,
+        26.138717,
+        25.682759,
+        27.494229,
+        26.631688
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 134.186768,
+      "min": 132.104154,
+      "max": 136.068259,
+      "runs": [
+        134.186768,
+        135.21699,
+        132.602279,
+        132.104154,
+        136.068259
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54724,
+      "min": 52952,
+      "max": 54948,
+      "runs": [
+        52952,
+        54948,
+        54916,
+        54724,
+        53580
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 25.72203,
+      "min": 24.87855,
+      "max": 25.91095,
+      "runs": [
+        25.879426,
+        25.91095,
+        25.131929,
+        24.87855,
+        25.72203
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 137.528278,
+      "min": 134.847054,
+      "max": 138.841274,
+      "runs": [
+        134.847054,
+        137.905878,
+        137.528278,
+        136.709038,
+        138.841274
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54548,
+      "min": 54296,
+      "max": 55580,
+      "runs": [
+        54296,
+        55164,
+        55580,
+        54548,
+        54404
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 25.28436,
+      "min": 24.89574,
+      "max": 26.09165,
+      "runs": [
+        24.920879,
+        25.28436,
+        25.319674,
+        24.89574,
+        26.09165
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 137.183778,
+      "min": 133.618885,
+      "max": 141.512991,
+      "runs": [
+        141.512991,
+        134.665126,
+        137.476111,
+        133.618885,
+        137.183778
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53640,
+      "min": 52424,
+      "max": 55424,
+      "runs": [
+        54196,
+        52852,
+        55424,
+        53640,
+        52424
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 24.011781,
+      "min": 23.753118,
+      "max": 25.713748,
+      "runs": [
+        23.859635,
+        24.129188,
+        25.713748,
+        23.753118,
+        24.011781
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 16.570794,
+      "min": 13.455895,
+      "max": 17.698205,
+      "runs": [
+        15.257488,
+        13.455895,
+        17.698205,
+        16.570794,
+        16.830466
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52592,
+      "min": 51680,
+      "max": 54592,
+      "runs": [
+        51680,
+        54592,
+        52656,
+        52592,
+        52460
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 4.59287,
+      "min": 3.308448,
+      "max": 5.310142,
+      "runs": [
+        4.282296,
+        3.308448,
+        5.127153,
+        4.59287,
+        5.310142
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 13.623996,
+      "min": 12.262461,
+      "max": 14.866683,
+      "runs": [
+        12.262461,
+        14.593536,
+        14.866683,
+        13.180674,
+        13.623996
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52372,
+      "min": 52036,
+      "max": 54416,
+      "runs": [
+        52500,
+        52372,
+        52368,
+        54416,
+        52036
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.287284,
+      "min": 1.911888,
+      "max": 2.59312,
+      "runs": [
+        1.911888,
+        2.29107,
+        2.59312,
+        2.20975,
+        2.287284
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 13.05405,
+      "min": 11.064298,
+      "max": 15.720677,
+      "runs": [
+        11.064298,
+        13.05405,
+        15.720677,
+        11.883357,
+        14.312474
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52412,
+      "min": 51248,
+      "max": 52724,
+      "runs": [
+        52724,
+        52324,
+        52688,
+        52412,
+        51248
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.97316,
+      "min": 1.565896,
+      "max": 2.543599,
+      "runs": [
+        1.565896,
+        1.97316,
+        2.543599,
+        1.67122,
+        2.481063
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 1,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 13.682876,
+      "min": 11.875162,
+      "max": 14.72039,
+      "runs": [
+        14.050358,
+        13.682876,
+        14.72039,
+        11.875162,
+        13.454142
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52312,
+      "min": 51364,
+      "max": 54512,
+      "runs": [
+        51364,
+        52312,
+        54512,
+        52640,
+        51816
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.30656,
+      "min": 1.495044,
+      "max": 2.548668,
+      "runs": [
+        2.497934,
+        2.30656,
+        2.548668,
+        1.495044,
+        2.210582
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 14.810047,
+      "min": 14.271298,
+      "max": 17.008316,
+      "runs": [
+        16.042033,
+        17.008316,
+        14.271298,
+        14.737682,
+        14.810047
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52352,
+      "min": 51668,
+      "max": 52840,
+      "runs": [
+        52840,
+        51668,
+        52440,
+        52352,
+        52148
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 3.941483,
+      "min": 3.733586,
+      "max": 4.882007,
+      "runs": [
+        4.761815,
+        4.882007,
+        3.7999,
+        3.941483,
+        3.733586
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 13.427483,
+      "min": 12.0143,
+      "max": 14.858627,
+      "runs": [
+        14.519428,
+        12.0143,
+        12.682811,
+        14.858627,
+        13.427483
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52888,
+      "min": 52408,
+      "max": 52980,
+      "runs": [
+        52408,
+        52684,
+        52980,
+        52892,
+        52888
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.134409,
+      "min": 1.850023,
+      "max": 2.342285,
+      "runs": [
+        2.342285,
+        1.850023,
+        2.134409,
+        2.061325,
+        2.299957
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 11.934632,
+      "min": 11.204058,
+      "max": 13.559838,
+      "runs": [
+        11.30273,
+        12.875658,
+        11.934632,
+        13.559838,
+        11.204058
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52412,
+      "min": 52052,
+      "max": 53088,
+      "runs": [
+        53088,
+        53040,
+        52412,
+        52060,
+        52052
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.732233,
+      "min": 1.526011,
+      "max": 2.093514,
+      "runs": [
+        1.526011,
+        1.90772,
+        1.732233,
+        2.093514,
+        1.654779
+      ]
+    }
+  },
+  {
+    "case": "scalar-snapshots",
+    "workers": 8,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 13.824519,
+      "min": 12.40763,
+      "max": 16.079032,
+      "runs": [
+        14.092476,
+        13.824519,
+        12.40763,
+        16.079032,
+        12.955266
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52464,
+      "min": 51936,
+      "max": 52720,
+      "runs": [
+        51936,
+        52720,
+        52220,
+        52484,
+        52464
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.308333,
+      "min": 1.690496,
+      "max": 3.020734,
+      "runs": [
+        2.308333,
+        3.020734,
+        1.690496,
+        2.358505,
+        1.96733
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 1,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 105.248819,
+      "min": 102.691725,
+      "max": 113.310787,
+      "runs": [
+        102.691725,
+        113.310787,
+        105.248819,
+        103.549738,
+        110.679044
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50604,
+      "min": 50348,
+      "max": 52264,
+      "runs": [
+        50484,
+        52240,
+        50348,
+        50604,
+        52264
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 30.91109,
+      "min": 29.453334,
+      "max": 35.731996,
+      "runs": [
+        30.410068,
+        35.731996,
+        30.91109,
+        29.453334,
+        31.05041
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 1,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 93.520871,
+      "min": 90.410269,
+      "max": 95.360444,
+      "runs": [
+        93.520871,
+        93.933927,
+        90.410269,
+        95.360444,
+        92.895861
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50524,
+      "min": 50372,
+      "max": 52644,
+      "runs": [
+        50524,
+        52440,
+        50380,
+        50372,
+        52644
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 20.427562,
+      "min": 18.18076,
+      "max": 21.17655,
+      "runs": [
+        20.427562,
+        20.604516,
+        18.18076,
+        21.17655,
+        18.640774
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 1,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 90.278686,
+      "min": 87.895654,
+      "max": 93.098396,
+      "runs": [
+        93.098396,
+        89.570341,
+        91.375881,
+        87.895654,
+        90.278686
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50480,
+      "min": 50140,
+      "max": 52704,
+      "runs": [
+        52704,
+        50140,
+        50240,
+        50668,
+        50480
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 17.592299,
+      "min": 16.701468,
+      "max": 18.495975,
+      "runs": [
+        18.495975,
+        17.098052,
+        17.756996,
+        16.701468,
+        17.592299
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 1,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 91.424321,
+      "min": 89.469183,
+      "max": 92.152242,
+      "runs": [
+        91.424321,
+        92.152242,
+        91.344372,
+        91.693721,
+        89.469183
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50328,
+      "min": 50096,
+      "max": 53456,
+      "runs": [
+        53456,
+        50096,
+        50136,
+        50468,
+        50328
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 18.551927,
+      "min": 17.529512,
+      "max": 19.258061,
+      "runs": [
+        19.258061,
+        18.551927,
+        17.529512,
+        19.23642,
+        17.698495
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 8,
+    "variant": "prefetch0",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 114.170401,
+      "min": 107.835098,
+      "max": 116.172777,
+      "runs": [
+        116.172777,
+        107.835098,
+        114.170401,
+        112.261891,
+        115.286833
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51088,
+      "min": 50444,
+      "max": 52984,
+      "runs": [
+        50980,
+        52984,
+        51088,
+        50444,
+        52824
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 32.932731,
+      "min": 29.752755,
+      "max": 34.040216,
+      "runs": [
+        33.861607,
+        29.752755,
+        32.932731,
+        34.040216,
+        31.423462
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 8,
+    "variant": "prefetch16",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 99.795722,
+      "min": 94.64135,
+      "max": 105.119339,
+      "runs": [
+        98.591087,
+        99.795722,
+        99.882153,
+        94.64135,
+        105.119339
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50636,
+      "min": 50224,
+      "max": 50936,
+      "runs": [
+        50224,
+        50772,
+        50572,
+        50636,
+        50936
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.304317,
+      "min": 18.300581,
+      "max": 20.099572,
+      "runs": [
+        18.57853,
+        19.579166,
+        19.304317,
+        18.300581,
+        20.099572
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 8,
+    "variant": "prefetch32",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 95.765966,
+      "min": 94.521157,
+      "max": 97.046382,
+      "runs": [
+        97.046382,
+        94.615651,
+        95.765966,
+        96.664904,
+        94.521157
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51028,
+      "min": 50472,
+      "max": 51760,
+      "runs": [
+        51028,
+        50472,
+        51760,
+        51056,
+        50724
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 18.047935,
+      "min": 16.416518,
+      "max": 18.22989,
+      "runs": [
+        18.096215,
+        16.416518,
+        18.22989,
+        18.047935,
+        16.923238
+      ]
+    }
+  },
+  {
+    "case": "snapshots-major",
+    "workers": 8,
+    "variant": "prefetch64",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 101.511766,
+      "min": 97.938156,
+      "max": 108.043254,
+      "runs": [
+        106.037002,
+        101.511766,
+        98.164105,
+        108.043254,
+        97.938156
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50912,
+      "min": 50364,
+      "max": 52960,
+      "runs": [
+        50364,
+        50628,
+        51392,
+        50912,
+        52960
+      ]
+    },
+    "collections": {
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "runs": [
+        17,
+        17,
+        17,
+        17,
+        17
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.384125,
+      "min": 18.374972,
+      "max": 22.030946,
+      "runs": [
+        19.384125,
+        19.196936,
+        19.406817,
+        22.030946,
+        18.374972
+      ]
+    }
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "raw_sha256": "ed592ff161583ad300a68c0832b223acbe78eb348356799b34c7ebfbddb46372",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "compare",
+      "case": "records",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3949061,
+            "min": 3710648,
+            "max": 4749950,
+            "count": 15,
+            "cv": 0.07920294550130978
+          },
+          "kernel_block_mean_ns": {
+            "median": 5342352.533333333,
+            "min": 5231242.266666667,
+            "max": 5687578.733333333,
+            "count": 15,
+            "cv": 0.02221357926840253
+          },
+          "peak_rss_bytes": {
+            "median": 122695680,
+            "min": 122122240,
+            "max": 124981248,
+            "count": 15,
+            "cv": 0.00729915046001584
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 3978215,
+            "min": 3884741,
+            "max": 4823025,
+            "count": 15,
+            "cv": 0.0688030532285788
+          },
+          "kernel_block_mean_ns": {
+            "median": 5351961.466666667,
+            "min": 5119233.466666667,
+            "max": 5795123.2,
+            "count": 15,
+            "cv": 0.03274165036146403
+          },
+          "peak_rss_bytes": {
+            "median": 122728448,
+            "min": 122200064,
+            "max": 124960768,
+            "count": 15,
+            "cv": 0.004985674293289898
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.0038731154158935244,
+        "min": -0.16247223654985843,
+        "max": 0.1494679564968342,
+        "count": 15,
+        "cv": 13.459761736548689
+      },
+      "faster_pairs": 6,
+      "paired_block_mean_change": {
+        "median": -0.011940476585421633,
+        "min": -0.05648686035939643,
+        "max": 0.05859097789315393,
+        "count": 15,
+        "cv": -6.5631448189511
+      },
+      "block_mean_faster_pairs": 9
+    }
+  ]
+}

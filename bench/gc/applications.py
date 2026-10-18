@@ -47,21 +47,27 @@ def summarize(runs):
         selected = [r for r in runs if (r["suite"], r["case"], r["workers"]) == (suite, name, workers)]
         variants = {}
         paired = {}
+        paired_means = {}
         for label in ["baseline", "candidate"]:
             group = [r for r in selected if r["variant"] == label]
             if not group:
                 continue
             variants[label] = {metric: rw.stats(values) for metric, values in {
                 "kernel_ns": [statistics.median(r["process"]["warm_ns"]) for r in group],
+                "kernel_block_mean_ns": [statistics.fmean(r["process"]["warm_ns"]) for r in group],
                 "peak_rss_bytes": [r["process"]["peak_rss_bytes"] for r in group],
             }.items()}
             paired[label] = {r["repetition"]: statistics.median(r["process"]["warm_ns"]) for r in group}
+            paired_means[label] = {r["repetition"]: statistics.fmean(r["process"]["warm_ns"]) for r in group}
         row = dict(suite=suite, case=name, workers=workers, variants=variants)
         if "baseline" in paired and "candidate" in paired:
             complete = sorted(paired["baseline"].keys() & paired["candidate"].keys())
             ratios = [paired["candidate"][i] / paired["baseline"][i] - 1 for i in complete]
             row["paired_work_change"] = rw.stats(ratios)
             row["faster_pairs"] = sum(r < 0 for r in ratios)
+            mean_ratios = [paired_means["candidate"][i] / paired_means["baseline"][i] - 1 for i in complete]
+            row["paired_block_mean_change"] = rw.stats(mean_ratios)
+            row["block_mean_faster_pairs"] = sum(r < 0 for r in mean_ratios)
         rows.append(row)
     return rows
 

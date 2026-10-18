@@ -7,8 +7,10 @@ Real-world and comparison contracts
 `applications.py` compares immutable compiler binaries with randomized adjacent
 pairs using the **unchanged** realworld reconcile/state/JSON/messaging/pipeline
 and compare records/snapshots/batches programs. It reuses each suite's independent
-oracle/protocol checker. Every fresh process contributes one median of its warm
-iterations; correlated inner samples are not counted as independent processes.
+oracle/protocol checker. Every fresh process contributes one median and one mean
+of its measured warm iterations; correlated inner samples are not counted as
+independent processes. The block mean retains expensive GC iterations that a
+median may omit. It measures kernel work, excluding I/O/fixture time as before.
 It records all samples, command/output, executable/source hashes, child-only
 peak RSS and host pressure. Source and executable hashes must remain unchanged.
 Worker sweeps of serial programs measure runtime context, not parallel speedup.
@@ -128,14 +130,6 @@ Allocation censuses also include requested-size buckets through 1,024 bytes,
 independent of which limit is pooled. Histogram volumes conserve the same
 objects, requested bytes and actual cell-layout bytes as the other counters.
 
-`BADGER_GC_SWEEP_REUSE=0|1` compares scoped and cached native sweep helpers in a
-diagnostic build (`--suite policy --policies sweep-scoped sweep-reuse`). The
-profile records per-worker work, dispatched helper work, and newly created native
-threads separately. The runner checks conservation; `analyze.py` summarizes skew
-and small jobs over workload collections. These counters do not directly time
-thread creation. All helper results are joined/received before serial finalizers
-or worker resumption; profiler/process finish closes the cache and joins helpers.
-
 `BADGER_GC_SWEEP_PREFETCH=0|8|16|32|64|128` compares ahead-of-use object-header
 hints on x86-64 within the same diagnostic executable. Select `--suite
 coverage-policy --policies prefetch0 prefetch16 prefetch32 prefetch64 --paired`.
@@ -144,6 +138,15 @@ unapplied policies. These instrumented variable-distance experiments need separa
 ordinary fixed-distance application comparisons before retention; other
 architectures keep their original sweep path. No new allocation or GC policy is
 implied by a prefetch hint.
+
+`BADGER_GC_SWEEP_REUSE=0|1` compares scoped and cached native sweep helpers in a
+diagnostic build (`--suite policy --policies sweep-scoped sweep-reuse`). The
+profile records per-worker work, dispatched helper work, and newly created native
+threads separately. The runner checks conservation; `analyze.py` summarizes skew
+and small jobs over workload collections. These counters do not directly time
+thread creation. All helper results are joined/received before serial finalizers
+or worker resumption; profiler/process finish closes the cache and joins helpers.
+
 Later collections use scoped helpers. The cache is bounded by `MAX_WORKERS` and
 created lazily, but idle native stacks/channels consume resources until finish.
 Ordinary builds retain scoped helpers. Reuse was rejected as a default after

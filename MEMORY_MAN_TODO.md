@@ -17,6 +17,8 @@ correctness checks, raw benchmark evidence, and results recorded here.
 - [ ] M3: Improve robustness of short multi-worker controls: vary randomized
   orders/seeds, pair related runs, retain baseline-versus-itself calibrations,
   and investigate cross-workload/scheduling sensitivity before attributing small changes.
+  - [x] M3a: Retain per-process warm-kernel block means alongside medians,
+    with tail-reversal checks, long-window repeats and a reusable raw-data analyzer.
 
 Before each applicable slice, cover its lifetime/failure cases. Track workload elapsed time, managed allocation counts/bytes where available,
 collection count and pause time, process peak RSS, and application throughput at
@@ -51,6 +53,9 @@ negative results; do not mark architectural sketches as implemented.
   descendant ownership; retain copying when versions share nodes.
   - [x] I5a: Reuse private, fresh-origin scalar-map updates only when all old
     aliases die and no earlier version/cursor escapes before later mutations.
+  - [ ] I5b: Reuse nodes between observable scalar-map snapshots with frozen
+    wrappers and unique ownership epochs. [Proof proposal](reports/memory-management/I5b-proof-plan.md);
+    runtime/compiler implementation and acceptance measurements remain open.
 - [ ] I6: Evaluate compact small-map, singleton-collection, and short-string forms
   against observed size distributions and object-size inflation.
 - [ ] I7: Borrow parsing/string/byte views where lifetime permits; copy small
@@ -895,6 +900,10 @@ Work in this order, keeping only measured improvements:
      Keep the benchmark evidence and saved-MIR stress checker.
    - [x] G7c experiment: Measure descriptor-only finalizer caching; do not retain
      the prototype because application/phase evidence overlaps noise controls.
+   - [x] G7d: Keep bounded x86-64 sweep header prefetching (38855c7), with
+     same-binary distance controls and state/snapshot application improvements.
+   - [ ] G7e: Attribute trace work/cardinality after G7d, then evaluate bounded
+     mark-header batching/prefetching without changing reachability or GC policy.
    Source-level finalizer guard stores are already removed by release LLVM;
    do not claim savings for deleting them.
 2. [ ] I2b/I8: Remove materialized map entry tuples/lists when immediate iteration
@@ -1039,3 +1048,31 @@ distance controls before ordinary application comparisons. No allocator/object
 metadata changes. Prefetch is a hypothesis about memory latency, not a measured
 attribution yet. Keep the allocation-elision wins and avoid publishing collector
 complexity justified only by isolated microbenchmarks.
+
+### G7d complete — sweep header prefetch retained
+
+Keep `38855c7`, now also present in main `a21998b`. 1,382 measured processes in
+nine nonoverlapping datasets, with baseline saved before edits, immutable
+binaries, independent oracles and all samples retained. Same-binary diagnostic
+0/16/32/64-object distance controls support latency sensitivity in scattered
+retained maps; other architectures keep their existing sweep path.
+
+Ordinary scalar/pointer snapshot cases improve 6–17% across 1/2/4/8 workers,
+with workload GC pauses about 40–49% lower. Record churn improves 1–3%.
+Realworld state improves 12–22% group medians; compare snapshots 2–17%, with
+supporting block-mean changes. Initial record/four and buffer regressions are
+retained; longer repeats are close to their same-binary controls. No universal
+win, allocation-volume/RSS reduction, request p99 or eight-worker scaling win
+is claimed. Full results and limits: [G7d report](reports/memory-management/G7d-summary.md).
+
+All 76 program/10 normal/12 diagnostic runtime tests, 72 source/saved-MIR GC
+checks, allocation conservation, 22 harness tests and strict Clippy pass.
+The application harness now retains block means alongside medians so expensive
+kernel iterations remain visible. Exact Map/MapNode family counts/bytes stay
+unchanged, confirming collection optimization rather than allocation elision.
+
+Next G7e: in the pointer-snapshot diagnostic at eight workers, trace remains
+about 69 ms while sweep is about 18 ms after prefetch. Add trace-work counts
+before inferring per-object cost. Audit order-sensitive/weak tracers before a
+bounded mark queue; drain every pending word before weak clearing/verification/
+sweep. I5b remains the next allocation-reduction proposal, and G7 stays open.

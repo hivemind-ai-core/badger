@@ -27,6 +27,12 @@ class Contracts(unittest.TestCase):
         self.assertEqual(row["paired_work_change"]["median"], -0.5)
         self.assertEqual(row["paired_work_change"]["count"], 1)
         self.assertEqual(row["faster_pairs"], 1)
+        # A fast median can hide a costly tail. Each process still contributes
+        # one independent observation: the candidate's block mean is slower.
+        self.assertAlmostEqual(row["variants"]["baseline"]["kernel_block_mean_ns"]["median"], 145 / 6)
+        self.assertAlmostEqual(row["paired_block_mean_change"]["median"], 8 / 85)
+        self.assertEqual(row["paired_block_mean_change"]["count"], 1)
+        self.assertEqual(row["block_mean_faster_pairs"], 0)
 
 
 if __name__ == "__main__":
