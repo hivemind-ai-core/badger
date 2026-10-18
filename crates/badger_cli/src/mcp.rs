@@ -1,5 +1,5 @@
 //! `badger mcp`: a Model Context Protocol server on stdio (newline-delimited
-//! JSON-RPC) giving an agent the compiler and a live REPL through five tools:
+//! JSON-RPC) giving an agent the compiler and a live REPL through six tools:
 //!
 //! - `eval` ("code mode"): a persistent REPL session (the local `badger repl`
 //!   machinery); definitions accumulate and expressions evaluate, and
@@ -10,6 +10,8 @@
 //!   diagnostic explanations, and standard module sources.
 //! - `contracts`: each `requires`/`ensures` clause and whether it was proven,
 //!   refuted, or is checked at run time (optionally run against the tests).
+//! - `generate`: `badger generate feature`, checked (and its tests run) in a
+//!   copy of the project before anything is written.
 //! - `run`: run a program or its tests in a subprocess, with a time limit.
 //!
 //! Compiler questions run in subprocesses (`badger query`), isolated from the
@@ -33,7 +35,8 @@ analyse files from code: compiler.diagnostics(path), compiler.check_source(src),
 compiler.hover(path, line, col), compiler.definition(...), compiler.references(...), \
 compiler.symbols(path), compiler.completions(...), compiler.explain(code). Use `query` with \
 kind `module` to read a standard module's API (e.g. `list`, `map`, `io`, `task`, `channel`), \
-and `check` before `run`. Positions are 1-based.";
+and `check` before `run`. `generate` adds a feature module that is checked (and its tests run) \
+before it is written. Positions are 1-based.";
 
 fn tools() -> Value {
     json!([

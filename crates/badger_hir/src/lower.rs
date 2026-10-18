@@ -43,6 +43,7 @@ pub fn lower_program(
         item_defs: vec![],
         const_locals: FxHashSet::default(),
         const_checks: vec![],
+        failed_imports: FxHashSet::default(),
     };
     cx.collect(modules);
     if let Some(e) = entry {
@@ -69,6 +70,9 @@ struct Cx<'a> {
     /// Locals bound by `const`, and `const` initializers to validate.
     const_locals: FxHashSet<LocalId>,
     const_checks: Vec<ExprId>,
+    /// Names a failing import would have bound, per module: their unknown
+    /// uses are not reported again (the import's error explains them).
+    failed_imports: FxHashSet<(ModuleId, Symbol)>,
 }
 
 impl Cx<'_> {
@@ -397,6 +401,7 @@ impl Cx<'_> {
                                     );
                                 }
                                 None => {
+                                    self.failed_imports.insert((mid, alias.unwrap_or(*n).sym));
                                     let s = self.sym(n.sym).to_string();
                                     let mp = self.path_str(&path);
                                     self.err(
@@ -409,9 +414,20 @@ impl Cx<'_> {
                             }
                         }
                     }
-                    (_, None) => {
+                    (items, None) => {
                         let mp = self.path_str(&path);
                         self.err("E0114", span, format!("unknown module `{mp}`"), "no such module");
+                        match items {
+                            None => {
+                                let alias = imp.alias.map(|a| a.sym).unwrap_or(*path.last().unwrap());
+                                self.failed_imports.insert((mid, alias));
+                            }
+                            Some(items) => {
+                                for (n, alias) in items {
+                                    self.failed_imports.insert((mid, alias.unwrap_or(*n).sym));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -521,6 +537,16 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     fn err(&mut self, code: &'static str, span: Span, msg: impl Into<String>, label: impl Into<String>) {
         self.cx.err(code, span, msg, label);
+    }
+
+    /// E0127 for `name`, unless a failing import of this module would have
+    /// bound it (that import is already an error).
+    fn unknown_name(&mut self, name: Symbol, span: Span) {
+        if self.cx.failed_imports.contains(&(self.module, name)) {
+            return;
+        }
+        let s = self.sym(name);
+        self.err("E0127", span, format!("unknown name `{s}`"), "not found in this scope");
     }
 
     fn alloc(&mut self, kind: ExprKind, span: Span) -> ExprId {
@@ -1526,8 +1552,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 ExprKind::Error
             }
             None => {
-                let s = self.sym(n.sym);
-                self.err("E0127", n.span, format!("unknown name `{s}`"), "not found in this scope");
+                self.unknown_name(n.sym, n.span);
                 ExprKind::Error
             }
         };
@@ -1693,13 +1718,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     let kind = match self.lookup_module_name(n.sym) {
                         Some(Res::Def(d)) => self.def_value(d, n, targs),
                         _ => {
-                            let s = self.sym(n.sym);
-                            self.err(
-                                "E0127",
-                                n.span,
-                                format!("unknown name `{s}`"),
-                                "not found in this scope",
-                            );
+                            self.unknown_name(n.sym, n.span);
                             ExprKind::Error
                         }
                     };

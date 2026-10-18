@@ -1459,6 +1459,11 @@ fn diagnostics_early_phases() {
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains(r#""code":"E0001""#) && text.contains(r#""module":"syntax_phase""#), "{text}");
+    // a failing import is one error, not one per use of its names
+    let out = lang().args(["check", "--json", "tests/diagnostics/failed_import.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    let codes: Vec<&str> = text.match_indices(r#""code":"E0"#).map(|(i, _)| &text[i + 8..i + 13]).collect();
+    assert_eq!(codes, ["E0114", "E0113", "E0127"], "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual
