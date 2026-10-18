@@ -56,7 +56,8 @@ so these are correctness-and-scale work to schedule against new profiles.
   with batch, staged, and leased items; indexed leases.
 - R4: a typed per-intrinsic contract table in place of the `UNLOCKED`
   name list.
-- R5: decode `Data` directly instead of through JSON text.
+- R5: decode `Data` without the intermediate JSON value (the text step
+  is gone; a descriptor-guided decoder would skip the value tree too).
 
 ## Language, libraries, and tools (ENHANCEMENTS.md)
 
