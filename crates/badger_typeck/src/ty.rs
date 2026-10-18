@@ -874,6 +874,23 @@ impl<'a, N: TyNames> Printer<'a, N> {
             }
             TyKind::Record(r) => {
                 let (fields, tail) = row_fields(r);
+                // an effect row (a type argument such as `Operation`'s
+                // `Eff`): its labels are effects, which start uppercase,
+                // where a record's fields cannot
+                let effects = !fields.is_empty()
+                    && fields.iter().all(|(l, _)| {
+                        let n = self.names.sym(*l);
+                        n.starts_with(|c: char| c.is_ascii_uppercase()) || n.starts_with('%')
+                    });
+                if effects {
+                    let labels: Vec<_> = fields
+                        .iter()
+                        .map(|(l, _)| self.names.sym(*l).to_string())
+                        .filter(|l| !l.starts_with('%'))
+                        .collect();
+                    let _ = write!(s, "!{{{}}}", labels.join(", "));
+                    return;
+                }
                 s.push('{');
                 for (i, (l, ft)) in fields.iter().enumerate() {
                     if i > 0 {

@@ -231,7 +231,7 @@ and request tasks.
 ### `Streamed`
 
 ```badger
-struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes, {Io: Unit, Wait: Unit, State: Unit, Foreign: Unit}> }
+struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes, !{Io, Wait, State, Foreign}> }
 ```
 
 A streamed reply: the head is sent first, then each chunk as the
