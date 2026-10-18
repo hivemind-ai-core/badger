@@ -263,8 +263,14 @@ fn reuse_with(f: &mut Func, snapshots: bool) -> usize {
     let mut owned_bad = bad.clone();
     for block in &f.blocks {
         for stmt in &block.stmts {
-            if let Stmt::Assign(_, Rvalue::Call { callee: Callee::Intrinsic { name, .. }, args, .. }) = stmt
-                && matches!(name.as_str(), PRIVATE | "badger_rt_i_map_insert_mut")
+            if let Stmt::Assign(_, Rvalue::Call { callee, args, .. }) = stmt
+                && match callee {
+                    Callee::Intrinsic { name, .. } => {
+                        matches!(name.as_str(), PRIVATE | "badger_rt_i_map_insert_mut")
+                    }
+                    Callee::Runtime("badger_rt_map_insert_mut") => true,
+                    _ => false,
+                }
             {
                 for arg in args {
                     if let Operand::Local(l) = arg {
@@ -661,13 +667,20 @@ mod tests {
 
     #[test]
     fn epochs_freeze_before_observation_and_reject_legacy_mutators() {
-        for observer in ["observer", "badger_rt_i_map_insert_mut"] {
+        for observer in ["observer", "badger_rt_i_map_insert_mut", "badger_rt_map_insert_mut"] {
             let d = desc(false);
             let b = BlockId::from(0);
             let mut f = Func::new(observer.into(), FuncKind::Normal, Repr::I64);
             let start = fresh(&mut f, d);
             let first = insert(&mut f, b, d, start);
             call(&mut f, b, observer, 0, Repr::I64, vec![Operand::Local(first)]);
+            if observer == "badger_rt_map_insert_mut" {
+                let Stmt::Assign(_, Rvalue::Call { callee, .. }) = f.blocks[b].stmts.last_mut().unwrap()
+                else {
+                    unreachable!()
+                };
+                *callee = Callee::Runtime("badger_rt_map_insert_mut");
+            }
             let last = insert(&mut f, b, d, first);
             len(&mut f, b, last);
             assert_eq!(reuse_with(&mut f, true), if observer == "observer" { 2 } else { 0 });
