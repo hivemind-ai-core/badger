@@ -43,6 +43,14 @@ python3 bench/gc/check_map_entries.py --ordinary /fixed/new/badger --compatible 
 Managed allocation census (G1a)
 ------------------------------
 
+To check collector finalization changes across source and old/new saved MIR,
+run `python3 bench/gc/check_finalizers.py --ordinary /fixed/new/badger
+--compatible /fixed/base/badger --out /tmp/finalizer-checks.json.gz`. This retains
+buffer/old-container assertions across real reuse/quarantine, both generation
+modes, workers 1/8 and chaos. Its old-container variant bounds churn to eight
+iterations because stress already collects at every allocation; the full source
+fixture remains in the program suite.
+
 The diagnostic build also accepts `BADGER_ALLOC_PROFILE=path.json`, independently
 of phase profiling. It records process-wide managed allocations by type descriptor
 and Rust runtime call site, plus small-pool size classes. Requested bytes include

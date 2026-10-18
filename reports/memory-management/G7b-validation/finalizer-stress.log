@@ -1,0 +1,3 @@
+packed_arrays: 24 source/old-MIR/new-MIR stress checks passed
+array_values: 24 source/old-MIR/new-MIR stress checks passed
+gc_old_containers: 24 source/old-MIR/new-MIR stress checks passed
