@@ -55,6 +55,18 @@ pub extern "C" fn write_out(
     if stderr == 0 {
         crate::repro::output(text, newline & 1 != 0);
     }
+    // called without the runtime lock (several workers): write a copy
+    // outside the collector's count, so a blocked or slow terminal holds up
+    // neither other tasks nor a collection
+    let unlocked = crate::task::multi() && !crate::task::holds_lock();
+    let owned;
+    let text = if unlocked {
+        owned = text.to_string();
+        crate::task::badger_rt_safe_begin(std::ptr::null_mut());
+        owned.as_str()
+    } else {
+        text
+    };
     let r = if stderr != 0 {
         let mut e = std::io::stderr().lock();
         e.write_all(text.as_bytes()).and_then(|_| if newline & 1 != 0 { e.write_all(b"\n") } else { Ok(()) })
@@ -64,6 +76,9 @@ pub extern "C" fn write_out(
             .and_then(|_| if newline & 1 != 0 { o.write_all(b"\n") } else { Ok(()) })
             .and_then(|_| o.flush())
     };
+    if unlocked {
+        crate::task::badger_rt_safe_end(std::ptr::null_mut());
+    }
     match r {
         Ok(()) => io_ok(rdesc(ret), 0),
         Err(e) => io_err(rdesc(ret), &e),

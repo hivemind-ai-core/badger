@@ -1580,6 +1580,8 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_native_call6",
     "badger_rt_i_native_call7",
     "badger_rt_i_native_call8",
+    // console output: a copy written outside the collector's count
+    "badger_rt_i_write_out",
     // logging: a level check, or a record written under its own locks
     "badger_rt_i_log_enabled",
     "badger_rt_i_log_emit",
