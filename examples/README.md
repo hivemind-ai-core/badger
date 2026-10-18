@@ -18,6 +18,7 @@ an independent entry module; run one with `badger run examples/01_basics.bdg`
 | [10_interceptors.bdg](10_interceptors.bdg) | Typed stages, live prefix views, context writeback, reverse unwind, recovery |
 | [11_systems.bdg](11_systems.bdg) | Providers, typed dependency references, function-record interfaces, ordered cleanup |
 | [12_import_notes.bdg](12_import_notes.bdg) | A file-to-SQLite automation with a transaction and managed database lifetime |
+| [13_rest_service.bdg](13_rest_service.bdg) | A database-backed REST service with typed routes, validation, a background stats worker, and in-process tests |
 
 Start with the first five files for everyday syntax. The
 [larger worked examples](design/README.md) include an HTTP/SQLite service with
