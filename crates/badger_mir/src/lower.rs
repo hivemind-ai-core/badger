@@ -3174,19 +3174,30 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         !looping
     }
 
-    /// `map.to_list(m)` / `set.to_list(s)`: the iteration kind of `m` / `s`
-    /// and that argument.
+    /// A temporary standard collection view consumed directly by a loop.
+    /// Stored lists retain their representation. Resolve method definitions,
+    /// not spellings, so user-defined `entries` methods remain ordinary calls.
     fn to_list_of(&self, x: ExprId) -> Option<(IterKind, ExprId)> {
         let hir = self.hir();
-        let ExprKind::Call { callee, args } = &hir.exprs[x].kind else { return None };
-        let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
-        if args.len() != 1 {
-            return None;
-        }
-        if hir.try_lang("map.to_list") == Some(*def) {
-            Some((IterKind::Map, args[0]))
-        } else if hir.try_lang("set.to_list") == Some(*def) {
-            Some((IterKind::Set, args[0]))
+        let (def, source) = match &hir.exprs[x].kind {
+            ExprKind::Call { callee, args } if args.len() == 1 => {
+                let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
+                (*def, args[0])
+            }
+            ExprKind::MethodCall { recv, args, .. } if args.is_empty() => {
+                let Res::Method(Target::Fn { def, .. }) = self.inst.res.get(&x)? else { return None };
+                (*def, *recv)
+            }
+            _ => return None,
+        };
+        if hir.try_lang("map.to_list") == Some(def)
+            || (self.m.fuse_sequences
+                && hir.modules[hir.defs[def].module].is_std
+                && self.m.def_path(def) == "std.map.entries")
+        {
+            Some((IterKind::Map, source))
+        } else if hir.try_lang("set.to_list") == Some(def) {
+            Some((IterKind::Set, source))
         } else {
             None
         }
