@@ -157,8 +157,8 @@ pub struct TypeDesc {
     /// Shared immortal values of the first enum variants whose payload is
     /// all unit (`ok(())` and the like), made on first use.
     pub unit_variants: [AtomicU64; 4],
-    /// Cached object shape: low two bits are 0: unknown, 1: no managed
-    /// pointers, 2: some. Bit 3 is gc::HAS_FINALIZER. Reset by code that
+    /// Whether objects of this type hold no managed pointers (0: not yet
+    /// known; 1: none; 2: some), cached for marking. Reset by code that
     /// fills in a descriptor's kind after creating it.
     pub leaf: std::sync::atomic::AtomicU8,
     /// Whether values of this type may contain a float (0: not yet known;
@@ -184,34 +184,24 @@ impl TypeDesc {
     /// Objects of this type hold no managed pointers: marking need not
     /// trace them.
     pub fn is_leaf(&self) -> bool {
-        self.shape_flags() & 3 == 1
-    }
-
-    pub(crate) fn header_flags(&self) -> u64 {
-        (self.shape_flags() as u64) & crate::gc::HAS_FINALIZER
-    }
-
-    fn shape_flags(&self) -> u8 {
-        let flags = self.leaf.load(Ordering::Relaxed);
-        if flags != 0 { flags } else { self.init_shape_flags() }
-    }
-
-    #[cold]
-    fn init_shape_flags(&self) -> u8 {
-        let ptr = |fs: &[Field]| fs.iter().any(|f| f.repr == Repr::Ptr);
-        let leaf = match &self.kind {
-            Kind::Record { fields, .. } => !ptr(fields),
-            Kind::Closure { captures, .. } => !ptr(captures),
-            Kind::Enum { variants, .. } => !variants.iter().any(|v| ptr(&v.fields)),
-            Kind::List { .. } | Kind::Map { .. } | Kind::Set { .. } => false,
-            Kind::Opaque { trace, .. } => trace.is_none(),
-            Kind::String | Kind::Bytes => true,
-            _ => false,
-        };
-        let finalizer = matches!(&self.kind, Kind::Opaque { finalize: Some(_), .. });
-        let flags = if leaf { 1 } else { 2 } | if finalizer { crate::gc::HAS_FINALIZER as u8 } else { 0 };
-        self.leaf.store(flags, Ordering::Relaxed);
-        flags
+        match self.leaf.load(Ordering::Relaxed) {
+            1 => true,
+            2 => false,
+            _ => {
+                let ptr = |fs: &[Field]| fs.iter().any(|f| f.repr == Repr::Ptr);
+                let leaf = match &self.kind {
+                    Kind::Record { fields, .. } => !ptr(fields),
+                    Kind::Closure { captures, .. } => !ptr(captures),
+                    Kind::Enum { variants, .. } => !variants.iter().any(|v| ptr(&v.fields)),
+                    Kind::List { .. } | Kind::Map { .. } | Kind::Set { .. } => false,
+                    Kind::Opaque { trace, .. } => trace.is_none(),
+                    Kind::String | Kind::Bytes => true,
+                    _ => false,
+                };
+                self.leaf.store(if leaf { 1 } else { 2 }, Ordering::Relaxed);
+                leaf
+            }
+        }
     }
 
     pub fn leak(self) -> &'static TypeDesc {
@@ -304,41 +294,4 @@ pub mod builtin {
     static_desc!(duration, "Duration", Kind::Duration);
     static_desc!(instant, "Instant", Kind::Instant);
     static_desc!(fn_, "Fn", Kind::Fn);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn trace(_: *mut Header, _: &mut dyn FnMut(u64)) {}
-    fn finalize(_: *mut Header) {}
-
-    #[test]
-    fn cached_shape_keeps_leaf_and_finalizer_independent_and_resets() {
-        for traced in [false, true] {
-            for finalized in [false, true] {
-                let mut d = TypeDesc::new(
-                    "shape",
-                    Kind::Opaque {
-                        trace: traced.then_some(trace),
-                        finalize: finalized.then_some(finalize),
-                        args: vec![],
-                    },
-                );
-                for _ in 0..2 {
-                    assert_eq!(d.header_flags() != 0, finalized);
-                    assert_eq!(d.is_leaf(), !traced);
-                }
-                // Layout construction and saved-MIR loading backpatch kinds.
-                d.kind = Kind::String;
-                d.leaf.store(0, Ordering::Relaxed);
-                assert!(d.is_leaf());
-                assert_eq!(d.header_flags(), 0);
-                d.kind = Kind::Opaque { trace: Some(trace), finalize: Some(finalize), args: vec![] };
-                d.leaf.store(0, Ordering::Relaxed);
-                assert!(!d.is_leaf());
-                assert_eq!(d.header_flags(), crate::gc::HAS_FINALIZER);
-            }
-        }
-    }
 }
