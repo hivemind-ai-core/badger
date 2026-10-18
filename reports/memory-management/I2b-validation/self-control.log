@@ -1,0 +1,482 @@
+coverage rep=-1 entries-immediate w8 candidate
+coverage rep=-1 entries-immediate w8 baseline
+coverage rep=-1 entries-immediate w1 baseline
+coverage rep=-1 entries-immediate w1 candidate
+coverage rep=-1 entries-stored w8 candidate
+coverage rep=-1 entries-stored w8 baseline
+coverage rep=-1 entries-stored w1 candidate
+coverage rep=-1 entries-stored w1 baseline
+coverage rep=0 entries-stored w8 candidate
+coverage rep=0 entries-stored w8 baseline
+coverage rep=0 entries-stored w1 candidate
+coverage rep=0 entries-stored w1 baseline
+coverage rep=0 entries-immediate w8 baseline
+coverage rep=0 entries-immediate w8 candidate
+coverage rep=0 entries-immediate w1 baseline
+coverage rep=0 entries-immediate w1 candidate
+coverage rep=1 entries-stored w1 candidate
+coverage rep=1 entries-stored w1 baseline
+coverage rep=1 entries-stored w8 candidate
+coverage rep=1 entries-stored w8 baseline
+coverage rep=1 entries-immediate w1 candidate
+coverage rep=1 entries-immediate w1 baseline
+coverage rep=1 entries-immediate w8 baseline
+coverage rep=1 entries-immediate w8 candidate
+coverage rep=2 entries-stored w8 candidate
+coverage rep=2 entries-stored w8 baseline
+coverage rep=2 entries-stored w1 candidate
+coverage rep=2 entries-stored w1 baseline
+coverage rep=2 entries-immediate w8 candidate
+coverage rep=2 entries-immediate w8 baseline
+coverage rep=2 entries-immediate w1 candidate
+coverage rep=2 entries-immediate w1 baseline
+coverage rep=3 entries-stored w1 candidate
+coverage rep=3 entries-stored w1 baseline
+coverage rep=3 entries-stored w8 baseline
+coverage rep=3 entries-stored w8 candidate
+coverage rep=3 entries-immediate w8 candidate
+coverage rep=3 entries-immediate w8 baseline
+coverage rep=3 entries-immediate w1 candidate
+coverage rep=3 entries-immediate w1 baseline
+coverage rep=4 entries-immediate w8 baseline
+coverage rep=4 entries-immediate w8 candidate
+coverage rep=4 entries-immediate w1 candidate
+coverage rep=4 entries-immediate w1 baseline
+coverage rep=4 entries-stored w1 baseline
+coverage rep=4 entries-stored w1 candidate
+coverage rep=4 entries-stored w8 candidate
+coverage rep=4 entries-stored w8 baseline
+[
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 29.747403,
+      "min": 29.435855,
+      "max": 32.123515,
+      "runs": [
+        29.435855,
+        31.827466,
+        29.680038,
+        32.123515,
+        29.747403
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48456,
+      "min": 47728,
+      "max": 48792,
+      "runs": [
+        48456,
+        47728,
+        48792,
+        48284,
+        48468
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.031465,
+      "min": 1.022047,
+      "max": 1.067261,
+      "runs": [
+        1.031465,
+        1.067261,
+        1.051001,
+        1.028721,
+        1.022047
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 30.627217,
+      "min": 29.858781,
+      "max": 33.124903,
+      "runs": [
+        29.858781,
+        30.08475,
+        33.124903,
+        30.627217,
+        31.045353
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47864,
+      "min": 47612,
+      "max": 48572,
+      "runs": [
+        48044,
+        47612,
+        48572,
+        47864,
+        47792
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.012299,
+      "min": 0.986281,
+      "max": 1.624756,
+      "runs": [
+        1.065338,
+        1.012299,
+        1.624756,
+        1.008723,
+        0.986281
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 35.863968,
+      "min": 35.446333,
+      "max": 36.075081,
+      "runs": [
+        36.075081,
+        35.446333,
+        35.863968,
+        35.895236,
+        35.593446
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48240,
+      "min": 47468,
+      "max": 48448,
+      "runs": [
+        47468,
+        48240,
+        48240,
+        47512,
+        48448
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.021426,
+      "min": 0.992632,
+      "max": 1.096135,
+      "runs": [
+        1.021426,
+        1.021997,
+        1.096135,
+        0.992632,
+        1.013922
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 35.593426,
+      "min": 35.362859,
+      "max": 37.273134,
+      "runs": [
+        35.362859,
+        35.836076,
+        35.412921,
+        35.593426,
+        37.273134
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48268,
+      "min": 47296,
+      "max": 48788,
+      "runs": [
+        47296,
+        48268,
+        48616,
+        48788,
+        47600
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.011137,
+      "min": 0.989837,
+      "max": 1.053997,
+      "runs": [
+        0.991431,
+        1.053997,
+        1.013441,
+        0.989837,
+        1.011137
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 30.013518,
+      "min": 29.645043,
+      "max": 31.062635,
+      "runs": [
+        30.013518,
+        30.44576,
+        29.645043,
+        29.702961,
+        31.062635
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47828,
+      "min": 47628,
+      "max": 48524,
+      "runs": [
+        47684,
+        48332,
+        48524,
+        47828,
+        47628
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.008783,
+      "min": 1.006458,
+      "max": 1.05009,
+      "runs": [
+        1.006569,
+        1.006458,
+        1.018571,
+        1.05009,
+        1.008783
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 31.271493,
+      "min": 29.877705,
+      "max": 32.609406,
+      "runs": [
+        32.468977,
+        32.609406,
+        29.877705,
+        31.271493,
+        29.904946
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47624,
+      "min": 47496,
+      "max": 50448,
+      "runs": [
+        47556,
+        48568,
+        50448,
+        47496,
+        47624
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.043758,
+      "min": 1.031456,
+      "max": 1.135579,
+      "runs": [
+        1.043758,
+        1.135579,
+        1.046984,
+        1.033138,
+        1.031456
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 35.93477,
+      "min": 35.715864,
+      "max": 41.620195,
+      "runs": [
+        41.620195,
+        37.55068,
+        35.93477,
+        35.715864,
+        35.880699
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47604,
+      "min": 47036,
+      "max": 49848,
+      "runs": [
+        47604,
+        49848,
+        47036,
+        47712,
+        47380
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.081839,
+      "min": 0.990418,
+      "max": 1.482512,
+      "runs": [
+        1.022549,
+        1.081839,
+        0.990418,
+        1.124718,
+        1.482512
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 35.972079,
+      "min": 35.697379,
+      "max": 39.179353,
+      "runs": [
+        37.00673,
+        35.972079,
+        39.179353,
+        35.697379,
+        35.848359
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48336,
+      "min": 47444,
+      "max": 50616,
+      "runs": [
+        48336,
+        47444,
+        50616,
+        49736,
+        48312
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.053296,
+      "min": 1.030433,
+      "max": 1.372248,
+      "runs": [
+        1.031395,
+        1.073573,
+        1.372248,
+        1.030433,
+        1.053296
+      ]
+    }
+  }
+]

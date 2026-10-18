@@ -1,0 +1,642 @@
+coverage rep=-1 entries-stored w1 diagnostic
+coverage rep=-1 entries-stored w8 diagnostic-off
+coverage rep=-1 entries-stored w8 baseline
+coverage rep=-1 entries-immediate w8 diagnostic-off
+coverage rep=-1 entries-immediate w1 diagnostic-allocations
+coverage rep=-1 entries-stored w1 diagnostic-allocations
+coverage rep=-1 entries-immediate w8 baseline
+coverage rep=-1 entries-immediate w8 diagnostic
+coverage rep=-1 entries-stored w8 diagnostic-allocations
+coverage rep=-1 entries-stored w8 diagnostic
+coverage rep=-1 entries-immediate w1 diagnostic
+coverage rep=-1 entries-stored w1 diagnostic-off
+coverage rep=-1 entries-immediate w1 diagnostic-off
+coverage rep=-1 entries-immediate w8 diagnostic-allocations
+coverage rep=-1 entries-immediate w1 baseline
+coverage rep=-1 entries-stored w1 baseline
+coverage rep=0 entries-immediate w1 diagnostic-allocations
+coverage rep=0 entries-immediate w8 diagnostic-off
+coverage rep=0 entries-stored w1 diagnostic-off
+coverage rep=0 entries-stored w8 diagnostic-off
+coverage rep=0 entries-stored w1 diagnostic
+coverage rep=0 entries-immediate w1 diagnostic
+coverage rep=0 entries-stored w1 baseline
+coverage rep=0 entries-immediate w1 baseline
+coverage rep=0 entries-stored w8 baseline
+coverage rep=0 entries-immediate w8 diagnostic-allocations
+coverage rep=0 entries-stored w8 diagnostic-allocations
+coverage rep=0 entries-immediate w8 baseline
+coverage rep=0 entries-stored w8 diagnostic
+coverage rep=0 entries-immediate w1 diagnostic-off
+coverage rep=0 entries-stored w1 diagnostic-allocations
+coverage rep=0 entries-immediate w8 diagnostic
+[
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 9.411161,
+      "min": 9.411161,
+      "max": 9.411161,
+      "runs": [
+        9.411161
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 33660,
+      "min": 33660,
+      "max": 33660,
+      "runs": [
+        33660
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 9.093812,
+      "min": 9.093812,
+      "max": 9.093812,
+      "runs": [
+        9.093812
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 35956,
+      "min": 35956,
+      "max": 35956,
+      "runs": [
+        35956
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 11.211333,
+      "min": 11.211333,
+      "max": 11.211333,
+      "runs": [
+        11.211333
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 33992,
+      "min": 33992,
+      "max": 33992,
+      "runs": [
+        33992
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 9.18424,
+      "min": 9.18424,
+      "max": 9.18424,
+      "runs": [
+        9.18424
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 35264,
+      "min": 35264,
+      "max": 35264,
+      "runs": [
+        35264
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 19.556515,
+      "min": 19.556515,
+      "max": 19.556515,
+      "runs": [
+        19.556515
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 33192,
+      "min": 33192,
+      "max": 33192,
+      "runs": [
+        33192
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 15.64266,
+      "min": 15.64266,
+      "max": 15.64266,
+      "runs": [
+        15.64266
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 34616,
+      "min": 34616,
+      "max": 34616,
+      "runs": [
+        34616
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 15.166025,
+      "min": 15.166025,
+      "max": 15.166025,
+      "runs": [
+        15.166025
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 34084,
+      "min": 34084,
+      "max": 34084,
+      "runs": [
+        34084
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-immediate",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 15.970067,
+      "min": 15.970067,
+      "max": 15.970067,
+      "runs": [
+        15.970067
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 33932,
+      "min": 33932,
+      "max": 33932,
+      "runs": [
+        33932
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 29.51383,
+      "min": 29.51383,
+      "max": 29.51383,
+      "runs": [
+        29.51383
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48252,
+      "min": 48252,
+      "max": 48252,
+      "runs": [
+        48252
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.05601,
+      "min": 1.05601,
+      "max": 1.05601,
+      "runs": [
+        1.05601
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.963943,
+      "min": 30.963943,
+      "max": 30.963943,
+      "runs": [
+        30.963943
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49800,
+      "min": 49800,
+      "max": 49800,
+      "runs": [
+        49800
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.134586,
+      "min": 1.134586,
+      "max": 1.134586,
+      "runs": [
+        1.134586
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 43.865674,
+      "min": 43.865674,
+      "max": 43.865674,
+      "runs": [
+        43.865674
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 56724,
+      "min": 56724,
+      "max": 56724,
+      "runs": [
+        56724
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.791713,
+      "min": 2.791713,
+      "max": 2.791713,
+      "runs": [
+        2.791713
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 1,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 30.384026,
+      "min": 30.384026,
+      "max": 30.384026,
+      "runs": [
+        30.384026
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48764,
+      "min": 48764,
+      "max": 48764,
+      "runs": [
+        48764
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.218281,
+      "min": 1.218281,
+      "max": 1.218281,
+      "runs": [
+        1.218281
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 35.537953,
+      "min": 35.537953,
+      "max": 35.537953,
+      "runs": [
+        35.537953
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51492,
+      "min": 51492,
+      "max": 51492,
+      "runs": [
+        51492
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.082099,
+      "min": 1.082099,
+      "max": 1.082099,
+      "runs": [
+        1.082099
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "diagnostic",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 36.936771,
+      "min": 36.936771,
+      "max": 36.936771,
+      "runs": [
+        36.936771
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50220,
+      "min": 50220,
+      "max": 50220,
+      "runs": [
+        50220
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.129897,
+      "min": 1.129897,
+      "max": 1.129897,
+      "runs": [
+        1.129897
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "diagnostic-allocations",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 47.139311,
+      "min": 47.139311,
+      "max": 47.139311,
+      "runs": [
+        47.139311
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57084,
+      "min": 57084,
+      "max": 57084,
+      "runs": [
+        57084
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.470526,
+      "min": 2.470526,
+      "max": 2.470526,
+      "runs": [
+        2.470526
+      ]
+    }
+  },
+  {
+    "case": "entries-stored",
+    "workers": 8,
+    "variant": "diagnostic-off",
+    "repetitions": 1,
+    "elapsed_ms": {
+      "median": 35.937386,
+      "min": 35.937386,
+      "max": 35.937386,
+      "runs": [
+        35.937386
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51344,
+      "min": 51344,
+      "max": 51344,
+      "runs": [
+        51344
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.202673,
+      "min": 1.202673,
+      "max": 1.202673,
+      "runs": [
+        1.202673
+      ]
+    }
+  }
+]

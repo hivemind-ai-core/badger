@@ -41,7 +41,7 @@ negative results; do not mark architectural sketches as implemented.
   uses and specialized call boundaries; preserve scheduling and GC liveness.
   - [x] I2a: Elide proven local Map/List lookup Option boxes using split results;
     retain boxed escaping/stored results, typed roots and live-reload behavior.
-  - [ ] I2b: Elide immediate Map.entries() method lists/tuples via the existing
+  - [x] I2b: Elide immediate Map.entries() method lists/tuples via the existing
     cursor; retain stored lists, escaping tuples, order and typed pointer roots.
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
@@ -936,3 +936,31 @@ source/MIR GC checks plus two MIR probes, 20 harness tests, strict runtime
 Clippy in both modes and scoped formatting pass. G7 remains open; reducing
 materialized map-entry allocations is the next bounded change. Complete raw
 results, controls and limits: [G7 report](reports/memory-management/G7-summary.md).
+
+### I2b complete — remove immediate map-method entry materialization
+
+Keep `67d3f73`: optimized standard Map.entries() loops reuse the existing cursor,
+with one receiver evaluation and unchanged order. Destructuring avoids tuple
+boxes; stored entry lists and escaping tuples retain value representations.
+User-defined entries methods, debug/live/no-inline behavior and runtime/MIR
+layout contracts remain unchanged. Both old/new saved programs run on both
+runtime versions; no new API or MIR format is introduced.
+
+Saved 104 baselines before compiler edits. Final evidence has 952 measured
+processes, independent oracles, no interval overlap and no removed outliers.
+Immediate entry iteration improves 55–69%; stored-list control stays roughly
+flat. Diagnostic counts prove 524,288 fewer tuple objects plus list storage,
+net 528,896 fewer managed allocations / 21.40625 MiB of cell traffic per full
+immediate case. Stored-family and MapNode counts/bytes are unchanged.
+
+Realworld state work improves 49–56% (all seven paired processes faster at every
+worker setting): about 8.6–9.4 ms becomes 4.1–4.5 ms. This is serial state work,
+not worker scaling. Diagnostic state removes 520,192 tuple allocations across
+eight inner iterations. Reconcile removes only 8,192 tuples while still creating
+897,160 MapNodes / 402.8 million cell bytes per process; its timing remains mixed.
+No general application, compare-snapshots, RSS or p99 improvement is claimed.
+
+All 76 program/six MIR tests, 72 focused source/MIR GC checks and eight MIR
+probes, 21 harness tests, strict MIR Clippy in both modes and formatting pass.
+Next I5a: prove private, empty-origin scalar maps can reuse transient updates;
+preserve any live aliases and every observable snapshot. [I2b results](reports/memory-management/I2b-summary.md).

@@ -1,0 +1,10 @@
+    Checking hashbrown v0.17.1
+    Checking bumpalo v3.20.3
+    Checking badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+    Checking badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+    Checking indexmap v2.14.2
+    Checking petgraph v0.8.3
+    Checking badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+    Checking badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+    Checking badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Finished `release` profile [optimized] target(s) in 24.25s
