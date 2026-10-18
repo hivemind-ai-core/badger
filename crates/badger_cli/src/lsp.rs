@@ -601,6 +601,50 @@ impl Server {
         Some((name, out))
     }
 
+    /// Quick fixes for the diagnostics in the request's context: an unknown
+    /// name that is a standard module gets an action inserting its import
+    /// after the file's last import.
+    fn code_actions(&mut self, params: &Value) -> Value {
+        let uri = params["textDocument"]["uri"].as_str().unwrap_or("").to_string();
+        let file = canonical(&uri_to_path(&uri));
+        let text = self.text(&file);
+        let modules = badger_driver::std_modules();
+        let mut actions = vec![];
+        for d in params["context"]["diagnostics"].as_array().cloned().unwrap_or_default() {
+            if d["code"] != "E0127" {
+                continue;
+            }
+            let msg = d["message"].as_str().unwrap_or("");
+            let Some(name) = msg.strip_prefix("unknown name `").and_then(|r| r.split('`').next()) else {
+                continue;
+            };
+            if name == "prelude" || !modules.contains(&name) {
+                continue;
+            }
+            let import = format!("import std.{name}");
+            if text.lines().any(|l| l.trim() == import) {
+                continue;
+            }
+            // after the last import, else at the top
+            let line = text
+                .lines()
+                .enumerate()
+                .filter(|(_, l)| l.starts_with("import "))
+                .map(|(i, _)| i + 1)
+                .last()
+                .unwrap_or(0);
+            let at = json!({ "line": line, "character": 0 });
+            actions.push(json!({
+                "title": format!("Import std.{name}"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "isPreferred": true,
+                "edit": { "changes": { uri.clone(): [{ "range": { "start": at, "end": at }, "newText": format!("{import}\n") }] } },
+            }));
+        }
+        json!(actions)
+    }
+
     fn rename(&mut self, params: &Value) -> Result<Value, String> {
         let new = params["newName"].as_str().unwrap_or("");
         let Some((old, locs)) = self.renamable(params) else { return Err("nothing to rename here".into()) };
@@ -856,6 +900,7 @@ pub fn serve() -> i32 {
                                 "workspaceSymbolProvider": true,
                                 "documentFormattingProvider": true,
                                 "renameProvider": { "prepareProvider": true },
+                                "codeActionProvider": { "codeActionKinds": ["quickfix"] },
                                 "completionProvider": { "triggerCharacters": ["."] },
                             },
                             "serverInfo": { "name": "badger", "version": env!("CARGO_PKG_VERSION") },
@@ -874,6 +919,7 @@ pub fn serve() -> i32 {
                         "textDocument/completion" => Ok(server.completion(params)),
                         "textDocument/prepareRename" => Ok(server.prepare_rename(params)),
                         "textDocument/rename" => server.rename(params).map_err(|e| (-32602, e)),
+                        "textDocument/codeAction" => Ok(server.code_actions(params)),
                         other => Err((-32601, format!("method not found: {other}"))),
                     };
                     let reply = match result {

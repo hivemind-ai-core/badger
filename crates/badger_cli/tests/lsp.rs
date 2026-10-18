@@ -302,3 +302,34 @@ fn language_server_project_entries() {
     c.notify("exit", Value::Null);
     assert!(c.child.wait().unwrap().success());
 }
+
+/// A quick fix inserts the import of a standard module used without one.
+#[test]
+fn code_action_inserts_import() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-action-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "import std.io\n\npub fn main() -> Unit {\n    let t = text.trim(\" a \")\n}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let actions = r["result"].as_array().unwrap();
+    assert_eq!(actions.len(), 1, "{r}");
+    assert_eq!(actions[0]["title"], "Import std.text");
+    let edit = &actions[0]["edit"]["changes"][&uri][0];
+    assert_eq!(edit["newText"], "import std.text\n");
+    assert_eq!(edit["range"]["start"]["line"], 1, "after the last import");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -556,7 +556,8 @@ badger update
 ### `badger lsp`
 
 Language server on standard input and output: diagnostics, hover,
-definition, references, rename, symbols, formatting, completion. Editor
+definition, references, rename, symbols, formatting, completion, and a
+quick fix inserting a missing standard import. Editor
 setup: [editors.md](../editors.md).
 
 ### `badger mcp`

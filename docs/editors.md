@@ -3,7 +3,8 @@
 `badger lsp` speaks the Language Server Protocol on stdin/stdout. It provides
 diagnostics (as `badger check` reports them), hover (types and signatures),
 go to definition, find references, document highlights, rename, document
-and workspace symbols, formatting, and completion (triggered by `.`). It
+and workspace symbols, formatting, completion (triggered by `.`), and a
+quick fix that adds the import of a standard module used without one. It
 needs no configuration: a file inside a directory with `badger.toml` is
 checked as part of that project; any other file is checked on its own.
 

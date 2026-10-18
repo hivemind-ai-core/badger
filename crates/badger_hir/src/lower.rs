@@ -546,7 +546,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             return;
         }
         let s = self.sym(name);
-        self.err("E0127", span, format!("unknown name `{s}`"), "not found in this scope");
+        let mut d = Diagnostic::error(format!("unknown name `{s}`"))
+            .with_code("E0127")
+            .with_label(span, "not found in this scope");
+        // a standard module used without its import
+        if crate::stdlib::STD_MODULES.iter().any(|(m, _)| *m == s && *m != "prelude") {
+            d = d.with_note(format!("`{s}` is a standard module: add `import std.{s}`"));
+        }
+        self.cx.diags.push(d);
     }
 
     fn alloc(&mut self, kind: ExprKind, span: Span) -> ExprId {
