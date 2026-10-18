@@ -1,5 +1,7 @@
 // Structured concurrency: task scopes own every child they spawn.
 
+import std.list
+
 /// How a captured task finished.
 pub enum Exit<T> {
     returned(value: T),
@@ -161,6 +163,51 @@ impl<S, T> Task<S, T> {
 }
 
 pub fn sleep(d: Duration) -> Unit !{Wait} { task_sleep(d) }
+
+/// `f` over `items` with at most `limit` calls running at once (in child
+/// tasks of a new scope), the results in item order. The first error
+/// cancels and settles the calls still running and is returned; items not
+/// yet started are not run.
+pub fn map_bounded<T, U, E, Eff>(items: List<T>, limit: Int, f: fn(T) -> Result<U, E> !Eff) -> Result<List<U>, E> !{Wait, State, Eff} where fn(T) -> Result<U, E> !Eff: Transfer, T: Transfer, U: Transfer, E: Transfer {
+    let n = list.len(items)
+    let workers = if limit < 1 { 1 } else if limit > n { n } else { limit }
+    let next = Atom.new(0)
+    // results and the first error are kept outside the scope, which
+    // returns only whether a call failed
+    let results: Atom<List<(Int, U)>> = Atom.new([])
+    let failure: Atom<Option<E>> = Atom.new(Option.none)
+    let _ = scope(fn(s) -> Result<Unit, Unit> {
+        var ts: List<Task<_, Result<Unit, Unit>>> = []
+        for _ in 0..workers {
+            ts = list.append(ts, s.spawn(fn() -> Result<Unit, Unit> {
+                var done: List<(Int, U)> = []
+                loop {
+                    let i = next.update(fn(x: Int) -> Int { x + 1 }) - 1
+                    if i >= n {
+                        let _ = results.update(fn(all: List<(Int, U)>) -> List<(Int, U)> { list.concat(all, done) })
+                        return ok(())
+                    }
+                    match f(items[i]) {
+                        .ok(y) => { done = list.append(done, (i, y)) },
+                        .err(e) => {
+                            let _ = failure.update(fn(first: Option<E>) -> Option<E> { if first.is_some() { first } else { Option.some(e) } })
+                            return err(())
+                        },
+                    }
+                }
+            }))
+        }
+        let _ = s.try_all(ts)
+        ok(())
+    })
+    match failure.get() {
+        .some(e) => err(e),
+        .none => {
+            let all = list.sort_by(results.get(), fn(p: (Int, U)) -> Int { p.0 })
+            ok(list.map(all, fn(p: (Int, U)) -> U { p.1 }))
+        },
+    }
+}
 
 /// The work did not finish within its time limit and was cancelled.
 pub struct TimedOut {
