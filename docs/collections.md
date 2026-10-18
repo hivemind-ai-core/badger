@@ -17,6 +17,11 @@ every function is listed in the [API reference](api/README.md).
 | Membership | `Set<T>` | A map without values |
 | A pipeline over items, possibly large or infinite | `Seq<T>` | Lazy: nothing runs until consumed; early exits close scoped sources |
 | Items arriving over time from other tasks | `Stream<T>`, channels | Suspending: a consumer parks until the next item |
+| Keys in order: first/last, floor/ceiling, ranges | `sorted.SortedMap<K, V>` | A persistent AVL tree keyed by `<`: O(log n) lookups and updates, entries in key order |
+| The smallest item next (priority queue) | `heap.Heap<T>` | A persistent leftist heap: O(log n) `push`/`pop`/`merge`, O(1) `peek` |
+| A queue or stack used at both ends | `deque.Deque<T>` | Amortized O(1) `push_front`/`push_back`/`pop_front`/`pop_back` |
+| A bounded cache that evicts the least recently used | `lru.Cache<K, V>` | `get` records a use and returns the updated cache; O(log n) per operation |
+| Sets of small non-negative integers | `bits.BitSet` | 63 per word: O(1) `contains`, word-wise `union`/`intersection`/`difference` |
 
 Rules of thumb:
 
@@ -28,7 +33,10 @@ Rules of thumb:
   resource's scope.
 - Iteration order of `Map` and `Set` is unspecified (stable for one
   value, not across inserts). Sort explicitly (`keys().sort()`,
-  `sort_by`) for stable output.
+  `sort_by`), or keep a `sorted.SortedMap`, for stable output.
+- `SortedMap`, `Heap`, `Deque`, `Cache`, and `BitSet` are persistent like
+  the others: each operation returns a new value. Keep the current one in
+  a `var` (or an `Atom` when tasks share it).
 
 ## Costs
 

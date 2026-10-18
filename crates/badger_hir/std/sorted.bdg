@@ -1,0 +1,314 @@
+// Ordered maps: a persistent AVL tree keyed by `<`. `get`, `insert`,
+// `remove`, `first`, `last`, `floor`, and `ceiling` take O(log n); `range`
+// and `to_list` yield entries in key order. Every operation returns a new
+// map and leaves the old one unchanged.
+//
+//     let m = sorted.empty<Int, String>().insert(3, "c").insert(1, "a")
+//     m.first()               // .some((1, "a"))
+//     m.range(1, 3)           // [(1, "a")]   (from inclusive, to exclusive)
+import std.list
+
+enum Tree<K, V> {
+    leaf,
+    node(n: Box<Node<K, V>>),
+}
+
+struct Node<K, V> {
+    height: Int,
+    left: Tree<K, V>,
+    key: K,
+    value: V,
+    right: Tree<K, V>,
+}
+
+// the nodes an in-order walk returns to
+enum Up<K, V> {
+    top,
+    to(cell: Box<(Node<K, V>, Up<K, V>)>),
+}
+
+/// A map from `K` (ordered by `<`) to `V`.
+pub struct SortedMap<K, V> {
+    root: Tree<K, V>,
+    size: Int,
+}
+
+fn height<K, V>(t: Tree<K, V>) -> Int {
+    match t {
+        .leaf => 0,
+        .node(b) => b.get().height,
+    }
+}
+
+fn mk<K, V>(l: Tree<K, V>, k: K, v: V, r: Tree<K, V>) -> Tree<K, V> {
+    let hl = height(l)
+    let hr = height(r)
+    Tree.node(Box.new({ height: if hl > hr { hl + 1 } else { hr + 1 }, left: l, key: k, value: v, right: r }))
+}
+
+fn rotate_right<K, V>(t: Tree<K, V>) -> Tree<K, V> {
+    let .node(b) = t else { return t }
+    let n = b.get()
+    let .node(lb) = n.left else { return t }
+    let l = lb.get()
+    mk(l.left, l.key, l.value, mk(l.right, n.key, n.value, n.right))
+}
+
+fn rotate_left<K, V>(t: Tree<K, V>) -> Tree<K, V> {
+    let .node(b) = t else { return t }
+    let n = b.get()
+    let .node(rb) = n.right else { return t }
+    let r = rb.get()
+    mk(mk(n.left, n.key, n.value, r.left), r.key, r.value, r.right)
+}
+
+// a node from subtrees whose heights differ by at most two
+fn balance<K, V>(l: Tree<K, V>, k: K, v: V, r: Tree<K, V>) -> Tree<K, V> {
+    let hl = height(l)
+    let hr = height(r)
+    if hl > hr + 1 {
+        let l2 = match l {
+            .node(b) => {
+                let n = b.get()
+                if height(n.right) > height(n.left) { rotate_left(l) } else { l }
+            },
+            .leaf => l,
+        }
+        rotate_right(mk(l2, k, v, r))
+    } else if hr > hl + 1 {
+        let r2 = match r {
+            .node(b) => {
+                let n = b.get()
+                if height(n.left) > height(n.right) { rotate_right(r) } else { r }
+            },
+            .leaf => r,
+        }
+        rotate_left(mk(l, k, v, r2))
+    } else {
+        mk(l, k, v, r)
+    }
+}
+
+// the tree with (k, v), and whether k was new
+fn put<K, V>(t: Tree<K, V>, k: K, v: V) -> (Tree<K, V>, Bool) where K: PartialOrd {
+    match t {
+        .leaf => (mk(Tree.leaf, k, v, Tree.leaf), true),
+        .node(b) => {
+            let n = b.get()
+            if k < n.key {
+                let (l2, added) = put(n.left, k, v)
+                (balance(l2, n.key, n.value, n.right), added)
+            } else if n.key < k {
+                let (r2, added) = put(n.right, k, v)
+                (balance(n.left, n.key, n.value, r2), added)
+            } else {
+                (Tree.node(Box.new({ ..n, key: k, value: v })), false)
+            }
+        },
+    }
+}
+
+// the smallest entry, and the tree without it
+fn take_min<K, V>(t: Tree<K, V>) -> Option<(K, V, Tree<K, V>)> {
+    let .node(b) = t else { return Option.none }
+    let n = b.get()
+    match take_min(n.left) {
+        .some((mk_, mv, l2)) => Option.some((mk_, mv, balance(l2, n.key, n.value, n.right))),
+        .none => Option.some((n.key, n.value, n.right)),
+    }
+}
+
+// the tree without k, and whether it was there
+fn del<K, V>(t: Tree<K, V>, k: K) -> (Tree<K, V>, Bool) where K: PartialOrd {
+    let .node(b) = t else { return (t, false) }
+    let n = b.get()
+    if k < n.key {
+        let (l2, gone) = del(n.left, k)
+        (balance(l2, n.key, n.value, n.right), gone)
+    } else if n.key < k {
+        let (r2, gone) = del(n.right, k)
+        (balance(n.left, n.key, n.value, r2), gone)
+    } else {
+        match take_min(n.right) {
+            .some((sk, sv, r2)) => (balance(n.left, sk, sv, r2), true),
+            .none => (n.left, true),
+        }
+    }
+}
+
+/// An empty map.
+pub fn empty<K, V>() -> SortedMap<K, V> {
+    { root: Tree.leaf, size: 0 }
+}
+
+/// A map of `entries` (a later entry replaces an earlier one's value).
+pub fn of<K, V>(entries: List<(K, V)>) -> SortedMap<K, V> where K: PartialOrd {
+    list.fold(entries, empty(), fn(m, e) { m.insert(e.0, e.1) })
+}
+
+impl<K, V> SortedMap<K, V> {
+    pub fn len(self: &Self) -> Int {
+        self.size
+    }
+
+    pub fn is_empty(self: &Self) -> Bool {
+        self.size == 0
+    }
+
+    pub fn get(self: &Self, key: K) -> Option<V> where K: PartialOrd {
+        var t = self.root
+        loop {
+            let .node(b) = t else { return Option.none }
+            let n = b.get()
+            if key < n.key {
+                t = n.left
+            } else if n.key < key {
+                t = n.right
+            } else {
+                return Option.some(n.value)
+            }
+        }
+    }
+
+    pub fn contains(self: &Self, key: K) -> Bool where K: PartialOrd {
+        self.get(key).is_some()
+    }
+
+    /// The map with `key` set to `value`.
+    pub fn insert(self: &Self, key: K, value: V) -> SortedMap<K, V> where K: PartialOrd {
+        let (root, added) = put(self.root, key, value)
+        { root, size: if added { self.size + 1 } else { self.size } }
+    }
+
+    /// The map without `key`.
+    pub fn remove(self: &Self, key: K) -> SortedMap<K, V> where K: PartialOrd {
+        let (root, gone) = del(self.root, key)
+        { root, size: if gone { self.size - 1 } else { self.size } }
+    }
+
+    /// The entry with the smallest key.
+    pub fn first(self: &Self) -> Option<(K, V)> {
+        var t = self.root
+        var best: Option<(K, V)> = Option.none
+        loop {
+            let .node(b) = t else { return best }
+            let n = b.get()
+            best = Option.some((n.key, n.value))
+            t = n.left
+        }
+    }
+
+    /// The entry with the largest key.
+    pub fn last(self: &Self) -> Option<(K, V)> {
+        var t = self.root
+        var best: Option<(K, V)> = Option.none
+        loop {
+            let .node(b) = t else { return best }
+            let n = b.get()
+            best = Option.some((n.key, n.value))
+            t = n.right
+        }
+    }
+
+    /// The entry with the largest key at most `key`.
+    pub fn floor(self: &Self, key: K) -> Option<(K, V)> where K: PartialOrd {
+        var t = self.root
+        var best: Option<(K, V)> = Option.none
+        loop {
+            let .node(b) = t else { return best }
+            let n = b.get()
+            if key < n.key {
+                t = n.left
+            } else {
+                best = Option.some((n.key, n.value))
+                if n.key < key {
+                    t = n.right
+                } else {
+                    return best
+                }
+            }
+        }
+    }
+
+    /// The entry with the smallest key at least `key`.
+    pub fn ceiling(self: &Self, key: K) -> Option<(K, V)> where K: PartialOrd {
+        var t = self.root
+        var best: Option<(K, V)> = Option.none
+        loop {
+            let .node(b) = t else { return best }
+            let n = b.get()
+            if n.key < key {
+                t = n.right
+            } else {
+                best = Option.some((n.key, n.value))
+                if key < n.key {
+                    t = n.left
+                } else {
+                    return best
+                }
+            }
+        }
+    }
+
+    /// The entries with `from <= key < to`, in key order.
+    pub fn range(self: &Self, from: K, to: K) -> List<(K, V)> where K: PartialOrd {
+        var out = list.builder<(K, V)>()
+        var stack: Up<K, V> = Up.top
+        var t = self.root
+        loop {
+            match t {
+                .node(b) => {
+                    let n = b.get()
+                    if n.key < from {
+                        // everything to the left is smaller still
+                        t = n.right
+                    } else {
+                        stack = Up.to(Box.new((n, stack)))
+                        t = n.left
+                    }
+                },
+                .leaf => {
+                    let .to(cell) = stack else { return out.finish() }
+                    let (n, rest) = cell.get()
+                    stack = rest
+                    if !(n.key < to) {
+                        return out.finish()
+                    }
+                    out.append((n.key, n.value))
+                    t = n.right
+                },
+            }
+        }
+    }
+
+    /// Every entry, in key order.
+    pub fn to_list(self: &Self) -> List<(K, V)> {
+        var out = list.builder<(K, V)>()
+        var stack: Up<K, V> = Up.top
+        var t = self.root
+        loop {
+            match t {
+                .node(b) => {
+                    let n = b.get()
+                    stack = Up.to(Box.new((n, stack)))
+                    t = n.left
+                },
+                .leaf => {
+                    let .to(cell) = stack else { return out.finish() }
+                    let (n, rest) = cell.get()
+                    stack = rest
+                    out.append((n.key, n.value))
+                    t = n.right
+                },
+            }
+        }
+    }
+
+    pub fn keys(self: &Self) -> List<K> {
+        self.to_list().map(fn(e) { e.0 })
+    }
+
+    pub fn values(self: &Self) -> List<V> {
+        self.to_list().map(fn(e) { e.1 })
+    }
+}

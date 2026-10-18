@@ -1,0 +1,120 @@
+// Priority queues: a persistent leftist heap. `pop` gives the smallest
+// element (by `<`); `push`, `pop`, and `merge` take O(log n), `peek` O(1).
+// Every operation returns a new heap and leaves the old one unchanged.
+//
+//     let h = heap.of([5, 1, 4])
+//     let (smallest, rest) = h.pop().unwrap_or((0, h))   // 1
+//
+// For the largest first, order a wrapper or negate the key; `by_key` keeps
+// elements ordered by a key function.
+import std.list
+
+enum Node<T> {
+    empty,
+    node(n: Box<Branch<T>>),
+}
+
+struct Branch<T> {
+    rank: Int,
+    item: T,
+    left: Node<T>,
+    right: Node<T>,
+}
+
+/// A min-heap of `T` (by `<`).
+pub struct Heap<T> {
+    root: Node<T>,
+    size: Int,
+}
+
+fn rank<T>(n: Node<T>) -> Int {
+    match n {
+        .empty => 0,
+        .node(b) => b.get().rank,
+    }
+}
+
+fn branch<T>(rank: Int, item: T, left: Node<T>, right: Node<T>) -> Node<T> {
+    Node.node(Box.new({ rank, item, left, right }))
+}
+
+fn make<T>(item: T, a: Node<T>, b: Node<T>) -> Node<T> {
+    if rank(a) >= rank(b) { branch(rank(b) + 1, item, a, b) } else { branch(rank(a) + 1, item, b, a) }
+}
+
+fn meld<T>(a: Node<T>, b: Node<T>) -> Node<T> where T: PartialOrd {
+    match (a, b) {
+        (.empty, _) => b,
+        (_, .empty) => a,
+        (.node(x), .node(y)) => {
+            let (x, y) = (x.get(), y.get())
+            if y.item < x.item { make(y.item, y.left, meld(a, y.right)) } else { make(x.item, x.left, meld(x.right, b)) }
+        },
+    }
+}
+
+/// An empty heap.
+pub fn empty<T>() -> Heap<T> {
+    { root: Node.empty, size: 0 }
+}
+
+/// A heap of `items`.
+pub fn of<T>(items: List<T>) -> Heap<T> where T: PartialOrd {
+    list.fold(items, empty(), fn(h, x) { h.push(x) })
+}
+
+impl<T> Heap<T> {
+    pub fn len(self: &Self) -> Int {
+        self.size
+    }
+
+    pub fn is_empty(self: &Self) -> Bool {
+        self.size == 0
+    }
+
+    /// The heap with `item` added.
+    pub fn push(self: &Self, item: T) -> Heap<T> where T: PartialOrd {
+        { root: meld(self.root, branch(1, item, Node.empty, Node.empty)), size: self.size + 1 }
+    }
+
+    /// The smallest element.
+    pub fn peek(self: &Self) -> Option<T> {
+        match self.root {
+            .empty => Option.none,
+            .node(b) => Option.some(b.get().item),
+        }
+    }
+
+    /// The smallest element and the heap without it.
+    pub fn pop(self: &Self) -> Option<(T, Heap<T>)> where T: PartialOrd {
+        match self.root {
+            .empty => Option.none,
+            .node(b) => {
+                let n = b.get()
+                let rest: Heap<T> = { root: meld(n.left, n.right), size: self.size - 1 }
+                Option.some((n.item, rest))
+            },
+        }
+    }
+
+    /// Both heaps' elements.
+    pub fn merge(self: &Self, other: Heap<T>) -> Heap<T> where T: PartialOrd {
+        { root: meld(self.root, other.root), size: self.size + other.size }
+    }
+
+    /// The elements, smallest first.
+    pub fn to_list(self: &Self) -> List<T> where T: PartialOrd {
+        var b = list.builder<T>()
+        var h: Heap<T> = { root: self.root, size: self.size }
+        loop {
+            match h.pop() {
+                .some((x, rest)) => {
+                    b.append(x)
+                    h = rest
+                }
+                .none => break,
+            }
+        }
+        b.finish()
+    }
+}

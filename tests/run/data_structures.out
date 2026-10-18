@@ -1,0 +1,6 @@
+heap: [1, 1, 4, 5]
+deque: [1, 2, 3] [0, 1, 2, 3] some(3)
+sorted: floor 25 twenty, ceiling 25 thirty, floor 5 none
+sorted: [10, 30] [10, 20, 30]
+lru: some(1) ["a", "c"] b=false a=some(1) old=["a", "b"]
+bits: [1, 5, 64, 65, 200] [5, 64] [1, 200] true false

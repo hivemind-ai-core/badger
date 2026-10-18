@@ -14,6 +14,11 @@
 | [`std.fs`](fs.md) | Filesystem access. Operations run on the blocking pool and park the |
 | [`std.map`](map.md) | Persistent maps with value semantics. |
 | [`std.set`](set.md) | Persistent sets. |
+| [`std.heap`](heap.md) | Priority queues: a persistent leftist heap. `pop` gives the smallest |
+| [`std.deque`](deque.md) | Double-ended queues: a persistent banker's deque. `push_front`, |
+| [`std.sorted`](sorted.md) | Ordered maps: a persistent AVL tree keyed by `<`. `get`, `insert`, |
+| [`std.lru`](lru.md) | Least-recently-used caches: at most `capacity` entries; adding one more |
+| [`std.bits`](bits.md) | Bit sets: sets of small non-negative integers, 63 per word. `contains` |
 | [`std.option`](option.md) | Option helpers. |
 | [`std.result`](result.md) | Result helpers. |
 | [`std.task`](task.md) | Structured concurrency: task scopes own every child they spawn. |
