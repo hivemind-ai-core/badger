@@ -130,6 +130,10 @@ class CoverageOracle(unittest.TestCase):
             expected = sum(window) + len(window) * 5
             self.assertEqual(run.expected_coverage(dict(mode="records-window", n=n, retain=4, payload=4)), expected)
 
+    def test_entry_iterations_include_every_key_and_pointer_value(self):
+        for mode in ["entries-immediate", "entries-stored"]:
+            self.assertEqual(run.expected_coverage(dict(mode=mode, n=3, rounds=2, payload=4)), 222)
+
     def test_corruption_and_wrong_configuration_rejected(self):
         c = dict(mode="visible", n=7, rounds=2)
         good = dict(config=c, checksum=36, elapsed_ns=1)

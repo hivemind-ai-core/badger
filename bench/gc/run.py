@@ -23,6 +23,8 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    **{name: dict(mode=name, n=1024, rounds=512, payload=32, retain=1024)
+       for name in ["entries-immediate", "entries-stored"]},
     "records-window": dict(mode="records-window", n=3000000, rounds=1, payload=4, retain=2000),
     **{name: dict(mode=name, n=1048576, rounds=1, payload=32, retain=1024)
        for name in ["lookup-map-misses", "lookup-list-misses", "lookup-map-int", "lookup-map-pointers", "lookup-array-int",
@@ -123,6 +125,8 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"].startswith("entries-"):
+        return c["rounds"] * (c["n"] + sum(k * 31 + c["payload"] + k % 3 for k in range(c["n"])))
     if c["mode"] == "records-window":
         first = (c["n"] - 1) // c["retain"] * c["retain"]
         count = c["n"] - first

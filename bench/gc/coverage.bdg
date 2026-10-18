@@ -16,6 +16,31 @@ import std.time
 
 type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
 
+fn map_entries(c: Config) -> Int {
+    let words = array.build(c.n, fn(k: Int) { text.repeat("x", c.payload + k % 3) })
+    var builder = map.builder<Int, String>()
+    for k in 0..c.n { builder.insert(k, words[k]) }
+    let source = builder.finish()
+    var total = 0
+    for _ in 0..c.rounds {
+        if c.mode == "entries-stored" {
+            let entries = source.entries()
+            for (k, v) in entries {
+                assert(k >= 0 && k < c.n && v == words[k])
+                total = total + k * 31 + v.len()
+            }
+            total = total + entries.len()
+        } else {
+            for (k, v) in source.entries() {
+                assert(k >= 0 && k < c.n && v == words[k])
+                total = total + k * 31 + v.len()
+            }
+            total = total + source.len()
+        }
+    }
+    total
+}
+
 // The allocation shape of bench/heap.bdg, without spawn/cancellation timing.
 // Every record escapes into the persistent list; the final window is checked.
 fn records_window(c: Config) -> Int {
@@ -554,7 +579,8 @@ pub fn main() -> Result<Unit, io.Error> {
     let before = inspect.heap()
     let start = time.now()
     var checkpoints: List<Data> = []
-    let checksum = if c.mode == "records-window" { records_window(c) }
+    let checksum = if c.mode.starts_with("entries-") { map_entries(c) }
+    else if c.mode == "records-window" { records_window(c) }
     else if c.mode == "pool-burst" {
         let (total, shots) = pool_burst(c)
         checkpoints = shots

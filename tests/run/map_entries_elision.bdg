@@ -1,0 +1,90 @@
+import std.io
+import std.list
+import std.map
+import std.task
+import std.text
+
+struct Pretender { value: Int }
+
+impl Pretender {
+    fn entries(self: &Self) -> List<(Int, String)> { [(self.value, "user")] }
+}
+
+fn observed(m: Map<Int, String>, calls: Cell<Int>) -> Map<Int, String> {
+    calls.set(calls.get() + 1)
+    m
+}
+
+fn check(m: Map<Int, String>) -> Int {
+    var total = 0
+    for (k, v) in m.entries() {
+        assert(v == text.repeat("x", k % 7 + 1))
+        total = total + k
+    }
+    total
+}
+
+fn fresh() -> Map<Int, String> {
+    var source: Map<Int, String> = map.empty()
+    for k in 0..65 { source = source.insert(k, text.repeat("x", k % 7 + 1)) }
+    source
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    var ephemeral_total = 0
+    // No map or materialized entry list outside the iterator can keep these
+    // separately allocated nodes and Strings reachable during suspension.
+    for (k, v) in fresh().entries() {
+        assert(text.repeat("z", 2048).len() == 2048)
+        task.yield_now()
+        assert(v == text.repeat("x", k % 7 + 1))
+        ephemeral_total = ephemeral_total + k
+    }
+    assert(ephemeral_total == 2080)
+    let original = fresh()
+    let entries = original.entries()
+    var current = original
+    let calls = Cell.new(0)
+    var total = 0
+    var position = 0
+    // Keep the original version's cursor/payloads live across updates,
+    // allocations and scheduler suspension; evaluate the receiver only once.
+    for (k, v) in observed(current, calls).entries() {
+        let expected = entries[position]
+        assert(expected.0 == k && expected.1 == v)
+        position = position + 1
+        current = current.insert(k, "changed")
+        assert(text.repeat("z", 2048).len() == 2048)
+        task.yield_now()
+        assert(v == text.repeat("x", k % 7 + 1))
+        total = total + k
+    }
+    assert(calls.get() == 1 && total == 2080 && position == 65)
+    assert(check(original) == 2080)
+    for (_, v) in current.entries() { assert(v == "changed") }
+    // Stored entry lists retain their boxed ABI and their old pointer values.
+    assert(entries.len() == 65)
+    total = 0
+    for (k, v) in entries {
+        assert(v == text.repeat("x", k % 7 + 1))
+        total = total + k
+    }
+    assert(total == 2080)
+
+    // Entries bound as tuples can escape; only their intermediate list elides.
+    let saved = list.builder<(Int, String)>()
+    for pair in original.entries() { saved.append(pair) }
+    let saved = saved.finish()
+    task.yield_now()
+    assert(saved.len() == 65)
+    for (k, v) in saved { assert(v == text.repeat("x", k % 7 + 1)) }
+
+    var count = 0
+    for _ in original.entries() { count = count + 1; break }
+    assert(count == 1)
+    for _ in map.empty<Int, String>().entries() { panic("empty map iterated") }
+    let user: Pretender = { value: 999 }
+    for (k, v) in user.entries() { assert(k == 999 && v == "user") }
+    io.println("map entry iteration ok")?
+    ok(())
+}
