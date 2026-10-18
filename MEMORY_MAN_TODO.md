@@ -49,6 +49,8 @@ negative results; do not mark architectural sketches as implemented.
   then evaluate pointer-bearing layouts with precise tracing.
 - [ ] I5: Reuse consumed immutable structures when uniqueness is proven, including
   descendant ownership; retain copying when versions share nodes.
+  - [ ] I5a: Reuse private, fresh-origin scalar-map updates only when all old
+    aliases die and no earlier version/cursor escapes before later mutations.
 - [ ] I6: Evaluate compact small-map, singleton-collection, and short-string forms
   against observed size distributions and object-size inflation.
 - [ ] I7: Borrow parsing/string/byte views where lifetime permits; copy small

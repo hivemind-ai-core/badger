@@ -322,8 +322,8 @@ fn snapshots(c: Config) -> Int {
     total + current.len()
 }
 
-// Ordinary persistent updates, without string or numeric-conversion churn.
-// Unlike the builder cases, each insert copies its path through the trie.
+// Persistent source syntax without string/conversion churn. No old version is
+// observed, so a proven private-map optimization may reuse its internal nodes.
 fn persistent_int(c: Config) -> Int {
     var current: Map<Int, Int> = map.empty()
     for i in 0..c.n { current = current.insert(i % c.retain, i) }
@@ -333,6 +333,38 @@ fn persistent_int(c: Config) -> Int {
         assert(k >= 0 && k < c.n.min(c.retain))
         assert(v == c.n - 1 - (c.n - 1 - k) % c.retain)
         total = total + k + v
+    }
+    total
+}
+
+// True scalar snapshots: inspect all values of every earlier version after
+// churn. Private/transient update inference must not change those versions.
+fn scalar_snapshots(c: Config) -> Int {
+    var current: Map<Int, Int> = map.empty()
+    let versions = list.builder<Map<Int, Int>>()
+    let stops = list.builder<Int>()
+    for i in 0..c.n {
+        current = current.insert(i % c.retain, i)
+        if (i + 1) % 64 == 0 {
+            versions.append(current)
+            stops.append(i + 1)
+        }
+    }
+    versions.append(current)
+    stops.append(c.n)
+    let saved = versions.finish()
+    let saved_stops = stops.finish()
+    var total = 0
+    for index in 0..saved.len() {
+        let version = saved[index]
+        let stop = saved_stops[index]
+        assert(version.len() == stop.min(c.retain))
+        total = total + version.len()
+        for (k, v) in version {
+            assert(k >= 0 && k < stop.min(c.retain))
+            assert(v == stop - 1 - (stop - 1 - k) % c.retain)
+            total = total + k + v
+        }
     }
     total
 }
@@ -606,6 +638,7 @@ pub fn main() -> Result<Unit, io.Error> {
     else if c.mode == "words" { buffers(c, false) }
     else if c.mode == "snapshots" { snapshots(c) }
     else if c.mode == "persistent-int" { persistent_int(c) }
+    else if c.mode == "scalar-snapshots" { scalar_snapshots(c) }
     else if c.mode.starts_with("parallel-") { parallel_maps(c) }
     else if c.mode.starts_with("map-") || c.mode == "set-builder" { builders(c) }
     else if c.mode.starts_with("messages-int") { messages_int(c) }

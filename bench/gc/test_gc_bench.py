@@ -134,6 +134,17 @@ class CoverageOracle(unittest.TestCase):
         for mode in ["entries-immediate", "entries-stored"]:
             self.assertEqual(run.expected_coverage(dict(mode=mode, n=3, rounds=2, payload=4)), 222)
 
+    def test_scalar_snapshots_include_old_values_and_final_partial_window(self):
+        for n in [1, 63, 64, 65, 257]:
+            current, saved = {}, []
+            for i in range(n):
+                current[i % 4] = i
+                if (i + 1) % 64 == 0:
+                    saved.append(current.copy())
+            saved.append(current.copy())
+            expected = sum(len(m) + sum(m) + sum(m.values()) for m in saved)
+            self.assertEqual(run.expected_coverage(dict(mode="scalar-snapshots", n=n, retain=4)), expected)
+
     def test_corruption_and_wrong_configuration_rejected(self):
         c = dict(mode="visible", n=7, rounds=2)
         good = dict(config=c, checksum=36, elapsed_ns=1)

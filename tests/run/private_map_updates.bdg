@@ -1,0 +1,117 @@
+import std.io
+import std.list
+import std.map
+import std.task
+import std.text
+
+fn private_build() -> Map<Int, Int> {
+    var current: Map<Int, Int> = map.empty()
+    for i in 0..257 {
+        let key = -(i % 17)
+        current = current.insert(key, current.get_or(key, 0) + i)
+        if i % 7 == 0 { task.yield_now() }
+    }
+    current
+}
+
+fn update_input(input: Map<Int, Int>) -> Map<Int, Int> {
+    var current = input
+    for i in 0..33 { current = current.insert(i, 1000 + i) }
+    current
+}
+
+fn scalar_snapshots() {
+    var current: Map<Int, Int> = map.empty()
+    let versions = list.builder<Map<Int, Int>>()
+    for i in 0..65 {
+        current = current.insert(i % 7, i)
+        versions.append(current)
+    }
+    let saved = versions.finish()
+    for stop in 1..66 {
+        let old = saved[stop - 1]
+        assert(old.len() == stop.min(7))
+        for (k, v) in old { assert(v == stop - 1 - (stop - 1 - k) % 7) }
+    }
+}
+
+fn live_and_hidden_aliases() {
+    var current: Map<Int, Int> = map.empty()
+    current = current.insert(1, 10)
+    let snapshot = current
+    let first = current.insert(2, 20)
+    let second = current.insert(3, 30)
+    assert(snapshot.len() == 1 && first.len() == 2 && second.len() == 2)
+    assert(!first.contains(3) && !second.contains(2))
+
+    let hidden = Cell.new(current)
+    current = current.insert(4, 40)
+    assert(hidden.get().len() == 1 && current.len() == 2)
+    let captured = snapshot
+    let read = fn() { captured.get_or(1, -1) }
+    let replaced = snapshot.insert(1, 99)
+    assert(read() == 10 && replaced.get_or(1, -1) == 99)
+}
+
+fn cursor_before_updates() {
+    var current: Map<Int, Int> = map.empty()
+    for i in 0..8 { current = current.insert(i, i) }
+    var count = 0
+    for (k, v) in current {
+        assert(k < 8 && k == v)
+        current = current.insert(k + 16, v * 2)
+        count = count + 1
+        assert(count <= 8)
+    }
+    assert(count == 8 && current.len() == 16)
+}
+
+fn pointer_and_packed_values() {
+    var words: Map<String, String> = map.empty()
+    for i in 0..17 {
+        let old = words
+        words = words.insert(text.repeat("k", i + 1), text.repeat("v", i + 1))
+        assert(old.len() == i)
+    }
+    for (k, v) in words { assert(k.len() == v.len() && k.len() >= 1) }
+    var packed: Map<U8, I16> = map.empty()
+    for i in 0..65 {
+        packed = packed.insert(U8.try_from(i % 13).unwrap_or(0U8), I16.try_from(i).unwrap_or(0I16))
+    }
+    for (k, v) in packed {
+        let key = Int.try_from(k).unwrap_or(-1)
+        assert(Int.try_from(v).unwrap_or(-1) == 64 - (64 - key) % 13)
+    }
+    var floats: Map<Int, F64> = map.empty()
+    floats = floats.insert(1, -0.0)
+    floats = floats.insert(2, 3.5)
+    floats = floats.insert(2, 4.5)
+    assert(floats.len() == 2 && floats.get_or(2, 0.0) == 4.5)
+    assert(floats.get_or(1, 1.0) == 0.0)
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let built = private_build()
+    assert(built.len() == 17)
+    for (key, value) in built {
+        var expected = 0
+        for i in 0..257 { if -(i % 17) == key { expected = expected + i } }
+        assert(value == expected)
+    }
+    let changed = update_input(built)
+    assert(built.get_or(0, -1) == 2040)
+    assert(changed.get_or(0, -1) == 1000)
+    scalar_snapshots()
+    live_and_hidden_aliases()
+    cursor_before_updates()
+    pointer_and_packed_values()
+    // The returned private map becomes an ordinary immutable shared value.
+    let total = task.scope(fn(s) -> Result<Int, Never> {
+        let child = s.spawn(fn() { built.get_or(0, -1) })
+        assert(text.repeat("x", 4096).len() == 4096)
+        ok(child.join())
+    }).unwrap_or(-1)
+    assert(total == 2040)
+    io.println("private map updates ok")?
+    ok(())
+}
