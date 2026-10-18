@@ -335,6 +335,13 @@ define_intrinsics! {
         gc::budget_check(256);
         map::insert(m, k, v)
     }
+    // Compiler-only: the map and every trie node are private until its last
+    // update. Preserve the ordinary insert's budget check and existing barriers.
+    fn map_insert_private(ctx, targs, ret, m, k, v) {
+        gc::budget_check(256);
+        map::insert_mut(m, k, v);
+        m
+    }
     fn map_remove(ctx, targs, ret, m, k) { map::remove(m, k) }
     fn map_get(ctx, targs, ret, m, k) {
         match map::get(m, k) { Some(v) => some(rdesc(ret), v), None => none(rdesc(ret)) }

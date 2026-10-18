@@ -10,6 +10,7 @@ pub mod enums;
 pub mod inline;
 pub mod layout;
 pub mod lower;
+pub mod maps;
 pub mod mir;
 pub mod niche;
 pub mod reach;
