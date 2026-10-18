@@ -270,6 +270,32 @@ fn framework_example() {
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 
+/// `badger test --list`, `--exact`, and the structured failure kinds of
+/// `--json`.
+#[test]
+fn test_runner_options() {
+    let dir = root().join("examples/framework");
+    let out = lang().arg("test").arg(&dir).arg("--list").output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.lines().any(|l| l == "test_health") && !text.contains(" ok"), "{text}");
+    let out = lang().arg("test").arg(&dir).args(["test_health", "--exact"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed; 0 failed"));
+    let file = std::env::temp_dir().join(format!("badger-test-kinds-{}.bdg", std::process::id()));
+    std::fs::write(
+        &file,
+        "fn test_a() -> Unit { assert(1 == 2) }\nfn test_b() -> Unit { panic(\"boom\") }\n\
+         fn test_c() -> Result<Unit, String> { err(\"nope\") }\nfn test_d() -> Unit {}\npub fn main() -> Unit {}\n",
+    )
+    .unwrap();
+    let out = lang().arg("test").arg(&file).arg("--json").output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let kinds: Vec<&str> =
+        v["tests"].as_array().unwrap().iter().map(|t| t["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["assertion", "defect", "error", "passed"]);
+    assert!(v["tests"][0]["location"].as_str().unwrap().ends_with(":1:23"), "{v}");
+    let _ = std::fs::remove_file(&file);
+}
+
 /// `badger generate feature`: the plan is checked (and its tests run) in a
 /// copy of the project before anything is written; existing files are
 /// never replaced; the generated tests pass in the project.

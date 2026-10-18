@@ -149,9 +149,16 @@ enum Command {
         /// An optional program path, then an optional name filter.
         #[arg(num_args = 0..=2)]
         args: Vec<String>,
-        /// Print the results as one JSON object.
+        /// Print the results as one JSON object (with each failure's kind,
+        /// message, location, and duration).
         #[arg(long)]
         json: bool,
+        /// Print the selected tests' names instead of running them.
+        #[arg(long)]
+        list: bool,
+        /// The filter is one test's full name, or its function's name.
+        #[arg(long)]
+        exact: bool,
     },
     /// Run a user task: a typed function declared in the project's
     /// `[tasks]` table (`name = "src/file.bdg#function"`).
@@ -444,6 +451,8 @@ fn command(mut cli: Cli) -> ExitCode {
                 dump_mir,
                 tests: false,
                 filter: None,
+                exact: false,
+                list: false,
                 json: false,
                 profile,
                 watch,
@@ -555,7 +564,7 @@ fn command(mut cli: Cli) -> ExitCode {
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
             run_and_exit(&mut session, &project, args, &opts)
         }
-        Command::Test { args, json } => {
+        Command::Test { args, json, list, exact } => {
             // `[path] [filter]`: a first argument naming an existing file or
             // directory is the program; anything else is the filter
             let mut args = args.into_iter();
@@ -569,7 +578,9 @@ fn command(mut cli: Cli) -> ExitCode {
                 Some(a) => (PathBuf::from("."), Some(a)),
                 None => (PathBuf::from("."), None),
             };
-            let opts = badger_driver::RunOptions { tests: true, filter, json, ..Default::default() };
+            badger_driver::LISTING.store(list, std::sync::atomic::Ordering::Relaxed);
+            let opts =
+                badger_driver::RunOptions { tests: true, filter, json, list, exact, ..Default::default() };
             // every package of a workspace, else the one program
             for (i, pkg) in badger_driver::packages_of(&path).into_iter().enumerate() {
                 let mut s = if i == 0 { std::mem::take(&mut session) } else { Session::new() };

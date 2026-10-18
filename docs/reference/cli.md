@@ -184,7 +184,7 @@ $ badger run --release --workers 4 . -- some args
 port=8080 db=demo.db half=4040
 ```
 
-### `badger test [PATH] [FILTER] [--json]`
+### `badger test [PATH] [FILTER] [--json] [--list] [--exact]`
 
 Run `test_*` functions. A test function takes no parameters and returns
 `Unit` or a `Result`; a failed assertion, a defect, or an `err` result
@@ -200,7 +200,9 @@ otherwise it is FILTER. FILTER keeps the tests whose name contains it.
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[{"name","ok","detail"}]}`. |
+| `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[...]}`; each test has `name`, `ok`, `kind` (`passed`, `assertion`, `defect`, `cancelled`, or `error` for a returned `err`), `message`, `location` (`file:line:column` of a failed assertion or defect), `ms`, and `detail` (the line the text report prints). |
+| `--list` | Print the selected tests' names (with `--json`, `{"tests":[{"name"}]}`) without running them. |
+| `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
 
 Exit status: 0 when every test that ran passed (also when the filter
 matched none), 1 when one failed or the program does not check.

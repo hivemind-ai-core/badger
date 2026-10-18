@@ -1395,6 +1395,11 @@ pub struct RunOptions {
     pub tests: bool,
     /// Test name filter.
     pub filter: Option<String>,
+    /// Tests: the filter names one test exactly (its full name, or the
+    /// function's own name) instead of matching a part of names.
+    pub exact: bool,
+    /// Tests: list the selected tests' names instead of running them.
+    pub list: bool,
     /// Machine-readable test report.
     pub json: bool,
     /// Manifest profile to merge into the effective configuration.
@@ -1603,9 +1608,18 @@ pub fn take_tests() -> (usize, usize, Vec<String>) {
     t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]))
 }
 
+/// Set while `badger test --list` collects names (nothing runs).
+pub static LISTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn finish_tests(json: bool) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));
+    if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
+        if json {
+            println!("{{\"tests\":[{}]}}", results.join(","));
+        }
+        return 0;
+    }
     if json {
         println!("{{\"passed\":{},\"failed\":{failed},\"tests\":[{}]}}", ran - failed, results.join(","));
     } else {
@@ -1629,12 +1643,24 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
     let (mut ran, mut failed) = (0, 0);
     let mut results: Vec<String> = vec![];
     for (name, f) in &prog.tests {
-        if opts.filter.as_ref().is_some_and(|flt| !name.contains(flt.as_str()))
-            || !tally.seen.insert(name.clone())
-        {
+        let selected = match &opts.filter {
+            None => true,
+            Some(flt) if opts.exact => name == flt || name.rsplit('.').next() == Some(flt.as_str()),
+            Some(flt) => name.contains(flt.as_str()),
+        };
+        if !selected || !tally.seen.insert(name.clone()) {
+            continue;
+        }
+        if opts.list {
+            if opts.json {
+                results.push(format!("{{\"name\":{}}}", badger_base::diagnostics::json_str(name)));
+            } else {
+                println!("{name}");
+            }
             continue;
         }
         ran += 1;
+        let started = std::time::Instant::now();
         let closure = prog.static_closures.iter().find(|(_, g)| g == f).map(|(o, _)| *o).unwrap();
         let _ = c;
         badger_runtime::task::reset_test_state();
@@ -1669,10 +1695,26 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
             failed += 1;
         }
         if opts.json {
+            // how it failed: an assertion, another defect (panic, overflow,
+            // contract), cancellation, or an error the test returned
+            let (kind, message, location) = match &exit {
+                _ if ok => ("passed", String::new(), String::new()),
+                Exit::Failed(p) if p.message.starts_with("assertion failed") => {
+                    ("assertion", p.message.clone(), p.location.clone())
+                }
+                Exit::Failed(p) => ("defect", p.message.clone(), p.location.clone()),
+                Exit::Cancelled => ("cancelled", String::new(), String::new()),
+                Exit::Returned(_) => ("error", detail.clone(), String::new()),
+            };
+            let s = badger_base::diagnostics::json_str;
             results.push(format!(
-                "{{\"name\":{},\"ok\":{ok},\"detail\":{}}}",
-                badger_base::diagnostics::json_str(name),
-                badger_base::diagnostics::json_str(&detail)
+                "{{\"name\":{},\"ok\":{ok},\"kind\":{},\"message\":{},\"location\":{},\"ms\":{:.3},\"detail\":{}}}",
+                s(name),
+                s(kind),
+                s(&message),
+                s(&location),
+                started.elapsed().as_secs_f64() * 1e3,
+                s(&detail)
             ));
         } else if ok {
             println!("test {name} ... ok");
