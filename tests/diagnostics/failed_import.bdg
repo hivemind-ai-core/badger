@@ -1,0 +1,11 @@
+// A failing import is reported once: uses of the names it would have bound
+// are not reported again; other unknown names still are.
+import std.nosuch
+import std.list.{nope}
+
+pub fn main() -> Unit {
+    let a = nosuch.one()
+    let b = nosuch.two()
+    let c = nope(1)
+    let d = other(2)
+}

@@ -1,0 +1,79 @@
+// The command line: `badger run cli -- add --title "Write the docs"`.
+// Each command binds one of the feature's operations; the entry selects
+// the parts of the application it needs (no HTTP server).
+import std.command
+import std.config
+import std.env
+import std.io
+import std.sqlite
+import std.system
+import std.text
+import settings
+import tasks.model
+import tasks.service
+import tasks.sqlite_store
+
+fn show(task: model.Task) -> String {
+    let mark = if task.done { "x" } else { " " }
+    $"[{mark}] {task.id} {task.title}"
+}
+
+fn failure(e: model.Error) -> command.Failure {
+    match e {
+        .invalid_title(message) => command.failure(1, message),
+        .not_found(id) => command.failure(3, $"no task {id}"),
+        .storage(message) => command.failure(74, message),
+    }
+}
+
+pub fn commands(tasks: model.Tasks) -> List<command.Command> {
+    [
+        command.bind({
+            name: "add",
+            operation: tasks.create,
+            input: fn(options: { title: String }) { { title: options.title } },
+            output: fn(task) { $"added {task.id}: {task.title}" },
+            errors: failure,
+        }),
+        command.bind({
+            name: "done",
+            operation: tasks.complete,
+            input: fn(options: { id: Int }) { options.id },
+            output: fn(task) { $"done {task.id}: {task.title}" },
+            errors: failure,
+        }),
+        command.bind({
+            name: "list",
+            operation: tasks.list,
+            input: fn(_options: {}) { {} },
+            output: fn(all) { if all.is_empty() { "no tasks" } else { text.join(all.map(show), "\n") } },
+            errors: failure,
+        }),
+    ]
+}
+
+pub enum AppError {
+    config(source: config.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+fn run() -> Result<Int, AppError> {
+    let s = settings.resolve([])?
+    let plan = system {
+        db: sqlite.pool({ path: s.database }),
+        store: sqlite_store.store({ pool: ref(#db) }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    ok(command.main("tasks", commands(running.tasks), env.args()))
+}
+
+pub fn main() -> Int {
+    match run() {
+        .ok(exit) => exit,
+        .err(e) => {
+            let _ = io.eprintln(e)
+            70
+        },
+    }
+}

@@ -1,0 +1,13 @@
+// expect-error: E0315
+// An operation is built by `app.from_fn` or `app.from_pipeline`, never by
+// hand, so its metadata and callable always belong together.
+import std.app
+
+pub enum E {
+    bad,
+} derive(Error)
+
+pub fn main() {
+    let f = fn(c: app.Call, n: Int) -> Result<Int, E> { ok(n) }
+    let forged: app.Operation<Int, Int, E, !{}> = { info: { id: #x/y, version: 1, doc: "d" }, invoke: f }
+}

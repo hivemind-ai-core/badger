@@ -18,6 +18,10 @@
 // operator `resolve`s them. Destinations should treat the operation key as
 // an idempotency key.
 //
+// In a system, the `store` provider opens a store, and `processor` makes a
+// worker that runs one kind of job with a typed handler (claim, decode,
+// handle, commit or retry).
+//
 // Errors from SQLite (including a full disk) are returned and roll the
 // transaction back. Not provided: replication or recovery from losing the
 // machine, and persisting anything but `Codec` values (no closures, tasks,
@@ -27,6 +31,8 @@ import std.prelude
 import std.sqlite
 import std.codec
 import std.list
+import std.system
+import std.task
 import std.time
 
 extern "intrinsic" fn time_wall_nanos() -> Int
@@ -216,16 +222,43 @@ pub fn open<S: Scope>(path: String) -> Result<Store<S>, Error> !{Io, Wait} {
     let pool = sqlite.open(path)?
     sqlite.query(pool, "PRAGMA journal_mode = WAL", [])?
     sqlite.execute(pool, "PRAGMA synchronous = FULL", [])?
+    attach(pool)
+}
+
+/// The job store in a database the application already uses (creating its
+/// tables if needed), so a domain change and the job that follows it can
+/// commit in one transaction (`submit_in`).
+pub fn attach<S: Scope>(pool: sqlite.Pool<S>) -> Result<Store<S>, Error> !{Io, Wait} {
     sqlite.query(pool, "PRAGMA busy_timeout = 5000", [])?
     for statement in schema {
         sqlite.execute(pool, statement, [])?
     }
     let v = codec.from_data<Version>(sqlite.query_one(pool, "SELECT value FROM jobs_meta WHERE key = 'schema'", [])?)?
     if v.value != "1" {
-        return failure(#jobs/schema, $"{path} has job store layout {v.value}; this library reads layout 1")
+        return failure(#jobs/schema, $"the database has job store layout {v.value}; this library reads layout 1")
     }
     let s: Store<S> = { pool: pool }
     ok(s)
+}
+
+/// `Store.submit` in the caller's transaction (on the store's database):
+/// the job exists exactly when the rest of the transaction commits. The
+/// tables must exist (`attach`).
+pub fn submit_in<S, T>(tx: sqlite.Tx<S>, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
+    let id = $"{kind}:{event}"
+    let text = codec.encode_text(state)
+    let t = now_ms()
+    let fresh = sqlite.execute(tx, "INSERT OR IGNORE INTO jobs_events (key, job, received) VALUES (?, ?, ?)", [str(id), str(id), int(t)])?
+    if fresh == 0 {
+        return ok(Submitted.duplicate(id))
+    }
+    sqlite.execute(
+        tx,
+        "INSERT INTO jobs (id, kind, version, state, status, step, attempts, max_attempts, run_at, owner, lease_until, fence, error, created, updated) VALUES (?, ?, ?, ?, 'ready', 'submitted', 0, ?, ?, NULL, 0, 0, NULL, ?, ?)",
+        [str(id), str(kind), int(version), str(text), int(max_attempts), int(t), int(t), int(t)],
+    )?
+    record(tx, id, t, "submitted", "ready", Option.none)?
+    ok(Submitted.created(id))
 }
 
 fn str(s: String) -> Data { Data.string(s) }
@@ -265,21 +298,8 @@ impl<S> Store<S> {
     /// an event with this key was ingested before (then nothing changes).
     /// The job may fail `max_attempts` times before it fails for good.
     pub fn submit<T>(self: &Self, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
-        let id = $"{kind}:{event}"
-        let text = codec.encode_text(state)
-        let t = now_ms()
         use tx <- sqlite.transaction(self.pool)
-        let fresh = sqlite.execute(tx, "INSERT OR IGNORE INTO jobs_events (key, job, received) VALUES (?, ?, ?)", [str(id), str(id), int(t)])?
-        if fresh == 0 {
-            return ok(Submitted.duplicate(id))
-        }
-        sqlite.execute(
-            tx,
-            "INSERT INTO jobs (id, kind, version, state, status, step, attempts, max_attempts, run_at, owner, lease_until, fence, error, created, updated) VALUES (?, ?, ?, ?, 'ready', 'submitted', 0, ?, ?, NULL, 0, 0, NULL, ?, ?)",
-            [str(id), str(kind), int(version), str(text), int(max_attempts), int(t), int(t), int(t)],
-        )?
-        record(tx, id, t, "submitted", "ready", Option.none)?
-        ok(Submitted.created(id))
+        submit_in(tx, kind, event, version, state, max_attempts)
     }
 
     /// Claim the next due job of `kind` for `owner` for `lease`: a ready job
@@ -543,5 +563,92 @@ impl<S> Store<S> {
     pub fn backup(self: &Self, path: String) -> Result<Unit, Error> !{Io, Wait} {
         sqlite.execute(self.pool, "VACUUM INTO ?", [str(path)])?
         ok(())
+    }
+}
+
+fn store_init<S: Scope>(scope: system.InitScope, config: { path: String }) -> Result<Store<S>, Error> {
+    let s = open(config.path)?
+    let pool = s.pool
+    scope.on_halt(fn() -> Result<Unit, Error> {
+        sqlite.close(pool)
+        ok(())
+    })
+    ok(s)
+}
+
+/// Provider of a job store for `{ path: String }`, closed when its node halts.
+pub let store = system.provider({ name: #jobs/store, init: store_init })
+
+/// What a handler decides for a claimed job: the step it reached, the new
+/// state, what happens next, and the external operations to dispatch once
+/// the step commits.
+pub type Step<T> = { step: String, state: T, next: Next, sends: List<Send> }
+
+/// How a processor runs jobs of one kind: who claims them, the state
+/// version its handler reads, the lease each claim holds, the delay
+/// before a failed attempt runs again, and how often to look for work
+/// when there is none.
+pub type Processing = { kind: String, owner: String, version: Int, lease: Duration, backoff: Duration, idle: Duration }
+
+/// Claim and handle one due job of `p.kind`, returning its id (`none` when
+/// no job was due). The handler's step commits only while the claim holds.
+/// An expected error from the handler is a failed attempt: the job runs
+/// again after `p.backoff`, until its attempts are used up. A claim lost
+/// meanwhile (its lease expired, or the job was cancelled) is given up.
+/// A job whose state has another version is a failed attempt (migrate it).
+/// A store error is returned: the worker running this fails, and its
+/// policy decides whether it restarts (a worker's restart is not a job's
+/// retry: the job's lease expires, and another claim continues it).
+pub fn process_one<S, T, E>(store: Store<S>, p: Processing, handle: fn(Claim, T) -> Result<Step<T>, E>) -> Result<Option<String>, Error> !{Io, Wait, State} where T: Codec, E: Display {
+    let claimed = store.claim(p.kind, p.owner, p.lease)?
+    let c = match claimed {
+        .none => return ok(Option.none),
+        .some(c) => c,
+    }
+    if c.version != p.version {
+        let _ = store.retry(&c, $"state version {c.version}; the handler reads version {p.version}", p.backoff)?
+        return ok(Option.some(c.id))
+    }
+    let state: T = c.state()?
+    let outcome = match handle(c, state) {
+        .ok(s) => store.advance(&c, s.step, p.version, s.state, s.next, s.sends),
+        .err(e) => store.retry(&c, e.display(), p.backoff).map(fn(_) { () }),
+    }
+    match outcome {
+        .ok(_) => ok(Option.some(c.id)),
+        .err(e) => if e.code == #jobs/lease_lost || e.code == #jobs/cancelled { ok(Option.some(c.id)) } else { err(e) },
+    }
+}
+
+/// A worker that processes jobs of `p.kind` until it is cancelled (for
+/// `scope.worker(jobs.processor(...), policy)`), looking for work every
+/// `p.idle` when none is due.
+pub fn processor<S, T, E>(store: Store<S>, p: Processing, handle: fn(Claim, T) -> Result<Step<T>, E>) -> fn() -> Result<Unit, Error> !{Io, Wait, State} where T: Codec, E: Display {
+    fn() -> Result<Unit, Error> {
+        loop {
+            match process_one(store, p, handle)? {
+                .some(_) => (),
+                .none => task.sleep(p.idle),
+            }
+        }
+    }
+}
+
+/// How a dispatcher sends one kind of outbox operation: at most `limit` per
+/// round, each `sending` for at most `timeout` (after that, an interrupted
+/// send is uncertain), looking again every `idle` when none was due.
+pub type Dispatching = { kind: String, limit: Int, timeout: Duration, idle: Duration }
+
+/// A worker that dispatches outbox operations of `d.kind` with `send` until
+/// it is cancelled (for `scope.worker`). A dispatcher that crashes while
+/// sending leaves the operation `sending`; it becomes `uncertain` after its
+/// timeout and is not sent again (`reconcile` or an operator settles it).
+pub fn dispatcher<S>(store: Store<S>, d: Dispatching, send: fn(Entry) -> Outcome) -> fn() -> Result<Unit, Error> !{Io, Wait, State} {
+    fn() -> Result<Unit, Error> {
+        loop {
+            if store.dispatch(d.kind, d.limit, d.timeout, send)?.is_empty() {
+                task.sleep(d.idle)
+            }
+        }
     }
 }

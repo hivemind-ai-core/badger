@@ -1,0 +1,64 @@
+// std.app operations: typed entry points with stable identity, invocation
+// metadata along a call chain, operations from functions and pipelines,
+// and a validated metadata index.
+import std.app
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum AppError {
+    io(source: io.Error),
+    app(source: app.Error),
+    negative,
+} derive(Error, From)
+
+stage non_negative() -> Result<_, AppError> {
+    enter(ctx) {
+        if ctx.input < 0 {
+            return err(AppError.negative)
+        }
+        pipeline.next(ctx)
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let double = app.from_fn({ id: #demo/double, version: 1, doc: "Double a number." }, fn(call, n: Int) -> Result<Int, AppError> {
+        // the operation runs as a child of the caller's call
+        assert(call.operation == Option.some(#demo/double) && call.parent.is_some())
+        ok(n * 2)
+    })
+    let increment = app.from_pipeline({ id: #demo/increment, version: 1, doc: "Add one to a non-negative number." }, pipeline {
+        non_negative(),
+        handle(fn(ctx) -> Result<Int, AppError> { ok(ctx.input + 1) }),
+    })
+    let root = app.call()
+    io.println(double.call(root, 21)?)?
+    io.println(increment.call(root, 1)?)?
+    match increment.call(root, -1) {
+        .err(.negative) => io.println("rejected -1")?,
+        _ => io.println("unexpected")?,
+    }
+
+    // deadlines: inherited by children, shortened but never extended
+    let limited = app.call_within(10s)
+    assert(limited.remaining().is_some() && !limited.expired())
+    let shorter = limited.within(1s)
+    let longer = shorter.within(1min)
+    assert(longer.deadline == shorter.deadline)
+    assert(limited.child(#demo/x).deadline == limited.deadline)
+    assert(root.remaining().is_none())
+
+    // the metadata index: unique ids, positive versions, documentation
+    let ix = app.index([double.info, increment.info])?
+    io.println(ix.operations().len())?
+    io.println(ix.find(#demo/increment).map(fn(i) { i.doc }).unwrap_or("?"))?
+    match app.index([double.info, double.info]) {
+        .err(e) => io.println(e)?,
+        .ok(_) => io.println("unexpected")?,
+    }
+    match app.index([{ id: #demo/undocumented, version: 1, doc: " " }]) {
+        .err(e) => io.println(e)?,
+        .ok(_) => io.println("unexpected")?,
+    }
+    ok(())
+}

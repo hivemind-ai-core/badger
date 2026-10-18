@@ -1,0 +1,85 @@
+// std.admission: a gate admits `capacity` calls at once and queues `queue`
+// more (the rest are refused at once); a waiter's deadline includes its
+// time in the queue; permits are released after the admitted body settles,
+// also when its task is cancelled; a cancelled waiter leaves the queue
+// without stranding a permit.
+import std.admission
+import std.app
+import std.io
+import std.task
+import std.time
+
+pub enum AppError {
+    io(source: io.Error),
+    admission(source: admission.Error),
+    rejected(source: admission.Rejected),
+} derive(Error, From)
+
+fn outcome(r: Result<Int, admission.Rejected>) -> String {
+    match r {
+        .ok(_) => "admitted",
+        .err(.full(_)) => "full",
+        .err(.deadline(_)) => "deadline",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    // capacity 2, queue 2: of six simultaneous calls, four are admitted
+    // (two at once, two after waiting) and two are refused
+    let gate = admission.gate(#test/work, { capacity: 2, queue: 2 })?
+    let busy = Atom.new(0)
+    let peak = Atom.new(0)
+    let results = task.scope(fn(scope) -> Result<List<String>, AppError> {
+        var tasks = []
+        for _ in 0..6 {
+            tasks = tasks.append(scope.spawn(fn() {
+                outcome(gate.admit(app.call(), fn() {
+                    let now = busy.update(fn(n) { n + 1 })
+                    let _ = peak.update(fn(p) { if now > p { now } else { p } })
+                    task.sleep(30ms)
+                    let _ = busy.update(fn(n) { n - 1 })
+                    0
+                }))
+            }))
+        }
+        ok(tasks.map(fn(t) { t.join() }))
+    })?
+    io.println($"admitted {results.filter(fn(r) { r == "admitted" }).len()}, full {results.filter(fn(r) { r == "full" }).len()}")?
+    io.println($"peak {peak.get()}")?
+    let s = gate.stats()
+    io.println($"executing {s.executing} waiting {s.waiting} admitted {s.admitted} full {s.rejected_full}")?
+
+    // a deadline counts the time spent waiting
+    let single = admission.gate(#test/single, { capacity: 1, queue: 4 })?
+    let waited = task.scope(fn(scope) -> Result<(String, Bool), AppError> {
+        let holder = scope.spawn(fn() { outcome(single.admit(app.call(), fn() { task.sleep(200ms); 0 })) })
+        task.sleep(10ms)
+        let start = time.now()
+        let r = outcome(single.admit(app.call_within(20ms), fn() { 0 }))
+        let elapsed = time.now() - start
+        let _ = holder.join()
+        ok((r, elapsed >= 15ms && elapsed < 150ms))
+    })?
+    io.println($"{waited.0} after the deadline: {waited.1}")?
+    io.println(outcome(single.admit(app.call_within(0ms), fn() { 0 })))?
+
+    // cancellation: a cancelled waiter leaves the queue, and a cancelled
+    // admitted body returns its permit
+    let shared = admission.gate(#test/shared, { capacity: 1, queue: 4 })?
+    task.scope(fn(scope) -> Result<Unit, AppError> {
+        let holder = scope.spawn(fn() { outcome(shared.admit(app.call(), fn() { task.sleep(10s); 0 })) })
+        task.sleep(10ms)
+        let waiter = scope.spawn(fn() { outcome(shared.admit(app.call(), fn() { 0 })) })
+        task.sleep(10ms)
+        io.println($"waiting {shared.stats().waiting}")?
+        waiter.cancel()
+        task.sleep(10ms)
+        io.println($"waiting after cancel {shared.stats().waiting}")?
+        holder.cancel()
+        task.sleep(10ms)
+        ok(())
+    })?
+    io.println($"executing after cancel {shared.stats().executing}")?
+    io.println(outcome(shared.admit(app.call_within(50ms), fn() { 0 })))?
+    ok(())
+}

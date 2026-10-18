@@ -1,0 +1,18 @@
+[package]
+name = "settings"
+entry = "src/main.bdg"
+
+# config.resolve: typed defaults < [config] < profile < environment < overrides.
+[config]
+port = 8080
+token = "dev-token"
+
+[config.db]
+path = "app.db"
+
+[profile.prod]
+port = 80
+
+# a key no field reads: resolving with this profile fails
+[profile.typo]
+prot = 81

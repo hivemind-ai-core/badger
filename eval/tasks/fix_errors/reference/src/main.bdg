@@ -1,0 +1,7 @@
+import std.io
+import orders
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(orders.label([{ sku: "a", quantity: 1 }, { sku: "b", quantity: 2 }]))?
+    ok(())
+}

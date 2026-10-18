@@ -8,57 +8,42 @@ pub enum RequestError {
     invalid_name,
 } derive(Error)
 
-fn audit() {
-    pipeline.stage({
-        name: #request/audit,
-        enter: fn(ctx) {
-            pipeline.next({ ..ctx, checked: false, processed: 0 })
-        },
-        leave: fn(ctx, reply) {
-            // Latest values from later enters, handler, and leave callbacks.
-            assert(ctx.checked)
-            if reply.status == 200 {
-                assert(ctx.processed == 2)
-            } else {
-                // The handler failed without committing an update. identify's
-                // error callback forwarded; its leave will not run on recovery.
-                assert(ctx.processed == 0)
-            }
-            // ctx.identity is unavailable: a later stage introduced it.
-            trace.event(#request/completed, { processed: ctx.processed })
-            pipeline.leave(ctx, reply)
-        },
-        error: fn(ctx, error) {
-            trace.event(#request/failed, { checked: ctx.checked })
-            pipeline.propagate(ctx, error)
-        },
-    })
+// A stage intercepts a pipeline: `enter` runs on the way in, `leave` on the
+// way out (in reverse order), and `error` when a later stage or the handler
+// fails.
+stage audit() {
+    enter(ctx) {
+        pipeline.next({ ..ctx, checked: false, processed: 0 })
+    }
+    leave(ctx, reply) {
+        // Latest values from later enters, handler, and leave callbacks.
+        assert(ctx.checked)
+        if reply.status == 200 {
+            assert(ctx.processed == 2)
+        } else {
+            // The handler failed without committing an update. identify's
+            // error callback forwarded; its leave will not run on recovery.
+            assert(ctx.processed == 0)
+        }
+        // ctx.identity is unavailable: a later stage introduced it.
+        trace.event(#request/completed, { processed: ctx.processed })
+        pipeline.leave(ctx, reply)
+    }
+    error(ctx, error) {
+        trace.event(#request/failed, { checked: ctx.checked })
+        pipeline.propagate(ctx, error)
+    }
 }
 
-fn recover_invalid_name() {
-    pipeline.stage({
-        name: #request/recover,
-        error: fn(ctx, error: RequestError) {
-            match error {
-                .invalid_name => pipeline.recover(ctx, {
-                    status: 400,
-                    message: "A name is required",
-                }),
-            }
-        },
-    })
+stage recover_invalid_name() -> Result<_, RequestError> {
+    error(ctx, error) => match error {
+        .invalid_name => pipeline.recover(ctx, { status: 400, message: "A name is required" }),
+    }
 }
 
-fn identify() {
-    pipeline.stage({
-        name: #request/identify,
-        enter: fn(ctx) {
-            pipeline.next({ ..ctx, checked: true, identity: ctx.name })
-        },
-        leave: fn(ctx, reply) {
-            pipeline.leave({ ..ctx, processed: ctx.processed + 1 }, reply)
-        },
-    })
+stage identify() {
+    enter(ctx) => pipeline.next({ ..ctx, checked: true, identity: ctx.name })
+    leave(ctx, reply) => pipeline.leave({ ..ctx, processed: ctx.processed + 1 }, reply)
 }
 
 pub fn main() -> Result<Unit, RequestError> {

@@ -349,9 +349,12 @@ impl<'g, 'a> Mono<'g, 'a> {
     }
 
     /// Does a ground type implement `proto`? (Nominal types are checked
-    /// against their implementations; structural types are assumed to.)
+    /// against their implementations; structural types are assumed to,
+    /// except for `Display`, which only unit has among them.)
     fn has_impl(&self, proto: DefId, ty: &Ty, depth: u32) -> bool {
-        let TyKind::Con(head, _) = &**ty else { return true };
+        let TyKind::Con(head, _) = &**ty else {
+            return proto != self.g.env.b.display || matches!(&**ty, TyKind::Tuple(ts) if ts.is_empty());
+        };
         if depth > 16 {
             return true;
         }
@@ -1353,6 +1356,15 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 match self.inst.res.get(&e).cloned() {
                     Some(Res::Method(Target::Fn { def, args })) => {
                         let fid = self.m.instance(def, args);
+                        Some(Operand::Const(Const::Addr(self.m.static_closure(fid))))
+                    }
+                    // `Error.from` of `derive(From)`: the variant's constructor
+                    Some(Res::Method(Target::Derived {
+                        imp: DerivedImplPub::FromVariant { variant, .. },
+                        ..
+                    })) if matches!(&*ty, TyKind::Fn(_)) => {
+                        let TyKind::Fn(f) = &*ty else { unreachable!() };
+                        let fid = self.m.ctor_thunk(&f.ret.clone(), variant);
                         Some(Operand::Const(Const::Addr(self.m.static_closure(fid))))
                     }
                     _ => {

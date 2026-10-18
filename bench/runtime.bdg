@@ -29,6 +29,13 @@ pub enum AppError {
 // scalars only: no roots in the frame
 fn scalar_step(a: Int, b: Int, c: Int, d: Int) -> Int { a + b * 2 + c * 3 + d * 4 }
 
+// the same shape with scalars: one inner call, no roots (the difference
+// from `rooted_step` is the cost of the rooted frame)
+fn scalar_outer(a: Int, b: Int, c: Int, d: Int, k: Int) -> Int {
+    let n = scalar_step(k, 1, 2, 3)
+    n + c
+}
+
 // four managed pointers live across a call: rooted in the frame
 fn rooted_step(a: String, b: List<Int>, c: { x: Int }, d: String, k: Int) -> Int {
     let n = scalar_step(k, 1, 2, 3)
@@ -60,6 +67,12 @@ pub fn main() -> Result<Unit, AppError> {
         acc = acc + scalar_step(i, 1, 2, 3)
     }
     let scalar_ns = time.as_nanos(time.now() - t)
+    t = time.now()
+    var acc1 = 0
+    for i in 0..n {
+        acc1 = acc1 + scalar_outer(1, 2, 3, 4, i)
+    }
+    let outer_ns = time.as_nanos(time.now() - t)
     let (s1, l1, r1, s2) = ("a", [1, 2], { x: 3 }, "bcd")
     t = time.now()
     var acc2 = 0
@@ -68,7 +81,8 @@ pub fn main() -> Result<Unit, AppError> {
     }
     let rooted_ns = time.as_nanos(time.now() - t)
     io.println($"call, scalar frame: {scalar_ns * 1000 / n} ps/call")?
-    io.println($"call, 4 rooted pointers: {rooted_ns * 1000 / n} ps/call")?
+    io.println($"call + inner call, scalar frame: {outer_ns * 1000 / n} ps/call")?
+    io.println($"call + inner call, 4 rooted pointers: {rooted_ns * 1000 / n} ps/call")?
     t = time.now()
     let d = depth(20000)
     io.println($"recursion depth {d}: {time.as_nanos(time.now() - t) / d} ns/frame")?

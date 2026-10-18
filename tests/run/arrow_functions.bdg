@@ -1,0 +1,32 @@
+// A function whose body is one expression may write it after `=>`, as a
+// lambda can: `fn double(n: Int) -> Int => n * 2`.
+import std.io
+
+type Point = { x: Int, y: Int }
+
+fn double(n: Int) -> Int => n * 2
+
+fn norm(p: Point) -> Int => p.x * p.x + p.y * p.y
+
+fn classify(n: Int) -> String => match n {
+    0 => "zero",
+    _ => if n < 0 { "negative" } else { "positive" },
+}
+
+struct Pair {
+    a: Int,
+    b: Int,
+}
+
+impl Pair {
+    fn sum(self: &Self) -> Int => self.a + self.b
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(double(21))?
+    io.println(norm({ x: 3, y: 4 }))?
+    io.println($"{classify(0)} {classify(-2)} {classify(5)}")?
+    let p: Pair = { a: 2, b: 5 }
+    io.println(p.sum())?
+    ok(())
+}

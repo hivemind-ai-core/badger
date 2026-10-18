@@ -139,10 +139,13 @@ returns a lazy `Seq<String>`).
   a derived schema and returns `Unit`. Sink overload follows configured bounded
   diagnostic policy and is reported separately; business I/O is not routed through
   a supposedly infallible trace function.
-- `system.provider({name, init})` creates a typed provider. `init` receives its
-  initialization scope and resolved config and returns a `Result`. Its scope
-  registers cleanup; no missing `halt` field is synthesized in ordinary records.
-- `pipeline.stage({name, enter, leave, error})` is the checked descriptor factory;
+- `system.provider({name, init})` creates a typed provider (a `provider`
+  declaration is the same, written as an initializer; chapter 06). `init`
+  receives its initialization scope and resolved config and returns a
+  `Result`. Its scope registers cleanup; no missing `halt` field is
+  synthesized in ordinary records.
+- `pipeline.stage({name, enter, leave, error})` is the checked descriptor factory
+  (a `stage` declaration desugars to it; chapter 06);
   optional callbacks are normalized by this factory's intrinsic schema. These
   omissions are not general record-field defaulting. `handle` and
   `handle_context` mark terminal handlers in a pipeline description.

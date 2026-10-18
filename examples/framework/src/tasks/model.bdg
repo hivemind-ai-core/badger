@@ -1,0 +1,28 @@
+// The feature's vocabulary: what a task is, what can go wrong, what the
+// feature needs (a store), and what it offers: operations, the same ones to
+// HTTP, the command line, and workers.
+import std.app
+
+pub type Task = { id: Int, title: String, done: Bool }
+pub type NewTask = { title: String }
+
+pub enum Error {
+    invalid_title(message: String),
+    not_found(id: Int),
+    storage(message: String),
+} derive(Error)
+
+// What the feature needs from storage; `memory.store` and `sqlite_store.store`
+// provide it (and `store_contract` in the tests checks both the same way).
+pub type Store = {
+    insert: fn(String) -> Result<Task, Error> !{Io, Wait, State},
+    all: fn() -> Result<List<Task>, Error> !{Io, Wait, State},
+    complete: fn(Int) -> Result<Option<Task>, Error> !{Io, Wait, State},
+}
+
+pub type Tasks = {
+    create: app.Operation<NewTask, Task, Error, !{Io, Wait, State}>,
+    list: app.Operation<{}, List<Task>, Error, !{Io, Wait, State}>,
+    open: app.Operation<{}, List<Task>, Error, !{Io, Wait, State}>,
+    complete: app.Operation<Int, Task, Error, !{Io, Wait, State}>,
+}

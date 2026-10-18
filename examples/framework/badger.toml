@@ -1,0 +1,21 @@
+[package]
+name = "todo"
+entry = "src/api.bdg"
+
+[entries]
+cli = "src/cli.bdg"
+worker = "src/worker.bdg"
+migrate = "src/migrate.bdg"
+
+[config]
+address = "127.0.0.1"
+port = 8080
+database = "tasks.db"
+
+# the feature's core knows nothing of its transports or of a particular
+# store (the adapters, `tasks.memory` and `tasks.sqlite_store`, may)
+[layers.tasks.model]
+forbid = ["web", "cli", "api", "tasks.sqlite_store", "std.http", "std.endpoint", "std.command", "std.sqlite"]
+
+[layers.tasks.service]
+forbid = ["web", "cli", "api", "tasks.sqlite_store", "std.http", "std.endpoint", "std.command", "std.sqlite"]

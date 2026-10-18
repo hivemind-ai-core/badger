@@ -1,0 +1,26 @@
+// `E.from` of `derive(From)` used as a function value (it was an internal
+// compiler error): the variant's constructor.
+import std.io
+
+pub enum Inner {
+    bad,
+} derive(Error)
+
+pub enum Outer {
+    inner(source: Inner),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn fails() -> Result<Int, Inner> { err(Inner.bad) }
+
+pub fn main() -> Result<Unit, Outer> {
+    let r: Result<Int, Outer> = fails().map_err(Outer.from)
+    match r {
+        .err(.inner(.bad)) => io.println("converted")?,
+        _ => io.println("unexpected")?,
+    }
+    let convert = Outer.from
+    let e: Outer = convert(Inner.bad)
+    io.println(e)?
+    ok(())
+}

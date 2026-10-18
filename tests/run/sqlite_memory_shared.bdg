@@ -1,0 +1,53 @@
+// An in-memory pool is one database for all of its connections: work that
+// overlaps (here a transaction holding one connection while other tasks
+// read and write) sees the same tables. Each `:memory:` connection used to
+// get an empty database of its own ("no such table").
+import std.io
+import std.sqlite
+import std.task
+
+pub enum AppError {
+    io(source: io.Error),
+    db(source: sqlite.Error),
+} derive(Error, From)
+
+type Count = { n: Int }
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    let _ = sqlite.execute(db, "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)", [])?
+    let _ = sqlite.execute(db, "INSERT INTO items (name) VALUES ('first')", [])?
+    let seen = task.scope(fn(scope) -> Result<List<Int>, AppError> {
+        // a transaction keeps its connection busy while it waits
+        let writer = scope.spawn(fn() -> Result<Int, AppError> {
+            sqlite.transaction(db, fn(tx) -> Result<Int, AppError> {
+                let _ = sqlite.execute(tx, "INSERT INTO items (name) VALUES ('second')", [])?
+                task.sleep(50ms)
+                ok(2)
+            })
+        })
+        task.sleep(10ms)
+        // so these run on other connections, against the same database
+        var counts = []
+        for _ in 0..3 {
+            counts = counts.append(scope.spawn(fn() -> Result<Int, AppError> {
+                ok(sqlite.query_one_as<Count, sqlite.Pool>(db, "SELECT count(*) AS n FROM items", [])?.n)
+            }))
+        }
+        let _ = writer.join()?
+        var out = []
+        for c in counts {
+            out = out.append(c.join()?)
+        }
+        ok(out)
+    })?
+    io.println(seen.map(fn(n) { n >= 1 }))?
+    io.println(sqlite.query_one_as<Count, sqlite.Pool>(db, "SELECT count(*) AS n FROM items", [])?.n)?
+    // two pools are two databases
+    let other = sqlite.open(":memory:")?
+    match sqlite.query(other, "SELECT * FROM items", []) {
+        .err(e) => io.println(e.code)?,
+        .ok(_) => io.println("unexpected: pools share a database")?,
+    }
+    ok(())
+}

@@ -23,6 +23,12 @@ Start with the first five files for everyday syntax. The
 [larger worked examples](design/README.md) include an HTTP/SQLite service with
 configuration, validation, interceptors, and lifecycle management.
 
+[framework/](framework/README.md) is a small application built the way the
+[framework design](../FRAMEWORK_DESIGN.md) describes: one feature with typed
+interfaces, `provider` and `stage` declarations, and three entry points (an
+HTTP API, a command line, and a supervised worker) that each compose the
+parts they need. Its tests call the API in-process.
+
 The tasks example expects two text-file paths. The notes importer expects one
 text-file path and creates or updates `notes.sqlite` in the current directory.
 Its repeated runs append notes; it does not deduplicate them. The other

@@ -1,0 +1,39 @@
+// task.map_bounded: `f` over items with at most `limit` calls running at
+// once, results in item order; the first error cancels the calls still
+// running, and items not yet started are not run.
+import std.io
+import std.list
+import std.task
+
+pub enum Failure {
+    bad(n: Int),
+} derive(Error)
+
+pub fn main() -> Result<Unit, io.Error> {
+    let running = Atom.new(0)
+    let peak = Atom.new(0)
+    let calls = Atom.new(0)
+    let work = fn(n: Int) -> Result<Int, Failure> {
+        let _ = calls.update(fn(c) { c + 1 })
+        let now = running.update(fn(r) { r + 1 })
+        let _ = peak.update(fn(p) { if now > p { now } else { p } })
+        task.sleep(2ms)
+        let _ = running.update(fn(r) { r - 1 })
+        if n == 13 {
+            return err(Failure.bad(n))
+        }
+        ok(n * n)
+    }
+    let squares = task.map_bounded(list.range(0, 12), 3, work)
+    match squares {
+        .ok(xs) => io.println($"{xs} peak {peak.get()}")?,
+        .err(e) => io.println($"unexpected {e}")?,
+    }
+    calls.set(0)
+    match task.map_bounded(list.range(0, 100), 4, work) {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println($"{e}; started {if calls.get() < 100 { "fewer than all" } else { "all" }}")?,
+    }
+    io.println(task.map_bounded([], 4, work).map(fn(xs) { xs.len() }).unwrap_or(-1))?
+    ok(())
+}

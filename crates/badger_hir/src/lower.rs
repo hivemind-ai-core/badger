@@ -43,6 +43,7 @@ pub fn lower_program(
         item_defs: vec![],
         const_locals: FxHashSet::default(),
         const_checks: vec![],
+        failed_imports: FxHashSet::default(),
     };
     cx.collect(modules);
     if let Some(e) = entry {
@@ -69,6 +70,9 @@ struct Cx<'a> {
     /// Locals bound by `const`, and `const` initializers to validate.
     const_locals: FxHashSet<LocalId>,
     const_checks: Vec<ExprId>,
+    /// Names a failing import would have bound, per module: their unknown
+    /// uses are not reported again (the import's error explains them).
+    failed_imports: FxHashSet<(ModuleId, Symbol)>,
 }
 
 impl Cx<'_> {
@@ -397,6 +401,7 @@ impl Cx<'_> {
                                     );
                                 }
                                 None => {
+                                    self.failed_imports.insert((mid, alias.unwrap_or(*n).sym));
                                     let s = self.sym(n.sym).to_string();
                                     let mp = self.path_str(&path);
                                     self.err(
@@ -409,9 +414,20 @@ impl Cx<'_> {
                             }
                         }
                     }
-                    (_, None) => {
+                    (items, None) => {
                         let mp = self.path_str(&path);
                         self.err("E0114", span, format!("unknown module `{mp}`"), "no such module");
+                        match items {
+                            None => {
+                                let alias = imp.alias.map(|a| a.sym).unwrap_or(*path.last().unwrap());
+                                self.failed_imports.insert((mid, alias));
+                            }
+                            Some(items) => {
+                                for (n, alias) in items {
+                                    self.failed_imports.insert((mid, alias.unwrap_or(*n).sym));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -521,6 +537,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     fn err(&mut self, code: &'static str, span: Span, msg: impl Into<String>, label: impl Into<String>) {
         self.cx.err(code, span, msg, label);
+    }
+
+    /// E0127 for `name`, unless a failing import of this module would have
+    /// bound it (that import is already an error).
+    fn unknown_name(&mut self, name: Symbol, span: Span) {
+        if self.cx.failed_imports.contains(&(self.module, name)) {
+            return;
+        }
+        let s = self.sym(name);
+        let mut d = Diagnostic::error(format!("unknown name `{s}`"))
+            .with_code("E0127")
+            .with_label(span, "not found in this scope");
+        // a standard module used without its import
+        if crate::stdlib::STD_MODULES.iter().any(|(m, _)| *m == s && *m != "prelude") {
+            d = d.with_note(format!("`{s}` is a standard module: add `import std.{s}`"));
+        }
+        self.cx.diags.push(d);
     }
 
     fn alloc(&mut self, kind: ExprKind, span: Span) -> ExprId {
@@ -727,7 +760,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     && (ty.is_none() || ty.as_ref().is_some_and(contains_hole))
                 {
                     let span = self.ast.pats[*pat].span;
-                    self.err("E0118", span, "public values must declare their type", "add `: Type`");
+                    let provider = matches!(&self.ast.exprs[*value].kind,
+                        ast::ExprKind::Call { callee, .. } if matches!(self.ast.exprs[*callee].kind, ast::ExprKind::Std("system.provider")));
+                    if provider {
+                        self.err(
+                            "E0118",
+                            span,
+                            "a public provider declares its configuration type and `-> Result<Output, Error>`",
+                            "e.g. `pub provider store(scope, config: StoreConfig) -> Result<Store, AppError>`",
+                        );
+                    } else {
+                        self.err("E0118", span, "public values must declare their type", "add `: Type`");
+                    }
                 }
                 let value = self.lower_expr(*value);
                 self.locals.pop();
@@ -924,7 +968,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     );
                 }
             }
-            if ret.is_none() && f.body.is_some() {
+            // a `stage` factory's `pipeline.Stage` type follows from its callbacks
+            if ret.is_none() && f.body.is_some() && !f.result_inferred {
                 let n = self.sym(f.name.sym);
                 if n != "main" {
                     self.err(
@@ -1083,6 +1128,22 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 };
                 HTyKind::Assoc { base: Box::new(HTy { kind: base, span: module[0].span }), name: name.sym }
             }
+            // a standard-library type a desugared declaration names
+            ast::TypeKind::Std { path, args } => {
+                let args: Vec<HTy> = args.iter().map(|t| self.lower_ty(*t)).collect();
+                match self.cx.hir.try_lang(path) {
+                    Some(def) => HTyKind::Named { def, args },
+                    None => {
+                        self.err(
+                            "E0190",
+                            span,
+                            format!("missing standard library item `{path}`"),
+                            "required here",
+                        );
+                        HTyKind::Error
+                    }
+                }
+            }
             ast::TypeKind::Path { module, name, args } => {
                 let args: Vec<HTy> = args.iter().map(|t| self.lower_ty(*t)).collect();
                 match self.resolve_type_path(module, *name) {
@@ -1200,6 +1261,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let kind = match &expr.kind {
             ast::ExprKind::Lit(l) => ExprKind::Lit(self.lower_lit(l)),
             ast::ExprKind::Error => ExprKind::Error,
+            ast::ExprKind::Std(path) => return self.lang_def(path, span),
+            // `#module/name`: the declaration's qualified name
+            ast::ExprKind::DeclName(n) => {
+                let module: Vec<String> =
+                    self.cx.hir.modules[self.module].path.iter().map(|p| self.sym(*p)).collect();
+                let text = format!("{}/{}", module.join("."), self.sym(n.sym));
+                ExprKind::Lit(Lit::Symbol(self.intern(&text)))
+            }
             ast::ExprKind::Interp(parts) => ExprKind::Interp(
                 parts
                     .iter()
@@ -1490,8 +1559,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 ExprKind::Error
             }
             None => {
-                let s = self.sym(n.sym);
-                self.err("E0127", n.span, format!("unknown name `{s}`"), "not found in this scope");
+                self.unknown_name(n.sym, n.span);
                 ExprKind::Error
             }
         };
@@ -1657,13 +1725,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     let kind = match self.lookup_module_name(n.sym) {
                         Some(Res::Def(d)) => self.def_value(d, n, targs),
                         _ => {
-                            let s = self.sym(n.sym);
-                            self.err(
-                                "E0127",
-                                n.span,
-                                format!("unknown name `{s}`"),
-                                "not found in this scope",
-                            );
+                            self.unknown_name(n.sym, n.span);
                             ExprKind::Error
                         }
                     };
@@ -1856,7 +1918,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 params.push(Param { pat, ty: None });
                 let saved = self.system.replace(nodes);
                 let saved_out = self.system_outputs.replace(outputs);
-                let body = self.lower_expr(cfg);
+                let body = match cfg {
+                    Some(cfg) => self.lower_expr(cfg),
+                    // `provider()`: the empty configuration
+                    None => self.alloc(ExprKind::Record { spread: None, fields: vec![] }, span),
+                };
                 self.system = saved;
                 self.system_outputs = saved_out;
                 body
@@ -2071,6 +2137,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 let name = *name;
                 matches!(self.namespace_of(*base), Some(Ns::Module(m)) if self.cx.hir.modules[m].items.get(&name.sym) == Some(&def))
             }
+            ast::ExprKind::Std(path) => self.cx.hir.try_lang(path) == Some(def),
             _ => false,
         }
     }
@@ -2109,7 +2176,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     /// so reference types follow from ordinary inference.
     fn lower_system(&mut self, entries: &[(ast::Label, ast::ExprId)], span: Span) -> ExprId {
         let component = self.cx.hir.try_lang("system.component");
-        let mut parsed: Vec<(ast::Label, ast::ExprId, ast::ExprId, Vec<(Symbol, Span)>)> = vec![];
+        let mut parsed: Vec<(ast::Label, ast::ExprId, Option<ast::ExprId>, Vec<(Symbol, Span)>)> = vec![];
         for (label, e) in entries {
             let expr = &self.ast.exprs[*e];
             let espan = expr.span;
@@ -2125,16 +2192,26 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         }
                         _ => false,
                     };
-                    is_component.then(|| (args[0], args[1]))
+                    is_component.then(|| (args[0], Some(args[1])))
                 }
                 _ => None,
             };
+            // `key: provider(config)` applies a provider directly (as
+            // `component(provider, config)`; `provider()` has the empty config)
+            let ok = ok.or_else(|| match &expr.kind {
+                ast::ExprKind::Call { callee, type_args, args }
+                    if type_args.is_empty() && args.len() <= 1 =>
+                {
+                    Some((*callee, args.first().copied()))
+                }
+                _ => None,
+            });
             let Some((provider, config)) = ok else {
                 self.err(
                     "E0603",
                     espan,
-                    "system entries must be `component(provider, config)`",
-                    "expected a component",
+                    "system entries apply a provider to its configuration: `key: provider(config)`",
+                    "expected a provider application",
                 );
                 continue;
             };
@@ -2150,7 +2227,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 continue;
             }
             let mut refs = vec![];
-            collect_refs(self.ast, config, &mut refs);
+            if let Some(config) = config {
+                collect_refs(self.ast, config, &mut refs);
+            }
             parsed.push((*label, provider, config, refs));
         }
         // missing references
@@ -2267,13 +2346,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     /// Report a dependency cycle (with its path); returns whether one exists.
     fn check_system_cycles(
         &mut self,
-        entries: &[(ast::Label, ast::ExprId, ast::ExprId, Vec<(Symbol, Span)>)],
+        entries: &[(ast::Label, ast::ExprId, Option<ast::ExprId>, Vec<(Symbol, Span)>)],
     ) -> bool {
         let n = entries.len();
         let idx = |l: Symbol| entries.iter().position(|e| e.0.sym == l);
         fn dfs(
             u: usize,
-            entries: &[(ast::Label, ast::ExprId, ast::ExprId, Vec<(Symbol, Span)>)],
+            entries: &[(ast::Label, ast::ExprId, Option<ast::ExprId>, Vec<(Symbol, Span)>)],
             idx: &dyn Fn(Symbol) -> Option<usize>,
             color: &mut [u8],
             stack: &mut Vec<usize>,
@@ -2622,7 +2701,7 @@ enum LambdaBody<'s> {
     Expr(ast::ExprId),
     Stmts(&'s [ast::Stmt], Span),
     /// System node configuration with earlier node handles in scope for `ref`.
-    SystemConfig(ast::ExprId, FxHashMap<Symbol, LocalId>),
+    SystemConfig(Option<ast::ExprId>, FxHashMap<Symbol, LocalId>),
 }
 
 /// Collect `ref(#label)` occurrences in an expression tree.
@@ -2631,7 +2710,7 @@ fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
     let mut go = |x: ast::ExprId| collect_refs(ast, x, out);
     match &ast.exprs[e].kind {
         K::Ref(l) => out.push((l.sym, l.span)),
-        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue | K::Error => {}
+        K::Lit(_) | K::Name(_) | K::TypeName(_) | K::Continue | K::Error | K::Std(_) | K::DeclName(_) => {}
         K::Interp(parts) => parts.iter().for_each(|p| {
             if let ast::InterpPart::Expr(x) = p {
                 go(*x)

@@ -1,0 +1,41 @@
+// A SQLite store: the same `Store` interface as `memory.store`, over a
+// pool. Its schema is versioned by `migrations`; `badger run migrate`
+// applies them, and the store refuses to start on any other schema.
+import std.sqlite
+import tasks.model
+
+pub let migrations: List<sqlite.Migration> = [
+    { version: 1, name: "tasks", sql: "CREATE TABLE tasks (id INTEGER PRIMARY KEY, title TEXT NOT NULL)" },
+    { version: 2, name: "done", sql: "ALTER TABLE tasks ADD COLUMN done INTEGER NOT NULL DEFAULT 0" },
+]
+
+fn storage(e: sqlite.Error) -> model.Error {
+    model.Error.storage(e.message)
+}
+
+pub provider store(config: { pool: sqlite.Pool }) -> Result<model.Store, model.Error> {
+    sqlite.require_current(config.pool, migrations).map_err(storage)?
+    ok(over(config.pool))
+}
+
+// A store that first applies the migrations itself: for tests and
+// development, not for a server sharing its database.
+pub provider migrated(config: { pool: sqlite.Pool }) -> Result<model.Store, model.Error> {
+    let _ = sqlite.migrate(config.pool, migrations).map_err(storage)?
+    ok(over(config.pool))
+}
+
+fn over(pool: sqlite.Pool) -> model.Store {
+    {
+        insert: fn(title: String) -> Result<model.Task, model.Error> {
+            sqlite.query_one_as<model.Task, sqlite.Pool>(pool, "INSERT INTO tasks (title) VALUES (?) RETURNING id, title, done", [Data.string(title)]).map_err(storage)
+        },
+        all: fn() -> Result<List<model.Task>, model.Error> {
+            sqlite.query_as<model.Task, sqlite.Pool>(pool, "SELECT id, title, done FROM tasks ORDER BY id", []).map_err(storage)
+        },
+        complete: fn(id: Int) -> Result<Option<model.Task>, model.Error> {
+            let rows = sqlite.query_as<model.Task, sqlite.Pool>(pool, "UPDATE tasks SET done = 1 WHERE id = ? RETURNING id, title, done", [Data.int(id)]).map_err(storage)?
+            ok(rows.first())
+        },
+    }
+}

@@ -342,6 +342,7 @@ impl<'g, 'a> Layouts<'g, 'a> {
         unsafe {
             (*p).kind = kind;
             (*p).leaf.store(0, std::sync::atomic::Ordering::Relaxed);
+            (*p).floats.store(0, std::sync::atomic::Ordering::Relaxed);
         }
         d
     }
@@ -433,6 +434,8 @@ impl<'g, 'a> Layouts<'g, 'a> {
 
     pub fn type_name(&self, t: &Ty) -> String {
         match &**t {
+            // a secret's codec redacts it, wherever it is nested
+            TyKind::Con(d, _) if self.std_name(*d) == Some("Secret") => "std.Secret".into(),
             TyKind::Con(d, _) => self.def_name(*d),
             TyKind::Tuple(ts) if ts.is_empty() => "Unit".into(),
             TyKind::Tuple(_) => "Tuple".into(),

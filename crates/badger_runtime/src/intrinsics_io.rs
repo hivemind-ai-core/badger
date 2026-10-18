@@ -55,6 +55,18 @@ pub extern "C" fn write_out(
     if stderr == 0 {
         crate::repro::output(text, newline & 1 != 0);
     }
+    // called without the runtime lock (several workers): write a copy
+    // outside the collector's count, so a blocked or slow terminal holds up
+    // neither other tasks nor a collection
+    let unlocked = crate::task::multi() && !crate::task::holds_lock();
+    let owned;
+    let text = if unlocked {
+        owned = text.to_string();
+        crate::task::badger_rt_safe_begin(std::ptr::null_mut());
+        owned.as_str()
+    } else {
+        text
+    };
     let r = if stderr != 0 {
         let mut e = std::io::stderr().lock();
         e.write_all(text.as_bytes()).and_then(|_| if newline & 1 != 0 { e.write_all(b"\n") } else { Ok(()) })
@@ -64,6 +76,9 @@ pub extern "C" fn write_out(
             .and_then(|_| if newline & 1 != 0 { o.write_all(b"\n") } else { Ok(()) })
             .and_then(|_| o.flush())
     };
+    if unlocked {
+        crate::task::badger_rt_safe_end(std::ptr::null_mut());
+    }
     match r {
         Ok(()) => io_ok(rdesc(ret), 0),
         Err(e) => io_err(rdesc(ret), &e),
@@ -75,6 +90,30 @@ pub fn data_json(w: u64) -> String {
     let mut s = String::new();
     write_data(w, &mut s);
     s
+}
+
+/// A `Data` value as a JSON value, built directly (what `data_json`
+/// writes, without the text in between).
+pub fn data_value(w: u64) -> serde_json::Value {
+    use serde_json::Value as J;
+    let (tag, fields) = enum_parts(w);
+    match tag {
+        0 => J::Null,
+        1 => J::Bool(fields[0] & 1 != 0),
+        2 => J::from(fields[0] as i64),
+        3 => {
+            let f = f64::from_bits(fields[0]);
+            serde_json::Number::from_f64(f).map(J::Number).unwrap_or(J::Null)
+        }
+        4 => J::String(str_of(fields[0]).to_string()),
+        5 => J::Array(crate::list::to_vec(fields[0]).into_iter().map(data_value).collect()),
+        _ => J::Object(
+            crate::map::entries(fields[0])
+                .into_iter()
+                .map(|(k, v)| (str_of(k).to_string(), data_value(v)))
+                .collect(),
+        ),
+    }
 }
 
 fn write_data(w: u64, out: &mut String) {

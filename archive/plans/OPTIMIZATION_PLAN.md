@@ -1,5 +1,19 @@
 # Compiler and runtime optimization plan
 
+> **Archived 2026-10-18.** Done: slice 0's timings (`BADGER_TIMINGS`, now
+> with `parse.deps`/`parse.std`), allocation census, transition counters,
+> and benchmark runners, plus the benchmark repairs; C1.1, C1.2 (source
+> copies removed; std parsed on demand), C1.5 (streamed dependency hash);
+> C4 (empty frames, root liveness); C5 (bounded inliner, enum
+> scalarization, iterator fusion); R1's per-object scratch removal and
+> scalar-map tracing; R2's narrow pages and persistent appends; R3's
+> constant-time occupancy; R4's unlocked immutable reads; R5's cached
+> descriptor facts; R6 (hyper transport, a connection cap, console output
+> off the runtime lock); R7 (size-class pools, stacks, per-worker queues).
+> The rest (C1.2b, C1.3/C1.4, C2, C3, a root-store counter, R1/R2 storage
+> items, R3 admission sizes, R4 contract table, R5 direct decoding) is in
+> [BACKLOG.md](../../BACKLOG.md).
+
 Reviewed 2026-10-15 against `c5c7b484c37bbc6dab46b23471bce80626ff01b1`
 and the working tree present during review. This is a plan, not an implementation
 or a claim of achieved speedups. Existing uncommitted changes to `README.md`,
@@ -31,7 +45,7 @@ publication-quality comparisons or phase profiles.
 
 All cases completed successfully. Full commands, individual outputs, timings,
 environment metadata, and the starting dirty-tree listing are retained in
-[the baseline JSON](reports/2026-10-15-optimization-baseline.json).
+[the baseline JSON](../../reports/2026-10-15-optimization-baseline.json).
 
 | Case | Workers | Compilation/startup median, ms¹ | Execution median, ms¹ |
 | --- | ---: | ---: | ---: |
@@ -97,9 +111,9 @@ the evidence column describes a directly visible allocation or algorithm.
 
 ### C1 — Share frontend work with explicit invalidation
 
-Evidence: [driver](crates/lang_driver/src/lib.rs), `Session::load`, `parse`,
-`check`, `check_one`, and `lower_to_mir`; [stdlib](crates/lang_hir/src/stdlib.rs);
-[dependency verification](crates/lang_driver/src/deps.rs), `content_hash`.
+Evidence: [driver](../../crates/lang_driver/src/lib.rs), `Session::load`, `parse`,
+`check`, `check_one`, and `lower_to_mir`; [stdlib](../../crates/lang_hir/src/stdlib.rs);
+[dependency verification](../../crates/lang_driver/src/deps.rs), `content_hash`.
 
 `load` adds and parses every `STD_MODULES` entry for every compilation. Project
 checking reloads and rechecks the main entry and each named entry/task. The
@@ -128,10 +142,10 @@ Keep binary MIR as the existing low-startup deployment path.
 
 ### C2 — Make analysis work proportional to changed facts
 
-Evidence: [type checking](crates/lang_typeck/src/program.rs), `effect_fixpoint`;
-[solver](crates/lang_typeck/src/solve.rs), `solve` and implementation search;
-[types](crates/lang_typeck/src/ty.rs), `Ty = Rc<TyKind>`;
-[region summaries](crates/lang_typeck/src/regions.rs), `store_summaries`.
+Evidence: [type checking](../../crates/lang_typeck/src/program.rs), `effect_fixpoint`;
+[solver](../../crates/lang_typeck/src/solve.rs), `solve` and implementation search;
+[types](../../crates/lang_typeck/src/ty.rs), `Ty = Rc<TyKind>`;
+[region summaries](../../crates/lang_typeck/src/regions.rs), `store_summaries`.
 
 Effect propagation repeatedly scans all call edges and clones label vectors.
 Use indexed effect sets and a reverse-call worklist, or SCC summaries. Preserve
@@ -157,10 +171,10 @@ report constraints revisited and edges processed as well as elapsed time.
 
 ### C3 — Reuse instance results and compile changed functions
 
-Evidence: [monomorphization](crates/lang_mir/src/lower.rs), `Mono::instance`,
-`lower_instance`, and `run`; [concrete checking](crates/lang_typeck/src/program.rs),
-`check_instance`; [JIT](crates/lang_codegen/src/lib.rs), `compile`;
-[reload](crates/lang_driver/src/live.rs), `reload`.
+Evidence: [monomorphization](../../crates/lang_mir/src/lower.rs), `Mono::instance`,
+`lower_instance`, and `run`; [concrete checking](../../crates/lang_typeck/src/program.rs),
+`check_instance`; [JIT](../../crates/lang_codegen/src/lib.rs), `compile`;
+[reload](../../crates/lang_driver/src/live.rs), `reload`.
 
 The current monomorphizer already deduplicates `(DefId, type arguments)` within a
 build. The opportunity is reuse across builds, and substitution of previously
@@ -172,7 +186,7 @@ Cache keys need stable definition identity, body content, concrete types,
 referenced schemes/impls, compiler/runtime ABI, target, optimization mode, and
 live-dispatch/worker assumptions. Raw arena IDs and runtime addresses cannot be
 used across sessions. Reuse the relocation discipline in
-[binary MIR serialization](crates/lang_mir/src/serial.rs) for persisted artifacts;
+[binary MIR serialization](../../crates/lang_mir/src/serial.rs) for persisted artifacts;
 strengthen identity beyond package version and format number if adding automatic
 caches across different builds of the same version.
 
@@ -191,7 +205,7 @@ RSS/code bytes over hundreds of edits, alongside source startup.
 
 ### C4 — Emit roots for live pointers, with a simple first slice
 
-Evidence: [code generation](crates/lang_codegen/src/lib.rs), `FnCx::define`,
+Evidence: [code generation](../../crates/lang_codegen/src/lib.rs), `FnCx::define`,
 `Body::set`, and return lowering. Every function allocates and links a shadow
 frame, even if no actual pointer needs rooting; every pointer local gets a slot
 for its entire invocation and every assignment stores to it. The closure
@@ -212,9 +226,9 @@ Retain stack-overflow checks independently of shadow-frame elimination.
 
 ### C5 — Inline small known callees, then repeat existing simplification
 
-Evidence: [MIR passes](crates/lang_mir/src/lower.rs), `FnLower::finish` and
-`tail_calls`; [scalar replacement](crates/lang_mir/src/sra.rs);
-[sequences](crates/lang_hir/std/seq.lang); [loop lowering](crates/lang_mir/src/lower.rs),
+Evidence: [MIR passes](../../crates/lang_mir/src/lower.rs), `FnLower::finish` and
+`tail_calls`; [scalar replacement](../../crates/lang_mir/src/sra.rs);
+[sequences](../../crates/lang_hir/std/seq.lang); [loop lowering](../../crates/lang_mir/src/lower.rs),
 `lower_for`.
 
 Add a release-mode, size-budgeted MIR inliner for small direct callees. Start with
@@ -239,10 +253,10 @@ native code size so a runtime win does not create excessive specialization.
 
 ### R1 — Remove collector scratch allocations and expose real memory pressure
 
-Evidence: [collector](crates/lang_runtime/src/gc.rs), `alloc`, `collect_inner`,
-`add_pressure`, and `stats`; [maps](crates/lang_runtime/src/map.rs), `trace` and
-`with_table`; [buffers](crates/lang_runtime/src/buffer.rs), `new`;
-[heap inspection](crates/lang_runtime/src/inspect.rs), `heap_json`.
+Evidence: [collector](../../crates/lang_runtime/src/gc.rs), `alloc`, `collect_inner`,
+`add_pressure`, and `stats`; [maps](../../crates/lang_runtime/src/map.rs), `trace` and
+`with_table`; [buffers](../../crates/lang_runtime/src/buffer.rs), `new`;
+[heap inspection](../../crates/lang_runtime/src/inspect.rs), `heap_json`.
 
 `collect_inner` creates a child vector for each traced object, then visits it to
 mark children. Objects with children therefore allocate scratch storage during
@@ -267,9 +281,9 @@ from tracing and sweeping; do not hide a pause increase by changing thresholds.
 
 ### R2 — Fix compact storage before changing collection structures
 
-Evidence: [lists](crates/lang_runtime/src/list.rs), `new`, `push`, `append`, and
-`finish`; [intrinsics](crates/lang_runtime/src/intrinsics_std.rs), `list_chunks`,
-`list_concat`, and `list_slice`; [buffers](crates/lang_runtime/src/buffer.rs).
+Evidence: [lists](../../crates/lang_runtime/src/list.rs), `new`, `push`, `append`, and
+`finish`; [intrinsics](../../crates/lang_runtime/src/intrinsics_std.rs), `list_chunks`,
+`list_concat`, and `list_slice`; [buffers](../../crates/lang_runtime/src/buffer.rs).
 
 List capacity is derived from `4096 / element_size`, but page allocation uses
 `capacity * element_size.max(8)`. Stores use the actual representation width.
@@ -298,7 +312,7 @@ pointer pages. Measure bytes per element and peak RSS as well as ns/element.
 
 ### R3 — Make channel bookkeeping constant-time
 
-Evidence: [channels](crates/lang_runtime/src/channel.rs), `ChanData::count`,
+Evidence: [channels](../../crates/lang_runtime/src/channel.rs), `ChanData::count`,
 `append`, `publish`, `recv_batch`, `release`, `admission_size`, and `uncharge`.
 
 `count` sums every queued batch and producer staging vector on admission. Maintain
@@ -320,9 +334,9 @@ staging, queues, and leases throughout; throughput alone is insufficient.
 
 ### R4 — Reduce runtime crossings before splitting the global lock
 
-Evidence: [generated runtime calls](crates/lang_codegen/src/lib.rs), `rt_call`;
-[runtime synchronization](crates/lang_runtime/src/task.rs), `lang_rt_enter`,
-`lang_rt_leave`, and `stop_the_world`; [core collection ABI](crates/lang_runtime/src/abi.rs).
+Evidence: [generated runtime calls](../../crates/lang_codegen/src/lib.rs), `rt_call`;
+[runtime synchronization](../../crates/lang_runtime/src/task.rs), `lang_rt_enter`,
+`lang_rt_leave`, and `stop_the_world`; [core collection ABI](../../crates/lang_runtime/src/abi.rs).
 
 Every generated runtime call acquires the global runtime lock in multi-worker
 mode. Even small list length/element reads incur the transition. Introduce an
@@ -345,9 +359,9 @@ demonstrated. That redesign must first remove dependence on unsynchronized globa
 
 ### R5 — Avoid codec round trips and repeated descriptor traversal
 
-Evidence: [codecs](crates/lang_runtime/src/codec.rs), `from_data`, `decode`, and
-`dec`; [standard intrinsics](crates/lang_runtime/src/intrinsics_std.rs),
-`error_details`; [value operations](crates/lang_runtime/src/value.rs),
+Evidence: [codecs](../../crates/lang_runtime/src/codec.rs), `from_data`, `decode`, and
+`dec`; [standard intrinsics](../../crates/lang_runtime/src/intrinsics_std.rs),
+`error_details`; [value operations](../../crates/lang_runtime/src/value.rs),
 `eq` and `may_hold_float`.
 
 `from_data` encodes `Data` to JSON text, parses it into `serde_json::Value`, then
@@ -370,10 +384,10 @@ small and large nested service payloads with allocation counts and peak memory.
 
 ### R6 — Bound transport work and prevent blocking output from stalling tasks
 
-Evidence: [HTTP](crates/lang_runtime/src/http.rs), accept loop, `handle_conn`,
+Evidence: [HTTP](../../crates/lang_runtime/src/http.rs), accept loop, `handle_conn`,
 `read_request`, and response/stream construction;
-[output](crates/lang_runtime/src/intrinsics_io.rs), `write_out`;
-[blocking pool](crates/lang_runtime/src/task.rs), `run_blocking`.
+[output](../../crates/lang_runtime/src/intrinsics_io.rs), `write_out`;
+[blocking pool](../../crates/lang_runtime/src/task.rs), `run_blocking`.
 
 The accept loop creates an OS thread per connection; `max_in_flight` is checked
 inside `handle_conn` after request parsing. It bounds admitted request handlers,
@@ -395,8 +409,8 @@ tail latency and rejection rate alongside accepted request throughput.
 
 ### R7 — Change allocation/scheduling architecture only after profiling
 
-Evidence: [allocation](crates/lang_runtime/src/gc.rs), `alloc`/sweep;
-[task stacks and queues](crates/lang_runtime/src/task.rs), `STACK_POOL`,
+Evidence: [allocation](../../crates/lang_runtime/src/gc.rs), `alloc`/sweep;
+[task stacks and queues](../../crates/lang_runtime/src/task.rs), `STACK_POOL`,
 `make_coroutine`, and `worker_loop`.
 
 Each managed object uses `alloc_zeroed` and is independently freed. If this still

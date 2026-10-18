@@ -118,6 +118,28 @@ pub enum ItemKind<'a> {
         ty: Option<T<'a>>,
         value: E<'a>,
     },
+    /// `provider NAME [as #sym](scope, config) [-> Result<O, E>] { ... }`
+    Provider {
+        contracts: Vec<Contract<'a>>,
+        name: Ident<'a>,
+        alias: Option<(&'a str, Span)>,
+        params: Vec<Param<'a>>,
+        params_span: Span,
+        ret: Option<T<'a>>,
+        effect: Option<Effect<'a>>,
+        body: Block<'a>,
+    },
+    /// `stage NAME [as #sym][<G>](params) [-> Result<_, E>] { enter(..) .. }`
+    Stage {
+        contracts: Vec<Contract<'a>>,
+        name: Ident<'a>,
+        alias: Option<(&'a str, Span)>,
+        generics: Vec<Generic<'a>>,
+        params: Vec<Param<'a>>,
+        ret: Option<T<'a>>,
+        members: Vec<StageMember<'a>>,
+        body_span: Span,
+    },
     /// A declaration that did not parse (the error is reported).
     Error,
 }
@@ -127,6 +149,16 @@ pub struct Variant<'a> {
     pub name: Ident<'a>,
     pub fields: Vec<(Option<Ident<'a>>, T<'a>)>,
     pub span: Span,
+}
+
+/// A stage callback: `enter(ctx) { ... }`, `leave(ctx, reply) => ...`.
+#[derive(Debug, Clone)]
+pub struct StageMember<'a> {
+    pub kind: Ident<'a>,
+    pub params: Vec<Param<'a>>,
+    /// The callback's own result annotation (overrides the stage's).
+    pub ret: Option<T<'a>>,
+    pub body: E<'a>,
 }
 
 #[derive(Debug, Clone)]
@@ -297,15 +329,36 @@ pub enum PlaceElem<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'a> {
-    Let { kind: LetKind, pat: P<'a>, ty: Option<T<'a>>, value: E<'a>, span: Span },
-    Use { pats: Vec<P<'a>>, call: E<'a>, span: Span },
-    Assign { base: Ident<'a>, path: Vec<PlaceElem<'a>>, value: E<'a>, span: Span },
+    /// `els`: `let PATTERN = VALUE else { ... }` (the block must diverge).
+    Let {
+        kind: LetKind,
+        pat: P<'a>,
+        ty: Option<T<'a>>,
+        value: E<'a>,
+        els: Option<Box<Block<'a>>>,
+        span: Span,
+    },
+    Use {
+        pats: Vec<P<'a>>,
+        call: E<'a>,
+        span: Span,
+    },
+    /// `op`: a compound assignment (`x += v` is `x = x + v`).
+    Assign {
+        base: Ident<'a>,
+        path: Vec<PlaceElem<'a>>,
+        op: Option<BinOp>,
+        value: E<'a>,
+        span: Span,
+    },
     Expr(E<'a>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Arm<'a> {
     pub pat: P<'a>,
+    /// Further alternatives (`.a | .b =>`): the arm is one arm per pattern.
+    pub alts: Vec<P<'a>>,
     pub guard: Option<E<'a>>,
     pub body: E<'a>,
     pub span: Span,
@@ -389,6 +442,8 @@ pub enum Expr<'a> {
     },
     Try(Box<E<'a>>),
     /// An expression that did not parse (the error is reported).
+    /// `_`: a hole, reported with the type expected there.
+    Hole,
     Error,
 }
 

@@ -302,6 +302,16 @@ impl TypeEnv {
                         None
                     }
                 });
+                // inherent methods are found through a nominal type: on a
+                // record, tuple, or function type they could never be called
+                if i.protocol.is_none() && !matches!(&*self_ty, TyKind::Con(..) | TyKind::Error) {
+                    diags.push(
+                        Diagnostic::error("inherent methods need a nominal type")
+                            .with_code("E0206")
+                            .with_label(i.self_ty.span, "a structural type (a record alias, tuple, or function type)")
+                            .with_note("declare a `struct` (or `enum`) to give it methods, or write functions that take the value"),
+                    );
+                }
                 let mut preds = vec![];
                 let sub = Subst { generics: &gens, self_ty: Some(self_ty.clone()) };
                 for w in &i.where_preds {

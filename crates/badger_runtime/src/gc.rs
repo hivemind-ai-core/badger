@@ -1339,6 +1339,9 @@ mod pool_tests {
         assert!(unsafe { &*POOLS.0[w].get() }.chunks.len() >= 2);
         assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks[1].bytes, refill_bytes());
         let held = cells[0];
+        // This raw allocator fixture has not published a managed pointer
+        // word, which normally exposes the provenance used by payload().
+        let _ = held.expose_provenance();
         for p in cells.into_iter().skip(1) {
             free_cell(w, p, payload);
         }

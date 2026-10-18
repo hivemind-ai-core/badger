@@ -1,0 +1,11 @@
+[1, 2]
+[]
+current 2 latest 3 pending [3]
+ok
+sqlite/schema_behind: the database is at version 2; migrations 3 are pending
+[3]
+sqlite/schema_ahead: the database has migration 3 (tags), which this program does not know
+sqlite/migration_changed: migration 1 (tasks) changed after it was applied
+sqlite/migrations_invalid: migration 1 (tasks) is out of order: versions increase from 1
+sqlite/error: no such table: missing
+3

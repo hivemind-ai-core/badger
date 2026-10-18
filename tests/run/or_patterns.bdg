@@ -1,0 +1,40 @@
+// Or-patterns at the top of a match arm: `p | q => body` matches either,
+// with one guard and body; every alternative binds the same names, and the
+// alternatives count toward exhaustiveness.
+import std.io
+
+enum Shape {
+    circle(r: Int),
+    square(side: Int),
+    rect(w: Int, h: Int),
+    point,
+    empty,
+}
+
+fn size(s: Shape) -> Int {
+    match s {
+        .circle(n) | .square(n) => n,
+        .rect(w, _) if w > 10 => -1,
+        .rect(w, h) => w * h,
+        .point | .empty => 0,
+    }
+}
+
+fn kind(n: Int) -> String {
+    match n {
+        0 | 1 => "tiny",
+        2 | 3 | 5 | 7 => "prime",
+        _ => "other",
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    for s in [Shape.circle(3), Shape.square(4), Shape.rect(2, 5), Shape.rect(20, 1), Shape.point, Shape.empty] {
+        io.println(size(s))?
+    }
+    for n in 0..9 {
+        io.print($"{kind(n)} ")?
+    }
+    io.println("")?
+    ok(())
+}

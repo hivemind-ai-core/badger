@@ -1,0 +1,24 @@
+// expect-error: E0401
+// app.run keeps system.run's contract: the running system (and closures
+// reaching it) cannot leave the callback.
+import std.app
+import std.system
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+provider counter(config: {}) -> Result<Atom<Int>, AppError> {
+    ok(Atom.new(0))
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        count: counter(),
+    }
+    let peek = app.run(plan, app.health([]), fn(running) -> Result<fn() -> Int, AppError> {
+        ok(fn() { running.count.get() })
+    })?
+    let _ = peek()
+    ok(())
+}

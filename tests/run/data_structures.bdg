@@ -1,0 +1,121 @@
+// std.heap, std.deque, std.sorted, std.lru, and std.bits: each checked
+// against a simple reference over seeded random operations, plus the
+// persistence every operation promises (old versions are unchanged).
+import std.bits
+import std.deque
+import std.heap
+import std.io
+import std.list
+import std.lru
+import std.map
+import std.random
+import std.set
+import std.sorted
+
+pub fn main() -> Result<Unit, io.Error> {
+    let r = random.seeded(42)
+
+    // heap: popping everything is sorting
+    var xs: List<Int> = []
+    for _ in 0..500 {
+        xs = xs.append(r.int(0, 1000))
+    }
+    let h = heap.of(xs)
+    assert(h.to_list() == list.sort(xs))
+    assert(h.peek() == list.sort(xs).first())
+    let merged = h.merge(heap.of([-5, 2000]))
+    assert(merged.len() == 502 && merged.peek() == Option.some(-5) && h.len() == 500)
+    io.println($"heap: {heap.of([5, 1, 4, 1]).to_list()}")?
+
+    // deque: random pushes and pops at both ends against a list
+    var d = deque.empty<Int>()
+    var model: List<Int> = []
+    for i in 0..2000 {
+        match r.int(0, 4) {
+            0 => {
+                d = d.push_front(i)
+                model = [i].concat(model)
+            },
+            1 => {
+                d = d.push_back(i)
+                model = model.append(i)
+            },
+            2 => match d.pop_front() {
+                .some((x, rest)) => {
+                    assert(x == model[0])
+                    d = rest
+                    model = list.skip(model, 1)
+                },
+                .none => assert(model.is_empty()),
+            },
+            _ => match d.pop_back() {
+                .some((x, rest)) => {
+                    assert(x == model[model.len() - 1])
+                    d = rest
+                    model = list.take(model, model.len() - 1)
+                },
+                .none => assert(model.is_empty()),
+            },
+        }
+        assert(d.len() == model.len())
+    }
+    assert(d.to_list() == model)
+    let d1 = deque.of([1, 2, 3])
+    let d2 = d1.push_front(0)
+    io.println($"deque: {d1.to_list()} {d2.to_list()} {d2.peek_back()}")?
+
+    // sorted map: random inserts and removes against a map
+    var m = sorted.empty<Int, Int>()
+    var ref: Map<Int, Int> = map.empty()
+    for i in 0..3000 {
+        let k = r.int(0, 300)
+        if r.int(0, 3) == 0 {
+            m = m.remove(k)
+            ref = ref.remove(k)
+        } else {
+            m = m.insert(k, i)
+            ref = ref.insert(k, i)
+        }
+    }
+    let keys = list.sort(ref.keys())
+    assert(m.len() == ref.len() && m.keys() == keys)
+    assert(list.all(keys, fn(k) { m.get(k) == ref.get(k) }))
+    assert(m.first().map(fn(e) { e.0 }) == keys.first())
+    assert(m.last().map(fn(e) { e.0 }) == keys.last())
+    assert(m.range(100, 200).map(fn(e) { e.0 }) == list.filter(keys, fn(k) { k >= 100 && k < 200 }))
+    let small = sorted.of([(10, "ten"), (20, "twenty"), (30, "thirty")])
+    let value = fn(e: Option<(Int, String)>) { e.map(fn(p) { p.1 }).unwrap_or("none") }
+    io.println($"sorted: floor 25 {value(small.floor(25))}, ceiling 25 {value(small.ceiling(25))}, floor 5 {value(small.floor(5))}")?
+    io.println($"sorted: {small.remove(20).keys()} {small.keys()}")?
+
+    // lru: eviction order and recency
+    let c = lru.cache<String, Int>(2).put("a", 1).put("b", 2)
+    let (hit, c2) = c.get("a")
+    let c3 = c2.put("c", 3)
+    io.println($"lru: {hit} {c3.keys()} b={c3.contains("b")} a={c3.peek("a")} old={c.keys()}")?
+    var cache = lru.cache<Int, Int>(50)
+    for i in 0..1000 {
+        cache = cache.put(r.int(0, 100), i)
+        assert(cache.len() <= 50)
+    }
+
+    // bits: against a set
+    var b = bits.empty()
+    var s: Set<Int> = set.empty()
+    for _ in 0..2000 {
+        let i = r.int(0, 400)
+        if r.int(0, 2) == 0 {
+            b = b.insert(i)
+            s = s.insert(i)
+        } else {
+            b = b.remove(i)
+            s = s.remove(i)
+        }
+    }
+    assert(b.to_list() == list.sort(s.to_list()) && b.len() == s.len())
+    let p = bits.of([1, 5, 64, 200])
+    let q = bits.of([5, 64, 65])
+    io.println($"bits: {p.union(q).to_list()} {p.intersection(q).to_list()} {p.difference(q).to_list()} {p.contains(64)} {p.contains(63)}")?
+    assert(bits.of([3]).insert(500).remove(500) == bits.of([3]))
+    ok(())
+}

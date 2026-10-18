@@ -1,0 +1,29 @@
+pub type Note = { id: Int, text: String, pinned: Bool }
+
+pub enum NoteError {
+    missing(id: Int),
+} derive(Error)
+
+pub fn add(notes: List<Note>, text: String) -> List<Note> {
+    notes.append({ id: notes.len() + 1, text, pinned: false })
+}
+
+pub fn find(notes: List<Note>, id: Int) -> Result<Note, NoteError> {
+    for n in notes {
+        if n.id == id {
+            return ok(n)
+        }
+    }
+    err(NoteError.missing(id))
+}
+
+pub fn pin(notes: List<Note>, id: Int) -> Result<List<Note>, NoteError> {
+    let _ = find(notes, id)?
+    ok(notes.map(fn(n) { if n.id == id { { ..n, pinned: true } } else { n } }))
+}
+
+fn test_add_and_find() -> Result<Unit, NoteError> {
+    let ns = add(add([], "a"), "b")
+    assert(find(ns, 2)?.text == "b")
+    ok(())
+}

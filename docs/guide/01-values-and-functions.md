@@ -362,6 +362,9 @@ Ada Lovelace 1 4096
   syntax error (E0001). Targets are a `var`, a field of one (`p.x = 2`), or
   an index of one (`buf[i] = v`, which calls the collection's `set`
   method; frozen lists have none).
+- `x += e` is `x = x + e`, and likewise `-=`, `*=`, `/=`, and `%=`, for
+  the same targets. An index in the target is read and written, so it
+  must be a name or a literal (E0002).
 
 ## Operators
 
@@ -450,6 +453,10 @@ negative
 ```
 
 - The last expression of the body is the result. `return` exits early.
+- A body of one expression can follow `=>`: `fn double(n: Int) -> Int =>
+  n * 2` (methods too).
+- `_` where an expression goes is a hole: `badger check` reports it
+  (E0345) with the type expected there, and checks the rest.
 - Private functions may omit types; they are inferred from the body and
   the calls.
 - `pub` functions must declare every parameter and the result type
@@ -877,6 +884,16 @@ hello stranger
   when it does not match.
 - An `if let .ok(x) = r` that ignores `.err` drops the error silently.
   Match the `Result` when the error matters.
+- `let P = e else { ... }` keeps the names `P` binds for the rest of the
+  block; when `e` does not match, the block runs and must leave
+  (`return`, `break`, `continue`, or a panic):
+
+```badger fragment
+let .some(user) = users.get(id) else {
+    return err(Error.unknown_user(id))
+}
+greet(user)
+```
 
 ---
 

@@ -1,0 +1,175 @@
+// Double-ended queues: a persistent banker's deque. `push_front`,
+// `push_back`, `pop_front`, and `pop_back` take amortized O(1); every
+// operation returns a new deque and leaves the old one unchanged.
+//
+//     let d = deque.empty<Int>().push_back(1).push_back(2).push_front(0)
+//     let (first, rest) = d.pop_front().unwrap_or((-1, d))   // 0
+import std.list
+
+enum Cons<T> {
+    nil,
+    cons(cell: Box<(T, Cons<T>)>),
+}
+
+fn cons<T>(head: T, tail: Cons<T>) -> Cons<T> {
+    Cons.cons(Box.new((head, tail)))
+}
+
+/// A deque: `front` holds the first elements in order, `back` the last in
+/// reverse; each side is rebuilt from the other when it runs out.
+pub struct Deque<T> {
+    front: Cons<T>,
+    front_len: Int,
+    back: Cons<T>,
+    back_len: Int,
+}
+
+fn reverse<T>(c: Cons<T>) -> Cons<T> {
+    var out: Cons<T> = Cons.nil
+    var rest = c
+    loop {
+        match rest {
+            .nil => break,
+            .cons(c) => {
+                let (x, tail) = c.get()
+                out = cons(x, out)
+                rest = tail
+            },
+        }
+    }
+    out
+}
+
+// the first `n` elements, and the rest
+fn split<T>(c: Cons<T>, n: Int) -> (Cons<T>, Cons<T>) {
+    var taken: Cons<T> = Cons.nil
+    var rest = c
+    var i = 0
+    while i < n {
+        match rest {
+            .nil => break,
+            .cons(c) => {
+                let (x, tail) = c.get()
+                taken = cons(x, taken)
+                rest = tail
+            },
+        }
+        i = i + 1
+    }
+    (reverse(taken), rest)
+}
+
+/// An empty deque.
+pub fn empty<T>() -> Deque<T> {
+    { front: Cons.nil, front_len: 0, back: Cons.nil, back_len: 0 }
+}
+
+/// A deque of `items`, in order.
+pub fn of<T>(items: List<T>) -> Deque<T> {
+    list.fold(items, empty(), fn(d, x) { d.push_back(x) })
+}
+
+impl<T> Deque<T> {
+    pub fn len(self: &Self) -> Int {
+        self.front_len + self.back_len
+    }
+
+    pub fn is_empty(self: &Self) -> Bool {
+        self.len() == 0
+    }
+
+    pub fn push_front(self: &Self, item: T) -> Deque<T> {
+        { ..self, front: cons(item, self.front), front_len: self.front_len + 1 }
+    }
+
+    pub fn push_back(self: &Self, item: T) -> Deque<T> {
+        { ..self, back: cons(item, self.back), back_len: self.back_len + 1 }
+    }
+
+    /// The first element and the deque without it.
+    pub fn pop_front(self: &Self) -> Option<(T, Deque<T>)> {
+        match self.front {
+            .cons(c) => {
+                let (x, rest) = c.get()
+                Option.some((x, { ..self, front: rest, front_len: self.front_len - 1 }))
+            },
+            .nil => {
+                if self.back_len == 0 {
+                    return Option.none
+                }
+                // move the older half of the back to the front
+                let keep = self.back_len / 2
+                let (newer, older) = split(self.back, keep)
+                let moved = reverse(older)
+                match moved {
+                    .cons(c) => {
+                        let (x, rest) = c.get()
+                        Option.some((x, { front: rest, front_len: self.back_len - keep - 1, back: newer, back_len: keep }))
+                    },
+                    .nil => Option.none,
+                }
+            },
+        }
+    }
+
+    /// The last element and the deque without it.
+    pub fn pop_back(self: &Self) -> Option<(T, Deque<T>)> {
+        match self.back {
+            .cons(c) => {
+                let (x, rest) = c.get()
+                Option.some((x, { ..self, back: rest, back_len: self.back_len - 1 }))
+            },
+            .nil => {
+                if self.front_len == 0 {
+                    return Option.none
+                }
+                let keep = self.front_len / 2
+                let (older, newer) = split(self.front, keep)
+                let moved = reverse(newer)
+                match moved {
+                    .cons(c) => {
+                        let (x, rest) = c.get()
+                        Option.some((x, { front: older, front_len: keep, back: rest, back_len: self.front_len - keep - 1 }))
+                    },
+                    .nil => Option.none,
+                }
+            },
+        }
+    }
+
+    pub fn peek_front(self: &Self) -> Option<T> {
+        self.pop_front().map(fn(p) { p.0 })
+    }
+
+    pub fn peek_back(self: &Self) -> Option<T> {
+        self.pop_back().map(fn(p) { p.0 })
+    }
+
+    /// The elements, first to last.
+    pub fn to_list(self: &Self) -> List<T> {
+        var b = list.builder<T>()
+        var cur = self.front
+        loop {
+            match cur {
+                .nil => break,
+                .cons(c) => {
+                    let (x, rest) = c.get()
+                    b.append(x)
+                    cur = rest
+                },
+            }
+        }
+        cur = reverse(self.back)
+        loop {
+            match cur {
+                .nil => break,
+                .cons(c) => {
+                    let (x, rest) = c.get()
+                    b.append(x)
+                    cur = rest
+                },
+            }
+        }
+        b.finish()
+    }
+}

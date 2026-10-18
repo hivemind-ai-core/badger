@@ -274,7 +274,8 @@ impl Diagnostics {
                     f.module.as_deref().map(json_str).unwrap_or_else(|| "null".into())
                 ));
             }
-            out.push_str("]}");
+            // the shape's version, bumped when a field changes meaning or goes
+            out.push_str("],\"schema_version\":1}");
         }
         out.push(']');
         out

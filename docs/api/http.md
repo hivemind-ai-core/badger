@@ -128,7 +128,9 @@ struct Limits { pub max_body_bytes: Int, pub max_header_bytes: Int, pub max_in_f
 Explicit request limits. A body over `max_body_bytes` is answered 413,
 headers over `max_header_bytes` 431, and a request arriving while
 `max_in_flight` are being handled 503 (bounded admission), all without
-running the handler. Defaults come from the runtime configuration
+running the handler. Open connections are bounded at four times
+`max_in_flight` (at least 256): past that, new connections wait in the
+listen backlog until one closes. Defaults come from the runtime configuration
 (`[runtime] http_max_body_bytes`, `http_max_header_bytes`,
 `http_max_in_flight`).
 
@@ -229,7 +231,7 @@ and request tasks.
 ### `Streamed`
 
 ```badger
-struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes, {Io: Unit, Wait: Unit, State: Unit, Foreign: Unit}> }
+struct Streamed { pub status: Int, pub headers: Map<String, String>, pub chunks: Seq<Bytes, !{Io, Wait, State, Foreign}> }
 ```
 
 A streamed reply: the head is sent first, then each chunk as the

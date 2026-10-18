@@ -1,0 +1,95 @@
+// Durable jobs under a supervised worker (framework F07): a job claimed by
+// a process that died is continued by another once its lease expires (and
+// the dead claim can no longer commit); an expected handler error is a
+// job retry; a worker crash restarts the worker (its job's lease expires
+// and the job continues); every job ends done with one outbox entry.
+import std.fs
+import std.io
+import std.jobs
+import std.system
+import std.task
+import std.time
+import std.worker
+
+type Mail = { to: String }
+
+pub enum MailError {
+    unreachable(to: String),
+} derive(Error)
+
+pub enum AppError {
+    io(source: io.Error),
+    jobs(source: jobs.Error),
+    system(source: system.Error),
+    timeout,
+} derive(Error, From)
+
+fn deliver(crashes: Atom<Int>) -> fn(jobs.Claim, Mail) -> Result<jobs.Step<Mail>, MailError> {
+    fn(c: jobs.Claim, m: Mail) -> Result<jobs.Step<Mail>, MailError> {
+        if m.to == "flaky" && c.attempts == 0 {
+            return err(MailError.unreachable(m.to))
+        }
+        if m.to == "crash" && crashes.update(fn(n) { n + 1 }) == 1 {
+            panic("the mail worker crashed")
+        }
+        ok({ step: "sent", state: m, next: jobs.Next.done, sends: [{ key: $"{c.id}/mail", kind: "mail", payload: m.to }] })
+    }
+}
+
+provider mailer(scope, config: { store: jobs.Store, crashes: Atom<Int> }) -> Result<Unit, AppError> {
+    let p: jobs.Processing = { kind: "mail", owner: "mailer", version: 1, lease: 100ms, backoff: 0ms, idle: 5ms }
+    scope.worker(jobs.processor(config.store, p, deliver(config.crashes)), worker.on_failure({ max_restarts: 3, window: 10s, backoff: 1ms }))
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let dir = fs.make_temp_dir("badger-jobs").unwrap_or(fs.temp_dir())
+    let path = $"{dir}/jobs.db"
+
+    // a process claims a job and dies before committing
+    let dead = {
+        let store = jobs.open(path)?
+        let _ = store.submit("mail", "abandoned", 1, { to: "abandoned" }, 5)?
+        let claim = store.claim("mail", "dead-process", 100ms)?
+        claim.ok_or(AppError.timeout)?
+    }
+
+    let result = continue_jobs(path, dead)
+    for f in ["jobs.db", "jobs.db-wal", "jobs.db-shm"] {
+        let _ = fs.remove_file($"{dir}/{f}")
+    }
+    let _ = fs.remove_dir(dir)
+    result
+}
+
+fn continue_jobs(path: String, dead: jobs.Claim) -> Result<Unit, AppError> {
+    let crashes = Atom.new(0)
+    let plan = system {
+        jobs: jobs.store({ path }),
+        mailer: mailer({ store: ref(#jobs), crashes }),
+    }
+    use running <- system.run(plan)
+    let store = running.jobs
+    for to in ["ok", "flaky", "crash"] {
+        let _ = store.submit("mail", to, 1, { to }, 5)?
+    }
+    let started = time.now()
+    while store.count("done")? < 4 {
+        if time.now() - started > 10s {
+            return err(AppError.timeout)
+        }
+        task.sleep(5ms)
+    }
+    for id in ["mail:abandoned", "mail:ok", "mail:flaky", "mail:crash"] {
+        let steps = store.history(id)?.map(fn(t) { t.status })
+        io.println($"{id}: {store.job(id)?.map(fn(j) { j.status }).unwrap_or("?")} ({steps.filter(fn(s) { s == "running" }).len()} claims)")?
+    }
+    io.println($"outbox {store.operations("pending")?.len()} pending")?
+    io.println($"worker crashes {crashes.get() - 1}")?
+    // the dead process's claim can no longer commit
+    match store.advance(&dead, "sent", 1, { to: "late" }, jobs.Next.done, []) {
+        .err(e) => io.println(e.code)?,
+        .ok(_) => io.println("unexpected")?,
+    }
+    ok(())
+}

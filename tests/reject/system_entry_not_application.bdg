@@ -1,0 +1,6 @@
+// expect-error: E0603
+// A system entry applies a provider to its configuration.
+import std.system
+pub fn main() {
+    let _ = system { value: 5 }
+}

@@ -1,6 +1,5 @@
 import std.io
 import std.system
-import std.system.{component}
 import std.trace
 
 pub enum AppError {
@@ -8,35 +7,31 @@ pub enum AppError {
     system(source: system.Error),
 } derive(Error, From)
 
-let greeting_provider = system.provider({
-    name: #example/greeting,
-    init: fn(scope, config) -> Result<_, AppError> {
-        trace.event(#greeting/started, { prefix: config.prefix })
-        scope.on_halt(fn() -> Result<Unit, AppError> {
-            trace.event(#greeting/stopped, {})
-            ok(())
-        })
-        // The component's public interface is simply a record of functions.
-        ok({ greet: fn(name: String) { $"{config.prefix}, {name}" } })
-    },
-})
+// A provider is a component factory: its initializer receives a scope (to
+// register halts) and its configuration, and returns its public interface.
+provider greeting(scope, config) -> Result<_, AppError> {
+    trace.event(#greeting/started, { prefix: config.prefix })
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        trace.event(#greeting/stopped, {})
+        ok(())
+    })
+    // The component's public interface is simply a record of functions.
+    ok({ greet: fn(name: String) { $"{config.prefix}, {name}" } })
+}
 
-let announcement_provider = system.provider({
-    name: #example/announcement,
-    init: fn(scope, config) -> Result<_, AppError> {
-        scope.on_halt(fn() -> Result<Unit, AppError> {
-            trace.event(#announcement/stopped, {})
-            ok(())
-        })
-        ok({ announce: fn(name: String) { config.greeting.greet(name) } })
-    },
-})
+provider announcement(scope, config) -> Result<_, AppError> {
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        trace.event(#announcement/stopped, {})
+        ok(())
+    })
+    ok({ announce: fn(name: String) { config.greeting.greet(name) } })
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
         // References establish startup order even when declarations differ.
-        announcement: component(announcement_provider, { greeting: ref(#greeting) }),
-        greeting: component(greeting_provider, { prefix: "Welcome" }),
+        announcement: announcement({ greeting: ref(#greeting) }),
+        greeting: greeting({ prefix: "Welcome" }),
     }
 
     use running <- system.run(plan)

@@ -128,7 +128,8 @@ A lambda's body is a block, or `=> expression`: `fn(x) => e` is
 `return`/`?` boundary. The expression extends as far as an expression
 can (to the closing `)` or `,` of an enclosing call, or the end of a
 match arm), so `fn(n) => fn(k) => k + n` nests. Use the short form for a
-single expression and a block for statements.
+single expression and a block for statements. A named function's body may
+take the same form: `fn double(n: Int) -> Int => n * 2`.
 
 Calls are explicit and positional. Use an options record when several arguments
 need labels or defaults. There is no automatic currying or parameter default
@@ -164,7 +165,9 @@ function, which then receives the value.
 
 `let` binds an immutable name; shadowing is allowed. `var` makes a binding
 assignable but does not make its value mutable. Assignment returns `Unit` and
-preserves the binding's type. Mutable containers have separate ownership rules.
+preserves the binding's type. `place op= value` (`+=`, `-=`, `*=`, `/=`, `%=`)
+is `place = place op value`; an index in the place must be a name or a literal,
+since it is evaluated for the read and the write. Mutable containers have separate ownership rules.
 `const` permits literal/constructor aggregates and supported pure constant
 operators; arbitrary function evaluation is not part of draft 0.
 
@@ -191,7 +194,10 @@ a source-level stack-space guarantee.
 establish exhaustiveness. Patterns include literals, bindings, `_`, tuples,
 records, and enum variants. Record patterns may use `..` to ignore other fields;
 closed patterns require an exact shape. A refutable pattern belongs in `match`,
-not plain `let` or a function parameter.
+`if let`, or `let ... else`, not plain `let` or a function parameter. An arm
+may list alternatives, `p | q => body`: it is one arm per alternative with the
+same guard and body, every alternative binds the same names, and each counts
+toward exhaustiveness. Alternatives appear only at the top of an arm.
 
 ```badger fragment
 match result {
@@ -219,6 +225,24 @@ if let .some(user) = users.get(id) {
 
 A pattern condition that ignores `.err` silently drops a failure: match a
 `Result` when the error matters.
+
+`_` in an expression is a hole: the program is checked around it, and each
+hole is an error (E0345) that states the type expected there, so a partial
+program reports what each missing piece must be.
+
+`let PATTERN = EXPR else { ... }` binds a refutable pattern's names for
+the rest of the block when it matches; otherwise the `else` block runs,
+and it must not finish (its type is `Never`: it ends in `return`,
+`break`, `continue`, a panic, or another call returning `Never`; E0300
+otherwise). It is `let (names) = match EXPR { PATTERN => (names), _ =>
+block }`; it takes no type annotation.
+
+```badger fragment
+let .some(user) = users.get(id) else {
+    return err(Error.unknown_user(id))
+}
+greet(user)
+```
 
 A leading-dot variant pattern takes its enum from the scrutinee. Constructor
 expressions use `Enum.variant(...)`, or an imported ordinary helper such as

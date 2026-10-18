@@ -82,6 +82,19 @@ fn postgres_client() {
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&out.stdout), want, "{}", String::from_utf8_lossy(&out.stderr));
+    // migrations: applied once, in order; a mismatched schema is refused
+    let migrations = Command::new(env!("CARGO_BIN_EXE_badger"))
+        .current_dir(&root)
+        .args(["run", "tests/postgres/migrations.bdg"])
+        .env("POSTGRES_URL", &url)
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&migrations.stdout),
+        std::fs::read_to_string(root.join("tests/postgres/migrations.out")).unwrap(),
+        "{}",
+        String::from_utf8_lossy(&migrations.stderr)
+    );
     // typed SQL: the program creates its schema, and the committed module
     // is what the generator writes from the server's descriptions
     let typed = Command::new(env!("CARGO_BIN_EXE_badger"))

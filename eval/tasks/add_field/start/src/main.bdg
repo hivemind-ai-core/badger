@@ -1,0 +1,5 @@
+import notes
+
+pub fn main() -> Unit {
+    let _ = notes.add([], "first")
+}

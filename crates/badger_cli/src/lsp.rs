@@ -352,6 +352,16 @@ impl Server {
             if let Some(c) = &d.code {
                 v["code"] = json!(c);
             }
+            // the structured facts (also in the message as prose), for
+            // clients and agents that act on them
+            v["data"] = json!({
+                "schema_version": 1,
+                "label": d.label,
+                "expected": d.expected,
+                "actual": d.actual,
+                "scope": d.scope,
+                "notes": d.notes,
+            });
             by_file.entry(d.path.clone()).or_default().push(v);
         }
         for p in self.published.clone() {
@@ -589,6 +599,58 @@ impl Server {
             }
         }
         Some((name, out))
+    }
+
+    /// Quick fixes for the diagnostics in the request's context: a missing
+    /// `match` arm (added with a `panic` body, so it stays visibly
+    /// unfinished), and for an unknown
+    /// name that is a standard module gets an action inserting its import
+    /// after the file's last import.
+    fn code_actions(&mut self, params: &Value) -> Value {
+        let uri = params["textDocument"]["uri"].as_str().unwrap_or("").to_string();
+        let file = canonical(&uri_to_path(&uri));
+        let text = self.text(&file);
+        let modules = badger_driver::std_modules();
+        let mut actions = vec![];
+        for d in params["context"]["diagnostics"].as_array().cloned().unwrap_or_default() {
+            if d["code"] == "E0342"
+                && let Some(action) = missing_arm(&uri, &text, &d)
+            {
+                actions.push(action);
+                continue;
+            }
+            if d["code"] != "E0127" {
+                continue;
+            }
+            let msg = d["message"].as_str().unwrap_or("");
+            let Some(name) = msg.strip_prefix("unknown name `").and_then(|r| r.split('`').next()) else {
+                continue;
+            };
+            if name == "prelude" || !modules.contains(&name) {
+                continue;
+            }
+            let import = format!("import std.{name}");
+            if text.lines().any(|l| l.trim() == import) {
+                continue;
+            }
+            // after the last import, else at the top
+            let line = text
+                .lines()
+                .enumerate()
+                .filter(|(_, l)| l.starts_with("import "))
+                .map(|(i, _)| i + 1)
+                .last()
+                .unwrap_or(0);
+            let at = json!({ "line": line, "character": 0 });
+            actions.push(json!({
+                "title": format!("Import std.{name}"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "isPreferred": true,
+                "edit": { "changes": { uri.clone(): [{ "range": { "start": at, "end": at }, "newText": format!("{import}\n") }] } },
+            }));
+        }
+        json!(actions)
     }
 
     fn rename(&mut self, params: &Value) -> Result<Value, String> {
@@ -846,6 +908,7 @@ pub fn serve() -> i32 {
                                 "workspaceSymbolProvider": true,
                                 "documentFormattingProvider": true,
                                 "renameProvider": { "prepareProvider": true },
+                                "codeActionProvider": { "codeActionKinds": ["quickfix"] },
                                 "completionProvider": { "triggerCharacters": ["."] },
                             },
                             "serverInfo": { "name": "badger", "version": env!("CARGO_PKG_VERSION") },
@@ -864,6 +927,7 @@ pub fn serve() -> i32 {
                         "textDocument/completion" => Ok(server.completion(params)),
                         "textDocument/prepareRename" => Ok(server.prepare_rename(params)),
                         "textDocument/rename" => server.rename(params).map_err(|e| (-32602, e)),
+                        "textDocument/codeAction" => Ok(server.code_actions(params)),
                         other => Err((-32601, format!("method not found: {other}"))),
                     };
                     let reply = match result {
@@ -882,6 +946,74 @@ pub fn serve() -> i32 {
         }
     }
     0
+}
+
+/// The action adding an arm for the pattern a non-exhaustive `match`
+/// misses (E0342 names it): before the match's closing brace, with a body
+/// that panics until it is written.
+fn missing_arm(uri: &str, text: &str, d: &Value) -> Option<Value> {
+    let label = d["data"]["label"].as_str()?;
+    let pattern = label.strip_prefix("pattern `")?.strip_suffix("` is not covered")?;
+    // the scrutinee's end, then the match's braces
+    let line = d["range"]["end"]["line"].as_u64()? as usize;
+    let character = d["range"]["end"]["character"].as_u64()? as usize;
+    let line_start: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+    let line_text = text[line_start..].lines().next().unwrap_or("");
+    let mut offset = line_start;
+    let mut units = 0;
+    for c in line_text.chars() {
+        if units >= character {
+            break;
+        }
+        units += c.len_utf16();
+        offset += c.len_utf8();
+    }
+    let bytes = text.as_bytes();
+    let open = offset + text[offset..].find('{')?;
+    let (mut depth, mut i, mut in_string) = (0usize, open, false);
+    let close = loop {
+        let c = *bytes.get(i)?;
+        if in_string {
+            if c == b'\\' {
+                i += 1;
+            } else if c == b'"' {
+                in_string = false;
+            }
+        } else if c == b'"' {
+            in_string = true;
+        } else if c == b'{' {
+            depth += 1;
+        } else if c == b'}' {
+            depth -= 1;
+            if depth == 0 {
+                break i;
+            }
+        }
+        i += 1;
+    };
+    let close_line_start = text[..close].rfind('\n').map(|p| p + 1).unwrap_or(0);
+    let before = &text[close_line_start..close];
+    let message = pattern.replace('\\', "\\\\").replace('"', "\\\"");
+    let (at, new_text) = if before.trim().is_empty() {
+        // `}` on its own line: a new line above it, indented one level more
+        (close_line_start, format!("{before}    {pattern} => panic(\"not handled yet: {message}\"),\n"))
+    } else {
+        // one line: `match x { .a => 1 }`
+        let prev = text[..close].trim_end();
+        let sep = if prev.ends_with(',') || prev.ends_with('{') { " " } else { ", " };
+        (prev.len(), format!("{sep}{pattern} => panic(\"not handled yet: {message}\"),"))
+    };
+    let pos = |o: usize| {
+        let l = text[..o].matches('\n').count();
+        let ls = text[..o].rfind('\n').map(|p| p + 1).unwrap_or(0);
+        json!({ "line": l, "character": text[ls..o].chars().map(char::len_utf16).sum::<usize>() })
+    };
+    Some(json!({
+        "title": format!("Add an arm for `{pattern}`"),
+        "kind": "quickfix",
+        "diagnostics": [d],
+        "edit": { "changes": { uri: [{ "range": { "start": pos(at), "end": pos(at) }, "newText": new_text }] } },
+    }))
 }
 
 /// 1-based line and column (in characters) of byte `offset`.
@@ -925,6 +1057,7 @@ pub fn query(
         "completion",
         "rename",
         "symbols",
+        "symbol",
         "api",
     ];
     if !KINDS.contains(&kind) {
@@ -940,6 +1073,13 @@ pub fn query(
     if (positional || kind == "symbols") && path.is_dir() {
         return Err(format!("`{kind}` needs a source file, not a directory"));
     }
+    // `symbol` reads a project from its entry module
+    let entry = if kind == "symbol" && path.is_dir() {
+        badger_driver::Session::entry_of(path).map(|(f, _, _)| f).map_err(|e| e.to_string())?
+    } else {
+        path.to_path_buf()
+    };
+    let path = entry.as_path();
     let file = canonical(path);
     let mut server = Server { docs: overlays.clone(), dirty: HashSet::from([file.clone()]), ..Server::new() };
     if !matches!(kind, "diagnostics" | "check") {
@@ -1015,6 +1155,97 @@ pub fn query(
                         .collect::<Vec<_>>())
                     .unwrap_or_default()
             )
+        }
+        // a definition by its qualified name (`orders.service.create`,
+        // `Order.total`, or just `create`): where it is, its signature and
+        // type, and every reference to it
+        "symbol" => {
+            let Some(want) = name else {
+                return Err("`symbol` needs --name (e.g. `orders.service.create`)".into());
+            };
+            let Some(a) = server.analysis_for(&file) else {
+                return Err(format!("{} does not parse and resolve (see `diagnostics`)", path.display()));
+            };
+            let parts: Vec<&str> = want.split('.').collect();
+            let (last, scope) = parts.split_last().map(|(l, s)| (*l, s.to_vec())).unwrap_or((want, vec![]));
+            // every definition named `last`
+            struct Hit {
+                path: String,
+                name: String,
+                start: usize,
+                kind: String,
+                detail: String,
+                container: Option<String>,
+            }
+            let mut found: Vec<Hit> = vec![];
+            fn walk(
+                f: &badger_driver::analysis::FileIndex,
+                s: &SymbolInfo,
+                container: Option<&str>,
+                last: &str,
+                out: &mut Vec<Hit>,
+            ) {
+                if s.name == last {
+                    out.push(Hit {
+                        path: f.path.clone(),
+                        name: s.name.clone(),
+                        start: s.name_start,
+                        kind: format!("{:?}", s.kind).to_lowercase(),
+                        detail: s.detail.clone(),
+                        container: container.map(str::to_string),
+                    });
+                }
+                for ch in &s.children {
+                    walk(f, ch, Some(&s.name), last, out);
+                }
+            }
+            for f in &a.files {
+                for s in &f.symbols {
+                    walk(f, s, None, last, &mut found);
+                }
+            }
+            // the qualifying segments name the container, or end the
+            // file's path (`orders.service` is `.../orders/service.bdg`)
+            let matches = |h: &Hit| {
+                if scope.is_empty() {
+                    return true;
+                }
+                let mut rest = scope.clone();
+                if h.container.as_deref() == rest.last().copied() {
+                    rest.pop();
+                } else if h.container.is_some() {
+                    return false;
+                }
+                if rest.is_empty() {
+                    return true;
+                }
+                let stem = h.path.trim_end_matches(".bdg");
+                stem.ends_with(&format!("/{}", rest.join("/"))) || stem == rest.join("/")
+            };
+            let hits: Vec<_> = found.into_iter().filter(|h| matches(h)).collect();
+            let texts: HashMap<String, String> =
+                a.files.iter().map(|f| (f.path.clone(), f.text.clone())).collect();
+            let mut out = vec![];
+            for Hit { path: fpath, name: sname, start, kind, detail, container } in hits {
+                let text = texts.get(&fpath).cloned().unwrap_or_default();
+                let (l, c) = line_col(&text, start);
+                let line_text = text.lines().nth(l.saturating_sub(1)).unwrap_or("");
+                let units: usize = line_text.chars().take(c.saturating_sub(1)).map(char::len_utf16).sum();
+                let at = json!({ "textDocument": { "uri": path_to_uri(&fpath) }, "position": { "line": l - 1, "character": units } });
+                let refs: Vec<Value> = server
+                    .references(&at)
+                    .as_array()
+                    .map(|v| v.iter().map(loc).collect())
+                    .unwrap_or_default();
+                let hover = server.hover(&at)["contents"]["value"]
+                    .as_str()
+                    .map(|v| v.trim_start_matches("```badger\n").trim_end_matches("\n```").to_string());
+                out.push(json!({
+                    "name": sname, "kind": kind, "container": container, "detail": detail, "hover": hover,
+                    "file": fpath, "line": l, "col": c, "references": refs,
+                }));
+            }
+            json!(out)
         }
         "symbols" => {
             let unindexed = || {
@@ -1129,6 +1360,7 @@ fn diagnostic_json(a: &Analysis, d: &analysis::FileDiag, text_of: &dyn Fn(&str) 
         "code": d.code, "message": d.message, "notes": d.notes,
         "label": d.label, "expected": d.expected, "actual": d.actual, "scope": d.scope,
         "related": related, "declarations": declarations,
+        "schema_version": 1,
     })
 }
 

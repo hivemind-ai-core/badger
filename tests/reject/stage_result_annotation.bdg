@@ -1,0 +1,7 @@
+// expect-error: E0702
+// A stage's result annotation names its callbacks' error type: `-> Result<_, E>`.
+import std.pipeline
+stage s() -> Int {
+    enter(ctx) { pipeline.next(ctx) }
+}
+pub fn main() {}

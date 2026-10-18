@@ -1,0 +1,87 @@
+// Least-recently-used caches: at most `capacity` entries; adding one more
+// evicts the entry used longest ago. `get` counts as a use (and so returns
+// the cache with that use recorded); `peek` does not. Operations take
+// O(log n) and return a new cache, leaving the old one unchanged; keep the
+// current one in an `Atom` or a `var` to share it.
+//
+//     var c = lru.cache<String, Int>(2).put("a", 1).put("b", 2)
+//     let (hit, c2) = c.get("a")        // .some(1); "a" is now the newest
+//     c2.put("c", 3).contains("b")      // false: "b" was evicted
+import std.map
+import std.sorted
+
+pub struct Cache<K, V> {
+    capacity: Int,
+    entries: Map<K, (V, Int)>,
+    order: sorted.SortedMap<Int, K>,
+    tick: Int,
+}
+
+/// An empty cache of at most `capacity` entries (at least 1).
+pub fn cache<K, V>(capacity: Int) -> Cache<K, V> where K: Hash {
+    { capacity: if capacity < 1 { 1 } else { capacity }, entries: map.empty(), order: sorted.empty(), tick: 0 }
+}
+
+impl<K, V> Cache<K, V> {
+    pub fn len(self: &Self) -> Int {
+        self.entries.len()
+    }
+
+    pub fn capacity(self: &Self) -> Int {
+        self.capacity
+    }
+
+    pub fn contains(self: &Self, key: K) -> Bool where K: Hash {
+        self.entries.get(key).is_some()
+    }
+
+    /// The value of `key` without recording a use.
+    pub fn peek(self: &Self, key: K) -> Option<V> where K: Hash {
+        self.entries.get(key).map(fn(e) { e.0 })
+    }
+
+    /// The value of `key`, and the cache with that use recorded.
+    pub fn get(self: &Self, key: K) -> (Option<V>, Cache<K, V>) where K: Hash {
+        match self.entries.get(key) {
+            .none => (Option.none, { ..self }),
+            .some((v, stamp)) => {
+                let tick = self.tick + 1
+                let used = { ..self, entries: self.entries.insert(key, (v, tick)), order: self.order.remove(stamp).insert(tick, key), tick }
+                (Option.some(v), used)
+            },
+        }
+    }
+
+    /// The cache with `key` set to `value` (a use), evicting the least
+    /// recently used entry when it is full.
+    pub fn put(self: &Self, key: K, value: V) -> Cache<K, V> where K: Hash {
+        let tick = self.tick + 1
+        let order = match self.entries.get(key) {
+            .some((_, stamp)) => self.order.remove(stamp),
+            .none => self.order,
+        }
+        var next: Cache<K, V> = { ..self, entries: self.entries.insert(key, (value, tick)), order: order.insert(tick, key), tick }
+        if next.entries.len() > next.capacity {
+            match next.order.first() {
+                .some((stamp, oldest)) => {
+                    next = { ..next, entries: next.entries.remove(oldest), order: next.order.remove(stamp) }
+                },
+                .none => (),
+            }
+        }
+        next
+    }
+
+    /// The cache without `key`.
+    pub fn remove(self: &Self, key: K) -> Cache<K, V> where K: Hash {
+        match self.entries.get(key) {
+            .some((_, stamp)) => { ..self, entries: self.entries.remove(key), order: self.order.remove(stamp) },
+            .none => { ..self },
+        }
+    }
+
+    /// The keys, least recently used first.
+    pub fn keys(self: &Self) -> List<K> {
+        self.order.values()
+    }
+}

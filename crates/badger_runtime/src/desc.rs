@@ -161,6 +161,9 @@ pub struct TypeDesc {
     /// known; 1: none; 2: some), cached for marking. Reset by code that
     /// fills in a descriptor's kind after creating it.
     pub leaf: std::sync::atomic::AtomicU8,
+    /// Whether values of this type may contain a float (0: not yet known;
+    /// 1: no; 2: may), cached for equality. Reset with `leaf`.
+    pub floats: std::sync::atomic::AtomicU8,
 }
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -174,6 +177,7 @@ impl TypeDesc {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             unit_variants: Default::default(),
             leaf: std::sync::atomic::AtomicU8::new(0),
+            floats: std::sync::atomic::AtomicU8::new(0),
         }
     }
 

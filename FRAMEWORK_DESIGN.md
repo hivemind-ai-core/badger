@@ -2,7 +2,7 @@
 
 Date: 2026-10-16. Status: draft 1. Accepted user decisions are identified explicitly; other decisions are selected design defaults for review. The framework APIs below are proposed. Existing-language examples and implementation evidence are identified separately.
 
-This is the current authority for the framework proposal. [SPEC.md](SPEC.md) governs the language and runtime semantics; [ENHANCEMENTS.md](ENHANCEMENTS.md) owns general ergonomic changes, including proposed provider/stage syntax. This design does not reorder the active compiler/runtime work queue.
+This is the current authority for the framework proposal. [SPEC.md](SPEC.md) governs the language and runtime semantics; [ENHANCEMENTS.md](archive/plans/ENHANCEMENTS.md) (archived; leftovers in [BACKLOG.md](BACKLOG.md)) owned general ergonomic changes, including the provider/stage syntax. This design does not reorder the active compiler/runtime work queue.
 
 ## Accepted direction
 
@@ -23,7 +23,7 @@ The user requested inspiration from:
 - ClojureScript re-frame.
 - Clojure Duct.
 
-Co-design the framework with general language ergonomics using concrete examples. Record proposed language syntax in [ENHANCEMENTS.md, L8](ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations); keep framework conventions, packages, APIs, and delivery slices here. [Section 4 of the enhancement assessment](ENHANCEMENTS.md#4-framework-a-cohesive-application-service-stack) links the two workstreams.
+Co-design the framework with general language ergonomics using concrete examples. Record proposed language syntax in [ENHANCEMENTS.md, L8](archive/plans/ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations); keep framework conventions, packages, APIs, and delivery slices here. [Section 4 of the enhancement assessment](archive/plans/ENHANCEMENTS.md#4-framework-a-cohesive-application-service-stack) links the two workstreams.
 
 ## Inspiration and ideas to evaluate
 
@@ -199,18 +199,18 @@ No provider initializer runs simply to discover its type. Configuration expansio
 
 The initial composition root remains an ordinary `system { ... }`. A proposed `app.run` helper may combine configuration, signal handling, health, and `system.run`, but must preserve its callback-scoped resource contract. It cannot return a running service whose dependencies have already closed.
 
-For example, a generated composition root could have this shape. The feature/adapter providers are application or future framework code; the `system`/`component`/`ref` syntax itself is current language syntax:
+For example, a generated composition root could have this shape. The feature/adapter providers are application or future framework code; the `system { ... }` provider application and `ref` syntax itself is current language syntax:
 
 ```badger fragment
 let plan = system {
-    database: component(sqlite.pool, { path: settings.database_path }),
-    store: component(order_store.provider, { database: ref(:database) }),
-    orders: component(orders.provider, { store: ref(:store) }),
-    routes: component(orders_http.provider, { orders: ref(:orders) }),
-    server: component(web.server, {
+    database: sqlite.pool({ path: settings.database_path }),
+    store: order_store.provider({ database: ref(#database) }),
+    orders: orders.provider({ store: ref(#store) }),
+    routes: orders_http.provider({ orders: ref(#orders) }),
+    server: web.server({
         address: settings.address,
         port: settings.port,
-        handler: ref(:routes),
+        handler: ref(#routes),
     }),
 }
 ```
@@ -253,7 +253,7 @@ This is a proposed library fragment, not runnable with today's imports. `Store`,
 ```badger fragment
 fn build_operations(store: Store) {
     let create = operation.from_pipeline(
-        { id: :orders/create, version: 1 },
+        { id: #orders/create, version: 1 },
         pipeline {
             validation.input(validate_create),
             authorization.require(can_create),
@@ -268,7 +268,7 @@ fn build_operations(store: Store) {
 
 The private factory above illustrates inference; its exported counterpart declares a complete public API with the concrete operation error/effect parameters. `validation.input` transforms an input only under the pipeline's field-type preservation rule: use the same normalized type or establish a distinct decoded field. `authorization.require` checks the verified actor and typed input before invoking storage. It is a normal typed stage factory, not a policy registry lookup hidden in a symbol.
 
-An HTTP binding might be `web.json_post("/orders", orders.create, { name: :orders/create_http, status: 201, errors: render_create_error })`. A CLI binding can connect the same operation to typed arguments/output/exit mappings. These constructor names/options are proposals. The binding factories check their input/output/error schemas against the operation; they do not reconstruct a service contract from strings.
+An HTTP binding might be `web.json_post("/orders", orders.create, { name: #orders/create_http, status: 201, errors: render_create_error })`. A CLI binding can connect the same operation to typed arguments/output/exit mappings. These constructor names/options are proposals. The binding factories check their input/output/error schemas against the operation; they do not reconstruct a service contract from strings.
 
 The expected everyday experience is: implement a domain function, optionally compose typed policies around it, expose it through a small feature interface, and select adapters. The descriptor/metadata layer should not require a separate hand-written class, universal event type, or dependency-container lookup for each call.
 
@@ -521,7 +521,7 @@ A normal LLM task should follow one small loop: query a feature's contract/conte
 
 ## 23. Language and compiler interaction
 
-Provider/stage declarations and shorter system entries are recorded in [ENHANCEMENTS.md, L8](ENHANCEMENTS.md#l8-streamline-provider-system-and-interceptor-declarations). They should desugar to existing typed descriptors and retain diagnostic/source identity. Shared stage error annotations could address the repeated callback annotations visible in current examples.
+Provider/stage declarations and shorter system entries are implemented (spec chapter 06): `provider NAME(scope, config) -> Result<O, E> { ... }`, `stage NAME(params) -> Result<_, E> { enter(ctx) { ... } ... }`, and `key: provider(config)` entries. They desugar to the existing typed descriptors and keep diagnostic/source identity (`#module/name`, or `as #label`); a stage's shared `-> Result<_, E>` annotation replaces the repeated callback annotations.
 
 The framework also benefits from fallible pipes, expression lambdas, pattern conditions, fallible collection helpers, richer diagnostic/query parity, and reliable semantic edits. Those remain general enhancements with independent value to non-framework code.
 
@@ -564,6 +564,24 @@ Every slice should leave a runnable application and a visible inspection/test re
 | F09: pure decision/event helpers | Order transition produces typed events/commands under controlled coeffects | Pure tests; version-conflict recomputation; durable adapters execute only committed commands; ordinary direct functions remain usable |
 | F10: generators and agent integration | Add a feature/endpoint/worker using compiler-backed templates | Overlay check, plan diff, semantic registration, fresh-source preconditions; generated tests and focused context queries; no fabricated complete business implementation |
 | F11: operational hardening | Run the complete service with slow consumers, failures, reload and shutdown | Bounded resource measurements, multi-worker/fuzz/simulation coverage, trace loss visibility, independent request failures, live inspection; restart-group support only with safe reconstruction proof |
+
+### Status (2026-10-18)
+
+Each slice has a runnable demonstration in the checkout (`examples/framework` unless noted); what is left is listed with it.
+
+| Slice | Implemented | Tests | Left for later |
+|---|---|---|---|
+| F01 | Descriptor baseline | `examples/design/framework` (7 tests) | — |
+| F02 | `std.app`: `Operation` (built only by `from_fn`/`from_pipeline`, E0315 otherwise), `Call` (correlation, parent, deadline that only shortens, actor), `index` | `tests/run/app_operations`, `tests/reject/app_operation_forged` | — |
+| F03 | `config.resolve`/`resolve_or` (defaults < `[config]` < profile < env < overrides, strict, per-setting provenance), `config.Secret` (redacted in display, JSON, provenance), `app.Health`/`app.check`, `app.run` (ready after startup, stopping before halt, stopped after), `endpoint.health` | `config_resolve`, `tests/run/app_health`, `tests/reject/app_run_escape` | Dotenv values are reported as environment values; secret rotation; compiled binaries report profile values as `[config]` |
+| F04 | `std.endpoint` (`bind`: typed params/body/reply, explicit error mapping, correlation, OpenAPI summary), `std.command` (`bind`, `run`, `main`, exit statuses) | `tests/run/app_bindings`, `framework_example` | Streaming endpoints over operations; OpenAPI error responses (the mapping is a function) |
+| F05 | `std.admission` (native gates: FIFO hand-off, queue-time deadlines, release after settle/cancel), `app.guard`/`require_role`, `endpoint.bind_in` (bearer identity, timeout from arrival, gate, body limit) | `tests/run/admission_gate`, `tests/run/app_admission` (4 workers, chaos) | Byte budgets (gates count calls); sessions and external identity providers; transport limits stay the HTTP server's |
+| F06 | `sqlite.migrate`/`schema`/`require_current` and the same for Postgres (checksummed, one transaction each, re-checked inside it; Postgres takes an advisory lock); SQLite repository with a shared contract test | `tests/run/sqlite_migrations`, `tests/postgres/migrations` (live server), `framework_example` | Units of work spanning repositories |
+| F07 | `jobs.store` provider, `jobs.process_one`/`processor` (handler error = job retry; defect = worker restart; lost claims given up) | `tests/run/jobs_worker` | Drain policies beyond the worker's shutdown policy |
+| F08 | `jobs.attach`, `jobs.submit_in` (domain change and job in one transaction), `jobs.dispatcher` | `tests/run/jobs_outbox` (crash mid-send → uncertain, no resend, reconcile) | Postgres-backed job store |
+| F09 | `std.decide` (pure `!{}` deciders with coeffects, optimistic `execute` that decides again after a conflict, `memory` stream) | `tests/run/decide_orders`, `tests/reject/decide_impure` | A durable event-stream adapter |
+| F10 | `badger generate feature` and the MCP `generate` tool (checked and tested in a copy of the project before writing; never replaces files) | `generate_feature`, `mcp_tools` | Endpoint- and worker-only generators; semantic plan diffs beyond the file list |
+| F11 | The composed service under concurrent gated writes, malformed/oversized requests, a slow client, live inspection, and SIGINT shutdown | `framework_service` (service.rs) | Restart groups; long-running soak measurements |
 
 Native modules, library extraction, and runtime fixes continue under their existing owners. F06/F08 need explicit integration gates rather than assuming the database and job-store connection models already compose atomically. Syntax sugar can land alongside these slices after equivalent-desugaring tests; the baseline must keep working without it.
 

@@ -86,6 +86,11 @@ err(not a number: x)
 error types when the target error type converts from both (`From`, see
 [chapter 3](03-errors.md)). `try_all` returns the values in task order.
 
+`task.map_bounded(items, limit, f)` runs `f` over a list with at most
+`limit` calls at once (in a scope of its own) and returns the results in
+item order. The first error cancels the calls still running, and items
+not started yet are not run.
+
 ## Contain a failure with `capture`
 
 A defect (a `panic`, a failed assertion or contract, overflow) fails its

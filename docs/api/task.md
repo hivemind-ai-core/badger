@@ -134,6 +134,17 @@ fn display(self: &Self) -> String
 fn current_id() -> Int
 ```
 
+### `map_bounded`
+
+```badger
+fn map_bounded<T, U, E, Eff>(items: List<T>, limit: Int, f: fn(T) -> Result<U, E> !Eff) -> Result<List<U>, E> !{Wait, State, Eff} where fn(T) -> Result<U, E> !Eff: Transfer, T: Transfer, U: Transfer, E: Transfer
+```
+
+`f` over `items` with at most `limit` calls running at once (in child
+tasks of a new scope), the results in item order. The first error
+cancels and settles the calls still running and is returned; items not
+yet started are not run.
+
 ### `scope`
 
 ```badger

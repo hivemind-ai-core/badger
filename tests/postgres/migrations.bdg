@@ -1,0 +1,48 @@
+// postgres migrations (run by crates/badger_cli/tests/postgres.rs with
+// POSTGRES_URL): versioned SQL applied in order, each in its own
+// transaction with its record; re-running applies nothing; a server can
+// refuse a database that is behind, ahead, or migrated with different SQL.
+import std.env
+import std.io
+import std.postgres
+
+pub enum AppError {
+    io(source: io.Error),
+    db(source: postgres.Error),
+} derive(Error, From)
+
+fn report<T>(r: Result<T, postgres.Error>) -> String {
+    match r {
+        .ok(_) => "ok",
+        .err(e) => $"{e.code}: {e.message}",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = postgres.connect(env.get("POSTGRES_URL").unwrap_or(""))?
+    for table in ["badger_migrations", "mtags", "mtasks"] {
+        let _ = postgres.execute(db, $"DROP TABLE IF EXISTS {table}", [])?
+    }
+    let v1: postgres.Migration = { version: 1, name: "tasks", sql: "CREATE TABLE mtasks (id BIGINT PRIMARY KEY, title TEXT NOT NULL)" }
+    let v2: postgres.Migration = { version: 2, name: "done", sql: "ALTER TABLE mtasks ADD COLUMN done BOOLEAN NOT NULL DEFAULT false" }
+    let v3: postgres.Migration = { version: 3, name: "tags", sql: "CREATE TABLE mtags (task BIGINT NOT NULL, tag TEXT NOT NULL)" }
+
+    io.println(postgres.migrate(db, [v1, v2])?)?
+    io.println(postgres.migrate(db, [v1, v2])?)?
+    let s = postgres.schema(db, [v1, v2, v3])?
+    io.println($"current {s.current} latest {s.latest} pending {s.pending}")?
+    io.println(report(postgres.require_current(db, [v1, v2])))?
+    io.println(report(postgres.require_current(db, [v1, v2, v3])))?
+    io.println(postgres.migrate(db, [v1, v2, v3])?)?
+
+    // the program and the database must agree
+    io.println(report(postgres.require_current(db, [v1, v2])))?
+    io.println(report(postgres.schema(db, [{ ..v1, sql: "CREATE TABLE mtasks (id BIGINT PRIMARY KEY)" }, v2, v3])))?
+    io.println(report(postgres.migrate(db, [v2, v1])))?
+
+    // a failing migration rolls back and stops; earlier ones stay applied
+    let v4: postgres.Migration = { version: 4, name: "broken", sql: "ALTER TABLE missing ADD COLUMN x BIGINT" }
+    io.println(report(postgres.migrate(db, [v1, v2, v3, v4])))?
+    io.println(postgres.schema(db, [v1, v2, v3, v4])?.current)?
+    ok(())
+}

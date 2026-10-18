@@ -1,0 +1,39 @@
+// `requires` / `ensures` on `provider` and `stage` declarations: a
+// provider's clauses are its initializer's (checked when the node starts,
+// and against each node's configuration when the program is checked); a
+// stage's are its factory's.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+import std.system
+
+pub enum AppError {
+    io(source: io.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+requires config.size > 0, "a pool needs at least one slot"
+ensures result.is_err() || result.unwrap_or(0) == config.size
+provider pool(config: { size: Int }) -> Result<Int, AppError> {
+    ok(config.size)
+}
+
+requires limit > 0
+stage capped(limit: Int) {
+    enter(ctx) => pipeline.next({ ..ctx, limit })
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system { pool: pool({ size: 4 }) }
+    let n = {
+        use running <- system.run(plan)
+        ok(running.pool)
+    }?
+    io.println($"pool of {n}")?
+    let run = pipeline.compile(pipeline {
+        capped(3),
+        handle(fn(ctx) -> Result<Int, AppError> { ok(ctx.limit) }),
+    })
+    io.println(run({})?)?
+    ok(())
+}

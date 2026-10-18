@@ -1,4 +1,5 @@
-(* Draft-0 syntax skeleton. This is not the compiler's implemented pest grammar.
+(* Draft-0 syntax skeleton. The compiler's implemented grammar is the parser in
+   crates/badger_syntax/src/grammar.rs (a logos lexer and a chumsky parser).
    The prose syntax specification governs layout, precedence, lexical escapes,
    contextual construction, and static restrictions. NEWLINE is a statement
    boundary after applying the continuation rules in 01-syntax.md.
@@ -6,7 +7,8 @@
 
 program          = { separator | declaration } ;
 declaration      = import_decl | type_decl | struct_decl | enum_decl
-                 | protocol_decl | impl_decl | function_decl | extern_decl
+                 | protocol_decl | impl_decl | function_decl | provider_decl
+                 | stage_decl | extern_decl
                  | global_binding ;
 visibility       = [ "pub" ] ;
 separator        = NEWLINE | ";" ;
@@ -49,10 +51,18 @@ method_decl      = { contract }, "fn", value_name, [ generic_params ], "(", type
                    ( block | separator ) ;
 function_decl    = { contract }, visibility, "fn", value_name, [ generic_params ],
                    "(", params, ")", [ "->", type_expr ], [ effect ],
-                   [ where_clause ], block ;
+                   [ where_clause ], ( block | "=>", expr ) ;
 contract         = ( "requires" | "ensures" ), expr, [ ",", STRING ], separator ;
 extern_decl      = visibility, "extern", STRING, "fn", value_name,
                    "(", typed_params, ")", "->", type_expr, separator ;
+(* `provider`, `stage`, `enter`, `leave`, and `error` are keywords only here *)
+provider_decl    = { contract }, visibility, "provider", value_name, [ "as", SYMBOL ],
+                   "(", params, ")", [ "->", type_expr ], [ effect ], block ;
+stage_decl       = { contract }, visibility, "stage", value_name, [ "as", SYMBOL ],
+                   [ generic_params ], "(", params, ")", [ "->", type_expr ],
+                   "{", { stage_callback | separator }, "}" ;
+stage_callback   = ( "enter" | "leave" | "error" ), "(", params, ")",
+                   [ "->", type_expr ], ( block | "=>", expr ) ;
 global_binding   = [ "pub" ], ("let" | "const"), pattern,
                    [ ":", type_expr ], "=", expr, separator ;
 params           = [ param, { ",", param }, [ "," ] ] ;
@@ -78,8 +88,8 @@ block            = "{", { separator | statement, separator }, [ statement ], "}"
 statement        = binding | assignment | use_stmt | return_stmt
                  | break_stmt | "continue" | expr ;
 binding          = ("let" | "var" | "const"), pattern,
-                   [ ":", type_expr ], "=", expr ;
-assignment       = place, "=", expr ;
+                   [ ":", type_expr ], "=", expr, [ "else", block ] ;
+assignment       = place, ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ), expr ;
 place            = value_name, { ".", value_name | "[", expr, "]" } ;
 use_stmt         = "use", pattern, { ",", pattern }, "<-", callable ;
 callable         = value_path, [ type_args ], [ "(", arguments, ")" ] ;
@@ -109,16 +119,17 @@ map_literal      = "map", "{", [ map_entry, { ",", map_entry }, [ "," ] ], "}" ;
 map_entry        = expr, "=>", expr ;
 set_literal      = "set", "{", arguments, "}" ;
 lambda           = [ "once" ], "fn", "(", params, ")",
-                   [ "->", type_expr ], [ effect ], block ;
-if_expr          = "if", expr, block, [ "else", (block | if_expr) ] ;
+                   [ "->", type_expr ], [ effect ], ( block | "=>", expr ) ;
+condition        = expr | "let", pattern, "=", expr ;
+if_expr          = "if", condition, block, [ "else", (block | if_expr) ] ;
 match_expr       = "match", expr, "{", { match_arm }, "}" ;
-match_arm        = pattern, [ "if", expr ], "=>", expr, [ "," ], { NEWLINE } ;
-while_expr       = "while", expr, block ;
+match_arm        = pattern, { "|", pattern }, [ "if", expr ], "=>", expr, [ "," ], { NEWLINE } ;
+while_expr       = "while", condition, block ;
 for_expr         = "for", pattern, "in", expr, block ;
 loop_expr        = "loop", block ;
 system_expr      = "system", "{", [ system_entry,
                    { ",", system_entry }, [ "," ] ], "}" ;
-system_entry     = label, ":", expr ;
+system_entry     = label, ":", expr ;   (* a provider application: provider(config), or component(provider, config) *)
 pipeline_expr    = "pipeline", "{", [ expr, { ",", expr }, [ "," ] ], "}" ;
 ref_expr         = "ref", "(", SYMBOL, ")" ;
 unsafe_expr      = "unsafe", block ;

@@ -249,6 +249,29 @@ pub fn main() -> Unit {
 }
 ```
 
+### Contracts on providers and stages
+
+`requires` and `ensures` lines also go before a `provider` or a `stage`
+([chapter 8](08-systems-and-pipelines.md)):
+
+- A provider's clauses are its initializer's: `config` and `scope` are its
+  parameters and `result` its `Result`. They run when the node starts, and
+  the compiler checks each `system { }` node's configuration against them
+  (E0145 for one that cannot satisfy a precondition).
+- A stage's clauses are its factory's: they constrain the factory's
+  parameters, as for any function call.
+
+```badger fragment
+requires config.size > 0, "a pool needs at least one slot"
+provider pool(config: { size: Int }) -> Result<Pool, AppError> { ... }
+
+let plan = system { pool: pool({ size: 0 }) }   // E0145: the node's configuration cannot satisfy it
+```
+
+A contract states what the program guarantees; a broken one is a defect.
+Configuration read from outside (files, the environment) is validated with
+an ordinary check that returns an error.
+
 ### Contracts and tests together
 
 `badger contracts --tests PATH` runs the tests while observing the

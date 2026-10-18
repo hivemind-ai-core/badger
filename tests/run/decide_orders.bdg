@@ -1,0 +1,118 @@
+// std.decide (framework F09): an order's transitions as a pure decider
+// with coeffects given as data, tested directly; optimistic concurrency
+// that decides again after a conflict (on the new state, with fresh
+// coeffects); and follow-up commands taken only from committed events.
+import std.decide
+import std.io
+
+type Order = { status: Symbol, paid: Int, total: Int }
+
+enum Command {
+    place(total: Int),
+    pay(amount: Int),
+    ship,
+}
+
+enum Event {
+    placed(total: Int, at: Int),
+    paid(amount: Int, receipt: String),
+    shipped(at: Int),
+}
+
+pub enum Refusal {
+    not_open,
+    overpaid(by: Int),
+    unpaid,
+} derive(Error)
+
+// what a decision may consult besides the state: the time and an id
+type Context = { now: Int, id: String }
+
+fn orders() -> decide.Decider<Order, Command, Event, Refusal, Context> {
+    {
+        initial: { status: #none, paid: 0, total: 0 },
+        decide: fn(o: Order, c: Command, cx: Context) -> Result<List<Event>, Refusal> !{} {
+            match c {
+                .place(total) => if o.status == #none { ok([Event.placed(total, cx.now)]) } else { err(Refusal.not_open) },
+                .pay(amount) => {
+                    if o.status != #placed {
+                        return err(Refusal.not_open)
+                    }
+                    if o.paid + amount > o.total {
+                        return err(Refusal.overpaid(o.paid + amount - o.total))
+                    }
+                    ok([Event.paid(amount, cx.id)])
+                },
+                .ship => if o.status != #placed { err(Refusal.not_open) } else if o.paid == o.total { ok([Event.shipped(cx.now)]) } else { err(Refusal.unpaid) },
+            }
+        },
+        evolve: fn(o: Order, e: Event) -> Order !{} {
+            match e {
+                .placed(total, _) => { ..o, status: #placed, total },
+                .paid(amount, _) => { ..o, paid: o.paid + amount },
+                .shipped(_) => { ..o, status: #shipped },
+            }
+        },
+    }
+}
+
+fn show(r: Result<(Order, List<Event>), Refusal>) -> String {
+    match r {
+        .ok((o, events)) => $"{o.status} paid {o.paid}/{o.total}, {events.len()} event(s)",
+        .err(e) => $"refused: {e}",
+    }
+}
+
+pub fn main() -> Result<Unit, decide.Failure<Refusal, Never>> {
+    let d = orders()
+    let cx: Context = { now: 100, id: "r-1" }
+    // pure decisions, tested directly
+    let history = [Event.placed(30, 1)]
+    let _ = io.println(show(decide.decide(d, [], Command.place(30), cx)))
+    let _ = io.println(show(decide.decide(d, history, Command.pay(20), cx)))
+    let _ = io.println(show(decide.decide(d, history, Command.pay(40), cx)))
+    let _ = io.println(show(decide.decide(d, history, Command.ship, cx)))
+
+    // optimistic concurrency: another writer pays between our load and our
+    // append; we decide again on the new state and are refused
+    let stream = decide.memory<Event>()
+    let _ = decide.execute(d, stream, Command.place(30), fn() { cx }, 3)?
+    let racing: decide.Stream<Event, Never> = {
+        load: stream.load,
+        append: fn(expected: Int, events: List<Event>) -> Result<Bool, Never> {
+            let append = stream.append
+            // the other writer wins the race once
+            let (_, now) = stream.load()?
+            if now == expected && expected == 1 {
+                let _ = append(expected, [Event.paid(20, "other")])?
+            }
+            append(expected, events)
+        },
+    }
+    let calls = Atom.new(0)
+    let fresh = fn() -> Context {
+        let n = calls.update(fn(n) { n + 1 })
+        { now: 100 + n, id: $"r-{n}" }
+    }
+    match decide.execute(d, racing, Command.pay(20), fresh, 3) {
+        .err(.refused(e)) => { let _ = io.println($"after the conflict: {e} (decided {calls.get()} times)") },
+        _ => { let _ = io.println("unexpected") },
+    }
+    let committed = decide.execute(d, racing, Command.pay(10), fresh, 3)?
+    let _ = io.println($"committed {committed.events.len()} event(s) at version {committed.version}: {committed.state.paid}/{committed.state.total}")
+
+    // follow-up commands come only from committed events
+    let shipped = decide.execute(d, stream, Command.ship, fn() { cx }, 3)?
+    let notices = shipped.events.map(fn(e) {
+        match e {
+            .shipped(at) => $"email: shipped at {at}",
+            _ => "",
+        }
+    })
+    let _ = io.println(notices)
+    match decide.execute(d, stream, Command.ship, fn() { cx }, 3) {
+        .err(e) => { let _ = io.println($"again: {e}") },
+        .ok(_) => { let _ = io.println("unexpected") },
+    }
+    ok(())
+}

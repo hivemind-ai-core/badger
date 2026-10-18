@@ -1,5 +1,17 @@
 # Lock optimization plan
 
+> **Archived 2026-10-18.** Landed: most of slice 0 (per-worker and
+> per-reason lock statistics), parts of slice 1 (wait generations, atomic
+> task state, per-task locks), slice 3's fast paths (unlocked prompt-channel
+> send/receive, park without the lock, hand-off to parked partners),
+> slice 5's unlocked lease reads, most of slice 6 (worker-local queues with
+> stealing, unlocked spawn/join/finish, sharded task table), and slice 7's
+> allocation-pressure blocks, unlocked collection intrinsics, and console
+> output outside the lock. Later measurements attribute most remaining
+> multi-worker cost to moving channel state between cores rather than to
+> lock waits. Slices 1–8 remainders and the verification gates are in
+> [BACKLOG.md](../../BACKLOG.md).
+
 Status: implementation roadmap, reviewed 2026-10-16 against `a9584fa` and the
 working tree. The changes below are proposed unless explicitly described as
 existing. This document orders synchronization work for multithreaded workloads;
@@ -15,19 +27,19 @@ memory access should not acquire an exclusive collector lock.
 
 Current implementation anchors:
 
-- [Runtime and scheduler](crates/badger_runtime/src/task.rs): `LOCKED`,
+- [Runtime and scheduler](../../crates/badger_runtime/src/task.rs): `LOCKED`,
   `badger_rt_enter`, `badger_rt_leave`, `Runtime`, `park`, `wake_with`, `make_ready`,
   `worker_loop`, `finish`, and `SCHED`.
-- [Channels](crates/badger_runtime/src/channel.rs): `ChanData`, `try_fast`,
+- [Channels](../../crates/badger_runtime/src/channel.rs): `ChanData`, `try_fast`,
   `claim`, `send`, `recv`, selection commits, batching and task cleanup.
-- [Channel intrinsics](crates/badger_runtime/src/intrinsics_task.rs): unlocked
+- [Channel intrinsics](../../crates/badger_runtime/src/intrinsics_task.rs): unlocked
   entry wrappers, `locked`, selection registration and completion.
-- [Collector](crates/badger_runtime/src/gc.rs): worker-local pools/object lists,
+- [Collector](../../crates/badger_runtime/src/gc.rs): worker-local pools/object lists,
   shared heap metadata, roots, `NoGc`, `alloc` and `collect`.
-- [Code generator](crates/badger_codegen/src/lib.rs): `rt_call`, `UNLOCKED`,
+- [Code generator](../../crates/badger_codegen/src/lib.rs): `rt_call`, `UNLOCKED`,
   allocation lowering and poll lowering.
-- [Scopes](crates/badger_runtime/src/scope.rs): registry, child completion,
-  cancellation and release. [Output](crates/badger_runtime/src/intrinsics_io.rs):
+- [Scopes](../../crates/badger_runtime/src/scope.rs): registry, child completion,
+  cancellation and release. [Output](../../crates/badger_runtime/src/intrinsics_io.rs):
   `write_out` performs synchronous writes and flushing.
 
 The global runtime lock currently protects scheduler state, channel slow paths,
@@ -38,7 +50,7 @@ atomic ownership byte provides local exclusion, but waiters, selection,
 publication and many admission cases still enter the global lock. Do not plan
 these existing fast paths as new deliverables.
 
-The committed [2026-10-16 benchmark snapshot](reports/benchmarks/2026-10-16-after-lock.md)
+The committed [2026-10-16 benchmark snapshot](../../reports/benchmarks/2026-10-16-after-lock.md)
 records these historical execution medians at revision `0cee2ae710`:
 
 | Workload | 1 worker | 2 workers | 4 workers | 8 workers |
@@ -486,7 +498,7 @@ multi-party completion is involved. Retain reproducing seeds, worker counts,
 source/binary hashes and failing traces. Do not weaken assertions to hide a race.
 
 Use existing self-checking [stress programs](tests/stress) and
-[stress runner](crates/badger_cli/tests/stress.rs), extending them with:
+[stress runner](../../crates/badger_cli/tests/stress.rs), extending them with:
 
 - Buffered and capacity-zero channels; prompt and batch operations; tiny,
   medium and large pointer-bearing messages; many independent pairs and one

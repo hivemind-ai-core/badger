@@ -1,0 +1,22 @@
+import notes
+
+fn test_new_notes_are_not_pinned() -> Result<Unit, notes.NoteError> {
+    let ns = notes.add([], "a")
+    assert(!notes.find(ns, 1)?.pinned)
+    ok(())
+}
+
+fn test_pin() -> Result<Unit, notes.NoteError> {
+    let ns = notes.pin(notes.add(notes.add([], "a"), "b"), 2)?
+    assert(notes.find(ns, 2)?.pinned && !notes.find(ns, 1)?.pinned)
+    ok(())
+}
+
+fn test_pin_missing() -> Unit {
+    match notes.pin([], 7) {
+        .err(.missing(7)) => (),
+        _ => panic("expected missing(7)"),
+    }
+}
+
+pub fn main() -> Unit {}

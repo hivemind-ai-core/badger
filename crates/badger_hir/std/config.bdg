@@ -1,5 +1,6 @@
 // Validated configuration.
 
+import std.codec
 import std.prelude
 
 pub struct Error {
@@ -29,3 +30,69 @@ extern "intrinsic" fn config_load<T>(prefix: String) -> Result<T, Error>
 /// set) or `"${NAME:-default}"`; `$${` is a literal `${`. The project's
 /// `[env] dotenv` files are loaded before the program starts.
 pub fn load<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec { config_load(prefix) }
+
+/// A secret setting: configured like a string, but shown and encoded as
+/// `[redacted]` (in `Display`, JSON, logs, and provenance). `reveal` gives
+/// the value to the code that needs it.
+pub struct Secret {
+    value: String,
+} derive(Codec)
+
+pub fn secret(value: String) -> Secret {
+    { value }
+}
+
+impl Secret {
+    pub fn reveal(self: &Self) -> String {
+        self.value
+    }
+}
+
+impl Display for Secret {
+    fn display(self: &Self) -> String {
+        "[redacted]"
+    }
+}
+
+/// Where a setting's value came from: `source` is `#default`, `#config`
+/// (the `[config]` table), `#profile` (`[profile.NAME]`), `#env`, or
+/// `#override`; `origin` names the key, profile, variable, or override;
+/// `value` is the selected value (`[redacted]` for a secret), and
+/// `overridden` lists the lower-precedence sources that also set it.
+pub type Setting = { key: String, source: Symbol, origin: String, value: String, overridden: List<Symbol> }
+
+/// A resolved configuration and the provenance of each of its settings.
+pub struct Resolved<T> {
+    pub value: T,
+    pub settings: List<Setting>,
+}
+
+extern "intrinsic" fn config_resolve<T>(prefix: String, overrides: List<String>, defaults: String) -> Result<T, Error>
+extern "intrinsic" fn config_provenance<T>(prefix: String, overrides: List<String>, defaults: String) -> String
+extern "intrinsic" fn codec_encode_revealed<T>(value: T) -> String
+
+/// Resolve `T` from every source, lowest to highest precedence: the
+/// `[config]` table, the selected profile, prefixed environment variables
+/// (`PREFIX` + the upper-cased field path, `_`-joined: `APP_DB_PORT` for
+/// `db.port`; `.env` files the project enables are loaded into the
+/// environment first), and `overrides` (`key=value`, with dotted keys, as a
+/// `--set` option gives them). Unlike `load`, it is strict: a `[config]`
+/// or profile key, a prefixed variable, or an override that names no
+/// field of `T` is an error rather than ignored.
+pub fn resolve<T>(prefix: String, overrides: List<String>) -> Result<Resolved<T>, Error> !{Io} where T: Codec {
+    resolve_layers(prefix, overrides, "{}")
+}
+
+/// `resolve`, with `defaults` as the lowest-precedence source.
+pub fn resolve_or<T>(prefix: String, overrides: List<String>, defaults: T) -> Result<Resolved<T>, Error> !{Io} where T: Codec {
+    resolve_layers(prefix, overrides, codec_encode_revealed(defaults))
+}
+
+fn resolve_layers<T>(prefix: String, overrides: List<String>, defaults: String) -> Result<Resolved<T>, Error> !{Io} where T: Codec {
+    let value: T = config_resolve(prefix, overrides, defaults)?
+    let settings = match codec.decode_text<List<Setting>>(config_provenance<T>(prefix, overrides, defaults)) {
+        .ok(s) => s,
+        .err(e) => return err({ key: e.path, message: e.message }),
+    }
+    ok({ value, settings })
+}

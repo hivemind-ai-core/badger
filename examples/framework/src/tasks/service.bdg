@@ -1,0 +1,45 @@
+// The feature itself: operations over a store. Validation is a stage of
+// the create operation's pipeline, so every caller (HTTP, command line,
+// worker) gets the same checks.
+import std.app
+import std.list
+import std.pipeline
+import std.pipeline.{handle}
+import std.text
+import tasks.model
+
+// Trim the title, and refuse an empty or overlong one.
+stage valid_title(max: Int) -> Result<_, model.Error> {
+    enter(ctx) {
+        let title = text.trim(ctx.input.title)
+        if title == "" {
+            return err(model.Error.invalid_title("a task needs a title"))
+        }
+        if title.len() > max {
+            return err(model.Error.invalid_title($"a title has at most {max} characters"))
+        }
+        pipeline.next({ ..ctx, input: { title } })
+    }
+}
+
+pub provider tasks(config: { store: model.Store, max_title: Int }) -> Result<model.Tasks, model.Error> {
+    let store = config.store
+    ok({
+        create: app.from_pipeline({ id: #tasks/create, version: 1, doc: "Add a task." }, pipeline {
+            valid_title(config.max_title),
+            handle(fn(ctx) -> Result<model.Task, model.Error> { store.insert(ctx.input.title) }),
+        }),
+        list: app.from_fn({ id: #tasks/list, version: 1, doc: "Every task, in the order added." }, fn(_call, _input: {}) -> Result<List<model.Task>, model.Error> {
+            store.all()
+        }),
+        open: app.from_fn({ id: #tasks/open, version: 1, doc: "The tasks not yet done." }, fn(_call, _input: {}) -> Result<List<model.Task>, model.Error> {
+            ok(list.filter(store.all()?, fn(t) { !t.done }))
+        }),
+        complete: app.from_fn({ id: #tasks/complete, version: 1, doc: "Mark a task done." }, fn(_call, id: Int) -> Result<model.Task, model.Error> {
+            match store.complete(id)? {
+                .some(t) => ok(t),
+                .none => err(model.Error.not_found(id)),
+            }
+        }),
+    })
+}

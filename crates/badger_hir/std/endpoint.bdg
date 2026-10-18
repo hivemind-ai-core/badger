@@ -1,0 +1,215 @@
+// HTTP bindings of operations (FRAMEWORK_DESIGN.md §14): an endpoint is a
+// route whose handler is an `app.Operation`.
+//
+//     endpoint.bind({
+//         method: #post,
+//         path: "/orders",
+//         operation: create,
+//         input: fn(_params: {}, body: NewOrder) { body },
+//         status: 201,
+//         errors: fn(e) { match e { .invalid(m) => endpoint.failure(400, #orders/invalid, m) } },
+//     })
+//
+// The path parameters decode into the input function's first parameter
+// (a record naming the pattern's `:name`s) and the body into its second;
+// malformed input is a 400 reply naming the input path, before the
+// operation runs. Each request is a new `app.Call` (its correlation is the
+// request's `x-correlation-id` when it has one, echoed in the reply). The
+// operation's output is encoded with its schema; its expected errors are
+// answered as `errors` maps them, so no error becomes a reply implicitly.
+// The route's name is the operation's id and its summary the operation's
+// documentation, so URLs and OpenAPI come from the same registration.
+import std.admission
+import std.app
+import std.codec
+import std.http
+import std.route
+import std.schema
+import std.text
+
+/// How an expected error is answered: a status, a stable code, and a
+/// message for the client.
+pub type Failure = { status: Int, code: Symbol, message: String }
+
+pub fn failure(status: Int, code: Symbol, message: String) -> Failure {
+    { status, code, message }
+}
+
+extern "intrinsic" fn params_decode<P>(params: route.Params) -> Result<P, codec.DecodeError>
+
+fn reply<T>(status: Int, correlation: String, value: T) -> http.Response where T: Codec {
+    let headers = map { "content-type" => "application/json" }
+    { status, headers: if correlation == "" { headers } else { headers.insert("x-correlation-id", correlation) }, body: codec.encode(value) }
+}
+
+/// The call a request makes: a new root call, joined to the caller's
+/// correlation when the request carries `x-correlation-id`.
+pub fn call_of(request: http.Request) -> app.Call !{Io} {
+    let call = app.call()
+    match request.headers.get("x-correlation-id") {
+        .some(c) => if c == "" { call } else { { ..call, correlation: c } },
+        .none => call,
+    }
+}
+
+/// An endpoint's transport policies: who the caller is (`identify` gives
+/// the verified actor, `none` for an anonymous request, or a failure to
+/// answer), how long a request may take from its arrival (so time waiting
+/// for admission counts), which gate admits it, and the largest body it
+/// accepts (in bytes; the request is already buffered, so this bounds what
+/// is decoded, not what was read).
+pub type Context = {
+    identify: fn(http.Request) -> Result<Option<app.Actor>, Failure>,
+    timeout: Option<Duration>,
+    gate: Option<admission.Gate>,
+    max_body: Int,
+}
+
+fn anonymous(_request: http.Request) -> Result<Option<app.Actor>, Failure> {
+    ok(Option.none)
+}
+
+/// No identity, deadline, or gate; bodies up to 1 MiB.
+pub fn public() -> Context {
+    { identify: anonymous, timeout: Option.none, gate: Option.none, max_body: 1048576 }
+}
+
+/// Identity from `Authorization: Bearer TOKEN`: `verify` gives the token's
+/// actor. A request without the header is anonymous (a policy decides
+/// whether that is allowed); a malformed header or a token `verify`
+/// refuses is a 401.
+pub fn bearer(verify: fn(String) -> Option<app.Actor>) -> fn(http.Request) -> Result<Option<app.Actor>, Failure> {
+    fn(request: http.Request) -> Result<Option<app.Actor>, Failure> {
+        match request.headers.get("authorization") {
+            .none => ok(Option.none),
+            .some(h) => {
+                if !text.starts_with(h, "Bearer ") {
+                    return err(failure(401, #auth/invalid, "expected a bearer token"))
+                }
+                match verify(text.trim(text.replace(h, "Bearer ", ""))) {
+                    .some(actor) => ok(Option.some(actor)),
+                    .none => err(failure(401, #auth/invalid, "the token is not valid")),
+                }
+            },
+        }
+    }
+}
+
+/// Bind an operation to a method and path (see the module documentation),
+/// with `public()` policies.
+pub fn bind<P, B, I, O, E, Eff>(binding: {
+    method: Symbol,
+    path: String,
+    operation: app.Operation<I, O, E, Eff>,
+    input: fn(P, B) -> I,
+    status: Int,
+    errors: fn(E) -> Failure,
+}) -> route.Route where P: Codec, B: Codec, O: Codec {
+    bind_in(public(), binding)
+}
+
+/// Bind an operation under `context`'s policies. A request is checked in
+/// order: body size (413), identity (the failure `identify` gives), path
+/// parameters and body (400), admission (503 when the gate's queue is
+/// full or the deadline passes while waiting), and then the operation
+/// runs with the verified actor and the deadline in its call. A `#get` or
+/// `#delete` endpoint has no body, and an empty body is `{}`: the input
+/// function's second parameter decodes from it.
+pub fn bind_in<P, B, I, O, E, Eff>(context: Context, binding: {
+    method: Symbol,
+    path: String,
+    operation: app.Operation<I, O, E, Eff>,
+    input: fn(P, B) -> I,
+    status: Int,
+    errors: fn(E) -> Failure,
+}) -> route.Route where P: Codec, B: Codec, O: Codec {
+    let operation = binding.operation
+    let input = binding.input
+    let errors = binding.errors
+    let status = binding.status
+    let bodiless = binding.method == #get || binding.method == #delete
+    let identify = context.identify
+    let timeout = context.timeout
+    let gate = context.gate
+    let max_body = context.max_body
+    {
+        method: binding.method,
+        path: binding.path,
+        name: operation.info.id,
+        summary: Option.some(operation.info.doc),
+        params: Option.some(schema.json_schema(schema.of<P>())),
+        body: if bodiless { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
+        reply: Option.some(schema.json_schema(schema.of<O>())),
+        run: fn(request, raw) {
+            let arrived = call_of(request)
+            let started = match timeout {
+                .some(limit) => arrived.within(limit),
+                .none => arrived,
+            }
+            let correlation = started.correlation
+            if request.body.len() > max_body {
+                return reply(413, correlation, { error: "endpoint/too_large", message: $"the body is larger than {max_body} bytes" })
+            }
+            let call = match identify(request) {
+                .ok(.some(actor)) => started.acting_for(actor),
+                .ok(.none) => started,
+                .err(f) => return reply(f.status, correlation, { error: f.code, message: f.message }),
+            }
+            let p = match params_decode<P>(raw) {
+                .ok(p) => p,
+                .err(e) => return reply(400, correlation, { error: "invalid path parameter", path: e.path, message: e.message }),
+            }
+            let body = if bodiless || request.body.len() == 0 { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
+            let b = match body {
+                .ok(b) => b,
+                .err(e) => return reply(400, correlation, { error: "invalid request body", path: e.path, message: e.message }),
+            }
+            let result = match gate {
+                .some(g) => match g.admit(call, fn() { operation.call(call, input(p, b)) }) {
+                    .ok(r) => r,
+                    .err(.full(_)) => return reply(503, correlation, { error: "endpoint/overloaded", message: "too many requests are waiting" }),
+                    .err(.deadline(_)) => return reply(503, correlation, { error: "endpoint/deadline", message: "the request's deadline passed before it was admitted" }),
+                },
+                .none => operation.call(call, input(p, b)),
+            }
+            match result {
+                .ok(out) => reply(status, correlation, out),
+                .err(e) => {
+                    let f = errors(e)
+                    reply(f.status, correlation, { error: f.code, message: f.message })
+                },
+            }
+        },
+    }
+}
+
+/// Health routes: `GET /health/live` answers 200 while the process serves
+/// at all; `GET /health/ready` answers the health report, 200 when the
+/// application accepts work and 503 otherwise (starting, stopping, or a
+/// required check failing).
+pub fn health(h: app.Health) -> List<route.Route> {
+    let live: route.Route = {
+        method: #get,
+        path: "/health/live",
+        name: #health/live,
+        summary: Option.some("Whether the process is running."),
+        params: Option.none,
+        body: Option.none,
+        reply: Option.none,
+        run: fn(_request, _params) { reply(200, "", { status: "live" }) },
+    }
+    let ready: route.Route = {
+        method: #get,
+        path: "/health/ready",
+        name: #health/ready,
+        summary: Option.some("Whether the application accepts work, with each readiness check."),
+        params: Option.none,
+        body: Option.none,
+        reply: Option.some(schema.json_schema(schema.of<app.Report>())),
+        run: fn(_request, _params) {
+            let report = h.report()
+            reply(if report.ready { 200 } else { 503 }, "", report)
+        },
+    }
+    [live, ready]
+}

@@ -1,0 +1,43 @@
+// sqlite migrations: versioned SQL applied in order, each in its own
+// transaction with its record; re-running applies nothing; a server can
+// refuse a database that is behind, ahead, or migrated with different SQL.
+import std.io
+import std.sqlite
+
+pub enum AppError {
+    io(source: io.Error),
+    db(source: sqlite.Error),
+} derive(Error, From)
+
+fn report<T>(r: Result<T, sqlite.Error>) -> String {
+    match r {
+        .ok(_) => "ok",
+        .err(e) => $"{e.code}: {e.message}",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    let v1: sqlite.Migration = { version: 1, name: "tasks", sql: "CREATE TABLE tasks (id INTEGER PRIMARY KEY, title TEXT NOT NULL)" }
+    let v2: sqlite.Migration = { version: 2, name: "done", sql: "ALTER TABLE tasks ADD COLUMN done INTEGER NOT NULL DEFAULT 0" }
+    let v3: sqlite.Migration = { version: 3, name: "tags", sql: "CREATE TABLE tags (task INTEGER NOT NULL, tag TEXT NOT NULL)" }
+
+    io.println(sqlite.migrate(db, [v1, v2])?)?
+    io.println(sqlite.migrate(db, [v1, v2])?)?
+    let s = sqlite.schema(db, [v1, v2, v3])?
+    io.println($"current {s.current} latest {s.latest} pending {s.pending}")?
+    io.println(report(sqlite.require_current(db, [v1, v2])))?
+    io.println(report(sqlite.require_current(db, [v1, v2, v3])))?
+    io.println(sqlite.migrate(db, [v1, v2, v3])?)?
+
+    // the program and the database must agree
+    io.println(report(sqlite.require_current(db, [v1, v2])))?
+    io.println(report(sqlite.schema(db, [{ ..v1, sql: "CREATE TABLE tasks (id INTEGER PRIMARY KEY)" }, v2, v3])))?
+    io.println(report(sqlite.migrate(db, [v2, v1])))?
+
+    // a failing migration rolls back and stops; earlier ones stay applied
+    let v4: sqlite.Migration = { version: 4, name: "broken", sql: "ALTER TABLE missing ADD COLUMN x INTEGER" }
+    io.println(report(sqlite.migrate(db, [v1, v2, v3, v4])))?
+    io.println(sqlite.schema(db, [v1, v2, v3, v4])?.current)?
+    ok(())
+}

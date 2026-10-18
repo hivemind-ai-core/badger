@@ -54,6 +54,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`badger replay` could not use the bundle: it is unreadable or not a bundle of this format, or the program is not the one it recorded (a source file, the toolchain, or the configuration changed). `badger replay --compare` runs a changed program against the recording and reports how the operations and the outcome differ.",
     ),
     (
+        "E0017",
+        "forbidden import",
+        "A module imports a module its layer forbids: badger.toml's `[layers.NAME] forbid = [...]` keeps modules `NAME` and `NAME.*` from importing the listed modules (and modules below them). Pass the dependency in instead, or change the rule.",
+    ),
+    (
         "E0101",
         "lowercase type name",
         "Every named type starts uppercase, including primitives and type parameters: `type Person = ...`.",
@@ -189,6 +194,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     ),
     ("E0204", "underivable protocol", "Supported derivations: Eq, Hash, Display, Codec, From, Error."),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
+    (
+        "E0206",
+        "inherent methods on a structural type",
+        "`impl T { ... }` attaches methods to a nominal type (a struct or enum). A record alias, tuple, or function type has no identity of its own to carry them, so they could never be called; declare a `struct`, or write functions that take the value.",
+    ),
     ("E0207", "effect used as type", "Effect names appear only inside `!{...}`."),
     (
         "E0208",
@@ -258,6 +268,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "`records.remove(record, #label)` needs a literal label (`#name` or `#ns/name`) naming a field the record has.",
     ),
     (
+        "E0345",
+        "hole",
+        "`_` in an expression is a hole: the program is checked around it, and the hole is reported with the type expected there. Replace it with an expression of that type.",
+    ),
+    (
         "E0139",
         "constant arithmetic",
         "`const` initializers are evaluated when the program is checked; integer arithmetic in them that overflows its type, divides by zero, or shifts out of range is reported then.",
@@ -295,7 +310,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0145",
         "precondition cannot hold",
-        "The compiler proved that the arguments of this call cannot satisfy the callee's `requires` clause. It is an error when every run reaches the call, and a warning when the enclosing conditions decide whether it runs.",
+        "The compiler proved that the arguments of this call cannot satisfy the callee's `requires` clause, or that a `system { }` node's configuration cannot satisfy its provider's. It is an error when every run reaches the call, and a warning when the enclosing conditions decide whether it runs.",
     ),
     (
         "E0146",
@@ -361,7 +376,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0318",
         "refutable binding",
-        "`let` and parameters need irrefutable patterns; use `match` for literals and variants.",
+        "`let` and parameters need irrefutable patterns; use `match`, `if let`, or `let PATTERN = VALUE else { ... }` (whose block must leave) for literals and variants.",
     ),
     ("E0319", "incomplete struct pattern", "Mention every field or add `..`."),
     (
@@ -528,13 +543,18 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     ("E0701", "empty pipeline", "A pipeline ends with a terminal `handle(...)` or `handle_context(...)`."),
     (
         "E0702",
-        "invalid stage descriptor",
-        "`pipeline.stage` takes a record literal with `name` and optional `enter`, `leave`, `error`.",
+        "invalid stage",
+        "A `stage` declaration has at least one callback (`enter`, `leave`, `error`), each at most once, and its result annotation is `-> Result<_, Error>`. `pipeline.stage` takes a record literal with `name` and optional `enter`, `leave`, `error`.",
     ),
     (
         "E0703",
         "context field changed",
         "Enter steps may add fields and replace values but may not remove or change the type of a field visible to an earlier stage; put a new representation under a new label.",
+    ),
+    (
+        "E0705",
+        "provider parameters",
+        "A `provider` declaration's initializer takes `(config)` or `(scope, config)`: the configuration, and the scope that registers halts (`scope.on_halt`).",
     ),
     (
         "E9001",

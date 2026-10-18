@@ -224,6 +224,21 @@ define_intrinsics! {
         }
         0
     }
+    fn gate_new(ctx, targs, ret, capacity, queue) {
+        crate::admission::new(capacity as usize, queue as usize) as u64
+    }
+    // `wait` in nanoseconds; negative: no deadline
+    fn gate_acquire(ctx, targs, ret, gate, wait) {
+        let wait = wait as i64;
+        let limit = if wait < 0 { None } else { Some(std::time::Duration::from_nanos(wait as u64)) };
+        crate::admission::acquire(gate as usize, limit)
+    }
+    fn gate_release(ctx, targs, ret, gate) { crate::admission::release(gate as usize); 0 }
+    // 0 executing, 1 waiting, 2 admitted, 3 rejected (full), 4 rejected (deadline)
+    fn gate_stat(ctx, targs, ret, gate, which) {
+        let s = crate::admission::stats(gate as usize);
+        [s.0, s.1, s.2, s.3, s.4][(which as usize).min(4)]
+    }
     fn task_sleep(ctx, targs, ret, nanos) {
         task::sleep(std::time::Duration::from_nanos((nanos as i64).max(0) as u64));
         0

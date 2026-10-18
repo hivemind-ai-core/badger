@@ -1,0 +1,79 @@
+// `provider` and `stage` declarations, and providers applied directly in
+// `system { ... }`: the same plans, lifecycles, and pipelines as the
+// descriptor forms (`system.provider({...})`, `pipeline.stage({...})`).
+import std.io
+import std.pipeline
+import std.pipeline.{handle_context}
+import std.system
+import std.trace
+
+pub enum AppError {
+    io(source: io.Error),
+    system(source: system.Error),
+    invalid_name,
+} derive(Error, From)
+
+type Greeter = { greet: fn(String) -> String }
+
+// a provider declares its initializer: the scope registers halts
+provider greeting(scope, config: { prefix: String }) -> Result<Greeter, AppError> {
+    io.println($"greeting starts ({config.prefix})")?
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        io.println("greeting halts")?
+        ok(())
+    })
+    ok({ greet: fn(name: String) { $"{config.prefix}, {name}" } })
+}
+
+// without a scope, and with an explicit name
+pub provider announcement as #example/announcer(config: { greeting: Greeter }) -> Result<{ announce: fn(String) -> String }, AppError> {
+    ok({ announce: fn(name: String) { $"{config.greeting.greet(name)}!" } })
+}
+
+// one annotation types every callback's errors
+stage audit() -> Result<_, AppError> {
+    enter(ctx) {
+        io.println($"enter {ctx.name}")?
+        pipeline.next({ ..ctx, checked: true })
+    }
+    leave(ctx, reply) {
+        io.println($"leave {reply}")?
+        pipeline.leave(ctx, reply)
+    }
+    error(ctx, error) {
+        trace.event(#audit/failed, { checked: ctx.checked })
+        pipeline.propagate(ctx, error)
+    }
+}
+
+// parameterized, with an expression body; the error recovers
+stage fallback(reply: String) {
+    error(ctx, error: AppError) => match error {
+        .invalid_name => pipeline.recover(ctx, reply),
+        other => pipeline.propagate(ctx, other),
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        // references order startup; a provider applies to its configuration
+        announcement: announcement({ greeting: ref(#greeting) }),
+        greeting: greeting({ prefix: "Welcome" }),
+    }
+    io.println(plan.labels())?
+    let process = pipeline.compile(pipeline {
+        audit(),
+        fallback("(no name)"),
+        handle_context(fn(ctx) -> Result<_, AppError> {
+            if ctx.name == "" {
+                return err(AppError.invalid_name)
+            }
+            ok((ctx, $"hello {ctx.name}"))
+        }),
+    })
+    use running <- system.run(plan)
+    io.println(running.announcement.announce("Ada"))?
+    io.println(process({ name: "Grace" })?)?
+    io.println(process({ name: "" })?)?
+    ok(())
+}

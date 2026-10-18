@@ -1,0 +1,12 @@
+// expect-error: E0404
+// `if let` matches like `match`: an affine value its pattern moved out of
+// (here a builder, which `finish` consumes) cannot be used again.
+import std.list
+
+pub fn main() -> Unit {
+    let slot = Option.some(list.builder<Int>())
+    if let .some(b) = slot {
+        let _ = b.finish()
+    }
+    let again = slot
+}

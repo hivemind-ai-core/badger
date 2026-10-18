@@ -66,6 +66,8 @@ module.exports = grammar({
         $.protocol_declaration,
         $.impl_declaration,
         $.function_declaration,
+        $.provider_declaration,
+        $.stage_declaration,
         $.extern_declaration,
         $.extern_type,
         $.global_declaration,
@@ -152,7 +154,45 @@ module.exports = grammar({
         optional(seq('->', field('return_type', $._type))),
         optional($.effect),
         optional($.where_clause),
-        optional(field('body', $.block)),
+        optional(choice(field('body', $.block), seq('=>', field('body', $._expression)))),
+      ),
+
+    // `provider name [as #sym](scope, config) [-> Result<O, E>] { ... }`
+    provider_declaration: ($) =>
+      seq(
+        repeat($.contract),
+        optional($.visibility),
+        'provider',
+        field('name', $.identifier),
+        optional(seq('as', field('label', $.symbol))),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        optional($.effect),
+        field('body', $.block),
+      ),
+
+    // `stage name [as #sym][<G>](params) [-> Result<_, E>] { enter(ctx) { ... } ... }`
+    stage_declaration: ($) =>
+      seq(
+        repeat($.contract),
+        optional($.visibility),
+        'stage',
+        field('name', $.identifier),
+        optional(seq('as', field('label', $.symbol))),
+        optional($.generic_parameters),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        '{',
+        repeat(choice($.stage_callback, ';')),
+        '}',
+      ),
+
+    stage_callback: ($) =>
+      seq(
+        field('kind', choice('enter', 'leave', 'error')),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        choice(field('body', $.block), seq('=>', field('body', $._expression))),
       ),
 
     extern_declaration: ($) =>
@@ -216,9 +256,24 @@ module.exports = grammar({
     block: ($) => seq('{', repeat(choice($._statement, ';')), '}'),
     _statement: ($) => choice($.let_statement, $.use_statement, $.assignment, $._expression),
     let_statement: ($) =>
-      seq(choice('let', 'var', 'const'), $._pattern, optional(seq(':', $._type)), '=', $._expression),
+      seq(
+        choice('let', 'var', 'const'),
+        $._pattern,
+        optional(seq(':', $._type)),
+        '=',
+        $._expression,
+        optional(seq('else', $.block)),
+      ),
     use_statement: ($) => seq('use', sep1($._pattern, ','), '<-', $._expression),
-    assignment: ($) => prec(-1, seq(field('target', $._place), '=', field('value', $._expression))),
+    assignment: ($) =>
+      prec(
+        -1,
+        seq(
+          field('target', $._place),
+          field('operator', choice('=', '+=', '-=', '*=', '/=', '%=')),
+          field('value', $._expression),
+        ),
+      ),
     _place: ($) => choice($.identifier, $.field_expression, $.index_expression),
 
     // ------------------------------------------------------------ expressions
@@ -235,6 +290,7 @@ module.exports = grammar({
 
     _primary: ($) =>
       choice(
+        alias('_', $.hole),
         $._literal,
         $.lambda,
         $.if_expression,
@@ -325,7 +381,8 @@ module.exports = grammar({
       ),
     let_condition: ($) => seq('let', $._pattern, '=', $._expression),
     match_expression: ($) => seq('match', $._expression, '{', commaSep($.match_arm), '}'),
-    match_arm: ($) => seq($._pattern, optional(seq('if', $._expression)), '=>', $._expression),
+    match_arm: ($) =>
+      seq($._pattern, repeat(seq('|', $._pattern)), optional(seq('if', $._expression)), '=>', $._expression),
     while_expression: ($) => seq('while', choice($.let_condition, $._expression), $.block),
     for_expression: ($) => seq('for', $._pattern, 'in', $._expression, $.block),
     loop_expression: ($) => seq('loop', $.block),

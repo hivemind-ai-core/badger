@@ -153,6 +153,11 @@ fn continues(t: &Tok<'_>) -> bool {
             | Tok::DotDot
             | Tok::DotDotEq
             | Tok::Assign
+            | Tok::PlusAssign
+            | Tok::MinusAssign
+            | Tok::StarAssign
+            | Tok::SlashAssign
+            | Tok::PercentAssign
     )
 }
 

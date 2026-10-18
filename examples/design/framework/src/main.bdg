@@ -4,19 +4,18 @@ import orders.service
 import providers
 import std.io
 import std.system
-import std.system.{component}
 import std.text
 import std.worker
 
 fn exercise() -> Result<(api.Order, List<String>), providers.Error> {
     let log: Atom<List<String>> = Atom.new([])
     let plan = system {
-        orders: component(providers.orders, {
+        orders: providers.orders({
             store: ref(#store),
             log,
             fail_start: false,
         }),
-        store: component(providers.store, { log }),
+        store: providers.store({ log }),
     }
     let created: Result<api.Order, providers.Error> = {
         use running <- system.run(plan)
@@ -71,8 +70,8 @@ fn test_dependency_order_and_shutdown() -> Result<Unit, providers.Error> {
 fn test_partial_start_cleanup() -> Unit {
     let log: Atom<List<String>> = Atom.new([])
     let plan = system {
-        store: component(providers.store, { log }),
-        orders: component(providers.orders, {
+        store: providers.store({ log }),
+        orders: providers.orders({
             store: ref(#store),
             log,
             fail_start: true,
@@ -89,8 +88,8 @@ fn test_partial_start_cleanup() -> Unit {
 fn test_operation_error_cleanup() -> Unit {
     let log: Atom<List<String>> = Atom.new([])
     let plan = system {
-        store: component(providers.store, { log }),
-        orders: component(providers.orders, {
+        store: providers.store({ log }),
+        orders: providers.orders({
             store: ref(#store),
             log,
             fail_start: false,

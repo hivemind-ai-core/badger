@@ -4,7 +4,6 @@ import std.io
 import std.seq
 import std.sqlite
 import std.system
-import std.system.{component}
 import std.text
 
 pub enum AppError {
@@ -21,7 +20,7 @@ pub fn main() -> Result<Unit, AppError> {
     }
     let content = fs.read_text(path)?
     let plan = system {
-        database: component(sqlite.pool, { path: "notes.sqlite" }),
+        database: sqlite.pool({ path: "notes.sqlite" }),
     }
     use running <- system.run(plan)
     sqlite.execute(running.database,

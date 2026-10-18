@@ -43,10 +43,28 @@ fn drain(self: &Self) -> Int
 fn each(self: &Self, f: fn(T) -> Unit !Eff) -> Unit
 ```
 
+#### `Stream.enumerate`
+
+```badger
+fn enumerate(self: &Self) -> Stream<(Int, T), !{State, Eff}>
+```
+
 #### `Stream.filter`
 
 ```badger
 fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff>
+```
+
+#### `Stream.filter_map`
+
+```badger
+fn filter_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Stream<U, Eff>
+```
+
+#### `Stream.find`
+
+```badger
+fn find(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<T>
 ```
 
 #### `Stream.fold`
@@ -59,6 +77,12 @@ fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A
 
 ```badger
 fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Stream<U, Eff>
+```
+
+#### `Stream.scan`
+
+```badger
+fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> Stream<A, !{State, Eff}>
 ```
 
 #### `Stream.take`
@@ -133,11 +157,36 @@ fn each<T, Eff>(s: Stream<T, Eff>, f: fn(T) -> Unit !Eff) -> Unit
 
 Run `f` on each item.
 
+### `enumerate`
+
+```badger
+fn enumerate<T, Eff>(s: Stream<T, Eff>) -> Stream<(Int, T), !{State, Eff}>
+```
+
+Each item with its position, from 0.
+
 ### `filter`
 
 ```badger
 fn filter<T, Eff>(s: Stream<T, Eff>, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff>
 ```
+
+### `filter_map`
+
+```badger
+fn filter_map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Stream<U, Eff>
+```
+
+`f`'s results that are `some`.
+
+### `find`
+
+```badger
+fn find<T, Eff>(s: Stream<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<T>
+```
+
+The first item `matches` accepts, reading no further (the stream is
+closed when one is found).
 
 ### `fold`
 
@@ -175,6 +224,15 @@ stream closes the receiver: further sends fail.
 ```badger
 fn map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> U !Eff) -> Stream<U, Eff>
 ```
+
+### `scan`
+
+```badger
+fn scan<T, A, Eff>(s: Stream<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> Stream<A, !{State, Eff}>
+```
+
+The running results of `f`, starting from `initial` (not itself
+produced): `scan([1, 2, 3], 0, +)` is 1, 3, 6.
 
 ### `take`
 

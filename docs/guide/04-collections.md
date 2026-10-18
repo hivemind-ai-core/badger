@@ -17,6 +17,11 @@ day. For choosing between them and what each operation costs, see
 | `Seq<T>` | lazy sequence: work happens when consumed | `1..10`, `xs.seq()` |
 | `Stream<T>` | items that arrive over time; reading may wait | `stream.from_receiver(rx)` |
 
+The standard library also has an ordered map (`sorted.SortedMap`), a
+priority queue (`heap.Heap`), a double-ended queue (`deque.Deque`), an
+LRU cache (`lru.Cache`), and a bit set (`bits.BitSet`), all persistent;
+[collections.md](../collections.md) compares them.
+
 All of them are values: "changing" a list, map, or set returns a new one
 and leaves the old one as it was. `Buffer` and the builders are the
 exceptions; they are mutable and have a single owner

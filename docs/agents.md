@@ -13,6 +13,12 @@ or in a client's JSON configuration:
 { "mcpServers": { "badger": { "command": "badger", "args": ["mcp"] } } }
 ```
 
+## Partial programs
+
+Write `_` where an expression is not known yet: `badger check` (and the
+`check` tool) reports each hole as E0345 with the type expected there,
+and checks everything around it. Fill the holes one at a time.
+
 ## Tools
 
 | Tool | Arguments | Result |
@@ -21,6 +27,7 @@ or in a client's JSON configuration:
 | `check` | `path` (file or project directory) or `source`; optional `files` | Diagnostics as JSON; an empty list means it checks. A project is checked as `badger check` checks it: the main entry, each `[entries]` module, and each `[tasks]` module. With `files` (path, relative to the program's directory, to proposed text), the project is checked with those contents in place of the files on disk, and nothing is written; see [Checking proposed edits](#checking-proposed-edits). |
 | `query` | `kind`, `path`, `line`, `col` (1-based), `name` | `hover`, `definition`, `references` (every use, in all of a project's entry points and tasks), `completion`, `symbols`, `diagnostics`; `rename` with the new name in `name` (the edits, not applied); `explain` for a diagnostic code; `module` for a standard module's source (its API), or the module list; `graph` with `name` `calls`, `modules`, `types`, or `systems` (JSON nodes and edges); `api` for the public interface (signatures with effects and contracts, and docs) of `name` (a standard module such as `std.list`) or of the program at `path`. |
 | `contracts` | `path`, optional `tests` | Each `requires`/`ensures` clause and what the compiler decided: `proven` (its runtime check is compiled out), `refuted` (an error), or `runtime`, with why. With `tests: true` it runs the tests observing the program: each clause's coverage (`tested.evaluated` 0 is a gap) and candidate clauses that held in every observed call. See [Working with the compiler on contracts](#working-with-the-compiler-on-contracts). |
+| `generate` | `what` (`feature` or `worker`), `name`, `path`, optional `item`, `dry_run` | `badger generate feature` or `worker`: the planned files, then the test report of the generated code checked in a copy of the project. Nothing is written on a dry run or a failed check, and existing files are never replaced. |
 | `run` | `path`, optional `args`, `test`, `release`, `timeout_secs`, `breakpoints`, `commands`, `max_stops`, `profile` | Exit status, stdout, and stderr of `badger run` or `badger test`. With `breakpoints` (`file:line`, optionally `if CONDITION`) it runs under gdb and reports the frames, arguments, and locals at each stop (see [debugging](debugging.md)); with `profile: true` it adds a CPU profile (functions by self and total time). |
 
 A query that cannot answer its input fails with a message (a missing

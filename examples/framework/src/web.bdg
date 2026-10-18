@@ -1,0 +1,82 @@
+// The HTTP binding of the tasks feature: each operation bound to a method
+// and path (typed parameters, body, and reply; explicit replies for the
+// feature's errors), and the health routes, behind an access-log stage.
+import std.admission
+import std.app
+import std.endpoint
+import std.http
+import std.log
+import std.pipeline
+import std.pipeline.{handle}
+import std.route
+import tasks.model
+
+pub enum Error {
+    route(source: route.RouteError),
+    admission(source: admission.Error),
+} derive(Error, From)
+
+// Log each request's outcome; `leave` sees the reply of every later stage.
+stage access_log() -> Result<_, Error> {
+    leave(ctx, response: http.Response) {
+        log.info("request", {
+            method: ctx.request.method,
+            path: ctx.request.path,
+            status: response.status,
+            correlation: response.headers.get("x-correlation-id").unwrap_or(""),
+        })
+        pipeline.leave(ctx, response)
+    }
+}
+
+// The feature's errors are client errors, with the message the feature gives.
+fn failure(e: model.Error) -> endpoint.Failure {
+    match e {
+        .invalid_title(message) => endpoint.failure(400, #tasks/invalid_title, message),
+        .not_found(id) => endpoint.failure(404, #tasks/not_found, $"no task {id}"),
+        .storage(_) => endpoint.failure(503, #tasks/unavailable, "the task store is unavailable"),
+    }
+}
+
+pub fn routes(tasks: model.Tasks, writes: admission.Gate) -> List<route.Route> {
+    // writes are admitted through a gate (a bounded queue), each within 5s
+    // of its arrival
+    let writing: endpoint.Context = { ..endpoint.public(), timeout: Option.some(5s), gate: Option.some(writes) }
+    [
+        endpoint.bind({
+            method: #get,
+            path: "/tasks",
+            operation: tasks.list,
+            input: fn(_params: {}, _body: {}) { {} },
+            status: 200,
+            errors: failure,
+        }),
+        endpoint.bind_in(writing, {
+            method: #post,
+            path: "/tasks",
+            operation: tasks.create,
+            input: fn(_params: {}, body: model.NewTask) { body },
+            status: 201,
+            errors: failure,
+        }),
+        endpoint.bind_in(writing, {
+            method: #post,
+            path: "/tasks/:id/done",
+            operation: tasks.complete,
+            input: fn(params: { id: Int }, _body: {}) { params.id },
+            status: 200,
+            errors: failure,
+        }),
+    ]
+}
+
+// The feature's routes and the application's health routes.
+pub provider api(config: { tasks: model.Tasks, health: app.Health }) -> Result<http.Handler, Error> {
+    let writes = admission.gate(#tasks/writes, { capacity: 16, queue: 64 })?
+    let table = route.table(routes(config.tasks, writes).concat(endpoint.health(config.health)))?
+    let process = pipeline.compile(pipeline {
+        access_log(),
+        handle(fn(ctx) -> Result<http.Response, Error> { ok(http.call(table, ctx.request)) }),
+    })
+    ok(http.handler(fn(request) { process({ request }) }))
+}

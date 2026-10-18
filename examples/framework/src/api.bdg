@@ -1,0 +1,184 @@
+// The HTTP service: `badger run` (in this directory) serves the tasks API
+// on the configured address until it is stopped.
+//
+//     curl -X POST localhost:8080/tasks -d '{"title": "Write the docs"}'
+//     curl localhost:8080/tasks
+//     curl -X POST localhost:8080/tasks/1/done
+//     curl localhost:8080/health/ready
+import std.admission
+import std.app
+import std.command
+import std.config
+import std.env
+import std.http
+import std.io
+import std.log
+import std.route
+import std.sqlite
+import std.system
+import std.text
+import settings
+import tasks.memory
+import tasks.model
+import tasks.service
+import tasks.sqlite_store
+import cli
+import web
+
+pub enum AppError {
+    config(source: config.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+    route(source: route.RouteError),
+    admission(source: admission.Error),
+    db(source: sqlite.Error),
+    tasks(source: model.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    // [config] < profile < TASKS_* variables < `key=value` arguments
+    let s = settings.resolve(env.args())?
+    let health = app.health([])
+    let plan = system {
+        db: sqlite.pool({ path: s.database }),
+        store: sqlite_store.store({ pool: ref(#db) }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks), health }),
+        server: http.server({ address: s.address, port: s.port, handler: ref(#api) }),
+    }
+    // ready (GET /health/ready) once every node started; unready while
+    // stopping
+    use running <- app.run(plan, health)
+    log.info("serving", { address: s.address, port: s.port })
+    running.wait_for_shutdown()?
+    ok(())
+}
+
+// Tests run the same plan without its server, calling the API in-process.
+
+fn call(api: http.Handler, method: Symbol, path: String, body: String) -> (Int, String) {
+    let response = http.call(api, http.request(method, path, body))
+    (response.status, response.body.to_text().unwrap_or("?"))
+}
+
+fn test_create_list_complete() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks), health: app.health([]) }),
+    }
+    use running <- system.run(plan)
+    let api = running.api
+    assert(call(api, #post, "/tasks", "{\"title\": \"  Write the docs \"}") == (201, "{\"done\":false,\"id\":1,\"title\":\"Write the docs\"}"))
+    assert(call(api, #post, "/tasks/1/done", "") == (200, "{\"done\":true,\"id\":1,\"title\":\"Write the docs\"}"))
+    assert(call(api, #get, "/tasks", "").0 == 200)
+    ok(())
+}
+
+fn test_errors_become_replies() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 10 }),
+        api: web.api({ tasks: ref(#tasks), health: app.health([]) }),
+    }
+    use running <- system.run(plan)
+    let api = running.api
+    assert(call(api, #post, "/tasks", "{\"title\": \"  \"}") == (400, "{\"error\":\"tasks/invalid_title\",\"message\":\"a task needs a title\"}"))
+    assert(call(api, #post, "/tasks", "{\"title\": \"far too long a title\"}").0 == 400)
+    assert(call(api, #post, "/tasks/9/done", "") == (404, "{\"error\":\"tasks/not_found\",\"message\":\"no task 9\"}"))
+    assert(call(api, #post, "/tasks", "not json").0 == 400)
+    assert(call(api, #get, "/nowhere", "").0 == 404)
+    ok(())
+}
+
+// The command line binds the same operations: commands are run directly,
+// against the same plan.
+fn test_commands() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    let commands = cli.commands(running.tasks)
+    let run = fn(args: List<String>) { command.run("tasks", commands, app.call(), args) }
+    assert(run(["add", "--title", "Write the docs"]).out == "added 1: Write the docs")
+    assert(run(["done", "--id", "1"]).out == "done 1: Write the docs")
+    assert(run(["list"]).out == "[x] 1 Write the docs")
+    let missing = run(["done", "--id", "9"])
+    assert(missing.exit == 3 && missing.err == "no task 9")
+    assert(run(["add", "--title", " "]).exit == 1)
+    assert(run(["add"]).exit == 2)
+    ok(())
+}
+
+// Route names, URLs, and the OpenAPI document come from the operations.
+fn test_descriptions() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+    }
+    use running <- system.run(plan)
+    let routes = web.routes(running.tasks, admission.gate(#tasks/writes, { capacity: 1, queue: 0 })?)
+    assert(route.url(routes, #tasks/complete, map { "id" => "4" })? == "/tasks/4/done")
+    let doc = route.openapi(routes, "Tasks", "1")?
+    assert(text.contains(doc, "\"operationId\":\"tasks/create\",\"summary\":\"Add a task.\""))
+    ok(())
+}
+
+// Readiness follows the application's phase.
+fn test_health() -> Result<Unit, AppError> {
+    let health = app.health([])
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+        tasks: service.tasks({ store: ref(#store), max_title: 80 }),
+        api: web.api({ tasks: ref(#tasks), health }),
+    }
+    use running <- app.run(plan, health)
+    assert(call(running.api, #get, "/health/live", "").0 == 200)
+    assert(call(running.api, #get, "/health/ready", "") == (200, "{\"checks\":[],\"ready\":true,\"status\":\"ready\"}"))
+    ok(())
+}
+
+// Every store meets the same contract.
+fn store_contract(store: model.Store) -> Result<Unit, model.Error> {
+    let a = store.insert("first")?
+    let b = store.insert("second")?
+    assert(a.id != b.id && !a.done && a.title == "first")
+    assert(store.all()?.map(fn(t) { t.title }) == ["first", "second"])
+    assert(store.complete(a.id)?.map(fn(t) { t.done }) == Option.some(true))
+    assert(store.complete(999)?.is_none())
+    assert(store.all()?.map(fn(t) { t.done }) == [true, false])
+    ok(())
+}
+
+fn test_memory_store_contract() -> Result<Unit, AppError> {
+    let plan = system {
+        store: memory.store({ first_id: 1 }),
+    }
+    use running <- system.run(plan)
+    store_contract(running.store)?
+    ok(())
+}
+
+fn test_sqlite_store_contract() -> Result<Unit, AppError> {
+    let plan = system {
+        db: sqlite.pool({ path: ":memory:" }),
+        store: sqlite_store.migrated({ pool: ref(#db) }),
+    }
+    use running <- system.run(plan)
+    store_contract(running.store)?
+    ok(())
+}
+
+// The store refuses a database whose schema is not the application's.
+fn test_sqlite_store_refuses_old_schema() -> Unit {
+    let plan = system {
+        db: sqlite.pool({ path: ":memory:" }),
+        store: sqlite_store.store({ pool: ref(#db) }),
+    }
+    let started: Result<Unit, AppError> = {
+        use _running <- system.run(plan)
+        ok(())
+    }
+    assert(started.is_err())
+}

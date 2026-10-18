@@ -1,0 +1,27 @@
+import std.http
+import std.route
+import web
+
+fn get(path: String) -> (Int, String) {
+    let api = match route.table(web.routes()) {
+        .ok(t) => t,
+        .err(e) => panic($"the route table is invalid: {e}"),
+    }
+    let r = http.call(api, http.request(#get, path, ""))
+    (r.status, r.body.to_text().unwrap_or(""))
+}
+
+fn test_list_still_works() -> Unit {
+    assert(get("/books").0 == 200)
+}
+
+fn test_find() -> Unit {
+    assert(get("/books/2") == (200, "{\"id\":2,\"title\":\"Emma\"}"))
+}
+
+fn test_missing() -> Unit {
+    let (status, body) = get("/books/9")
+    assert(status == 404 && body.contains("books/missing"))
+}
+
+pub fn main() -> Unit {}

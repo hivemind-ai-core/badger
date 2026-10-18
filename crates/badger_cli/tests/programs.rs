@@ -188,10 +188,273 @@ fn warning_programs() {
 
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
+/// `main -> Int` exits with the value it returns (clamped to 0..=255).
+#[test]
+fn main_int_exit_status() {
+    let dir = std::env::temp_dir().join(format!("badger-exit-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    for (src, want) in [
+        ("pub fn main() -> Int { 3 }\n", 3),
+        ("pub fn main() -> Int { 300 }\n", 255),
+        ("pub fn main() -> Int { 0 }\n", 0),
+    ] {
+        std::fs::write(dir.join("m.bdg"), src).unwrap();
+        let out = lang().arg("run").arg(dir.join("m.bdg")).output().unwrap();
+        assert_eq!(out.status.code(), Some(want), "{src}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A provider's precondition on a configuration known only at run time is
+/// checked when its node starts: the failure names the clause.
+#[test]
+fn provider_precondition_at_startup() {
+    let dir = std::env::temp_dir().join(format!("badger-provider-pre-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("p.bdg"),
+        "import std.env\nimport std.system\n\
+         requires config.size > 0, \"a pool needs a slot\"\n\
+         provider pool(config: { size: Int }) -> Result<Int, system.Error> { ok(config.size) }\n\
+         pub fn main() -> Result<Unit, system.Error> {\n\
+         let plan = system { pool: pool({ size: env.args().len() }) }\n\
+         use _running <- system.run(plan)\nok(())\n}\n",
+    )
+    .unwrap();
+    let out = lang().arg("run").arg(dir.join("p.bdg")).output().unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success() && err.contains("precondition of `pool.init` failed: config.size > 0"),
+        "{err}"
+    );
+}
+
+/// The framework example: its tests pass, and the CLI and worker entry
+/// points compose the same feature into smaller plans.
+#[test]
+fn framework_example() {
+    let dir = root().join("examples/framework");
+    let out = lang().arg("test").arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(
+        out.status.success() && text.contains("8 passed; 0 failed"),
+        "{text}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // the command line and the migration task share a SQLite database
+    let db = std::env::temp_dir().join(format!("badger-framework-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&db);
+    let run = |args: &[&str]| {
+        let out = lang().current_dir(&dir).env("TASKS_DATABASE", &db).arg("run").args(args).output().unwrap();
+        (out.status.code(), String::from_utf8_lossy(&out.stdout).to_string())
+    };
+    // the command line refuses a database without the application's schema
+    assert_eq!(run(&["cli", "--", "list"]).0, Some(70));
+    assert_eq!(run(&["migrate"]), (Some(0), "applied 1, 2\n".to_string()));
+    assert_eq!(run(&["migrate"]), (Some(0), "the schema is current\n".to_string()));
+    assert_eq!(
+        run(&["cli", "--", "add", "--title", "Write the docs"]),
+        (Some(0), "added 1: Write the docs\n".to_string())
+    );
+    // an expected error's exit status, and a usage problem's
+    assert_eq!(run(&["cli", "--", "done", "--id", "4"]), (Some(3), String::new()));
+    assert_eq!(run(&["cli", "--", "remove"]).0, Some(2));
+    assert_eq!(run(&["cli", "--", "list"]), (Some(0), "[ ] 1 Write the docs\n".to_string()));
+    let _ = std::fs::remove_file(&db);
+    let run = |args: &[&str]| {
+        let out = lang().current_dir(&dir).arg("run").args(args).output().unwrap();
+        assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
+}
+
+/// The LLM evaluation tasks (eval/): every reference solution solves its
+/// task, and no unchanged start project does.
+#[test]
+fn eval_tasks_are_solvable() {
+    let python = std::process::Command::new("python3").arg("--version").output();
+    if !python.is_ok_and(|o| o.status.success()) {
+        eprintln!("skipped: no python3");
+        return;
+    }
+    let badger = env!("CARGO_BIN_EXE_badger");
+    let run = |flag: &str| {
+        std::process::Command::new("python3")
+            .arg(root().join("eval/run.py"))
+            .args([flag, "--json", "--badger", badger])
+            .output()
+            .unwrap()
+    };
+    let out = run("--reference");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(out.status.success() && v["solved"] == v["tasks"], "{v}");
+    let out = run("--start");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["solved"], 0, "{v}");
+}
+
+/// `[layers.NAME] forbid`: an import a layer forbids is E0017 at the
+/// import; the framework example obeys its own rules.
+#[test]
+fn layer_rules() {
+    let out = lang().arg("check").arg(root().join("examples/framework")).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let dir = std::env::temp_dir().join(format!("badger-layers-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src/core")).unwrap();
+    std::fs::write(
+        dir.join("badger.toml"),
+        "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n\n[layers.core]\nforbid = [\"web\", \"std.http\"]\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "import core.rules\nimport web\n\npub fn main() -> Unit {}\n")
+        .unwrap();
+    std::fs::write(dir.join("src/web.bdg"), "pub fn route() -> Int { 1 }\n").unwrap();
+    std::fs::write(dir.join("src/core/rules.bdg"), "import web\n\npub fn rule() -> Int { web.route() }\n")
+        .unwrap();
+    let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !out.status.success() && text.contains("\"E0017\"") && text.contains("layer `core` forbids"),
+        "{text}"
+    );
+    // the entry, outside the layer, may import it
+    assert_eq!(text.matches("\"E0017\"").count(), 1, "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `badger query symbol`: a definition by qualified name, with its type
+/// and references, and effect arguments displayed as effects.
+#[test]
+fn query_symbol() {
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "tasks.service.valid_title"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let hits = v.as_array().unwrap();
+    assert_eq!(hits.len(), 1, "{v}");
+    assert_eq!(hits[0]["kind"], "function");
+    assert!(hits[0]["file"].as_str().unwrap().ends_with("tasks/service.bdg"));
+    assert_eq!(hits[0]["references"].as_array().unwrap().len(), 2, "{v}");
+    // a qualifier that matches no file finds nothing
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "nowhere.valid_title"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "[]");
+    let out = lang()
+        .args(["query", "symbol", "examples/framework", "--name", "tasks.service.tasks"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("!{Io, Wait, State}>") && !text.contains("Io: Unit"), "{text}");
+}
+
+/// `badger test --list`, `--exact`, and the structured failure kinds of
+/// `--json`.
+#[test]
+fn test_runner_options() {
+    let dir = root().join("examples/framework");
+    let out = lang().arg("test").arg(&dir).arg("--list").output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(text.lines().any(|l| l == "test_health") && !text.contains(" ok"), "{text}");
+    let out = lang().arg("test").arg(&dir).args(["test_health", "--exact"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed; 0 failed"));
+    let file = std::env::temp_dir().join(format!("badger-test-kinds-{}.bdg", std::process::id()));
+    std::fs::write(
+        &file,
+        "fn test_a() -> Unit { assert(1 == 2) }\nfn test_b() -> Unit { panic(\"boom\") }\n\
+         fn test_c() -> Result<Unit, String> { err(\"nope\") }\nfn test_d() -> Unit {}\npub fn main() -> Unit {}\n",
+    )
+    .unwrap();
+    let out = lang().arg("test").arg(&file).arg("--json").output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let kinds: Vec<&str> =
+        v["tests"].as_array().unwrap().iter().map(|t| t["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["assertion", "defect", "error", "passed"]);
+    assert!(v["tests"][0]["location"].as_str().unwrap().ends_with(":1:23"), "{v}");
+    let _ = std::fs::remove_file(&file);
+}
+
+/// `badger new`: a project that runs and tests; never into an existing
+/// directory.
+#[test]
+fn new_project() {
+    let dir = std::env::temp_dir().join(format!("badger-new-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let new = |name: &str| lang().current_dir(&dir).args(["new", name]).output().unwrap();
+    assert!(new("shop").status.success());
+    let run = lang().current_dir(dir.join("shop")).arg("run").output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "Hello, shop!\n");
+    let test = lang().current_dir(dir.join("shop")).arg("test").output().unwrap();
+    assert!(String::from_utf8_lossy(&test.stdout).contains("1 passed; 0 failed"));
+    let fmt = lang().current_dir(dir.join("shop")).args(["format", "--check", "src"]).output().unwrap();
+    assert!(fmt.status.success());
+    assert!(!new("shop").status.success());
+    assert!(!new("Shop").status.success());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `badger generate feature`: the plan is checked (and its tests run) in a
+/// copy of the project before anything is written; existing files are
+/// never replaced; the generated tests pass in the project.
+#[test]
+fn generate_feature() {
+    let dir = std::env::temp_dir().join(format!("badger-generate-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"shop\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "pub fn main() -> Unit {}\n").unwrap();
+    let generate =
+        |args: &[&str]| lang().arg("generate").arg("feature").args(args).arg(&dir).output().unwrap();
+    let dry = generate(&["orders", "--dry-run"]);
+    let text = String::from_utf8_lossy(&dry.stdout).to_string();
+    assert!(dry.status.success() && text.contains("3 passed") && text.contains("nothing written"), "{text}");
+    assert!(!dir.join("src/orders").exists());
+    let out = generate(&["orders"]);
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(out.status.success() && text.contains("create src/orders/service.bdg"), "{text}");
+    for f in ["model", "memory", "service", "http"] {
+        assert!(dir.join(format!("src/orders/{f}.bdg")).is_file(), "{f}");
+    }
+    // the feature is ordinary code: its tests run once an entry imports it
+    std::fs::write(
+        dir.join("src/main.bdg"),
+        "import orders.http\nimport orders.memory\nimport orders.service\n\npub fn main() -> Unit {}\n",
+    )
+    .unwrap();
+    let test = lang().arg("test").arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&test.stdout).to_string();
+    assert!(test.status.success() && text.contains("3 passed; 0 failed"), "{text}");
+    let fmt = lang().arg("format").arg("--check").arg(dir.join("src")).output().unwrap();
+    assert!(fmt.status.success(), "{}", String::from_utf8_lossy(&fmt.stderr));
+    // never over existing files, and not under a name its imports use
+    let again = generate(&["orders"]);
+    assert!(!again.status.success() && String::from_utf8_lossy(&again.stderr).contains("already exists"));
+    let reserved = generate(&["http"]);
+    assert!(!reserved.status.success());
+    // a worker: one module with a durable job kind, checked and tested
+    let worker = lang().args(["generate", "worker", "emails"]).arg(&dir).output().unwrap();
+    let text = String::from_utf8_lossy(&worker.stdout).to_string();
+    assert!(
+        worker.status.success() && text.contains("1 passed") && dir.join("src/emails.bdg").is_file(),
+        "{text}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn example_projects_check() {
     let mut failures = vec![];
-    for dir in ["examples/design", "tests/sqlgen"] {
+    for dir in ["examples/design", "examples", "tests/sqlgen"] {
         for e in std::fs::read_dir(root().join(dir)).unwrap().flatten() {
             let p = e.path();
             if !p.join("badger.toml").is_file() {
@@ -305,6 +568,57 @@ fn profiles() {
         .unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains(r#"{"key":"database","value":":memory:","source":"profile.test"}"#), "{text}");
+}
+
+/// `config.resolve`: typed defaults < `[config]` < profile < environment <
+/// overrides, with per-setting provenance; unknown keys, variables, and
+/// overrides fail; a `config.Secret` is redacted in display, JSON, and
+/// provenance.
+#[test]
+fn config_resolve() {
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/projects/settings"]).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let (ok, out, err) = run(&[], &[]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "127.0.0.1:8080 token=[redacted] (9 chars) db=app.db/2\n\
+         {\"address\":\"127.0.0.1\",\"db\":{\"path\":\"app.db\",\"pool\":2},\"port\":8080,\"token\":\"[redacted]\"}\n\
+         address = 127.0.0.1  (default address)\n\
+         db.path = app.db  (config db.path over default)\n\
+         db.pool = 2  (default db.pool)\n\
+         port = 8080  (config port over default)\n\
+         token = [redacted]  (config token over default)\n"
+    );
+    let (_, out, _) = run(
+        &["--profile", "prod", "--", "port=81"],
+        &[("SETTINGS_DB_POOL", "9"), ("SETTINGS_TOKEN", "s3cret")],
+    );
+    assert!(out.contains("port = 81  (override port=81 over default, config, profile)"), "{out}");
+    assert!(out.contains("db.pool = 9  (env SETTINGS_DB_POOL over default)"), "{out}");
+    assert!(out.contains("token = [redacted]  (env SETTINGS_TOKEN over default, config)"), "{out}");
+    assert!(out.contains("(6 chars)") && !out.contains("s3cret"), "{out}");
+    for (args, env, want) in [
+        (&[][..], &[("SETTINGS_PROT", "1")][..], "no configuration field reads `SETTINGS_PROT`"),
+        (&["--", "bogus=1"][..], &[][..], "unknown setting in override `bogus=1`"),
+        (&["--", "port"][..], &[][..], "an override is `key=value`"),
+        (&[][..], &[("SETTINGS_PORT", "x")][..], "SETTINGS_PORT: expected an integer, found `x`"),
+        (&["--profile", "typo"][..], &[][..], "unknown setting in [profile.typo]"),
+    ] {
+        let (ok, _, err) = run(args, env);
+        assert!(!ok && err.contains(want), "{args:?} {env:?}: {err}");
+    }
 }
 
 /// Scenario 16: `badger run --watch` replaces compatible functions while the
@@ -1284,6 +1598,11 @@ fn diagnostics_early_phases() {
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains(r#""code":"E0001""#) && text.contains(r#""module":"syntax_phase""#), "{text}");
+    // a failing import is one error, not one per use of its names
+    let out = lang().args(["check", "--json", "tests/diagnostics/failed_import.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    let codes: Vec<&str> = text.match_indices(r#""code":"E0"#).map(|(i, _)| &text[i + 8..i + 13]).collect();
+    assert_eq!(codes, ["E0114", "E0113", "E0127"], "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual

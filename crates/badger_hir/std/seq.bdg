@@ -453,6 +453,12 @@ pub fn zip<A, B, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>) -> Seq<(A, B), Eff> {
     }
 }
 
+/// `f` over the items, lazily, as results: `try_collect` (or `try_each`)
+/// then stops at the first error, so later items are never mapped.
+pub fn try_map<T, U, E, Eff>(items: Seq<T, Eff>, f: fn(T) -> Result<U, E> !Eff) -> Seq<Result<U, E>, Eff> {
+    map(items, f)
+}
+
 /// Fold in order, stopping at the first error; a scoped source is closed
 /// either way.
 pub fn try_fold<T, A, E, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> Result<A, E> {
@@ -528,6 +534,7 @@ pub fn group_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Map<K, L
 
 impl<T, Eff> Seq<T, Eff> {
     pub fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Seq<U, Eff> { map(self, f) }
+    pub fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Seq<Result<U, E>, Eff> { try_map(self, f) }
     pub fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff> { filter(self, keep) }
     pub fn take(self: &Self, n: Int) -> Seq<T, Eff> { take(self, n) }
     pub fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U, Eff> !Eff) -> Seq<U, Eff> { flat_map(self, f) }

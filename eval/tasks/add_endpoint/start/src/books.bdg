@@ -1,0 +1,24 @@
+import std.app
+
+pub type Book = { id: Int, title: String }
+
+pub enum BookError {
+    missing(id: Int),
+} derive(Error)
+
+let shelf: List<Book> = [{ id: 1, title: "Dune" }, { id: 2, title: "Emma" }]
+
+pub fn list() -> app.Operation<{}, List<Book>, BookError, !{}> {
+    app.from_fn({ id: #books/list, version: 1, doc: "Every book." }, fn(_call, _input: {}) -> Result<List<Book>, BookError> !{} {
+        ok(shelf)
+    })
+}
+
+pub fn find() -> app.Operation<Int, Book, BookError, !{}> {
+    app.from_fn({ id: #books/find, version: 1, doc: "A book by id." }, fn(_call, id: Int) -> Result<Book, BookError> !{} {
+        match shelf.find(fn(b) { b.id == id }) {
+            .some(b) => ok(b),
+            .none => err(BookError.missing(id)),
+        }
+    })
+}

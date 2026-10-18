@@ -467,10 +467,11 @@ where
         });
         let arm = pattern
             .clone()
+            .then(just(Tok::Bar).ignore_then(pattern.clone()).repeated().collect::<Vec<_>>())
             .then(kw("if").ignore_then(expr.clone()).or_not())
             .then_ignore(just(Tok::FatArrow))
             .then(expr.clone())
-            .map_with(|((pat, guard), body), e| Arm { pat, guard, body, span: e.span() });
+            .map_with(|(((pat, alts), guard), body), e| Arm { pat, alts, guard, body, span: e.span() });
         let arms = sepc
             .clone()
             .repeated()
@@ -587,6 +588,7 @@ where
         let if_expr = if_expr.map(|(e, _)| e);
         let block_e = block.clone().map(Expr::Block);
         let name_e = value_ident.clone().map(Expr::Name);
+        let hole = kw("_").to(Expr::Hole);
         let type_e = type_ident.clone().map(Expr::TypeName);
         let brace = choice((record, block_e));
         let paren = choice((unit, group));
@@ -620,6 +622,7 @@ where
             paren.clone(),
             list.clone(),
             type_e.clone(),
+            hole.clone(),
             name_e.clone(),
         ))
         .map_with(|x, e| (x, e.span()))
@@ -654,6 +657,7 @@ where
                 Some(Tok::Word("map")) => inp.parse(&map_lit),
                 Some(Tok::Word("set")) => inp.parse(&set_lit),
                 Some(Tok::Word("ref")) => inp.parse(&ref_expr),
+                Some(Tok::Word("_")) => inp.parse(&hole),
                 Some(Tok::Word(w)) if is_type_ident(w) => inp.parse(&type_e),
                 Some(Tok::Word(_)) => inp.parse(&name_e),
                 Some(Tok::LBrace) => inp.parse(&brace),
@@ -943,7 +947,15 @@ where
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
-        .map_with(|(((kind, pat), ty), value), e| Stmt::Let { kind, pat, ty, value, span: e.span() });
+        .then(kw("else").ignore_then(block.clone()).map(Box::new).or_not())
+        .map_with(|((((kind, pat), ty), value), els), e| Stmt::Let {
+            kind,
+            pat,
+            ty,
+            value,
+            els,
+            span: e.span(),
+        });
     let use_stmt = kw("use")
         .ignore_then(pattern.clone().separated_by(just(Tok::Comma)).at_least(1).collect::<Vec<_>>())
         .then_ignore(just(Tok::LArrow))
@@ -953,12 +965,20 @@ where
         just(Tok::Dot).ignore_then(member.clone()).map(PlaceElem::Field),
         expr.clone().delimited_by(just(Tok::LBracket), just(Tok::RBracket)).map(PlaceElem::Index),
     ));
+    let assign_op = choice((
+        just(Tok::Assign).to(None),
+        just(Tok::PlusAssign).to(Some(BinOp::Add)),
+        just(Tok::MinusAssign).to(Some(BinOp::Sub)),
+        just(Tok::StarAssign).to(Some(BinOp::Mul)),
+        just(Tok::SlashAssign).to(Some(BinOp::Div)),
+        just(Tok::PercentAssign).to(Some(BinOp::Rem)),
+    ));
     let assign = value_ident
         .clone()
         .then(place_elem.repeated().collect::<Vec<_>>())
-        .then_ignore(just(Tok::Assign))
+        .then(assign_op)
         .then(expr.clone())
-        .map_with(|((base, path), value), e| Stmt::Assign { base, path, value, span: e.span() });
+        .map_with(|(((base, path), op), value), e| Stmt::Assign { base, path, op, value, span: e.span() });
     // a statement that does not parse is skipped to the next separator
     // (or the block's `}`), keeping brackets balanced
     let skip_balanced = |stop: &'static [Tok<'static>]| {
@@ -1032,7 +1052,16 @@ where
             .then(ret.clone().or_not())
             .then(effect.clone().or_not())
             .then(where_clause.clone().or_not())
-            .then(block.clone().or_not())
+            // `=> expr` is a body of one expression, as a lambda's
+            .then(
+                choice((
+                    block.clone(),
+                    just(Tok::FatArrow)
+                        .ignore_then(expr.clone())
+                        .map(|e: E<'s>| Block { span: e.1, items: vec![BlockItem::Stmt(Stmt::Expr(e))] }),
+                ))
+                .or_not(),
+            )
             .map_with(
                 |(
                     (((((((contracts, is_pub), name), generics), params), ret), effect), where_preds),
@@ -1255,6 +1284,62 @@ where
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
         .map(|((((p, kind), pat), ty), value)| (p, ItemKind::Global { kind, pat, ty, value }));
+    // `provider` and `stage` are keywords only where a declaration starts
+    let alias = kw("as").ignore_then(symbol.clone()).or_not();
+    let provider_item = contracts
+        .clone()
+        .then(is_pub.clone())
+        .then_ignore(kw("provider"))
+        .then(name.clone())
+        .then(alias.clone())
+        .then(params.clone().map_with(|p, e| (p, e.span())))
+        .then(ret.clone().or_not())
+        .then(effect.clone().or_not())
+        .then(block.clone())
+        .map(|(((((((contracts, p), name), alias), (params, params_span)), ret), effect), body)| {
+            (p, ItemKind::Provider { contracts, name, alias, params, params_span, ret, effect, body })
+        });
+    let member = choice((kw("enter").to("enter"), kw("leave").to("leave"), kw("error").to("error")))
+        .map_with(|text, e| Ident { text, span: e.span() })
+        .labelled("a stage callback (`enter`, `leave`, or `error`)")
+        .then(params.clone())
+        .then(ret.clone().or_not())
+        .then(choice((
+            block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
+            just(Tok::FatArrow).ignore_then(expr.clone()),
+        )))
+        .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
+    let stage_item = contracts
+        .clone()
+        .then(is_pub.clone())
+        .then_ignore(kw("stage"))
+        .then(name.clone())
+        .then(alias)
+        .then(generics.clone().or_not())
+        .then(params.clone())
+        .then(ret.clone().or_not())
+        .then(
+            choice((sep.clone().to(None), member.map(Some)))
+                .repeated()
+                .collect::<Vec<_>>()
+                .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
+                .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
+        )
+        .map(|(((((((contracts, p), name), alias), g), params), ret), (members, body_span))| {
+            (
+                p,
+                ItemKind::Stage {
+                    contracts,
+                    name,
+                    alias,
+                    generics: g.unwrap_or_default(),
+                    params,
+                    ret,
+                    members,
+                    body_span,
+                },
+            )
+        });
     let item = choice((
         import,
         extern_type,
@@ -1263,6 +1348,8 @@ where
         enum_decl,
         protocol,
         impl_decl,
+        provider_item,
+        stage_item,
         fn_item,
         extern_decl,
         global,

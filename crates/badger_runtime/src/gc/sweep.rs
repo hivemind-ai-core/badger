@@ -162,6 +162,9 @@ mod tests {
             for i in 0..(50 + w * 17) {
                 let p = gc::alloc_cell(w, 8);
                 assert!(!p.is_null());
+                // Raw test allocations bypass the pointer-word publication
+                // that Header::payload relies on for exposed provenance.
+                let _ = p.expose_provenance();
                 let value = ((w as u64) << 32) | i as u64;
                 unsafe {
                     (*p).desc = if i % 3 == 1 { opaque } else { leaf };

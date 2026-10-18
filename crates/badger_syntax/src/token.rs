@@ -106,6 +106,17 @@ pub enum Tok<'a> {
     Ne,
     #[token("=")]
     Assign,
+    /// Compound assignment: `+=`, `-=`, `*=`, `/=`, `%=`.
+    #[token("+=")]
+    PlusAssign,
+    #[token("-=")]
+    MinusAssign,
+    #[token("*=")]
+    StarAssign,
+    #[token("/=")]
+    SlashAssign,
+    #[token("%=")]
+    PercentAssign,
     #[token("==")]
     EqEq,
     #[token("=>")]
@@ -190,6 +201,11 @@ impl Tok<'_> {
             Tok::Bang => "!",
             Tok::Ne => "!=",
             Tok::Assign => "=",
+            Tok::PlusAssign => "+=",
+            Tok::MinusAssign => "-=",
+            Tok::StarAssign => "*=",
+            Tok::SlashAssign => "/=",
+            Tok::PercentAssign => "%=",
             Tok::EqEq => "==",
             Tok::FatArrow => "=>",
             Tok::Arrow => "->",

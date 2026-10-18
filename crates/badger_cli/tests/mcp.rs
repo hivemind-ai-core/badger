@@ -46,7 +46,7 @@ fn mcp_tools() {
     let tools = req("tools/list", json!({}));
     let names: Vec<&str> =
         tools["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, vec!["eval", "check", "query", "contracts", "run"]);
+    assert_eq!(names, vec!["eval", "check", "query", "contracts", "generate", "run"]);
     let mut call = |name: &str, args: Value| -> (String, bool) {
         let r = req("tools/call", json!({ "name": name, "arguments": args }));
         (
@@ -62,6 +62,22 @@ fn mcp_tools() {
         !err && out.contains("2 proven") && out.contains("1 unproven clause(s) no test reaches"),
         "{out}"
     );
+
+    // a generated feature is checked before it is written (a dry run writes nothing)
+    let project = std::env::temp_dir().join(format!("badger-mcp-generate-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&project);
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    std::fs::write(project.join("badger.toml"), "[package]\nname = \"p\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    std::fs::write(project.join("src/main.bdg"), "pub fn main() -> Unit {}\n").unwrap();
+    let at = project.display().to_string();
+    let (out, err) =
+        call("generate", json!({ "what": "feature", "name": "orders", "path": at, "dry_run": true }));
+    assert!(!err && out.contains("3 passed") && !project.join("src/orders").exists(), "{out}");
+    let (out, err) = call("generate", json!({ "what": "feature", "name": "orders", "path": at }));
+    assert!(!err && project.join("src/orders/service.bdg").is_file(), "{out}");
+    assert!(call("generate", json!({ "what": "feature", "name": "orders", "path": at })).1);
+    let _ = std::fs::remove_dir_all(&project);
 
     // code mode: definitions accumulate; printed output is returned
     assert!(!call("eval", json!({ "code": "fn sq(x: Int) -> Int { x * x }" })).1);
@@ -145,6 +161,21 @@ fn mcp_tools() {
     assert!(err && out.contains("only with `breakpoints`"), "{out}");
     let (out, err) = call("query", json!({ "kind": "check", "path": path }));
     assert!(err && out.contains("unknown query kind"), "{out}");
+    // the guide and its checked examples, as built into this toolchain
+    let (out, err) = call("query", json!({ "kind": "guide", "name": "3" }));
+    assert!(!err && out.starts_with("# 3. Errors"), "{}", &out[..out.len().min(200)]);
+    let (out, err) = call("query", json!({ "kind": "guide" }));
+    assert!(!err && out.contains("chapters: 01-values-and-functions"), "{out}");
+    let (out, err) = call("query", json!({ "kind": "examples", "name": "let .some(" }));
+    assert!(!err && out.contains("\"chapter\""), "{out}");
+    // JSON results also come as structured content
+    let r = req(
+        "tools/call",
+        json!({ "name": "check", "arguments": { "source": "pub fn main() -> Int { \"x\" }" } }),
+    );
+    let diags = &r["result"]["structuredContent"]["result"];
+    assert_eq!(diags[0]["code"], "E0300", "{r}");
+    assert_eq!(diags[0]["schema_version"], 1, "{r}");
 
     drop(stdin);
     assert!(child.wait().unwrap().success());

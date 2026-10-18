@@ -32,6 +32,7 @@ fn programs() -> Vec<PathBuf> {
 #[derive(Clone, Debug)]
 struct Config {
     workers: u32,
+    cleanup_grace_ms: u64,
     chaos: Option<u64>,
     verify: bool,
     gc_stress: bool,
@@ -42,7 +43,7 @@ struct Config {
 
 impl Config {
     fn describe(&self) -> String {
-        let mut env = vec![];
+        let mut env = vec![format!("BADGER_CLEANUP_GRACE_MS={}", self.cleanup_grace_ms)];
         if let Some(s) = self.chaos {
             env.push(format!("BADGER_CHAOS={s}"));
         }
@@ -82,6 +83,7 @@ fn run(program: &Path, cfg: &Config, scratch: &Path) -> Result<(), String> {
     };
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_badger"));
     cmd.current_dir(root()).args(["run", "--workers", &cfg.workers.to_string()]);
+    cmd.env("BADGER_CLEANUP_GRACE_MS", cfg.cleanup_grace_ms.to_string());
     if cfg.release {
         cmd.arg("--release");
     }
@@ -166,8 +168,18 @@ fn run_matrix(jobs: Vec<(PathBuf, Config)>) -> Vec<String> {
 
 #[test]
 fn stress_programs() {
-    let base =
-        Config { workers: 1, chaos: None, verify: false, gc_stress: false, release: false, compiled: false };
+    // These scenarios test settling thousands of tasks, including under
+    // instrumentation and scheduler chaos. Deadline enforcement has separate
+    // runtime tests; let slow debug/sanitizer builds finish the cleanup here.
+    let base = Config {
+        workers: 1,
+        cleanup_grace_ms: 60_000,
+        chaos: None,
+        verify: false,
+        gc_stress: false,
+        release: false,
+        compiled: false,
+    };
     let configs = vec![
         base.clone(),
         Config { chaos: Some(1), ..base.clone() },
@@ -219,6 +231,7 @@ fn stress_soak() {
             let r = next();
             let cfg = Config {
                 workers: [1, 2, 3, 4, 8][(r % 5) as usize],
+                cleanup_grace_ms: 60_000,
                 chaos: if r & 0x10 == 0 { Some(next() % 1_000_000) } else { None },
                 verify: r & 0x20 == 0,
                 gc_stress: r & 0x3c0 == 0,

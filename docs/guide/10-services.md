@@ -70,6 +70,9 @@ Use it in tests.
 paths, no two routes matching the same requests) and returns an
 `http.Handler`. The same descriptions give `route.url(routes, name,
 params)` and `route.openapi(routes, title, version)`.
+`endpoint.bind` makes a typed route from an `app.Operation`, with an
+explicit reply for each expected error ([Operations and
+bindings](08-systems-and-pipelines.md#operations-and-bindings)).
 
 | Handler constructor | Callback |
 |---|---|
@@ -88,7 +91,6 @@ body reader) cannot outlive it (E0401).
 import std.config
 import std.http
 import std.system
-import std.system.{component}
 
 type Settings = { address: String, port: U16 }
 
@@ -104,7 +106,7 @@ fn hello(request: http.Request) -> Result<http.Response, http.Error> {
 pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("APP_")?
     let plan = system {
-        server: component(http.server, {
+        server: http.server({
             address: settings.address,
             port: settings.port,
             handler: http.handler(hello),
@@ -176,7 +178,6 @@ reconnecting client's `Last-Event-ID`.
 ```badger
 import std.http
 import std.system
-import std.system.{component}
 import std.websocket
 
 pub enum AppError {
@@ -196,7 +197,7 @@ fn echo(_request: http.Request, ws: websocket.WebSocket) -> Result<Unit, websock
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        server: component(http.server, {
+        server: http.server({
             address: "127.0.0.1",
             port: 8080,
             handler: http.websocket_handler(echo),
@@ -307,6 +308,22 @@ statements:
 [Typed SQL](../typed-sql.md) generates typed functions from `.sql` files
 of named queries, for SQLite and Postgres. See [std.sqlite](../api/sqlite.md).
 
+### Migrations
+
+A schema is a list of `sqlite.Migration` values (`{ version, name, sql }`,
+versions increasing from 1). `sqlite.migrate(pool, migrations)` applies
+the pending ones in order, each in its own transaction together with its
+record in `badger_migrations` (version, name, and a checksum of the SQL),
+and returns the versions it applied; a failing migration rolls back and
+stops. `sqlite.schema(pool, migrations)` compares the database with the
+program, and `sqlite.require_current(pool, migrations)` refuses to
+continue when migrations are pending (`#sqlite/schema_behind`), the
+database has a migration the program does not know (`#sqlite/schema_ahead`),
+or an applied migration's SQL changed (`#sqlite/migration_changed`). A
+store provider calls `require_current` so a server never starts on the
+wrong schema, and a separate entry runs `migrate`
+([`examples/framework`](../../examples/framework) has both).
+
 ## Postgres
 
 ```badger
@@ -344,6 +361,10 @@ pool. Differences:
 - `postgres.describe(pool, sql)` reports parameter and column types without
   running the statement.
 - In a system, use the `postgres.pool` provider with `{ url }`.
+- `postgres.migrate`, `postgres.schema`, and `postgres.require_current`
+  are the [SQLite migrations](#migrations) for Postgres: each migration
+  runs in its own transaction (Postgres DDL is transactional), and
+  concurrent migrators take turns on an advisory lock.
 
 See [std.postgres](../api/postgres.md) and [Typed SQL](../typed-sql.md).
 
@@ -397,6 +418,8 @@ hi: port 9000, database notes.db
 |---|---|
 | `config.from_env<T>(prefix)` | Environment variables only: `PREFIX` + upper-cased field name |
 | `config.load<T>(prefix)` | `[config]`, merged with `[profile.NAME]` (`--profile NAME`), then prefixed environment variables |
+| `config.resolve<T>(prefix, overrides)` | Like `load`, then `key=value` overrides; strict, and reports where each value came from |
+| `config.resolve_or<T>(prefix, overrides, defaults)` | `resolve` with typed defaults as the lowest layer |
 
 - A field without a value is an error (`config.Error` names the key). There
   are no implicit defaults; write them in `[config]` or with
@@ -406,6 +429,47 @@ hi: port 9000, database notes.db
 - `[env] dotenv` files load before the program starts.
 - `badger inspect config [--profile NAME]` prints the effective values and
   where each came from.
+
+`config.resolve` is the framework form. Its layers, lowest first, are typed
+defaults, `[config]`, the profile, `PREFIX_*` variables (nested fields
+`_`-joined: `NOTES_DB_PATH` for `db.path`), and overrides such as the
+program's arguments (`badger run -- port=9000 db.path=x.db`). A
+`[config]` or profile key, a prefixed variable, or an override that names
+no field is an error, not ignored. The result's `settings` give each
+setting's source (`#default`, `#config`, `#profile`, `#env`, `#override`),
+origin, value, and the sources it overrode:
+
+```badger
+import std.config
+import std.io
+
+type Settings = { port: Int, token: config.Secret }
+
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let defaults: Settings = { port: 8080, token: config.secret("dev") }
+    let resolved = config.resolve_or<Settings>("NOTES_", ["port=9000"], defaults)?
+    io.println($"port {resolved.value.port}, token {resolved.value.token}")?
+    for s in resolved.settings {
+        io.println($"{s.key} = {s.value} ({s.source} {s.origin})")?
+    }
+    ok(())
+}
+```
+
+```text
+port 9000, token [redacted]
+port = 9000 (override port=9000)
+token = [redacted] (default token)
+```
+
+A `config.Secret` is configured like a string but displays, encodes as
+JSON, and appears in provenance as `[redacted]`; `secret.reveal()` gives
+the value to the code that needs it.
 
 Runtime settings (`[runtime]`, `[profile.NAME.runtime]`) are separate.
 Each can be overridden by `BADGER_<SETTING>`, for example
@@ -465,7 +529,6 @@ To export, add the exporter to the system:
 import std.http
 import std.otel
 import std.system
-import std.system.{component}
 
 pub enum AppError {
     system(source: system.Error),
@@ -477,8 +540,8 @@ fn hello(_request: http.Request) -> Result<http.Response, http.Error> {
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {
-        telemetry: component(otel.exporter, otel.from_env()),
-        server: component(http.server, { address: "127.0.0.1", port: 8080, handler: http.handler(hello) }),
+        telemetry: otel.exporter(otel.from_env()),
+        server: http.server({ address: "127.0.0.1", port: 8080, handler: http.handler(hello) }),
     }
     use running <- system.run(plan)
     running.wait_for_shutdown()?

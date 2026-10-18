@@ -1,0 +1,49 @@
+// Run from the repository root, or supply the template as the third argument.
+// This program discovers and validates the reports and writes a standalone HTML file.
+import std.codec
+import std.env
+import std.fs
+import std.io
+import std.list
+import std.text
+
+type Header = { schema: Int, suite: String, stamp: String, status: String, cohort: String }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let args = env.args()
+    if args.len() < 2 {
+        panic("usage: report.bdg REPORT_DIRECTORY OUTPUT.html [TEMPLATE.html]")
+    }
+    let directory = args[0]
+    let output = args[1]
+    let template_path = args.get(2).unwrap_or("bench/realworld/dashboard.html")
+    let reports = list.builder<String>()
+    for path in fs.walk(directory)? {
+        if text.ends_with(path, ".json") {
+            let source = fs.read_text($"{directory}/{path}")?
+            let header = match codec.decode_text<Header>(source) {
+                .ok(value) => value,
+                .err(e) => panic($"invalid report {path}: {e}"),
+            }
+            if header.schema != 1 || header.suite != "realworld-v1" {
+                panic($"unsupported report {path}")
+            }
+            // Escape HTML's raw script terminator, including strings in raw stdout/stderr.
+            // JSON permits these escapes and the browser restores the original values.
+            reports.append(text.replace(source, "<", "\\u003c"))
+        }
+    }
+    let all = reports.finish()
+    if all.len() == 0 {
+        panic("no JSON reports found")
+    }
+    let template = fs.read_text(template_path)?
+    if text.count(template, "/*REPORT_DATA*/[]") != 1 {
+        panic("template must contain exactly one report data placeholder")
+    }
+    let payload = text.concat("[", text.concat(text.join(all, ",\n"), "]"))
+    let html = text.replace(template, "/*REPORT_DATA*/[]", payload)
+    fs.write_text(output, html)?
+    io.println($"Wrote {output} from {all.len()} stamped reports")?
+    ok(())
+}

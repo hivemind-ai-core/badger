@@ -368,7 +368,9 @@ impl Session {
             }
         };
         let deps = if path.is_dir() {
-            let verified = manifest::Manifest::in_dir(path).and_then(|m| deps::verified(path, &m));
+            let verified = timed("parse.deps", || {
+                manifest::Manifest::in_dir(path).and_then(|m| deps::verified(path, &m))
+            });
             match verified {
                 Ok(d) => d,
                 Err(e) => {
@@ -495,10 +497,11 @@ impl Session {
             }
             i += 1;
         }
+        self.check_layers(&root, &modules);
         // the standard library: the modules the program can reach (imported
         // directly or by other standard modules) and the core modules whose
         // implementations apply to prelude types; std modules come first
-        let std_mods = self.load_std(&modules);
+        let std_mods = timed("parse.std", || self.load_std(&modules));
         let n = std_mods.len();
         let mut all = std_mods;
         all.extend(modules);
@@ -528,6 +531,25 @@ impl Session {
                     }
                 }
             }
+            // declarations desugared into standard items (`provider`, `stage`)
+            let std_paths = ast
+                .exprs
+                .iter()
+                .filter_map(|(_, e)| match &e.kind {
+                    ast::ExprKind::Std(p) => Some(*p),
+                    _ => None,
+                })
+                .chain(ast.types.iter().filter_map(|(_, t)| match &t.kind {
+                    ast::TypeKind::Std { path, .. } => Some(*path),
+                    _ => None,
+                }));
+            for p in std_paths {
+                if let Some((m, _)) = p.rsplit_once('.')
+                    && !wanted.iter().any(|w| w == m)
+                {
+                    wanted.push(m.to_string());
+                }
+            }
             // `system { ... }` and `pipeline { ... }` expand into their modules
             for (kw, m) in [("system", "system"), ("pipeline", "pipeline")] {
                 let mut rest = text;
@@ -543,8 +565,7 @@ impl Session {
             }
         };
         for m in user {
-            let text = self.sources.get(m.file).text.clone();
-            add_imports(&m.ast, &text, &mut wanted, &self.interner);
+            add_imports(&m.ast, &self.sources.get(m.file).text, &mut wanted, &self.interner);
         }
         // close over the standard modules' own imports
         let mut parsed: Vec<(usize, ParsedModule)> = vec![];
@@ -566,10 +587,46 @@ impl Session {
         parsed.into_iter().map(|(_, m)| m).collect()
     }
 
+    /// `[layers.NAME] forbid = [...]`: a package module `NAME` or `NAME.*`
+    /// importing a forbidden module (or one below it) is an error at the
+    /// import (E0017).
+    fn check_layers(&mut self, root: &Path, modules: &[ParsedModule]) {
+        // the project's manifest: at the module root or above it
+        let Some(dir) = root.ancestors().find(|d| d.join("badger.toml").is_file()) else { return };
+        let Ok(m) = manifest::Manifest::in_dir(dir) else { return };
+        if m.layers.is_empty() {
+            return;
+        }
+        let under = |path: &str, prefix: &str| path == prefix || path.starts_with(&format!("{prefix}."));
+        for module in modules.iter().filter(|x| !x.dependency) {
+            let name: Vec<&str> = module.path.iter().map(|s| self.interner.resolve(*s)).collect();
+            let name = name.join(".");
+            for (layer, forbid) in &m.layers {
+                if !under(&name, layer) {
+                    continue;
+                }
+                for item in &module.ast.items {
+                    let ast::ItemKind::Import(imp) = &item.kind else { continue };
+                    let target: Vec<&str> = imp.path.iter().map(|n| self.interner.resolve(n.sym)).collect();
+                    let target = target.join(".");
+                    if let Some(f) = forbid.iter().find(|f| under(&target, f)) {
+                        let span = imp.path.last().unwrap().span.to(imp.path[0].span);
+                        self.diagnostics.push(
+                            Diagnostic::error(format!("module `{name}` imports `{target}`, which layer `{layer}` forbids"))
+                                .with_code("E0017")
+                                .with_label(span, format!("`[layers.{layer}]` forbids `{f}`"))
+                                .with_note("keep the dependency out of this layer (pass what it needs in), or change the rule in badger.toml"),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {
-        let text = self.sources.get(file).text.clone();
         let mut diags = vec![];
-        let r = badger_syntax::parse(file, &text, &mut self.interner, &mut diags);
+        // (disjoint borrows: the text is not copied)
+        let r = badger_syntax::parse(file, &self.sources.get(file).text, &mut self.interner, &mut diags);
         self.diagnostics.extend(diags);
         match r {
             Ok(ast) => Some(ast),
@@ -876,8 +933,26 @@ impl Session {
         }
         match Self::effective_config(path, opts.profile.as_deref()) {
             Ok(entries) => {
-                config = entries.into_iter().map(|(k, v, _)| (k, v)).collect();
-                badger_runtime::intrinsics_codec::set_profile(config.clone())
+                config = entries.iter().map(|(k, v, _)| (k.clone(), v.clone())).collect();
+                let layers = if path.is_dir() {
+                    manifest::Manifest::in_dir(path)
+                        .and_then(|m| m.layers(opts.profile.as_deref()))
+                        .unwrap_or(entries)
+                } else {
+                    entries
+                };
+                badger_runtime::intrinsics_codec::set_profile_sources(
+                    layers
+                        .into_iter()
+                        .map(|(k, v, s)| {
+                            let p = match s {
+                                manifest::Source::Base => String::new(),
+                                manifest::Source::Profile(p) => p,
+                            };
+                            (k, v, p)
+                        })
+                        .collect(),
+                )
             }
             Err(e) => {
                 self.diagnostics.push(Diagnostic::error(e).with_code("E0013"));
@@ -1357,6 +1432,11 @@ pub struct RunOptions {
     pub tests: bool,
     /// Test name filter.
     pub filter: Option<String>,
+    /// Tests: the filter names one test exactly (its full name, or the
+    /// function's own name) instead of matching a part of names.
+    pub exact: bool,
+    /// Tests: list the selected tests' names instead of running them.
+    pub list: bool,
     /// Machine-readable test report.
     pub json: bool,
     /// Manifest profile to merge into the effective configuration.
@@ -1519,6 +1599,12 @@ fn report_exit(exit: badger_runtime::task::Exit, prog: &badger_mir::Program) -> 
                     return (1, Some(failure));
                 }
             }
+            // `main -> Int`: the exit status (0 to 255)
+            if let Some(d) = prog.entry_ret
+                && matches!(d.kind, badger_runtime::desc::Kind::Int { .. })
+            {
+                return ((w as i64).clamp(0, 255) as i32, None);
+            }
             (0, None)
         }
         Exit::Failed(p) => {
@@ -1559,9 +1645,18 @@ pub fn take_tests() -> (usize, usize, Vec<String>) {
     t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]))
 }
 
+/// Set while `badger test --list` collects names (nothing runs).
+pub static LISTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn finish_tests(json: bool) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));
+    if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
+        if json {
+            println!("{{\"tests\":[{}]}}", results.join(","));
+        }
+        return 0;
+    }
     if json {
         println!("{{\"passed\":{},\"failed\":{failed},\"tests\":[{}]}}", ran - failed, results.join(","));
     } else {
@@ -1585,12 +1680,24 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
     let (mut ran, mut failed) = (0, 0);
     let mut results: Vec<String> = vec![];
     for (name, f) in &prog.tests {
-        if opts.filter.as_ref().is_some_and(|flt| !name.contains(flt.as_str()))
-            || !tally.seen.insert(name.clone())
-        {
+        let selected = match &opts.filter {
+            None => true,
+            Some(flt) if opts.exact => name == flt || name.rsplit('.').next() == Some(flt.as_str()),
+            Some(flt) => name.contains(flt.as_str()),
+        };
+        if !selected || !tally.seen.insert(name.clone()) {
+            continue;
+        }
+        if opts.list {
+            if opts.json {
+                results.push(format!("{{\"name\":{}}}", badger_base::diagnostics::json_str(name)));
+            } else {
+                println!("{name}");
+            }
             continue;
         }
         ran += 1;
+        let started = std::time::Instant::now();
         let closure = prog.static_closures.iter().find(|(_, g)| g == f).map(|(o, _)| *o).unwrap();
         let _ = c;
         badger_runtime::task::reset_test_state();
@@ -1625,10 +1732,26 @@ fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &Ru
             failed += 1;
         }
         if opts.json {
+            // how it failed: an assertion, another defect (panic, overflow,
+            // contract), cancellation, or an error the test returned
+            let (kind, message, location) = match &exit {
+                _ if ok => ("passed", String::new(), String::new()),
+                Exit::Failed(p) if p.message.starts_with("assertion failed") => {
+                    ("assertion", p.message.clone(), p.location.clone())
+                }
+                Exit::Failed(p) => ("defect", p.message.clone(), p.location.clone()),
+                Exit::Cancelled => ("cancelled", String::new(), String::new()),
+                Exit::Returned(_) => ("error", detail.clone(), String::new()),
+            };
+            let s = badger_base::diagnostics::json_str;
             results.push(format!(
-                "{{\"name\":{},\"ok\":{ok},\"detail\":{}}}",
-                badger_base::diagnostics::json_str(name),
-                badger_base::diagnostics::json_str(&detail)
+                "{{\"name\":{},\"ok\":{ok},\"kind\":{},\"message\":{},\"location\":{},\"ms\":{:.3},\"detail\":{}}}",
+                s(name),
+                s(kind),
+                s(&message),
+                s(&location),
+                started.elapsed().as_secs_f64() * 1e3,
+                s(&detail)
             ));
         } else if ok {
             println!("test {name} ... ok");
@@ -1672,9 +1795,17 @@ impl Session {
                 for (label, value) in entries {
                     let mut refs = vec![];
                     collect_ast_refs(&m.ast, *value, &mut refs);
+                    // `component(provider, config)`, or `provider(config)`
                     let provider = match &m.ast.exprs[*value].kind {
-                        ast::ExprKind::Call { args, .. } if !args.is_empty() => {
-                            let sp = m.ast.exprs[args[0]].span;
+                        ast::ExprKind::Call { callee, args, .. } => {
+                            let callee_text = &text[m.ast.exprs[*callee].span.range()];
+                            let is_component = args.len() == 2
+                                && (callee_text == "component" || callee_text.ends_with(".component"));
+                            let sp = if is_component {
+                                m.ast.exprs[args[0]].span
+                            } else {
+                                m.ast.exprs[*callee].span
+                            };
                             text[sp.range()].to_string()
                         }
                         _ => "?".into(),

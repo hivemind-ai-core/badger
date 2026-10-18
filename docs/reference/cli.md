@@ -114,7 +114,7 @@ pub fn greet(names: List<String>) -> Result<Unit, io.Error> {
 | 70 | Internal error: a bug in Badger, not in the program. The message ends with "please report it"; `RUST_BACKTRACE=1` adds a backtrace. |
 | 71 | Fatal: the runtime cannot allocate a task stack (address-space limit `ulimit -v`, or `vm.max_map_count`). |
 | 101 | The program failed with a defect (a panic, a failed contract, an arithmetic or bounds failure) in its main task, or the main task was cancelled. |
-| N | A program that calls `process.exit(N)` exits with N. `badger replay --compare` also exits with the program's status. |
+| N | A program that calls `process.exit(N)`, or whose `main` returns the `Int` N, exits with N (0 to 255). `badger replay --compare` also exits with the program's status. |
 
 ## Run and check
 
@@ -127,7 +127,7 @@ workspace root, every member package. A single file need not have a
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`. Lines and columns are 1-based; columns count characters. (`badger query diagnostics` gives the same diagnostics flattened to one location each.) |
+| `--json` | Print diagnostics as a JSON array on standard output (`[]` when it checks). Each has `code`, `severity`, `message`, `labels` (file, module, start and end line/column, message), `notes`, `expected`, `actual`, `scope`, `related`, and `schema_version` (1; it changes when a field changes meaning or is removed). Lines and columns are 1-based; columns count characters. (`badger query diagnostics` gives the same diagnostics flattened to one location each, with the same `schema_version`; the language server sends `label`, `expected`, `actual`, `scope`, and `notes` in each diagnostic's `data`.) |
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
@@ -184,7 +184,7 @@ $ badger run --release --workers 4 . -- some args
 port=8080 db=demo.db half=4040
 ```
 
-### `badger test [PATH] [FILTER] [--json]`
+### `badger test [PATH] [FILTER] [--json] [--list] [--exact]`
 
 Run `test_*` functions. A test function takes no parameters and returns
 `Unit` or a `Result`; a failed assertion, a defect, or an `err` result
@@ -200,7 +200,9 @@ otherwise it is FILTER. FILTER keeps the tests whose name contains it.
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[{"name","ok","detail"}]}`. |
+| `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[...]}`; each test has `name`, `ok`, `kind` (`passed`, `assertion`, `defect`, `cancelled`, or `error` for a returned `err`), `message`, `location` (`file:line:column` of a failed assertion or defect), `ms`, and `detail` (the line the text report prints). |
+| `--list` | Print the selected tests' names (with `--json`, `{"tests":[{"name"}]}`) without running them. |
+| `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
 
 Exit status: 0 when every test that ran passed (also when the filter
 matched none), 1 when one failed or the program does not check.
@@ -391,6 +393,7 @@ one.
 | `diagnostics` | PATH | Array of diagnostics (`file`, `line`, `col`, `end_line`, `end_col`, `severity`, `code`, `message`, `notes`, `label`, `expected`, `actual`, `scope`, `related`, `declarations`). |
 | `check` | PATH (file or project) | `{ok, diagnostics, inputs, unused_overlays, roots, tests, tasks}`; with `--overlays`, of the proposed contents. See [agents.md](../agents.md#checking-proposed-edits). |
 | `symbols` | PATH | The file's definitions (`name`, `kind`, `detail`, `line`, `col`, `container`). |
+| `symbol` | PATH, `--name` | A definition by name: `orders.service.create` (module path and name), `Order.total` (a type's member), or just `create`. Each match has `name`, `kind`, `container`, `detail`, `hover`, `file`, `line`, `col`, and `references`. PATH may be a project. |
 | `api` | PATH, or a standard module (`std.list`) | The public interface: declarations, signatures with effects and contracts, docs. |
 | `hover` | PATH, `--line`, `--col` | `{"text": ...}`: type or signature at the position. |
 | `definition` | PATH, `--line`, `--col` | Location of the definition. |
@@ -500,8 +503,7 @@ $ badger contracts
 ### `badger generate sql FILES... [--database URL] [--schema FILE] [--check]`
 
 Turn SQL files of named queries (`-- name: find_user :one`) into typed
-functions: `NAME.bdg` next to each `NAME.sql`. `sql` is the only
-generator. Guide: [typed-sql.md](../typed-sql.md).
+functions: `NAME.bdg` next to each `NAME.sql`. Guide: [typed-sql.md](../typed-sql.md).
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -512,6 +514,46 @@ generator. Guide: [typed-sql.md](../typed-sql.md).
 ```sh
 badger generate sql src/queries.sql --schema schema.sql
 ```
+
+### `badger new NAME`
+
+Creates the directory `NAME` with `badger.toml` (package `NAME`, entry
+`src/main.bdg`) and `src/main.bdg`: a program with a `main` and one test.
+`NAME` is a lowercase identifier; an existing directory is an error.
+
+### `badger generate feature NAME [DIR] [--item NAME] [--dry-run]`
+
+Adds a typed feature module to the project in `DIR` (default `.`), under
+the entry's directory: `NAME/model.bdg` (a record type, its errors, the
+`Store` it needs, and its `Operations`), `NAME/memory.bdg` (an in-memory
+store provider), `NAME/service.bdg` (the feature's provider with `create`,
+`find`, and `list` operations, and tests), and `NAME/http.bdg` (routes
+binding the operations, and a test).
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--item NAME` | `NAME` without a final `s` | The record's name (`--item stock_item` gives `StockItem`). |
+| `--dry-run` | | Print the plan and check it, but write nothing. |
+
+Before anything is written, the generated files are checked and their
+tests run in a copy of the project. The command refuses a name that
+exists as a module or directory, and never replaces a file. Nothing else
+changes: it prints the plan nodes to add where the application is
+composed. Generated code is ordinary code to edit; its storage and rules
+are placeholders for the feature's own.
+
+```sh
+badger generate feature orders
+```
+
+### `badger generate worker NAME [DIR] [--dry-run]`
+
+Adds `NAME.bdg` under the entry's directory: a durable job kind
+(`std.jobs`) with `Job` (its state), `step` (one attempt's work, a
+placeholder), `processing`, a `processor` provider running a supervised
+worker, `submit`, and a test that a submitted job is processed. It is
+checked, and its test run, in a copy of the project first, like
+`generate feature`; an existing module is never replaced.
 
 ### `badger update [PATH]`
 
@@ -529,7 +571,8 @@ badger update
 ### `badger lsp`
 
 Language server on standard input and output: diagnostics, hover,
-definition, references, rename, symbols, formatting, completion. Editor
+definition, references, rename, symbols, formatting, completion, and
+quick fixes (a missing standard import, a missing `match` arm). Editor
 setup: [editors.md](../editors.md).
 
 ### `badger mcp`

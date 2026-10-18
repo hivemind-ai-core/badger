@@ -34,7 +34,7 @@ A1–A5, and the enhancement list), not dropped.
 | R2 cancellation-aware I/O | Done for HTTP (hyper/tokio; bounded admission); blocking work uses a bounded pool. |
 | R3 scheduler | Continued under the lock-optimization slices; not part of this item. |
 | R4 GC and memory | Not part of this item (see the memory optimization plan). |
-| R5 fast language libraries | Not part of this item (see OPTIMIZATION_PLAN.md). |
+| R5 fast language libraries | Not part of this item (see archive/plans/OPTIMIZATION_PLAN.md). |
 | R6 deployable artifact | Done: `lang release` writes a self-contained directory (executable, binary MIR, native libraries, lockfile, digests); `lang start` refuses changed or incompatible parts before running. See docs/releases.md. |
 
 ## Core library

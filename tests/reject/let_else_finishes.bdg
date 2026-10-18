@@ -1,0 +1,9 @@
+// expect-error: E0300
+// The block of `let ... else` must not finish: it runs when the pattern
+// does not match, so it has no bindings to give.
+pub fn main() -> Unit {
+    let found: Option<Int> = Option.none
+    let .some(n) = found else {
+        let fallback = 0
+    }
+}

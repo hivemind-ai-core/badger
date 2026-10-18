@@ -1,5 +1,5 @@
 //! `badger mcp`: a Model Context Protocol server on stdio (newline-delimited
-//! JSON-RPC) giving an agent the compiler and a live REPL through five tools:
+//! JSON-RPC) giving an agent the compiler and a live REPL through six tools:
 //!
 //! - `eval` ("code mode"): a persistent REPL session (the local `badger repl`
 //!   machinery); definitions accumulate and expressions evaluate, and
@@ -10,6 +10,8 @@
 //!   diagnostic explanations, and standard module sources.
 //! - `contracts`: each `requires`/`ensures` clause and whether it was proven,
 //!   refuted, or is checked at run time (optionally run against the tests).
+//! - `generate`: `badger generate feature`, checked (and its tests run) in a
+//!   copy of the project before anything is written.
 //! - `run`: run a program or its tests in a subprocess, with a time limit.
 //!
 //! Compiler questions run in subprocesses (`badger query`), isolated from the
@@ -33,7 +35,8 @@ analyse files from code: compiler.diagnostics(path), compiler.check_source(src),
 compiler.hover(path, line, col), compiler.definition(...), compiler.references(...), \
 compiler.symbols(path), compiler.completions(...), compiler.explain(code). Use `query` with \
 kind `module` to read a standard module's API (e.g. `list`, `map`, `io`, `task`, `channel`), \
-and `check` before `run`. Positions are 1-based.";
+and `check` before `run`. `generate` adds a feature module that is checked (and its tests run) \
+before it is written. Positions are 1-based.";
 
 fn tools() -> Value {
     json!([
@@ -63,11 +66,11 @@ fn tools() -> Value {
         },
         {
             "name": "query",
-            "description": "Ask about code. kind `hover` (type or signature), `definition`, `references` (every use, across all of a project's entry points and tasks), `completion` need path, line, col (1-based); `rename` also takes the new name in `name` and returns the edits (file, line, col, end_line, end_col, text) without applying them; `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges; `api` returns the public interface (functions, types, methods with signatures, effects, contracts, and docs) of a standard module (`name`, e.g. `std.list`) or of the program at `path`. Inputs a kind cannot answer (a missing file, a directory where a source file is needed, a file that does not parse for `symbols`) are errors, not empty results.",
+            "description": "Ask about code or the language. kind `guide` gives the guide built into this toolchain (`name`: a chapter number or word, e.g. `3` or `errors`; without it, the orientation page and the chapter list); `examples` gives the guide's checked code examples containing `name` (with chapter and heading); `symbol` finds a definition by qualified `name` (`orders.service.create`) in `path`. kind `hover` (type or signature), `definition`, `references` (every use, across all of a project's entry points and tasks), `completion` need path, line, col (1-based); `rename` also takes the new name in `name` and returns the edits (file, line, col, end_line, end_col, text) without applying them; `symbols` and `diagnostics` need path; `explain` takes a diagnostic code in `name` (e.g. E0301); `module` returns a standard module's source (its API and documentation) for `name` (e.g. `list`), or the list of modules without a name; `graph` returns the program's `calls`, `modules`, `types`, or `systems` graph (`name`) as JSON nodes and edges; `api` returns the public interface (functions, types, methods with signatures, effects, contracts, and docs) of a standard module (`name`, e.g. `std.list`) or of the program at `path`. Inputs a kind cannot answer (a missing file, a directory where a source file is needed, a file that does not parse for `symbols`) are errors, not empty results.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "rename", "symbols", "diagnostics", "explain", "module", "graph", "api"] },
+                    "kind": { "type": "string", "enum": ["hover", "definition", "references", "completion", "rename", "symbols", "symbol", "diagnostics", "explain", "module", "graph", "api", "guide", "examples"] },
                     "path": { "type": "string" },
                     "line": { "type": "integer" },
                     "col": { "type": "integer" },
@@ -86,6 +89,21 @@ fn tools() -> Value {
                     "tests": { "type": "boolean" }
                 },
                 "required": ["path"]
+            }
+        },
+        {
+            "name": "generate",
+            "description": "Generate checked code into a project. `what: worker`: `NAME.bdg`, a durable job kind (std.jobs) with a supervised processor, `submit`, and a test. `what: feature`: `NAME/model.bdg` (a record type, its errors, the `Store` it needs, its `Operations`), `NAME/memory.bdg`, `NAME/service.bdg` (create/find/list operations and tests), and `NAME/http.bdg` (routes and a test), under the entry's directory. The files are checked and their tests run in a copy of the project first; existing files are never replaced. With `dry_run: true` it reports the plan and the check without writing. The generated rules and storage are placeholders to replace with the feature's own.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "what": { "type": "string", "enum": ["feature", "worker"] },
+                    "name": { "type": "string", "description": "The feature (a lowercase identifier, e.g. `orders`)." },
+                    "path": { "type": "string", "description": "The project directory." },
+                    "item": { "type": "string", "description": "One record's name (default: `name` without a final `s`)." },
+                    "dry_run": { "type": "boolean" }
+                },
+                "required": ["what", "name", "path"]
             }
         },
         {
@@ -184,6 +202,97 @@ fn arg_path(p: &str) -> String {
     if p.starts_with('-') { format!("./{p}") } else { p.to_string() }
 }
 
+/// The guide, as built into this toolchain (so an agent reads the version
+/// it is talking to): chapters by file name, and the orientation page.
+const GUIDE: &[(&str, &str)] = &[
+    ("01-values-and-functions", include_str!("../../../docs/guide/01-values-and-functions.md")),
+    ("02-types-and-records", include_str!("../../../docs/guide/02-types-and-records.md")),
+    ("03-errors", include_str!("../../../docs/guide/03-errors.md")),
+    ("04-collections", include_str!("../../../docs/guide/04-collections.md")),
+    ("05-modules-and-projects", include_str!("../../../docs/guide/05-modules-and-projects.md")),
+    ("06-tasks-and-channels", include_str!("../../../docs/guide/06-tasks-and-channels.md")),
+    ("07-effects-and-ownership", include_str!("../../../docs/guide/07-effects-and-ownership.md")),
+    ("08-systems-and-pipelines", include_str!("../../../docs/guide/08-systems-and-pipelines.md")),
+    ("09-testing-and-contracts", include_str!("../../../docs/guide/09-testing-and-contracts.md")),
+    ("10-services", include_str!("../../../docs/guide/10-services.md")),
+    ("collections", include_str!("../../../docs/collections.md")),
+];
+const LLMS: &str = include_str!("../../../llms.txt");
+
+/// A guide chapter by number or a word of its name (`3`, `errors`), or the
+/// list of chapters and the orientation page.
+fn guide(name: Option<&str>) -> Value {
+    let Some(want) = name.map(str::to_lowercase).filter(|w| !w.is_empty()) else {
+        let names: Vec<&str> = GUIDE.iter().map(|(n, _)| *n).collect();
+        return text(format!("{LLMS}\nchapters: {}", names.join(", ")), false);
+    };
+    // a chapter number (`3`), or a word of its name (`errors`)
+    let number = want.parse::<u32>().ok();
+    let hit = GUIDE.iter().find(|(n, _)| match number {
+        Some(k) => n.split('-').next().and_then(|p| p.parse::<u32>().ok()) == Some(k),
+        None => n.contains(want.as_str()),
+    });
+    match hit {
+        Some((_, body)) => text(*body, false),
+        None => text(
+            format!(
+                "no chapter `{want}`; chapters: {}",
+                GUIDE.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
+            ),
+            true,
+        ),
+    }
+}
+
+/// The guide's checked examples (its `badger` code blocks, which the
+/// documentation tests check) that contain `term`, with the chapter and
+/// heading each comes from.
+fn examples(term: &str) -> Value {
+    let mut out = vec![];
+    for (chapter, body) in GUIDE {
+        let mut heading = "";
+        let mut lines = body.lines();
+        while let Some(l) = lines.next() {
+            if l.starts_with('#') {
+                heading = l.trim_start_matches('#').trim();
+            }
+            if l.trim_start() == "```badger" || l.trim_start() == "```badger fragment" {
+                let fragment = l.contains("fragment");
+                let mut code = vec![];
+                for c in lines.by_ref() {
+                    if c.trim_start() == "```" {
+                        break;
+                    }
+                    code.push(c);
+                }
+                let code = code.join("\n");
+                if term.is_empty() || code.contains(term) {
+                    out.push(json!({ "chapter": chapter, "heading": heading, "complete": !fragment, "code": code }));
+                }
+            }
+        }
+    }
+    let n = out.len();
+    out.truncate(20);
+    text(json!({ "matches": n, "examples": out }).to_string(), false)
+}
+
+/// A result whose text is JSON (or a summary line and then JSON, as
+/// `contracts` gives) also carries it as `structuredContent` (an object; a
+/// list is `{"result": [...]}`), so clients need not parse the text.
+fn structured(mut r: Value) -> Value {
+    let Some(t) = r["content"][0]["text"].as_str() else { return r };
+    let json = serde_json::from_str::<Value>(t)
+        .ok()
+        .or_else(|| t.split_once('\n').and_then(|(_, rest)| serde_json::from_str::<Value>(rest).ok()));
+    match json {
+        Some(v @ Value::Object(_)) => r["structuredContent"] = v,
+        Some(v @ Value::Array(_)) => r["structuredContent"] = json!({ "result": v }),
+        _ => {}
+    }
+    r
+}
+
 fn text(t: impl Into<String>, is_error: bool) -> Value {
     json!({ "content": [{ "type": "text", "text": t.into() }], "isError": is_error })
 }
@@ -263,6 +372,27 @@ impl Mcp {
                         text(format!("{summary}\n{out}"), !r["ok"].as_bool().unwrap_or(false))
                     }
                     Ok((_, _, err)) => text(err, true),
+                    Err(e) => text(e, true),
+                }
+            }
+            "generate" => {
+                let Some(what) = a["what"].as_str().filter(|w| matches!(*w, "feature" | "worker")) else {
+                    return text("`what` must be `feature` or `worker`", true);
+                };
+                let (Some(name), Some(path)) = (a["name"].as_str(), a["path"].as_str()) else {
+                    return text("give `name` and `path`", true);
+                };
+                let mut args =
+                    vec!["generate".to_string(), what.to_string(), name.to_string(), arg_path(path)];
+                if let Some(item) = a["item"].as_str() {
+                    args.push("--item".into());
+                    args.push(item.to_string());
+                }
+                if a["dry_run"].as_bool().unwrap_or(false) {
+                    args.push("--dry-run".into());
+                }
+                match badger_cmd(&args, Duration::from_secs(300)) {
+                    Ok((code, out, err)) => text(format!("{out}{err}"), code != 0),
                     Err(e) => text(e, true),
                 }
             }
@@ -346,6 +476,8 @@ impl Mcp {
                             None => text(format!("no explanation for `{code}`"), true),
                         }
                     }
+                    "guide" => guide(a["name"].as_str()),
+                    "examples" => examples(a["name"].as_str().unwrap_or("")),
                     "module" => match a["name"].as_str() {
                         Some(n) => match badger_driver::std_source(n.trim_start_matches("std.")) {
                             Some(src) => text(src, false),
@@ -374,7 +506,7 @@ impl Mcp {
                         subprocess_result(&args)
                     }
                     "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
-                    | "diagnostics" => {
+                    | "symbol" | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {
@@ -383,7 +515,7 @@ impl Mcp {
                                 args.push(v.to_string());
                             }
                         }
-                        if kind == "rename"
+                        if matches!(kind, "rename" | "symbol")
                             && let Some(n) = a["name"].as_str()
                         {
                             args.push(format!("--name={n}"));
@@ -393,7 +525,7 @@ impl Mcp {
                     // `check` has its own tool
                     other => text(
                         format!(
-                            "unknown query kind `{other}` (hover, definition, references, completion, rename, symbols, diagnostics, explain, module, graph, api; diagnostics of proposed contents: the `check` tool)"
+                            "unknown query kind `{other}` (hover, definition, references, completion, rename, symbols, symbol, diagnostics, guide, examples, explain, module, graph, api; diagnostics of proposed contents: the `check` tool)"
                         ),
                         true,
                     ),
@@ -594,7 +726,7 @@ pub fn serve() -> std::process::ExitCode {
                 "tools/list" => Ok(json!({ "tools": tools() })),
                 "tools/call" => {
                     let name = params["name"].as_str().unwrap_or("");
-                    Ok(mcp.call(name, &params["arguments"]))
+                    Ok(structured(mcp.call(name, &params["arguments"])))
                 }
                 other => Err(json!({ "code": -32601, "message": format!("method not found: {other}") })),
             };

@@ -165,7 +165,7 @@ explicit contiguous collection/flattening operation rather than a hidden copy.
 
 `Map<K, V>` and `Set<T>` have persistent value semantics and structural sharing.
 Keys require coherent `Eq` and `Hash`; iteration order is unspecified, so use
-explicit sorting or an ordered collection for stable output. Builders support
+explicit sorting or an ordered collection (`std.sorted`) for stable output. Builders support
 bulk construction. Record labels remain static even though maps have runtime
 keys. Map lookup returns `Option<V>` or a borrowed view, never implicit null.
 

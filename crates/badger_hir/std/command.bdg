@@ -1,0 +1,167 @@
+// Command-line bindings of operations (FRAMEWORK_DESIGN.md §14): a command
+// is a stable name, a typed options record (`std.cli`), an operation, how
+// its output is printed, and how its expected errors end the program.
+//
+//     let add = command.bind({
+//         name: "add",
+//         operation: create,
+//         input: fn(options: { title: String }) { { title: options.title } },
+//         output: fn(order) { $"created {order.id}" },
+//         errors: fn(e) { command.failure(1, e.display()) },
+//     })
+//     pub fn main() -> Int { command.main("orders", [add], env.args()) }
+//
+// `run` reports an outcome (exit status and the text for standard output
+// and standard error) without printing, so commands are tested directly;
+// `main` dispatches on the first argument and prints. Exit statuses: 0
+// for success and help, 2 for a usage problem (unknown command, invalid
+// options), and the mapped status for an operation's expected error.
+import std.app
+import std.cli
+import std.io
+import std.list
+import std.prelude
+import std.text
+
+/// How an expected error ends a command: an exit status and a message.
+pub type Failure = { exit: Int, message: String }
+
+pub fn failure(exit: Int, message: String) -> Failure {
+    { exit, message }
+}
+
+/// What running a command produced.
+pub type Outcome = { exit: Int, out: String, err: String }
+
+/// A bound command. `doc` is the operation's documentation and `usage` the
+/// options' help text.
+pub type Command = {
+    name: String,
+    operation: Symbol,
+    doc: String,
+    usage: String,
+    run: fn(app.Call, List<String>) -> Outcome,
+}
+
+fn done(exit: Int, out: String, err: String) -> Outcome {
+    { exit, out, err }
+}
+
+/// Bind an operation to a command name (see the module documentation).
+pub fn bind<A, I, O, E, Eff>(binding: {
+    name: String,
+    operation: app.Operation<I, O, E, Eff>,
+    input: fn(A) -> I,
+    output: fn(O) -> String,
+    errors: fn(E) -> Failure,
+}) -> Command where A: Codec {
+    let operation = binding.operation
+    let input = binding.input
+    let output = binding.output
+    let errors = binding.errors
+    let name = binding.name
+    {
+        name,
+        operation: operation.info.id,
+        doc: operation.info.doc,
+        usage: cli.usage<A>(name),
+        run: fn(call, args) {
+            match cli.parse_program<A>(name, args) {
+                .err(e) => if e.code == #cli/help { done(0, e.usage, "") } else { done(2, "", e.display()) },
+                .ok(options) => match operation.call(call, input(options)) {
+                    .ok(out) => done(0, output(out), ""),
+                    .err(e) => {
+                        let f = errors(e)
+                        done(f.exit, "", f.message)
+                    },
+                },
+            }
+        },
+    }
+}
+
+/// A problem with a command table.
+pub struct Error {
+    pub message: String,
+}
+
+impl Display for Error {
+    fn display(self: &Self) -> String {
+        self.message
+    }
+}
+
+impl prelude.Error for Error {}
+
+/// Check a command table: names present, unique, and not `help`, and no
+/// operation bound twice under different names.
+pub fn validate(commands: List<Command>) -> Result<Unit, Error> {
+    var names: List<String> = []
+    for c in commands {
+        if text.trim(c.name) == "" || text.starts_with(c.name, "-") {
+            return err({ message: $"command name `{c.name}` is not a word" })
+        }
+        if c.name == "help" {
+            return err({ message: "`help` is reserved" })
+        }
+        if names.contains(c.name) {
+            return err({ message: $"command `{c.name}` is defined twice" })
+        }
+        names = names.append(c.name)
+    }
+    ok(())
+}
+
+/// The program's help: each command with its documentation.
+pub fn help(program: String, commands: List<Command>) -> String {
+    let width = list.fold(commands, 4, fn(w, c) { if c.name.len() > w { c.name.len() } else { w } })
+    var lines = [$"Usage: {program} <command> [options]", "", "Commands:"]
+    for c in commands {
+        lines = lines.append($"  {text.pad_end(c.name, width, ' ')}  {c.doc}")
+    }
+    lines = lines.append($"  {text.pad_end("help", width, ' ')}  Show this help, or a command's (`{program} help <command>`).")
+    text.join(lines, "\n")
+}
+
+/// Run the command `args` names (its first element) with the rest as its
+/// options, under `call`.
+pub fn run(program: String, commands: List<Command>, call: app.Call, args: List<String>) -> Outcome !{Io} {
+    match validate(commands) {
+        .err(e) => return done(70, "", e.message),
+        .ok(_) => (),
+    }
+    if args.is_empty() {
+        return done(2, "", help(program, commands))
+    }
+    let name = args[0]
+    let rest = list.skip(args, 1)
+    if name == "help" || name == "--help" || name == "-h" {
+        if rest.is_empty() {
+            return done(0, help(program, commands), "")
+        }
+        return match list.find(commands, fn(c) { c.name == rest[0] }) {
+            .some(c) => done(0, $"{c.doc}\n\n{c.usage}", ""),
+            .none => done(2, "", $"unknown command `{rest[0]}`\n\n{help(program, commands)}"),
+        }
+    }
+    match list.find(commands, fn(c) { c.name == name }) {
+        .some(c) => {
+            let f = c.run
+            f(call, rest)
+        },
+        .none => done(2, "", $"unknown command `{name}`\n\n{help(program, commands)}"),
+    }
+}
+
+/// `run` under a new root call, printing the outcome; the result is the
+/// exit status (for `main -> Int`).
+pub fn main(program: String, commands: List<Command>, args: List<String>) -> Int !{Io} {
+    let outcome = run(program, commands, app.call(), args)
+    if outcome.out != "" {
+        let _ = io.println(outcome.out)
+    }
+    if outcome.err != "" {
+        let _ = io.eprintln(outcome.err)
+    }
+    outcome.exit
+}

@@ -1,0 +1,8 @@
+// expect-error: E0702
+// A stage has each callback at most once.
+import std.pipeline
+stage s() {
+    enter(ctx) { pipeline.next(ctx) }
+    enter(ctx) { pipeline.next(ctx) }
+}
+pub fn main() {}

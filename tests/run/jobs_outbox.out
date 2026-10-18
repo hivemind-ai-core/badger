@@ -1,0 +1,10 @@
+aborted: true
+orders 1, jobs 1
+confirm:1/email: confirmed (message for ada@)
+confirm:3/email: rejected (no such mailbox)
+confirm:4/email: uncertain (no answer within the timeout)
+confirm:5/email: uncertain (sending was interrupted)
+sends 4
+["confirm:4/email uncertain", "confirm:5/email confirmed"]
+true
+uncertain 0

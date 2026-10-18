@@ -1,0 +1,128 @@
+// Bit sets: sets of small non-negative integers, 63 per word. `contains`
+// is O(1); `insert` and `remove` copy the words (O(n / 63)); `union`,
+// `intersection`, and `difference` work word by word. Every operation
+// returns a new set.
+//
+//     let s = bits.of([1, 5, 64])
+//     s.contains(5)          // true
+//     s.union(bits.of([2])).to_list()   // [1, 2, 5, 64]
+import std.list
+
+/// Bits per word (an `Int` keeps its sign bit clear).
+let width: Int = 63
+
+/// Equal sets have equal words (trailing zero words are dropped).
+pub struct BitSet {
+    words: List<Int>,
+} derive(Eq)
+
+fn bit(i: Int) -> Int {
+    1 << (i % width)
+}
+
+fn word(words: List<Int>, w: Int) -> Int {
+    if w < words.len() { words[w] } else { 0 }
+}
+
+// the words with `f` applied to word `w` (grown as needed), trailing zero
+// words dropped
+fn with_word(words: List<Int>, w: Int, f: fn(Int) -> Int) -> List<Int> {
+    let n = if w + 1 > words.len() { w + 1 } else { words.len() }
+    var b = list.builder<Int>()
+    for i in 0..n {
+        b.append(if i == w { f(word(words, i)) } else { word(words, i) })
+    }
+    trim(b.finish())
+}
+
+fn trim(words: List<Int>) -> List<Int> {
+    var n = words.len()
+    while n > 0 && words[n - 1] == 0 {
+        n = n - 1
+    }
+    if n == words.len() { words } else { list.take(words, n) }
+}
+
+fn zip_words(a: List<Int>, b: List<Int>, f: fn(Int, Int) -> Int) -> List<Int> {
+    let n = if a.len() > b.len() { a.len() } else { b.len() }
+    var out = list.builder<Int>()
+    for i in 0..n {
+        out.append(f(word(a, i), word(b, i)))
+    }
+    trim(out.finish())
+}
+
+/// An empty set.
+pub fn empty() -> BitSet {
+    { words: [] }
+}
+
+/// The set of `items` (each at least 0).
+pub fn of(items: List<Int>) -> BitSet {
+    list.fold(items, empty(), fn(s, i) { s.insert(i) })
+}
+
+impl BitSet {
+    pub fn contains(self: &Self, i: Int) -> Bool {
+        i >= 0 && word(self.words, i / width) & bit(i) != 0
+    }
+
+    /// The set with `i` (at least 0; a negative `i` is a defect).
+    pub fn insert(self: &Self, i: Int) -> BitSet {
+        if i < 0 {
+            panic($"bit sets hold non-negative integers, not {i}")
+        }
+        { words: with_word(self.words, i / width, fn(w) { w | bit(i) }) }
+    }
+
+    pub fn remove(self: &Self, i: Int) -> BitSet {
+        if i < 0 || i / width >= self.words.len() {
+            return { words: self.words }
+        }
+        { words: with_word(self.words, i / width, fn(w) { w & (bit(i) ^ -1) }) }
+    }
+
+    pub fn union(self: &Self, other: BitSet) -> BitSet {
+        { words: zip_words(self.words, other.words, fn(a, b) { a | b }) }
+    }
+
+    pub fn intersection(self: &Self, other: BitSet) -> BitSet {
+        { words: zip_words(self.words, other.words, fn(a, b) { a & b }) }
+    }
+
+    pub fn difference(self: &Self, other: BitSet) -> BitSet {
+        { words: zip_words(self.words, other.words, fn(a, b) { a & (b ^ -1) }) }
+    }
+
+    pub fn is_empty(self: &Self) -> Bool {
+        self.words.is_empty()
+    }
+
+    /// How many integers the set holds.
+    pub fn len(self: &Self) -> Int {
+        var n = 0
+        for w in self.words {
+            var x = w
+            while x != 0 {
+                x = x & (x - 1)
+                n += 1
+            }
+        }
+        n
+    }
+
+    /// The integers, in increasing order.
+    pub fn to_list(self: &Self) -> List<Int> {
+        var out = list.builder<Int>()
+        var base = 0
+        for w in self.words {
+            for b in 0..width {
+                if w & (1 << b) != 0 {
+                    out.append(base + b)
+                }
+            }
+            base += width
+        }
+        out.finish()
+    }
+}

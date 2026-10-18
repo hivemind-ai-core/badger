@@ -1,0 +1,5 @@
+// expect-error: E0118
+// A public provider declares its configuration and result types.
+import std.system
+pub provider p(scope, config) { ok(()) }
+pub fn main() {}

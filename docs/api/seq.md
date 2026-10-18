@@ -251,6 +251,15 @@ fn try_fold<T, A, E, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> Result<
 Fold in order, stopping at the first error; a scoped source is closed
 either way.
 
+### `try_map`
+
+```badger
+fn try_map<T, U, E, Eff>(items: Seq<T, Eff>, f: fn(T) -> Result<U, E> !Eff) -> Seq<Result<U, E>, Eff>
+```
+
+`f` over the items, lazily, as results: `try_collect` (or `try_each`)
+then stops at the first error, so later items are never mapped.
+
 ### `zip`
 
 ```badger
@@ -413,6 +422,12 @@ fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E>
 
 ```badger
 fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> Result<A, E>
+```
+
+### `Seq.try_map`
+
+```badger
+fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Seq<Result<U, E>, Eff>
 ```
 
 ### `Seq.zip`

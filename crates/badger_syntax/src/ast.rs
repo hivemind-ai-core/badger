@@ -153,6 +153,10 @@ pub struct FnDecl {
     pub span: Span,
     /// `requires` / `ensures` clauses written before the function.
     pub contracts: Vec<Contract>,
+    /// A declaration whose result type is inferred by design even when
+    /// public: a `stage` factory (its `pipeline.Stage` type follows from
+    /// its callbacks).
+    pub result_inferred: bool,
 }
 
 /// A function contract clause: `requires COND` is checked on entry,
@@ -232,6 +236,12 @@ pub enum TypeKind {
     },
     /// An effect row as a type argument: `Seq<Int, !{Io}>`.
     Effect(Effect),
+    /// A standard-library type named by its module path (`system.Provider`),
+    /// from a desugared declaration (whatever the module imports).
+    Std {
+        path: &'static str,
+        args: Vec<TypeId>,
+    },
     /// A type that did not parse (only in a tree recovered from syntax errors).
     Error,
 }
@@ -456,6 +466,12 @@ pub enum ExprKind {
     Pipeline(Vec<ExprId>),
     Ref(Label),
     Unsafe(ExprId),
+    /// A standard-library item named by its module path
+    /// (`pipeline.stage`), from a desugared declaration.
+    Std(&'static str),
+    /// The qualified symbol naming a declaration in diagnostics and
+    /// inspection: `#module/name` (the module path is known only later).
+    DeclName(Name),
     /// An expression that did not parse (only in a tree recovered from
     /// syntax errors).
     Error,

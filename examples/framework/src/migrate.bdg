@@ -1,0 +1,33 @@
+// The migration task: `badger run migrate` brings the database to the
+// schema this version of the application expects (the service and the
+// command line refuse any other).
+import std.config
+import std.env
+import std.io
+import std.sqlite
+import std.system
+import std.text
+import settings
+import tasks.sqlite_store
+
+pub enum AppError {
+    config(source: config.Error),
+    db(source: sqlite.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let s = settings.resolve(env.args())?
+    let plan = system {
+        db: sqlite.pool({ path: s.database }),
+    }
+    use running <- system.run(plan)
+    let applied = sqlite.migrate(running.db, sqlite_store.migrations)?
+    if applied.is_empty() {
+        io.println("the schema is current")?
+    } else {
+        io.println($"applied {text.join(applied.map(fn(v) { $"{v}" }), ", ")}")?
+    }
+    ok(())
+}

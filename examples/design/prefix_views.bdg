@@ -6,32 +6,26 @@ pub enum ExampleError {
     failed,
 } derive(Error)
 
-fn auditing() {
-    pipeline.stage({
-        name: #example/audit,
-        enter: fn(ctx) {
-            pipeline.next({ ..ctx, verified: false })
-        },
-        leave: fn(ctx, reply) {
-            assert(ctx.verified)
-            // ctx.token is deliberately unavailable to this stage.
-            pipeline.leave(ctx, reply)
-        },
-        error: fn(ctx, error) {
-            // Reads true after the later update, false if it never committed.
-            trace.event(#example/audit_error, { verified: ctx.verified })
-            pipeline.propagate(ctx, error)
-        },
-    })
+stage auditing() {
+    enter(ctx) {
+        pipeline.next({ ..ctx, verified: false })
+    }
+    leave(ctx, reply) {
+        assert(ctx.verified)
+        // ctx.token is deliberately unavailable to this stage.
+        pipeline.leave(ctx, reply)
+    }
+    error(ctx, error) {
+        // Reads true after the later update, false if it never committed.
+        trace.event(#example/audit_error, { verified: ctx.verified })
+        pipeline.propagate(ctx, error)
+    }
 }
 
-fn verifying() {
-    pipeline.stage({
-        name: #example/verify,
-        enter: fn(ctx) {
-            pipeline.next({ ..ctx, verified: true, token: "checked" })
-        },
-    })
+stage verifying() {
+    enter(ctx) {
+        pipeline.next({ ..ctx, verified: true, token: "checked" })
+    }
 }
 
 pub fn main() -> Result<Unit, ExampleError> {

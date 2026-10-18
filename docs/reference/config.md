@@ -255,6 +255,20 @@ db.pool = 4    # from [config]
 |---|---|---|
 | `schema` | string | SQL file (relative to the project) that literal SQL statements given to `std.sqlite` are prepared against at check time (E0180 to E0182), and the default `--schema` of `badger generate sql`. See [typed-sql.md](../typed-sql.md). |
 
+### `[layers.NAME]`
+
+Import rules between the package's modules. `forbid` lists module paths
+that the module `NAME` and every module below it (`NAME.*`) may not
+import, directly or as a module below one of them. A forbidden import is
+E0017 at the import. Standard modules are named as imported
+(`std.http`).
+
+```toml
+# the feature's core knows nothing of HTTP or of a particular store
+[layers.orders.service]
+forbid = ["web", "orders.sqlite_store", "std.http", "std.sqlite"]
+```
+
 ### `[env]`
 
 | Key | Type | Meaning |
@@ -377,7 +391,7 @@ For working on Badger itself. Output goes to stderr unless noted.
 
 | Variable | Effect |
 |---|---|
-| `BADGER_TIMINGS=1` | Print each compiler phase's duration (`[timings] typecheck: 12.345 ms`). |
+| `BADGER_TIMINGS=1` | Print each compiler phase's duration (`[timings] typecheck: 12.345 ms`); `parse.deps` (dependency resolution and verification) and `parse.std` (standard modules) are parts of `parse`, and `typecheck.env`, `.groups` (inference), `.after-groups` (deferred ownership checks), `.schemes`, and `.effects` are parts of `typecheck`. `BADGER_TIMINGS=2` also lists the slowest binding groups. |
 | `BADGER_RUNTIME_STATS=1` | Print per-worker lock and scheduling counters when the program ends. |
 | `BADGER_NO_INLINE` | Set: turn off MIR inlining and the passes after it in optimized builds. |
 | `BADGER_NO_CONTRACT_ELISION` | Set: skip static contract analysis; every contract check stays in the code. |

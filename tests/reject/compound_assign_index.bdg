@@ -1,0 +1,9 @@
+// expect-error: E0002
+// A compound assignment reads its place and writes it: an index that is a
+// call would run twice, so it must be a name or a literal.
+fn slot() -> Int { 0 }
+
+pub fn main() -> Unit {
+    var counts = [0]
+    counts[slot()] += 1
+}

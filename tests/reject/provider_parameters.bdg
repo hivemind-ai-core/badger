@@ -1,0 +1,5 @@
+// expect-error: E0705
+// A provider's initializer takes `(config)` or `(scope, config)`.
+import std.system
+provider p(scope, config, extra) { ok(()) }
+pub fn main() {}

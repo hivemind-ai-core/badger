@@ -61,22 +61,87 @@ pub struct Jit {
 
 impl Jit {
     pub fn new(optimize: bool) -> Result<Self, CodegenError> {
-        let mut flags = settings::builder();
-        flags.set("use_colocated_libcalls", "false")?;
-        flags.set("is_pic", "false")?;
-        flags.set("opt_level", if optimize { "speed" } else { "none" })?;
-        // frame-pointer chains for profilers and debuggers
-        flags.set("preserve_frame_pointers", "true")?;
-        let isa = cranelift_native::builder()
-            .map_err(|e| CodegenError::Host(e.to_string()))?
-            .finish(settings::Flags::new(flags))
-            .map_err(|e| CodegenError::Host(e.to_string()))?;
+        let isa = Self::isa(optimize)?;
         let mut builder = JITBuilder::with_isa(isa, default_libcall_names());
         for (name, ptr) in badger_runtime::symbols() {
             builder.symbol(name, ptr);
         }
         let module = JITModule::new(builder);
         Ok(Self { ctx: module.make_context(), module, fn_ctx: FunctionBuilderContext::new() })
+    }
+
+    fn isa(optimize: bool) -> Result<std::sync::Arc<dyn cranelift_codegen::isa::TargetIsa>, CodegenError> {
+        let mut flags = settings::builder();
+        flags.set("use_colocated_libcalls", "false")?;
+        // JIT code and data need not be within a signed 32-bit displacement.
+        // Match cranelift-jit's x86-64 default: its per-blob GOT handles distant
+        // symbols and relaxes nearby ones back to direct address calculations.
+        flags.set("is_pic", if cfg!(target_arch = "x86_64") { "true" } else { "false" })?;
+        flags.set("opt_level", if optimize { "speed" } else { "none" })?;
+        // frame-pointer chains for profilers and debuggers
+        flags.set("preserve_frame_pointers", "true")?;
+        cranelift_native::builder()
+            .map_err(|e| CodegenError::Host(e.to_string()))?
+            .finish(settings::Flags::new(flags))
+            .map_err(|e| CodegenError::Host(e.to_string()))
+    }
+}
+
+#[cfg(all(test, target_arch = "x86_64"))]
+mod jit_tests {
+    use super::*;
+    use cranelift_codegen::ir::{AbiParam, InstBuilder, types};
+
+    #[test]
+    fn symbol_addresses_can_be_more_than_two_gib_from_code() {
+        // At least one of these addresses must be outside any function's
+        // signed 32-bit displacement range. Only their addresses are used;
+        // neither synthetic symbol is ever dereferenced.
+        const LOW: usize = 0x1000;
+        const HIGH: usize = 0x2_0000_1000;
+        for optimize in [false, true] {
+            let mut builder = JITBuilder::with_isa(Jit::isa(optimize).unwrap(), default_libcall_names());
+            builder.symbol("far_low", std::ptr::without_provenance::<u8>(LOW));
+            builder.symbol("far_high", std::ptr::without_provenance::<u8>(HIGH));
+            let mut module = JITModule::new(builder);
+            let low = module.declare_data("far_low", Linkage::Import, false, false).unwrap();
+            let high = module.declare_data("far_high", Linkage::Import, false, false).unwrap();
+            let mut ctx = module.make_context();
+            ctx.func.signature.returns.push(AbiParam::new(types::I64));
+            let function = module.declare_function("addresses", Linkage::Local, &ctx.func.signature).unwrap();
+            let mut fn_ctx = FunctionBuilderContext::new();
+            {
+                let mut b = FunctionBuilder::new(&mut ctx.func, &mut fn_ctx);
+                let entry = b.create_block();
+                b.switch_to_block(entry);
+                b.seal_all_blocks();
+                let low = module.declare_data_in_func(low, b.func);
+                let high = module.declare_data_in_func(high, b.func);
+                // Local definitions are marked colocated by cranelift-module,
+                // even though JIT code and data allocations can be far apart.
+                // Import synthetic addresses to reproduce that layout reliably.
+                for symbol in [low, high] {
+                    let cranelift_codegen::ir::GlobalValueData::Symbol { colocated, .. } =
+                        &mut b.func.global_values[symbol]
+                    else {
+                        unreachable!()
+                    };
+                    *colocated = true;
+                }
+                let low = b.ins().symbol_value(types::I64, low);
+                let high = b.ins().symbol_value(types::I64, high);
+                let result = b.ins().bxor(low, high);
+                b.ins().return_(&[result]);
+                b.finalize(module.target_config());
+            }
+            module.define_function(function, &mut ctx).unwrap();
+            module.finalize_definitions().unwrap();
+            let address = module.get_finalized_function(function);
+            // The generated function has no parameters and returns one u64;
+            // the module remains alive until after the call.
+            let run: unsafe extern "C" fn() -> u64 = unsafe { std::mem::transmute(address) };
+            assert_eq!(unsafe { run() }, (LOW ^ HIGH) as u64);
+        }
     }
 }
 
@@ -1580,6 +1645,8 @@ pub const UNLOCKED: &[&str] = &[
     "badger_rt_i_native_call6",
     "badger_rt_i_native_call7",
     "badger_rt_i_native_call8",
+    // console output: a copy written outside the collector's count
+    "badger_rt_i_write_out",
     // logging: a level check, or a record written under its own locks
     "badger_rt_i_log_enabled",
     "badger_rt_i_log_emit",

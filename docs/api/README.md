@@ -14,6 +14,11 @@
 | [`std.fs`](fs.md) | Filesystem access. Operations run on the blocking pool and park the |
 | [`std.map`](map.md) | Persistent maps with value semantics. |
 | [`std.set`](set.md) | Persistent sets. |
+| [`std.heap`](heap.md) | Priority queues: a persistent leftist heap. `pop` gives the smallest |
+| [`std.deque`](deque.md) | Double-ended queues: a persistent banker's deque. `push_front`, |
+| [`std.sorted`](sorted.md) | Ordered maps: a persistent AVL tree keyed by `<`. `get`, `insert`, |
+| [`std.lru`](lru.md) | Least-recently-used caches: at most `capacity` entries; adding one more |
+| [`std.bits`](bits.md) | Bit sets: sets of small non-negative integers, 63 per word. `contains` |
 | [`std.option`](option.md) | Option helpers. |
 | [`std.result`](result.md) | Result helpers. |
 | [`std.task`](task.md) | Structured concurrency: task scopes own every child they spawn. |
@@ -38,7 +43,12 @@
 | [`std.codec`](codec.md) | Schema-directed encoding (JSON) and validating decoding. |
 | [`std.config`](config.md) | Validated configuration. |
 | [`std.system`](system.md) | Lifecycle-managed systems. |
-| [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions. |
+| [`std.app`](app.md) | Application operations: a feature's significant entry points as typed |
+| [`std.endpoint`](endpoint.md) | HTTP bindings of operations (FRAMEWORK_DESIGN.md §14): an endpoint is a |
+| [`std.admission`](admission.md) | Admission control (FRAMEWORK_DESIGN.md §11): a gate admits at most |
+| [`std.decide`](decide.md) | Pure decisions over events (FRAMEWORK_DESIGN.md §17): a decider is an |
+| [`std.command`](command.md) | Command-line bindings of operations (FRAMEWORK_DESIGN.md §14): a command |
+| [`std.sqlite`](sqlite.md) | Embedded SQLite storage with scoped transactions, and versioned schema |
 | [`std.valkey`](valkey.md) | A Valkey (or Redis) client. One client is a multiplexed connection that |
 | [`std.postgres`](postgres.md) | PostgreSQL with pooled connections and scoped transactions; the same |
 | [`std.websocket`](websocket.md) | WebSockets: client connections (`connect`), and the server side of an |

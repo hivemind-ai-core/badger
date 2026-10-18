@@ -327,6 +327,9 @@ impl Infer<'_, '_> {
             self.icx.settle_never();
             self.solve(false);
         }
+        if final_ {
+            self.check_never_required();
+        }
     }
 
     /// Finish constraints whose variables are private to the given types'
@@ -1760,7 +1763,10 @@ impl Infer<'_, '_> {
                     }
                     // encoding exposes, and decoding constructs, every field:
                     // private fields keep a struct's codec inside its module
+                    // (but a `config.Secret` decodes from a string and
+                    // encodes redacted)
                     if which == "Codec"
+                        && !(name == "Secret" && !user)
                         && let Some(si) = self.g.env.structs.get(&d)
                         && si.module_differs(self.module)
                         && si.fields.iter().any(|f| !f.2)

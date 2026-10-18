@@ -16,6 +16,8 @@ pub type Route = {
     method: Symbol,
     path: String,
     name: Symbol,
+    /// A one-line description (OpenAPI `summary`).
+    summary: Option<String>,
     /// JSON Schemas of the path parameters, request body, and reply, when
     /// the route is typed.
     params: Option<String>,
@@ -45,6 +47,7 @@ fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request
         method,
         path,
         name,
+        summary: Option.none,
         params: Option.none,
         body: Option.none,
         reply: Option.none,
@@ -85,6 +88,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
         method,
         path,
         name,
+        summary: Option.none,
         params: Option.none,
         body: Option.some(schema.json_schema(schema.of<B>())),
         reply: Option.some(schema.json_schema(schema.of<R>())),
@@ -109,6 +113,7 @@ pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Para
         method: #get,
         path,
         name,
+        summary: Option.none,
         params: Option.none,
         body: Option.none,
         reply: Option.some(schema.json_schema(schema.of<R>())),
@@ -136,6 +141,7 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
         method,
         path,
         name,
+        summary: Option.none,
         params: Option.some(schema.json_schema(schema.of<P>())),
         body: if method == #get || method == #delete { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
         reply: Option.some(schema.json_schema(schema.of<R>())),
@@ -375,7 +381,11 @@ pub fn openapi(routes: List<Route>, title: String, version: String) -> Result<St
                 .some(s) => $"{{\"content\":{{\"application/json\":{{\"schema\":{s}}}}},\"description\":\"reply\"}}",
                 .none => "{\"description\":\"reply\"}",
             }
-            out = $"{out}{if first_op { "" } else { "," }}\"{r.method}\":{{\"operationId\":{json_text($"{r.name}")},\"parameters\":[{text.join(params, ",")}]{body},\"responses\":{{\"default\":{reply}}}}}"
+            let summary = match r.summary {
+                .some(s) => $",\"summary\":{json_text(s)}",
+                .none => "",
+            }
+            out = $"{out}{if first_op { "" } else { "," }}\"{r.method}\":{{\"operationId\":{json_text($"{r.name}")}{summary},\"parameters\":[{text.join(params, ",")}]{body},\"responses\":{{\"default\":{reply}}}}}"
             first_op = false
         }
         out = $"{out}}}"

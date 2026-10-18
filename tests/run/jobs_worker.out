@@ -1,0 +1,7 @@
+mail:abandoned: done (2 claims)
+mail:ok: done (1 claims)
+mail:flaky: done (2 claims)
+mail:crash: done (2 claims)
+outbox 4 pending
+worker crashes 1
+jobs/lease_lost

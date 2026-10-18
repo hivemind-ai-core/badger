@@ -1,0 +1,11 @@
+// The application's settings, shared by its entries: `[config]` in
+// badger.toml, a profile, `TASKS_*` variables, and `key=value` overrides.
+// Resolution is strict, so a misspelled key or variable is an error.
+import std.config
+
+pub type Settings = { address: String, port: U16, database: String }
+
+pub fn resolve(overrides: List<String>) -> Result<Settings, config.Error> !{Io} {
+    let resolved = config.resolve<Settings>("TASKS_", overrides)?
+    ok(resolved.value)
+}

@@ -127,6 +127,9 @@ pub struct Infer<'g, 'a> {
     pub mode: Mode,
     pub diags: Vec<Diagnostic>,
     pub pending: Vec<Constraint>,
+    /// Types checked where `Never` was expected while still unknown: each
+    /// must turn out to be `Never` (see `never_expected`).
+    pub never_required: Vec<(Ty, Span)>,
     pub locals: FxHashMap<LocalId, Ty>,
     pub exprs: FxHashMap<ExprId, Ty>,
     pub pats: FxHashMap<PatId, Ty>,
@@ -193,6 +196,7 @@ impl<'g, 'a> Infer<'g, 'a> {
             mode,
             diags: vec![],
             pending: vec![],
+            never_required: vec![],
             locals: FxHashMap::default(),
             exprs: FxHashMap::default(),
             pats: FxHashMap::default(),
@@ -418,8 +422,111 @@ impl<'g, 'a> Infer<'g, 'a> {
     /// Unify `actual` with `expected`, reporting at `span`.
     pub fn expect(&mut self, span: Span, expected: &Ty, actual: &Ty) {
         self.icx.span_hint = span;
+        if self.never_expected(span, expected, actual) {
+            return;
+        }
         if let Err(e) = self.icx.unify(expected, actual) {
             self.report_unify(e, span, expected, actual);
+        }
+    }
+
+    /// `Never` is the bottom type: a value of it fits any expected type, but
+    /// only something that does not finish fits where `Never` is expected
+    /// (unification alone is symmetric). Reports and returns true for a
+    /// value of another known type there.
+    fn never_expected(&mut self, span: Span, expected: &Ty, actual: &Ty) -> bool {
+        let e = self.icx.shallow(expected);
+        let a = self.icx.shallow(actual);
+        if !self.icx.is_never(&e) {
+            // `Never` inside the expected type (`List<Never>`): the actual
+            // type must have `Never` there too, or reading one would give a
+            // value of another type
+            if self.never_inside(span, &e, &a, 0) {
+                let (want, found) = (self.show(&e), self.show(&a));
+                self.push_diag(
+                    Diagnostic::error(format!("expected `{want}`, found `{found}`"))
+                        .with_code("E0300")
+                        .with_label(span, "a value of this type is where only `Never` may be")
+                        .with_shapes(want, found),
+                );
+                return true;
+            }
+            return false;
+        }
+        if self.icx.is_never(&a) || matches!(&*a, TyKind::Error) {
+            return false;
+        }
+        if matches!(&*a, TyKind::Var(_)) {
+            // decided later (a literal's type, say): checked after solving
+            self.never_required.push((a, span));
+            return false;
+        }
+        self.report_never(span, &a);
+        true
+    }
+
+    /// Whether `actual` has a value of a known non-`Never` type where
+    /// `expected` (of the same shape) has `Never`: in constructor arguments,
+    /// tuple elements, record fields, and function results (a function
+    /// taking `Never` is never called, so parameters do not count).
+    fn never_inside(&mut self, span: Span, expected: &Ty, actual: &Ty, depth: u32) -> bool {
+        if depth > 8 {
+            return false;
+        }
+        let e = self.icx.shallow(expected);
+        let a = self.icx.shallow(actual);
+        if depth > 0 && self.icx.is_never(&e) {
+            if matches!(&*a, TyKind::Var(_)) {
+                // decided later: checked after solving
+                self.never_required.push((a, span));
+                return false;
+            }
+            return !self.icx.is_never(&a) && !matches!(&*a, TyKind::Error);
+        }
+        match (&*e, &*a) {
+            (TyKind::Con(d1, xs), TyKind::Con(d2, ys)) if d1 == d2 && xs.len() == ys.len() => {
+                let pairs: Vec<(Ty, Ty)> = xs.iter().cloned().zip(ys.iter().cloned()).collect();
+                pairs.iter().any(|(x, y)| self.never_inside(span, x, y, depth + 1))
+            }
+            (TyKind::Tuple(xs), TyKind::Tuple(ys)) if xs.len() == ys.len() => {
+                let pairs: Vec<(Ty, Ty)> = xs.iter().cloned().zip(ys.iter().cloned()).collect();
+                pairs.iter().any(|(x, y)| self.never_inside(span, x, y, depth + 1))
+            }
+            (TyKind::Fn(f), TyKind::Fn(g)) => {
+                let (r1, r2) = (f.ret.clone(), g.ret.clone());
+                self.never_inside(span, &r1, &r2, depth + 1)
+            }
+            (TyKind::Record(r1), TyKind::Record(r2)) => {
+                let (fs1, _) = row_fields(r1);
+                let (fs2, _) = row_fields(r2);
+                fs1.iter().any(|(l, x)| {
+                    fs2.iter().find(|(m, _)| m == l).is_some_and(|(_, y)| {
+                        let (x, y) = (x.clone(), y.clone());
+                        self.never_inside(span, &x, &y, depth + 1)
+                    })
+                })
+            }
+            _ => false,
+        }
+    }
+
+    fn report_never(&mut self, span: Span, a: &Ty) {
+        let found = self.show(a);
+        self.push_diag(
+            Diagnostic::error(format!("expected `Never`, found `{found}`"))
+                .with_code("E0300")
+                .with_label(span, "this finishes with a value, but nothing may be produced here")
+                .with_note("only code that does not finish has type `Never`: `return`, `break`, `continue`, a `panic`, or a call returning `Never`"),
+        );
+    }
+
+    /// After the final solve: the types `never_required` holds are `Never`.
+    pub fn check_never_required(&mut self) {
+        for (t, span) in std::mem::take(&mut self.never_required) {
+            let t = self.icx.resolve(&t);
+            if !self.icx.is_never(&t) && !matches!(&*t, TyKind::Var(_) | TyKind::Error) {
+                self.report_never(span, &t);
+            }
         }
     }
 
@@ -740,6 +847,9 @@ impl<'g, 'a> Infer<'g, 'a> {
     pub fn check(&mut self, e: ExprId, expected: &Ty) -> Ty {
         let t = self.check_opt(e, Some(expected));
         self.icx.span_hint = self.g.hir.exprs[e].span;
+        if self.never_expected(self.g.hir.exprs[e].span, expected, &t) {
+            return expected.clone();
+        }
         if self.try_dyn(e, &t, expected) || self.try_view(e, &t, expected) {
             return expected.clone();
         }
@@ -1469,6 +1579,9 @@ impl<'g, 'a> Infer<'g, 'a> {
             return;
         }
         let t = self.check_opt(a, Some(&p));
+        if self.never_expected(span, &p, &t) {
+            return;
+        }
         if self.try_dyn(a, &t, &p) || self.try_view(a, &t, &p) {
             return;
         }
@@ -2480,7 +2593,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                         "E0318",
                         span,
                         "refutable pattern in a binding",
-                        "use `match` for literal patterns",
+                        "use `match`, or `let ... else { ... }` to leave when it does not match",
                     );
                 }
                 let t = self.lit(l, span, Some(expected));
@@ -2617,7 +2730,7 @@ impl<'g, 'a> Infer<'g, 'a> {
                         "E0318",
                         span,
                         "refutable pattern in a binding",
-                        "use `match` for variant patterns",
+                        "use `match`, or `let ... else { ... }` to leave when it does not match",
                     );
                 }
                 let fields = self.g.env.variant_fields(ed, vi as u32, &eargs);

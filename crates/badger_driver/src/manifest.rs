@@ -47,6 +47,9 @@ pub struct Manifest {
     /// `[database] schema`: SQL file the program's literal statements are
     /// checked against (relative to the project root).
     pub schema: Option<String>,
+    /// `[layers.NAME] forbid = [...]`: modules `NAME` and `NAME.*` may not
+    /// import the listed modules (or modules below them).
+    pub layers: Vec<(String, Vec<String>)>,
     /// `[package] kind = "library"`: used by other packages, not run.
     pub library: bool,
     /// Whether the manifest has a `[package]` (a workspace root may not).
@@ -252,6 +255,7 @@ impl Manifest {
             tasks: vec![],
             restricted: false,
             schema: None,
+            layers: vec![],
             library: false,
             has_package: false,
             workspace: None,
@@ -284,7 +288,8 @@ impl Manifest {
                         | "workspace"
                         | "env"
                 ) || section.starts_with("config.")
-                    || section.starts_with("profile.");
+                    || section.starts_with("profile.")
+                    || section.starts_with("layers.");
                 if !known {
                     return Err(format!("line {}: unknown section `[{section}]`", i + 1));
                 }
@@ -381,6 +386,26 @@ impl Manifest {
                 ("toolchain", "language") => {}
                 ("toolchain", other) => {
                     return Err(format!("line {}: unknown toolchain key `{other}` (known: language)", i + 1));
+                }
+                (sec, key) if sec.starts_with("layers.") => {
+                    let layer = &sec["layers.".len()..];
+                    if key != "forbid" {
+                        return Err(format!("line {}: unknown layer key `{key}` (known: forbid)", i + 1));
+                    }
+                    let Some(toml::Value::Array(items)) = toml_value(v) else {
+                        return Err(format!(
+                            "line {}: `forbid` is a list of module paths, such as `[\"web\", \"std.http\"]`",
+                            i + 1
+                        ));
+                    };
+                    let mut forbid = vec![];
+                    for it in items {
+                        let Some(path) = it.as_str() else {
+                            return Err(format!("line {}: `forbid` lists module paths (strings)", i + 1));
+                        };
+                        forbid.push(path.to_string());
+                    }
+                    m.layers.push((layer.to_string(), forbid));
                 }
                 ("database", "schema") => m.schema = Some(s),
                 ("database", other) => {
@@ -528,6 +553,22 @@ impl Manifest {
         out
     }
 
+    /// `[config]` followed by the selected profile's entries, unmerged
+    /// (later entries take precedence), for per-setting provenance.
+    pub fn layers(&self, profile: Option<&str>) -> Result<Vec<(String, String, Source)>, String> {
+        self.effective(profile)?;
+        let mut out: Vec<(String, String, Source)> =
+            self.config.iter().map(|(k, v)| (k.clone(), v.clone(), Source::Base)).collect();
+        if let Some(name) = profile
+            && let Some((_, entries)) = self.profiles.iter().find(|(n, _)| n == name)
+        {
+            out.extend(
+                entries.iter().map(|(k, v)| (k.clone(), v.clone(), Source::Profile(name.to_string()))),
+            );
+        }
+        Ok(out)
+    }
+
     /// Merge `[config]` with the selected profile.
     pub fn effective(&self, profile: Option<&str>) -> Result<Vec<(String, String, Source)>, String> {
         let mut out: Vec<(String, String, Source)> =
@@ -638,6 +679,20 @@ mod tests {
             "[package]\nname = \"a\"\n[profile.dev]\nport = 2\n[profile.dev.db]\nurl = \"x\"\n",
         );
         assert!(ok.is_ok());
+    }
+
+    #[test]
+    fn layers() {
+        let m = Manifest::parse(
+            "[package]\nname = \"a\"\n[layers.orders.core]\nforbid = [\"web\", \"std.http\"]\n",
+        )
+        .unwrap();
+        assert_eq!(
+            m.layers,
+            vec![("orders.core".to_string(), vec!["web".to_string(), "std.http".to_string()])]
+        );
+        assert!(Manifest::parse("[package]\nname = \"a\"\n[layers.x]\nallow = []\n").is_err());
+        assert!(Manifest::parse("[package]\nname = \"a\"\n[layers.x]\nforbid = \"web\"\n").is_err());
     }
 
     #[test]

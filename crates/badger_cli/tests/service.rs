@@ -363,3 +363,91 @@ fn websockets() {
     );
     assert!(out.status.success());
 }
+
+/// The framework example as a service (framework F11): it becomes ready
+/// only after startup; concurrent writes through its admission gate land
+/// in SQLite exactly once while malformed and oversized requests fail on
+/// their own and a slow client holds a connection; the running system can
+/// be inspected; SIGINT drains and stops it cleanly.
+#[test]
+fn framework_service() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let app = root.join("examples/framework");
+    let dir = std::env::temp_dir().join(format!("badger-framework-service-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("tasks.db");
+    let _ = std::fs::remove_file(&db);
+    let migrate = Command::new(env!("CARGO_BIN_EXE_badger"))
+        .current_dir(&app)
+        .args(["run", "migrate"])
+        .env("TASKS_DATABASE", &db)
+        .output()
+        .unwrap();
+    assert!(migrate.status.success(), "{}", String::from_utf8_lossy(&migrate.stderr));
+    let port = 24000 + (std::process::id() % 1000) as u16;
+    let inspect = format!("127.0.0.1:{}", port + 1);
+    let child = common::Reaped::new(
+        Command::new(env!("CARGO_BIN_EXE_badger"))
+            .current_dir(&app)
+            .args(["run", "--workers", "4", "--inspect", &inspect, "--", &format!("port={port}")])
+            .env("TASKS_DATABASE", &db)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let start = Instant::now();
+    loop {
+        if TcpStream::connect(("127.0.0.1", port)).is_ok()
+            && request(port, "GET", "/health/ready", "").0 == 200
+        {
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(30), "service did not become ready");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    // a slow client: half a request, held open while others are served
+    let mut slow = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    slow.write_all(b"POST /tasks HTTP/1.1\r\nhost: x\r\ncontent-length: 40\r\n\r\n{\"title\"").unwrap();
+    let clients: Vec<_> = (0..8)
+        .map(|c| {
+            std::thread::spawn(move || {
+                (0..25)
+                    .map(|i| {
+                        let body = match i % 10 {
+                            3 => "{\"title\": ".to_string(),
+                            7 => format!(r#"{{"title":"{}"}}"#, "x".repeat(100)),
+                            _ => format!(r#"{{"title":"c{c} n{i}"}}"#),
+                        };
+                        request(port, "POST", "/tasks", &body).0
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    let mut statuses: Vec<u16> = vec![];
+    for c in clients {
+        statuses.extend(c.join().unwrap());
+    }
+    let count = |s: u16| statuses.iter().filter(|x| **x == s).count();
+    assert_eq!((count(201), count(400)), (160, 40), "{statuses:?}");
+    let (status, body) = request(port, "GET", "/tasks", "");
+    assert_eq!(status, 200);
+    assert_eq!(body.matches("\"id\":").count(), 160, "each write landed exactly once");
+    // the running system, inspected from outside
+    let sys = Command::new(env!("CARGO_BIN_EXE_badger"))
+        .args(["inspect", "system", "--connect", &inspect])
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&sys.stdout).to_string();
+    assert!(sys.status.success() && text.contains("server") && text.contains("store"), "{text}");
+    drop(slow);
+    unsafe { libc_kill(child.id() as i32, 2) };
+    let stopped = Instant::now();
+    let out = child.output();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "service exit: {:?}\n{err}", out.status);
+    assert!(stopped.elapsed() < Duration::from_secs(10), "shutdown took {:?}", stopped.elapsed());
+    assert!(!err.contains("panic") && !err.contains("leak"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

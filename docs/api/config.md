@@ -18,6 +18,48 @@ struct Error { pub key: String, pub message: String }
 fn display(self: &Self) -> String
 ```
 
+### `Resolved`
+
+```badger
+struct Resolved<T> { pub value: T, pub settings: List<{key: String, source: Symbol, origin: String, value: String, overridden: List<Symbol>}> }
+```
+
+A resolved configuration and the provenance of each of its settings.
+
+### `Secret`
+
+```badger
+struct Secret { value: String } derive(Codec)
+```
+
+A secret setting: configured like a string, but shown and encoded as
+`[redacted]` (in `Display`, JSON, logs, and provenance). `reveal` gives
+the value to the code that needs it.
+
+#### `Secret.display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+#### `Secret.reveal`
+
+```badger
+fn reveal(self: &Self) -> String
+```
+
+### `Setting`
+
+```badger
+pub type Setting = { key: String, source: Symbol, origin: String, value: String, overridden: List<Symbol> }
+```
+
+Where a setting's value came from: `source` is `#default`, `#config`
+(the `[config]` table), `#profile` (`[profile.NAME]`), `#env`, or
+`#override`; `origin` names the key, profile, variable, or override;
+`value` is the selected value (`[redacted]` for a secret), and
+`overridden` lists the lower-precedence sources that also set it.
+
 ## Functions
 
 ### `from_env`
@@ -42,4 +84,33 @@ by prefixed environment variables (`PREFIX` + upper-cased field name).
 A configured value may read the environment: `"${NAME}"` (which must be
 set) or `"${NAME:-default}"`; `$${` is a literal `${`. The project's
 `[env] dotenv` files are loaded before the program starts.
+
+### `resolve`
+
+```badger
+fn resolve<T>(prefix: String, overrides: List<String>) -> Result<Resolved<T>, Error> !{Io} where T: Codec
+```
+
+Resolve `T` from every source, lowest to highest precedence: the
+`[config]` table, the selected profile, prefixed environment variables
+(`PREFIX` + the upper-cased field path, `_`-joined: `APP_DB_PORT` for
+`db.port`; `.env` files the project enables are loaded into the
+environment first), and `overrides` (`key=value`, with dotted keys, as a
+`--set` option gives them). Unlike `load`, it is strict: a `[config]`
+or profile key, a prefixed variable, or an override that names no
+field of `T` is an error rather than ignored.
+
+### `resolve_or`
+
+```badger
+fn resolve_or<T>(prefix: String, overrides: List<String>, defaults: T) -> Result<Resolved<T>, Error> !{Io} where T: Codec
+```
+
+`resolve`, with `defaults` as the lowest-precedence source.
+
+### `secret`
+
+```badger
+fn secret(value: String) -> Secret
+```
 

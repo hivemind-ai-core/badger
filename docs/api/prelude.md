@@ -635,6 +635,15 @@ fn describe_error<E>(e: E) -> String where E: Error
 The report of an error that ends a program: its code, message, causal
 chain, and structured details.
 
+### `diverge`
+
+```badger
+fn diverge<T>(never: Never) -> T
+```
+
+A value of a block that never finishes, as any type: `let p = e else`
+requires its block to leave (`return`, `break`, `continue`, or panic).
+
 ### `err`
 
 ```badger
@@ -648,6 +657,16 @@ fn error_chain(e: dyn Error) -> List<String>
 ```
 
 The causal chain of an error, outermost first.
+
+### `hole`
+
+```badger
+fn hole<T>() -> T
+```
+
+Terminate the current task with a defect.
+What `_` in an expression means: a hole, an error reported with the
+type expected there (so a partial program checks as far as it can).
 
 ### `located`
 
@@ -672,8 +691,6 @@ fn ok<T, E>(value: T) -> Result<T, E>
 ```badger
 fn panic
 ```
-
-Terminate the current task with a defect.
 
 ### `schema`
 

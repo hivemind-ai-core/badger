@@ -1,0 +1,167 @@
+import std.array
+import std.channel
+import std.codec
+import std.env
+import std.fs
+import std.io
+import std.list
+import std.map
+import std.task
+import std.text
+import std.time
+
+pub struct Order {
+    pub id: Int,
+    pub customer: Int,
+    pub amount: Int,
+    pub active: Bool,
+    pub note: String,
+} derive(Codec)
+
+fn must<T, E>(r: Result<T, E>) -> T {
+    match r {
+        .ok(v) => v,
+        .err(_) => panic("benchmark operation failed"),
+    }
+}
+
+// Deterministic integer scoring, with values exact in all three languages.
+fn score(id: Int, seed: Int, rounds: Int) -> Int {
+    var x = (id + seed) % 1000003
+    for _ in 0..rounds {
+        x = (x * 17 + 23) % 1000003
+    }
+    x
+}
+
+fn cpu(n: Int, seed: Int) -> Int {
+    var total = 0
+    for id in 0..n {
+        total = total + score(id, seed, 128)
+    }
+    total
+}
+
+fn reconcile(n: Int, seed: Int) -> Int {
+    let discounts = array.build(1024, fn(id) { (id * 7 + seed) % 20 })
+    let rows = list.builder<Order>()
+    for id in 0..n {
+        rows.append({ id, customer: id % 1024, amount: (id * 31 + seed) % 100000,
+            active: id % 7 != 0, note: "order" })
+    }
+    let enriched = rows.finish().filter(fn(o) { o.active }).map(fn(o) {
+        { ..o, amount: o.amount * (100 - discounts[o.customer]) / 100 }
+    })
+    var groups: Map<Int, Int> = map.empty()
+    for o in enriched {
+        groups = groups.insert(o.customer, groups.get_or(o.customer, 0) + o.amount)
+    }
+    var total = 0
+    for (customer, amount) in groups.entries() {
+        total = total + (customer + 1) * amount
+    }
+    total + groups.len()
+}
+
+fn json_orders(input: String) -> Int {
+    // Parse, validate, enrich, serialize, and parse the output again. Key order is immaterial.
+    var total = 0
+    for line in text.split(input, "\n") {
+        if !text.is_empty(line) {
+            let o = must(codec.decode_text<Order>(line))
+            let encoded = codec.encode_text({ ..o, amount: o.amount + o.amount / 5 })
+            let result = must(codec.decode_text<Order>(encoded))
+            if result.active {
+                total = total + (result.customer + 1) * result.amount + result.id + text.byte_len(result.note)
+            }
+        }
+    }
+    total
+}
+
+fn state(n: Int, seed: Int) -> Int {
+    var current: Map<Int, Int> = map.empty()
+    let versions = list.builder<Map<Int, Int>>()
+    for id in 0..n {
+        current = current.insert(id % 1024, (id * 31 + seed) % 100000)
+        if (id + 1) % 256 == 0 {
+            versions.append(current)
+        }
+    }
+    versions.append(current)
+    var total = 0
+    for version in versions.finish() {
+        for (key, value) in version.entries() {
+            total = total + (key + 1) * value
+        }
+    }
+    total
+}
+
+fn pipeline(n: Int, seed: Int, workers: Int, rounds: Int) -> Int {
+    let jobs = must(channel.create<Array<Int>>({ ..channel.defaults, capacity: 4 }))
+    let results = must(channel.create<Int>({ ..channel.defaults, capacity: 4 }))
+    must(task.scope(fn(s) -> Result<Int, Never> {
+        let producer = s.spawn(fn() {
+            var start = 0
+            while start < n {
+                let size = if n - start < 64 { n - start } else { 64 }
+                let first = start
+                must(jobs.sender.send(array.build(size, fn(i) { first + i })))
+                start = start + size
+            }
+            jobs.sender.close()
+        })
+        for _ in 0..workers {
+            s.spawn(fn() {
+                loop {
+                    match jobs.receiver.recv() {
+                        .none => { break },
+                        .some(batch) => {
+                            var total = 0
+                            for id in batch {
+                                total = total + score(id, seed, rounds)
+                            }
+                            must(results.sender.send(total))
+                        },
+                    }
+                }
+            })
+        }
+        var total = 0
+        let batches = (n + 63) / 64
+        for _ in 0..batches {
+            total = total + results.receiver.recv().unwrap_or(-1)
+        }
+        producer.join()
+        ok(total)
+    }))
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let args = env.args()
+    let name = args[0]
+    let n = text.parse_int(args[1]).unwrap_or(0)
+    let seed = text.parse_int(args[2]).unwrap_or(0)
+    let workers = text.parse_int(args[3]).unwrap_or(1)
+    let warmups = text.parse_int(args[4]).unwrap_or(0)
+    let repeats = text.parse_int(args[5]).unwrap_or(1)
+    io.println("READY")?
+    // Fixture loading is excluded from kernel time, included in process time and RSS.
+    let input = if name == "json" { fs.read_text(args[6])? } else { "" }
+    for iteration in 0..warmups + repeats {
+        let start = time.now()
+        let checksum = match name {
+            "cpu" => cpu(n, seed),
+            "reconcile" => reconcile(n, seed),
+            "json" => json_orders(input),
+            "state" => state(n, seed),
+            "messaging" => pipeline(n, seed, workers, 2),
+            "pipeline" => pipeline(n, seed, workers, 128),
+            _ => panic("unknown workload"),
+        }
+        let elapsed = time.as_nanos(time.now() - start)
+        io.println($"BENCH {iteration} {elapsed} {checksum}")?
+    }
+    ok(())
+}

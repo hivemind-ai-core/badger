@@ -1,0 +1,38 @@
+// Layered, strict configuration with provenance and a redacted secret:
+// `badger run tests/projects/settings -- port=9000 db.pool=3`.
+import std.codec
+import std.config
+import std.env
+import std.io
+import std.text
+
+type Settings = {
+    address: String,
+    port: Int,
+    token: config.Secret,
+    db: { path: String, pool: Int },
+}
+
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let defaults: Settings = {
+        address: "127.0.0.1",
+        port: 1,
+        token: config.secret("unset"),
+        db: { path: "default.db", pool: 2 },
+    }
+    // each argument is an override (`key=value`)
+    let resolved = config.resolve_or<Settings>("SETTINGS_", env.args(), defaults)?
+    let s = resolved.value
+    io.println($"{s.address}:{s.port} token={s.token} ({s.token.reveal().len()} chars) db={s.db.path}/{s.db.pool}")?
+    io.println(codec.encode_text(s))?
+    for setting in resolved.settings {
+        let under = if setting.overridden.is_empty() { "" } else { $" over {text.join(setting.overridden.map(fn(x) { $"{x}" }), ", ")}" }
+        io.println($"{setting.key} = {setting.value}  ({setting.source} {setting.origin}{under})")?
+    }
+    ok(())
+}
