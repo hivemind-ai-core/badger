@@ -1085,7 +1085,7 @@ fn sweep_list(wl: usize, start: usize, sticky: bool) -> SweptList {
         sticky,
         |p| live += HEADER + unsafe { (*p).payload_size() },
         |p| unsafe {
-            if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+            if (*p).desc().has_finalizer() {
                 fin.push(p);
             } else {
                 free_cell(wl, p, (*p).payload_size());
@@ -1135,7 +1135,7 @@ fn sweep_parallel(
             sticky,
             |p| live += HEADER + unsafe { (*p).payload_size() },
             |p| unsafe {
-                if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
+                if (*p).desc().has_finalizer() {
                     fin.push(p);
                 } else {
                     free_cell(wl, p, (*p).payload_size());
@@ -1190,6 +1190,9 @@ static FINALIZING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 
 fn finalize(p: *mut Header) {
     let desc = unsafe { (*p).desc() };
+    if !desc.has_finalizer() {
+        return;
+    }
     FINALIZING.store(true, Ordering::Relaxed);
     let _done = Finalized;
     if let Kind::Opaque { finalize: Some(f), .. } = &desc.kind {
