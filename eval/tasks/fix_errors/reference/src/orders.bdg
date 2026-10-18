@@ -1,0 +1,14 @@
+pub type Line = { sku: String, quantity: Int }
+
+pub fn total(lines: List<Line>) -> Int {
+    var sum = 0
+    for l in lines {
+        sum = sum + l.quantity
+    }
+    sum
+}
+
+pub fn label(lines: List<Line>) -> String {
+    let n = total(lines)
+    if n == 0 { "empty" } else { $"{n} items" }
+}

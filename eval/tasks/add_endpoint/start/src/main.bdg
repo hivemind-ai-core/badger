@@ -1,0 +1,5 @@
+import web
+
+pub fn main() -> Unit {
+    let _ = web.routes()
+}

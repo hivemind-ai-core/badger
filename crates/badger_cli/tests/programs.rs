@@ -270,6 +270,31 @@ fn framework_example() {
     assert_eq!(run(&["worker"]), "reminder: 2 open\nreminder: 2 open\nreminder: 2 open\ndone\n");
 }
 
+/// The LLM evaluation tasks (eval/): every reference solution solves its
+/// task, and no unchanged start project does.
+#[test]
+fn eval_tasks_are_solvable() {
+    let python = std::process::Command::new("python3").arg("--version").output();
+    if !python.is_ok_and(|o| o.status.success()) {
+        eprintln!("skipped: no python3");
+        return;
+    }
+    let badger = env!("CARGO_BIN_EXE_badger");
+    let run = |flag: &str| {
+        std::process::Command::new("python3")
+            .arg(root().join("eval/run.py"))
+            .args([flag, "--json", "--badger", badger])
+            .output()
+            .unwrap()
+    };
+    let out = run("--reference");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(out.status.success() && v["solved"] == v["tasks"], "{v}");
+    let out = run("--start");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["solved"], 0, "{v}");
+}
+
 /// `[layers.NAME] forbid`: an import a layer forbids is E0017 at the
 /// import; the framework example obeys its own rules.
 #[test]

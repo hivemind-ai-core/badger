@@ -1,0 +1,3 @@
+[package]
+name = "notes"
+entry = "src/main.bdg"

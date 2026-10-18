@@ -1,0 +1,12 @@
+import orders
+
+fn test_label() -> Unit {
+    assert(orders.label([]) == "empty")
+    assert(orders.label([{ sku: "a", quantity: 1 }, { sku: "b", quantity: 2 }]) == "3 items")
+}
+
+fn test_total() -> Unit {
+    assert(orders.total([{ sku: "a", quantity: 4 }]) == 4)
+}
+
+pub fn main() -> Unit {}

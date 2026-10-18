@@ -1,0 +1,3 @@
+[package]
+name = "library"
+entry = "src/main.bdg"
