@@ -7,11 +7,13 @@
 //! its natural JSON value. Decoding validates against the schema and reports
 //! the failing path.
 
+use std::fmt::Write as _;
+
 use serde_json::Value as J;
 
 use crate::desc::{Kind, TypeDesc};
 use crate::gc::{self, Roots, obj};
-use crate::intrinsics_io::json_quote;
+use crate::intrinsics_io::write_json_quote;
 use crate::string::{bytes_of, new_string, str_of};
 use crate::{enum_parts, list, make_enum, map};
 
@@ -55,28 +57,37 @@ pub fn encode_revealed(d: &TypeDesc, w: u64) -> String {
 
 /// The wire name of member `member` of type `ty`.
 pub fn wire_name(ty: &str, member: &str) -> String {
+    with_name(ty, member, str::to_owned)
+}
+
+// Keep the common, unversioned member borrowed. The callback only writes
+// native output, so a thread-local borrow never spans a managed allocation.
+fn with_name<R>(ty: &str, member: &str, f: impl FnOnce(&str) -> R) -> R {
     WIRE.with(|c| match &*c.borrow() {
-        Some(w) => w.names.get(&format!("{ty}.{member}")).cloned().unwrap_or_else(|| member.to_string()),
-        None => member.to_string(),
+        Some(w) => f(w.names.get(&format!("{ty}.{member}")).map_or(member, String::as_str)),
+        None => f(member),
     })
 }
 
-/// Names accepted when decoding member `member` of `ty`: the current wire
-/// name first, then any aliases from older versions.
-fn accepted(ty: &str, member: &str) -> Vec<String> {
-    let mut out = vec![wire_name(ty, member)];
+fn name_matches(ty: &str, member: &str, name: &str) -> bool {
     WIRE.with(|c| {
-        if let Some(w) = &*c.borrow()
-            && let Some(a) = w.aliases.get(&format!("{ty}.{member}"))
-        {
-            out.extend(a.iter().cloned());
-        }
-    });
-    out
+        let wire = c.borrow();
+        let Some(w) = &*wire else { return member == name };
+        let key = format!("{ty}.{member}");
+        w.names.get(&key).map_or(member, String::as_str) == name
+            || w.aliases.get(&key).is_some_and(|aliases| aliases.iter().any(|a| a == name))
+    })
 }
 
 fn lookup<'j>(m: &'j serde_json::Map<String, J>, ty: &str, member: &str) -> Option<&'j J> {
-    accepted(ty, member).iter().find_map(|n| m.get(n))
+    WIRE.with(|c| {
+        let wire = c.borrow();
+        let Some(w) = &*wire else { return m.get(member) };
+        let key = format!("{ty}.{member}");
+        // Current name wins over aliases, which retain their declared order.
+        m.get(w.names.get(&key).map_or(member, String::as_str))
+            .or_else(|| w.aliases.get(&key).and_then(|aliases| aliases.iter().find_map(|a| m.get(a))))
+    })
 }
 
 pub fn encode(d: &TypeDesc, w: u64) -> String {
@@ -94,9 +105,9 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
         Kind::Bool => o.push_str(if w & 1 != 0 { "true" } else { "false" }),
         Kind::Int { signed: false, bits } => {
             let m = if *bits == 64 { u64::MAX } else { (1u64 << bits) - 1 };
-            o.push_str(&(w & m).to_string())
+            write!(o, "{}", w & m).unwrap()
         }
-        Kind::Int { .. } => o.push_str(&crate::value::as_i64(d, w).to_string()),
+        Kind::Int { .. } => write!(o, "{}", crate::value::as_i64(d, w)).unwrap(),
         Kind::Float { bits } => {
             // an F32 encodes its own shortest digits, not the widened ones
             let f = if *bits == 32 {
@@ -110,12 +121,10 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("null")
             }
         }
-        Kind::Char => {
-            o.push_str(&json_quote(&char::from_u32(w as u32).map(String::from).unwrap_or_default()))
-        }
-        Kind::Symbol | Kind::String => o.push_str(&json_quote(str_of(w))),
-        Kind::Bytes => o.push_str(&json_quote(&String::from_utf8_lossy(bytes_of(w)))),
-        Kind::Duration | Kind::Instant | Kind::Timestamp => o.push_str(&(w as i64).to_string()),
+        Kind::Char => write_json_quote(&char::from_u32(w as u32).map(String::from).unwrap_or_default(), o),
+        Kind::Symbol | Kind::String => write_json_quote(str_of(w), o),
+        Kind::Bytes => write_json_quote(&String::from_utf8_lossy(bytes_of(w)), o),
+        Kind::Duration | Kind::Instant | Kind::Timestamp => write!(o, "{}", w as i64).unwrap(),
         Kind::Record { fields, .. } if d.name == SECRET => {
             if REVEAL.with(|c| c.get()) {
                 let p = unsafe { obj(w).payload() };
@@ -141,7 +150,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                     if i > 0 {
                         o.push(',');
                     }
-                    o.push_str(&json_quote(&wire_name(&d.name, &f.name)));
+                    with_name(&d.name, &f.name, |name| write_json_quote(name, o));
                     o.push(':');
                     enc(f.desc, unsafe { f.repr.load(p.add(f.offset as usize)) }, o);
                 }
@@ -163,19 +172,18 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 }
                 return;
             }
-            let vname = wire_name(&d.name, &v.name);
             if v.fields.is_empty() {
-                o.push_str(&json_quote(&vname));
+                with_name(&d.name, &v.name, |name| write_json_quote(name, o));
                 return;
             }
             o.push('{');
-            o.push_str(&json_quote(&vname));
+            with_name(&d.name, &v.name, |name| write_json_quote(name, o));
             o.push_str(":{");
             for (i, (f, val)) in v.fields.iter().zip(vals).enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
-                o.push_str(&json_quote(&wire_name(&format!("{}.{}", d.name, v.name), &f.name)));
+                with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
                 o.push(':');
                 enc(f.desc, val, o);
             }
@@ -199,7 +207,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 if i > 0 {
                     o.push(',');
                 }
-                o.push_str(&json_quote(&crate::value::display(std::ptr::null_mut(), key, k, true)));
+                write_json_quote(&crate::value::display(std::ptr::null_mut(), key, k, true), o);
                 o.push(':');
                 enc(val, v, o);
             }
@@ -235,8 +243,28 @@ pub struct DecodeError {
     pub message: String,
 }
 
-fn fail<T>(path: &str, msg: impl Into<String>) -> Result<T, DecodeError> {
-    Err(DecodeError { path: if path.is_empty() { "$".into() } else { path.into() }, message: msg.into() })
+impl DecodeError {
+    // Child errors are relative to their own root. Prepend segments only
+    // while unwinding a failure; successful decoding builds no path strings.
+    fn at(self, segment: std::fmt::Arguments<'_>) -> Self {
+        Self { path: format!("${segment}{}", &self.path[1..]), message: self.message }
+    }
+
+    fn name(self, name: &str) -> Self {
+        self.at(format_args!(".{name}"))
+    }
+
+    fn field(self, ty: &str, member: &str) -> Self {
+        with_name(ty, member, |name| self.name(name))
+    }
+
+    fn index(self, i: usize) -> Self {
+        self.at(format_args!("[{i}]"))
+    }
+}
+
+fn fail<T>(msg: impl Into<String>) -> Result<T, DecodeError> {
+    Err(DecodeError { path: "$".into(), message: msg.into() })
 }
 
 /// Decode JSON text against a descriptor.
@@ -244,14 +272,14 @@ pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
     let j: J = serde_json::from_str(text)
         .map_err(|e| DecodeError { path: "$".into(), message: format!("invalid JSON: {e}") })?;
     let _g = Roots::new();
-    dec(d, &j, "$")
+    dec(d, &j)
 }
 
 /// Decode a `Data` value against a descriptor.
 pub fn from_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
     let j: J = crate::intrinsics_io::data_value(w);
     let _g = Roots::new();
-    dec(d, &j, "$")
+    dec(d, &j)
 }
 
 thread_local! {
@@ -278,7 +306,7 @@ fn root(w: u64) -> u64 {
     w
 }
 
-fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
+fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::Unit => Ok(0),
         Kind::Bool => match j {
@@ -288,70 +316,70 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
             {
                 Ok(n.as_i64().unwrap() as u64)
             }
-            _ => fail(path, "expected a boolean"),
+            _ => fail("expected a boolean"),
         },
         Kind::Int { bits, signed } => {
             let v = if *signed { j.as_i64() } else { j.as_u64().map(|u| u as i64) };
-            let Some(v) = v else { return fail(path, "expected an integer") };
+            let Some(v) = v else { return fail("expected an integer") };
             let ok = match (bits, signed) {
                 (64, _) => true,
                 (b, true) => v >= -(1i64 << (b - 1)) && v < (1i64 << (b - 1)),
                 (b, false) => v >= 0 && v < (1i64 << b),
             };
             if !ok {
-                return fail(path, format!("integer out of range for {}", d.name));
+                return fail(format!("integer out of range for {}", d.name));
             }
             Ok(v as u64)
         }
         Kind::Float { bits } => {
-            let Some(f) = j.as_f64() else { return fail(path, "expected a number") };
+            let Some(f) = j.as_f64() else { return fail("expected a number") };
             Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
         }
         Kind::String => match j.as_str() {
             Some(s) => Ok(root(new_string(s))),
-            None => fail(path, "expected a string"),
+            None => fail("expected a string"),
         },
         Kind::Symbol => match j.as_str() {
-            Some(s) => crate::string::external_symbol(s).or_else(|m| fail(path, &m)),
-            None => fail(path, "expected a symbol string"),
+            Some(s) => crate::string::external_symbol(s).or_else(|m| fail(&m)),
+            None => fail("expected a symbol string"),
         },
         Kind::Char => match j.as_str().and_then(|s| s.chars().next()) {
             Some(c) => Ok(c as u64),
-            None => fail(path, "expected a character"),
+            None => fail("expected a character"),
         },
         Kind::Bytes => match j.as_str() {
             Some(s) => Ok(root(crate::string::new_bytes(s.as_bytes()))),
-            None => fail(path, "expected a string"),
+            None => fail("expected a string"),
         },
         Kind::Duration | Kind::Instant | Kind::Timestamp => {
-            j.as_i64().map(|v| v as u64).ok_or(()).or_else(|_| fail(path, "expected an integer"))
+            j.as_i64().map(|v| v as u64).ok_or(()).or_else(|_| fail("expected an integer"))
         }
         Kind::Record { fields, size, .. } if d.name == SECRET => {
-            let Some(text) = j.as_str() else { return fail(path, "expected a string") };
+            let Some(text) = j.as_str() else { return fail("expected a string") };
             let v = root(new_string(text));
             let w = root(gc::alloc(d, *size as usize));
             unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
             Ok(w)
         }
         Kind::Record { fields, tuple, size, .. } => {
-            let mut vals = vec![];
+            let mut vals = Vec::with_capacity(fields.len());
             if *tuple {
-                let Some(a) = j.as_array() else { return fail(path, "expected an array") };
+                let Some(a) = j.as_array() else { return fail("expected an array") };
                 if a.len() != fields.len() {
-                    return fail(path, format!("expected {} elements", fields.len()));
+                    return fail(format!("expected {} elements", fields.len()));
                 }
                 for (i, f) in fields.iter().enumerate() {
-                    vals.push(dec(f.desc, &a[i], &format!("{path}[{i}]"))?);
+                    vals.push(dec(f.desc, &a[i]).map_err(|e| e.index(i))?);
                 }
             } else {
-                let Some(m) = j.as_object() else { return fail(path, "expected an object") };
+                let Some(m) = j.as_object() else { return fail("expected an object") };
                 for f in fields {
-                    let p = format!("{path}.{}", wire_name(&d.name, &f.name));
-                    match lookup(m, &d.name, &f.name) {
-                        Some(v) => vals.push(dec(f.desc, v, &p)?),
-                        None if f.desc.name == "Option" => vals.push(dec(f.desc, &J::Null, &p)?),
-                        None => return fail(&p, "missing required field"),
-                    }
+                    let value = match lookup(m, &d.name, &f.name) {
+                        Some(v) => dec(f.desc, v),
+                        None if f.desc.name == "Option" => dec(f.desc, &J::Null),
+                        None => fail("missing required field"),
+                    };
+                    vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);
                 }
             }
             let w = root(gc::alloc(d, *size as usize));
@@ -369,66 +397,64 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
                 if j.is_null() {
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = dec(variants[1].fields[0].desc, j, path)?;
+                let v = dec(variants[1].fields[0].desc, j)?;
                 return Ok(root(make_enum(d, 1, &[v])));
             }
             if let Some(s) = j.as_str() {
-                if let Some(i) = variants
-                    .iter()
-                    .position(|v| accepted(&d.name, &v.name).iter().any(|n| n == s) && v.fields.is_empty())
+                if let Some(i) =
+                    variants.iter().position(|v| name_matches(&d.name, &v.name, s) && v.fields.is_empty())
                 {
                     return Ok(root(make_enum(d, i as u32, &[])));
                 }
-                return fail(path, format!("unknown variant `{s}`"));
+                return fail(format!("unknown variant `{s}`"));
             }
             let Some(m) = j.as_object().filter(|m| m.len() == 1) else {
-                return fail(path, "expected a variant");
+                return fail("expected a variant");
             };
             let (name, body) = m.iter().next().unwrap();
-            let Some(i) = variants.iter().position(|v| accepted(&d.name, &v.name).iter().any(|n| n == name))
-            else {
-                return fail(path, format!("unknown variant `{name}`"));
+            let Some(i) = variants.iter().position(|v| name_matches(&d.name, &v.name, name)) else {
+                return fail(format!("unknown variant `{name}`"));
             };
-            let mut vals = vec![];
+            let mut vals = Vec::with_capacity(variants[i].fields.len());
             let vty = format!("{}.{}", d.name, variants[i].name);
             for f in &variants[i].fields {
-                let p = format!("{path}.{name}.{}", wire_name(&vty, &f.name));
                 let Some(body) = body.as_object() else {
-                    return fail(&format!("{path}.{name}"), "expected an object");
+                    return fail("expected an object").map_err(|e| e.name(name));
                 };
-                match lookup(body, &vty, &f.name) {
-                    Some(v) => vals.push(dec(f.desc, v, &p)?),
-                    None => return fail(&p, "missing required field"),
-                }
+                let value = match lookup(body, &vty, &f.name) {
+                    Some(v) => dec(f.desc, v),
+                    None => fail("missing required field"),
+                };
+                vals.push(value.map_err(|e| e.field(&vty, &f.name).name(name))?);
             }
             Ok(root(make_enum(d, i as u32, &vals)))
         }
         Kind::List { elem } => {
-            let Some(a) = j.as_array() else { return fail(path, "expected an array") };
+            let Some(a) = j.as_array() else { return fail("expected an array") };
             let l = root(list::new(d));
             for (i, x) in a.iter().enumerate() {
-                let v = dec(elem, x, &format!("{path}[{i}]"))?;
+                let v = dec(elem, x).map_err(|e| e.index(i))?;
                 list::push(l, v);
             }
             Ok(l)
         }
         Kind::Map { key, val } => {
-            let Some(m) = j.as_object() else { return fail(path, "expected an object") };
+            let Some(m) = j.as_object() else { return fail("expected an object") };
             let out = root(map::new(d));
             for (k, v) in m {
-                let kw = dec(key, &J::String(k.clone()), &format!("{path}.{k}"))?;
-                let vw = dec(val, v, &format!("{path}.{k}"))?;
+                let kw = dec(key, &J::String(k.clone())).map_err(|e| e.name(k))?;
+                let vw = dec(val, v).map_err(|e| e.name(k))?;
                 map::insert_mut(out, kw, vw);
             }
             Ok(out)
         }
         Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
             let elem = crate::buffer::array_elem(d).expect("array");
-            let Some(a) = j.as_array() else { return fail(path, "expected an array") };
+            let Some(a) = j.as_array() else { return fail("expected an array") };
             // decoded elements stay rooted (`root`) until the array holds them
             let mut items = Vec::with_capacity(a.len());
             for (i, x) in a.iter().enumerate() {
-                let v = dec(elem, x, &format!("{path}[{i}]"))?;
+                let v = dec(elem, x).map_err(|e| e.index(i))?;
                 if elem.is_ptr() {
                     gc::push_root(v);
                 }
@@ -436,7 +462,7 @@ fn dec(d: &'static TypeDesc, j: &J, path: &str) -> Result<u64, DecodeError> {
             }
             Ok(root(crate::buffer::frozen(elem, items)))
         }
-        _ => fail(path, format!("type `{}` has no decoder", d.name)),
+        _ => fail(format!("type `{}` has no decoder", d.name)),
     }
 }
 

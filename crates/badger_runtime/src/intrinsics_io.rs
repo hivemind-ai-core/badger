@@ -157,6 +157,12 @@ fn write_data(w: u64, out: &mut String) {
 
 pub fn json_quote(s: &str) -> String {
     let mut o = String::with_capacity(s.len() + 2);
+    write_json_quote(s, &mut o);
+    o
+}
+
+/// Append into an existing encoder buffer without a temporary quoted string.
+pub(crate) fn write_json_quote(s: &str, o: &mut String) {
     o.push('"');
     for c in s.chars() {
         match c {
@@ -170,7 +176,6 @@ pub fn json_quote(s: &str) -> String {
         }
     }
     o.push('"');
-    o
 }
 
 static ARGS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());

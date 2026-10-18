@@ -29,9 +29,10 @@ define_intrinsics! {
         codec::with_wire(w, || new_string(&codec::encode(targ(targs, 0), v)))
     }
     fn wire_decode(ctx, targs, ret, names, aliases, s) {
-        let text = str_of(s).to_string();
+        let roots = Roots::new();
+        roots.add(s);
         let w = wire_names(names, aliases);
-        let r = codec::with_wire(w, || codec::decode(targ(targs, 0), &text));
+        let r = codec::with_wire(w, || codec::decode(targ(targs, 0), str_of(s)));
         decode_result(rdesc(ret), r)
     }
     // Typed path parameters: each text value is read as the field's type
@@ -117,11 +118,14 @@ define_intrinsics! {
     fn codec_encode_revealed(ctx, targs, ret, v) { new_string(&codec::encode_revealed(targ(targs, 0), v)) }
     fn codec_encode_bytes(ctx, targs, ret, v) { crate::string::new_bytes(codec::encode(targ(targs, 0), v).as_bytes()) }
     fn codec_decode_text(ctx, targs, ret, s) {
-        let text = str_of(s).to_string();
-        decode_result(rdesc(ret), codec::decode(targ(targs, 0), &text))
+        let roots = Roots::new();
+        roots.add(s);
+        decode_result(rdesc(ret), codec::decode(targ(targs, 0), str_of(s)))
     }
     fn codec_decode_bytes(ctx, targs, ret, b) {
-        let text = String::from_utf8_lossy(bytes_of(b)).into_owned();
+        let roots = Roots::new();
+        roots.add(b);
+        let text = String::from_utf8_lossy(bytes_of(b));
         decode_result(rdesc(ret), codec::decode(targ(targs, 0), &text))
     }
     fn codec_from_data(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_data(targ(targs, 0), d)) }

@@ -1,5 +1,6 @@
 // Exact paths, wire-name precedence, packed fields and containers stay stable.
 import std.array
+import std.bytes
 import std.codec
 import std.io
 import std.schema
@@ -32,8 +33,15 @@ fn main() {
     for _ in 0..32 {
         let next = must(codec.decode<Envelope>(codec.encode(first)))
         assert(next == first && codec.encode_text(next) == saved)
+        assert(must(codec.decode_text<Envelope>(codec.encode_text(next))) == first)
         assert(next.values[1] == 255 && next.maybe.is_none())
     }
+    assert(must(codec.from_data<Envelope>(codec.to_data(first))) == first)
+    // Byte decoding has historically replaced invalid UTF-8 inside strings.
+    assert(must(codec.decode<String>(bytes.from_list([34U8, 255U8, 34U8]))) == "�")
+    let controls = "\"\\\n\r\t\u{0}\u{8}\u{c}\u{1f}é"
+    assert(codec.encode_text(controls) == "\"\\\"\\\\\\n\\r\\t\\u0000\\u0008\\u000c\\u001fé\"")
+    assert(must(codec.decode_text<String>(codec.encode_text(controls))) == controls)
     report(codec.decode_text<Envelope>(valid))
     report(codec.decode_text<List<(Int, Leaf)>>("[[1,{\"amount\":\"bad\",\"note\":\"x\"}]]"))
     report(codec.decode_text<Map<String, Array<U8>>>("{\"key\":[1,256]}"))
