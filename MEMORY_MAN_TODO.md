@@ -53,9 +53,13 @@ negative results; do not mark architectural sketches as implemented.
   descendant ownership; retain copying when versions share nodes.
   - [x] I5a: Reuse private, fresh-origin scalar-map updates only when all old
     aliases die and no earlier version/cursor escapes before later mutations.
-  - [ ] I5b: Reuse nodes between observable scalar-map snapshots with frozen
-    wrappers and unique ownership epochs. [Proof proposal](reports/memory-management/I5b-proof-plan.md);
-    runtime/compiler implementation and acceptance measurements remain open.
+  - [x] I5b: Reuse nodes between observable scalar-map snapshots with frozen
+    wrappers and unique ownership epochs (49f281c). Preserve cheaper private
+    construction; record mixed controls. [Proof](reports/memory-management/I5b-proof-plan.md),
+    [implementation and measurements](reports/memory-management/I5b-summary.md).
+  - [ ] I5c: Evaluate epochs for maps entering through parameters/call boundaries
+    or an affine edit-from-map API. Prove caller/producer aliases and publication
+    before relaxing I5b's fresh-origin restriction; save new batch-update baselines.
 - [ ] I6: Evaluate compact small-map, singleton-collection, and short-string forms
   against observed size distributions and object-size inflation.
 - [ ] I7: Borrow parsing/string/byte views where lifetime permits; copy small
@@ -1088,3 +1092,45 @@ builds have material overhead; retain ordinary binaries for performance claims.
 12 diagnostic runtime/23 harness tests and strict runtime Clippy pass.
 [G7e0 evidence](reports/memory-management/G7e-summary.md). G7e batching is not
 implemented; move to I5b snapshot ownership epochs next, preserving I5a's path.
+
+### I5b complete — reuse scalar-map nodes between observable snapshots
+
+Retain `49f281c`: checked 59-bit ownership epochs, freeze before publication and
+local forks, node reuse only under matching ownership, ordinary wrapper/node
+layouts preserved, barriers/budget polls retained. Compiler proof stays limited
+to fresh-origin scalar maps; private-only I5a groups retain their cheaper path.
+Static zero-sized Persistent/Builder modes remove ownership arguments/tests from
+legacy paths after the initial dynamic-token candidate slows private controls.
+
+2,744 measured processes across 15 nonoverlapping datasets, immutable binaries,
+independent oracles, all raw samples and intermediate unfavorable results saved.
+State Map+MapNode cell traffic drops 131.1→15.3 MB across eight inner iterations
+(88.3%); compare snapshots 71.3→12.1 MB (83.0%). Diagnostic collections go 7/4→0;
+reconcile's exact Map/MapNode traffic stays unchanged. No GC bypass is claimed.
+
+Short-warm application pairs: state 42–50% faster, snapshots 68–70%, every pair
+faster across 1/2/4/8 workers. Extended 15-warmup/15-sample state pairs improve
+78–80% medians and 75–76% block means, RSS -23.4%; both warmup regimes remain.
+Eight fixed scalar-snapshot tasks improve 149.8→46.0 ms at one worker and
+49.6→16.1 at eight, GC 16→2; scaling is 3.02x→2.85x, not a scheduler scaling win.
+Pointer maps and architectural arenas remain outside this proof.
+
+Fresh long-warm state: Badger 1.113 ms, Go 2.217, Node 2.316, Java 1.168. Badger
+state CV 11.6% prevents a reliable Java rank; reconciliation and JSON gaps remain.
+JSON/eight and batches/eight slow cells shrink substantially in longer repeats,
+but messaging/two retains +7.0% paired median/+3.2% block mean versus near-zero
+same-binary controls. Same-runtime old/new saved MIR does not reproduce the full
+source-run shift; native layout/frontend effects remain unisolated. Preserve this
+possible tradeoff and mixed RSS instead of claiming universal improvements.
+
+Final runtime 11/13 ordinary/diagnostic tests, 14 MIR tests, strict four-crate
+Clippy, 136 GC checks/28 MIR probes/36 differential cases, 72 native-container
+checks, allocation conservation and 23 harness tests pass. Initial full program
+suite passes 76; specialized suite has one cancellation-race output mismatch in
+its saved-MIR corpus, whose full focused rerun passes. Both logs remain and no
+oracle was weakened. [Full I5b evidence](reports/memory-management/I5b-summary.md).
+
+Next prioritize fresh profiles of remaining record/JSON allocation and generic
+scalar-map read costs. Investigate the two-worker messaging shift with native/
+source layout controls. I5c parameter/call-boundary ownership, I4 packed records,
+G7e marking, G8 allocator work and I9 stack/region proofs remain unchecked.

@@ -24,6 +24,7 @@ def main():
            and k not in ["GC_BENCH_CONFIG", "TELEMETRY_CONFIG"]}
     expected = (ROOT / "tests/run/private_map_updates.out").read_text()
     runs, probes, generated = [], [], []
+    compatible_private = None
 
     def execute(command, settings=None, output=expected):
         result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env | (settings or {}),
@@ -53,7 +54,14 @@ def main():
                 capture = execute([compiler, "run", "--dump-mir", *(["--release"] if optimized else []), source],
                                   {"BADGER_NO_INLINE": "1"} if no_inline else None, output)
                 count = capture["stderr"].count('name: "badger_rt_i_map_insert_private"')
-                wanted = calls if compiler == binary and optimized and not no_inline else 0
+                if compiler == previous and name == "private":
+                    # Compatible binaries may predate I5a or include it. Calibrate
+                    # their capability on this one-site chain; candidate checks
+                    # stay strict. Both kinds of old saved MIR must keep working.
+                    assert count in [0, 1], capture
+                    compatible_private = count
+                wanted = calls if compiler == binary and optimized and not no_inline else (
+                    calls * compatible_private if compiler == previous else 0)
                 assert count == wanted, (name, optimized, no_inline, count, wanted, capture)
                 owned = capture["stderr"].count('name: "badger_rt_i_map_insert_owned"')
                 wanted_owned = (2 if name in ["snapshot", "hidden", "cursor"] else 0) if compiler == binary and optimized and not no_inline else 0
@@ -157,6 +165,7 @@ pub fn main() -> Result<Unit, io.Error> {
         with path.open("rb") as stream:
             return hashlib.file_digest(stream, "sha256").hexdigest()
     report = dict(binary=dict(path=str(binary), sha256=sha(binary)), compatible=dict(path=str(previous), sha256=sha(previous)),
+                  compatible_private_sites=compatible_private,
                   sources={p: sha(ROOT / p) for p in ["bench/gc/check_private_maps.py", "tests/run/private_map_updates.bdg", "tests/run/snapshot_map_updates.bdg",
                                                       "bench/gc/coverage.bdg"]}, runs=runs, probes=probes, generated=generated)
     args.out.parent.mkdir(parents=True, exist_ok=True)

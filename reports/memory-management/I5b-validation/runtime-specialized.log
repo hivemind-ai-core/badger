@@ -1,0 +1,19 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.49s
+     Running unittests src/lib.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/badger_runtime-ab48fa7deed5e03f)
+
+running 11 tests
+test buffer::tests::packed_words_roundtrip_bits_at_every_width ... ok
+test telemetry::tests::rfc3339_dates ... ok
+test string::tests::scalar_slice_matches_character_reference ... ok
+test symbol_tests::runtime_symbols_are_unique ... ok
+test parse::tests::left_recursion_and_ambiguity ... ok
+test gc::sweep::tests::helpers_reuse_join_and_preserve_prefix_marks_and_finalizer_order ... ok
+test buffer::tests::inline_metadata_traces_grows_and_reclaims_native_storage ... ok
+test buffer::tests::inline_elements_trace_freeze_and_grow_without_native_leaks ... ok
+test gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine ... ok
+test hamt::tests::matches_a_model_across_versions ... ok
+test map::tests::owned_epochs_preserve_versions_and_gc_edges ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.45s
+

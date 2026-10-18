@@ -1,6 +1,8 @@
-# I5b proposal: private mutation between observable scalar-map snapshots
+# I5b proof: private mutation between observable scalar-map snapshots
 
-Status: design for the next allocation-reduction experiment. Not implemented.
+Status: the bounded scalar-map implementation is retained at `49f281c`.
+[Final validation, benchmarks and limits](I5b-summary.md). The following records
+its proof boundary; parameter/pointer-map and arena generalizations remain open.
 I5a already eliminates private fresh-map path copies. It conservatively rejects
 an entire group if any version is published before a reachable later update.
 Realworld state and compare snapshots publish every 256/64 updates: they must

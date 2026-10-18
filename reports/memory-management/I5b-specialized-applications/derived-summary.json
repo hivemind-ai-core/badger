@@ -1,0 +1,2493 @@
+{
+  "raw_sha256": "2030589c19be42e66ad99620e743f28cc75955810d606fe418e9dbe41464d96f",
+  "analysis_sha256": {
+    "analyze_applications.py": "c28a1f0b9bf1243a9b18b7d85e6c394aca59016c0576a60b44653a6dfff6f3b7",
+    "applications.py": "62181a6d2fe05fc84a59a5713679ffa0801d40d5fbe270f6138381346997b93e"
+  },
+  "summary": [
+    {
+      "suite": "compare",
+      "case": "batches",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 708595,
+            "min": 684330,
+            "max": 797580,
+            "count": 7,
+            "cv": 0.05141072585277662
+          },
+          "kernel_block_mean_ns": {
+            "median": 734194.0,
+            "min": 708624.8,
+            "max": 931784.8,
+            "count": 7,
+            "cv": 0.09496298688138967
+          },
+          "peak_rss_bytes": {
+            "median": 34230272,
+            "min": 34091008,
+            "max": 36212736,
+            "count": 7,
+            "cv": 0.023929199203952086
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 714426,
+            "min": 682196,
+            "max": 743039,
+            "count": 7,
+            "cv": 0.026164812307744537
+          },
+          "kernel_block_mean_ns": {
+            "median": 728048.8,
+            "min": 699420.0,
+            "max": 745954.2,
+            "count": 7,
+            "cv": 0.020014914501045124
+          },
+          "peak_rss_bytes": {
+            "median": 35094528,
+            "min": 34721792,
+            "max": 37208064,
+            "count": 7,
+            "cv": 0.026961745005218512
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.002420252413169788,
+        "min": -0.08109531332280151,
+        "max": 0.04132021334344338,
+        "count": 7,
+        "cv": -19.52584685090894
+      },
+      "faster_pairs": 3,
+      "paired_block_mean_change": {
+        "median": -0.012989666746069384,
+        "min": -0.22778821891063272,
+        "max": 0.020964981841680164,
+        "count": 7,
+        "cv": -2.3843105142002057
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "compare",
+      "case": "batches",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 763918,
+            "min": 730816,
+            "max": 904508,
+            "count": 7,
+            "cv": 0.0710207359911585
+          },
+          "kernel_block_mean_ns": {
+            "median": 771371.2,
+            "min": 757523.6,
+            "max": 1064926.0,
+            "count": 7,
+            "cv": 0.12611649952048798
+          },
+          "peak_rss_bytes": {
+            "median": 34803712,
+            "min": 34332672,
+            "max": 36986880,
+            "count": 7,
+            "cv": 0.026421677185504894
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 744421,
+            "min": 709076,
+            "max": 820883,
+            "count": 7,
+            "cv": 0.046318485086303755
+          },
+          "kernel_block_mean_ns": {
+            "median": 768325.8,
+            "min": 736744.8,
+            "max": 799299.0,
+            "count": 7,
+            "cv": 0.02474662755020729
+          },
+          "peak_rss_bytes": {
+            "median": 35278848,
+            "min": 34041856,
+            "max": 37441536,
+            "count": 7,
+            "cv": 0.026330873831118425
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.05234200529376187,
+        "min": -0.14956307738571684,
+        "max": 0.09957604698979972,
+        "count": 7,
+        "cv": -2.207815365162596
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.011882642218983275,
+        "min": -0.2719112877326688,
+        "max": 0.011496156101957977,
+        "count": 7,
+        "cv": -1.7843694039561975
+      },
+      "block_mean_faster_pairs": 6
+    },
+    {
+      "suite": "compare",
+      "case": "batches",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 740213,
+            "min": 675062,
+            "max": 1295804,
+            "count": 7,
+            "cv": 0.24275122695948467
+          },
+          "kernel_block_mean_ns": {
+            "median": 766209.4,
+            "min": 713678.4,
+            "max": 1351151.0,
+            "count": 7,
+            "cv": 0.23853154856290976
+          },
+          "peak_rss_bytes": {
+            "median": 34504704,
+            "min": 34103296,
+            "max": 42352640,
+            "count": 7,
+            "cv": 0.0777928184253684
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 726318,
+            "min": 698245,
+            "max": 1185650,
+            "count": 7,
+            "cv": 0.24571386108845253
+          },
+          "kernel_block_mean_ns": {
+            "median": 753137.2,
+            "min": 698910.6,
+            "max": 1203891.8,
+            "count": 7,
+            "cv": 0.22944966530848895
+          },
+          "peak_rss_bytes": {
+            "median": 37376000,
+            "min": 34992128,
+            "max": 43827200,
+            "count": 7,
+            "cv": 0.0861997663153914
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.028924424554174433,
+        "min": -0.25860801822658286,
+        "max": 0.6462856690599934,
+        "count": 7,
+        "cv": 7.839525839672455
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.06412984777545805,
+        "min": -0.11195398224185882,
+        "max": 0.6647817840640826,
+        "count": 7,
+        "cv": 7.581922751001735
+      },
+      "block_mean_faster_pairs": 6
+    },
+    {
+      "suite": "compare",
+      "case": "batches",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 770920,
+            "min": 727810,
+            "max": 1245812,
+            "count": 7,
+            "cv": 0.2334021634583418
+          },
+          "kernel_block_mean_ns": {
+            "median": 821747.0,
+            "min": 755584.2,
+            "max": 1295123.2,
+            "count": 7,
+            "cv": 0.2268263684473899
+          },
+          "peak_rss_bytes": {
+            "median": 36638720,
+            "min": 34611200,
+            "max": 40660992,
+            "count": 7,
+            "cv": 0.05510125859375957
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1197882,
+            "min": 717982,
+            "max": 1268414,
+            "count": 7,
+            "cv": 0.21385781532063525
+          },
+          "kernel_block_mean_ns": {
+            "median": 1184636.2,
+            "min": 743864.2,
+            "max": 1294622.4,
+            "count": 7,
+            "cv": 0.19691178970553513
+          },
+          "peak_rss_bytes": {
+            "median": 40759296,
+            "min": 37289984,
+            "max": 41984000,
+            "count": 7,
+            "cv": 0.045663651121183625
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.5887506947575951,
+        "min": -0.42247706716583244,
+        "max": 0.7427817699674366,
+        "count": 7,
+        "cv": 1.5724737797649733
+      },
+      "faster_pairs": 3,
+      "paired_block_mean_change": {
+        "median": 0.49699652082696977,
+        "min": -0.4256421319608822,
+        "max": 0.7031941507751989,
+        "count": 7,
+        "cv": 1.5926293025204614
+      },
+      "block_mean_faster_pairs": 3
+    },
+    {
+      "suite": "compare",
+      "case": "records",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4004220,
+            "min": 3828354,
+            "max": 4684982,
+            "count": 7,
+            "cv": 0.06332029760453584
+          },
+          "kernel_block_mean_ns": {
+            "median": 3923273.4,
+            "min": 3749355.0,
+            "max": 4248955.4,
+            "count": 7,
+            "cv": 0.04362723104618754
+          },
+          "peak_rss_bytes": {
+            "median": 71016448,
+            "min": 70426624,
+            "max": 72105984,
+            "count": 7,
+            "cv": 0.00745842137210577
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 3778802,
+            "min": 3726985,
+            "max": 7104663,
+            "count": 7,
+            "cv": 0.2633479915266508
+          },
+          "kernel_block_mean_ns": {
+            "median": 3792520.6,
+            "min": 3711160.2,
+            "max": 6985415.2,
+            "count": 7,
+            "cv": 0.25839047943084714
+          },
+          "peak_rss_bytes": {
+            "median": 71905280,
+            "min": 71266304,
+            "max": 74162176,
+            "count": 7,
+            "cv": 0.012321851988240802
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.062124130934428146,
+        "min": -0.0946624452103122,
+        "max": 0.8558009525764858,
+        "count": 7,
+        "cv": 4.522672600651995
+      },
+      "faster_pairs": 6,
+      "paired_block_mean_change": {
+        "median": -0.02170071503883686,
+        "min": -0.09832264871076846,
+        "max": 0.8630978394950599,
+        "count": 7,
+        "cv": 3.3235541661387837
+      },
+      "block_mean_faster_pairs": 5
+    },
+    {
+      "suite": "compare",
+      "case": "records",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4022063,
+            "min": 3789812,
+            "max": 4434738,
+            "count": 7,
+            "cv": 0.04536341006562009
+          },
+          "kernel_block_mean_ns": {
+            "median": 3863945.4,
+            "min": 3732243.0,
+            "max": 4114165.8,
+            "count": 7,
+            "cv": 0.03282545529553599
+          },
+          "peak_rss_bytes": {
+            "median": 71057408,
+            "min": 70443008,
+            "max": 71774208,
+            "count": 7,
+            "cv": 0.005750166970542048
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 3907059,
+            "min": 3774122,
+            "max": 4060624,
+            "count": 7,
+            "cv": 0.01998741497241794
+          },
+          "kernel_block_mean_ns": {
+            "median": 3859702.0,
+            "min": 3703167.2,
+            "max": 4183682.8,
+            "count": 7,
+            "cv": 0.04739829548566422
+          },
+          "peak_rss_bytes": {
+            "median": 72036352,
+            "min": 70619136,
+            "max": 74002432,
+            "count": 7,
+            "cv": 0.013028473539408574
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.02558044539162896,
+        "min": -0.08435988777691039,
+        "max": 0.030937418531578942,
+        "count": 7,
+        "cv": -1.1518984410999231
+      },
+      "faster_pairs": 6,
+      "paired_block_mean_change": {
+        "median": -0.0006447116041874423,
+        "min": -0.09989840467780853,
+        "max": 0.08274894360567298,
+        "count": 7,
+        "cv": -18.286853399646684
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "compare",
+      "case": "records",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4180898,
+            "min": 3999751,
+            "max": 4370579,
+            "count": 7,
+            "cv": 0.028752314001707455
+          },
+          "kernel_block_mean_ns": {
+            "median": 4011541.6,
+            "min": 3857271.4,
+            "max": 4125040.0,
+            "count": 7,
+            "cv": 0.020881894650850222
+          },
+          "peak_rss_bytes": {
+            "median": 71319552,
+            "min": 70737920,
+            "max": 73134080,
+            "count": 7,
+            "cv": 0.01059921464383677
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 3956200,
+            "min": 3785954,
+            "max": 4375218,
+            "count": 7,
+            "cv": 0.04565597245454011
+          },
+          "kernel_block_mean_ns": {
+            "median": 3956428.8,
+            "min": 3804066.0,
+            "max": 4297097.0,
+            "count": 7,
+            "cv": 0.04623926301581736
+          },
+          "peak_rss_bytes": {
+            "median": 72077312,
+            "min": 70938624,
+            "max": 73674752,
+            "count": 7,
+            "cv": 0.01052258193155681
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.06807010876093667,
+        "min": -0.09481100787790364,
+        "max": 0.02793011269311796,
+        "count": 7,
+        "cv": -1.0199455266716293
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.013793532910336581,
+        "min": -0.053939254361512146,
+        "max": 0.08081501824591886,
+        "count": 7,
+        "cv": -132.6417722204607
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "compare",
+      "case": "records",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3970296,
+            "min": 3746842,
+            "max": 4060083,
+            "count": 7,
+            "cv": 0.028336342045293932
+          },
+          "kernel_block_mean_ns": {
+            "median": 3891204.2,
+            "min": 3783842.6,
+            "max": 3987914.8,
+            "count": 7,
+            "cv": 0.021208801477842053
+          },
+          "peak_rss_bytes": {
+            "median": 71041024,
+            "min": 70725632,
+            "max": 71475200,
+            "count": 7,
+            "cv": 0.003856370116339399
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 4041449,
+            "min": 3738918,
+            "max": 4686636,
+            "count": 7,
+            "cv": 0.07032424046753652
+          },
+          "kernel_block_mean_ns": {
+            "median": 3986332.6,
+            "min": 3709352.6,
+            "max": 4426421.2,
+            "count": 7,
+            "cv": 0.05819245225662931
+          },
+          "peak_rss_bytes": {
+            "median": 71987200,
+            "min": 71618560,
+            "max": 74448896,
+            "count": 7,
+            "cv": 0.0144432466137184
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.04780833934224504,
+        "min": -0.0791030626713789,
+        "max": 0.23148095838574378,
+        "count": 7,
+        "cv": 2.564299498949352
+      },
+      "faster_pairs": 3,
+      "paired_block_mean_change": {
+        "median": -0.000396748696837701,
+        "min": -0.05367941836316492,
+        "max": 0.16417840417322194,
+        "count": 7,
+        "cv": 2.6675944817143784
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "compare",
+      "case": "snapshots",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3275166,
+            "min": 3101685,
+            "max": 3927697,
+            "count": 7,
+            "cv": 0.0761674892783133
+          },
+          "kernel_block_mean_ns": {
+            "median": 3263437.2,
+            "min": 2825602.6,
+            "max": 3740131.6,
+            "count": 7,
+            "cv": 0.09363037596855323
+          },
+          "peak_rss_bytes": {
+            "median": 48529408,
+            "min": 47902720,
+            "max": 50716672,
+            "count": 7,
+            "cv": 0.01947962136730157
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1064244,
+            "min": 1037395,
+            "max": 1128164,
+            "count": 7,
+            "cv": 0.027862190785369913
+          },
+          "kernel_block_mean_ns": {
+            "median": 1043982.8,
+            "min": 1003764.4,
+            "max": 1128648.4,
+            "count": 7,
+            "cv": 0.041883478016482095
+          },
+          "peak_rss_bytes": {
+            "median": 40079360,
+            "min": 39845888,
+            "max": 40448000,
+            "count": 7,
+            "cv": 0.004451275069680516
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.683254222839392,
+        "min": -0.7227688388386375,
+        "max": -0.6362738318043257,
+        "count": 7,
+        "cv": -0.03527931666005895
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.6793484722767149,
+        "min": -0.7208700356960702,
+        "max": -0.6005636461404729,
+        "count": 7,
+        "cv": -0.053989965386795936
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "compare",
+      "case": "snapshots",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3391994,
+            "min": 2937711,
+            "max": 4515849,
+            "count": 7,
+            "cv": 0.1397533381792156
+          },
+          "kernel_block_mean_ns": {
+            "median": 3120632.0,
+            "min": 2937656.6,
+            "max": 4145680.0,
+            "count": 7,
+            "cv": 0.12176597775290396
+          },
+          "peak_rss_bytes": {
+            "median": 48635904,
+            "min": 47513600,
+            "max": 50909184,
+            "count": 7,
+            "cv": 0.019753311748452365
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1033027,
+            "min": 1006467,
+            "max": 1065447,
+            "count": 7,
+            "cv": 0.018807160709095237
+          },
+          "kernel_block_mean_ns": {
+            "median": 1007080.6,
+            "min": 981492.8,
+            "max": 1168596.6,
+            "count": 7,
+            "cv": 0.059323484164077074
+          },
+          "peak_rss_bytes": {
+            "median": 40431616,
+            "min": 39759872,
+            "max": 42405888,
+            "count": 7,
+            "cv": 0.02129501544691474
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.6951683581817196,
+        "min": -0.7671908427407559,
+        "max": -0.6504707236348299,
+        "count": 7,
+        "cv": -0.052981918899991556
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.6772831272639646,
+        "min": -0.718117027845854,
+        "max": -0.6384231359037145,
+        "count": 7,
+        "cv": -0.03580473022705892
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "compare",
+      "case": "snapshots",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3430496,
+            "min": 3037426,
+            "max": 3708671,
+            "count": 7,
+            "cv": 0.05651563859201945
+          },
+          "kernel_block_mean_ns": {
+            "median": 3343874.4,
+            "min": 2866726.8,
+            "max": 3915392.8,
+            "count": 7,
+            "cv": 0.10478533266217276
+          },
+          "peak_rss_bytes": {
+            "median": 48865280,
+            "min": 48074752,
+            "max": 50466816,
+            "count": 7,
+            "cv": 0.015603958686580415
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1034259,
+            "min": 1029430,
+            "max": 1162658,
+            "count": 7,
+            "cv": 0.04226966994216982
+          },
+          "kernel_block_mean_ns": {
+            "median": 1008076.6,
+            "min": 996918.0,
+            "max": 1273306.6,
+            "count": 7,
+            "cv": 0.08796392533111087
+          },
+          "peak_rss_bytes": {
+            "median": 40779776,
+            "min": 40071168,
+            "max": 42815488,
+            "count": 7,
+            "cv": 0.02015835578967965
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.6940724064669392,
+        "min": -0.7168667697943549,
+        "max": -0.6598475156267182,
+        "count": 7,
+        "cv": -0.024971242760960324
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.689046365887926,
+        "min": -0.744773397958948,
+        "max": -0.6521759772280112,
+        "count": 7,
+        "cv": -0.047153916160107785
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "compare",
+      "case": "snapshots",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3455912,
+            "min": 2763137,
+            "max": 4173393,
+            "count": 7,
+            "cv": 0.11711898090589916
+          },
+          "kernel_block_mean_ns": {
+            "median": 3483136.6,
+            "min": 2862018.4,
+            "max": 3698600.0,
+            "count": 7,
+            "cv": 0.0928589266173504
+          },
+          "peak_rss_bytes": {
+            "median": 48746496,
+            "min": 47722496,
+            "max": 49106944,
+            "count": 7,
+            "cv": 0.008939991470538597
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1030001,
+            "min": 1019712,
+            "max": 1060498,
+            "count": 7,
+            "cv": 0.015532160122240866
+          },
+          "kernel_block_mean_ns": {
+            "median": 1020894.0,
+            "min": 998264.2,
+            "max": 1172737.6,
+            "count": 7,
+            "cv": 0.06045410178067347
+          },
+          "peak_rss_bytes": {
+            "median": 40460288,
+            "min": 40361984,
+            "max": 42106880,
+            "count": 7,
+            "cv": 0.01602540020556443
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.7047746007421485,
+        "min": -0.7556635572063307,
+        "max": -0.6161978215340028,
+        "count": 7,
+        "cv": -0.058509582685959564
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.6828584973088587,
+        "min": -0.7300967393067648,
+        "max": -0.6150927700469406,
+        "count": 7,
+        "cv": -0.053451639141889995
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "realworld",
+      "case": "cpu",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 51260029,
+            "min": 50583736,
+            "max": 51951674,
+            "count": 7,
+            "cv": 0.008633024120249164
+          },
+          "kernel_block_mean_ns": {
+            "median": 51326084.4,
+            "min": 51009473.4,
+            "max": 51957460.8,
+            "count": 7,
+            "cv": 0.005885970726744075
+          },
+          "peak_rss_bytes": {
+            "median": 28053504,
+            "min": 26836992,
+            "max": 28401664,
+            "count": 7,
+            "cv": 0.018781749335237227
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 51607345,
+            "min": 50730757,
+            "max": 52587905,
+            "count": 7,
+            "cv": 0.012244345294417265
+          },
+          "kernel_block_mean_ns": {
+            "median": 51517280.0,
+            "min": 51130435.0,
+            "max": 52571766.0,
+            "count": 7,
+            "cv": 0.009352189925626515
+          },
+          "peak_rss_bytes": {
+            "median": 28319744,
+            "min": 27824128,
+            "max": 28966912,
+            "count": 7,
+            "cv": 0.013250197453044737
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.0051026084747871625,
+        "min": -0.00662787112499974,
+        "max": 0.022919546447979,
+        "count": 7,
+        "cv": 1.4853726613924827
+      },
+      "faster_pairs": 2,
+      "paired_block_mean_change": {
+        "median": 0.004119277340092209,
+        "min": -0.008471945957759242,
+        "max": 0.030627499087257704,
+        "count": 7,
+        "cv": 1.4530404597609594
+      },
+      "block_mean_faster_pairs": 2
+    },
+    {
+      "suite": "realworld",
+      "case": "cpu",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 51456253,
+            "min": 50158305,
+            "max": 52469224,
+            "count": 7,
+            "cv": 0.01599677315619939
+          },
+          "kernel_block_mean_ns": {
+            "median": 51752398.8,
+            "min": 50077793.6,
+            "max": 52580369.2,
+            "count": 7,
+            "cv": 0.01541028065366583
+          },
+          "peak_rss_bytes": {
+            "median": 27688960,
+            "min": 27324416,
+            "max": 29958144,
+            "count": 7,
+            "cv": 0.029180090700950276
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 51433162,
+            "min": 50610464,
+            "max": 52308225,
+            "count": 7,
+            "cv": 0.01034961805829593
+          },
+          "kernel_block_mean_ns": {
+            "median": 51522458.6,
+            "min": 50590735.4,
+            "max": 52213441.0,
+            "count": 7,
+            "cv": 0.009483360112515325
+          },
+          "peak_rss_bytes": {
+            "median": 28934144,
+            "min": 28430336,
+            "max": 30023680,
+            "count": 7,
+            "cv": 0.01774986335910978
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.009014638752246507,
+        "min": -0.02488283417341941,
+        "max": 0.02310253449068833,
+        "count": 7,
+        "cv": 7.165546074531892
+      },
+      "faster_pairs": 3,
+      "paired_block_mean_change": {
+        "median": 0.007751341760178443,
+        "min": -0.024776615680363157,
+        "max": 0.017610500546058727,
+        "count": 7,
+        "cv": 7.533751621608221
+      },
+      "block_mean_faster_pairs": 2
+    },
+    {
+      "suite": "realworld",
+      "case": "cpu",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 51553004,
+            "min": 50809606,
+            "max": 52171823,
+            "count": 7,
+            "cv": 0.009956528771881315
+          },
+          "kernel_block_mean_ns": {
+            "median": 51622956.0,
+            "min": 50853235.0,
+            "max": 52144383.0,
+            "count": 7,
+            "cv": 0.007777700737550863
+          },
+          "peak_rss_bytes": {
+            "median": 28364800,
+            "min": 27045888,
+            "max": 29552640,
+            "count": 7,
+            "cv": 0.02833033297062423
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 52001768,
+            "min": 50722693,
+            "max": 52612991,
+            "count": 7,
+            "cv": 0.011533134456155569
+          },
+          "kernel_block_mean_ns": {
+            "median": 51973805.2,
+            "min": 51121493.0,
+            "max": 52300648.8,
+            "count": 7,
+            "cv": 0.007296146911615282
+          },
+          "peak_rss_bytes": {
+            "median": 28688384,
+            "min": 28164096,
+            "max": 29454336,
+            "count": 7,
+            "cv": 0.014971509052999436
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.00870490495568399,
+        "min": -0.026773045930419626,
+        "max": 0.033561252177393364,
+        "count": 7,
+        "cv": 2.235070602581451
+      },
+      "faster_pairs": 1,
+      "paired_block_mean_change": {
+        "median": 0.0042428346413934115,
+        "min": -0.0196164944554047,
+        "max": 0.028462570768605033,
+        "count": 7,
+        "cv": 2.7836339880152776
+      },
+      "block_mean_faster_pairs": 1
+    },
+    {
+      "suite": "realworld",
+      "case": "cpu",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 51391115,
+            "min": 50878941,
+            "max": 52085672,
+            "count": 7,
+            "cv": 0.008452928025158731
+          },
+          "kernel_block_mean_ns": {
+            "median": 51653911.6,
+            "min": 51041039.2,
+            "max": 52889545.4,
+            "count": 7,
+            "cv": 0.011232819612203052
+          },
+          "peak_rss_bytes": {
+            "median": 28008448,
+            "min": 27164672,
+            "max": 28573696,
+            "count": 7,
+            "cv": 0.01644674593926514
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 51240335,
+            "min": 50807431,
+            "max": 52269334,
+            "count": 7,
+            "cv": 0.008835763593822732
+          },
+          "kernel_block_mean_ns": {
+            "median": 51407977.4,
+            "min": 50809442.2,
+            "max": 52239997.6,
+            "count": 7,
+            "cv": 0.009101122816767913
+          },
+          "peak_rss_bytes": {
+            "median": 28639232,
+            "min": 27021312,
+            "max": 29204480,
+            "count": 7,
+            "cv": 0.023765166053394925
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.002933970200880043,
+        "min": -0.024541125244577855,
+        "max": 0.024167466348459454,
+        "count": 7,
+        "cv": -44.29264544627283
+      },
+      "faster_pairs": 4,
+      "paired_block_mean_change": {
+        "median": -0.00616966247334505,
+        "min": -0.03932919415866254,
+        "max": 0.023490085993390197,
+        "count": 7,
+        "cv": -6.087405168108992
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "json",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 18839727,
+            "min": 17733765,
+            "max": 24732661,
+            "count": 7,
+            "cv": 0.13743793763135195
+          },
+          "kernel_block_mean_ns": {
+            "median": 19268115.8,
+            "min": 17980588.2,
+            "max": 24624097.2,
+            "count": 7,
+            "cv": 0.13241896711260176
+          },
+          "peak_rss_bytes": {
+            "median": 52596736,
+            "min": 51367936,
+            "max": 54386688,
+            "count": 7,
+            "cv": 0.019214492941320226
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 18657859,
+            "min": 17535747,
+            "max": 18977050,
+            "count": 7,
+            "cv": 0.023593871395275866
+          },
+          "kernel_block_mean_ns": {
+            "median": 18838684.2,
+            "min": 17577742.6,
+            "max": 19377806.2,
+            "count": 7,
+            "cv": 0.0270682693175967
+          },
+          "peak_rss_bytes": {
+            "median": 52989952,
+            "min": 52432896,
+            "max": 54931456,
+            "count": 7,
+            "cv": 0.014523147393419129
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.014652707016402089,
+        "min": -0.24366820052237803,
+        "max": 0.07010834980614655,
+        "count": 7,
+        "cv": -1.8438194935743466
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.022404472841438983,
+        "min": -0.23846157494862386,
+        "max": 0.07750973477336975,
+        "count": 7,
+        "cv": -1.7876373776832615
+      },
+      "block_mean_faster_pairs": 5
+    },
+    {
+      "suite": "realworld",
+      "case": "json",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 19038876,
+            "min": 18229134,
+            "max": 23899594,
+            "count": 7,
+            "cv": 0.09318459887863989
+          },
+          "kernel_block_mean_ns": {
+            "median": 19007148.8,
+            "min": 18378498.8,
+            "max": 24775889.8,
+            "count": 7,
+            "cv": 0.10441078684673731
+          },
+          "peak_rss_bytes": {
+            "median": 52662272,
+            "min": 51466240,
+            "max": 55873536,
+            "count": 7,
+            "cv": 0.026758385296544146
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 18490017,
+            "min": 17765754,
+            "max": 19292607,
+            "count": 7,
+            "cv": 0.029635803421600226
+          },
+          "kernel_block_mean_ns": {
+            "median": 18705545.0,
+            "min": 17811777.0,
+            "max": 19694331.8,
+            "count": 7,
+            "cv": 0.033199094858339155
+          },
+          "peak_rss_bytes": {
+            "median": 52854784,
+            "min": 52121600,
+            "max": 54476800,
+            "count": 7,
+            "cv": 0.014139438091751376
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.02994263708251499,
+        "min": -0.2033732874290668,
+        "max": 0.04615756604556576,
+        "count": 7,
+        "cv": -1.9114532159925277
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.015867913866176586,
+        "min": -0.21918081828084335,
+        "max": 0.056055233106832913,
+        "count": 7,
+        "cv": -2.1145384124321605
+      },
+      "block_mean_faster_pairs": 5
+    },
+    {
+      "suite": "realworld",
+      "case": "json",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 18381927,
+            "min": 18112767,
+            "max": 20697262,
+            "count": 7,
+            "cv": 0.04605596641721828
+          },
+          "kernel_block_mean_ns": {
+            "median": 19074926.8,
+            "min": 18319645.2,
+            "max": 20157052.2,
+            "count": 7,
+            "cv": 0.029861775649335634
+          },
+          "peak_rss_bytes": {
+            "median": 52420608,
+            "min": 51843072,
+            "max": 55947264,
+            "count": 7,
+            "cv": 0.026388497161053816
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 18879199,
+            "min": 18438512,
+            "max": 19544515,
+            "count": 7,
+            "cv": 0.01901968024275654
+          },
+          "kernel_block_mean_ns": {
+            "median": 18957169.4,
+            "min": 18614432.0,
+            "max": 19408071.6,
+            "count": 7,
+            "cv": 0.015593434923383767
+          },
+          "peak_rss_bytes": {
+            "median": 53305344,
+            "min": 52219904,
+            "max": 56811520,
+            "count": 7,
+            "cv": 0.029198298156560654
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.01977779587526385,
+        "min": -0.07319760459137059,
+        "max": 0.05558002264369666,
+        "count": 7,
+        "cv": 8.160929214567126
+      },
+      "faster_pairs": 2,
+      "paired_block_mean_change": {
+        "median": 0.00023128791246529445,
+        "min": -0.042352422940096335,
+        "max": 0.017556537154469254,
+        "count": 7,
+        "cv": -5.584006033776601
+      },
+      "block_mean_faster_pairs": 3
+    },
+    {
+      "suite": "realworld",
+      "case": "json",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 18774966,
+            "min": 18349366,
+            "max": 19206146,
+            "count": 7,
+            "cv": 0.015914385053392724
+          },
+          "kernel_block_mean_ns": {
+            "median": 18845572.8,
+            "min": 18437674.4,
+            "max": 19171624.6,
+            "count": 7,
+            "cv": 0.013863457092399268
+          },
+          "peak_rss_bytes": {
+            "median": 54112256,
+            "min": 53268480,
+            "max": 55148544,
+            "count": 7,
+            "cv": 0.011270538526739676
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 19585820,
+            "min": 18903676,
+            "max": 23662464,
+            "count": 7,
+            "cv": 0.07514521696286156
+          },
+          "kernel_block_mean_ns": {
+            "median": 19451757.6,
+            "min": 18827742.4,
+            "max": 23710941.8,
+            "count": 7,
+            "cv": 0.07992299866417661
+          },
+          "peak_rss_bytes": {
+            "median": 54853632,
+            "min": 54161408,
+            "max": 56569856,
+            "count": 7,
+            "cv": 0.014333473320357348
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.0448881449092029,
+        "min": 0.006855405224169164,
+        "max": 0.26931079952996395,
+        "count": 7,
+        "cv": 1.1097824557396685
+      },
+      "faster_pairs": 0,
+      "paired_block_mean_change": {
+        "median": 0.034749556050301056,
+        "min": 0.005870071125844811,
+        "max": 0.27854340187484516,
+        "count": 7,
+        "cv": 1.194999635877357
+      },
+      "block_mean_faster_pairs": 0
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 978025,
+            "min": 939273,
+            "max": 1068463,
+            "count": 7,
+            "cv": 0.041890662283557915
+          },
+          "kernel_block_mean_ns": {
+            "median": 1023026.4,
+            "min": 970651.0,
+            "max": 1054937.6,
+            "count": 7,
+            "cv": 0.032421877474312154
+          },
+          "peak_rss_bytes": {
+            "median": 30408704,
+            "min": 29483008,
+            "max": 31899648,
+            "count": 7,
+            "cv": 0.025255797389791015
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 910510,
+            "min": 903887,
+            "max": 920829,
+            "count": 7,
+            "cv": 0.0064716004621182275
+          },
+          "kernel_block_mean_ns": {
+            "median": 937898.2,
+            "min": 923040.4,
+            "max": 1068811.0,
+            "count": 7,
+            "cv": 0.04991309097674398
+          },
+          "peak_rss_bytes": {
+            "median": 32026624,
+            "min": 30916608,
+            "max": 33308672,
+            "count": 7,
+            "cv": 0.025257592177322243
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.06214546985822922,
+        "min": -0.13817418104323687,
+        "max": -0.025929628553146955,
+        "count": 7,
+        "cv": -0.500922856768296
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.09612965540938978,
+        "min": -0.10816544978584519,
+        "max": 0.1011280058435009,
+        "count": 7,
+        "cv": -1.1899788296796943
+      },
+      "block_mean_faster_pairs": 6
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 892056,
+            "min": 773666,
+            "max": 1051661,
+            "count": 7,
+            "cv": 0.09943485912073208
+          },
+          "kernel_block_mean_ns": {
+            "median": 975920.6,
+            "min": 820141.8,
+            "max": 1036292.4,
+            "count": 7,
+            "cv": 0.09300495017916334
+          },
+          "peak_rss_bytes": {
+            "median": 32813056,
+            "min": 30818304,
+            "max": 33583104,
+            "count": 7,
+            "cv": 0.032066974943429034
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 945354,
+            "min": 909758,
+            "max": 1347870,
+            "count": 7,
+            "cv": 0.1629625161689002
+          },
+          "kernel_block_mean_ns": {
+            "median": 1064286.8,
+            "min": 920181.2,
+            "max": 1428758.8,
+            "count": 7,
+            "cv": 0.15732194686182796
+          },
+          "peak_rss_bytes": {
+            "median": 35020800,
+            "min": 34500608,
+            "max": 35799040,
+            "count": 7,
+            "cv": 0.013160646819754833
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.17937585469698814,
+        "min": 0.020957643676290605,
+        "max": 0.34221524716369944,
+        "count": 7,
+        "cv": 0.7326399613052529
+      },
+      "faster_pairs": 0,
+      "paired_block_mean_change": {
+        "median": 0.19936984480333253,
+        "min": -0.0644906666753422,
+        "max": 0.3787216812552132,
+        "count": 7,
+        "cv": 0.7284641540541563
+      },
+      "block_mean_faster_pairs": 1
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1384209,
+            "min": 991310,
+            "max": 1475208,
+            "count": 7,
+            "cv": 0.14606186202139454
+          },
+          "kernel_block_mean_ns": {
+            "median": 1441641.2,
+            "min": 984348.8,
+            "max": 1455855.4,
+            "count": 7,
+            "cv": 0.11902864143941856
+          },
+          "peak_rss_bytes": {
+            "median": 35045376,
+            "min": 32731136,
+            "max": 36233216,
+            "count": 7,
+            "cv": 0.0384454729768824
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1284483,
+            "min": 1086015,
+            "max": 1402803,
+            "count": 7,
+            "cv": 0.09536944586430827
+          },
+          "kernel_block_mean_ns": {
+            "median": 1307111.2,
+            "min": 1208568.2,
+            "max": 1550672.8,
+            "count": 7,
+            "cv": 0.0809584705893172
+          },
+          "peak_rss_bytes": {
+            "median": 37109760,
+            "min": 35532800,
+            "max": 37482496,
+            "count": 7,
+            "cv": 0.01729073625283704
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.03326503904352163,
+        "min": -0.24594963901899825,
+        "max": 0.3246318594705955,
+        "count": 7,
+        "cv": -67.58812911966528
+      },
+      "faster_pairs": 4,
+      "paired_block_mean_change": {
+        "median": -0.049366223591958414,
+        "min": -0.13765281271289898,
+        "max": 0.3278943398925258,
+        "count": 7,
+        "cv": 11.866267649348648
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "messaging",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 1348582,
+            "min": 1224522,
+            "max": 1565956,
+            "count": 7,
+            "cv": 0.08357365659234303
+          },
+          "kernel_block_mean_ns": {
+            "median": 1427522.6,
+            "min": 1221845.2,
+            "max": 1593551.0,
+            "count": 7,
+            "cv": 0.09075202373530197
+          },
+          "peak_rss_bytes": {
+            "median": 37838848,
+            "min": 35168256,
+            "max": 39174144,
+            "count": 7,
+            "cv": 0.03712948558325997
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 1308137,
+            "min": 1213011,
+            "max": 1494463,
+            "count": 7,
+            "cv": 0.074796124172471
+          },
+          "kernel_block_mean_ns": {
+            "median": 1371082.4,
+            "min": 1214166.8,
+            "max": 1505828.0,
+            "count": 7,
+            "cv": 0.07391289823338079
+          },
+          "peak_rss_bytes": {
+            "median": 36327424,
+            "min": 35586048,
+            "max": 37871616,
+            "count": 7,
+            "cv": 0.02323696240640567
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.051270058651783246,
+        "min": -0.16464000265652423,
+        "max": 0.15380897638512625,
+        "count": 7,
+        "cv": -5.714081987901053
+      },
+      "faster_pairs": 4,
+      "paired_block_mean_change": {
+        "median": -0.05104682354599932,
+        "min": -0.16973802532833904,
+        "max": 0.1221408407546225,
+        "count": 7,
+        "cv": -3.730373952158534
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 52691836,
+            "min": 50907347,
+            "max": 53453520,
+            "count": 7,
+            "cv": 0.016879340534538392
+          },
+          "kernel_block_mean_ns": {
+            "median": 52912894.2,
+            "min": 50926648.4,
+            "max": 53542717.6,
+            "count": 7,
+            "cv": 0.015913469442503318
+          },
+          "peak_rss_bytes": {
+            "median": 31375360,
+            "min": 30314496,
+            "max": 32907264,
+            "count": 7,
+            "cv": 0.0252983230733267
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 52393774,
+            "min": 50684845,
+            "max": 53615473,
+            "count": 7,
+            "cv": 0.01573470430746363
+          },
+          "kernel_block_mean_ns": {
+            "median": 52577207.0,
+            "min": 50787909.2,
+            "max": 53175406.0,
+            "count": 7,
+            "cv": 0.01318225008516195
+          },
+          "peak_rss_bytes": {
+            "median": 31989760,
+            "min": 30806016,
+            "max": 32198656,
+            "count": 7,
+            "cv": 0.01769399340669497
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.0043707247207362965,
+        "min": -0.02139413830931991,
+        "max": 0.03181197497538846,
+        "count": 7,
+        "cv": -6.297091212251
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.006344147396874056,
+        "min": -0.01781410886024959,
+        "max": 0.020651827522885746,
+        "count": 7,
+        "cv": -2.9012359292359085
+      },
+      "block_mean_faster_pairs": 5
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 26698158,
+            "min": 26056938,
+            "max": 27074034,
+            "count": 7,
+            "cv": 0.012100469429982575
+          },
+          "kernel_block_mean_ns": {
+            "median": 26961071.8,
+            "min": 26093003.0,
+            "max": 28242834.0,
+            "count": 7,
+            "cv": 0.02158478238221897
+          },
+          "peak_rss_bytes": {
+            "median": 37498880,
+            "min": 35737600,
+            "max": 39325696,
+            "count": 7,
+            "cv": 0.02765705730060264
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 26849718,
+            "min": 26419690,
+            "max": 27805591,
+            "count": 7,
+            "cv": 0.014974976646609737
+          },
+          "kernel_block_mean_ns": {
+            "median": 26840645.4,
+            "min": 26583148.4,
+            "max": 27766999.6,
+            "count": 7,
+            "cv": 0.014052395238326954
+          },
+          "peak_rss_bytes": {
+            "median": 37093376,
+            "min": 35311616,
+            "max": 39239680,
+            "count": 7,
+            "cv": 0.03839647344335007
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -1.6517993488562865e-05,
+        "min": -0.01067506482142655,
+        "max": 0.03445400990707359,
+        "count": 7,
+        "cv": 2.0614743785495997
+      },
+      "faster_pairs": 4,
+      "paired_block_mean_change": {
+        "median": -0.00287635021932775,
+        "min": -0.05297173081143347,
+        "max": 0.04267741049200047,
+        "count": 7,
+        "cv": -13.87417380710419
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 13712543,
+            "min": 13629720,
+            "max": 14854933,
+            "count": 7,
+            "cv": 0.029160435000598377
+          },
+          "kernel_block_mean_ns": {
+            "median": 14068691.4,
+            "min": 13680830.2,
+            "max": 15195012.2,
+            "count": 7,
+            "cv": 0.03681280686893736
+          },
+          "peak_rss_bytes": {
+            "median": 38154240,
+            "min": 37937152,
+            "max": 40783872,
+            "count": 7,
+            "cv": 0.02873212770745145
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 13991401,
+            "min": 13587200,
+            "max": 14062693,
+            "count": 7,
+            "cv": 0.013599739352876922
+          },
+          "kernel_block_mean_ns": {
+            "median": 14013185.0,
+            "min": 13782358.8,
+            "max": 18762288.0,
+            "count": 7,
+            "cv": 0.11341701314255288
+          },
+          "peak_rss_bytes": {
+            "median": 40538112,
+            "min": 39440384,
+            "max": 42041344,
+            "count": 7,
+            "cv": 0.020359147581257005
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.008315087872468263,
+        "min": -0.0565521904407108,
+        "max": 0.029724036281228994,
+        "count": 7,
+        "cv": -29.526947419015368
+      },
+      "faster_pairs": 3,
+      "paired_block_mean_change": {
+        "median": 0.006538703379334931,
+        "min": -0.08133546612091558,
+        "max": 0.36336874365631244,
+        "count": 7,
+        "cv": 3.4625013930011006
+      },
+      "block_mean_faster_pairs": 3
+    },
+    {
+      "suite": "realworld",
+      "case": "pipeline",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 7984905,
+            "min": 7539749,
+            "max": 8201237,
+            "count": 7,
+            "cv": 0.026128695256915076
+          },
+          "kernel_block_mean_ns": {
+            "median": 8137919.4,
+            "min": 7686740.4,
+            "max": 8303453.0,
+            "count": 7,
+            "cv": 0.027571061874517157
+          },
+          "peak_rss_bytes": {
+            "median": 40013824,
+            "min": 38289408,
+            "max": 43454464,
+            "count": 7,
+            "cv": 0.03688440672634685
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 7946615,
+            "min": 7741484,
+            "max": 8113544,
+            "count": 7,
+            "cv": 0.017230248711343918
+          },
+          "kernel_block_mean_ns": {
+            "median": 7971161.8,
+            "min": 7719407.2,
+            "max": 8251063.2,
+            "count": 7,
+            "cv": 0.023144364137629277
+          },
+          "peak_rss_bytes": {
+            "median": 40591360,
+            "min": 36851712,
+            "max": 45191168,
+            "count": 7,
+            "cv": 0.06273898347584976
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.0025231919299418815,
+        "min": -0.016119031799715078,
+        "max": 0.035464841070969255,
+        "count": 7,
+        "cv": 5.8863458138233975
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.0032757540907295546,
+        "min": -0.0353138665885534,
+        "max": 0.026406445330299455,
+        "count": 7,
+        "cv": -4.156412653350121
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "reconcile",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4928825,
+            "min": 4451570,
+            "max": 5493462,
+            "count": 7,
+            "cv": 0.06522625548475107
+          },
+          "kernel_block_mean_ns": {
+            "median": 5463098.4,
+            "min": 5177386.6,
+            "max": 5519823.8,
+            "count": 7,
+            "cv": 0.021072000351345013
+          },
+          "peak_rss_bytes": {
+            "median": 51015680,
+            "min": 49827840,
+            "max": 52981760,
+            "count": 7,
+            "cv": 0.017773643870931232
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 4719647,
+            "min": 4599965,
+            "max": 6094448,
+            "count": 7,
+            "cv": 0.09907661358592124
+          },
+          "kernel_block_mean_ns": {
+            "median": 5265127.2,
+            "min": 5194778.6,
+            "max": 5936609.0,
+            "count": 7,
+            "cv": 0.04651438170142768
+          },
+          "peak_rss_bytes": {
+            "median": 51609600,
+            "min": 50532352,
+            "max": 53387264,
+            "count": 7,
+            "cv": 0.015342267389100257
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.03836027348471327,
+        "min": -0.14941434017382849,
+        "max": 0.25484053022277653,
+        "count": 7,
+        "cv": 34.3772093710501
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": 0.003359223744272777,
+        "min": -0.051339395639688035,
+        "max": 0.07550697542193285,
+        "count": 7,
+        "cv": 14.146705452387408
+      },
+      "block_mean_faster_pairs": 3
+    },
+    {
+      "suite": "realworld",
+      "case": "reconcile",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 5339316,
+            "min": 4466427,
+            "max": 6505781,
+            "count": 7,
+            "cv": 0.12738169328029783
+          },
+          "kernel_block_mean_ns": {
+            "median": 5351679.8,
+            "min": 5009066.0,
+            "max": 5883288.2,
+            "count": 7,
+            "cv": 0.05746202701433384
+          },
+          "peak_rss_bytes": {
+            "median": 52109312,
+            "min": 50933760,
+            "max": 54075392,
+            "count": 7,
+            "cv": 0.0205473793873878
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 4670155,
+            "min": 4386509,
+            "max": 6080582,
+            "count": 7,
+            "cv": 0.11706195023709916
+          },
+          "kernel_block_mean_ns": {
+            "median": 5214138.4,
+            "min": 4967030.2,
+            "max": 5737515.8,
+            "count": 7,
+            "cv": 0.0489938185175302
+          },
+          "peak_rss_bytes": {
+            "median": 52043776,
+            "min": 51314688,
+            "max": 54132736,
+            "count": 7,
+            "cv": 0.01743563576661399
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.12532710182352946,
+        "min": -0.3133139587699002,
+        "max": 0.28207127465326254,
+        "count": 7,
+        "cv": -5.2633796850670915
+      },
+      "faster_pairs": 4,
+      "paired_block_mean_change": {
+        "median": -0.04770633870674568,
+        "min": -0.12716470279827874,
+        "max": 0.12005311968339005,
+        "count": 7,
+        "cv": -5.082387134595439
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "reconcile",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4914629,
+            "min": 4459324,
+            "max": 5591185,
+            "count": 7,
+            "cv": 0.08045292943025217
+          },
+          "kernel_block_mean_ns": {
+            "median": 5254273.2,
+            "min": 4971306.0,
+            "max": 5492397.0,
+            "count": 7,
+            "cv": 0.036015028585031424
+          },
+          "peak_rss_bytes": {
+            "median": 51388416,
+            "min": 50917376,
+            "max": 53956608,
+            "count": 7,
+            "cv": 0.01828762929152136
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 4730046,
+            "min": 4583364,
+            "max": 5730874,
+            "count": 7,
+            "cv": 0.08108784702574767
+          },
+          "kernel_block_mean_ns": {
+            "median": 5227744.0,
+            "min": 5118104.2,
+            "max": 5422551.6,
+            "count": 7,
+            "cv": 0.022809766974684915
+          },
+          "peak_rss_bytes": {
+            "median": 52101120,
+            "min": 51372032,
+            "max": 52707328,
+            "count": 7,
+            "cv": 0.007677903640543292
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": 0.025378432567606524,
+        "min": -0.18025177131502534,
+        "max": 0.14301169915557144,
+        "count": 7,
+        "cv": 8.603626761062031
+      },
+      "faster_pairs": 2,
+      "paired_block_mean_change": {
+        "median": 0.006588542065151914,
+        "min": -0.03963838667367248,
+        "max": 0.04696213775583158,
+        "count": 7,
+        "cv": 6.6008463482314905
+      },
+      "block_mean_faster_pairs": 3
+    },
+    {
+      "suite": "realworld",
+      "case": "reconcile",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4978598,
+            "min": 4530366,
+            "max": 5803819,
+            "count": 7,
+            "cv": 0.0901629108224609
+          },
+          "kernel_block_mean_ns": {
+            "median": 5311513.0,
+            "min": 5007977.8,
+            "max": 6238447.2,
+            "count": 7,
+            "cv": 0.07039566980670693
+          },
+          "peak_rss_bytes": {
+            "median": 51101696,
+            "min": 50237440,
+            "max": 53047296,
+            "count": 7,
+            "cv": 0.01706534589506696
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 4935648,
+            "min": 4591169,
+            "max": 5362209,
+            "count": 7,
+            "cv": 0.04918637003901753
+          },
+          "kernel_block_mean_ns": {
+            "median": 5428542.8,
+            "min": 5074199.2,
+            "max": 5769603.2,
+            "count": 7,
+            "cv": 0.04253888368439533
+          },
+          "peak_rss_bytes": {
+            "median": 52314112,
+            "min": 51720192,
+            "max": 54861824,
+            "count": 7,
+            "cv": 0.018339351405224823
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.033573793810143804,
+        "min": -0.17446087050804837,
+        "max": 0.1836149662080282,
+        "count": 7,
+        "cv": -5.307328752010775
+      },
+      "faster_pairs": 5,
+      "paired_block_mean_change": {
+        "median": -0.003040439677135187,
+        "min": -0.1801536767033951,
+        "max": 0.09179337815754707,
+        "count": 7,
+        "cv": -114.5654764003494
+      },
+      "block_mean_faster_pairs": 4
+    },
+    {
+      "suite": "realworld",
+      "case": "state",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3512237,
+            "min": 3337983,
+            "max": 4613489,
+            "count": 7,
+            "cv": 0.13454074324517007
+          },
+          "kernel_block_mean_ns": {
+            "median": 3545955.0,
+            "min": 3334975.4,
+            "max": 4601604.0,
+            "count": 7,
+            "cv": 0.12823757644774778
+          },
+          "peak_rss_bytes": {
+            "median": 40751104,
+            "min": 40124416,
+            "max": 40939520,
+            "count": 7,
+            "cv": 0.007352006864712531
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 2024487,
+            "min": 1961119,
+            "max": 2116377,
+            "count": 7,
+            "cv": 0.02623904880801812
+          },
+          "kernel_block_mean_ns": {
+            "median": 1753700.0,
+            "min": 1633326.6,
+            "max": 1896469.0,
+            "count": 7,
+            "cv": 0.04374052738836902
+          },
+          "peak_rss_bytes": {
+            "median": 38043648,
+            "min": 36835328,
+            "max": 38326272,
+            "count": 7,
+            "cv": 0.012766105361647316
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.44163249803472826,
+        "min": -0.5412632391667132,
+        "max": -0.39900772412561714,
+        "count": 7,
+        "cv": -0.12372882446573534
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.5030264530397277,
+        "min": -0.6072027058390943,
+        "max": -0.476145581163807,
+        "count": 7,
+        "cv": -0.09068983982988463
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "realworld",
+      "case": "state",
+      "workers": 2,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4004090,
+            "min": 3214925,
+            "max": 4537920,
+            "count": 7,
+            "cv": 0.1278280205488765
+          },
+          "kernel_block_mean_ns": {
+            "median": 4021279.4,
+            "min": 3241915.4,
+            "max": 4582610.6,
+            "count": 7,
+            "cv": 0.10168965522964733
+          },
+          "peak_rss_bytes": {
+            "median": 40972288,
+            "min": 40566784,
+            "max": 41189376,
+            "count": 7,
+            "cv": 0.005089221887347762
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 2010390,
+            "min": 1989922,
+            "max": 2243363,
+            "count": 7,
+            "cv": 0.048278341395536176
+          },
+          "kernel_block_mean_ns": {
+            "median": 1829304.4,
+            "min": 1753497.6,
+            "max": 2137133.4,
+            "count": 7,
+            "cv": 0.06654549046861666
+          },
+          "peak_rss_bytes": {
+            "median": 38588416,
+            "min": 37044224,
+            "max": 40550400,
+            "count": 7,
+            "cv": 0.02920164524090348
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.4813039522497662,
+        "min": -0.5215210933643608,
+        "max": -0.3269718578193892,
+        "count": 7,
+        "cv": -0.14985548785240274
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.5309570634271568,
+        "min": -0.58546624057475,
+        "max": -0.4309187093531188,
+        "count": 7,
+        "cv": -0.0891206566136583
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "realworld",
+      "case": "state",
+      "workers": 4,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 3778731,
+            "min": 3198404,
+            "max": 4428376,
+            "count": 7,
+            "cv": 0.11142488339739652
+          },
+          "kernel_block_mean_ns": {
+            "median": 3965844.4,
+            "min": 3250745.6,
+            "max": 4501129.4,
+            "count": 7,
+            "cv": 0.11262539180608412
+          },
+          "peak_rss_bytes": {
+            "median": 40824832,
+            "min": 40587264,
+            "max": 41058304,
+            "count": 7,
+            "cv": 0.0035915551502794262
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 2058669,
+            "min": 1970186,
+            "max": 2080120,
+            "count": 7,
+            "cv": 0.020816231925792225
+          },
+          "kernel_block_mean_ns": {
+            "median": 1840891.4,
+            "min": 1645100.6,
+            "max": 2076520.8,
+            "count": 7,
+            "cv": 0.07310693041142262
+          },
+          "peak_rss_bytes": {
+            "median": 38735872,
+            "min": 37801984,
+            "max": 40587264,
+            "count": 7,
+            "cv": 0.020996141959930468
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.4786117349978075,
+        "min": -0.5302747553504942,
+        "max": -0.38044505947341234,
+        "count": 7,
+        "cv": -0.1223084948174654
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.5468399113187598,
+        "min": -0.5867789981776574,
+        "max": -0.4599938304835597,
+        "count": 7,
+        "cv": -0.086051349364544
+      },
+      "block_mean_faster_pairs": 7
+    },
+    {
+      "suite": "realworld",
+      "case": "state",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "kernel_ns": {
+            "median": 4023806,
+            "min": 3333855,
+            "max": 4622958,
+            "count": 7,
+            "cv": 0.11647786501636152
+          },
+          "kernel_block_mean_ns": {
+            "median": 4139334.2,
+            "min": 3346236.6,
+            "max": 4650933.4,
+            "count": 7,
+            "cv": 0.12156196768082982
+          },
+          "peak_rss_bytes": {
+            "median": 41091072,
+            "min": 40452096,
+            "max": 42876928,
+            "count": 7,
+            "cv": 0.01780256106868857
+          }
+        },
+        "candidate": {
+          "kernel_ns": {
+            "median": 2019277,
+            "min": 1903752,
+            "max": 2037030,
+            "count": 7,
+            "cv": 0.021515419141703976
+          },
+          "kernel_block_mean_ns": {
+            "median": 1710129.0,
+            "min": 1620969.8,
+            "max": 1878986.2,
+            "count": 7,
+            "cv": 0.04481092765269806
+          },
+          "peak_rss_bytes": {
+            "median": 38371328,
+            "min": 38060032,
+            "max": 38715392,
+            "count": 7,
+            "cv": 0.005732842035861935
+          }
+        }
+      },
+      "paired_work_change": {
+        "median": -0.5025943099642478,
+        "min": -0.559472744506872,
+        "max": -0.3943116902204805,
+        "count": 7,
+        "cv": -0.11901198868237627
+      },
+      "faster_pairs": 7,
+      "paired_block_mean_change": {
+        "median": -0.5737540554777583,
+        "min": -0.5989812620023742,
+        "max": -0.4993131687101863,
+        "count": 7,
+        "cv": -0.06940023766253443
+      },
+      "block_mean_faster_pairs": 7
+    }
+  ]
+}

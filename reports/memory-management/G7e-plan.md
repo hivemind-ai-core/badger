@@ -38,7 +38,8 @@ MIR, reuse/quarantine, both generations, chaos, list slices/weak pages, native
 buffers, channels and closure/task roots before retention. No p99 or ARM speedup
 is implied by a header hint.
 
-The longer-warm four-language check still has large state/reconcile gaps despite
-G7d. After the trace-work baseline, prioritize I5b's true-snapshot node reuse as
-the next allocation-reduction slice. Its proof proposal is separate; neither
-ownership epochs nor batched marking is implemented by these counters.
+The trace-work baseline is saved in [G7e-summary.md](G7e-summary.md). The subsequent
+[I5b snapshot reuse](I5b-summary.md) is retained at `49f281c`, with substantial
+state/snapshot allocation reductions and mixed controls recorded. It is a separate
+optimization; the G7e counters themselves implement no ownership epochs or batched
+marking. Pointer-map tracing/scaling and the bounded marking proposal remain open.

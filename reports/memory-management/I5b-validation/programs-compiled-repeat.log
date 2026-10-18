@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/programs.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/programs-da4edf98dc6559eb)
+
+running 1 test
+test run_programs_compiled ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 75 filtered out; finished in 40.85s
+

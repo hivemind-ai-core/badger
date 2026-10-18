@@ -1,0 +1,8 @@
+census stress/verify: generation=0 workers=1: ok
+census stress/verify: generation=0 workers=2: ok
+census stress/verify: generation=0 workers=4: ok
+census stress/verify: generation=0 workers=8: ok
+census stress/verify: generation=1 workers=1: ok
+census stress/verify: generation=1 workers=2: ok
+census stress/verify: generation=1 workers=4: ok
+census stress/verify: generation=1 workers=8: ok

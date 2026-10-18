@@ -1,0 +1,1329 @@
+/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate
+sha256=22561632e45cfc1a4feb1da7d8821ca3edc88558bb0be4efed9ee826459f6f83
+
+0000000000ad1f60 00000000000008a4 t badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>
+
+/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000ad1f60 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>>:
+  ad1f60:	push   %rbp
+  ad1f61:	push   %r15
+  ad1f63:	push   %r14
+  ad1f65:	push   %r13
+  ad1f67:	push   %r12
+  ad1f69:	push   %rbx
+  ad1f6a:	sub    $0x98,%rsp
+  ad1f71:	mov    %r8,0x8(%rsp)
+  ad1f76:	mov    %edx,%ebp
+  ad1f78:	mov    %rdi,%r13
+  ad1f7b:	mov    0xf7d30f(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad1f81:	test   %eax,%eax
+  ad1f83:	jne    ad265a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6fa>
+  ad1f89:	cmpb   $0x1,0xf7d304(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad1f90:	jne    ad1fb1 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x51>
+  ad1f92:	mov    0x0(%r13),%rbx
+  ad1f96:	mov    0xf7d2e4(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad1f9c:	test   %eax,%eax
+  ad1f9e:	jne    ad267b <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x71b>
+  ad1fa4:	cmp    0xf7d2cd(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad1fab:	je     ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad1fb1:	lea    0x10(%r13),%rdi
+  ad1fb5:	cmp    $0x3f,%ebp
+  ad1fb8:	jbe    ad20ac <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x14c>
+  ad1fbe:	mov    0xc(%rdi),%r15d
+  ad1fc2:	test   %r15,%r15
+  ad1fc5:	je     ad224a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x2ea>
+  ad1fcb:	mov    %r13,0x18(%rsp)
+  ad1fd0:	mov    (%rsi),%rbp
+  ad1fd3:	mov    %rsi,(%rsp)
+  ad1fd7:	mov    0x8(%rsi),%r14
+  ad1fdb:	mov    %rdi,0x10(%rsp)
+  ad1fe0:	lea    0x18(%rdi),%rbx
+  ad1fe4:	xor    %r12d,%r12d
+  ad1fe7:	mov    0xf6d452(%rip),%r13        # 1a3f440 <_DYNAMIC+0x3470>
+  ad1fee:	jmp    ad2000 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0xa0>
+  ad1ff0:	inc    %r12
+  ad1ff3:	add    $0x18,%rbx
+  ad1ff7:	cmp    %r12,%r15
+  ad1ffa:	je     ad2237 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x2d7>
+  ad2000:	cmp    %rbp,-0x8(%rbx)
+  ad2004:	jne    ad1ff0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x90>
+  ad2006:	mov    (%rbx),%rsi
+  ad2009:	mov    0x8(%rsp),%rax
+  ad200e:	mov    (%rax),%rdi
+  ad2011:	mov    %r14,%rdx
+  ad2014:	call   *%r13
+  ad2017:	test   %al,%al
+  ad2019:	je     ad1ff0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x90>
+  ad201b:	mov    %r12,0x68(%rsp)
+  ad2020:	movq   $0x1,0x70(%rsp)
+  ad2029:	movq   $0x1,0x48(%rsp)
+  ad2032:	mov    (%rsp),%rax
+  ad2036:	movups (%rax),%xmm0
+  ad2039:	movups %xmm0,0x50(%rsp)
+  ad203e:	mov    0x10(%rax),%rax
+  ad2042:	mov    %rax,0x60(%rsp)
+  ad2047:	movq   $0x0,0x28(%rsp)
+  ad2050:	xorps  %xmm0,%xmm0
+  ad2053:	movups %xmm0,0x38(%rsp)
+  ad2058:	mov    0xf7d232(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad205e:	test   %eax,%eax
+  ad2060:	jne    ad26f6 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x796>
+  ad2066:	cmpb   $0x1,0xf7d227(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad206d:	mov    0x18(%rsp),%rdi
+  ad2072:	jne    ad2092 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x132>
+  ad2074:	mov    (%rdi),%rbx
+  ad2077:	mov    0xf7d203(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad207d:	test   %eax,%eax
+  ad207f:	jne    ad274a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x7ea>
+  ad2085:	cmp    0xf7d1ec(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad208c:	je     ad2762 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x802>
+  ad2092:	xor    %ebp,%ebp
+  ad2094:	lea    0x48(%rsp),%rcx
+  ad2099:	lea    0x28(%rsp),%r8
+  ad209e:	xor    %esi,%esi
+  ad20a0:	xor    %edx,%edx
+  ad20a2:	call   ad0590 <badger_runtime::hamt::splice_owned::<badger_runtime::hamt::Persistent>>
+  ad20a7:	jmp    ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad20ac:	mov    %ecx,0x24(%rsp)
+  ad20b0:	mov    (%rsi),%rdx
+  ad20b3:	mov    %rdx,%rax
+  ad20b6:	mov    %ebp,%ecx
+  ad20b8:	shr    %cl,%rax
+  ad20bb:	mov    $0x1,%r15d
+  ad20c1:	mov    %eax,%ecx
+  ad20c3:	shl    %cl,%r15d
+  ad20c6:	mov    (%rdi),%ecx
+  ad20c8:	mov    0x4(%rdi),%ebx
+  ad20cb:	bt     %eax,%ecx
+  ad20ce:	mov    %ecx,(%rsp)
+  ad20d1:	jae    ad22d9 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x379>
+  ad20d7:	mov    %rsi,%r12
+  ad20da:	lea    -0x1(%r15),%r14d
+  ad20de:	mov    %r14d,%eax
+  ad20e1:	and    %ecx,%eax
+  ad20e3:	mov    %eax,%ecx
+  ad20e5:	shr    $1,%ecx
+  ad20e7:	and    $0x55555555,%ecx
+  ad20ed:	sub    %ecx,%eax
+  ad20ef:	mov    %eax,%ecx
+  ad20f1:	and    $0x33333333,%ecx
+  ad20f7:	shr    $0x2,%eax
+  ad20fa:	and    $0x33333333,%eax
+  ad20ff:	add    %ecx,%eax
+  ad2101:	mov    %eax,%ecx
+  ad2103:	shr    $0x4,%ecx
+  ad2106:	add    %eax,%ecx
+  ad2108:	and    $0xf0f0f0f,%ecx
+  ad210e:	imul   $0x1010101,%ecx,%eax
+  ad2114:	shr    $0x18,%eax
+  ad2117:	mov    %rax,0x78(%rsp)
+  ad211c:	lea    (%rax,%rax,2),%rax
+  ad2120:	mov    0x10(%rdi,%rax,8),%rcx
+  ad2125:	mov    %rcx,0x80(%rsp)
+  ad212d:	movups 0x18(%rdi,%rax,8),%xmm0
+  ad2132:	mov    0x18(%rdi,%rax,8),%rsi
+  ad2137:	movups %xmm0,0x88(%rsp)
+  ad213f:	cmp    %rdx,%rcx
+  ad2142:	jne    ad21fc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x29c>
+  ad2148:	mov    0x8(%r12),%rdx
+  ad214d:	mov    0x8(%rsp),%rax
+  ad2152:	mov    (%rax),%rdi
+  ad2155:	call   *0xf6d2e5(%rip)        # 1a3f440 <_DYNAMIC+0x3470>
+  ad215b:	test   %al,%al
+  ad215d:	je     ad21fc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x29c>
+  ad2163:	mov    0x78(%rsp),%rax
+  ad2168:	mov    %rax,0x68(%rsp)
+  ad216d:	movq   $0x1,0x70(%rsp)
+  ad2176:	movq   $0x1,0x48(%rsp)
+  ad217f:	movups (%r12),%xmm0
+  ad2184:	movups %xmm0,0x50(%rsp)
+  ad2189:	mov    0x10(%r12),%rax
+  ad218e:	mov    %rax,0x60(%rsp)
+  ad2193:	movq   $0x0,0x28(%rsp)
+  ad219c:	xorps  %xmm0,%xmm0
+  ad219f:	movups %xmm0,0x38(%rsp)
+  ad21a4:	mov    0xf7d0e6(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad21aa:	test   %eax,%eax
+  ad21ac:	jne    ad2712 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x7b2>
+  ad21b2:	cmpb   $0x1,0xf7d0db(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad21b9:	jne    ad21de <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x27e>
+  ad21bb:	mov    %ebx,%ebp
+  ad21bd:	mov    0x0(%r13),%rbx
+  ad21c1:	mov    0xf7d0b9(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad21c7:	test   %eax,%eax
+  ad21c9:	jne    ad2773 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x813>
+  ad21cf:	cmp    0xf7d0a2(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad21d6:	mov    %ebp,%ebx
+  ad21d8:	je     ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad21de:	lea    0x48(%rsp),%rcx
+  ad21e3:	lea    0x28(%rsp),%r8
+  ad21e8:	mov    %r13,%rdi
+  ad21eb:	mov    (%rsp),%esi
+  ad21ee:	mov    %ebx,%edx
+  ad21f0:	call   ad0590 <badger_runtime::hamt::splice_owned::<badger_runtime::hamt::Persistent>>
+  ad21f5:	xor    %ebp,%ebp
+  ad21f7:	jmp    ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad21fc:	mov    %r13,0x18(%rsp)
+  ad2201:	call   b835e0 <badger_runtime::task::current_raw>
+  ad2206:	mov    0xf6affb(%rip),%r13        # 1a3d208 <_DYNAMIC+0x1238>
+  ad220d:	test   %rax,%rax
+  ad2210:	mov    %ebx,0x10(%rsp)
+  ad2214:	je     ad238f <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x42f>
+  ad221a:	call   *0xf6d200(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad2220:	lea    0xd8(%rax),%rcx
+  ad2227:	add    $0x18,%r13
+  ad222b:	test   %rax,%rax
+  ad222e:	cmovne %rcx,%r13
+  ad2232:	jmp    ad2393 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x433>
+  ad2237:	mov    0x10(%rsp),%rax
+  ad223c:	mov    0xc(%rax),%eax
+  ad223f:	mov    0x18(%rsp),%r13
+  ad2244:	mov    (%rsp),%rsi
+  ad2248:	jmp    ad224c <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x2ec>
+  ad224a:	xor    %eax,%eax
+  ad224c:	mov    %rax,0x68(%rsp)
+  ad2251:	movq   $0x0,0x70(%rsp)
+  ad225a:	movq   $0x1,0x48(%rsp)
+  ad2263:	movups (%rsi),%xmm0
+  ad2266:	movups %xmm0,0x50(%rsp)
+  ad226b:	mov    0x10(%rsi),%rax
+  ad226f:	mov    %rax,0x60(%rsp)
+  ad2274:	movq   $0x0,0x28(%rsp)
+  ad227d:	xorps  %xmm0,%xmm0
+  ad2280:	movups %xmm0,0x38(%rsp)
+  ad2285:	mov    0xf7d005(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad228b:	test   %eax,%eax
+  ad228d:	jne    ad269b <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x73b>
+  ad2293:	cmpb   $0x1,0xf7cffa(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad229a:	jne    ad22bb <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x35b>
+  ad229c:	mov    0x0(%r13),%rbx
+  ad22a0:	mov    0xf7cfda(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad22a6:	test   %eax,%eax
+  ad22a8:	jne    ad26bc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x75c>
+  ad22ae:	cmp    0xf7cfc3(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad22b5:	je     ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad22bb:	lea    0x48(%rsp),%rcx
+  ad22c0:	lea    0x28(%rsp),%r8
+  ad22c5:	mov    %r13,%rdi
+  ad22c8:	xor    %esi,%esi
+  ad22ca:	xor    %edx,%edx
+  ad22cc:	call   ad0590 <badger_runtime::hamt::splice_owned::<badger_runtime::hamt::Persistent>>
+  ad22d1:	mov    $0x1,%bpl
+  ad22d4:	jmp    ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad22d9:	test   %ebx,%r15d
+  ad22dc:	mov    0x24(%rsp),%ecx
+  ad22e0:	je     ad24cd <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x56d>
+  ad22e6:	dec    %r15d
+  ad22e9:	and    %ebx,%r15d
+  ad22ec:	mov    %r15d,%eax
+  ad22ef:	shr    $1,%eax
+  ad22f1:	and    $0x55555555,%eax
+  ad22f6:	sub    %eax,%r15d
+  ad22f9:	mov    %r15d,%eax
+  ad22fc:	and    $0x33333333,%eax
+  ad2301:	shr    $0x2,%r15d
+  ad2305:	and    $0x33333333,%r15d
+  ad230c:	add    %eax,%r15d
+  ad230f:	mov    %r15d,%eax
+  ad2312:	shr    $0x4,%eax
+  ad2315:	add    %r15d,%eax
+  ad2318:	and    $0xf0f0f0f,%eax
+  ad231d:	imul   $0x1010101,%eax,%r14d
+  ad2324:	shr    $0x18,%r14d
+  ad2328:	mov    0xc(%rdi),%eax
+  ad232b:	lea    (%rax,%rax,2),%rax
+  ad232f:	lea    (%rdi,%rax,8),%rax
+  ad2333:	mov    0x10(%rax,%r14,8),%rdi
+  ad2338:	add    $0x5,%ebp
+  ad233b:	mov    %ebp,%edx
+  ad233d:	mov    0x8(%rsp),%r8
+  ad2342:	call   ad1f60 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>>
+  ad2347:	mov    %rax,%r12
+  ad234a:	mov    %edx,%ebp
+  ad234c:	call   b835e0 <badger_runtime::task::current_raw>
+  ad2351:	mov    0xf6aeb0(%rip),%r15        # 1a3d208 <_DYNAMIC+0x1238>
+  ad2358:	test   %rax,%rax
+  ad235b:	mov    %ebx,0x10(%rsp)
+  ad235f:	je     ad259a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x63a>
+  ad2365:	call   *0xf6d0b5(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad236b:	lea    0xd8(%rax),%rcx
+  ad2372:	add    $0x18,%r15
+  ad2376:	test   %rax,%rax
+  ad2379:	cmovne %rcx,%r15
+  ad237d:	mov    0x10(%r15),%rbx
+  ad2381:	cmp    (%r15),%rbx
+  ad2384:	je     ad25a7 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x647>
+  ad238a:	jmp    ad25b0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x650>
+  ad238f:	add    $0x18,%r13
+  ad2393:	mov    0x10(%r13),%rax
+  ad2397:	mov    %rax,0x8(%rsp)
+  ad239c:	add    $0x5,%ebp
+  ad239f:	lea    0x80(%rsp),%rdi
+  ad23a7:	mov    %r12,%rsi
+  ad23aa:	mov    %ebp,%edx
+  ad23ac:	mov    0x24(%rsp),%ecx
+  ad23b0:	call   ad1810 <badger_runtime::hamt::pair::<badger_runtime::hamt::Persistent>>
+  ad23b5:	mov    (%rsp),%ebp
+  ad23b8:	mov    %rax,%rbx
+  ad23bb:	mov    0x10(%r13),%r12
+  ad23bf:	cmp    0x0(%r13),%r12
+  ad23c3:	jne    ad23ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x46e>
+  ad23c5:	mov    %r13,%rdi
+  ad23c8:	call   *0xf6d05a(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad23ce:	mov    0x8(%r13),%rax
+  ad23d2:	mov    %rbx,(%rax,%r12,8)
+  ad23d6:	inc    %r12
+  ad23d9:	mov    %r12,0x10(%r13)
+  ad23dd:	and    0x10(%rsp),%r14d
+  ad23e2:	mov    %r14d,%eax
+  ad23e5:	shr    $1,%eax
+  ad23e7:	and    $0x55555555,%eax
+  ad23ec:	sub    %eax,%r14d
+  ad23ef:	mov    %r14d,%eax
+  ad23f2:	and    $0x33333333,%eax
+  ad23f7:	shr    $0x2,%r14d
+  ad23fb:	and    $0x33333333,%r14d
+  ad2402:	add    %eax,%r14d
+  ad2405:	mov    %r14d,%eax
+  ad2408:	shr    $0x4,%eax
+  ad240b:	add    %r14d,%eax
+  ad240e:	and    $0xf0f0f0f,%eax
+  ad2413:	imul   $0x1010101,%eax,%eax
+  ad2419:	shr    $0x18,%eax
+  ad241c:	mov    0x78(%rsp),%rcx
+  ad2421:	mov    %rcx,0x68(%rsp)
+  ad2426:	movq   $0x1,0x70(%rsp)
+  ad242f:	movq   $0x0,0x48(%rsp)
+  ad2438:	mov    %rax,0x38(%rsp)
+  ad243d:	movq   $0x0,0x40(%rsp)
+  ad2446:	movq   $0x1,0x28(%rsp)
+  ad244f:	mov    %rbx,0x30(%rsp)
+  ad2454:	mov    0xf7ce36(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad245a:	test   %eax,%eax
+  ad245c:	jne    ad26b2 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x752>
+  ad2462:	cmpb   $0x1,0xf7ce2b(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2469:	jne    ad248e <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x52e>
+  ad246b:	mov    0x18(%rsp),%rax
+  ad2470:	mov    (%rax),%rbx
+  ad2473:	mov    0xf7ce07(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad2479:	test   %eax,%eax
+  ad247b:	jne    ad26ec <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x78c>
+  ad2481:	cmp    0xf7cdf0(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2488:	je     ad27a8 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x848>
+  ad248e:	mov    %r15d,%eax
+  ad2491:	not    %eax
+  ad2493:	and    %eax,%ebp
+  ad2495:	mov    0x10(%rsp),%edx
+  ad2499:	or     %r15d,%edx
+  ad249c:	lea    0x48(%rsp),%rcx
+  ad24a1:	lea    0x28(%rsp),%r8
+  ad24a6:	mov    0x18(%rsp),%rdi
+  ad24ab:	mov    %ebp,%esi
+  ad24ad:	call   ad0590 <badger_runtime::hamt::splice_owned::<badger_runtime::hamt::Persistent>>
+  ad24b2:	mov    $0x1,%bpl
+  ad24b5:	mov    0x8(%rsp),%rcx
+  ad24ba:	cmp    0x10(%r13),%rcx
+  ad24be:	ja     ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad24c4:	mov    %rcx,0x10(%r13)
+  ad24c8:	jmp    ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad24cd:	lea    -0x1(%r15),%eax
+  ad24d1:	mov    (%rsp),%ebp
+  ad24d4:	and    %ebp,%eax
+  ad24d6:	mov    %eax,%ecx
+  ad24d8:	shr    $1,%ecx
+  ad24da:	and    $0x55555555,%ecx
+  ad24e0:	sub    %ecx,%eax
+  ad24e2:	mov    %eax,%ecx
+  ad24e4:	and    $0x33333333,%ecx
+  ad24ea:	shr    $0x2,%eax
+  ad24ed:	and    $0x33333333,%eax
+  ad24f2:	add    %ecx,%eax
+  ad24f4:	mov    %eax,%ecx
+  ad24f6:	shr    $0x4,%ecx
+  ad24f9:	add    %eax,%ecx
+  ad24fb:	and    $0xf0f0f0f,%ecx
+  ad2501:	imul   $0x1010101,%ecx,%eax
+  ad2507:	shr    $0x18,%eax
+  ad250a:	mov    %rax,0x68(%rsp)
+  ad250f:	movq   $0x0,0x70(%rsp)
+  ad2518:	movq   $0x1,0x48(%rsp)
+  ad2521:	movups (%rsi),%xmm0
+  ad2524:	movups %xmm0,0x50(%rsp)
+  ad2529:	mov    0x10(%rsi),%rax
+  ad252d:	mov    %rax,0x60(%rsp)
+  ad2532:	movq   $0x0,0x28(%rsp)
+  ad253b:	xorps  %xmm0,%xmm0
+  ad253e:	movups %xmm0,0x38(%rsp)
+  ad2543:	mov    0xf7cd47(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad2549:	test   %eax,%eax
+  ad254b:	jne    ad2729 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x7c9>
+  ad2551:	cmpb   $0x1,0xf7cd3c(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2558:	jne    ad2580 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x620>
+  ad255a:	mov    %ebx,%ebp
+  ad255c:	mov    0x0(%r13),%rbx
+  ad2560:	mov    0xf7cd1a(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad2566:	test   %eax,%eax
+  ad2568:	jne    ad278c <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x82c>
+  ad256e:	cmp    0xf7cd03(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2575:	mov    %ebp,%ebx
+  ad2577:	mov    (%rsp),%ebp
+  ad257a:	je     ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad2580:	or     %ebp,%r15d
+  ad2583:	lea    0x48(%rsp),%rcx
+  ad2588:	lea    0x28(%rsp),%r8
+  ad258d:	mov    %r13,%rdi
+  ad2590:	mov    %r15d,%esi
+  ad2593:	mov    %ebx,%edx
+  ad2595:	jmp    ad22cc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x36c>
+  ad259a:	add    $0x18,%r15
+  ad259e:	mov    0x10(%r15),%rbx
+  ad25a2:	cmp    (%r15),%rbx
+  ad25a5:	jne    ad25b0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x650>
+  ad25a7:	mov    %r15,%rdi
+  ad25aa:	call   *0xf6ce78(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad25b0:	mov    0x8(%r15),%rax
+  ad25b4:	mov    %r12,(%rax,%rbx,8)
+  ad25b8:	lea    0x1(%rbx),%rax
+  ad25bc:	mov    %rax,0x10(%r15)
+  ad25c0:	movq   $0x0,0x48(%rsp)
+  ad25c9:	xorps  %xmm0,%xmm0
+  ad25cc:	movups %xmm0,0x68(%rsp)
+  ad25d1:	mov    %r14,0x38(%rsp)
+  ad25d6:	movq   $0x1,0x40(%rsp)
+  ad25df:	movq   $0x1,0x28(%rsp)
+  ad25e8:	mov    %r12,0x30(%rsp)
+  ad25ed:	mov    0xf7cc9d(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad25f3:	test   %eax,%eax
+  ad25f5:	jne    ad26e2 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x782>
+  ad25fb:	cmpb   $0x1,0xf7cc92(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2602:	jne    ad2623 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6c3>
+  ad2604:	mov    0x0(%r13),%r14
+  ad2608:	mov    0xf7cc72(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad260e:	test   %eax,%eax
+  ad2610:	jne    ad2740 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x7e0>
+  ad2616:	cmp    0xf7cc5b(%rip),%r14        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad261d:	je     ad27c0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x860>
+  ad2623:	lea    0x48(%rsp),%rcx
+  ad2628:	lea    0x28(%rsp),%r8
+  ad262d:	mov    %r13,%rdi
+  ad2630:	mov    (%rsp),%esi
+  ad2633:	mov    0x10(%rsp),%edx
+  ad2637:	call   ad0590 <badger_runtime::hamt::splice_owned::<badger_runtime::hamt::Persistent>>
+  ad263c:	cmp    0x10(%r15),%rbx
+  ad2640:	ja     ad2646 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6e6>
+  ad2642:	mov    %rbx,0x10(%r15)
+  ad2646:	mov    %ebp,%edx
+  ad2648:	add    $0x98,%rsp
+  ad264f:	pop    %rbx
+  ad2650:	pop    %r12
+  ad2652:	pop    %r13
+  ad2654:	pop    %r14
+  ad2656:	pop    %r15
+  ad2658:	pop    %rbp
+  ad2659:	ret
+  ad265a:	mov    %ecx,%ebx
+  ad265c:	mov    %rsi,%r14
+  ad265f:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad2664:	mov    %r14,%rsi
+  ad2667:	mov    %ebx,%ecx
+  ad2669:	cmpb   $0x1,0xf7cc24(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2670:	je     ad1f92 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x32>
+  ad2676:	jmp    ad1fb1 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x51>
+  ad267b:	mov    %ecx,%r14d
+  ad267e:	mov    %rsi,%r15
+  ad2681:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2686:	mov    %r15,%rsi
+  ad2689:	mov    %r14d,%ecx
+  ad268c:	cmp    0xf7cbe5(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2693:	jne    ad1fb1 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x51>
+  ad2699:	jmp    ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad269b:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad26a0:	cmpb   $0x1,0xf7cbed(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad26a7:	je     ad229c <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x33c>
+  ad26ad:	jmp    ad22bb <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x35b>
+  ad26b2:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad26b7:	jmp    ad2462 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x502>
+  ad26bc:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad26c1:	cmp    0xf7cbb0(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad26c8:	jne    ad22bb <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x35b>
+  ad26ce:	lea    -0x863008(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad26d5:	mov    $0xb,%edx
+  ad26da:	mov    %r13,%rdi
+  ad26dd:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad26e2:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad26e7:	jmp    ad25fb <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x69b>
+  ad26ec:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad26f1:	jmp    ad2481 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x521>
+  ad26f6:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad26fb:	cmpb   $0x1,0xf7cb92(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2702:	mov    0x18(%rsp),%rdi
+  ad2707:	je     ad2074 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x114>
+  ad270d:	jmp    ad2092 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x132>
+  ad2712:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad2717:	cmpb   $0x1,0xf7cb76(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad271e:	je     ad21bb <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x25b>
+  ad2724:	jmp    ad21de <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x27e>
+  ad2729:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad272e:	cmpb   $0x1,0xf7cb5f(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2735:	je     ad255a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x5fa>
+  ad273b:	jmp    ad2580 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x620>
+  ad2740:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2745:	jmp    ad2616 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x6b6>
+  ad274a:	mov    %rdi,%r14
+  ad274d:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2752:	mov    %r14,%rdi
+  ad2755:	cmp    0xf7cb1c(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad275c:	jne    ad2092 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x132>
+  ad2762:	lea    -0x86309c(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad2769:	mov    $0xb,%edx
+  ad276e:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad2773:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2778:	cmp    0xf7caf9(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad277f:	mov    %ebp,%ebx
+  ad2781:	jne    ad21de <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x27e>
+  ad2787:	jmp    ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad278c:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2791:	cmp    0xf7cae0(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2798:	mov    %ebp,%ebx
+  ad279a:	mov    (%rsp),%ebp
+  ad279d:	jne    ad2580 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x620>
+  ad27a3:	jmp    ad26ce <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x76e>
+  ad27a8:	lea    -0x8630e2(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad27af:	mov    $0xb,%edx
+  ad27b4:	mov    0x18(%rsp),%rdi
+  ad27b9:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad27be:	jmp    ad27d4 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x874>
+  ad27c0:	lea    -0x8630fa(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad27c7:	mov    $0xb,%edx
+  ad27cc:	mov    %r13,%rdi
+  ad27cf:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad27d4:	ud2
+  ad27d6:	cmp    0x10(%r15),%rbx
+  ad27da:	ja     ad27fc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x89c>
+  ad27dc:	mov    %rbx,0x10(%r15)
+  ad27e0:	mov    %rax,%rdi
+  ad27e3:	call   19a1a00 <_Unwind_Resume@plt>
+  ad27e8:	mov    0x8(%rsp),%rcx
+  ad27ed:	cmp    0x10(%r13),%rcx
+  ad27f1:	ja     ad27fc <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Persistent>+0x89c>
+  ad27f3:	mov    0x8(%rsp),%rcx
+  ad27f8:	mov    %rcx,0x10(%r13)
+  ad27fc:	mov    %rax,%rdi
+  ad27ff:	call   19a1a00 <_Unwind_Resume@plt>
+
+
+0000000000ad2810 000000000000069e t badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>
+
+/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000ad2810 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>>:
+  ad2810:	push   %rbp
+  ad2811:	push   %r15
+  ad2813:	push   %r14
+  ad2815:	push   %r13
+  ad2817:	push   %r12
+  ad2819:	push   %rbx
+  ad281a:	sub    $0x98,%rsp
+  ad2821:	mov    %r8,0x10(%rsp)
+  ad2826:	mov    %ecx,%r12d
+  ad2829:	mov    %edx,%ebp
+  ad282b:	mov    %rdi,%r14
+  ad282e:	mov    0xf7ca5c(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad2834:	test   %eax,%eax
+  ad2836:	jne    ad2e1d <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x60d>
+  ad283c:	cmpb   $0x1,0xf7ca51(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2843:	jne    ad2863 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x53>
+  ad2845:	mov    (%r14),%rbx
+  ad2848:	mov    0xf7ca32(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad284e:	test   %eax,%eax
+  ad2850:	jne    ad2e40 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x630>
+  ad2856:	cmp    0xf7ca1b(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad285d:	je     ad2e64 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x654>
+  ad2863:	lea    0x10(%r14),%rdi
+  ad2867:	cmp    $0x3f,%ebp
+  ad286a:	jbe    ad293c <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x12c>
+  ad2870:	mov    0xc(%rdi),%r13d
+  ad2874:	test   %r13,%r13
+  ad2877:	je     ad2aa7 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x297>
+  ad287d:	mov    %r9,(%rsp)
+  ad2881:	mov    %r14,0x18(%rsp)
+  ad2886:	mov    (%rsi),%rbp
+  ad2889:	mov    %rsi,0x8(%rsp)
+  ad288e:	mov    0x8(%rsi),%r15
+  ad2892:	mov    %rdi,0x70(%rsp)
+  ad2897:	lea    0x18(%rdi),%rbx
+  ad289b:	xor    %r12d,%r12d
+  ad289e:	mov    0xf6cb9b(%rip),%r14        # 1a3f440 <_DYNAMIC+0x3470>
+  ad28a5:	jmp    ad28c0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0xb0>
+  ad28a7:	nopw   0x0(%rax,%rax,1)
+  ad28b0:	inc    %r12
+  ad28b3:	add    $0x18,%rbx
+  ad28b7:	cmp    %r12,%r13
+  ad28ba:	je     ad2a8f <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x27f>
+  ad28c0:	cmp    %rbp,-0x8(%rbx)
+  ad28c4:	jne    ad28b0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0xa0>
+  ad28c6:	mov    (%rbx),%rsi
+  ad28c9:	mov    0x10(%rsp),%rax
+  ad28ce:	mov    (%rax),%rdi
+  ad28d1:	mov    %r15,%rdx
+  ad28d4:	call   *%r14
+  ad28d7:	test   %al,%al
+  ad28d9:	je     ad28b0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0xa0>
+  ad28db:	mov    %r12,0x60(%rsp)
+  ad28e0:	movq   $0x1,0x68(%rsp)
+  ad28e9:	movq   $0x1,0x40(%rsp)
+  ad28f2:	mov    0x8(%rsp),%rax
+  ad28f7:	movups (%rax),%xmm0
+  ad28fa:	movups %xmm0,0x48(%rsp)
+  ad28ff:	mov    0x10(%rax),%rax
+  ad2903:	mov    %rax,0x58(%rsp)
+  ad2908:	movq   $0x0,0x20(%rsp)
+  ad2911:	xorps  %xmm0,%xmm0
+  ad2914:	movups %xmm0,0x30(%rsp)
+  ad2919:	xor    %ebp,%ebp
+  ad291b:	lea    0x40(%rsp),%rcx
+  ad2920:	lea    0x20(%rsp),%r8
+  ad2925:	mov    0x18(%rsp),%rdi
+  ad292a:	xor    %esi,%esi
+  ad292c:	xor    %edx,%edx
+  ad292e:	mov    (%rsp),%r9
+  ad2932:	call   ad0c00 <badger_runtime::hamt::edit::<badger_runtime::hamt::Epoch>>
+  ad2937:	jmp    ad2e03 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f3>
+  ad293c:	mov    (%rsi),%rdx
+  ad293f:	mov    %rdx,%rax
+  ad2942:	mov    %ebp,%ecx
+  ad2944:	shr    %cl,%rax
+  ad2947:	mov    $0x1,%r13d
+  ad294d:	mov    %eax,%ecx
+  ad294f:	shl    %cl,%r13d
+  ad2952:	mov    (%rdi),%ecx
+  ad2954:	mov    0x4(%rdi),%ebx
+  ad2957:	bt     %eax,%ecx
+  ad295a:	jae    ad2b03 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x2f3>
+  ad2960:	mov    %r12d,0x7c(%rsp)
+  ad2965:	mov    %rsi,%r12
+  ad2968:	mov    %r9,(%rsp)
+  ad296c:	lea    -0x1(%r13),%r15d
+  ad2970:	mov    %r15d,%eax
+  ad2973:	mov    %ecx,0x8(%rsp)
+  ad2977:	and    %ecx,%eax
+  ad2979:	mov    %eax,%ecx
+  ad297b:	shr    $1,%ecx
+  ad297d:	and    $0x55555555,%ecx
+  ad2983:	sub    %ecx,%eax
+  ad2985:	mov    %eax,%ecx
+  ad2987:	and    $0x33333333,%ecx
+  ad298d:	shr    $0x2,%eax
+  ad2990:	and    $0x33333333,%eax
+  ad2995:	add    %ecx,%eax
+  ad2997:	mov    %eax,%ecx
+  ad2999:	shr    $0x4,%ecx
+  ad299c:	add    %eax,%ecx
+  ad299e:	and    $0xf0f0f0f,%ecx
+  ad29a4:	imul   $0x1010101,%ecx,%eax
+  ad29aa:	shr    $0x18,%eax
+  ad29ad:	mov    %rax,0x70(%rsp)
+  ad29b2:	lea    (%rax,%rax,2),%rax
+  ad29b6:	mov    0x10(%rdi,%rax,8),%rcx
+  ad29bb:	mov    %rcx,0x80(%rsp)
+  ad29c3:	movups 0x18(%rdi,%rax,8),%xmm0
+  ad29c8:	mov    0x18(%rdi,%rax,8),%rsi
+  ad29cd:	movups %xmm0,0x88(%rsp)
+  ad29d5:	cmp    %rdx,%rcx
+  ad29d8:	jne    ad2a58 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x248>
+  ad29da:	mov    0x8(%r12),%rdx
+  ad29df:	mov    0x10(%rsp),%rax
+  ad29e4:	mov    (%rax),%rdi
+  ad29e7:	call   *0xf6ca53(%rip)        # 1a3f440 <_DYNAMIC+0x3470>
+  ad29ed:	test   %al,%al
+  ad29ef:	je     ad2a58 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x248>
+  ad29f1:	mov    0x70(%rsp),%rax
+  ad29f6:	mov    %rax,0x60(%rsp)
+  ad29fb:	movq   $0x1,0x68(%rsp)
+  ad2a04:	movq   $0x1,0x40(%rsp)
+  ad2a0d:	movups (%r12),%xmm0
+  ad2a12:	movups %xmm0,0x48(%rsp)
+  ad2a17:	mov    0x10(%r12),%rax
+  ad2a1c:	mov    %rax,0x58(%rsp)
+  ad2a21:	movq   $0x0,0x20(%rsp)
+  ad2a2a:	xorps  %xmm0,%xmm0
+  ad2a2d:	movups %xmm0,0x30(%rsp)
+  ad2a32:	lea    0x40(%rsp),%rcx
+  ad2a37:	lea    0x20(%rsp),%r8
+  ad2a3c:	mov    %r14,%rdi
+  ad2a3f:	mov    0x8(%rsp),%esi
+  ad2a43:	mov    %ebx,%edx
+  ad2a45:	mov    (%rsp),%r9
+  ad2a49:	call   ad0c00 <badger_runtime::hamt::edit::<badger_runtime::hamt::Epoch>>
+  ad2a4e:	mov    %rax,%r14
+  ad2a51:	xor    %ebp,%ebp
+  ad2a53:	jmp    ad2e06 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f6>
+  ad2a58:	mov    %r14,0x18(%rsp)
+  ad2a5d:	call   b835e0 <badger_runtime::task::current_raw>
+  ad2a62:	mov    0xf6a79f(%rip),%r14        # 1a3d208 <_DYNAMIC+0x1238>
+  ad2a69:	test   %rax,%rax
+  ad2a6c:	je     ad2bec <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x3dc>
+  ad2a72:	call   *0xf6c9a8(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad2a78:	lea    0xd8(%rax),%rcx
+  ad2a7f:	add    $0x18,%r14
+  ad2a83:	test   %rax,%rax
+  ad2a86:	cmovne %rcx,%r14
+  ad2a8a:	jmp    ad2bf0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x3e0>
+  ad2a8f:	mov    0x70(%rsp),%rax
+  ad2a94:	mov    0xc(%rax),%eax
+  ad2a97:	mov    0x18(%rsp),%r14
+  ad2a9c:	mov    (%rsp),%r9
+  ad2aa0:	mov    0x8(%rsp),%rsi
+  ad2aa5:	jmp    ad2aa9 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x299>
+  ad2aa7:	xor    %eax,%eax
+  ad2aa9:	mov    %rax,0x60(%rsp)
+  ad2aae:	movq   $0x0,0x68(%rsp)
+  ad2ab7:	movq   $0x1,0x40(%rsp)
+  ad2ac0:	movups (%rsi),%xmm0
+  ad2ac3:	movups %xmm0,0x48(%rsp)
+  ad2ac8:	mov    0x10(%rsi),%rax
+  ad2acc:	mov    %rax,0x58(%rsp)
+  ad2ad1:	movq   $0x0,0x20(%rsp)
+  ad2ada:	xorps  %xmm0,%xmm0
+  ad2add:	movups %xmm0,0x30(%rsp)
+  ad2ae2:	lea    0x40(%rsp),%rcx
+  ad2ae7:	lea    0x20(%rsp),%r8
+  ad2aec:	mov    %r14,%rdi
+  ad2aef:	xor    %esi,%esi
+  ad2af1:	xor    %edx,%edx
+  ad2af3:	call   ad0c00 <badger_runtime::hamt::edit::<badger_runtime::hamt::Epoch>>
+  ad2af8:	mov    %rax,%r14
+  ad2afb:	mov    $0x1,%bpl
+  ad2afe:	jmp    ad2e06 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f6>
+  ad2b03:	test   %ebx,%r13d
+  ad2b06:	je     ad2cf3 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x4e3>
+  ad2b0c:	mov    %ecx,0x8(%rsp)
+  ad2b10:	dec    %r13d
+  ad2b13:	mov    %ebx,0x18(%rsp)
+  ad2b17:	and    %ebx,%r13d
+  ad2b1a:	mov    %r13d,%eax
+  ad2b1d:	shr    $1,%eax
+  ad2b1f:	and    $0x55555555,%eax
+  ad2b24:	sub    %eax,%r13d
+  ad2b27:	mov    %r13d,%eax
+  ad2b2a:	and    $0x33333333,%eax
+  ad2b2f:	shr    $0x2,%r13d
+  ad2b33:	and    $0x33333333,%r13d
+  ad2b3a:	add    %eax,%r13d
+  ad2b3d:	mov    %r13d,%eax
+  ad2b40:	shr    $0x4,%eax
+  ad2b43:	add    %r13d,%eax
+  ad2b46:	and    $0xf0f0f0f,%eax
+  ad2b4b:	imul   $0x1010101,%eax,%r15d
+  ad2b52:	shr    $0x18,%r15d
+  ad2b56:	mov    0xc(%rdi),%eax
+  ad2b59:	lea    (%rax,%rax,2),%rax
+  ad2b5d:	lea    (%rdi,%rax,8),%rax
+  ad2b61:	mov    0x10(%rax,%r15,8),%r13
+  ad2b66:	add    $0x5,%ebp
+  ad2b69:	mov    %r13,%rdi
+  ad2b6c:	mov    %ebp,%edx
+  ad2b6e:	mov    %r12d,%ecx
+  ad2b71:	mov    0x10(%rsp),%r8
+  ad2b76:	mov    %r9,%rbx
+  ad2b79:	call   ad2810 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>>
+  ad2b7e:	mov    %rax,%r12
+  ad2b81:	mov    %edx,%ebp
+  ad2b83:	cmp    %r13,%rax
+  ad2b86:	jne    ad2ba6 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x396>
+  ad2b88:	mov    0x8(%r14),%rax
+  ad2b8c:	and    $0xfffffff8,%eax
+  ad2b8f:	shl    $0x1b,%rax
+  ad2b93:	mov    0x18(%r14),%ecx
+  ad2b97:	shr    $0x2,%ecx
+  ad2b9a:	or     %rax,%rcx
+  ad2b9d:	cmp    %rbx,%rcx
+  ad2ba0:	je     ad2e06 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f6>
+  ad2ba6:	mov    %rbx,(%rsp)
+  ad2baa:	mov    %r14,%r13
+  ad2bad:	call   b835e0 <badger_runtime::task::current_raw>
+  ad2bb2:	mov    0xf6a64f(%rip),%r14        # 1a3d208 <_DYNAMIC+0x1238>
+  ad2bb9:	test   %rax,%rax
+  ad2bbc:	je     ad2d88 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x578>
+  ad2bc2:	call   *0xf6c858(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad2bc8:	lea    0xd8(%rax),%rcx
+  ad2bcf:	add    $0x18,%r14
+  ad2bd3:	test   %rax,%rax
+  ad2bd6:	cmovne %rcx,%r14
+  ad2bda:	mov    0x10(%r14),%rbx
+  ad2bde:	cmp    (%r14),%rbx
+  ad2be1:	je     ad2d95 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x585>
+  ad2be7:	jmp    ad2d9e <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x58e>
+  ad2bec:	add    $0x18,%r14
+  ad2bf0:	mov    0x10(%r14),%rax
+  ad2bf4:	mov    %rax,0x10(%rsp)
+  ad2bf9:	add    $0x5,%ebp
+  ad2bfc:	lea    0x80(%rsp),%rdi
+  ad2c04:	mov    %r12,%rsi
+  ad2c07:	mov    %ebp,%edx
+  ad2c09:	mov    0x7c(%rsp),%ecx
+  ad2c0d:	mov    (%rsp),%r8
+  ad2c11:	call   ad1a40 <badger_runtime::hamt::pair::<badger_runtime::hamt::Epoch>>
+  ad2c16:	mov    %rax,%r12
+  ad2c19:	mov    0x10(%r14),%rbp
+  ad2c1d:	cmp    (%r14),%rbp
+  ad2c20:	jne    ad2c2b <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x41b>
+  ad2c22:	mov    %r14,%rdi
+  ad2c25:	call   *0xf6c7fd(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad2c2b:	mov    0x8(%r14),%rax
+  ad2c2f:	mov    %r12,(%rax,%rbp,8)
+  ad2c33:	inc    %rbp
+  ad2c36:	mov    %rbp,0x10(%r14)
+  ad2c3a:	and    %ebx,%r15d
+  ad2c3d:	mov    %r15d,%eax
+  ad2c40:	shr    $1,%eax
+  ad2c42:	and    $0x55555555,%eax
+  ad2c47:	sub    %eax,%r15d
+  ad2c4a:	mov    %r15d,%eax
+  ad2c4d:	and    $0x33333333,%eax
+  ad2c52:	shr    $0x2,%r15d
+  ad2c56:	and    $0x33333333,%r15d
+  ad2c5d:	add    %eax,%r15d
+  ad2c60:	mov    %r15d,%eax
+  ad2c63:	shr    $0x4,%eax
+  ad2c66:	add    %r15d,%eax
+  ad2c69:	and    $0xf0f0f0f,%eax
+  ad2c6e:	imul   $0x1010101,%eax,%eax
+  ad2c74:	shr    $0x18,%eax
+  ad2c77:	mov    %r13d,%ecx
+  ad2c7a:	not    %ecx
+  ad2c7c:	mov    0x8(%rsp),%esi
+  ad2c80:	and    %ecx,%esi
+  ad2c82:	or     %ebx,%r13d
+  ad2c85:	mov    0x70(%rsp),%rcx
+  ad2c8a:	mov    %rcx,0x60(%rsp)
+  ad2c8f:	movq   $0x1,0x68(%rsp)
+  ad2c98:	movq   $0x0,0x40(%rsp)
+  ad2ca1:	mov    %rax,0x30(%rsp)
+  ad2ca6:	movq   $0x0,0x38(%rsp)
+  ad2caf:	movq   $0x1,0x20(%rsp)
+  ad2cb8:	mov    %r12,0x28(%rsp)
+  ad2cbd:	lea    0x40(%rsp),%rcx
+  ad2cc2:	lea    0x20(%rsp),%r8
+  ad2cc7:	mov    0x18(%rsp),%rdi
+  ad2ccc:	mov    %r13d,%edx
+  ad2ccf:	mov    (%rsp),%r9
+  ad2cd3:	call   ad0c00 <badger_runtime::hamt::edit::<badger_runtime::hamt::Epoch>>
+  ad2cd8:	mov    $0x1,%bpl
+  ad2cdb:	mov    0x10(%rsp),%rcx
+  ad2ce0:	cmp    0x10(%r14),%rcx
+  ad2ce4:	ja     ad2e03 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f3>
+  ad2cea:	mov    %rcx,0x10(%r14)
+  ad2cee:	jmp    ad2e03 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f3>
+  ad2cf3:	mov    %rsi,%rdx
+  ad2cf6:	mov    %r13d,%esi
+  ad2cf9:	or     %ecx,%esi
+  ad2cfb:	dec    %r13d
+  ad2cfe:	and    %ecx,%r13d
+  ad2d01:	mov    %r13d,%eax
+  ad2d04:	shr    $1,%eax
+  ad2d06:	and    $0x55555555,%eax
+  ad2d0b:	sub    %eax,%r13d
+  ad2d0e:	mov    %r13d,%eax
+  ad2d11:	and    $0x33333333,%eax
+  ad2d16:	shr    $0x2,%r13d
+  ad2d1a:	and    $0x33333333,%r13d
+  ad2d21:	add    %eax,%r13d
+  ad2d24:	mov    %r13d,%eax
+  ad2d27:	shr    $0x4,%eax
+  ad2d2a:	add    %r13d,%eax
+  ad2d2d:	and    $0xf0f0f0f,%eax
+  ad2d32:	imul   $0x1010101,%eax,%eax
+  ad2d38:	shr    $0x18,%eax
+  ad2d3b:	mov    %rax,0x60(%rsp)
+  ad2d40:	movq   $0x0,0x68(%rsp)
+  ad2d49:	movq   $0x1,0x40(%rsp)
+  ad2d52:	movups (%rdx),%xmm0
+  ad2d55:	movups %xmm0,0x48(%rsp)
+  ad2d5a:	mov    0x10(%rdx),%rax
+  ad2d5e:	mov    %rax,0x58(%rsp)
+  ad2d63:	movq   $0x0,0x20(%rsp)
+  ad2d6c:	xorps  %xmm0,%xmm0
+  ad2d6f:	movups %xmm0,0x30(%rsp)
+  ad2d74:	lea    0x40(%rsp),%rcx
+  ad2d79:	lea    0x20(%rsp),%r8
+  ad2d7e:	mov    %r14,%rdi
+  ad2d81:	mov    %ebx,%edx
+  ad2d83:	jmp    ad2af3 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x2e3>
+  ad2d88:	add    $0x18,%r14
+  ad2d8c:	mov    0x10(%r14),%rbx
+  ad2d90:	cmp    (%r14),%rbx
+  ad2d93:	jne    ad2d9e <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x58e>
+  ad2d95:	mov    %r14,%rdi
+  ad2d98:	call   *0xf6c68a(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad2d9e:	mov    0x8(%r14),%rax
+  ad2da2:	mov    %r12,(%rax,%rbx,8)
+  ad2da6:	lea    0x1(%rbx),%rax
+  ad2daa:	mov    %rax,0x10(%r14)
+  ad2dae:	movq   $0x0,0x40(%rsp)
+  ad2db7:	xorps  %xmm0,%xmm0
+  ad2dba:	movups %xmm0,0x60(%rsp)
+  ad2dbf:	mov    %r15,0x30(%rsp)
+  ad2dc4:	movq   $0x1,0x38(%rsp)
+  ad2dcd:	movq   $0x1,0x20(%rsp)
+  ad2dd6:	mov    %r12,0x28(%rsp)
+  ad2ddb:	lea    0x40(%rsp),%rcx
+  ad2de0:	lea    0x20(%rsp),%r8
+  ad2de5:	mov    %r13,%rdi
+  ad2de8:	mov    0x8(%rsp),%esi
+  ad2dec:	mov    0x18(%rsp),%edx
+  ad2df0:	mov    (%rsp),%r9
+  ad2df4:	call   ad0c00 <badger_runtime::hamt::edit::<badger_runtime::hamt::Epoch>>
+  ad2df9:	cmp    0x10(%r14),%rbx
+  ad2dfd:	ja     ad2e03 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x5f3>
+  ad2dff:	mov    %rbx,0x10(%r14)
+  ad2e03:	mov    %rax,%r14
+  ad2e06:	mov    %r14,%rax
+  ad2e09:	mov    %ebp,%edx
+  ad2e0b:	add    $0x98,%rsp
+  ad2e12:	pop    %rbx
+  ad2e13:	pop    %r12
+  ad2e15:	pop    %r13
+  ad2e17:	pop    %r14
+  ad2e19:	pop    %r15
+  ad2e1b:	pop    %rbp
+  ad2e1c:	ret
+  ad2e1d:	mov    %r9,%rbx
+  ad2e20:	mov    %rsi,%r15
+  ad2e23:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad2e28:	mov    %r15,%rsi
+  ad2e2b:	mov    %rbx,%r9
+  ad2e2e:	cmpb   $0x1,0xf7c45f(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2e35:	je     ad2845 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x35>
+  ad2e3b:	jmp    ad2863 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x53>
+  ad2e40:	mov    %r9,%r15
+  ad2e43:	mov    %r12d,%r13d
+  ad2e46:	mov    %rsi,%r12
+  ad2e49:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad2e4e:	mov    %r12,%rsi
+  ad2e51:	mov    %r13d,%r12d
+  ad2e54:	mov    %r15,%r9
+  ad2e57:	cmp    0xf7c41a(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2e5e:	jne    ad2863 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x53>
+  ad2e64:	lea    -0x86379e(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad2e6b:	mov    $0xb,%edx
+  ad2e70:	mov    %r14,%rdi
+  ad2e73:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad2e78:	cmp    0x10(%r14),%rbx
+  ad2e7c:	ja     ad2e95 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x685>
+  ad2e7e:	mov    %rbx,0x10(%r14)
+  ad2e82:	mov    %rax,%rdi
+  ad2e85:	call   19a1a00 <_Unwind_Resume@plt>
+  ad2e8a:	mov    0x10(%rsp),%rcx
+  ad2e8f:	cmp    0x10(%r14),%rcx
+  ad2e93:	jbe    ad2e9d <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Epoch>+0x68d>
+  ad2e95:	mov    %rax,%rdi
+  ad2e98:	call   19a1a00 <_Unwind_Resume@plt>
+  ad2e9d:	mov    0x10(%rsp),%rcx
+  ad2ea2:	mov    %rcx,0x10(%r14)
+  ad2ea6:	mov    %rax,%rdi
+  ad2ea9:	call   19a1a00 <_Unwind_Resume@plt>
+
+
+0000000000ad2eb0 0000000000000651 t badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>
+
+/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/snapshot-epochs-specialized-candidate:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000ad2eb0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>>:
+  ad2eb0:	push   %rbp
+  ad2eb1:	push   %r15
+  ad2eb3:	push   %r14
+  ad2eb5:	push   %r13
+  ad2eb7:	push   %r12
+  ad2eb9:	push   %rbx
+  ad2eba:	sub    $0x98,%rsp
+  ad2ec1:	mov    %r8,(%rsp)
+  ad2ec5:	mov    %edx,%ebp
+  ad2ec7:	mov    %rdi,%r15
+  ad2eca:	mov    0xf7c3c0(%rip),%eax        # 1a4f290 <badger_runtime::gc::verify::VERIFY>
+  ad2ed0:	test   %eax,%eax
+  ad2ed2:	jne    ad347a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5ca>
+  ad2ed8:	cmpb   $0x1,0xf7c3b5(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad2edf:	jne    ad2eff <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x4f>
+  ad2ee1:	mov    (%r15),%rbx
+  ad2ee4:	mov    0xf7c396(%rip),%eax        # 1a4f280 <badger_runtime::gc::poison::D+0x8>
+  ad2eea:	test   %eax,%eax
+  ad2eec:	jne    ad349b <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5eb>
+  ad2ef2:	cmp    0xf7c37f(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad2ef9:	je     ad34b9 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x609>
+  ad2eff:	lea    0x10(%r15),%rdi
+  ad2f03:	cmp    $0x3f,%ebp
+  ad2f06:	jbe    ad2fc7 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x117>
+  ad2f0c:	mov    0xc(%rdi),%r12d
+  ad2f10:	test   %r12,%r12
+  ad2f13:	je     ad312a <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x27a>
+  ad2f19:	mov    %r15,0x8(%rsp)
+  ad2f1e:	mov    (%rsi),%rbp
+  ad2f21:	mov    %rsi,0x18(%rsp)
+  ad2f26:	mov    0x8(%rsi),%r14
+  ad2f2a:	mov    %rdi,0x10(%rsp)
+  ad2f2f:	lea    0x18(%rdi),%rbx
+  ad2f33:	xor    %r15d,%r15d
+  ad2f36:	mov    0xf6c503(%rip),%r13        # 1a3f440 <_DYNAMIC+0x3470>
+  ad2f3d:	jmp    ad2f50 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0xa0>
+  ad2f3f:	nop
+  ad2f40:	inc    %r15
+  ad2f43:	add    $0x18,%rbx
+  ad2f47:	cmp    %r15,%r12
+  ad2f4a:	je     ad3116 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x266>
+  ad2f50:	cmp    %rbp,-0x8(%rbx)
+  ad2f54:	jne    ad2f40 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x90>
+  ad2f56:	mov    (%rbx),%rsi
+  ad2f59:	mov    (%rsp),%rax
+  ad2f5d:	mov    (%rax),%rdi
+  ad2f60:	mov    %r14,%rdx
+  ad2f63:	call   *%r13
+  ad2f66:	test   %al,%al
+  ad2f68:	je     ad2f40 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x90>
+  ad2f6a:	mov    %r15,0x68(%rsp)
+  ad2f6f:	movq   $0x1,0x70(%rsp)
+  ad2f78:	movq   $0x1,0x48(%rsp)
+  ad2f81:	mov    0x18(%rsp),%rax
+  ad2f86:	movups (%rax),%xmm0
+  ad2f89:	movups %xmm0,0x50(%rsp)
+  ad2f8e:	mov    0x10(%rax),%rax
+  ad2f92:	mov    %rax,0x60(%rsp)
+  ad2f97:	movq   $0x0,0x28(%rsp)
+  ad2fa0:	xorps  %xmm0,%xmm0
+  ad2fa3:	movups %xmm0,0x38(%rsp)
+  ad2fa8:	xor    %ebp,%ebp
+  ad2faa:	lea    0x48(%rsp),%rcx
+  ad2faf:	lea    0x28(%rsp),%r8
+  ad2fb4:	mov    0x8(%rsp),%rdi
+  ad2fb9:	xor    %esi,%esi
+  ad2fbb:	xor    %edx,%edx
+  ad2fbd:	call   ad1110 <badger_runtime::hamt::edit::<badger_runtime::hamt::Builder>>
+  ad2fc2:	jmp    ad3460 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b0>
+  ad2fc7:	mov    %ecx,0x18(%rsp)
+  ad2fcb:	mov    (%rsi),%rdx
+  ad2fce:	mov    %rdx,%rax
+  ad2fd1:	mov    %ebp,%ecx
+  ad2fd3:	shr    %cl,%rax
+  ad2fd6:	mov    $0x1,%r12d
+  ad2fdc:	mov    %eax,%ecx
+  ad2fde:	shl    %cl,%r12d
+  ad2fe1:	mov    (%rdi),%r13d
+  ad2fe4:	mov    0x4(%rdi),%ebx
+  ad2fe7:	bt     %eax,%r13d
+  ad2feb:	jae    ad3186 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x2d6>
+  ad2ff1:	mov    %ebx,0x24(%rsp)
+  ad2ff5:	mov    %rsi,%rbx
+  ad2ff8:	lea    -0x1(%r12),%r14d
+  ad2ffd:	mov    %r14d,%eax
+  ad3000:	and    %r13d,%eax
+  ad3003:	mov    %eax,%ecx
+  ad3005:	shr    $1,%ecx
+  ad3007:	and    $0x55555555,%ecx
+  ad300d:	sub    %ecx,%eax
+  ad300f:	mov    %eax,%ecx
+  ad3011:	and    $0x33333333,%ecx
+  ad3017:	shr    $0x2,%eax
+  ad301a:	and    $0x33333333,%eax
+  ad301f:	add    %ecx,%eax
+  ad3021:	mov    %eax,%ecx
+  ad3023:	shr    $0x4,%ecx
+  ad3026:	add    %eax,%ecx
+  ad3028:	and    $0xf0f0f0f,%ecx
+  ad302e:	imul   $0x1010101,%ecx,%eax
+  ad3034:	shr    $0x18,%eax
+  ad3037:	mov    %rax,0x78(%rsp)
+  ad303c:	lea    (%rax,%rax,2),%rax
+  ad3040:	mov    0x10(%rdi,%rax,8),%rcx
+  ad3045:	mov    %rcx,0x80(%rsp)
+  ad304d:	movups 0x18(%rdi,%rax,8),%xmm0
+  ad3052:	mov    0x18(%rdi,%rax,8),%rsi
+  ad3057:	movups %xmm0,0x88(%rsp)
+  ad305f:	cmp    %rdx,%rcx
+  ad3062:	jne    ad30da <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x22a>
+  ad3064:	mov    0x8(%rbx),%rdx
+  ad3068:	mov    (%rsp),%rax
+  ad306c:	mov    (%rax),%rdi
+  ad306f:	call   *0xf6c3cb(%rip)        # 1a3f440 <_DYNAMIC+0x3470>
+  ad3075:	test   %al,%al
+  ad3077:	je     ad30da <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x22a>
+  ad3079:	mov    0x78(%rsp),%rax
+  ad307e:	mov    %rax,0x68(%rsp)
+  ad3083:	movq   $0x1,0x70(%rsp)
+  ad308c:	movq   $0x1,0x48(%rsp)
+  ad3095:	movups (%rbx),%xmm0
+  ad3098:	movups %xmm0,0x50(%rsp)
+  ad309d:	mov    0x10(%rbx),%rax
+  ad30a1:	mov    %rax,0x60(%rsp)
+  ad30a6:	movq   $0x0,0x28(%rsp)
+  ad30af:	xorps  %xmm0,%xmm0
+  ad30b2:	movups %xmm0,0x38(%rsp)
+  ad30b7:	lea    0x48(%rsp),%rcx
+  ad30bc:	lea    0x28(%rsp),%r8
+  ad30c1:	mov    %r15,%rdi
+  ad30c4:	mov    %r13d,%esi
+  ad30c7:	mov    0x24(%rsp),%edx
+  ad30cb:	call   ad1110 <badger_runtime::hamt::edit::<badger_runtime::hamt::Builder>>
+  ad30d0:	mov    %rax,%r15
+  ad30d3:	xor    %ebp,%ebp
+  ad30d5:	jmp    ad3463 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b3>
+  ad30da:	mov    %r13d,0x10(%rsp)
+  ad30df:	call   b835e0 <badger_runtime::task::current_raw>
+  ad30e4:	mov    0xf6a11d(%rip),%r13        # 1a3d208 <_DYNAMIC+0x1238>
+  ad30eb:	test   %rax,%rax
+  ad30ee:	mov    %r15,0x8(%rsp)
+  ad30f3:	je     ad3250 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x3a0>
+  ad30f9:	call   *0xf6c321(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad30ff:	lea    0xd8(%rax),%rcx
+  ad3106:	add    $0x18,%r13
+  ad310a:	test   %rax,%rax
+  ad310d:	cmovne %rcx,%r13
+  ad3111:	jmp    ad3254 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x3a4>
+  ad3116:	mov    0x10(%rsp),%rax
+  ad311b:	mov    0xc(%rax),%eax
+  ad311e:	mov    0x8(%rsp),%r15
+  ad3123:	mov    0x18(%rsp),%rsi
+  ad3128:	jmp    ad312c <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x27c>
+  ad312a:	xor    %eax,%eax
+  ad312c:	mov    %rax,0x68(%rsp)
+  ad3131:	movq   $0x0,0x70(%rsp)
+  ad313a:	movq   $0x1,0x48(%rsp)
+  ad3143:	movups (%rsi),%xmm0
+  ad3146:	movups %xmm0,0x50(%rsp)
+  ad314b:	mov    0x10(%rsi),%rax
+  ad314f:	mov    %rax,0x60(%rsp)
+  ad3154:	movq   $0x0,0x28(%rsp)
+  ad315d:	xorps  %xmm0,%xmm0
+  ad3160:	movups %xmm0,0x38(%rsp)
+  ad3165:	lea    0x48(%rsp),%rcx
+  ad316a:	lea    0x28(%rsp),%r8
+  ad316f:	mov    %r15,%rdi
+  ad3172:	xor    %esi,%esi
+  ad3174:	xor    %edx,%edx
+  ad3176:	call   ad1110 <badger_runtime::hamt::edit::<badger_runtime::hamt::Builder>>
+  ad317b:	mov    %rax,%r15
+  ad317e:	mov    $0x1,%bpl
+  ad3181:	jmp    ad3463 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b3>
+  ad3186:	test   %ebx,%r12d
+  ad3189:	mov    0x18(%rsp),%ecx
+  ad318d:	je     ad3352 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x4a2>
+  ad3193:	mov    %r13d,0x10(%rsp)
+  ad3198:	dec    %r12d
+  ad319b:	and    %ebx,%r12d
+  ad319e:	mov    %r12d,%eax
+  ad31a1:	shr    $1,%eax
+  ad31a3:	and    $0x55555555,%eax
+  ad31a8:	sub    %eax,%r12d
+  ad31ab:	mov    %r12d,%eax
+  ad31ae:	and    $0x33333333,%eax
+  ad31b3:	shr    $0x2,%r12d
+  ad31b7:	and    $0x33333333,%r12d
+  ad31be:	add    %eax,%r12d
+  ad31c1:	mov    %r12d,%eax
+  ad31c4:	shr    $0x4,%eax
+  ad31c7:	add    %r12d,%eax
+  ad31ca:	and    $0xf0f0f0f,%eax
+  ad31cf:	imul   $0x1010101,%eax,%r14d
+  ad31d6:	shr    $0x18,%r14d
+  ad31da:	mov    0xc(%rdi),%eax
+  ad31dd:	lea    (%rax,%rax,2),%rax
+  ad31e1:	lea    (%rdi,%rax,8),%rax
+  ad31e5:	mov    0x10(%rax,%r14,8),%r12
+  ad31ea:	add    $0x5,%ebp
+  ad31ed:	mov    %r12,%rdi
+  ad31f0:	mov    %ebp,%edx
+  ad31f2:	mov    (%rsp),%r8
+  ad31f6:	call   ad2eb0 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>>
+  ad31fb:	mov    %edx,%ebp
+  ad31fd:	cmp    %r12,%rax
+  ad3200:	je     ad3463 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b3>
+  ad3206:	mov    %rax,%r13
+  ad3209:	mov    %r15,0x8(%rsp)
+  ad320e:	call   b835e0 <badger_runtime::task::current_raw>
+  ad3213:	mov    0xf69fee(%rip),%r15        # 1a3d208 <_DYNAMIC+0x1238>
+  ad321a:	mov    %ebx,%r12d
+  ad321d:	test   %rax,%rax
+  ad3220:	je     ad33e8 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x538>
+  ad3226:	call   *0xf6c1f4(%rip)        # 1a3f420 <_DYNAMIC+0x3450>
+  ad322c:	lea    0xd8(%rax),%rcx
+  ad3233:	add    $0x18,%r15
+  ad3237:	test   %rax,%rax
+  ad323a:	cmovne %rcx,%r15
+  ad323e:	mov    0x10(%r15),%rbx
+  ad3242:	cmp    (%r15),%rbx
+  ad3245:	je     ad33f5 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x545>
+  ad324b:	jmp    ad33fe <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x54e>
+  ad3250:	add    $0x18,%r13
+  ad3254:	mov    0x10(%r13),%rax
+  ad3258:	mov    %rax,(%rsp)
+  ad325c:	add    $0x5,%ebp
+  ad325f:	lea    0x80(%rsp),%rdi
+  ad3267:	mov    %rbx,%rsi
+  ad326a:	mov    %ebp,%edx
+  ad326c:	mov    0x18(%rsp),%ecx
+  ad3270:	call   ad1d30 <badger_runtime::hamt::pair::<badger_runtime::hamt::Builder>>
+  ad3275:	mov    %rax,%r15
+  ad3278:	mov    0x10(%r13),%rbp
+  ad327c:	cmp    0x0(%r13),%rbp
+  ad3280:	jne    ad328b <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x3db>
+  ad3282:	mov    %r13,%rdi
+  ad3285:	call   *0xf6c19d(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad328b:	mov    0x8(%r13),%rax
+  ad328f:	mov    %r15,(%rax,%rbp,8)
+  ad3293:	inc    %rbp
+  ad3296:	mov    %rbp,0x10(%r13)
+  ad329a:	mov    0x24(%rsp),%ebx
+  ad329e:	and    %ebx,%r14d
+  ad32a1:	mov    %r14d,%eax
+  ad32a4:	shr    $1,%eax
+  ad32a6:	and    $0x55555555,%eax
+  ad32ab:	sub    %eax,%r14d
+  ad32ae:	mov    %r14d,%eax
+  ad32b1:	and    $0x33333333,%eax
+  ad32b6:	shr    $0x2,%r14d
+  ad32ba:	and    $0x33333333,%r14d
+  ad32c1:	add    %eax,%r14d
+  ad32c4:	mov    %r14d,%eax
+  ad32c7:	shr    $0x4,%eax
+  ad32ca:	add    %r14d,%eax
+  ad32cd:	and    $0xf0f0f0f,%eax
+  ad32d2:	imul   $0x1010101,%eax,%eax
+  ad32d8:	shr    $0x18,%eax
+  ad32db:	mov    %r12d,%ecx
+  ad32de:	not    %ecx
+  ad32e0:	mov    0x10(%rsp),%esi
+  ad32e4:	and    %ecx,%esi
+  ad32e6:	or     %ebx,%r12d
+  ad32e9:	mov    0x78(%rsp),%rcx
+  ad32ee:	mov    %rcx,0x68(%rsp)
+  ad32f3:	movq   $0x1,0x70(%rsp)
+  ad32fc:	movq   $0x0,0x48(%rsp)
+  ad3305:	mov    %rax,0x38(%rsp)
+  ad330a:	movq   $0x0,0x40(%rsp)
+  ad3313:	movq   $0x1,0x28(%rsp)
+  ad331c:	mov    %r15,0x30(%rsp)
+  ad3321:	lea    0x48(%rsp),%rcx
+  ad3326:	lea    0x28(%rsp),%r8
+  ad332b:	mov    0x8(%rsp),%rdi
+  ad3330:	mov    %r12d,%edx
+  ad3333:	call   ad1110 <badger_runtime::hamt::edit::<badger_runtime::hamt::Builder>>
+  ad3338:	mov    $0x1,%bpl
+  ad333b:	mov    (%rsp),%rcx
+  ad333f:	cmp    0x10(%r13),%rcx
+  ad3343:	ja     ad3460 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b0>
+  ad3349:	mov    %rcx,0x10(%r13)
+  ad334d:	jmp    ad3460 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b0>
+  ad3352:	mov    %rsi,%rcx
+  ad3355:	mov    %r12d,%esi
+  ad3358:	or     %r13d,%esi
+  ad335b:	dec    %r12d
+  ad335e:	and    %r13d,%r12d
+  ad3361:	mov    %r12d,%eax
+  ad3364:	shr    $1,%eax
+  ad3366:	and    $0x55555555,%eax
+  ad336b:	sub    %eax,%r12d
+  ad336e:	mov    %r12d,%eax
+  ad3371:	and    $0x33333333,%eax
+  ad3376:	shr    $0x2,%r12d
+  ad337a:	and    $0x33333333,%r12d
+  ad3381:	add    %eax,%r12d
+  ad3384:	mov    %r12d,%eax
+  ad3387:	shr    $0x4,%eax
+  ad338a:	add    %r12d,%eax
+  ad338d:	and    $0xf0f0f0f,%eax
+  ad3392:	imul   $0x1010101,%eax,%eax
+  ad3398:	shr    $0x18,%eax
+  ad339b:	mov    %rax,0x68(%rsp)
+  ad33a0:	movq   $0x0,0x70(%rsp)
+  ad33a9:	movq   $0x1,0x48(%rsp)
+  ad33b2:	movups (%rcx),%xmm0
+  ad33b5:	movups %xmm0,0x50(%rsp)
+  ad33ba:	mov    0x10(%rcx),%rax
+  ad33be:	mov    %rax,0x60(%rsp)
+  ad33c3:	movq   $0x0,0x28(%rsp)
+  ad33cc:	xorps  %xmm0,%xmm0
+  ad33cf:	movups %xmm0,0x38(%rsp)
+  ad33d4:	lea    0x48(%rsp),%rcx
+  ad33d9:	lea    0x28(%rsp),%r8
+  ad33de:	mov    %r15,%rdi
+  ad33e1:	mov    %ebx,%edx
+  ad33e3:	jmp    ad3176 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x2c6>
+  ad33e8:	add    $0x18,%r15
+  ad33ec:	mov    0x10(%r15),%rbx
+  ad33f0:	cmp    (%r15),%rbx
+  ad33f3:	jne    ad33fe <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x54e>
+  ad33f5:	mov    %r15,%rdi
+  ad33f8:	call   *0xf6c02a(%rip)        # 1a3f428 <_DYNAMIC+0x3458>
+  ad33fe:	mov    0x8(%r15),%rax
+  ad3402:	mov    %r13,(%rax,%rbx,8)
+  ad3406:	lea    0x1(%rbx),%rax
+  ad340a:	mov    %rax,0x10(%r15)
+  ad340e:	movq   $0x0,0x48(%rsp)
+  ad3417:	xorps  %xmm0,%xmm0
+  ad341a:	movups %xmm0,0x68(%rsp)
+  ad341f:	mov    %r14,0x38(%rsp)
+  ad3424:	movq   $0x1,0x40(%rsp)
+  ad342d:	movq   $0x1,0x28(%rsp)
+  ad3436:	mov    %r13,0x30(%rsp)
+  ad343b:	lea    0x48(%rsp),%rcx
+  ad3440:	lea    0x28(%rsp),%r8
+  ad3445:	mov    0x8(%rsp),%rdi
+  ad344a:	mov    0x10(%rsp),%esi
+  ad344e:	mov    %r12d,%edx
+  ad3451:	call   ad1110 <badger_runtime::hamt::edit::<badger_runtime::hamt::Builder>>
+  ad3456:	cmp    0x10(%r15),%rbx
+  ad345a:	ja     ad3460 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x5b0>
+  ad345c:	mov    %rbx,0x10(%r15)
+  ad3460:	mov    %rax,%r15
+  ad3463:	mov    %r15,%rax
+  ad3466:	mov    %ebp,%edx
+  ad3468:	add    $0x98,%rsp
+  ad346f:	pop    %rbx
+  ad3470:	pop    %r12
+  ad3472:	pop    %r13
+  ad3474:	pop    %r14
+  ad3476:	pop    %r15
+  ad3478:	pop    %rbp
+  ad3479:	ret
+  ad347a:	mov    %ecx,%ebx
+  ad347c:	mov    %rsi,%r14
+  ad347f:	call   ac64a1 <<std::sync::once_lock::OnceLock<bool>>::initialize::<<std::sync::once_lock::OnceLock<bool>>::get_or_init<badger_runtime::gc::verify::{closure#0}>::{closure#0}, !>>
+  ad3484:	mov    %r14,%rsi
+  ad3487:	mov    %ebx,%ecx
+  ad3489:	cmpb   $0x1,0xf7be04(%rip)        # 1a4f294 <badger_runtime::gc::verify::VERIFY+0x4>
+  ad3490:	je     ad2ee1 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x31>
+  ad3496:	jmp    ad2eff <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x4f>
+  ad349b:	mov    %rsi,%r12
+  ad349e:	mov    %ecx,%r14d
+  ad34a1:	call   ac6025 <<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::initialize::<<std::sync::once_lock::OnceLock<&badger_runtime::desc::TypeDesc>>::get_or_init<badger_runtime::gc::poison::{closure#0}>::{closure#0}, !>>
+  ad34a6:	mov    %r14d,%ecx
+  ad34a9:	mov    %r12,%rsi
+  ad34ac:	cmp    0xf7bdc5(%rip),%rbx        # 1a4f278 <badger_runtime::gc::poison::D>
+  ad34b3:	jne    ad2eff <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x4f>
+  ad34b9:	lea    -0x863df3(%rip),%rsi        # 26f6cd <anon.a60d047454db9c38d11ec4cf51c72558.1126.llvm.8006687340503930658>
+  ad34c0:	mov    $0xb,%edx
+  ad34c5:	mov    %r15,%rdi
+  ad34c8:	call   b73fe0 <badger_runtime::gc::freed_use>
+  ad34cd:	cmp    0x10(%r15),%rbx
+  ad34d1:	ja     ad34e9 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x639>
+  ad34d3:	mov    %rbx,0x10(%r15)
+  ad34d7:	mov    %rax,%rdi
+  ad34da:	call   19a1a00 <_Unwind_Resume@plt>
+  ad34df:	mov    (%rsp),%rcx
+  ad34e3:	cmp    0x10(%r13),%rcx
+  ad34e7:	jbe    ad34f1 <badger_runtime::hamt::insert_at::<badger_runtime::hamt::Builder>+0x641>
+  ad34e9:	mov    %rax,%rdi
+  ad34ec:	call   19a1a00 <_Unwind_Resume@plt>
+  ad34f1:	mov    (%rsp),%rcx
+  ad34f5:	mov    %rcx,0x10(%r13)
+  ad34f9:	mov    %rax,%rdi
+  ad34fc:	call   19a1a00 <_Unwind_Resume@plt>
