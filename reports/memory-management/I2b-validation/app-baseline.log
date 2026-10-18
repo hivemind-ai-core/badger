@@ -1,0 +1,522 @@
+rep=0 realworld/state w2 baseline
+rep=0 compare/records w8 baseline
+rep=0 realworld/state w1 baseline
+rep=0 realworld/cpu w8 baseline
+rep=0 realworld/cpu w1 baseline
+rep=0 realworld/cpu w2 baseline
+rep=0 compare/records w4 baseline
+rep=0 realworld/reconcile w4 baseline
+rep=0 realworld/state w8 baseline
+rep=0 compare/snapshots w4 baseline
+rep=0 compare/snapshots w2 baseline
+rep=0 compare/records w1 baseline
+rep=0 compare/snapshots w1 baseline
+rep=0 realworld/reconcile w2 baseline
+rep=0 compare/records w2 baseline
+rep=0 realworld/reconcile w8 baseline
+rep=0 realworld/reconcile w1 baseline
+rep=0 realworld/state w4 baseline
+rep=0 realworld/cpu w4 baseline
+rep=0 compare/snapshots w8 baseline
+rep=1 compare/snapshots w4 baseline
+rep=1 compare/records w8 baseline
+rep=1 realworld/cpu w2 baseline
+rep=1 compare/snapshots w1 baseline
+rep=1 compare/records w1 baseline
+rep=1 realworld/cpu w8 baseline
+rep=1 compare/snapshots w8 baseline
+rep=1 realworld/reconcile w1 baseline
+rep=1 compare/records w2 baseline
+rep=1 compare/records w4 baseline
+rep=1 compare/snapshots w2 baseline
+rep=1 realworld/state w2 baseline
+rep=1 realworld/state w8 baseline
+rep=1 realworld/state w4 baseline
+rep=1 realworld/cpu w4 baseline
+rep=1 realworld/reconcile w4 baseline
+rep=1 realworld/reconcile w8 baseline
+rep=1 realworld/cpu w1 baseline
+rep=1 realworld/state w1 baseline
+rep=1 realworld/reconcile w2 baseline
+rep=2 compare/snapshots w4 baseline
+rep=2 realworld/cpu w4 baseline
+rep=2 realworld/state w8 baseline
+rep=2 compare/records w8 baseline
+rep=2 realworld/reconcile w4 baseline
+rep=2 compare/records w4 baseline
+rep=2 realworld/cpu w1 baseline
+rep=2 realworld/cpu w2 baseline
+rep=2 realworld/state w4 baseline
+rep=2 compare/snapshots w1 baseline
+rep=2 realworld/state w1 baseline
+rep=2 compare/records w1 baseline
+rep=2 realworld/state w2 baseline
+rep=2 compare/records w2 baseline
+rep=2 realworld/reconcile w1 baseline
+rep=2 realworld/reconcile w8 baseline
+rep=2 compare/snapshots w8 baseline
+rep=2 realworld/cpu w8 baseline
+rep=2 compare/snapshots w2 baseline
+rep=2 realworld/reconcile w2 baseline
+[
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3720811,
+          "min": 3713718,
+          "max": 3803074,
+          "count": 3,
+          "cv": 0.010826463367018629
+        },
+        "peak_rss_bytes": {
+          "median": 72142848,
+          "min": 72007680,
+          "max": 72232960,
+          "count": 3,
+          "cv": 0.0012835722350393493
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3943384,
+          "min": 3727935,
+          "max": 4324040,
+          "count": 3,
+          "cv": 0.06163746598540479
+        },
+        "peak_rss_bytes": {
+          "median": 72646656,
+          "min": 72011776,
+          "max": 74518528,
+          "count": 3,
+          "cv": 0.014564945965357267
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3699080,
+          "min": 3697999,
+          "max": 3773979,
+          "count": 3,
+          "cv": 0.00955108983925621
+        },
+        "peak_rss_bytes": {
+          "median": 71839744,
+          "min": 71622656,
+          "max": 72003584,
+          "count": 3,
+          "cv": 0.002172298803742575
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "records",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4118719,
+          "min": 3895224,
+          "max": 4170385,
+          "count": 3,
+          "cv": 0.02940136780681709
+        },
+        "peak_rss_bytes": {
+          "median": 72302592,
+          "min": 72183808,
+          "max": 73797632,
+          "count": 3,
+          "cv": 0.010092847210646865
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3559011,
+          "min": 3526661,
+          "max": 3597162,
+          "count": 3,
+          "cv": 0.00809177751799284
+        },
+        "peak_rss_bytes": {
+          "median": 49549312,
+          "min": 49369088,
+          "max": 51134464,
+          "count": 3,
+          "cv": 0.015857352149731257
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3483360,
+          "min": 3256109,
+          "max": 3632347,
+          "count": 3,
+          "cv": 0.04474692360379524
+        },
+        "peak_rss_bytes": {
+          "median": 49442816,
+          "min": 49242112,
+          "max": 49471488,
+          "count": 3,
+          "cv": 0.0020662837014243226
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3639420,
+          "min": 3196408,
+          "max": 3855070,
+          "count": 3,
+          "cv": 0.07693994473553839
+        },
+        "peak_rss_bytes": {
+          "median": 49557504,
+          "min": 48668672,
+          "max": 51621888,
+          "count": 3,
+          "cv": 0.024766583871859017
+        }
+      }
+    }
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 3742842,
+          "min": 3331619,
+          "max": 3965175,
+          "count": 3,
+          "cv": 0.07132083283075438
+        },
+        "peak_rss_bytes": {
+          "median": 49266688,
+          "min": 48533504,
+          "max": 51552256,
+          "count": 3,
+          "cv": 0.025822905028002482
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51538028,
+          "min": 51142534,
+          "max": 51619259,
+          "count": 3,
+          "cv": 0.00404877011036101
+        },
+        "peak_rss_bytes": {
+          "median": 29130752,
+          "min": 28340224,
+          "max": 30396416,
+          "count": 3,
+          "cv": 0.028914287542159897
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51065371,
+          "min": 51037320,
+          "max": 51933812,
+          "count": 3,
+          "cv": 0.008105019602545208
+        },
+        "peak_rss_bytes": {
+          "median": 28745728,
+          "min": 28651520,
+          "max": 29208576,
+          "count": 3,
+          "cv": 0.008433064748535137
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51125513,
+          "min": 50821489,
+          "max": 51230588,
+          "count": 3,
+          "cv": 0.003397471564042631
+        },
+        "peak_rss_bytes": {
+          "median": 28655616,
+          "min": 28405760,
+          "max": 29208576,
+          "count": 3,
+          "cv": 0.011664931748258002
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 51222413,
+          "min": 50940119,
+          "max": 51742818,
+          "count": 3,
+          "cv": 0.006480704762809501
+        },
+        "peak_rss_bytes": {
+          "median": 30728192,
+          "min": 28520448,
+          "max": 31199232,
+          "count": 3,
+          "cv": 0.03873089019902085
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18724198,
+          "min": 17461035,
+          "max": 19114662,
+          "count": 3,
+          "cv": 0.03828574134936682
+        },
+        "peak_rss_bytes": {
+          "median": 65077248,
+          "min": 64475136,
+          "max": 66691072,
+          "count": 3,
+          "cv": 0.014301928008301561
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 17861307,
+          "min": 16998417,
+          "max": 18303497,
+          "count": 3,
+          "cv": 0.030581982489468352
+        },
+        "peak_rss_bytes": {
+          "median": 65101824,
+          "min": 64868352,
+          "max": 65269760,
+          "count": 3,
+          "cv": 0.002529204054073011
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18060317,
+          "min": 16478943,
+          "max": 18775613,
+          "count": 3,
+          "cv": 0.053994872812006135
+        },
+        "peak_rss_bytes": {
+          "median": 64954368,
+          "min": 64094208,
+          "max": 65171456,
+          "count": 3,
+          "cv": 0.007185233482055431
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "reconcile",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 18290364,
+          "min": 16629142,
+          "max": 18982657,
+          "count": 3,
+          "cv": 0.05496555659817846
+        },
+        "peak_rss_bytes": {
+          "median": 64929792,
+          "min": 64688128,
+          "max": 65134592,
+          "count": 3,
+          "cv": 0.0028108775208743834
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8502981,
+          "min": 8113819,
+          "max": 9489631,
+          "count": 3,
+          "cv": 0.06654211003595183
+        },
+        "peak_rss_bytes": {
+          "median": 53641216,
+          "min": 53256192,
+          "max": 53825536,
+          "count": 3,
+          "cv": 0.004427474580652103
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8631309,
+          "min": 8449862,
+          "max": 9030479,
+          "count": 3,
+          "cv": 0.02786427371093716
+        },
+        "peak_rss_bytes": {
+          "median": 53719040,
+          "min": 53432320,
+          "max": 54820864,
+          "count": 3,
+          "cv": 0.011086022530559396
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 9481546,
+          "min": 8446906,
+          "max": 10622792,
+          "count": 3,
+          "cv": 0.09337495641060622
+        },
+        "peak_rss_bytes": {
+          "median": 53555200,
+          "min": 52445184,
+          "max": 53657600,
+          "count": 3,
+          "cv": 0.01031573419589675
+        }
+      }
+    }
+  },
+  {
+    "suite": "realworld",
+    "case": "state",
+    "workers": 8,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 8173981,
+          "min": 7993656,
+          "max": 8709523,
+          "count": 3,
+          "cv": 0.036661100714706844
+        },
+        "peak_rss_bytes": {
+          "median": 53686272,
+          "min": 53510144,
+          "max": 53850112,
+          "count": 3,
+          "cv": 0.0025859900264454025
+        }
+      }
+    }
+  }
+]

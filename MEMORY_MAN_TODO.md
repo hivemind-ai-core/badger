@@ -41,6 +41,8 @@ negative results; do not mark architectural sketches as implemented.
   uses and specialized call boundaries; preserve scheduling and GC liveness.
   - [x] I2a: Elide proven local Map/List lookup Option boxes using split results;
     retain boxed escaping/stored results, typed roots and live-reload behavior.
+  - [ ] I2b: Elide immediate Map.entries() method lists/tuples via the existing
+    cursor; retain stored lists, escaping tuples, order and typed pointer roots.
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
 - [ ] I4: Pack fixed-size pointer-free records directly into collection storage,
