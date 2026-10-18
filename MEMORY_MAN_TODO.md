@@ -1,6 +1,7 @@
 # Memory management implementation tracker
 
 Work branch: `perf/memory-management-2026-10-17`.
+Current follow-up branch: `perf/gc-reclaim-2026-10-18` (same isolated worktree).
 Initial source revision: `926cdbd19e2bcc889d2499d646a8a0ad0eb69b0c`.
 Initial work was isolated from main. Commit each completed implementation slice with its
 correctness checks, raw benchmark evidence, and results recorded here.
@@ -867,3 +868,45 @@ modes and scoped formatting pass. Actual baseline format-6 programs still run.
 I2 remains open for broader scalar replacement; architectural arenas/rings and
 other unchecked items remain unimplemented. Full results, provenance, raw runs,
 miss regression/refinement and controls: [I2a report](reports/memory-management/I2a-summary.md).
+
+### Next priorities from current-main profiles (2026-10-18)
+
+I2a and its evidence are published on main at `fdf36dc`, with 76 current program
+tests plus focused lookup/GC stress checks passing after integration. Preserve
+historical timing revisions: newer main includes JIT/PIC changes too.
+
+Work in this order, keeping only measured improvements:
+
+1. [ ] G7: Reduce reclamation overhead in the existing collector. The supplied
+   `1c8d910` heap phase profiles attribute about 85% of GC time to the combined
+   sweep/finalize phase (about 22 ms per whole run, not per collection). Separate
+   ordinary timing from diagnostic phase measurements. Start with known-owner
+   pool returns and verification-only quarantine routing; then measure batched
+   dead-cell handling, sweep partitioning and cache locality. Finalizer ordering,
+   worker publication, verifier quarantine and actual freeing must remain valid.
+   Source-level finalizer guard stores are already removed by release LLVM;
+   do not claim savings for deleting them.
+2. [ ] I2b/I8: Remove materialized map entry tuples/lists when immediate iteration
+   can use the existing cursor, and broaden proven nonescaping aggregates. Profile
+   snapshots and realworld state/reconcile; retained maps and stored entry lists
+   must keep their semantics. The runtime already has CHAMP-layout HAMT nodes.
+   Evaluate compact-node/path-copy improvements from measured node distributions,
+   rather than treating a CHAMP conversion as new work.
+3. [ ] G8: Improve allocation throughput and pool occupancy from size/survival
+   evidence. Benchmark per-worker paths, zeroing and allocation debt separately.
+   Do not remove required initialization/accounting or shrink chunks blindly:
+   earlier small-refill experiments traded speed for memory and were rejected.
+4. [ ] I9/G9: Extend escape/lifetime proofs to stack or region storage. First
+   specify roots across suspension, failure cleanup, aliases and cross-task
+   publication. Evaluate scoped transient regions before general shared arenas;
+   explicit owned-message/batch handoff is a candidate boundary. Pools reduce
+   allocator work but still require GC tracing unless ownership proves reclamation.
+5. [ ] W1: Attribute worker ceilings per workload, recording 1/2/4/8-worker
+   work distribution, CPU, allocations and rendezvous/queue costs. CPU pipeline
+   already scales about 6.6x in the supplied baseline. Serial map loops and
+   serialized actor stages cannot gain from idle extra workers alone; investigate
+   independent allocation-heavy tasks before changing scheduler/GC synchronization.
+
+Add the unchanged realworld and compare contracts to adjacent-pair compiler
+comparisons, including records and snapshots. Save current-production baselines
+before edits and keep controls, negative results and all raw measurements.

@@ -122,6 +122,14 @@ class CoverageOracle(unittest.TestCase):
         for n, expected in [(1, 0), (3, 0), (4, 6), (7, 18)]:
             self.assertEqual(run.expected_coverage(dict(mode="stored", n=n, rounds=2)), expected * 2)
 
+    def test_record_windows_at_reset_boundaries(self):
+        for n in [1, 3, 4, 5, 8, 9]:
+            window = []
+            for i in range(n):
+                window = [i] if len(window) >= 4 else window + [i]
+            expected = sum(window) + len(window) * 5
+            self.assertEqual(run.expected_coverage(dict(mode="records-window", n=n, retain=4, payload=4)), expected)
+
     def test_corruption_and_wrong_configuration_rejected(self):
         c = dict(mode="visible", n=7, rounds=2)
         good = dict(config=c, checksum=36, elapsed_ns=1)

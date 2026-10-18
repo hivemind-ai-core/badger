@@ -1,0 +1,33 @@
+import unittest
+
+import applications as app
+
+
+class Contracts(unittest.TestCase):
+    def test_both_protocols_reject_wrong_results_and_sample_counts(self):
+        for suite, name in [("realworld", "state"), ("compare", "snapshots")]:
+            expected = (app.rw if suite == "realworld" else app.compare).oracle(name, 257, 37)
+            prefix = "READY\n" if suite == "realworld" else ""
+            record = dict(stdout=prefix + f"BENCH 0 10 {expected}\nBENCH 1 20 {expected}\n", stderr="")
+            self.assertEqual(app.validate(record, suite, name, 257, 37, 1, 1)["warm_ns"], [20])
+            for bad in [record | dict(stdout=prefix + f"BENCH 0 10 {expected + 1}\nBENCH 1 20 {expected}\n"),
+                        record | dict(stdout=prefix + f"BENCH 0 10 {expected}\n")]:
+                with self.assertRaises((ValueError, app.compare.BenchError)):
+                    app.validate(bad, suite, name, 257, 37, 1, 1)
+
+    def test_processes_contribute_one_median_and_only_complete_pairs(self):
+        def run(variant, repetition, values):
+            return dict(suite="compare", case="records", workers=1, variant=variant,
+                        repetition=repetition, process=dict(warm_ns=values, peak_rss_bytes=1024))
+        runs = [run("candidate", 0, [1, 2, 90])]
+        self.assertNotIn("paired_work_change", app.summarize(runs)[0])
+        runs += [run("baseline", 0, [1, 4, 80]), run("baseline", 1, [10, 20, 30])]
+        row = app.summarize(runs)[0]
+        self.assertEqual(row["variants"]["baseline"]["kernel_ns"]["median"], 12)
+        self.assertEqual(row["paired_work_change"]["median"], -0.5)
+        self.assertEqual(row["paired_work_change"]["count"], 1)
+        self.assertEqual(row["faster_pairs"], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,6 +1,32 @@
 GC/application attribution and coverage
 =====================================
 
+Real-world and comparison contracts
+----------------------------------
+
+`applications.py` compares immutable compiler binaries with randomized adjacent
+pairs using the **unchanged** realworld reconcile/state/JSON/messaging/pipeline
+and compare records/snapshots/batches programs. It reuses each suite's independent
+oracle/protocol checker. Every fresh process contributes one median of its warm
+iterations; correlated inner samples are not counted as independent processes.
+It records all samples, command/output, executable/source hashes, child-only
+peak RSS and host pressure. Source and executable hashes must remain unchanged.
+Worker sweeps of serial programs measure runtime context, not parallel speedup.
+
+```sh
+python3 -m unittest discover -s bench/gc -p 'test_*.py'
+python3 bench/gc/applications.py --baseline /fixed/base/badger --candidate /fixed/new/badger --baseline-revision BASE --candidate-revision NEW --reps 7 --workers 1 2 4 8 --out /tmp/gc-applications
+```
+
+Omit `--candidate` to save a baseline before production edits; use the exact same
+binary for both labels for a noise control. `--smoke` uses 257 items. Diagnostic
+builds can use `--diagnostic` for separately perturbed GC phase evidence; ordinary
+runs do not claim collection counts. Sampling/phase instrumentation is excluded
+from ordinary timing comparisons. `records-window` in coverage reproduces
+`heap.bdg`'s record/list churn with full final-window checks, excluding its task
+spawn/cancellation phases. Existing pointer buffers and snapshot cases provide
+finalizer and retained-graph controls.
+
 Managed allocation census (G1a)
 ------------------------------
 

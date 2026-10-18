@@ -1,0 +1,11 @@
+{
+  "revision": "1c8d910",
+  "inputs": {
+    "/home/dan/orca/projects/language/reports/profiling/main-2026-10-18/SUMMARY.md": "ad370d6306f5fe28a9d80f00785e8c7c6087271e991550cd39228ee009acbc22",
+    "/home/dan/orca/projects/language/reports/profiling/main-2026-10-18/heap-w1.folded": "bf2fe61d4e867a4e56c7e7f24998b0588ff317ce1c077ed1834613a24459fd4b",
+    "/home/dan/orca/projects/language/reports/profiling/main-2026-10-18/heap-w1.gc.1.json": "58af9c268a8a1f0222d3f1882bf892f13e0342c36960643f2b8a1290aed67c15",
+    "/home/dan/orca/projects/language/reports/profiling/main-2026-10-18/heap-w1.gc.2.json": "9cf91b2001d36829137a7e2e110302f26230dc67fd7df74942a4d336c56caa24",
+    "/home/dan/orca/projects/language/reports/profiling/main-2026-10-18/heap-w1.gc.3.json": "487f7fa560a9b7287cc96d6486cdd7e4202d579d7badd92d053195100eca50f8"
+  },
+  "limits": "Supplied diagnostic profiles include sampling and runtime stats. Their phase shares are evidence for selecting a target, not ordinary timing or evidence of lock absence on unprofiled state/records workloads."
+}
