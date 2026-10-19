@@ -56,8 +56,7 @@ define_intrinsics! {
             };
             obj.insert(key, val);
         }
-        let text = serde_json::Value::Object(obj).to_string();
-        decode_result(rdesc(ret), codec::decode(d, &text))
+        decode_result(rdesc(ret), codec::decode_value(d, &serde_json::Value::Object(obj)))
     }
     // A record's fields in canonical (label) order as (wire name, Data).
     fn record_fields(ctx, targs, ret, v) {

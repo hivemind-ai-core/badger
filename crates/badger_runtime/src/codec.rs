@@ -352,6 +352,13 @@ pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
     crate::json::decode(d, text)
 }
 
+/// Decode an already-parsed JSON value against a descriptor, without the text
+/// round trip (used where the value is built from typed data, not parsed).
+pub(crate) fn decode_value(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
+    let _g = Roots::new();
+    dec(d, j)
+}
+
 /// Decode a `Data` value against a descriptor.
 pub fn from_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
     let j: J = crate::intrinsics_io::data_value(w);
