@@ -7,6 +7,8 @@ extern "intrinsic" fn list_len<T>(list: List<T>) -> Int
 extern "intrinsic" fn list_get<T>(list: List<T>, index: Int) -> Option<T>
 extern "intrinsic" fn list_builder<T>() -> ListBuilder<T>
 extern "intrinsic" fn list_builder_append<T>(builder: ListBuilder<T>, value: T) -> Unit
+extern "intrinsic" fn list_builder_extend<T>(builder: ListBuilder<T>, values: List<T>) -> Unit
+extern "intrinsic" fn list_range(start: Int, end: Int) -> List<Int>
 extern "intrinsic" fn list_builder_len<T>(builder: ListBuilder<T>) -> Int
 extern "intrinsic" fn list_finish<T>(builder: ListBuilder<T>) -> List<T>
 extern "intrinsic" fn list_append<T>(list: List<T>, value: T) -> List<T>
@@ -102,6 +104,9 @@ fn element_ref<T>(list: List<T>, index: Int) -> ElementRef<T> {
 
 impl<T> ListBuilder<T> {
     pub fn append(self: &mut Self, value: T) -> Unit { list_builder_append(self, value) }
+    /// Append every element of `values` (whole pages are copied, not one
+    /// element at a time).
+    pub fn extend(self: &mut Self, values: List<T>) -> Unit { list_builder_extend(self, values) }
     pub fn len(self: &Self) -> Int { list_builder_len(self) }
     /// Freeze into a list, transferring the page directory.
     pub fn finish(self: Self) -> List<T> { list_finish(self) }
@@ -275,9 +280,8 @@ pub fn filter_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> List<U> {
 pub fn flat_map<T, U>(list: List<T>, f: fn(T) -> List<U>) -> List<U> {
     let b = list_builder()
     for x in list {
-        for y in f(x) {
-            list_builder_append(b, y)
-        }
+        // each inner list is a whole-page copy, not one append per item
+        b.extend(f(x))
     }
     list_finish(b)
 }
@@ -590,10 +594,4 @@ pub fn sum(list: List<Int>) -> Int {
     total
 }
 
-pub fn range(start: Int, end: Int) -> List<Int> {
-    let b = list_builder()
-    for i in start..end {
-        list_builder_append(b, i)
-    }
-    list_finish(b)
-}
+pub fn range(start: Int, end: Int) -> List<Int> { list_range(start, end) }
