@@ -96,7 +96,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, params) {
             match codec.decode<B>(request.body) {
-                .err(e) => json_reply(400, { error: "invalid request body", path: e.path, message: e.message }),
+                .err(e) => json_reply(400, { error: "route/invalid_body", path: e.path, message: e.message }),
                 .ok(b) => match handler(request, params, b) {
                     .ok((status, reply)) => json_reply(status, reply),
                     .err(e) => {
@@ -149,11 +149,11 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, raw) {
             match params_decode<P>(raw) {
-                .err(e) => json_reply(400, { error: "invalid path parameter", path: e.path, message: e.message }),
+                .err(e) => json_reply(400, { error: "route/invalid_path", path: e.path, message: e.message }),
                 .ok(p) => {
                     let body = if method == #get || method == #delete { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
                     match body {
-                        .err(e) => json_reply(400, { error: "invalid request body", path: e.path, message: e.message }),
+                        .err(e) => json_reply(400, { error: "route/invalid_body", path: e.path, message: e.message }),
                         .ok(b) => match handler(request, p, b) {
                             .ok((status, reply)) => json_reply(status, reply),
                             .err(e) => {
@@ -346,7 +346,7 @@ pub fn table(routes: List<Route>) -> Result<http.Handler, RouteError> {
                 }
             }
         }
-        ok(json_reply(404, { error: "not found" }))
+        ok(json_reply(404, { error: "route/not_found" }))
     }))
 }
 

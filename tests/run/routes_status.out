@@ -3,7 +3,7 @@
 200 {"q":"dune"}
 200 {"id":"7"}
 400 {"error":"bad request","message":"invalid input: title required"}
-404 {"error":"not found"}
+404 {"error":"route/not_found"}
 500 {"error":"internal server error"}
 /books/7
 q=dune

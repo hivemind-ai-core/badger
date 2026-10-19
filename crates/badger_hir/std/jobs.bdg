@@ -247,6 +247,11 @@ pub fn attach<S: Scope>(pool: sqlite.Pool<S>) -> Result<Store<S>, Error> !{Io, W
 /// the job exists exactly when the rest of the transaction commits. The
 /// tables must exist (`attach`).
 pub fn submit_in<S, T>(tx: sqlite.Tx<S>, kind: String, event: String, version: Int, state: T, max_attempts: Int) -> Result<Submitted, Error> !{Io, Wait} where T: Codec {
+    // the id is `kind:event`: a `:` in the kind would let two different
+    // (kind, event) pairs name one job
+    if kind.contains(":") || kind == "" {
+        return failure(#jobs/kind, $"job kind `{kind}` must be non-empty and contain no `:`")
+    }
     let id = $"{kind}:{event}"
     let text = codec.encode_text(state)
     let t = now_ms()
@@ -429,6 +434,8 @@ impl<S> Store<S> {
         sqlite.execute(self.pool, "UPDATE jobs_outbox SET status = 'uncertain', receipt = 'sending was interrupted', updated = ? WHERE kind = ? AND status = 'sending' AND deadline < ?", [int(t), str(kind), int(t)])?
         // the entries pending now (one sent back to pending is not retried
         // in the same call)
+        // (SQLite reads a negative LIMIT as none: a limit below 0 is 0)
+        let limit = if limit < 0 { 0 } else { limit }
         let due = sqlite.query(self.pool, "SELECT id FROM jobs_outbox WHERE kind = ? AND status = 'pending' ORDER BY id LIMIT ?", [str(kind), int(limit)])?
         var handled: List<Entry> = []
         for row in due {
@@ -539,15 +546,23 @@ impl<S> Store<S> {
     /// a code change either keeps an executor for its old version or is
     /// migrated). Returns how many jobs changed.
     pub fn migrate<A, B>(self: &Self, kind: String, from: Int, to: Int, f: fn(A) -> B) -> Result<Int, Error> !{Io, Wait} where A: Codec, B: Codec {
+        if to <= from {
+            return failure(#jobs/migrate, $"a migration of `{kind}` jobs goes to a later version: {from} to {to}")
+        }
         let t = now_ms()
         use tx <- sqlite.transaction(self.pool)
         let rows = sqlite.query(tx, "SELECT id, kind, version, step, attempts, fence, state FROM jobs WHERE kind = ? AND version = ? AND status IN ('ready', 'running')", [str(kind), int(from)])?
         var n = 0
         for row in rows {
             let j = codec.from_data<Stored>(row)?
-            let old = codec.decode_text<A>(j.state)?
+            let old = match codec.decode_text<A>(j.state) {
+                .ok(v) => v,
+                .err(e) => return failure(#jobs/migrate, $"migrating `{kind}` jobs from version {from} to {to}: job {j.id}: {e}"),
+            }
             let text = codec.encode_text(f(old))
-            sqlite.execute(tx, "UPDATE jobs SET state = ?, version = ?, fence = fence + 1, updated = ? WHERE id = ?", [str(text), int(to), int(t), str(j.id)])?
+            // a running job's claim ends (the fence moves): it is ready
+            // again at the new version, without a failed attempt
+            sqlite.execute(tx, "UPDATE jobs SET state = ?, version = ?, fence = fence + 1, status = 'ready', owner = NULL, lease_until = 0, updated = ? WHERE id = ?", [str(text), int(to), int(t), str(j.id)])?
             record(tx, j.id, t, j.step, "migrated", Option.some($"version {from} to {to}"))?
             n = n + 1
         }

@@ -1,9 +1,9 @@
 post /orders -> 201 {"id":1,"title":"first"}
 post /orders -> 400 {"error":"orders/invalid","message":"an order needs a title"}
-post /orders -> 400 {"error":"invalid request body","message":"missing required field","path":"$.title"}
+post /orders -> 400 {"error":"endpoint/invalid_body","message":"missing required field","path":"$.title"}
 get /orders/1 -> 200 {"id":1,"title":"first"}
 get /orders/2 -> 404 {"error":"orders/missing","message":"no order 2"}
-get /orders/x -> 400 {"error":"invalid path parameter","message":"expected an integer","path":"$.id"}
+get /orders/x -> 400 {"error":"endpoint/invalid_path","message":"expected an integer","path":"$.id"}
 abc-123
 /orders/7
 true

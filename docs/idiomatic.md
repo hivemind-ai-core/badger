@@ -395,7 +395,7 @@ pub fn main() -> Result<Unit, AppError> {
 201 {"id":2,"title":"milk"}
 200 {"id":3,"title":"typed"}
 200 {"q":"dune"}
-404 {"error":"not found"}
+404 {"error":"route/not_found"}
 ```
 
 | Constructor | Handler receives | Returns |

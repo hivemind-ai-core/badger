@@ -52,8 +52,8 @@ pub fn main() -> Result<Unit, AppError> {
 200 ok
 200 {"id":1,"title":"note 7"}
 201 {"id":2,"title":"milk"}
-400 {"error":"invalid request body","message":"missing required field","path":"$.title"}
-404 {"error":"not found"}
+400 {"error":"route/invalid_body","message":"missing required field","path":"$.title"}
+404 {"error":"route/not_found"}
 ```
 
 `http.call(handler, request)` runs a handler in-process, with no socket.

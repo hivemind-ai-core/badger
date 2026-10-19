@@ -9,8 +9,8 @@ Every operation returns a new heap and leaves the old one unchanged.
     let h = heap.of([5, 1, 4])
     let (smallest, rest) = h.pop().unwrap_or((0, h))   // 1
 
-For the largest first, order a wrapper or negate the key; `by_key` keeps
-elements ordered by a key function.
+For the largest first, order a wrapper or negate the key; to order by a
+key, push `(key, element)` pairs (tuples order by position).
 
 ## Types
 

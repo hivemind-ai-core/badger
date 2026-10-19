@@ -100,7 +100,7 @@ impl prelude.Error for Error {}
 pub fn validate(commands: List<Command>) -> Result<Unit, Error> {
     var names: List<String> = []
     for c in commands {
-        if text.trim(c.name) == "" || text.starts_with(c.name, "-") {
+        if text.trim(c.name) == "" || text.starts_with(c.name, "-") || c.name.words().len() != 1 {
             return err({ message: $"command name `{c.name}` is not a word" })
         }
         if c.name == "help" {

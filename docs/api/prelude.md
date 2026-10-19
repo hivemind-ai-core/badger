@@ -24,6 +24,18 @@ Shareable synchronized cell: tasks may share one `Atom<T>` (it is
 `Transfer` when `T` is), and every operation is indivisible with respect
 to other tasks. `update` runs a pure function on the current value.
 
+#### `Atom.compare_and_set`
+
+```badger
+fn compare_and_set(self: &Self, expected: T, value: T) -> Bool !{State}
+```
+
+Store `value` if the atom still holds `expected`, in one indivisible
+step, and say whether it did. `expected` is a value `get` returned:
+numbers compare by value, other values by identity (a list equal to
+the current one but built separately does not match). `update` is
+this in a loop, for a pure `f`.
+
 #### `Atom.get`
 
 ```badger

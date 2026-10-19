@@ -1,5 +1,5 @@
 200 {"id":21,"twice":42}
-400 {"error":"invalid path parameter","message":"expected an integer","path":"$.id"}
+400 {"error":"route/invalid_path","message":"expected an integer","path":"$.id"}
 overlap rejected: true
 param mismatch: route bad: parameter field id is not in /x/:other
 true

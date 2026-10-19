@@ -1,0 +1,63 @@
+// Edges of the standard library's contracts (found by the 2026-10-19
+// audit): a job kind cannot contain the `:` that separates it from the
+// event in a job id; a migration goes to a later version, names itself
+// when a state does not decode, and returns a running job to `ready`
+// without a failed attempt; a bearer token's scheme is case-insensitive
+// and the token must not be empty; a command name is one word.
+import std.app
+import std.command
+import std.endpoint
+import std.http
+import std.io
+import std.jobs
+import std.time
+
+type Order = { qty: Int }
+
+type Order2 = { qty: Int, note: String }
+
+pub enum AppError {
+    io(source: io.Error),
+    jobs(source: jobs.Error),
+} derive(Error, From)
+
+fn show<T>(r: Result<T, jobs.Error>) -> String where T: Display {
+    match r {
+        .ok(v) => $"ok {v}",
+        .err(e) => $"err {e.code}: {e.message}",
+    }
+}
+
+fn auth(header: String) -> String {
+    let identify = endpoint.bearer(fn(t: String) -> Option<app.Actor> {
+        if t == "s3cret" { Option.some({ id: "u1", roles: [] }) } else { Option.none }
+    })
+    let req = { ..http.request(#get, "/", ""), headers: map { "authorization" => header } }
+    match identify(req) {
+        .ok(a) => $"ok {a.map(fn(x) { x.id })}",
+        .err(f) => $"{f.status} {f.message}",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let store = jobs.open(":memory:")?
+    let o: Order = { qty: 1 }
+    io.println(show(store.submit("order:eu", "e1", 1, o, 3)))?
+    io.println(show(store.submit("order", "eu:e1", 1, o, 3)))?
+    io.println(show(store.migrate("order", 2, 1, fn(x: Order) -> Order2 { { qty: x.qty, note: "" } })))?
+    // a running job is migrated: ready again, no attempt used
+    let _ = store.claim("order", "w1", time.seconds(30))?
+    io.println(show(store.migrate("order", 1, 2, fn(x: Order) -> Order2 { { qty: x.qty, note: "moved" } })))?
+    io.println($"ready {store.count("ready")?} running {store.count("running")?}")?
+    match store.claim("order", "w2", time.seconds(30))? {
+        .some(c) => io.println($"claimed again: version {c.version}, attempts {c.attempts}")?,
+        .none => io.println("not claimable")?,
+    }
+    for h in ["Bearer s3cret", "bearer s3cret", "BEARER s3cret", "Bearer ", "Basic abc", "Bearer s3cretBearer "] {
+        io.println($"[{h}] {auth(h)}")?
+    }
+    let run = fn(c: app.Call, args: List<String>) -> command.Outcome { { exit: 0, out: "", err: "" } }
+    let c = { name: "two words", operation: #a, doc: "", usage: "", run }
+    io.println($"{command.validate([c]).is_err()}")?
+    ok(())
+}

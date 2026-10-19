@@ -38,8 +38,11 @@ pub fn failure(status: Int, code: Symbol, message: String) -> Failure {
 extern "intrinsic" fn params_decode<P>(params: route.Params) -> Result<P, codec.DecodeError>
 
 fn reply<T>(status: Int, correlation: String, value: T) -> http.Response where T: Codec {
-    let headers = map { "content-type" => "application/json" }
-    { status, headers: if correlation == "" { headers } else { headers.insert("x-correlation-id", correlation) }, body: codec.encode(value) }
+    // 204 and 304 replies have no content (RFC 9110)
+    let empty = status == 204 || status == 304
+    let headers = if empty { map {} } else { map { "content-type" => "application/json" } }
+    let body = if empty { "".to_bytes() } else { codec.encode(value) }
+    { status, headers: if correlation == "" { headers } else { headers.insert("x-correlation-id", correlation) }, body }
 }
 
 /// The call a request makes: a new root call, joined to the caller's
@@ -83,10 +86,17 @@ pub fn bearer(verify: fn(String) -> Option<app.Actor>) -> fn(http.Request) -> Re
         match request.headers.get("authorization") {
             .none => ok(Option.none),
             .some(h) => {
-                if !text.starts_with(h, "Bearer ") {
+                // the scheme is case-insensitive (RFC 9110); the token is
+                // the rest of the header, which must not be empty
+                let scheme = h.slice(0, 7).unwrap_or("")
+                if scheme.to_lower() != "bearer " {
                     return err(failure(401, #auth/invalid, "expected a bearer token"))
                 }
-                match verify(text.trim(text.replace(h, "Bearer ", ""))) {
+                let token = h.slice(7, h.len()).unwrap_or("").trim()
+                if token == "" {
+                    return err(failure(401, #auth/invalid, "the bearer token is empty"))
+                }
+                match verify(token) {
                     .some(actor) => ok(Option.some(actor)),
                     .none => err(failure(401, #auth/invalid, "the token is not valid")),
                 }
@@ -157,12 +167,12 @@ pub fn bind_in<P, B, I, O, E, Eff>(context: Context, binding: {
             }
             let p = match params_decode<P>(raw) {
                 .ok(p) => p,
-                .err(e) => return reply(400, correlation, { error: "invalid path parameter", path: e.path, message: e.message }),
+                .err(e) => return reply(400, correlation, { error: "endpoint/invalid_path", path: e.path, message: e.message }),
             }
             let body = if bodiless || request.body.len() == 0 { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
             let b = match body {
                 .ok(b) => b,
-                .err(e) => return reply(400, correlation, { error: "invalid request body", path: e.path, message: e.message }),
+                .err(e) => return reply(400, correlation, { error: "endpoint/invalid_body", path: e.path, message: e.message }),
             }
             let result = match gate {
                 .some(g) => match g.admit(call, fn() { operation.call(call, input(p, b)) }) {

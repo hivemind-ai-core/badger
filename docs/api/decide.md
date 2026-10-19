@@ -81,8 +81,9 @@ fn execute<S, C, Ev, E, Co, X>(d: Decider<S, C, Ev, E, Co>, stream: Stream<Ev, X
 ```
 
 Decide and append with optimistic concurrency, deciding again after a
-conflict, at most `attempts` times. `coeffects` is called for each
-attempt (a retried decision sees the current time, not a stale one).
+conflict, at most `attempts` times (at least once: `attempts` below 1
+counts as 1). `coeffects` is called for each attempt (a retried
+decision sees the current time, not a stale one).
 
 ### `fold`
 

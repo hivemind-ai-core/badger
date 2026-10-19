@@ -64,6 +64,12 @@ impl<T> Atom<T> {
             }
         }
     }
+    /// Store `value` if the atom still holds `expected`, in one indivisible
+    /// step, and say whether it did. `expected` is a value `get` returned:
+    /// numbers compare by value, other values by identity (a list equal to
+    /// the current one but built separately does not match). `update` is
+    /// this in a loop, for a pure `f`.
+    pub fn compare_and_set(self: &Self, expected: T, value: T) -> Bool !{State} { atom_cas(self, expected, value) }
     /// Store `value` and return the previous value.
     pub fn swap(self: &Self, value: T) -> T !{State} {
         loop {

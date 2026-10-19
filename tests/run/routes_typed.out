@@ -1,9 +1,9 @@
 201 {"id":1,"quantity":3,"title":"pens"}
-400 {"error":"invalid request body","message":"missing required field","path":"$.quantity"}
-400 {"error":"invalid request body","message":"expected an integer","path":"$.quantity"}
+400 {"error":"route/invalid_body","message":"missing required field","path":"$.quantity"}
+400 {"error":"route/invalid_body","message":"expected an integer","path":"$.quantity"}
 500 {"error":"internal server error"}
 200 {"id":7,"quantity":1,"title":"order a b"}
-404 {"error":"not found"}
+404 {"error":"route/not_found"}
 /orders/a%20b%2F7
 url error: route orders/show needs parameter :id
 url error: route orders/show has no parameter :x

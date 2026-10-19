@@ -233,7 +233,14 @@ pub fn check(name: Symbol, probe: fn() -> Result<Unit, String> !{Io, Wait, State
 impl Health {
     /// Add a check (a provider can register its own while starting).
     pub fn add(self: &Self, check: Check) -> Unit !{Io, Wait, State} {
-        self.checks.set(self.checks.get().append(check))
+        // indivisible: providers registering concurrently each keep their
+        // check (a retry when another registered in between)
+        loop {
+            let old = self.checks.get()
+            if self.checks.compare_and_set(old, old.append(check)) {
+                return
+            }
+        }
     }
 
     pub fn phase(self: &Self) -> Symbol {

@@ -1,0 +1,13 @@
+err jobs/kind: job kind `order:eu` must be non-empty and contain no `:`
+ok created: order:eu:e1
+err jobs/migrate: a migration of `order` jobs goes to a later version: 2 to 1
+ok 1
+ready 1 running 0
+claimed again: version 2, attempts 0
+[Bearer s3cret] ok some(u1)
+[bearer s3cret] ok some(u1)
+[BEARER s3cret] ok some(u1)
+[Bearer ] 401 the bearer token is empty
+[Basic abc] 401 expected a bearer token
+[Bearer s3cretBearer ] 401 the token is not valid
+true

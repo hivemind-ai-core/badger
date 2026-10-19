@@ -75,11 +75,13 @@ impl<E, X> Error for Failure<E, X> where E: Display, X: Display {}
 pub type Committed<S, Ev> = { state: S, events: List<Ev>, version: Int }
 
 /// Decide and append with optimistic concurrency, deciding again after a
-/// conflict, at most `attempts` times. `coeffects` is called for each
-/// attempt (a retried decision sees the current time, not a stale one).
+/// conflict, at most `attempts` times (at least once: `attempts` below 1
+/// counts as 1). `coeffects` is called for each attempt (a retried
+/// decision sees the current time, not a stale one).
 pub fn execute<S, C, Ev, E, Co, X>(d: Decider<S, C, Ev, E, Co>, stream: Stream<Ev, X>, command: C, coeffects: fn() -> Co, attempts: Int) -> Result<Committed<S, Ev>, Failure<E, X>> {
     let load = stream.load
     let append = stream.append
+    let attempts = if attempts < 1 { 1 } else { attempts }
     var n = 0
     while n < attempts {
         n = n + 1
