@@ -2411,7 +2411,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let hir = self.hir();
         let is_entries = |def: DefId| {
             let p = self.m.def_path(def);
-            p == "std.map.entries" || p == "std.map.to_list"
+            self.m.fusion.get(&p).is_some_and(|t| t == "entries")
+                || p == "std.map.entries"
+                || p == "std.map.to_list"
         };
         match &hir.exprs[e].kind {
             ExprKind::MethodCall { recv, args, .. } if args.is_empty() => {
@@ -2483,7 +2485,10 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     }
 
     fn is_list_stage_def(&self, def: DefId, name: &str) -> bool {
-        self.m.def_path(def) == format!("std.list.{name}")
+        // `@fusion(template = eager_<name>)`, or the legacy path
+        let p = self.m.def_path(def);
+        self.m.fusion.get(&p).is_some_and(|t| *t == format!("eager_{name}"))
+            || p == format!("std.list.{name}")
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,

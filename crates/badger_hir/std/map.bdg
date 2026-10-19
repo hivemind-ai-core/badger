@@ -57,6 +57,7 @@ pub fn get<K, V>(m: Map<K, V>, key: K) -> Option<V> { map_get(m, key) }
 pub fn contains<K, V>(m: Map<K, V>, key: K) -> Bool { map_contains(m, key) }
 pub fn len<K, V>(m: Map<K, V>) -> Int { map_len(m) }
 /// Entries in unspecified order.
+@fusion(role = source, template = entries)
 pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map_entries(m) }
 
 /// One trie walk for `entries().map(..)`: the compiler lowers that chain
