@@ -1326,7 +1326,30 @@ impl<'g, 'a> Infer<'g, 'a> {
     }
 
     pub fn field(&mut self, bt: Ty, label: Symbol, span: Span, e: ExprId) -> Ty {
-        let bt = self.deref(&bt);
+        let mut bt = self.deref(&bt);
+        // a value from an associated call still being resolved
+        // (`let n = Meters.from(6); n.v`): its type may be known already
+        if let TyKind::Var(v) = &*bt {
+            let root = self.icx.root(*v);
+            let producers: Vec<usize> = (0..self.pending.len())
+                .filter(|&i| match &self.pending[i] {
+                    Constraint::Assoc { fn_ty, .. } => match &*self.icx.shallow(fn_ty) {
+                        TyKind::Fn(f) => {
+                            matches!(&*self.icx.shallow(&f.ret), TyKind::Var(w) if self.icx.root(*w) == root)
+                        }
+                        _ => false,
+                    },
+                    _ => false,
+                })
+                .collect();
+            for i in producers.into_iter().rev() {
+                let c = self.pending[i].clone();
+                if matches!(self.step(&c, false), Step::Solved) {
+                    self.pending.remove(i);
+                }
+            }
+            bt = self.deref(&bt);
+        }
         match &*bt {
             TyKind::Con(d, args) if self.g.env.structs.contains_key(d) => {
                 let fields = self.g.env.struct_fields(*d, args);

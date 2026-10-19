@@ -490,7 +490,7 @@ impl Infer<'_, '_> {
         })
     }
 
-    fn step(&mut self, c: &Constraint, final_: bool) -> Step {
+    pub(crate) fn step(&mut self, c: &Constraint, final_: bool) -> Step {
         match c {
             Constraint::IntLit { ty, value, span } => {
                 let t = self.deref(ty);
@@ -1374,7 +1374,27 @@ impl Infer<'_, '_> {
                 Step::Solved
             }
             _ if !final_ && matches!(&*fty, TyKind::Var(_)) => Step::Pending,
-            _ if !final_ => Step::Pending,
+            _ if !final_ => {
+                // every candidate returns the same type (`Meters.from(6)`:
+                // `From<Int>` or the reflexive `From<Meters>`): the result
+                // is known before the choice is
+                let rets: Vec<Ty> = matching
+                    .iter()
+                    .filter_map(|(_, t)| match &*self.icx.shallow(t) {
+                        TyKind::Fn(f) => Some(self.icx.resolve(&f.ret)),
+                        _ => None,
+                    })
+                    .collect();
+                if rets.len() == matching.len()
+                    && rets.windows(2).all(|w| w[0] == w[1])
+                    && let Some(r) = rets.first()
+                    && !ty_any(r, &mut |k| matches!(k, TyKind::Var(_)))
+                    && let TyKind::Fn(f) = &*fty
+                {
+                    self.expect(span, &f.ret, r);
+                }
+                Step::Pending
+            }
             _ => {
                 let n = self.sym(name).to_string();
                 self.error(
