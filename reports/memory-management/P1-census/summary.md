@@ -1,0 +1,32 @@
+| Case | Workers | Variant | Update/retain ms | Read ms |
+|---|---:|---|---:|---:|
+| retain-64 | 1 | baseline | 0.610 | 2.699 |
+| retain-64 | 8 | baseline | 0.545 | 2.602 |
+| retain-1024 | 1 | baseline | 0.719 | 2.690 |
+| retain-1024 | 8 | baseline | 0.635 | 2.598 |
+| retain-4096 | 1 | baseline | 0.766 | 3.527 |
+| retain-4096 | 8 | baseline | 0.718 | 3.791 |
+| scalar-private-256 | 1 | baseline | 1.849 | 0.003 |
+| scalar-private-256 | 8 | baseline | 1.843 | 0.003 |
+| scalar-every-update-256 | 1 | baseline | 29.837 | 87.039 |
+| scalar-every-update-256 | 8 | baseline | 29.750 | 86.438 |
+| scalar-snapshots-256 | 1 | baseline | 3.684 | 1.283 |
+| scalar-snapshots-256 | 8 | baseline | 3.632 | 1.305 |
+| scalar-private-1024 | 1 | baseline | 2.009 | 0.007 |
+| scalar-private-1024 | 8 | baseline | 2.002 | 0.007 |
+| scalar-every-update-1024 | 1 | baseline | 56.243 | 354.235 |
+| scalar-every-update-1024 | 8 | baseline | 59.618 | 353.480 |
+| scalar-snapshots-1024 | 1 | baseline | 18.352 | 6.902 |
+| scalar-snapshots-1024 | 8 | baseline | 18.711 | 6.889 |
+| pointers-private-256 | 1 | baseline | 14.451 | 0.013 |
+| pointers-private-256 | 8 | baseline | 15.453 | 0.020 |
+| pointers-every-update-256 | 1 | baseline | 25.171 | 221.610 |
+| pointers-every-update-256 | 8 | baseline | 26.095 | 415.784 |
+| pointers-snapshots-256 | 1 | baseline | 16.455 | 6.286 |
+| pointers-snapshots-256 | 8 | baseline | 17.850 | 8.745 |
+| pointers-private-1024 | 1 | baseline | 22.401 | 0.031 |
+| pointers-private-1024 | 8 | baseline | 23.654 | 0.043 |
+| pointers-every-update-1024 | 1 | baseline | 61.912 | 887.626 |
+| pointers-every-update-1024 | 8 | baseline | 59.204 | 1661.031 |
+| pointers-snapshots-1024 | 1 | baseline | 40.096 | 19.142 |
+| pointers-snapshots-1024 | 8 | baseline | 37.662 | 30.155 |

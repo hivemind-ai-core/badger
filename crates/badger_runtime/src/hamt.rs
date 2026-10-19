@@ -242,7 +242,7 @@ fn alloc_owned<M: Mutation>(
         static SLACK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *SLACK.get_or_init(|| std::env::var("BADGER_HAMT_SLACK").map(|v| v != "0").unwrap_or(true))
     };
-    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8).div_ceil(16) * 16 } else { needed };
     let w = alloc_node_sized(datamap, nodemap, flags, entries, children, size);
     if mode.token() != 0 {
         stamp_owner(w, mode.token());
@@ -289,7 +289,7 @@ fn splice_owned<M: Mutation>(
         static SLACK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         *SLACK.get_or_init(|| std::env::var("BADGER_HAMT_SLACK").map(|v| v != "0").unwrap_or(true))
     };
-    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8).div_ceil(16) * 16 } else { needed };
     let out = gc::alloc(node_desc(), size);
     unsafe {
         let p = obj(out).payload();

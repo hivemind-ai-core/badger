@@ -1,0 +1,41 @@
+   Compiling badger_base v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_base)
+   Compiling badger_runtime v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_runtime)
+   Compiling badger_sqlite v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_sqlite)
+   Compiling badger_compress v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_compress)
+   Compiling badger_postgres v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_postgres)
+   Compiling badger_datetime v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_datetime)
+   Compiling badger_valkey v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_valkey)
+   Compiling badger_fetch v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_fetch)
+   Compiling badger_formats v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_formats)
+   Compiling badger_http v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_http)
+   Compiling badger_crypto v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_crypto)
+   Compiling badger_template v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_template)
+   Compiling badger_fs v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_fs)
+   Compiling badger_native_demo v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_native_demo)
+   Compiling badger_syntax v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_syntax)
+   Compiling badger_hir v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 32s
+     Running tests/option_niche.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/option_niche-8def295a96c7b1b7)
+
+running 3 tests
+test returned_options_keep_boxed_function_layout ... ok
+test local_pointer_options_use_null_and_payload_before_dump_and_save ... ok
+test pointer_option_roots_survive_gc_suspension_and_multiple_workers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running tests/packed_arrays.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/packed_arrays-7b1a06def8fb4c2d)
+
+running 4 tests
+test buffer_capacity_obeys_heap_budget ... ok
+test array_get_and_iteration_use_typed_loads ... ok
+test dead_array_roots_release_storage_before_the_next_allocation ... ok
+test packed_array_bits_codecs_and_roots ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+

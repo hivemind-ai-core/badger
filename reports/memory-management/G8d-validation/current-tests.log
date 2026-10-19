@@ -1,0 +1,112 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling redis v1.7.1
+   Compiling badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+   Compiling badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+   Compiling badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 16s
+     Running unittests src/main.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/badger-0e86c41f096ecc00)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/adversarial-3c4206f5834d8e86)
+
+running 4 tests
+test reject_programs ... ok
+test run_single_worker ... ok
+test run_four_workers ... ok
+test run_optimized ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.63s
+
+     Running tests/docs.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/docs-ba6bfabd3e1d7e02)
+
+running 3 tests
+test diagnostic_codes_catalogued ... ok
+test api_reference_current ... ok
+test doc_examples_check ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.84s
+
+     Running tests/fuzz.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/fuzz-1a7f37aaf035a14f)
+
+running 3 tests
+test formatter_is_idempotent ... ok
+test invalid_input_never_crashes ... ok
+test formatting_preserves_meaning has been running for over 60 seconds
+test formatting_preserves_meaning ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 232.85s
+
+     Running tests/gc_retention.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/gc_retention-7272f09fb3171512)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe has been running for over 60 seconds
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 411.38s
+
+     Running tests/lsp.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/lsp-08ab30f7153354cc)
+
+running 5 tests
+test code_action_inserts_import ... ok
+test language_server_robustness ... ok
+test code_action_adds_missing_arm ... ok
+test language_server ... ok
+test language_server_project_entries ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.82s
+
+     Running tests/mcp.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/mcp-4714d59f51c25eff)
+
+running 1 test
+test mcp_tools ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.23s
+
+     Running tests/mir_optimization.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/mir_optimization-bc70a329dc610b3a)
+
+running 7 tests
+test an_effectful_filter_keeps_eager_order ... ok
+test a_non_capturing_closure_environment_is_eliminated ... ok
+test a_large_helper_called_with_a_known_closure_is_specialized ... ok
+test map_entries_chains_do_not_build_entry_lists ... ok
+test eager_filter_then_map_is_one_pass_when_the_filter_is_pure ... ok
+test a_may_fail_filter_is_not_fused ... ok
+test superopt_only_runs_when_requested_and_preserves_results ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests/option_niche.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/option_niche-e70d7bd18c625af0)
+
+running 3 tests
+test pointer_option_roots_survive_gc_suspension_and_multiple_workers ... FAILED
+test returned_options_keep_boxed_function_layout ... ok
+test local_pointer_options_use_null_and_payload_before_dump_and_save ... ok
+
+failures:
+
+---- pointer_option_roots_survive_gc_suspension_and_multiple_workers stdout ----
+
+thread 'pointer_option_roots_survive_gc_suspension_and_multiple_workers' (3081621) panicked at crates/badger_cli/tests/option_niche.rs:16:5:
+internal error: misaligned pointer dereference: address must be a multiple of 0x8 but is 0x7fe3c01a0d51 at crates/badger_runtime/src/list.rs:582 (thread main)
+this is a bug in Badger, not in the program: please report it
+(RUST_BACKTRACE=1 shows where)
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    pointer_option_roots_survive_gc_suspension_and_multiple_workers
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s
+
+error: test failed, to rerun pass `-p badger_cli --test option_niche`

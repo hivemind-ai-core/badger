@@ -1,0 +1,90 @@
+// Separate version creation/update costs from reading retained versions.
+// Existing compare/realworld workload contracts are deliberately unchanged.
+import std.array
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.list
+import std.map
+import std.text
+import std.time
+
+type Config = { mode: String, n: Int, size: Int, interval: Int }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let c = match codec.decode_text<Config>(env.get("MAP_PHASE_CONFIG").unwrap_or("")) {
+        .ok(c) => c,
+        .err(_) => panic("invalid MAP_PHASE_CONFIG"),
+    }
+    assert(c.n > 0 && c.size > 0 && c.interval >= 0)
+    var before = inspect.heap()
+    var after_update = before
+    var update_ns = 0
+    var read_ns = 0
+    var checksum = 0
+    var versions = 0
+    if c.mode == "scalar" {
+        var current: Map<Int, Int> = map.empty()
+        let history = list.builder<Map<Int, Int>>()
+        before = inspect.heap()
+        let start = time.now()
+        for i in 0..c.n {
+            current = current.insert(i % c.size, i)
+            if c.interval > 0 && (i + 1) % c.interval == 0 { history.append(current) }
+        }
+        history.append(current)
+        let saved = history.finish()
+        update_ns = time.as_nanos(time.now() - start)
+        after_update = inspect.heap()
+        versions = saved.len()
+        let read = time.now()
+        for version in saved {
+            checksum = checksum + version.len()
+            for (k, v) in version { checksum = checksum + (k + 1) * v }
+        }
+        read_ns = time.as_nanos(time.now() - read)
+    } else if c.mode == "pointers" {
+        // Reuse a bounded set of strings so HAMT pressure can be distinguished
+        // from allocating new values. Versions must retain the original values.
+        let words = array.build(127, fn(i: Int) { text.repeat("x", 1 + i) })
+        var current: Map<Int, String> = map.empty()
+        let history = list.builder<Map<Int, String>>()
+        before = inspect.heap()
+        let start = time.now()
+        for i in 0..c.n {
+            current = current.insert(i % c.size, words[i % 127])
+            if c.interval > 0 && (i + 1) % c.interval == 0 { history.append(current) }
+        }
+        history.append(current)
+        let saved = history.finish()
+        update_ns = time.as_nanos(time.now() - start)
+        after_update = inspect.heap()
+        versions = saved.len()
+        let read = time.now()
+        for version in saved {
+            checksum = checksum + version.len()
+            for (k, v) in version { checksum = checksum + (k + 1) * v.len() }
+        }
+        read_ns = time.as_nanos(time.now() - read)
+    } else if c.mode == "retain" {
+        let builder = map.builder<Int, Int>()
+        for i in 0..c.size { builder.insert(i, i * 31 + 7) }
+        let source = builder.finish()
+        let history = list.builder<Map<Int, Int>>()
+        before = inspect.heap()
+        let start = time.now()
+        for _ in 0..c.n { history.append(source) }
+        let saved = history.finish()
+        update_ns = time.as_nanos(time.now() - start)
+        after_update = inspect.heap()
+        versions = saved.len()
+        let read = time.now()
+        // Sample each retained reference without enumerating its map.
+        for version in saved { checksum = checksum + version.len() + version.get_or(0, -1) }
+        read_ns = time.as_nanos(time.now() - read)
+    } else { panic("unknown map phase mode") }
+    let after = inspect.heap()
+    io.println(codec.encode_text({ config: c, checksum, versions, update_ns, read_ns, before, after_update, after }))?
+    ok(())
+}

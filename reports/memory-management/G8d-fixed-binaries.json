@@ -1,0 +1,33 @@
+{
+  "baseline_revision": "b7cf709b335bfe2e10a29631ea41fceeaf219fd5",
+  "candidate_revision": "7c2fb36b2bab7d1d7cab80e2476eda78cfcaa1e5",
+  "target_dir": "/home/dan/orca/projects/language/target/memory-2026-10-18",
+  "build_method": "Same source directory and Cargo target: temporarily use baseline buffer.rs for both baseline builds, restore candidate, then build both candidates. No other production differences.",
+  "baseline_buffer_sha256": "5b0b205931419b6c922089edb1be17b51cbea226d6c2d594f7dd2f68c989a68c",
+  "candidate_buffer_sha256": "8b7f44b70b11cb469246106640ec4550110a68ca983c996ab9af0539fff35a90",
+  "binaries": {
+    "buffer-fixed-baseline": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+      "sha256": "7c296720ba61eb523d15c571ab86a196629f788f37ce4fa9c22708fb6bcdbf1f",
+      "gc_profile": false
+    },
+    "buffer-fixed-baseline-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline-diagnostic",
+      "sha256": "b68804055d7f705b058bc3dfdc68904df067258fd06b9efa69b7be487fd284f0",
+      "gc_profile": true
+    },
+    "buffer-fixed-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+      "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f",
+      "gc_profile": false
+    },
+    "buffer-fixed-candidate-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+      "sha256": "cedfeddf73afc28096428f128e9914f9ca2a930d30c69cb15a88a65b4f261b9f",
+      "gc_profile": true
+    }
+  },
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.1\nLLVM version: 22.1.8\n",
+  "production_tree": "100644 blob 6b9ef2b856b0fb2facf1f95cb08caf9ffd6e5114\tCargo.lock\n100644 blob 98d912f5a79eaf0de6c878b836f7c417cfefa137\tCargo.toml\n040000 tree e6b2e6d0fe46c1d069334e7c4156bbd308e7b3fd\tcrates\n",
+  "earlier_evidence": "Pre-fixed binaries contain the list fill defect fixed in b7cf709. Keep their data as historical/preliminary evidence only; exclude it from acceptance."
+}

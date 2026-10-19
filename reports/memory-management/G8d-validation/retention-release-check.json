@@ -1,0 +1,32 @@
+[
+  {
+    "variant": "baseline",
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-baseline",
+      "run",
+      "--release",
+      "--workers",
+      "4",
+      "tests/stress/try_all_finishing.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "try_all rounds ok: 116656\n",
+    "stderr": "",
+    "correctness_only_seconds": 19.32710909843445
+  },
+  {
+    "variant": "candidate",
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-candidate",
+      "run",
+      "--release",
+      "--workers",
+      "4",
+      "tests/stress/try_all_finishing.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "try_all rounds ok: 116656\n",
+    "stderr": "",
+    "correctness_only_seconds": 11.099918365478516
+  }
+]

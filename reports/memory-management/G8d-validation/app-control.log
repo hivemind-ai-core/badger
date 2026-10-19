@@ -1,0 +1,794 @@
+rep=0 realworld/messaging w2 candidate
+rep=0 realworld/messaging w2 baseline
+rep=0 realworld/cpu w1 baseline
+rep=0 realworld/cpu w1 candidate
+rep=0 realworld/cpu w2 candidate
+rep=0 realworld/cpu w2 baseline
+rep=0 compare/batches w1 baseline
+rep=0 compare/batches w1 candidate
+rep=0 realworld/json w2 baseline
+rep=0 realworld/json w2 candidate
+rep=0 realworld/messaging w1 candidate
+rep=0 realworld/messaging w1 baseline
+rep=0 realworld/json w1 baseline
+rep=0 realworld/json w1 candidate
+rep=0 compare/batches w2 baseline
+rep=0 compare/batches w2 candidate
+rep=1 compare/batches w2 candidate
+rep=1 compare/batches w2 baseline
+rep=1 realworld/cpu w1 candidate
+rep=1 realworld/cpu w1 baseline
+rep=1 compare/batches w1 candidate
+rep=1 compare/batches w1 baseline
+rep=1 realworld/cpu w2 baseline
+rep=1 realworld/cpu w2 candidate
+rep=1 realworld/json w2 baseline
+rep=1 realworld/json w2 candidate
+rep=1 realworld/messaging w1 candidate
+rep=1 realworld/messaging w1 baseline
+rep=1 realworld/messaging w2 candidate
+rep=1 realworld/messaging w2 baseline
+rep=1 realworld/json w1 baseline
+rep=1 realworld/json w1 candidate
+rep=2 realworld/messaging w1 candidate
+rep=2 realworld/messaging w1 baseline
+rep=2 realworld/messaging w2 candidate
+rep=2 realworld/messaging w2 baseline
+rep=2 realworld/cpu w2 candidate
+rep=2 realworld/cpu w2 baseline
+rep=2 compare/batches w2 candidate
+rep=2 compare/batches w2 baseline
+rep=2 realworld/json w1 baseline
+rep=2 realworld/json w1 candidate
+rep=2 realworld/cpu w1 baseline
+rep=2 realworld/cpu w1 candidate
+rep=2 realworld/json w2 candidate
+rep=2 realworld/json w2 baseline
+rep=2 compare/batches w1 baseline
+rep=2 compare/batches w1 candidate
+rep=3 realworld/cpu w1 baseline
+rep=3 realworld/cpu w1 candidate
+rep=3 realworld/json w1 baseline
+rep=3 realworld/json w1 candidate
+rep=3 realworld/messaging w2 candidate
+rep=3 realworld/messaging w2 baseline
+rep=3 realworld/json w2 baseline
+rep=3 realworld/json w2 candidate
+rep=3 compare/batches w2 baseline
+rep=3 compare/batches w2 candidate
+rep=3 realworld/messaging w1 candidate
+rep=3 realworld/messaging w1 baseline
+rep=3 compare/batches w1 candidate
+rep=3 compare/batches w1 baseline
+rep=3 realworld/cpu w2 candidate
+rep=3 realworld/cpu w2 baseline
+rep=4 realworld/json w1 baseline
+rep=4 realworld/json w1 candidate
+rep=4 realworld/cpu w1 baseline
+rep=4 realworld/cpu w1 candidate
+rep=4 compare/batches w2 candidate
+rep=4 compare/batches w2 baseline
+rep=4 realworld/messaging w2 candidate
+rep=4 realworld/messaging w2 baseline
+rep=4 realworld/messaging w1 candidate
+rep=4 realworld/messaging w1 baseline
+rep=4 compare/batches w1 baseline
+rep=4 compare/batches w1 candidate
+rep=4 realworld/cpu w2 candidate
+rep=4 realworld/cpu w2 baseline
+rep=4 realworld/json w2 candidate
+rep=4 realworld/json w2 baseline
+rep=5 realworld/cpu w1 candidate
+rep=5 realworld/cpu w1 baseline
+rep=5 realworld/json w1 baseline
+rep=5 realworld/json w1 candidate
+rep=5 realworld/messaging w1 candidate
+rep=5 realworld/messaging w1 baseline
+rep=5 realworld/messaging w2 candidate
+rep=5 realworld/messaging w2 baseline
+rep=5 realworld/json w2 candidate
+rep=5 realworld/json w2 baseline
+rep=5 realworld/cpu w2 candidate
+rep=5 realworld/cpu w2 baseline
+rep=5 compare/batches w1 candidate
+rep=5 compare/batches w1 baseline
+rep=5 compare/batches w2 candidate
+rep=5 compare/batches w2 baseline
+rep=6 realworld/messaging w2 baseline
+rep=6 realworld/messaging w2 candidate
+rep=6 compare/batches w2 baseline
+rep=6 compare/batches w2 candidate
+rep=6 realworld/cpu w1 baseline
+rep=6 realworld/cpu w1 candidate
+rep=6 realworld/json w1 candidate
+rep=6 realworld/json w1 baseline
+rep=6 realworld/cpu w2 candidate
+rep=6 realworld/cpu w2 baseline
+rep=6 realworld/messaging w1 candidate
+rep=6 realworld/messaging w1 baseline
+rep=6 realworld/json w2 baseline
+rep=6 realworld/json w2 candidate
+rep=6 compare/batches w1 candidate
+rep=6 compare/batches w1 baseline
+rep=7 realworld/json w2 candidate
+rep=7 realworld/json w2 baseline
+rep=7 realworld/cpu w2 candidate
+rep=7 realworld/cpu w2 baseline
+rep=7 realworld/cpu w1 baseline
+rep=7 realworld/cpu w1 candidate
+rep=7 realworld/json w1 baseline
+rep=7 realworld/json w1 candidate
+rep=7 compare/batches w2 baseline
+rep=7 compare/batches w2 candidate
+rep=7 realworld/messaging w1 candidate
+rep=7 realworld/messaging w1 baseline
+rep=7 compare/batches w1 candidate
+rep=7 compare/batches w1 baseline
+rep=7 realworld/messaging w2 candidate
+rep=7 realworld/messaging w2 baseline
+rep=8 realworld/messaging w1 candidate
+rep=8 realworld/messaging w1 baseline
+rep=8 realworld/json w2 baseline
+rep=8 realworld/json w2 candidate
+rep=8 realworld/json w1 baseline
+rep=8 realworld/json w1 candidate
+rep=8 realworld/cpu w2 candidate
+rep=8 realworld/cpu w2 baseline
+rep=8 compare/batches w1 baseline
+rep=8 compare/batches w1 candidate
+rep=8 compare/batches w2 baseline
+rep=8 compare/batches w2 candidate
+rep=8 realworld/messaging w2 candidate
+rep=8 realworld/messaging w2 baseline
+rep=8 realworld/cpu w1 baseline
+rep=8 realworld/cpu w1 candidate
+rep=9 realworld/cpu w2 candidate
+rep=9 realworld/cpu w2 baseline
+rep=9 realworld/messaging w1 baseline
+rep=9 realworld/messaging w1 candidate
+rep=9 realworld/cpu w1 candidate
+rep=9 realworld/cpu w1 baseline
+rep=9 realworld/json w1 candidate
+rep=9 realworld/json w1 baseline
+rep=9 compare/batches w1 candidate
+rep=9 compare/batches w1 baseline
+rep=9 realworld/json w2 candidate
+rep=9 realworld/json w2 baseline
+rep=9 realworld/messaging w2 candidate
+rep=9 realworld/messaging w2 baseline
+rep=9 compare/batches w2 candidate
+rep=9 compare/batches w2 baseline
+rep=10 realworld/json w2 candidate
+rep=10 realworld/json w2 baseline
+rep=10 realworld/cpu w1 baseline
+rep=10 realworld/cpu w1 candidate
+rep=10 realworld/cpu w2 candidate
+rep=10 realworld/cpu w2 baseline
+rep=10 compare/batches w1 baseline
+rep=10 compare/batches w1 candidate
+rep=10 compare/batches w2 baseline
+rep=10 compare/batches w2 candidate
+rep=10 realworld/messaging w2 baseline
+rep=10 realworld/messaging w2 candidate
+rep=10 realworld/json w1 baseline
+rep=10 realworld/json w1 candidate
+rep=10 realworld/messaging w1 baseline
+rep=10 realworld/messaging w1 candidate
+rep=11 realworld/json w1 candidate
+rep=11 realworld/json w1 baseline
+rep=11 realworld/messaging w1 candidate
+rep=11 realworld/messaging w1 baseline
+rep=11 realworld/json w2 candidate
+rep=11 realworld/json w2 baseline
+rep=11 realworld/cpu w1 baseline
+rep=11 realworld/cpu w1 candidate
+rep=11 compare/batches w1 candidate
+rep=11 compare/batches w1 baseline
+rep=11 compare/batches w2 candidate
+rep=11 compare/batches w2 baseline
+rep=11 realworld/messaging w2 baseline
+rep=11 realworld/messaging w2 candidate
+rep=11 realworld/cpu w2 candidate
+rep=11 realworld/cpu w2 baseline
+rep=12 realworld/json w2 baseline
+rep=12 realworld/json w2 candidate
+rep=12 realworld/cpu w1 candidate
+rep=12 realworld/cpu w1 baseline
+rep=12 realworld/messaging w1 candidate
+rep=12 realworld/messaging w1 baseline
+rep=12 realworld/json w1 baseline
+rep=12 realworld/json w1 candidate
+rep=12 compare/batches w1 candidate
+rep=12 compare/batches w1 baseline
+rep=12 realworld/cpu w2 candidate
+rep=12 realworld/cpu w2 baseline
+rep=12 compare/batches w2 candidate
+rep=12 compare/batches w2 baseline
+rep=12 realworld/messaging w2 baseline
+rep=12 realworld/messaging w2 candidate
+rep=13 realworld/json w2 baseline
+rep=13 realworld/json w2 candidate
+rep=13 realworld/messaging w2 baseline
+rep=13 realworld/messaging w2 candidate
+rep=13 compare/batches w2 candidate
+rep=13 compare/batches w2 baseline
+rep=13 compare/batches w1 candidate
+rep=13 compare/batches w1 baseline
+rep=13 realworld/cpu w2 candidate
+rep=13 realworld/cpu w2 baseline
+rep=13 realworld/cpu w1 baseline
+rep=13 realworld/cpu w1 candidate
+rep=13 realworld/json w1 candidate
+rep=13 realworld/json w1 baseline
+rep=13 realworld/messaging w1 baseline
+rep=13 realworld/messaging w1 candidate
+rep=14 realworld/cpu w2 candidate
+rep=14 realworld/cpu w2 baseline
+rep=14 realworld/cpu w1 candidate
+rep=14 realworld/cpu w1 baseline
+rep=14 realworld/messaging w2 candidate
+rep=14 realworld/messaging w2 baseline
+rep=14 compare/batches w1 candidate
+rep=14 compare/batches w1 baseline
+rep=14 compare/batches w2 baseline
+rep=14 compare/batches w2 candidate
+rep=14 realworld/messaging w1 baseline
+rep=14 realworld/messaging w1 candidate
+rep=14 realworld/json w2 candidate
+rep=14 realworld/json w2 baseline
+rep=14 realworld/json w1 candidate
+rep=14 realworld/json w1 baseline
+[
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 597414.0,
+          "min": 579270.5,
+          "max": 612672.0,
+          "count": 15,
+          "cv": 0.013013096995452788
+        },
+        "kernel_block_mean_ns": {
+          "median": 659002.16,
+          "min": 648556.68,
+          "max": 703416.88,
+          "count": 15,
+          "cv": 0.019588345927752583
+        },
+        "peak_rss_bytes": {
+          "median": 43790336,
+          "min": 42680320,
+          "max": 45846528,
+          "count": 15,
+          "cv": 0.01981666046868737
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 590030.5,
+          "min": 576414.5,
+          "max": 605668.5,
+          "count": 15,
+          "cv": 0.011817278740057063
+        },
+        "kernel_block_mean_ns": {
+          "median": 645889.94,
+          "min": 630562.84,
+          "max": 665413.76,
+          "count": 15,
+          "cv": 0.013976530832693155
+        },
+        "peak_rss_bytes": {
+          "median": 43675648,
+          "min": 42881024,
+          "max": 45953024,
+          "count": 15,
+          "cv": 0.02346604228397661
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.014813173212015807,
+      "min": -0.05917929985375536,
+      "max": 0.023798035632748515,
+      "count": 15,
+      "cv": -1.6928848360536584
+    },
+    "faster_pairs": 11,
+    "paired_block_mean_change": {
+      "median": -0.015340674568501522,
+      "min": -0.08312339618577258,
+      "max": 5.645521211739002e-05,
+      "count": 15,
+      "cv": -1.0302163452569186
+    },
+    "block_mean_faster_pairs": 14
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 589980.0,
+          "min": 572808.0,
+          "max": 603039.5,
+          "count": 15,
+          "cv": 0.012683097412287816
+        },
+        "kernel_block_mean_ns": {
+          "median": 663829.22,
+          "min": 636299.32,
+          "max": 834350.14,
+          "count": 15,
+          "cv": 0.09298257892690116
+        },
+        "peak_rss_bytes": {
+          "median": 45867008,
+          "min": 43159552,
+          "max": 65929216,
+          "count": 15,
+          "cv": 0.1871763625613587
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 590992.0,
+          "min": 577748.0,
+          "max": 611665.5,
+          "count": 15,
+          "cv": 0.01236679991925677
+        },
+        "kernel_block_mean_ns": {
+          "median": 671819.74,
+          "min": 630989.9,
+          "max": 834988.88,
+          "count": 15,
+          "cv": 0.10344842010989445
+        },
+        "peak_rss_bytes": {
+          "median": 46071808,
+          "min": 43692032,
+          "max": 65904640,
+          "count": 15,
+          "cv": 0.18186996350760457
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.0002727495190770757,
+      "min": -0.04194003875368035,
+      "max": 0.02710157679362024,
+      "count": 15,
+      "cv": 8.693871422237894
+    },
+    "faster_pairs": 7,
+    "paired_block_mean_change": {
+      "median": 0.012755087469615178,
+      "min": -0.21946649400694052,
+      "max": 0.2650029146964299,
+      "count": 15,
+      "cv": 7.830471872419712
+    },
+    "block_mean_faster_pairs": 7
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 48957748.5,
+          "min": 48737069.0,
+          "max": 49285300.0,
+          "count": 15,
+          "cv": 0.0029322564675971345
+        },
+        "kernel_block_mean_ns": {
+          "median": 49234958.78,
+          "min": 48948266.5,
+          "max": 49697038.42,
+          "count": 15,
+          "cv": 0.003857785107845454
+        },
+        "peak_rss_bytes": {
+          "median": 30932992,
+          "min": 30400512,
+          "max": 33103872,
+          "count": 15,
+          "cv": 0.022325072021083855
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 48961746.0,
+          "min": 48748395.0,
+          "max": 49151181.0,
+          "count": 15,
+          "cv": 0.0024608033164036955
+        },
+        "kernel_block_mean_ns": {
+          "median": 49241277.2,
+          "min": 48961108.4,
+          "max": 49408779.52,
+          "count": 15,
+          "cv": 0.002599042003983802
+        },
+        "peak_rss_bytes": {
+          "median": 30724096,
+          "min": 30199808,
+          "max": 31072256,
+          "count": 15,
+          "cv": 0.009386262595763957
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.00023238984683304764,
+      "min": -0.008028763140327855,
+      "max": 0.0043998144612076295,
+      "count": 15,
+      "cv": -20.01330845149611
+    },
+    "faster_pairs": 6,
+    "paired_block_mean_change": {
+      "median": 0.0014619587927497957,
+      "min": -0.012544556372379612,
+      "max": 0.00453293297631574,
+      "count": 15,
+      "cv": 68.62066589027668
+    },
+    "block_mean_faster_pairs": 4
+  },
+  {
+    "suite": "realworld",
+    "case": "cpu",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 49041042.0,
+          "min": 48859601.0,
+          "max": 49202137.0,
+          "count": 15,
+          "cv": 0.0018857069341113094
+        },
+        "kernel_block_mean_ns": {
+          "median": 49266709.62,
+          "min": 49084309.28,
+          "max": 49494908.66,
+          "count": 15,
+          "cv": 0.002304210195319867
+        },
+        "peak_rss_bytes": {
+          "median": 30859264,
+          "min": 29712384,
+          "max": 33615872,
+          "count": 15,
+          "cv": 0.03562617838340925
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 49118501.5,
+          "min": 48908756.5,
+          "max": 49274305.5,
+          "count": 15,
+          "cv": 0.00225740665733534
+        },
+        "kernel_block_mean_ns": {
+          "median": 49361579.22,
+          "min": 49096080.64,
+          "max": 49531361.64,
+          "count": 15,
+          "cv": 0.0026033050231262993
+        },
+        "peak_rss_bytes": {
+          "median": 30785536,
+          "min": 30113792,
+          "max": 31182848,
+          "count": 15,
+          "cv": 0.009276673683679895
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.0020551613748742703,
+      "min": -0.0056256163534524894,
+      "max": 0.006130862591366748,
+      "count": 15,
+      "cv": 3.677831247098139
+    },
+    "faster_pairs": 6,
+    "paired_block_mean_change": {
+      "median": 0.0011460260587636828,
+      "min": -0.004198022900240628,
+      "max": 0.006497131225527086,
+      "count": 15,
+      "cv": 2.0163140540931246
+    },
+    "block_mean_faster_pairs": 6
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 4825747.5,
+          "min": 4678594.0,
+          "max": 4935651.5,
+          "count": 15,
+          "cv": 0.014840331035115855
+        },
+        "kernel_block_mean_ns": {
+          "median": 5290962.52,
+          "min": 5112875.24,
+          "max": 5386199.88,
+          "count": 15,
+          "cv": 0.01565430580388009
+        },
+        "peak_rss_bytes": {
+          "median": 64323584,
+          "min": 63594496,
+          "max": 66674688,
+          "count": 15,
+          "cv": 0.016231461774887983
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 4862826.5,
+          "min": 4733171.0,
+          "max": 5014543.0,
+          "count": 15,
+          "cv": 0.01685506540392569
+        },
+        "kernel_block_mean_ns": {
+          "median": 5312369.62,
+          "min": 5188323.52,
+          "max": 5469961.88,
+          "count": 15,
+          "cv": 0.014662766080448522
+        },
+        "peak_rss_bytes": {
+          "median": 64405504,
+          "min": 63401984,
+          "max": 65798144,
+          "count": 15,
+          "cv": 0.008580727745553459
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.009255250093379352,
+      "min": -0.028072418528645837,
+      "max": 0.06847651619768391,
+      "count": 15,
+      "cv": 2.5525963318864355
+    },
+    "faster_pairs": 6,
+    "paired_block_mean_change": {
+      "median": 0.003791189983251453,
+      "min": -0.03673765630843995,
+      "max": 0.0637115604643621,
+      "count": 15,
+      "cv": 2.490610428292197
+    },
+    "block_mean_faster_pairs": 5
+  },
+  {
+    "suite": "realworld",
+    "case": "json",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 5206735.0,
+          "min": 5145572.0,
+          "max": 5511310.5,
+          "count": 15,
+          "cv": 0.01694950649511641
+        },
+        "kernel_block_mean_ns": {
+          "median": 5671656.0,
+          "min": 5549537.38,
+          "max": 5949514.26,
+          "count": 15,
+          "cv": 0.015975159924556316
+        },
+        "peak_rss_bytes": {
+          "median": 64491520,
+          "min": 63889408,
+          "max": 66027520,
+          "count": 15,
+          "cv": 0.006952610434697755
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 5245782.0,
+          "min": 5152359.0,
+          "max": 5326687.5,
+          "count": 15,
+          "cv": 0.009537837025780958
+        },
+        "kernel_block_mean_ns": {
+          "median": 5691417.82,
+          "min": 5587010.38,
+          "max": 5907763.5,
+          "count": 15,
+          "cv": 0.013730527061742074
+        },
+        "peak_rss_bytes": {
+          "median": 64335872,
+          "min": 63504384,
+          "max": 65974272,
+          "count": 15,
+          "cv": 0.010435873063591939
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.006920222807635934,
+      "min": -0.04402591724781246,
+      "max": 0.02623014431371562,
+      "count": 15,
+      "cv": 10.05742761140103
+    },
+    "faster_pairs": 6,
+    "paired_block_mean_change": {
+      "median": 0.002030267759983051,
+      "min": -0.050132025400003055,
+      "max": 0.053128652640325846,
+      "count": 15,
+      "cv": 5.766368771342042
+    },
+    "block_mean_faster_pairs": 7
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 1,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 929014.5,
+          "min": 889761.5,
+          "max": 963563.5,
+          "count": 15,
+          "cv": 0.019660660866215107
+        },
+        "kernel_block_mean_ns": {
+          "median": 1056931.04,
+          "min": 1024473.24,
+          "max": 1162769.16,
+          "count": 15,
+          "cv": 0.027856723442086267
+        },
+        "peak_rss_bytes": {
+          "median": 44740608,
+          "min": 44290048,
+          "max": 45228032,
+          "count": 15,
+          "cv": 0.006901007117186728
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 921190.5,
+          "min": 902104.5,
+          "max": 939213.5,
+          "count": 15,
+          "cv": 0.012116475161300592
+        },
+        "kernel_block_mean_ns": {
+          "median": 1042486.58,
+          "min": 1018474.4,
+          "max": 1113674.9,
+          "count": 15,
+          "cv": 0.02283285990120509
+        },
+        "peak_rss_bytes": {
+          "median": 44986368,
+          "min": 44449792,
+          "max": 45232128,
+          "count": 15,
+          "cv": 0.004957461802740368
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.007554601807931438,
+      "min": -0.04558900544332123,
+      "max": 0.04590693862430384,
+      "count": 15,
+      "cv": -4.027934015022376
+    },
+    "faster_pairs": 9,
+    "paired_block_mean_change": {
+      "median": -0.016086212656800325,
+      "min": -0.09709953091635137,
+      "max": 0.0681795065725681,
+      "count": 15,
+      "cv": -3.3147372534146826
+    },
+    "block_mean_faster_pairs": 11
+  },
+  {
+    "suite": "realworld",
+    "case": "messaging",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 636030.5,
+          "min": 576575.0,
+          "max": 908661.5,
+          "count": 15,
+          "cv": 0.17075128589597516
+        },
+        "kernel_block_mean_ns": {
+          "median": 766344.92,
+          "min": 721048.58,
+          "max": 943399.14,
+          "count": 15,
+          "cv": 0.08370633840127689
+        },
+        "peak_rss_bytes": {
+          "median": 55566336,
+          "min": 52412416,
+          "max": 58372096,
+          "count": 15,
+          "cv": 0.028399001062938613
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 618237.5,
+          "min": 589660.0,
+          "max": 887257.5,
+          "count": 15,
+          "cv": 0.1136502332912905
+        },
+        "kernel_block_mean_ns": {
+          "median": 745459.16,
+          "min": 705803.98,
+          "max": 911614.82,
+          "count": 15,
+          "cv": 0.060670349801037735
+        },
+        "peak_rss_bytes": {
+          "median": 55721984,
+          "min": 53112832,
+          "max": 58716160,
+          "count": 15,
+          "cv": 0.02134473159867457
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.0020622565220709266,
+      "min": -0.3309728503086359,
+      "max": 0.13587861020073744,
+      "count": 15,
+      "cv": -2.5341782094941756
+    },
+    "faster_pairs": 7,
+    "paired_block_mean_change": {
+      "median": -0.03723944467498619,
+      "min": -0.22755445802081187,
+      "max": 0.08916118484760083,
+      "count": 15,
+      "cv": -1.7626931711755436
+    },
+    "block_mean_faster_pairs": 10
+  }
+]

@@ -948,11 +948,15 @@ Work in this order, keeping only measured improvements:
      reject/revert after small application gains, repeated JSON regression and
      8–14% byte-heavy coverage regression. Keep modern-compiler compatibility
      checks and bounded Miri model coverage. [Evidence](reports/memory-management/G8c-summary.md).
-   - [ ] G8d: Optimize bounded scalar buffer initialization/push or proven bulk
+   - [x] G8d: Optimize bounded scalar buffer initialization/push or proven bulk
      fills. I3a byte profiles put 67–71% of self samples in buffer::push and
      whole-kernel GC pause near 0.5%. Preserve callback count/order, failure,
      suspension, pointer barriers/roots and growth semantics. Save fresh baselines
      and standalone/saved-MIR controls; native executable sensitivity remains open.
+     Cached representation and reserved stores improve byte/word churn 15–21%
+     and messaging 7–15% in longer repeats. Allocations stay unchanged; retain
+     small/mixed JSON/batch costs and slightly higher RSS.
+     [Corrected-main evidence and limits](reports/memory-management/G8d-summary.md).
 4. [ ] I9/G9: Extend escape/lifetime proofs to stack or region storage. First
    specify roots across suspension, failure cleanup, aliases and cross-task
    publication. Evaluate scoped transient regions before general shared arenas;
@@ -1258,3 +1262,38 @@ Matching relocated runtime instructions narrow but do not explain this sensitivi
 Keep the raw negatives. Profiles identify per-element buffer push, not collection,
 as the dominant byte-fill cost; prioritize G8d alongside the remaining allocation
 elimination work. [Full evidence and validation](reports/memory-management/I3a-summary.md).
+
+### October 19 refreshed-main checkpoint and next priorities
+
+G8d has 2,020 corrected-main measured processes plus 272 focused semantic/GC
+checks. The broad run found and fixed an unrelated misaligned list-directory
+capacity store; that regression-tested correction is published as `b7cf709`.
+The follow-up baseline adds 426 disjoint ordinary/diagnostic map and collector
+processes, before further production changes. Current-main builder-node
+headroom is integrated separately and is not credited to G8d.
+
+The trie already uses 32-way CHAMP. Reference retention is cheap: 131,072 aliases
+take about 0.5–0.7 ms over 64–4096-key maps. Reading all retained versions and
+copying edited shared paths are separate costs. Private 1024-key string-valued
+maps allocate 143,010 nodes/65,541 wrappers for 65,536 updates versus scalar
+1,017/6. Scope the next ownership extension to immutable leaf keys/values;
+composite graphs and parameter origins remain excluded.
+
+- [x] P1a: Save split update/retention/read, pointer/scalar, per-update/periodic
+  retention, parallel-map and collector baselines with independent oracles.
+  [Findings and raw-data pointers](reports/memory-management/P1-baseline-findings.md).
+- [ ] I5d: Extend fresh-origin ownership reuse to String/Bytes leaf keys/values.
+  Preserve all alias/publication boundaries, root pointer arguments before
+  allocation, and test old-to-young edges, retained lookup payloads and versions.
+- [ ] I8c: Audit allocation-free immutable query calls, starting with string
+  length/byte length/empty checks. The pointer read coverage nearly doubles
+  with idle extra workers, and these queries currently take the runtime lock.
+  Prove rooting/GC coordination and measure lock counts before broadening.
+- [ ] I8d: Evaluate contiguous replacement copies and bitmap-rank fast paths.
+  Portable `hamt::get` currently uses software popcount. Keep a safe portable
+  fallback and require assembly evidence and application/lookup controls.
+- [ ] G10: Evaluate scratch/remembered capacity reuse and chunk-range occupancy
+  instead of sorting every occupied address. Preparation plus trim is under
+  1.5% of record-heavy total work here; prioritize allocation avoidance and
+  investigate larger leaf/slab reclamation separately. Sweep still dominates
+  collection time and is not considered solved.

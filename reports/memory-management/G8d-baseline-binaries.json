@@ -1,0 +1,18 @@
+{
+  "revision": "f1b1737ba76aa18c0735edc006b5eac2500bd9c2",
+  "sources": {
+    "crates/badger_runtime/src/buffer.rs": "5b0b205931419b6c922089edb1be17b51cbea226d6c2d594f7dd2f68c989a68c",
+    "bench/gc/coverage.bdg": "919104acd48a3ac21cf227b37416871bac3771f3e9e37df37514e1c8b82fd62b",
+    "bench/gc/run.py": "46004934f53a01b228a33db8a0a9a9484e6530577c534d3ed01932296e48b099"
+  },
+  "binaries": {
+    "ordinary": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-push-baseline",
+      "sha256": "8a190d1b2c8ce77ad07006e1716b28ab8286ade59ba524161135ad403d9f10c4"
+    },
+    "diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-push-baseline-diagnostic",
+      "sha256": "154ded98700285fe370d88350b3a98472ac573776b2f31fb0860882daca73061"
+    }
+  }
+}

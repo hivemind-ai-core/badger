@@ -1,0 +1,1202 @@
+coverage rep=-1 buffers-capacity-pointers w8 candidate
+coverage rep=-1 buffers-capacity-pointers w8 baseline
+coverage rep=-1 words-transient w1 candidate
+coverage rep=-1 words-transient w1 baseline
+coverage rep=-1 buffers-grow w1 baseline
+coverage rep=-1 buffers-grow w1 candidate
+coverage rep=-1 words-transient w8 candidate
+coverage rep=-1 words-transient w8 baseline
+coverage rep=-1 bytes-transient w8 baseline
+coverage rep=-1 bytes-transient w8 candidate
+coverage rep=-1 buffers-capacity-32 w1 candidate
+coverage rep=-1 buffers-capacity-32 w1 baseline
+coverage rep=-1 buffers-capacity-pointers w1 baseline
+coverage rep=-1 buffers-capacity-pointers w1 candidate
+coverage rep=-1 buffers-grow w8 candidate
+coverage rep=-1 buffers-grow w8 baseline
+coverage rep=-1 bytes-transient w1 baseline
+coverage rep=-1 bytes-transient w1 candidate
+coverage rep=-1 buffers-capacity-32 w8 baseline
+coverage rep=-1 buffers-capacity-32 w8 candidate
+coverage rep=0 buffers-capacity-32 w8 candidate
+coverage rep=0 buffers-capacity-32 w8 baseline
+coverage rep=0 bytes-transient w8 baseline
+coverage rep=0 bytes-transient w8 candidate
+coverage rep=0 words-transient w8 candidate
+coverage rep=0 words-transient w8 baseline
+coverage rep=0 bytes-transient w1 baseline
+coverage rep=0 bytes-transient w1 candidate
+coverage rep=0 buffers-grow w8 candidate
+coverage rep=0 buffers-grow w8 baseline
+coverage rep=0 buffers-capacity-pointers w1 candidate
+coverage rep=0 buffers-capacity-pointers w1 baseline
+coverage rep=0 buffers-capacity-32 w1 candidate
+coverage rep=0 buffers-capacity-32 w1 baseline
+coverage rep=0 buffers-grow w1 candidate
+coverage rep=0 buffers-grow w1 baseline
+coverage rep=0 words-transient w1 candidate
+coverage rep=0 words-transient w1 baseline
+coverage rep=0 buffers-capacity-pointers w8 baseline
+coverage rep=0 buffers-capacity-pointers w8 candidate
+coverage rep=1 buffers-grow w1 candidate
+coverage rep=1 buffers-grow w1 baseline
+coverage rep=1 buffers-capacity-32 w1 candidate
+coverage rep=1 buffers-capacity-32 w1 baseline
+coverage rep=1 bytes-transient w1 candidate
+coverage rep=1 bytes-transient w1 baseline
+coverage rep=1 buffers-capacity-pointers w8 baseline
+coverage rep=1 buffers-capacity-pointers w8 candidate
+coverage rep=1 words-transient w1 baseline
+coverage rep=1 words-transient w1 candidate
+coverage rep=1 bytes-transient w8 baseline
+coverage rep=1 bytes-transient w8 candidate
+coverage rep=1 buffers-capacity-32 w8 baseline
+coverage rep=1 buffers-capacity-32 w8 candidate
+coverage rep=1 buffers-capacity-pointers w1 baseline
+coverage rep=1 buffers-capacity-pointers w1 candidate
+coverage rep=1 buffers-grow w8 baseline
+coverage rep=1 buffers-grow w8 candidate
+coverage rep=1 words-transient w8 candidate
+coverage rep=1 words-transient w8 baseline
+coverage rep=2 buffers-capacity-32 w8 candidate
+coverage rep=2 buffers-capacity-32 w8 baseline
+coverage rep=2 words-transient w8 baseline
+coverage rep=2 words-transient w8 candidate
+coverage rep=2 bytes-transient w1 candidate
+coverage rep=2 bytes-transient w1 baseline
+coverage rep=2 buffers-capacity-pointers w1 baseline
+coverage rep=2 buffers-capacity-pointers w1 candidate
+coverage rep=2 words-transient w1 baseline
+coverage rep=2 words-transient w1 candidate
+coverage rep=2 buffers-grow w1 candidate
+coverage rep=2 buffers-grow w1 baseline
+coverage rep=2 bytes-transient w8 baseline
+coverage rep=2 bytes-transient w8 candidate
+coverage rep=2 buffers-grow w8 candidate
+coverage rep=2 buffers-grow w8 baseline
+coverage rep=2 buffers-capacity-32 w1 candidate
+coverage rep=2 buffers-capacity-32 w1 baseline
+coverage rep=2 buffers-capacity-pointers w8 candidate
+coverage rep=2 buffers-capacity-pointers w8 baseline
+coverage rep=3 buffers-capacity-32 w8 candidate
+coverage rep=3 buffers-capacity-32 w8 baseline
+coverage rep=3 buffers-capacity-pointers w8 candidate
+coverage rep=3 buffers-capacity-pointers w8 baseline
+coverage rep=3 buffers-grow w1 baseline
+coverage rep=3 buffers-grow w1 candidate
+coverage rep=3 bytes-transient w8 candidate
+coverage rep=3 bytes-transient w8 baseline
+coverage rep=3 buffers-capacity-pointers w1 baseline
+coverage rep=3 buffers-capacity-pointers w1 candidate
+coverage rep=3 words-transient w8 candidate
+coverage rep=3 words-transient w8 baseline
+coverage rep=3 words-transient w1 baseline
+coverage rep=3 words-transient w1 candidate
+coverage rep=3 bytes-transient w1 candidate
+coverage rep=3 bytes-transient w1 baseline
+coverage rep=3 buffers-capacity-32 w1 baseline
+coverage rep=3 buffers-capacity-32 w1 candidate
+coverage rep=3 buffers-grow w8 candidate
+coverage rep=3 buffers-grow w8 baseline
+coverage rep=4 buffers-grow w8 candidate
+coverage rep=4 buffers-grow w8 baseline
+coverage rep=4 buffers-capacity-pointers w1 baseline
+coverage rep=4 buffers-capacity-pointers w1 candidate
+coverage rep=4 buffers-capacity-pointers w8 candidate
+coverage rep=4 buffers-capacity-pointers w8 baseline
+coverage rep=4 words-transient w1 baseline
+coverage rep=4 words-transient w1 candidate
+coverage rep=4 buffers-capacity-32 w1 baseline
+coverage rep=4 buffers-capacity-32 w1 candidate
+coverage rep=4 words-transient w8 candidate
+coverage rep=4 words-transient w8 baseline
+coverage rep=4 bytes-transient w1 candidate
+coverage rep=4 bytes-transient w1 baseline
+coverage rep=4 buffers-grow w1 baseline
+coverage rep=4 buffers-grow w1 candidate
+coverage rep=4 bytes-transient w8 candidate
+coverage rep=4 bytes-transient w8 baseline
+coverage rep=4 buffers-capacity-32 w8 baseline
+coverage rep=4 buffers-capacity-32 w8 candidate
+[
+  {
+    "case": "buffers-capacity-32",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 17.567586,
+      "min": 17.437254,
+      "max": 18.201843,
+      "runs": [
+        18.089755,
+        17.437254,
+        17.525438,
+        18.201843,
+        17.567586
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52896,
+      "min": 52668,
+      "max": 53224,
+      "runs": [
+        52852,
+        53116,
+        53224,
+        52896,
+        52668
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.304335,
+      "min": 0.247449,
+      "max": 0.330753,
+      "runs": [
+        0.326035,
+        0.293094,
+        0.304335,
+        0.330753,
+        0.247449
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-32",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 15.114975,
+      "min": 14.78333,
+      "max": 16.02255,
+      "runs": [
+        16.02255,
+        14.78333,
+        15.209071,
+        15.114975,
+        14.905006
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53184,
+      "min": 52872,
+      "max": 53616,
+      "runs": [
+        52872,
+        53616,
+        53176,
+        53564,
+        53184
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.286221,
+      "min": 0.240466,
+      "max": 0.333599,
+      "runs": [
+        0.320555,
+        0.333599,
+        0.286221,
+        0.240466,
+        0.252479
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-32",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 17.242373,
+      "min": 16.7828,
+      "max": 70.651522,
+      "runs": [
+        70.651522,
+        17.159669,
+        16.7828,
+        17.69316,
+        17.242373
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53284,
+      "min": 52480,
+      "max": 53500,
+      "runs": [
+        52480,
+        53284,
+        53500,
+        53100,
+        53332
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.322398,
+      "min": 0.294276,
+      "max": 0.495139,
+      "runs": [
+        0.45855,
+        0.294276,
+        0.299245,
+        0.495139,
+        0.322398
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-32",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 15.352195,
+      "min": 14.253888,
+      "max": 57.215211,
+      "runs": [
+        57.215211,
+        15.352195,
+        14.253888,
+        15.665507,
+        14.958024
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53536,
+      "min": 53088,
+      "max": 54212,
+      "runs": [
+        53088,
+        54144,
+        54212,
+        53188,
+        53536
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.341974,
+      "min": 0.315776,
+      "max": 3.453167,
+      "runs": [
+        3.453167,
+        0.317269,
+        0.341974,
+        0.3451,
+        0.315776
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 16.495547,
+      "min": 16.182988,
+      "max": 16.747164,
+      "runs": [
+        16.255041,
+        16.716256,
+        16.495547,
+        16.182988,
+        16.747164
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57092,
+      "min": 56460,
+      "max": 58684,
+      "runs": [
+        58684,
+        57052,
+        57092,
+        56460,
+        58008
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.816596,
+      "min": 0.756013,
+      "max": 0.909337,
+      "runs": [
+        0.818098,
+        0.816596,
+        0.760642,
+        0.756013,
+        0.909337
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-pointers",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 17.367184,
+      "min": 16.760348,
+      "max": 17.786112,
+      "runs": [
+        17.493128,
+        17.290011,
+        17.367184,
+        17.786112,
+        16.760348
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57560,
+      "min": 56516,
+      "max": 59636,
+      "runs": [
+        57560,
+        57992,
+        56812,
+        59636,
+        56516
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.763838,
+      "min": 0.71672,
+      "max": 0.985598,
+      "runs": [
+        0.801237,
+        0.985598,
+        0.763838,
+        0.720137,
+        0.71672
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 22.537898,
+      "min": 22.395173,
+      "max": 23.144054,
+      "runs": [
+        23.144054,
+        22.516259,
+        22.705289,
+        22.395173,
+        22.537898
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 56728,
+      "min": 56100,
+      "max": 58088,
+      "runs": [
+        56728,
+        58088,
+        56100,
+        56528,
+        56752
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.77042,
+      "min": 0.700369,
+      "max": 0.910138,
+      "runs": [
+        0.910138,
+        0.77042,
+        0.721549,
+        0.700369,
+        0.84079
+      ]
+    }
+  },
+  {
+    "case": "buffers-capacity-pointers",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 23.231165,
+      "min": 22.964209,
+      "max": 23.386112,
+      "runs": [
+        23.231165,
+        23.094481,
+        22.964209,
+        23.386112,
+        23.260338
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57168,
+      "min": 56324,
+      "max": 57520,
+      "runs": [
+        56324,
+        57096,
+        57168,
+        57520,
+        57384
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.793061,
+      "min": 0.722871,
+      "max": 0.942569,
+      "runs": [
+        0.758578,
+        0.793061,
+        0.798341,
+        0.942569,
+        0.722871
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 29.796176,
+      "min": 29.450315,
+      "max": 31.487745,
+      "runs": [
+        30.803636,
+        29.450315,
+        29.796176,
+        29.583572,
+        31.487745
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 46912,
+      "min": 46524,
+      "max": 47236,
+      "runs": [
+        46912,
+        47032,
+        46796,
+        47236,
+        46524
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.476039,
+      "min": 1.413853,
+      "max": 1.547912,
+      "runs": [
+        1.449659,
+        1.413853,
+        1.476039,
+        1.531822,
+        1.547912
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 27.795103,
+      "min": 27.497701,
+      "max": 28.553621,
+      "runs": [
+        27.795103,
+        27.497701,
+        27.57785,
+        28.394816,
+        28.553621
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47616,
+      "min": 47076,
+      "max": 48592,
+      "runs": [
+        48592,
+        48120,
+        47616,
+        47076,
+        47600
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.601291,
+      "min": 1.371084,
+      "max": 1.660892,
+      "runs": [
+        1.660892,
+        1.371084,
+        1.616068,
+        1.601291,
+        1.483622
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 29.976621,
+      "min": 29.172348,
+      "max": 32.41202,
+      "runs": [
+        29.976621,
+        32.41202,
+        29.172348,
+        29.599121,
+        30.057651
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 46884,
+      "min": 46696,
+      "max": 47400,
+      "runs": [
+        46876,
+        47400,
+        46696,
+        46884,
+        46960
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.458807,
+      "min": 1.36374,
+      "max": 1.540608,
+      "runs": [
+        1.458807,
+        1.519559,
+        1.540608,
+        1.36374,
+        1.405428
+      ]
+    }
+  },
+  {
+    "case": "buffers-grow",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 28.010653,
+      "min": 26.83445,
+      "max": 28.73115,
+      "runs": [
+        28.014741,
+        28.010653,
+        26.83445,
+        28.73115,
+        27.635407
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 47872,
+      "min": 47500,
+      "max": 49708,
+      "runs": [
+        47872,
+        47992,
+        49708,
+        47820,
+        47500
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.425435,
+      "min": 1.386663,
+      "max": 1.438649,
+      "runs": [
+        1.436475,
+        1.421768,
+        1.438649,
+        1.386663,
+        1.425435
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 109.403055,
+      "min": 98.524771,
+      "max": 116.950259,
+      "runs": [
+        116.950259,
+        109.403055,
+        98.524771,
+        106.483708,
+        114.308106
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53012,
+      "min": 51892,
+      "max": 53320,
+      "runs": [
+        53296,
+        53320,
+        52860,
+        53012,
+        51892
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.345711,
+      "min": 0.332717,
+      "max": 0.405262,
+      "runs": [
+        0.405262,
+        0.345711,
+        0.332717,
+        0.341804,
+        0.368294
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 88.394154,
+      "min": 82.309464,
+      "max": 99.576202,
+      "runs": [
+        99.576202,
+        82.309464,
+        86.686655,
+        88.394154,
+        90.03019
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53764,
+      "min": 53024,
+      "max": 53944,
+      "runs": [
+        53764,
+        53248,
+        53024,
+        53944,
+        53860
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.39848,
+      "min": 0.346503,
+      "max": 0.424698,
+      "runs": [
+        0.403228,
+        0.39848,
+        0.378983,
+        0.346503,
+        0.424698
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 102.971652,
+      "min": 99.366243,
+      "max": 311.802703,
+      "runs": [
+        311.802703,
+        100.117967,
+        102.971652,
+        99.366243,
+        105.667604
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53668,
+      "min": 52524,
+      "max": 53924,
+      "runs": [
+        53924,
+        52524,
+        53668,
+        52704,
+        53692
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.343678,
+      "min": 0.3235,
+      "max": 0.477275,
+      "runs": [
+        0.477275,
+        0.3235,
+        0.34478,
+        0.343678,
+        0.333779
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 88.912586,
+      "min": 77.609041,
+      "max": 140.470901,
+      "runs": [
+        140.470901,
+        92.583517,
+        77.609041,
+        88.912586,
+        83.962831
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54288,
+      "min": 53508,
+      "max": 54968,
+      "runs": [
+        53508,
+        54324,
+        54968,
+        53660,
+        54288
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.385065,
+      "min": 0.319453,
+      "max": 0.462298,
+      "runs": [
+        0.462298,
+        0.319453,
+        0.385065,
+        0.394973,
+        0.329802
+      ]
+    }
+  },
+  {
+    "case": "words-transient",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 121.732643,
+      "min": 117.5919,
+      "max": 122.410931,
+      "runs": [
+        122.079235,
+        118.913502,
+        121.732643,
+        122.410931,
+        117.5919
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48448,
+      "min": 48304,
+      "max": 49268,
+      "runs": [
+        48700,
+        48304,
+        48448,
+        48348,
+        49268
+      ]
+    },
+    "collections": {
+      "median": 8,
+      "min": 8,
+      "max": 8,
+      "runs": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.716254,
+      "min": 1.465439,
+      "max": 1.790503,
+      "runs": [
+        1.751891,
+        1.790503,
+        1.716254,
+        1.465439,
+        1.535547
+      ]
+    }
+  },
+  {
+    "case": "words-transient",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 100.901741,
+      "min": 96.635866,
+      "max": 106.236249,
+      "runs": [
+        97.958811,
+        100.901741,
+        96.635866,
+        106.236249,
+        105.388196
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49276,
+      "min": 49080,
+      "max": 49464,
+      "runs": [
+        49276,
+        49464,
+        49168,
+        49080,
+        49328
+      ]
+    },
+    "collections": {
+      "median": 8,
+      "min": 8,
+      "max": 8,
+      "runs": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.664799,
+      "min": 1.47045,
+      "max": 1.864451,
+      "runs": [
+        1.756778,
+        1.664799,
+        1.864451,
+        1.47045,
+        1.577909
+      ]
+    }
+  },
+  {
+    "case": "words-transient",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 122.75553,
+      "min": 118.141339,
+      "max": 124.646509,
+      "runs": [
+        124.545311,
+        124.646509,
+        118.893073,
+        122.75553,
+        118.141339
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48392,
+      "min": 48016,
+      "max": 48520,
+      "runs": [
+        48504,
+        48016,
+        48520,
+        48392,
+        48204
+      ]
+    },
+    "collections": {
+      "median": 8,
+      "min": 8,
+      "max": 8,
+      "runs": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.711504,
+      "min": 1.622061,
+      "max": 1.991366,
+      "runs": [
+        1.991366,
+        1.677522,
+        1.711504,
+        1.622061,
+        1.828913
+      ]
+    }
+  },
+  {
+    "case": "words-transient",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 5,
+    "elapsed_ms": {
+      "median": 99.103685,
+      "min": 97.152945,
+      "max": 117.670174,
+      "runs": [
+        117.670174,
+        97.902937,
+        97.152945,
+        104.033943,
+        99.103685
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49152,
+      "min": 48708,
+      "max": 49732,
+      "runs": [
+        49572,
+        49152,
+        49732,
+        49080,
+        48708
+      ]
+    },
+    "collections": {
+      "median": 8,
+      "min": 8,
+      "max": 8,
+      "runs": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.752011,
+      "min": 1.627029,
+      "max": 2.424098,
+      "runs": [
+        2.424098,
+        1.730702,
+        1.752011,
+        1.627029,
+        1.856586
+      ]
+    }
+  }
+]
