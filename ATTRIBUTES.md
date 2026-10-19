@@ -239,12 +239,18 @@ specific pass reads, it belongs in an attribute.
 
 - `@derive(A, B)` — **done**. The names feed the same derive path as
   `derive(A, B)` (resolution and validation shared), so `@derive(Eq,
-  Display)` behaves exactly like the old form. `derive` is the first name in
-  `KNOWN_ATTRIBUTES`; `tests/run/attributes_derive.bdg` and
-  `tests/reject/derive_attribute_nonprotocol.bdg` cover it.
-- **Next**: a scoped warning-silencing attribute (`@allow(...)`), which also
-  introduces statement/scope placement; then `@inline`; then Phase 3, delete
-  the `derive(...)` form (see the migration plan).
+  Display)` behaves exactly like the old form. `tests/run/attributes_derive.bdg`
+  and `tests/reject/derive_attribute_nonprotocol.bdg` cover it.
+- `@allow(<code>, ...)` — **done (item scope)**. During lowering each
+  `@allow` records a suppression region (the item's span) in `Hir::allows`;
+  when a check finishes, `Session::suppress_warnings` drops any *warning*
+  whose code matches and whose primary span lies inside a region (errors are
+  never suppressed). `crates/badger_cli/tests/programs.rs::
+  attribute_allow_silences_warnings` covers it (E0142). Statement/block
+  placement is a refinement still to add.
+- **Next**: `@inline(always|never)` (needs a MIR function flag from the HIR
+  attributes); then Phase 3, delete the `derive(...)` form (see the migration
+  plan).
 
 ## Migration plan (replacing the `derive` syntax)
 

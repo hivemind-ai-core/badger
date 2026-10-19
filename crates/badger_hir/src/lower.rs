@@ -31,7 +31,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow"];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
@@ -592,6 +592,20 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     d = Diagnostic::warning(format!("unknown attribute `@{name}`")).with_code("E0191");
                 }
                 self.cx.diags.push(d.with_label(attr.span, "not recognised by the compiler"));
+                continue;
+            }
+            // `@allow(<code>, ...)` silences those warnings inside this item
+            if name == "allow" {
+                for arg in &attr.args {
+                    let code = match arg {
+                        ast::AttrArg::Name(s) => Some(self.cx.interner.resolve(*s).to_string()),
+                        ast::AttrArg::Str(s) => Some(s.clone()),
+                        _ => None,
+                    };
+                    if let Some(code) = code {
+                        self.cx.hir.allows.push((code, item.span));
+                    }
+                }
             }
         }
         self.cx.hir.attributes.entry(def).or_default().extend(item.attributes.iter().cloned());

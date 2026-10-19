@@ -825,8 +825,26 @@ impl Session {
             }
         }
         drop(checked);
+        self.suppress_warnings(&hir);
         self.annotate_scopes(&hir);
         if self.diagnostics.has_errors() { Outcome::Errors } else { Outcome::Ok }
+    }
+
+    /// Drop warnings suppressed by an `@allow(<code>)` region.
+    fn suppress_warnings(&mut self, hir: &badger_hir::Hir) {
+        if hir.allows.is_empty() {
+            return;
+        }
+        let allows = &hir.allows;
+        self.diagnostics.retain(|d| {
+            if d.severity != badger_base::Severity::Warning {
+                return true;
+            }
+            let (Some(code), Some(span)) = (d.code, d.primary()) else { return true };
+            !allows.iter().any(|(c, r)| {
+                c.as_str() == code && r.file == span.file && r.start <= span.start && span.end <= r.end
+            })
+        });
     }
 
     /// Give each diagnostic without one a readable scope: the innermost
