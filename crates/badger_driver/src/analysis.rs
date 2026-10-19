@@ -182,12 +182,51 @@ impl Analysis {
             .min_by_key(|r| (r.end - r.start, r.target.is_none()))
     }
 
+    /// The local bindings that are one source variable with `key`: an
+    /// or-pattern arm (and `let ... else`) is lowered as one copy of the
+    /// body per alternative, each with its own binding, so their references
+    /// share spans.
+    fn same_variable(&self, key: Key) -> Vec<Key> {
+        let mut keys = vec![key];
+        if !matches!(key, Key::Local(_)) {
+            return keys;
+        }
+        loop {
+            let spans: Vec<(&str, usize, usize)> = self
+                .files
+                .iter()
+                .flat_map(|f| {
+                    f.refs
+                        .iter()
+                        .filter(|r| r.key.is_some_and(|k| keys.contains(&k)))
+                        .map(|r| (f.path.as_str(), r.start, r.end))
+                })
+                .collect();
+            let mut grew = false;
+            for f in &self.files {
+                for r in &f.refs {
+                    if let Some(k @ Key::Local(_)) = r.key
+                        && !keys.contains(&k)
+                        && spans.contains(&(f.path.as_str(), r.start, r.end))
+                    {
+                        keys.push(k);
+                        grew = true;
+                    }
+                }
+            }
+            if !grew {
+                return keys;
+            }
+        }
+    }
+
     /// Every reference to `key` across the program (declarations included).
     pub fn references(&self, key: Key) -> Vec<Loc> {
+        let keys = self.same_variable(key);
         let mut out: Vec<Loc> = vec![];
         for f in &self.files {
             for r in &f.refs {
-                if r.key == Some(key) {
+                if r.key.is_some_and(|k| keys.contains(&k)) {
                     let l = Loc { path: f.path.clone(), start: r.start, end: r.end };
                     if !out.contains(&l) {
                         out.push(l);
@@ -218,23 +257,55 @@ fn kind_of(k: &DefKind, method: bool) -> Option<SymbolKind> {
 pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
     let mut s = Session::new();
     s.overlays = overlays;
+    s.recover_syntax = true;
     let mut out = Analysis::default();
     let loaded = s.load(path);
     let mut hir = None;
-    if let Some(l) = &loaded
-        && !s.diagnostics.has_errors()
-    {
-        let h = s.lower(l);
-        if !s.diagnostics.has_errors() {
-            hir = Some(h);
+    // with a syntax or name error the rest of the file is still indexed
+    // (hover, definitions, symbols while typing), from the recovered tree;
+    // only the first failing phase's diagnostics are reported
+    let mut partial = false;
+    if let Some(l) = &loaded {
+        let parse_failed = s.diagnostics.has_errors();
+        let before = s.diagnostics.len();
+        let lowered = if parse_failed {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.lower(l))).ok()
         } else {
-            s.annotate_scopes(&h);
+            Some(s.lower(l))
+        };
+        if parse_failed {
+            s.diagnostics.truncate(before);
+        }
+        if let Some(h) = lowered {
+            partial = s.diagnostics.has_errors();
+            if partial {
+                s.annotate_scopes(&h);
+            }
+            hir = Some(h);
         }
     }
     if let Some(hir) = &hir {
         badger_typeck::set_record_types(true);
-        let (checked, diags) = badger_typeck::check_program(hir, &s.interner);
+        let checked = if partial {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                badger_typeck::check_program(hir, &s.interner)
+            }))
+            .ok()
+        } else {
+            Some(badger_typeck::check_program(hir, &s.interner))
+        };
         badger_typeck::set_record_types(false);
+        let Some((checked, diags)) = checked else {
+            s.diagnostics.dedupe(&s.sources);
+            return finish(s, loaded, path, out);
+        };
+        if partial {
+            // the index only: the earlier errors are the report
+            index(&s, hir, &checked, &mut out);
+            drop(checked);
+            s.diagnostics.dedupe(&s.sources);
+            return finish(s, loaded, path, out);
+        }
         s.diagnostics.extend(diags);
         if crate::restricted(path)
             && let Some(t) = &checked.types
@@ -253,6 +324,11 @@ pub fn analyze(path: &Path, overlays: HashMap<PathBuf, String>) -> Analysis {
         s.annotate_scopes(hir);
     }
     s.diagnostics.dedupe(&s.sources);
+    finish(s, loaded, path, out)
+}
+
+/// Attach the session's diagnostics to the analysis.
+fn finish(s: Session, loaded: Option<crate::Loaded>, path: &Path, mut out: Analysis) -> Analysis {
     // diagnostics about the program as a whole (unreadable files, a missing
     // entry) belong to its entry file, or to the path itself
     let whole = loaded

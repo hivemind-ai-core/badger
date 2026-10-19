@@ -36,6 +36,9 @@ pub struct Session {
     pub entry_suffix: String,
     /// Unsaved editor buffers, by canonical path: read instead of the file.
     pub overlays: std::collections::HashMap<PathBuf, String>,
+    /// Keep a file's tree recovered from syntax errors (editor analysis:
+    /// the rest of the file is still indexed); the errors are reported.
+    pub recover_syntax: bool,
     /// Native modules the last `compile_binary` program calls.
     pub natives: Vec<String>,
     /// Parsed standard-library modules, by std module name. A session checks
@@ -664,6 +667,17 @@ impl Session {
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {
         let mut diags = vec![];
         // (disjoint borrows: the text is not copied)
+        if self.recover_syntax {
+            let (ast, errors) = badger_syntax::parse_recovering(
+                file,
+                &self.sources.get(file).text,
+                &mut self.interner,
+                &mut diags,
+            );
+            self.diagnostics.extend(diags);
+            self.diagnostics.extend(errors);
+            return Some(ast);
+        }
         let r = badger_syntax::parse(file, &self.sources.get(file).text, &mut self.interner, &mut diags);
         self.diagnostics.extend(diags);
         match r {

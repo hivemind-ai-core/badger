@@ -1,0 +1,12 @@
+// Bindings the compiler copies (a `let ... else`, the alternatives of an
+// or-pattern) are one variable for references and rename.
+pub enum Shape { circle(r: Int), square(r: Int) }
+
+pub fn first(o: Option<Int>) -> Int {
+    let .some(v) = o else { return 0 }
+    v + 1
+}
+
+pub fn area(s: Shape) -> Int => match s {
+    .circle(r) | .square(r) => r * r,
+}

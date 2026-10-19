@@ -126,6 +126,11 @@ impl Diagnostics {
         self.items.len()
     }
 
+    /// Keep only the first `n` diagnostics.
+    pub fn truncate(&mut self, n: usize) {
+        self.items.truncate(n);
+    }
+
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -136,6 +141,17 @@ impl Diagnostics {
 
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.items.iter()
+    }
+
+    /// The diagnostics to show: each (code, message, primary span) once
+    /// (an or-pattern's arm body is checked once per alternative, and a
+    /// project's entries share modules).
+    pub fn unique(&self) -> impl Iterator<Item = &Diagnostic> {
+        let mut seen = std::collections::HashSet::new();
+        self.items.iter().filter(move |d| {
+            let pos = d.primary().map(|s| (s.file, s.start, s.end));
+            seen.insert((d.code, d.message.clone(), pos))
+        })
     }
 
     /// Render all diagnostics with ariadne to `out`.
@@ -151,7 +167,7 @@ impl Diagnostics {
     ) -> std::io::Result<()> {
         use ariadne::{Color, Config, Report, ReportKind};
 
-        for d in &self.items {
+        for d in self.unique() {
             let kind = match d.severity {
                 Severity::Error => ReportKind::Error,
                 Severity::Warning => ReportKind::Warning,
@@ -225,7 +241,7 @@ impl Diagnostics {
     /// stable codes, severities, messages, and 1-based line/column spans.
     pub fn render_json(&self, sources: &SourceMap) -> String {
         let mut out = String::from("[");
-        for (i, d) in self.items.iter().enumerate() {
+        for (i, d) in self.unique().enumerate() {
             if i > 0 {
                 out.push(',');
             }

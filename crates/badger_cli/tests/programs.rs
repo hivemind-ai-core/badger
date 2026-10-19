@@ -1471,6 +1471,26 @@ fn query_rename_and_unsupported_inputs() {
     assert!(!ok && err.contains("no such file"), "{err}");
     let (ok, _, err) = q(&["bogus", "tests/projects/overlay"]);
     assert!(!ok && err.contains("unknown query `bogus` (diagnostics, check,"), "{err}");
+    // a `let ... else` binding and an or-pattern's binding, renamed from
+    // their declarations, change every occurrence
+    let cols = |out: &str| -> Vec<(u64, u64)> {
+        let v: serde_json::Value = serde_json::from_str(out).unwrap();
+        let mut c: Vec<(u64, u64)> = v["edits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| (e["line"].as_u64().unwrap(), e["col"].as_u64().unwrap()))
+            .collect();
+        c.sort();
+        c
+    };
+    let p = "tests/query/desugared_bindings.bdg";
+    let (ok, out, err) = q(&["rename", p, "--line", "6", "--col", "15", "--name", "w"]);
+    assert!(ok, "{err}");
+    assert_eq!(cols(&out), vec![(6, 15), (7, 5)], "{out}");
+    let (ok, out, err) = q(&["rename", p, "--line", "11", "--col", "13", "--name", "q"]);
+    assert!(ok, "{err}");
+    assert_eq!(cols(&out), vec![(11, 13), (11, 26), (11, 32), (11, 36)], "{out}");
 }
 
 /// Project tooling: optional paths (the current project), named entries,
