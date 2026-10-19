@@ -126,7 +126,7 @@ pub fn encode(d: &TypeDesc, w: u64) -> String {
 
 /// Append `v` in decimal. Encoders write many integers; this avoids the
 /// `core::fmt` machinery (and its formatting buffer) for each one.
-fn write_u64(o: &mut String, v: u64) {
+pub(crate) fn write_u64(o: &mut String, v: u64) {
     let mut buf = [0u8; 20];
     let mut i = buf.len();
     let mut v = v;
@@ -141,7 +141,7 @@ fn write_u64(o: &mut String, v: u64) {
     o.push_str(std::str::from_utf8(&buf[i..]).expect("decimal digits"));
 }
 
-fn write_i64(o: &mut String, v: i64) {
+pub(crate) fn write_i64(o: &mut String, v: i64) {
     if v < 0 {
         o.push('-');
         write_u64(o, v.unsigned_abs());
@@ -236,7 +236,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             let (tag, vals) = enum_parts(w);
             let v = &variants[tag as usize];
             if d.name == "Data" {
-                o.push_str(&crate::intrinsics_io::data_json(w));
+                crate::intrinsics_io::write_data(w, o);
                 return;
             }
             if d.name == "Option" {
@@ -350,6 +350,13 @@ fn fail<T>(msg: impl Into<String>) -> Result<T, DecodeError> {
 /// Decode JSON text against a descriptor.
 pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
     crate::json::decode(d, text)
+}
+
+/// Decode an already-parsed JSON value against a descriptor, without the text
+/// round trip (used where the value is built from typed data, not parsed).
+pub(crate) fn decode_value(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
+    let _g = Roots::new();
+    dec(d, j)
 }
 
 /// Decode a `Data` value against a descriptor.

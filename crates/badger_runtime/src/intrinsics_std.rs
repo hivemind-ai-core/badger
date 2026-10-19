@@ -131,6 +131,19 @@ define_intrinsics! {
         list::push(b, v);
         0
     }
+    // Bulk append: copy every element of `l` into `b` in whole pages.
+    fn list_builder_extend(ctx, targs, ret, b, l) {
+        let r = Roots::new();
+        r.add(b);
+        r.add(l);
+        list::push_run(b, l, 0, list::len(l));
+        0
+    }
+    // Bulk construction of the integers `start..end` (pages filled directly).
+    fn list_range(ctx, targs, ret, start, end) {
+        let n = (end as i64 - start as i64).max(0) as usize;
+        list::from_range(rdesc(ret), start as i64, n)
+    }
     fn list_builder_len(ctx, targs, ret, b) { list::len(b) as u64 }
     fn list_finish(ctx, targs, ret, b) { list::finish(b, rdesc(ret)) }
     fn list_append(ctx, targs, ret, l, v) {
@@ -421,12 +434,11 @@ define_intrinsics! {
         new_string(&parts.join(str_of(sep)))
     }
     fn text_chars(ctx, targs, ret, s) {
-        let r = Roots::new();
-        let out = r.add(list::new(rdesc(ret)));
-        for c in str_of(s).chars() {
-            list::push(out, c as u64);
-        }
-        out
+        // The count is a cheap second pass over the text; knowing it fills
+        // the pages in one go instead of one `push` per character.
+        let st = str_of(s);
+        let mut chars = st.chars();
+        list::fill(rdesc(ret), st.chars().count(), |_| chars.next().unwrap_or('\0') as u64)
     }
     // The character index of the first occurrence of `p`.
     fn text_find(ctx, targs, ret, s, p) {

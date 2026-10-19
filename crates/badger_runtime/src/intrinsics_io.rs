@@ -116,25 +116,30 @@ pub fn data_value(w: u64) -> serde_json::Value {
     }
 }
 
-fn write_data(w: u64, out: &mut String) {
+pub(crate) fn write_data(w: u64, out: &mut String) {
     let (tag, fields) = enum_parts(w);
     match tag {
         0 => out.push_str("null"),
         1 => out.push_str(if fields[0] & 1 != 0 { "true" } else { "false" }),
-        2 => out.push_str(&(fields[0] as i64).to_string()),
+        2 => crate::codec::write_i64(out, fields[0] as i64),
         // JSON has no NaN or infinity: they are `null` (as `codec.encode` writes them)
         3 => {
             let f = f64::from_bits(fields[0]);
-            out.push_str(&if f.is_finite() { crate::value::fmt_float(f) } else { "null".to_string() })
+            if f.is_finite() {
+                out.push_str(&crate::value::fmt_float(f));
+            } else {
+                out.push_str("null");
+            }
         }
-        4 => out.push_str(&json_quote(str_of(fields[0]))),
+        4 => write_json_quote(str_of(fields[0]), out),
         5 => {
             out.push('[');
-            for (i, x) in crate::list::to_vec(fields[0]).into_iter().enumerate() {
+            let l = fields[0];
+            for i in 0..crate::list::len(l) {
                 if i > 0 {
                     out.push(',');
                 }
-                write_data(x, out);
+                write_data(crate::list::get(l, i), out);
             }
             out.push(']');
         }
@@ -146,7 +151,7 @@ fn write_data(w: u64, out: &mut String) {
                 if i > 0 {
                     out.push(',');
                 }
-                out.push_str(&json_quote(str_of(k)));
+                write_json_quote(str_of(k), out);
                 out.push(':');
                 write_data(v, out);
             }
