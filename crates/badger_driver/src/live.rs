@@ -104,15 +104,29 @@ pub fn watch(entry: PathBuf, files: Vec<PathBuf>, optimize: bool, reconstruct: b
             badger_runtime::task::post(
                 &q,
                 badger_runtime::task::External::Scheduler(Box::new(move || {
-                    reload(entry, optimize, reconstruct)
+                    reload_session(entry, optimize, reconstruct)
                 })),
             );
         }
     });
 }
 
-fn reload(entry: PathBuf, optimize: bool, reconstruct: bool) {
-    let mut s = Session::new();
+thread_local! {
+    /// The watch session, kept across reloads: a rebuild then re-parses and
+    /// re-checks only the files that changed, reusing the parsed and checked
+    /// standard library. `Session` is deliberately single-threaded (its
+    /// cache holds `Rc`s) and reloads run on the scheduler thread, so a
+    /// thread-local is where it can live. Its `SourceMap` accumulates one
+    /// copy of each re-read file per reload.
+    static SESSION: std::cell::RefCell<Session> = std::cell::RefCell::new(Session::new());
+}
+
+fn reload_session(entry: PathBuf, optimize: bool, reconstruct: bool) {
+    SESSION.with(|s| reload(&mut s.borrow_mut(), entry, optimize, reconstruct));
+}
+
+fn reload(s: &mut Session, entry: PathBuf, optimize: bool, reconstruct: bool) {
+    s.reset_for_build();
     // definitions made through a connected REPL stay part of the program
     s.entry_suffix = crate::inspect::repl_definitions();
     let opts = RunOptions {
