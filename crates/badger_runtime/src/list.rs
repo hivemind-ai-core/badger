@@ -555,7 +555,7 @@ pub fn push_run(dst: u64, src: u64, start: usize, end: usize) {
 /// The element descriptor of a `Kind::List { elem }` descriptor.
 fn elem_of(desc: &'static TypeDesc) -> &'static TypeDesc {
     match &desc.kind {
-        Kind::List { elem } => *elem,
+        Kind::List { elem } => elem,
         _ => crate::desc::builtin::unit(),
     }
 }
@@ -579,7 +579,7 @@ pub fn fill(desc: &'static TypeDesc, n: usize, mut next: impl FnMut(usize) -> u6
     let is_ptr = elem.is_ptr();
     // The directory's final size, so appends never copy it.
     let nd = r.add(gc::alloc(dir_desc(), DIR_HDR + pages * 8));
-    unsafe { *(obj(nd).payload().add(1) as *mut u64) = pages as u64 };
+    unsafe { *(obj(nd).payload().add(8) as *mut u64) = pages as u64 };
     let mut done = 0;
     for p in 0..pages {
         let len_p = (n - done).min(cap);
