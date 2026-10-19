@@ -8,7 +8,7 @@ pub type ExprId = Idx<Expr>;
 pub type PatId = Idx<Pat>;
 pub type TypeId = Idx<TypeExpr>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Ast {
     pub exprs: Arena<Expr>,
     pub pats: Arena<Pat>,
