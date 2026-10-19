@@ -1,0 +1,9 @@
+import std.http
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    // touch the module so its types are checked
+    let e = http.event("hello")
+    io.println(e.data)?
+    ok(())
+}
