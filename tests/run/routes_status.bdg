@@ -1,6 +1,7 @@
 // A handler's error is answered with the status the application intended
 // (F-A1), and the query string is part of the request: a route matches
 // its path, and the query is readable with `route.params` (F-A2, F-N2).
+import std.codec
 import std.http
 import std.io
 import std.route
@@ -61,5 +62,17 @@ pub fn main() -> Result<Unit, AppError> {
     io.println(show(http.call(h, http.request(#get, "/bad", ""))))?
     // no route matches
     io.println(show(http.call(h, http.request(#get, "/nope", ""))))?
+    // a standard-library error type is a route's error type
+    let decoded = route.table([
+        route.get("/decode", #books/decode, fn(_req, _params) -> Result<http.Response, codec.DecodeError> {
+            let e: codec.DecodeError = { path: "$.title", message: "expected a text" }
+            err(e)
+        }),
+    ])?
+    io.println(show(http.call(decoded, http.request(#get, "/decode", ""))))?
+    // a URI's fragment is not part of its path or of its query
+    io.println(route.path_of("/books/7#top"))?
+    io.println(route.query_of("/books?q=dune#top").unwrap_or(""))?
+    io.println(route.query_params("/books?q=dune#top").get("q").unwrap_or(""))?
     ok(())
 }

@@ -172,9 +172,19 @@ fn segments(path: String) -> List<String> {
     list.filter(text.split(path, "/"), fn(s) { !text.is_empty(s) })
 }
 
+/// The URI without its fragment (`#...`): a fragment is not part of the
+/// path or of the query.
+fn strip_fragment(uri: String) -> String {
+    match text.index_of(uri, "#") {
+        .some(i) => text.slice(uri, 0, i).unwrap_or(uri),
+        .none => uri,
+    }
+}
+
 /// The path of a request URI, without its query string: `/search?q=bad`
 /// becomes `/search`.
 pub fn path_of(uri: String) -> String {
+    let uri = strip_fragment(uri)
     match text.index_of(uri, "?") {
         .some(i) => text.slice(uri, 0, i).unwrap_or(uri),
         .none => uri,
@@ -183,6 +193,7 @@ pub fn path_of(uri: String) -> String {
 
 /// The query string of a request URI (without the `?`), if it has one.
 pub fn query_of(uri: String) -> Option<String> {
+    let uri = strip_fragment(uri)
     match text.index_of(uri, "?") {
         .some(i) => Option.some(text.slice(uri, i + 1, text.len(uri)).unwrap_or("")),
         .none => Option.none,

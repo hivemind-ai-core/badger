@@ -74,7 +74,7 @@ names the statuses. The repository's own programs are updated.
 | **F-A3** | `route.typed` answers an error with the same status mapping as `route.get` (it shares the machinery now) | `std/route.bdg` |
 | **F-A4** | The rule for a stage's error type is written down, with an example of each of the three ways to write it: inferred from the pipeline, named by the callback, named by the factory | `docs/guide/08-systems-and-pipelines.md` |
 | **F-A5** | The rule for a provider's background work: the scope the provider is given, not a `task.scope()` opened inside it (which hangs the startup) | `docs/guide/08-systems-and-pipelines.md` |
-| **F-I1** | `http.with_status`, `http.reply_for_error`, `http.error_reply`, `http.status_text` in `std.http` | `std/http.bdg` |
+| **F-I1** | `http.with_status` (attaches a status to a reply built by hand), `http.reply_for_error`, `http.error_reply`, `http.status_text` in `std.http` | `std/http.bdg` |
 | **F-I2 / F-N5** | `pipeline.recover_with(fn(error) -> reply)`: a stage that turns an error into a reply | `std/pipeline.bdg` |
 | **S-01** | `result.bail`, `result.must`, `result.must_eq`, `result.check` (the early-return and guard family) | `std/result.bdg` |
 | **S-02** | `result.bimap` (and the `.bimap` method) | `std/result.bdg` |
@@ -169,3 +169,25 @@ so the test is green.
   failure is **pre-existing**: it reproduces on the base commit
   (`83c6568`) with none of these changes, and it is in the runtime's
   garbage collector, not in the code here.
+
+## Audit of the change (2026-10-19)
+
+A correctness audit of the merged change (against `main` at `f4b4802`)
+found five defects in the standard library and two stale comments. All of
+them are fixed here.
+
+| Defect | Fix |
+|---|---|
+| Seven standard-library error types (`NumericError`, `codec.DecodeError`, `system.ProviderError`, `channel.ConfigError`, `channel.SendError<T>`, `task.PanicInfo`, `task.TimedOut`) did not implement `HttpStatus`, so they could not be a route's error type — and the orphan rule (E0211) stopped an application from adding the implementation. | Every standard-library error type now implements `HttpStatus` (the 500 default). |
+| `route.path_of`, `route.query_of` and `route.query_params` did not strip a URI's `#fragment`, so `/x?a=1#frag` gave the query the value `1#frag`. | The fragment is stripped first; the path and the query are what RFC 3986 says they are. |
+| `http.StatusError` and `http.reply_for_error` promised a reply that carries the error's message; a 5xx does not (it keeps the message to itself). | The two comments state the rule `http.error_reply` already documents. |
+| `http.Handler`'s comment still said that a handler's error becomes a 500. | It says that the error is answered with the status it carries. |
+| `http.with_status` was `http.json` under a second name and could not attach a status to a reply built by hand. | `http.with_status(response, status)` returns the response with that status. |
+
+The audit also confirmed as sound: the query-string edge cases (an empty
+name, a repeated parameter, a parameter without a value, percent
+encoding, a `?` inside a segment), the path parameter winning over a
+query parameter of the same name, the matcher, the status and reply
+bodies, the new `std.result` family, `std.validate`, `std.kv`,
+`std.default`, `std.cli`, `pipeline.recover_with`, and the free-function
+and method forms of every new operation.

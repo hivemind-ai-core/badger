@@ -42,6 +42,8 @@ impl prelude.Error for ProviderError {
     fn details(self: &Self) -> Data { self.details }
 }
 
+impl HttpStatus for ProviderError {}
+
 impl Display for Error {
     fn display(self: &Self) -> String {
         let base = $"system node {self.node}: {self.message}"

@@ -38,6 +38,8 @@ impl Display for ConfigError {
 
 impl Error for ConfigError {}
 
+impl HttpStatus for ConfigError {}
+
 /// A failed send returns the unsent value.
 pub struct SendError<T> {
     pub value: T,
@@ -47,6 +49,8 @@ pub struct SendError<T> {
 impl<T> Display for SendError<T> {
     fn display(self: &Self) -> String { $"send failed: {self.reason}" }
 }
+
+impl<T> HttpStatus for SendError<T> {}
 
 pub enum TryRecv<T> {
     value(item: T),

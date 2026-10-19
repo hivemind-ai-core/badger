@@ -11,6 +11,8 @@ impl Display for DecodeError {
 
 impl Error for DecodeError {}
 
+impl HttpStatus for DecodeError {}
+
 extern "intrinsic" fn codec_encode<T>(value: T) -> String
 extern "intrinsic" fn codec_encode_bytes<T>(value: T) -> Bytes
 extern "intrinsic" fn codec_decode_text<T>(text: String) -> Result<T, DecodeError>
