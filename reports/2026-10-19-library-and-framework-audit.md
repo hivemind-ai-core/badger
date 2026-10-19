@@ -20,6 +20,12 @@ running it. The findings and the fixes are in
   which they cannot be) and `-Zbuild-std` for ThreadSanitizer (without
   it, cargo reports an ABI mismatch between the sanitizer and the
   non-sanitizer dependencies).
+- **The runtime's own sanitizer features have to be enabled**: `asan`
+  (it unpoisons the redzones of a coroutine abandoned by `force_reset`)
+  and `tsan` (the fiber annotations that let TSan follow the stack
+  switches of `resume` and `suspend`). A build without them reports
+  false positives; the first pass of this audit was made without them,
+  and the correction is recorded below.
 - Every finding was reproduced on the base commit `83c6568` as well, to
   separate what this change introduced from what was already there.
 
@@ -44,60 +50,63 @@ commit `83c6568` in a clean worktree, so it is not from this change.
 
 ## 2. AddressSanitizer
 
-`RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target x86_64-unknown-linux-gnu -p badger_runtime`:
+`RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target x86_64-unknown-linux-gnu -p badger_runtime --features asan`:
 
 - 12 of 14 tests pass; 2 fail **on leaks only**:
   `buffer::tests::inline_elements_trace_freeze_and_grow_without_native_leaks`
   (1080 bytes in 9 objects) and
   `gc::sweep::tests::helpers_reuse_join_and_preserve_prefix_marks_and_finalizer_order`
   (120 bytes in 1 object).
-- Both leaks are allocations made **by the test bodies** (a `Vec` and a
-  `String` in `buffer.rs:416` and `gc/sweep.rs:156`), not by the runtime's
-  own heap; the same two tests, with the same 1108 bytes in 18
-  allocations, fail on the base commit `83c6568`.
+- Both leaks are the runtime's **intentional** leaks: a type descriptor
+  must live as long as the program, and `TypeDesc::leak` is `Box::leak`
+  (`crates/badger_runtime/src/desc.rs:207`). The tests create nine
+  descriptors each, and LeakSanitizer cannot know the leak is meant to
+  happen. The same two tests, with the same 1108 bytes in 18
+  allocations, fail on the base commit `83c6568`, and with
+  `ASAN_OPTIONS=detect_leaks=0` (the right setting for a runtime that
+  leaks by design) all 14 pass.
 
-`ASAN_OPTIONS=detect_leaks=0 cargo +nightly test --target ... -p badger_cli --test programs run_programs`
-(the whole corpus, four modes) reports — and because the sanitizer
-aborts the process, each mode stops at the first program that trips it:
+`ASAN_OPTIONS=detect_leaks=0 cargo +nightly test --target ... -p badger_cli --features asan --test programs run_programs`
+— the whole corpus, four modes — is **clean**:
+
+```
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 72 filtered out; finished in 316.83s
+```
+
+The first pass of this audit, built **without** the runtime's `asan`
+feature, reported on five programs (all on the task cancellation or
+timeout path) a `stack-use-after-scope` in
+`badger_runtime::task::harvest_events` (`crates/badger_runtime/src/task.rs:3435`):
 
 ```
 ERROR: AddressSanitizer: stack-use-after-scope
     #1 core::ptr::read::<badger_runtime::task::Timer>
     #2 <alloc::collections::binary_heap::Hole<badger_runtime::task::Timer>>::new
-    #7 badger_runtime::task::harvest_events      crates/badger_runtime/src/task.rs:3435
+    #7 badger_runtime::task::harvest_events
 ```
 
-It is raised by five programs, all on the task cancellation or timeout
-path (`cancel_matrix`, `task_timeout`, `jobs_worker`, `jobs_outbox`,
-`scope_defer_failure_release`). **Pre-existing**: the same five programs
-report the same error on the base commit `83c6568`. ASan also prints
-`ASan is ignoring requested __asan_handle_no_return ... False positive
-error reports may follow` immediately before each report, and the
-offending frame is `BinaryHeap::pop` in the standard library — the
-pattern of a false positive caused by the unwinding path, not a defect
-in the runtime's timer heap. It is worth a look, but it is not from this
-change.
-
-Because the harness stops a mode at the first abort, the corpus was also
-run program by program under the sanitizer (the five programs above
-skipped, the other 214 run):
-
-```
-clean=214 asan_errors=0
-```
-
-So the rest of the corpus is clean under AddressSanitizer.
+That was a **false positive of the build, not a defect**: the `asan`
+feature exists precisely to unpoison the redzones of a coroutine
+abandoned by `force_reset`, and without it ASan poisons the stack of
+the abandoned coroutine and then reports the next use of it. With
+`--features asan` the same five programs report nothing, and the whole
+corpus passes. (ASan also printed `ASan is ignoring requested
+__asan_handle_no_return ... False positive error reports may follow`
+before each report, and the error kind changed between runs — a
+stack-use-after-scope in one, a stack-buffer-underflow in the next —
+which is what a poisoned-shadow false positive looks like.)
 
 ## 3. ThreadSanitizer
 
-`RUSTFLAGS="-Zsanitizer=thread" cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu -p badger_runtime`:
+`RUSTFLAGS="-Zsanitizer=thread" cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu -p badger_runtime --features tsan`:
 
 - 14 of 14 unit tests pass, **no data race reported**.
 - The concurrency-relevant programs of the corpus (the ones whose name
   mentions a task, a worker, a channel, a scope, a job, a cancellation,
   a parallelism, a thread, a queue or a pool — 26 programs) were run
-  under TSan one at a time: **no data race is reported**
-  (`clean=26 tsan_races=0`).
+  under TSan one at a time, with the `tsan` feature (the fiber
+  annotations that let TSan follow the stack switches of the runtime's
+  coroutines): **no data race is reported** (`clean=26 tsan_races=0`).
 - The whole `run_programs_multicore` mode (all 219 programs on several
   workers) was also started under TSan; it had reported no race after
   100 minutes and was stopped there — TSan plus the JIT is that slow.
@@ -219,8 +228,8 @@ the JSON codec accepts a negative number of nanoseconds.
 | 4 | `http.Handler`'s doc comment was stale | introduced by this change | fixed (`37b91eb`) |
 | 5 | `http.with_status` could not attach a status to a hand-built reply | introduced by this change | fixed (`37b91eb`) |
 | 6 | `stress_programs` crashes in the garbage collector | pre-existing (`83c6568`) | open, not from this change |
-| 7 | ASan: a stack-use-after-scope in `task::harvest_events` on the cancellation path (the known ASan/unwind false positive) | pre-existing (`83c6568`) | open, not from this change |
-| 8 | ASan: two runtime unit tests leak their own test allocations | pre-existing (`83c6568`) | open, not from this change |
+| 7 | ASan: a stack report on the task cancellation path | a false positive of a build without the runtime's `asan` feature | closed: the corpus is clean with the feature |
+| 8 | ASan: two runtime unit tests leak their own type descriptors | the runtime's intentional leaks (`Box::leak`) | not a defect: leak checking is meaningless for this runtime |
 
 ## Not covered
 
