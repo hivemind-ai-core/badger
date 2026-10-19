@@ -125,6 +125,9 @@ fn collision(shift: u32) -> bool {
 trait Mutation: Copy {
     fn token(self) -> u64;
     fn can_edit(self, node: Node) -> bool;
+    /// A bulk builder owns every node outright; its nodes get spare
+    /// capacity so a growing node is not recopied per insertion.
+    fn builder(self) -> bool;
 }
 
 #[derive(Clone, Copy)]
@@ -136,6 +139,10 @@ impl Mutation for Persistent {
     }
     #[inline(always)]
     fn can_edit(self, _node: Node) -> bool {
+        false
+    }
+    #[inline(always)]
+    fn builder(self) -> bool {
         false
     }
 }
@@ -151,6 +158,10 @@ impl Mutation for Builder {
     fn can_edit(self, _node: Node) -> bool {
         true
     }
+    #[inline(always)]
+    fn builder(self) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -163,6 +174,10 @@ impl Mutation for Epoch {
     #[inline(always)]
     fn can_edit(self, node: Node) -> bool {
         node.owner() == self.0
+    }
+    #[inline(always)]
+    fn builder(self) -> bool {
+        false
     }
 }
 
@@ -183,7 +198,19 @@ pub(crate) const MAX_OWNER: u64 = (1 << 59) - 1;
 
 /// Allocate a node and fill it. Child pointers must be reachable or rooted.
 fn alloc_node(datamap: u32, nodemap: u32, flags: u32, entries: &[Entry], children: &[u64]) -> u64 {
-    let w = gc::alloc(node_desc(), HDR + entries.len() * 24 + children.len() * 8);
+    let size = HDR + entries.len() * 24 + children.len() * 8;
+    alloc_node_sized(datamap, nodemap, flags, entries, children, size)
+}
+
+fn alloc_node_sized(
+    datamap: u32,
+    nodemap: u32,
+    flags: u32,
+    entries: &[Entry],
+    children: &[u64],
+    size: usize,
+) -> u64 {
+    let w = gc::alloc(node_desc(), size);
     unsafe {
         let p = obj(w).payload();
         *(p as *mut u32) = datamap;
@@ -210,7 +237,13 @@ fn alloc_owned<M: Mutation>(
     children: &[u64],
     mode: M,
 ) -> u64 {
-    let w = alloc_node(datamap, nodemap, flags, entries, children);
+    let needed = HDR + entries.len() * 24 + children.len() * 8;
+    let slack = {
+        static SLACK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *SLACK.get_or_init(|| std::env::var("BADGER_HAMT_SLACK").map(|v| v != "0").unwrap_or(true))
+    };
+    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    let w = alloc_node_sized(datamap, nodemap, flags, entries, children, size);
     if mode.token() != 0 {
         stamp_owner(w, mode.token());
     }
@@ -249,7 +282,15 @@ fn splice_owned<M: Mutation>(
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
     let new_nc = nc - c.del + c.ins.is_some() as usize;
-    let out = gc::alloc(node_desc(), HDR + new_ne * 24 + new_nc * 8);
+    // An editable copy can be inserted into again. Reserve a little room so
+    // a growing node is not reallocated and recopied for every entry.
+    let needed = HDR + new_ne * 24 + new_nc * 8;
+    let slack = {
+        static SLACK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *SLACK.get_or_init(|| std::env::var("BADGER_HAMT_SLACK").map(|v| v != "0").unwrap_or(true))
+    };
+    let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    let out = gc::alloc(node_desc(), size);
     unsafe {
         let p = obj(out).payload();
         *(p as *mut u32) = datamap;
