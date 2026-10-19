@@ -238,6 +238,8 @@ impl Display for NumericError {
 
 impl Error for NumericError {}
 
+impl HttpStatus for NumericError {}
+
 /// Total equality (reflexive): floats are excluded, having only IEEE
 /// `PartialEq`.
 pub protocol Eq {}

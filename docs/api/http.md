@@ -109,7 +109,8 @@ sink (`call`).
 struct Handler { run: fn({method: Symbol, path: String, headers: Map<String, String>, body: Bytes}, http.Exchange) -> http.Reply !{Io, Wait, State, Foreign} }
 ```
 
-A packaged request handler; handler errors become 500 replies.
+A packaged request handler; a handler's error is answered with the
+status it carries (500 unless it chooses one).
 
 ### `LimitStats`
 
@@ -235,8 +236,8 @@ struct StatusError<E> { pub status: Int, pub error: E }
 ```
 
 An error that carries the status the application intends: the route
-system answers with that status (and the error's message) instead of a
-generic 500.
+system answers with that status instead of a generic 500. A client
+error carries the error's message; a server error does not.
 
 #### `StatusError.display`
 
@@ -419,9 +420,9 @@ fn port(s: Server) -> Int
 fn reply_for_error<E>(error: E) -> Result<Response, Error> where E: Display, E: HttpStatus
 ```
 
-The reply for an application error: the status it carries and its
-message. The route system does this by itself; use it where a reply
-is built by hand (a pipeline stage, for instance).
+The reply for an application error: the status it carries and, for a
+client error, its message. The route system does this by itself; use
+it where a reply is built by hand (a pipeline stage, for instance).
 
 ### `request`
 
@@ -519,9 +520,10 @@ answered 426 (Upgrade Required).
 ### `with_status`
 
 ```badger
-fn with_status<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec
+fn with_status(response: Response, status: Int) -> Response
 ```
 
-A JSON reply with the given status (the spelling `with_status` has in
-most frameworks).
+The response with another status: a handler that built its body by
+hand (with `http.text`, `http.json`, or its own bytes) attaches the
+status it means with this.
 

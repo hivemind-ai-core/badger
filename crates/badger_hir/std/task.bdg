@@ -36,6 +36,8 @@ impl Display for PanicInfo {
 
 impl Error for PanicInfo {}
 
+impl HttpStatus for PanicInfo {}
+
 /// A task scope branded with region `S`; its tasks cannot outlive it.
 pub struct TaskScope<S> {
     id: Int,
@@ -219,6 +221,8 @@ impl Display for TimedOut {
 }
 
 impl Error for TimedOut {}
+
+impl HttpStatus for TimedOut {}
 
 /// Run `f` as a child task; if it has not finished after `limit`, request
 /// its cancellation (observed at its next safe point), wait for its cleanup,
