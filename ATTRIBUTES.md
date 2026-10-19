@@ -1,9 +1,13 @@
 # Attributes
 
-**Status: proposed, not implemented.** This document scopes the design. It is
-the place to record decisions and open questions; it changes no grammar,
-checker, or codegen yet. When a subset is implemented it should move into
-`spec/` as a numbered section.
+**Status: Phase 1 implemented.** The syntax (lexer, grammar, CST, AST, HIR
+storage) and the unknown-attribute policy are in place on
+`feature/attributes`; the *recognised set is empty*, so any attribute is
+unknown — an error in standard-library sources, a warning elsewhere — until
+the first built-in attributes land (Phase 2). Placement is **item position
+only** for now (a function-level attribute is the coarse silencing scope);
+statement/scope placement lands with the warning-silencing built-in.
+`derive(...)` is unchanged. The design and open questions below still apply.
 
 ## Why
 
@@ -211,18 +215,31 @@ a type, `dyn`), it belongs in a protocol. If it is synthesised from a
 type’s shape, it belongs in `derive`. If it is a hint or a role that a
 specific pass reads, it belongs in an attribute.
 
-## Minimal set to implement, if we do it now
+## Implementation status
 
-1. **Grammar/lexer**: `Tok::At`; parse `@word` with an optional
-   `(` args `)`; attach to `fn` items.
-2. **Metadata**: store the parsed attributes on the item’s definition;
-   expose them through `badger query api`.
-3. **Checker**: a fixed recognised set with a designed diagnostic for
-   unknown/misplaced attributes.
-4. **Consumers**: only the fusion pass initially (`@fusion(...)`), plus
-   `@inline(always|never)` if it proves trivial.
-5. **Docs**: decide whether `badger doc std` prints attributes; keep
-   `api_reference_current` green either way.
+**Phase 1 (done, `feature/attributes`).**
+
+1. **Grammar/lexer** — `Tok::At` (`token.rs`); parses
+   `@name` / `@name(a, b)` / `@name(key = value)` with word, symbol,
+   integer, and string arguments (`grammar.rs`), on **item position**;
+   carried through `cst::Item` and `ast::Item`.
+2. **Metadata** — stored per definition in `Hir::attributes`
+   (`FxHashMap<DefId, Vec<ast::Attribute>>`); accessible to passes.
+   (Not yet surfaced by `badger query api`.)
+3. **Policy** — `KNOWN_ATTRIBUTES` in `badger_hir/src/lower.rs` (empty in
+   Phase 1) with `E0191`: an unrecognised attribute is an **error** in
+   standard-library sources and a **warning** elsewhere
+   (`tests/warnings/unknown_attribute.bdg`).
+4. **Consumers** — none yet; the first built-in attributes are Phase 2
+   (`@derive`, the scoped warning-silencing attribute, `@inline`, …).
+5. **Docs** — `badger doc std` does not print attributes yet; the
+   generated reference and `doc_examples_check` are unchanged and green.
+
+**Phase 2 (next).** Recognised names with consumers, starting with
+`@derive(...)` (routing to the existing generator) and a scoped
+warning-silencing attribute (which also introduces statement/scope
+placement). Then Phase 3: delete the `derive(...)` form (see the migration
+plan).
 
 ## Migration plan (replacing the `derive` syntax)
 

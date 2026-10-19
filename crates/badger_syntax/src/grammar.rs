@@ -1340,27 +1340,66 @@ where
                 },
             )
         });
-    let item = choice((
-        import,
-        extern_type,
-        type_decl,
-        struct_decl,
-        enum_decl,
-        protocol,
-        impl_decl,
-        provider_item,
-        stage_item,
-        fn_item,
-        extern_decl,
-        global,
-    ))
-    .map_with(|(is_pub, kind), e| Item { kind, span: e.span(), is_pub })
-    .labelled("declaration")
-    .recover_with(via_parser(skip_balanced(&[Tok::Sep]).map_with(|_, e| Item {
-        kind: ItemKind::Error,
-        span: e.span(),
-        is_pub: false,
-    })));
+    // `@name` / `@name(a, b)` / `@name(key = value)`
+    let attr_word = any()
+        .filter(|t: &Tok<'s>| matches!(t, Tok::Word(_)))
+        .map_with(|t, e| match t {
+            Tok::Word(text) => Ident { text, span: e.span() },
+            _ => unreachable!(),
+        })
+        .labelled("attribute name");
+    let attr_value = choice((
+        select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
+        select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
+        select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        attr_word.clone().map(AttrArg::Name),
+    ));
+    let attr_arg = attr_word
+        .clone()
+        .then_ignore(just(Tok::Assign))
+        .then(attr_value.clone())
+        .map(|(k, v)| AttrArg::KeyValue(k, Box::new(v)))
+        .or(attr_value.clone());
+    let attribute = just(Tok::At)
+        .ignore_then(attr_word)
+        .then(
+            just(Tok::LParen)
+                .ignore_then(
+                    attr_arg.separated_by(just(Tok::Comma)).allow_trailing().collect::<Vec<_>>(),
+                )
+                .then_ignore(just(Tok::RParen))
+                .or_not(),
+        )
+        .map_with(|(name, args), e| Attribute { name, args: args.unwrap_or_default(), span: e.span() });
+    // A run of attributes prefixes a declaration (newline-separated or not).
+    let attributes = attribute
+        .then_ignore(sep.clone().repeated())
+        .repeated()
+        .collect::<Vec<_>>();
+    let item = attributes
+        .then(choice((
+            import,
+            extern_type,
+            type_decl,
+            struct_decl,
+            enum_decl,
+            protocol,
+            impl_decl,
+            provider_item,
+            stage_item,
+            fn_item,
+            extern_decl,
+            global,
+        )))
+        .map_with(|(attributes, (is_pub, kind)), e| Item { kind, span: e.span(), is_pub, attributes })
+        .labelled("declaration")
+        .recover_with(via_parser(skip_balanced(&[Tok::Sep]).map_with(|_, e| Item {
+            kind: ItemKind::Error,
+            span: e.span(),
+            is_pub: false,
+            attributes: vec![],
+        })));
     choice((sep.clone().to(None), just(Tok::Semi).to(None), item.map(Some)))
         .repeated()
         .collect::<Vec<_>>()

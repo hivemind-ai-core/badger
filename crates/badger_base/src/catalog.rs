@@ -181,6 +181,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "Module-level values cannot perform I/O, wait, or call foreign code: there are no hidden environment reads during imports. Compute such values in `main` and pass them along.",
     ),
     (
+        "E0191",
+        "unknown attribute",
+        "The compiler does not recognise this attribute. Standard-library sources reject unknown attributes; other code warns.",
+    ),
+    (
         "E0190",
         "missing standard library item",
         "The compiler needs a standard-library item that is not defined.",

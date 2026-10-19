@@ -156,6 +156,9 @@ pub enum Tok<'a> {
     Pipe,
     #[token("^")]
     Caret,
+    /// An attribute marker: `@name`.
+    #[token("@")]
+    At,
     /// Input that is not a token (reported by the lexer).
     Error,
 }
@@ -195,6 +198,7 @@ impl Tok<'_> {
             Tok::Semi => ";",
             Tok::Colon => ":",
             Tok::Dot => ".",
+            Tok::At => "@",
             Tok::DotDot => "..",
             Tok::DotDotEq => "..=",
             Tok::Question => "?",

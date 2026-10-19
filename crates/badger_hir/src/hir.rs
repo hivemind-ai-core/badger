@@ -38,6 +38,8 @@ pub struct Hir {
     /// and the initializer of each local `const` binding.
     pub const_inits: Vec<ExprId>,
     pub const_local_inits: Vec<(LocalId, ExprId)>,
+    /// Attributes declared on each item (`@name(...)`), in source order.
+    pub attributes: FxHashMap<DefId, Vec<badger_syntax::ast::Attribute>>,
 }
 
 impl Hir {

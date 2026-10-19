@@ -13,6 +13,30 @@ pub struct Ident<'a> {
     pub span: Span,
 }
 
+/// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`.
+#[derive(Debug, Clone)]
+pub struct Attribute<'a> {
+    pub name: Ident<'a>,
+    pub args: Vec<AttrArg<'a>>,
+    pub span: Span,
+}
+
+/// An attribute argument. Names and symbols are the common forms; a
+/// `key = value` pair carries a key and one value.
+#[derive(Debug, Clone)]
+pub enum AttrArg<'a> {
+    /// A bare word, e.g. `stage`.
+    Name(Ident<'a>),
+    /// A symbol, `#name` or `#ns/name` (the text without the `#`).
+    Symbol(&'a str, Span),
+    /// An integer literal (its text).
+    Int(&'a str, Span),
+    /// A string literal (its text).
+    Str(&'a str, Span),
+    /// `key = value`.
+    KeyValue(Ident<'a>, Box<AttrArg<'a>>),
+}
+
 /// A record label: a field name, or a qualified symbol (`[#auth/user]`).
 #[derive(Debug, Clone, Copy)]
 pub enum Label<'a> {
@@ -62,6 +86,7 @@ pub struct Item<'a> {
     pub kind: ItemKind<'a>,
     pub span: Span,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute<'a>>,
 }
 
 #[derive(Debug, Clone)]
