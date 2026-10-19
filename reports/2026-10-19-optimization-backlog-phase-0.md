@@ -12,10 +12,15 @@ item, each gated on `cargo test --workspace`.
 | `e5967d3` | §0.6 | reuse the collector's mark stack and remembered buffer |
 | `5bae53c` | §0.7 | index the chunks instead of sorting every cell address |
 | `274743a` | §0.8 | account the channel's native buffers as external memory |
+| `ed47f20` | §0.3 | hash map keys with AHash under fixed seeds |
+| `2854c83` | §0.4 | store maps of at most eight entries as a flat array |
+| `beeb63a` | §0.2 | per-worker Chase-Lev ready queues |
+| `5182315` | §0.9 | pick two random victims to steal from |
+| `c6428ee` | §0.10 | steal half of a long ready queue |
 
-§0.3, §0.4 and §0.5 (collections) and §0.2, §0.9 and §0.10 (scheduler) were
-implemented by delegated workers in their own worktrees; their commits and
-measurements are in the sections below.
+§0.8, §0.3, §0.4, §0.2, §0.9 and §0.10 were implemented by delegated
+workers in their own worktrees and branches, and were integrated here by
+cherry-pick after the full test suite ran on the result.
 
 ## The measurement that matters: the cost of a full collection
 
@@ -77,6 +82,49 @@ every freed page and the directory slots that named it):
 Fix (`66a5222`): the clearing pass skips the directories that are not
 marked. A dead directory dies with the collection and its slots are never
 used again, so its slots are never read.
+
+## §0.2, §0.9, §0.10: the scheduler (delegated worker)
+
+`beeb63a` replaces the per-worker `LocalQueue` (a spinlock around a
+`VecDeque`) with a `crossbeam_deque::Worker` + `Stealer` pair per worker, so
+the owner is wait-free and thieves are lock-free; the next slot stays a
+separate queue with the visibility it had. `5182315` picks two random victims
+and steals from the better one, and `c6428ee` steals half of a long ready
+queue instead of one task.
+
+The worker's measurement (release builds, 4 workers, 9 runs each, interleaved
+because the machine was at load average 17-32 on 16 cores):
+
+| workload | before (min/median, ms) | after (min/median, ms) |
+|----------|------------------------|-----------------------|
+| `bench/messages.bdg` | 121.1 / 159.2 | 112.0 / 148.7 (-6%) |
+| `bench/parallel_alloc.bdg` | 110.8 / 136.3 | 101.4 / 135.0 (parity) |
+
+The backlog's predicted wins (the parked time on `messages` halved; a 2-5x
+cut in steal traffic on `parallel_alloc`) **are not visible in these
+benchmarks, and the worker says why**: with `BADGER_RUNTIME_STATS=1`,
+`messages` takes ~4000 runtime lock acquisitions, parks 0.01 ms and waits
+25-35 times idle, and `parallel_alloc` runs 7-8 tasks in total. The
+per-worker queue is a tail-latency and cross-core-traffic fix, and these
+throughput benchmarks do not exercise it. No functional or ordering
+deviation was found: the corpus (76 programs, single-threaded, `--release`
+and `--workers 4`) passes, and the new `crates/badger_runtime/tests/
+scheduler.rs` asserts the order (FIFO for the owner and for thieves,
+next-slot first), the exact queued accounting, the half-of-nine batch bound
+and that two distinct random victims are picked.
+
+## §0.3, §0.4: the collections (delegated worker)
+
+`ed47f20` hashes map keys with AHash under **fixed** seeds, so a key hashes
+the same in every process (a map's shape and iteration order never depend on
+a random seed) and the entropy is spread over all 64 bits the trie indexes
+in 5-bit chunks. `2854c83` stores a map of at most eight entries as a flat
+array (the Clojure `PersistentArrayMap` idea): a root with both bitmaps zero,
+scanned linearly, promoted to the trie at the ninth entry and flattened
+again when a removal brings it back to eight. The flat root is an ordinary
+`MapNode`, so tracing, the cursor layout and the map payload are unchanged,
+and the flat entries are kept in the order the trie would visit them, so
+iteration order does not depend on the representation.
 
 ## §0.8: external memory accounting (delegated worker)
 
