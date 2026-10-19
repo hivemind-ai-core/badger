@@ -60,10 +60,18 @@ pub fn len<K, V>(m: Map<K, V>) -> Int { map_len(m) }
 pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map_entries(m) }
 
 /// The keys, in the map's (unspecified but stable) entry order.
-pub fn keys<K, V>(m: Map<K, V>) -> List<K> { list.map(map_entries(m), fn(e) => e.0) }
+pub fn keys<K, V>(m: Map<K, V>) -> List<K> {
+    let out = list.builder<K>()
+    for (k, _) in m { out.append(k) }
+    out.finish()
+}
 
 /// The values, in the map's entry order.
-pub fn values<K, V>(m: Map<K, V>) -> List<V> { list.map(map_entries(m), fn(e) => e.1) }
+pub fn values<K, V>(m: Map<K, V>) -> List<V> {
+    let out = list.builder<V>()
+    for (_, v) in m { out.append(v) }
+    out.finish()
+}
 
 /// The value at `key`, or `default`.
 pub fn get_or<K, V>(m: Map<K, V>, key: K, default: V) -> V {
@@ -85,10 +93,10 @@ pub fn update<K, V>(m: Map<K, V>, key: K, f: once fn(Option<V>) -> Option<V>) ->
 /// Both maps' entries; where both have a key, `combine(a's, b's)` decides.
 pub fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash {
     let out = map_empty()
-    for (k, v) in map_entries(a) {
+    for (k, v) in a {
         map_insert_mut(out, k, v)
     }
-    for (k, v) in map_entries(b) {
+    for (k, v) in b {
         let merged = match map_get(a, k) {
             .some(x) => combine(x, v),
             .none => v,
@@ -104,7 +112,7 @@ pub fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> where K: Hash { merg
 /// The same keys with `f` applied to each value.
 pub fn map_values<K, V, W>(m: Map<K, V>, f: fn(V) -> W) -> Map<K, W> where K: Hash {
     let out = map_empty()
-    for (k, v) in map_entries(m) {
+    for (k, v) in m {
         map_insert_mut(out, k, f(v))
     }
     out
@@ -113,7 +121,7 @@ pub fn map_values<K, V, W>(m: Map<K, V>, f: fn(V) -> W) -> Map<K, W> where K: Ha
 /// The entries `keep` accepts.
 pub fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash {
     let out = map_empty()
-    for (k, v) in map_entries(m) {
+    for (k, v) in m {
         if keep(k, v) {
             map_insert_mut(out, k, v)
         }

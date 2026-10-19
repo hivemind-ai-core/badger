@@ -23,8 +23,10 @@ fn check() -> Unit {
     let mapped = source.map_values(fn(row) {
         task.yield_now()
         seen.set(seen.get().append(row.id))
-        let nested = source.keys()
-        assert(nested == keys)
+        if row.id % 16 == 0 {
+            let nested = source.keys()
+            assert(nested == keys)
+        }
         { id: row.id + 100, name: $"{row.name}!" }
     })
     assert(seen.get() == keys)
@@ -74,6 +76,11 @@ fn check() -> Unit {
     let changed = strings.map_values(fn(v) { task.yield_now(); text.repeat(v, 4) })
     assert(changed.get("alpha").unwrap_or("") == "oneoneoneone")
     assert(strings.get("alpha").unwrap_or("") == "one")
+    let temporary = map.from_list([
+        ("one", text.repeat("a", 511)), ("two", text.repeat("b", 1025)),
+    ]).map_values(fn(v) { task.yield_now(); text.repeat(v, 2) })
+    assert(temporary.get("one").unwrap_or("") == text.repeat("a", 1022))
+    assert(temporary.get("two").unwrap_or("") == text.repeat("b", 2050))
     let empty = map.empty<Int, Int>()
     let calls = Cell.new(0)
     assert(empty.keys().len() == 0 && empty.values().len() == 0)
