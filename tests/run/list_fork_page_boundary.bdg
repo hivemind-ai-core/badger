@@ -1,0 +1,30 @@
+// Two appends to one list version each get their own element, also when
+// the list's length is a whole number of pages (512 Ints, 512 Strings):
+// the second append must not reuse the page the first one started.
+import std.io
+
+fn forks<T>(make: fn(Int) -> T, x: T, y: T) -> List<Int> where T: Eq {
+    var base: List<T> = []
+    var bad = []
+    for n in 0..1600 {
+        let a = base.append(x)
+        let b = base.append(y)
+        if a.get(n) != Option.some(x) || b.get(n) != Option.some(y) || a.len() != n + 1 {
+            bad = bad.append(n)
+        }
+        base = base.append(make(n))
+    }
+    bad
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"Int: {forks(fn(n) { n }, -1, -2)}")?
+    io.println($"String: {forks(fn(n) { $"{n}" }, "x", "y")}")?
+    var base: List<Int> = []
+    for i in 0..512 { base = base.append(i) }
+    let firsts = base.take(512)
+    let a = firsts.append(1)
+    let b = firsts.append(2)
+    io.println($"take: {a.get(512)} {b.get(512)}")?
+    ok(())
+}
