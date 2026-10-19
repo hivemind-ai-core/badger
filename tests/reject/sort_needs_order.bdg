@@ -1,0 +1,10 @@
+// expect-error: E0341
+// `sort` compares elements: a type without an order cannot be sorted
+// (`sort_by` and `sort_with` take a key or a comparison instead).
+pub struct Opaque { x: Int }
+
+pub fn main() {
+    let a: Opaque = { x: 2 }
+    let b: Opaque = { x: 1 }
+    let s = [a, b].sort()
+}

@@ -82,7 +82,7 @@ impl<T> List<T> {
     pub fn chunks(self: &Self) -> List<Array<T>> { list_chunks(self) }
     pub fn first(self: &Self) -> Option<T> { list_get(self, 0) }
     pub fn last(self: &Self) -> Option<T> { list_get(self, list_len(self) - 1) }
-    pub fn contains(self: &Self, value: T) -> Bool { list_contains(self, value) }
+    pub fn contains(self: &Self, value: T) -> Bool where T: PartialEq { list_contains(self, value) }
     /// Lazy view over the elements.
     pub fn seq(self: &Self) -> Seq<T> { of(self) }
     /// Read-only contiguous page views (page directory size).
@@ -92,7 +92,7 @@ impl<T> List<T> {
     pub fn concat(self: &Self, other: List<T>) -> List<T> { list_concat(self, other) }
     pub fn reverse(self: &Self) -> List<T> { list_reverse(self) }
     pub fn slice(self: &Self, start: Int, end: Int) -> List<T> { list_slice(self, start, end) }
-    pub fn sort(self: &Self) -> List<T> { list_sort(self) }
+    pub fn sort(self: &Self) -> List<T> where T: PartialOrd { list_sort(self) }
     pub fn map<U>(self: &Self, f: fn(T) -> U) -> List<U> { map(self, f) }
     pub fn filter(self: &Self, keep: fn(T) -> Bool) -> List<T> { filter(self, keep) }
     pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
@@ -172,7 +172,7 @@ pub fn append<T>(list: List<T>, value: T) -> List<T> { list_append(list, value) 
 pub fn concat<T>(a: List<T>, b: List<T>) -> List<T> { list_concat(a, b) }
 pub fn reverse<T>(list: List<T>) -> List<T> { list_reverse(list) }
 pub fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T> { list_slice(list, start, end) }
-pub fn sort<T>(list: List<T>) -> List<T> { list_sort(list) }
+pub fn sort<T>(list: List<T>) -> List<T> where T: PartialOrd { list_sort(list) }
 
 pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
     let b = list_builder_capacity<U>(list_len(list))

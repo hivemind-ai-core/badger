@@ -310,7 +310,7 @@ fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T>
 ### `sort`
 
 ```badger
-fn sort<T>(list: List<T>) -> List<T>
+fn sort<T>(list: List<T>) -> List<T> where T: PartialOrd
 ```
 
 ### `sort_by`
@@ -459,7 +459,7 @@ fn concat(self: &Self, other: List<T>) -> List<T>
 ### `List.contains`
 
 ```badger
-fn contains(self: &Self, value: T) -> Bool
+fn contains(self: &Self, value: T) -> Bool where T: PartialEq
 ```
 
 ### `List.count`
@@ -653,7 +653,7 @@ fn slice(self: &Self, start: Int, end: Int) -> List<T>
 ### `List.sort`
 
 ```badger
-fn sort(self: &Self) -> List<T>
+fn sort(self: &Self) -> List<T> where T: PartialOrd
 ```
 
 ### `List.sort_by`
