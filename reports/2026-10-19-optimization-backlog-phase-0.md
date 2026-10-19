@@ -48,16 +48,31 @@ collection, O(n log n)) only to ask which chunks hold a cell; it now sorts
 the chunk ranges (a few dozen entries) and looks each cell up, which is
 O(n log chunks) with O(chunks) memory.
 
+Re-measured at the end of the branch on a quiet machine (load average 2
+instead of 17-33), with the branch's other changes included: `main` 91.0,
+91.5, 92.6 ms, the branch 36.1, 35.6, 36.2 ms -- **2.6x faster, -61%**.
+
 §0.6 is **neutral in this measurement**: reusing the mark stack and the
 remembered buffer removes two allocations per collection, which is below the
 noise floor here. It is kept because it is strictly less work, not because
 it is faster.
 
-The end-to-end benchmarks do not move (medians over 7 interleaved runs,
-`bench/collections.bdg`, `bench/records.bdg`, `bench/messages.bdg`, 1 and 4
-workers, release builds): the deltas are within +-1% and the per-round
-spread is 10-40% on a machine running other agents' builds. Those workloads
-mostly run *minor* collections, where the changed code does not run.
+The end-to-end benchmarks move a little, not a lot (medians over 5-7
+interleaved runs, release builds, the whole branch against `main`):
+
+| workload | 1 worker | 4 workers |
+|----------|---------:|----------:|
+| `bench/messages.bdg` | 80.0 -> 78.9 ms (-1.4%) | 81.2 -> 77.8 ms (-4.2%) |
+| `bench/collections.bdg` | 188.7 -> 185.4 ms (-1.7%) | 188.7 -> 187.7 ms (-0.5%) |
+| `bench/records.bdg` | 762.1 -> 761.4 ms (-0.1%) | 1207.6 -> 1219.6 ms (+1.0%) |
+| `bench/parallel_alloc.bdg` | 91.6 -> 89.7 ms (-2.1%) | 74.7 -> 76.5 ms (+2.4%) |
+
+The workloads mostly run *minor* collections, where the changed collector
+code does not run, so the end-to-end numbers are within a few percent; the
+channel refactor's round-trip p99 (below) is the tail measurement the
+end-to-end medians cannot show. Measurements taken while the machine was
+running other agents' builds (load 17-33) had a per-round spread of 10-40%
+and are not quoted.
 
 ## The collector bug the work found
 
