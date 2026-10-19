@@ -1,0 +1,17 @@
+// expect-error: E0404
+// A guard that fails falls through to the next arm after whatever it
+// moved: `b` is gone by the time the second guard or the last arm runs.
+import std.buffer
+
+fn take(b: Buffer<Int>) -> Bool { false }
+
+pub fn main() {
+    let b = buffer.new<Int>()
+    let n = match 3 {
+        _ if take(b) => 1,
+        _ => {
+            b.push(1)
+            3
+        },
+    }
+}

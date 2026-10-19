@@ -1,0 +1,14 @@
+// expect-error: E0404
+// A `continue` reaches the loop head in its state: `b` moved before it is
+// used again by the next iteration.
+import std.buffer
+
+pub fn main() {
+    var b = buffer.new<Int>()
+    var keep = buffer.new<Int>()
+    for i in 0..3 {
+        keep = b
+        if i == 0 { continue }
+        b = buffer.new<Int>()
+    }
+}

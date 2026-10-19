@@ -1,0 +1,11 @@
+// expect-error: E0404
+// Closures taken out of a list of consuming closures stay single-use.
+import std.buffer
+
+pub fn main() {
+    let b = buffer.new<Int>()
+    for f in [fn() { b }] {
+        let x = f()
+        let y = f()
+    }
+}

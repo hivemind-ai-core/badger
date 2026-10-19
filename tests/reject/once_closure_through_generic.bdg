@@ -1,0 +1,13 @@
+// expect-error: E0404
+// A closure that consumes what it captured is single-use: a generic
+// function that copies its argument cannot take it.
+import std.buffer
+
+fn dup<T>(x: T) -> (T, T) { (x, x) }
+
+pub fn main() {
+    let b = buffer.new<Int>()
+    let (f, g) = dup(fn() { b })
+    let x = f()
+    let y = g()
+}

@@ -83,6 +83,12 @@ struct Own<'i, 'g, 'a> {
     local_lambdas: FxHashMap<LocalId, ExprId>,
     /// `Result` values bound or assigned and not read since.
     unread: FxHashMap<LocalId, Span>,
+    /// Per loop being walked: the states at its `break`s and `continue`s
+    /// (they leave the loop, or reach its head, in that state).
+    exits: FxHashMap<ExprId, (Option<State>, Option<State>)>,
+    /// A named standard definition that stores a one-shot callback as an
+    /// ordinary function (see [`TRUSTED_ONCE_STORE`]).
+    stores_once: bool,
 }
 
 /// Standard modules whose code is not checked for ownership: they hand
@@ -133,7 +139,10 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         lambda_borrows: FxHashMap::default(),
         local_lambdas: FxHashMap::default(),
         unread: FxHashMap::default(),
+        exits: FxHashMap::default(),
+        stores_once: false,
     };
+    o.stores_once = trusted_std(o.inf, d, TRUSTED_ONCE_STORE);
     for p in params.clone() {
         let mut ls = vec![];
         pat_locals(hir, p, &mut ls);
@@ -748,6 +757,8 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
         lambda_borrows: FxHashMap::default(),
         local_lambdas: FxHashMap::default(),
         unread: FxHashMap::default(),
+        exits: FxHashMap::default(),
+        stores_once: false,
     };
     for (def, args, span) in calls {
         o.inf.g.dup_done.borrow_mut().insert(def);
@@ -815,6 +826,8 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         lambda_borrows: FxHashMap::default(),
         local_lambdas: FxHashMap::default(),
         unread: FxHashMap::default(),
+        exits: FxHashMap::default(),
+        stores_once: false,
     };
     for p in params {
         let mut ls = vec![];
@@ -857,6 +870,18 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
     if !dup.is_empty() {
         o.inf.g.dup_params.borrow_mut().insert(d, dup);
     }
+}
+
+/// `t` with every function type in it single-use (`once fn`).
+fn once_fns(t: &Ty) -> Ty {
+    crate::ty::ty_map(t, &mut |x| match &**x {
+        TyKind::Fn(f) if !f.once => {
+            let mut f = f.clone();
+            f.once = true;
+            Some(crate::ty::mk(TyKind::Fn(f)))
+        }
+        _ => None,
+    })
 }
 
 fn same_var(a: &Ty, b: &Ty) -> bool {
@@ -1498,6 +1523,72 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// A call passing a value that holds a consuming closure (`[fn() { b }]`,
+    /// `fn() { b }` itself): the call's closures receive such values as
+    /// their parameters (`list.map(fn(f) { ... })`), so those parameters are
+    /// single-use; and a generic callee that may duplicate the type
+    /// parameter the value instantiates cannot take it (it is checked as a
+    /// `once fn` there).
+    ///
+    /// Called before the arguments are walked (`walked` false: marking the
+    /// closures' parameters) and after (the duplication check, which needs
+    /// to know which closure arguments consume their captures).
+    fn consuming_args(
+        &mut self,
+        callee: Option<(DefId, Vec<Ty>)>,
+        holders: &[ExprId],
+        span: Span,
+        walked: bool,
+    ) {
+        let hir = self.inf.g.hir;
+        let consuming: Vec<bool> = holders.iter().map(|h| self.holds_consuming(*h)).collect();
+        if !consuming.iter().any(|c| *c) {
+            return;
+        }
+        if !walked {
+            for h in holders {
+                if let ExprKind::Lambda(l) = &hir.exprs[*h].kind {
+                    for p in &l.params {
+                        self.mark_consuming_bindings(p.pat);
+                    }
+                }
+            }
+            return;
+        }
+        let Some((def, targs)) = callee else { return };
+        if self.stores_once {
+            return;
+        }
+        let Some(scheme) = self.inf.g.scheme(def) else { return };
+        let TyKind::Fn(f) = &*scheme.ty else { return };
+        let mut promoted = targs.clone();
+        let mut any = false;
+        for (p, c) in f.params.iter().zip(&consuming) {
+            if !*c {
+                continue;
+            }
+            let mut gens = vec![];
+            crate::ty::ty_any(p, &mut |k| {
+                if let TyKind::Gen(g) = k {
+                    gens.push(*g);
+                }
+                false
+            });
+            for g in gens {
+                if let Some(slot) = promoted.get_mut(g as usize) {
+                    let t = self.inf.icx.resolve(slot);
+                    if self.holds_fn(&t) {
+                        *slot = once_fns(&t);
+                        any = true;
+                    }
+                }
+            }
+        }
+        if any {
+            self.check_dup(def, &promoted, span);
+        }
+    }
+
     /// Mark the function-holding locals a pattern binds from a value that
     /// holds a consuming closure as single-use.
     fn mark_consuming_bindings(&mut self, pat: PatId) {
@@ -2095,6 +2186,21 @@ impl Own<'_, '_, '_> {
         }
     }
 
+    /// Record the state at a `break` (or `continue`) of loop `lp`.
+    fn exit_with(&mut self, lp: ExprId, st: &State, cont: bool) {
+        let slot = self.exits.entry(lp).or_default();
+        let slot = if cont { &mut slot.1 } else { &mut slot.0 };
+        match slot {
+            Some(s) => Self::merge(s, st),
+            None => *slot = Some(st.clone()),
+        }
+    }
+
+    /// The states at loop `lp`'s `break`s and `continue`s so far.
+    fn take_exits(&mut self, lp: ExprId) -> (Option<State>, Option<State>) {
+        self.exits.remove(&lp).unwrap_or_default()
+    }
+
     fn merge(into: &mut State, from: &State) {
         for (k, v) in from {
             into.entry(*k).or_insert(*v);
@@ -2456,6 +2562,11 @@ impl Own<'_, '_, '_> {
                     ExprKind::Def { def, .. } => Some(*def),
                     _ => None,
                 };
+                let targs = match self.inf.res.get(callee) {
+                    Some(Res::Callee { def, args }) => Some((*def, args.clone())),
+                    _ => None,
+                };
+                self.consuming_args(targs.clone(), args, span, false);
                 for (i, a) in args.iter().enumerate() {
                     let p = modes.get(i).copied();
                     if p == Some(Param::Exclusive) {
@@ -2466,6 +2577,7 @@ impl Own<'_, '_, '_> {
                     self.check_repeatable(*a, p);
                     self.moves_into_task(callee_def, i, *a, span, st);
                 }
+                self.consuming_args(targs, args, span, true);
                 d
             }
             ExprKind::MethodCall { recv, args, .. } => {
@@ -2519,6 +2631,13 @@ impl Own<'_, '_, '_> {
                 {
                     rm = Mode::Move;
                 }
+                let targs = match self.inf.res.get(&e) {
+                    Some(Res::Method(Target::Fn { def, args })) => Some((*def, args.clone())),
+                    _ => None,
+                };
+                let mut holders = vec![*recv];
+                holders.extend(args.iter().copied());
+                self.consuming_args(targs.clone(), &holders, span, false);
                 let mut d = self.expr(*recv, rm, st);
                 let callee_def = match self.inf.res.get(&e) {
                     Some(Res::Method(Target::Fn { def, .. })) => Some(*def),
@@ -2530,6 +2649,7 @@ impl Own<'_, '_, '_> {
                     self.check_repeatable(*a, p);
                     self.moves_into_task(callee_def, i + 1, *a, span, st);
                 }
+                self.consuming_args(targs, &holders, span, true);
                 // after the arguments: closures among them know their borrows
                 self.check_stored_borrows(e, *recv, args);
                 // a consuming closure stored into a builder, buffer, or channel
@@ -2674,18 +2794,25 @@ impl Own<'_, '_, '_> {
                         self.mark_consuming_bindings(a.pat);
                     }
                 }
-                let base = st.clone();
+                let mut base = st.clone();
                 let mut out: Option<State> = None;
                 for a in arms {
                     let mut s = base.clone();
                     // the arm's bindings are fresh each time it is entered
                     let mut bound = vec![];
                     pat_locals(hir, a.pat, &mut bound);
-                    for b in bound {
-                        s.remove(&b);
+                    for b in &bound {
+                        s.remove(b);
                     }
                     if let Some(g) = a.guard {
                         self.expr(g, Mode::Borrow, &mut s);
+                        // a guard that fails falls through to the next arms
+                        // after what it moved
+                        let mut after = s.clone();
+                        for b in &bound {
+                            after.remove(b);
+                        }
+                        Self::merge(&mut base, &after);
                     }
                     if !self.expr(a.body, mode, &mut s) {
                         match &mut out {
@@ -2703,22 +2830,40 @@ impl Own<'_, '_, '_> {
                 }
             }
             ExprKind::While { cond, body } => {
+                let mut broke = None;
                 for pass in 0..2 {
                     let n = self.loans.len();
                     self.expr(*cond, Mode::Move, st);
                     let mut s = st.clone();
                     self.expr(*body, Mode::Move, &mut s);
+                    let (b, c) = self.take_exits(e);
                     Self::merge(st, &s);
+                    // a `continue` reaches the head, a `break` the exit
+                    if let Some(c) = c {
+                        Self::merge(st, &c);
+                    }
+                    if let Some(b) = b {
+                        broke = Some(b);
+                    }
                     if pass == 0 {
                         self.loans_carried_around(e, n);
                     }
+                }
+                if let Some(b) = broke {
+                    Self::merge(st, &b);
                 }
                 false
             }
             ExprKind::For { iter, body, pat } => {
                 self.expr(*iter, Mode::Move, st);
+                // closures taken out of a collection of consuming closures
+                // (after the walk: an inline closure's captures are known)
+                if self.holds_consuming(*iter) {
+                    self.mark_consuming_bindings(*pat);
+                }
                 let mut bound = vec![];
                 pat_locals(hir, *pat, &mut bound);
+                let mut broke = None;
                 for pass in 0..2 {
                     let n = self.loans.len();
                     let mut s = st.clone();
@@ -2727,22 +2872,43 @@ impl Own<'_, '_, '_> {
                         s.remove(b);
                     }
                     self.expr(*body, Mode::Move, &mut s);
+                    let (b, c) = self.take_exits(e);
                     Self::merge(st, &s);
+                    if let Some(c) = c {
+                        Self::merge(st, &c);
+                    }
+                    if let Some(b) = b {
+                        broke = Some(b);
+                    }
                     if pass == 0 {
                         self.loans_carried_around(e, n);
                     }
                 }
+                if let Some(b) = broke {
+                    Self::merge(st, &b);
+                }
                 false
             }
             ExprKind::Loop { body } => {
+                let mut broke = None;
                 for pass in 0..2 {
                     let n = self.loans.len();
                     let mut s = st.clone();
                     self.expr(*body, Mode::Move, &mut s);
+                    let (b, c) = self.take_exits(e);
                     Self::merge(st, &s);
+                    if let Some(c) = c {
+                        Self::merge(st, &c);
+                    }
+                    if let Some(b) = b {
+                        broke = Some(b);
+                    }
                     if pass == 0 {
                         self.loans_carried_around(e, n);
                     }
+                }
+                if let Some(b) = broke {
+                    Self::merge(st, &b);
                 }
                 false
             }
@@ -2999,9 +3165,15 @@ impl Own<'_, '_, '_> {
                     };
                     self.expr(*v, m, st);
                 }
+                if let ExprKind::Break { target, .. } = &hir.exprs[e].kind {
+                    self.exit_with(*target, st, false);
+                }
                 true
             }
-            ExprKind::Continue { .. } => true,
+            ExprKind::Continue { target } => {
+                self.exit_with(*target, st, true);
+                true
+            }
             ExprKind::Unsafe(b) => self.expr(*b, mode, st),
         }
     }
@@ -3013,6 +3185,12 @@ impl Own<'_, '_, '_> {
 /// runtime its operations, which sends exactly one value, and returns the
 /// others (a partition of the list it reads twice).
 const TRUSTED_SINGLE_USE: &[(&str, &str)] = &[("channel", "select_keep")];
+
+/// Standard definitions that store a one-shot callback where the analysis
+/// sees a container that may be copied: `system.on_halt` keeps it in the
+/// node's halt list, and `halt_all` removes each callback before it runs
+/// it, so it runs at most once.
+const TRUSTED_ONCE_STORE: &[(&str, &str)] = &[("system", "on_halt")];
 
 /// Whether `d` is one of the named standard definitions in `list`.
 fn trusted_std(inf: &Infer<'_, '_>, d: DefId, list: &[(&str, &str)]) -> bool {

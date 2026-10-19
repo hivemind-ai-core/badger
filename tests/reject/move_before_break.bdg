@@ -1,0 +1,15 @@
+// expect-error: E0404
+// A `var` moved before a `break` leaves the loop moved, even though the
+// rest of the body would re-assign it.
+import std.buffer
+
+pub fn main() {
+    var b = buffer.new<Int>()
+    var keep = buffer.new<Int>()
+    for i in 0..2 {
+        keep = b
+        if i == 0 { break }
+        b = buffer.new<Int>()
+    }
+    b.push(7)
+}
