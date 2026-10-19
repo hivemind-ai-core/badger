@@ -22,6 +22,7 @@ references to look things up.
 
 ## Topics
 
+- [Migration cookbook](migration-cookbook.md): the same program in Go, Python, Rust and TypeScript, and what changes when you move it to Badger.
 - [Common errors](common-errors.md): the diagnostics you meet first, grouped by what you were trying to do.
 - [The type system](type-system.md): rows, effect rows, `From`, and how `?` resolves an error.
 - [Idiomatic Badger](idiomatic.md): the conventions — one error type, validation, configuration, routes, pipeline stages, background workers, and tests.

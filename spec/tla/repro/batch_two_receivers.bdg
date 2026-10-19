@@ -1,0 +1,37 @@
+// Finding F2 (spec/tla/README.md): two receivers parked on one batch
+// channel; one sealed batch of two messages is published. Expected: both
+// receivers get a message. At 13e7756 (1 and 4 workers): "r1 got 1", then
+// "deadlock: all tasks are blocked" with r2 waiting on batch receive.
+import std.channel
+import std.io
+import std.task
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?
+    let r = task.scope(fn(scope) -> Result<Unit, AppError> {
+        let r1 = scope.spawn(fn() {
+            let _ = io.println($"r1 got {b.receiver.recv().unwrap_or(0)}")
+            ok(())
+        })
+        let r2 = scope.spawn(fn() {
+            let _ = io.println($"r2 got {b.receiver.recv().unwrap_or(0)}")
+            ok(())
+        })
+        task.sleep(5ms)
+        let _ = b.sender.append(1)
+        let _ = b.sender.append(2)
+        let _ = io.println("published")
+        task.sleep(5ms)
+        let j1: Result<Unit, AppError> = r1.join()
+        let j2: Result<Unit, AppError> = r2.join()
+        let _ = j1
+        j2
+    })
+    let _ = r
+    let _ = io.println("done")
+    ok(())
+}

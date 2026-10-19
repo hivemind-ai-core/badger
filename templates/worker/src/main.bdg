@@ -1,0 +1,59 @@
+// @name@: a background worker.
+//
+// The job kind, its step, and the supervised worker that runs it are in
+// `worker.bdg`; the entry submits a job and waits for it to be done.
+//
+// `badger run` submits one job and waits for it; `badger test` runs the
+// tests.
+import std.io
+import std.jobs
+import std.system
+import std.task
+import std.time
+import worker
+
+/// The application's errors.
+pub enum AppError {
+    jobs(source: jobs.Error),
+    system(source: system.Error),
+    io(source: io.Error),
+    timeout,
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        store: jobs.store({ path: ":memory:" }),
+        work: worker.processor({ store: ref(#store) }),
+    }
+    use running <- system.run(plan)
+    match worker.submit(running.store, "first", { id: 1 })? {
+        .created(id) => io.println($"submitted job {id}")?,
+        .duplicate(id) => io.println($"job {id} was submitted before")?,
+    }
+    let started = time.now()
+    while running.store.count("done")? < 1 {
+        if time.now() - started > 5s {
+            return err(AppError.timeout)
+        }
+        task.sleep(5ms)
+    }
+    io.println("the job is done")?
+    ok(())
+}
+
+fn test_a_submitted_job_is_processed() -> Result<Unit, AppError> {
+    let plan = system {
+        store: jobs.store({ path: ":memory:" }),
+        work: worker.processor({ store: ref(#store) }),
+    }
+    use running <- system.run(plan)
+    let _ = worker.submit(running.store, "first", { id: 1 })?
+    let started = time.now()
+    while running.store.count("done")? < 1 {
+        if time.now() - started > 5s {
+            return err(AppError.timeout)
+        }
+        task.sleep(5ms)
+    }
+    ok(())
+}

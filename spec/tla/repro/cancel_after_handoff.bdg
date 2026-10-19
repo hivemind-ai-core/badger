@@ -1,0 +1,37 @@
+// Finding F1 (spec/tla/README.md): a receiver parked in recv is handed a
+// value and cancelled before it runs again. Spec 05: "After ownership
+// commits, cancellation does not silently retract a message." At 13e7756
+// with one worker: "empty: the sent value is gone" and the victim prints
+// nothing (with 4 workers the victim receives first: the free path takes
+// the value before it honours the cancellation).
+import std.io
+import std.channel
+import std.task
+import std.time
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    task.scope(fn(s) -> Result<Unit, AppError> {
+        let victim = s.capture(fn() {
+            let v = a.receiver.recv().unwrap_or(-1)
+            let _ = io.println($"victim got {v}")
+            0
+        })
+        task.sleep(time.millis(20))
+        a.sender.send(111)?
+        victim.cancel()
+        task.sleep(time.millis(20))
+        match a.receiver.try_recv() {
+            .value(v) => { let _ = io.println($"still queued: {v}") },
+            .empty => { let _ = io.println("empty: the sent value is gone") },
+            .closed => { let _ = io.println("closed") },
+        }
+        let _ = victim.join()
+        ok(())
+    })
+}

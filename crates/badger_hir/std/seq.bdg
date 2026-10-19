@@ -633,6 +633,7 @@ pub fn chain<T, Eff>(a: Seq<T, Eff>, b: Seq<T, Eff>) -> Seq<T, Eff> {
 }
 
 /// Consecutive equal items collapsed to the first.
+@fusion(role = stage, template = dedup)
 pub fn dedup<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: PartialEq {
     {
         start: fn() {

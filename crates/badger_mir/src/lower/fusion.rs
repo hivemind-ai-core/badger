@@ -22,6 +22,8 @@ enum Stage {
     Scan(ExprId, ExprId),
     /// The `(Int, T)` produced.
     Enumerate(Ty),
+    /// The element type (for structural equality).
+    Dedup(Ty),
 }
 enum Active {
     Map(Operand, Repr),
@@ -36,6 +38,8 @@ enum Active {
     Scan(Operand, Local, Repr),
     /// The counter and the `(Int, T)` produced.
     Enumerate(Local, Ty),
+    /// Previous item, a `seen` flag, and the element descriptor.
+    Dedup(Local, Local, Operand),
 }
 #[derive(Clone)]
 enum PreparedStage {
@@ -47,6 +51,7 @@ enum PreparedStage {
     FilterMap(Operand, Ty),
     Scan(Operand, Operand, Repr),
     Enumerate(Ty),
+    Dedup(Ty, Repr, Operand),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -113,6 +118,7 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.filter_map" => "filter_map",
                 "std.seq.scan" => "scan",
                 "std.seq.enumerate" => "enumerate",
+                "std.seq.dedup" => "dedup",
                 "std.seq.fold" => "fold",
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
@@ -173,6 +179,13 @@ impl FnLower<'_, '_, '_> {
                 stages.push(Stage::Enumerate(elem));
                 Some((source, stages))
             }
+            ("dedup", [inner]) => {
+                let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
+                let t = self.ty(e);
+                let elem = self.m.lay.args(&t).first()?.clone();
+                stages.push(Stage::Dedup(elem));
+                Some((source, stages))
+            }
             _ => None,
         }
     }
@@ -195,6 +208,7 @@ impl FnLower<'_, '_, '_> {
             }
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
+            ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
             _ => None,
         }
     }
@@ -356,6 +370,11 @@ impl FnLower<'_, '_, '_> {
                     PreparedStage::Scan(self.lower(f)?, self.lower(initial)?, ret)
                 }
                 Stage::Enumerate(ty) => PreparedStage::Enumerate(ty),
+                Stage::Dedup(ty) => {
+                    let repr = self.repr(&ty);
+                    let desc = self.desc_op(&ty);
+                    PreparedStage::Dedup(ty, repr, desc)
+                }
             });
         }
         Some(prepared)
@@ -381,6 +400,13 @@ impl FnLower<'_, '_, '_> {
                 }
                 PreparedStage::Enumerate(ty) => {
                     Active::Enumerate(self.copy_to_local(int(0), Repr::I64, None), ty)
+                }
+                PreparedStage::Dedup(_ty, repr, desc) => {
+                    // `prev` is read only after `seen` is set, so a zero
+                    // placeholder is safe
+                    let prev = self.copy_to_local(Operand::Const(Const::Int(0, repr)), repr, None);
+                    let seen = self.copy_to_local(int(0), Repr::I64, None);
+                    Active::Dedup(prev, seen, desc)
                 }
             })
             .collect();
@@ -536,6 +562,32 @@ impl FnLower<'_, '_, '_> {
                         value,
                     });
                     value = obj;
+                }
+                Active::Dedup(prev, seen, desc) => {
+                    // collapse consecutive equal items: keep the first, drop
+                    // later equal ones (structural equality)
+                    let first = self.block();
+                    let rest = self.block();
+                    let unseen = cmp(self, CmpOp::Eq, Operand::Local(seen), int(0));
+                    self.term(Term::Branch(unseen, first, rest));
+                    let passing = self.block();
+                    self.switch(first);
+                    self.emit(Stmt::Assign(seen, Rvalue::Use(int(1))));
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.term(Term::Goto(passing));
+                    self.switch(rest);
+                    let eq = self.rt(
+                        "badger_rt_eq",
+                        vec![desc.clone(), Operand::Local(prev), value.clone()],
+                        Repr::I8,
+                    );
+                    let eqb = self.copy_to_local(eq, Repr::I8, None);
+                    let changed = self.block();
+                    self.term(Term::Branch(Operand::Local(eqb), step, changed));
+                    self.switch(changed);
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.term(Term::Goto(passing));
+                    self.switch(passing);
                 }
                 Active::Skip(left) => {
                     // drop this item while the counter is positive, then pass

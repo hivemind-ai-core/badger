@@ -1,0 +1,54 @@
+// @name@: the application, composed of a store, a service, and the routes
+// that bind the service to HTTP.
+//
+// The three modules are separate on purpose: the service knows the store
+// and nothing else, the routes know the service and nothing else, and the
+// entry composes them.
+//
+// `badger run` answers a few requests in-process (no socket, no port), so
+// the project runs anywhere; `badger test` runs the tests.
+import std.http
+import std.io
+import std.route
+import std.system
+import routes
+import service
+import store
+
+/// The application's errors.
+pub enum AppError {
+    route(source: route.RouteError),
+    system(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        records: store.memory(),
+        tasks: service.tasks({ store: ref(#records) }),
+    }
+    use running <- system.run(plan)
+    let api = route.table(routes.routes(running.tasks))?
+    let created = http.call(api, http.request(#post, "/tasks", "{\"title\": \"  Write the docs  \"}"))
+    io.println($"POST /tasks        -> {created.status} {created.body.to_text().unwrap_or("")}")?
+    let listed = http.call(api, http.request(#get, "/tasks", ""))
+    io.println($"GET  /tasks        -> {listed.status} {listed.body.to_text().unwrap_or("")}")?
+    let done = http.call(api, http.request(#post, "/tasks/1/done", "{}"))
+    io.println($"POST /tasks/1/done -> {done.status} {done.body.to_text().unwrap_or("")}")?
+    ok(())
+}
+
+fn test_the_routes() -> Result<Unit, AppError> {
+    let plan = system {
+        records: store.memory(),
+        tasks: service.tasks({ store: ref(#records) }),
+    }
+    use running <- system.run(plan)
+    let api = route.table(routes.routes(running.tasks))?
+    assert(http.call(api, http.request(#post, "/tasks", "{\"title\": \"first\"}")).status == 201)
+    assert(http.call(api, http.request(#get, "/tasks", "")).status == 200)
+    assert(http.call(api, http.request(#post, "/tasks/1/done", "{}")).status == 200)
+    assert(http.call(api, http.request(#post, "/tasks/9/done", "{}")).status == 404)
+    assert(http.call(api, http.request(#post, "/tasks", "{\"title\": \" \"}")).status == 400)
+    ok(())
+}
