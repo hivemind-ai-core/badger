@@ -1,0 +1,19 @@
+{
+  "baseline_revision": "78cc5a4fbfe57750e2b2db2d2eb6d772da0555e3",
+  "binaries": {
+    "ordinary": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+      "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+    },
+    "diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+      "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+    }
+  },
+  "sources": {
+    "bench/gc/coverage.bdg": "919104acd48a3ac21cf227b37416871bac3771f3e9e37df37514e1c8b82fd62b",
+    "bench/gc/run.py": "46004934f53a01b228a33db8a0a9a9484e6530577c534d3ed01932296e48b099",
+    "bench/gc/test_gc_bench.py": "3d1b8d2a2085238152f4fe2e3c850f35fb304ef0e92e280fd9a975e345aec34b"
+  },
+  "production_diff_since_binary": ""
+}

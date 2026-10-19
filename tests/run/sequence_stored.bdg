@@ -1,0 +1,153 @@
+import std.seq
+import std.list
+import std.task
+import std.text
+import std.io
+
+fn event(log: Cell<List<Int>>, code: Int, value: Int) -> Int {
+    log.set(log.get().append(code))
+    value
+}
+fn mapper(log: Cell<List<Int>>) -> fn(Int) -> Int {
+    let _ = event(log, 3, 0)
+    fn(x: Int) { event(log, 100 + x, x + 1) }
+}
+fn predicate(log: Cell<List<Int>>) -> fn(Int) -> Bool {
+    let _ = event(log, 4, 0)
+    fn(x: Int) { let _ = event(log, 200 + x, 0); x % 2 == 0 }
+}
+fn folder(log: Cell<List<Int>>) -> fn(Int, Int) -> Int {
+    let _ = event(log, 7, 0)
+    fn(a: Int, x: Int) { event(log, 300 + x, a + x) }
+}
+fn unknown(n: Int) -> Seq<Int> { seq.range(0, n).map(fn(x: Int) { x + 1 }) }
+fn consume(s: Seq<Int>) -> Int { s.count() }
+fn early() -> Int {
+    let s = seq.range(0, 10).map(fn(x: Int) { x * 2 })
+    for x in s {
+        if x < 4 { continue }
+        return x
+    }
+    -1
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let log = Cell.new(list.empty<Int>())
+    let s = seq.range(event(log, 1, 0), event(log, 2, 10)).map(mapper(log)).filter(predicate(log)).take(event(log, 5, 2))
+    assert(log.get() == [1, 2, 3, 4, 5])
+    let _ = event(log, 8, 0)
+    assert(s.fold(event(log, 6, 0), folder(log)) == 6)
+    assert(log.get() == [1, 2, 3, 4, 5, 8, 6, 7, 100, 201, 101, 202, 302, 102, 203, 103, 204, 304])
+    log.set([])
+    assert(s.count() == 2)
+    assert(log.get() == [100, 201, 101, 202, 102, 203, 103, 204])
+    assert(s.take(1).count() == 1)
+    assert(s.count() == 2)
+    assert(early() == 4)
+
+    // Construction snapshots mutable scalar/callback values, including a
+    // callback factory that mutates bounds before the terminal is reached.
+    var hi = 4
+    var limit = 2
+    var transform: fn(Int) -> Int = fn(x) { x + 10 }
+    let frozen = seq.range(0, hi).map(transform).take(limit)
+    hi = 100
+    limit = 20
+    transform = fn(x) { x + 100 }
+    task.yield_now()
+    assert(frozen.fold(0, fn(a, x) { a + x }) == 21)
+    assert(frozen.count() == 2)
+    let seen = Cell.new(0)
+    let zero = seq.range(0, 20).map(fn(x) { seen.set(seen.get() + 1); x }).take(0)
+    assert(zero.count() == 0 && seen.get() == 0)
+    let rejected = seq.range(0, 20).map(fn(x) { seen.set(seen.get() + 1); x }).take(3).filter(fn(_) { false })
+    assert(rejected.count() == 0 && seen.get() == 3)
+    assert(rejected.count() == 0 && seen.get() == 6)
+
+    let local_in_lambda = fn(n: Int) {
+        let local = seq.range(0, n).take(3)
+        local.count() + local.count()
+    }
+    assert(local_in_lambda(9) == 6 && local_in_lambda(1) == 2)
+
+    let pairs = seq.range(0, 10).take(3)
+    var total = 0
+    for x in pairs {
+        for y in pairs { total = total + x * 10 + y }
+    }
+    assert(total == 99)
+    var breaks = 0
+    for x in pairs {
+        if x == 2 { break }
+        breaks = breaks + x
+    }
+    assert(breaks == 1 && pairs.count() == 3)
+    let edge = (9223372036854775806..=9223372036854775807).map(fn(x: Int) { x })
+    assert(edge.count() == 2 && edge.count() == 2)
+
+    // Typed list/closure roots survive suspension and later allocations.
+    var words = [text.repeat("a", 511), text.repeat("b", 1025), "tail"]
+    let pointers = words.seq().map(fn(x: String) {
+        task.yield_now()
+        let temporary = text.repeat("z", x.len())
+        assert(temporary.len() == x.len())
+        x
+    }).take(2)
+    words = ["changed"]
+    assert(pointers.fold(0, fn(a, x) { a + x.len() }) == 1536)
+    assert(pointers.fold(0, fn(a, x) { a + x.len() }) == 1536)
+    let small: List<U8> = [1, 2, 3]
+    let packed = small.seq().map(fn(x: U8) { Int.from(x) })
+    assert(packed.fold(0, fn(a, x) { a + x }) == 6)
+    let floats: List<F32> = [1.25F32, -2.5F32]
+    let fractional = floats.seq().map(fn(x: F32) { x * 2.0F32 })
+    assert(fractional.fold(0.0F32, fn(a, x) { a + x }) == -2.5F32)
+    let empty = seq.range(4, 2).take(-1)
+    assert(empty.count() == 0 && empty.count() == 0)
+    for i in 0..3 {
+        let per_iteration = seq.range(i, i + 2).take(2)
+        assert(per_iteration.fold(0, fn(a, x) { a + x }) == i * 2 + 1)
+    }
+
+    // Escaping, captured, mutable and unsupported consumers retain objects.
+    let escaped = seq.range(0, 5).take(3)
+    assert(consume(escaped) == 3 && escaped.count() == 3)
+    let captured = seq.range(0, 5).take(2)
+    let count = fn() { captured.count() }
+    assert(count() == 2 && captured.count() == 2)
+    let collected = seq.range(0, 5).map(fn(x: Int) { x + 1 })
+    assert(collected.collect() == [1, 2, 3, 4, 5] && collected.count() == 5)
+    var replaced = seq.range(0, 2)
+    replaced = seq.range(0, 7)
+    assert(replaced.count() == 7)
+    let opaque = unknown(3)
+    assert(opaque.fold(0, fn(a, x) { a + x }) == 6)
+
+    let opened = Cell.new(0)
+    let closed = Cell.new(0)
+    let scoped = seq.scoped(
+        fn() { opened.set(opened.get() + 1); Cell.new(0) },
+        fn(i) { let x = i.get(); i.set(x + 1); if x < 5 { Option.some(x) } else { Option.none } },
+        fn(_) { closed.set(closed.get() + 1) },
+    ).take(2)
+    assert(opened.get() == 0 && closed.get() == 0)
+    assert(scoped.count() == 2 && opened.get() == 1 && closed.get() == 1)
+    assert(scoped.count() == 2 && opened.get() == 2 && closed.get() == 2)
+    let _ = task.scope(fn(scope) -> Result<Unit, Never> {
+        let work = scope.capture(fn() {
+            let local = seq.range(0, 8).map(fn(x: Int) {
+                task.yield_now()
+                if x == 2 || x == 5 { panic($"stored-sequence-fail-{x}") }
+                x
+            })
+            local.count()
+        })
+        match work.join() {
+            .failed(info) => assert(info.message == "stored-sequence-fail-2"),
+            _ => panic("expected sequence callback failure"),
+        }
+        ok(())
+    })
+    io.println("stored sequences: ok")?
+    ok(())
+}

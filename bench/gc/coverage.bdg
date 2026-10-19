@@ -690,14 +690,45 @@ fn lookup_list_misses(c: Config) -> Int {
     total
 }
 
+// Passing a sequence through an opaque boundary keeps its public representation.
+fn consume_pipeline(values: Seq<Int>) -> Int { values.fold(0, fn(a: Int, x: Int) { a + x }) }
+
 fn pipeline(c: Config) -> Int {
     var total = 0
+    if c.mode == "stored-list" {
+        let source = array.build(c.n, fn(k: Int) { k }).to_list()
+        for _ in 0..c.rounds {
+            let values = source.seq().map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        }
+        return total
+    }
+    if c.mode == "stored-pointers" {
+        let source = array.build(c.n, fn(k: Int) { text.repeat("x", c.payload + k % 31) }).to_list()
+        for _ in 0..c.rounds {
+            let values = source.seq().map(fn(x: String) { x.len() * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        }
+        return total
+    }
     for _ in 0..c.rounds {
         if c.mode == "visible" {
             total = total + seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).fold(0, fn(a: Int, x: Int) { a + x })
         } else if c.mode == "stored" {
             let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
             total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "stored-reused" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+            task.yield_now()
+            total = total + values.fold(0, fn(a: Int, x: Int) { a + x })
+        } else if c.mode == "stored-escape" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            total = total + consume_pipeline(values)
+        } else if c.mode == "stored-collected" {
+            let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 })
+            let collected = values.collect()
+            total = total + collected.fold(0, fn(a: Int, x: Int) { a + x })
         } else if c.mode == "collected" {
             let values = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }).collect()
             total = total + values.fold(0, fn(a: Int, x: Int) { a + x })

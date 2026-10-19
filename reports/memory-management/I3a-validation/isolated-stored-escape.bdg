@@ -1,0 +1,21 @@
+import std.array
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.list
+import std.seq
+import std.time
+type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
+fn consume(s: Seq<Int>) -> Int { s.fold(0, fn(a: Int, x: Int) { a + x }) }
+fn work(c: Config) -> Int { var n = 0; for _ in 0..c.rounds { let s = seq.range(0, c.n).map(fn(x: Int) { x * 2 }).filter(fn(x: Int) { x % 3 == 0 }); n = n + consume(s) }; n }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = codec.decode_text<Config>(env.get("GC_BENCH_CONFIG").unwrap_or("")).unwrap_or({ mode: "invalid", n: 1, rounds: 1, payload: 1, retain: 1 })
+    let before = inspect.heap()
+    let start = time.now()
+    let checksum = work(c)
+    let elapsed_ns = time.as_nanos(time.now() - start)
+    let after = inspect.heap()
+    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after }))?
+    ok(())
+}

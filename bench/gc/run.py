@@ -73,6 +73,8 @@ COVERAGE = {
        for retain in [1, 16, 256]},
     **{name: dict(mode=name, n=65536, rounds=8, payload=1, retain=1)
        for name in ["visible", "stored", "collected", "eager"]},
+    **{name: dict(mode=name, n=32768, rounds=4, payload=32, retain=1)
+       for name in ["stored-reused", "stored-list", "stored-pointers", "stored-escape", "stored-collected"]},
 }
 POLICIES = {
     "control": {},
@@ -133,6 +135,9 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"] == "stored-pointers":
+        return sum(2 * (c["payload"] + k % 31) for k in range(c["n"])
+                   if (c["payload"] + k % 31) % 3 == 0) * c["rounds"]
     if c["mode"] == "map-api-parallel":
         return 8 * expected_coverage(c | dict(mode="map-api-composed", rounds=(c["rounds"] + 7) // 8))
     if c["mode"].startswith("map-api-"):
@@ -236,7 +241,7 @@ def expected_coverage(c):
             history[(i // 64) % c["retain"]] = min(i + 1, 1024)
         return sum(c["payload"] + i % 3 for i in range(c["n"])) + sum(history) + min(c["n"], 1024)
     m = (c["n"] - 1) // 3
-    return 3 * m * (m + 1) * c["rounds"]
+    return 3 * m * (m + 1) * c["rounds"] * (2 if c["mode"] == "stored-reused" else 1)
 
 
 def validate_coverage(record, config):

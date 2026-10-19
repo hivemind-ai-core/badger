@@ -833,6 +833,8 @@ pub struct FnLower<'m, 'g, 'a> {
     fid: FuncId,
     cur: BlockId,
     locals: FxHashMap<LocalId, Local>,
+    stored_sequences: FxHashMap<LocalId, fusion::Prepared>,
+    sequence_locals: Option<rustc_hash::FxHashSet<LocalId>>,
     loops: Vec<LoopCtx>,
     ret_ty: Ty,
     owner: Owner,
@@ -863,6 +865,8 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             fid,
             cur: BlockId::new(0),
             locals: FxHashMap::default(),
+            stored_sequences: FxHashMap::default(),
+            sequence_locals: None,
             loops: vec![],
             ret_ty,
             owner,
@@ -1668,9 +1672,14 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                         HStmt::Let { pat, .. } if matches!(&self.hir().pats[*pat].kind, badger_hir::PatKind::Bind(l) if self.inst.poly_locals.contains_key(l)) =>
                             {}
                         HStmt::Let { pat, init, .. } => {
-                            let v = self.lower(*init)?;
-                            let t = self.pat_ty(*pat);
-                            self.bind_irrefutable(*pat, v, &t);
+                            if let Some((local, plan)) = self.stored_sequence_plan(*pat, *init) {
+                                let prepared = self.prepare_sequence(plan)?;
+                                self.stored_sequences.insert(local, prepared);
+                            } else {
+                                let v = self.lower(*init)?;
+                                let t = self.pat_ty(*pat);
+                                self.bind_irrefutable(*pat, v, &t);
+                            }
                         }
                         HStmt::Assign { local, value, .. } => {
                             let v = self.lower(*value)?;
