@@ -150,9 +150,21 @@ depend on the representation.
 
 `dee35dd` makes `map::eq` a paired walk of the two tries that skips a
 subtree the two maps share, with a reflexivity check (a float NaN is not
-equal to itself). The item's O(1) `map::hashcode` is **not** done: it would
-need a per-map hash cached in the payload, which collides with the 16/24-byte
-payload layout, and it would hash every value on the insert path.
+equal to itself). **This is the win of the collections work**: comparing two
+related 100 000-entry versions went from 4.7 ms to 0.32 us.
+
+The item's O(1) `map::hashcode` is **not** done: it would need a per-map hash
+cached in the payload, which collides with the 16/24-byte payload layout, and
+it would hash every value on the insert path.
+
+**§0.4's expected win did not materialize.** Measured on release builds
+(median of 5 interleaved runs): a small-map lookup is 17 -> 17 ns at 4 and at
+8 entries, a small-map build is 34 -> 41 ns/insert at 4 entries and 35 -> 40
+at 8 (with the same minimums, 33 and 35-36), and `bench/collections` map
+insert and lookup are 67 -> 68 and 46 -> 46 ns. The reason is in the trie: a
+root of at most eight entries is *already* a single bitmap-indexed node, so
+the flat array has nothing to save. The item is kept because it is correct
+and tested, and because the measurement belongs in the record.
 
 ## §0.8: external memory accounting (delegated worker)
 
