@@ -390,9 +390,10 @@ error. `badger_cli` is the `badger` binary.
 - **Workers:** one by default (1..64); `[runtime] workers = N`, `--workers N`,
   or `BADGER_WORKERS` runs N OS threads; tasks migrate between them at
   suspension points. Each worker has its own run queue (a next slot for a
-  task its running task woke, then a deque), and idle workers steal (a
-  next-slot task only after 50 µs, for cache locality). Common operations
-  need no global lock: channel fast paths hold only the channel; waits
+  task its running task woke, then a deque), and idle workers steal,
+  including next-slot tasks, as soon as they find no work of their own.
+  Common operations need no global lock: channel fast paths hold only the
+  channel; waits
   park without it (a task is marked parking under its own lock and its
   worker parks or queues it after it leaves its stack); yields, task start,
   spawn, join, and normal task exit run without it; idle workers wait

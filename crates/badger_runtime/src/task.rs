@@ -1560,7 +1560,6 @@ fn enqueue(e: Entry, slot: bool) -> bool {
     q.with(|l| {
         if slot {
             let prev = std::mem::replace(&mut l.next, e);
-            q.next_at.store(now_ns(), Ordering::Relaxed);
             if prev.0 == 0 {
                 q.len.fetch_add(1, Ordering::Release);
                 return false;
@@ -1598,10 +1597,6 @@ struct LocalQueue {
     lock: AtomicBool,
     /// Tasks here (the next slot counts), read without the lock.
     len: AtomicUsize,
-    /// When the next slot was filled ([`now_ns`]): another worker may take
-    /// it only after [`STEAL_AFTER_NS`], so a woken partner usually runs on
-    /// the worker whose caches hold the data it was woken for.
-    next_at: AtomicU64,
     q: UnsafeCell<Local>,
 }
 
@@ -1644,11 +1639,9 @@ impl LocalQueue {
         e
     }
 
-    /// Take its next-slot task if it has waited there [`STEAL_AFTER_NS`].
-    fn steal_next(&self, now: u64) -> Option<Entry> {
-        if self.len.load(Ordering::Acquire) == 0
-            || now.saturating_sub(self.next_at.load(Ordering::Relaxed)) < STEAL_AFTER_NS
-        {
+    /// Take its next-slot task.
+    fn steal_next(&self) -> Option<Entry> {
+        if self.len.load(Ordering::Acquire) == 0 {
             return None;
         }
         let e = self.with(|l| (l.next.0 != 0).then(|| std::mem::take(&mut l.next)));
@@ -1667,7 +1660,6 @@ static LOCAL: [LocalQueue; MAX_WORKERS] = [const {
     LocalQueue {
         lock: AtomicBool::new(false),
         len: AtomicUsize::new(0),
-        next_at: AtomicU64::new(0),
         q: UnsafeCell::new(Local { next: (0, 0), deque: VecDeque::new() }),
     }
 }; MAX_WORKERS];
@@ -1721,8 +1713,6 @@ type Entry = (TaskId, usize);
 struct ReadyQueue {
     ready: VecDeque<Entry>,
 }
-
-const STEAL_AFTER_NS: u64 = 50_000;
 
 /// Monotonic nanoseconds since the runtime started.
 fn now_ns() -> u64 {
@@ -1808,42 +1798,13 @@ fn take_ready() -> Option<Entry> {
             return Some(e);
         }
     }
-    let now = now_ns();
-    (1..n).find_map(|k| local((w + k) % n).steal_next(now))
+    (1..n).find_map(|k| local((w + k) % n).steal_next())
 }
 
 /// Whether this worker has something to run (its own tasks, the shared
-/// queue, another worker's queue, or another worker's slot it may take),
-/// and otherwise how soon another worker's slot becomes takable.
-fn work_here() -> (bool, Option<Duration>) {
-    if GLOBAL_LEN.load(Ordering::Acquire) > 0 {
-        return (true, None);
-    }
-    let w = worker_index();
-    let now = now_ns();
-    let mut soonest: Option<u64> = None;
-    for (i, q) in LOCAL.iter().enumerate() {
-        let n = q.queued();
-        if n == 0 {
-            continue;
-        }
-        if i == w {
-            return (true, None);
-        }
-        let (has_next, deque) = q.with(|l| (l.next.0 != 0, l.deque.len()));
-        if deque > 0 {
-            return (true, None);
-        }
-        if has_next {
-            let age = now.saturating_sub(q.next_at.load(Ordering::Relaxed));
-            if age >= STEAL_AFTER_NS {
-                return (true, None);
-            }
-            let left = STEAL_AFTER_NS - age;
-            soonest = Some(soonest.map_or(left, |s: u64| s.min(left)));
-        }
-    }
-    (false, soonest.map(Duration::from_nanos))
+/// queue, or any other worker's queue or next slot).
+fn work_here() -> bool {
+    GLOBAL_LEN.load(Ordering::Acquire) > 0 || LOCAL.iter().any(|q| q.queued() > 0)
 }
 
 pub fn wake(id: TaskId, reason: Wake) {
@@ -2985,8 +2946,8 @@ fn worker_loop(n: usize) -> Option<Exit> {
             take_ready()
         };
         if let Some(id) = pick {
-            // more work than this worker can take: wake another (tasks in
-            // workers' next slots are taken by idle workers after a while)
+            // more work than this worker can take: wake another (an idle
+            // worker takes a next-slot task at once)
             if local(worker_index()).queued() > 0 || GLOBAL_LEN.load(Ordering::Acquire) > 0 {
                 notify_ready();
             }
@@ -3002,7 +2963,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         run_scheduler_work();
         // (a worker standing aside for controlled scheduling waits instead)
         let aside = worker_index() != 0 && sched_controlled();
-        let (work, steal_in) = work_here();
+        let work = work_here();
         if work && !aside {
             continue;
         }
@@ -3044,8 +3005,7 @@ fn worker_loop(n: usize) -> Option<Exit> {
         let wait = next_timer
             .map(|at| at.saturating_duration_since(Instant::now()))
             .unwrap_or(Duration::from_millis(20))
-            .min(Duration::from_millis(20))
-            .min(steal_in.unwrap_or(Duration::MAX));
+            .min(Duration::from_millis(20));
         IDLE.fetch_add(1, Ordering::SeqCst);
         unlock();
         {
@@ -3213,7 +3173,7 @@ fn idle_free() -> Option<Entry> {
         if SHUTDOWN.load(Ordering::SeqCst) || events_due() || sched_controlled() {
             return None;
         }
-        let (work, steal_in) = work_here();
+        let work = work_here();
         if work {
             if let Some(e) = take_ready() {
                 return Some(e);
@@ -3225,9 +3185,7 @@ fn idle_free() -> Option<Entry> {
         }
         let seq = READY_SEQ.load(Ordering::SeqCst);
         let timer = NEXT_TIMER.load(Ordering::SeqCst);
-        let wait = Duration::from_millis(20)
-            .min(Duration::from_nanos(timer.saturating_sub(now_ns())))
-            .min(steal_in.unwrap_or(Duration::MAX));
+        let wait = Duration::from_millis(20).min(Duration::from_nanos(timer.saturating_sub(now_ns())));
         let q = rt().external.clone();
         IDLE.fetch_add(1, Ordering::SeqCst);
         {
