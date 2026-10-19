@@ -19,7 +19,14 @@ are correctness-and-scale work, not current throughput wins.
 
 - Slice 0, remaining counters: spin time, channel fast-to-slow fallback
   reasons, GC request-to-acknowledge latency, timer lateness, a metrics-off
-  control run.
+  control run. The channel fast-path counters were implemented and measured on
+  2026-10-19 and **not kept**: adding them flips `tests/run/select_and_budget`
+  into a deterministic deadlock. The measurement is still recorded in
+  [2026-10-19-select-fast-path-fragility.md](reports/2026-10-19-select-fast-path-fragility.md)
+  (the fast path declines for semantic reasons, not contention: 1 "busy"
+  against 83 890 declines on `bench/messages.bdg` at 1-4 workers), and that
+  file is also the lead for the wakeup fragility itself — the highest-value
+  thing in this section right now.
 - Slice 1, ownership APIs: split `ChanData` into immutable configuration
   and guarded state; stable waiter records independent of `Task`.
 - Slice 2, GC coordination without the runtime lock: collector election,
@@ -30,6 +37,17 @@ are correctness-and-scale work, not current throughput wins.
   off the lock.
 - Slice 4: selection, close, and cancellation through shared descriptors
   (two-party rendezvous ordering).
+- Slice 4 lead (found 2026-10-19): a selection parked on a channel can stay
+  parked while the only sender takes the unlocked fast path and queues its
+  message without waking it. A ~1 ns/call addition to the fast paths makes
+  `tests/run/select_and_budget` deadlock deterministically; `BADGER_DEBUG_SCHED`
+  shows the sender task `Done` with the selector still `Parked`. Registering
+  the selection *before* probing its cases (the obvious window) did **not**
+  change that outcome, so the cause is elsewhere — the trace ends with a
+  fast-path send succeeding on a channel whose `recv_watchers` holds the
+  parked selector. Evidence, trace, what is ruled out (chaos sweeps at
+  seeds/workers that do not reproduce it) and what to check next:
+  [2026-10-19-select-fast-path-fragility.md](reports/2026-10-19-select-fast-path-fragility.md).
 - Slice 5: producer-owned batch staging and credits; stored charges.
 - Slice 6, rest: a timer lock (timers are on the runtime lock), per-worker
   park tokens in place of the global idle state.
@@ -46,10 +64,13 @@ are correctness-and-scale work, not current throughput wins.
   (`perf/frontend-reuse-2026-10-19`): `Session` keeps the parsed standard
   modules, so a four-entry `badger check` parses 34.10 → 12.34 ms and its
   front end 119.34 → 98.53 ms. The typecheck half (≈16 ms per extra entry)
-  remains; it needs a *shared standard-library HIR* first, because each
-  entry lowers its own `Hir` with its own `DefId`s, and
-  `badger_typeck::check_program` builds a fresh global context plus schemes
-  per program.
+  remains; the plan for it is [2026-10-19-std-check-reuse-plan.md](reports/2026-10-19-std-check-reuse-plan.md)
+  (reuse the std prefix of the check, keyed by the std module set) and is
+  being implemented. Separate small gap: `badger test` builds a fresh
+  `Session` per `[entries]`/`[tasks]` selection (`badger_cli/src/main.rs:637`),
+  so it gets no parse cache at all; reusing one session needs a diagnostics
+  reset that keeps `std_parsed` (diagnostics accumulate and short-circuit
+  `check_one` at `driver/src/lib.rs:746`).
 - C1.3/C1.4: a reusable compiler context with a content-keyed parse cache
   (remapping spans, file ids, and symbols), then checked-library reuse.
   Prerequisite as above; the parse half is the landed C1.2b work.
@@ -71,23 +92,24 @@ are correctness-and-scale work, not current throughput wins.
   `to_array`, `bytes`/`buffer` conversions and `concat`/`slice` copy whole
   packed runs; on the measured workloads the wall-clock is dominated by
   allocation, so the per-element savings are not separately visible.
-- R3: admission sizes without materializing map entries (a map-entry `Vec`
-  is built per admission at `channel.rs:645-658`, and `uncharge` re-sizes at
-  `:936-944`); sizes stored with batch, staged, and leased items; indexed
-  leases. Overlaps R1's channel accounting.
+- R3: done 2026-10-19 (`perf/channel-sizing-2026-10-19`): `admission_size`
+  walks maps and sets in place (`map::for_each`) instead of collecting entries
+  into a `Vec` per admission and per `uncharge` — 104 → 70 ns/op on a
+  byte-budgeted channel carrying an 8-entry map (−42% on the charge; the
+  unbudgeted path is untouched). Storing sizes with batch and staged items and
+  indexed leases remain, and overlap R1's channel accounting.
 - R4: a typed per-intrinsic contract table in place of the `UNLOCKED` name
   list (~130 strings at `codegen/lib.rs:1646`). Its only cost is
   compile-time and only for `workers > 1` (the lookup is short-circuited),
   so this is maintainability, not throughput; codegen owner.
-- R5: decode `Data` without the intermediate JSON value. Text decoding is
-  done 2026-10-19 (`badger_runtime::json` streams into the target value);
-  `from_data`/`from_sql_row` still build a `serde_json::Value` (`codec::dec`).
-  Routing them through the text decoder was measured at +25% (850 → 1065
-  ns/op on a 64-row round-trip probe). A direct walk of the `Data`
-  representation is what remains; note it needs a second small path for map
-  keys (a `Data` object's keys are plain strings, not `Data`), i.e. it is a
-  third decoder rather than a deletion, until `params_decode`,
-  `codec_to_data` and `data_parse` can all stop building values.
+- R5: done 2026-10-19 (`perf/codec-data-walk-2026-10-19`): `from_data` and
+  `from_sql_row` walk the `Data` representation directly (`dec_data`, plus
+  `dec_str_key` for object keys, which are strings) instead of building a
+  `serde_json::Value` per decode — `from_data` 686 → 457 ns/op (−33%), a
+  64-row round trip −13%, `from_sql_row` −12%. `dec` stays for `params_decode`,
+  which still decodes from path-string JSON; `data_value` is gone. Text
+  decoding already streamed; routing `from_data` through it was measured at
+  +25% and remains rejected.
 
 ## Language, libraries, and tools (ENHANCEMENTS.md)
 
