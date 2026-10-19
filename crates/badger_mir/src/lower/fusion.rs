@@ -20,6 +20,8 @@ enum Stage {
     FilterMap(ExprId),
     /// `f` and the initial accumulator.
     Scan(ExprId, ExprId),
+    /// The `(Int, T)` produced.
+    Enumerate(Ty),
 }
 enum Active {
     Map(Operand, Repr),
@@ -32,6 +34,8 @@ enum Active {
     FilterMap(Operand, Ty),
     /// The callback, the running accumulator, and its representation.
     Scan(Operand, Local, Repr),
+    /// The counter and the `(Int, T)` produced.
+    Enumerate(Local, Ty),
 }
 #[derive(Clone)]
 enum PreparedStage {
@@ -42,6 +46,7 @@ enum PreparedStage {
     StepBy(Operand),
     FilterMap(Operand, Ty),
     Scan(Operand, Operand, Repr),
+    Enumerate(Ty),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -107,6 +112,7 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.step_by" => "step_by",
                 "std.seq.filter_map" => "filter_map",
                 "std.seq.scan" => "scan",
+                "std.seq.enumerate" => "enumerate",
                 "std.seq.fold" => "fold",
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
@@ -160,6 +166,13 @@ impl FnLower<'_, '_, '_> {
                 stages.push(Stage::Scan(*initial, *f));
                 Some((source, stages))
             }
+            ("enumerate", [inner]) => {
+                let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
+                let t = self.ty(e);
+                let elem = self.m.lay.args(&t).first()?.clone();
+                stages.push(Stage::Enumerate(elem));
+                Some((source, stages))
+            }
             _ => None,
         }
     }
@@ -181,6 +194,7 @@ impl FnLower<'_, '_, '_> {
                 self.sequence_local_use(*inner, depth + 1)
             }
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
+            ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             _ => None,
         }
     }
@@ -341,6 +355,7 @@ impl FnLower<'_, '_, '_> {
                     let ret = self.repr(&ft.params[0]);
                     PreparedStage::Scan(self.lower(f)?, self.lower(initial)?, ret)
                 }
+                Stage::Enumerate(ty) => PreparedStage::Enumerate(ty),
             });
         }
         Some(prepared)
@@ -363,6 +378,9 @@ impl FnLower<'_, '_, '_> {
                 PreparedStage::FilterMap(f, opt) => Active::FilterMap(f, opt),
                 PreparedStage::Scan(f, initial, ret) => {
                     Active::Scan(f, self.copy_to_local(initial, ret, None), ret)
+                }
+                PreparedStage::Enumerate(ty) => {
+                    Active::Enumerate(self.copy_to_local(int(0), Repr::I64, None), ty)
                 }
             })
             .collect();
@@ -492,6 +510,30 @@ impl FnLower<'_, '_, '_> {
                     let next = self.call(Callee::Closure(f), vec![Operand::Local(state), value], ret);
                     self.emit(Stmt::Assign(state, Rvalue::Use(next)));
                     value = Operand::Local(state);
+                }
+                Active::Enumerate(idx, ty) => {
+                    // `(index, item)`: index counts items that reach here.
+                    // Snapshot it before incrementing (the local is mutated).
+                    let idxv = Operand::Local(self.copy_to_local(Operand::Local(idx), Repr::I64, None));
+                    let inc = bin(self, BinOp::Add, Operand::Local(idx), int(1));
+                    self.emit(Stmt::Assign(idx, Rvalue::Use(inc)));
+                    let layout = self.m.lay.record(&ty);
+                    let desc = self.m.lay.desc(&ty);
+                    let obj = self
+                        .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size });
+                    self.emit(Stmt::Store {
+                        base: obj,
+                        offset: layout.fields[0].offset,
+                        repr: layout.fields[0].repr,
+                        value: idxv,
+                    });
+                    self.emit(Stmt::Store {
+                        base: obj,
+                        offset: layout.fields[1].offset,
+                        repr: layout.fields[1].repr,
+                        value,
+                    });
+                    value = obj;
                 }
                 Active::Skip(left) => {
                     // drop this item while the counter is positive, then pass

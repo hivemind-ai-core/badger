@@ -154,6 +154,7 @@ pub fn filter_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> 
 }
 
 /// Each item with its position, from 0.
+@fusion(role = stage, template = enumerate)
 pub fn enumerate<T, Eff>(items: Seq<T, Eff>) -> Seq<(Int, T), Eff> {
     {
         start: fn() {
