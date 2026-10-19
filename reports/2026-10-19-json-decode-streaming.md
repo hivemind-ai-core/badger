@@ -81,6 +81,10 @@ yet removed end to end; see the revised R5 in [BACKLOG.md](../BACKLOG.md).
 
 ## Verification
 
+- The branch was merged with `main` (which meanwhile added the parallel
+  memory-management/GC and MIR work; none of those commits touch
+  `crates/badger_runtime`), and every check below was re-run on the merged
+  tree.
 - Golden outputs for every codec- and route-related `tests/run` program are
   unchanged (`codec_paths`, `schema_wire`, `routes_typed`, `routes_params`,
   `app_bindings`, `http_scoped`, `spec_ch03_snippets`).
