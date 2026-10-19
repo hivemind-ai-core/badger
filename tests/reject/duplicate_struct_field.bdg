@@ -1,0 +1,5 @@
+// expect-error: E0103
+// A struct declares each field once.
+pub struct S { a: Int, a: String }
+
+pub fn main() {}

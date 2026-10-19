@@ -323,6 +323,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `test_*` function runs only when it takes no parameters (warning): `badger test` skips this one. Remove the parameters, or rename the function if it is a helper.",
     ),
     (
+        "E0148",
+        "name bound twice",
+        "One pattern (`let (a, a) = ...`, `.pair(x, x)`, `{ x: a, y: a }`) or one parameter list (`fn f(x: Int, x: Int)`) binds the same name twice; the second would shadow the first. Rename one of them, or discard it with `_`.",
+    ),
+    (
         "E0147",
         "specialization limit",
         "A generic function recurses through ever larger types past the specialization depth, so one of its instances cannot be compiled and fails if it is called (warning). Give the recursion a bounded type, or remove the protocol constraint so it can use the erased fallback.",

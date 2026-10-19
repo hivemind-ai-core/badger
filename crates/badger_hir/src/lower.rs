@@ -552,6 +552,10 @@ struct BodyCx<'c, 'a> {
     system_outputs: Option<LocalId>,
     /// Lowering a contract clause (which cannot return from the function).
     in_contract: bool,
+    /// Patterns being lowered (nested ones are part of their outermost),
+    /// and whether they are a parameter list (checked as a whole).
+    pat_depth: u32,
+    in_params: bool,
 }
 
 impl<'c, 'a> BodyCx<'c, 'a> {
@@ -568,6 +572,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             cur_def: None,
             system: None,
             system_outputs: None,
+            pat_depth: 0,
+            in_params: false,
             in_contract: false,
         }
     }
@@ -680,6 +686,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             }
             ast::ItemKind::Struct(s) => {
                 let generics = self.push_generics(&s.generics, Some(def));
+                let mut seen = FxHashSet::default();
+                for f in &s.fields {
+                    if !seen.insert(f.name.sym) {
+                        let n = self.sym(f.name.sym);
+                        self.err(
+                            "E0103",
+                            f.name.span,
+                            format!("duplicate field `{n}`"),
+                            "declared again here",
+                        );
+                    }
+                }
                 let fields = s
                     .fields
                     .iter()
@@ -958,6 +976,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.locals.push(FxHashMap::default());
         let mut params = vec![];
         let mut has_self = false;
+        let pats: Vec<ast::PatId> = f.params.iter().map(|p| p.pat).collect();
+        self.check_bound_once(&pats);
+        self.in_params = true;
         for (i, p) in f.params.iter().enumerate() {
             if i == 0
                 && let ast::PatKind::Bind(n) = &self.ast.pats[p.pat].kind
@@ -968,6 +989,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             let pat = self.lower_pat(p.pat);
             params.push(Param { pat, ty });
         }
+        self.in_params = false;
         let ret = f.ret.map(|t| self.lower_ty(t));
         let effect = f.effect.as_ref().map(|e| self.lower_effect(e));
         let mut body = f.body.map(|b| self.lower_expr(b));
@@ -1987,6 +2009,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.owners.push(OwnerFrame { owner: Owner::Lambda(id), captures: vec![] });
         self.locals.push(FxHashMap::default());
         let saved_loops = std::mem::take(&mut self.loops);
+        let pats: Vec<ast::PatId> = params.iter().map(|p| p.pat).collect();
+        self.check_bound_once(&pats);
+        let was_params = std::mem::replace(&mut self.in_params, true);
         let mut params: Vec<Param> = params
             .iter()
             .map(|p| {
@@ -1994,6 +2019,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 Param { pat: self.lower_pat(p.pat), ty }
             })
             .collect();
+        self.in_params = was_params;
         let ret = ret.map(|t| self.lower_ty(t));
         let effect = effect.map(|e| self.lower_effect(e));
         let body = match body {
@@ -2711,6 +2737,64 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     }
 
     fn lower_pat_mut(&mut self, p: ast::PatId, mutable: bool) -> PatId {
+        if self.pat_depth == 0 && !self.in_params {
+            self.check_bound_once(&[p]);
+        }
+        self.pat_depth += 1;
+        let r = self.lower_pat_inner(p, mutable);
+        self.pat_depth -= 1;
+        r
+    }
+
+    /// The names a pattern binds, in order (a record field without a
+    /// pattern binds its label).
+    fn pat_names(&self, p: ast::PatId, out: &mut Vec<(Symbol, Span)>) {
+        match &self.ast.pats[p].kind {
+            ast::PatKind::Bind(n) => out.push((n.sym, n.span)),
+            ast::PatKind::Tuple(ps) => ps.iter().for_each(|q| self.pat_names(*q, out)),
+            ast::PatKind::Record { fields, .. } => {
+                for (l, q) in fields {
+                    match q {
+                        Some(q) => self.pat_names(*q, out),
+                        None => out.push((l.sym, l.span)),
+                    }
+                }
+            }
+            ast::PatKind::Variant { args: Some(args), .. } => {
+                args.iter().for_each(|q| self.pat_names(*q, out))
+            }
+            _ => {}
+        }
+    }
+
+    /// A name bound twice by one pattern, or by one parameter list, is an
+    /// error (the second would silently shadow the first).
+    fn check_bound_once(&mut self, pats: &[ast::PatId]) {
+        let mut names = vec![];
+        for p in pats {
+            self.pat_names(*p, &mut names);
+        }
+        let mut seen: FxHashMap<Symbol, Span> = FxHashMap::default();
+        for (n, sp) in names {
+            if self.cx.interner.resolve(n) == "_" {
+                continue;
+            }
+            if let Some(first) = seen.get(&n).copied() {
+                let name = self.sym(n);
+                let what = if pats.len() > 1 { "parameter list" } else { "pattern" };
+                self.cx.diags.push(
+                    Diagnostic::error(format!("`{name}` is bound twice in one {what}"))
+                        .with_code("E0148")
+                        .with_label(sp, "bound again here")
+                        .with_label(first, "first bound here"),
+                );
+            } else {
+                seen.insert(n, sp);
+            }
+        }
+    }
+
+    fn lower_pat_inner(&mut self, p: ast::PatId, mutable: bool) -> PatId {
         let pat = &self.ast.pats[p];
         let span = pat.span;
         let kind = match &pat.kind {

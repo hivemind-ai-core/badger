@@ -1,0 +1,6 @@
+// expect-error: E0148
+// A parameter list (or one pattern) that binds a name twice would let the
+// second silently shadow the first.
+fn pick(x: Int, x: Int) -> Int => x
+
+pub fn main() {}
