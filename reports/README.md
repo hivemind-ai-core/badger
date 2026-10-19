@@ -8,6 +8,7 @@ states the revision it measured; newer work can change its numbers.
 | Report | What it covers |
 |---|---|
 | [2026-10-19-mir-optimization-architecture.md](2026-10-19-mir-optimization-architecture.md) | Release MIR optimization pipeline, closure specialization, and the verified superoptimizer mode |
+| [2026-10-19-sequence-fusion-and-presized-builders.md](2026-10-19-sequence-fusion-and-presized-builders.md) | `Seq.collect`/`sum` fusion, pre-sized list builders, and sequence-operation measurements |
 | [2026-10-19-map-builder-node-headroom.md](2026-10-19-map-builder-node-headroom.md) | Bulk map builder node growth: fewer reallocations and copies |
 | [2026-10-19-eager-list-map-and-map-entries.md](2026-10-19-eager-list-map-and-map-entries.md) | Eager `List.filter`/`map` fusion, map entries fusion, and cursor entry loading |
 | [2026-10-17-go-elixir-report-status.md](2026-10-17-go-elixir-report-status.md) | What became of each recommendation in the Go/Elixir design report |

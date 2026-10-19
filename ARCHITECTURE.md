@@ -279,6 +279,23 @@ error. `badger_cli` is the `badger` binary.
   and the later stage's calls and failures still occur on the same elements
   in the same order. No intermediate list is built. `BADGER_NO_LIST_FUSION=1`
   keeps the two-pass form.
+- Sequence terminal fusion (`crates/badger_mir/src/lower/fusion.rs`):
+  `Seq` pipelines (`range`, `list.of`, stored sequences, `map`, `filter`,
+  `take`) consumed by `collect`, `sum`, `fold`, `count`, or `for` lower to
+  one loop. The lazy adapter closures, `Cell`s, and iterator objects are
+  not created. `collect` builds one list; when the source count is known
+  and no filter can drop items, the builder sizes its pages and directory
+  up front.
+- Pre-sized list builders (`badger_mir::lower` + `badger_runtime::list`):
+  `list_builder_capacity` allocates the final directory and one page per
+  `page_cap` elements up front; appending then fills pages in place instead
+  of growing/copying the directory and allocating pages during the loop.
+  Reserved pages are traced while the object is a builder (`BUILDING` in
+  the capacity word), so a collection cannot free not-yet-filled pages;
+  `finish` clears the flag and trims the directory to the visible pages.
+  Only scalar element types reserve pages: managed elements would make
+  every collection scan empty reserved pages, so those builders grow
+  incrementally. Eager `List.map` and `List.scan` use the sized builder.
 - Map entry fusion (`crates/badger_mir/src/lower.rs`): `m.entries().map(f)`,
   `.filter(p)`, and `.fold(init,f)` lower to `map.entries_map`,
   `.entries_filter`, and `.entries_fold`, one trie walk with no intermediate

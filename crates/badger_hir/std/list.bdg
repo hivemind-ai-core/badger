@@ -6,6 +6,7 @@ import std.buffer
 extern "intrinsic" fn list_len<T>(list: List<T>) -> Int
 extern "intrinsic" fn list_get<T>(list: List<T>, index: Int) -> Option<T>
 extern "intrinsic" fn list_builder<T>() -> ListBuilder<T>
+extern "intrinsic" fn list_builder_capacity<T>(n: Int) -> ListBuilder<T>
 extern "intrinsic" fn list_builder_append<T>(builder: ListBuilder<T>, value: T) -> Unit
 extern "intrinsic" fn list_builder_extend<T>(builder: ListBuilder<T>, values: List<T>) -> Unit
 extern "intrinsic" fn list_range(start: Int, end: Int) -> List<Int>
@@ -171,7 +172,7 @@ pub fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T> { list_slice(lis
 pub fn sort<T>(list: List<T>) -> List<T> { list_sort(list) }
 
 pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
-    let b = list_builder()
+    let b = list_builder_capacity<U>(list_len(list))
     for x in list {
         list_builder_append(b, f(x))
     }
@@ -418,7 +419,7 @@ pub fn skip_while<T>(list: List<T>, skip: fn(T) -> Bool) -> List<T> {
 
 /// Running states: `f(state, item)` for each item, from `initial`.
 pub fn scan<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> List<A> {
-    let b = list_builder()
+    let b = list_builder_capacity<A>(list_len(list))
     var state = initial
     for x in list {
         state = f(state, x)
@@ -429,8 +430,10 @@ pub fn scan<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> List<A> {
 
 /// Pairs of items at the same positions (as long as the shorter list).
 pub fn zip<A, B>(a: List<A>, b: List<B>) -> List<(A, B)> {
+    let la = list_len(a)
+    let lb = list_len(b)
+    let n = if la < lb { la } else { lb }
     let out = list_builder()
-    let n = if list_len(a) < list_len(b) { list_len(a) } else { list_len(b) }
     var i = 0
     while i < n {
         list_builder_append(out, (at(a, i), at(b, i)))

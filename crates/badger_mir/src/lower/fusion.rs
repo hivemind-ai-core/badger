@@ -41,6 +41,8 @@ pub(super) struct SequencePlan(Source, Vec<Stage>);
 enum Terminal {
     Fold(ExprId, ExprId),
     Count,
+    Sum,
+    Collect,
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -156,7 +158,9 @@ impl FnLower<'_, '_, '_> {
                     Some(*iter)
                 }
                 _ => self.sequence_call(e).and_then(|(name, args)| match (name.as_str(), args.as_slice()) {
-                    ("std.seq.fold", [iter, _, _]) | ("std.seq.count", [iter]) => Some(*iter),
+                    ("std.seq.fold", [iter, _, _])
+                    | ("std.seq.count", [iter])
+                    | ("std.seq.collect" | "std.list.collect", [iter]) => Some(*iter),
                     _ => None,
                 }),
             };
@@ -218,6 +222,8 @@ impl FnLower<'_, '_, '_> {
         let (iter, terminal) = match (name.as_str(), args.as_slice()) {
             ("std.seq.fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
             ("std.seq.count", [iter]) => (*iter, Terminal::Count),
+            ("std.seq.sum", [iter]) => (*iter, Terminal::Sum),
+            ("std.seq.collect" | "std.list.collect", [iter]) => (*iter, Terminal::Collect),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -280,6 +286,7 @@ impl FnLower<'_, '_, '_> {
             .collect();
         let ret = match plan.terminal {
             Terminal::For(..) => Repr::I8,
+            Terminal::Collect => Repr::Ptr,
             _ => self.repr(&self.ty(e)),
         };
         let (acc, fold) = match plan.terminal {
@@ -288,8 +295,38 @@ impl FnLower<'_, '_, '_> {
                 let acc = self.copy_to_local(initial, ret, None);
                 (Some(acc), Some(self.lower(f)?))
             }
-            Terminal::Count => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
-            Terminal::For(..) => (None, None),
+            Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            Terminal::Collect | Terminal::For(..) => (None, None),
+        };
+        // `collect` builds its list in the fused loop. When the source count
+        // is known and no filter can drop items, pages are sized up front.
+        let collect = if matches!(plan.terminal, Terminal::Collect) {
+            let list_ty = self.ty(e);
+            let elem = self.m.lay.args(&list_ty).first()?.clone();
+            let no_filter = !stages.iter().any(|s| matches!(s, Active::Filter(_)));
+            let span = self.span(e);
+            let b = if no_filter {
+                let span_diff = self.assign(
+                    Repr::I64,
+                    Rvalue::Bin { op: BinOp::Sub, a: end, b: start, ty: NumTy::I(64, false), loc: 0 },
+                );
+                let upper = self.assign(
+                    Repr::I64,
+                    Rvalue::Bin {
+                        op: BinOp::Add,
+                        a: span_diff,
+                        b: inclusive,
+                        ty: NumTy::I(64, false),
+                        loc: 0,
+                    },
+                );
+                self.intrinsic("list_builder_capacity", vec![elem.clone()], vec![upper], &list_ty, span)?
+            } else {
+                self.intrinsic("list_builder", vec![elem.clone()], vec![], &list_ty, span)?
+            };
+            Some((self.copy_to_local(b, Repr::Ptr, None), elem))
+        } else {
+            None
         };
         let i = self.copy_to_local(start, Repr::I64, None);
         let (head, body, step, exit) = (self.block(), self.block(), self.block(), self.block());
@@ -369,18 +406,30 @@ impl FnLower<'_, '_, '_> {
                 }
                 self.loops.pop();
             }
+            Terminal::Collect => {
+                let (builder, elem) = collect.as_ref()?;
+                let unit = badger_typeck::ty::unit();
+                self.intrinsic(
+                    "list_builder_append",
+                    vec![elem.clone()],
+                    vec![Operand::Local(*builder), value],
+                    &unit,
+                    self.span(e),
+                )?;
+                self.term(Term::Goto(step));
+            }
             _ => {
                 let acc = acc.unwrap();
+                let loc = self.m.loc(self.span(e));
                 let next = if let Some(f) = fold {
                     self.call(Callee::Closure(f), vec![Operand::Local(acc), value], ret)
                 } else {
-                    let loc = self.m.loc(self.span(e));
                     self.assign(
                         Repr::I64,
                         Rvalue::Bin {
                             op: BinOp::Add,
                             a: Operand::Local(acc),
-                            b: int(1),
+                            b: if matches!(plan.terminal, Terminal::Sum) { value } else { int(1) },
                             ty: NumTy::I(64, true),
                             loc,
                         },
@@ -400,6 +449,16 @@ impl FnLower<'_, '_, '_> {
         self.emit(Stmt::Assign(i, Rvalue::Use(next)));
         self.term(Term::Goto(head));
         self.switch(exit);
+        if let Some((builder, elem)) = collect {
+            let list_ty = self.ty(e);
+            return self.intrinsic(
+                "list_finish",
+                vec![elem],
+                vec![Operand::Local(builder)],
+                &list_ty,
+                self.span(e),
+            );
+        }
         Some(acc.map_or_else(unit_op, Operand::Local))
     }
 }

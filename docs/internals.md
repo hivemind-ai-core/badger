@@ -78,6 +78,9 @@ program, in `crates/badger_driver/src/`:
   ranges and lists into one loop; `sra.rs` (scalar replacement) keeps
   records that never leave a function out of the heap.
 - `layout.rs`: concrete layouts and the runtime type descriptors.
+- Lazy `Seq` pipelines are lowered as one loop for `collect`, `sum`,
+  `fold`, `count`, and `for`; `collect` and eager `List.map`/`scan` use a
+  builder pre-sized from the known input length (scalar elements).
 - Eager list and map chains are lowered as one traversal before code
   generation: `filter(..).map(..)` / `map(..).filter(..)` when the earlier
   callback is pure and infallible (`BADGER_NO_LIST_FUSION=1` disables), and

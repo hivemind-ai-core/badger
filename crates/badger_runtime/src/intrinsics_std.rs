@@ -125,7 +125,18 @@ define_intrinsics! {
         let value = if (i as i64) >= 0 && (i as usize) < n { Some(list::get(l, i as usize)) } else { None };
         split_option(rdesc(ret), value)
     }
-    fn list_builder(ctx, targs, ret) { list::new(rdesc(ret)) }
+    fn list_builder(ctx, targs, ret) { list::mark_builder(list::new(rdesc(ret))) }
+    fn list_builder_capacity(ctx, targs, ret, n) {
+        static PLAIN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let plain = *PLAIN.get_or_init(|| {
+            std::env::var("BADGER_LIST_PREALLOC").map(|v| v == "0").unwrap_or(false)
+        });
+        if plain {
+            list::mark_builder(list::new(rdesc(ret)))
+        } else {
+            list::mark_builder(list::with_capacity(rdesc(ret), (n as i64).max(0) as usize))
+        }
+    }
     fn list_builder_append(ctx, targs, ret, b, v) {
         gc::budget_check(8);
         list::push(b, v);

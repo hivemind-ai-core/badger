@@ -51,6 +51,9 @@ pub const PAGE_ELEMS: i32 = PAGE_HDR as i32;
 
 /// Set in the capacity word of a builder that `finish` consumed.
 const CONSUMED: u64 = 1 << 63;
+/// Set in the capacity word of a live builder: every published directory
+/// page (including pre-sized, not-yet-filled ones) is a live root.
+const BUILDING: u64 = 1 << 61;
 
 fn page_desc() -> &'static TypeDesc {
     static D: std::sync::OnceLock<&'static TypeDesc> = std::sync::OnceLock::new();
@@ -140,7 +143,7 @@ impl Hdr {
         unsafe { &*(*self.0.add(2) as *const TypeDesc) }
     }
     fn cap(&self) -> usize {
-        unsafe { (*self.0.add(3) & !CONSUMED) as usize }
+        unsafe { (*self.0.add(3) & !(CONSUMED | BUILDING)) as usize }
     }
     fn repr(&self) -> Repr {
         self.elem().repr()
@@ -163,9 +166,18 @@ pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
     let d = unsafe { *p.add(1) };
     if d != 0 {
         f(d);
+        let raw = unsafe { *p.add(3) };
         let len = unsafe { *p as usize };
-        let cap = unsafe { (*p.add(3) & !CONSUMED) as usize };
-        for i in 0..len.div_ceil(cap) {
+        let cap = (raw & !(CONSUMED | BUILDING)) as usize;
+        // A builder's pre-sized pages are not below `len` yet, but they are
+        // still its storage; keep every published one alive. A finished
+        // list only traces visible pages (finish trimmed the directory).
+        let pages = if raw & BUILDING != 0 {
+            dir_used(d).load(Ordering::Acquire) as usize
+        } else {
+            len.div_ceil(cap)
+        };
+        for i in 0..pages {
             let page = unsafe { *dir_slot(d, i) };
             debug_assert_ne!(page, 0, "a visible list page must be live");
             f(page);
@@ -191,6 +203,12 @@ pub(crate) fn clear_unmarked_directory_pages() {
 
 /// Create an empty list (or builder) object with descriptor `desc`
 /// (`Kind::List { elem }`).
+/// Mark a fresh list object as a builder (see [`BUILDING`]).
+pub fn mark_builder(w: u64) -> u64 {
+    unsafe { *((obj(w).payload() as *mut u64).add(3)) |= BUILDING };
+    w
+}
+
 pub fn new(desc: &'static TypeDesc) -> u64 {
     let elem = elem_of(desc);
     let size = elem.repr().size() as usize;
@@ -201,6 +219,44 @@ pub fn new(desc: &'static TypeDesc) -> u64 {
         *p.add(2) = elem as *const TypeDesc as u64;
         *p.add(3) = page_cap as u64;
     }
+    w
+}
+
+/// Create a builder whose pages for `n` elements are allocated up front
+/// (first page small when it can be, later pages full, like `fill`). The
+/// directory is final-sized, so appends only fill pages: no page or
+/// directory is copied as the list grows. A shorter result simply leaves
+/// the unused pages unreferenced; `finish` trims the directory.
+pub fn with_capacity(desc: &'static TypeDesc, n: usize) -> u64 {
+    let r = gc::Roots::new();
+    let w = r.add(new(desc));
+    if n == 0 {
+        return w;
+    }
+    let elem = elem_of(desc);
+    // Pre-sized pages hold no elements yet; for managed elements a
+    // collection would scan every reserved page. Scalar builders gain the
+    // most and pay no GC cost, so only they reserve up front.
+    if elem.is_ptr() {
+        return w;
+    }
+    let size = elem.repr().size() as usize;
+    let cap = page_cap_for(size);
+    let pages = n.div_ceil(cap);
+    gc::budget_check(gc::HEADER + pages * (PAGE_HDR + cap * size) + DIR_HDR + pages * 8);
+    let nd = r.add(gc::alloc(dir_desc(), DIR_HDR + pages * 8));
+    unsafe { *(obj(nd).payload().add(8) as *mut u64) = pages as u64 };
+    for p in 0..pages {
+        let slots = if p == 0 { cap.min(FIRST_PAGE_SLOTS.max(n)) } else { cap };
+        let page = r.add(new_page(elem, slots));
+        unsafe {
+            (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release);
+            *dir_slot(nd, p) = page;
+        }
+        // publish before allocating the next page (a collection may run)
+        dir_used(nd).store(p as u64 + 1, Ordering::Release);
+    }
+    hdr(w).set_dir(nd);
     w
 }
 
@@ -409,6 +465,32 @@ pub fn push(w: u64, v: u64) {
     let size = elem.repr().size() as usize;
     let off = len % cap;
     if off == 0 {
+        // a pre-sized builder already has this page (and the directory)
+        let dir = h.dir();
+        if dir != 0 {
+            let p = len / cap;
+            let used = dir_used(dir).load(Ordering::Acquire) as usize;
+            if p < used {
+                let page = unsafe { *dir_slot(dir, p) };
+                if page != 0 {
+                    let r = gc::Roots::new();
+                    r.add(w);
+                    if elem.is_ptr() {
+                        r.add(v);
+                    }
+                    unsafe {
+                        let q = obj(page).payload();
+                        elem.repr().store(q.add(PAGE_HDR), v);
+                        (*(q.add(8) as *const AtomicU64)).store(1, Ordering::Release);
+                    }
+                    if elem.is_ptr() {
+                        gc::barrier(page);
+                    }
+                    hdr(w).set_len(len + 1);
+                    return;
+                }
+            }
+        }
         let r = gc::Roots::new();
         r.add(w);
         if elem.is_ptr() {
@@ -572,6 +654,12 @@ pub fn fill(desc: &'static TypeDesc, n: usize, mut next: impl FnMut(usize) -> u6
         return w;
     }
     let elem = elem_of(desc);
+    // Pre-sized pages hold no elements yet; for managed elements a
+    // collection would scan every reserved page. Scalar builders gain the
+    // most and pay no GC cost, so only they reserve up front.
+    if elem.is_ptr() {
+        return w;
+    }
     let size = elem.repr().size() as usize;
     let cap = page_cap_for(size);
     let pages = n.div_ceil(cap);
@@ -618,12 +706,23 @@ pub fn from_range(desc: &'static TypeDesc, start: i64, n: usize) -> u64 {
 pub fn finish(builder: u64, list_desc: &'static TypeDesc) -> u64 {
     let r = gc::Roots::new();
     r.add(builder);
-    hdr(builder);
+    let h = hdr(builder);
+    // A pre-sized builder may have more pages than the result uses; only
+    // the visible ones are traced (and the rest become collectable).
+    let dir = h.dir();
+    if dir != 0 {
+        let used = h.len().div_ceil(h.cap());
+        let have = dir_used(dir).load(Ordering::Acquire) as usize;
+        if used < have {
+            dir_used(dir).store(used as u64, Ordering::Release);
+        }
+    }
     let out = gc::alloc(list_desc, 32);
     unsafe {
         let src = obj(builder).payload() as *mut u64;
         let dst = obj(out).payload() as *mut u64;
         std::ptr::copy_nonoverlapping(src, dst, 4);
+        *dst.add(3) &= !BUILDING;
         *src.add(1) = 0;
         *src.add(3) |= CONSUMED;
     }
