@@ -98,6 +98,11 @@ So the rest of the corpus is clean under AddressSanitizer.
   a parallelism, a thread, a queue or a pool — 26 programs) were run
   under TSan one at a time: **no data race is reported**
   (`clean=26 tsan_races=0`).
+- The whole `run_programs_multicore` mode (all 219 programs on several
+  workers) was also started under TSan; it had reported no race after
+  100 minutes and was stopped there — TSan plus the JIT is that slow.
+  The 26 programs above are the ones that exercise the runtime's
+  concurrency.
 
 (The doc-test targets cannot be built with a sanitizer — cargo reports
 `mixing -Zsanitizer will cause an ABI mismatch` for the doctest
