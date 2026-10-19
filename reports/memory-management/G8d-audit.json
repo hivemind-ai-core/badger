@@ -1,0 +1,3057 @@
+{
+  "measured_baseline_revision": "b7cf709",
+  "measured_candidate_revision": "7c2fb36",
+  "accepted_measurements": 2446,
+  "buffer_measurements": 2020,
+  "accepted_intervals_overlap": false,
+  "datasets": [
+    {
+      "path": "reports/memory-management/G8d-current-native/measurements.json.gz",
+      "sha256": "bdf1d9d7b33b4bde676a6952ada0b1db501007f0abb2c6e3a13fb574ff358950",
+      "processes": 672,
+      "arguments": {
+        "reps": 7,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "cases": [
+          "bytes-transient",
+          "bytes-257",
+          "words-transient",
+          "buffers-grow",
+          "buffers-pointers",
+          "buffers-capacity-31",
+          "buffers-capacity-32",
+          "buffers-capacity-33",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "records-window",
+          "stored"
+        ],
+        "diagnostic": false,
+        "seed": 2026101961,
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "same_binary": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+          "sha256": "7c296720ba61eb523d15c571ab86a196629f788f37ce4fa9c22708fb6bcdbf1f"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-current-control/measurements.json.gz",
+      "sha256": "bcba33fb78abc5ec6efd581a30e1720d343f24ce79097ce8aa05065303df00b4",
+      "processes": 112,
+      "arguments": {
+        "reps": 7,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "bytes-transient",
+          "buffers-capacity-pointers",
+          "records-window",
+          "stored"
+        ],
+        "diagnostic": false,
+        "seed": 2026101962,
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "same_binary": true
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-current-census/measurements.json.gz",
+      "sha256": "fa368c5a47997bb84e419f0b73ed8e6d6feef66121393e49c7d06b722a978854",
+      "processes": 144,
+      "arguments": {
+        "reps": 3,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "bytes-transient",
+          "bytes-257",
+          "words-transient",
+          "buffers-grow",
+          "buffers-pointers",
+          "buffers-capacity-31",
+          "buffers-capacity-32",
+          "buffers-capacity-33",
+          "buffers-capacity-grow",
+          "buffers-capacity-pointers",
+          "records-window",
+          "stored"
+        ],
+        "diagnostic": true,
+        "seed": 2026101963,
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "same_binary": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline-diagnostic",
+          "sha256": "b68804055d7f705b058bc3dfdc68904df067258fd06b9efa69b7be487fd284f0"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+          "sha256": "cedfeddf73afc28096428f128e9914f9ca2a930d30c69cb15a88a65b4f261b9f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-current-applications/measurements.json.gz",
+      "sha256": "1d326d1f613b4f234bda362e347daecc1f79e9eaa7425c0c0fcced0433bb798c",
+      "processes": 504,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": 8,
+        "seed": 2026101964,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/G8d-current-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+          "sha256": "7c296720ba61eb523d15c571ab86a196629f788f37ce4fa9c22708fb6bcdbf1f"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-current-app-census/measurements.json.gz",
+      "sha256": "d71d51260f9aa13e508823c5f4ab27c9e67def16a03f39ff047b592c54c01ed5",
+      "processes": 108,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline-diagnostic",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "reps": 3,
+        "warmups": 3,
+        "samples": 5,
+        "workers": [
+          1,
+          8
+        ],
+        "consumers": 8,
+        "seed": 2026101965,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": true,
+        "allocations": true,
+        "smoke": false,
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/G8d-current-app-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline-diagnostic",
+          "sha256": "b68804055d7f705b058bc3dfdc68904df067258fd06b9efa69b7be487fd284f0"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+          "sha256": "cedfeddf73afc28096428f128e9914f9ca2a930d30c69cb15a88a65b4f261b9f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-app-repeat/measurements.json.gz",
+      "sha256": "e37cbc9d4b595526848624c2d91b1f5e0a14bd8caf91eebab965085326ccecea",
+      "processes": 240,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "baseline_revision": "b7cf709",
+        "candidate_revision": "7c2fb36",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 50,
+        "workers": [
+          1,
+          2
+        ],
+        "consumers": 8,
+        "seed": 2026101970,
+        "cases": [
+          "realworld/json",
+          "compare/batches",
+          "realworld/messaging",
+          "realworld/cpu"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8d-app-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-baseline",
+          "sha256": "7c296720ba61eb523d15c571ab86a196629f788f37ce4fa9c22708fb6bcdbf1f"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/G8d-app-control/measurements.json.gz",
+      "sha256": "ba78cd60efb12d3a0e7d06897d68054f17e68eee01bf2b953dc67bd9d1941f91",
+      "processes": 240,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "baseline_revision": "7c2fb36",
+        "candidate_revision": "7c2fb36",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 50,
+        "workers": [
+          1,
+          2
+        ],
+        "consumers": 8,
+        "seed": 2026101971,
+        "cases": [
+          "realworld/json",
+          "compare/batches",
+          "realworld/messaging",
+          "realworld/cpu"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/G8d-app-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/P1-baseline/measurements.json.gz",
+      "sha256": "d1c15110882a52aa0ce1e516c5ca4e6ca6277b53d2be2b1e224f64d65fea5cb4",
+      "processes": 180,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "candidate": null,
+        "baseline_revision": "7c2fb36",
+        "candidate_revision": null,
+        "cases": [
+          "retain-64",
+          "retain-1024",
+          "retain-4096",
+          "scalar-private-256",
+          "scalar-every-update-256",
+          "scalar-snapshots-256",
+          "scalar-private-1024",
+          "scalar-every-update-1024",
+          "scalar-snapshots-1024",
+          "pointers-private-256",
+          "pointers-every-update-256",
+          "pointers-snapshots-256",
+          "pointers-private-1024",
+          "pointers-every-update-1024",
+          "pointers-snapshots-1024"
+        ],
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "reps": 3,
+        "seed": 2026101966,
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/P1-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/P1-census/measurements.json.gz",
+      "sha256": "c53bc058c34802a0b7b02abc417da0bf04b8f9cbc0f9f3fe6a23af6b79ff0242",
+      "processes": 90,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+        "candidate": null,
+        "baseline_revision": "7c2fb36",
+        "candidate_revision": null,
+        "cases": [
+          "retain-64",
+          "retain-1024",
+          "retain-4096",
+          "scalar-private-256",
+          "scalar-every-update-256",
+          "scalar-snapshots-256",
+          "scalar-private-1024",
+          "scalar-every-update-1024",
+          "scalar-snapshots-1024",
+          "pointers-private-256",
+          "pointers-every-update-256",
+          "pointers-snapshots-256",
+          "pointers-private-1024",
+          "pointers-every-update-1024",
+          "pointers-snapshots-1024"
+        ],
+        "workers": [
+          1,
+          8
+        ],
+        "reps": 3,
+        "seed": 2026101967,
+        "diagnostic": true,
+        "allocations": true,
+        "smoke": false,
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/P1-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+          "sha256": "cedfeddf73afc28096428f128e9914f9ca2a930d30c69cb15a88a65b4f261b9f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/P1-collector-baseline/measurements.json.gz",
+      "sha256": "59c02f87641b7751044ab0862072aabd2870293d3e1113f312b08abda8b2ab7b",
+      "processes": 120,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "candidate": "None",
+        "baseline_revision": "7c2fb36",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+        "allocations": true,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101968,
+        "paired": true,
+        "cases": [
+          "persistent-4096-major",
+          "snapshots-major",
+          "records-window",
+          "bytes-survivors",
+          "pool-burst-256"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/P1-collector-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        },
+        "diagnostic": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate-diagnostic",
+          "sha256": "cedfeddf73afc28096428f128e9914f9ca2a930d30c69cb15a88a65b4f261b9f"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/P1-parallel-baseline/measurements.json.gz",
+      "sha256": "f44b501225f9e14d7c67a8410c7c850579842e527f3d708b2e13ffb18e6eb831",
+      "processes": 36,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+        "candidate": "None",
+        "baseline_revision": "7c2fb36",
+        "candidate_revision": "unspecified",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101969,
+        "paired": true,
+        "cases": [
+          "parallel-maps",
+          "parallel-scalar-snapshots",
+          "parallel-snapshots"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "/tmp/language-memory-management-2026-10-17/reports/memory-management/P1-parallel-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-fixed-candidate",
+          "sha256": "b5960050591f13bfc8c367f82e4c460390d6838bc4899be0ecbf390da498eb1f"
+        }
+      }
+    }
+  ],
+  "semantic": [
+    {
+      "path": "reports/memory-management/G8d-validation/fixed-semantic.json.gz",
+      "sha256": "5a22605d7aa6b0fc7a033fd375ed061ab214e225f8f896b52270a26354e4eb09",
+      "checks": 136
+    },
+    {
+      "path": "reports/memory-management/G8d-validation/fixed-semantic-diagnostic.json.gz",
+      "sha256": "7ed84f52275cfe0d830bc75ea5e49a398db474890f5eac0a78704a6980408f66",
+      "checks": 136
+    }
+  ],
+  "managed_and_storage_traffic": [
+    {
+      "case": "buffers-capacity-31",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20451392
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16252928
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20451392
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16252928
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-31",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20451392
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16252928
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20451392
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16252928
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-32",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-32",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                512
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-33",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                17302016
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                17302016
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-33",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                17302016
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                17302016
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-grow",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                65536,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                33554944
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                65536,
+                33554432
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                65536,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                33554944
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                65536,
+                33554432
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-grow",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                65536,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                33554944
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                65536,
+                33554432
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              20975680
+            ],
+            "requested_bytes": [
+              20975680
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65536,
+                16777216
+              ]
+            ],
+            "inline_to_native": [
+              [
+                65536,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                33554944
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                65536,
+                33554432
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-pointers",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              4202560
+            ],
+            "requested_bytes": [
+              4202560
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                32768,
+                2097152
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                1024
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              4202560
+            ],
+            "requested_bytes": [
+              4202560
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                32768,
+                2097152
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                1024
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-capacity-pointers",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              4202560
+            ],
+            "requested_bytes": [
+              4202560
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                32768,
+                2097152
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                1024
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              4202560
+            ],
+            "requested_bytes": [
+              4202560
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                32768,
+                2097152
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                1,
+                1024
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-grow",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                2097664
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                196608,
+                14680064
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                2097664
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                196608,
+                14680064
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-grow",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                2097664
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                196608,
+                14680064
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65725
+          ],
+          "buffer_counts": {
+            "objects": [
+              65601
+            ],
+            "cell_bytes": [
+              4198464
+            ],
+            "requested_bytes": [
+              4198464
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65537,
+                2097664
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                196608,
+                14680064
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-pointers",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              2105408
+            ],
+            "requested_bytes": [
+              2105408
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                32769,
+                1049600
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                32768,
+                1048576
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              2105408
+            ],
+            "requested_bytes": [
+              2105408
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                32769,
+                1049600
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                32768,
+                1048576
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "buffers-pointers",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              2105408
+            ],
+            "requested_bytes": [
+              2105408
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                32769,
+                1049600
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                32768,
+                1048576
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            296253
+          ],
+          "buffer_counts": {
+            "objects": [
+              32897
+            ],
+            "cell_bytes": [
+              2105408
+            ],
+            "requested_bytes": [
+              2105408
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                32769,
+                1049600
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                32768,
+                1048576
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "bytes-257",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196704
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                288
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                16842752
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196704
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                288
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                16842752
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "bytes-257",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196704
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                288
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                16842752
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196704
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                288
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                16842752
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "bytes-transient",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              20974400
+            ],
+            "requested_bytes": [
+              20973920
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65569,
+                16777504
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              20974400
+            ],
+            "requested_bytes": [
+              20973920
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65569,
+                16777504
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "bytes-transient",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              20974400
+            ],
+            "requested_bytes": [
+              20973920
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65569,
+                16777504
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              20974400
+            ],
+            "requested_bytes": [
+              20973920
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                65569,
+                16777504
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "records-window",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            6016562
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            6016562
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "records-window",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            6016562
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            6016562
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "stored",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            60
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            60
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "stored",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            60
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            60
+          ],
+          "buffer_counts": {
+            "objects": [
+              0
+            ],
+            "cell_bytes": [
+              0
+            ],
+            "requested_bytes": [
+              0
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                0,
+                0
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "words-transient",
+      "workers": 1,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196928
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                512
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                134217728
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196928
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                512
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                134217728
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "words-transient",
+      "workers": 8,
+      "variants": {
+        "baseline": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196928
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                512
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                134217728
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        },
+        "candidate": {
+          "objects": [
+            65757
+          ],
+          "buffer_counts": {
+            "objects": [
+              65569
+            ],
+            "cell_bytes": [
+              4197184
+            ],
+            "requested_bytes": [
+              4196928
+            ]
+          },
+          "storage": {
+            "inline": [
+              [
+                33,
+                512
+              ]
+            ],
+            "inline_to_native": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_alloc": [
+              [
+                65536,
+                134217728
+              ]
+            ],
+            "native_adopt": [
+              [
+                0,
+                0
+              ]
+            ],
+            "native_realloc_growth": [
+              [
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "exclusions": [
+    "G8d-calibration-overlap: own compilation overlapped that initial calibration",
+    "G8d-baseline and G8d-trial: preliminary older main, before the list header correction",
+    "P1 smoke/fixture checks: correctness only; they overlap build/test work"
+  ],
+  "validation_artifacts": {
+    "reports/memory-management/G8d-validation/integrated-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/G8d-validation/integrated-diagnostic-clippy.log": "329d9992fbea104258c52ea0a93a1aab463adfb8ac85ddb092ddbbefbd6d20c3",
+    "reports/memory-management/G8d-validation/integrated-clippy-fixed.log": "ddf104ced50f0c2fe1e0c36ec6b2c8a3b344b2da2459f32466d93a603ef243c0",
+    "reports/memory-management/G8d-validation/integrated-rounding-tests.log": "bde6154c9f651db3f073e31812676dcc920c80f94830b31bbbd90841857e7a0f",
+    "reports/memory-management/G8d-validation/integrated-clippy.log": "56d51c6887cdc9d180d9118aac7664bafc9285af0713e7442409cd75fe3fe912",
+    "reports/memory-management/G8d-validation/audit.py": "35671aeb725597207e569524abe914b97c9c306045a3099760779d840c17b918",
+    "reports/memory-management/G8d-validation/integrated-programs.log": "05c3e57276b614b4cf3e772ce7342057595025720d62254381f21e6c024b51c4",
+    "reports/memory-management/G8d-validation/integrated-runtime-mir.log": "4c41a88e612d5a2c098238b5afd2c688afbcac97a0cd6829b5b7d2625402c21d",
+    "reports/memory-management/G8d-validation/app-control.log": "c68b2ca6672104bc47240999fd485a4d62633a9936c5d2f0cffb19472b596da7",
+    "reports/memory-management/G8d-validation/app-repeat.log": "72ed341ea7c08033c03f307fc63613c7d942cc0c8fe4baf7cfa2808ba3a8bb76",
+    "reports/memory-management/G8d-validation/parallel-map-baseline.log": "3e75f6aa2f30431967efdc747c8ccaf773f19c42de2445ed25895527f0dd285c",
+    "reports/memory-management/G8d-validation/collector-baseline.log": "e8f6216f5a882f1684f75b0fba049ab35a6c5eec754493b129199b0bc393abff",
+    "reports/memory-management/G8d-validation/map-census.log": "dbfdff7d1cdbc04a38295aeceb3a76e73a537b7b028d82fc8ee9f346eed29e01",
+    "reports/memory-management/G8d-validation/map-baseline.log": "dbfdff7d1cdbc04a38295aeceb3a76e73a537b7b028d82fc8ee9f346eed29e01",
+    "reports/memory-management/G8d-validation/current-app-census.log": "29cbfe1bd56de5c38ff999d4a4d7cb278b59d849ab648c17868650c0aeaaee56",
+    "reports/memory-management/G8d-validation/current-applications.log": "041a9f8a5e1dd7eecad9e4c17e2eaac78c5778581bf03aa026b884e288240cee",
+    "reports/memory-management/G8d-validation/current-coverage-candidate.bdgmir": "dda4ce1c5fb866a0f7d474b13862dfebfc5836f237af05a1fbbefaf4d3ecc356",
+    "reports/memory-management/G8d-validation/current-coverage-baseline.bdgmir": "dda4ce1c5fb866a0f7d474b13862dfebfc5836f237af05a1fbbefaf4d3ecc356",
+    "reports/memory-management/G8d-validation/current-native.log": "da1332ae5ada59105377de93563b7d67602169a49d6b6d493615bdd7afac6ca5",
+    "reports/memory-management/G8d-validation/fixed-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/G8d-validation/fixed-diagnostic-clippy-scoped.log": "bfe731c547300cf3035310e3f679917bffe1afe4b60182f28c10823de043efd4",
+    "reports/memory-management/G8d-validation/fixed-clippy-scoped.log": "6ee48b15ade2bf5314639522828644838396b226e7142d9f41cd37ecc341bb32",
+    "reports/memory-management/G8d-validation/fixed-clippy.log": "4830f3d314750e9dad68170610885be2c9ef183545b0c1c039c05345306f19a8",
+    "reports/memory-management/G8d-validation/fixed-diagnostic-tests.log": "435d9616b7d1f937c36ae93ab7c466568f618814fcd135343c114780e16db56b",
+    "reports/memory-management/G8d-validation/fixed-cli-remaining.log": "d5e67d33b70e4c18e475f64b49f8a59a50f693535631e22825ccf91ce62e8257",
+    "reports/memory-management/G8d-validation/fixed-semantic-diagnostic.json.gz": "7ed84f52275cfe0d830bc75ea5e49a398db474890f5eac0a78704a6980408f66",
+    "reports/memory-management/G8d-validation/fixed-semantic-diagnostic.log": "a7deba28d96d8ff3529401ba959d49a7b36f44bcd84576ce8fde70d483488a32",
+    "reports/memory-management/G8d-validation/fixed-semantic.json.gz": "5a22605d7aa6b0fc7a033fd375ed061ab214e225f8f896b52270a26354e4eb09",
+    "reports/memory-management/G8d-validation/list-fill-regression-diagnostic.log": "bf7411764ea232558f1f2c7f39a7375864faf49587f5faa9228597153702ca2a",
+    "reports/memory-management/G8d-validation/list-fill-regression-clippy.log": "67d4e00a94e0e338ff4552f7d1ced5e0abe90ace34b75eb1f136377523793642",
+    "reports/memory-management/G8d-validation/list-fill-regression-cli.log": "d07aedc834e5a70b92cd0a920e6bfe79bd8526f63f77925bde991502a76cb7d3",
+    "reports/memory-management/G8d-validation/list-fill-regression-ordinary.log": "cea24c7707a6361ed81ed7cc7a2067787ec54b3af79f1276f23f53c36dfcb954",
+    "reports/memory-management/G8d-validation/fixed-semantic.log": "a7deba28d96d8ff3529401ba959d49a7b36f44bcd84576ce8fde70d483488a32",
+    "reports/memory-management/G8d-validation/fixed-runtime-mir.log": "a72fc780a121365f3a283a4adefb4b41e2af5304981c914d16a49ec14e071891",
+    "reports/memory-management/G8d-validation/build-fixed-candidate-diagnostic.log": "eeaf87ea5a41820722c6b6e0dc359f5373203f088d3a807fb80cd8680fc4de48",
+    "reports/memory-management/G8d-validation/build-fixed-candidate.log": "fbb0b9f558782da6b03d1c3e2def5259f2130a89f9db7e466bf39dd60d11b318",
+    "reports/memory-management/G8d-validation/build-fixed-baseline-diagnostic.log": "0abd2f016d87b8251d2e780cd75f2860d9f2762ca5fe6c7d6da5ebe2740b51ec",
+    "reports/memory-management/G8d-validation/fixed-harness.log": "31a268cf90cd4ee41c87f110f96089c107d41603647db9dba4891a86452c752a",
+    "reports/memory-management/G8d-validation/build-fixed-baseline.log": "533b74658719916844b03609f6452b41d037905b2dcbaee85bdb164b7b1bf436",
+    "reports/memory-management/G8d-validation/option-failure-comparison.json": "b3f3d7a77e5d52aea7728c8a78a6005264fb70b9c1709aba76b22012e161af05",
+    "reports/memory-management/G8d-validation/retention-release-check.json": "3cf054ca88a44ea6a3620c540ebc4993caffdbc3193f78b41a7701e23b3edc6e",
+    "reports/memory-management/G8d-validation/retention-debug-stacks.log": "b446ca39dbd9f2e3b8e3687d8f86c7418425032cecda5ea3970030accc930db0",
+    "reports/memory-management/G8d-validation/measure.py": "693067ad96464f6a091f7f5441d7d476653bd1533de679f18b2a6ca72c0271f6",
+    "reports/memory-management/G8d-validation/native.py": "0e573cdd4aa4624bad7e69ba630a494e49bd88e44a5a5dda63677f02f68f6985",
+    "reports/memory-management/G8d-validation/current-semantic-diagnostic.json.gz": "3f39e343846c12d57e88bfa0e082d7825a6160f36089ff14f46745ef99204024",
+    "reports/memory-management/G8d-validation/current-semantic-diagnostic.log": "a7deba28d96d8ff3529401ba959d49a7b36f44bcd84576ce8fde70d483488a32",
+    "reports/memory-management/G8d-validation/current-semantic.json.gz": "4853d562360a8ccbdc861572b4ac608a1900a7404a3152e490fdb879512b5127",
+    "reports/memory-management/G8d-validation/current-tests.log": "c7a89bca14bdb0eea14df893d2206e77f76860f3b2fdd868db54144f5a125f1c",
+    "reports/memory-management/G8d-validation/current-semantic.log": "a7deba28d96d8ff3529401ba959d49a7b36f44bcd84576ce8fde70d483488a32",
+    "reports/memory-management/G8d-validation/build-current-candidate-diagnostic.log": "f0e9b4ebe662fa62a7ec8c3402946b7fc8b710013ada9081bf72a1931c3ea594",
+    "reports/memory-management/G8d-validation/build-current-candidate.log": "387e3fc17cc154dacc78ddfdae3cf50e3da6889726faa9f05c3a59f17f87b1f6",
+    "reports/memory-management/G8d-validation/build-current-baseline-diagnostic.log": "b9b6668d1b8c0138739bd6a5419ef66290a0d450348a384cec69a1ffcdb8999b",
+    "reports/memory-management/G8d-validation/build-current-baseline.log": "db98a1bb402b5e01977030905aed14f17e14ef04c1c3bdbc461eb0441c4a4af7",
+    "reports/memory-management/G8d-validation/trial.log": "4e8538839609cd9e14df23beb8a0bc58e238d8793b40a276080041352a465c7f",
+    "reports/memory-management/G8d-validation/semantic.json.gz": "5b739dd6479a2e8dd31e5c0cb26722b032b99fe296b5f60fc7dffc7e881154c1",
+    "reports/memory-management/G8d-validation/semantic.log": "a7deba28d96d8ff3529401ba959d49a7b36f44bcd84576ce8fde70d483488a32",
+    "reports/memory-management/G8d-validation/build-candidate-final.log": "bc906794c5f72c324208864f7fd3eccbeeeedfd8f723fec9822d5332453b5513",
+    "reports/memory-management/G8d-validation/runtime-ordinary.log": "c554a01032431d8516183fc2718003730b6cd67450981ebaca6619e2e6e39206",
+    "reports/memory-management/G8d-validation/build-candidate-ordinary.log": "0a89321b4d075d2e62b6cb9092b25915c92df01bd78a14e4eab375870f2229aa",
+    "reports/memory-management/G8d-validation/baseline.log": "55e492ee04af1c44f0c7506029baedde7c1f99d48b3df7502c129ab975970e1e",
+    "reports/memory-management/G8d-validation/calibration-overlap.log": "9b5c296893d1cc49380f6ab0f035c81c2803ec551fd699cb1e20cd2b3fa64f8f",
+    "reports/memory-management/G8d-validation/build-baseline-diagnostic.log": "e130fe3a47f4457f6c20e0654bb0809e47ca9614e8b56cbb41990918764c0cc8",
+    "reports/memory-management/G8d-validation/build-baseline-ordinary.log": "e9c0ce2ea4c6fe81ec51dd065a73839e951e1650718bf265abd1ad2230e96a99"
+  },
+  "audit_sha256": "35671aeb725597207e569524abe914b97c9c306045a3099760779d840c17b918"
+}

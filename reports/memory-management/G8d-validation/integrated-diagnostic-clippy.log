@@ -1,0 +1,6 @@
+    Checking badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Checking badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+    Checking badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+    Checking badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+    Checking badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.40s

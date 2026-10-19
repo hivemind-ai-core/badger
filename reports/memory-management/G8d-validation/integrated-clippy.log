@@ -1,0 +1,22 @@
+    Checking badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+error: manually reimplementing `div_ceil`
+   --> crates/badger_runtime/src/hamt.rs:245:45
+    |
+245 |     let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `(needed + 3 * 24 + 3 * 8).div_ceil(16)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#manual_div_ceil
+    = note: `-D clippy::manual-div-ceil` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_div_ceil)]`
+
+error: manually reimplementing `div_ceil`
+   --> crates/badger_runtime/src/hamt.rs:292:45
+    |
+292 |     let size = if mode.builder() && slack { (needed + 3 * 24 + 3 * 8 + 15) / 16 * 16 } else { needed };
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.div_ceil()`: `(needed + 3 * 24 + 3 * 8).div_ceil(16)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#manual_div_ceil
+
+error: could not compile `badger_runtime` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `badger_runtime` (lib test) due to 2 previous errors

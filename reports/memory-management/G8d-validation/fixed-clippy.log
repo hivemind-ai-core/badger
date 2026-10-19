@@ -1,0 +1,129 @@
+    Checking badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+    Checking badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+    Checking bitflags v2.13.2
+    Checking fastrand v2.5.0
+    Checking badger_datetime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_datetime)
+    Checking badger_http v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_http)
+    Checking badger_postgres v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_postgres)
+    Checking badger_compress v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_compress)
+    Checking badger_template v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_template)
+    Checking badger_fetch v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fetch)
+    Checking badger_fs v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_fs)
+    Checking badger_native_demo v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_native_demo)
+    Checking badger_crypto v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_crypto)
+    Checking backon v1.6.0
+    Checking rusqlite v0.38.0
+    Checking pulldown-cmark v0.13.4
+    Checking badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+    Checking redis v1.7.1
+    Checking badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+    Checking badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+    Checking badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+    Checking badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+    Checking badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+    Checking badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+error: using `contains()` instead of `iter().any()` is more efficient
+   --> crates/badger_mir/src/opt/cse.rs:131:5
+    |
+131 |     rv.operands().iter().any(|o| *o == Operand::Local(l))
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `rv.operands().contains(&Operand::Local(l))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#manual_contains
+    = note: `-D clippy::manual-contains` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+
+error: casting to the same type is unnecessary (`i64` -> `i64`)
+  --> crates/badger_mir/src/opt/simplify.rs:98:25
+   |
+98 |                         ((v << shift >> shift) as i64) as i128
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `((v << shift >> shift))`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#unnecessary_cast
+   = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
+
+error: this `if` statement can be collapsed
+   --> crates/badger_mir/src/opt/simplify.rs:261:13
+    |
+261 | /             if let (Some((x, _, _)), Some((y, _, _))) = (integer(a), integer(b)) {
+262 | |                 if let Some(r) = overflow_const(*op, x, y, *ty) {
+263 | |                     return bool_const(r);
+264 | |                 }
+265 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+261 ~             if let (Some((x, _, _)), Some((y, _, _))) = (integer(a), integer(b))
+262 ~                 && let Some(r) = overflow_const(*op, x, y, *ty) {
+263 |                     return bool_const(r);
+264 ~                 }
+    |
+
+error: casting to the same type is unnecessary (`i64` -> `i64`)
+   --> crates/badger_mir/src/opt/simplify.rs:358:21
+    |
+358 |                     ((v << shift >> shift) as i64) as i128
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `((v << shift >> shift))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#unnecessary_cast
+
+error: this `if` statement can be collapsed
+   --> crates/badger_mir/src/opt/simplify.rs:521:21
+    |
+521 | /                     if !multi.contains(src) {
+522 | |                         if dom.dominates(*sb, *ss, *db, *ds) {
+523 | |                             repl.insert(*l, Operand::Local(*src));
+524 | |                         }
+525 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+521 ~                     if !multi.contains(src)
+522 ~                         && dom.dominates(*sb, *ss, *db, *ds) {
+523 |                             repl.insert(*l, Operand::Local(*src));
+524 ~                         }
+    |
+
+error: the loop variable `b` is used to index `live_out`
+   --> crates/badger_mir/src/opt/simplify.rs:736:18
+    |
+736 |         for b in 0..n {
+    |                  ^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_range_loop
+    = note: `-D clippy::needless-range-loop` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_range_loop)]`
+help: consider using an iterator and enumerate()
+    |
+736 -         for b in 0..n {
+736 +         for (b, <item>) in live_out.iter().enumerate().take(n) {
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/badger_mir/src/opt/specialize.rs:168:17
+    |
+168 | /                 if let Some(t) = &b.term {
+169 | |                     if let Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) = t
+170 | |                         && let Operand::Local(l) = o
+...   |
+174 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+168 ~                 if let Some(t) = &b.term
+169 ~                     && let Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) = t
+170 |                         && let Operand::Local(l) = o
+171 |                     {
+172 |                         *uses.entry(*l).or_default() += 1;
+173 ~                     }
+    |
+
+error: could not compile `badger_mir` (lib) due to 7 previous errors

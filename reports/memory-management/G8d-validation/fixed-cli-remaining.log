@@ -1,0 +1,175 @@
+   Compiling badger_base v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_base)
+   Compiling badger_runtime v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_runtime)
+   Compiling badger_syntax v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_syntax)
+   Compiling badger_hir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_hir)
+   Compiling badger_typeck v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_typeck)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_codegen v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_codegen)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 21s
+     Running tests/option_niche.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/option_niche-8def295a96c7b1b7)
+
+running 3 tests
+test returned_options_keep_boxed_function_layout ... ok
+test local_pointer_options_use_null_and_payload_before_dump_and_save ... ok
+test pointer_option_roots_survive_gc_suspension_and_multiple_workers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+
+     Running tests/packed_arrays.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/packed_arrays-7b1a06def8fb4c2d)
+
+running 4 tests
+test buffer_capacity_obeys_heap_budget ... ok
+test array_get_and_iteration_use_typed_loads ... ok
+test dead_array_roots_release_storage_before_the_next_allocation ... ok
+test packed_array_bits_codecs_and_roots ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.63s
+
+     Running tests/programs.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/programs-4ff6205337367f3a)
+
+running 76 tests
+test conflicting_imports_are_reported ... ok
+test contract_test_report ... ok
+wrote /tmp/badger-mir-3133347/dyn_protocol.bdgmir (11957 bytes)
+test contract_report ... ok
+test batch_receive_under_gc_stress ... ok
+wrote /tmp/badger-mir-3133347/broadcast.bdgmir (28407 bytes)
+test dependencies ... ok
+test diagnostics_early_phases ... ok
+test eval_in_busy_program ... ok
+test api_export ... ok
+test dotenv_and_env_references ... ok
+test deadlock_report_names_waits ... ok
+wrote /tmp/badger-mir-3133347/multicore.bdgmir (28429 bytes)
+test contract_violations ... ok
+wrote /tmp/badger-mir-3133347/multicore2.bdgmir (28429 bytes)
+test compiled_programs_run ... ok
+test inlined_lambda_defect_location ... ok
+test inlining_removes_helper_calls_and_allocations ... ok
+test config_resolve ... ok
+test internal_error_exits_promptly ... ok
+test explain_types ... ok
+test deep_nesting_is_refused_cleanly ... ok
+test debugger_sees_generated_code ... ok
+test main_error_report ... ok
+test bench_programs_check ... ok
+test grace_escalation_keeps_resources ... ok
+test inspect_running_program ... ok
+test main_int_exit_status ... ok
+test multicore_migration ... ok
+test example_projects_check ... ok
+test layer_rules ... ok
+test generate_feature ... ok
+test live_reload ... ok
+test outbound_http ... ok
+test outbound_http_send ... ok
+test new_project ... ok
+test otel_export ... ok
+test live_reconstruct ... ok
+test private_method_call ... ok
+test private_struct_update ... ok
+test map_versions_under_gc_stress ... ok
+test provider_precondition_at_startup ... ok
+test query_reports_unloadable_and_unreachable_files ... ok
+test profiles ... ok
+test program_graphs ... ok
+test module_values_under_gc_stress ... ok
+test local_repl_session ... ok
+test examples_run ... ok
+test query_check_overlays ... ok
+test run_bench_reports_execution_time ... ok
+test release_starts_without_sources ... ok
+test restricted_projects ... ok
+test eval_tasks_are_solvable ... ok
+test remote_repl ... ok
+test project_tooling ... ok
+test sql_generation_sqlite ... ok
+test query_rename_and_unsupported_inputs ... ok
+test standard_input ... ok
+test sampling_profile ... ok
+test config_env_replays ... ok
+test test_runner_controlled_clock ... ok
+test structured_diagnostics ... ok
+test stuck_cleanup_is_bounded ... ok
+test structured_logs ... ok
+test test_runner_simulation ... ok
+test typed_sql_schema ... ok
+test query_symbol ... ok
+test framework_example ... ok
+test warning_programs ... ok
+test workspaces_and_git_dependencies ... ok
+test durable_jobs_survive_crashes ... ok
+test native_modules ... ok
+test test_runner_options ... ok
+test heap_budget_contains_a_task has been running for over 60 seconds
+test reject_programs has been running for over 60 seconds
+test reproduction_bundles has been running for over 60 seconds
+test run_programs has been running for over 60 seconds
+test run_programs_compiled has been running for over 60 seconds
+test run_programs_multicore has been running for over 60 seconds
+test run_programs_release has been running for over 60 seconds
+test heap_budget_contains_a_task ... ok
+test reproduction_bundles ... ok
+test run_programs ... ok
+test run_programs_compiled ... ok
+test run_programs_release ... ok
+test run_programs_multicore ... ok
+test reject_programs ... ok
+
+test result: ok. 76 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 104.77s
+
+     Running tests/scalar_enums.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/scalar_enums-d0d612b8ff1b390b)
+
+running 2 tests
+wrote /tmp/badger-scalar-enums-3139536/scalar.bdgmir (3175 bytes)
+test local_scalar_enums_have_no_wrapper_allocations_before_dump_or_save ... ok
+test mixed_payloads_aliases_and_gc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.48s
+
+     Running tests/sequence_fusion.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/sequence_fusion-acf18ebe2131535b)
+
+running 4 tests
+wrote /tmp/badger-fusion-3139579/fusion.bdgmir (1712 bytes)
+wrote /tmp/badger-stored-fusion-3139579/stored.bdgmir (2646 bytes)
+test visible_pipeline_is_a_loop_before_dump_and_save ... ok
+test stored_pipeline_is_a_loop_before_dump_and_save ... ok
+test fusion_preserves_construction_effect_order_limits_and_roots ... ok
+test stored_pipeline_is_reusable_and_preserves_snapshots_and_escape_boundaries ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.13s
+
+     Running tests/service.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/service-e04ba840d86209e6)
+
+running 8 tests
+test websockets ... ok
+test orders_service ... ok
+test orders_service_concurrent ... ok
+test request_isolation ... ok
+test framework_service ... ok
+test http_limits_and_streaming ... ok
+test events_stop_when_the_client_leaves ... ok
+test stream_backpressure ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.45s
+
+     Running tests/std_cache.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/std_cache-02b21123509d94f4)
+
+running 3 tests
+test user_impl_effect_still_widens_a_cached_protocol_method ... ok
+test entries_reuse_the_checked_prefix ... ok
+test differing_std_sets_miss ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running tests/transient_maps.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/transient_maps-8986443ba35aafc6)
+
+running 3 tests
+test finished_builder_maps_survive_saved_mir ... ok
+test pool_boundary_strings_survive_task_handoff_and_later_collections ... ok
+test builder_nodes_keep_pointer_fields_and_finished_snapshots_alive ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 53.00s
+

@@ -1,0 +1,9 @@
+   Compiling badger_runtime v0.1.0 (/tmp/language-G8d-current-baseline-2026-10-19/crates/badger_runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.12s
+     Running tests/list_bulk_fill.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/debug/deps/list_bulk_fill-a3e72b99778706d8)
+
+running 1 test
+test bulk_filled_pages_preserve_directory_capacity_and_persistent_appends ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

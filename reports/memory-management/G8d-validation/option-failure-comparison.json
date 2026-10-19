@@ -1,0 +1,126 @@
+[
+  {
+    "variant": "baseline",
+    "release": false,
+    "workers": 1,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-baseline",
+      "run",
+      "--workers",
+      "1",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "baseline",
+    "release": false,
+    "workers": 4,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-baseline",
+      "run",
+      "--workers",
+      "4",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "baseline",
+    "release": true,
+    "workers": 1,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-baseline",
+      "run",
+      "--workers",
+      "1",
+      "--release",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "baseline",
+    "release": true,
+    "workers": 4,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-baseline",
+      "run",
+      "--workers",
+      "4",
+      "--release",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "candidate",
+    "release": false,
+    "workers": 1,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-candidate",
+      "run",
+      "--workers",
+      "1",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "candidate",
+    "release": false,
+    "workers": 4,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-candidate",
+      "run",
+      "--workers",
+      "4",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "candidate",
+    "release": true,
+    "workers": 1,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-candidate",
+      "run",
+      "--workers",
+      "1",
+      "--release",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "candidate",
+    "release": true,
+    "workers": 4,
+    "command": [
+      "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/buffer-current-candidate",
+      "run",
+      "--workers",
+      "4",
+      "--release",
+      "tests/run/option_niche.bdg"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]
