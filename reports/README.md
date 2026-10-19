@@ -7,6 +7,8 @@ states the revision it measured; newer work can change its numbers.
 
 | Report | What it covers |
 |---|---|
+| [2026-10-19-mir-optimization-architecture.md](2026-10-19-mir-optimization-architecture.md) | Release MIR optimization pipeline, closure specialization, and the verified superoptimizer mode |
+| [2026-10-19-eager-list-map-and-map-entries.md](2026-10-19-eager-list-map-and-map-entries.md) | Eager `List.filter`/`map` fusion, map entries fusion, and cursor entry loading |
 | [2026-10-17-go-elixir-report-status.md](2026-10-17-go-elixir-report-status.md) | What became of each recommendation in the Go/Elixir design report |
 | [2026-10-17-performance-optimization-results.md](2026-10-17-performance-optimization-results.md) | Compiler and runtime optimization results (targeted probes and the telemetry application) |
 | [2026-10-17-gc-profiling.md](2026-10-17-gc-profiling.md) | Application and GC profiling; data in [gc-profile-2026-10-17/](gc-profile-2026-10-17/) |

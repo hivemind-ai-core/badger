@@ -92,49 +92,30 @@ pub fn data_json(w: u64) -> String {
     s
 }
 
-/// A `Data` value as a JSON value, built directly (what `data_json`
-/// writes, without the text in between).
-pub fn data_value(w: u64) -> serde_json::Value {
-    use serde_json::Value as J;
-    let (tag, fields) = enum_parts(w);
-    match tag {
-        0 => J::Null,
-        1 => J::Bool(fields[0] & 1 != 0),
-        2 => J::from(fields[0] as i64),
-        3 => {
-            let f = f64::from_bits(fields[0]);
-            serde_json::Number::from_f64(f).map(J::Number).unwrap_or(J::Null)
-        }
-        4 => J::String(str_of(fields[0]).to_string()),
-        5 => J::Array(crate::list::to_vec(fields[0]).into_iter().map(data_value).collect()),
-        _ => J::Object(
-            crate::map::entries(fields[0])
-                .into_iter()
-                .map(|(k, v)| (str_of(k).to_string(), data_value(v)))
-                .collect(),
-        ),
-    }
-}
-
-fn write_data(w: u64, out: &mut String) {
+pub(crate) fn write_data(w: u64, out: &mut String) {
     let (tag, fields) = enum_parts(w);
     match tag {
         0 => out.push_str("null"),
         1 => out.push_str(if fields[0] & 1 != 0 { "true" } else { "false" }),
-        2 => out.push_str(&(fields[0] as i64).to_string()),
+        2 => crate::codec::write_i64(out, fields[0] as i64),
         // JSON has no NaN or infinity: they are `null` (as `codec.encode` writes them)
         3 => {
             let f = f64::from_bits(fields[0]);
-            out.push_str(&if f.is_finite() { crate::value::fmt_float(f) } else { "null".to_string() })
+            if f.is_finite() {
+                out.push_str(&crate::value::fmt_float(f));
+            } else {
+                out.push_str("null");
+            }
         }
-        4 => out.push_str(&json_quote(str_of(fields[0]))),
+        4 => write_json_quote(str_of(fields[0]), out),
         5 => {
             out.push('[');
-            for (i, x) in crate::list::to_vec(fields[0]).into_iter().enumerate() {
+            let l = fields[0];
+            for i in 0..crate::list::len(l) {
                 if i > 0 {
                     out.push(',');
                 }
-                write_data(x, out);
+                write_data(crate::list::get(l, i), out);
             }
             out.push(']');
         }
@@ -146,7 +127,7 @@ fn write_data(w: u64, out: &mut String) {
                 if i > 0 {
                     out.push(',');
                 }
-                out.push_str(&json_quote(str_of(k)));
+                write_json_quote(str_of(k), out);
                 out.push(':');
                 write_data(v, out);
             }
@@ -170,30 +151,25 @@ pub(crate) fn write_json_quote(s: &str, o: &mut String) {
     o.push('"');
     let bytes = s.as_bytes();
     let mut start = 0;
-    let mut i = 0;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if b == b'"' || b == b'\\' || b < 0x20 {
-            if start < i {
-                o.push_str(&s[start..i]);
-            }
-            match b {
-                b'"' => o.push_str("\\\""),
-                b'\\' => o.push_str("\\\\"),
-                b'\n' => o.push_str("\\n"),
-                b'\r' => o.push_str("\\r"),
-                b'\t' => o.push_str("\\t"),
-                _ => {
-                    o.push_str("\\u00");
-                    o.push(HEX[(b >> 4) as usize] as char);
-                    o.push(HEX[(b & 0xf) as usize] as char);
-                }
-            }
-            i += 1;
-            start = i;
-        } else {
-            i += 1;
+    while let Some(k) = bytes[start..].iter().position(|&c| c == b'"' || c == b'\\' || c < 0x20) {
+        let i = start + k;
+        if start < i {
+            o.push_str(&s[start..i]);
         }
+        let b = bytes[i];
+        match b {
+            b'"' => o.push_str("\\\""),
+            b'\\' => o.push_str("\\\\"),
+            b'\n' => o.push_str("\\n"),
+            b'\r' => o.push_str("\\r"),
+            b'\t' => o.push_str("\\t"),
+            _ => {
+                o.push_str("\\u00");
+                o.push(HEX[(b >> 4) as usize] as char);
+                o.push(HEX[(b & 0xf) as usize] as char);
+            }
+        }
+        start = i + 1;
     }
     if start < bytes.len() {
         o.push_str(&s[start..]);

@@ -26,7 +26,7 @@ use crate::mir::*;
 use rustc_hash::FxHashMap;
 
 const MAX_CALLEE: usize = 40;
-const MAX_HIGHER_ORDER: usize = 80;
+const MAX_HIGHER_ORDER: usize = 96;
 const MAX_CALLER: usize = 4000;
 const ROUNDS: usize = 2;
 
@@ -41,8 +41,11 @@ fn size(f: &Func) -> usize {
 fn calls_itself(f: &Func, me: FuncId) -> bool {
     f.blocks.iter().any(|b| {
         b.stmts.iter().any(|s| {
-            matches!(s, Stmt::Assign(_, Rvalue::Call { callee: Callee::Direct(t), .. }) if *t == me)
-                || matches!(s, Stmt::Assign(_, Rvalue::FuncAddr(t)) if *t == me)
+            matches!(
+                s,
+                Stmt::Assign(_, Rvalue::Call { callee: Callee::Direct(t) | Callee::Lambda(t, _), .. })
+                    if *t == me
+            ) || matches!(s, Stmt::Assign(_, Rvalue::FuncAddr(t)) if *t == me)
         })
     })
 }
@@ -253,7 +256,7 @@ fn remap_rvalue(rv: &mut Rvalue, o: &dyn Fn(&mut Operand)) {
         Rvalue::Load { base, .. } => o(base),
         Rvalue::Call { callee, args, .. } => {
             args.iter_mut().for_each(o);
-            if let Callee::Closure(c) = callee {
+            if let Callee::Closure(c) | Callee::Lambda(_, c) = callee {
                 o(c);
             }
         }
@@ -301,7 +304,8 @@ pub fn inline(prog: &mut Program) -> usize {
                                 let limit = if higher { MAX_HIGHER_ORDER } else { MAX_CALLEE };
                                 body(*t, args, *dst, limit).then_some((i, *t, Operand::Const(Const::Addr(0))))
                             }
-                            Callee::Closure(c @ Operand::Local(l)) => known
+                            Callee::Closure(c @ Operand::Local(l))
+                            | Callee::Lambda(_, c @ Operand::Local(l)) => known
                                 .get(l)
                                 .filter(|t| **t != id && body(**t, args, *dst, MAX_CALLEE))
                                 .map(|t| (i, *t, *c)),

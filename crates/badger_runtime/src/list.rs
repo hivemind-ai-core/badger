@@ -192,10 +192,7 @@ pub(crate) fn clear_unmarked_directory_pages() {
 /// Create an empty list (or builder) object with descriptor `desc`
 /// (`Kind::List { elem }`).
 pub fn new(desc: &'static TypeDesc) -> u64 {
-    let elem = match &desc.kind {
-        Kind::List { elem } => *elem,
-        _ => crate::desc::builtin::unit(),
-    };
+    let elem = elem_of(desc);
     let size = elem.repr().size() as usize;
     let page_cap = page_cap_for(size);
     let w = gc::alloc(desc, 32);
@@ -500,7 +497,10 @@ pub fn push_raw(dst: u64, src: *const u8, n: usize) {
         let size = elem.repr().size() as usize;
         let off = len % cap;
         let page = if off == 0 {
-            let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS) } else { cap };
+            // A bulk append knows how many elements remain, so a first page
+            // can be the exact size the run needs instead of growing by
+            // copying (which `push` must do, one element at a time).
+            let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS.max(n - done)) } else { cap };
             let page = r.add(new_page(elem, slots));
             unsafe { (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release) };
             put_page(dst, len / cap, page);
@@ -550,6 +550,68 @@ pub fn push_run(dst: u64, src: u64, start: usize, end: usize) {
         push_raw(dst, unsafe { obj(h.page(p)).payload().add(PAGE_HDR + off * size) }, run);
         i += run;
     }
+}
+
+/// The element descriptor of a `Kind::List { elem }` descriptor.
+fn elem_of(desc: &'static TypeDesc) -> &'static TypeDesc {
+    match &desc.kind {
+        Kind::List { elem } => *elem,
+        _ => crate::desc::builtin::unit(),
+    }
+}
+
+/// A list of `n` elements produced by `next(0..n)` in order, filling whole
+/// pages directly instead of one `push` per element: the directory is
+/// allocated once at its final size and only the first page may be small
+/// (as `push`'s is), so nothing is copied as the list grows. `next` must
+/// return rooted words when the element is a pointer.
+pub fn fill(desc: &'static TypeDesc, n: usize, mut next: impl FnMut(usize) -> u64) -> u64 {
+    let r = gc::Roots::new();
+    let w = r.add(new(desc));
+    if n == 0 {
+        return w;
+    }
+    let elem = elem_of(desc);
+    let size = elem.repr().size() as usize;
+    let cap = page_cap_for(size);
+    let pages = n.div_ceil(cap);
+    gc::budget_check(gc::HEADER + pages * (PAGE_HDR + cap * size) + DIR_HDR + pages * 8);
+    let is_ptr = elem.is_ptr();
+    // The directory's final size, so appends never copy it.
+    let nd = r.add(gc::alloc(dir_desc(), DIR_HDR + pages * 8));
+    unsafe { *(obj(nd).payload().add(1) as *mut u64) = pages as u64 };
+    let mut done = 0;
+    for p in 0..pages {
+        let len_p = (n - done).min(cap);
+        // Only the first page may be small (as `push` and `push_raw` do):
+        // later pages are full, so a partial tail never has to be copied
+        // when the list is appended to (element addresses stay valid).
+        let slots = if p == 0 { cap.min(FIRST_PAGE_SLOTS.max(n)) } else { cap };
+        let page = r.add(new_page(elem, slots));
+        unsafe {
+            let dst = obj(page).payload().add(PAGE_HDR);
+            for i in 0..len_p {
+                elem.repr().store(dst.add(i * size), next(done + i));
+            }
+            (*(obj(page).payload().add(8) as *const AtomicU64)).store(len_p as u64, Ordering::Release);
+            *dir_slot(nd, p) = page;
+        }
+        if is_ptr {
+            gc::barrier(page);
+        }
+        // Publish the page and its elements before the length that covers
+        // them, so a collection during the fill sees only initialized slots.
+        dir_used(nd).store(p as u64 + 1, Ordering::Release);
+        done += len_p;
+        hdr(w).set_len(done);
+    }
+    hdr(w).set_dir(nd);
+    w
+}
+
+/// The integers `start..start + n` as a list (bulk-filled pages).
+pub fn from_range(desc: &'static TypeDesc, start: i64, n: usize) -> u64 {
+    fill(desc, n, |i| (start + i as i64) as u64)
 }
 
 /// Freeze a builder into a list, taking over its directory.

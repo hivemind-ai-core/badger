@@ -13,6 +13,7 @@ pub mod lower;
 pub mod maps;
 pub mod mir;
 pub mod niche;
+pub mod opt;
 pub mod reach;
 pub mod roots;
 pub mod serial;

@@ -126,7 +126,7 @@ pub fn encode(d: &TypeDesc, w: u64) -> String {
 
 /// Append `v` in decimal. Encoders write many integers; this avoids the
 /// `core::fmt` machinery (and its formatting buffer) for each one.
-fn write_u64(o: &mut String, v: u64) {
+pub(crate) fn write_u64(o: &mut String, v: u64) {
     let mut buf = [0u8; 20];
     let mut i = buf.len();
     let mut v = v;
@@ -141,7 +141,7 @@ fn write_u64(o: &mut String, v: u64) {
     o.push_str(std::str::from_utf8(&buf[i..]).expect("decimal digits"));
 }
 
-fn write_i64(o: &mut String, v: i64) {
+pub(crate) fn write_i64(o: &mut String, v: i64) {
     if v < 0 {
         o.push('-');
         write_u64(o, v.unsigned_abs());
@@ -185,7 +185,16 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("null")
             }
         }
-        Kind::Char => write_json_quote(&char::from_u32(w as u32).map(String::from).unwrap_or_default(), o),
+        Kind::Char => {
+            // encode into a stack buffer: a `String` per character is an
+            // allocation for a value that is at most four bytes
+            let mut buf = [0u8; 4];
+            let s: &str = match char::from_u32(w as u32) {
+                Some(c) => c.encode_utf8(&mut buf),
+                None => "",
+            };
+            write_json_quote(s, o)
+        }
         Kind::Symbol | Kind::String => write_json_quote(str_of(w), o),
         Kind::Bytes => write_json_quote(&String::from_utf8_lossy(bytes_of(w)), o),
         Kind::Duration | Kind::Instant | Kind::Timestamp => write_i64(o, w as i64),
@@ -227,7 +236,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             let (tag, vals) = enum_parts(w);
             let v = &variants[tag as usize];
             if d.name == "Data" {
-                o.push_str(&crate::intrinsics_io::data_json(w));
+                crate::intrinsics_io::write_data(w, o);
                 return;
             }
             if d.name == "Option" {
@@ -343,11 +352,20 @@ pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
     crate::json::decode(d, text)
 }
 
+/// Decode an already-parsed JSON value against a descriptor, without the text
+/// round trip (used where the value is built from typed data, not parsed).
+pub(crate) fn decode_value(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
+    let _g = Roots::new();
+    dec(d, j)
+}
+
 /// Decode a `Data` value against a descriptor.
 pub fn from_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
-    let j: J = crate::intrinsics_io::data_value(w);
+    // `w` (and everything reachable through it) must stay alive: the walk
+    // allocates while it holds words read out of the input.
     let _g = Roots::new();
-    dec(d, &j)
+    _g.add(w);
+    dec_data(d, w)
 }
 
 thread_local! {
@@ -531,6 +549,251 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             Ok(root(crate::buffer::frozen(elem, items)))
         }
         _ => fail(format!("type `{}` has no decoder", d.name)),
+    }
+}
+
+/// Decode a `Data` value against a descriptor. `dec` over a
+/// `serde_json::Value` is the reference; this mirrors it kind by kind so a
+/// `Data` input needs no intermediate JSON value (no `String`/`Vec`/map per
+/// node). Error paths and messages are identical.
+fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
+    // `Unit` ignores its input; `Data` is already the target value.
+    if matches!(d.kind, Kind::Unit) {
+        return Ok(0);
+    }
+    if d.name == "Data" && matches!(d.kind, Kind::Enum { .. }) {
+        return Ok(w);
+    }
+    let (tag, fields) = enum_parts(w);
+    match &d.kind {
+        Kind::Unit => Ok(0),
+        Kind::Bool => match tag {
+            1 => Ok(fields[0] & 1),
+            2 if INT_BOOLS.with(|c| c.get()) && (fields[0] as i64 == 0 || fields[0] as i64 == 1) => {
+                Ok(fields[0] as i64 as u64)
+            }
+            _ => fail("expected a boolean"),
+        },
+        Kind::Int { bits, signed } => {
+            // a JSON number: an integer only (no float), and non-negative for
+            // an unsigned type
+            let v = match tag {
+                2 if *signed || fields[0] as i64 >= 0 => fields[0] as i64,
+                _ => return fail("expected an integer"),
+            };
+            let ok = match (bits, signed) {
+                (64, _) => true,
+                (b, true) => v >= -(1i64 << (b - 1)) && v < (1i64 << (b - 1)),
+                (b, false) => v >= 0 && v < (1i64 << b),
+            };
+            if !ok {
+                return fail(format!("integer out of range for {}", d.name));
+            }
+            Ok(v as u64)
+        }
+        Kind::Float { bits } => {
+            let f = match tag {
+                2 => fields[0] as i64 as f64,
+                3 => f64::from_bits(fields[0]),
+                _ => return fail("expected a number"),
+            };
+            Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
+        }
+        Kind::String => match tag {
+            4 => Ok(root(new_string(str_of(fields[0])))),
+            _ => fail("expected a string"),
+        },
+        Kind::Symbol => match tag {
+            4 => crate::string::external_symbol(str_of(fields[0])).or_else(|m| fail(&m)),
+            _ => fail("expected a symbol string"),
+        },
+        Kind::Char => match tag {
+            4 => match str_of(fields[0]).chars().next() {
+                Some(c) => Ok(c as u64),
+                None => fail("expected a character"),
+            },
+            _ => fail("expected a character"),
+        },
+        Kind::Bytes => match tag {
+            4 => Ok(root(crate::string::new_bytes(str_of(fields[0]).as_bytes()))),
+            _ => fail("expected a string"),
+        },
+        Kind::Duration | Kind::Instant | Kind::Timestamp => match tag {
+            2 => Ok(fields[0]),
+            _ => fail("expected an integer"),
+        },
+        Kind::Record { fields: rfields, size, .. } if d.name == SECRET => {
+            if tag != 4 {
+                return fail("expected a string");
+            }
+            let v = root(new_string(str_of(fields[0])));
+            let w = root(gc::alloc(d, *size as usize));
+            unsafe { rfields[0].repr.store(obj(w).payload().add(rfields[0].offset as usize), v) };
+            Ok(w)
+        }
+        Kind::Record { fields: rfields, tuple, size, .. } => {
+            let mut vals = Vec::with_capacity(rfields.len());
+            if *tuple {
+                if tag != 5 {
+                    return fail("expected an array");
+                }
+                let l = fields[0];
+                if list::len(l) != rfields.len() {
+                    return fail(format!("expected {} elements", rfields.len()));
+                }
+                for (i, f) in rfields.iter().enumerate() {
+                    vals.push(dec_data(f.desc, list::get(l, i)).map_err(|e| e.index(i))?);
+                }
+            } else {
+                if tag != 6 {
+                    return fail("expected an object");
+                }
+                // one entry scan reused for every field (the entries are
+                // reachable from `w`, which the caller keeps rooted)
+                let entries = map::entries(fields[0]);
+                for f in rfields {
+                    let value = match lookup_data(&entries, &d.name, &f.name) {
+                        Some(v) => dec_data(f.desc, v),
+                        None if f.desc.name == "Option" => Ok(root(make_enum(f.desc, 0, &[]))),
+                        None => fail("missing required field"),
+                    };
+                    vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);
+                }
+            }
+            let w = root(gc::alloc(d, *size as usize));
+            let pl = unsafe { obj(w).payload() };
+            for (f, v) in rfields.iter().zip(vals) {
+                unsafe { f.repr.store(pl.add(f.offset as usize), v) };
+            }
+            Ok(w)
+        }
+        Kind::Enum { variants, .. } => {
+            if d.name == "Option" {
+                if tag == 0 {
+                    return Ok(root(make_enum(d, 0, &[])));
+                }
+                let v = dec_data(variants[1].fields[0].desc, w)?;
+                return Ok(root(make_enum(d, 1, &[v])));
+            }
+            if tag == 4 {
+                let s = str_of(fields[0]);
+                if let Some(i) =
+                    variants.iter().position(|v| name_matches(&d.name, &v.name, s) && v.fields.is_empty())
+                {
+                    return Ok(root(make_enum(d, i as u32, &[])));
+                }
+                return fail(format!("unknown variant `{s}`"));
+            }
+            if tag != 6 {
+                return fail("expected a variant");
+            }
+            let entries = map::entries(fields[0]);
+            if entries.len() != 1 {
+                return fail("expected a variant");
+            }
+            let (k, body) = entries[0];
+            let name = str_of(k).to_string();
+            let Some(i) = variants.iter().position(|v| name_matches(&d.name, &v.name, &name)) else {
+                return fail(format!("unknown variant `{name}`"));
+            };
+            let (btag, bfields) = enum_parts(body);
+            let body_entries = if btag == 6 { map::entries(bfields[0]) } else { Vec::new() };
+            let mut vals = Vec::with_capacity(variants[i].fields.len());
+            let vty = format!("{}.{}", d.name, variants[i].name);
+            for f in &variants[i].fields {
+                if btag != 6 {
+                    return fail("expected an object").map_err(|e| e.name(&name));
+                }
+                let value = match lookup_data(&body_entries, &vty, &f.name) {
+                    Some(v) => dec_data(f.desc, v),
+                    None => fail("missing required field"),
+                };
+                vals.push(value.map_err(|e| e.field(&vty, &f.name).name(&name))?);
+            }
+            Ok(root(make_enum(d, i as u32, &vals)))
+        }
+        Kind::List { elem } => {
+            if tag != 5 {
+                return fail("expected an array");
+            }
+            let l = fields[0];
+            let out = root(list::new(d));
+            for i in 0..list::len(l) {
+                let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
+                list::push(out, v);
+            }
+            Ok(out)
+        }
+        Kind::Map { key, val } => {
+            if tag != 6 {
+                return fail("expected an object");
+            }
+            let out = root(map::new(d));
+            for (k, v) in map::entries(fields[0]) {
+                let ks = str_of(k);
+                let kw = dec_str_key(key, ks).map_err(|e| e.name(ks))?;
+                let vw = dec_data(val, v).map_err(|e| e.name(ks))?;
+                map::insert_mut(out, kw, vw);
+            }
+            Ok(out)
+        }
+        Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
+            let elem = crate::buffer::array_elem(d).expect("array");
+            if tag != 5 {
+                return fail("expected an array");
+            }
+            let l = fields[0];
+            // decoded elements stay rooted (`root`) until the array holds them
+            let mut items = Vec::with_capacity(list::len(l));
+            for i in 0..list::len(l) {
+                let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
+                if elem.is_ptr() {
+                    gc::push_root(v);
+                }
+                items.push(v);
+            }
+            Ok(root(crate::buffer::frozen(elem, items)))
+        }
+        _ => fail(format!("type `{}` has no decoder", d.name)),
+    }
+}
+
+/// Look up member `member` of `ty` among a `Data` object's `entries`,
+/// mirroring [`lookup`]'s wire-name precedence.
+fn lookup_data(entries: &[(u64, u64)], ty: &str, member: &str) -> Option<u64> {
+    let find = |name: &str| entries.iter().find(|e| str_of(e.0) == name).map(|e| e.1);
+    WIRE.with(|c| {
+        let wire = c.borrow();
+        let Some(w) = &*wire else { return find(member) };
+        let key = format!("{ty}.{member}");
+        find(w.names.get(&key).map_or(member, String::as_str))
+            .or_else(|| w.aliases.get(&key).and_then(|aliases| aliases.iter().find_map(|a| find(a))))
+    })
+}
+
+/// Decode a `Data` object key (a managed string) against `d`, mirroring
+/// `dec(d, &J::String(s))` for the types that can be map keys. Other key
+/// types keep `dec`'s exact errors through the JSON path.
+fn dec_str_key(d: &'static TypeDesc, s: &str) -> Result<u64, DecodeError> {
+    match &d.kind {
+        Kind::String => Ok(root(new_string(s))),
+        Kind::Symbol => crate::string::external_symbol(s).or_else(|m| fail(&m)),
+        Kind::Char => match s.chars().next() {
+            Some(c) => Ok(c as u64),
+            None => fail("expected a character"),
+        },
+        Kind::Bytes => Ok(root(crate::string::new_bytes(s.as_bytes()))),
+        Kind::Enum { .. } if d.name == "Data" => {
+            let w = root(new_string(s));
+            Ok(root(make_enum(d, 4, &[w])))
+        }
+        Kind::Enum { variants, .. } => {
+            match variants.iter().position(|v| name_matches(&d.name, &v.name, s) && v.fields.is_empty()) {
+                Some(i) => Ok(root(make_enum(d, i as u32, &[]))),
+                None => fail(format!("unknown variant `{s}`")),
+            }
+        }
+        _ => dec(d, &J::String(s.to_owned())),
     }
 }
 

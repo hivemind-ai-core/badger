@@ -648,19 +648,25 @@ pub fn admission_size(d: &TypeDesc, w: u64) -> usize {
                 })
                 .unwrap_or(0)
         }
-        // maps and sets: their keys and values
-        Kind::Map { key, val } => crate::map::entries(w)
-            .into_iter()
-            .map(|(k, v)| {
-                let ks = if key.is_ptr() { admission_size(key, k) } else { key.repr().size() as usize };
-                let vs = if val.is_ptr() { admission_size(val, v) } else { val.repr().size() as usize };
-                ks + vs
-            })
-            .sum(),
-        Kind::Set { elem } => crate::map::entries(w)
-            .into_iter()
-            .map(|(k, _)| if elem.is_ptr() { admission_size(elem, k) } else { elem.repr().size() as usize })
-            .sum(),
+        // maps and sets: their keys and values, walked in place (an entry
+        // list here would allocate on every admission and every uncharge)
+        Kind::Map { key, val } => {
+            let (kptr, vptr) = (key.is_ptr(), val.is_ptr());
+            let (ks, vs) = (key.repr().size() as usize, val.repr().size() as usize);
+            let mut total = 0usize;
+            crate::map::for_each(w, &mut |k, v| {
+                total += if kptr { admission_size(key, k) } else { ks };
+                total += if vptr { admission_size(val, v) } else { vs };
+            });
+            total
+        }
+        Kind::Set { elem } => {
+            let eptr = elem.is_ptr();
+            let es = elem.repr().size() as usize;
+            let mut total = 0usize;
+            crate::map::for_each(w, &mut |k, _| total += if eptr { admission_size(elem, k) } else { es });
+            total
+        }
         // a buffer's (or array's) elements
         _ if d.is_ptr() && w != 0 && crate::buffer::is_buffer(w) => {
             let b = crate::buffer::data(w);
