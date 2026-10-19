@@ -15,17 +15,24 @@ enum Stage {
     Map(ExprId),
     Filter(ExprId),
     Take(ExprId),
+    Skip(ExprId),
+    StepBy(ExprId),
 }
 enum Active {
     Map(Operand, Repr),
     Filter(Operand),
     Take(Local),
+    Skip(Local),
+    /// `n` and the remaining-skip counter (reset to `n - 1` on each pass).
+    StepBy(Local, Local),
 }
 #[derive(Clone)]
 enum PreparedStage {
     Map(Operand, Repr),
     Filter(Operand),
     Take(Operand),
+    Skip(Operand),
+    StepBy(Operand),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -72,6 +79,33 @@ impl FnLower<'_, '_, '_> {
         module.is_std.then(|| (self.m.def_path(def), args))
     }
 
+    /// The fusion template of a called standard-library definition: from its
+    /// `@fusion(...)` annotation, or the legacy path table (kept while the
+    /// annotations are rolled out) so nothing regresses.
+    fn fusion_template(&self, name: &str) -> Option<String> {
+        if let Some(t) = self.m.fusion.get(name) {
+            return Some(t.clone());
+        }
+        Some(
+            match name {
+                "std.seq.range" => "range",
+                "std.seq.from_range" => "from_range",
+                "std.list.of" | "std.list.seq" => "list",
+                "std.seq.map" => "map",
+                "std.seq.filter" => "filter",
+                "std.seq.take" => "take",
+                "std.seq.skip" => "skip",
+                "std.seq.step_by" => "step_by",
+                "std.seq.fold" => "fold",
+                "std.seq.count" => "count",
+                "std.seq.sum" => "sum",
+                "std.seq.collect" | "std.list.collect" => "collect",
+                _ => return None,
+            }
+            .to_string(),
+        )
+    }
+
     fn sequence_plan(&self, e: ExprId, depth: usize) -> Option<(Source, Vec<Stage>)> {
         if depth > 16 {
             return None;
@@ -90,19 +124,22 @@ impl FnLower<'_, '_, '_> {
             _ => {}
         }
         let (name, args) = self.sequence_call(e)?;
-        match (name.as_str(), args.as_slice()) {
-            ("std.seq.range", [lo, hi]) => Some((Source::Bounds(*lo, *hi), vec![])),
-            ("std.seq.from_range", [r]) => Some((Source::Range(*r, false), vec![])),
-            ("std.list.of" | "std.list.seq", [list]) => {
+        let template = self.fusion_template(&name)?;
+        match (template.as_str(), args.as_slice()) {
+            ("range", [lo, hi]) => Some((Source::Bounds(*lo, *hi), vec![])),
+            ("from_range", [r]) => Some((Source::Range(*r, false), vec![])),
+            ("list", [list]) => {
                 let elem = self.m.lay.args(&self.ty(*list)).first()?.clone();
                 Some((Source::List(*list, elem, false), vec![]))
             }
-            ("std.seq.map" | "std.seq.filter" | "std.seq.take", [inner, arg]) => {
+            ("map" | "filter" | "take" | "skip" | "step_by", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
-                stages.push(match name.as_str() {
-                    "std.seq.map" => Stage::Map(*arg),
-                    "std.seq.filter" => Stage::Filter(*arg),
-                    _ => Stage::Take(*arg),
+                stages.push(match template.as_str() {
+                    "map" => Stage::Map(*arg),
+                    "filter" => Stage::Filter(*arg),
+                    "take" => Stage::Take(*arg),
+                    "skip" => Stage::Skip(*arg),
+                    _ => Stage::StepBy(*arg),
                 });
                 Some((source, stages))
             }
@@ -121,8 +158,9 @@ impl FnLower<'_, '_, '_> {
             return Some(e);
         }
         let (name, args) = self.sequence_call(e)?;
-        match (name.as_str(), args.as_slice()) {
-            ("std.seq.map" | "std.seq.filter" | "std.seq.take", [inner, _]) => {
+        let template = self.fusion_template(&name)?;
+        match (template.as_str(), args.as_slice()) {
+            ("map" | "filter" | "take" | "skip" | "step_by", [inner, _]) => {
                 self.sequence_local_use(*inner, depth + 1)
             }
             _ => None,
@@ -157,11 +195,14 @@ impl FnLower<'_, '_, '_> {
                 {
                     Some(*iter)
                 }
-                _ => self.sequence_call(e).and_then(|(name, args)| match (name.as_str(), args.as_slice()) {
-                    ("std.seq.fold", [iter, _, _])
-                    | ("std.seq.count", [iter])
-                    | ("std.seq.collect" | "std.list.collect", [iter]) => Some(*iter),
-                    _ => None,
+                _ => self.sequence_call(e).and_then(|(name, args)| {
+                    let template = self.fusion_template(&name)?;
+                    match (template.as_str(), args.as_slice()) {
+                        ("fold", [iter, _, _])
+                        | ("count" | "sum", [iter])
+                        | ("collect", [iter]) => Some(*iter),
+                        _ => None,
+                    }
                 }),
             };
             if let Some(iter) = iter
@@ -219,11 +260,12 @@ impl FnLower<'_, '_, '_> {
 
     pub(super) fn fused_terminal(&self, e: ExprId) -> Option<Plan> {
         let (name, args) = self.sequence_call(e)?;
-        let (iter, terminal) = match (name.as_str(), args.as_slice()) {
-            ("std.seq.fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
-            ("std.seq.count", [iter]) => (*iter, Terminal::Count),
-            ("std.seq.sum", [iter]) => (*iter, Terminal::Sum),
-            ("std.seq.collect" | "std.list.collect", [iter]) => (*iter, Terminal::Collect),
+        let template = self.fusion_template(&name)?;
+        let (iter, terminal) = match (template.as_str(), args.as_slice()) {
+            ("fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
+            ("count", [iter]) => (*iter, Terminal::Count),
+            ("sum", [iter]) => (*iter, Terminal::Sum),
+            ("collect", [iter]) => (*iter, Terminal::Collect),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -268,6 +310,8 @@ impl FnLower<'_, '_, '_> {
                 }
                 Stage::Filter(expr) => PreparedStage::Filter(self.lower(expr)?),
                 Stage::Take(expr) => PreparedStage::Take(self.lower(expr)?),
+                Stage::Skip(expr) => PreparedStage::Skip(self.lower(expr)?),
+                Stage::StepBy(expr) => PreparedStage::StepBy(self.lower(expr)?),
             });
         }
         Some(prepared)
@@ -282,6 +326,11 @@ impl FnLower<'_, '_, '_> {
                 PreparedStage::Map(f, ret) => Active::Map(f, ret),
                 PreparedStage::Filter(f) => Active::Filter(f),
                 PreparedStage::Take(n) => Active::Take(self.copy_to_local(n, Repr::I64, None)),
+                PreparedStage::Skip(n) => Active::Skip(self.copy_to_local(n, Repr::I64, None)),
+                PreparedStage::StepBy(n) => {
+                    let n = self.copy_to_local(n, Repr::I64, None);
+                    Active::StepBy(n, self.copy_to_local(int(0), Repr::I64, None))
+                }
             })
             .collect();
         let ret = match plan.terminal {
@@ -393,6 +442,32 @@ impl FnLower<'_, '_, '_> {
                 Active::Take(left) => {
                     let n = bin(self, BinOp::Sub, Operand::Local(left), int(1));
                     self.emit(Stmt::Assign(left, Rvalue::Use(n)));
+                }
+                Active::Skip(left) => {
+                    // drop this item while the counter is positive, then pass
+                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
+                    let skipping = self.block();
+                    let passing = self.block();
+                    self.term(Term::Branch(positive, skipping, passing));
+                    self.switch(skipping);
+                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                    self.term(Term::Goto(step));
+                    self.switch(passing);
+                }
+                Active::StepBy(n, left) => {
+                    // pass one, then skip `n - 1` (a non-positive `n` passes all)
+                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
+                    let skipping = self.block();
+                    let passing = self.block();
+                    self.term(Term::Branch(positive, skipping, passing));
+                    self.switch(skipping);
+                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                    self.term(Term::Goto(step));
+                    self.switch(passing);
+                    let reset = bin(self, BinOp::Sub, Operand::Local(n), int(1));
+                    self.emit(Stmt::Assign(left, Rvalue::Use(reset)));
                 }
             }
         }

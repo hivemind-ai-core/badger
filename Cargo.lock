@@ -359,6 +359,7 @@ dependencies = [
  "badger_base",
  "badger_hir",
  "badger_runtime",
+ "badger_syntax",
  "badger_typeck",
  "bumpalo",
  "index_vec",

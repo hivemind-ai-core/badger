@@ -46,6 +46,45 @@ pub struct Mono<'g, 'a> {
     /// The instance whose body is being lowered (polymorphic recursion is
     /// a request for the same definition at a deeper type).
     current: Option<(DefId, Vec<Ty>)>,
+    /// Fusion templates declared by `@fusion(role = ..., template = ...)`
+    /// on standard-library items, keyed by definition path (a method shares
+    /// its free function's path).
+    fusion: FxHashMap<String, String>,
+}
+
+/// The `@fusion(...)` template of each annotated standard-library item,
+/// keyed by definition path.
+fn fusion_templates(g: &Global) -> FxHashMap<String, String> {
+    let mut out = FxHashMap::default();
+    for (def, attrs) in &g.hir.attributes {
+        let m = &g.hir.modules[g.hir.defs[*def].module];
+        if !m.is_std {
+            continue;
+        }
+        for a in attrs {
+            if g.interner.resolve(a.name) != "fusion" {
+                continue;
+            }
+            let mut template = None;
+            for arg in &a.args {
+                if let badger_syntax::ast::AttrArg::KeyValue(k, v) = arg
+                    && g.interner.resolve(*k) == "template"
+                {
+                    template = match &**v {
+                        badger_syntax::ast::AttrArg::Name(s) => Some(g.interner.resolve(*s).to_string()),
+                        badger_syntax::ast::AttrArg::Str(s) => Some(s.clone()),
+                        _ => None,
+                    };
+                }
+            }
+            if let Some(t) = template {
+                let mp: Vec<&str> = m.path.iter().map(|s| g.interner.resolve(*s)).collect();
+                let path = format!("{}.{}", mp.join("."), g.interner.resolve(g.hir.defs[*def].name));
+                out.insert(path, t);
+            }
+        }
+    }
+    out
 }
 
 impl<'g, 'a> Mono<'g, 'a> {
@@ -69,6 +108,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             errors: vec![],
             fuse_sequences: false,
             current: None,
+            fusion: fusion_templates(g),
         }
     }
 

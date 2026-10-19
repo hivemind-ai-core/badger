@@ -31,7 +31,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion"];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.

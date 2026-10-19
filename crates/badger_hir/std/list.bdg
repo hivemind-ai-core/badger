@@ -173,6 +173,7 @@ pub fn empty<T>() -> List<T> {
 }
 
 /// A lazy sequence over a list.
+@fusion(role = source, template = list)
 pub fn of<T>(list: List<T>) -> Seq<T> {
     {
         start: fn() {
@@ -191,6 +192,7 @@ pub fn of<T>(list: List<T>) -> Seq<T> {
 }
 
 /// Collect a sequence into a list.
+@fusion(role = terminal, template = collect)
 pub fn collect<T>(items: Seq<T>) -> List<T> {
     let b = list_builder()
     for x in items {

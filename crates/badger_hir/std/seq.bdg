@@ -80,6 +80,7 @@ pub fn from_range(r: Range<Int>) -> Seq<Int, !{}> {
     }
 }
 
+@fusion(role = stage, template = map)
 pub fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff> {
     {
         start: fn() {
@@ -94,6 +95,7 @@ pub fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff> {
     }
 }
 
+@fusion(role = stage, template = filter)
 pub fn filter<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -110,6 +112,7 @@ pub fn filter<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Ef
     }
 }
 
+@fusion(role = stage, template = take)
 pub fn take<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -170,6 +173,7 @@ pub fn enumerate<T, Eff>(items: Seq<T, Eff>) -> Seq<(Int, T), Eff> {
 }
 
 /// All but the first `n` items.
+@fusion(role = stage, template = skip)
 pub fn skip<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -368,6 +372,7 @@ pub fn partition<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> (List<
     (yes.finish(), no.finish())
 }
 
+@fusion(role = terminal, template = sum)
 pub fn sum<Eff>(items: Seq<Int, Eff>) -> Int {
     var total = 0
     for x in items {
@@ -488,6 +493,7 @@ pub fn try_collect<T, E, Eff>(items: Seq<Result<T, E>, Eff>) -> Result<List<T>, 
     ok(b.finish())
 }
 
+@fusion(role = terminal, template = fold)
 pub fn fold<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> A {
     var acc = initial
     for x in items {
@@ -496,6 +502,7 @@ pub fn fold<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) ->
     acc
 }
 
+@fusion(role = terminal, template = count)
 pub fn count<T, Eff>(items: Seq<T, Eff>) -> Int {
     var n = 0
     for _ in items {
@@ -787,6 +794,7 @@ pub fn zip_with<A, B, C, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>, f: fn(A, B) -> C !
 }
 
 /// Every `n`-th item, from the first (`n` below 1 counts as 1).
+@fusion(role = stage, template = step_by)
 pub fn step_by<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
     let step = if n < 1 { 1 } else { n }
     {
