@@ -126,7 +126,7 @@ pub fn encode(d: &TypeDesc, w: u64) -> String {
 
 /// Append `v` in decimal. Encoders write many integers; this avoids the
 /// `core::fmt` machinery (and its formatting buffer) for each one.
-fn write_u64(o: &mut String, v: u64) {
+pub(crate) fn write_u64(o: &mut String, v: u64) {
     let mut buf = [0u8; 20];
     let mut i = buf.len();
     let mut v = v;

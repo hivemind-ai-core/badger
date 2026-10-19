@@ -2,6 +2,7 @@
 //! hashing, ordering, and display.
 
 use std::cmp::Ordering;
+use std::fmt::Write as _;
 use std::hash::Hasher;
 
 use crate::desc::{Kind, Repr, TypeDesc};
@@ -356,69 +357,103 @@ pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
         return display(ctx, dynamic_desc(w), w, top);
     }
     if let Some(f) = d.display_fn() {
-        let s = if ctx.is_null() {
-            // outside any task (reporting main's error): no collection
-            let _g = crate::gc::NoGc::new();
-            let mut tmp =
-                TaskCtx { shadow: std::ptr::null_mut(), budget: i64::MAX, flags: 0, task: 0, stack_limit: 0 };
-            f(&mut tmp, 0, &w)
-        } else {
-            // the hook is compiled code: it runs outside the runtime lock
-            crate::task::leave_runtime();
-            let r = f(ctx, 0, &w);
-            crate::task::enter_runtime_holding(r);
-            r
-        };
-        return str_of(s).to_string();
+        return str_of(call_display_hook(ctx, f, w)).to_string();
+    }
+    let mut o = String::new();
+    write_display(ctx, d, w, top, &mut o);
+    o
+}
+
+/// Run a descriptor's `Display` hook, returning its string word.
+fn call_display_hook(ctx: *mut TaskCtx, f: crate::Adapter, w: u64) -> u64 {
+    if ctx.is_null() {
+        // outside any task (reporting main's error): no collection
+        let _g = crate::gc::NoGc::new();
+        let mut tmp =
+            TaskCtx { shadow: std::ptr::null_mut(), budget: i64::MAX, flags: 0, task: 0, stack_limit: 0 };
+        f(&mut tmp, 0, &w)
+    } else {
+        // the hook is compiled code: it runs outside the runtime lock
+        crate::task::leave_runtime();
+        let r = f(ctx, 0, &w);
+        crate::task::enter_runtime_holding(r);
+        r
+    }
+}
+
+/// Append the display form of `w` to `o` (see [`display`]). Aggregates write
+/// their members straight into `o` instead of building one `String` per
+/// member and joining them.
+fn write_display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool, o: &mut String) {
+    if matches!(d.kind, Kind::Dynamic) && w != 0 {
+        return write_display(ctx, dynamic_desc(w), w, top, o);
+    }
+    if let Some(f) = d.display_fn() {
+        o.push_str(str_of(call_display_hook(ctx, f, w)));
+        return;
     }
     match &d.kind {
-        Kind::Unit => "()".into(),
-        Kind::Bool => {
-            if w & 0xff != 0 {
-                "true".into()
-            } else {
-                "false".into()
+        Kind::Unit => o.push_str("()"),
+        Kind::Bool => o.push_str(if w & 0xff != 0 { "true" } else { "false" }),
+        Kind::Int { signed: false, .. } => crate::codec::write_u64(o, w & mask(d)),
+        Kind::Int { .. } => crate::codec::write_i64(o, as_i64(d, w)),
+        Kind::Float { .. } => o.push_str(&fmt_float_of(d, w)),
+        Kind::Char => match char::from_u32(w as u32) {
+            Some(c) if top => o.push(c),
+            Some(c) => {
+                let _ = write!(o, "{c:?}");
             }
-        }
-        Kind::Int { signed: false, .. } => (w & mask(d)).to_string(),
-        Kind::Int { .. } => as_i64(d, w).to_string(),
-        Kind::Float { .. } => fmt_float_of(d, w),
-        Kind::Char => char::from_u32(w as u32)
-            .map(|c| if top { c.to_string() } else { format!("{c:?}") })
-            .unwrap_or_default(),
+            None => {}
+        },
         Kind::Symbol => {
-            if top {
-                str_of(w).to_string()
-            } else {
-                format!("#{}", str_of(w))
+            if !top {
+                o.push('#');
             }
+            o.push_str(str_of(w));
         }
         Kind::String => {
             if top {
-                str_of(w).to_string()
+                o.push_str(str_of(w));
             } else {
-                format!("{:?}", str_of(w))
+                let _ = write!(o, "{:?}", str_of(w));
             }
         }
-        Kind::Bytes => format!("<{} bytes>", crate::string::bytes_of(w).len()),
-        Kind::Duration => fmt_duration(w as i64),
-        Kind::Instant => format!("<instant {}>", w as i64),
-        Kind::Timestamp => format!("<timestamp {}>", w as i64),
+        Kind::Bytes => {
+            let _ = write!(o, "<{} bytes>", crate::string::bytes_of(w).len());
+        }
+        Kind::Duration => o.push_str(&fmt_duration(w as i64)),
+        Kind::Instant => {
+            let _ = write!(o, "<instant {}>", w as i64);
+        }
+        Kind::Timestamp => {
+            let _ = write!(o, "<timestamp {}>", w as i64);
+        }
         Kind::Record { fields, tuple, nominal, .. } => {
             let p = unsafe { obj(w).payload() };
-            let parts: Vec<String> = fields
-                .iter()
-                .map(|f| {
-                    let v = display(ctx, f.desc, field_word(p, f.offset, f.repr), false);
-                    if *tuple { v } else { format!("{}: {v}", f.name) }
-                })
-                .collect();
             if *tuple {
-                format!("({})", parts.join(", "))
+                o.push('(');
             } else if *nominal {
-                format!("{} {{ {} }}", d.name, parts.join(", "))
+                o.push_str(&d.name);
+                o.push_str(" { ");
             } else {
-                format!("{{{}}}", parts.join(", "))
+                o.push('{');
+            }
+            for (i, f) in fields.iter().enumerate() {
+                if i > 0 {
+                    o.push_str(", ");
+                }
+                if !*tuple {
+                    o.push_str(&f.name);
+                    o.push_str(": ");
+                }
+                write_display(ctx, f.desc, field_word(p, f.offset, f.repr), false, o);
+            }
+            if *tuple {
+                o.push(')');
+            } else if *nominal {
+                o.push_str(" }");
+            } else {
+                o.push('}');
             }
         }
         Kind::Enum { variants, .. } => {
@@ -426,43 +461,80 @@ pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
             let t = unsafe { *(p as *const u32) };
             let v = &variants[t as usize];
             if v.fields.is_empty() {
-                return v.name.clone();
+                o.push_str(&v.name);
+                return;
             }
-            let parts: Vec<String> =
-                v.fields.iter().map(|f| display(ctx, f.desc, field_word(p, f.offset, f.repr), top)).collect();
-            if top && d.name != "Option" && d.name != "Result" {
-                // error-style display: `variant: payload`
-                format!("{}: {}", v.name.replace('_', " "), parts.join(", "))
+            // error-style display at the top: `variant: payload`
+            let error_style = top && d.name != "Option" && d.name != "Result";
+            if error_style {
+                for c in v.name.chars() {
+                    o.push(if c == '_' { ' ' } else { c });
+                }
+                o.push_str(": ");
             } else {
-                format!("{}({})", v.name, parts.join(", "))
+                o.push_str(&v.name);
+                o.push('(');
+            }
+            for (i, f) in v.fields.iter().enumerate() {
+                if i > 0 {
+                    o.push_str(", ");
+                }
+                write_display(ctx, f.desc, field_word(p, f.offset, f.repr), top, o);
+            }
+            if !error_style {
+                o.push(')');
             }
         }
         Kind::List { elem } => {
-            let n = crate::list::len(w);
-            let parts: Vec<String> =
-                (0..n).map(|i| display(ctx, elem, crate::list::get(w, i), false)).collect();
-            format!("[{}]", parts.join(", "))
+            o.push('[');
+            for i in 0..crate::list::len(w) {
+                if i > 0 {
+                    o.push_str(", ");
+                }
+                write_display(ctx, elem, crate::list::get(w, i), false, o);
+            }
+            o.push(']');
         }
         Kind::Map { key, val } => {
+            // entries are ordered by their rendered text, so each is rendered
+            // once into its own buffer before sorting
             let mut parts: Vec<String> = crate::map::entries(w)
                 .into_iter()
-                .map(|(k, v)| format!("{} => {}", display(ctx, key, k, false), display(ctx, val, v, false)))
+                .map(|(k, v)| {
+                    let mut s = String::new();
+                    write_display(ctx, key, k, false, &mut s);
+                    s.push_str(" => ");
+                    write_display(ctx, val, v, false, &mut s);
+                    s
+                })
                 .collect();
             parts.sort();
-            format!("map {{ {} }}", parts.join(", "))
+            o.push_str("map { ");
+            o.push_str(&parts.join(", "));
+            o.push_str(" }");
         }
         Kind::Set { elem } => {
-            let mut parts: Vec<String> =
-                crate::map::entries(w).into_iter().map(|(k, _)| display(ctx, elem, k, false)).collect();
+            let mut parts: Vec<String> = crate::map::entries(w)
+                .into_iter()
+                .map(|(k, _)| {
+                    let mut s = String::new();
+                    write_display(ctx, elem, k, false, &mut s);
+                    s
+                })
+                .collect();
             parts.sort();
-            format!("set {{ {} }}", parts.join(", "))
+            o.push_str("set { ");
+            o.push_str(&parts.join(", "));
+            o.push_str(" }");
         }
         Kind::Range { .. } => {
             let p = unsafe { obj(w).payload() as *const i64 };
             let (s, e, incl) = unsafe { (*p, *p.add(1), *p.add(2)) };
-            format!("{s}{}{e}", if incl != 0 { "..=" } else { ".." })
+            let _ = write!(o, "{s}{}{e}", if incl != 0 { "..=" } else { ".." });
         }
-        Kind::Fn | Kind::Closure { .. } => "<fn>".into(),
-        Kind::Opaque { .. } | Kind::Dynamic => format!("<{}>", d.name),
+        Kind::Fn | Kind::Closure { .. } => o.push_str("<fn>"),
+        Kind::Opaque { .. } | Kind::Dynamic => {
+            let _ = write!(o, "<{}>", d.name);
+        }
     }
 }
