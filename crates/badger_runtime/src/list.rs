@@ -188,8 +188,15 @@ pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
 /// Before full sweep, erase weak slots for unmarked pages. Their claimed
 /// count stays unchanged, so an append branches/copies instead of reading
 /// an old version's invisible page. All mutators are stopped.
+///
+/// Only live (marked) directories: a dead one is about to be swept, and
+/// its slots may name pages a minor collection already freed (an old
+/// directory that died before its young pages were traced through it).
 pub(crate) fn clear_unmarked_directory_pages() {
     gc::for_each_object_of_stopped(dir_desc(), &mut |dir| {
+        if unsafe { (*(dir as *const Header)).meta } & (gc::MARK | gc::IMMORTAL) == 0 {
+            return;
+        }
         let n = dir_used(dir).load(Ordering::Relaxed) as usize;
         for i in 0..n {
             let slot = dir_slot(dir, i);
@@ -253,6 +260,8 @@ pub fn with_capacity(desc: &'static TypeDesc, n: usize) -> u64 {
             (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release);
             *dir_slot(nd, p) = page;
         }
+        // a collection while allocating may have made the directory old
+        gc::barrier(nd);
         // publish before allocating the next page (a collection may run)
         dir_used(nd).store(p as u64 + 1, Ordering::Release);
     }
@@ -685,6 +694,8 @@ pub fn fill(desc: &'static TypeDesc, n: usize, mut next: impl FnMut(usize) -> u6
             (*(obj(page).payload().add(8) as *const AtomicU64)).store(len_p as u64, Ordering::Release);
             *dir_slot(nd, p) = page;
         }
+        // a collection while filling may have made the directory old
+        gc::barrier(nd);
         if is_ptr {
             gc::barrier(page);
         }
