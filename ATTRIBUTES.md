@@ -36,12 +36,14 @@ runtime-visible metadata.
 `@` is currently free in the lexer (symbols use `#`, interpolation `$`, the
 pipe operator `|>`, effects `!`, borrows `&`), so no token conflict exists.
 An attribute begins with `@word` and an optional parenthesised argument
-list. Arguments should be restricted at first to identifiers, symbols, and
-string/int literals; expression arguments would require compile-time
-evaluation.
+list. Arguments are identifiers, symbols, string/int literals, and
+**resolvable item/type paths** (needed by `@derive(Eq)`); general
+expression arguments would require compile-time evaluation and are out of
+scope.
 
-Where attributes may appear is **open** (see "Open questions"). The first
-implementation only needs them on function items.
+Placement is **open**, but unification with `derive` requires *item
+position* to be supported (`fn`, `struct`, `enum`). The first
+implementation needs functions and type declarations.
 
 ## Semantics, by phase
 
@@ -153,17 +155,51 @@ three mechanisms with distinct jobs:
 |---|---|---|---|
 | protocol + impl | methods and types | resolution, dispatch, `dyn`, coherence | `From` for `?`; `Display` |
 | `derive(P)` | a synthesis request | generate an impl from a type’s shape | `derive(Eq)`, `derive(From)`, `derive(Error)` |
-| attribute (proposed) | non-semantic facts (a name and literal arguments) | read by a specific pass; no methods or types | `@fusion(stage, map)`, `@inline(always)` |
+| attribute (proposed) | a name and arguments (literals or resolvable item/type paths) | read by a specific consumer; no methods or types of its own | `@fusion(stage, map)`, `@derive(From)`, `@inline(always)` |
 
-**Decision: keep all three; unify the surface, not the semantics.**
-`derive(...)` may be re-expressed as one recognised attribute
-(e.g. `@derive(Eq)`), parsed by the same grammar and recorded in the same
-registry, with two kinds of consumer — **generators** that produce impls
-(the derive set) and **metadata** consumers that a pass reads (fusion,
-inlining). Keep `derive`’s generator semantics and its field-wise
-validation; do **not** try to express `From`/`Display`/`Hash` as
+**Framing: attributes are the *trigger* channel; consumers are the
+*implementation*.** A `derive` is nothing more than "an AST node the
+compiler reacts to"; an attribute is "metadata the compiler reacts to". So
+the trigger is unified and the behaviour is unchanged: `derive(From)`
+becomes `@derive(From)`, an ordinary attribute whose *consumer* happens to
+be the impl-synthesis generator. Fusion is the same shape: `@fusion(...)`
+is an attribute whose consumer is the fusion pass. "Attribute" and "derive"
+are then a *property of the consumer*, not of the syntax.
+
+Two consequences make this more than cosmetic:
+
+- **Placement must include item position** (`fn`, `struct`, `enum`, …),
+  because `derive` attaches to type declarations. Placement is therefore
+  load-bearing for this unification, not merely a future question.
+- **Attribute arguments must include resolvable item/type paths**, because
+  `@derive(...)` names protocols (and today checks that they are protocols,
+  `E0117`). Literal-only arguments are too narrow for it.
+
+Keep each consumer's semantics: `derive`’s field-wise validation
+(`underivable`) and its exemption from orphan/overlap rules are unchanged;
+do **not** try to express `From`/`Display`/`Hash` *themselves* as
 attributes: they are typed, resolvable, usable with `dyn`, and
 implementable by hand, none of which attributes provide.
+
+### Consumers (attribute name → consumer class)
+
+The compiler’s recognised set becomes a table of name → consumer, which is
+itself the "reduce per-function knowledge" goal in another guise — a new
+recognised attribute is a row, and the consumer does the work.
+
+| Attribute | Consumer | Class |
+|---|---|---|
+| `@derive(P, …)` | impl synthesis from the type’s shape | generator |
+| `@fusion(role, template)` | sequence/eager fusion templates | metadata |
+| `@inline(always\|never)` | inliner | metadata |
+| `@must_use` | unused-value diagnostic | metadata |
+| `@expect_taken` | branch-probability hint | metadata |
+| `@compile_time_only` | compile-time evaluation | blocked (no CT eval) |
+
+Migration: accept `derive(...)` as sugar that parses to `@derive(...)`
+(keeping the old spelling working), or convert the standard library’s uses
+and drop the old form. Either way the AST field (`StructDecl::derives` /
+`EnumDecl::derives`) collapses into the general attribute list.
 
 A useful side effect of unifying: `derive` is currently matched by
 **protocol name string** (`env.rs:845-943`), so a user protocol named
