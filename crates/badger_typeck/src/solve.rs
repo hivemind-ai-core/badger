@@ -1638,6 +1638,8 @@ impl Infer<'_, '_> {
                 }
             }
             TyKind::Error | TyKind::Gen(_) => Some(true),
+            // a borrow stays on its owner's task
+            TyKind::Ref(..) if which == "Transfer" || which == "Share" => Some(false),
             TyKind::Skolem(s) => {
                 // a generic parameter satisfies a capability through a given bound
                 let s = *s;
@@ -2079,7 +2081,7 @@ impl Infer<'_, '_> {
             "Transfer" => Diagnostic::error(format!("`{ts}` cannot be transferred to another task"))
                 .with_code("E0402")
                 .with_label(span, "task-confined value crosses a task boundary")
-                .with_note("`Cell`, transactions, and closures capturing them are confined to their owning task"),
+                .with_note("`Cell`, transactions, borrows (`&b`, `&mut b`), and closures capturing them are confined to their owning task"),
             "Share" => Diagnostic::error(format!("`{ts}` does not implement `Share`"))
                 .with_code("E0341")
                 .with_label(span, "this value would be copied or shared")

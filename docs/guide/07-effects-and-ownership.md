@@ -312,7 +312,10 @@ let child = scope.spawn(fn() { count.set(1) })
 ```
 
 Database transactions (`sqlite.Tx`, `postgres.Tx`) are confined the same
-way.
+way, and so are borrows: a task spawned with `&b` or `&mut b` could race
+the owner's writes or outlive it, so a closure capturing a borrow (or a
+value holding one) stays on its task. Move the value into the task, or
+share it through an `Atom` or a channel.
 
 ## Affine values
 

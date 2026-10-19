@@ -2454,7 +2454,12 @@ impl Own<'_, '_, '_> {
                     }
                 }
             }
-            ExprKind::Return { value: Some(v), .. } => {
+            // (a `return` in a closure leaves the closure, which may return
+            // a borrow it captured: only its blocks' own bindings are checked)
+            ExprKind::Return {
+                value: Some(v),
+                target: badger_hir::Owner::Fn(_) | badger_hir::Owner::Global(_),
+            } => {
                 let mut carried = vec![];
                 self.carried_borrows(*v, &mut carried);
                 for (owner, span) in carried {
@@ -2463,7 +2468,11 @@ impl Own<'_, '_, '_> {
                     }
                 }
             }
-            ExprKind::Lambda(_) => return,
+            // a closure's result may not borrow a binding of its own body
+            ExprKind::Lambda(l) => {
+                self.check_escape(l.body, false);
+                return;
+            }
             _ => {}
         }
         for c in children(&hir.exprs[e].kind) {

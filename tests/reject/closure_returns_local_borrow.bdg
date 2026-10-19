@@ -1,0 +1,11 @@
+// expect-error: E0407
+// A closure's result cannot borrow a binding of its own body.
+import std.buffer
+
+pub fn main() {
+    let f = fn() {
+        let b = buffer.new<Int>()
+        &b
+    }
+    let n = f().len()
+}

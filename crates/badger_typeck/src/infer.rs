@@ -2168,6 +2168,9 @@ impl<'g, 'a> Infer<'g, 'a> {
             match k {
                 TyKind::Skolem(s) => regions.push(*s),
                 TyKind::Con(d, _) if b.is_confined(*d) => confined = true,
+                // a borrow is valid on its owner's task only: a task spawned
+                // with it could outlive the owner or race its mutation
+                TyKind::Ref(..) => confined = true,
                 _ => {}
             }
             false
