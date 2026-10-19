@@ -224,6 +224,42 @@ specific pass reads, it belongs in an attribute.
 5. **Docs**: decide whether `badger doc std` prints attributes; keep
    `api_reference_current` green either way.
 
+## Migration plan (replacing the `derive` syntax)
+
+Measured 2026-10-19 on this tree:
+
+- **153** Badger files use `derive(...)` (std, `examples/`, `tests/`) — about
+  189 clauses; **74** references in `docs/` and `spec/`.
+- Compiler surfaces: lexer (new `@`), CST (`cst.rs` carries
+  `derives` on `Struct` and `Enum`), grammar (`grammar.rs:1095`), CST→AST,
+  the AST `derives` fields, the formatter (`format.rs`), HIR
+  (`lower_derives`), and typeck (`derive_impls`).
+- Editor grammar: `editors/tree-sitter-badger` (hand-maintained
+  `grammar.js` plus generated `parser.c`/`grammar.json`; regeneration needs
+  the tree-sitter CLI).
+- Diagnostics mention `derive` by name: `E0117`, `E0202`, `E0203`,
+  `E0204`, and their catalog text.
+
+**Do not do this as one change.** Stage it:
+
+0. **Decide** the open questions below first — unknown-attribute policy,
+   the supported placement set (must include item position), the argument
+   forms (paths included), whether attributes are interface-significant,
+   and the docs/tooling obligations.
+1. **Add the surface, keep `derive` working.** Lexer/grammar/CST/AST/HIR for
+   `@name(args)` on items; route `@derive(...)` to the existing generator;
+   parse `derive(...)` as sugar into the same attribute list. Nothing is
+   migrated, so this is reversible and reviewable on its own.
+2. **Migrate.** Convert std/`examples`/`tests`/`docs`/`spec` to
+   `@derive(...)`; make the formatter print the chosen form; regenerate the
+   tree-sitter grammar; update the diagnostic text/catalog.
+3. **Delete.** Remove the `derive(...)` grammar form and the `derives`
+   CST/AST fields.
+
+**This is not required for fusion.** The fusion templates behind a registry
+need no surface change; do that first if the goal is the data-processing
+work, and treat the attribute unification as its own project.
+
 ## Open questions
 
 - **Placement**: functions only, or also types, `let`/`var` bindings,
