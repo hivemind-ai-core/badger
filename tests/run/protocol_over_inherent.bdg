@@ -1,0 +1,53 @@
+// A call through a protocol bound runs the protocol's implementation even
+// when the type also has an inherent method of the same name: in a generic
+// function, in a protocol's default method, through a supertrait, and in
+// string interpolation (`Display`).
+import std.io
+
+pub protocol Named {
+    fn name(self: &Self) -> String
+    fn greeting(self: &Self) -> String { $"hello {self.name()}" }
+}
+
+pub protocol Titled: Named {
+    fn title(self: &Self) -> String
+}
+
+pub struct A { x: Int }
+
+impl A {
+    pub fn name(self: &Self) -> Int { 42 }
+    pub fn display(self: &Self) -> String { "inherent display" }
+}
+
+impl Named for A {
+    fn name(self: &Self) -> String { "protocol" }
+}
+
+impl Titled for A {
+    fn title(self: &Self) -> String { "sir" }
+}
+
+impl Display for A {
+    fn display(self: &Self) -> String { $"A({self.x})" }
+}
+
+fn named<T>(t: &T) -> String where T: Named { t.name() }
+
+fn titled<T>(t: &T) -> String where T: Titled { $"{t.title()} {t.name()}" }
+
+fn shown<T>(t: &T) -> String where T: Display { $"[{t}]" }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a: A = { x: 1 }
+    io.println(named(&a))?
+    io.println(a.greeting())?
+    io.println(titled(&a))?
+    io.println(shown(&a))?
+    io.println($"{a}")?
+    // a concrete receiver still finds the inherent method first
+    io.println($"{a.name() + 1} {a.display()}")?
+    let d: dyn Named = a
+    io.println(d.name())?
+    ok(())
+}

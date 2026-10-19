@@ -691,7 +691,11 @@ impl Infer<'_, '_> {
                         match self.find_impl(display, &[], &t, final_) {
                             ImplSearch::Found(_) => {
                                 let name = self.g.interner.intern("display");
-                                if let Lookup::Found(target, _) = self.lookup_method(&t, name, &[], *span)
+                                // the protocol's method, not an inherent `display`
+                                self.method_via = vec![display];
+                                let found = self.lookup_method(&t, name, &[], *span);
+                                self.method_via.clear();
+                                if let Lookup::Found(target, _) = found
                                     && let Some(e) = expr
                                 {
                                     self.displays.insert(*e, target);
@@ -2146,10 +2150,12 @@ impl Infer<'_, '_> {
                 };
                 // blanket implementations (`impl<T> P for T where ...`)
                 idxs.extend(self.g.env.structural_impls.iter().copied());
-                // inherent methods first
+                let via = self.lookup_via(&r, name);
+                // inherent methods first (unless the call is through a
+                // protocol: a bound of the generic this receiver stood for)
                 for &i in &idxs {
                     let imp = self.g.env.impls[i].clone();
-                    if imp.protocol.is_some() {
+                    if imp.protocol.is_some() || !via.is_empty() {
                         continue;
                     }
                     if let Some((target, ty)) = self.impl_member(&imp, &r, name, explicit, span) {
@@ -2161,8 +2167,10 @@ impl Infer<'_, '_> {
                 let mut fits = vec![];
                 for &i in &idxs {
                     let imp = self.g.env.impls[i].clone();
-                    if imp.protocol.is_none() {
-                        continue;
+                    match &imp.protocol {
+                        None => continue,
+                        Some((p, _)) if !via.is_empty() && !via.contains(p) => continue,
+                        _ => {}
                     }
                     let (snap, np) = (self.icx.snapshot(), self.pending.len());
                     let ok = match self.impl_member(&imp, &r, name, explicit, span) {
@@ -2391,6 +2399,36 @@ impl Infer<'_, '_> {
                 Some((Target::Derived { imp: d.clone(), self_ty: st.clone() }, ty))
             }
         }
+    }
+
+    /// The protocols a method call on concrete receiver `r` must resolve
+    /// through: an explicit restriction, or in an instance the bounds on
+    /// `r` (and their supertraits) that declare `name`.
+    fn lookup_via(&mut self, r: &Ty, name: Symbol) -> Vec<DefId> {
+        if !self.method_via.is_empty() {
+            return self.method_via.clone();
+        }
+        let mut out = vec![];
+        for (proto, subj) in self.instance_bounds.clone() {
+            let snap = self.icx.snapshot();
+            let same = self.icx.try_unify(&subj, r);
+            self.icx.rollback(snap);
+            if !same {
+                continue;
+            }
+            let mut stack = vec![proto];
+            while let Some(p) = stack.pop() {
+                if out.contains(&p) {
+                    continue;
+                }
+                let Some(info) = self.g.env.protocols.get(&p) else { continue };
+                if info.methods.contains_key(&name) {
+                    out.push(p);
+                }
+                stack.extend(info.supers.iter().copied());
+            }
+        }
+        out
     }
 
     /// Protocol method `name` with `Self = st` (generic receivers).

@@ -177,6 +177,14 @@ pub struct Infer<'g, 'a> {
     pub self_ty: Option<Ty>,
     /// Where-clause assumptions in scope: (protocol, args, subject).
     pub givens: Vec<(DefId, Vec<Ty>, Ty)>,
+    /// In an instance: the bounds of the definition at its concrete type
+    /// arguments. A method on a receiver that stood for a bounded generic
+    /// resolves through the bound's protocol, as the generic check did,
+    /// even when the concrete type has an inherent method of that name.
+    pub instance_bounds: Vec<(DefId, Ty)>,
+    /// Restricts the next method lookup on a concrete receiver to these
+    /// protocols' implementations (`Display` for interpolation).
+    pub method_via: Vec<DefId>,
     /// In-progress monotypes for definitions of the current binding group.
     pub mono: FxHashMap<DefId, Ty>,
     /// Module of the definition being checked (for privacy).
@@ -219,6 +227,8 @@ impl<'g, 'a> Infer<'g, 'a> {
             generics: FxHashMap::default(),
             self_ty: None,
             givens: vec![],
+            instance_bounds: vec![],
+            method_via: vec![],
             mono: FxHashMap::default(),
             module: None,
             visiting: vec![],

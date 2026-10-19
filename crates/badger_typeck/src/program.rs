@@ -2407,6 +2407,15 @@ pub fn check_instance(g: &Global<'_>, def: DefId, args: &[Ty]) -> Instance {
                 let iargs: Vec<Ty> = args.iter().take(imp.n_generics as usize).cloned().collect();
                 inf.self_ty = Some(subst_gen(&imp.self_ty, &iargs));
             }
+            // the bounds at these arguments, and a default body's own
+            // protocol on `Self` (see `Infer::instance_bounds`)
+            inf.instance_bounds = givens_for(&mut inf, f).into_iter().map(|(p, _, t)| (p, t)).collect();
+            if let Some(owner) = f.owner
+                && let DefKind::Protocol(_) = &hir.defs[owner].kind
+                && let Some(st) = inf.self_ty.clone()
+            {
+                inf.instance_bounds.push((owner, st));
+            }
             let TyKind::Fn(cf) = &*concrete else { return Instance::default() };
             let params: Vec<Ty> = f
                 .params
