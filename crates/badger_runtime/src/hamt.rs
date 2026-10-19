@@ -573,8 +573,28 @@ fn insert_flat<M: Mutation>(
 ) -> (u64, bool) {
     let n = Node::of(w);
     let ne = n.entries();
-    if let Some(i) = (0..ne).find(|&i| n.entry(i).hash == e.hash && eq(n.entry(i).key, e.key)) {
-        return (edit(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), mode), false);
+    // root hash chunks holding an entry, and holding more than one
+    let (mut taken, mut shared) = (0u32, 0u32);
+    for i in 0..ne {
+        let x = n.entry(i);
+        if x.hash == e.hash && eq(x.key, e.key) {
+            return (edit(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), mode), false);
+        }
+        let b = bit(x.hash, 0);
+        shared |= taken & b;
+        taken |= b;
+    }
+    let b = bit(e.hash, 0);
+    if ne < FLAT_MAX && taken & b == 0 {
+        // Alone in its chunk, `e` joins the leading lone entries in chunk
+        // order, and no other entry moves.
+        let at = (0..ne)
+            .take_while(|&i| {
+                let c = bit(n.entry(i).hash, 0);
+                c & shared == 0 && c < b
+            })
+            .count();
+        return (edit(w, 0, 0, Edit { at, del: 0, ins: Some(e) }, Edit::none(), mode), true);
     }
     let mut buf = [BLANK; FLAT_MAX + 1];
     for (i, x) in buf.iter_mut().enumerate().take(ne) {
@@ -697,6 +717,14 @@ enum Removed {
 pub fn remove(root: u64, hash: u64, key: u64, eq: &dyn Fn(u64, u64) -> bool) -> Option<u64> {
     get(root, hash, key, eq)?;
     let n = Node::of(root);
+    if n.flat() && n.entries() > 1 {
+        let ne = n.entries();
+        let i = (0..ne).find(|&i| n.entry(i).hash == hash && eq(n.entry(i).key, key)).unwrap();
+        if (0..ne).all(|j| j == i || chunk(n.entry(j).hash, 0) != chunk(hash, 0)) {
+            // it was alone in its chunk: no other entry moves
+            return Some(splice(root, 0, 0, Edit { at: i, del: 1, ins: None }, Edit::none()));
+        }
+    }
     if n.flat() || count_upto(root, FLAT_MAX + 2) == FLAT_MAX + 1 {
         // the result is flat (a trie root holds more than FLAT_MAX entries)
         let mut buf = [BLANK; FLAT_MAX + 1];
