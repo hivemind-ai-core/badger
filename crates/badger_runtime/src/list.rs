@@ -262,6 +262,8 @@ pub fn with_capacity(desc: &'static TypeDesc, n: usize) -> u64 {
             (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release);
             *dir_slot(nd, p) = page;
         }
+        // allocating the page may have collected, making `nd` old
+        gc::barrier(nd);
         // publish before allocating the next page (a collection may run)
         dir_used(nd).store(p as u64 + 1, Ordering::Release);
     }
@@ -693,6 +695,8 @@ pub fn fill(desc: &'static TypeDesc, n: usize, mut next: impl FnMut(usize) -> u6
             (*(obj(page).payload().add(8) as *const AtomicU64)).store(len_p as u64, Ordering::Release);
             *dir_slot(nd, p) = page;
         }
+        // allocating the page may have collected, making `nd` old
+        gc::barrier(nd);
         if is_ptr {
             gc::barrier(page);
         }
