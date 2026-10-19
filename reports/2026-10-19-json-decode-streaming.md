@@ -60,6 +60,10 @@ decode JSON.
 - **Encoder naming**: wire naming is checked once per record or enum instead
   of once per field, and an enum field's `Type.variant.field` key is not
   formatted at all when no wire naming is active.
+- **Single-character split** (`text.split`): splitting by a one-character
+  separator now uses `split(char)`, whose search is a byte scan, instead of
+  the two-way string search (`split(&str)`); results are identical. This is a
+  further **4.5%** on the `json` workload, which splits its input into lines.
 - **Standard-library bulk copies** (backlog R2): `list.chunks`,
   `List.to_array`, `bytes.from_list`, `bytes_from_buffer`, `buffer_to_list`,
   `buffer_to_bytes`, `list.concat` and `list.slice` copy whole packed runs

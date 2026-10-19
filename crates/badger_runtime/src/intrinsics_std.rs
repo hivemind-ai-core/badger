@@ -393,7 +393,15 @@ define_intrinsics! {
         strings_to_list(rdesc(ret), str_of(s).lines())
     }
     fn text_split(ctx, targs, ret, s, sep) {
-        strings_to_list(rdesc(ret), str_of(s).split(str_of(sep)))
+        let st = str_of(s);
+        let sep = str_of(sep);
+        // A one-character separator splits by `char`, whose search uses a
+        // byte scan instead of the two-way string search; results are the same.
+        let mut chars = sep.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => strings_to_list(rdesc(ret), st.split(c)),
+            _ => strings_to_list(rdesc(ret), st.split(sep)),
+        }
     }
     fn text_trim(ctx, targs, ret, s) { new_string(str_of(s).trim()) }
     fn text_len(ctx, targs, ret, s) { str_of(s).chars().count() as u64 }
