@@ -108,10 +108,11 @@ which is what a poisoned-shadow false positive looks like.)
   annotations that let TSan follow the stack switches of the runtime's
   coroutines): **no data race is reported** (`clean=26 tsan_races=0`).
 - The whole `run_programs_multicore` mode (all 219 programs on several
-  workers) was also started under TSan; it had reported no race after
-  100 minutes and was stopped there — TSan plus the JIT is that slow.
-  The 26 programs above are the ones that exercise the runtime's
-  concurrency.
+  workers) was started under TSan twice, with and without the `tsan`
+  feature; neither had reported a race after 100 minutes, and both were
+  stopped there — TSan plus the JIT is that slow. The 26 programs above
+  are the ones that exercise the runtime's concurrency, and they are the
+  result to read.
 
 (The doc-test targets cannot be built with a sanitizer — cargo reports
 `mixing -Zsanitizer will cause an ABI mismatch` for the doctest
