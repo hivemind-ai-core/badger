@@ -53,13 +53,18 @@ so these are correctness-and-scale work to schedule against new profiles.
   external, pressure, and RSS separately.
 - R2 (memory-management owner): bulk copies for scalar `list.concat`,
   `slice`, and `chunks` (`chunks` copying costs ~12x its traversal in
-  `bench/collections`).
+  `bench/collections`). Done 2026-10-19 (`perf/runtime-stdlib-2026-10-19`):
+  `chunks`/`to_array`/`bytes`/`buffer` conversions and `concat`/`slice` copy
+  whole packed runs; allocation dominates the measured wall-clock, so the
+  per-element savings are not separately measurable yet.
 - R3: admission sizes without materializing map entries; sizes stored
   with batch, staged, and leased items; indexed leases.
 - R4: a typed per-intrinsic contract table in place of the `UNLOCKED`
   name list.
-- R5: decode `Data` without the intermediate JSON value (the text step
-  is gone; a descriptor-guided decoder would skip the value tree too).
+- R5: decode `Data` without the intermediate JSON value. Text decoding is
+  done 2026-10-19 (`badger_runtime::json` streams into the target value);
+  `from_data`/`from_sql_row`/`params_decode` still build a `serde_json::Value`
+  (`codec::dec`), which a `Data`-direct decoder would replace.
 
 ## Language, libraries, and tools (ENHANCEMENTS.md)
 

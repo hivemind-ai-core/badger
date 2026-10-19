@@ -56,6 +56,7 @@ pub mod intrinsics_io;
 pub mod intrinsics_os;
 pub mod intrinsics_std;
 pub mod intrinsics_task;
+pub mod json;
 pub mod list;
 pub mod live;
 pub mod map;

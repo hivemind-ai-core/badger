@@ -142,11 +142,8 @@ define_intrinsics! {
         r.add(a);
         r.add(b);
         let out = r.add(list::new(rdesc(ret)));
-        for x in [a, b] {
-            for i in 0..list::len(x) {
-                list::push(out, list::get(x, i));
-            }
-        }
+        list::push_run(out, a, 0, list::len(a));
+        list::push_run(out, b, 0, list::len(b));
         out
     }
     fn list_reverse(ctx, targs, ret, l) {
@@ -164,8 +161,8 @@ define_intrinsics! {
         let n = list::len(l) as i64;
         let (a, b) = ((a as i64).clamp(0, n), (b as i64).clamp(0, n));
         let out = r.add(list::new(rdesc(ret)));
-        for i in a..b.max(a) {
-            list::push(out, list::get(l, i as usize));
+        if b > a {
+            list::push_run(out, l, a as usize, b as usize);
         }
         out
     }
@@ -202,12 +199,7 @@ define_intrinsics! {
     }
     fn list_slot(ctx, targs, ret, l, i) { (i as usize % list::page_cap(l)) as u64 }
     fn page_read(ctx, targs, ret, page, slot) { list::page_read(page, slot as usize, targ(targs, 0).repr()) }
-    fn list_to_array(ctx, targs, ret, l) {
-        let r = Roots::new();
-        r.add(l);
-        let items = list::to_vec(l);
-        crate::buffer::frozen(targ(targs, 0), items)
-    }
+    fn list_to_array(ctx, targs, ret, l) { list::to_array(l, targ(targs, 0)) }
 
     // ---------------------------------------------------------------- buffers
     fn buffer_new(ctx, targs, ret, cap) { crate::buffer::new(targ(targs, 0), cap as usize) }
@@ -235,27 +227,43 @@ define_intrinsics! {
     fn buffer_freeze(ctx, targs, ret, b) { crate::buffer::freeze(b) }
     fn bytes_from_buffer(ctx, targs, ret, b) {
         let d = crate::buffer::data(b);
-        let v: Vec<u8> = d.items.iter().map(|w| w as u8).collect();
+        let n = d.items.len();
+        // packed byte storage: copy the whole run, not one word per element
+        let v = if n == 0 {
+            Vec::new()
+        } else {
+            unsafe { std::slice::from_raw_parts(d.items.as_ptr(), n) }.to_vec()
+        };
         // the buffer was consumed: its storage is released now
         d.items = crate::buffer::Items::new(d.elem.repr(), 0);
         d.frozen = true;
         crate::string::new_bytes(&v)
     }
     fn bytes_from_list(ctx, targs, ret, l) {
-        let v: Vec<u8> = list::to_vec(l).into_iter().map(|w| w as u8).collect();
+        let n = list::len(l);
+        let mut v = vec![0u8; n];
+        list::copy_into(l, v.as_mut_ptr());
         crate::string::new_bytes(&v)
     }
     fn buffer_to_list(ctx, targs, ret, b) {
         let r = Roots::new();
         r.add(b);
         let out = r.add(list::new(rdesc(ret)));
-        for v in crate::buffer::items(b).iter() { list::push(out, v); }
+        let n = crate::buffer::data(b).items.len();
+        if n > 0 {
+            list::push_raw(out, crate::buffer::data(b).items.as_ptr(), n);
+        }
         out
     }
 
     fn buffer_to_bytes(ctx, targs, ret, b) {
         let items = &crate::buffer::data(b).items;
-        let bytes: Vec<u8> = items.iter().map(|w| w as u8).collect();
+        let n = items.len();
+        let bytes = if n == 0 {
+            Vec::new()
+        } else {
+            unsafe { std::slice::from_raw_parts(items.as_ptr(), n) }.to_vec()
+        };
         crate::string::new_bytes(&bytes)
     }
     fn bytes_get(ctx, targs, ret, b, i) {
@@ -266,7 +274,7 @@ define_intrinsics! {
         }
     }
     fn list_chunks(ctx, targs, ret, l) {
-        // one contiguous (frozen) array per page
+        // one contiguous (frozen) array per page, each bulk-copied
         let r = Roots::new();
         r.add(l);
         let out = r.add(list::new(rdesc(ret)));
@@ -275,11 +283,7 @@ define_intrinsics! {
         let mut i = 0;
         while i < len {
             let end = (i + cap).min(len);
-            let a = r.add(crate::buffer::new(elem, end - i));
-            for k in i..end {
-                crate::buffer::data(a).items.push(list::get(l, k));
-            }
-            crate::buffer::freeze(a);
+            let a = r.add(crate::buffer::frozen_from_raw(elem, list::page_elems(l, i / cap), end - i));
             list::push(out, a);
             i = end;
         }
