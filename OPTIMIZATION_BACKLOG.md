@@ -352,6 +352,27 @@ TLA+ form. The work is one engineer's; the gate is the existing
 
 ### 1.2 Go-style `runtime.chan.go` refactor (BACKLOG slice 4)
 
+**Status:** landed 2026-10-19 (`b6e0e2a`, `69b35c1`): one atomic word per
+channel holds the owner, the phase (`EMPTY`, `VALUE`, `BLOCKED`) and the
+closed bit; one waiter list replaces the five parallel ones; each
+operation linearizes at the compare-and-swap that makes it the channel's
+owner (`try_fast`, `claim`), and the releasing store publishes the phase.
+It meets the 1.1 model's contract: a send commits to a parked selection
+at every capacity, a selection's registration is removed only by the
+selection, a publication wakes a receiver per message (F2), and a wait a
+waker completed is not undone by a later cancellation (F1). The audit's
+fast-path counters are kept behind `BADGER_RUNTIME_STATS=1`;
+`select_and_budget` passes 6/6 with them on and off, though the audit's
+deadlock did not reproduce on the unmodified code either (it was
+timing-sensitive; see the report's resolution). `bench/messages.bdg`
+(medians, machine shared with other jobs): prompt throughput 25 → 26
+ns/message at 1 worker and 30 → 30 at 4; round-trip p99 351 → 280 ns at
+1 worker (25 runs) and 622 → 461 ns at 4 (9 runs), p50 within 10 ns;
+`bench/independent_channels.bdg` at 4 workers 68 → 66 ms. A send/receive
+pair on the fast paths costs 12.0 → 13.7 ns (the phase in the word); a
+receive on an empty channel 3.3 → 2.5 ns (it declines on the published
+phase without a compare-and-swap).
+
 - **Goal**: refactor `channel.rs:271-510` (the `try_fast` /
   `send_fast` / `append_fast` / `recv_one_fast` / `recv_fast`
   paths) to a single atomic `chan_state: {Empty, WithValue,
