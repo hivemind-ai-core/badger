@@ -850,7 +850,9 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
         let me = task::current_id();
         d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
         let added = note_waiting(ch);
-        task::park_for("channel receive");
+        // a value handed over is received even if the task was cancelled
+        // meanwhile (it is honored at the next safe point instead)
+        task::park_for_value("channel receive");
         let (v, status) = task::take_delivered();
         if status == 1 {
             done_waiting(ch, added);
@@ -858,6 +860,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
         }
         remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
         done_waiting(ch, added);
+        task::check_interrupts();
     }
 }
 

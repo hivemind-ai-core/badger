@@ -1376,6 +1376,36 @@ pub fn park() -> Wake {
     current().unwrap().wake
 }
 
+/// [`park_for`] for a wait that a value is delivered to (a receive): a
+/// cancellation or failure that arrives after the value was handed over
+/// does not interrupt the wait, so the value is not lost with the task.
+/// The caller takes the delivery and, when there is none, calls
+/// [`check_interrupts`] after withdrawing its registration.
+pub fn park_for_value(reason: &'static str) -> Wake {
+    let t = current().unwrap();
+    t.wait = reason;
+    publish_current();
+    let t = current().unwrap();
+    let w = if t.state.get() != State::Cleaning && flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0 {
+        // interrupted before parking (a value may already be here)
+        end_wait();
+        with_task(t, |t| {
+            t.pre_park = false;
+            t.early_wake.take();
+        });
+        Wake::Normal
+    } else if let Err(w) = begin_park() {
+        end_wait();
+        w
+    } else {
+        suspend(Signal::Park);
+        end_wait();
+        current().unwrap().wake
+    };
+    current().unwrap().wait = "";
+    w
+}
+
 /// Mark the running task parked, unless a wake already arrived for it
 /// (`Err`: that wake, consumed). Under its own lock, as wakers check.
 fn begin_park() -> Result<(), Wake> {

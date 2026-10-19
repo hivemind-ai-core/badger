@@ -1,0 +1,45 @@
+// A message handed to a blocked receiver is received even when the
+// receiver is cancelled before it runs again: each message reaches one
+// receiver or stays in the channel, never neither.
+import std.channel
+import std.io
+import std.task
+
+pub fn main() -> Result<Unit, channel.ConfigError> {
+    var lost = 0
+    for _ in 0..50 {
+        let ch = channel.create<Int>({ ..channel.defaults, capacity: 16 })?
+        let got = task.scope(fn(scope) -> Result<Int, channel.ConfigError> {
+            var rs = []
+            for _ in 0..8 { rs = rs.append(scope.capture(fn() -> Option<Int> { ch.receiver.recv() })) }
+            task.sleep(1ms)
+            for i in 0..8 { let _ = ch.sender.send(i) }
+            for r in rs { r.cancel() }
+            var n = 0
+            for r in rs { match r.join() { .returned(.some(_)) => { n = n + 1 }, _ => () } }
+            ok(n)
+        })?
+        ch.sender.close()
+        var left = 0
+        loop { match ch.receiver.recv() { .some(_) => { left = left + 1 }, .none => break } }
+        lost = lost + (8 - got - left)
+    }
+    let _ = io.println($"cancelled receivers: lost {lost} of 400")
+    // the timeout pattern from the guide
+    let ch = channel.create<Int>({ ..channel.defaults, capacity: 4 })?
+    var missing = 0
+    for i in 0..100 {
+        let gone = task.scope(fn(scope) -> Result<Bool, channel.ConfigError> {
+            let t = scope.spawn(fn() { task.timeout(1ms, fn() { ch.receiver.recv() }) })
+            task.sleep(if i % 2 == 0 { 1ms } else { 0ms })
+            let _ = ch.sender.send(i)
+            match t.join() {
+                .ok(_) => ok(false),
+                .err(_) => ok(match ch.receiver.try_recv() { .value(_) => false, _ => true }),
+            }
+        })?
+        if gone { missing = missing + 1 }
+    }
+    let _ = io.println($"timed-out receives: lost {missing} of 100")
+    ok(())
+}
