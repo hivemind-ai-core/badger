@@ -23,9 +23,7 @@ pub struct Found {
 /// The name of a definition: the word after its kind.
 fn item_name(rest: &str) -> Option<&str> {
     let rest = rest.trim_start();
-    let end = rest
-        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .unwrap_or(rest.len());
+    let end = rest.find(|c: char| !(c.is_alphanumeric() || c == '_')).unwrap_or(rest.len());
     if end == 0 { None } else { Some(&rest[..end]) }
 }
 
