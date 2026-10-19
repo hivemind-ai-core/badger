@@ -1,0 +1,10 @@
+# The `effect` entry is checked second, from the cached standard prefix
+# built by `main` (same std module set). Its user `Display` implementation
+# performs `Io`, which must still widen `Display::display` and reject the
+# `!{}` caller.
+[package]
+name = "effectcache"
+entry = "src/main.bdg"
+
+[entries]
+effect = "src/effect.bdg"

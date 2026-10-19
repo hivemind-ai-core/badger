@@ -1,0 +1,12 @@
+# Every entry reaches the same standard modules (`std.io` plus the core
+# modules), so the checked standard prefix is reused: the first check is a
+# cache miss, the rest are hits.
+[package]
+name = "stdreuse"
+entry = "src/main.bdg"
+
+[entries]
+alpha = "src/alpha.bdg"
+beta = "src/beta.bdg"
+gamma = "src/gamma.bdg"
+delta = "src/delta.bdg"

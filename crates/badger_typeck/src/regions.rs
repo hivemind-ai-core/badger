@@ -603,21 +603,31 @@ fn helper_calls(
 /// through other such helpers), computed once to a fixpoint.
 pub(crate) fn store_summaries(
     g: &crate::program::Global<'_>,
-) -> FxHashMap<badger_hir::DefId, Vec<(usize, usize)>> {
+) -> std::rc::Rc<FxHashMap<badger_hir::DefId, Vec<(usize, usize)>>> {
     if let Some(s) = g.store_summaries.borrow().as_ref() {
         return s.clone();
     }
     let hir = g.hir;
+    let is_std = |d: badger_hir::DefId| hir.modules[hir.defs[d].module].is_std;
+    // with a seeded prefix the standard helpers are already summarized; only
+    // the definitions outside the standard library are recomputed
+    let seeded = g.store_seed.is_some();
     let storing = |name: &str| {
         matches!(
             name,
             "set" | "update" | "swap" | "push" | "append" | "try_append" | "send" | "try_send" | "insert"
         )
     };
-    let mut out: FxHashMap<badger_hir::DefId, Vec<(usize, usize)>> = FxHashMap::default();
+    let mut out: FxHashMap<badger_hir::DefId, Vec<(usize, usize)>> = match &g.store_seed {
+        Some(seed) => (**seed).clone(),
+        None => FxHashMap::default(),
+    };
     loop {
         let mut changed = false;
         for (id, def) in hir.defs.iter() {
+            if seeded && is_std(id) {
+                continue;
+            }
             let badger_hir::DefKind::Fn(f) = &def.kind else { continue };
             let Some(body) = f.body else { continue };
             let params: Vec<Option<LocalId>> = f
@@ -688,6 +698,7 @@ pub(crate) fn store_summaries(
             break;
         }
     }
+    let out = std::rc::Rc::new(out);
     *g.store_summaries.borrow_mut() = Some(out.clone());
     out
 }

@@ -2,8 +2,9 @@
 //! and per-instance re-checking for code generation.
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
-use badger_base::{Diagnostic, Interner, Span, Symbol};
+use badger_base::{Diagnostic, FileId, Interner, Span, Symbol};
 use badger_hir::{
     DefId, DefKind, ExprId, ExprKind, FnAbi, FnDef, GenericId, HTyKind, Hir, LocalId, Owner, PatId, Stmt,
 };
@@ -14,6 +15,46 @@ use crate::env::*;
 use crate::infer::*;
 use crate::solve::Constraint;
 use crate::ty::*;
+
+/// The standard-library modules a program was checked with, as their
+/// indexes in `badger_hir::stdlib::STD_MODULES`, in allocation order. Every
+/// entry of a project whose std module set matches has the standard modules
+/// at the same `DefId`s (they are loaded first, in this order), so the key
+/// identifies the shared prefix.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct StdKey(pub Vec<usize>);
+
+/// The results of checking the standard-library prefix of a program, reused
+/// by later programs in the same session whose [`StdKey`] matches.
+///
+/// It deliberately does **not** hold the per-program state: `skolem_owner`
+/// and `skolem_bounds` are keyed by program-local skolem ids, and effect
+/// rows are not closed over the standard library (a user implementation of
+/// an unannotated protocol method widens the method's effects), so effect
+/// propagation is re-run per program against the seeded call graph.
+pub struct StdCache {
+    pub key: StdKey,
+    /// Each cached definition's source span and name: the same definition
+    /// has a different `DefId` in another program, and this resolves it.
+    pub keys: FxHashMap<DefId, (Span, Symbol)>,
+    /// Final schemes of standard definitions (declared and inferred).
+    pub schemes: FxHashMap<DefId, Scheme>,
+    /// The standard definitions whose schemes came from the declared pass.
+    pub declared: FxHashSet<DefId>,
+    /// Diagnostics produced while checking the standard prefix.
+    pub diags: Vec<Diagnostic>,
+    /// Body-derived call edges among standard definitions (protocol-method
+    /// to implementation edges are re-added per program).
+    pub calls: Vec<(DefId, Vec<DefId>)>,
+    /// Capability requirements (`Transfer`/`Share`) standard definitions
+    /// impose on their own type parameters.
+    pub implied: FxHashMap<DefId, Vec<(u32, &'static str)>>,
+    /// Parameters standard generic definitions may duplicate.
+    pub dup_params: FxHashMap<DefId, Vec<u32>>,
+    /// Parameter store flows of standard helpers, when the first check
+    /// computed them.
+    pub store_summaries: Option<Rc<FxHashMap<DefId, Vec<(usize, usize)>>>>,
+}
 
 /// A (possibly) polymorphic type: `Gen(0..n)` are quantified. The first
 /// `generics.len()` correspond to declared generic parameters in order.
@@ -66,7 +107,12 @@ pub struct Global<'a> {
     /// Helpers storing one parameter into another's container (computed
     /// on first use; see `regions::store_summaries`).
     #[allow(clippy::type_complexity)]
-    pub store_summaries: RefCell<Option<FxHashMap<DefId, Vec<(usize, usize)>>>>,
+    pub store_summaries: RefCell<Option<Rc<FxHashMap<DefId, Vec<(usize, usize)>>>>>,
+    /// Standard helpers' store flows seeded from a [`StdCache`]: when
+    /// present, `regions::store_summaries` starts from these and only
+    /// recomputes the definitions outside the standard library.
+    #[allow(clippy::type_complexity)]
+    pub store_seed: Option<Rc<FxHashMap<DefId, Vec<(usize, usize)>>>>,
 }
 
 pub struct Names<'g, 'a> {
@@ -408,6 +454,11 @@ fn repl_session() -> bool {
     REPL_SESSION.load(std::sync::atomic::Ordering::SeqCst)
 }
 
+/// `BADGER_TIMINGS=1`: how many checks reused the cached standard prefix and
+/// how many rebuilt it, across the process.
+static HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static MISSES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// `BADGER_TIMINGS=1`: the time since `start`, as a phase of type checking.
 fn mark(start: &mut std::time::Instant, phase: &str) {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -418,6 +469,35 @@ fn mark(start: &mut std::time::Instant, phase: &str) {
 }
 
 pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, Vec<Diagnostic>) {
+    let (checked, diags, _) = check_program_with(hir, interner, &StdKey::default(), None, false);
+    (checked, diags)
+}
+
+/// Check a program, reusing the checked standard-library prefix from
+/// `cache` when its [`StdKey`] matches `key`. Otherwise, when `capture` is
+/// set, returns a fresh [`StdCache`] built from this run for the session to
+/// reuse. `check_program` is the wrapper callers without a session use.
+pub fn check_program_with<'a>(
+    hir: &'a Hir,
+    interner: &'a Interner,
+    key: &StdKey,
+    cache: Option<&StdCache>,
+    capture: bool,
+) -> (Checked<'a>, Vec<Diagnostic>, Option<StdCache>) {
+    let hit = cache.filter(|c| &c.key == key);
+    if capture && std::env::var_os("BADGER_TIMINGS").is_some_and(|v| !v.is_empty()) {
+        if hit.is_some() {
+            HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        } else {
+            MISSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        eprintln!(
+            "[timings] typecheck.std-cache: {} (hits {}, misses {})",
+            if hit.is_some() { "hit" } else { "miss" },
+            HITS.load(std::sync::atomic::Ordering::Relaxed),
+            MISSES.load(std::sync::atomic::Ordering::Relaxed)
+        );
+    }
     let mut clock = std::time::Instant::now();
     let mut diags = vec![];
     for s in ["%confined", "display", "S", "Foreign", "Io", "Wait", "State"] {
@@ -442,13 +522,83 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         skolem_bounds: RefCell::new(FxHashMap::default()),
         implied: RefCell::new(FxHashMap::default()),
         store_summaries: RefCell::new(None),
+        store_seed: None,
     };
+    let is_std = |d: DefId| hir.modules[hir.defs[d].module].is_std;
+    let std_files: FxHashSet<FileId> =
+        hir.modules.iter().filter(|(_, m)| m.is_std).map(|(_, m)| m.file).collect();
+    // a diagnostic belongs to the standard prefix when every real label is
+    // there and at least one is (a label-free diagnostic cannot be
+    // attributed and is not cached)
+    let is_std_diag = |d: &Diagnostic| {
+        d.labels.iter().any(|l| !l.span.is_dummy() && std_files.contains(&l.span.file))
+            && d.labels.iter().all(|l| l.span.is_dummy() || std_files.contains(&l.span.file))
+    };
+    // A cache hit seeds the standard prefix's final schemes, capability
+    // requirements, and duplicate parameters, and replays its diagnostics
+    // (the driver's `dedupe` keeps the first occurrence of each).
+    //
+    // A standard definition does not sit at the same `DefId` in every
+    // program: the interner's state when the standard modules are lowered
+    // orders their definitions differently, so the cache records each
+    // definition's source span and name and a hit resolves them against
+    // this program's `DefId`s before seeding.
+    let remap: Option<FxHashMap<DefId, DefId>> = hit.map(|c| {
+        let cur: FxHashMap<(Span, Symbol), DefId> = hir
+            .defs
+            .iter()
+            .filter(|(_, d)| hir.modules[d.module].is_std)
+            .map(|(id, d)| ((d.span, d.name), id))
+            .collect();
+        c.keys.iter().filter_map(|(d, k)| cur.get(k).map(|nd| (*d, *nd))).collect()
+    });
+    let tr = |d: DefId| -> Option<DefId> {
+        match &remap {
+            Some(m) => m.get(&d).copied(),
+            None => Some(d),
+        }
+    };
+    if let Some(c) = hit {
+        for (d, s) in &c.schemes {
+            if let Some(nd) = tr(*d) {
+                g.schemes.insert(nd, s.clone());
+            }
+        }
+        for (d, v) in &c.dup_params {
+            if let Some(nd) = tr(*d) {
+                g.dup_params.borrow_mut().insert(nd, v.clone());
+            }
+        }
+        {
+            let mut im = g.implied.borrow_mut();
+            for (d, v) in &c.implied {
+                if let Some(nd) = tr(*d) {
+                    im.insert(nd, v.clone());
+                }
+            }
+        }
+        diags.extend(c.diags.iter().cloned());
+        if let Some(rc) = &c.store_summaries {
+            let sub: FxHashMap<DefId, Vec<(usize, usize)>> =
+                rc.iter().filter_map(|(d, v)| tr(*d).map(|nd| (nd, v.clone()))).collect();
+            g.store_seed = Some(Rc::new(sub));
+        }
+    }
     // Declared schemes: methods, intrinsics, and fully annotated functions.
     let mut declared: FxHashSet<DefId> = FxHashSet::default();
+    if let Some(c) = hit {
+        declared.extend(c.declared.iter().filter_map(|d| tr(*d)));
+    }
     for (id, def) in hir.defs.iter() {
         if let DefKind::Fn(f) = &def.kind {
             let annotated = fully_annotated(f);
             if f.owner.is_some() || f.abi != FnAbi::Lang || annotated {
+                // the standard prefix's declared schemes (and their
+                // diagnostics) come from the cache
+                if hit.is_some() && is_std(id) {
+                    debug_assert!(g.schemes.contains_key(&id), "cached declared scheme missing");
+                    continue;
+                }
                 if !annotated {
                     let n = interner.resolve(def.name).to_string();
                     diags.push(
@@ -589,6 +739,12 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
                         .with_code("E0134")
                         .with_label(hir.defs[*d].span, "this value depends on itself"),
                 );
+            }
+            // a cache hit reuses the standard prefix's checked schemes: the
+            // standard library never calls user code, so a group of only
+            // standard definitions was checked identically already
+            if hit.is_some() && defs.iter().all(|d| is_std(*d)) {
+                continue;
             }
             let group_start = std::time::Instant::now();
             let schemes = check_group(&mut inf, &defs, &declared);
@@ -754,7 +910,83 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
     }
     diags.extend(inf_diags);
     mark(&mut clock, "schemes");
-    effect_fixpoint(&mut g, &call_targets, &mut diags);
+    // Capture the standard prefix now: effect propagation below refines
+    // schemes with this program's user implementations, so a later cache
+    // hit must re-run it rather than reuse the refined rows.
+    let building = capture && hit.is_none();
+    let mut cached: Option<StdCache> = if building {
+        let schemes: FxHashMap<DefId, Scheme> =
+            g.schemes.iter().filter(|(d, _)| is_std(**d)).map(|(d, s)| (*d, s.clone())).collect();
+        // A cached scheme outlives the per-`InferCtxt` tables: a `Var`
+        // (unification table) / `Proj` (associated-type table) / `Skolem`
+        // (skolem list) index would be read against another program's
+        // tables. A stale one is undefined behaviour, so refuse to cache it.
+        if cfg!(debug_assertions) {
+            let poison = |t: &Ty| {
+                ty_any(t, &mut |k| matches!(k, TyKind::Var(_) | TyKind::Proj(..) | TyKind::Skolem(_)))
+            };
+            for (d, s) in &schemes {
+                debug_assert!(
+                    !poison(&s.ty),
+                    "cached scheme of `{}` is not ground",
+                    g.interner.resolve(hir.defs[*d].name)
+                );
+                for c in &s.constraints {
+                    for t in c.types() {
+                        debug_assert!(!poison(&t), "cached constraint of a std scheme is not ground");
+                    }
+                }
+            }
+        }
+        // each definition's stable identity, to resolve a later program's
+        // (differently ordered) `DefId`s against
+        let keys: FxHashMap<DefId, (Span, Symbol)> = hir
+            .defs
+            .iter()
+            .filter(|(_, d)| hir.modules[d.module].is_std)
+            .map(|(id, d)| (id, (d.span, d.name)))
+            .collect();
+        let declared: FxHashSet<DefId> = declared.iter().copied().filter(|d| is_std(*d)).collect();
+        let diags = diags.iter().filter(|d| is_std_diag(d)).cloned().collect();
+        let implied =
+            g.implied.borrow().iter().filter(|(d, _)| is_std(**d)).map(|(d, v)| (*d, v.clone())).collect();
+        let dup_params =
+            g.dup_params.borrow().iter().filter(|(d, _)| is_std(**d)).map(|(d, v)| (*d, v.clone())).collect();
+        let store_summaries = g.store_summaries.borrow().clone().map(|rc| {
+            Rc::new(rc.iter().filter(|(d, _)| is_std(**d)).map(|(d, v)| (*d, v.clone())).collect())
+        });
+        Some(StdCache {
+            key: key.clone(),
+            keys,
+            schemes,
+            declared,
+            diags,
+            calls: vec![],
+            implied,
+            dup_params,
+            store_summaries,
+        })
+    } else {
+        None
+    };
+    let calls_seed: Vec<(DefId, Vec<DefId>)> = match hit {
+        Some(c) => c
+            .calls
+            .iter()
+            .filter_map(|(d, cs)| tr(*d).map(|nd| (nd, cs.iter().filter_map(|x| tr(*x)).collect())))
+            .collect(),
+        None => vec![],
+    };
+    let std_calls = effect_fixpoint(
+        &mut g,
+        &call_targets,
+        &mut diags,
+        hit.is_some().then_some(calls_seed.as_slice()),
+        building,
+    );
+    if let Some(c) = &mut cached {
+        c.calls = std_calls.unwrap_or_default();
+    }
     check_impl_effects(&g, &mut diags);
     mark(&mut clock, "effects");
     // module values are pure immutable data: no task-confined mutable cells,
@@ -781,7 +1013,7 @@ pub fn check_program<'a>(hir: &'a Hir, interner: &'a Interner) -> (Checked<'a>, 
         }
     }
     mark(&mut clock, "module-values");
-    (Checked { g, types }, diags)
+    (Checked { g, types }, diags, cached)
 }
 
 fn g_insert(_g: &Global, _d: DefId, _s: Scheme) {}
@@ -1391,8 +1623,15 @@ fn protocol_method(g: &Global, protocol: DefId, method: Symbol) -> Option<DefId>
     None
 }
 
-fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diags: &mut Vec<Diagnostic>) {
+fn effect_fixpoint(
+    g: &mut Global,
+    targets: &FxHashMap<ExprId, Vec<DefId>>,
+    diags: &mut Vec<Diagnostic>,
+    seed: Option<&[(DefId, Vec<DefId>)]>,
+    capture: bool,
+) -> Option<Vec<(DefId, Vec<DefId>)>> {
     let hir = g.hir;
+    let is_std = |d: DefId| hir.modules[hir.defs[d].module].is_std;
     let modeled: Vec<Symbol> = g.env.all_effects.clone();
     let labels_of = |g: &Global, d: DefId| -> Vec<Symbol> {
         match g.schemes.get(&d).map(|s| s.ty.clone()) {
@@ -1419,16 +1658,28 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diag
         }
     }
     // standard-library functions take part too: one showing a `dyn Display`
-    // runs the program's own `display` implementations
-    let mut calls: Vec<(DefId, Vec<DefId>)> = vec![];
+    // runs the program's own `display` implementations. On a cache hit the
+    // standard bodies come from the seed (their edges were resolved when the
+    // prefix was first checked) and only the rest are walked here.
+    let mut calls: Vec<(DefId, Vec<DefId>)> = match seed {
+        Some(s) => s.to_vec(),
+        None => vec![],
+    };
+    let mut std_body_calls: Vec<(DefId, Vec<DefId>)> = vec![];
     for (id, def) in hir.defs.iter() {
         if let DefKind::Fn(f) = &def.kind
             && let Some(b) = f.body
         {
+            if seed.is_some() && is_std(id) {
+                continue;
+            }
             let mut cs = vec![];
             callees(hir, b, targets, &mut cs);
             cs.sort();
             cs.dedup();
+            if capture {
+                std_body_calls.push((id, cs.clone()));
+            }
             calls.push((id, cs));
         }
     }
@@ -1508,6 +1759,7 @@ fn effect_fixpoint(g: &mut Global, targets: &FxHashMap<ExprId, Vec<DefId>>, diag
             }
         }
     }
+    if capture { Some(std_body_calls) } else { None }
 }
 
 /// An implementation method may not perform effects its protocol method's

@@ -43,6 +43,12 @@ pub struct Session {
     /// standard library is the same for all of them, so it is parsed once and
     /// reused (the embedded sources never change within a session).
     std_parsed: std::collections::HashMap<String, ParsedModule>,
+    /// The checked standard-library prefix of the last program, keyed by
+    /// its std module set and reused by later checks in this session (a
+    /// project's other entries and tasks). Dropped with the session: its
+    /// spans' `FileId`s belong to `sources`. A `RefCell` so a check can
+    /// replace it while it still borrows `interner`.
+    std_check: std::cell::RefCell<Option<badger_typeck::StdCache>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +63,11 @@ pub struct Loaded {
     pub modules: Vec<ParsedModule>,
     pub entry: usize,
     pub root: PathBuf,
+    /// The standard modules this program reached, as their indexes in
+    /// `badger_hir::stdlib::STD_MODULES` in allocation order. Two programs
+    /// that reach the same set have their standard definitions at the same
+    /// `DefId`s, so this keys the shared type-checking results.
+    pub std_key: Vec<usize>,
 }
 
 /// A named entry (`[entries]`) or user task (`[tasks]`) selected for this
@@ -506,15 +517,16 @@ impl Session {
         // the standard library: the modules the program can reach (imported
         // directly or by other standard modules) and the core modules whose
         // implementations apply to prelude types; std modules come first
-        let std_mods = timed("parse.std", || self.load_std(&modules));
+        let (std_mods, std_key) = timed("parse.std", || self.load_std(&modules));
         let n = std_mods.len();
         let mut all = std_mods;
         all.extend(modules);
-        Some(Loaded { modules: all, entry: entry + n, root })
+        Some(Loaded { modules: all, entry: entry + n, root, std_key })
     }
 
-    /// Parse the standard-library modules a program needs.
-    fn load_std(&mut self, user: &[ParsedModule]) -> Vec<ParsedModule> {
+    /// Parse the standard-library modules a program needs, and the indexes
+    /// (in `STD_MODULES` order) of the ones it reaches.
+    fn load_std(&mut self, user: &[ParsedModule]) -> (Vec<ParsedModule>, Vec<usize>) {
         // implementations on prelude types and items the compiler uses
         // without an import (`Data` conversion, record operations)
         const CORE: &[&str] = &[
@@ -598,7 +610,8 @@ impl Session {
         }
         // in the library's own order
         parsed.sort_by_key(|(i, _)| *i);
-        parsed.into_iter().map(|(_, m)| m).collect()
+        let key: Vec<usize> = parsed.iter().map(|(i, _)| *i).collect();
+        (parsed.into_iter().map(|(_, m)| m).collect(), key)
     }
 
     /// `[layers.NAME] forbid = [...]`: a package module `NAME` or `NAME.*`
@@ -752,7 +765,14 @@ impl Session {
             self.annotate_scopes(&hir);
             return Outcome::Errors;
         }
-        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
+        let (checked, diags, fresh) = timed("typecheck", || {
+            let cache = self.std_check.borrow();
+            let hit = cache.as_ref().filter(|c| c.key.0 == loaded.std_key);
+            check_typed(path, &hir, &self.interner, &loaded.std_key, hit)
+        });
+        if let Some(c) = fresh {
+            *self.std_check.borrow_mut() = Some(c);
+        }
         self.diagnostics.extend(diags);
         // a project's entry points: the function the tool runs exists and
         // takes no parameters or the arguments as `List<String>`
@@ -1136,7 +1156,14 @@ impl Session {
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
-        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
+        let (checked, diags, fresh) = timed("typecheck", || {
+            let cache = self.std_check.borrow();
+            let hit = cache.as_ref().filter(|c| c.key.0 == loaded.std_key);
+            check_typed(path, &hir, &self.interner, &loaded.std_key, hit)
+        });
+        if let Some(c) = fresh {
+            *self.std_check.borrow_mut() = Some(c);
+        }
         self.diagnostics.extend(diags);
         annotate_scopes(&self.interner, &mut self.sources, &mut self.diagnostics, &hir);
         if self.diagnostics.has_errors() {
@@ -1822,7 +1849,14 @@ impl Session {
         if self.diagnostics.has_errors() {
             return None;
         }
-        let (checked, diags) = timed("typecheck", || check_typed(path, &hir, &self.interner));
+        let (checked, diags, fresh) = timed("typecheck", || {
+            let cache = self.std_check.borrow();
+            let hit = cache.as_ref().filter(|c| c.key.0 == loaded.std_key);
+            check_typed(path, &hir, &self.interner, &loaded.std_key, hit)
+        });
+        if let Some(c) = fresh {
+            *self.std_check.borrow_mut() = Some(c);
+        }
         self.diagnostics.extend(diags);
         let entry = hir.entry?;
         let sym = self.interner.intern(name);
@@ -2200,12 +2234,16 @@ pub(crate) fn database_schema(path: &Path) -> Option<PathBuf> {
 }
 
 /// Type-check, adding the ambient-authority check of restricted projects
-/// and the checks of literal SQL.
+/// and the checks of literal SQL, reusing `cache` when this program reaches
+/// the same standard modules as the program that built it, and returning a
+/// freshly built prefix for the session to reuse otherwise.
 fn check_typed<'a>(
     path: &Path,
     hir: &'a badger_hir::Hir,
     interner: &'a Interner,
-) -> (badger_typeck::Checked<'a>, Vec<Diagnostic>) {
+    key: &[usize],
+    cache: Option<&badger_typeck::StdCache>,
+) -> (badger_typeck::Checked<'a>, Vec<Diagnostic>, Option<badger_typeck::StdCache>) {
     let restricted = restricted(path);
     let sql = sql::wanted(hir);
     let contracts = contracts::wanted(hir);
@@ -2215,7 +2253,8 @@ fn check_typed<'a>(
     if restricted || sql || contracts {
         badger_typeck::set_record_types(true);
     }
-    let (checked, mut diags) = badger_typeck::check_program(hir, interner);
+    let key = badger_typeck::StdKey(key.to_vec());
+    let (checked, mut diags, fresh) = badger_typeck::check_program_with(hir, interner, &key, cache, true);
     if restricted || sql || contracts {
         badger_typeck::set_record_types(false);
         if let Some(t) = &checked.types {
@@ -2235,5 +2274,5 @@ fn check_typed<'a>(
             }
         }
     }
-    (checked, diags)
+    (checked, diags, fresh)
 }

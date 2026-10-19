@@ -1,0 +1,20 @@
+import std.io
+
+struct W { id: Int }
+
+impl Display for W {
+    fn display(self: &Self) -> String {
+        let _ = io.println("EFFECT")
+        "w"
+    }
+}
+
+fn pure_show<T: Display>(x: &T) -> String !{} {
+    x.display()
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let w: W = { id: 1 }
+    io.println(pure_show(&w))?
+    ok(())
+}
