@@ -1368,13 +1368,24 @@ pub fn park() -> Wake {
     check_interrupts();
     if let Err(w) = begin_park() {
         end_wait();
-        check_interrupts();
+        interrupts_after_wait();
         return w;
     }
     suspend(Signal::Park);
     end_wait();
-    check_interrupts();
+    interrupts_after_wait();
     current().unwrap().wake
+}
+
+/// Honor a cancellation or failure that arrived during a wait, unless a
+/// waker completed the waiting operation first (delivered with status 1:
+/// a channel hand-off or a committed selection). That operation took
+/// effect before the interrupt, so it is not undone (the handed-over value
+/// would be lost); the interrupt is honored at the next safe point.
+fn interrupts_after_wait() {
+    if current().unwrap().status != 1 {
+        check_interrupts();
+    }
 }
 
 /// Mark the running task parked, unless a wake already arrived for it
