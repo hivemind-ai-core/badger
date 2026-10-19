@@ -344,93 +344,32 @@ pub fn set_profile_sources(entries: Vec<(String, String, String)>) {
     *PROFILE.lock().unwrap() = entries;
 }
 
-pub extern "C" fn config_from_env(ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64) -> u64 {
-    config_decode(ctx, targs, ret, prefix, false)
+pub extern "C" fn config_from_env(
+    _ctx: *mut TaskCtx,
+    targs: Targs,
+    ret: *const TypeDesc,
+    prefix: u64,
+) -> u64 {
+    config_decode(targs, ret, prefix, Mode { strict: false, profile: false })
 }
 
 /// Profile data overlaid by prefixed environment variables.
-pub extern "C" fn config_load(ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64) -> u64 {
-    config_decode(ctx, targs, ret, prefix, true)
+pub extern "C" fn config_load(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64) -> u64 {
+    config_decode(targs, ret, prefix, Mode { strict: false, profile: true })
 }
 
-/// Build the JSON object for a configuration record: each field comes from
-/// the environment (`PREFIX` + upper-cased path, `_`-joined) or the profile
-/// data (dotted path); nested records recurse.
-fn config_object(
-    t: &TypeDesc,
-    env_pre: &str,
-    key_pre: &str,
-    profile_data: &[(String, String)],
-    profile: bool,
-) -> Result<serde_json::Map<String, serde_json::Value>, (String, String)> {
+/// `config.load` and `config.from_env`: the leaves of `T` from the profile
+/// data (when `mode.profile`) and prefixed environment variables, without
+/// `resolve`'s strictness, defaults, or overrides.
+fn config_decode(targs: Targs, ret: *const TypeDesc, prefix: u64, mode: Mode) -> u64 {
     use crate::desc::Kind;
-    let Kind::Record { fields, .. } = &t.kind else { return Ok(serde_json::Map::new()) };
-    let mut obj = serde_json::Map::new();
-    for f in fields {
-        let path = format!("{key_pre}{}", f.name);
-        if let Kind::Record { nominal: false, .. } | Kind::Record { nominal: true, tuple: false, .. } =
-            &f.desc.kind
-        {
-            let inner = config_object(
-                f.desc,
-                &format!("{env_pre}{}_", f.name.to_uppercase()),
-                &format!("{path}."),
-                profile_data,
-                profile,
-            )?;
-            obj.insert(f.name.clone(), serde_json::Value::Object(inner));
-            continue;
-        }
-        let env_key = format!("{env_pre}{}", f.name.to_uppercase());
-        let (key, raw) = match env_var(&env_key).ok_or(std::env::VarError::NotPresent) {
-            Ok(v) => (env_key, Ok(v)),
-            // the last entry for a key is the selected profile's
-            Err(e) => match profile_data.iter().rfind(|(k, _)| *k == path) {
-                // `${NAME}` and `${NAME:-default}` in a configured value
-                Some((k, v)) => (k.clone(), Ok(expand_env(v).map_err(|m| (k.clone(), m))?)),
-                None => (env_key, Err(e)),
-            },
-        };
-        let bad = |k: &str, m: String| (k.to_string(), m);
-        let j = match (&f.desc.kind, raw) {
-            (_, Err(_)) if f.desc.name == "Option" => serde_json::Value::Null,
-            (_, Err(_)) if profile => {
-                return Err(bad(
-                    &path,
-                    format!(
-                        "missing required setting (profile key `{path}` or environment variable `{key}`)"
-                    ),
-                ));
-            }
-            (_, Err(_)) => return Err(bad(&key, "missing required environment variable".into())),
-            (Kind::String | Kind::Symbol, Ok(v)) => serde_json::Value::String(v),
-            (Kind::Bool, Ok(v)) => match v.as_str() {
-                "true" | "1" => serde_json::Value::Bool(true),
-                "false" | "0" => serde_json::Value::Bool(false),
-                _ => return Err(bad(&key, "expected true or false".into())),
-            },
-            (Kind::Int { .. }, Ok(v)) => match v.trim().parse::<i64>() {
-                Ok(n) => serde_json::Value::from(n),
-                Err(_) => return Err(bad(&key, format!("expected an integer, found `{v}`"))),
-            },
-            (Kind::Float { .. }, Ok(v)) => match v.trim().parse::<f64>() {
-                Ok(n) => serde_json::json!(n),
-                Err(_) => return Err(bad(&key, format!("expected a number, found `{v}`"))),
-            },
-            (Kind::Duration | Kind::Instant | Kind::Timestamp, Ok(v)) => match duration_nanos(&v) {
-                Some(n) => serde_json::Value::from(n),
-                None => {
-                    return Err(bad(
-                        &key,
-                        format!("expected a duration (10s, 500ms) or a number of milliseconds, found `{v}`"),
-                    ));
-                }
-            },
-            (_, Ok(v)) => serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v)),
-        };
-        obj.insert(f.name.clone(), j);
-    }
-    Ok(obj)
+    let t = targ(targs, 0);
+    let ret = rdesc(ret);
+    let pre = str_of(prefix).to_string();
+    let Kind::Record { .. } = &t.kind else {
+        return resolve_err(ret, &pre, "configuration type must be a record");
+    };
+    decode_layers(t, ret, resolve_layers(t, &pre, &[], "{}", mode))
 }
 
 /// A configured value with `${NAME}` (an environment variable, which must
@@ -470,52 +409,41 @@ pub fn expand_env(v: &str) -> Result<String, String> {
     Ok(out)
 }
 
-fn config_decode(_ctx: *mut TaskCtx, targs: Targs, ret: *const TypeDesc, prefix: u64, profile: bool) -> u64 {
-    use crate::desc::Kind;
-    let t = targ(targs, 0);
-    let ret = rdesc(ret);
-    let pre = str_of(prefix).to_string();
-    let profile_data: Vec<(String, String)> = if profile {
-        PROFILE.lock().unwrap().iter().map(|(k, v, _)| (k.clone(), v.clone())).collect()
-    } else {
-        vec![]
-    };
-    let err = |key: &str, msg: &str| {
-        let g = Roots::new();
-        let err_desc = ret.variant(1).unwrap().fields[0].desc;
-        let k = g.add(new_string(key));
-        let m = g.add(new_string(msg));
-        let e = g.add(make_record(err_desc, &[("key", k), ("message", m)]));
-        make_variant(ret, "err", &[e])
-    };
-    let Kind::Record { .. } = &t.kind else { return err(&pre, "configuration type must be a record") };
-    let obj = match config_object(t, &pre, "", &profile_data, profile) {
-        Ok(o) => o,
-        Err((k, m)) => return err(&k, &m),
-    };
-    match codec::decode(t, &serde_json::Value::Object(obj).to_string()) {
-        Ok(w) => make_variant(ret, "ok", &[w]),
-        Err(e) => {
-            // the setting that holds the bad value: its environment variable
-            // (`APP_DB_PORT` for `$.db.port`, `APP_PORTS` for `$.ports[0]`),
-            // or its profile key when the value came from the profile
-            let path = e.path.trim_start_matches('$').trim_start_matches('.');
-            let field = path.split('[').next().unwrap_or(path);
-            let env_key = format!("{pre}{}", field.replace('.', "_").to_uppercase());
-            let key = if profile && env_var(&env_key).is_none() { field.to_string() } else { env_key };
-            err(&key, &e.message)
-        }
-    }
-}
-
-/// A configuration leaf: its dotted path, environment variable, and type.
+/// A configuration leaf: its dotted path, environment variable, and type,
+/// and the path of the optional record it is part of, if any (when none of
+/// that record's leaves is set, the record is `none`).
 struct Leaf {
     path: String,
     env: String,
     desc: &'static TypeDesc,
+    optional: Option<String>,
 }
 
-fn leaves(t: &'static TypeDesc, env_pre: &str, key_pre: &str, out: &mut Vec<Leaf>) {
+/// Which sources a configuration reads, and whether it is strict.
+#[derive(Clone, Copy)]
+struct Mode {
+    /// Unknown keys, variables, and overrides are errors (`resolve`).
+    strict: bool,
+    /// The `[config]` table and the selected profile are read (all but
+    /// `from_env`).
+    profile: bool,
+}
+
+/// The record payload of `Option<record>`, if `d` is one.
+fn optional_record(d: &'static TypeDesc) -> Option<&'static TypeDesc> {
+    use crate::desc::Kind;
+    let Kind::Enum { variants, .. } = &d.kind else { return None };
+    if d.name != "Option" {
+        return None;
+    }
+    let p = variants.get(1)?.fields.first()?.desc;
+    match &p.kind {
+        Kind::Record { tuple: false, .. } if p.name != crate::codec::SECRET => Some(p),
+        _ => None,
+    }
+}
+
+fn leaves(t: &'static TypeDesc, env_pre: &str, key_pre: &str, optional: Option<&str>, out: &mut Vec<Leaf>) {
     use crate::desc::Kind;
     let Kind::Record { fields, .. } = &t.kind else { return };
     for f in fields {
@@ -523,10 +451,43 @@ fn leaves(t: &'static TypeDesc, env_pre: &str, key_pre: &str, out: &mut Vec<Leaf
         let env = format!("{env_pre}{}", f.name.to_uppercase());
         match &f.desc.kind {
             Kind::Record { tuple: false, .. } if f.desc.name != crate::codec::SECRET => {
-                leaves(f.desc, &format!("{env}_"), &format!("{path}."), out)
+                leaves(f.desc, &format!("{env}_"), &format!("{path}."), optional, out)
             }
-            _ => out.push(Leaf { path, env, desc: f.desc }),
+            // an optional record: its fields, `none` when none is set
+            _ if let Some(p) = optional_record(f.desc) => {
+                leaves(p, &format!("{env}_"), &format!("{path}."), Some(optional.unwrap_or(&path)), out)
+            }
+            _ => out.push(Leaf { path, env, desc: f.desc, optional: optional.map(str::to_string) }),
         }
+    }
+}
+
+/// The value type of a `Map<String, V>` leaf.
+fn map_values(d: &TypeDesc) -> Option<&'static TypeDesc> {
+    match &d.kind {
+        crate::desc::Kind::Map { val, .. } => Some(val),
+        _ => None,
+    }
+}
+
+/// Whether values of `d` may hold a `config.Secret` (provenance redacts
+/// them).
+fn holds_secret(d: &TypeDesc, depth: u32) -> bool {
+    use crate::desc::Kind;
+    if d.name == crate::codec::SECRET {
+        return true;
+    }
+    if depth > 8 {
+        return false;
+    }
+    match &d.kind {
+        Kind::Enum { variants, .. } => {
+            variants.iter().any(|v| v.fields.iter().any(|f| holds_secret(f.desc, depth + 1)))
+        }
+        Kind::Record { fields, .. } => fields.iter().any(|f| holds_secret(f.desc, depth + 1)),
+        Kind::List { elem } | Kind::Set { elem } => holds_secret(elem, depth + 1),
+        Kind::Map { val, .. } => holds_secret(val, depth + 1),
+        _ => false,
     }
 }
 
@@ -606,44 +567,69 @@ struct Candidate {
     value: serde_json::Value,
 }
 
-/// The layered resolution of `config.resolve`: the configuration object,
-/// and each set leaf's candidates (lowest precedence first).
+/// The layered resolution of `config.resolve` (and, without strictness,
+/// defaults, or overrides, of `config.load` and `config.from_env`): the
+/// configuration object, and each set leaf's candidates (lowest
+/// precedence first).
 #[allow(clippy::type_complexity)]
 fn resolve_layers(
     t: &'static TypeDesc,
     pre: &str,
     overrides: &[String],
     defaults: &str,
+    mode: Mode,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, Vec<(Leaf, Vec<Candidate>)>), (String, String)> {
     let mut ls = vec![];
-    leaves(t, pre, "", &mut ls);
-    let defaults: serde_json::Value = serde_json::from_str(defaults).unwrap_or(serde_json::Value::Null);
-    let profile = PROFILE.lock().unwrap().clone();
-    // strict: every source key names a field
-    for (k, _, src) in &profile {
-        if !ls.iter().any(|l| l.path == *k) {
-            let table = if src.is_empty() { "[config]".to_string() } else { format!("[profile.{src}]") };
+    leaves(t, pre, "", None, &mut ls);
+    // one environment variable for two fields (`db_port` and `db.port`)
+    for (i, a) in ls.iter().enumerate() {
+        if let Some(b) = ls[i + 1..].iter().find(|b| b.env == a.env) {
             return Err((
-                k.clone(),
-                format!("unknown setting in {table}: the configuration type has no field `{k}`"),
+                a.env.clone(),
+                format!(
+                    "fields `{}` and `{}` would both read the environment variable `{}`; rename one",
+                    a.path, b.path, a.env
+                ),
             ));
+        }
+    }
+    let defaults: serde_json::Value = serde_json::from_str(defaults).unwrap_or(serde_json::Value::Null);
+    let profile = if mode.profile { PROFILE.lock().unwrap().clone() } else { vec![] };
+    // a key `p.k` belongs to the map leaf `p`
+    let map_leaf = |k: &str| {
+        ls.iter().find(|l| {
+            map_values(l.desc).is_some() && k.strip_prefix(&l.path).is_some_and(|r| r.starts_with('.'))
+        })
+    };
+    let known = |k: &str| ls.iter().any(|l| l.path == k) || map_leaf(k).is_some();
+    if mode.strict {
+        // every source key names a field
+        for (k, _, src) in &profile {
+            if !known(k) {
+                let table = if src.is_empty() { "[config]".to_string() } else { format!("[profile.{src}]") };
+                return Err((
+                    k.clone(),
+                    format!("unknown setting in {table}: the configuration type has no field `{k}`"),
+                ));
+            }
         }
     }
     let mut over: Vec<(String, String)> = vec![];
     for o in overrides {
         let Some((k, v)) = o.split_once('=') else {
-            return Err((o.clone(), "an override is `key=value`".into()));
+            // (the text may be a secret: it is not repeated)
+            return Err(("override".into(), "an override is `key=value`".into()));
         };
         let k = k.trim();
         if !ls.iter().any(|l| l.path == k) {
             return Err((
                 k.to_string(),
-                format!("unknown setting in override `{o}`: the configuration type has no field `{k}`"),
+                format!("unknown setting in an override: the configuration type has no field `{k}`"),
             ));
         }
         over.push((k.to_string(), v.to_string()));
     }
-    if !pre.is_empty() {
+    if mode.strict && !pre.is_empty() {
         let names = crate::repro::external("env_names", pre, None, false, || {
             let mut v: Vec<String> = std::env::vars_os()
                 .filter_map(|(k, _)| k.into_string().ok())
@@ -658,9 +644,8 @@ fn resolve_layers(
             }
         }
     }
-    let mut obj = serde_json::Map::new();
-    let mut rows = vec![];
-    for l in ls {
+    let mut cands: Vec<Vec<Candidate>> = vec![];
+    for l in &ls {
         let mut cs: Vec<Candidate> = vec![];
         let mut d = &defaults;
         for part in l.path.split('.') {
@@ -670,11 +655,30 @@ fn resolve_layers(
             cs.push(Candidate { source: "default", origin: l.path.clone(), value: d.clone() });
         }
         for (k, v, src) in &profile {
+            let (source, origin) =
+                if src.is_empty() { ("config", k.clone()) } else { ("profile", format!("{src}.{k}")) };
             if *k == l.path {
-                let (source, origin) =
-                    if src.is_empty() { ("config", k.clone()) } else { ("profile", format!("{src}.{k}")) };
                 let v = expand_env(v).map_err(|m| (k.clone(), m))?;
                 cs.push(Candidate { source, origin, value: leaf_json(l.desc, k, v)? });
+            } else if let Some(vals) = map_values(l.desc)
+                && let Some(entry) = k.strip_prefix(&l.path).and_then(|r| r.strip_prefix('.'))
+            {
+                // a map's entries, as `[config.labels] a = "x"`: merged
+                // into the map the earlier sources gave
+                let v = expand_env(v).map_err(|m| (k.clone(), m))?;
+                let item = leaf_json(vals, k, v)?;
+                let origin = if src.is_empty() { l.path.clone() } else { format!("{src}.{}", l.path) };
+                // entries of one table are one candidate
+                let same = cs.last().is_some_and(|c| c.source == source && c.origin == origin);
+                let mut base = match cs.last().map(|c| &c.value) {
+                    Some(serde_json::Value::Object(m)) => m.clone(),
+                    _ => serde_json::Map::new(),
+                };
+                base.insert(entry.to_string(), item);
+                if same {
+                    cs.pop();
+                }
+                cs.push(Candidate { source, origin, value: serde_json::Value::Object(base) });
             }
         }
         if let Some(v) = env_var(&l.env) {
@@ -682,37 +686,67 @@ fn resolve_layers(
         }
         for (k, v) in &over {
             if *k == l.path {
+                let shown = if holds_secret(l.desc, 0) { "[redacted]" } else { v.as_str() };
                 cs.push(Candidate {
                     source: "override",
-                    origin: format!("{k}={v}"),
+                    origin: format!("{k}={shown}"),
                     value: leaf_json(l.desc, k, v.clone())?,
                 });
             }
+        }
+        cands.push(cs);
+    }
+    // an optional record none of whose fields is set is `none`
+    let unset: std::collections::HashSet<String> = ls
+        .iter()
+        .filter_map(|l| l.optional.clone())
+        .filter(|g| {
+            ls.iter().zip(&cands).all(|(m, cs)| m.optional.as_deref() != Some(g.as_str()) || cs.is_empty())
+        })
+        .collect();
+    let mut obj = serde_json::Map::new();
+    let mut rows = vec![];
+    let place =
+        |obj: &mut serde_json::Map<String, serde_json::Value>, path: &str, value: serde_json::Value| {
+            let mut at = obj;
+            let parts: Vec<&str> = path.split('.').collect();
+            for p in &parts[..parts.len() - 1] {
+                at = at
+                    .entry(p.to_string())
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()))
+                    .as_object_mut()
+                    .expect("nested configuration object");
+            }
+            at.insert(parts[parts.len() - 1].to_string(), value);
+        };
+    for g in &unset {
+        place(&mut obj, g, serde_json::Value::Null);
+    }
+    for (l, cs) in ls.into_iter().zip(cands) {
+        if l.optional.as_ref().is_some_and(|g| unset.contains(g)) {
+            continue;
         }
         let value = match cs.last() {
             Some(c) => c.value.clone(),
             None if l.desc.name == "Option" => serde_json::Value::Null,
             None => {
-                return Err((
-                    l.path.clone(),
+                let msg = if !mode.profile {
+                    "missing required environment variable".to_string()
+                } else if mode.strict {
                     format!(
                         "missing required setting (`{}` in [config], environment variable `{}`, or an override)",
                         l.path, l.env
-                    ),
-                ));
+                    )
+                } else {
+                    format!(
+                        "missing required setting (`{}` in [config] or environment variable `{}`)",
+                        l.path, l.env
+                    )
+                };
+                return Err((if mode.profile { l.path.clone() } else { l.env.clone() }, msg));
             }
         };
-        // place the value at its path
-        let mut at = &mut obj;
-        let parts: Vec<&str> = l.path.split('.').collect();
-        for p in &parts[..parts.len() - 1] {
-            at = at
-                .entry(p.to_string())
-                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()))
-                .as_object_mut()
-                .expect("nested configuration object");
-        }
-        at.insert(parts[parts.len() - 1].to_string(), value);
+        place(&mut obj, &l.path, value);
         rows.push((l, cs));
     }
     Ok((obj, rows))
@@ -725,6 +759,37 @@ fn resolve_err(ret: &'static TypeDesc, key: &str, msg: &str) -> u64 {
     let m = g.add(new_string(msg));
     let e = g.add(make_record(err_desc, &[("key", k), ("message", m)]));
     make_variant(ret, "err", &[e])
+}
+
+/// Decode resolved layers into `T`, naming a bad value's setting as its
+/// source does.
+#[allow(clippy::type_complexity)]
+fn decode_layers(
+    t: &'static TypeDesc,
+    ret: &'static TypeDesc,
+    layers: Result<
+        (serde_json::Map<String, serde_json::Value>, Vec<(Leaf, Vec<Candidate>)>),
+        (String, String),
+    >,
+) -> u64 {
+    let (obj, rows) = match layers {
+        Ok(x) => x,
+        Err((k, m)) => return resolve_err(ret, &k, &m),
+    };
+    match codec::decode(t, &serde_json::Value::Object(obj).to_string()) {
+        Ok(w) => make_variant(ret, "ok", &[w]),
+        Err(e) => {
+            let path = e.path.trim_start_matches('$').trim_start_matches('.');
+            let field = path.split('[').next().unwrap_or(path);
+            let key = rows
+                .iter()
+                .find(|(l, _)| l.path == field)
+                .and_then(|(_, cs)| cs.last())
+                .map(|c| c.origin.clone())
+                .unwrap_or(field.to_string());
+            resolve_err(ret, &key, &e.message)
+        }
+    }
 }
 
 /// `config.resolve`: the layered, strict configuration of `T`.
@@ -745,25 +810,11 @@ pub extern "C" fn config_resolve(
     };
     let over: Vec<String> =
         crate::list::to_vec(overrides).into_iter().map(|w| str_of(w).to_string()).collect();
-    let (obj, rows) = match resolve_layers(t, &pre, &over, str_of(defaults)) {
-        Ok(x) => x,
-        Err((k, m)) => return resolve_err(ret, &k, &m),
-    };
-    match codec::decode(t, &serde_json::Value::Object(obj).to_string()) {
-        Ok(w) => make_variant(ret, "ok", &[w]),
-        Err(e) => {
-            // the setting that holds the bad value, named as its source does
-            let path = e.path.trim_start_matches('$').trim_start_matches('.');
-            let field = path.split('[').next().unwrap_or(path);
-            let key = rows
-                .iter()
-                .find(|(l, _)| l.path == field)
-                .and_then(|(_, cs)| cs.last())
-                .map(|c| c.origin.clone())
-                .unwrap_or(field.to_string());
-            resolve_err(ret, &key, &e.message)
-        }
-    }
+    decode_layers(
+        t,
+        ret,
+        resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true }),
+    )
 }
 
 /// `config.resolve`'s provenance: JSON of `List<config.Setting>`.
@@ -779,12 +830,14 @@ pub extern "C" fn config_provenance(
     let pre = str_of(prefix).to_string();
     let over: Vec<String> =
         crate::list::to_vec(overrides).into_iter().map(|w| str_of(w).to_string()).collect();
-    let rows = resolve_layers(t, &pre, &over, str_of(defaults)).map(|r| r.1).unwrap_or_default();
+    let rows = resolve_layers(t, &pre, &over, str_of(defaults), Mode { strict: true, profile: true })
+        .map(|r| r.1)
+        .unwrap_or_default();
     let out: Vec<serde_json::Value> = rows
         .into_iter()
         .filter_map(|(l, cs)| {
             let c = cs.last()?;
-            let secret = l.desc.name == crate::codec::SECRET || crate::repro::secret_name(&l.path);
+            let secret = holds_secret(l.desc, 0) || crate::repro::secret_name(&l.path);
             let value = if secret {
                 "[redacted]".to_string()
             } else {

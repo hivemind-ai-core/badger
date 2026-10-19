@@ -1,0 +1,15 @@
+[package]
+name = "config_shapes"
+entry = "src/main.bdg"
+
+# Field shapes beyond scalars: a secret read by `config.load`, an optional
+# string, an optional group, and a map of labels.
+[config]
+dsn = "postgres://app@db/orders"
+
+[config.tls]
+cert = "server.pem"
+
+[config.labels]
+team = "orders"
+tier = "gold"

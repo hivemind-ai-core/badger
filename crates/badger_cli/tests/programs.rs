@@ -611,7 +611,11 @@ fn config_resolve() {
     assert!(out.contains("(6 chars)") && !out.contains("s3cret"), "{out}");
     for (args, env, want) in [
         (&[][..], &[("SETTINGS_PROT", "1")][..], "no configuration field reads `SETTINGS_PROT`"),
-        (&["--", "bogus=1"][..], &[][..], "unknown setting in override `bogus=1`"),
+        (
+            &["--", "bogus=1"][..],
+            &[][..],
+            "unknown setting in an override: the configuration type has no field `bogus`",
+        ),
         (&["--", "port"][..], &[][..], "an override is `key=value`"),
         (&[][..], &[("SETTINGS_PORT", "x")][..], "SETTINGS_PORT: expected an integer, found `x`"),
         (&["--profile", "typo"][..], &[][..], "unknown setting in [profile.typo]"),
@@ -619,6 +623,51 @@ fn config_resolve() {
         let (ok, _, err) = run(args, env);
         assert!(!ok && err.contains(want), "{args:?} {env:?}: {err}");
     }
+}
+
+/// `config.load` and `config.resolve` read a `config.Secret`, an
+/// `Option<String>`, an optional group, and a map from `[config.labels]`;
+/// a secret's value never appears in provenance, even from an override.
+#[test]
+fn config_shapes() {
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut c = lang();
+        c.args(["run", "tests/projects/config_shapes"]).args(args);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    let (ok, out, err) = run(&[], &[("SHAPES_KEYS", "[\"k1\"]")]);
+    assert!(ok, "{err}");
+    assert_eq!(
+        out,
+        "load: dsn=[redacted] (24 chars) nick=none tls=some(server.pem) labels=tier=gold,team=orders keys=1\n\
+         resolve: dsn=[redacted] (24 chars) nick=none tls=some(server.pem) labels=tier=gold,team=orders keys=1\n\
+         {\"dsn\":\"[redacted]\",\"keys\":[\"[redacted]\"],\"labels\":{\"team\":\"orders\",\"tier\":\"gold\"},\"nick\":null,\"tls\":{\"cert\":\"server.pem\"}}\n\
+         dsn = [redacted]  (config dsn)\n\
+         keys = [redacted]  (env SHAPES_KEYS)\n\
+         labels = {\"team\":\"orders\",\"tier\":\"gold\"}  (config labels)\n\
+         tls.cert = server.pem  (config tls.cert)\n"
+    );
+    let (ok, out, err) = run(
+        &["--", "dsn=hunter2", "keys=[\"zz\"]"],
+        &[("SHAPES_KEYS", "[]"), ("SHAPES_NICK", "bob"), ("SHAPES_TLS_CERT", "env.pem")],
+    );
+    assert!(ok, "{err}");
+    assert!(out.contains("dsn = [redacted]  (override dsn=[redacted])"), "{out}");
+    assert!(out.contains("keys = [redacted]  (override keys=[redacted])"), "{out}");
+    assert!(
+        out.contains("nick=some(bob) tls=some(env.pem)") && !out.contains("hunter2") && !out.contains("zz"),
+        "{out}"
+    );
+    let (ok, _, err) = run(&["--", "nope=hunter2"], &[("SHAPES_KEYS", "[]")]);
+    assert!(!ok && err.contains("no field `nope`") && !err.contains("hunter2"), "{err}");
 }
 
 /// Scenario 16: `badger run --watch` replaces compatible functions while the

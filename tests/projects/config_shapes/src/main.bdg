@@ -1,0 +1,38 @@
+// `config.load`, `config.from_env` and `config.resolve` read the same
+// shapes: a `config.Secret`, `Option<String>`, an optional group
+// `Option<{ ... }>`, and `Map<String, String>`.
+import std.codec
+import std.config
+import std.env
+import std.io
+import std.text
+
+type Settings = {
+    dsn: config.Secret,
+    nick: Option<String>,
+    tls: Option<{ cert: String }>,
+    labels: Map<String, String>,
+    keys: List<config.Secret>,
+}
+
+pub enum AppError {
+    config(source: config.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn show(s: Settings) -> String {
+    let labels = text.join(s.labels.entries().map(fn(e) { $"{e.0}={e.1}" }), ",")
+    $"dsn={s.dsn} ({s.dsn.reveal().len()} chars) nick={s.nick} tls={s.tls.map(fn(t) { t.cert })} labels={labels} keys={s.keys.len()}"
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let loaded = config.load<Settings>("SHAPES_")?
+    io.println($"load: {show(loaded)}")?
+    let resolved = config.resolve<Settings>("SHAPES_", env.args())?
+    io.println($"resolve: {show(resolved.value)}")?
+    io.println(codec.encode_text(resolved.value))?
+    for setting in resolved.settings {
+        io.println($"{setting.key} = {setting.value}  ({setting.source} {setting.origin})")?
+    }
+    ok(())
+}

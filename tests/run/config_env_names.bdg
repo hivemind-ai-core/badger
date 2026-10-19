@@ -1,0 +1,20 @@
+// Two fields that would read one environment variable are an error, not
+// a silent double read: `db_port` and `db.port` both map to `APP_DB_PORT`.
+import std.config
+import std.io
+
+type Clash = { db_port: Int, db: { port: Int } }
+
+type Fine = { port: Option<Int>, name: Option<String> }
+
+pub fn main() -> Result<Unit, io.Error> {
+    match config.from_env<Clash>("APP_") {
+        .ok(_) => io.println("clash: accepted")?,
+        .err(e) => io.println($"clash: {e}")?,
+    }
+    match config.from_env<Fine>("APP_UNSET_") {
+        .ok(f) => io.println($"fine: port={f.port} name={f.name}")?,
+        .err(e) => io.println($"fine: {e}")?,
+    }
+    ok(())
+}

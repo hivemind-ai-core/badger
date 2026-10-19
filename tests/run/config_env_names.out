@@ -1,0 +1,2 @@
+clash: APP_DB_PORT: fields `db.port` and `db_port` would both read the environment variable `APP_DB_PORT`; rename one
+fine: port=none name=none
