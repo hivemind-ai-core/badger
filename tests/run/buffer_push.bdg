@@ -1,0 +1,103 @@
+import std.array
+import std.buffer
+import std.io
+import std.list
+import std.task
+import std.text
+
+fn event(log: Cell<List<Int>>, code: Int, value: Int) -> Int {
+    log.set(log.get().append(code))
+    value
+}
+fn init(log: Cell<List<Int>>) -> fn(Int) -> U8 {
+    let _ = event(log, 2, 0)
+    fn(i) { let _ = event(log, 100 + i, 0); U8.try_from(i).unwrap_or(0U8) }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    for capacity in [0, 1, 31, 32, 33, 255, 256, 257] {
+        var bytes = buffer.with_capacity<U8>(capacity)
+        var words = buffer.with_capacity<U64>(capacity)
+        for i in 0..capacity + 9 {
+            bytes.push(U8.try_from(i % 251).unwrap_or(0U8))
+            words.push(U64.try_from(i * 31).unwrap_or(0U64))
+        }
+        assert(bytes.len() == capacity + 9 && words.len() == capacity + 9)
+        for i in 0..capacity + 9 {
+            assert(bytes.get(i).unwrap_or(255U8) == U8.try_from(i % 251).unwrap_or(0U8))
+            assert(words.get(i).unwrap_or(0U64) == U64.try_from(i * 31).unwrap_or(0U64))
+        }
+        assert(bytes.pop().unwrap_or(255U8) == U8.try_from((capacity + 8) % 251).unwrap_or(0U8))
+        assert(bytes.freeze().len() == capacity + 8)
+        assert(words.freeze().len() == capacity + 9)
+    }
+    let log = Cell.new(list.empty<Int>())
+    let values = array.build(event(log, 1, 4), init(log))
+    assert(log.get() == [1, 2, 100, 101, 102, 103] && values == array.from_list([0U8, 1U8, 2U8, 3U8]))
+    log.set([])
+    assert(array.build(0, init(log)).len() == 0 && log.get() == [2])
+
+    let attempts = Cell.new(0)
+    let result = array.try_build(7, fn(i: Int) -> Result<String, String> {
+        attempts.set(attempts.get() + 1)
+        task.yield_now()
+        if i == 3 { err("stop") } else { ok(text.repeat("x", 511 + i)) }
+    })
+    match result { .err(e) => assert(e == "stop"), _ => panic("expected initializer error") }
+    assert(attempts.get() == 4)
+
+    var pointers = buffer.with_capacity<String>(64)
+    for i in 0..129 {
+        let word = text.repeat("x", 511 + i)
+        pointers.push(word)
+        task.yield_now()
+        // Keep using old pointer elements after allocations, minor/major
+        // collections, and both in-capacity stores and native growth.
+        assert(pointers.get(0).unwrap_or("").len() == 511)
+        assert(pointers.get(i).unwrap_or("").len() == 511 + i)
+    }
+    let retained = pointers.freeze()
+    for i in 0..retained.len() { assert(retained[i].len() == 511 + i) }
+    let floats = array.build(65, fn(i: Int) { F32.try_from(i).unwrap_or(0F32) * 0.5F32 })
+    assert(floats.get(64).unwrap_or(0F32) == 32.0F32)
+    var flags = buffer.with_capacity<Bool>(3)
+    flags.push(true)
+    flags.push(false)
+    flags.push(true)
+    flags.push(false)
+    assert(flags.freeze() == array.from_list([true, false, true, false]))
+    var units = buffer.with_capacity<Unit>(1)
+    units.push(())
+    units.push(())
+    assert(units.freeze().len() == 2)
+
+    var fixed = buffer.fixed<Int>(2)
+    let address = fixed.storage_address()
+    assert(fixed.push(10).is_ok() && fixed.push(20).is_ok())
+    match fixed.push(30) { .err(e) => assert(e.value == 30 && e.capacity == 2), _ => panic("expected full buffer") }
+    assert(fixed.storage_address() == address && fixed.freeze() == array.from_list([10, 20]))
+
+    let _ = task.scope(fn(scope) -> Result<Unit, Never> {
+        let negative = scope.capture(fn() {
+            array.build(-1, fn(_: Int) -> Int { panic("negative initializer called") })
+        })
+        match negative.join() {
+            .failed(e) => assert(e.message == "buffer capacity overflow"),
+            _ => panic("expected negative capacity failure"),
+        }
+        let failing = scope.capture(fn() {
+            array.build(8, fn(i: Int) {
+                task.yield_now()
+                if i == 3 { panic("initializer failed at 3") }
+                text.repeat("y", 257 + i)
+            })
+        })
+        match failing.join() {
+            .failed(e) => assert(e.message == "initializer failed at 3"),
+            _ => panic("expected initializer failure"),
+        }
+        ok(())
+    })
+    io.println("buffer push: ok")?
+    ok(())
+}
