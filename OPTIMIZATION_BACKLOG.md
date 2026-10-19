@@ -154,7 +154,16 @@ trie at the ninth entry and flattened again on a removal that brings it back
 to eight. The flat root is an ordinary `MapNode`, so tracing, the cursor
 layout and the map payload are unchanged, and the flat entries keep the order
 the trie would visit, so iteration order does not depend on the
-representation.
+representation. **The expected win did not materialize**: measured on
+release builds (median of 5 interleaved runs), a small-map lookup is 17 -> 17
+ns at 4 and at 8 entries, and a small-map build is 34 -> 41 ns/insert at 4
+entries and 35 -> 40 at 8 (with the same minimums, 33 and 35-36), while
+`bench/collections` map insert and lookup are 67 -> 68 and 46 -> 46 ns. The
+item's premise does not hold for this trie: a root of at most eight entries
+is *already* a single bitmap-indexed node, so the flat array has nothing to
+save. The item is kept because it is correct and tested, and because the
+measurement belongs in the record; the small-map work that *did* pay is
+§0.5's paired walk (below).
 
 - **Goal**: when a map's payload is ≤ 8 entries, store it as a flat
   array of `(K, V)` pairs and linear-scan on lookup, instead of the
@@ -181,10 +190,12 @@ representation.
 
 **Status:** partly landed 2026-10-19 (`dee35dd`): `map::eq` is now a paired walk of
 the two tries that skips a subtree the two maps share, with a reflexivity
-check (a float NaN is not equal to itself). The O(1) `map::hashcode` of the
-item is **not** done: it would need a per-map hash cached in the payload,
-which collides with the 16/24-byte payload layout, and hashing every value
-on the insert path. The model is the contract for the rest.
+check (a float NaN is not equal to itself). **This is the win of the
+collections work**: comparing two related 100 000-entry versions went from
+4.7 ms to 0.32 us. The O(1) `map::hashcode` of the item is **not** done: it
+would need a per-map hash cached in the payload, which collides with the
+16/24-byte payload layout, and hashing every value on the insert path. The
+model is the contract for the rest.
 
 - **Goal**: the existing HAMT in `hamt.rs` is a "Bin" (Bitmap-
   Indexed Node) variant; the formal CHAMP invariants from
