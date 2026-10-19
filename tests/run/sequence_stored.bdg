@@ -64,6 +64,12 @@ pub fn main() -> Result<Unit, io.Error> {
     assert(rejected.count() == 0 && seen.get() == 3)
     assert(rejected.count() == 0 && seen.get() == 6)
 
+    let local_in_lambda = fn(n: Int) {
+        let local = seq.range(0, n).take(3)
+        local.count() + local.count()
+    }
+    assert(local_in_lambda(9) == 6 && local_in_lambda(1) == 2)
+
     let pairs = seq.range(0, 10).take(3)
     var total = 0
     for x in pairs {
@@ -93,6 +99,11 @@ pub fn main() -> Result<Unit, io.Error> {
     let small: List<U8> = [1, 2, 3]
     let packed = small.seq().map(fn(x: U8) { Int.from(x) })
     assert(packed.fold(0, fn(a, x) { a + x }) == 6)
+    let floats: List<F32> = [1.25F32, -2.5F32]
+    let fractional = floats.seq().map(fn(x: F32) { x * 2.0F32 })
+    assert(fractional.fold(0.0F32, fn(a, x) { a + x }) == -2.5F32)
+    let empty = seq.range(4, 2).take(-1)
+    assert(empty.count() == 0 && empty.count() == 0)
     for i in 0..3 {
         let per_iteration = seq.range(i, i + 2).take(2)
         assert(per_iteration.fold(0, fn(a, x) { a + x }) == i * 2 + 1)
@@ -122,6 +133,21 @@ pub fn main() -> Result<Unit, io.Error> {
     assert(opened.get() == 0 && closed.get() == 0)
     assert(scoped.count() == 2 && opened.get() == 1 && closed.get() == 1)
     assert(scoped.count() == 2 && opened.get() == 2 && closed.get() == 2)
+    let _ = task.scope(fn(scope) -> Result<Unit, Never> {
+        let work = scope.capture(fn() {
+            let local = seq.range(0, 8).map(fn(x: Int) {
+                task.yield_now()
+                if x == 2 || x == 5 { panic($"stored-sequence-fail-{x}") }
+                x
+            })
+            local.count()
+        })
+        match work.join() {
+            .failed(info) => assert(info.message == "stored-sequence-fail-2"),
+            _ => panic("expected sequence callback failure"),
+        }
+        ok(())
+    })
     io.println("stored sequences: ok")?
     ok(())
 }
