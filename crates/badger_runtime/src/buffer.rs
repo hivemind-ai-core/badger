@@ -103,6 +103,12 @@ impl Items {
         if self.len == self.cap {
             self.reserve(self.cap.saturating_mul(2).max(4));
         }
+        self.push_reserved(w);
+    }
+    /// The caller has reserved room; publish only the initialized prefix.
+    #[inline]
+    fn push_reserved(&mut self, w: u64) {
+        debug_assert!(self.len < self.cap);
         unsafe { self.repr.store(self.ptr.add(self.len * self.repr.size() as usize), w) };
         self.len += 1;
     }
@@ -237,25 +243,41 @@ pub fn data<'a>(w: u64) -> &'a mut BufData {
 pub fn push(w: u64, value: u64) {
     let d = data(w);
     if d.frozen {
-        crate::task::panic_current("append to a frozen buffer".into(), crate::task::caller_location());
+        frozen_push();
     }
-    let (cap, len, repr) = (d.items.capacity(), d.items.len(), d.elem.repr());
-    if len == cap {
-        let r = gc::Roots::new();
-        r.add(w);
-        if repr == Repr::Ptr {
-            r.add(value);
-        }
-        let next = cap.saturating_mul(2).max(4);
-        // Inline bytes remain in the managed cell after growing; the whole
-        // new native capacity is additional pressure, not just its delta.
-        gc::budget_check(bytes(next, repr) - data(w).items.external_bytes());
-        data(w).items.reserve(next);
+    // Items' representation is fixed at construction, including Vec adoption
+    // and inline/native growth. Avoid re-decoding the descriptor per element.
+    let repr = d.items.repr;
+    if d.items.len == d.items.cap {
+        grow_for_push(w, value);
     }
-    data(w).items.push(value);
+    // Growth can collect, so reborrow metadata only after its roots/charge work.
+    data(w).items.push_reserved(value);
     if repr == Repr::Ptr {
         gc::barrier(w);
     }
+}
+
+#[cold]
+#[inline(never)]
+fn frozen_push() -> ! {
+    crate::task::panic_current("append to a frozen buffer".into(), crate::task::caller_location())
+}
+
+#[cold]
+#[inline(never)]
+fn grow_for_push(w: u64, value: u64) {
+    let r = gc::Roots::new();
+    r.add(w);
+    let repr = data(w).items.repr;
+    if repr == Repr::Ptr {
+        r.add(value);
+    }
+    let next = data(w).items.cap.saturating_mul(2).max(4);
+    // Inline bytes stay in the managed cell after growing; the whole new
+    // native capacity is additional pressure, not just its delta.
+    gc::budget_check(bytes(next, repr) - data(w).items.external_bytes());
+    data(w).items.reserve(next);
 }
 pub fn array_elem(d: &TypeDesc) -> Option<&'static TypeDesc> {
     match &d.kind {
@@ -381,8 +403,13 @@ mod tests {
             }
             let mut packed = vec![];
             for (name, kind) in [
+                ("Unit", Kind::Unit),
+                ("Bool", Kind::Bool),
+                ("I8", Kind::Int { bits: 8, signed: true }),
                 ("I16", Kind::Int { bits: 16, signed: true }),
+                ("I32", Kind::Int { bits: 32, signed: true }),
                 ("U32", Kind::Int { bits: 32, signed: false }),
+                ("I64", Kind::Int { bits: 64, signed: true }),
                 ("F32", Kind::Float { bits: 32 }),
                 ("F64", Kind::Float { bits: 64 }),
             ] {
@@ -390,7 +417,10 @@ mod tests {
                 let cap = (inline_bytes() / elem.repr().size() as usize).max(4);
                 let w = roots.add(new(elem, cap));
                 let mask = u64::MAX >> (64 - elem.repr().size() * 8);
-                let expected: Vec<_> = (0..cap).map(|i| [0, 1, u64::MAX, 0x7fc00001][i % 4] & mask).collect();
+                // Cross capacity in every representation, including packed
+                // float bits, so the cold growth path rejoins the same store.
+                let expected: Vec<_> =
+                    (0..cap + 5).map(|i| [0, 1, u64::MAX, 0x7fc00001][i % 4] & mask).collect();
                 for &word in &expected {
                     push(w, word);
                 }
