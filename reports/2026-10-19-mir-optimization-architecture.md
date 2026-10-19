@@ -1,8 +1,11 @@
 # Release MIR optimization and closure specialization
 
 Reviewed 2026-10-19 against `78cc5a4fbfe57750e2b2db2d2eb6d772da0555e3`.
-Status: current implementation findings and proposed architecture; this report
-does not implement compiler changes or claim measured performance improvements.
+Status: current implementation findings and proposed architecture. The
+runnable slices in "Optimization priorities" are implemented on
+`perf/mir-superopt-2026-10-19`; see [Implementation](#implementation) below
+for the pass list, controls, and structural checks. No timing or
+allocation-telemetry claim is made here.
 
 ## Recommendation
 
@@ -279,3 +282,144 @@ for name, (body, expected) in cases.items():
               "main finish sites:", main.count('name: "badger_rt_i_list_finish"'))
 print("Sources and MIR:", directory)
 ```
+
+## Implementation
+
+The release pipeline is now explicit in `badger_mir::opt`: a fixed,
+named pass order runs before the MIR is dumped or handed to code
+generation, and before it is saved by `badger compile`.
+
+| Level | Passes |
+| --- | --- |
+| no `--release` | none |
+| `--release` (default `release`) | inline, closure specialization, full scalar replacement, simplification, map/snapshot reuse, split receives, local option elision, enum scalarization, simplification, CSE, reachability pruning |
+| `--opt aggressive` | the above, then another inlining + scalar-replacement + simplification + CSE round |
+| `--opt superopt` | the above, then the verified superoptimizer and a final simplification round |
+
+`--opt superopt` is opt-in; plain `--release` remains the predictable
+pipeline. `BADGER_NO_PASS=name[,name...]` disables individual passes,
+`BADGER_DUMP_MIR_PASSES=1` prints the MIR after each pass,
+`BADGER_TIMINGS=1` reports pass counts, and `BADGER_NO_INLINE=1` keeps its
+historical meaning of skipping the whole release pipeline. `badger compile`
+records the level in the binary (`mir.opt`); running the file uses that MIR
+unchanged, and a higher level named at run time applies only the extra
+passes. The level therefore selects the same MIR for a source run, a dump,
+and a saved program.
+
+New transformations in `release`:
+
+- **Simplification** (`opt::simplify`): integer constant folding with the
+  same defect rules as codegen, arithmetic identities, constant/copy
+  propagation into dominated uses, dead-assignment elimination (checked
+  operations that may defect are never removed), constant-branch and switch
+  folding, unreachable-block clearing, empty-goto threading, and
+  single-predecessor block merging.
+- **CSE** (`opt::cse`): block-local reuse of identical pure computations.
+  Checked operations keep their defect location in the key; stores, calls,
+  polls, and reassigned operands invalidate affected entries.
+- **Closure specialization** (`opt::specialize`): a helper called with a
+  known closure is cloned once per (callee, argument position, lambda) and
+  calls through that closure become `Callee::Lambda` — a direct call that
+  still passes the closure as its environment. Non-capturing lambdas are
+  called with a null environment; when the clone no longer reads the
+  closure parameter it is dropped from the clone signature, after which the
+  caller's closure object has no non-store use and scalar replacement
+  removes it. Unknown or escaping callbacks are unchanged.
+
+Superoptimization (`opt::superopt`, `--opt superopt`) rewrites straight-line
+integer/boolean regions with exactly equivalent forms: power-of-two
+multiplication, unsigned division and remainder to shifts/masks, shift pairs
+to masks, wrapping `(x + c) - c` cancellation, comparison inversion, boolean
+comparison normalization, double negation, and canonical operand order for
+commutative operations. Boolean rewrites are additionally checked
+exhaustively over every assignment of their free boolean variables (≤16
+bits) before being applied; arithmetic rewrites are exact two's-complement
+identities at the operation width.
+
+Structural checks with a release-built CLI on the five closure probes from
+this report (same sources): every mode printed the expected output; all MIR
+bodies in `release` contained zero `callee: Closure` sites and zero `Alloc`
+sites in the entry function, matching the earlier optimized baseline. A
+helper padded past the inliner's size limit (90 statements) and called with
+a capturing lambda produced a `…apply_many#1.spec0` clone containing
+`callee: Lambda` and no indirect closure call; with a non-capturing lambda
+the closure allocation disappeared as well. A wrapping
+`wrapping_add(1).wrapping_sub(1)` probe kept its result and lost the
+`Sub` (and the `Add`) under `--opt superopt`, while `--release` kept it.
+Saving the same program with `compile --opt superopt` and running the file
+produced the same output and the same optimized MIR structure.
+
+Validation run: `cargo test -p badger_cli --release --test programs`
+(76 passed), plus `option_niche`, `scalar_enums`, `sequence_fusion`,
+`packed_arrays`, `adversarial`, `gc_retention`, and the new
+`mir_optimization` integration tests (3 passed). This is structural and
+behavioural validation, not a benchmark comparison.
+
+### Benchmark comparison
+
+Measured 2026-10-19 on the same host (AMD Ryzen 7 8745HS, 16 logical CPUs,
+Linux 7.2.2), with release binaries built from `main` at `d1dac09` and from
+this branch at `14c54af` (the branch includes a merge of `d1dac09`).
+Runs alternated between the two binaries in both orders; no CPU pinning or
+frequency isolation was imposed.
+
+- **Realworld suite** (`bench/realworld`, Badger only): six workloads,
+  workers 1 and 4 (workers are only exercised by messaging and pipeline),
+  three fresh processes per cell, two warmups plus five samples per process;
+  three alternating rounds per binary. Values below are the median of the
+  three per-run kernel medians, in milliseconds.
+
+| workload | workers | main | branch | delta |
+|---|---:|---:|---:|---:|
+| cpu | 1 | 49.38 | 49.24 | −0.3% |
+| json | 1 | 4.77 | 4.83 | +1.2% |
+| messaging | 1 | 0.92 | 0.93 | +1.6% |
+| messaging | 4 | 1.00 | 0.98 | −1.6% |
+| pipeline | 1 | 50.23 | 50.41 | +0.4% |
+| pipeline | 4 | 13.30 | 13.42 | +0.9% |
+| reconcile | 1 | 5.45 | 5.46 | +0.3% |
+| state | 1 | 1.12 | 1.18 | +4.8% |
+
+Startup/compilation in that suite increased by 8–15% (60–70 ms range),
+consistent with the added MIR passes. Peak RSS was within ±2% of main.
+
+- **Language microbenchmarks** (`bench/baseline.py`): every `bench/*.bdg`
+  program at 1/2/4/8 workers, two rounds of three fresh runs per binary.
+  Selected results (median run time in ms):
+
+| program | workers | main | branch | delta |
+|---|---:|---:|---:|---:|
+| runtime | 1 | 26.81 | 19.73 | −26.4% |
+| runtime | 2 | 27.17 | 19.45 | −28.4% |
+| runtime | 4 | 27.55 | 19.81 | −28.1% |
+| runtime | 8 | 28.63 | 21.10 | −26.3% |
+| records | 1 | 421.20 | 406.14 | −3.6% |
+| collections | 1 | 68.24 | 65.71 | −3.7% |
+| heap | 4 | 148.69 | 141.48 | −4.8% |
+| parallel | all | ±1% | unchanged | — |
+| parallel_alloc | 2 | 28.11 | 26.91 | −4.3% |
+| independent_channels | 4 | 2.86 | 2.39 | −16.4% |
+
+The per-operation `runtime.bdg` output explains the win: scalar calls
+1.51–1.65 ns → 1.07–1.28 ns (about −30%), call plus inner call 1.74–1.79 ns
+→ 1.10–1.19 ns (about −37%), and calls with four rooted pointers 1.62–1.73
+ns → 1.15–1.21 ns (about −31%). Recursion timing stayed within its
+run-to-run noise. The other microbenchmarks are mostly unchanged; a few
+high-worker cells vary by 5–10% in both directions, consistent with the
+unpinned host.
+
+- **Compile cost** (`badger compile`, median of six runs): small programs
+  +1–10%; `bench/runtime.bdg` 61.95 → 71.06 ms (+14.7%, of which 17.8 ms is
+  the MIR pipeline); generated programs of 200 and 800 functions 81.00 →
+  92.34 ms (+14.0%) and 262.46 → 312.44 ms (+19.0%, 104 ms MIR pipeline).
+  Binary MIR for `bench/records.bdg` shrank from 22,077 to 16,197 bytes.
+
+Interpretation: the release pipeline materially improves repeated direct
+calls in `runtime.bdg`, is neutral on the application-shaped realworld
+workloads, and costs a modest amount of compile/startup time. The realworld
+`state` kernel is 5% slower in this sample; the 1 ms kernel makes it the
+least stable cell, but the direction was reproduced across rounds and is not
+explained by a known transformation. No claim of Go/Java-competitive
+application performance follows from these numbers; the eager list-building
+pipelines and persistent-map snapshot work remain the larger structural
+costs.

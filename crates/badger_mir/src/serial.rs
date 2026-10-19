@@ -15,9 +15,11 @@ use crate::mir::*;
 
 const MAGIC: &[u8; 8] = b"LANGMIR1";
 /// Layout of the file format; files of another version are refused.
-// Format 6 uses Buffer metadata directly in the managed payload. Format 5
-// array loads dereference a separate metadata pointer and cannot run safely.
-const FORMAT: u32 = 6;
+// Format 7 adds the direct known-lambda call produced by closure
+// specialization. Format 6 uses Buffer metadata directly in the managed
+// payload; format 5 array loads dereference a separate metadata pointer and
+// cannot run safely.
+const FORMAT: u32 = 7;
 
 /// The toolchain that wrote a file must be the one that loads it: MIR and
 /// the runtime's ABI change together.
@@ -289,6 +291,11 @@ impl Enc<'_> {
             }
             Callee::Closure(o) => {
                 self.w.u8(1);
+                self.operand(o)?;
+            }
+            Callee::Lambda(f, o) => {
+                self.w.u8(5);
+                self.w.u32(f.raw());
                 self.operand(o)?;
             }
             Callee::Runtime(name) => {
@@ -857,6 +864,7 @@ impl Dec<'_> {
         Ok(match self.r.u8()? {
             0 => Callee::Direct(self.fid()?),
             1 => Callee::Closure(self.operand()?),
+            5 => Callee::Lambda(self.fid()?, self.operand()?),
             2 => {
                 let name = self.r.str()?;
                 Callee::Runtime(Box::leak(name.into_boxed_str()))
@@ -1205,6 +1213,7 @@ fn validate(prog: &Program) -> Result<(), String> {
                                         && match callee {
                                             Callee::Direct(fid) => fid_ok(*fid),
                                             Callee::Closure(o) => op_ok(o),
+                                            Callee::Lambda(fid, o) => fid_ok(*fid) && op_ok(o),
                                             Callee::Runtime(name) => {
                                                 badger_runtime::symbols().iter().any(|(n, _)| n == name)
                                             }

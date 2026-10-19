@@ -27,7 +27,7 @@ pub fn prune(prog: &mut Program) -> usize {
                     _,
                     Rvalue::FuncAddr(f)
                     | Rvalue::AdapterAddr(f)
-                    | Rvalue::Call { callee: Callee::Direct(f), .. },
+                    | Rvalue::Call { callee: Callee::Direct(f) | Callee::Lambda(f, _), .. },
                 ) = stmt
                 {
                     todo.push(*f);
@@ -63,7 +63,7 @@ pub fn prune(prog: &mut Program) -> usize {
                     _,
                     Rvalue::FuncAddr(f)
                     | Rvalue::AdapterAddr(f)
-                    | Rvalue::Call { callee: Callee::Direct(f), .. },
+                    | Rvalue::Call { callee: Callee::Direct(f) | Callee::Lambda(f, _), .. },
                 ) = stmt
                 {
                     remap(f);

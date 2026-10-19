@@ -79,12 +79,19 @@ program, in `crates/badger_driver/src/`:
   records that never leave a function out of the heap.
 - `layout.rs`: concrete layouts and the runtime type descriptors.
 - Optimized builds (`--release`, not under `--watch` or `--inspect`, not
-  with `BADGER_NO_INLINE`) then run, in order: `inline.rs` (small direct
-  callees and known closures, then scalar replacement again), `split.rs`
-  (channel receives whose result is only examined), `niche.rs` (local
-  options as nullable pointers), `enums.rs` (local enums as scalars), and
-  `reach.rs` (drop unreferenced functions). `verify.rs` checks MIR
-  invariants after them.
+  with `BADGER_NO_INLINE`) run the pipeline in `opt/`: `inline.rs` (small
+  direct callees and known closures, then scalar replacement again),
+  `opt/specialize.rs` (clone a helper called with a known closure, then
+  call the lambda directly), `opt/simplify.rs` (constant/copy propagation,
+  folding, dead definitions, branch folding, CFG cleanup), map/snapshot
+  reuse, `split.rs` (channel receives whose result is only examined),
+  `niche.rs` (local options as nullable pointers), `enums.rs` (local enums
+  as scalars), `opt/cse.rs` (common subexpressions), and `reach.rs` (drop
+  unreferenced functions). `--opt aggressive` adds another
+  inlining/simplification round; `--opt superopt` adds the verified
+  arithmetic/boolean superoptimizer. `BADGER_NO_PASS` disables named
+  passes, `BADGER_DUMP_MIR_PASSES=1` dumps after each pass, and
+  `verify.rs` checks MIR invariants at the end.
 - `roots.rs`: which pointer locals need a GC root slot.
 - `serial.rs`: binary MIR files (`badger compile`).
 

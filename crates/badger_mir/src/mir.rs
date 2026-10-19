@@ -141,13 +141,13 @@ pub enum Stmt {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Operand {
     Local(Local),
     Const(Const),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Const {
     Int(i64, Repr),
     F32(f32),
@@ -186,11 +186,15 @@ pub enum CmpOp {
     Ge,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Callee {
     Direct(FuncId),
     /// Call a closure object (code pointer at payload offset 0).
     Closure(Operand),
+    /// Call a known lambda directly, passing `env` as its closure object:
+    /// the same calling convention as `Closure`, without the code load and
+    /// indirect call (closure specialization produces it).
+    Lambda(FuncId, Operand),
     /// Core runtime function with a native signature.
     Runtime(&'static str),
     /// Standard-library intrinsic with the uniform ABI.
@@ -211,7 +215,7 @@ pub enum Callee {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Rvalue {
     Use(Operand),
     /// Arithmetic; integer operations are checked (defects carry `loc`).
@@ -306,8 +310,9 @@ impl Rvalue {
             Rvalue::Load { base, .. } => vec![*base],
             Rvalue::Call { callee, args, .. } => {
                 let mut v = args.clone();
-                if let Callee::Closure(c) = callee {
-                    v.push(*c);
+                match callee {
+                    Callee::Closure(c) | Callee::Lambda(_, c) => v.push(*c),
+                    _ => {}
                 }
                 v
             }
@@ -351,7 +356,7 @@ pub enum FfiArg {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     Goto(BlockId),
     Branch(Operand, BlockId, BlockId),

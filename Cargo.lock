@@ -207,6 +207,7 @@ version = "0.1.0"
 dependencies = [
  "badger_base",
  "badger_driver",
+ "badger_mir",
  "badger_native_demo",
  "badger_syntax",
  "clap",

@@ -693,7 +693,8 @@ impl FnCx<'_> {
             for s in &b.stmts {
                 if let Stmt::Assign(_, rv) = s {
                     match rv {
-                        Rvalue::Call { callee: Callee::Direct(t), .. } | Rvalue::FuncAddr(t) => {
+                        Rvalue::Call { callee: Callee::Direct(t) | Callee::Lambda(t, _), .. }
+                        | Rvalue::FuncAddr(t) => {
                             if !func_refs.contains_key(t) {
                                 let r = jit.module.declare_func_in_func(self.funcs[*t], &mut jit.ctx.func);
                                 func_refs.insert(*t, r);
@@ -1250,6 +1251,16 @@ impl FnCx<'_> {
                             }
                             _ => b.ins().call(funcs[fid], &cargs),
                         };
+                        b.inst_results(call)[0]
+                    }
+                    Callee::Lambda(fid, c) => {
+                        let clo = body.op(b, c);
+                        let target = &self.prog.funcs[*fid];
+                        let mut cargs = vec![body.ctx, clo];
+                        for (v, p) in vals.iter().zip(&target.params) {
+                            cargs.push(coerce(b, *v, cty(target.locals[*p].repr)));
+                        }
+                        let call = b.ins().call(funcs[fid], &cargs);
                         b.inst_results(call)[0]
                     }
                     Callee::Closure(c) => {

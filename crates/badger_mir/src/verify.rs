@@ -82,7 +82,7 @@ fn verify_func(prog: &Program, _fid: FuncId, f: &Func, out: &mut Vec<String>) {
                                     b.index()
                                 ));
                             }
-                            if let Callee::Direct(t) = callee
+                            if let Callee::Direct(t) | Callee::Lambda(t, _) = callee
                                 && let Some(g) = prog.funcs.get(*t)
                             {
                                 if g.ret != *ret {
@@ -197,7 +197,7 @@ pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
         Rvalue::Load { base, .. } => vec![base],
         Rvalue::Call { callee, args, .. } => {
             let mut v: Vec<&Operand> = args.iter().collect();
-            if let Callee::Closure(c) = callee {
+            if let Callee::Closure(c) | Callee::Lambda(_, c) = callee {
                 v.push(c);
             }
             v
