@@ -1309,6 +1309,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 self.inst = saved;
                 v
             }
+            // a value of type `Never` does not exist: code reading one
+            // (`diverge`'s parameter) is unreachable
+            ExprKind::Local(_) if self.is_never(&ty) => {
+                self.dead();
+                None
+            }
             ExprKind::Local(l) => match self.locals.get(&l).copied() {
                 // a `var` is read as its value now: an operand evaluated
                 // later may assign it before this one is used

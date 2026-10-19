@@ -1,0 +1,13 @@
+// `diverge` (Never to any type) compiles at every instantiation: a
+// `Never` value is unreachable code, not a value of the wrong size.
+import std.io
+pub fn main() -> Result<Unit, io.Error> {
+    let r: Result<Int, Never> = ok(3)
+    let v = match r { .ok(v) => v, .err(e) => diverge(e) }
+    let none: List<Never> = []
+    for x in none { let _: String = diverge(x) }
+    let o: Option<Never> = Option.none
+    let m: Option<Int> = o.map(diverge)
+    io.println($"{v} {m}")?
+    ok(())
+}
