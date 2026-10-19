@@ -1139,13 +1139,14 @@ impl Session {
             badger_mir::lower::set_observe(Default::default());
         }
         let entry_fn = entry_fn();
+        let level = opt_level(opts);
         let (mut prog, errors) = timed("lower", || {
             badger_mir::lower_program_optimized(
                 &checked.g,
                 &self.sources,
                 opts.tests,
                 &entry_fn,
-                opts.optimize
+                level >= badger_mir::opt::Level::Release
                     && !opts.watch
                     && opts.inspect.is_none()
                     && std::env::var_os("BADGER_NO_INLINE").is_none(),
@@ -1187,17 +1188,15 @@ impl Session {
             return Err(Outcome::Errors);
         }
         prog.workers = opts.workers.or(runtime_workers).unwrap_or(1).clamp(1, 64);
-        // optimized builds inline small helpers (not under live dispatch,
-        // where each function stays replaceable)
-        if opts.optimize && !prog.live && std::env::var_os("BADGER_NO_INLINE").is_none() {
-            timed("inline", || badger_mir::inline::inline(&mut prog));
-            timed("maps", || badger_mir::maps::reuse_private_maps(&mut prog));
-            timed("snapshots", || badger_mir::maps::reuse_snapshot_maps(&mut prog));
-            // receives whose result is only examined skip building it
-            timed("split", || badger_mir::split::split_receives(&mut prog));
-            timed("niche", || badger_mir::niche::elide_local_options(&mut prog));
-            timed("enums", || badger_mir::enums::scalarize(&mut prog));
-            timed("reach", || badger_mir::reach::prune(&mut prog));
+        // release MIR optimization (not under live dispatch, where each
+        // function stays replaceable); the dump below shows the result
+        if !prog.live && std::env::var_os("BADGER_NO_INLINE").is_none() {
+            let report = timed("optimize", || badger_mir::opt::optimize(&mut prog, level));
+            if std::env::var_os("BADGER_TIMINGS").is_some_and(|v| v == "1") {
+                for (name, n) in report {
+                    eprintln!("[timings] pass {name}: {n} changes");
+                }
+            }
             for e in badger_mir::verify::verify(&prog) {
                 self.diagnostics
                     .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
@@ -1250,6 +1249,7 @@ impl Session {
             config.into_iter().map(|(k, v, _)| (format!("config.{k}"), v)).collect();
         // the effective settings at compile time (manifest, profile, and
         // environment), with `--workers` deciding the saved worker count
+        meta.push(("mir.opt".to_string(), opt_level(opts).name().to_string()));
         meta.extend(settings.into_iter().map(|(k, v, _)| {
             let v = match (k.as_str(), opts.workers) {
                 ("workers", Some(w)) => w.to_string(),
@@ -1328,6 +1328,25 @@ impl Session {
             return Err(Outcome::Errors);
         }
         prog.workers = opts.workers.or(saved_workers).unwrap_or(1).clamp(1, 64);
+        // Saved MIR already carries the optimizations of the level it was
+        // compiled at; a higher requested level is applied now, so a binary
+        // run and a source run see the same MIR for the same level.
+        let saved = meta
+            .iter()
+            .find(|(k, _)| k == "mir.opt")
+            .and_then(|(_, v)| badger_mir::opt::Level::parse(v))
+            .unwrap_or(badger_mir::opt::Level::None);
+        let level = opt_level(opts);
+        if level > saved && !prog.live {
+            timed("optimize", || badger_mir::opt::optimize(&mut prog, level));
+            for e in badger_mir::verify::verify(&prog) {
+                self.diagnostics
+                    .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
+            }
+            if self.diagnostics.has_errors() {
+                return Err(Outcome::Errors);
+            }
+        }
         if opts.dump_mir {
             eprintln!("{}", badger_mir::mir::dump(&prog));
         }
@@ -1414,6 +1433,15 @@ fn apply_runtime_setting(k: &str, v: &str) {
     }
 }
 
+/// The MIR optimization level of a run: `--release` uses `release` unless
+/// `--opt` names another level; without `--release` the level is `none`.
+pub fn opt_level(opts: &RunOptions) -> badger_mir::opt::Level {
+    if !opts.optimize {
+        return badger_mir::opt::Level::None;
+    }
+    opts.opt.unwrap_or(badger_mir::opt::Level::Release)
+}
+
 /// `BADGER_TIMINGS=1`: report each compiler phase's duration on stderr
 /// (`[timings] typecheck: 12.345 ms`).
 pub fn timed<T>(phase: &str, f: impl FnOnce() -> T) -> T {
@@ -1430,6 +1458,9 @@ pub fn timed<T>(phase: &str, f: impl FnOnce() -> T) -> T {
 #[derive(Debug, Clone, Default)]
 pub struct RunOptions {
     pub optimize: bool,
+    /// MIR optimization level: `release` (default for `--release`), or the
+    /// named levels `aggressive` and `superopt` (`--opt superopt`).
+    pub opt: Option<badger_mir::opt::Level>,
     pub dump_mir: bool,
     pub tests: bool,
     /// Test name filter.

@@ -1,8 +1,11 @@
 # Release MIR optimization and closure specialization
 
 Reviewed 2026-10-19 against `78cc5a4fbfe57750e2b2db2d2eb6d772da0555e3`.
-Status: current implementation findings and proposed architecture; this report
-does not implement compiler changes or claim measured performance improvements.
+Status: current implementation findings and proposed architecture. The
+runnable slices in "Optimization priorities" are implemented on
+`perf/mir-superopt-2026-10-19`; see [Implementation](#implementation) below
+for the pass list, controls, and structural checks. No timing or
+allocation-telemetry claim is made here.
 
 ## Recommendation
 
@@ -279,3 +282,75 @@ for name, (body, expected) in cases.items():
               "main finish sites:", main.count('name: "badger_rt_i_list_finish"'))
 print("Sources and MIR:", directory)
 ```
+
+## Implementation
+
+The release pipeline is now explicit in `badger_mir::opt`: a fixed,
+named pass order runs before the MIR is dumped or handed to code
+generation, and before it is saved by `badger compile`.
+
+| Level | Passes |
+| --- | --- |
+| no `--release` | none |
+| `--release` (default `release`) | inline, closure specialization, full scalar replacement, simplification, map/snapshot reuse, split receives, local option elision, enum scalarization, simplification, CSE, reachability pruning |
+| `--opt aggressive` | the above, then another inlining + scalar-replacement + simplification + CSE round |
+| `--opt superopt` | the above, then the verified superoptimizer and a final simplification round |
+
+`--opt superopt` is opt-in; plain `--release` remains the predictable
+pipeline. `BADGER_NO_PASS=name[,name...]` disables individual passes,
+`BADGER_DUMP_MIR_PASSES=1` prints the MIR after each pass,
+`BADGER_TIMINGS=1` reports pass counts, and `BADGER_NO_INLINE=1` keeps its
+historical meaning of skipping the whole release pipeline. `badger compile`
+records the level in the binary (`mir.opt`); running the file uses that MIR
+unchanged, and a higher level named at run time applies only the extra
+passes. The level therefore selects the same MIR for a source run, a dump,
+and a saved program.
+
+New transformations in `release`:
+
+- **Simplification** (`opt::simplify`): integer constant folding with the
+  same defect rules as codegen, arithmetic identities, constant/copy
+  propagation into dominated uses, dead-assignment elimination (checked
+  operations that may defect are never removed), constant-branch and switch
+  folding, unreachable-block clearing, empty-goto threading, and
+  single-predecessor block merging.
+- **CSE** (`opt::cse`): block-local reuse of identical pure computations.
+  Checked operations keep their defect location in the key; stores, calls,
+  polls, and reassigned operands invalidate affected entries.
+- **Closure specialization** (`opt::specialize`): a helper called with a
+  known closure is cloned once per (callee, argument position, lambda) and
+  calls through that closure become `Callee::Lambda` — a direct call that
+  still passes the closure as its environment. Non-capturing lambdas are
+  called with a null environment; when the clone no longer reads the
+  closure parameter it is dropped from the clone signature, after which the
+  caller's closure object has no non-store use and scalar replacement
+  removes it. Unknown or escaping callbacks are unchanged.
+
+Superoptimization (`opt::superopt`, `--opt superopt`) rewrites straight-line
+integer/boolean regions with exactly equivalent forms: power-of-two
+multiplication, unsigned division and remainder to shifts/masks, shift pairs
+to masks, wrapping `(x + c) - c` cancellation, comparison inversion, boolean
+comparison normalization, double negation, and canonical operand order for
+commutative operations. Boolean rewrites are additionally checked
+exhaustively over every assignment of their free boolean variables (≤16
+bits) before being applied; arithmetic rewrites are exact two's-complement
+identities at the operation width.
+
+Structural checks with a release-built CLI on the five closure probes from
+this report (same sources): every mode printed the expected output; all MIR
+bodies in `release` contained zero `callee: Closure` sites and zero `Alloc`
+sites in the entry function, matching the earlier optimized baseline. A
+helper padded past the inliner's size limit (90 statements) and called with
+a capturing lambda produced a `…apply_many#1.spec0` clone containing
+`callee: Lambda` and no indirect closure call; with a non-capturing lambda
+the closure allocation disappeared as well. A wrapping
+`wrapping_add(1).wrapping_sub(1)` probe kept its result and lost the
+`Sub` (and the `Add`) under `--opt superopt`, while `--release` kept it.
+Saving the same program with `compile --opt superopt` and running the file
+produced the same output and the same optimized MIR structure.
+
+Validation run: `cargo test -p badger_cli --release --test programs`
+(76 passed), plus `option_niche`, `scalar_enums`, `sequence_fusion`,
+`packed_arrays`, `adversarial`, `gc_retention`, and the new
+`mir_optimization` integration tests (3 passed). This is structural and
+behavioural validation, not a benchmark comparison.

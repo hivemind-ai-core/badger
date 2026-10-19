@@ -46,6 +46,10 @@ enum Command {
         /// Worker threads to save as the default (`badger run --workers` still overrides).
         #[arg(long, value_name = "N")]
         workers: Option<usize>,
+        /// MIR optimization level: `release` (default), `aggressive`, or
+        /// `superopt`.
+        #[arg(long, value_name = "LEVEL")]
+        opt: Option<String>,
     },
     /// Write a self-contained release directory: the `badger` executable,
     /// the program as binary MIR, the native libraries it calls, and a
@@ -65,8 +69,12 @@ enum Command {
         /// Worker threads to save as the default.
         #[arg(long, value_name = "N")]
         workers: Option<usize>,
+        /// MIR optimization level: `release` (default), `aggressive`, or
+        /// `superopt`.
+        #[arg(long, value_name = "LEVEL")]
+        opt: Option<String>,
     },
-    /// Start a release written by `badger release`: its target, program, and
+    /// Write a self-contained release directory: its target, program, and
     /// native libraries (digests and ABI version) are checked before any
     /// program code runs.
     Start {
@@ -89,9 +97,14 @@ enum Command {
         /// Optimize generated code.
         #[arg(long)]
         release: bool,
-        /// Print MIR before code generation.
+        /// Print MIR before code generation (after MIR optimization).
         #[arg(long)]
         dump_mir: bool,
+        /// MIR optimization level with `--release`: `release` (default),
+        /// `aggressive` (repeat inlining and simplification), or `superopt`
+        /// (also search for cheaper arithmetic and boolean forms).
+        #[arg(long, value_name = "LEVEL", requires = "release")]
+        opt: Option<String>,
         /// Merge `[profile.NAME]` from `badger.toml` into the configuration.
         #[arg(long)]
         profile: Option<String>,
@@ -416,6 +429,18 @@ fn main() -> ExitCode {
     }
 }
 
+/// Parse `--opt` into a MIR level, reporting an unknown name.
+fn opt_level(opt: Option<String>) -> Option<Option<badger_mir::opt::Level>> {
+    match opt.as_deref().map(badger_mir::opt::Level::parse) {
+        None => Some(None),
+        Some(Some(level)) => Some(Some(level)),
+        Some(None) => {
+            eprintln!("error: --opt takes release, aggressive, or superopt");
+            None
+        }
+    }
+}
+
 /// Run one CLI command.
 fn command(mut cli: Cli) -> ExitCode {
     // a missing path means the current directory's project
@@ -430,6 +455,7 @@ fn command(mut cli: Cli) -> ExitCode {
             entry,
             release,
             dump_mir,
+            opt,
             profile,
             watch,
             inspect,
@@ -453,8 +479,10 @@ fn command(mut cli: Cli) -> ExitCode {
                     PathBuf::from(".")
                 }
             };
+            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
             let opts = badger_driver::RunOptions {
                 optimize: release,
+                opt,
                 dump_mir,
                 tests: false,
                 filter: None,
@@ -502,10 +530,14 @@ fn command(mut cli: Cli) -> ExitCode {
             };
             run_and_exit(&mut session, &path, args, &opts)
         }
-        Command::Compile { path, output, profile, workers } => {
+        Command::Compile { path, output, profile, workers, opt } => {
             // saved programs get the MIR optimizations of `run --release`
-            // (code generation then optimizes as `badger run` is told)
-            let opts = badger_driver::RunOptions { profile, workers, optimize: true, ..Default::default() };
+            // (code generation then optimizes as `badger run` is told); the
+            // level is recorded with the program, and a later run applies a
+            // higher requested level
+            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
+            let opts =
+                badger_driver::RunOptions { profile, workers, optimize: true, opt, ..Default::default() };
             match session.compile_binary(&path, &opts) {
                 Ok(bytes) => {
                     let out = output.unwrap_or_else(|| default_binary_name(&path));
@@ -523,8 +555,10 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Release { path, output, profile, workers } => {
-            let opts = badger_driver::RunOptions { profile, workers, optimize: true, ..Default::default() };
+        Command::Release { path, output, profile, workers, opt } => {
+            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
+            let opts =
+                badger_driver::RunOptions { profile, workers, optimize: true, opt, ..Default::default() };
             let out = output.unwrap_or_else(|| {
                 let stem = default_binary_name(&path);
                 PathBuf::from("release").join(stem.file_stem().unwrap_or_default())

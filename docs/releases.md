@@ -22,8 +22,9 @@ lib/badger/libM.so   native modules the program calls that are not linked into `
 ```
 
 The program is saved as `badger compile` saves it (with the MIR
-optimizations of `--release`), and starting it only generates code: a
-small program starts in tens of milliseconds. Configuration is the
+optimizations of `--release`, or the `--opt` level given to `badger
+release`), and starting it only generates code: a small program starts in
+tens of milliseconds. Configuration is the
 project's at release time (`--profile NAME` merges a profile, `--workers N`
 saves a worker count); `BADGER_<SETTING>` environment variables and
 `badger start --workers` still apply when it starts.

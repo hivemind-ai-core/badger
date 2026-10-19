@@ -155,7 +155,8 @@ An argument that looks like a path (contains `/`, or ends in `.bdg` or
 
 | Flag | Value | Meaning |
 |---|---|---|
-| `--release` | | Optimize: MIR inlining and related passes, and optimized code generation. |
+| `--release` | | Optimize: the release MIR pipeline and optimized code generation. |
+| `--opt LEVEL` | `release`, `aggressive`, `superopt` | With `--release`: select the MIR level. `release` is the default; `aggressive` repeats inlining and simplification; `superopt` also runs the verified arithmetic/boolean superoptimizer. The level is recorded when compiling binary MIR. |
 | `--workers N` | 1 to 64 | Worker threads that run tasks. Default: `[runtime] workers`, else 1. Out of range is error E0013. |
 | `--profile NAME` | | Merge `[profile.NAME]` into the configuration that `config.load` reads, and `[profile.NAME.runtime]` into the runtime settings. Needs a project directory. |
 | `--watch` | | Keep running; on a source change, recheck and replace compatible functions (new calls use new code). An incompatible change (a type definition, a function's type or effects) is rejected and the old version keeps running. |
@@ -164,7 +165,7 @@ An argument that looks like a path (contains `/`, or ends in `.bdg` or
 | `--record FILE` | | Write a reproduction bundle to FILE (see `badger replay`). Runs on one worker (`--workers` above 1 is refused, E0013). Not with `--watch` or `--inspect`. |
 | `--bench` | | After the program ends, report on stderr how long it ran, timed after all compilation. |
 | `--debug` | | Register debug information for generated code with a debugger (`gdb --args badger run --debug app.bdg`). See [debugging.md](../debugging.md). |
-| `--dump-mir` | | Print the program's MIR on stderr before code generation. |
+| `--dump-mir` | | Print the program's MIR on stderr before code generation, after MIR optimization (`BADGER_DUMP_MIR_PASSES=1` also prints it after each pass). |
 
 A binary MIR file runs as saved: `--watch`, `--inspect`, `--profile`, and
 `--record` are refused (E0013). `--workers`, `--release`, and
@@ -266,25 +267,26 @@ replay: reproduced the recorded outcome (exit 0)
 
 ## Compile and deploy
 
-### `badger compile [PATH] [-o FILE] [--profile NAME] [--workers N]`
+### `badger compile [PATH] [-o FILE] [--profile NAME] [--workers N] [--opt LEVEL]`
 
 Check a program and save it as binary MIR. `badger run FILE.bdgmir` then
-only generates code. The saved program has the MIR optimizations of
-`run --release`, and carries the effective configuration and runtime
-settings.
+only generates code. The saved program has the MIR optimizations of the
+selected level (`release` by default), and carries the effective
+configuration, runtime settings, and optimization level.
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `-o`, `--output FILE` | `NAME.bdgmir` | For a file `app.bdg`: `app.bdgmir` beside it. For a project directory: `DIR/PACKAGE.bdgmir`. |
 | `--profile NAME` | | Merge `[profile.NAME]` into the saved configuration. |
 | `--workers N` | | Worker count saved as the default (`badger run --workers` still overrides). |
+| `--opt LEVEL` | `release` | MIR level: `release`, `aggressive`, or `superopt`. A run at a higher level applies its extra passes to the loaded program. |
 
 ```sh
 $ badger compile
 wrote ./demo.bdgmir (14674 bytes)
 ```
 
-### `badger release [PATH] [-o DIR] [--profile NAME] [--workers N]`
+### `badger release [PATH] [-o DIR] [--profile NAME] [--workers N] [--opt LEVEL]`
 
 Write a self-contained release directory: the `badger` executable, the
 program as binary MIR, the native libraries it calls, the lockfile, and a
@@ -296,6 +298,7 @@ replaced only when the new one is complete. Details: [releases.md](../releases.m
 | `-o`, `--output DIR` | `release/PACKAGE` (relative to the current directory) | Release directory. |
 | `--profile NAME` | | Merge `[profile.NAME]` into the saved configuration. |
 | `--workers N` | | Worker count saved as the default. |
+| `--opt LEVEL` | `release` | MIR level saved with the program: `release`, `aggressive`, or `superopt`. |
 
 ```sh
 $ badger release

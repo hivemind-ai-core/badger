@@ -207,10 +207,15 @@ error. `badger_cli` is the `badger` binary.
   strings, symbols, static closures, nullary values, type-argument arrays)
   recorded by how they were made, as a constant pool; loading makes them
   anew and patches the program, so `badger run FILE.bdgmir` only generates
-  code. The file also carries the effective configuration and runtime
-  settings. Saved programs get the MIR optimizations of `run --release`
-  (inlining, split receives); `badger run FILE.bdgmir --release` then
-  optimizes code generation.
+  code. The file also carries the effective configuration, runtime
+  settings, and the MIR optimization level it was built with. Saved
+  programs run the release MIR pipeline at `badger compile` (inlining,
+  closure specialization, simplification, CSE, map/list/enum
+  representation passes, and reachability pruning; `--opt aggressive` or
+  `--opt superopt` select deeper levels). `badger run FILE.bdgmir` uses the
+  saved MIR unchanged, so the same level produces the same MIR and code
+  generation as a source run; a higher level requested at run time applies
+  its extra passes to the loaded program.
 
 - MIR is a CFG per function instance with typed representations (`I8..I64`,
   `F32/F64`, `Ptr`). Integer arithmetic, conversions, shifts, and indexing are
@@ -232,6 +237,16 @@ error. `badger_cli` is the `badger` binary.
   rooted), and no result object is allocated.
 - Self tail calls become loops. Module-level values are lazily initialized
   getters; function values referenced statically are immortal closures.
+- **Release MIR pipeline** (`badger_mir::opt`): a fixed, inspectable order
+  of named passes — inline, closure specialization, scalar replacement,
+  simplification, map/list/enum representation passes, CSE, a second
+  inlining/simplification round (`--opt aggressive`), and verified
+  superoptimization (`--opt superopt`) — followed by reachability pruning
+  and MIR verification. `--release` selects `release`; `--opt LEVEL`
+  (`release`, `aggressive`, `superopt`) selects a deeper level, and the
+  level is stored in binary MIR. `BADGER_NO_PASS=name[,name...]` disables
+  individual passes, `BADGER_DUMP_MIR_PASSES=1` dumps the MIR after each
+  one, and `BADGER_TIMINGS=1` reports pass counts.
 - Inlining (optimized builds without live dispatch; `badger_mir::inline`):
   small, non-recursive direct callees whose argument and result
   representations match are copied into their callers (two rounds, with a
@@ -242,6 +257,36 @@ error. `badger_cli` is the `badger` binary.
   callee given such a closure may be twice as large, so `map`, `filter`,
   and `fold` with a lambda become loops around its body; the closure's
   allocation goes when nothing else uses it. `BADGER_NO_INLINE=1` disables it.
+- Closure specialization (`badger_mir::opt::specialize`): a helper called
+  directly with a known closure — allocated in the caller and reached
+  through single-definition copies — is cloned (once per callee, argument,
+  and lambda) with calls through that closure rewritten to
+  `Callee::Lambda`: a direct call to the lambda that still passes the
+  closure environment. This removes indirect dispatch even when the helper
+  is too large to inline. A non-capturing lambda is called with a null
+  environment, and when the clone no longer reads the closure parameter it
+  is dropped from the clone's signature; the caller's closure object then
+  has no non-store use and scalar replacement eliminates it. Unknown,
+  escaping, or reassigned callbacks keep the original body.
+- Simplification (`badger_mir::opt::simplify`): constant folding of integer
+  arithmetic, comparisons, conversions, fits/overflow tests, and arithmetic
+  identities; constant and copy propagation into uses dominated by their
+  single definition; dead-assignment elimination (never a checked operation
+  that can defect); constant-branch and switch folding; unreachable-block
+  clearing; empty-goto threading and single-predecessor block merging.
+- CSE (`badger_mir::opt::cse`): within a block, identical pure computations
+  with unchanged operands read the earlier result. Checked operations keep
+  their source location in the key; stores, calls, polls, and reassigned
+  operands invalidate affected entries.
+- Superoptimization (`badger_mir::opt::superopt`, `--opt superopt`):
+  straight-line integer and boolean regions are rewritten by exactly
+  equivalent forms — power-of-two multiplication/unsigned division and
+  remainder become shifts and masks, shift pairs become masks, wrapping
+  add/sub cancellation, comparison inversion, comparison-to-boolean
+  normalization, double negation, and canonical operand order for
+  commutative operations. Boolean rewrites are checked exhaustively over
+  all assignments of their free boolean variables (at most 16 bits) before
+  they are applied.
 - Scalar replacement: an object used only through field loads and stores in
   its function (records, tuples, ranges — possibly through copies of the
   reference) is not heap-allocated; its fields become locals.
