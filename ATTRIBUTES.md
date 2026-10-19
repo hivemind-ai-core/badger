@@ -131,6 +131,50 @@ behind a registry first (no surface change), then re-point the registry at
 attributes once the surface exists. The data is the same, so the second step
 is mechanical.
 
+## Relationship to protocols and `derive`
+
+The compiler already changes behaviour by dispatching on **protocol impls**
+it finds for a type:
+
+- `From`: `?` converts the error (`Res::Try(Option<Target>)`; the checker
+  pushes `Constraint::ErrConv`), and `Target.from(value)` calls it;
+- `Display`: string interpolation;
+- `Error`: the `main` error report and `cause` chains;
+- `Eq`/`Hash`: map keys and set membership;
+- `Codec`: schemas; `Share`/`Transfer`/`Scoped`: capabilities.
+
+`derive(P)` is **not** a metadata channel. It is a *synthesis directive*:
+the compiler generates an impl of `P` for a type from the type’s shape
+(validated field-wise by `underivable`), and the generated impl then
+participates in resolution exactly like a hand-written one. So there are
+three mechanisms with distinct jobs:
+
+| Mechanism | Carries | How the compiler uses it | Example |
+|---|---|---|---|
+| protocol + impl | methods and types | resolution, dispatch, `dyn`, coherence | `From` for `?`; `Display` |
+| `derive(P)` | a synthesis request | generate an impl from a type’s shape | `derive(Eq)`, `derive(From)`, `derive(Error)` |
+| attribute (proposed) | non-semantic facts (a name and literal arguments) | read by a specific pass; no methods or types | `@fusion(stage, map)`, `@inline(always)` |
+
+**Decision: keep all three; unify the surface, not the semantics.**
+`derive(...)` may be re-expressed as one recognised attribute
+(e.g. `@derive(Eq)`), parsed by the same grammar and recorded in the same
+registry, with two kinds of consumer — **generators** that produce impls
+(the derive set) and **metadata** consumers that a pass reads (fusion,
+inlining). Keep `derive`’s generator semantics and its field-wise
+validation; do **not** try to express `From`/`Display`/`Hash` as
+attributes: they are typed, resolvable, usable with `dyn`, and
+implementable by hand, none of which attributes provide.
+
+A useful side effect of unifying: `derive` is currently matched by
+**protocol name string** (`env.rs:845-943`), so a user protocol named
+`Display` would take the `Display` branch. Resolving the attribute to the
+standard-library protocol’s def id fixes that.
+
+**Decision rule.** If the fact must be type-checked or resolved (a method,
+a type, `dyn`), it belongs in a protocol. If it is synthesised from a
+type’s shape, it belongs in `derive`. If it is a hint or a role that a
+specific pass reads, it belongs in an attribute.
+
 ## Minimal set to implement, if we do it now
 
 1. **Grammar/lexer**: `Tok::At`; parse `@word` with an optional
