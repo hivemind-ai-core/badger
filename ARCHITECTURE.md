@@ -254,20 +254,39 @@ error. `badger_cli` is the `badger` binary.
   to pass to a helper is not allocated. Calls through a closure whose
   lambda is known (allocated in the caller, reached through plain copies)
   are inlined too, with the closure as the lambda's environment, and a
-  callee given such a closure may be twice as large, so `map`, `filter`,
-  and `fold` with a lambda become loops around its body; the closure's
-  allocation goes when nothing else uses it. `BADGER_NO_INLINE=1` disables it.
+  callee given such a closure may be up to 96 statements (from 40), so
+  `map`, `filter`, and `fold` with a lambda become loops around its body;
+  the closure's allocation goes when nothing else uses it.
+  `BADGER_NO_INLINE=1` disables it.
 - Closure specialization (`badger_mir::opt::specialize`): a helper called
-  directly with a known closure — allocated in the caller and reached
-  through single-definition copies — is cloned (once per callee, argument,
-  and lambda) with calls through that closure rewritten to
-  `Callee::Lambda`: a direct call to the lambda that still passes the
-  closure environment. This removes indirect dispatch even when the helper
+  directly with known closures — allocated in the caller and reached
+  through single-definition copies — is cloned once per callee and set of
+  closure arguments (all of them in one clone), with calls through those
+  closures rewritten to `Callee::Lambda`: a direct call to the lambda that
+  still passes the closure environment. This removes indirect dispatch even when the helper
   is too large to inline. A non-capturing lambda is called with a null
   environment, and when the clone no longer reads the closure parameter it
   is dropped from the clone's signature; the caller's closure object then
   has no non-store use and scalar replacement eliminates it. Unknown,
   escaping, or reassigned callbacks keep the original body.
+- Eager list fusion (`crates/badger_mir/src/lower.rs`): `xs.filter(p).map(f)`
+  lowers to one `list.filter_then_map(xs,p,f)` traversal and
+  `xs.map(f).filter(p)` to `list.map_then_filter`. The fused loop interleaves
+  the stages, so it is used only when the *earlier* callback is side-effect
+  free and cannot fail (no calls, allocation, mutation, indexing, division,
+  checked arithmetic, or shift; field reads of concrete records and total
+  comparisons/bitwise operations qualify). Then its calls are unobservable
+  and the later stage's calls and failures still occur on the same elements
+  in the same order. No intermediate list is built. `BADGER_NO_LIST_FUSION=1`
+  keeps the two-pass form.
+- Map entry fusion (`crates/badger_mir/src/lower.rs`): `m.entries().map(f)`,
+  `.filter(p)`, and `.fold(init,f)` lower to `map.entries_map`,
+  `.entries_filter`, and `.entries_fold`, one trie walk with no intermediate
+  `List<(K,V)>`. Entry order is the same trie order used by `map_entries`.
+  `BADGER_NO_MAP_FUSION=1` keeps the two-pass form. Map iteration itself
+  stores the current node entry's address in the cursor; generated code
+  loads key and value directly from the trie node instead of copying both
+  into the cursor.
 - Simplification (`badger_mir::opt::simplify`): constant folding of integer
   arithmetic, comparisons, conversions, fits/overflow tests, and arithmetic
   identities; constant and copy propagation into uses dominated by their

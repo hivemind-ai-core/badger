@@ -69,6 +69,32 @@ fn contains<K, V>(m: Map<K, V>, key: K) -> Bool
 fn empty<K, V>() -> Map<K, V> where K: Hash
 ```
 
+### `entries_filter`
+
+```badger
+fn entries_filter<K, V>(m: Map<K, V>, keep: fn((K, V)) -> Bool) -> List<(K, V)>
+```
+
+One trie walk for `entries().filter(..)`.
+
+### `entries_fold`
+
+```badger
+fn entries_fold<K, V, A>(m: Map<K, V>, initial: A, f: fn(A, (K, V)) -> A) -> A
+```
+
+One trie walk for `entries().fold(..)`.
+
+### `entries_map`
+
+```badger
+fn entries_map<K, V, U>(m: Map<K, V>, f: fn((K, V)) -> U) -> List<U>
+```
+
+One trie walk for `entries().map(..)`: the compiler lowers that chain
+here, so no intermediate entry list is built. The callback receives the
+entry tuple.
+
 ### `filter`
 
 ```badger

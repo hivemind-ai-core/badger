@@ -137,8 +137,8 @@ fn rewrite_calls(body: &mut Func, closure: Local, lambda: FuncId, lambda_uses_en
             if let Stmt::Assign(_, Rvalue::Call { callee, ret, .. }) = s
                 && let Callee::Closure(Operand::Local(l)) = callee
                 && aliases.contains(l)
-                && *ret == body.ret
             {
+                let _ = ret;
                 // The lambda's environment is only needed when its body
                 // reads captures; a non-capturing lambda gets a null
                 // environment, letting the caller's closure die.
@@ -233,7 +233,7 @@ pub fn specialize(prog: &mut Program) -> usize {
         return 0;
     }
     let kinds: Vec<FuncKind> = prog.funcs.iter().map(|f| f.kind).collect();
-    let mut planted: FxHashMap<(FuncId, usize, FuncId), (FuncId, bool)> = FxHashMap::default();
+    let mut planted: FxHashMap<(FuncId, Vec<(usize, FuncId)>), (FuncId, Vec<usize>)> = FxHashMap::default();
     let originals = prog.funcs.len();
     for caller in 0..originals {
         let cid = FuncId::from_usize(caller);
@@ -241,25 +241,37 @@ pub fn specialize(prog: &mut Program) -> usize {
         if known.is_empty() {
             continue;
         }
-        let mut sites = vec![];
+        // One entry per call statement: a helper may receive several known
+        // closures (filter_then_map and fold variants do), and specializing
+        // only one of them would leave the others indirect.
+        let mut groups: Vec<(BlockId, usize, FuncId, Vec<(usize, FuncId)>)> = vec![];
         for (b, block) in prog.funcs[cid].blocks.iter_enumerated() {
             for (i, s) in block.stmts.iter().enumerate() {
                 let Stmt::Assign(_, Rvalue::Call { callee: Callee::Direct(t), args, .. }) = s else {
                     continue;
                 };
+                let mut clos = vec![];
                 for (k, a) in args.iter().enumerate() {
                     if let Operand::Local(l) = a
                         && let Some(lambda) = known.get(l).copied()
                     {
-                        sites.push((b, i, *t, k, lambda));
+                        clos.push((k, lambda));
                     }
+                }
+                if clos.is_empty() {
+                    continue;
+                }
+                match groups.iter_mut().find(|g| g.0 == b && g.1 == i && g.2 == *t) {
+                    Some(g) => g.3.extend(clos),
+                    None => groups.push((b, i, *t, clos)),
                 }
             }
         }
-        for (b, i, target, index, lambda) in sites {
-            let key = (target, index, lambda);
+        for (b, i, target, mut clos) in groups {
+            clos.sort_unstable_by_key(|(index, _)| *index);
+            let key = (target, clos.clone());
             let (clone, dropped) = match planted.get(&key) {
-                Some(&(id, dropped)) => (id, dropped),
+                Some((id, dropped)) => (*id, dropped.clone()),
                 None => {
                     if planted.len() >= MAX_CLONES {
                         continue;
@@ -268,33 +280,55 @@ pub fn specialize(prog: &mut Program) -> usize {
                     if target == cid || callee.is_global || callee.kind != FuncKind::Normal {
                         continue;
                     }
-                    let Some(&param) = callee.params.get(index) else { continue };
-                    if callee.locals[param].repr != Repr::Ptr {
+                    let mut body = clone_func(callee, format!("{}.spec{}", callee.name, clos.len()));
+                    let mut drop_params = vec![];
+                    let mut specialized = 0;
+                    for &(index, lambda) in &clos {
+                        let Some(&param) = callee.params.get(index) else { continue };
+                        if callee.locals[param].repr != Repr::Ptr {
+                            continue;
+                        }
+                        let lambda_uses_env = uses_env(&prog.funcs[lambda]);
+                        if rewrite_calls(&mut body, param, lambda, lambda_uses_env) == 0 {
+                            continue;
+                        }
+                        specialized += 1;
+                        if !lambda_uses_env && !local_used(&body, param) {
+                            drop_params.push(param);
+                        }
+                    }
+                    if specialized == 0 {
                         continue;
                     }
-                    let mut body = clone_func(callee, format!("{}.spec{index}", callee.name));
-                    let lambda_uses_env = uses_env(&prog.funcs[lambda]);
-                    if rewrite_calls(&mut body, param, lambda, lambda_uses_env) == 0 {
+                    if !drop_params.is_empty() {
+                        body.params.retain(|p| !drop_params.contains(p));
+                    }
+                    let Some(Stmt::Assign(_, Rvalue::Call { args, .. })) =
+                        prog.funcs[cid].blocks[b].stmts.get(i)
+                    else {
+                        continue;
+                    };
+                    if args.len() != body.params.len() + drop_params.len() {
                         continue;
                     }
-                    // Drop the closure parameter when nothing reads it and
-                    // the lambda ignores its environment: the caller's
-                    // closure object then has no non-store uses and scalar
-                    // replacement removes it.
-                    let drop_param = !lambda_uses_env && !local_used(&body, param);
-                    if drop_param {
-                        body.params.retain(|p| *p != param);
-                    }
+                    let dropped: Vec<usize> = clos
+                        .iter()
+                        .map(|(index, _)| *index)
+                        .filter(|index| callee.params.get(*index).is_some_and(|p| drop_params.contains(p)))
+                        .collect();
                     let id = prog.funcs.push(body);
-                    planted.insert(key, (id, drop_param));
-                    (id, drop_param)
+                    planted.insert(key, (id, dropped.clone()));
+                    (id, dropped)
                 }
             };
-            if let Stmt::Assign(_, Rvalue::Call { callee, args, .. }) =
-                &mut prog.funcs[cid].blocks[b].stmts[i]
-            {
-                *callee = Callee::Direct(clone);
-                if dropped && index < args.len() {
+            let Some(Stmt::Assign(_, Rvalue::Call { callee, args, .. })) =
+                prog.funcs[cid].blocks[b].stmts.get_mut(i)
+            else {
+                continue;
+            };
+            *callee = Callee::Direct(clone);
+            for index in dropped.into_iter().rev() {
+                if index < args.len() {
                     args.remove(index);
                 }
             }

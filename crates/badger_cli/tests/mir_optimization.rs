@@ -115,3 +115,94 @@ fn superopt_only_runs_when_requested_and_preserves_results() {
     assert!(!saved_mir.contains("op: Sub"), "saved MIR lost the superopt result:\n{saved_mir}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn eager_filter_then_map_is_one_pass_when_the_filter_is_pure() {
+    let dir = temp("eager-fusion");
+    let src = dir.join("fusion.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nimport std.list\npub fn main() -> Unit {\n    let xs = [1, 2, 3, 4, 5]\n    let ys = xs.filter(fn(x) { x < 4 }).map(fn(x) { x * 10 })\n    let _ = io.println($\"{ys}\")\n}\n",
+    )
+    .unwrap();
+    let (out, fused) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(out, "[10, 20, 30]\n");
+    let (ctrl_out, ctrl) = ok(lang()
+        .env("BADGER_NO_LIST_FUSION", "1")
+        .args(["run", "--release", "--dump-mir"])
+        .arg(&src)
+        .output()
+        .unwrap());
+    assert_eq!(ctrl_out, out);
+    let main = |mir: &str| mir.split("\nfn 1 ").next().unwrap_or("").to_string();
+    let builders = |mir: &str| main(mir).matches("list_builder").count();
+    assert!(
+        builders(&fused) < builders(&ctrl),
+        "fused {} builders, control {}:\n{fused}",
+        builders(&fused),
+        builders(&ctrl)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn an_effectful_filter_keeps_eager_order() {
+    let dir = temp("eager-order");
+    let src = dir.join("order.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nimport std.list\npub fn main() -> Unit {\n    let xs = [1, 2, 3]\n    let ys = xs.filter(fn(x) { let _ = io.println($\"f{x}\"); x < 3 }).map(fn(x) { let _ = io.println($\"m{x}\"); x * 10 })\n    let _ = io.println($\"{ys}\")\n}\n",
+    )
+    .unwrap();
+    let (out, _) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    assert_eq!(out, "f1\nf2\nf3\nm1\nm2\n[10, 20]\n");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_may_fail_filter_is_not_fused() {
+    let dir = temp("eager-rem");
+    let src = dir.join("rem.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nimport std.list\npub fn main() -> Unit {\n    let xs = [1, 2, 3, 4]\n    let ys = xs.filter(fn(x) { x % 2 == 0 }).map(fn(x) { x * 10 })\n    let _ = io.println($\"{ys}\")\n}\n",
+    )
+    .unwrap();
+    let (out, fused) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    let (ctrl_out, ctrl) = ok(lang()
+        .env("BADGER_NO_LIST_FUSION", "1")
+        .args(["run", "--release", "--dump-mir"])
+        .arg(&src)
+        .output()
+        .unwrap());
+    assert_eq!(out, ctrl_out);
+    let main = |mir: &str| mir.split("\nfn 1 ").next().unwrap_or("").to_string();
+    assert_eq!(
+        main(&fused).matches("list_builder").count(),
+        main(&ctrl).matches("list_builder").count(),
+        "a possibly failing filter must not be fused"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn map_entries_chains_do_not_build_entry_lists() {
+    let dir = temp("map-entries");
+    let src = dir.join("entries.bdg");
+    std::fs::write(
+        &src,
+        "import std.io\nimport std.map\nimport std.list\npub fn main() -> Unit {\n    let m = map.from_list([(1, 10), (2, 20), (3, 30)])\n    let xs = m.entries().map(fn((k, v)) { k + v })\n    let _ = io.println($\"{xs}\")\n    let total = m.entries().fold(0, fn(acc, (k, v)) { acc + k * v })\n    let _ = io.println($\"{total}\")\n}\n",
+    )
+    .unwrap();
+    let (out, fused) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
+    let (ctrl_out, ctrl) = ok(lang()
+        .env("BADGER_NO_MAP_FUSION", "1")
+        .args(["run", "--release", "--dump-mir"])
+        .arg(&src)
+        .output()
+        .unwrap());
+    assert_eq!(out, ctrl_out);
+    assert!(ctrl.matches("map_entries").count() >= 2, "control did not materialize entries:\n{ctrl}");
+    assert_eq!(fused.matches("map_entries").count(), 0, "fused MIR still builds entry lists:\n{fused}");
+    let _ = std::fs::remove_dir_all(dir);
+}

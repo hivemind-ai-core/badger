@@ -1442,6 +1442,25 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                         return Some(unit_op());
                     }
                 };
+                // `m.entries().map(..)` / `.filter(..)` / `.fold(..)` as
+                // one trie walk, with no intermediate entry list.
+                if let Target::Fn { def, args: targs } = &target {
+                    let (def, targs) = (*def, targs.clone());
+                    if let Some(v) = self.try_fused_map_entries(e, recv, &args, def, &targs, &ty, span) {
+                        return Some(v);
+                    }
+                }
+                // `map(filter(xs,p), f)` / `filter(map(xs,f), p)` as one
+                // traversal, when the earlier callback cannot be observed
+                // or fail (see `try_fused_list_map`).
+                if args.len() == 1
+                    && let Target::Fn { def, args: targs } = &target
+                {
+                    let (def, targs) = (*def, targs.clone());
+                    if let Some(v) = self.try_fused_list_map(e, recv, args[0], def, &targs, &ty, span) {
+                        return Some(v);
+                    }
+                }
                 let r = self.lower(recv)?;
                 let rt = self.ty(recv);
                 let mut ops = vec![r];
@@ -2297,6 +2316,228 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         self.assign(Repr::I64, Rvalue::ToWord(v))
     }
 
+    /// The map expression of `m.entries()` / `m.to_list()`.
+    fn map_entries_source(&self, e: ExprId) -> Option<ExprId> {
+        let hir = self.hir();
+        let is_entries = |def: DefId| {
+            let p = self.m.def_path(def);
+            p == "std.map.entries" || p == "std.map.to_list"
+        };
+        match &hir.exprs[e].kind {
+            ExprKind::MethodCall { recv, args, .. } if args.is_empty() => {
+                let Res::Method(Target::Fn { def, .. }) = self.inst.res.get(&e)? else { return None };
+                is_entries(*def).then_some(*recv)
+            }
+            ExprKind::Call { callee, args } if args.len() == 1 => {
+                let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
+                is_entries(*def).then_some(args[0])
+            }
+            _ => None,
+        }
+    }
+
+    /// Lower `m.entries().map/filter/fold(..)` as one trie walk in the
+    /// corresponding std helper. The result is not materialized as a list
+    /// of tuples on the way; the callback order (trie order) is unchanged.
+    #[allow(clippy::too_many_arguments)]
+    fn try_fused_map_entries(
+        &mut self,
+        e: ExprId,
+        recv: ExprId,
+        args: &[ExprId],
+        outer: DefId,
+        _outer_targs: &[Ty],
+        ret_ty: &Ty,
+        span: Span,
+    ) -> Option<Operand> {
+        if std::env::var_os("BADGER_NO_MAP_FUSION").is_some() {
+            return None;
+        }
+        let source = self.map_entries_source(recv)?;
+        let kind = if self.is_list_stage_def(outer, "map") && args.len() == 1 {
+            0
+        } else if self.is_list_stage_def(outer, "filter") && args.len() == 1 {
+            1
+        } else if self.is_list_stage_def(outer, "fold") && args.len() == 2 {
+            2
+        } else {
+            return None;
+        };
+        let map_ty = self.ty(source);
+        let kv = self.m.lay.args(&map_ty);
+        if kv.len() != 2 {
+            return None;
+        }
+        let (new_name, targs) = match kind {
+            0 => {
+                let out = self.ty(e);
+                let u = self.m.lay.args(&out);
+                if u.len() != 1 {
+                    return None;
+                }
+                ("map.entries_map", vec![kv[0].clone(), kv[1].clone(), u[0].clone()])
+            }
+            1 => ("map.entries_filter", vec![kv[0].clone(), kv[1].clone()]),
+            _ => {
+                let a = self.ty(args[0]);
+                ("map.entries_fold", vec![kv[0].clone(), kv[1].clone(), a])
+            }
+        };
+        let new_def = self.hir().try_lang(new_name)?;
+        let m = self.lower(source)?;
+        let mut ops = vec![m];
+        for a in args {
+            ops.push(self.lower(*a)?);
+        }
+        self.call_def(new_def, targs, ops, ret_ty, span)
+    }
+
+    fn is_list_stage_def(&self, def: DefId, name: &str) -> bool {
+        self.m.def_path(def) == format!("std.list.{name}")
+    }
+
+    /// One `List.map`/`List.filter` stage: (is map, receiver, callback,
+    /// type arguments), for method and free-call forms.
+    fn list_stage(&self, e: ExprId) -> Option<(bool, ExprId, ExprId, Vec<Ty>)> {
+        let hir = self.hir();
+        match &hir.exprs[e].kind {
+            ExprKind::MethodCall { recv, args, .. } if args.len() == 1 => {
+                let Res::Method(Target::Fn { def, args: targs }) = self.inst.res.get(&e)? else {
+                    return None;
+                };
+                let is_map = self.is_list_stage_def(*def, "map");
+                let is_filter = self.is_list_stage_def(*def, "filter");
+                (is_map || is_filter).then(|| (is_map, *recv, args[0], targs.clone()))
+            }
+            ExprKind::Call { callee, args } if args.len() == 2 => {
+                let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
+                let is_map = self.is_list_stage_def(*def, "map");
+                let is_filter = self.is_list_stage_def(*def, "filter");
+                if !(is_map || is_filter) {
+                    return None;
+                }
+                let targs = match self.inst.res.get(callee) {
+                    Some(Res::Callee { args, .. }) => args.clone(),
+                    _ => vec![],
+                };
+                Some((is_map, args[0], args[1], targs))
+            }
+            _ => None,
+        }
+    }
+
+    /// Lower `map(filter(xs,p), f)` as `filter_then_map(xs,p,f)` (and the
+    /// mirrored `filter(map(xs,f), p)` as `map_then_filter`). The fused
+    /// loop interleaves the stages, so it is used only when the earlier
+    /// callback is side-effect free and cannot fail: then its calls are
+    /// unobservable and the later callback's calls and failures still occur
+    /// on the same elements in the same order. `p` may be a lambda or a
+    /// named function; anything else keeps the two-pass form.
+    #[allow(clippy::too_many_arguments)]
+    fn try_fused_list_map(
+        &mut self,
+        _e: ExprId,
+        recv: ExprId,
+        callback: ExprId,
+        outer: DefId,
+        outer_targs: &[Ty],
+        ret_ty: &Ty,
+        span: Span,
+    ) -> Option<Operand> {
+        if std::env::var_os("BADGER_NO_LIST_FUSION").is_some() {
+            return None;
+        }
+        let (inner_is_map, inner_recv, earlier, inner_targs) = self.list_stage(recv)?;
+        let (new_name, targs) = if self.is_list_stage_def(outer, "map") && !inner_is_map {
+            ("list.filter_then_map", outer_targs.to_vec())
+        } else if self.is_list_stage_def(outer, "filter") && inner_is_map {
+            ("list.map_then_filter", inner_targs.clone())
+        } else {
+            return None;
+        };
+        if !self.callback_pure_infallible(earlier) {
+            return None;
+        }
+        let new_def = self.hir().try_lang(new_name)?;
+        let xs = self.lower(inner_recv)?;
+        let early = self.lower(earlier)?;
+        let late = self.lower(callback)?;
+        self.call_def(new_def, targs, vec![xs, early, late], ret_ty, span)
+    }
+
+    /// A lambda whose body has no calls, allocation, mutation, or operation
+    /// that can defect. Reads of concrete record/struct fields and total
+    /// comparisons/bitwise operations qualify.
+    fn callback_pure_infallible(&self, cb: ExprId) -> bool {
+        let ExprKind::Lambda(l) = &self.hir().exprs[cb].kind else { return false };
+        self.pure_expr(l.body, 0)
+    }
+
+    fn pure_expr(&self, e: ExprId, depth: usize) -> bool {
+        if depth > 32 {
+            return false;
+        }
+        let hir = self.hir();
+        match &hir.exprs[e].kind {
+            ExprKind::Lit(_) | ExprKind::Local(_) => true,
+            ExprKind::Def { def, .. } => matches!(hir.defs[*def].kind, DefKind::Fn(_)),
+            ExprKind::Field { base, .. } => {
+                let base_ty = self.ty(*base);
+                let record = match &*base_ty {
+                    TyKind::Con(d, _) => self.m.g.env.structs.contains_key(d),
+                    TyKind::Record(_) => true,
+                    TyKind::Ref(_, inner) | TyKind::Forall(_, inner) => match &**inner {
+                        TyKind::Con(d, _) => self.m.g.env.structs.contains_key(d),
+                        TyKind::Record(_) => true,
+                        _ => false,
+                    },
+                    _ => false,
+                };
+                record && self.pure_expr(*base, depth + 1)
+            }
+            ExprKind::Unary { op, operand } => {
+                matches!(op, UnOp::Not | UnOp::Ref | UnOp::RefMut) && self.pure_expr(*operand, depth + 1)
+            }
+            ExprKind::Binary { op, lhs, rhs } => {
+                matches!(
+                    op,
+                    HBin::Eq
+                        | HBin::Ne
+                        | HBin::Lt
+                        | HBin::Le
+                        | HBin::Gt
+                        | HBin::Ge
+                        | HBin::And
+                        | HBin::Or
+                        | HBin::BitOr
+                        | HBin::BitXor
+                        | HBin::BitAnd
+                ) && self.pure_expr(*lhs, depth + 1)
+                    && self.pure_expr(*rhs, depth + 1)
+            }
+            ExprKind::If { cond, then, els } => {
+                self.pure_expr(*cond, depth + 1)
+                    && self.pure_expr(*then, depth + 1)
+                    && els.is_none_or(|e| self.pure_expr(e, depth + 1))
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                self.pure_expr(*scrutinee, depth + 1)
+                    && arms.iter().all(|a| {
+                        a.guard.is_none_or(|g| self.pure_expr(g, depth + 1))
+                            && self.pure_expr(a.body, depth + 1)
+                    })
+            }
+            ExprKind::Block { stmts, tail } => {
+                stmts.iter().all(|s| match s {
+                    badger_hir::Stmt::Let { init, .. } => self.pure_expr(*init, depth + 1),
+                    badger_hir::Stmt::Assign { value, .. } => self.pure_expr(*value, depth + 1),
+                    badger_hir::Stmt::Expr { expr, .. } => self.pure_expr(*expr, depth + 1),
+                }) && tail.is_none_or(|t| self.pure_expr(t, depth + 1))
+            }
+            _ => false,
+        }
+    }
+
     fn lower_call(&mut self, e: ExprId, callee: ExprId, args: &[ExprId], ty: &Ty) -> Option<Operand> {
         let hir = self.hir();
         let span = self.span(e);
@@ -2306,6 +2547,16 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     Some(Res::Callee { args, .. }) => args.clone(),
                     _ => vec![],
                 };
+                if let Some(&first) = args.first()
+                    && let Some(v) = self.try_fused_map_entries(e, first, args, *def, &targs, ty, span)
+                {
+                    return Some(v);
+                }
+                if args.len() == 2
+                    && let Some(v) = self.try_fused_list_map(e, args[0], args[1], *def, &targs, ty, span)
+                {
+                    return Some(v);
+                }
                 let mut ops = vec![];
                 for a in args {
                     ops.push(self.lower(*a)?);
@@ -3006,12 +3257,17 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let word = |s: &mut Self, offset: i32| {
                     s.assign(Repr::I64, Rvalue::Load { base: Operand::Local(cur), offset, repr: Repr::I64 })
                 };
-                let kw = word(self, badger_runtime::hamt::CURSOR_KEY);
+                let entry = word(self, badger_runtime::hamt::CURSOR_ENTRY);
+                let entry = Operand::Local(self.copy_to_local(entry, Repr::I64, None));
+                // entry points at the node's (hash, key, value) triple;
+                // `Load` adds the object header, so key is at -8 and value
+                // at 0
+                let kw = self.assign(Repr::I64, Rvalue::Load { base: entry, offset: -8, repr: Repr::I64 });
                 let k = self.from_word(kw, &args[0]);
                 if kind == IterKind::Set {
                     self.bind_irrefutable(pat, k, &item_ty);
                 } else {
-                    let vw = word(self, badger_runtime::hamt::CURSOR_VAL);
+                    let vw = self.assign(Repr::I64, Rvalue::Load { base: entry, offset: 0, repr: Repr::I64 });
                     let v = self.from_word(vw, &args[1]);
                     match self.hir().pats[pat].kind.clone() {
                         PatKind::Tuple(ps) if ps.len() == 2 => {

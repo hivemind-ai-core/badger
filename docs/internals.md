@@ -78,6 +78,10 @@ program, in `crates/badger_driver/src/`:
   ranges and lists into one loop; `sra.rs` (scalar replacement) keeps
   records that never leave a function out of the heap.
 - `layout.rs`: concrete layouts and the runtime type descriptors.
+- Eager list and map chains are lowered as one traversal before code
+  generation: `filter(..).map(..)` / `map(..).filter(..)` when the earlier
+  callback is pure and infallible (`BADGER_NO_LIST_FUSION=1` disables), and
+  `Map.entries().map/filter/fold` (`BADGER_NO_MAP_FUSION=1` disables).
 - Optimized builds (`--release`, not under `--watch` or `--inspect`, not
   with `BADGER_NO_INLINE`) run the pipeline in `opt/`: `inline.rs` (small
   direct callees and known closures, then scalar replacement again),

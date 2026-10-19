@@ -557,9 +557,11 @@ fn remove_at(w: u64, hash: u64, key: u64, shift: u32, eq: &dyn Fn(u64, u64) -> b
 /// ```
 ///
 /// where a position counts a node's entries, then its children. The
-/// current key and value sit at fixed offsets ([`CURSOR_KEY`],
-/// [`CURSOR_VAL`]) for generated code to load after [`cursor_next`].
-pub const CURSOR_KEY: i32 = 0;
+/// current entry address sits at [`CURSOR_ENTRY`] for generated code to
+/// load the key and value from after [`cursor_next`] (the trie nodes are
+/// rooted by the cursor, so the interior address needs no root of its own).
+pub const CURSOR_ENTRY: i32 = 0;
+/// Kept for the cursor payload layout (unused by new code).
 pub const CURSOR_VAL: i32 = 8;
 /// Trie levels: 64 hash bits in 5-bit chunks (13), then a collision bucket.
 const MAX_DEPTH: usize = 14;
@@ -579,7 +581,10 @@ fn trace_cursor(o: *mut Header, f: &mut dyn FnMut(u64)) {
     let flags = unsafe { *(p.add(16) as *const u32) };
     let depth = unsafe { *(p.add(20) as *const u32) } as usize;
     if flags & KEY_PTR != 0 {
-        f(w(CURSOR_KEY as usize));
+        // CURSOR_ENTRY is an interior pointer into a node rooted below;
+        // tracing it as an object would be wrong. The node's own trace
+        // covers the entry's key and value.
+        let _ = w(CURSOR_ENTRY as usize);
     }
     if flags & VAL_PTR != 0 {
         f(w(CURSOR_VAL as usize));
@@ -610,8 +615,8 @@ pub fn cursor(root: u64, flags: u32) -> u64 {
     c
 }
 
-/// Advance cursor `c` to the next entry: 1 when there is one (its key and
-/// value are then at [`CURSOR_KEY`] and [`CURSOR_VAL`]), 0 at the end.
+/// Advance cursor `c` to the next entry: 1 when there is one (its node
+/// entry address is then at [`CURSOR_ENTRY`]), 0 at the end.
 /// Allocates nothing.
 pub fn cursor_next(c: u64) -> u64 {
     unsafe {
@@ -629,10 +634,12 @@ pub fn cursor_next(c: u64) -> u64 {
             let n = Node::of(node);
             let (ne, nc) = (n.entries() as u64, n.children() as u64);
             if *pos < ne {
-                let e = n.entry(*pos as usize);
+                let i = *pos as usize;
                 *pos += 1;
-                *(p as *mut u64) = e.key;
-                *(p.add(8) as *mut u64) = e.val;
+                // generated code adds the object header again when
+                // loading, so key is at offset -8 from the header the load
+                // adds and value at offset 0
+                *(p as *mut u64) = n.0.add(HDR + i * 24) as u64;
                 return 1;
             }
             if *pos < ne + nc {

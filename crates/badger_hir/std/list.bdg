@@ -183,6 +183,33 @@ pub fn filter<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T> {
     list_finish(b)
 }
 
+/// One pass for `filter(..).map(..)`: the compiler uses it when the filter
+/// callback is side-effect free and cannot fail, so the eager and fused
+/// callback orders are indistinguishable. `list` is walked once and no
+/// intermediate list is built.
+pub fn filter_then_map<T, U>(list: List<T>, keep: fn(T) -> Bool, f: fn(T) -> U) -> List<U> {
+    let b = list_builder()
+    for x in list {
+        if keep(x) {
+            list_builder_append(b, f(x))
+        }
+    }
+    list_finish(b)
+}
+
+/// One pass for `map(..).filter(..)`: the compiler uses it when the map
+/// callback is side-effect free and cannot fail.
+pub fn map_then_filter<T, U>(list: List<T>, f: fn(T) -> U, keep: fn(U) -> Bool) -> List<U> {
+    let b = list_builder()
+    for x in list {
+        let y = f(x)
+        if keep(y) {
+            list_builder_append(b, y)
+        }
+    }
+    list_finish(b)
+}
+
 pub fn fold<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> A {
     var acc = initial
     for x in list {

@@ -26,7 +26,7 @@ use crate::mir::*;
 use rustc_hash::FxHashMap;
 
 const MAX_CALLEE: usize = 40;
-const MAX_HIGHER_ORDER: usize = 80;
+const MAX_HIGHER_ORDER: usize = 96;
 const MAX_CALLER: usize = 4000;
 const ROUNDS: usize = 2;
 

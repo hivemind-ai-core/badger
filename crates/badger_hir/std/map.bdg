@@ -59,6 +59,37 @@ pub fn len<K, V>(m: Map<K, V>) -> Int { map_len(m) }
 /// Entries in unspecified order.
 pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map_entries(m) }
 
+/// One trie walk for `entries().map(..)`: the compiler lowers that chain
+/// here, so no intermediate entry list is built. The callback receives the
+/// entry tuple.
+pub fn entries_map<K, V, U>(m: Map<K, V>, f: fn((K, V)) -> U) -> List<U> {
+    let b = list.builder<U>()
+    for (k, v) in m {
+        b.append(f((k, v)))
+    }
+    b.finish()
+}
+
+/// One trie walk for `entries().filter(..)`.
+pub fn entries_filter<K, V>(m: Map<K, V>, keep: fn((K, V)) -> Bool) -> List<(K, V)> {
+    let b = list.builder<(K, V)>()
+    for (k, v) in m {
+        if keep((k, v)) {
+            b.append((k, v))
+        }
+    }
+    b.finish()
+}
+
+/// One trie walk for `entries().fold(..)`.
+pub fn entries_fold<K, V, A>(m: Map<K, V>, initial: A, f: fn(A, (K, V)) -> A) -> A {
+    var acc = initial
+    for (k, v) in m {
+        acc = f(acc, (k, v))
+    }
+    acc
+}
+
 /// The keys, in the map's (unspecified but stable) entry order.
 pub fn keys<K, V>(m: Map<K, V>) -> List<K> {
     let out = list.builder<K>()

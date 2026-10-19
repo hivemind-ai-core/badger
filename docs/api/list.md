@@ -131,6 +131,17 @@ fn filter_map<T, U>(list: List<T>, f: fn(T) -> Option<U>) -> List<U>
 
 `f`'s values, skipping the items it maps to `none`.
 
+### `filter_then_map`
+
+```badger
+fn filter_then_map<T, U>(list: List<T>, keep: fn(T) -> Bool, f: fn(T) -> U) -> List<U>
+```
+
+One pass for `filter(..).map(..)`: the compiler uses it when the filter
+callback is side-effect free and cannot fail, so the eager and fused
+callback orders are indistinguishable. `list` is walked once and no
+intermediate list is built.
+
 ### `find`
 
 ```badger
@@ -180,6 +191,15 @@ fn len<T>(list: List<T>) -> Int
 ```badger
 fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U>
 ```
+
+### `map_then_filter`
+
+```badger
+fn map_then_filter<T, U>(list: List<T>, f: fn(T) -> U, keep: fn(U) -> Bool) -> List<U>
+```
+
+One pass for `map(..).filter(..)`: the compiler uses it when the map
+callback is side-effect free and cannot fail.
 
 ### `max_by`
 
@@ -294,6 +314,10 @@ fn sort_with<T>(list: List<T>, compare: fn(T, T) -> Int) -> List<T>
 
 Sorted by `compare` (negative: the first argument goes first; 0:
 equal), stably. A bottom-up merge sort: O(n log n) comparisons.
+
+Each pass merges into one contiguous buffer (`push` per element) and
+freezes it into an array for the next pass, instead of rebuilding a paged
+list every pass. Reads are direct array indexing.
 
 ### `sum`
 
