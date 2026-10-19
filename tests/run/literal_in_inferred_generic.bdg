@@ -1,0 +1,20 @@
+// Literals in inferred generic bodies take the type of each instantiation
+// (and an instantiation they do not fit is rejected, see
+// tests/reject/literal_in_inferred_generic.bdg).
+import std.io
+
+fn addhalf(x) { x + 0.5 }
+
+fn add300(x) { x + 300 }
+
+fn half(x) {
+    match x {
+        0.5 => 1,
+        _ => 0,
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{addhalf(2.0)} {addhalf(1F32)} {add300(1)} {add300(1I16)} {half(0.5)} {half(2)}")?
+    ok(())
+}

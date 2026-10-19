@@ -2093,8 +2093,15 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
         let gty = generalize(&ty, icx, &mut var_idx, &mut n);
         // constraints mentioning generalized variables belong to the scheme
         let mut cs = vec![];
-        if generalizable {
+        // until no more are captured: capturing one constraint can quantify
+        // a variable (a literal's type) that an earlier one mentions
+        let mut taken = vec![false; group_pending.len()];
+        while generalizable && taken.iter().any(|t| !t) {
+            let before = cs.len();
             for (ci, c) in group_pending.iter().enumerate() {
+                if taken[ci] {
+                    continue;
+                }
                 let mut mentions = false;
                 for t in c.types() {
                     let mut fv = vec![];
@@ -2109,9 +2116,13 @@ fn check_group(inf: &mut Infer<'_, '_>, defs: &[DefId], declared: &FxHashSet<Def
                 }
                 if mentions {
                     used[ci] = true;
+                    taken[ci] = true;
                     let c2 = c.map_types(&mut |t| generalize(t, icx, &mut var_idx, &mut n));
                     cs.push(c2);
                 }
+            }
+            if cs.len() == before {
+                break;
             }
         }
         // node outputs left to this definition's generics are fixed by its

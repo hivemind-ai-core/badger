@@ -1,0 +1,8 @@
+// expect-error: E0338
+// A literal in an inferred generic body is checked at each instantiation:
+// `300` does not fit the `U8` that `add300(1U8)` makes `x`.
+fn add300(x) { x + 300 }
+
+pub fn main() {
+    let z = add300(1U8)
+}
