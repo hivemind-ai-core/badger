@@ -9,23 +9,25 @@ collector (worked on in parallel).
 Schema-directed JSON **decoding no longer builds a `serde_json::Value` tree**.
 `codec::decode` now streams the text into the target value with a
 descriptor-driven parser (`badger_runtime::json`), and the encoder writes
-integers without `core::fmt`, quotes strings with a byte scan, and reserves
-its output buffer. On the realworld `json` workload (parse, enrich, serialize,
-parse; 400,000 lines) the run time fell **42.5%** (minimum) and **40.3%**
-(median) over 21 paired samples. Decode and encode microbenchmarks fell
-**49.3%** and **38.9%**.
+integers without `core::fmt`, quotes strings with a byte scan, checks wire
+naming once per record, and reserves its output buffer. On the realworld
+`json` workload (parse, enrich, serialize, parse; 400,000 lines) the run time
+fell **49.1%** (minimum) and **46.3%** (median) over 21 paired samples.
+Decode and encode microbenchmarks fell **58.6%** and **39.2%**.
 
 | Measurement (1 worker) | Before | After | Change |
 |---|---:|---:|---:|
-| `codec.decode_text<Order>` | 475 ns/op | 241 ns/op | −49.3% |
-| `codec.encode_text(Order)` | 262 ns/op | 160 ns/op | −38.9% |
-| realworld `json`, 400k lines | 561.9 ms | 323.1 ms | −42.5% |
+| `codec.decode_text<Order>` | 519 ns/op | 215 ns/op | −58.6% |
+| `codec.encode_text<Order>` | 286 ns/op | 174 ns/op | −39.2% |
+| realworld `json`, 400k lines | 627.2 ms | 319.3 ms | −49.1% |
 
 Minimums over 15 (micro) and 21 (workload) interleaved fresh runs; medians
-agree. Host: AMD Ryzen 7 8745HS, x86-64 Linux, `--release` compilation.
-`cpu`, `reconcile` and `state` workloads are unchanged within noise
-(±2%, no consistent direction), matching the fact that they do not decode
-JSON.
+agree. Runs are interleaved so the ratio is the result; the absolute before
+values drift with host load (an earlier session measured 475/262/562 ns/ms
+for the same base). Host: AMD Ryzen 7 8745HS, x86-64 Linux, `--release`
+compilation. `cpu`, `reconcile` and `state` workloads are unchanged within
+noise (±2%, no consistent direction), matching the fact that they do not
+decode JSON.
 
 ## What changed
 
@@ -50,9 +52,14 @@ JSON.
   case) members match by name directly instead of a thread-local lookup per
   key per field, and variant names compare directly. A record's member slots
   are one vector of `(value, rank)` pairs rather than three vectors, so each
-  object costs one allocation. Unescaping skips a redundant UTF-8
-  revalidation (`String::from_utf8_unchecked`), safe because copied spans
-  always begin and end on ASCII bytes.
+  object costs one allocation. A string token is scanned to its closing quote
+  with a byte-position search and borrowed whole when it has no escapes;
+  escaped strings unescape into one buffer sized to the raw token. Unescaping
+  skips a redundant UTF-8 revalidation (`String::from_utf8_unchecked`), safe
+  because copied spans always begin and end on ASCII bytes.
+- **Encoder naming**: wire naming is checked once per record or enum instead
+  of once per field, and an enum field's `Type.variant.field` key is not
+  formatted at all when no wire naming is active.
 - **Standard-library bulk copies** (backlog R2): `list.chunks`,
   `List.to_array`, `bytes.from_list`, `bytes_from_buffer`, `buffer_to_list`,
   `buffer_to_bytes`, `list.concat` and `list.slice` copy whole packed runs

@@ -33,6 +33,20 @@ fn jerr<T>(msg: impl Into<String>) -> Result<T, PErr> {
     Err(PErr::Json(msg.into()))
 }
 
+/// Four hex digits of a `\uXXXX` escape at `*k`, advancing past them.
+fn hex4_at(b: &[u8], k: &mut usize) -> Result<u32, PErr> {
+    if *k + 4 > b.len() {
+        return jerr("unexpected end of hex escape");
+    }
+    let mut v = 0u32;
+    for _ in 0..4 {
+        let d = (b[*k] as char).to_digit(16).ok_or_else(|| PErr::Json("invalid hex escape".into()))?;
+        v = v * 16 + d;
+        *k += 1;
+    }
+    Ok(v)
+}
+
 /// A schema error at the current node (path `$` before unwinding).
 fn derr<T>(msg: impl Into<String>) -> Result<T, PErr> {
     Err(PErr::Dec(DecodeError { path: "$".into(), message: msg.into() }))
@@ -111,95 +125,96 @@ impl<'a> P<'a> {
         }
     }
 
-    /// A JSON string. Borrows the input when it has no escapes, which is the
-    /// common case; otherwise unescapes into an owned string.
+    /// A JSON string. Borrows the input when it has no escapes (the common
+    /// case, including every field name); otherwise unescapes into an owned
+    /// string sized to the raw token.
     fn string(&mut self) -> Result<Cow<'a, str>, PErr> {
         if self.peek() != Some(b'"') {
             return jerr("expected a string");
         }
         self.i += 1;
-        let start = self.i;
-        while let Some(c) = self.peek() {
-            if c == b'"' {
-                let s = &self.text[start..self.i];
-                self.i += 1;
-                return Ok(Cow::Borrowed(s));
-            }
-            if c == b'\\' || c < 0x20 {
-                break;
-            }
-            self.i += 1;
-        }
-        let mut out = self.text.as_bytes()[start..self.i].to_vec();
+        let body_start = self.i;
+        let rest = &self.b[self.i..];
+        // Find the closing quote, stepping over escaped bytes. The scan is the
+        // hot path for every string token (including field names).
+        let mut j = 0;
+        let mut escaped = false;
         loop {
-            let c = self.peek().ok_or_else(|| PErr::Json("unexpected end of string".into()))?;
-            self.i += 1;
-            match c {
+            let stop = match rest[j..].iter().position(|&c| c == b'"' || c == b'\\' || c < 0x20) {
+                Some(k) => j + k,
+                None => return jerr("unexpected end of string"),
+            };
+            match rest[stop] {
                 b'"' => {
-                    // Copied spans start and end on ASCII bytes (`"`, `\`, or a
-                    // control char), so each is a whole UTF-8 substring, and
-                    // escapes push complete encoded characters: valid UTF-8.
-                    let s = unsafe { String::from_utf8_unchecked(out) };
-                    return Ok(Cow::Owned(s));
+                    j = stop;
+                    break;
                 }
                 b'\\' => {
-                    let e = self.peek().ok_or_else(|| PErr::Json("unexpected end of escape".into()))?;
-                    self.i += 1;
-                    match e {
-                        b'"' => out.push(b'"'),
-                        b'\\' => out.push(b'\\'),
-                        b'/' => out.push(b'/'),
-                        b'b' => out.push(0x08),
-                        b'f' => out.push(0x0c),
-                        b'n' => out.push(b'\n'),
-                        b'r' => out.push(b'\r'),
-                        b't' => out.push(b'\t'),
-                        b'u' => {
-                            let mut cp = self.hex4()?;
-                            if (0xd800..0xdc00).contains(&cp) {
-                                // a high surrogate must be followed by a low one
-                                if self.peek() != Some(b'\\') {
-                                    return jerr("lone leading surrogate in hex escape");
-                                }
-                                self.i += 1;
-                                if self.peek() != Some(b'u') {
-                                    return jerr("unexpected end of hex escape");
-                                }
-                                self.i += 1;
-                                let lo = self.hex4()?;
-                                if !(0xdc00..0xe000).contains(&lo) {
-                                    return jerr("lone leading surrogate in hex escape");
-                                }
-                                cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
-                            } else if (0xdc00..0xe000).contains(&cp) {
-                                return jerr("lone trailing surrogate in hex escape");
-                            }
-                            let ch = char::from_u32(cp).ok_or_else(|| PErr::Json("invalid escape".into()))?;
-                            let mut buf = [0u8; 4];
-                            out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
-                        }
-                        _ => return jerr("invalid escape"),
+                    escaped = true;
+                    j = stop + 2;
+                    if j > rest.len() {
+                        return jerr("unexpected end of string");
                     }
                 }
-                c if c < 0x20 => return jerr("control character in string"),
-                c => out.push(c),
+                _ => return jerr("control character in string"),
             }
         }
-    }
-
-    fn hex4(&mut self) -> Result<u32, PErr> {
-        if self.i + 4 > self.b.len() {
-            return jerr("unexpected end of hex escape");
+        self.i = body_start + j + 1;
+        if !escaped {
+            return Ok(Cow::Borrowed(&self.text[body_start..body_start + j]));
         }
-        let mut v = 0u32;
-        for _ in 0..4 {
-            let d = (self.b[self.i] as char)
-                .to_digit(16)
-                .ok_or_else(|| PErr::Json("invalid hex escape".into()))?;
-            v = v * 16 + d;
-            self.i += 1;
+        let body = &rest[..j];
+        let mut out: Vec<u8> = Vec::with_capacity(body.len());
+        let mut k = 0;
+        while k < body.len() {
+            let c = body[k];
+            k += 1;
+            if c != b'\\' {
+                out.push(c);
+                continue;
+            }
+            let e = *body.get(k).ok_or_else(|| PErr::Json("unexpected end of escape".into()))?;
+            k += 1;
+            match e {
+                b'"' => out.push(b'"'),
+                b'\\' => out.push(b'\\'),
+                b'/' => out.push(b'/'),
+                b'b' => out.push(0x08),
+                b'f' => out.push(0x0c),
+                b'n' => out.push(b'\n'),
+                b'r' => out.push(b'\r'),
+                b't' => out.push(b'\t'),
+                b'u' => {
+                    let mut cp = hex4_at(body, &mut k)?;
+                    if (0xd800..0xdc00).contains(&cp) {
+                        // a high surrogate must be followed by a low one
+                        if body.get(k) != Some(&b'\\') {
+                            return jerr("lone leading surrogate in hex escape");
+                        }
+                        k += 1;
+                        if body.get(k) != Some(&b'u') {
+                            return jerr("unexpected end of hex escape");
+                        }
+                        k += 1;
+                        let lo = hex4_at(body, &mut k)?;
+                        if !(0xdc00..0xe000).contains(&lo) {
+                            return jerr("lone leading surrogate in hex escape");
+                        }
+                        cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
+                    } else if (0xdc00..0xe000).contains(&cp) {
+                        return jerr("lone trailing surrogate in hex escape");
+                    }
+                    let ch = char::from_u32(cp).ok_or_else(|| PErr::Json("invalid escape".into()))?;
+                    let mut buf = [0u8; 4];
+                    out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+                }
+                _ => return jerr("invalid escape"),
+            }
         }
-        Ok(v)
+        // SAFETY: copied spans start and end on ASCII bytes (`"`, `\`, or a
+        // control char), so each is a whole UTF-8 substring, and escapes push
+        // complete encoded characters: the result is valid UTF-8.
+        Ok(Cow::Owned(unsafe { String::from_utf8_unchecked(out) }))
     }
 
     fn number(&mut self) -> Result<Num, PErr> {

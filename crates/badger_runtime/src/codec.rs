@@ -150,6 +150,16 @@ fn write_i64(o: &mut String, v: i64) {
     }
 }
 
+/// Write member `member`'s wire name, or its plain name when no wire naming
+/// is active for this encode (checked once per record or enum).
+fn write_member_name(ty: &str, member: &str, o: &mut String, wire: bool) {
+    if wire {
+        with_name(ty, member, |name| write_json_quote(name, o));
+    } else {
+        write_json_quote(member, o);
+    }
+}
+
 fn enc(d: &TypeDesc, w: u64, o: &mut String) {
     if matches!(d.kind, Kind::Dynamic) && w != 0 {
         return enc(unsafe { obj(w).desc() }, w, o);
@@ -200,11 +210,13 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push(']');
             } else {
                 o.push('{');
+                // One wire check for the whole record instead of one per field.
+                let wire = crate::codec::wire_active();
                 for (i, f) in fields.iter().enumerate() {
                     if i > 0 {
                         o.push(',');
                     }
-                    with_name(&d.name, &f.name, |name| write_json_quote(name, o));
+                    write_member_name(&d.name, &f.name, o, wire);
                     o.push(':');
                     enc(f.desc, unsafe { f.repr.load(p.add(f.offset as usize)) }, o);
                 }
@@ -226,18 +238,23 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 }
                 return;
             }
+            let wire = crate::codec::wire_active();
             if v.fields.is_empty() {
-                with_name(&d.name, &v.name, |name| write_json_quote(name, o));
+                write_member_name(&d.name, &v.name, o, wire);
                 return;
             }
             o.push('{');
-            with_name(&d.name, &v.name, |name| write_json_quote(name, o));
+            write_member_name(&d.name, &v.name, o, wire);
             o.push_str(":{");
             for (i, (f, val)) in v.fields.iter().zip(vals).enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
-                with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
+                if wire {
+                    with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
+                } else {
+                    write_json_quote(&f.name, o);
+                }
                 o.push(':');
                 enc(f.desc, val, o);
             }
