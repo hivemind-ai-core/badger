@@ -356,6 +356,33 @@ model's "current code" configuration still describes the old one, so
 checking the new implementation against the contract is the next step of
 §1.2, not a gap in the refactor.
 
+## What is left
+
+Phase 0 is done, with three items measured against their gates rather than
+assumed: §0.1 is not adopted (with the reason), §0.3 is reverted (measured
+regression), §0.4 is kept without its expected win (the premise did not
+hold), and §0.5 is partly done (the O(1) `map::hashcode` is not, because it
+needs a payload word the map layout does not have). Phase 1 is done as far
+as the refactor goes; the model of the *new* protocol is being updated.
+
+The rest of the backlog is not started, and each phase is a project of its
+own:
+
+| item | what it needs | why it is not done here |
+|------|---------------|------------------------|
+| §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | in flight; the model describes the old protocol today |
+| §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | the model's README already spells out what the code relies on (the `SeqCst` store-then-load, counting before unlocking, publishing before uncounting, `STOP` not nesting); the epoch makes the acknowledgement real |
+| §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
+| §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |
+| §2.4 NUMA pinning | the segment layout (§2.2) to place | a ~30-line change that only pays off with §2.2 |
+| §3.1-§3.5 type-system memory management | region types, escape analysis, region annotations, linear types | a language change: typeck, HIR, MIR and the standard library, with a spec to write first |
+| §4.1-§4.5 compiler work | Z3-validated rules, egg, translation validation, lifetime-driven inlining | the biggest phase: the SMT and translation-validation infrastructure does not exist yet |
+
+The one thing that is cheap and still open is §0.5's O(1) `map::hashcode`:
+it needs a payload word, which the map's 16/24-byte layout (root, length,
+and the ownership epoch for a wrapper) does not have, so it is a layout
+change rather than a hash change.
+
 ## What did not move
 
 - The end-to-end benchmarks (§ above): the GC items only run on full
