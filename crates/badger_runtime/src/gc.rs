@@ -21,7 +21,7 @@
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
@@ -659,6 +659,45 @@ pub fn collect() {
     h.pause_max = h.pause_max.max(ns);
 }
 
+/// The collector's scratch space: the mark stack and the remembered
+/// buffer. Both are empty when a collection ends, so their allocation is
+/// kept for the next one instead of being made again. A nested collection
+/// (a finalizer that allocates) takes fresh buffers instead of the shared
+/// ones.
+struct Scratch {
+    in_use: AtomicBool,
+    stack: UnsafeCell<Vec<u64>>,
+    remembered: UnsafeCell<Vec<u64>>,
+}
+unsafe impl Sync for Scratch {}
+static SCRATCH: Scratch = Scratch {
+    in_use: AtomicBool::new(false),
+    stack: UnsafeCell::new(Vec::new()),
+    remembered: UnsafeCell::new(Vec::new()),
+};
+
+impl Scratch {
+    /// Take the reusable buffers, or fresh ones when they are in use.
+    fn take(&self) -> (Vec<u64>, Vec<u64>) {
+        if self.in_use.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+            return (Vec::new(), Vec::new());
+        }
+        (
+            std::mem::take(unsafe { &mut *self.stack.get() }),
+            std::mem::take(unsafe { &mut *self.remembered.get() }),
+        )
+    }
+
+    /// Keep the buffers for the next collection.
+    fn give(&self, stack: Vec<u64>, remembered: Vec<u64>) {
+        unsafe {
+            *self.stack.get() = stack;
+            *self.remembered.get() = remembered;
+        }
+        self.in_use.store(false, Ordering::Release);
+    }
+}
+
 fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Collection) {
     #[cfg(feature = "gc-profile")]
     {
@@ -687,7 +726,11 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         && !budget_full;
     h.minor_collections = if minor { h.minor_collections + 1 } else { 0 };
     MINOR_COLLECTION.store(minor, Ordering::Relaxed);
-    let mut stack: Vec<u64> = Vec::new();
+    let (mut stack, mut remembered) = SCRATCH.take();
+    // The buffers are reused: they still hold the previous collection's
+    // entries, and those objects may be gone.
+    stack.clear();
+    remembered.clear();
     let checking = verify();
     if sticky && !minor {
         // a full collection: every object is unmarked (young) again
@@ -696,9 +739,12 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         }
     }
     // remembered old objects: their children are traced (a full collection
-    // reaches them anyway)
-    let remembered: Vec<u64> =
-        REMEMBER.0.iter().flat_map(|r| std::mem::take(unsafe { &mut *r.get() })).collect();
+    // reaches them anyway). The workers' buffers keep their capacity and
+    // the collector's buffer is reused (it is empty at the end of a
+    // collection).
+    for r in &REMEMBER.0 {
+        remembered.extend(unsafe { &mut *r.get() }.drain(..));
+    }
     let live: FxHashSet<usize> =
         if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };
     // a referenced word must be a live or immortal object
@@ -959,6 +1005,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         profile.snapshot("managed_live", h.live);
         profile.phase("finish");
     }
+    SCRATCH.give(stack, remembered);
 }
 
 /// Whole chunks with neither live nor quarantined cells can be released.
