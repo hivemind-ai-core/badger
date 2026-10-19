@@ -92,30 +92,6 @@ pub fn data_json(w: u64) -> String {
     s
 }
 
-/// A `Data` value as a JSON value, built directly (what `data_json`
-/// writes, without the text in between).
-pub fn data_value(w: u64) -> serde_json::Value {
-    use serde_json::Value as J;
-    let (tag, fields) = enum_parts(w);
-    match tag {
-        0 => J::Null,
-        1 => J::Bool(fields[0] & 1 != 0),
-        2 => J::from(fields[0] as i64),
-        3 => {
-            let f = f64::from_bits(fields[0]);
-            serde_json::Number::from_f64(f).map(J::Number).unwrap_or(J::Null)
-        }
-        4 => J::String(str_of(fields[0]).to_string()),
-        5 => J::Array(crate::list::to_vec(fields[0]).into_iter().map(data_value).collect()),
-        _ => J::Object(
-            crate::map::entries(fields[0])
-                .into_iter()
-                .map(|(k, v)| (str_of(k).to_string(), data_value(v)))
-                .collect(),
-        ),
-    }
-}
-
 pub(crate) fn write_data(w: u64, out: &mut String) {
     let (tag, fields) = enum_parts(w);
     match tag {
