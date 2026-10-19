@@ -1,0 +1,12 @@
+// `dedup` fuses: consecutive equal items collapse (structural equality).
+import std.io
+import std.list
+import std.seq
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{seq.range(0, 6).map(fn(x: Int) { x / 2 }).dedup().collect()}")?
+    io.println($"{["a", "a", "b", "a"].seq().dedup().collect()}")?
+    io.println($"{[{ id: 1 }, { id: 1 }, { id: 2 }].seq().dedup().map(fn(r) { r.id }).collect()}")?
+    io.println($"{seq.range(0, 10).map(fn(x: Int) { x % 3 }).dedup().count()}")?
+    ok(())
+}
