@@ -135,6 +135,20 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn item(&mut self, it: cst::Item<'_>) -> Option<Item> {
         let span = self.span(it.span);
         let is_pub = it.is_pub;
+        // `@derive(A, B)` names protocols; they feed the same derive path as
+        // `derive(A, B)`, so resolution and validation are shared.
+        let attribute_derives: Vec<cst::T<'_>> = it
+            .attributes
+            .iter()
+            .filter(|a| a.name.text == "derive")
+            .flat_map(|a| a.args.iter())
+            .filter_map(|arg| match arg {
+                cst::AttrArg::Name(id) => {
+                    Some((cst::Ty::Path { module: vec![], names: vec![*id], args: vec![] }, id.span))
+                }
+                _ => None,
+            })
+            .collect();
         let attributes = self.attributes(it.attributes);
         let kind = match it.kind {
             cst::ItemKind::Import { path, alias, items } => {
@@ -161,7 +175,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         StructField { is_pub, name, ty }
                     })
                     .collect();
-                let derives = derives.into_iter().map(|t| self.ty(t)).collect();
+                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
+                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
             cst::ItemKind::Enum { name, generics, variants, derives } => {
@@ -183,7 +198,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         Variant { name: vname, fields, span: vspan }
                     })
                     .collect();
-                let derives = derives.into_iter().map(|t| self.ty(t)).collect();
+                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
+                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {

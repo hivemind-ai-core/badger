@@ -1,0 +1,8 @@
+// `@derive` names a protocol; a non-protocol is rejected like `derive`.
+// expect-error: E0117
+@derive(Int)
+pub struct P {
+    pub x: Int,
+}
+
+pub fn main() {}

@@ -235,11 +235,16 @@ specific pass reads, it belongs in an attribute.
 5. **Docs** — `badger doc std` does not print attributes yet; the
    generated reference and `doc_examples_check` are unchanged and green.
 
-**Phase 2 (next).** Recognised names with consumers, starting with
-`@derive(...)` (routing to the existing generator) and a scoped
-warning-silencing attribute (which also introduces statement/scope
-placement). Then Phase 3: delete the `derive(...)` form (see the migration
-plan).
+**Phase 2 (in progress, `feature/attributes-phase2`).**
+
+- `@derive(A, B)` — **done**. The names feed the same derive path as
+  `derive(A, B)` (resolution and validation shared), so `@derive(Eq,
+  Display)` behaves exactly like the old form. `derive` is the first name in
+  `KNOWN_ATTRIBUTES`; `tests/run/attributes_derive.bdg` and
+  `tests/reject/derive_attribute_nonprotocol.bdg` cover it.
+- **Next**: a scoped warning-silencing attribute (`@allow(...)`), which also
+  introduces statement/scope placement; then `@inline`; then Phase 3, delete
+  the `derive(...)` form (see the migration plan).
 
 ## Migration plan (replacing the `derive` syntax)
 
