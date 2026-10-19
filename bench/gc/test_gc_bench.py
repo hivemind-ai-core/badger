@@ -33,6 +33,14 @@ class MeasurementOrder(unittest.TestCase):
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_stored_sequences_include_reuse_pointer_mapping_and_escape_controls(self):
+        c = dict(n=7, rounds=2, payload=2, retain=1)
+        for mode in ["stored", "stored-list", "stored-escape", "stored-collected"]:
+            self.assertEqual(run.expected_coverage(c | dict(mode=mode)), 36)
+        self.assertEqual(run.expected_coverage(c | dict(mode="stored-reused")), 72)
+        # String lengths 2..8; only 3 and 6 pass the mapped-value filter.
+        self.assertEqual(run.expected_coverage(c | dict(mode="stored-pointers")), 36)
+
     def test_map_apis_preserve_transforms_and_overlap_semantics(self):
         c = dict(n=4, rounds=2, payload=3, retain=2)
         for mode, expected in [("map-api-projections", 418), ("map-api-entry-control", 426),
