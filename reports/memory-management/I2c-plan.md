@@ -1,5 +1,11 @@
 # I2c: remove standard map-helper intermediate entry lists
 
+Status: implemented and retained at 2bed9af. [Results, controls and limits](I2c-summary.md).
+Projection time falls 62–68%; serial composition about 21–22%, with exact
+same-native tuple elimination. Original application controls remain mostly mixed;
+initial larger regressions do not reproduce in focused repeats. The plan and
+acceptance criteria below have been evaluated, not left as architectural scaffolding.
+
 Starting main/source revision: 9b23d40. Work stays on the existing isolated
 perf/gc-reclaim-2026-10-18 worktree. Fresh ordinary/diagnostic binaries are built
 before production edits as map-helpers-baseline[-diagnostic]. Standard sources

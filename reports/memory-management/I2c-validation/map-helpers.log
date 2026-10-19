@@ -1,0 +1,5 @@
+fixture: generation=0 verify=0 passed
+fixture: generation=0 verify=1 passed
+fixture: generation=1 verify=0 passed
+fixture: generation=1 verify=1 passed
+12 MIR probes and 136 map-helper GC/semantic checks passed

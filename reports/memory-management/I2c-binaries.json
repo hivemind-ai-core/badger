@@ -1,0 +1,911 @@
+{
+  "baseline_revision": "9b23d40",
+  "candidate_revision": "2bed9af",
+  "coverage_revision": "94768bf",
+  "measured_processes": 2212,
+  "measured_intervals_overlap": false,
+  "datasets": [
+    {
+      "path": "reports/memory-management/I2c-baseline/measurements.json.gz",
+      "sha256": "b6eb82760c116b3dd96fb68630d15f98d81042f10562192049846345ce8b4c23",
+      "runs": 168,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+        "candidate": "None",
+        "baseline_revision": "9b23d40",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline-diagnostic",
+        "allocations": true,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101930,
+        "paired": true,
+        "cases": [
+          "map-api-projections",
+          "map-api-values",
+          "map-api-filter",
+          "map-api-merge",
+          "map-api-composed",
+          "map-api-entry-control",
+          "map-api-parallel"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2c-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+          "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+        },
+        "diagnostic": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline-diagnostic",
+          "sha256": "4d3e0c315254edcb1d5448feaba1b0473f3f4d47a51ae6a7df6cc3574e072843"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-coverage/measurements.json.gz",
+      "sha256": "4a1da340672c237cbfbcf0a83ffec909d31f7a21d1f7c6bc5a06453a1aaafcd5",
+      "runs": 560,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "9b23d40",
+        "candidate_revision": "2bed9af",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101932,
+        "paired": true,
+        "cases": [
+          "map-api-projections",
+          "map-api-values",
+          "map-api-filter",
+          "map-api-merge",
+          "map-api-composed",
+          "map-api-entry-control",
+          "map-api-parallel",
+          "records-window",
+          "bytes-transient",
+          "scalar-snapshots"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2c-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+          "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-applications/measurements.json.gz",
+      "sha256": "d42af6291ec9fe19c0311941525bfccadff4e6028c0958ff241447134f237b1c",
+      "runs": 504,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "9b23d40",
+        "candidate_revision": "2bed9af",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101933,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I2c-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+          "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-census/measurements.json.gz",
+      "sha256": "4709d04e51aa03b2db5c64a0023f385a1f1ec7f8c6f0eb9442cebcc14628c40d",
+      "runs": 168,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "None",
+        "baseline_revision": "2bed9af",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+        "allocations": true,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101934,
+        "paired": true,
+        "cases": [
+          "map-api-projections",
+          "map-api-values",
+          "map-api-filter",
+          "map-api-merge",
+          "map-api-composed",
+          "map-api-entry-control",
+          "map-api-parallel"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2c-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "diagnostic": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+          "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-native-mir/measurements.json.gz",
+      "sha256": "81358bef2727443ff36926605d7cacdd97e36d3817f8b3be150f8763a76f626f",
+      "runs": 196,
+      "arguments": {
+        "reps": 7,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "map-api-projections",
+          "map-api-values",
+          "map-api-filter",
+          "map-api-merge",
+          "map-api-composed",
+          "map-api-entry-control",
+          "map-api-parallel"
+        ],
+        "diagnostic": false,
+        "seed": 2026101935,
+        "same_mir": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I2c-validation/coverage-baseline.bdgmir",
+          "sha256": "3ed87ddc59ea75e53a9bd89785e7ab86d26a9236cb5f73e4cf58fa27e2543476"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I2c-validation/coverage-candidate.bdgmir",
+          "sha256": "82c9808d057a001f49a5fdf40aa41c4ea6f19ce57265f64164372de946909b78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I2c-native-control/measurements.json.gz",
+      "sha256": "241e33bc2c19144df6a62cac857babd0a58cf5c5c5121447731f78b41b671b2f",
+      "runs": 112,
+      "arguments": {
+        "reps": 7,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "map-api-projections",
+          "map-api-composed",
+          "map-api-parallel",
+          "bytes-transient"
+        ],
+        "diagnostic": false,
+        "seed": 2026101936,
+        "same_mir": true
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I2c-validation/coverage-candidate.bdgmir",
+          "sha256": "82c9808d057a001f49a5fdf40aa41c4ea6f19ce57265f64164372de946909b78"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I2c-validation/coverage-candidate.bdgmir",
+          "sha256": "82c9808d057a001f49a5fdf40aa41c4ea6f19ce57265f64164372de946909b78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I2c-native-census/measurements.json.gz",
+      "sha256": "ad26fb8df04fc65656fd2c68879f7ef99b507147ddb4b66a2b92ee7e63e0c3ff",
+      "runs": 84,
+      "arguments": {
+        "reps": 3,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "map-api-projections",
+          "map-api-values",
+          "map-api-filter",
+          "map-api-merge",
+          "map-api-composed",
+          "map-api-entry-control",
+          "map-api-parallel"
+        ],
+        "diagnostic": true,
+        "seed": 2026101937,
+        "same_mir": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+          "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+          "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I2c-validation/coverage-baseline.bdgmir",
+          "sha256": "3ed87ddc59ea75e53a9bd89785e7ab86d26a9236cb5f73e4cf58fa27e2543476"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I2c-validation/coverage-candidate.bdgmir",
+          "sha256": "82c9808d057a001f49a5fdf40aa41c4ea6f19ce57265f64164372de946909b78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I2c-app-repeat/measurements.json.gz",
+      "sha256": "887c1e27ea8a7ea5bfa6618cb81a24f433a5940a069215f80c004689e0035323",
+      "runs": 180,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "9b23d40",
+        "candidate_revision": "2bed9af",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          4,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101938,
+        "cases": [
+          "realworld/state",
+          "realworld/messaging",
+          "realworld/json"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I2c-app-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+          "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-app-control/measurements.json.gz",
+      "sha256": "1b5494f278841842b1b38cc508be4160023363fd265f93ef14c3255a29838730",
+      "runs": 180,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "2bed9af",
+        "candidate_revision": "2bed9af",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          4,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101939,
+        "cases": [
+          "realworld/state",
+          "realworld/messaging",
+          "realworld/json"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I2c-app-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-record-repeat/measurements.json.gz",
+      "sha256": "ec995f7079701b84b6c8c19c4ced7861f7faf5ba6682c1247eebca7687334a28",
+      "runs": 30,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "9b23d40",
+        "candidate_revision": "2bed9af",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          2
+        ],
+        "events": 262144,
+        "reps": 15,
+        "seed": 2026101940,
+        "paired": true,
+        "cases": [
+          "records-window"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2c-record-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+          "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I2c-record-control/measurements.json.gz",
+      "sha256": "6621d2dfa7677f7942684ce7aa5da7f24a54ce79bfc810abc1afd27600779884",
+      "runs": 30,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "baseline_revision": "2bed9af",
+        "candidate_revision": "2bed9af",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          2
+        ],
+        "events": 262144,
+        "reps": 15,
+        "seed": 2026101941,
+        "paired": true,
+        "cases": [
+          "records-window"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I2c-record-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        }
+      },
+      "effective_programs": null
+    }
+  ],
+  "managed_traffic_same_native": [
+    {
+      "case": "map-api-composed",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              1976390
+            ],
+            "cell_bytes": [
+              365815785
+            ],
+            "requested_bytes": [
+              363338565
+            ]
+          },
+          "tuple_objects": 961024
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              1005894
+            ],
+            "cell_bytes": [
+              323717096
+            ],
+            "requested_bytes": [
+              321231684
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    },
+    {
+      "case": "map-api-entry-control",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              275006
+            ],
+            "cell_bytes": [
+              18001769
+            ],
+            "requested_bytes": [
+              17982223
+            ]
+          },
+          "tuple_objects": 262144
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              275006
+            ],
+            "cell_bytes": [
+              18001769
+            ],
+            "requested_bytes": [
+              17982223
+            ]
+          },
+          "tuple_objects": 262144
+        }
+      }
+    },
+    {
+      "case": "map-api-filter",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              443974
+            ],
+            "cell_bytes": [
+              63406051
+            ],
+            "requested_bytes": [
+              62792507
+            ]
+          },
+          "tuple_objects": 262144
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              179526
+            ],
+            "cell_bytes": [
+              52183009
+            ],
+            "requested_bytes": [
+              51567417
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    },
+    {
+      "case": "map-api-merge",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              1055046
+            ],
+            "cell_bytes": [
+              144218085
+            ],
+            "requested_bytes": [
+              142840643
+            ]
+          },
+          "tuple_objects": 524288
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              525894
+            ],
+            "cell_bytes": [
+              121763810,
+              121763811
+            ],
+            "requested_bytes": [
+              120382272,
+              120382273
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    },
+    {
+      "case": "map-api-parallel",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              2005158
+            ],
+            "cell_bytes": [
+              371763010,
+              371763011,
+              371763012
+            ],
+            "requested_bytes": [
+              369149686,
+              369149687,
+              369149688
+            ]
+          },
+          "tuple_objects": 961024
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              1034662
+            ],
+            "cell_bytes": [
+              329664320,
+              329664321
+            ],
+            "requested_bytes": [
+              327042804,
+              327042805
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    },
+    {
+      "case": "map-api-projections",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              539710
+            ],
+            "cell_bytes": [
+              29294441
+            ],
+            "requested_bytes": [
+              29274891
+            ]
+          },
+          "tuple_objects": 524288
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              10814
+            ],
+            "cell_bytes": [
+              6848344
+            ],
+            "requested_bytes": [
+              6824694,
+              6824695
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    },
+    {
+      "case": "map-api-values",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              531526
+            ],
+            "cell_bytes": [
+              108928995
+            ],
+            "requested_bytes": [
+              108284731
+            ]
+          },
+          "tuple_objects": 262144
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              267078
+            ],
+            "cell_bytes": [
+              97705956
+            ],
+            "requested_bytes": [
+              97059644
+            ]
+          },
+          "tuple_objects": 0
+        }
+      }
+    }
+  ],
+  "only_production_change": "crates/badger_hir/std/map.bdg",
+  "standard_map_source_sha256": {
+    "baseline": "d94fcde6ecee7fbd7ab2f92a15510aed397489994717733034012fbdfaf7d11e",
+    "candidate": "5a329f8d34913872c5924d756bbee5ffb1d34113fa15b0b4729d3631050e8a7f"
+  },
+  "binaries": {
+    "map-helpers-baseline": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline",
+      "sha256": "857ec877dbc089b9b214f3759c3ad05be5aea58f22705f4d9d583ee66f9d1647"
+    },
+    "map-helpers-baseline-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-baseline-diagnostic",
+      "sha256": "4d3e0c315254edcb1d5448feaba1b0473f3f4d47a51ae6a7df6cc3574e072843"
+    },
+    "map-helpers-candidate": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+      "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+    },
+    "map-helpers-candidate-diagnostic": {
+      "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+      "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+    }
+  },
+  "validation_artifacts": {
+    "reports/memory-management/I2c-validation/audit.py": "10f4e675f4f3f36f447aa7fbabed905a7301cddb47e740b923d90456e83b037f",
+    "reports/memory-management/I2c-validation/build-baseline-diagnostic.log": "b73eaad01fb13c1319425d2c7cfcdfe2f27f2d43aba4ca4f19a7cbeff4ca7f77",
+    "reports/memory-management/I2c-validation/build-baseline-ordinary.log": "b44c3e20b7574a6069d34793c59b5361a1f39889ff71b8b226b0f3a24c3275f2",
+    "reports/memory-management/I2c-validation/build-candidate-diagnostic.log": "bbab5266889f82edf9a700249140d89849aac9a0e5cc686768c0a37bbcaf0a11",
+    "reports/memory-management/I2c-validation/build-candidate-ordinary.log": "b2c055535b794f141c48f675c1ef6114cc4e9d0a0994899b9c56acce81d66e26",
+    "reports/memory-management/I2c-validation/clippy-diagnostic.log": "09f02a5194422a16ca725eac3d5224254d4d4c22193897db888f936087a0870f",
+    "reports/memory-management/I2c-validation/clippy-ordinary.log": "e59853f1f1b7345c33889762d7a759556b9da6ef70e86f57b4e75e7aa10b3603",
+    "reports/memory-management/I2c-validation/coverage-baseline.bdgmir": "3ed87ddc59ea75e53a9bd89785e7ab86d26a9236cb5f73e4cf58fa27e2543476",
+    "reports/memory-management/I2c-validation/coverage-candidate.bdgmir": "82c9808d057a001f49a5fdf40aa41c4ea6f19ce57265f64164372de946909b78",
+    "reports/memory-management/I2c-validation/fixture-ordinary.log": "b850643c2e610235cd21fc9afe0afcc0bdb0a96c79b51f43b1fb78f705bee44a",
+    "reports/memory-management/I2c-validation/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/I2c-validation/harness-baseline.log": "b08fe80739ffa8365a057334d29786c22affdbd6e45ed82c29ac2ef7b17f2eb0",
+    "reports/memory-management/I2c-validation/harness.log": "8f43637d04979fe6ef8720bcf614bede01c1f3b300c28f847f24c7eef7b003d0",
+    "reports/memory-management/I2c-validation/map-helpers.json.gz": "de54488c3ba734ca415ec740cd18c0acb0788b88fc1aa30f710a499bb2454b7f",
+    "reports/memory-management/I2c-validation/map-helpers.log": "04e76ba7243bbde3cf4852b67cd89b56e4cd6ccbd4522eb4623922f30a16b5b1",
+    "reports/memory-management/I2c-validation/native_attribution.py": "01dc890e1a84ec83e866b594c85baca7ff7b65c0fc37b795f3ab2b690b49f054",
+    "reports/memory-management/I2c-validation/programs.log": "e333ed413f8f70aff5d9e038dd117b244d6c4aa1f9d66ad10684a204be06db26",
+    "reports/memory-management/I2c-validation/runtime-diagnostic.log": "9e1d76fa176f988541b25850b2909e4ac1d8a0b9863b8005de81e633d5307aa0",
+    "reports/memory-management/I2c-validation/runtime-ordinary.log": "88f8e36dcde4701e1430815ff438544de4e7b9f2782927b35859e9c4e026dbc1"
+  },
+  "runtime_policy_changed": false,
+  "object_abi_changed": false,
+  "saved_mir_format_changed": false
+}

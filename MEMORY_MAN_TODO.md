@@ -45,6 +45,11 @@ negative results; do not mark architectural sketches as implemented.
     retain boxed escaping/stored results, typed roots and live-reload behavior.
   - [x] I2b: Elide immediate Map.entries() method lists/tuples via the existing
     cursor; retain stored lists, escaping tuples, order and typed pointer roots.
+  - [x] I2c: Remove internal entry lists/tuples from std.map keys/values,
+    map_values/filter/merge_with while retaining observable public results.
+    Projection time falls 62–68% and serial composition 21–22%; same-native
+    counts prove 524,288/961,024 tuple allocations removed in those cases.
+    [Results, broader controls and memory limits](reports/memory-management/I2c-summary.md).
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
 - [ ] I4: Pack fixed-size pointer-free records directly into collection storage,
