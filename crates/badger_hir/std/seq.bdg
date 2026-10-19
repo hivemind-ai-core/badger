@@ -241,6 +241,7 @@ pub fn skip_while<T, Eff>(items: Seq<T, Eff>, skip: fn(T) -> Bool !Eff) -> Seq<T
 }
 
 /// Running states: `f(state, item)` for each item, starting from `initial`.
+@fusion(role = stage, template = scan)
 pub fn scan<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> Seq<A, Eff> {
     {
         start: fn() {

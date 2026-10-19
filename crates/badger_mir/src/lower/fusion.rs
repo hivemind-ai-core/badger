@@ -18,6 +18,8 @@ enum Stage {
     Skip(ExprId),
     StepBy(ExprId),
     FilterMap(ExprId),
+    /// `f` and the initial accumulator.
+    Scan(ExprId, ExprId),
 }
 enum Active {
     Map(Operand, Repr),
@@ -28,6 +30,8 @@ enum Active {
     StepBy(Local, Local),
     /// The callback and the `Option<U>` it returns.
     FilterMap(Operand, Ty),
+    /// The callback, the running accumulator, and its representation.
+    Scan(Operand, Local, Repr),
 }
 #[derive(Clone)]
 enum PreparedStage {
@@ -37,6 +41,7 @@ enum PreparedStage {
     Skip(Operand),
     StepBy(Operand),
     FilterMap(Operand, Ty),
+    Scan(Operand, Operand, Repr),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -101,6 +106,7 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.skip" => "skip",
                 "std.seq.step_by" => "step_by",
                 "std.seq.filter_map" => "filter_map",
+                "std.seq.scan" => "scan",
                 "std.seq.fold" => "fold",
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
@@ -149,6 +155,11 @@ impl FnLower<'_, '_, '_> {
                 });
                 Some((source, stages))
             }
+            ("scan", [inner, initial, f]) => {
+                let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
+                stages.push(Stage::Scan(*initial, *f));
+                Some((source, stages))
+            }
             _ => None,
         }
     }
@@ -169,6 +180,7 @@ impl FnLower<'_, '_, '_> {
             ("map" | "filter" | "take" | "skip" | "step_by" | "filter_map", [inner, _]) => {
                 self.sequence_local_use(*inner, depth + 1)
             }
+            ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             _ => None,
         }
     }
@@ -323,6 +335,12 @@ impl FnLower<'_, '_, '_> {
                     // the callback returns `Option<U>`
                     PreparedStage::FilterMap(self.lower(expr)?, ft.ret.clone())
                 }
+                Stage::Scan(initial, f) => {
+                    let TyKind::Fn(ft) = &*self.ty(f) else { unreachable!() };
+                    // `f: fn(A, T) -> A`: the accumulator's representation
+                    let ret = self.repr(&ft.params[0]);
+                    PreparedStage::Scan(self.lower(f)?, self.lower(initial)?, ret)
+                }
             });
         }
         Some(prepared)
@@ -343,6 +361,9 @@ impl FnLower<'_, '_, '_> {
                     Active::StepBy(n, self.copy_to_local(int(0), Repr::I64, None))
                 }
                 PreparedStage::FilterMap(f, opt) => Active::FilterMap(f, opt),
+                PreparedStage::Scan(f, initial, ret) => {
+                    Active::Scan(f, self.copy_to_local(initial, ret, None), ret)
+                }
             })
             .collect();
         let ret = match plan.terminal {
@@ -465,6 +486,12 @@ impl FnLower<'_, '_, '_> {
                     self.switch(some);
                     let (x, _r) = self.variant_field(&opt_ty, 1, 0, Operand::Local(ol));
                     value = x;
+                }
+                Active::Scan(f, state, ret) => {
+                    // the running accumulator becomes the item
+                    let next = self.call(Callee::Closure(f), vec![Operand::Local(state), value], ret);
+                    self.emit(Stmt::Assign(state, Rvalue::Use(next)));
+                    value = Operand::Local(state);
                 }
                 Active::Skip(left) => {
                     // drop this item while the counter is positive, then pass
