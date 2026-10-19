@@ -12,15 +12,16 @@ item, each gated on `cargo test --workspace`.
 | `e5967d3` | §0.6 | reuse the collector's mark stack and remembered buffer |
 | `5bae53c` | §0.7 | index the chunks instead of sorting every cell address |
 | `274743a` | §0.8 | account the channel's native buffers as external memory |
-| `ed47f20` | §0.3 | hash map keys with AHash under fixed seeds |
-| `2854c83` | §0.4 | store maps of at most eight entries as a flat array |
+| `e470191` | §0.3 | AHash under fixed seeds -- **reverted**, it regressed the map cells |
+| `2854c83`, `21303fa` | §0.4 | store maps of at most eight entries as a flat array |
 | `beeb63a` | §0.2 | per-worker Chase-Lev ready queues |
 | `5182315` | §0.9 | pick two random victims to steal from |
 | `c6428ee` | §0.10 | steal half of a long ready queue |
 
-§0.8, §0.3, §0.4, §0.2, §0.9 and §0.10 were implemented by delegated
+§0.8, §0.3, §0.4, §0.5, §0.2, §0.9 and §0.10 were implemented by delegated
 workers in their own worktrees and branches, and were integrated here by
-cherry-pick after the full test suite ran on the result.
+cherry-pick after the full test suite ran on the result. §0.3 was reverted
+after it was measured (§ below).
 
 ## The measurement that matters: the cost of a full collection
 
@@ -113,18 +114,45 @@ scheduler.rs` asserts the order (FIFO for the owner and for thieves,
 next-slot first), the exact queued accounting, the half-of-nine batch bound
 and that two distinct random victims are picked.
 
-## §0.3, §0.4: the collections (delegated worker)
+## §0.3: AHash is not adopted (delegated worker, measured and reverted)
 
-`ed47f20` hashes map keys with AHash under **fixed** seeds, so a key hashes
-the same in every process (a map's shape and iteration order never depend on
-a random seed) and the entropy is spread over all 64 bits the trie indexes
-in 5-bit chunks. `2854c83` stores a map of at most eight entries as a flat
-array (the Clojure `PersistentArrayMap` idea): a root with both bitmaps zero,
-scanned linearly, promoted to the trie at the ninth entry and flattened
-again when a removal brings it back to eight. The flat root is an ordinary
-`MapNode`, so tracing, the cursor layout and the map payload are unchanged,
-and the flat entries are kept in the order the trie would visit them, so
-iteration order does not depend on the representation.
+`ed47f20` hashed map keys with AHash under **fixed** seeds, so a key hashes
+the same in every process. The worker measured it and **reverted** it
+(`e470191`): the item's gate is "the map cells within noise", and AHash is
+1.6-2x slower than FxHash on the map cells.
+
+| workload (200k-entry maps, median ns/op) | FxHash | AHash |
+|--------------------------------------------|-------:|------:|
+| `bench/collections` persistent map insert | 120 | 221 |
+| `bench/collections` map lookup | 108 | 235 |
+| stride-1024 keys, insert / lookup | 129 / 110 | 166 / 189 |
+| pseudo-random keys, insert / lookup | 117 / 124 | 212 / 188 |
+| String keys, insert / lookup | 1115 / 441 | 1066 / 450 |
+
+Hashing an Int costs the same with both (1.4 ns vs 1.1 ns): the cost is
+the trie *shape*. FxHash's multiply-and-rotate acts like Fibonacci hashing
+on arithmetic key sequences and spreads them near-perfectly over the 5-bit
+chunks, so the tries stay shallow; AHash spreads keys at random (Poisson)
+and the tries get deeper. The item's premise -- that FxHash's chunks collide
+more than AHash's -- does not hold for these workloads. String keys, where
+both hashes look random, are neutral.
+
+## §0.4, §0.5: the collections (delegated worker)
+
+`2854c83` stores a map of at most eight entries as a flat array (the
+Clojure `PersistentArrayMap` idea): a root with both bitmaps zero, scanned
+linearly, promoted to the trie at the ninth entry and flattened again when a
+removal brings it back to eight (`21303fa` keeps the order stable across
+those transitions). The flat root is an ordinary `MapNode`, so tracing, the
+cursor layout and the map payload are unchanged, and the flat entries are
+kept in the order the trie would visit them, so iteration order does not
+depend on the representation.
+
+`dee35dd` makes `map::eq` a paired walk of the two tries that skips a
+subtree the two maps share, with a reflexivity check (a float NaN is not
+equal to itself). The item's O(1) `map::hashcode` is **not** done: it would
+need a per-map hash cached in the payload, which collides with the 16/24-byte
+payload layout, and it would hash every value on the insert path.
 
 ## §0.8: external memory accounting (delegated worker)
 
@@ -193,7 +221,9 @@ spurious wakes), and the GC handshake satisfies every property. Each
 deliberate mutation of either protocol is caught (a fast path that ignores
 the watchers, a selection that does not claim, a worker that checks `STOP`
 before it counts itself, one that unlocks before it counts, one that
-publishes a root after it uncounts, a nested stop).
+publishes a root after it uncounts, a nested stop). All 17 checks were
+re-run on this branch after the models were integrated: every outcome
+matched its expectation.
 
 **Three findings.** The model of the *current* code passes the properties
 the backlog asks for, and still finds three things:

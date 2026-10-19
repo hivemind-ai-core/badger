@@ -83,6 +83,16 @@ generated code, with Phase 2's QSBR work; see
 
 ### 0.2 Per-worker Chase-Lev deque (replace `LocalQueue`)
 
+**Status:** landed 2026-10-19 (`beeb63a`): a `crossbeam_deque::Worker` + `Stealer`
+pair per worker, with the next slot as a second pair. The corpus and
+the new `crates/badger_runtime/tests/scheduler.rs` pass; `messages` at 4
+workers is 6% faster (wall clock, interleaved medians), `parallel_alloc` is
+at parity. The backlog's predicted wins (the parked time halved, a 2-5x cut
+in steal traffic) are not visible in those benchmarks: the programs barely
+touch the scheduler (`messages` parks 0.01 ms, `parallel_alloc` runs 7-8
+tasks), so the per-worker queue is a tail-latency fix the throughput
+benchmarks cannot show.
+
 - **Goal**: replace the per-worker `LocalQueue`
   (`task.rs:1596-1664`, gated by `lock: Mutex<()>`) with a
   `crossbeam-deque::Worker<T>` + `Stealer<T>` pair, so the owner is
@@ -105,6 +115,18 @@ generated code, with Phase 2's QSBR work; see
 
 ### 0.3 AHash hasher (replace the map hasher)
 
+**Status:** **not adopted** (2026-10-19): implemented (`c502f14`) and reverted
+(`d3f0b60`) -- it fails the item's gate. Measured on release builds with
+Int keys, AHash makes `persistent map insert` 120 -> 221 ns/op and `map
+lookup` 108 -> 235 ns/op, and 1.6-2x slower on stride-1024 and
+pseudo-random keys (String keys are neutral). Hashing an Int costs the same
+(1.4 ns vs 1.1 ns): the cost is the trie shape. FxHash's multiply-and-rotate
+acts like Fibonacci hashing on arithmetic key sequences and spreads them
+near-perfectly over the 5-bit chunks, so the tries stay shallow, while AHash
+spreads keys at random (Poisson) and the tries get deeper. The item's
+premise, that FxHash's chunks collide more than AHash's, does not hold for
+these workloads.
+
 - **Goal**: replace the current hasher in `map.rs:39` (FNV / default
   Rust hasher) with `AHash` (Lemire, 2019+). AHash produces enough
   entropy to avoid 5-bit hash-chunk collisions in the HAMT
@@ -125,6 +147,14 @@ generated code, with Phase 2's QSBR work; see
   same `BuildHasher` API surface).
 
 ### 0.4 Small-map flat-array fallback (n ≤ 8)
+
+**Status:** landed 2026-10-19 (`2854c83`, `21303fa`): a root of at most eight entries
+is a single node with both bitmaps zero, scanned linearly, promoted to the
+trie at the ninth entry and flattened again on a removal that brings it back
+to eight. The flat root is an ordinary `MapNode`, so tracing, the cursor
+layout and the map payload are unchanged, and the flat entries keep the order
+the trie would visit, so iteration order does not depend on the
+representation.
 
 - **Goal**: when a map's payload is ≤ 8 entries, store it as a flat
   array of `(K, V)` pairs and linear-scan on lookup, instead of the
@@ -148,6 +178,13 @@ generated code, with Phase 2's QSBR work; see
   `tests/run/map_*` and `tests/run/persistent_*` pass.
 
 ### 0.5 CHAMP invariants (sorted entries, disjoint bitmaps)
+
+**Status:** partly landed 2026-10-19 (`dee35dd`): `map::eq` is now a paired walk of
+the two tries that skips a subtree the two maps share, with a reflexivity
+check (a float NaN is not equal to itself). The O(1) `map::hashcode` of the
+item is **not** done: it would need a per-map hash cached in the payload,
+which collides with the 16/24-byte payload layout, and hashing every value
+on the insert path. The model is the contract for the rest.
 
 - **Goal**: the existing HAMT in `hamt.rs` is a "Bin" (Bitmap-
   Indexed Node) variant; the formal CHAMP invariants from
@@ -244,6 +281,9 @@ external and pressure.
 
 ### 0.9 Two-random-choice victim selection
 
+**Status:** landed 2026-10-19 (`5182315`): two random victims are picked and the
+better one is tried first, the other second.
+
 - **Goal**: `take_ready` (`task.rs:1797-1813`) currently picks one
   random victim and steals one task. Two-random-choice (the
   "power of two random choices" line) is well-known to balance
@@ -258,7 +298,12 @@ external and pressure.
 - **Gates**: `tests/run/parallel` passes; the 4-worker
   `bench/messages.bdg` median improves or holds.
 
-### 0.10 Half-steal on overflow (work-stealing `Steal::steal_batch`)
+### 0.10 Half-steal on overflow
+
+**Status:** landed 2026-10-19 (`c6428ee`): a thief takes at most about half of what
+it observed, never the victim's next slot, never the whole queue; the rule
+and its one-task slack under a concurrent owner pop are stated in the code
+and in the commit message. (work-stealing `Steal::steal_batch`)
 
 - **Goal**: badger's per-worker steal currently pops one task
   (`pop(false)` at `task.rs:1799`); Go's `runtime.runqsteal` pops
