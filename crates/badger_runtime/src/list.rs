@@ -483,7 +483,9 @@ pub fn push(w: u64, v: u64) {
             let used = dir_used(dir).load(Ordering::Acquire) as usize;
             if p < used {
                 let page = unsafe { *dir_slot(dir, p) };
-                if page != 0 {
+                // the page is empty only when pre-sized; a version sharing
+                // the directory may have filled it, so slot 0 is claimed
+                if page != 0 && claim(unsafe { &*(obj(page).payload().add(8) as *const AtomicU64) }, 0) {
                     let r = gc::Roots::new();
                     r.add(w);
                     if elem.is_ptr() {
@@ -492,7 +494,6 @@ pub fn push(w: u64, v: u64) {
                     unsafe {
                         let q = obj(page).payload();
                         elem.repr().store(q.add(PAGE_HDR), v);
-                        (*(q.add(8) as *const AtomicU64)).store(1, Ordering::Release);
                     }
                     if elem.is_ptr() {
                         gc::barrier(page);
