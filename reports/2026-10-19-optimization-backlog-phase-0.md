@@ -1,0 +1,137 @@
+# Optimisation backlog: Phase 0 (and one bug the work found)
+
+Branch `perf/optimization-backlog-2026-10-19`, based on `main` at `c82d139`.
+The branch carries `OPTIMIZATION_BACKLOG.md` (and the research notes 09-13 it
+refers to) and works through the backlog's Phase 0 items, one commit per
+item, each gated on `cargo test --workspace`.
+
+| commit | item | what |
+|--------|------|------|
+| `d3553e9` | — | the backlog and the research notes |
+| `66a5222` | — | a collector bug the work found (below) |
+| `e5967d3` | §0.6 | reuse the collector's mark stack and remembered buffer |
+| `5bae53c` | §0.7 | index the chunks instead of sorting every cell address |
+| `274743a` | §0.8 | account the channel's native buffers as external memory |
+
+§0.3, §0.4 and §0.5 (collections) and §0.2, §0.9 and §0.10 (scheduler) were
+implemented by delegated workers in their own worktrees; their commits and
+measurements are in the sections below.
+
+## The measurement that matters: the cost of a full collection
+
+Phase 0's GC items (§0.6, §0.7) only show up in *full* collections, and the
+end-to-end benchmarks are too noisy to see them (see "what did not move").
+A direct measurement of the collector's pause does:
+
+`crates/badger_runtime/tests/gc_collect_cost.rs` (a scratch test, not
+committed) builds a heap with 200 000 live objects and 200 000 garbage ones,
+then times 20 full collections. `BADGER_GC_GENERATIONAL=0` makes every
+collection full, which is the path `trim_empty_chunks` runs on.
+
+| build | full collection (min of 20, ms) |
+|-------|-------------------------------|
+| `main` (c82d139) | 186.4, 189.8, 193.3, 189.8 |
+| §0.6 only | 189.7, 191.6 |
+| §0.7 only | 65.9, 64.1 |
+| §0.6 + §0.7 | 65.5, 66.5, 65.5, 65.3 |
+
+**A full collection over a 200 000-object heap is 2.9x faster** (190 ms to
+65 ms, -65%). The whole effect is §0.7: the collector used to collect the
+address of every live and quarantined cell and sort it (1.6 MB of vector per
+collection, O(n log n)) only to ask which chunks hold a cell; it now sorts
+the chunk ranges (a few dozen entries) and looks each cell up, which is
+O(n log chunks) with O(chunks) memory.
+
+§0.6 is **neutral in this measurement**: reusing the mark stack and the
+remembered buffer removes two allocations per collection, which is below the
+noise floor here. It is kept because it is strictly less work, not because
+it is faster.
+
+The end-to-end benchmarks do not move (medians over 7 interleaved runs,
+`bench/collections.bdg`, `bench/records.bdg`, `bench/messages.bdg`, 1 and 4
+workers, release builds): the deltas are within +-1% and the per-round
+spread is 10-40% on a machine running other agents' builds. Those workloads
+mostly run *minor* collections, where the changed code does not run.
+
+## The collector bug the work found
+
+`tests/run/stress/channel_handoff.bdg` under chaos scheduling and
+`BADGER_GC_VERIFY=1` aborted with "the runtime used freed object ... (a
+`Page`)". **It reproduces on `main` (c82d139)**, so it is not caused by this
+branch; it blocked the test gate for every item.
+
+The mechanism (traced with a diagnostic build that printed the owner of
+every freed page and the directory slots that named it):
+
+- A list directory holds weak page slots. `copy_tail` and `put_page` copy
+  the slot *pointers* into a new directory, so the old directory and the new
+  one name the same pages.
+- When the version that owns the new directory dies, the pages it shares
+  with the old directory die with it: the old directory is not traced in a
+  minor collection (only its owner list is), so the shared page is unmarked
+  and swept, while the old directory survives (it is old).
+- The next full collection walked that dead directory's slots to decide
+  whether to clear them, and read a freed cell. The verifier aborts; in a
+  normal build it reads a cell the collector may already have reused.
+
+Fix (`66a5222`): the clearing pass skips the directories that are not
+marked. A dead directory dies with the collection and its slots are never
+used again, so its slots are never read.
+
+## §0.8: external memory accounting (delegated worker)
+
+`274743a` charges the channel's native buffers -- the prompt queue, the
+message sizes, the sealed batches, the per-producer staging, the unreleased
+leases, the recycled page pool -- and the admission gates' waiter queues to
+the collector's external counters as they grow and as they are freed, moved
+or dropped, and reports resident memory next to managed, external and
+pressure in the GC profile snapshots.
+
+Evidence from the worker: with `BADGER_GC_PROFILE=1`, `bench/messages.bdg`
+now reports `external_before=37536`/`external_after=33440` at one worker and
+`35488`/`31392` at four, where the unmodified build reported nothing; a
+balance test returns the external total to zero; `BADGER_GC_VERIFY=1` over
+`bench/messages.bdg` and `tests/run/batch_lease_task_exit.bdg` is clean; the
+corpus passes 76/76.
+
+## §0.1: the safepoint polling page is not adopted as written
+
+The item asks for a HotSpot-style "mprotect a per-worker page" trap in
+place of the `STOP` poll. Two things make it unsound as specified:
+
+1. **The race it removes is already gone.** The item cites the audit's "G3"
+   (GC stop request races with generated budget updates), which describes
+   `stop_the_world` writing *another worker's* `TaskCtx.budget` with
+   `write_volatile` (`reports/2026-10-15-runtime-concurrency-review.md`).
+   That code is gone: the budget belongs to the running task, and the
+   handshake is now `STOP: AtomicBool` plus a per-worker `IN_COMPILED`
+   counter (`task.rs:938-947`, `task.rs:1496-1508`). That protocol is
+   race-free under its sequentially consistent ordering: the worker
+   increments `IN_COMPILED` *before* it reads `STOP`, and the collector
+   stores `STOP` *before* it reads the counters. Either the collector sees
+   the worker and waits for it, or the worker sees `STOP` and backs out.
+   There is no window in between.
+2. **The mechanism only pays off when the generated code polls.** HotSpot's
+   polling page works because compiled code polls at safepoints, so the
+   collector knows a running thread will reach a poll. In badger the poll
+   is in the runtime (`gc_enter`, called before a coroutine resumes), so
+   the collector must still wait for `IN_COMPILED` to drain; the page fault
+   would replace the load, not the wait. A fault per task resume (~1 us)
+   against a load (~1 ns) is a regression on a hot path, and the stop-world
+   pause it would shorten is 0.07-0.16% of GC time
+   (`reports/2026-10-17-gc-profiling.md`).
+
+The real prerequisite is safepoint polls in the *generated* code (a compiler
+change, with the poll at back-edges and calls). That belongs with the
+Phase 2 QSBR work, which needs the same contract, and with the Phase 1
+TLA+ model of the handshake. §0.1 is recorded in the backlog's "Not
+adopted" table with this reason, and the handshake is instead specified by
+`spec/tla/GcHandshake.tla`.
+
+## What did not move
+
+- The end-to-end benchmarks (§ above): the GC items only run on full
+  collections, and the workloads are dominated by minor collections and by
+  noise from a busy machine.
+- §0.6: two allocations per collection, below the noise.
+- The `badger check` / `badger test` front end: untouched by Phase 0.
