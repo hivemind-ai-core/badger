@@ -1011,16 +1011,33 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
 /// Whole chunks with neither live nor quarantined cells can be released.
 /// Purge every free-list link before deallocating any retired chunk.
 fn trim_empty_chunks(h: &Heap) {
-    let mut occupied: Vec<usize> =
-        all_objects().map(|p| p as usize).chain(h.quarantine.iter().map(|(p, _)| *p as usize)).collect();
-    occupied.sort_unstable();
+    // A chunk is occupied when a live or quarantined cell lies in it. The
+    // chunks are few and the cells are many: index the chunks and look each
+    // cell up, rather than sorting every cell address at every collection.
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    for pool in &POOLS.0 {
+        let pool = unsafe { &*pool.get() };
+        for chunk in &pool.chunks {
+            ranges.push((chunk.base as usize, chunk.base as usize + chunk.bytes));
+        }
+    }
+    ranges.sort_unstable();
+    let mut occupied: FxHashSet<usize> = FxHashSet::default();
+    for p in all_objects().chain(h.quarantine.iter().map(|(p, _)| *p)) {
+        let address = p as usize;
+        // The chunks do not overlap, so the last one that starts at or
+        // before the cell is the only one that can hold it.
+        let i = ranges.partition_point(|r| r.0 <= address);
+        if i > 0 && address < ranges[i - 1].1 {
+            occupied.insert(ranges[i - 1].0);
+        }
+    }
     let mut retired = vec![];
     for pool in &POOLS.0 {
         let pool = unsafe { &mut *pool.get() };
         for chunk in std::mem::take(&mut pool.chunks) {
             let start = chunk.base as usize;
-            let i = occupied.partition_point(|p| *p < start);
-            if i == occupied.len() || occupied[i] >= start + chunk.bytes {
+            if !occupied.contains(&start) {
                 if pool.active == chunk.base {
                     pool.active = std::ptr::null_mut();
                     pool.bump = std::ptr::null_mut();
