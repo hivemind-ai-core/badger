@@ -128,7 +128,7 @@ fn key(rv: &Rvalue) -> Option<Key> {
 }
 
 fn reads_local(rv: &Rvalue, l: Local) -> bool {
-    rv.operands().iter().any(|o| *o == Operand::Local(l))
+    rv.operands().contains(&Operand::Local(l))
 }
 
 pub fn cse(prog: &mut Program) -> usize {

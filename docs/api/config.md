@@ -85,6 +85,14 @@ A configured value may read the environment: `"${NAME}"` (which must be
 set) or `"${NAME:-default}"`; `$${` is a literal `${`. The project's
 `[env] dotenv` files are loaded before the program starts.
 
+`load`, `from_env` and `resolve` read the same field shapes: scalars,
+lists (as JSON in a variable), `Secret`, `Option<...>` (absent is
+`none`), nested records (`APP_DB_PORT` for `db.port`), an optional
+group `Option<{ ... }>` (`none` when none of its settings is given), and
+`Map<String, V>` (a `[config.labels]` table, or JSON in a variable).
+Two fields whose variable names coincide (`db_port`, `db.port`) are an
+error.
+
 ### `resolve`
 
 ```badger

@@ -165,12 +165,11 @@ fn rewrite_calls(body: &mut Func, closure: Local, lambda: FuncId, lambda_uses_en
                         }
                     }
                 }
-                if let Some(t) = &b.term {
-                    if let Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) = t
-                        && let Operand::Local(l) = o
-                    {
-                        *uses.entry(*l).or_default() += 1;
-                    }
+                if let Some(t) = &b.term
+                    && let Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) = t
+                    && let Operand::Local(l) = o
+                {
+                    *uses.entry(*l).or_default() += 1;
                 }
             }
             let mut changed = false;

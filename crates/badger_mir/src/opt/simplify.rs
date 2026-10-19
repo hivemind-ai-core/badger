@@ -95,7 +95,7 @@ fn fold_rvalue(rv: &Rvalue, dest: Repr, bools: &FxHashSet<Local>) -> Option<Rval
                 let signed_ext = |v: i64| -> i128 {
                     if signed && bits < 64 {
                         let shift = 64 - bits as u32;
-                        ((v << shift >> shift) as i64) as i128
+                        (v << shift >> shift) as i128
                     } else {
                         v as i128
                     }
@@ -258,10 +258,10 @@ fn fold_rvalue(rv: &Rvalue, dest: Repr, bools: &FxHashSet<Local>) -> Option<Rval
             None
         }
         Rvalue::Overflows { op, a, b, ty } => {
-            if let (Some((x, _, _)), Some((y, _, _))) = (integer(a), integer(b)) {
-                if let Some(r) = overflow_const(*op, x, y, *ty) {
-                    return bool_const(r);
-                }
+            if let (Some((x, _, _)), Some((y, _, _))) = (integer(a), integer(b))
+                && let Some(r) = overflow_const(*op, x, y, *ty)
+            {
+                return bool_const(r);
             }
             None
         }
@@ -355,7 +355,7 @@ fn overflow_const(op: BinOp, x: i64, y: i64, ty: NumTy) -> Option<bool> {
             let ext = |v: i64| -> i128 {
                 if signed && bits < 64 {
                     let shift = 64 - bits as u32;
-                    ((v << shift >> shift) as i64) as i128
+                    (v << shift >> shift) as i128
                 } else {
                     v as i128
                 }
@@ -518,10 +518,8 @@ fn propagate(f: &mut Func) -> usize {
             }
             Rvalue::Use(Operand::Local(src)) if src != l && f.locals[*src].repr == f.locals[*l].repr => {
                 if let Some((sb, ss, _)) = defs.get(src) {
-                    if !multi.contains(src) {
-                        if dom.dominates(*sb, *ss, *db, *ds) {
-                            repl.insert(*l, Operand::Local(*src));
-                        }
+                    if !multi.contains(src) && dom.dominates(*sb, *ss, *db, *ds) {
+                        repl.insert(*l, Operand::Local(*src));
                     }
                 } else if params.contains(src) && !assigned.contains(src) {
                     repl.insert(*l, Operand::Local(*src));
@@ -733,8 +731,8 @@ fn dead_assignments(f: &mut Func) -> usize {
             }
         }
         let mut round = 0;
-        for b in 0..n {
-            let mut cur = live_out[b].clone();
+        for (b, out) in live_out.iter().enumerate().take(n) {
+            let mut cur = out.clone();
             if let Some(l) = term_local(&f.blocks[b].term) {
                 set_bit(&mut cur, l);
             }
