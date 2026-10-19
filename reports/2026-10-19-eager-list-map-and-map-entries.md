@@ -1,7 +1,8 @@
 # Eager list fusion and map entry traversal
 
 Reviewed 2026-10-19 on branch `perf/eager-map-snapshots-2026-10-19`,
-based on `main` at `8675a4d`. This report covers the two structural costs
+merged with `main` at `9ac2158` (the merged branch is `fff145b`; the
+measurements below compare against that `main` revision). This report covers the two structural costs
 called out by the release MIR report: eager `List.map`/`List.filter`
 materialization and persistent-map snapshot enumeration.
 
@@ -54,12 +55,19 @@ interleaved process samples. Treat small deltas as directional.
 
 | case | main | branch | delta |
 |---|---:|---:|---:|
-| realworld `reconcile` (filter→map chain), kernel | 5.753 ms | 5.191 ms | −9.8% |
-| same binary, fusion vs `BADGER_NO_LIST_FUSION=1` | 6.547 ms | 6.334 ms | −3.3% |
-| realworld `state` (snapshot iterate), kernel | 1.170 ms | 1.148 ms | −1.9% |
-| `bench/collections` run time | 85.19 ms | 84.96 ms | −0.3% |
-| `bench/runtime` run time | 28.74 ms | 20.82 ms | −27.5% (from the release MIR work) |
-| `bench/records` run time | 440.5 ms | 444.2 ms | +0.8% |
+| realworld `reconcile` (filter→map chain), kernel | 5.054 ms | 4.697 ms | −7.1% |
+| same binary, fusion vs `BADGER_NO_LIST_FUSION=1` | 5.043 ms | 4.728 ms | −6.2% |
+| realworld `state` (snapshot iterate), kernel | 1.074 ms | 1.059 ms | −1.4% |
+| `bench/collections` run time | 69.32 ms | 67.93 ms | −2.0% |
+| `bench/runtime` run time | 19.34 ms | 19.33 ms | 0.0% |
+| `bench/records` run time | 417.5 ms | 425.6 ms | +1.9% |
+| `bench/parallel_alloc` run time | 33.81 ms | 34.44 ms | +1.9% |
+
+The `runtime` call benchmark was faster than this base in the earlier
+release-MIR comparison; `main` has since gained independent standard-library
+speedups, so against `9ac2158` it is level. The `records` and
+`parallel_alloc` differences are within the host noise observed while
+another build was running.
 
 Structural checks on a filter→map program: the control MIR contains two
 list-builder creations for the chain; the fused form contains one.

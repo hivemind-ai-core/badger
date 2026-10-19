@@ -710,6 +710,15 @@ fn element_ref(self: &Self, index: Int) -> ElementRef<T> where T: Share
 
 Stable reference to an appended element (shareable elements only).
 
+### `ListBuilder.extend`
+
+```badger
+fn extend(self: &mut Self, values: List<T>) -> Unit
+```
+
+Append every element of `values` (whole pages are copied, not one
+element at a time).
+
 ### `ListBuilder.finish`
 
 ```badger
