@@ -623,6 +623,11 @@ fn config_resolve() {
         let (ok, _, err) = run(args, env);
         assert!(!ok && err.contains(want), "{args:?} {env:?}: {err}");
     }
+    // `inspect config` does not know the settings' types: credential-named
+    // keys are redacted
+    let out = lang().args(["inspect", "config", "tests/projects/settings"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("token = [redacted]") && !text.contains("dev-token"), "{text}");
 }
 
 /// `config.load` and `config.resolve` read a `config.Secret`, an

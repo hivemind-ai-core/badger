@@ -1021,6 +1021,16 @@ fn command(mut cli: Cli) -> ExitCode {
                         badger_driver::manifest::Source::Base => "config".to_string(),
                         badger_driver::manifest::Source::Profile(p) => format!("profile.{p}"),
                     };
+                    // the settings' types are not known here: a value
+                    // whose key names a credential, or a URL's password,
+                    // is shown redacted (as a `config.Secret` would be)
+                    let entries: Vec<_> = entries
+                        .into_iter()
+                        .map(|(k, v, s)| {
+                            let v = redact_setting(&k, &v);
+                            (k, v, s)
+                        })
+                        .collect();
                     if json {
                         let es: Vec<String> = entries
                             .iter()
@@ -1591,4 +1601,30 @@ fn default_binary_name(path: &Path) -> PathBuf {
 /// An argument meant as a path (not an entry name or a test filter).
 fn looks_like_path(a: &str) -> bool {
     a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
+}
+
+/// A configured value as `badger inspect config` shows it: redacted when
+/// its key names a credential (`password`, `secret`, `token`, `api_key`,
+/// `dsn`, ...), with a URL's password masked otherwise. A reference to
+/// the environment (`${NAME}`) is shown as written.
+fn redact_setting(key: &str, value: &str) -> String {
+    if value.starts_with("${") && value.ends_with('}') {
+        return value.to_string();
+    }
+    let last = key.rsplit('.').next().unwrap_or(key).to_ascii_lowercase();
+    let sensitive =
+        ["password", "passwd", "secret", "token", "credential", "private_key", "api_key", "apikey", "dsn"];
+    if sensitive.iter().any(|s| last.contains(s)) {
+        return "[redacted]".to_string();
+    }
+    // scheme://user:password@host
+    if let Some(at) = value.find('@')
+        && let Some(start) = value.find("://")
+        && start < at
+        && let Some(colon) = value[start + 3..at].find(':')
+    {
+        let colon = start + 3 + colon;
+        return format!("{}:[redacted]{}", &value[..colon], &value[at..]);
+    }
+    value.to_string()
 }
