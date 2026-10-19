@@ -12,22 +12,22 @@ descriptor-driven parser (`badger_runtime::json`), and the encoder writes
 integers without `core::fmt`, quotes strings with a byte scan, checks wire
 naming once per record, and reserves its output buffer. On the realworld
 `json` workload (parse, enrich, serialize, parse; 400,000 lines) the run time
-fell **49.1%** (minimum) and **46.3%** (median) over 21 paired samples.
-Decode and encode microbenchmarks fell **58.6%** and **39.2%**.
+fell **50.4%** (minimum) and **49.4%** (median) over 21 paired samples.
+Decode and encode microbenchmarks fell **58.0%** and **38.4%**.
 
 | Measurement (1 worker) | Before | After | Change |
 |---|---:|---:|---:|
-| `codec.decode_text<Order>` | 519 ns/op | 215 ns/op | −58.6% |
-| `codec.encode_text<Order>` | 286 ns/op | 174 ns/op | −39.2% |
-| realworld `json`, 400k lines | 627.2 ms | 319.3 ms | −49.1% |
+| `codec.decode_text<Order>` | 469 ns/op | 197 ns/op | −58.0% |
+| `codec.encode_text<Order>` | 263 ns/op | 162 ns/op | −38.4% |
+| realworld `json`, 400k lines | 557.3 ms | 276.5 ms | −50.4% |
 
 Minimums over 15 (micro) and 21 (workload) interleaved fresh runs; medians
 agree. Runs are interleaved so the ratio is the result; the absolute before
-values drift with host load (an earlier session measured 475/262/562 ns/ms
-for the same base). Host: AMD Ryzen 7 8745HS, x86-64 Linux, `--release`
-compilation. `cpu`, `reconcile` and `state` workloads are unchanged within
-noise (±2%, no consistent direction), matching the fact that they do not
-decode JSON.
+values drift with host load (earlier sessions measured 475–519 ns/op and
+562–627 ms for the same base). Host: AMD Ryzen 7 8745HS, x86-64 Linux,
+`--release` compilation. `cpu`, `reconcile` and `state` workloads are
+unchanged within noise (±2%, no consistent direction), matching the fact that
+they do not decode JSON.
 
 ## What changed
 
@@ -56,7 +56,10 @@ decode JSON.
   with a byte-position search and borrowed whole when it has no escapes;
   escaped strings unescape into one buffer sized to the raw token. Unescaping
   skips a redundant UTF-8 revalidation (`String::from_utf8_unchecked`), safe
-  because copied spans always begin and end on ASCII bytes.
+  because copied spans always begin and end on ASCII bytes. A decoded
+  `String`/`Bytes` value is written directly into its managed cell (through a
+  small stack buffer when escaped), so the temporary Rust string and its
+  allocation disappear.
 - **Encoder naming**: wire naming is checked once per record or enum instead
   of once per field, and an enum field's `Type.variant.field` key is not
   formatted at all when no wire naming is active.

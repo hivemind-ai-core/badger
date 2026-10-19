@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use crate::codec::{DecodeError, int_bools, name_matches, wire_rank};
 use crate::desc::{Field, Kind, TypeDesc};
 use crate::gc::{self, Roots, obj};
-use crate::string::{external_symbol, new_bytes, new_string};
+use crate::string::{external_symbol, new_string};
 use crate::{make_enum, map};
 
 /// A decoding failure: a JSON syntax error (reported at the root as
@@ -45,6 +45,90 @@ fn hex4_at(b: &[u8], k: &mut usize) -> Result<u32, PErr> {
         *k += 1;
     }
     Ok(v)
+}
+
+/// Decode the body of a JSON string (between the quotes) into `out`, which
+/// must have room for at least `body.len()` bytes: an escape never decodes to
+/// more bytes than it occupies. Returns the decoded length.
+///
+/// The result is valid UTF-8: copied runs start and end on ASCII bytes (`\` or
+/// a run boundary), and escapes append complete encoded characters.
+fn decode_body(body: &[u8], out: &mut [u8]) -> Result<usize, PErr> {
+    let mut k = 0;
+    let mut n = 0;
+    while k < body.len() {
+        let c = body[k];
+        k += 1;
+        if c != b'\\' {
+            out[n] = c;
+            n += 1;
+            continue;
+        }
+        let e = *body.get(k).ok_or_else(|| PErr::Json("unexpected end of escape".into()))?;
+        k += 1;
+        match e {
+            b'"' => {
+                out[n] = b'"';
+                n += 1;
+            }
+            b'\\' => {
+                out[n] = b'\\';
+                n += 1;
+            }
+            b'/' => {
+                out[n] = b'/';
+                n += 1;
+            }
+            b'b' => {
+                out[n] = 0x08;
+                n += 1;
+            }
+            b'f' => {
+                out[n] = 0x0c;
+                n += 1;
+            }
+            b'n' => {
+                out[n] = b'\n';
+                n += 1;
+            }
+            b'r' => {
+                out[n] = b'\r';
+                n += 1;
+            }
+            b't' => {
+                out[n] = b'\t';
+                n += 1;
+            }
+            b'u' => {
+                let mut cp = hex4_at(body, &mut k)?;
+                if (0xd800..0xdc00).contains(&cp) {
+                    // a high surrogate must be followed by a low one
+                    if body.get(k) != Some(&b'\\') {
+                        return jerr("lone leading surrogate in hex escape");
+                    }
+                    k += 1;
+                    if body.get(k) != Some(&b'u') {
+                        return jerr("unexpected end of hex escape");
+                    }
+                    k += 1;
+                    let lo = hex4_at(body, &mut k)?;
+                    if !(0xdc00..0xe000).contains(&lo) {
+                        return jerr("lone leading surrogate in hex escape");
+                    }
+                    cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
+                } else if (0xdc00..0xe000).contains(&cp) {
+                    return jerr("lone trailing surrogate in hex escape");
+                }
+                let ch = char::from_u32(cp).ok_or_else(|| PErr::Json("invalid escape".into()))?;
+                let mut buf = [0u8; 4];
+                let enc = ch.encode_utf8(&mut buf).as_bytes();
+                out[n..n + enc.len()].copy_from_slice(enc);
+                n += enc.len();
+            }
+            _ => return jerr("invalid escape"),
+        }
+    }
+    Ok(n)
 }
 
 /// A schema error at the current node (path `$` before unwinding).
@@ -125,18 +209,17 @@ impl<'a> P<'a> {
         }
     }
 
-    /// A JSON string. Borrows the input when it has no escapes (the common
-    /// case, including every field name); otherwise unescapes into an owned
-    /// string sized to the raw token.
-    fn string(&mut self) -> Result<Cow<'a, str>, PErr> {
+    /// The extent of a JSON string token at the cursor: the body's byte range
+    /// (between the quotes) and whether it contains escapes. Leaves the cursor
+    /// after the closing quote. This scan is the hot path for every string
+    /// token, including field names.
+    fn string_body(&mut self) -> Result<(usize, usize, bool), PErr> {
         if self.peek() != Some(b'"') {
             return jerr("expected a string");
         }
         self.i += 1;
         let body_start = self.i;
         let rest = &self.b[self.i..];
-        // Find the closing quote, stepping over escaped bytes. The scan is the
-        // hot path for every string token (including field names).
         let mut j = 0;
         let mut escaped = false;
         loop {
@@ -160,61 +243,45 @@ impl<'a> P<'a> {
             }
         }
         self.i = body_start + j + 1;
+        Ok((body_start, body_start + j, escaped))
+    }
+
+    /// A JSON string. Borrows the input when it has no escapes (the common
+    /// case, including every field name); otherwise unescapes into an owned
+    /// string sized to the raw token.
+    fn string(&mut self) -> Result<Cow<'a, str>, PErr> {
+        let (s, e, escaped) = self.string_body()?;
         if !escaped {
-            return Ok(Cow::Borrowed(&self.text[body_start..body_start + j]));
+            return Ok(Cow::Borrowed(&self.text[s..e]));
         }
-        let body = &rest[..j];
-        let mut out: Vec<u8> = Vec::with_capacity(body.len());
-        let mut k = 0;
-        while k < body.len() {
-            let c = body[k];
-            k += 1;
-            if c != b'\\' {
-                out.push(c);
-                continue;
-            }
-            let e = *body.get(k).ok_or_else(|| PErr::Json("unexpected end of escape".into()))?;
-            k += 1;
-            match e {
-                b'"' => out.push(b'"'),
-                b'\\' => out.push(b'\\'),
-                b'/' => out.push(b'/'),
-                b'b' => out.push(0x08),
-                b'f' => out.push(0x0c),
-                b'n' => out.push(b'\n'),
-                b'r' => out.push(b'\r'),
-                b't' => out.push(b'\t'),
-                b'u' => {
-                    let mut cp = hex4_at(body, &mut k)?;
-                    if (0xd800..0xdc00).contains(&cp) {
-                        // a high surrogate must be followed by a low one
-                        if body.get(k) != Some(&b'\\') {
-                            return jerr("lone leading surrogate in hex escape");
-                        }
-                        k += 1;
-                        if body.get(k) != Some(&b'u') {
-                            return jerr("unexpected end of hex escape");
-                        }
-                        k += 1;
-                        let lo = hex4_at(body, &mut k)?;
-                        if !(0xdc00..0xe000).contains(&lo) {
-                            return jerr("lone leading surrogate in hex escape");
-                        }
-                        cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00);
-                    } else if (0xdc00..0xe000).contains(&cp) {
-                        return jerr("lone trailing surrogate in hex escape");
-                    }
-                    let ch = char::from_u32(cp).ok_or_else(|| PErr::Json("invalid escape".into()))?;
-                    let mut buf = [0u8; 4];
-                    out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
-                }
-                _ => return jerr("invalid escape"),
-            }
-        }
-        // SAFETY: copied spans start and end on ASCII bytes (`"`, `\`, or a
-        // control char), so each is a whole UTF-8 substring, and escapes push
-        // complete encoded characters: the result is valid UTF-8.
+        let mut out = vec![0u8; e - s];
+        let n = decode_body(&self.b[s..e], &mut out)?;
+        out.truncate(n);
+        // SAFETY: see `decode_body`: the copied spans and escape encodings are
+        // each valid UTF-8, so the concatenation is.
         Ok(Cow::Owned(unsafe { String::from_utf8_unchecked(out) }))
+    }
+
+    /// A managed string (`Kind::String`) or byte string (`Kind::Bytes`) cell
+    /// holding the next JSON string's decoded bytes. Unescaped tokens are
+    /// copied straight in; escaped ones decode through a small stack buffer,
+    /// so the cell is exactly the decoded size and no native allocation is
+    /// made for the common short string.
+    fn managed_bytes(&mut self, desc: &'static TypeDesc) -> Result<u64, PErr> {
+        let (s, e, escaped) = self.string_body()?;
+        let body = &self.b[s..e];
+        if !escaped {
+            return Ok(root(crate::string::alloc_bytes(desc, body)));
+        }
+        let mut stack = [0u8; 128];
+        if body.len() <= stack.len() {
+            let n = decode_body(body, &mut stack)?;
+            Ok(root(crate::string::alloc_bytes(desc, &stack[..n])))
+        } else {
+            let mut buf = vec![0u8; body.len()];
+            let n = decode_body(body, &mut buf)?;
+            Ok(root(crate::string::alloc_bytes(desc, &buf[..n])))
+        }
     }
 
     fn number(&mut self) -> Result<Num, PErr> {
@@ -417,10 +484,7 @@ impl<'a> P<'a> {
                 Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
             }
             Kind::String => match self.peek() {
-                Some(b'"') => {
-                    let s = self.string()?;
-                    Ok(root(new_string(&s)))
-                }
+                Some(b'"') => self.managed_bytes(crate::desc::builtin::string()),
                 _ => derr("expected a string"),
             },
             Kind::Symbol => match self.peek() {
@@ -441,10 +505,7 @@ impl<'a> P<'a> {
                 _ => derr("expected a character"),
             },
             Kind::Bytes => match self.peek() {
-                Some(b'"') => {
-                    let s = self.string()?;
-                    Ok(root(new_bytes(s.as_bytes())))
-                }
+                Some(b'"') => self.managed_bytes(crate::desc::builtin::bytes()),
                 _ => derr("expected a string"),
             },
             Kind::Duration | Kind::Instant | Kind::Timestamp => {
