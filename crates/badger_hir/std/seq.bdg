@@ -133,6 +133,7 @@ pub fn take<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
 }
 
 /// `f`'s values, skipping the items it maps to `none`.
+@fusion(role = stage, template = filter_map)
 pub fn filter_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Seq<U, Eff> {
     {
         start: fn() {

@@ -17,6 +17,7 @@ enum Stage {
     Take(ExprId),
     Skip(ExprId),
     StepBy(ExprId),
+    FilterMap(ExprId),
 }
 enum Active {
     Map(Operand, Repr),
@@ -25,6 +26,8 @@ enum Active {
     Skip(Local),
     /// `n` and the remaining-skip counter (reset to `n - 1` on each pass).
     StepBy(Local, Local),
+    /// The callback and the `Option<U>` it returns.
+    FilterMap(Operand, Ty),
 }
 #[derive(Clone)]
 enum PreparedStage {
@@ -33,6 +36,7 @@ enum PreparedStage {
     Take(Operand),
     Skip(Operand),
     StepBy(Operand),
+    FilterMap(Operand, Ty),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -96,6 +100,7 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.take" => "take",
                 "std.seq.skip" => "skip",
                 "std.seq.step_by" => "step_by",
+                "std.seq.filter_map" => "filter_map",
                 "std.seq.fold" => "fold",
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
@@ -132,14 +137,15 @@ impl FnLower<'_, '_, '_> {
                 let elem = self.m.lay.args(&self.ty(*list)).first()?.clone();
                 Some((Source::List(*list, elem, false), vec![]))
             }
-            ("map" | "filter" | "take" | "skip" | "step_by", [inner, arg]) => {
+            ("map" | "filter" | "take" | "skip" | "step_by" | "filter_map", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
                 stages.push(match template.as_str() {
                     "map" => Stage::Map(*arg),
                     "filter" => Stage::Filter(*arg),
                     "take" => Stage::Take(*arg),
                     "skip" => Stage::Skip(*arg),
-                    _ => Stage::StepBy(*arg),
+                    "step_by" => Stage::StepBy(*arg),
+                    _ => Stage::FilterMap(*arg),
                 });
                 Some((source, stages))
             }
@@ -160,7 +166,7 @@ impl FnLower<'_, '_, '_> {
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
         match (template.as_str(), args.as_slice()) {
-            ("map" | "filter" | "take" | "skip" | "step_by", [inner, _]) => {
+            ("map" | "filter" | "take" | "skip" | "step_by" | "filter_map", [inner, _]) => {
                 self.sequence_local_use(*inner, depth + 1)
             }
             _ => None,
@@ -312,6 +318,11 @@ impl FnLower<'_, '_, '_> {
                 Stage::Take(expr) => PreparedStage::Take(self.lower(expr)?),
                 Stage::Skip(expr) => PreparedStage::Skip(self.lower(expr)?),
                 Stage::StepBy(expr) => PreparedStage::StepBy(self.lower(expr)?),
+                Stage::FilterMap(expr) => {
+                    let TyKind::Fn(ft) = &*self.ty(expr) else { unreachable!() };
+                    // the callback returns `Option<U>`
+                    PreparedStage::FilterMap(self.lower(expr)?, ft.ret.clone())
+                }
             });
         }
         Some(prepared)
@@ -331,6 +342,7 @@ impl FnLower<'_, '_, '_> {
                     let n = self.copy_to_local(n, Repr::I64, None);
                     Active::StepBy(n, self.copy_to_local(int(0), Repr::I64, None))
                 }
+                PreparedStage::FilterMap(f, opt) => Active::FilterMap(f, opt),
             })
             .collect();
         let ret = match plan.terminal {
@@ -442,6 +454,17 @@ impl FnLower<'_, '_, '_> {
                 Active::Take(left) => {
                     let n = bin(self, BinOp::Sub, Operand::Local(left), int(1));
                     self.emit(Stmt::Assign(left, Rvalue::Use(n)));
+                }
+                Active::FilterMap(f, opt_ty) => {
+                    // `f(x)` is `Option<U>`: pass on `some`, skip `none`
+                    let opt = self.call(Callee::Closure(f), vec![value], Repr::Ptr);
+                    let ol = self.copy_to_local(opt, Repr::Ptr, None);
+                    let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(ol)));
+                    let some = self.block();
+                    self.term(Term::Switch(tag, vec![(1, some)], step));
+                    self.switch(some);
+                    let (x, _r) = self.variant_field(&opt_ty, 1, 0, Operand::Local(ol));
+                    value = x;
                 }
                 Active::Skip(left) => {
                     // drop this item while the counter is positive, then pass

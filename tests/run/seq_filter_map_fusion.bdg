@@ -1,0 +1,12 @@
+// `filter_map` fuses as an option-unwrapping stage.
+import std.io
+import std.list
+import std.seq
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{seq.range(0, 10).filter_map(fn(x: Int) { if x % 3 == 0 { Option.some(x * 10) } else { Option.none } }).collect()}")?
+    io.println($"{seq.range(0, 20).map(fn(x: Int) { x + 1 }).filter_map(fn(x: Int) { if x % 4 == 0 { Option.some(x) } else { Option.none } }).take(3).collect()}")?
+    io.println($"{seq.range(0, 6).filter_map(fn(x: Int) { if x % 2 == 0 { Option.some(x) } else { Option.none } }).fold(0, fn(a: Int, x: Int) { a + x })}")?
+    io.println($"{seq.range(0, 7).filter_map(fn(x: Int) { if x > 2 { Option.some(x) } else { Option.none } }).count()}")?
+    ok(())
+}
