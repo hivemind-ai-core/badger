@@ -67,6 +67,13 @@ they do not decode JSON.
   separator now uses `split(char)`, whose search is a byte scan, instead of
   the two-way string search (`split(&str)`); results are identical. This is a
   further **4.5%** on the `json` workload, which splits its input into lines.
+- **`Data` → JSON text** (`write_data`): numbers use the shared decimal writer
+  instead of a `String` per number, strings quote straight into the output
+  buffer instead of through `json_quote`, lists are walked with `list::get`
+  instead of materialising a `Vec`, and a `Data` value is rendered directly
+  into the encoder's buffer (the `encode` arm no longer round-trips through a
+  `String`). `codec.encode_text<Data>` on a 6-field record: 646 → 507 ns/op
+  (−21.5%).
 - **Standard-library bulk copies** (backlog R2): `list.chunks`,
   `List.to_array`, `bytes.from_list`, `bytes_from_buffer`, `buffer_to_list`,
   `buffer_to_bytes`, `list.concat` and `list.slice` copy whole packed runs
@@ -110,3 +117,11 @@ yet removed end to end; see the revised R5 in [BACKLOG.md](../BACKLOG.md).
   object with more than one distinct key still reports `expected a variant`.
 - Syntax-error messages are this parser's own text (prefixed `invalid JSON:`);
   no test pinned serde_json's wording.
+- **Tried and reverted**: routing `from_data`/`from_sql_row` through
+  `data_json` + the streaming decoder (which would have deleted the
+  `Value`-walking `codec::dec`, `lookup` and `data_value`, about 250 lines)
+  measured **850 → 1065 ns/op (+25%)** on a 64-row × 200 round-trip probe,
+  even after the `write_data` improvements above: rendering and re-parsing
+  text costs more than building and walking the value tree for `Data` input.
+  The tree walk stays, so `Data` decoding still allocates a
+  `serde_json::Value`.

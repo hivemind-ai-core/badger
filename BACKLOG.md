@@ -63,8 +63,10 @@ so these are correctness-and-scale work to schedule against new profiles.
   name list.
 - R5: decode `Data` without the intermediate JSON value. Text decoding is
   done 2026-10-19 (`badger_runtime::json` streams into the target value);
-  `from_data`/`from_sql_row`/`params_decode` still build a `serde_json::Value`
-  (`codec::dec`), which a `Data`-direct decoder would replace.
+  `from_data`/`from_sql_row` still build a `serde_json::Value` (`codec::dec`).
+  Routing them through the text decoder instead was measured at +25%
+  (850 → 1065 ns/op on a 64-row round-trip probe), so only a decoder that
+  walks the `Data` representation directly remains worth doing.
 
 ## Language, libraries, and tools (ENHANCEMENTS.md)
 

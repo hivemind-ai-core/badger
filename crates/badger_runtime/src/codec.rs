@@ -141,7 +141,7 @@ fn write_u64(o: &mut String, v: u64) {
     o.push_str(std::str::from_utf8(&buf[i..]).expect("decimal digits"));
 }
 
-fn write_i64(o: &mut String, v: i64) {
+pub(crate) fn write_i64(o: &mut String, v: i64) {
     if v < 0 {
         o.push('-');
         write_u64(o, v.unsigned_abs());
@@ -236,7 +236,7 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             let (tag, vals) = enum_parts(w);
             let v = &variants[tag as usize];
             if d.name == "Data" {
-                o.push_str(&crate::intrinsics_io::data_json(w));
+                crate::intrinsics_io::write_data(w, o);
                 return;
             }
             if d.name == "Option" {
