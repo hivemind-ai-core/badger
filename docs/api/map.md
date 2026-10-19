@@ -36,6 +36,18 @@ fn len(self: &Self) -> Int
 
 ## Functions
 
+### `all`
+
+```badger
+fn all<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Bool
+```
+
+### `any`
+
+```badger
+fn any<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Bool
+```
+
 ### `build`
 
 ```badger
@@ -61,6 +73,20 @@ fn collect<K, V>(entries: Seq<(K, V)>) -> Map<K, V> where K: Hash
 
 ```badger
 fn contains<K, V>(m: Map<K, V>, key: K) -> Bool
+```
+
+### `count`
+
+```badger
+fn count<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Int
+```
+
+How many entries satisfy `test`.
+
+### `each`
+
+```badger
+fn each<K, V>(m: Map<K, V>, f: fn(K, V) -> Unit) -> Unit
 ```
 
 ### `empty`
@@ -103,6 +129,22 @@ fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash
 
 The entries `keep` accepts.
 
+### `find`
+
+```badger
+fn find<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Option<(K, V)>
+```
+
+The first entry `keep` accepts.
+
+### `fold`
+
+```badger
+fn fold<K, V, A>(m: Map<K, V>, initial: A, f: fn(A, (K, V)) -> A) -> A
+```
+
+Fold over the entries in order.
+
 ### `from_list`
 
 ```badger
@@ -131,6 +173,14 @@ The value at `key`, or `default`.
 fn insert<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 ```
 
+### `invert`
+
+```badger
+fn invert<K, V>(m: Map<K, V>) -> Map<V, K> where V: Hash
+```
+
+The map with keys and values swapped (later duplicates win).
+
 ### `is_empty`
 
 ```badger
@@ -150,6 +200,14 @@ The keys, in the map's (unspecified but stable) entry order.
 ```badger
 fn len<K, V>(m: Map<K, V>) -> Int
 ```
+
+### `map_keys`
+
+```badger
+fn map_keys<K, V, W>(m: Map<K, V>, f: fn(K) -> W) -> Map<W, V> where W: Hash
+```
+
+The same entries with `f` applied to each key (duplicates: the last wins).
 
 ### `map_values`
 
@@ -175,11 +233,35 @@ fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: fn(V, V) -> V) -> Map<K
 
 Both maps' entries; where both have a key, `combine(a's, b's)` decides.
 
+### `omit_keys`
+
+```badger
+fn omit_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash
+```
+
+The entries whose keys are not in `keys`.
+
+### `put_new`
+
+```badger
+fn put_new<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
+```
+
+The map with `key` set only when it is absent.
+
 ### `remove`
 
 ```badger
 fn remove<K, V>(m: Map<K, V>, key: K) -> Map<K, V>
 ```
+
+### `select_keys`
+
+```badger
+fn select_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash
+```
+
+Only the entries whose keys are in `keys`.
 
 ### `to_list`
 
@@ -198,6 +280,15 @@ fn update<K, V>(m: Map<K, V>, key: K, f: once fn(Option<V>) -> Option<V>) -> Map
 Change the entry at `key`: `f` gets the current value (`none` if
 absent) and returns the new one (`none` removes the entry).
 
+### `update_with`
+
+```badger
+fn update_with<K, V>(m: Map<K, V>, key: K, default: V, f: fn(V) -> V) -> Map<K, V>
+```
+
+Change the entry at `key` through `f` on its value, using `default`
+when the key is absent.
+
 ### `values`
 
 ```badger
@@ -208,10 +299,34 @@ The values, in the map's entry order.
 
 ## Methods on other types
 
+### `Map.all`
+
+```badger
+fn all(self: &Self, test: fn(K, V) -> Bool) -> Bool
+```
+
+### `Map.any`
+
+```badger
+fn any(self: &Self, test: fn(K, V) -> Bool) -> Bool
+```
+
 ### `Map.contains`
 
 ```badger
 fn contains(self: &Self, key: K) -> Bool
+```
+
+### `Map.count`
+
+```badger
+fn count(self: &Self, test: fn(K, V) -> Bool) -> Int
+```
+
+### `Map.each`
+
+```badger
+fn each(self: &Self, f: fn(K, V) -> Unit) -> Unit
 ```
 
 ### `Map.entries`
@@ -224,6 +339,18 @@ fn entries(self: &Self) -> List<(K, V)>
 
 ```badger
 fn filter(self: &Self, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash
+```
+
+### `Map.find`
+
+```badger
+fn find(self: &Self, keep: fn(K, V) -> Bool) -> Option<(K, V)>
+```
+
+### `Map.fold`
+
+```badger
+fn fold<A>(self: &Self, initial: A, f: fn(A, (K, V)) -> A) -> A
 ```
 
 ### `Map.get`
@@ -244,6 +371,12 @@ fn get_or(self: &Self, key: K, default: V) -> V
 fn insert(self: &Self, key: K, value: V) -> Map<K, V>
 ```
 
+### `Map.invert`
+
+```badger
+fn invert(self: &Self) -> Map<V, K> where V: Hash
+```
+
 ### `Map.is_empty`
 
 ```badger
@@ -260,6 +393,12 @@ fn keys(self: &Self) -> List<K>
 
 ```badger
 fn len(self: &Self) -> Int
+```
+
+### `Map.map_keys`
+
+```badger
+fn map_keys<W>(self: &Self, f: fn(K) -> W) -> Map<W, V> where W: Hash
 ```
 
 ### `Map.map_values`
@@ -280,16 +419,40 @@ fn merge(self: &Self, other: Map<K, V>) -> Map<K, V> where K: Hash
 fn merge_with(self: &Self, other: Map<K, V>, combine: fn(V, V) -> V) -> Map<K, V> where K: Hash
 ```
 
+### `Map.omit_keys`
+
+```badger
+fn omit_keys(self: &Self, keys: List<K>) -> Map<K, V> where K: Hash
+```
+
+### `Map.put_new`
+
+```badger
+fn put_new(self: &Self, key: K, value: V) -> Map<K, V>
+```
+
 ### `Map.remove`
 
 ```badger
 fn remove(self: &Self, key: K) -> Map<K, V>
 ```
 
+### `Map.select_keys`
+
+```badger
+fn select_keys(self: &Self, keys: List<K>) -> Map<K, V> where K: Hash
+```
+
 ### `Map.update`
 
 ```badger
 fn update(self: &Self, key: K, f: once fn(Option<V>) -> Option<V>) -> Map<K, V>
+```
+
+### `Map.update_with`
+
+```badger
+fn update_with(self: &Self, key: K, default: V, f: fn(V) -> V) -> Map<K, V>
 ```
 
 ### `Map.values`

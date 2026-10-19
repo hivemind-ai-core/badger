@@ -1,0 +1,18 @@
+deque get 1 4 -1 contains true false fold 10 reversed [4, 3, 2, 1]
+heap peek 0 sorted [0, 1, 2, 4, 5]
+bits min 1 max 64 toggle [1, 64] subset true symdiff [1, 7, 64]
+bits fold 70
+sorted get_or z update b!
+sorted filter [1, 3] map_values ["A", "B", "C"]
+sorted pop_first 1 rest 2
+sorted merge ["a", "B", "c", "d"] fold 6
+sorted range_inclusive [2, 3]
+sset len 5 first 0 last 9 floor 3 ceiling 9
+sset to_list [0, 1, 2, 3, 9] range [1, 2, 3] range_inc 3
+sset union [1, 2, 3, 4] inter [3] diff [1, 2] subset true
+sset filter [2, 3] map [10, 20, 30]
+stream skip [3, 4, 5] skip_while [5, 1]
+stream zip 2
+stream count 3 last 3 first 1
+stream any true all true
+stream min_by b max_by a

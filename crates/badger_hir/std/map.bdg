@@ -162,7 +162,131 @@ pub fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: 
 
 pub fn is_empty<K, V>(m: Map<K, V>) -> Bool { map_len(m) == 0 }
 
+// ---------------------------------------------------------------- reshaping
+
+/// The same entries with `f` applied to each key (duplicates: the last wins).
+pub fn map_keys<K, V, W>(m: Map<K, V>, f: fn(K) -> W) -> Map<W, V> where W: Hash {
+    let out = map_empty()
+    for (k, v) in m {
+        map_insert_mut(out, f(k), v)
+    }
+    out
+}
+
+/// Only the entries whose keys are in `keys`.
+pub fn select_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash {
+    let out = map_empty()
+    for k in keys {
+        match map_get(m, k) {
+            .some(v) => map_insert_mut(out, k, v),
+            .none => (),
+        }
+    }
+    out
+}
+
+/// The entries whose keys are not in `keys`.
+pub fn omit_keys<K, V>(m: Map<K, V>, keys: List<K>) -> Map<K, V> where K: Hash {
+    let out = map_empty()
+    for (k, v) in m {
+        if !keys.contains(k) {
+            map_insert_mut(out, k, v)
+        }
+    }
+    out
+}
+
+/// The map with `key` set only when it is absent.
+pub fn put_new<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V> {
+    if map_contains(m, key) { m } else { map_insert(m, key, value) }
+}
+
+/// Change the entry at `key` through `f` on its value, using `default`
+/// when the key is absent.
+pub fn update_with<K, V>(m: Map<K, V>, key: K, default: V, f: fn(V) -> V) -> Map<K, V> {
+    let cur = match map_get(m, key) {
+        .some(v) => v,
+        .none => default,
+    }
+    map_insert(m, key, f(cur))
+}
+
+/// The first entry `keep` accepts.
+pub fn find<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Option<(K, V)> {
+    for (k, v) in m {
+        if keep(k, v) {
+            return Option.some((k, v))
+        }
+    }
+    Option.none
+}
+
+pub fn any<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Bool {
+    for (k, v) in m {
+        if test(k, v) {
+            return true
+        }
+    }
+    false
+}
+
+pub fn all<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Bool {
+    for (k, v) in m {
+        if !test(k, v) {
+            return false
+        }
+    }
+    true
+}
+
+/// How many entries satisfy `test`.
+pub fn count<K, V>(m: Map<K, V>, test: fn(K, V) -> Bool) -> Int {
+    var n = 0
+    for (k, v) in m {
+        if test(k, v) {
+            n = n + 1
+        }
+    }
+    n
+}
+
+pub fn each<K, V>(m: Map<K, V>, f: fn(K, V) -> Unit) -> Unit {
+    for (k, v) in m {
+        f(k, v)
+    }
+}
+
+/// Fold over the entries in order.
+pub fn fold<K, V, A>(m: Map<K, V>, initial: A, f: fn(A, (K, V)) -> A) -> A {
+    var acc = initial
+    for (k, v) in m {
+        acc = f(acc, (k, v))
+    }
+    acc
+}
+
+/// The map with keys and values swapped (later duplicates win).
+pub fn invert<K, V>(m: Map<K, V>) -> Map<V, K> where V: Hash {
+    let out = map_empty()
+    for (k, v) in m {
+        map_insert_mut(out, v, k)
+    }
+    out
+}
+
 impl<K, V> Map<K, V> {
+    pub fn map_keys<W>(self: &Self, f: fn(K) -> W) -> Map<W, V> where W: Hash { map_keys(self, f) }
+    pub fn select_keys(self: &Self, keys: List<K>) -> Map<K, V> where K: Hash { select_keys(self, keys) }
+    pub fn omit_keys(self: &Self, keys: List<K>) -> Map<K, V> where K: Hash { omit_keys(self, keys) }
+    pub fn put_new(self: &Self, key: K, value: V) -> Map<K, V> { put_new(self, key, value) }
+    pub fn update_with(self: &Self, key: K, default: V, f: fn(V) -> V) -> Map<K, V> { update_with(self, key, default, f) }
+    pub fn find(self: &Self, keep: fn(K, V) -> Bool) -> Option<(K, V)> { find(self, keep) }
+    pub fn any(self: &Self, test: fn(K, V) -> Bool) -> Bool { any(self, test) }
+    pub fn all(self: &Self, test: fn(K, V) -> Bool) -> Bool { all(self, test) }
+    pub fn count(self: &Self, test: fn(K, V) -> Bool) -> Int { count(self, test) }
+    pub fn each(self: &Self, f: fn(K, V) -> Unit) -> Unit { each(self, f) }
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, (K, V)) -> A) -> A { fold(self, initial, f) }
+    pub fn invert(self: &Self) -> Map<V, K> where V: Hash { invert(self) }
     pub fn remove(self: &Self, key: K) -> Map<K, V> { map_remove(self, key) }
     pub fn keys(self: &Self) -> List<K> { keys(self) }
     pub fn values(self: &Self) -> List<V> { values(self) }

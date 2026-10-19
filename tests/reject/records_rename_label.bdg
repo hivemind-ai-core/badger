@@ -1,0 +1,7 @@
+// `records.rename` needs literal labels.
+// expect-error: E0344
+import std.records
+fn re(r: { a: Int }, from: Symbol) {
+    let _ = records.rename(r, from, #m)
+}
+pub fn main() {}

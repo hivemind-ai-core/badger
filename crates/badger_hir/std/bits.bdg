@@ -62,6 +62,9 @@ pub fn of(items: List<Int>) -> BitSet {
     list.fold(items, empty(), fn(s, i) { s.insert(i) })
 }
 
+/// The set of `items` (each at least 0; as `of`).
+pub fn from_list(items: List<Int>) -> BitSet { of(items) }
+
 impl BitSet {
     pub fn contains(self: &Self, i: Int) -> Bool {
         i >= 0 && word(self.words, i / width) & bit(i) != 0
@@ -92,6 +95,74 @@ impl BitSet {
 
     pub fn difference(self: &Self, other: BitSet) -> BitSet {
         { words: zip_words(self.words, other.words, fn(a, b) { a & (b ^ -1) }) }
+    }
+
+    /// The integers in exactly one of the sets.
+    pub fn symmetric_difference(self: &Self, other: BitSet) -> BitSet {
+        self.union(other).difference(self.intersection(other))
+    }
+
+    /// Whether every integer of `self` is in `other`.
+    pub fn is_subset(self: &Self, other: BitSet) -> Bool {
+        self.difference(other).is_empty()
+    }
+
+    /// The set with `i` flipped (at least 0; a negative `i` is a defect).
+    pub fn toggle(self: &Self, i: Int) -> BitSet {
+        if self.contains(i) { self.remove(i) } else { self.insert(i) }
+    }
+
+    /// The smallest integer, if any.
+    pub fn min(self: &Self) -> Option<Int> {
+        var base = 0
+        for w in self.words {
+            if w != 0 {
+                var b = 0
+                while b < width {
+                    if w & (1 << b) != 0 {
+                        return Option.some(base + b)
+                    }
+                    b += 1
+                }
+            }
+            base += width
+        }
+        Option.none
+    }
+
+    /// The largest integer, if any.
+    pub fn max(self: &Self) -> Option<Int> {
+        var idx = self.words.len() - 1
+        while idx >= 0 {
+            let w = self.words[idx]
+            if w != 0 {
+                var b = width - 1
+                while b >= 0 {
+                    if w & (1 << b) != 0 {
+                        return Option.some(idx * width + b)
+                    }
+                    b -= 1
+                }
+            }
+            idx -= 1
+        }
+        Option.none
+    }
+
+    /// Run `f` on each integer, in increasing order.
+    pub fn each(self: &Self, f: fn(Int) -> Unit) -> Unit {
+        for i in self.to_list() {
+            f(i)
+        }
+    }
+
+    /// Fold over the integers, in increasing order.
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, Int) -> A) -> A {
+        var acc = initial
+        for i in self.to_list() {
+            acc = f(acc, i)
+        }
+        acc
     }
 
     pub fn is_empty(self: &Self) -> Bool {

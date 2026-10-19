@@ -1,0 +1,22 @@
+min 1 max 9
+product 24 sum_by 62
+interpose [1, 0, 2, 0, 3] flatten [1, 2, 3]
+split_at [3, 1, 4] [1, 5, 9, 2, 6]
+split_while [3, 1] [4, 1, 5, 9, 2, 6]
+chunk_by [[1, 1], [2], [3, 3, 3]]
+dedup_by [1, 2, 3]
+windows [[1, 2], [2, 3], [3, 4]]
+frequency a 2 b 1
+index_by b
+zip_with [11, 22]
+unzip [1, 2] ["a", "b"]
+fold_while -1
+take_last [9, 2, 6] drop_last [3, 1, 4, 1, 5]
+map_keys ["A", "B", "C"] select 2 omit ["a", "c"]
+put_new 1 4
+update_with 11 1
+find b any true all true count 2
+invert b fold 6
+superset false true disjoint false true
+symdiff [1, 2, 5]
+set_map [10, 20, 30, 40] set_fold 10 any true all true

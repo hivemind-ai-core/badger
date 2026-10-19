@@ -1416,6 +1416,111 @@ impl<'g, 'a> Infer<'g, 'a> {
                 }
                 return out;
             }
+            if Some(def) == self.g.hir.try_lang("records.omit") && args.len() == 2 {
+                let ft = self.infer(callee);
+                let rt = self.infer(args[0]);
+                let list_ty = match self.g.hir.try_lang("List") {
+                    Some(l) => self.con(l, vec![self.prim(self.b().symbol)]),
+                    None => error_ty(),
+                };
+                let labels = match &self.g.hir.exprs[args[1]].kind {
+                    ExprKind::List(items) => {
+                        let mut ls = Vec::new();
+                        let mut ok = true;
+                        for it in items {
+                            match &self.g.hir.exprs[*it].kind {
+                                ExprKind::Lit(Lit::Symbol(l)) => ls.push(*l),
+                                _ => ok = false,
+                            }
+                        }
+                        if ok { Some(ls) } else { None }
+                    }
+                    _ => None,
+                };
+                self.set_expr(args[1], list_ty);
+                let Some(labels) = labels else {
+                    self.error(
+                        "E0344",
+                        self.g.hir.exprs[args[1]].span,
+                        "`records.omit` needs a literal label list",
+                        "e.g. `[#name, #age]`",
+                    );
+                    return error_ty();
+                };
+                // every label must exist; the result keeps the rest
+                let mut want_fields: Vec<(Symbol, Ty)> = Vec::new();
+                for l in &labels {
+                    want_fields.push((*l, self.icx.fresh()));
+                }
+                let rest = self.icx.fresh_row();
+                let want = record(want_fields, rest.clone());
+                let aspan = self.g.hir.exprs[args[0]].span;
+                self.expect(aspan, &want, &rt);
+                let out = record(std::iter::empty(), rest);
+                if let TyKind::Fn(f) = &*self.icx.shallow(&ft) {
+                    let (p0, ret) = (f.params[0].clone(), f.ret.clone());
+                    let _ = self.icx.unify(&p0, &rt);
+                    let _ = self.icx.unify(&ret, &out);
+                }
+                return out;
+            }
+            if Some(def) == self.g.hir.try_lang("records.rename") && args.len() == 3 {
+                let ft = self.infer(callee);
+                let rt = self.infer(args[0]);
+                let from = match &self.g.hir.exprs[args[1]].kind {
+                    ExprKind::Lit(Lit::Symbol(l)) => Some(*l),
+                    _ => None,
+                };
+                let to = match &self.g.hir.exprs[args[2]].kind {
+                    ExprKind::Lit(Lit::Symbol(l)) => Some(*l),
+                    _ => None,
+                };
+                self.set_expr(args[1], self.prim(self.b().symbol));
+                self.set_expr(args[2], self.prim(self.b().symbol));
+                let (Some(from), Some(to)) = (from, to) else {
+                    self.error(
+                        "E0344",
+                        self.g.hir.exprs[args[1]].span,
+                        "`records.rename` needs literal labels",
+                        "e.g. `#old`, `#new`",
+                    );
+                    return error_ty();
+                };
+                // the source has `from`; the result has `to` at the same type
+                let present = self.icx.fresh();
+                let rest = self.icx.fresh_row();
+                let want = record([(from, present.clone())], rest.clone());
+                let aspan = self.g.hir.exprs[args[0]].span;
+                self.expect(aspan, &want, &rt);
+                let out = record([(to, present)], rest);
+                if let TyKind::Fn(f) = &*self.icx.shallow(&ft) {
+                    let (p0, ret) = (f.params[0].clone(), f.ret.clone());
+                    let _ = self.icx.unify(&p0, &rt);
+                    let _ = self.icx.unify(&ret, &out);
+                }
+                return out;
+            }
+            if Some(def) == self.g.hir.try_lang("records.merge_left") && args.len() == 2 {
+                // left wins on overlap: the same union with the operands swapped
+                let ft = self.infer(callee);
+                let lt = self.infer(args[0]);
+                let rt = self.infer(args[1]);
+                let out = self.icx.fresh();
+                self.pending.push(Constraint::Merge {
+                    left: rt.clone(),
+                    right: lt.clone(),
+                    out: out.clone(),
+                    span,
+                });
+                if let TyKind::Fn(f) = &*self.icx.shallow(&ft) {
+                    let (p0, p1, ret) = (f.params[0].clone(), f.params[1].clone(), f.ret.clone());
+                    let _ = self.icx.unify(&p0, &lt);
+                    let _ = self.icx.unify(&p1, &rt);
+                    let _ = self.icx.unify(&ret, &out);
+                }
+                self.solve_some();
+                return out;
+            }
             if Some(def) == self.g.hir.try_lang("records.merge") && args.len() == 2 {
                 let ft = self.infer(callee);
                 let lt = self.infer(args[0]);

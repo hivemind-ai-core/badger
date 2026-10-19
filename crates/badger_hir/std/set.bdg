@@ -111,7 +111,85 @@ pub fn filter<T>(s: Set<T>, keep: fn(T) -> Bool) -> Set<T> where T: Hash {
 
 pub fn is_empty<T>(s: Set<T>) -> Bool { len(s) == 0 }
 
+/// Whether every item of `b` is in `a`.
+pub fn is_superset<T>(a: Set<T>, b: Set<T>) -> Bool { is_subset(b, a) }
+
+/// Whether the sets share no item.
+pub fn is_disjoint<T>(a: Set<T>, b: Set<T>) -> Bool {
+    for x in set_items(a) {
+        if contains(b, x) {
+            return false
+        }
+    }
+    true
+}
+
+/// The items in exactly one of the sets.
+pub fn symmetric_difference<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash {
+    let s = empty()
+    for x in set_items(a) {
+        if !contains(b, x) {
+            set_insert_mut(s, x)
+        }
+    }
+    for x in set_items(b) {
+        if !contains(a, x) {
+            set_insert_mut(s, x)
+        }
+    }
+    s
+}
+
+/// The set of `f` over the items.
+pub fn map<T, U>(s: Set<T>, f: fn(T) -> U) -> Set<U> where U: Hash {
+    let out = empty()
+    for x in set_items(s) {
+        set_insert_mut(out, f(x))
+    }
+    out
+}
+
+pub fn each<T>(s: Set<T>, f: fn(T) -> Unit) -> Unit {
+    for x in set_items(s) {
+        f(x)
+    }
+}
+
+pub fn fold<T, A>(s: Set<T>, initial: A, f: fn(A, T) -> A) -> A {
+    var acc = initial
+    for x in set_items(s) {
+        acc = f(acc, x)
+    }
+    acc
+}
+
+pub fn any<T>(s: Set<T>, test: fn(T) -> Bool) -> Bool {
+    for x in set_items(s) {
+        if test(x) {
+            return true
+        }
+    }
+    false
+}
+
+pub fn all<T>(s: Set<T>, test: fn(T) -> Bool) -> Bool {
+    for x in set_items(s) {
+        if !test(x) {
+            return false
+        }
+    }
+    true
+}
+
 impl<T> Set<T> {
+    pub fn is_superset(self: &Self, other: Set<T>) -> Bool { is_superset(self, other) }
+    pub fn is_disjoint(self: &Self, other: Set<T>) -> Bool { is_disjoint(self, other) }
+    pub fn symmetric_difference(self: &Self, other: Set<T>) -> Set<T> where T: Hash { symmetric_difference(self, other) }
+    pub fn map<U>(self: &Self, f: fn(T) -> U) -> Set<U> where U: Hash { map(self, f) }
+    pub fn each(self: &Self, f: fn(T) -> Unit) -> Unit { each(self, f) }
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A { fold(self, initial, f) }
+    pub fn any(self: &Self, test: fn(T) -> Bool) -> Bool { any(self, test) }
+    pub fn all(self: &Self, test: fn(T) -> Bool) -> Bool { all(self, test) }
     pub fn insert(self: &Self, value: T) -> Set<T> { insert(self, value) }
     pub fn remove(self: &Self, value: T) -> Set<T> { remove(self, value) }
     pub fn to_list(self: &Self) -> List<T> { set_items(self) }

@@ -1,0 +1,42 @@
+// The reshaped list/map/set surface: count, reshape, split, window, index.
+import std.io
+import std.list
+import std.map
+import std.set
+
+pub fn main() -> Result<Unit, io.Error> {
+    let xs = [3, 1, 4, 1, 5, 9, 2, 6]
+    io.println($"min {list.min(xs).unwrap_or(-1)} max {list.max(xs).unwrap_or(-1)}")?
+    io.println($"product {list.product([2, 3, 4])} sum_by {xs.sum_by(fn(x) => x * 2)}")?
+    io.println($"interpose {list.interpose([1, 2, 3], 0)} flatten {list.flatten([[1, 2], [], [3]])}")?
+    let (a, b) = xs.split_at(3)
+    io.println($"split_at {a} {b}")?
+    let (c, d) = xs.split_while(fn(x) => x != 4)
+    io.println($"split_while {c} {d}")?
+    io.println($"chunk_by {list.chunk_by([1, 1, 2, 3, 3, 3], fn(x) => x)}")?
+    io.println($"dedup_by {list.dedup_by([1, 1, 2, 2, 3], fn(x) => x % 2)}")?
+    io.println($"windows {list.windows([1, 2, 3, 4], 2)}")?
+    let freq = list.frequencies(["a", "b", "a"])
+    io.println($"frequency a {freq.get_or("a", 0)} b {freq.get_or("b", 0)}")?
+    let idx = list.index_by([{ id: 1, n: "a" }, { id: 2, n: "b" }], fn(r) => r.id)
+    io.println($"index_by {idx.get(2).map(fn(r) => r.n).unwrap_or("-")}")?
+    io.println($"zip_with {list.zip_with([1, 2, 3], [10, 20], fn(x, y) => x + y)}")?
+    let (p, q) = list.unzip([(1, "a"), (2, "b")])
+    io.println($"unzip {p} {q}")?
+    io.println($"fold_while {list.fold_while(xs, 0, fn(acc, x) => if acc > 6 { Option.none } else { Option.some(acc + x) }).unwrap_or(-1)}")?
+    io.println($"take_last {xs.take_last(3)} drop_last {xs.drop_last(3)}")?
+
+    let m = map.from_list([("a", 1), ("b", 2), ("c", 3)])
+    io.println($"map_keys {m.map_keys(fn(k) => k.to_upper()).keys().sort()} select {m.select_keys(["a", "c"]).len()} omit {m.omit_keys(["b"]).keys().sort()}")?
+    io.println($"put_new {m.put_new("a", 9).get("a").unwrap_or(0)} {m.put_new("d", 4).get("d").unwrap_or(0)}")?
+    io.println($"update_with {m.update_with("a", 0, fn(v) => v + 10).get("a").unwrap_or(0)} {m.update_with("z", 0, fn(v) => v + 1).get("z").unwrap_or(0)}")?
+    io.println($"find {m.find(fn(_k, v) => v > 1).map(fn(e) => e.0).unwrap_or("-")} any {m.any(fn(_k, v) => v > 2)} all {m.all(fn(_k, v) => v > 0)} count {m.count(fn(_k, v) => v > 1)}")?
+    io.println($"invert {m.invert().get(2).unwrap_or("-")} fold {m.fold(0, fn(acc, e) => acc + e.1)}")?
+
+    let s = set.from_list([1, 2, 3, 4])
+    let t = set.from_list([3, 4, 5])
+    io.println($"superset {s.is_superset(t)} {s.is_superset(set.from_list([1, 2]))} disjoint {s.is_disjoint(t)} {s.is_disjoint(set.from_list([9]))}")?
+    io.println($"symdiff {s.symmetric_difference(t).to_list().sort()}")?
+    io.println($"set_map {s.map(fn(x) => x * 10).to_list().sort()} set_fold {s.fold(0, fn(acc, x) => acc + x)} any {s.any(fn(x) => x == 3)} all {s.all(fn(x) => x > 0)}")?
+    ok(())
+}

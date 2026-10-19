@@ -14,5 +14,20 @@ pub extern "intrinsic" fn project<T, S>(value: S) -> T where S: Projects<T>
 /// The record without field `label` (a literal, existing label).
 pub extern "intrinsic" fn remove<R, S>(record: S, label: Symbol) -> R
 
+/// The record without the fields in a literal label list, in one copy
+/// (`[#a, #b]`; each label must exist).
+pub extern "intrinsic" fn omit<R, S>(record: S, labels: List<Symbol>) -> R
+
+/// The record with field `from` renamed to `to` (both literal labels; `from`
+/// must exist; `to` must not).
+pub extern "intrinsic" fn rename<R, S>(record: S, from: Symbol, to: Symbol) -> R
+
+/// The number of fields of the record behind `value` (a compile-time
+/// constant).
+pub extern "intrinsic" fn field_count<T>(value: &T) -> Int
+
 /// Right-biased merge: overlapping fields take the right value and type.
 pub extern "intrinsic" fn merge<A, B, C>(left: A, right: B) -> C
+
+/// Left-biased merge: overlapping fields take the left value and type.
+pub extern "intrinsic" fn merge_left<A, B, C>(left: A, right: B) -> C

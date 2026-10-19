@@ -561,4 +561,361 @@ impl<T, Eff> Seq<T, Eff> {
     pub fn min_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd { min_by(self, key) }
     pub fn max_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd { max_by(self, key) }
     pub fn partition(self: &Self, keep: fn(T) -> Bool !Eff) -> (List<T>, List<T>) { partition(self, keep) }
+    /// This sequence's items, then `other`'s.
+    pub fn chain(self: &Self, other: Seq<T, Eff>) -> Seq<T, Eff> { chain(self, other) }
+    /// Consecutive equal items collapsed to the first.
+    pub fn dedup(self: &Self) -> Seq<T, Eff> where T: PartialEq { dedup(self) }
+    /// The first of each set of equal items.
+    pub fn distinct(self: &Self) -> Seq<T, Eff> where T: Hash { distinct(self) }
+    /// `sep` between consecutive items.
+    pub fn interpose(self: &Self, sep: T) -> Seq<T, Eff> where T: Share { interpose(self, sep) }
+    /// Consecutive runs with equal keys, each a list.
+    pub fn chunk_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Seq<List<T>, Eff> where K: PartialEq { chunk_by(self, key) }
+    /// Overlapping consecutive windows of `size`.
+    pub fn windows(self: &Self, size: Int) -> Seq<List<T>, Eff> { windows(self, size) }
+    /// Pairs with `other` combined by `f` (as long as the shorter).
+    pub fn zip_with<U, C>(self: &Self, other: Seq<U, Eff>, f: fn(T, U) -> C !Eff) -> Seq<C, Eff> { zip_with(self, other, f) }
+    /// Every `n`-th item, from the first.
+    pub fn step_by(self: &Self, n: Int) -> Seq<T, Eff> { step_by(self, n) }
+    /// How often each distinct item occurs.
+    pub fn frequencies(self: &Self) -> Map<T, Int> where T: Hash { frequencies(self) }
+    /// One item per distinct key: the last item with that key.
+    pub fn index_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Map<K, T> where K: Hash { index_by(self, key) }
+    /// Fold while `f` gives `some`; `none` when it stopped early.
+    pub fn fold_while<A>(self: &Self, initial: A, f: fn(A, T) -> Option<A> !Eff) -> Option<A> { fold_while(self, initial, f) }
+    /// Run `f` on each item, in order.
+    pub fn each(self: &Self, f: fn(T) -> Unit !Eff) -> Unit { each(self, f) }
+    /// The position of the first item `matches` accepts.
+    pub fn position(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<Int> { position(self, matches) }
+    /// The smallest item (the first, on ties).
+    pub fn min(self: &Self) -> Option<T> where T: PartialOrd { min(self) }
+    /// The largest item (the first, on ties).
+    pub fn max(self: &Self) -> Option<T> where T: PartialOrd { max(self) }
+}
+
+// ---------------------------------------------------------------- further adapters
+
+/// `a`'s items followed by `b`'s.
+pub fn chain<T, Eff>(a: Seq<T, Eff>, b: Seq<T, Eff>) -> Seq<T, Eff> {
+    {
+        start: fn() {
+            let na = a.start()
+            let nb = b.start()
+            let on_a = Cell.new(true)
+            let it = fn() -> Option<T> {
+                if on_a.get() {
+                    match na() {
+                        .some(x) => return Option.some(x),
+                        .none => on_a.set(false),
+                    }
+                }
+                nb()
+            }
+            if iter_has_close(na) || iter_has_close(nb) {
+                iter_on_close(it, fn() {
+                    iter_close(na)
+                    iter_close(nb)
+                })
+            }
+            it
+        },
+    }
+}
+
+/// Consecutive equal items collapsed to the first.
+pub fn dedup<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: PartialEq {
+    {
+        start: fn() {
+            let next = items.start()
+            let prev: Cell<Option<T>> = Cell.new(Option.none)
+            link(fn() -> Option<T> {
+                loop {
+                    match next() {
+                        .some(x) => {
+                            let same = match prev.get() {
+                                .some(p) => p == x,
+                                .none => false,
+                            }
+                            prev.set(Option.some(x))
+                            if !same {
+                                return Option.some(x)
+                            }
+                        }
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+/// The first of each set of equal items.
+pub fn distinct<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: Hash {
+    {
+        start: fn() {
+            let next = items.start()
+            let seen: Cell<Map<T, Unit>> = Cell.new(maps.empty())
+            link(fn() -> Option<T> {
+                loop {
+                    match next() {
+                        .some(x) => {
+                            let m = seen.get()
+                            if !maps.contains(m, x) {
+                                seen.set(maps.insert(m, x, ()))
+                                return Option.some(x)
+                            }
+                        }
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+/// `sep` between consecutive items (nothing before the first).
+pub fn interpose<T, Eff>(items: Seq<T, Eff>, sep: T) -> Seq<T, Eff> where T: Share {
+    {
+        start: fn() {
+            let next = items.start()
+            let started = Cell.new(false)
+            let buffered: Cell<Option<T>> = Cell.new(Option.none)
+            link(fn() -> Option<T> {
+                match buffered.get() {
+                    .some(x) => {
+                        buffered.set(Option.none)
+                        return Option.some(x)
+                    }
+                    .none => (),
+                }
+                match next() {
+                    .some(x) => {
+                        if started.get() {
+                            buffered.set(Option.some(x))
+                            Option.some(sep)
+                        } else {
+                            started.set(true)
+                            Option.some(x)
+                        }
+                    }
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+/// Consecutive runs with equal keys, each a list.
+pub fn chunk_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Seq<List<T>, Eff> where K: PartialEq {
+    {
+        start: fn() {
+            let next = items.start()
+            let pending: Cell<Option<T>> = Cell.new(Option.none)
+            link(fn() -> Option<List<T>> {
+                let first = match pending.get() {
+                    .some(x) => {
+                        pending.set(Option.none)
+                        Option.some(x)
+                    }
+                    .none => next(),
+                }
+                match first {
+                    .some(x0) => {
+                        let b = list.builder<T>()
+                        let k0 = key(x0)
+                        b.append(x0)
+                        loop {
+                            match next() {
+                                .some(x) => {
+                                    if key(x) == k0 {
+                                        b.append(x)
+                                    } else {
+                                        pending.set(Option.some(x))
+                                        break
+                                    }
+                                }
+                                .none => { break },
+                            }
+                        }
+                        Option.some(b.finish())
+                    }
+                    .none => Option.none,
+                }
+            }, next)
+        },
+    }
+}
+
+/// Overlapping consecutive windows of `size` (`size` below 1, or fewer
+/// items than `size`, yields nothing).
+pub fn windows<T, Eff>(items: Seq<T, Eff>, size: Int) -> Seq<List<T>, Eff> {
+    {
+        start: fn() {
+            let next = items.start()
+            let win: Cell<List<T>> = Cell.new(list.empty())
+            let done = Cell.new(false)
+            link(fn() -> Option<List<T>> {
+                if done.get() {
+                    return Option.none
+                }
+                while win.get().len() < size {
+                    match next() {
+                        .some(x) => win.set(win.get().append(x)),
+                        .none => {
+                            done.set(true)
+                            return Option.none
+                        }
+                    }
+                }
+                let out = win.get()
+                match next() {
+                    .some(x) => {
+                        let tail = list.skip(win.get(), 1)
+                        win.set(tail.append(x))
+                    }
+                    .none => done.set(true),
+                }
+                Option.some(out)
+            }, next)
+        },
+    }
+}
+
+/// Pairs with `other` combined by `f` (as long as the shorter).
+pub fn zip_with<A, B, C, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>, f: fn(A, B) -> C !Eff) -> Seq<C, Eff> {
+    map(zip(a, b), fn(p) => f(p.0, p.1))
+}
+
+/// Every `n`-th item, from the first (`n` below 1 counts as 1).
+pub fn step_by<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
+    let step = if n < 1 { 1 } else { n }
+    {
+        start: fn() {
+            let next = items.start()
+            let count = Cell.new(0)
+            link(fn() -> Option<T> {
+                loop {
+                    match next() {
+                        .some(x) => {
+                            let c = count.get()
+                            count.set(c + 1)
+                            if c % step == 0 {
+                                return Option.some(x)
+                            }
+                        }
+                        .none => { return Option.none },
+                    }
+                }
+            }, next)
+        },
+    }
+}
+
+/// How often each distinct item occurs.
+pub fn frequencies<T, Eff>(items: Seq<T, Eff>) -> Map<T, Int> where T: Hash {
+    var counts: Map<T, Int> = maps.empty()
+    for x in items {
+        let n = match maps.get(counts, x) {
+            .some(v) => v,
+            .none => 0,
+        }
+        counts = maps.insert(counts, x, n + 1)
+    }
+    counts
+}
+
+/// One item per distinct key: the last item with that key.
+pub fn index_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Map<K, T> where K: Hash {
+    var out: Map<K, T> = maps.empty()
+    for x in items {
+        let k = key(x)
+        out = maps.insert(out, k, x)
+    }
+    out
+}
+
+/// Fold while `f` gives `some`; the result is the final state, or `none`
+/// when `f` stopped the fold early.
+pub fn fold_while<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> Option<A> !Eff) -> Option<A> {
+    var acc: Option<A> = Option.some(initial)
+    for x in items {
+        match acc {
+            .some(a) => { acc = f(a, x) },
+            .none => { break },
+        }
+    }
+    acc
+}
+
+/// Run `f` on each item, in order.
+pub fn each<T, Eff>(items: Seq<T, Eff>, f: fn(T) -> Unit !Eff) -> Unit {
+    for x in items {
+        f(x)
+    }
+}
+
+/// The position of the first item `matches` accepts.
+pub fn position<T, Eff>(items: Seq<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<Int> {
+    var i = 0
+    for x in items {
+        if matches(x) {
+            return Option.some(i)
+        }
+        i = i + 1
+    }
+    Option.none
+}
+
+/// The smallest item (the first, on ties).
+pub fn min<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { min_by(items, fn(x) => x) }
+
+/// The largest item (the first, on ties).
+pub fn max<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { max_by(items, fn(x) => x) }
+
+/// The product of the items (`1` when empty).
+pub fn product<Eff>(items: Seq<Int, Eff>) -> Int {
+    var acc = 1
+    for x in items {
+        acc = acc * x
+    }
+    acc
+}
+
+/// `value` repeated `count` times (nothing when `count` is not positive).
+pub fn repeat<T>(value: T, count: Int) -> Seq<T, !{}> where T: Share {
+    {
+        start: fn() {
+            let i = Cell.new(0)
+            fn() {
+                if i.get() < count {
+                    i.set(i.get() + 1)
+                    Option.some(value)
+                } else {
+                    Option.none
+                }
+            }
+        },
+    }
+}
+
+/// `initial`, then `f` applied over and over: an infinite sequence (`take`
+/// bounds it).
+pub fn iterate<T, Eff>(initial: T, f: fn(T) -> T !Eff) -> Seq<T, Eff> where T: Share {
+    {
+        start: fn() {
+            let state = Cell.new(initial)
+            let first = Cell.new(true)
+            fn() {
+                let cur = state.get()
+                if first.get() {
+                    first.set(false)
+                    Option.some(cur)
+                } else {
+                    let next = f(cur)
+                    state.set(next)
+                    Option.some(next)
+                }
+            }
+        },
+    }
 }

@@ -34,6 +34,18 @@ fn len(self: &Self) -> Int
 
 ## Functions
 
+### `all`
+
+```badger
+fn all<T>(s: Set<T>, test: fn(T) -> Bool) -> Bool
+```
+
+### `any`
+
+```badger
+fn any<T>(s: Set<T>, test: fn(T) -> Bool) -> Bool
+```
+
 ### `build`
 
 ```badger
@@ -69,6 +81,12 @@ fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
 
 The items of `a` not in `b`.
 
+### `each`
+
+```badger
+fn each<T>(s: Set<T>, f: fn(T) -> Unit) -> Unit
+```
+
 ### `empty`
 
 ```badger
@@ -82,6 +100,12 @@ fn filter<T>(s: Set<T>, keep: fn(T) -> Bool) -> Set<T> where T: Hash
 ```
 
 The items `keep` accepts.
+
+### `fold`
+
+```badger
+fn fold<T, A>(s: Set<T>, initial: A, f: fn(A, T) -> A) -> A
+```
 
 ### `from_list`
 
@@ -103,6 +127,14 @@ fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
 
 The items in both sets.
 
+### `is_disjoint`
+
+```badger
+fn is_disjoint<T>(a: Set<T>, b: Set<T>) -> Bool
+```
+
+Whether the sets share no item.
+
 ### `is_empty`
 
 ```badger
@@ -117,17 +149,41 @@ fn is_subset<T>(a: Set<T>, b: Set<T>) -> Bool
 
 Whether every item of `a` is in `b`.
 
+### `is_superset`
+
+```badger
+fn is_superset<T>(a: Set<T>, b: Set<T>) -> Bool
+```
+
+Whether every item of `b` is in `a`.
+
 ### `len`
 
 ```badger
 fn len<T>(s: Set<T>) -> Int
 ```
 
+### `map`
+
+```badger
+fn map<T, U>(s: Set<T>, f: fn(T) -> U) -> Set<U> where U: Hash
+```
+
+The set of `f` over the items.
+
 ### `remove`
 
 ```badger
 fn remove<T>(s: Set<T>, value: T) -> Set<T>
 ```
+
+### `symmetric_difference`
+
+```badger
+fn symmetric_difference<T>(a: Set<T>, b: Set<T>) -> Set<T> where T: Hash
+```
+
+The items in exactly one of the sets.
 
 ### `to_list`
 
@@ -147,6 +203,18 @@ The items in either set.
 
 ## Methods on other types
 
+### `Set.all`
+
+```badger
+fn all(self: &Self, test: fn(T) -> Bool) -> Bool
+```
+
+### `Set.any`
+
+```badger
+fn any(self: &Self, test: fn(T) -> Bool) -> Bool
+```
+
 ### `Set.contains`
 
 ```badger
@@ -159,10 +227,22 @@ fn contains(self: &Self, value: T) -> Bool
 fn difference(self: &Self, other: Set<T>) -> Set<T> where T: Hash
 ```
 
+### `Set.each`
+
+```badger
+fn each(self: &Self, f: fn(T) -> Unit) -> Unit
+```
+
 ### `Set.filter`
 
 ```badger
 fn filter(self: &Self, keep: fn(T) -> Bool) -> Set<T> where T: Hash
+```
+
+### `Set.fold`
+
+```badger
+fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A
 ```
 
 ### `Set.insert`
@@ -177,6 +257,12 @@ fn insert(self: &Self, value: T) -> Set<T>
 fn intersection(self: &Self, other: Set<T>) -> Set<T> where T: Hash
 ```
 
+### `Set.is_disjoint`
+
+```badger
+fn is_disjoint(self: &Self, other: Set<T>) -> Bool
+```
+
 ### `Set.is_empty`
 
 ```badger
@@ -189,16 +275,34 @@ fn is_empty(self: &Self) -> Bool
 fn is_subset(self: &Self, other: Set<T>) -> Bool
 ```
 
+### `Set.is_superset`
+
+```badger
+fn is_superset(self: &Self, other: Set<T>) -> Bool
+```
+
 ### `Set.len`
 
 ```badger
 fn len(self: &Self) -> Int
 ```
 
+### `Set.map`
+
+```badger
+fn map<U>(self: &Self, f: fn(T) -> U) -> Set<U> where U: Hash
+```
+
 ### `Set.remove`
 
 ```badger
 fn remove(self: &Self, value: T) -> Set<T>
+```
+
+### `Set.symmetric_difference`
+
+```badger
+fn symmetric_difference(self: &Self, other: Set<T>) -> Set<T> where T: Hash
 ```
 
 ### `Set.to_list`

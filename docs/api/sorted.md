@@ -35,6 +35,22 @@ The entry with the smallest key at least `key`.
 fn contains(self: &Self, key: K) -> Bool where K: PartialOrd
 ```
 
+#### `SortedMap.each`
+
+```badger
+fn each(self: &Self, f: fn(K, V) -> Unit) -> Unit
+```
+
+Run `f` on each entry, in key order.
+
+#### `SortedMap.filter`
+
+```badger
+fn filter(self: &Self, keep: fn(K, V) -> Bool) -> SortedMap<K, V> where K: PartialOrd
+```
+
+The entries `keep` accepts.
+
 #### `SortedMap.first`
 
 ```badger
@@ -51,11 +67,27 @@ fn floor(self: &Self, key: K) -> Option<(K, V)> where K: PartialOrd
 
 The entry with the largest key at most `key`.
 
+#### `SortedMap.fold`
+
+```badger
+fn fold<A>(self: &Self, initial: A, f: fn(A, (K, V)) -> A) -> A
+```
+
+Fold over the entries in key order.
+
 #### `SortedMap.get`
 
 ```badger
 fn get(self: &Self, key: K) -> Option<V> where K: PartialOrd
 ```
+
+#### `SortedMap.get_or`
+
+```badger
+fn get_or(self: &Self, key: K, default: V) -> V where K: PartialOrd
+```
+
+The value at `key`, or `default`.
 
 #### `SortedMap.insert`
 
@@ -91,6 +123,38 @@ The entry with the largest key.
 fn len(self: &Self) -> Int
 ```
 
+#### `SortedMap.map_values`
+
+```badger
+fn map_values<W>(self: &Self, f: fn(V) -> W) -> SortedMap<K, W> where K: PartialOrd
+```
+
+The same keys with `f` applied to each value.
+
+#### `SortedMap.merge`
+
+```badger
+fn merge(self: &Self, other: SortedMap<K, V>) -> SortedMap<K, V> where K: PartialOrd
+```
+
+Both maps' entries; `other`'s win where both have a key.
+
+#### `SortedMap.pop_first`
+
+```badger
+fn pop_first(self: &Self) -> Option<((K, V), SortedMap<K, V>)> where K: PartialOrd
+```
+
+Remove the smallest entry, returning it and the rest.
+
+#### `SortedMap.pop_last`
+
+```badger
+fn pop_last(self: &Self) -> Option<((K, V), SortedMap<K, V>)> where K: PartialOrd
+```
+
+Remove the largest entry, returning it and the rest.
+
 #### `SortedMap.range`
 
 ```badger
@@ -98,6 +162,14 @@ fn range(self: &Self, from: K, to: K) -> List<(K, V)> where K: PartialOrd
 ```
 
 The entries with `from <= key < to`, in key order.
+
+#### `SortedMap.range_inclusive`
+
+```badger
+fn range_inclusive(self: &Self, from: K, to: K) -> List<(K, V)> where K: PartialOrd
+```
+
+The entries with `from <= key <= to`, in key order.
 
 #### `SortedMap.remove`
 
@@ -115,11 +187,168 @@ fn to_list(self: &Self) -> List<(K, V)>
 
 Every entry, in key order.
 
+#### `SortedMap.update`
+
+```badger
+fn update(self: &Self, key: K, f: fn(V) -> V) -> SortedMap<K, V> where K: PartialOrd
+```
+
+Change the entry at `key` through `f` on its value.
+
 #### `SortedMap.values`
 
 ```badger
 fn values(self: &Self) -> List<V>
 ```
+
+### `SortedSet`
+
+```badger
+struct SortedSet<K> { map: sorted.SortedMap<K, Unit> }
+```
+
+A set of `K` (ordered by `<`): a persistent AVL tree of keys. `contains`,
+`insert`, `remove`, `first`, `last`, `floor`, and `ceiling` take O(log n);
+`range` and `to_list` yield keys in order. Every operation returns a new
+value and leaves the old one unchanged.
+
+#### `SortedSet.ceiling`
+
+```badger
+fn ceiling(self: &Self, key: K) -> Option<K> where K: PartialOrd
+```
+
+The smallest key at least `key`.
+
+#### `SortedSet.contains`
+
+```badger
+fn contains(self: &Self, key: K) -> Bool where K: PartialOrd
+```
+
+#### `SortedSet.difference`
+
+```badger
+fn difference(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd
+```
+
+The keys of `self` not in `other`.
+
+#### `SortedSet.filter`
+
+```badger
+fn filter(self: &Self, keep: fn(K) -> Bool) -> SortedSet<K> where K: PartialOrd
+```
+
+The keys `keep` accepts.
+
+#### `SortedSet.first`
+
+```badger
+fn first(self: &Self) -> Option<K>
+```
+
+The smallest key.
+
+#### `SortedSet.floor`
+
+```badger
+fn floor(self: &Self, key: K) -> Option<K> where K: PartialOrd
+```
+
+The largest key at most `key`.
+
+#### `SortedSet.insert`
+
+```badger
+fn insert(self: &Self, key: K) -> SortedSet<K> where K: PartialOrd
+```
+
+The set with `key` added.
+
+#### `SortedSet.intersection`
+
+```badger
+fn intersection(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd
+```
+
+The keys in both sets.
+
+#### `SortedSet.is_empty`
+
+```badger
+fn is_empty(self: &Self) -> Bool
+```
+
+#### `SortedSet.is_subset`
+
+```badger
+fn is_subset(self: &Self, other: SortedSet<K>) -> Bool where K: PartialOrd
+```
+
+Whether every key of `self` is in `other`.
+
+#### `SortedSet.last`
+
+```badger
+fn last(self: &Self) -> Option<K>
+```
+
+The largest key.
+
+#### `SortedSet.len`
+
+```badger
+fn len(self: &Self) -> Int
+```
+
+#### `SortedSet.map`
+
+```badger
+fn map<U>(self: &Self, f: fn(K) -> U) -> SortedSet<U> where K: PartialOrd, U: PartialOrd
+```
+
+The set of `f` over the keys (a new order).
+
+#### `SortedSet.range`
+
+```badger
+fn range(self: &Self, from: K, to: K) -> List<K> where K: PartialOrd
+```
+
+The keys with `from <= key < to`, in order.
+
+#### `SortedSet.range_inclusive`
+
+```badger
+fn range_inclusive(self: &Self, from: K, to: K) -> List<K> where K: PartialOrd
+```
+
+The keys with `from <= key <= to`, in order.
+
+#### `SortedSet.remove`
+
+```badger
+fn remove(self: &Self, key: K) -> SortedSet<K> where K: PartialOrd
+```
+
+The set without `key`.
+
+#### `SortedSet.to_list`
+
+```badger
+fn to_list(self: &Self) -> List<K>
+```
+
+The keys, in order.
+
+#### `SortedSet.union`
+
+```badger
+fn union(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd
+```
+
+The keys in either set.
 
 ## Functions
 
@@ -138,4 +367,20 @@ fn of<K, V>(entries: List<(K, V)>) -> SortedMap<K, V> where K: PartialOrd
 ```
 
 A map of `entries` (a later entry replaces an earlier one's value).
+
+### `set`
+
+```badger
+fn set<K>() -> SortedSet<K>
+```
+
+An empty set.
+
+### `set_of`
+
+```badger
+fn set_of<K>(items: List<K>) -> SortedSet<K> where K: PartialOrd
+```
+
+A set of `items`.
 

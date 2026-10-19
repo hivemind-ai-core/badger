@@ -2140,7 +2140,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Some(self.assign(r, Rvalue::Load { base: args[0], offset: 0, repr: r }))
             }
             // typed projection onto a closed subset (field copies)
-            "project" | "remove" => {
+            "project" | "remove" | "omit" => {
                 let (t, src) = (targs[0].clone(), targs[1].clone());
                 if t == src {
                     return Some(args[0]);
@@ -2174,6 +2174,56 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
                 }
                 Some(obj)
+            }
+            // left-biased union (the mirror of `merge`: the left operand wins)
+            "merge_left" => {
+                let (a_t, b_t, c_t) = (targs[0].clone(), targs[1].clone(), targs[2].clone());
+                let a = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let b = Operand::Local(self.copy_to_local(args[1], Repr::Ptr, None));
+                let layout = self.m.lay.record(&c_t);
+                let al = self.m.lay.record(&a_t);
+                let desc = self.m.lay.desc(&c_t);
+                let obj = self
+                    .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size });
+                for fl in &layout.fields {
+                    let v = if al.field(fl.label).is_some() {
+                        self.load_field(&a_t, fl.label, a)
+                    } else {
+                        self.load_field(&b_t, fl.label, b)
+                    };
+                    self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
+                }
+                Some(obj)
+            }
+            // one label copied to a different label (the only source label
+            // the target lacks is where the renamed field comes from)
+            "rename" => {
+                let (t, src) = (targs[0].clone(), targs[1].clone());
+                if t == src {
+                    return Some(args[0]);
+                }
+                let base = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let layout = self.m.lay.record(&t);
+                let desc = self.m.lay.desc(&t);
+                let sl = self.m.lay.record(&src);
+                let renamed_from = sl.fields.iter().map(|f| f.label).find(|l| layout.field(*l).is_none());
+                let obj = self
+                    .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size });
+                for fl in &layout.fields {
+                    let from_label = if sl.field(fl.label).is_some() {
+                        fl.label
+                    } else {
+                        renamed_from.unwrap_or(fl.label)
+                    };
+                    let v = self.load_field(&src, from_label, base);
+                    self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
+                }
+                Some(obj)
+            }
+            // the number of fields of a record/struct type: a constant
+            "field_count" => {
+                let layout = self.m.lay.record(&targs[0]);
+                Some(Operand::Const(Const::Int(layout.fields.len() as i64, Repr::I64)))
             }
             // a builder's append within its tail page, without a runtime
             // call (a builder's pages are its own until it is finished);

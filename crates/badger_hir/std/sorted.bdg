@@ -311,4 +311,217 @@ impl<K, V> SortedMap<K, V> {
     pub fn values(self: &Self) -> List<V> {
         self.to_list().map(fn(e) { e.1 })
     }
+
+    /// The entries with `from <= key <= to`, in key order.
+    pub fn range_inclusive(self: &Self, from: K, to: K) -> List<(K, V)> where K: PartialOrd {
+        var out = self.range(from, to)
+        if !(to < from) {
+            match self.get(to) {
+                .some(v) => { out = out.append((to, v)) },
+                .none => (),
+            }
+        }
+        out
+    }
+
+    /// The value at `key`, or `default`.
+    pub fn get_or(self: &Self, key: K, default: V) -> V where K: PartialOrd {
+        match self.get(key) {
+            .some(v) => v,
+            .none => default,
+        }
+    }
+
+    /// Change the entry at `key` through `f` on its value.
+    pub fn update(self: &Self, key: K, f: fn(V) -> V) -> SortedMap<K, V> where K: PartialOrd {
+        match self.get(key) {
+            .some(v) => self.insert(key, f(v)),
+            .none => self,
+        }
+    }
+
+    /// Remove the smallest entry, returning it and the rest.
+    pub fn pop_first(self: &Self) -> Option<((K, V), SortedMap<K, V>)> where K: PartialOrd {
+        match self.first() {
+            .some((k, v)) => Option.some(((k, v), self.remove(k))),
+            .none => Option.none,
+        }
+    }
+
+    /// Remove the largest entry, returning it and the rest.
+    pub fn pop_last(self: &Self) -> Option<((K, V), SortedMap<K, V>)> where K: PartialOrd {
+        match self.last() {
+            .some((k, v)) => Option.some(((k, v), self.remove(k))),
+            .none => Option.none,
+        }
+    }
+
+    /// Both maps' entries; `other`'s win where both have a key.
+    pub fn merge(self: &Self, other: SortedMap<K, V>) -> SortedMap<K, V> where K: PartialOrd {
+        var out = self
+        for (k, v) in other.to_list() {
+            out = out.insert(k, v)
+        }
+        out
+    }
+
+    /// The entries `keep` accepts.
+    pub fn filter(self: &Self, keep: fn(K, V) -> Bool) -> SortedMap<K, V> where K: PartialOrd {
+        var out: SortedMap<K, V> = empty()
+        for (k, v) in self.to_list() {
+            if keep(k, v) {
+                out = out.insert(k, v)
+            }
+        }
+        out
+    }
+
+    /// The same keys with `f` applied to each value.
+    pub fn map_values<W>(self: &Self, f: fn(V) -> W) -> SortedMap<K, W> where K: PartialOrd {
+        var out: SortedMap<K, W> = empty()
+        for (k, v) in self.to_list() {
+            out = out.insert(k, f(v))
+        }
+        out
+    }
+
+    /// Run `f` on each entry, in key order.
+    pub fn each(self: &Self, f: fn(K, V) -> Unit) -> Unit {
+        for (k, v) in self.to_list() {
+            f(k, v)
+        }
+    }
+
+    /// Fold over the entries in key order.
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, (K, V)) -> A) -> A {
+        var acc = initial
+        for e in self.to_list() {
+            acc = f(acc, e)
+        }
+        acc
+    }
+}
+
+/// A set of `K` (ordered by `<`): a persistent AVL tree of keys. `contains`,
+/// `insert`, `remove`, `first`, `last`, `floor`, and `ceiling` take O(log n);
+/// `range` and `to_list` yield keys in order. Every operation returns a new
+/// value and leaves the old one unchanged.
+pub struct SortedSet<K> {
+    map: SortedMap<K, Unit>,
+}
+
+/// An empty set.
+pub fn set<K>() -> SortedSet<K> {
+    { map: empty() }
+}
+
+/// A set of `items`.
+pub fn set_of<K>(items: List<K>) -> SortedSet<K> where K: PartialOrd {
+    var out = set()
+    for k in items {
+        out = out.insert(k)
+    }
+    out
+}
+
+impl<K> SortedSet<K> {
+    pub fn len(self: &Self) -> Int { self.map.len() }
+
+    pub fn is_empty(self: &Self) -> Bool { self.map.is_empty() }
+
+    pub fn contains(self: &Self, key: K) -> Bool where K: PartialOrd { self.map.contains(key) }
+
+    /// The set with `key` added.
+    pub fn insert(self: &Self, key: K) -> SortedSet<K> where K: PartialOrd {
+        { map: self.map.insert(key, ()) }
+    }
+
+    /// The set without `key`.
+    pub fn remove(self: &Self, key: K) -> SortedSet<K> where K: PartialOrd {
+        { map: self.map.remove(key) }
+    }
+
+    /// The smallest key.
+    pub fn first(self: &Self) -> Option<K> { self.map.first().map(fn(e) => e.0) }
+
+    /// The largest key.
+    pub fn last(self: &Self) -> Option<K> { self.map.last().map(fn(e) => e.0) }
+
+    /// The largest key at most `key`.
+    pub fn floor(self: &Self, key: K) -> Option<K> where K: PartialOrd { self.map.floor(key).map(fn(e) => e.0) }
+
+    /// The smallest key at least `key`.
+    pub fn ceiling(self: &Self, key: K) -> Option<K> where K: PartialOrd { self.map.ceiling(key).map(fn(e) => e.0) }
+
+    /// The keys with `from <= key < to`, in order.
+    pub fn range(self: &Self, from: K, to: K) -> List<K> where K: PartialOrd { self.map.range(from, to).map(fn(e) => e.0) }
+
+    /// The keys with `from <= key <= to`, in order.
+    pub fn range_inclusive(self: &Self, from: K, to: K) -> List<K> where K: PartialOrd {
+        self.map.range_inclusive(from, to).map(fn(e) => e.0)
+    }
+
+    /// The keys, in order.
+    pub fn to_list(self: &Self) -> List<K> { self.map.keys() }
+
+    /// The keys in either set.
+    pub fn union(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd {
+        var out = self
+        for k in other.to_list() {
+            out = out.insert(k)
+        }
+        out
+    }
+
+    /// The keys in both sets.
+    pub fn intersection(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd {
+        var out = set()
+        for k in self.to_list() {
+            if other.contains(k) {
+                out = out.insert(k)
+            }
+        }
+        out
+    }
+
+    /// The keys of `self` not in `other`.
+    pub fn difference(self: &Self, other: SortedSet<K>) -> SortedSet<K> where K: PartialOrd {
+        var out = set()
+        for k in self.to_list() {
+            if !other.contains(k) {
+                out = out.insert(k)
+            }
+        }
+        out
+    }
+
+    /// Whether every key of `self` is in `other`.
+    pub fn is_subset(self: &Self, other: SortedSet<K>) -> Bool where K: PartialOrd {
+        for k in self.to_list() {
+            if !other.contains(k) {
+                return false
+            }
+        }
+        true
+    }
+
+    /// The keys `keep` accepts.
+    pub fn filter(self: &Self, keep: fn(K) -> Bool) -> SortedSet<K> where K: PartialOrd {
+        var out = set()
+        for k in self.to_list() {
+            if keep(k) {
+                out = out.insert(k)
+            }
+        }
+        out
+    }
+
+    /// The set of `f` over the keys (a new order).
+    pub fn map<U>(self: &Self, f: fn(K) -> U) -> SortedSet<U> where K: PartialOrd, U: PartialOrd {
+        var out = set()
+        for k in self.to_list() {
+            out = out.insert(f(k))
+        }
+        out
+    }
 }

@@ -1,0 +1,7 @@
+// `records.omit` labels must exist.
+// expect-error: E0301
+import std.records
+fn drop(r: { a: Int }) {
+    let _ = records.omit(r, [#z])
+}
+pub fn main() {}

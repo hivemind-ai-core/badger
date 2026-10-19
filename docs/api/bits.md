@@ -33,6 +33,22 @@ fn contains(self: &Self, i: Int) -> Bool
 fn difference(self: &Self, other: BitSet) -> BitSet
 ```
 
+#### `BitSet.each`
+
+```badger
+fn each(self: &Self, f: fn(Int) -> Unit) -> Unit
+```
+
+Run `f` on each integer, in increasing order.
+
+#### `BitSet.fold`
+
+```badger
+fn fold<A>(self: &Self, initial: A, f: fn(A, Int) -> A) -> A
+```
+
+Fold over the integers, in increasing order.
+
 #### `BitSet.insert`
 
 ```badger
@@ -53,6 +69,14 @@ fn intersection(self: &Self, other: BitSet) -> BitSet
 fn is_empty(self: &Self) -> Bool
 ```
 
+#### `BitSet.is_subset`
+
+```badger
+fn is_subset(self: &Self, other: BitSet) -> Bool
+```
+
+Whether every integer of `self` is in `other`.
+
 #### `BitSet.len`
 
 ```badger
@@ -61,11 +85,35 @@ fn len(self: &Self) -> Int
 
 How many integers the set holds.
 
+#### `BitSet.max`
+
+```badger
+fn max(self: &Self) -> Option<Int>
+```
+
+The largest integer, if any.
+
+#### `BitSet.min`
+
+```badger
+fn min(self: &Self) -> Option<Int>
+```
+
+The smallest integer, if any.
+
 #### `BitSet.remove`
 
 ```badger
 fn remove(self: &Self, i: Int) -> BitSet
 ```
+
+#### `BitSet.symmetric_difference`
+
+```badger
+fn symmetric_difference(self: &Self, other: BitSet) -> BitSet
+```
+
+The integers in exactly one of the sets.
 
 #### `BitSet.to_list`
 
@@ -74,6 +122,14 @@ fn to_list(self: &Self) -> List<Int>
 ```
 
 The integers, in increasing order.
+
+#### `BitSet.toggle`
+
+```badger
+fn toggle(self: &Self, i: Int) -> BitSet
+```
+
+The set with `i` flipped (at least 0; a negative `i` is a defect).
 
 #### `BitSet.union`
 
@@ -90,6 +146,14 @@ fn empty() -> BitSet
 ```
 
 An empty set.
+
+### `from_list`
+
+```badger
+fn from_list(items: List<Int>) -> BitSet
+```
+
+The set of `items` (each at least 0; as `of`).
 
 ### `of`
 
