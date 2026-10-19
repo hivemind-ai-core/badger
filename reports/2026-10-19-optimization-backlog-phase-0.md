@@ -267,6 +267,68 @@ nested stop. A polling page would have to keep the same invariant, and
 without polls in the generated code it buys nothing: the collector still
 waits for the counters to drain.
 
+## §1.2: the Go-style channel refactor (delegated worker)
+
+`c4750f8` and `9f1ff4c` replace the channel's parallel waiter lists and
+ad-hoc guards with one state word and one waiter list, and give every
+operation a linearization point:
+
+- one `AtomicU8` word holds the owner (free / fast / claimed), the phase
+  (empty / value / blocked) and the closed bit;
+- one `Waiters` list with per-kind counts replaces `recv_waiters`,
+  `send_waiters`, `cap_waiters`, `space_waiters` and `recv_watchers`;
+- every operation linearizes at the CAS that makes it the owner (the fast
+  path) or at the claim (the locked path); the releasing store publishes the
+  phase; `recv_fast` and `recv_one_fast` decline on a published empty phase
+  with one load and no CAS;
+- a locked send commits to a parked selection at **every** capacity (today
+  only at capacity 0), and queueing, publishing and waiting for space no
+  longer drain the watcher registrations (F3);
+- `publish` wakes one receiver per published message (F2);
+- a selection is committed only through `task::waits` on its registered wait.
+
+`c4750f8` fixes F1: `park()` no longer honours a cancellation that arrives
+after a waker completed the wait with a value, so the handed-off value
+reaches the receiver.
+
+**Both repro programs now pass on this branch**: `cancel_after_handoff.bdg`
+prints "victim got 111" (the value arrives), and `batch_two_receivers.bdg`
+prints "r1 got 1", "r2 got 2", "done" (no deadlock). The new
+`tests/run/channel_handoff_contract.bdg` and
+`crates/badger_runtime/tests/channel_state.rs` fail on the old runtime, so
+they are regression tests.
+
+The audit's fast-path counters are kept behind `BADGER_RUNTIME_STATS=1` and
+printed with the lock stats. With them on, `select_and_budget` passes 6 of 6
+and the golden is unchanged -- so the audit's "adding the counters flips the
+test into a deterministic deadlock" was timing-sensitive, and the model says
+the same: the reconstructed counters do not reproduce the deadlock either.
+
+The worker's measurements (medians, old to new; the machine was at load
+average 9-20 from other agents):
+
+| workload | before | after |
+|----------|-------:|------:|
+| `bench/messages.bdg` prompt, 1 worker | 25 ns/msg | 26 ns/msg |
+| `bench/messages.bdg` prompt, 4 workers | 30 ns/msg | 30 ns/msg |
+| `bench/messages.bdg` batch, 1 / 4 workers | 34 / 38 ns | 33 / 38 ns |
+| round trip, 1 / 4 workers | 238 / 267 ns | 251 / 246 ns |
+| round-trip p99, 1 worker (25 runs) | 351 ns | 280 ns |
+| round-trip p99, 4 workers (9 runs) | 622 ns | 461 ns |
+| `bench/independent_channels.bdg`, 4 workers | 68 ms | 66 ms |
+| fast send + recv pair | 12.0 ns | 13.7 ns |
+| empty recv | 3.3 ns | 2.5 ns |
+
+The throughput medians hold; the round-trip **p99 improves by 20-26%**, which
+is what the item was for (the tail, not the mean). The fast send+recv pair
+costs 1.7 ns more (the phase now lives in the same word as the owner) and an
+empty recv is 0.8 ns cheaper (one load, no CAS).
+
+**Not done:** the TLA+ model was not re-run against the new protocol -- the
+model's "current code" configuration still describes the old one, so
+checking the new implementation against the contract is the next step of
+§1.2, not a gap in the refactor.
+
 ## What did not move
 
 - The end-to-end benchmarks (§ above): the GC items only run on full
