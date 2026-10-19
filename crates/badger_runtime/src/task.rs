@@ -20,11 +20,12 @@
 use std::cell::{Cell, UnsafeCell};
 use std::collections::{BinaryHeap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use corosensei::stack::DefaultStack;
 use corosensei::{Coroutine, CoroutineResult, Yielder};
+use crossbeam_deque::{Steal, Stealer, Worker};
 use rustc_hash::FxHashMap;
 
 use crate::desc::TypeDesc;
@@ -725,6 +726,7 @@ pub fn print_stats() {
         sum(&|w| &w.notifies),
     );
     print_reasons();
+    crate::channel::print_fallbacks();
 }
 
 fn try_lock() -> bool {
@@ -1367,13 +1369,24 @@ pub fn park() -> Wake {
     check_interrupts();
     if let Err(w) = begin_park() {
         end_wait();
-        check_interrupts();
+        interrupts_after_wait();
         return w;
     }
     suspend(Signal::Park);
     end_wait();
-    check_interrupts();
+    interrupts_after_wait();
     current().unwrap().wake
+}
+
+/// Honor a cancellation or failure that arrived during a wait, unless a
+/// waker completed the waiting operation first (delivered with status 1:
+/// a channel hand-off or a committed selection). That operation took
+/// effect before the interrupt, so it is not undone (the handed-over value
+/// would be lost); the interrupt is honored at the next safe point.
+fn interrupts_after_wait() {
+    if current().unwrap().status != 1 {
+        check_interrupts();
+    }
 }
 
 /// Mark the running task parked, unless a wake already arrived for it
@@ -1557,20 +1570,21 @@ fn enqueue(e: Entry, slot: bool) -> bool {
         return true;
     }
     let q = local(worker_index());
-    q.with(|l| {
-        if slot {
-            let prev = std::mem::replace(&mut l.next, e);
-            if prev.0 == 0 {
-                q.len.fetch_add(1, Ordering::Release);
-                return false;
+    if slot {
+        // the task it displaces joins the back of the ready queue (a thief
+        // may have taken it first)
+        let displaced = match q.next().pop() {
+            Some(prev) => {
+                q.ready().push(prev);
+                true
             }
-            l.deque.push_back(prev);
-        } else {
-            l.deque.push_back(e);
-        }
-        q.len.fetch_add(1, Ordering::Release);
-        true
-    })
+            None => false,
+        };
+        q.next().push(e);
+        return displaced;
+    }
+    q.ready().push(e);
+    true
 }
 
 /// Queue a ready task in the shared queue and tell idle workers (runtime
@@ -1589,81 +1603,100 @@ static SCHED_Q: AtomicBool = AtomicBool::new(false);
 /// Entries in the shared ready queue (read without its lock).
 static GLOBAL_LEN: AtomicUsize = AtomicUsize::new(0);
 
-/// A worker's ready tasks: its next slot and its queue, under its own lock
-/// (taken by the worker, by wakers running on it, and by idle workers
-/// stealing). Independent workers never touch each other's.
+/// A worker's ready tasks: its ready queue and its next slot, each a
+/// Chase-Lev deque (`crossbeam_deque`). The `Worker` end of each is pushed
+/// and popped only by the owning worker, so the owner is wait-free; the
+/// `Stealer` end is shared, so thieves are lock-free.
 #[repr(align(128))]
 struct LocalQueue {
-    lock: AtomicBool,
-    /// Tasks here (the next slot counts), read without the lock.
-    len: AtomicUsize,
-    q: UnsafeCell<Local>,
+    /// The owner's end of the ready queue (FIFO: the owner pops the oldest
+    /// task, thieves steal the oldest).
+    ready: UnsafeCell<Worker<Entry>>,
+    /// The thieves' end of the ready queue.
+    ready_stealer: Stealer<Entry>,
+    /// The owner's end of the next slot: at most one task, one woken by a
+    /// task running here, to run next here.
+    next: UnsafeCell<Worker<Entry>>,
+    /// The thieves' end of the next slot.
+    next_stealer: Stealer<Entry>,
 }
 
-struct Local {
-    /// A task woken by a task running here, to run next here (0 = none).
-    next: Entry,
-    deque: VecDeque<Entry>,
-}
-
+/// The `Worker` ends hold the queues' owner-only state: only the worker at
+/// this `LOCAL` index (the owner, see [`local`]) touches them, through the
+/// shared references [`LocalQueue::ready`] and [`LocalQueue::next`] hands
+/// out; every other thread that reaches a queue holds only its `Stealer`.
+/// So those references are never used by two threads at once, and a queue
+/// is never pushed by its owner and popped by a thief concurrently.
 unsafe impl Sync for LocalQueue {}
 
 impl LocalQueue {
-    fn with<R>(&self, f: impl FnOnce(&mut Local) -> R) -> R {
-        while self.lock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
-            std::hint::spin_loop();
+    fn new() -> LocalQueue {
+        let ready = Worker::new_fifo();
+        let next = Worker::new_fifo();
+        let (ready_stealer, next_stealer) = (ready.stealer(), next.stealer());
+        LocalQueue {
+            ready: UnsafeCell::new(ready),
+            ready_stealer,
+            next: UnsafeCell::new(next),
+            next_stealer,
         }
-        let r = f(unsafe { &mut *self.q.get() });
-        self.lock.store(false, Ordering::Release);
-        r
     }
 
-    /// Take its next task (`slot`: the next slot first), adjusting `len`.
+    /// The owner's end of the ready queue (the owning worker only).
+    fn ready(&self) -> &Worker<Entry> {
+        unsafe { &*self.ready.get() }
+    }
+
+    /// The owner's end of the next slot (the owning worker only).
+    fn next(&self) -> &Worker<Entry> {
+        unsafe { &*self.next.get() }
+    }
+
+    /// Take the owner's next task (`slot`: the next slot first).
     fn pop(&self, slot: bool) -> Option<Entry> {
-        if self.len.load(Ordering::Acquire) == 0 {
-            return None;
+        if slot && let Some(e) = self.next().pop() {
+            return Some(e);
         }
-        let e = self.with(|l| {
-            if slot && l.next.0 != 0 {
-                return Some(std::mem::take(&mut l.next));
-            }
-            if chaos().is_some() && l.deque.len() > 1 {
-                let i = (chaos_next() % l.deque.len() as u64) as usize;
-                return l.deque.remove(i);
-            }
-            l.deque.pop_front()
-        });
-        if e.is_some() {
-            self.len.fetch_sub(1, Ordering::Release);
-        }
-        e
+        self.pop_ready()
     }
 
-    /// Take its next-slot task.
-    fn steal_next(&self) -> Option<Entry> {
-        if self.len.load(Ordering::Acquire) == 0 {
-            return None;
+    /// Take the owner's oldest ready task, a random one under chaos.
+    fn pop_ready(&self) -> Option<Entry> {
+        let ready = self.ready();
+        if chaos().is_some() {
+            let n = self.ready_stealer.len();
+            if n > 1 {
+                // drain the first `i` tasks and put them back: the i-th is
+                // the one the locked queue's `remove(i)` would have taken
+                let i = (chaos_next() % n as u64) as usize;
+                let mut kept = Vec::with_capacity(i);
+                for _ in 0..i {
+                    match ready.pop() {
+                        Some(e) => kept.push(e),
+                        None => break,
+                    }
+                }
+                let e = ready.pop();
+                for k in kept {
+                    ready.push(k);
+                }
+                return e;
+            }
         }
-        let e = self.with(|l| (l.next.0 != 0).then(|| std::mem::take(&mut l.next)));
-        if e.is_some() {
-            self.len.fetch_sub(1, Ordering::Release);
-        }
-        e
+        ready.pop()
     }
 
+    /// Tasks here (the next slot counts).
     fn queued(&self) -> usize {
-        self.len.load(Ordering::Acquire)
+        self.ready_stealer.len() + self.next_stealer.len()
     }
 }
 
-static LOCAL: [LocalQueue; MAX_WORKERS] = [const {
-    LocalQueue {
-        lock: AtomicBool::new(false),
-        len: AtomicUsize::new(0),
-        q: UnsafeCell::new(Local { next: (0, 0), deque: VecDeque::new() }),
-    }
-}; MAX_WORKERS];
+static LOCAL: [LazyLock<LocalQueue>; MAX_WORKERS] =
+    [const { LazyLock::new(LocalQueue::new) }; MAX_WORKERS];
 
+/// The queue of worker `w`, made when it is first used (on the worker's own
+/// thread, or by a thief looking for work to steal).
 fn local(w: usize) -> &'static LocalQueue {
     &LOCAL[w]
 }
@@ -1671,20 +1704,45 @@ fn local(w: usize) -> &'static LocalQueue {
 /// Move every worker's queued tasks to the shared queue (scheduling became
 /// controlled: worker 0 then picks among all of them).
 fn drain_locals() {
-    for q in &LOCAL {
+    for w in 0..workers().min(MAX_WORKERS) {
+        let q = local(w);
         if q.queued() == 0 {
             continue;
         }
-        let moved: Vec<Entry> = q.with(|l| {
-            let mut v: Vec<Entry> = l.deque.drain(..).collect();
-            if l.next.0 != 0 {
-                v.insert(0, std::mem::take(&mut l.next));
-            }
-            v
-        });
-        q.len.fetch_sub(moved.len(), Ordering::Release);
+        // the next slot first, then the ready queue oldest first
+        let mut moved: Vec<Entry> = Vec::new();
+        drain_stealer(&q.next_stealer, &mut moved);
+        drain_stealer(&q.ready_stealer, &mut moved);
+        if moved.is_empty() {
+            continue;
+        }
         GLOBAL_LEN.fetch_add(moved.len(), Ordering::Release);
         sched(|| queue().ready.extend(moved));
+    }
+}
+
+/// Move every task in `s` into `out`, oldest first: any worker may empty
+/// another worker's queue by stealing (its owner stands aside while
+/// scheduling is controlled).
+fn drain_stealer(s: &Stealer<Entry>, out: &mut Vec<Entry>) {
+    let mut retries = 0;
+    loop {
+        match s.steal() {
+            Steal::Success(e) => {
+                out.push(e);
+                retries = 0;
+            }
+            Steal::Empty => return,
+            Steal::Retry => {
+                // the owner is pushing: give up soon (the next drain picks
+                // the rest up)
+                retries += 1;
+                if retries > 32 {
+                    return;
+                }
+                std::hint::spin_loop();
+            }
+        }
     }
 }
 
@@ -1766,7 +1824,12 @@ fn sched<R>(f: impl FnOnce() -> R) -> R {
 
 /// Whether any task waits to run (a worker's queue or the shared queue).
 fn has_ready() -> bool {
-    GLOBAL_LEN.load(Ordering::Acquire) > 0 || LOCAL.iter().any(|q| q.queued() > 0)
+    GLOBAL_LEN.load(Ordering::Acquire) > 0 || any_local_work()
+}
+
+/// Whether any worker's queue holds a task.
+fn any_local_work() -> bool {
+    (0..workers().min(MAX_WORKERS)).any(|w| local(w).queued() > 0)
 }
 
 /// Pop from the shared queue.
@@ -1782,8 +1845,9 @@ fn pop_global() -> Option<Entry> {
 }
 
 /// This worker's next task, else its queue, else the shared queue, else a
-/// task stolen from another worker's queue, else another worker's next
-/// task once it has waited there a while.
+/// task stolen from another worker: two victims are picked at random and
+/// probed longest queue first (the power of two choices), their next slots
+/// last.
 fn take_ready() -> Option<Entry> {
     let w = worker_index();
     if let Some(e) = local(w).pop(true) {
@@ -1793,18 +1857,96 @@ fn take_ready() -> Option<Entry> {
         return Some(e);
     }
     let n = workers().min(MAX_WORKERS);
-    for k in 1..n {
-        if let Some(e) = local((w + k) % n).pop(false) {
-            return Some(e);
+    if n <= 1 {
+        return None;
+    }
+    let (a, b) = two_victims(w, n);
+    let (first, second) = if local(a).queued() >= local(b).queued() { (a, b) } else { (b, a) };
+    let own = local(w).ready();
+    steal_ready(local(first), own)
+        .or_else(|| steal_ready(local(second), own))
+        .or_else(|| steal_next(local(first)))
+        .or_else(|| steal_next(local(second)))
+}
+
+/// Two victims for worker `w` to choose between: two of the other workers,
+/// picked at random (the same one twice when there are only two workers).
+fn two_victims(w: usize, n: usize) -> (usize, usize) {
+    let others = n - 1;
+    if others == 1 {
+        let v = (w + 1) % n;
+        return (v, v);
+    }
+    let r = victim_random();
+    let i = (r % others as u64) as usize;
+    let j = ((r >> 32) % (others as u64 - 1)) as usize;
+    let j = if j >= i { j + 1 } else { j };
+    ((w + 1 + i) % n, (w + 1 + j) % n)
+}
+
+thread_local! {
+    /// xorshift64 state of [`victim_random`] (per worker thread).
+    static VICTIM_RNG: Cell<u64> = const { Cell::new(0) };
+}
+
+/// A pseudo-random number for victim choice: per worker, so that workers
+/// do not probe the same pair, and apart from the chaos stream, which must
+/// keep drawing what it drew before.
+fn victim_random() -> u64 {
+    VICTIM_RNG.with(|c| {
+        let mut x = c.get();
+        if x == 0 {
+            x = (worker_index() as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        }
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        c.set(x);
+        x
+    })
+}
+
+/// Steal from `q`'s ready queue into `dest` (this worker's own queue) and
+/// return the task to run now.
+///
+/// A long ready queue means its owner cannot keep up, so about half of it
+/// moves over in one attempt (Go's `runtime.runqsteal`): the attempt takes
+/// at most `floor(observed / 2)` tasks, where `observed` is the length
+/// read here, so a thief never takes the whole queue. The victim's next
+/// slot is a queue of its own and is never touched.
+///
+/// `steal_batch_with_limit_and_pop` takes `min((len - 1) / 2, limit - 1)`
+/// plus the one it returns, sizing that from the length it reads itself:
+/// an owner push or pop between the two reads moves it by one, so one task
+/// past half of what was observed here can be taken (the limit still
+/// bounds the attempt, and stealing is best-effort).
+fn steal_ready(q: &LocalQueue, dest: &Worker<Entry>) -> Option<Entry> {
+    let observed = q.ready_stealer.len();
+    if observed >= 2 {
+        match q.ready_stealer.steal_batch_with_limit_and_pop(dest, observed / 2) {
+            Steal::Success(e) => return Some(e),
+            Steal::Empty => return None,
+            Steal::Retry => {}
         }
     }
-    (1..n).find_map(|k| local((w + k) % n).steal_next())
+    match q.ready_stealer.steal() {
+        Steal::Success(e) => Some(e),
+        Steal::Empty | Steal::Retry => None,
+    }
+}
+
+/// Steal the next-slot task from `q`.
+fn steal_next(q: &LocalQueue) -> Option<Entry> {
+    match q.next_stealer.steal() {
+        Steal::Success(e) => Some(e),
+        Steal::Empty | Steal::Retry => None,
+    }
 }
 
 /// Whether this worker has something to run (its own tasks, the shared
 /// queue, or any other worker's queue or next slot).
 fn work_here() -> bool {
-    GLOBAL_LEN.load(Ordering::Acquire) > 0 || LOCAL.iter().any(|q| q.queued() > 0)
+    GLOBAL_LEN.load(Ordering::Acquire) > 0 || any_local_work()
 }
 
 pub fn wake(id: TaskId, reason: Wake) {
@@ -3632,4 +3774,118 @@ pub fn snapshot_json() -> String {
         })
         .collect();
     format!("[{}]", items.join(","))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An entry that only its id matters for (the record pointer is never
+    /// dereferenced here).
+    fn entry(id: u64) -> Entry {
+        (id, id as usize + 0x1000)
+    }
+
+    /// The owner pops its next slot first, then its ready queue oldest
+    /// first.
+    #[test]
+    fn owner_pops_next_slot_then_ready_queue() {
+        let q = LocalQueue::new();
+        for id in 1..=3 {
+            q.ready().push(entry(id));
+        }
+        q.next().push(entry(9));
+        assert_eq!(q.queued(), 4);
+        assert_eq!(q.pop(true).map(|e| e.0), Some(9));
+        assert_eq!(q.pop(true).map(|e| e.0), Some(1));
+        assert_eq!(q.pop(true).map(|e| e.0), Some(2));
+        assert_eq!(q.pop(true).map(|e| e.0), Some(3));
+        assert_eq!(q.pop(true).map(|e| e.0), None);
+        assert_eq!(q.queued(), 0);
+    }
+
+    /// A thief steals the oldest ready task and, asked for it, the next
+    /// slot; the owner keeps the rest.
+    #[test]
+    fn thief_steals_the_oldest_and_the_next_slot_last() {
+        let q = LocalQueue::new();
+        for id in 1..=3 {
+            q.ready().push(entry(id));
+        }
+        q.next().push(entry(9));
+        assert_eq!(steal_ready(&q, &Worker::new_fifo()).map(|e| e.0), Some(1));
+        assert_eq!(q.pop(false).map(|e| e.0), Some(2));
+        assert_eq!(steal_next(&q).map(|e| e.0), Some(9));
+        assert_eq!(steal_next(&q).map(|e| e.0), None);
+        assert_eq!(q.pop(true).map(|e| e.0), Some(3));
+        assert_eq!(q.queued(), 0);
+    }
+
+    /// A long ready queue is stolen from in a batch of about half: never
+    /// the whole queue, and never its next slot.
+    #[test]
+    fn thief_takes_at_most_half_of_a_long_queue() {
+        let q = LocalQueue::new();
+        let dest = Worker::new_fifo();
+        for id in 1..=9 {
+            q.ready().push(entry(id));
+        }
+        q.next().push(entry(99));
+        let taken = steal_ready(&q, &dest).expect("a task to run");
+        // the batch moves to the thief, behind the task it runs now
+        let batch = dest.len() as u64;
+        let left = q.ready_stealer.len() as u64;
+        assert_eq!(taken.0, 1, "the oldest task runs now");
+        assert!(batch <= 4, "batch of {batch} from 9 (half is 4)");
+        assert!(left >= 5, "victim kept {left} of 9");
+        assert_eq!(1 + batch + left, 9);
+        assert_eq!(q.next_stealer.len(), 1, "the next slot is not stolen");
+    }
+
+    /// A short ready queue is stolen from one task at a time.
+    #[test]
+    fn a_short_queue_is_stolen_one_at_a_time() {
+        let q = LocalQueue::new();
+        let dest = Worker::new_fifo();
+        q.ready().push(entry(1));
+        assert_eq!(steal_ready(&q, &dest).map(|e| e.0), Some(1));
+        assert_eq!(dest.len(), 0, "a single task is not batched");
+        assert_eq!(q.queued(), 0);
+    }
+
+    /// The two victims are two distinct other workers, and the draw
+    /// reaches all of them.
+    #[test]
+    fn two_victims_are_distinct_others() {
+        let mut seen = [false; 4];
+        for _ in 0..200 {
+            let (a, b) = two_victims(0, 4);
+            assert_ne!(a, b);
+            assert!(a != 0 && b != 0 && a < 4 && b < 4);
+            seen[a] = true;
+            seen[b] = true;
+        }
+        assert_eq!(seen, [false, true, true, true]);
+        // two workers: one victim, probed twice
+        assert_eq!(two_victims(0, 2), (1, 1));
+        assert_eq!(two_victims(1, 2), (0, 0));
+    }
+
+    /// The queued count covers both queues and follows pushes, pops and
+    /// steals.
+    #[test]
+    fn queued_counts_both_queues() {
+        let q = LocalQueue::new();
+        assert_eq!(q.queued(), 0);
+        q.ready().push(entry(1));
+        q.next().push(entry(2));
+        q.ready().push(entry(3));
+        assert_eq!(q.queued(), 3);
+        assert_eq!(q.pop(false).map(|e| e.0), Some(1));
+        assert_eq!(q.queued(), 2);
+        assert_eq!(steal_ready(&q, &Worker::new_fifo()).map(|e| e.0), Some(3));
+        assert_eq!(q.queued(), 1);
+        assert_eq!(q.pop(true).map(|e| e.0), Some(2));
+        assert_eq!(q.queued(), 0);
+    }
 }

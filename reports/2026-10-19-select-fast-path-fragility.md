@@ -129,3 +129,38 @@ Rebuild `main` with the two hunks described under "What was added" (the
 Six runs fail identically; the same binary without the hunks passes six out of
 six. `cargo test -p badger_cli --release --test programs` (76 cases) passes on
 both, so only this golden's timing exposes it.
+
+## Resolution (2026-10-19, OPTIMIZATION_BACKLOG §1.2)
+
+The deadlock did not reproduce again: rebuilding the counters described
+above (the `try_fast` spin count and time, and a read-only reason
+expression with a counter on `send_fast`'s decline path) on `d94bb08` and
+on `13e7756`, `select_and_budget` passed 6 of 6 runs with
+`BADGER_RUNTIME_STATS` off and on, as did a chaos sweep (25 seeds × 1, 2
+and 4 workers × statistics off and on). The failure was timing-sensitive,
+as the Phase 1 model also concluded: it finds no lost wake-up in the select
+protocol as it was (probe, registration and park happen under one claim).
+
+The model did find two violations of the language specification, both
+reproduced on the runtime, and the smell behind the report's point 2:
+
+- F1: a value handed to a parked receiver that was then cancelled before it
+  ran was lost (`park` honored the cancellation before the receive took
+  the delivered value);
+- F2: a published batch woke one receiver, so with several single-message
+  receivers parked the rest of the batch stranded until the next
+  publication or the close;
+- F3: a queued send woke every watching selection and forgot it.
+
+The channel state machine was refactored to the model's contract: one
+atomic word holds the owner, the phase (`EMPTY`, `VALUE`, `BLOCKED`) and the
+closed bit; every registered task is in one waiter list; each operation
+linearizes at the compare-and-swap that makes it the channel's owner. A
+send commits to a parked selection at every capacity instead of waking it,
+a selection's registration is removed only by the selection, a publication
+wakes a receiver per message, and a wait a waker completed (status 1) is not
+undone by a later cancellation. The fast-path decline counters from this
+report are kept behind `BADGER_RUNTIME_STATS=1` (a table after the lock
+statistics). Regression tests: `tests/run/channel_handoff_contract.bdg`
+(fails on the old runtime with a deadlock, and at one worker with the value
+lost) and `crates/badger_runtime/tests/channel_state.rs`.

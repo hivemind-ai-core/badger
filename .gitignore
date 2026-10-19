@@ -56,3 +56,7 @@
 /reports/2026-10-15-optimization-baseline.json
 /reports/2026-10-15-runtime-concurrency-measurements.json
 /reports/benchmarks/main-*.json
+# TLC output if run inside spec/tla (spec/tla/run.sh runs it in a scratch dir)
+/spec/tla/states/
+/spec/tla/*_TTrace_*
+/spec/tla/*.old

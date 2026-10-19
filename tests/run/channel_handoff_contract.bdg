@@ -1,0 +1,53 @@
+// The channel hand-off contract (spec 05): a published batch reaches every
+// parked receiver it has messages for, and a value handed to a receiver
+// stays handed over when the receiver is cancelled before it runs again.
+import std.channel
+import std.io
+import std.task
+import std.time
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+    send(source: channel.SendError<Int>),
+} derive(Error, From)
+
+fn got(e: task.Exit<Int>) -> String {
+    match e {
+        .returned(v) => $"returned {v}",
+        .failed(_) => "failed",
+        .cancelled(_) => "cancelled",
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    // two receivers parked on one batch channel; one sealed batch of two
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?
+    let total = task.scope(fn(s) -> Result<Int, AppError> {
+        let r1 = s.capture(fn() { b.receiver.recv().unwrap_or(0) })
+        let r2 = s.capture(fn() { b.receiver.recv().unwrap_or(0) })
+        task.sleep(time.millis(5))
+        let _ = b.sender.append(1)
+        let _ = b.sender.append(2)
+        let one = match r1.join() { .returned(v) => v, _ => -100 }
+        let two = match r2.join() { .returned(v) => v, _ => -100 }
+        ok(one + two)
+    })?
+    let _ = io.println($"batch of two, two receivers: {total}")
+    // a receiver handed a value, then cancelled before it runs again
+    let a = channel.create<Int>({ ..channel.defaults, capacity: 1 })?
+    let line = task.scope(fn(s) -> Result<String, AppError> {
+        let victim = s.capture(fn() { a.receiver.recv().unwrap_or(-1) })
+        task.sleep(time.millis(20))
+        a.sender.send(111)?
+        victim.cancel()
+        let exit = got(victim.join())
+        let left = match a.receiver.try_recv() {
+            .value(v) => $"still queued {v}",
+            .empty => "taken",
+            .closed => "closed",
+        }
+        ok($"victim {exit}, channel {left}")
+    })?
+    let _ = io.println(line)
+    ok(())
+}

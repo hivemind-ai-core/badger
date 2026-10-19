@@ -190,6 +190,15 @@ pub fn trace(o: *mut Header, f: &mut dyn FnMut(u64)) {
 /// an old version's invisible page. All mutators are stopped.
 pub(crate) fn clear_unmarked_directory_pages() {
     gc::for_each_object_of_stopped(dir_desc(), &mut |dir| {
+        // A directory that is not marked dies with this collection, and its
+        // weak slots may name pages that were freed earlier: an orphaned
+        // directory keeps the pages it shared with the version that
+        // replaced it, and those pages die in a minor collection while the
+        // old directory survives. Reading such a slot would touch a freed
+        // cell, and the directory's slots are not used again.
+        if unsafe { obj(dir).meta } & (gc::MARK | gc::IMMORTAL) == 0 {
+            return;
+        }
         let n = dir_used(dir).load(Ordering::Relaxed) as usize;
         for i in 0..n {
             let slot = dir_slot(dir, i);

@@ -21,7 +21,7 @@
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 
@@ -427,6 +427,18 @@ pub fn memory_bytes() -> (usize, usize) {
     (heap().live, EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
+/// Resident set size (Linux `/proc/self/statm`: pages × page size), the
+/// collector's resident-memory input. 0 where unavailable.
+pub fn resident_bytes() -> usize {
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let Ok(text) = std::fs::read_to_string("/proc/self/statm") else { return 0 };
+    text.split_whitespace()
+        .nth(1)
+        .and_then(|p| p.parse::<usize>().ok())
+        .map(|pages| pages.saturating_mul(page.max(1) as usize))
+        .unwrap_or(0)
+}
+
 /// Allocate an object that is never collected (literals, static closures).
 pub fn alloc_immortal(desc: &'static TypeDesc, payload: usize) -> u64 {
     unsafe {
@@ -659,11 +671,51 @@ pub fn collect() {
     h.pause_max = h.pause_max.max(ns);
 }
 
+/// The collector's scratch space: the mark stack and the remembered
+/// buffer. Both are empty when a collection ends, so their allocation is
+/// kept for the next one instead of being made again. A nested collection
+/// (a finalizer that allocates) takes fresh buffers instead of the shared
+/// ones.
+struct Scratch {
+    in_use: AtomicBool,
+    stack: UnsafeCell<Vec<u64>>,
+    remembered: UnsafeCell<Vec<u64>>,
+}
+unsafe impl Sync for Scratch {}
+static SCRATCH: Scratch = Scratch {
+    in_use: AtomicBool::new(false),
+    stack: UnsafeCell::new(Vec::new()),
+    remembered: UnsafeCell::new(Vec::new()),
+};
+
+impl Scratch {
+    /// Take the reusable buffers, or fresh ones when they are in use.
+    fn take(&self) -> (Vec<u64>, Vec<u64>) {
+        if self.in_use.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+            return (Vec::new(), Vec::new());
+        }
+        (
+            std::mem::take(unsafe { &mut *self.stack.get() }),
+            std::mem::take(unsafe { &mut *self.remembered.get() }),
+        )
+    }
+
+    /// Keep the buffers for the next collection.
+    fn give(&self, stack: Vec<u64>, remembered: Vec<u64>) {
+        unsafe {
+            *self.stack.get() = stack;
+            *self.remembered.get() = remembered;
+        }
+        self.in_use.store(false, Ordering::Release);
+    }
+}
+
 fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Collection) {
     #[cfg(feature = "gc-profile")]
     {
         profile.snapshot("objects_before", all_objects().count());
         profile.snapshot("external_before", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("resident_before", resident_bytes());
         profile.snapshot("pool_before", pool_reserved_bytes());
         profile.snapshot("pressure_managed", ALLOCATED.load(Ordering::Relaxed));
         profile.snapshot("pressure_external", EXTERNAL_PRESSURE.load(Ordering::Relaxed));
@@ -687,7 +739,11 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         && !budget_full;
     h.minor_collections = if minor { h.minor_collections + 1 } else { 0 };
     MINOR_COLLECTION.store(minor, Ordering::Relaxed);
-    let mut stack: Vec<u64> = Vec::new();
+    let (mut stack, mut remembered) = SCRATCH.take();
+    // The buffers are reused: they still hold the previous collection's
+    // entries, and those objects may be gone.
+    stack.clear();
+    remembered.clear();
     let checking = verify();
     if sticky && !minor {
         // a full collection: every object is unmarked (young) again
@@ -696,9 +752,12 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         }
     }
     // remembered old objects: their children are traced (a full collection
-    // reaches them anyway)
-    let remembered: Vec<u64> =
-        REMEMBER.0.iter().flat_map(|r| std::mem::take(unsafe { &mut *r.get() })).collect();
+    // reaches them anyway). The workers' buffers keep their capacity and
+    // the collector's buffer is reused (it is empty at the end of a
+    // collection).
+    for r in &REMEMBER.0 {
+        remembered.extend(unsafe { &mut *r.get() }.drain(..));
+    }
     let live: FxHashSet<usize> =
         if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };
     // a referenced word must be a live or immortal object
@@ -955,25 +1014,44 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     {
         profile.snapshot("objects_after", all_objects().count());
         profile.snapshot("external_after", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("resident_after", resident_bytes());
         profile.snapshot("pool_after", pool_reserved_bytes());
         profile.snapshot("managed_live", h.live);
         profile.phase("finish");
     }
+    SCRATCH.give(stack, remembered);
 }
 
 /// Whole chunks with neither live nor quarantined cells can be released.
 /// Purge every free-list link before deallocating any retired chunk.
 fn trim_empty_chunks(h: &Heap) {
-    let mut occupied: Vec<usize> =
-        all_objects().map(|p| p as usize).chain(h.quarantine.iter().map(|(p, _)| *p as usize)).collect();
-    occupied.sort_unstable();
+    // A chunk is occupied when a live or quarantined cell lies in it. The
+    // chunks are few and the cells are many: index the chunks and look each
+    // cell up, rather than sorting every cell address at every collection.
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    for pool in &POOLS.0 {
+        let pool = unsafe { &*pool.get() };
+        for chunk in &pool.chunks {
+            ranges.push((chunk.base as usize, chunk.base as usize + chunk.bytes));
+        }
+    }
+    ranges.sort_unstable();
+    let mut occupied: FxHashSet<usize> = FxHashSet::default();
+    for p in all_objects().chain(h.quarantine.iter().map(|(p, _)| *p)) {
+        let address = p as usize;
+        // The chunks do not overlap, so the last one that starts at or
+        // before the cell is the only one that can hold it.
+        let i = ranges.partition_point(|r| r.0 <= address);
+        if i > 0 && address < ranges[i - 1].1 {
+            occupied.insert(ranges[i - 1].0);
+        }
+    }
     let mut retired = vec![];
     for pool in &POOLS.0 {
         let pool = unsafe { &mut *pool.get() };
         for chunk in std::mem::take(&mut pool.chunks) {
             let start = chunk.base as usize;
-            let i = occupied.partition_point(|p| *p < start);
-            if i == occupied.len() || occupied[i] >= start + chunk.bytes {
+            if !occupied.contains(&start) {
                 if pool.active == chunk.base {
                     pool.active = std::ptr::null_mut();
                     pool.bump = std::ptr::null_mut();

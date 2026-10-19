@@ -42,7 +42,7 @@ extern "C" fn main_task(_: *mut TaskCtx, _: u64, _: *const u64) -> u64 {
             task::remove_task(id);
         }
         gc::collect();
-        let stale = channel::data(ch).send_waiters.len();
+        let stale = channel::data(ch).waiters.count(channel::WaitKind::Send);
         assert_eq!(stale, 0, "round {round}: {stale} cancelled senders still registered");
     }
     0
