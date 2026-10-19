@@ -213,6 +213,11 @@ pub fn entries(m: u64) -> Vec<(u64, u64)> {
     out
 }
 
+/// Visit every entry in key order without materialising a list of them.
+pub(crate) fn for_each(m: u64, f: &mut dyn FnMut(u64, u64)) {
+    hamt::for_each(root(m), &mut |e| f(e.key, e.val));
+}
+
 pub fn eq(a: u64, b: u64) -> bool {
     if len(a) != len(b) {
         return false;
