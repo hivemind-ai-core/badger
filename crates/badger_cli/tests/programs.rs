@@ -1603,6 +1603,11 @@ fn diagnostics_early_phases() {
     let text = String::from_utf8_lossy(&out.stdout);
     let codes: Vec<&str> = text.match_indices(r#""code":"E0"#).map(|(i, _)| &text[i + 8..i + 13]).collect();
     assert_eq!(codes, ["E0114", "E0113", "E0127"], "{text}");
+    // unknown names: the nearest name in scope, or a standard member's home
+    let out = lang().args(["check", "--json", "tests/diagnostics/near_names.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("did you mean `result`?") && text.contains("did you mean `total`?"), "{text}");
+    assert!(text.contains("`trim` is in std.text"), "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual

@@ -24,6 +24,50 @@ enum Res {
     Module(ModuleId),
 }
 
+/// The standard modules (other than the prelude) declaring a public item
+/// named `name`, read from their sources.
+fn std_homes(name: &str) -> Vec<&'static str> {
+    let mut out = vec![];
+    for (m, src) in crate::stdlib::STD_MODULES {
+        if *m == "prelude" {
+            continue;
+        }
+        let declares = src.lines().any(|l| {
+            let Some(rest) = l.strip_prefix("pub ") else { return false };
+            let rest = rest.trim_start_matches("extern \"intrinsic\" ");
+            ["fn ", "struct ", "enum ", "type ", "let ", "provider ", "stage ", "protocol "].iter().any(
+                |kw| {
+                    rest.strip_prefix(kw).is_some_and(|r| {
+                        r.strip_prefix(name).is_some_and(|after| {
+                            !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                        })
+                    })
+                },
+            )
+        });
+        if declares {
+            out.push(*m);
+        }
+    }
+    out
+}
+
+/// Levenshtein distance (in characters).
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.iter().enumerate() {
+        let mut cur = vec![i + 1];
+        for (j, cb) in b.iter().enumerate() {
+            let sub = prev[j] + usize::from(ca != cb);
+            cur.push(sub.min(prev[j + 1] + 1).min(cur[j] + 1));
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
 struct ModScope {
     names: FxHashMap<Symbol, (Res, Span)>,
 }
@@ -553,8 +597,56 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         // a standard module used without its import
         if crate::stdlib::STD_MODULES.iter().any(|(m, _)| *m == s && *m != "prelude") {
             d = d.with_note(format!("`{s}` is a standard module: add `import std.{s}`"));
+        } else {
+            // a standard module's member used bare
+            let homes = std_homes(&s);
+            if !homes.is_empty() {
+                let m = homes[0];
+                let others = if homes.len() > 1 {
+                    format!(
+                        " (also in {})",
+                        homes[1..].iter().map(|h| format!("std.{h}")).collect::<Vec<_>>().join(", ")
+                    )
+                } else {
+                    String::new()
+                };
+                d = d.with_note(format!(
+                    "`{s}` is in std.{m}{others}: `import std.{m}` and write `{m}.{s}`, or `import std.{m}.{{{s}}}`"
+                ));
+            }
+            // a near miss of a name in scope
+            if let Some(near) = self.nearest_name(&s) {
+                d = d.with_note(format!("did you mean `{near}`?"));
+            }
         }
         self.cx.diags.push(d);
+    }
+
+    /// The name in scope (locals, then the module's names) closest to
+    /// `s`, within one edit for short names and two for longer ones.
+    fn nearest_name(&self, s: &str) -> Option<String> {
+        let limit = if s.chars().count() <= 3 { 1 } else { 2 };
+        let mut best: Option<(usize, String)> = None;
+        let mut consider = |n: &str| {
+            // a value is not mistaken for a type, or the other way round
+            let upper = |x: &str| x.starts_with(|c: char| c.is_uppercase());
+            if n == s || n.starts_with('%') || n.starts_with('_') || upper(n) != upper(s) {
+                return;
+            }
+            let d = edit_distance(s, n);
+            if d <= limit && best.as_ref().is_none_or(|(bd, bn)| d < *bd || (d == *bd && n < bn.as_str())) {
+                best = Some((d, n.to_string()));
+            }
+        };
+        for scope in &self.locals {
+            for k in scope.keys() {
+                consider(self.cx.interner.resolve(*k));
+            }
+        }
+        for k in self.cx.scopes[self.module.into_raw().into_u32() as usize].names.keys() {
+            consider(self.cx.interner.resolve(*k));
+        }
+        best.map(|b| b.1)
     }
 
     fn alloc(&mut self, kind: ExprKind, span: Span) -> ExprId {

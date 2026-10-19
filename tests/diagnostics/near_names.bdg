@@ -1,0 +1,10 @@
+// An unknown name gets a hint: the nearest name in scope, or the standard
+// module a bare member belongs to.
+fn total(xs: List<Int>) -> Int { 0 }
+
+pub fn main() -> Unit {
+    let result = 3
+    let a = reslt + 1
+    let b = totl([1])
+    let c = trim(" x ")
+}
