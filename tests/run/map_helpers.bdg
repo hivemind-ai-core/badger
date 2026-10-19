@@ -1,0 +1,108 @@
+// Public lists/maps remain materialized, ordered snapshots. Intermediate entry
+// tuples are not observable; callbacks can allocate, suspend, reenter and fail.
+import std.io
+import std.list
+import std.map
+import std.task
+import std.text
+
+type Row = { id: Int, name: String }
+
+fn check() -> Unit {
+    var builder = map.builder<Int, Row>()
+    for k in 0..65 { builder.insert(k, { id: k, name: text.repeat("x", k + 1) }) }
+    let source = builder.finish()
+    let entries = source.entries()
+    let keys = source.keys()
+    let values = map.values(source)
+    assert(entries.len() == 65 && keys.len() == 65 && values.len() == 65)
+    for i in 0..65 {
+        assert(keys[i] == entries[i].0 && values[i] == entries[i].1)
+    }
+    let seen = Cell.new(list.empty<Int>())
+    let mapped = source.map_values(fn(row) {
+        task.yield_now()
+        seen.set(seen.get().append(row.id))
+        let nested = source.keys()
+        assert(nested == keys)
+        { id: row.id + 100, name: $"{row.name}!" }
+    })
+    assert(seen.get() == keys)
+    let visits = Cell.new(list.empty<Int>())
+    let filtered = source.filter(fn(k, row) {
+        visits.set(visits.get().append(k))
+        task.yield_now()
+        assert(row.id == k)
+        k % 3 != 0
+    })
+    assert(visits.get() == keys && filtered.len() == 43)
+    var other_builder = map.builder<Int, Row>()
+    for k in 32..97 { other_builder.insert(k, { id: k + 1000, name: $"right-{k}" }) }
+    let other = other_builder.finish()
+    let merged_calls = Cell.new(list.empty<Int>())
+    let merged = source.merge_with(other, fn(a, b) {
+        task.yield_now()
+        assert(a.id + 1000 == b.id)
+        merged_calls.set(merged_calls.get().append(a.id))
+        { id: a.id + b.id, name: $"{a.name}:{b.name}" }
+    })
+    assert(merged_calls.get() == other.keys().filter(fn(k) { source.contains(k) }))
+    let replaced = map.merge(source, other)
+    assert(merged.len() == 97 && replaced.len() == 97)
+    for k in 0..65 {
+        let old = source.get(k).unwrap_or({ id: -1, name: "missing" })
+        assert(old.id == k && old.name.len() == k + 1)
+        let new = mapped.get(k).unwrap_or({ id: -1, name: "missing" })
+        assert(new.id == k + 100 && new.name == $"{old.name}!")
+        assert(filtered.contains(k) == (k % 3 != 0))
+        if k >= 32 {
+            assert(merged.get(k).unwrap_or(old).id == 2 * k + 1000)
+            assert(replaced.get(k).unwrap_or(old).id == k + 1000)
+        }
+    }
+    // Packed widths and floats keep their typed representation through lists,
+    // cursors and builders; pointer keys/values remain rooted across callbacks.
+    let packed = map.from_list([(1U8, 1.25F32), (2U8, -2.5F32)])
+    let packed_entries = packed.entries()
+    for i in 0..2 {
+        assert(packed.keys()[i] == packed_entries[i].0)
+        assert(packed.values()[i] == packed_entries[i].1)
+    }
+    let doubled = packed.map_values(fn(v) { v * 2.0F32 })
+    assert(doubled.get(1U8).unwrap_or(0.0F32) == 2.5F32)
+    let strings = map.from_list([("alpha", "one"), ("beta", "two")])
+    let changed = strings.map_values(fn(v) { task.yield_now(); text.repeat(v, 4) })
+    assert(changed.get("alpha").unwrap_or("") == "oneoneoneone")
+    assert(strings.get("alpha").unwrap_or("") == "one")
+    let empty = map.empty<Int, Int>()
+    let calls = Cell.new(0)
+    assert(empty.keys().len() == 0 && empty.values().len() == 0)
+    assert(empty.map_values(fn(v) { calls.set(calls.get() + 1); v }).len() == 0)
+    assert(empty.filter(fn(_k, _v) { calls.set(calls.get() + 1); true }).len() == 0)
+    assert(empty.merge_with(empty, fn(a, b) { calls.set(calls.get() + 1); a + b }).len() == 0)
+    assert(calls.get() == 0)
+    let _ = task.scope(fn(s) -> Result<Unit, Never> {
+        let first = keys[1]
+        let later = keys[4]
+        let work = s.capture(fn() {
+            source.map_values(fn(row) {
+                if row.id == first || row.id == later { panic($"map-helper-fail-{row.id}") }
+                row.id
+            })
+        })
+        match work.join() {
+            .failed(info) => assert(info.message == $"map-helper-fail-{first}"),
+            _ => panic("expected map callback failure"),
+        }
+        ok(())
+    })
+    // Retained projections and source snapshots still agree after reentry and
+    // child failure; small stress allocations cannot silently lose their roots.
+    for i in 0..65 { assert(values[i].id == keys[i] && entries[i].1 == values[i]) }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    check()
+    io.println("map helpers: ok")?
+    ok(())
+}

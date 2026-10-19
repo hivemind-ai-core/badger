@@ -23,6 +23,9 @@ sys.path.insert(0, str(ROOT / "bench"))
 import telemetry as t
 
 COVERAGE = {
+    **{name: dict(mode=name, n=1024, rounds=256, payload=32, retain=8)
+       for name in ["map-api-projections", "map-api-values", "map-api-filter", "map-api-merge",
+                    "map-api-composed", "map-api-entry-control", "map-api-parallel"]},
     **{name: dict(mode=name, n=32768, rounds=1, payload=1, retain=1)
        for name in ["codec-flat", "codec-nested", "codec-wire", "codec-invalid"]},
     "scalar-snapshots": dict(mode="scalar-snapshots", n=65536, rounds=1, payload=1, retain=256),
@@ -130,6 +133,32 @@ def benchmark_lock(path=None):
 
 
 def expected_coverage(c):
+    if c["mode"] == "map-api-parallel":
+        return 8 * expected_coverage(c | dict(mode="map-api-composed", rounds=(c["rounds"] + 7) // 8))
+    if c["mode"].startswith("map-api-"):
+        source = {k: "x" * (c["payload"] + k % 3) for k in range(c["n"])}
+        right = {k: "y" * (c["payload"] + k % 3) for k in range(c["n"] // 2, c["n"] + c["n"] // 2)}
+        total = 0
+        for step in range(c["rounds"]):
+            if c["mode"] in ["map-api-projections", "map-api-entry-control"]:
+                total += 2 * len(source) + sum(k * 31 + len(v) for k, v in source.items())
+                if c["mode"] == "map-api-entry-control":
+                    total += len(source)
+                continue
+            if c["mode"] == "map-api-filter":
+                result = {k: len(v) for k, v in source.items() if k % 3 != 0}
+            elif c["mode"] == "map-api-merge":
+                result = {k: len(v) for k, v in source.items()}
+                result.update({k: len(source[k] + ":" + v if k in source else v) for k, v in right.items()})
+            else:
+                result = {k: len(v) + step for k, v in source.items()}
+                if c["mode"] != "map-api-values":
+                    result = {k: v for k, v in result.items() if k % 3 != 0}
+                    for k in right:
+                        value = k * 3 + step + 5
+                        result[k] = result[k] + value + 7 if k in result else value
+            total += len(result) + sum(k * 31 + v for k, v in result.items())
+        return total
     if c["mode"].startswith("codec-"):
         per_row = {"codec-flat": 17 + len('é\n"x'.encode()),
                    "codec-wire": 17 + len('é\n"x'.encode()),

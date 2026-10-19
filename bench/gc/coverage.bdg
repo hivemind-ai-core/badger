@@ -17,6 +17,111 @@ import std.time
 
 type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
 
+// Materialized public results remain observable. Only intermediate entry
+// lists inside standard map helpers can be eliminated by this experiment.
+fn map_api(c: Config) -> Int {
+    let words = array.build(c.n, fn(k: Int) { text.repeat("x", c.payload + k % 3) })
+    var input = map.builder<Int, String>()
+    var rhs = map.builder<Int, String>()
+    for k in 0..c.n { input.insert(k, words[k]) }
+    for k in c.n / 2..c.n + c.n / 2 { rhs.insert(k, text.repeat("y", c.payload + k % 3)) }
+    let source = input.finish()
+    let right = rhs.finish()
+    let key_history = array.build(c.retain, fn(_: Int) { Cell.new(list.empty<Int>()) })
+    let value_history = array.build(c.retain, fn(_: Int) { Cell.new(list.empty<String>()) })
+    let pointer_history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, String>()) })
+    let scalar_history = array.build(c.retain, fn(_: Int) { Cell.new(map.empty<Int, Int>()) })
+    var total = 0
+    for round in 0..c.rounds {
+        if c.mode == "map-api-projections" || c.mode == "map-api-entry-control" {
+            var keys: List<Int> = []
+            var values: List<String> = []
+            if c.mode == "map-api-entry-control" {
+                let entries = source.entries()
+                keys = entries.map(fn(e) { e.0 })
+                values = entries.map(fn(e) { e.1 })
+                total = total + entries.len()
+            } else {
+                keys = source.keys()
+                values = source.values()
+            }
+            assert(keys.len() == c.n && values.len() == c.n)
+            for i in 0..c.n {
+                assert(values[i] == words[keys[i]])
+                total = total + keys[i] * 31 + values[i].len()
+            }
+            total = total + keys.len() + values.len()
+            key_history[round % c.retain].set(keys)
+            value_history[round % c.retain].set(values)
+        } else if c.mode == "map-api-filter" || c.mode == "map-api-merge" {
+            let out = if c.mode == "map-api-filter" {
+                source.filter(fn(k, _v) { k % 3 != 0 })
+            } else {
+                source.merge_with(right, fn(a, b) { $"{a}:{b}" })
+            }
+            total = total + out.len()
+            for (k, v) in out { total = total + k * 31 + v.len() }
+            pointer_history[round % c.retain].set(out)
+        } else {
+            let mapped = source.map_values(fn(v) { v.len() + round })
+            let out = if c.mode == "map-api-values" { mapped } else {
+                let filtered = mapped.filter(fn(k, _v) { k % 3 != 0 })
+                var extra = map.builder<Int, Int>()
+                for k in c.n / 2..c.n + c.n / 2 { extra.insert(k, k * 3 + round + 5) }
+                filtered.merge_with(extra.finish(), fn(a, b) { a + b + 7 })
+            }
+            total = total + out.len()
+            for (k, v) in out { total = total + k * 31 + v }
+            scalar_history[round % c.retain].set(out)
+        }
+        assert(source.len() == c.n && source.get_or(0, "") == words[0])
+    }
+    // Results from earlier rounds must survive later transforms/collections.
+    for slot in 0..c.rounds.min(c.retain) {
+        let last = c.rounds - 1 - (c.rounds - 1 - slot) % c.retain
+        if c.mode == "map-api-projections" || c.mode == "map-api-entry-control" {
+            let keys = key_history[slot].get()
+            let values = value_history[slot].get()
+            assert(keys.len() == c.n && values.len() == c.n)
+            for i in 0..c.n { assert(values[i] == words[keys[i]]) }
+        } else if c.mode == "map-api-filter" || c.mode == "map-api-merge" {
+            for (k, v) in pointer_history[slot].get() {
+                if c.mode == "map-api-filter" { assert(k % 3 != 0 && v == words[k]) }
+                else {
+                    let expected = if k < c.n / 2 { words[k] }
+                        else if k < c.n {
+                            let suffix = text.repeat("y", c.payload + k % 3)
+                            $"{words[k]}:{suffix}"
+                        }
+                        else { text.repeat("y", c.payload + k % 3) }
+                    assert(v == expected)
+                }
+            }
+        } else {
+            for (k, v) in scalar_history[slot].get() {
+                let expected = if c.mode == "map-api-values" || k < c.n / 2 {
+                    c.payload + k % 3 + last
+                } else if k < c.n && k % 3 != 0 {
+                    c.payload + k % 3 + last + k * 3 + last + 5 + 7
+                } else { k * 3 + last + 5 }
+                assert(v == expected)
+            }
+        }
+    }
+    total
+}
+
+fn parallel_map_api(c: Config) -> Int {
+    must(task.scope(fn(s) -> Result<Int, String> {
+        let jobs = array.build(8, fn(_: Int) {
+            s.spawn(fn() { map_api({ ..c, mode: "map-api-composed", rounds: (c.rounds + 7) / 8 }) })
+        })
+        var total = 0
+        for job in jobs { total = total + job.join() }
+        ok(total)
+    }))
+}
+
 fn map_entries(c: Config) -> Int {
     let words = array.build(c.n, fn(k: Int) { text.repeat("x", c.payload + k % 3) })
     var builder = map.builder<Int, String>()
@@ -673,7 +778,9 @@ pub fn main() -> Result<Unit, io.Error> {
     let before = inspect.heap()
     let start = time.now()
     var checkpoints: List<Data> = []
-    let checksum = if c.mode.starts_with("entries-") { map_entries(c) }
+    let checksum = if c.mode == "map-api-parallel" { parallel_map_api(c) }
+    else if c.mode.starts_with("map-api-") { map_api(c) }
+    else if c.mode.starts_with("entries-") { map_entries(c) }
     else if c.mode.starts_with("codec-") { codec_work(c) }
     else if c.mode == "records-window" { records_window(c) }
     else if c.mode == "pool-burst" {

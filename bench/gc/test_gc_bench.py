@@ -33,6 +33,14 @@ class MeasurementOrder(unittest.TestCase):
 
 
 class CoverageOracle(unittest.TestCase):
+    def test_map_apis_preserve_transforms_and_overlap_semantics(self):
+        c = dict(n=4, rounds=2, payload=3, retain=2)
+        for mode, expected in [("map-api-projections", 418), ("map-api-entry-control", 426),
+                               ("map-api-values", 414), ("map-api-filter", 208),
+                               ("map-api-merge", 1010), ("map-api-composed", 1102),
+                               ("map-api-parallel", 4384)]:
+            self.assertEqual(run.expected_coverage(c | dict(mode=mode)), expected)
+
     def test_codec_oracles_include_utf8_and_exact_nested_error_paths(self):
         for mode, expected in [("codec-flat", 154), ("codec-wire", 154),
                                ("codec-nested", 2177), ("codec-invalid", 231)]:
