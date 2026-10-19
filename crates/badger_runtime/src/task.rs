@@ -1833,8 +1833,9 @@ fn pop_global() -> Option<Entry> {
 }
 
 /// This worker's next task, else its queue, else the shared queue, else a
-/// task stolen from another worker's ready queue, else another worker's
-/// next task once it has waited there a while.
+/// task stolen from another worker: two victims are picked at random and
+/// probed longest queue first (the power of two choices), their next slots
+/// last.
 fn take_ready() -> Option<Entry> {
     let w = worker_index();
     if let Some(e) = local(w).pop(true) {
@@ -1844,12 +1845,52 @@ fn take_ready() -> Option<Entry> {
         return Some(e);
     }
     let n = workers().min(MAX_WORKERS);
-    for k in 1..n {
-        if let Some(e) = steal_ready(local((w + k) % n)) {
-            return Some(e);
-        }
+    if n <= 1 {
+        return None;
     }
-    (1..n).find_map(|k| steal_next(local((w + k) % n)))
+    let (a, b) = two_victims(w, n);
+    let (first, second) = if local(a).queued() >= local(b).queued() { (a, b) } else { (b, a) };
+    steal_ready(local(first))
+        .or_else(|| steal_ready(local(second)))
+        .or_else(|| steal_next(local(first)))
+        .or_else(|| steal_next(local(second)))
+}
+
+/// Two victims for worker `w` to choose between: two of the other workers,
+/// picked at random (the same one twice when there are only two workers).
+fn two_victims(w: usize, n: usize) -> (usize, usize) {
+    let others = n - 1;
+    if others == 1 {
+        let v = (w + 1) % n;
+        return (v, v);
+    }
+    let r = victim_random();
+    let i = (r % others as u64) as usize;
+    let j = ((r >> 32) % (others as u64 - 1)) as usize;
+    let j = if j >= i { j + 1 } else { j };
+    ((w + 1 + i) % n, (w + 1 + j) % n)
+}
+
+thread_local! {
+    /// xorshift64 state of [`victim_random`] (per worker thread).
+    static VICTIM_RNG: Cell<u64> = const { Cell::new(0) };
+}
+
+/// A pseudo-random number for victim choice: per worker, so that workers
+/// do not probe the same pair, and apart from the chaos stream, which must
+/// keep drawing what it drew before.
+fn victim_random() -> u64 {
+    VICTIM_RNG.with(|c| {
+        let mut x = c.get();
+        if x == 0 {
+            x = (worker_index() as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        }
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        c.set(x);
+        x
+    })
 }
 
 /// Steal the oldest ready task from `q`.
@@ -3744,6 +3785,24 @@ mod tests {
         assert_eq!(steal_next(&q).map(|e| e.0), None);
         assert_eq!(q.pop(true).map(|e| e.0), Some(3));
         assert_eq!(q.queued(), 0);
+    }
+
+    /// The two victims are two distinct other workers, and the draw
+    /// reaches all of them.
+    #[test]
+    fn two_victims_are_distinct_others() {
+        let mut seen = [false; 4];
+        for _ in 0..200 {
+            let (a, b) = two_victims(0, 4);
+            assert_ne!(a, b);
+            assert!(a != 0 && b != 0 && a < 4 && b < 4);
+            seen[a] = true;
+            seen[b] = true;
+        }
+        assert_eq!(seen, [false, true, true, true]);
+        // two workers: one victim, probed twice
+        assert_eq!(two_victims(0, 2), (1, 1));
+        assert_eq!(two_victims(1, 2), (0, 0));
     }
 
     /// The queued count covers both queues and follows pushes, pops and
