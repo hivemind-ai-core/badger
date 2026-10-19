@@ -12,6 +12,81 @@ use serde_json::Value;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Write the reference for `target` as one HTML page and open it: the
+/// Markdown the generator produces is rendered, and the page's links
+/// point at the sections of the same page. The page is written into
+/// `out` when a directory is given, and into a private directory
+/// otherwise.
+pub fn open(target: &str, out: Option<&Path>) -> Result<String, String> {
+    let pages = pages(target)?;
+    let dir = match out {
+        Some(d) => d.to_path_buf(),
+        None => badger_driver::private_temp_dir("badger-doc")
+            .map_err(|e| format!("cannot create a documentation directory: {e}"))?,
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let file = dir.join("index.html");
+    std::fs::write(&file, html(&pages)).map_err(|e| format!("{}: {e}", file.display()))?;
+    open_in_viewer(&file);
+    Ok(file.display().to_string())
+}
+
+/// The pages as one HTML document: every page is a section, and the
+/// links between the pages point at the sections.
+fn html(pages: &[(String, String)]) -> String {
+    let mut body = String::new();
+    for (name, text) in pages {
+        let anchor = name.strip_suffix(".md").unwrap_or(name);
+        let mut text = text.clone();
+        for (other, _) in pages {
+            let other = other.strip_suffix(".md").unwrap_or(other);
+            text = text.replace(&format!("]({other}.md)"), &format!("](#{other})"));
+        }
+        body.push_str(&format!("<section id=\"{anchor}\">\n"));
+        body.push_str(&render(&text));
+        body.push_str("\n</section>\n");
+    }
+    format!(
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n\
+         <title>Badger reference</title>\n\
+         <style>\nbody {{ font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 52rem; padding: 0 1rem; }}\n\
+         code, pre {{ font-family: ui-monospace, monospace; }}\n\
+         pre {{ background: #f4f4f5; padding: .75rem; overflow-x: auto; border-radius: 4px; }}\n\
+         table {{ border-collapse: collapse; }}\n\
+         td, th {{ border: 1px solid #d4d4d8; padding: .25rem .5rem; text-align: left; }}\n\
+         h1, h2, h3 {{ line-height: 1.25; }}\n\
+         </style>\n</head>\n<body>\n{body}</body>\n</html>\n"
+    )
+}
+
+/// Markdown as HTML.
+fn render(text: &str) -> String {
+    let mut options = pulldown_cmark::Options::empty();
+    options.insert(pulldown_cmark::Options::ENABLE_TABLES);
+    options.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+    let parser = pulldown_cmark::Parser::new_ext(text, options);
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, parser);
+    html
+}
+
+/// Open a file in the system's viewer (a browser, or whatever handles
+/// the file). A failure is not an error: the file is written either way.
+fn open_in_viewer(file: &Path) {
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = std::process::Command::new("cmd");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    #[cfg(target_os = "windows")]
+    {
+        cmd.arg("/C").arg("start").arg("");
+    }
+    cmd.arg(file);
+    let _ = cmd.spawn();
+}
+
 /// Generate the reference for `target` (`std`, a standard module such as
 /// `std.list`, or a program path): written to `out` as one page per module
 /// plus an index, or printed. With `check`, compare with `out` instead and

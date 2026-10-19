@@ -1,0 +1,51 @@
+// The HTTP binding of the service: each operation bound to a method and
+// a path, and the status each error carries.
+import std.app
+import std.http
+import std.route
+import service
+import store
+
+/// The service's errors, as the HTTP layer sees them.
+pub enum Error {
+    store(source: store.Error),
+    route(source: route.RouteError),
+} derive(Error, From)
+
+/// The status each error is answered with (500 unless the error chooses
+/// one): the route system reads it.
+impl HttpStatus for Error {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .store(e) => match e {
+                .invalid(_) => 400,
+                .not_found(_) => 404,
+            },
+            .route(_) => 500,
+        }
+    }
+}
+
+/// The service's routes.
+pub fn routes(tasks: service.Operations) -> List<route.Route> {
+    [
+        route.json(#post, "/tasks", #tasks/create, fn(_request, _params, body: { title: String }) -> Result<(Int, store.Task), Error> {
+            match tasks.create.call(app.call(), body) {
+                .ok(task) => ok((201, task)),
+                .err(e) => err(Error.store(e)),
+            }
+        }),
+        route.json_get("/tasks", #tasks/list, fn(_request, _params) -> Result<(Int, List<store.Task>), Error> {
+            match tasks.list.call(app.call(), {}) {
+                .ok(all) => ok((200, all)),
+                .err(e) => err(Error.store(e)),
+            }
+        }),
+        route.typed(#post, "/tasks/:id/done", #tasks/complete, fn(_request, params: { id: Int }, _body: {}) -> Result<(Int, store.Task), Error> {
+            match tasks.complete.call(app.call(), params.id) {
+                .ok(task) => ok((200, task)),
+                .err(e) => err(Error.store(e)),
+            }
+        }),
+    ]
+}

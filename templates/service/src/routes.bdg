@@ -1,0 +1,51 @@
+// The HTTP binding of the service: its routes, and the status each error
+// carries. The route system reads the status from the error, so the
+// service's own errors answer with the status the service means.
+import std.app
+import std.http
+import std.route
+import service
+
+/// The service's errors, as the HTTP layer sees them.
+pub enum Error {
+    service(source: service.Error),
+    route(source: route.RouteError),
+} derive(Error, From)
+
+/// The status each error is answered with (500 unless the error chooses
+/// one).
+impl HttpStatus for Error {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .service(e) => match e {
+                .invalid(_) => 400,
+                .not_found(_) => 404,
+            },
+            .route(_) => 500,
+        }
+    }
+}
+
+/// The service's routes.
+pub fn routes(notes: service.Operations) -> List<route.Route> {
+    [
+        route.json(#post, "/notes", #notes/create, fn(_request, _params, body: service.NewNote) -> Result<(Int, service.Note), Error> {
+            match notes.create.call(app.call(), body) {
+                .ok(note) => ok((201, note)),
+                .err(e) => err(Error.service(e)),
+            }
+        }),
+        route.json_get("/notes", #notes/list, fn(_request, _params) -> Result<(Int, List<service.Note>), Error> {
+            match notes.list.call(app.call(), {}) {
+                .ok(all) => ok((200, all)),
+                .err(e) => err(Error.service(e)),
+            }
+        }),
+        route.typed(#post, "/notes/:id/done", #notes/complete, fn(_request, params: { id: Int }, _body: {}) -> Result<(Int, service.Note), Error> {
+            match notes.complete.call(app.call(), params.id) {
+                .ok(note) => ok((200, note)),
+                .err(e) => err(Error.service(e)),
+            }
+        }),
+    ]
+}

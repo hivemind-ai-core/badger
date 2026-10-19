@@ -227,6 +227,247 @@ fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
 }
 "#;
 
+const SERVICE_MODEL: &str = r#"// The @name@ service's vocabulary: a @item@, what can go wrong, and the
+// operations the service offers.
+import std.app
+
+/// One @item@.
+pub type @Item@ = { id: Int, title: String }
+
+/// A new @item@.
+pub type New@Item@ = { title: String }
+
+/// What can go wrong.
+pub enum Error {
+    invalid(message: String),
+    not_found(id: Int),
+} derive(Error)
+
+/// The service's operations.
+pub type Operations = {
+    create: app.Operation<New@Item@, @Item@, Error, !{Io, Wait, State}>,
+    find: app.Operation<Int, @Item@, Error, !{Io, Wait, State}>,
+    list: app.Operation<{}, List<@Item@>, Error, !{Io, Wait, State}>,
+}
+"#;
+
+const SERVICE_STORE: &str = r#"// The @name@ service's store: the @item@ records it keeps. Another
+// adapter (SQLite, Postgres) would provide the same interface; the
+// service does not know which one it has.
+import std.list
+import @name@.model
+
+/// What the service needs from storage.
+pub type Store = {
+    insert: fn(model.New@Item@) -> Result<model.@Item@, model.Error> !{Io, Wait, State},
+    find: fn(Int) -> Result<Option<model.@Item@>, model.Error> !{Io, Wait, State},
+    all: fn() -> Result<List<model.@Item@>, model.Error> !{Io, Wait, State},
+}
+
+/// An in-memory store (tests and development).
+pub provider memory(config: {}) -> Result<Store, model.Error> {
+    let rows: Atom<List<model.@Item@>> = Atom.new([])
+    ok({
+        insert: fn(new: model.New@Item@) -> Result<model.@Item@, model.Error> {
+            let all = rows.update(fn(current) { current.append({ id: current.len() + 1, title: new.title }) })
+            ok(all[all.len() - 1])
+        },
+        find: fn(id: Int) -> Result<Option<model.@Item@>, model.Error> { ok(list.find(rows.get(), fn(n) { n.id == id })) },
+        all: fn() -> Result<List<model.@Item@>, model.Error> { ok(rows.get()) },
+    })
+}
+"#;
+
+const SERVICE_SERVICE: &str = r#"// The @name@ service: its operations over the store. Every caller (the
+// routes, the command line, a worker) calls the same ones.
+import std.app
+import std.system
+import std.text
+import @name@.model
+import @name@.store
+
+pub provider @name@(config: { store: store.Store }) -> Result<model.Operations, model.Error> {
+    let records = config.store
+    ok({
+        create: app.from_fn({ id: #@name@/create, version: 1, doc: "Create a @item@." }, fn(_call, input: model.New@Item@) -> Result<model.@Item@, model.Error> {
+            let title = text.trim(input.title)
+            if title == "" {
+                return err(model.Error.invalid("a @item@ needs a title"))
+            }
+            records.insert({ title })
+        }),
+        find: app.from_fn({ id: #@name@/find, version: 1, doc: "Find a @item@ by id." }, fn(_call, id: Int) -> Result<model.@Item@, model.Error> {
+            match records.find(id)? {
+                .some(n) => ok(n),
+                .none => err(model.Error.not_found(id)),
+            }
+        }),
+        list: app.from_fn({ id: #@name@/list, version: 1, doc: "Every @item@." }, fn(_call, _input: {}) -> Result<List<model.@Item@>, model.Error> {
+            records.all()
+        }),
+    })
+}
+
+pub enum TestError {
+    @name@(source: model.Error),
+    system(source: system.Error),
+} derive(Error, From)
+
+fn test_create_and_find() -> Result<Unit, TestError> {
+    let plan = system {
+        store: store.memory(),
+        @name@: @name@({ store: ref(#store) }),
+    }
+    use running <- system.run(plan)
+    let call = app.call()
+    let created = running.@name@.create.call(call, { title: "  first " })?
+    assert(created.title == "first")
+    assert(running.@name@.find.call(call, created.id)? == created)
+    assert(running.@name@.list.call(call, {})?.len() == 1)
+    ok(())
+}
+"#;
+
+const SERVICE_HTTP: &str = r#"// The HTTP binding of the @name@ service: its route table. The errors
+// carry their status, so the service's own errors answer with the status
+// the service means.
+import std.app
+import std.http
+import std.route
+import std.system
+import @name@.model
+import @name@.service
+import @name@.store
+
+/// The service's errors, as the HTTP layer sees them.
+pub enum Error {
+    @name@(source: model.Error),
+    route(source: route.RouteError),
+    system(source: system.Error),
+} derive(Error, From)
+
+/// The status each error is answered with (500 unless the error chooses
+/// one): the route system reads it.
+impl HttpStatus for Error {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .@name@(e) => match e {
+                .invalid(_) => 400,
+                .not_found(_) => 404,
+            },
+            .route(_) => 500,
+            .system(_) => 500,
+        }
+    }
+}
+
+/// The service's route table.
+pub fn table(@name@: model.Operations) -> List<route.Route> {
+    [
+        route.json(#post, "/@name@", #@name@/create, fn(_request, _params, body: model.New@Item@) -> Result<(Int, model.@Item@), Error> {
+            match @name@.create.call(app.call(), body) {
+                .ok(item) => ok((201, item)),
+                .err(e) => err(Error.@name@(e)),
+            }
+        }),
+        route.json_get("/@name@", #@name@/list, fn(_request, _params) -> Result<(Int, List<model.@Item@>), Error> {
+            match @name@.list.call(app.call(), {}) {
+                .ok(all) => ok((200, all)),
+                .err(e) => err(Error.@name@(e)),
+            }
+        }),
+        route.typed(#get, "/@name@/:id", #@name@/find, fn(_request, params: { id: Int }, _body: {}) -> Result<(Int, model.@Item@), Error> {
+            match @name@.find.call(app.call(), params.id) {
+                .ok(item) => ok((200, item)),
+                .err(e) => err(Error.@name@(e)),
+            }
+        }),
+    ]
+}
+
+fn test_the_route_table() -> Result<Unit, Error> {
+    let plan = system {
+        store: store.memory(),
+        @name@: service.@name@({ store: ref(#store) }),
+    }
+    use running <- system.run(plan)
+    let api = route.table(table(running.@name@))?
+    assert(http.call(api, http.request(#post, "/@name@", "{\"title\": \"first\"}")).status == 201)
+    assert(http.call(api, http.request(#get, "/@name@", "")).status == 200)
+    assert(http.call(api, http.request(#get, "/@name@/1", "")).status == 200)
+    assert(http.call(api, http.request(#get, "/@name@/9", "")).status == 404)
+    assert(http.call(api, http.request(#post, "/@name@", "{\"title\": \"\"}")).status == 400)
+    ok(())
+}
+"#;
+
+const COMMAND: &str = r#"// The @name@ command: its options and how they are parsed.
+import std.cli
+import std.env
+
+/// The command's options: every field is an option, spelled in kebab
+/// case (`--dry-run` for `dry_run`); `args` collects the positional
+/// arguments.
+pub type Options = {
+    name: String,
+    count: Int,
+    verbose: Bool,
+    args: List<String>,
+}
+
+/// The values the options start from.
+pub fn defaults() -> Options {
+    { name: cli.text("world"), count: cli.integer(1), verbose: cli.flag(false), args: cli.text_list([]) }
+}
+
+/// Parse the command's arguments.
+pub fn parse(args: List<String>) -> Result<Options, cli.Error> {
+    cli.parse_or<Options>(args, defaults())
+}
+
+/// Parse the program's own arguments.
+pub fn parse_env() -> Result<Options, cli.Error> {
+    cli.parse_or<Options>(env.args(), defaults())
+}
+
+fn test_the_options_are_parsed() -> Unit {
+    let options = match parse(["--name", "Ada", "--count", "2", "extra"]) {
+        .ok(o) => o,
+        .err(e) => panic($"the options should parse: {e}"),
+    }
+    assert(options.name == "Ada")
+    assert(options.count == 2)
+    assert(!options.verbose)
+    assert(options.args == ["extra"])
+}
+"#;
+
+const LIBRARY: &str = r#"// The @name@ library: a public type, the operation over it, and a test.
+import std.text
+
+/// One @item@.
+pub type @Item@ = { id: Int, name: String }
+
+/// A new @item@: the first identifier, and a trimmed name.
+pub fn create(name: String) -> @Item@ {
+    { id: 1, name: text.trim(name) }
+}
+
+/// The @item@'s name, or `fallback` when it is empty.
+pub fn name_or(item: @Item@, fallback: String) -> String {
+    let name = text.trim(item.name)
+    if name == "" { fallback } else { name }
+}
+
+fn test_the_library() -> Unit {
+    let item = create("  a name  ")
+    assert(item.id == 1)
+    assert(item.name == "a name")
+    assert(name_or(item, "none") == "a name")
+    assert(name_or({ id: 2, name: " " }, "none") == "none")
+}
+"#;
+
 const KEYWORDS: &[&str] = &[
     "and", "as", "break", "const", "continue", "derive", "dyn", "else", "enum", "extern", "false", "fn",
     "for", "if", "impl", "import", "in", "let", "loop", "match", "once", "or", "protocol", "provider", "pub",
@@ -336,6 +577,148 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
         .collect();
     let imports = ["http", "memory", "model", "service"].iter().map(|m| format!("{name}.{m}")).collect();
     Ok(Plan { root, files, imports })
+}
+
+/// The names the generated files import for themselves: a generated
+/// module may not have one of them.
+const RESERVED_SERVICE: &[&str] = &[
+    "app", "endpoint", "generate_probe", "http", "list", "model", "route", "service", "std",
+    "store", "system", "text",
+];
+
+/// The names the generated command's files import for themselves.
+const RESERVED_COMMAND: &[&str] = &["cli", "env", "generate_probe", "list", "std", "text"];
+
+/// The names the generated library's files import for themselves.
+const RESERVED_LIBRARY: &[&str] = &["generate_probe", "list", "std", "text"];
+
+/// Check that `name` may name a generated module: a lowercase identifier
+/// that is not one of the modules the generated files import.
+fn check_name(name: &str, kind: &str, reserved: &[&str]) -> Result<(), String> {
+    if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        || KEYWORDS.contains(&name)
+    {
+        return Err(format!(
+            "`{name}` is not a {kind} name: use a lowercase identifier such as `orders`"
+        ));
+    }
+    if reserved.contains(&name) {
+        return Err(format!(
+            "`{name}` is a module the generated files import: choose another {kind} name"
+        ));
+    }
+    Ok(())
+}
+
+/// The record's name for a feature, a service, or a library `name` (the
+/// name without a final `s`).
+fn item_of(name: &str) -> String {
+    name.strip_suffix('s')
+        .filter(|s| !s.is_empty())
+        .unwrap_or(name)
+        .to_string()
+}
+
+/// The text of a generated file: the name and the record's name are
+/// filled in.
+fn fill(name: &str, item: &str, t: &str) -> String {
+    t.replace("@name@", name)
+        .replace("@Item@", &pascal(item))
+        .replace("@item@", &item.replace('_', " "))
+}
+
+/// The generator's files: the path each takes in the project, and its
+/// text (the name and the record's name are filled in).
+fn generated(
+    root: &Path,
+    name: &str,
+    item: &str,
+    files: &[(&str, &str)],
+) -> Vec<(PathBuf, String)> {
+    files
+        .iter()
+        .map(|(f, t)| (root.join(format!("{f}.bdg")), fill(name, item, t)))
+        .collect()
+}
+
+/// Plan service `name` in the project at `dir`: a module with the
+/// service's vocabulary (`model.bdg`), its store (`store.bdg`), its
+/// operations (`service.bdg`), and the route table that binds them to
+/// HTTP (`http.bdg`), with tests.
+pub fn plan_service(dir: &Path, name: &str) -> Result<Plan, String> {
+    let manifest = badger_driver::manifest::Manifest::in_dir(dir)?;
+    check_name(name, "service", RESERVED_SERVICE)?;
+    let item = item_of(name);
+    // modules resolve from the entry's directory
+    let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
+    let root = src.join(name);
+    if dir.join(&root).exists() || dir.join(src.join(format!("{name}.bdg"))).exists() {
+        return Err(format!(
+            "{} already exists: a service is generated only into new files",
+            dir.join(&root).display()
+        ));
+    }
+    let files = generated(
+        &root,
+        name,
+        &item,
+        &[
+            ("model", SERVICE_MODEL),
+            ("store", SERVICE_STORE),
+            ("service", SERVICE_SERVICE),
+            ("http", SERVICE_HTTP),
+        ],
+    );
+    let imports = ["http", "model", "service", "store"]
+        .iter()
+        .map(|m| format!("{name}.{m}"))
+        .collect();
+    Ok(Plan { root, files, imports })
+}
+
+/// Plan command `name` in the project at `dir`: a module with the
+/// command's options and their parsing (`std.cli`), and a test.
+pub fn plan_cli(dir: &Path, name: &str) -> Result<Plan, String> {
+    let manifest = badger_driver::manifest::Manifest::in_dir(dir)?;
+    check_name(name, "command", RESERVED_COMMAND)?;
+    // modules resolve from the entry's directory
+    let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
+    let file = src.join(format!("{name}.bdg"));
+    if dir.join(&file).exists() || dir.join(src.join(name)).exists() {
+        return Err(format!(
+            "{} already exists: a command is generated only into new files",
+            dir.join(&file).display()
+        ));
+    }
+    Ok(Plan {
+        root: src.join(name),
+        files: vec![(file, COMMAND.replace("@name@", name))],
+        imports: vec![name.to_string()],
+    })
+}
+
+/// Plan library `name` in the project at `dir`: a module with a public
+/// type, an operation over it, and a test.
+pub fn plan_library(dir: &Path, name: &str) -> Result<Plan, String> {
+    let manifest = badger_driver::manifest::Manifest::in_dir(dir)?;
+    check_name(name, "library", RESERVED_LIBRARY)?;
+    let item = item_of(name);
+    // modules resolve from the entry's directory
+    let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
+    let file = src.join(format!("{name}.bdg"));
+    if dir.join(&file).exists() || dir.join(src.join(name)).exists() {
+        return Err(format!(
+            "{} already exists: a library is generated only into new files",
+            dir.join(&file).display()
+        ));
+    }
+    let text = fill(name, &item, LIBRARY);
+    Ok(Plan {
+        root: src.join(name),
+        files: vec![(file, text)],
+        imports: vec![name.to_string()],
+    })
 }
 
 fn copy_project(from: &Path, to: &Path) -> std::io::Result<()> {

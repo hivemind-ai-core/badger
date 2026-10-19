@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+pulldown-cmark = "0.13" 
 badger_driver.workspace = true
 badger_mir.workspace = true
 badger_base.workspace = true

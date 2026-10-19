@@ -1,0 +1,36 @@
+// The service: the operations over a store. Every caller (the HTTP
+// routes, the command line, a worker) calls the same ones, so the rules
+// of the feature live in one place.
+import std.app
+import std.text
+import store
+
+/// The service's operations.
+pub type Operations = {
+    create: app.Operation<{ title: String }, store.Task, store.Error, !{Io, Wait, State}>,
+    list: app.Operation<{}, List<store.Task>, store.Error, !{Io, Wait, State}>,
+    complete: app.Operation<Int, store.Task, store.Error, !{Io, Wait, State}>,
+}
+
+/// The service over `config.store`.
+pub provider tasks(config: { store: store.Store }) -> Result<Operations, store.Error> {
+    let records = config.store
+    ok({
+        create: app.from_fn({ id: #tasks/create, version: 1, doc: "Add a task." }, fn(_call, input: { title: String }) -> Result<store.Task, store.Error> {
+            let title = text.trim(input.title)
+            if title == "" {
+                return err(store.Error.invalid("a task needs a title"))
+            }
+            records.insert(title)
+        }),
+        list: app.from_fn({ id: #tasks/list, version: 1, doc: "Every task." }, fn(_call, _input: {}) -> Result<List<store.Task>, store.Error> {
+            records.all()
+        }),
+        complete: app.from_fn({ id: #tasks/complete, version: 1, doc: "Mark a task done." }, fn(_call, id: Int) -> Result<store.Task, store.Error> {
+            match records.complete(id)? {
+                .some(t) => ok(t),
+                .none => err(store.Error.not_found(id)),
+            }
+        }),
+    })
+}
