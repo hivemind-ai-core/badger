@@ -1551,7 +1551,9 @@ impl Infer<'_, '_> {
                 }
             }
             TyKind::Error | TyKind::Skolem(_) | TyKind::Gen(_) => Some(true),
-            TyKind::Fn(_) => Some(false),
+            // a `dyn` value's concrete type is hidden: two of them have no
+            // structural comparison (and identity is not equality)
+            TyKind::Fn(_) | TyKind::Dyn(..) => Some(false),
             // floats have IEEE (partial) equality only: no total `Eq`
             TyKind::Con(d, _) if strict && self.b().floats.contains(d) => Some(false),
             TyKind::Tuple(ts) => {
@@ -1660,6 +1662,8 @@ impl Infer<'_, '_> {
             TyKind::Error | TyKind::Gen(_) => Some(true),
             // a borrow stays on its owner's task
             TyKind::Ref(..) if which == "Transfer" || which == "Share" => Some(false),
+            // a `dyn` value hides its type: no structural hash or encoding
+            TyKind::Dyn(..) if which != "Transfer" && which != "Share" => Some(false),
             TyKind::Skolem(s) => {
                 // a generic parameter satisfies a capability through a given bound
                 let s = *s;

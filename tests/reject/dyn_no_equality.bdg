@@ -1,0 +1,17 @@
+// expect-error: E0330
+// A `dyn` value hides its concrete type, so it has no structural equality
+// (nor a hash): compare what the protocol exposes instead.
+pub protocol P { fn v(self: &Self) -> Int }
+
+pub struct A { x: Int }
+
+impl P for A {
+    fn v(self: &Self) -> Int { self.x }
+}
+
+pub fn main() {
+    let a: A = { x: 1 }
+    let d1: dyn P = a
+    let d2: dyn P = a
+    let same = d1 == d2
+}
