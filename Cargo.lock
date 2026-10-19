@@ -401,7 +401,6 @@ dependencies = [
 name = "badger_runtime"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "backtrace",
  "badger_native",
  "corosensei",
