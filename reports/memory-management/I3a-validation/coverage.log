@@ -1,0 +1,6722 @@
+coverage rep=-1 stored-list w8 baseline
+coverage rep=-1 stored-list w8 candidate
+coverage rep=-1 stored-escape w1 baseline
+coverage rep=-1 stored-escape w1 candidate
+coverage rep=-1 bytes-transient w4 candidate
+coverage rep=-1 bytes-transient w4 baseline
+coverage rep=-1 bytes-transient w1 baseline
+coverage rep=-1 bytes-transient w1 candidate
+coverage rep=-1 map-api-composed w4 baseline
+coverage rep=-1 map-api-composed w4 candidate
+coverage rep=-1 stored-escape w2 baseline
+coverage rep=-1 stored-escape w2 candidate
+coverage rep=-1 map-api-composed w2 baseline
+coverage rep=-1 map-api-composed w2 candidate
+coverage rep=-1 stored-pointers w1 candidate
+coverage rep=-1 stored-pointers w1 baseline
+coverage rep=-1 visible w2 candidate
+coverage rep=-1 visible w2 baseline
+coverage rep=-1 stored-collected w2 baseline
+coverage rep=-1 stored-collected w2 candidate
+coverage rep=-1 stored-collected w1 baseline
+coverage rep=-1 stored-collected w1 candidate
+coverage rep=-1 stored-pointers w4 baseline
+coverage rep=-1 stored-pointers w4 candidate
+coverage rep=-1 eager w8 baseline
+coverage rep=-1 eager w8 candidate
+coverage rep=-1 stored w4 candidate
+coverage rep=-1 stored w4 baseline
+coverage rep=-1 collected w8 baseline
+coverage rep=-1 collected w8 candidate
+coverage rep=-1 records-window w2 candidate
+coverage rep=-1 records-window w2 baseline
+coverage rep=-1 stored-reused w2 baseline
+coverage rep=-1 stored-reused w2 candidate
+coverage rep=-1 eager w4 candidate
+coverage rep=-1 eager w4 baseline
+coverage rep=-1 stored-reused w1 candidate
+coverage rep=-1 stored-reused w1 baseline
+coverage rep=-1 visible w8 baseline
+coverage rep=-1 visible w8 candidate
+coverage rep=-1 stored-reused w4 candidate
+coverage rep=-1 stored-reused w4 baseline
+coverage rep=-1 stored-list w2 candidate
+coverage rep=-1 stored-list w2 baseline
+coverage rep=-1 records-window w8 baseline
+coverage rep=-1 records-window w8 candidate
+coverage rep=-1 stored-reused w8 baseline
+coverage rep=-1 stored-reused w8 candidate
+coverage rep=-1 bytes-transient w8 baseline
+coverage rep=-1 bytes-transient w8 candidate
+coverage rep=-1 collected w4 baseline
+coverage rep=-1 collected w4 candidate
+coverage rep=-1 visible w4 candidate
+coverage rep=-1 visible w4 baseline
+coverage rep=-1 eager w2 baseline
+coverage rep=-1 eager w2 candidate
+coverage rep=-1 eager w1 candidate
+coverage rep=-1 eager w1 baseline
+coverage rep=-1 collected w2 baseline
+coverage rep=-1 collected w2 candidate
+coverage rep=-1 stored-collected w8 baseline
+coverage rep=-1 stored-collected w8 candidate
+coverage rep=-1 stored-pointers w8 candidate
+coverage rep=-1 stored-pointers w8 baseline
+coverage rep=-1 stored w8 baseline
+coverage rep=-1 stored w8 candidate
+coverage rep=-1 map-api-composed w8 candidate
+coverage rep=-1 map-api-composed w8 baseline
+coverage rep=-1 bytes-transient w2 candidate
+coverage rep=-1 bytes-transient w2 baseline
+coverage rep=-1 stored-escape w8 candidate
+coverage rep=-1 stored-escape w8 baseline
+coverage rep=-1 stored-list w4 candidate
+coverage rep=-1 stored-list w4 baseline
+coverage rep=-1 stored w2 baseline
+coverage rep=-1 stored w2 candidate
+coverage rep=-1 stored-escape w4 baseline
+coverage rep=-1 stored-escape w4 candidate
+coverage rep=-1 stored-pointers w2 candidate
+coverage rep=-1 stored-pointers w2 baseline
+coverage rep=-1 map-api-composed w1 candidate
+coverage rep=-1 map-api-composed w1 baseline
+coverage rep=-1 visible w1 candidate
+coverage rep=-1 visible w1 baseline
+coverage rep=-1 stored-list w1 baseline
+coverage rep=-1 stored-list w1 candidate
+coverage rep=-1 records-window w1 baseline
+coverage rep=-1 records-window w1 candidate
+coverage rep=-1 stored-collected w4 candidate
+coverage rep=-1 stored-collected w4 baseline
+coverage rep=-1 records-window w4 baseline
+coverage rep=-1 records-window w4 candidate
+coverage rep=-1 collected w1 candidate
+coverage rep=-1 collected w1 baseline
+coverage rep=-1 stored w1 baseline
+coverage rep=-1 stored w1 candidate
+coverage rep=0 map-api-composed w2 candidate
+coverage rep=0 map-api-composed w2 baseline
+coverage rep=0 visible w8 candidate
+coverage rep=0 visible w8 baseline
+coverage rep=0 stored-reused w2 candidate
+coverage rep=0 stored-reused w2 baseline
+coverage rep=0 collected w2 candidate
+coverage rep=0 collected w2 baseline
+coverage rep=0 bytes-transient w8 candidate
+coverage rep=0 bytes-transient w8 baseline
+coverage rep=0 stored-list w8 baseline
+coverage rep=0 stored-list w8 candidate
+coverage rep=0 stored-pointers w1 baseline
+coverage rep=0 stored-pointers w1 candidate
+coverage rep=0 eager w8 candidate
+coverage rep=0 eager w8 baseline
+coverage rep=0 stored w4 baseline
+coverage rep=0 stored w4 candidate
+coverage rep=0 stored-pointers w4 baseline
+coverage rep=0 stored-pointers w4 candidate
+coverage rep=0 stored-reused w4 candidate
+coverage rep=0 stored-reused w4 baseline
+coverage rep=0 stored-pointers w8 candidate
+coverage rep=0 stored-pointers w8 baseline
+coverage rep=0 stored-escape w8 baseline
+coverage rep=0 stored-escape w8 candidate
+coverage rep=0 map-api-composed w4 candidate
+coverage rep=0 map-api-composed w4 baseline
+coverage rep=0 bytes-transient w1 candidate
+coverage rep=0 bytes-transient w1 baseline
+coverage rep=0 records-window w2 candidate
+coverage rep=0 records-window w2 baseline
+coverage rep=0 stored-escape w1 candidate
+coverage rep=0 stored-escape w1 baseline
+coverage rep=0 records-window w4 baseline
+coverage rep=0 records-window w4 candidate
+coverage rep=0 collected w1 baseline
+coverage rep=0 collected w1 candidate
+coverage rep=0 stored-collected w2 candidate
+coverage rep=0 stored-collected w2 baseline
+coverage rep=0 stored-collected w4 baseline
+coverage rep=0 stored-collected w4 candidate
+coverage rep=0 stored-reused w1 candidate
+coverage rep=0 stored-reused w1 baseline
+coverage rep=0 eager w2 baseline
+coverage rep=0 eager w2 candidate
+coverage rep=0 stored-reused w8 candidate
+coverage rep=0 stored-reused w8 baseline
+coverage rep=0 stored-collected w1 candidate
+coverage rep=0 stored-collected w1 baseline
+coverage rep=0 eager w1 baseline
+coverage rep=0 eager w1 candidate
+coverage rep=0 bytes-transient w4 candidate
+coverage rep=0 bytes-transient w4 baseline
+coverage rep=0 stored-collected w8 candidate
+coverage rep=0 stored-collected w8 baseline
+coverage rep=0 collected w8 baseline
+coverage rep=0 collected w8 candidate
+coverage rep=0 visible w4 candidate
+coverage rep=0 visible w4 baseline
+coverage rep=0 stored-list w2 candidate
+coverage rep=0 stored-list w2 baseline
+coverage rep=0 visible w1 baseline
+coverage rep=0 visible w1 candidate
+coverage rep=0 stored w8 candidate
+coverage rep=0 stored w8 baseline
+coverage rep=0 eager w4 candidate
+coverage rep=0 eager w4 baseline
+coverage rep=0 stored-pointers w2 candidate
+coverage rep=0 stored-pointers w2 baseline
+coverage rep=0 bytes-transient w2 baseline
+coverage rep=0 bytes-transient w2 candidate
+coverage rep=0 stored-list w4 baseline
+coverage rep=0 stored-list w4 candidate
+coverage rep=0 map-api-composed w1 baseline
+coverage rep=0 map-api-composed w1 candidate
+coverage rep=0 stored w1 candidate
+coverage rep=0 stored w1 baseline
+coverage rep=0 stored-escape w4 candidate
+coverage rep=0 stored-escape w4 baseline
+coverage rep=0 map-api-composed w8 candidate
+coverage rep=0 map-api-composed w8 baseline
+coverage rep=0 collected w4 candidate
+coverage rep=0 collected w4 baseline
+coverage rep=0 stored-list w1 baseline
+coverage rep=0 stored-list w1 candidate
+coverage rep=0 stored w2 candidate
+coverage rep=0 stored w2 baseline
+coverage rep=0 records-window w1 candidate
+coverage rep=0 records-window w1 baseline
+coverage rep=0 records-window w8 candidate
+coverage rep=0 records-window w8 baseline
+coverage rep=0 stored-escape w2 baseline
+coverage rep=0 stored-escape w2 candidate
+coverage rep=0 visible w2 candidate
+coverage rep=0 visible w2 baseline
+coverage rep=1 stored-collected w8 candidate
+coverage rep=1 stored-collected w8 baseline
+coverage rep=1 stored w2 candidate
+coverage rep=1 stored w2 baseline
+coverage rep=1 stored-list w1 candidate
+coverage rep=1 stored-list w1 baseline
+coverage rep=1 stored-reused w2 candidate
+coverage rep=1 stored-reused w2 baseline
+coverage rep=1 visible w2 baseline
+coverage rep=1 visible w2 candidate
+coverage rep=1 stored-escape w1 candidate
+coverage rep=1 stored-escape w1 baseline
+coverage rep=1 stored-list w4 candidate
+coverage rep=1 stored-list w4 baseline
+coverage rep=1 eager w1 candidate
+coverage rep=1 eager w1 baseline
+coverage rep=1 visible w8 candidate
+coverage rep=1 visible w8 baseline
+coverage rep=1 stored-pointers w8 candidate
+coverage rep=1 stored-pointers w8 baseline
+coverage rep=1 collected w8 baseline
+coverage rep=1 collected w8 candidate
+coverage rep=1 stored w1 baseline
+coverage rep=1 stored w1 candidate
+coverage rep=1 collected w1 candidate
+coverage rep=1 collected w1 baseline
+coverage rep=1 visible w1 baseline
+coverage rep=1 visible w1 candidate
+coverage rep=1 records-window w8 baseline
+coverage rep=1 records-window w8 candidate
+coverage rep=1 stored w8 baseline
+coverage rep=1 stored w8 candidate
+coverage rep=1 bytes-transient w2 baseline
+coverage rep=1 bytes-transient w2 candidate
+coverage rep=1 records-window w1 baseline
+coverage rep=1 records-window w1 candidate
+coverage rep=1 stored-reused w1 candidate
+coverage rep=1 stored-reused w1 baseline
+coverage rep=1 eager w8 baseline
+coverage rep=1 eager w8 candidate
+coverage rep=1 bytes-transient w8 baseline
+coverage rep=1 bytes-transient w8 candidate
+coverage rep=1 stored-escape w2 candidate
+coverage rep=1 stored-escape w2 baseline
+coverage rep=1 visible w4 baseline
+coverage rep=1 visible w4 candidate
+coverage rep=1 map-api-composed w2 candidate
+coverage rep=1 map-api-composed w2 baseline
+coverage rep=1 eager w4 baseline
+coverage rep=1 eager w4 candidate
+coverage rep=1 collected w4 candidate
+coverage rep=1 collected w4 baseline
+coverage rep=1 map-api-composed w1 candidate
+coverage rep=1 map-api-composed w1 baseline
+coverage rep=1 stored-escape w4 baseline
+coverage rep=1 stored-escape w4 candidate
+coverage rep=1 stored-reused w8 candidate
+coverage rep=1 stored-reused w8 baseline
+coverage rep=1 stored-pointers w1 baseline
+coverage rep=1 stored-pointers w1 candidate
+coverage rep=1 bytes-transient w1 candidate
+coverage rep=1 bytes-transient w1 baseline
+coverage rep=1 records-window w4 candidate
+coverage rep=1 records-window w4 baseline
+coverage rep=1 records-window w2 baseline
+coverage rep=1 records-window w2 candidate
+coverage rep=1 stored-pointers w2 baseline
+coverage rep=1 stored-pointers w2 candidate
+coverage rep=1 stored-list w2 baseline
+coverage rep=1 stored-list w2 candidate
+coverage rep=1 map-api-composed w8 candidate
+coverage rep=1 map-api-composed w8 baseline
+coverage rep=1 stored w4 candidate
+coverage rep=1 stored w4 baseline
+coverage rep=1 collected w2 candidate
+coverage rep=1 collected w2 baseline
+coverage rep=1 stored-collected w4 baseline
+coverage rep=1 stored-collected w4 candidate
+coverage rep=1 stored-reused w4 candidate
+coverage rep=1 stored-reused w4 baseline
+coverage rep=1 eager w2 candidate
+coverage rep=1 eager w2 baseline
+coverage rep=1 stored-list w8 baseline
+coverage rep=1 stored-list w8 candidate
+coverage rep=1 stored-pointers w4 baseline
+coverage rep=1 stored-pointers w4 candidate
+coverage rep=1 stored-collected w2 baseline
+coverage rep=1 stored-collected w2 candidate
+coverage rep=1 bytes-transient w4 candidate
+coverage rep=1 bytes-transient w4 baseline
+coverage rep=1 map-api-composed w4 baseline
+coverage rep=1 map-api-composed w4 candidate
+coverage rep=1 stored-escape w8 candidate
+coverage rep=1 stored-escape w8 baseline
+coverage rep=1 stored-collected w1 candidate
+coverage rep=1 stored-collected w1 baseline
+coverage rep=2 stored-list w8 baseline
+coverage rep=2 stored-list w8 candidate
+coverage rep=2 eager w1 candidate
+coverage rep=2 eager w1 baseline
+coverage rep=2 visible w2 baseline
+coverage rep=2 visible w2 candidate
+coverage rep=2 stored-collected w1 baseline
+coverage rep=2 stored-collected w1 candidate
+coverage rep=2 collected w4 candidate
+coverage rep=2 collected w4 baseline
+coverage rep=2 eager w2 baseline
+coverage rep=2 eager w2 candidate
+coverage rep=2 records-window w2 candidate
+coverage rep=2 records-window w2 baseline
+coverage rep=2 records-window w1 candidate
+coverage rep=2 records-window w1 baseline
+coverage rep=2 map-api-composed w2 baseline
+coverage rep=2 map-api-composed w2 candidate
+coverage rep=2 stored-pointers w8 candidate
+coverage rep=2 stored-pointers w8 baseline
+coverage rep=2 stored-list w4 baseline
+coverage rep=2 stored-list w4 candidate
+coverage rep=2 bytes-transient w8 baseline
+coverage rep=2 bytes-transient w8 candidate
+coverage rep=2 stored-reused w8 candidate
+coverage rep=2 stored-reused w8 baseline
+coverage rep=2 stored w2 baseline
+coverage rep=2 stored w2 candidate
+coverage rep=2 stored-list w2 candidate
+coverage rep=2 stored-list w2 baseline
+coverage rep=2 stored-collected w4 baseline
+coverage rep=2 stored-collected w4 candidate
+coverage rep=2 map-api-composed w1 baseline
+coverage rep=2 map-api-composed w1 candidate
+coverage rep=2 records-window w8 candidate
+coverage rep=2 records-window w8 baseline
+coverage rep=2 stored-escape w4 candidate
+coverage rep=2 stored-escape w4 baseline
+coverage rep=2 collected w8 baseline
+coverage rep=2 collected w8 candidate
+coverage rep=2 bytes-transient w2 candidate
+coverage rep=2 bytes-transient w2 baseline
+coverage rep=2 records-window w4 candidate
+coverage rep=2 records-window w4 baseline
+coverage rep=2 visible w8 baseline
+coverage rep=2 visible w8 candidate
+coverage rep=2 stored w1 baseline
+coverage rep=2 stored w1 candidate
+coverage rep=2 stored-escape w1 candidate
+coverage rep=2 stored-escape w1 baseline
+coverage rep=2 collected w1 candidate
+coverage rep=2 collected w1 baseline
+coverage rep=2 bytes-transient w1 candidate
+coverage rep=2 bytes-transient w1 baseline
+coverage rep=2 stored-escape w8 candidate
+coverage rep=2 stored-escape w8 baseline
+coverage rep=2 stored-collected w2 candidate
+coverage rep=2 stored-collected w2 baseline
+coverage rep=2 collected w2 candidate
+coverage rep=2 collected w2 baseline
+coverage rep=2 stored-reused w4 candidate
+coverage rep=2 stored-reused w4 baseline
+coverage rep=2 map-api-composed w8 candidate
+coverage rep=2 map-api-composed w8 baseline
+coverage rep=2 stored-escape w2 candidate
+coverage rep=2 stored-escape w2 baseline
+coverage rep=2 stored-collected w8 baseline
+coverage rep=2 stored-collected w8 candidate
+coverage rep=2 bytes-transient w4 candidate
+coverage rep=2 bytes-transient w4 baseline
+coverage rep=2 stored-reused w1 candidate
+coverage rep=2 stored-reused w1 baseline
+coverage rep=2 stored-pointers w2 candidate
+coverage rep=2 stored-pointers w2 baseline
+coverage rep=2 stored w4 baseline
+coverage rep=2 stored w4 candidate
+coverage rep=2 eager w8 candidate
+coverage rep=2 eager w8 baseline
+coverage rep=2 eager w4 candidate
+coverage rep=2 eager w4 baseline
+coverage rep=2 stored-reused w2 candidate
+coverage rep=2 stored-reused w2 baseline
+coverage rep=2 stored-list w1 candidate
+coverage rep=2 stored-list w1 baseline
+coverage rep=2 visible w1 baseline
+coverage rep=2 visible w1 candidate
+coverage rep=2 stored w8 baseline
+coverage rep=2 stored w8 candidate
+coverage rep=2 map-api-composed w4 baseline
+coverage rep=2 map-api-composed w4 candidate
+coverage rep=2 stored-pointers w4 baseline
+coverage rep=2 stored-pointers w4 candidate
+coverage rep=2 visible w4 candidate
+coverage rep=2 visible w4 baseline
+coverage rep=2 stored-pointers w1 baseline
+coverage rep=2 stored-pointers w1 candidate
+coverage rep=3 stored-escape w1 candidate
+coverage rep=3 stored-escape w1 baseline
+coverage rep=3 stored-list w1 candidate
+coverage rep=3 stored-list w1 baseline
+coverage rep=3 stored-escape w4 candidate
+coverage rep=3 stored-escape w4 baseline
+coverage rep=3 stored-list w8 baseline
+coverage rep=3 stored-list w8 candidate
+coverage rep=3 map-api-composed w8 baseline
+coverage rep=3 map-api-composed w8 candidate
+coverage rep=3 collected w4 baseline
+coverage rep=3 collected w4 candidate
+coverage rep=3 map-api-composed w2 candidate
+coverage rep=3 map-api-composed w2 baseline
+coverage rep=3 stored-pointers w8 candidate
+coverage rep=3 stored-pointers w8 baseline
+coverage rep=3 stored w1 baseline
+coverage rep=3 stored w1 candidate
+coverage rep=3 eager w4 baseline
+coverage rep=3 eager w4 candidate
+coverage rep=3 stored-reused w1 candidate
+coverage rep=3 stored-reused w1 baseline
+coverage rep=3 records-window w8 baseline
+coverage rep=3 records-window w8 candidate
+coverage rep=3 visible w1 candidate
+coverage rep=3 visible w1 baseline
+coverage rep=3 stored-list w2 baseline
+coverage rep=3 stored-list w2 candidate
+coverage rep=3 map-api-composed w1 candidate
+coverage rep=3 map-api-composed w1 baseline
+coverage rep=3 records-window w2 candidate
+coverage rep=3 records-window w2 baseline
+coverage rep=3 stored-collected w4 candidate
+coverage rep=3 stored-collected w4 baseline
+coverage rep=3 stored-pointers w2 baseline
+coverage rep=3 stored-pointers w2 candidate
+coverage rep=3 visible w4 baseline
+coverage rep=3 visible w4 candidate
+coverage rep=3 stored-collected w8 baseline
+coverage rep=3 stored-collected w8 candidate
+coverage rep=3 stored-pointers w4 candidate
+coverage rep=3 stored-pointers w4 baseline
+coverage rep=3 stored-escape w8 candidate
+coverage rep=3 stored-escape w8 baseline
+coverage rep=3 stored-escape w2 candidate
+coverage rep=3 stored-escape w2 baseline
+coverage rep=3 stored-collected w1 candidate
+coverage rep=3 stored-collected w1 baseline
+coverage rep=3 collected w1 candidate
+coverage rep=3 collected w1 baseline
+coverage rep=3 bytes-transient w2 candidate
+coverage rep=3 bytes-transient w2 baseline
+coverage rep=3 bytes-transient w4 baseline
+coverage rep=3 bytes-transient w4 candidate
+coverage rep=3 stored w8 baseline
+coverage rep=3 stored w8 candidate
+coverage rep=3 visible w2 candidate
+coverage rep=3 visible w2 baseline
+coverage rep=3 bytes-transient w1 baseline
+coverage rep=3 bytes-transient w1 candidate
+coverage rep=3 collected w2 baseline
+coverage rep=3 collected w2 candidate
+coverage rep=3 records-window w1 candidate
+coverage rep=3 records-window w1 baseline
+coverage rep=3 stored-list w4 candidate
+coverage rep=3 stored-list w4 baseline
+coverage rep=3 eager w2 baseline
+coverage rep=3 eager w2 candidate
+coverage rep=3 stored w4 candidate
+coverage rep=3 stored w4 baseline
+coverage rep=3 stored-reused w8 baseline
+coverage rep=3 stored-reused w8 candidate
+coverage rep=3 stored-reused w2 baseline
+coverage rep=3 stored-reused w2 candidate
+coverage rep=3 stored-collected w2 candidate
+coverage rep=3 stored-collected w2 baseline
+coverage rep=3 stored w2 baseline
+coverage rep=3 stored w2 candidate
+coverage rep=3 eager w1 candidate
+coverage rep=3 eager w1 baseline
+coverage rep=3 visible w8 baseline
+coverage rep=3 visible w8 candidate
+coverage rep=3 records-window w4 baseline
+coverage rep=3 records-window w4 candidate
+coverage rep=3 stored-reused w4 candidate
+coverage rep=3 stored-reused w4 baseline
+coverage rep=3 collected w8 baseline
+coverage rep=3 collected w8 candidate
+coverage rep=3 bytes-transient w8 candidate
+coverage rep=3 bytes-transient w8 baseline
+coverage rep=3 eager w8 baseline
+coverage rep=3 eager w8 candidate
+coverage rep=3 stored-pointers w1 candidate
+coverage rep=3 stored-pointers w1 baseline
+coverage rep=3 map-api-composed w4 candidate
+coverage rep=3 map-api-composed w4 baseline
+coverage rep=4 stored-escape w8 baseline
+coverage rep=4 stored-escape w8 candidate
+coverage rep=4 bytes-transient w2 candidate
+coverage rep=4 bytes-transient w2 baseline
+coverage rep=4 stored w2 baseline
+coverage rep=4 stored w2 candidate
+coverage rep=4 visible w2 candidate
+coverage rep=4 visible w2 baseline
+coverage rep=4 stored-reused w4 baseline
+coverage rep=4 stored-reused w4 candidate
+coverage rep=4 collected w8 candidate
+coverage rep=4 collected w8 baseline
+coverage rep=4 bytes-transient w4 baseline
+coverage rep=4 bytes-transient w4 candidate
+coverage rep=4 stored-escape w4 baseline
+coverage rep=4 stored-escape w4 candidate
+coverage rep=4 stored-collected w1 baseline
+coverage rep=4 stored-collected w1 candidate
+coverage rep=4 stored w4 baseline
+coverage rep=4 stored w4 candidate
+coverage rep=4 stored-reused w8 baseline
+coverage rep=4 stored-reused w8 candidate
+coverage rep=4 stored-collected w4 baseline
+coverage rep=4 stored-collected w4 candidate
+coverage rep=4 records-window w1 candidate
+coverage rep=4 records-window w1 baseline
+coverage rep=4 stored-pointers w4 baseline
+coverage rep=4 stored-pointers w4 candidate
+coverage rep=4 records-window w4 baseline
+coverage rep=4 records-window w4 candidate
+coverage rep=4 stored-escape w2 candidate
+coverage rep=4 stored-escape w2 baseline
+coverage rep=4 stored-pointers w2 baseline
+coverage rep=4 stored-pointers w2 candidate
+coverage rep=4 stored-pointers w1 baseline
+coverage rep=4 stored-pointers w1 candidate
+coverage rep=4 stored-list w2 baseline
+coverage rep=4 stored-list w2 candidate
+coverage rep=4 bytes-transient w8 baseline
+coverage rep=4 bytes-transient w8 candidate
+coverage rep=4 map-api-composed w4 candidate
+coverage rep=4 map-api-composed w4 baseline
+coverage rep=4 stored w8 candidate
+coverage rep=4 stored w8 baseline
+coverage rep=4 eager w1 candidate
+coverage rep=4 eager w1 baseline
+coverage rep=4 eager w4 baseline
+coverage rep=4 eager w4 candidate
+coverage rep=4 visible w8 candidate
+coverage rep=4 visible w8 baseline
+coverage rep=4 stored w1 candidate
+coverage rep=4 stored w1 baseline
+coverage rep=4 map-api-composed w2 candidate
+coverage rep=4 map-api-composed w2 baseline
+coverage rep=4 collected w1 baseline
+coverage rep=4 collected w1 candidate
+coverage rep=4 records-window w2 candidate
+coverage rep=4 records-window w2 baseline
+coverage rep=4 map-api-composed w1 candidate
+coverage rep=4 map-api-composed w1 baseline
+coverage rep=4 stored-reused w1 baseline
+coverage rep=4 stored-reused w1 candidate
+coverage rep=4 visible w1 candidate
+coverage rep=4 visible w1 baseline
+coverage rep=4 eager w8 baseline
+coverage rep=4 eager w8 candidate
+coverage rep=4 eager w2 candidate
+coverage rep=4 eager w2 baseline
+coverage rep=4 bytes-transient w1 candidate
+coverage rep=4 bytes-transient w1 baseline
+coverage rep=4 stored-list w1 candidate
+coverage rep=4 stored-list w1 baseline
+coverage rep=4 collected w4 baseline
+coverage rep=4 collected w4 candidate
+coverage rep=4 stored-collected w2 candidate
+coverage rep=4 stored-collected w2 baseline
+coverage rep=4 stored-list w4 candidate
+coverage rep=4 stored-list w4 baseline
+coverage rep=4 stored-reused w2 candidate
+coverage rep=4 stored-reused w2 baseline
+coverage rep=4 stored-list w8 candidate
+coverage rep=4 stored-list w8 baseline
+coverage rep=4 map-api-composed w8 baseline
+coverage rep=4 map-api-composed w8 candidate
+coverage rep=4 visible w4 candidate
+coverage rep=4 visible w4 baseline
+coverage rep=4 stored-pointers w8 candidate
+coverage rep=4 stored-pointers w8 baseline
+coverage rep=4 stored-collected w8 baseline
+coverage rep=4 stored-collected w8 candidate
+coverage rep=4 records-window w8 candidate
+coverage rep=4 records-window w8 baseline
+coverage rep=4 collected w2 baseline
+coverage rep=4 collected w2 candidate
+coverage rep=4 stored-escape w1 baseline
+coverage rep=4 stored-escape w1 candidate
+coverage rep=5 bytes-transient w2 baseline
+coverage rep=5 bytes-transient w2 candidate
+coverage rep=5 stored-list w2 baseline
+coverage rep=5 stored-list w2 candidate
+coverage rep=5 collected w2 baseline
+coverage rep=5 collected w2 candidate
+coverage rep=5 stored-reused w2 baseline
+coverage rep=5 stored-reused w2 candidate
+coverage rep=5 eager w1 candidate
+coverage rep=5 eager w1 baseline
+coverage rep=5 visible w8 baseline
+coverage rep=5 visible w8 candidate
+coverage rep=5 eager w8 candidate
+coverage rep=5 eager w8 baseline
+coverage rep=5 stored w8 baseline
+coverage rep=5 stored w8 candidate
+coverage rep=5 map-api-composed w4 candidate
+coverage rep=5 map-api-composed w4 baseline
+coverage rep=5 bytes-transient w8 baseline
+coverage rep=5 bytes-transient w8 candidate
+coverage rep=5 stored w2 candidate
+coverage rep=5 stored w2 baseline
+coverage rep=5 map-api-composed w8 baseline
+coverage rep=5 map-api-composed w8 candidate
+coverage rep=5 collected w8 candidate
+coverage rep=5 collected w8 baseline
+coverage rep=5 collected w1 candidate
+coverage rep=5 collected w1 baseline
+coverage rep=5 stored w1 candidate
+coverage rep=5 stored w1 baseline
+coverage rep=5 stored-pointers w8 baseline
+coverage rep=5 stored-pointers w8 candidate
+coverage rep=5 stored-list w8 baseline
+coverage rep=5 stored-list w8 candidate
+coverage rep=5 visible w4 baseline
+coverage rep=5 visible w4 candidate
+coverage rep=5 stored-escape w4 baseline
+coverage rep=5 stored-escape w4 candidate
+coverage rep=5 stored-pointers w2 candidate
+coverage rep=5 stored-pointers w2 baseline
+coverage rep=5 collected w4 candidate
+coverage rep=5 collected w4 baseline
+coverage rep=5 eager w4 candidate
+coverage rep=5 eager w4 baseline
+coverage rep=5 stored-pointers w1 baseline
+coverage rep=5 stored-pointers w1 candidate
+coverage rep=5 stored-list w1 candidate
+coverage rep=5 stored-list w1 baseline
+coverage rep=5 records-window w1 baseline
+coverage rep=5 records-window w1 candidate
+coverage rep=5 stored-collected w1 baseline
+coverage rep=5 stored-collected w1 candidate
+coverage rep=5 map-api-composed w1 baseline
+coverage rep=5 map-api-composed w1 candidate
+coverage rep=5 stored-escape w1 baseline
+coverage rep=5 stored-escape w1 candidate
+coverage rep=5 stored-reused w1 candidate
+coverage rep=5 stored-reused w1 baseline
+coverage rep=5 stored-collected w8 baseline
+coverage rep=5 stored-collected w8 candidate
+coverage rep=5 stored-pointers w4 candidate
+coverage rep=5 stored-pointers w4 baseline
+coverage rep=5 visible w1 baseline
+coverage rep=5 visible w1 candidate
+coverage rep=5 stored-collected w2 baseline
+coverage rep=5 stored-collected w2 candidate
+coverage rep=5 stored-list w4 candidate
+coverage rep=5 stored-list w4 baseline
+coverage rep=5 map-api-composed w2 baseline
+coverage rep=5 map-api-composed w2 candidate
+coverage rep=5 eager w2 baseline
+coverage rep=5 eager w2 candidate
+coverage rep=5 visible w2 baseline
+coverage rep=5 visible w2 candidate
+coverage rep=5 stored-escape w8 baseline
+coverage rep=5 stored-escape w8 candidate
+coverage rep=5 records-window w2 candidate
+coverage rep=5 records-window w2 baseline
+coverage rep=5 stored-escape w2 baseline
+coverage rep=5 stored-escape w2 candidate
+coverage rep=5 stored-reused w8 baseline
+coverage rep=5 stored-reused w8 candidate
+coverage rep=5 stored-collected w4 baseline
+coverage rep=5 stored-collected w4 candidate
+coverage rep=5 records-window w8 candidate
+coverage rep=5 records-window w8 baseline
+coverage rep=5 bytes-transient w4 candidate
+coverage rep=5 bytes-transient w4 baseline
+coverage rep=5 bytes-transient w1 candidate
+coverage rep=5 bytes-transient w1 baseline
+coverage rep=5 stored-reused w4 candidate
+coverage rep=5 stored-reused w4 baseline
+coverage rep=5 records-window w4 candidate
+coverage rep=5 records-window w4 baseline
+coverage rep=5 stored w4 baseline
+coverage rep=5 stored w4 candidate
+coverage rep=6 eager w4 candidate
+coverage rep=6 eager w4 baseline
+coverage rep=6 stored w8 candidate
+coverage rep=6 stored w8 baseline
+coverage rep=6 stored-escape w1 candidate
+coverage rep=6 stored-escape w1 baseline
+coverage rep=6 collected w1 candidate
+coverage rep=6 collected w1 baseline
+coverage rep=6 stored-list w8 baseline
+coverage rep=6 stored-list w8 candidate
+coverage rep=6 collected w4 baseline
+coverage rep=6 collected w4 candidate
+coverage rep=6 stored-collected w2 baseline
+coverage rep=6 stored-collected w2 candidate
+coverage rep=6 stored-reused w4 candidate
+coverage rep=6 stored-reused w4 baseline
+coverage rep=6 visible w8 baseline
+coverage rep=6 visible w8 candidate
+coverage rep=6 bytes-transient w1 candidate
+coverage rep=6 bytes-transient w1 baseline
+coverage rep=6 visible w2 baseline
+coverage rep=6 visible w2 candidate
+coverage rep=6 records-window w1 candidate
+coverage rep=6 records-window w1 baseline
+coverage rep=6 eager w8 baseline
+coverage rep=6 eager w8 candidate
+coverage rep=6 eager w1 candidate
+coverage rep=6 eager w1 baseline
+coverage rep=6 bytes-transient w2 candidate
+coverage rep=6 bytes-transient w2 baseline
+coverage rep=6 stored-escape w8 candidate
+coverage rep=6 stored-escape w8 baseline
+coverage rep=6 stored w4 candidate
+coverage rep=6 stored w4 baseline
+coverage rep=6 records-window w4 baseline
+coverage rep=6 records-window w4 candidate
+coverage rep=6 stored-reused w1 baseline
+coverage rep=6 stored-reused w1 candidate
+coverage rep=6 stored-reused w8 baseline
+coverage rep=6 stored-reused w8 candidate
+coverage rep=6 eager w2 baseline
+coverage rep=6 eager w2 candidate
+coverage rep=6 records-window w2 baseline
+coverage rep=6 records-window w2 candidate
+coverage rep=6 records-window w8 baseline
+coverage rep=6 records-window w8 candidate
+coverage rep=6 stored-collected w4 baseline
+coverage rep=6 stored-collected w4 candidate
+coverage rep=6 collected w2 candidate
+coverage rep=6 collected w2 baseline
+coverage rep=6 stored-pointers w4 baseline
+coverage rep=6 stored-pointers w4 candidate
+coverage rep=6 visible w4 candidate
+coverage rep=6 visible w4 baseline
+coverage rep=6 stored-escape w2 baseline
+coverage rep=6 stored-escape w2 candidate
+coverage rep=6 map-api-composed w8 baseline
+coverage rep=6 map-api-composed w8 candidate
+coverage rep=6 stored-pointers w2 candidate
+coverage rep=6 stored-pointers w2 baseline
+coverage rep=6 map-api-composed w2 candidate
+coverage rep=6 map-api-composed w2 baseline
+coverage rep=6 stored-pointers w8 baseline
+coverage rep=6 stored-pointers w8 candidate
+coverage rep=6 stored w1 candidate
+coverage rep=6 stored w1 baseline
+coverage rep=6 visible w1 baseline
+coverage rep=6 visible w1 candidate
+coverage rep=6 stored-list w1 candidate
+coverage rep=6 stored-list w1 baseline
+coverage rep=6 bytes-transient w8 baseline
+coverage rep=6 bytes-transient w8 candidate
+coverage rep=6 map-api-composed w1 baseline
+coverage rep=6 map-api-composed w1 candidate
+coverage rep=6 stored w2 candidate
+coverage rep=6 stored w2 baseline
+coverage rep=6 stored-escape w4 baseline
+coverage rep=6 stored-escape w4 candidate
+coverage rep=6 stored-pointers w1 baseline
+coverage rep=6 stored-pointers w1 candidate
+coverage rep=6 stored-list w2 candidate
+coverage rep=6 stored-list w2 baseline
+coverage rep=6 map-api-composed w4 baseline
+coverage rep=6 map-api-composed w4 candidate
+coverage rep=6 bytes-transient w4 candidate
+coverage rep=6 bytes-transient w4 baseline
+coverage rep=6 stored-list w4 candidate
+coverage rep=6 stored-list w4 baseline
+coverage rep=6 stored-collected w8 baseline
+coverage rep=6 stored-collected w8 candidate
+coverage rep=6 collected w8 baseline
+coverage rep=6 collected w8 candidate
+coverage rep=6 stored-reused w2 candidate
+coverage rep=6 stored-reused w2 baseline
+coverage rep=6 stored-collected w1 baseline
+coverage rep=6 stored-collected w1 candidate
+[
+  {
+    "case": "bytes-transient",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 100.980552,
+      "min": 94.455701,
+      "max": 115.019609,
+      "runs": [
+        115.019609,
+        94.455701,
+        104.828158,
+        98.478512,
+        100.980552,
+        101.101497,
+        95.734131
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54008,
+      "min": 53284,
+      "max": 56200,
+      "runs": [
+        53580,
+        56200,
+        54120,
+        54196,
+        53284,
+        53848,
+        54008
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.327026,
+      "min": 0.295247,
+      "max": 0.655686,
+      "runs": [
+        0.655686,
+        0.311648,
+        0.6416,
+        0.327026,
+        0.297262,
+        0.295247,
+        0.363704
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 100.535417,
+      "min": 94.361226,
+      "max": 209.526937,
+      "runs": [
+        209.526937,
+        100.535417,
+        100.351144,
+        106.584706,
+        95.48517,
+        94.361226,
+        104.650148
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52888,
+      "min": 52048,
+      "max": 53140,
+      "runs": [
+        52820,
+        53140,
+        53088,
+        52048,
+        52440,
+        52888,
+        52908
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.356661,
+      "min": 0.30201,
+      "max": 0.971251,
+      "runs": [
+        0.494887,
+        0.363614,
+        0.30763,
+        0.356661,
+        0.325994,
+        0.30201,
+        0.971251
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 92.607032,
+      "min": 88.662908,
+      "max": 103.737855,
+      "runs": [
+        103.737855,
+        92.575765,
+        99.903194,
+        88.662908,
+        96.67111,
+        92.607032,
+        90.935381
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 54184,
+      "min": 53380,
+      "max": 56128,
+      "runs": [
+        53724,
+        54224,
+        53680,
+        54276,
+        54184,
+        53380,
+        56128
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.290679,
+      "min": 0.260754,
+      "max": 0.402326,
+      "runs": [
+        0.402326,
+        0.260754,
+        0.290679,
+        0.26439,
+        0.317219,
+        0.307561,
+        0.288535
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 102.555213,
+      "min": 99.721627,
+      "max": 106.369276,
+      "runs": [
+        102.398341,
+        104.093415,
+        102.019789,
+        102.555213,
+        99.721627,
+        106.369276,
+        105.792637
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53440,
+      "min": 52772,
+      "max": 55664,
+      "runs": [
+        52772,
+        53056,
+        53144,
+        53440,
+        53704,
+        53608,
+        55664
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.297973,
+      "min": 0.275641,
+      "max": 0.351502,
+      "runs": [
+        0.351502,
+        0.299997,
+        0.297973,
+        0.275641,
+        0.290729,
+        0.295919,
+        0.337095
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 92.311384,
+      "min": 88.568642,
+      "max": 101.834696,
+      "runs": [
+        101.834696,
+        99.515835,
+        92.045,
+        88.568642,
+        92.311384,
+        95.41512,
+        88.799511
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53840,
+      "min": 52692,
+      "max": 56108,
+      "runs": [
+        52692,
+        53120,
+        53840,
+        53644,
+        56108,
+        54240,
+        54432
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.304294,
+      "min": 0.27504,
+      "max": 0.352033,
+      "runs": [
+        0.336644,
+        0.303834,
+        0.324312,
+        0.352033,
+        0.279318,
+        0.27504,
+        0.304294
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 103.096576,
+      "min": 93.201154,
+      "max": 106.778034,
+      "runs": [
+        101.176896,
+        103.096576,
+        102.213339,
+        104.058951,
+        103.708151,
+        93.201154,
+        106.778034
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53564,
+      "min": 51908,
+      "max": 53684,
+      "runs": [
+        52748,
+        53036,
+        53600,
+        53564,
+        53684,
+        53592,
+        51908
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.272506,
+      "min": 0.249543,
+      "max": 0.333278,
+      "runs": [
+        0.333278,
+        0.252458,
+        0.266865,
+        0.287924,
+        0.272506,
+        0.249543,
+        0.288486
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 94.152037,
+      "min": 90.599008,
+      "max": 98.820416,
+      "runs": [
+        97.474209,
+        98.820416,
+        97.349668,
+        91.713816,
+        93.799885,
+        90.599008,
+        94.152037
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53844,
+      "min": 53076,
+      "max": 54072,
+      "runs": [
+        53948,
+        53936,
+        53076,
+        53736,
+        53844,
+        53592,
+        54072
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.29125,
+      "min": 0.277806,
+      "max": 0.32908,
+      "runs": [
+        0.327688,
+        0.32908,
+        0.284448,
+        0.324382,
+        0.29125,
+        0.281582,
+        0.277806
+      ]
+    }
+  },
+  {
+    "case": "bytes-transient",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 102.494901,
+      "min": 98.88203,
+      "max": 106.070672,
+      "runs": [
+        98.88203,
+        106.070672,
+        105.31445,
+        99.390382,
+        102.494901,
+        99.202464,
+        102.70477
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53692,
+      "min": 52604,
+      "max": 55804,
+      "runs": [
+        53692,
+        55284,
+        54680,
+        52604,
+        53124,
+        55804,
+        53336
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.294686,
+      "min": 0.277725,
+      "max": 0.362473,
+      "runs": [
+        0.334831,
+        0.277725,
+        0.362473,
+        0.294686,
+        0.349849,
+        0.282734,
+        0.294346
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.784448,
+      "min": 18.295141,
+      "max": 20.975923,
+      "runs": [
+        20.637706,
+        20.975923,
+        18.784448,
+        18.295141,
+        20.807851,
+        18.710872,
+        18.589546
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59352,
+      "min": 58620,
+      "max": 61476,
+      "runs": [
+        61476,
+        59408,
+        59132,
+        59352,
+        58620,
+        59412,
+        58860
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.070039,
+      "min": 2.058688,
+      "max": 2.382869,
+      "runs": [
+        2.382869,
+        2.233863,
+        2.070039,
+        2.067956,
+        2.103952,
+        2.058688,
+        2.069659
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.846353,
+      "min": 18.196559,
+      "max": 22.037602,
+      "runs": [
+        22.037602,
+        19.224635,
+        18.196559,
+        18.732582,
+        18.758651,
+        19.044641,
+        18.846353
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59212,
+      "min": 58572,
+      "max": 59404,
+      "runs": [
+        59404,
+        59284,
+        58576,
+        59276,
+        59000,
+        58572,
+        59212
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.15703,
+      "min": 1.969391,
+      "max": 2.567862,
+      "runs": [
+        2.567862,
+        2.15703,
+        2.004757,
+        2.061965,
+        1.969391,
+        2.178851,
+        2.182318
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.472559,
+      "min": 18.31091,
+      "max": 25.858879,
+      "runs": [
+        25.858879,
+        18.472559,
+        18.402951,
+        18.390538,
+        18.619312,
+        18.615495,
+        18.31091
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59144,
+      "min": 58604,
+      "max": 60908,
+      "runs": [
+        58736,
+        59348,
+        59072,
+        59144,
+        60908,
+        58604,
+        59332
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.152171,
+      "min": 2.024856,
+      "max": 2.511818,
+      "runs": [
+        2.25906,
+        2.091148,
+        2.152171,
+        2.024856,
+        2.235226,
+        2.511818,
+        2.074588
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.758119,
+      "min": 18.218348,
+      "max": 23.09874,
+      "runs": [
+        23.09874,
+        18.218348,
+        18.730659,
+        19.022179,
+        19.068325,
+        18.758119,
+        18.729537
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58528,
+      "min": 58208,
+      "max": 60580,
+      "runs": [
+        58444,
+        58624,
+        58528,
+        60580,
+        58264,
+        58568,
+        58208
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.112308,
+      "min": 2.044622,
+      "max": 2.294195,
+      "runs": [
+        2.294195,
+        2.082562,
+        2.067024,
+        2.044622,
+        2.112308,
+        2.155928,
+        2.223915
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 19.804951,
+      "min": 18.444378,
+      "max": 22.822327,
+      "runs": [
+        20.132077,
+        19.669129,
+        19.804951,
+        22.822327,
+        18.451631,
+        19.855986,
+        18.444378
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59100,
+      "min": 58780,
+      "max": 61188,
+      "runs": [
+        59100,
+        59296,
+        61188,
+        58964,
+        59292,
+        59004,
+        58780
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.229616,
+      "min": 2.112407,
+      "max": 2.695969,
+      "runs": [
+        2.381917,
+        2.229616,
+        2.161238,
+        2.695969,
+        2.192987,
+        2.112407,
+        2.302832
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.975213,
+      "min": 18.128432,
+      "max": 21.811752,
+      "runs": [
+        21.811752,
+        19.048217,
+        19.477504,
+        18.128432,
+        18.975213,
+        18.442744,
+        18.776653
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58136,
+      "min": 57688,
+      "max": 58796,
+      "runs": [
+        58532,
+        58796,
+        58048,
+        57688,
+        58316,
+        58136,
+        58064
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.176677,
+      "min": 2.009336,
+      "max": 2.346562,
+      "runs": [
+        2.321134,
+        2.227502,
+        2.346562,
+        2.147011,
+        2.176677,
+        2.009336,
+        2.073245
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.836695,
+      "min": 18.29523,
+      "max": 19.956472,
+      "runs": [
+        19.956472,
+        18.29523,
+        18.939917,
+        18.836695,
+        18.409163,
+        18.955666,
+        18.469073
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59264,
+      "min": 58916,
+      "max": 60728,
+      "runs": [
+        60728,
+        59264,
+        59288,
+        58988,
+        59272,
+        58940,
+        58916
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.157661,
+      "min": 2.062675,
+      "max": 2.295747,
+      "runs": [
+        2.21017,
+        2.095426,
+        2.157661,
+        2.089004,
+        2.295747,
+        2.159585,
+        2.062675
+      ]
+    }
+  },
+  {
+    "case": "collected",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 19.614568,
+      "min": 18.580149,
+      "max": 20.744523,
+      "runs": [
+        20.506272,
+        18.845893,
+        19.614568,
+        20.744523,
+        18.580149,
+        19.417271,
+        19.651657
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58736,
+      "min": 58168,
+      "max": 59172,
+      "runs": [
+        58168,
+        58808,
+        59172,
+        58736,
+        58452,
+        58460,
+        58896
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.178891,
+      "min": 2.103963,
+      "max": 2.509665,
+      "runs": [
+        2.217132,
+        2.166148,
+        2.103963,
+        2.178891,
+        2.110824,
+        2.509665,
+        2.21599
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.964376,
+      "min": 10.675489,
+      "max": 12.610979,
+      "runs": [
+        11.733351,
+        10.964376,
+        10.675489,
+        11.195183,
+        10.850444,
+        12.610979,
+        10.869529
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51372,
+      "min": 50840,
+      "max": 51836,
+      "runs": [
+        51372,
+        50840,
+        51668,
+        51052,
+        51504,
+        51236,
+        51836
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.764237,
+      "min": 0.706099,
+      "max": 1.164139,
+      "runs": [
+        0.856138,
+        0.764237,
+        0.706099,
+        0.78726,
+        0.748588,
+        1.164139,
+        0.737277
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.27439,
+      "min": 10.946411,
+      "max": 13.797299,
+      "runs": [
+        13.797299,
+        11.27439,
+        11.433896,
+        11.242922,
+        12.438548,
+        10.946411,
+        11.223095
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51156,
+      "min": 50536,
+      "max": 51488,
+      "runs": [
+        50536,
+        50988,
+        50820,
+        51488,
+        51156,
+        51232,
+        51172
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.74419,
+      "min": 0.710478,
+      "max": 0.859564,
+      "runs": [
+        0.859564,
+        0.746174,
+        0.74419,
+        0.710478,
+        0.719484,
+        0.72782,
+        0.79262
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.186497,
+      "min": 10.762421,
+      "max": 12.914011,
+      "runs": [
+        12.914011,
+        11.186497,
+        11.068588,
+        11.132516,
+        11.963949,
+        10.762421,
+        11.201444
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51624,
+      "min": 50196,
+      "max": 53440,
+      "runs": [
+        50196,
+        52716,
+        53424,
+        51624,
+        51332,
+        53440,
+        51548
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.758377,
+      "min": 0.709676,
+      "max": 0.818628,
+      "runs": [
+        0.818628,
+        0.709676,
+        0.758377,
+        0.769688,
+        0.809451,
+        0.724344,
+        0.712732
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.187989,
+      "min": 10.976578,
+      "max": 11.613979,
+      "runs": [
+        11.613979,
+        11.187989,
+        10.976578,
+        11.32809,
+        10.987437,
+        11.327718,
+        11.03172
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51096,
+      "min": 50696,
+      "max": 52516,
+      "runs": [
+        50952,
+        51264,
+        51072,
+        50696,
+        51412,
+        51096,
+        52516
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.734953,
+      "min": 0.710198,
+      "max": 0.870404,
+      "runs": [
+        0.802719,
+        0.808419,
+        0.710198,
+        0.870404,
+        0.729022,
+        0.727219,
+        0.734953
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.197557,
+      "min": 10.954506,
+      "max": 15.60958,
+      "runs": [
+        15.343747,
+        11.285991,
+        11.086832,
+        11.197557,
+        10.954506,
+        11.005341,
+        15.60958
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51480,
+      "min": 51152,
+      "max": 52088,
+      "runs": [
+        51712,
+        51480,
+        51208,
+        52088,
+        51340,
+        51656,
+        51152
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.796458,
+      "min": 0.727669,
+      "max": 2.185212,
+      "runs": [
+        0.807377,
+        0.796458,
+        0.809171,
+        0.773013,
+        0.734091,
+        0.727669,
+        2.185212
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.406384,
+      "min": 11.098364,
+      "max": 15.20493,
+      "runs": [
+        15.20493,
+        11.268319,
+        11.098364,
+        13.018816,
+        13.019056,
+        11.224989,
+        11.406384
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51080,
+      "min": 50616,
+      "max": 53300,
+      "runs": [
+        51052,
+        53300,
+        50616,
+        50964,
+        51080,
+        52844,
+        51160
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.76589,
+      "min": 0.703805,
+      "max": 0.853113,
+      "runs": [
+        0.779115,
+        0.853113,
+        0.703805,
+        0.743068,
+        0.76589,
+        0.7821,
+        0.751564
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.143948,
+      "min": 10.959486,
+      "max": 55.094971,
+      "runs": [
+        55.094971,
+        11.143948,
+        11.704278,
+        10.959486,
+        11.024076,
+        11.073417,
+        12.180781
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51560,
+      "min": 51212,
+      "max": 53924,
+      "runs": [
+        51424,
+        51576,
+        51560,
+        51212,
+        51764,
+        53924,
+        51360
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.75525,
+      "min": 0.723943,
+      "max": 4.193608,
+      "runs": [
+        4.193608,
+        0.75525,
+        0.738479,
+        0.729603,
+        0.723943,
+        0.756403,
+        0.832784
+      ]
+    }
+  },
+  {
+    "case": "eager",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 11.438414,
+      "min": 11.111678,
+      "max": 34.992038,
+      "runs": [
+        34.992038,
+        11.191356,
+        11.208397,
+        12.564051,
+        12.314308,
+        11.111678,
+        11.438414
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51628,
+      "min": 50928,
+      "max": 53136,
+      "runs": [
+        51372,
+        53008,
+        52476,
+        50928,
+        53136,
+        51156,
+        51628
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.750061,
+      "min": 0.705829,
+      "max": 1.294691,
+      "runs": [
+        1.294691,
+        0.730886,
+        0.750061,
+        0.95978,
+        0.705829,
+        0.757344,
+        0.723342
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 127.466604,
+      "min": 124.360172,
+      "max": 144.56186,
+      "runs": [
+        144.56186,
+        126.653376,
+        127.466604,
+        124.360172,
+        132.891846,
+        125.432511,
+        128.183794
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52692,
+      "min": 52488,
+      "max": 53116,
+      "runs": [
+        53116,
+        52648,
+        52856,
+        52888,
+        52504,
+        52488,
+        52692
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.423254,
+      "min": 12.169482,
+      "max": 19.054968,
+      "runs": [
+        19.054968,
+        13.136487,
+        13.786678,
+        12.169482,
+        14.701928,
+        13.02107,
+        13.423254
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 130.088276,
+      "min": 124.702467,
+      "max": 140.155757,
+      "runs": [
+        140.155757,
+        124.702467,
+        129.202835,
+        130.088276,
+        136.932741,
+        124.70917,
+        131.931204
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52540,
+      "min": 52280,
+      "max": 53044,
+      "runs": [
+        52540,
+        52280,
+        52308,
+        52524,
+        52680,
+        52720,
+        53044
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.266664,
+      "min": 12.384968,
+      "max": 16.400596,
+      "runs": [
+        16.369258,
+        12.927233,
+        12.903182,
+        13.266664,
+        16.400596,
+        12.384968,
+        14.91338
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 135.025433,
+      "min": 127.889939,
+      "max": 172.966029,
+      "runs": [
+        172.966029,
+        135.025433,
+        128.702917,
+        129.269999,
+        143.329353,
+        138.219326,
+        127.889939
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52732,
+      "min": 52228,
+      "max": 55068,
+      "runs": [
+        52732,
+        52228,
+        52808,
+        54124,
+        52408,
+        55068,
+        52720
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 14.232976,
+      "min": 12.958722,
+      "max": 26.168234,
+      "runs": [
+        26.168234,
+        14.232976,
+        13.520406,
+        13.378198,
+        16.838149,
+        14.748754,
+        12.958722
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 127.905177,
+      "min": 127.278435,
+      "max": 184.642745,
+      "runs": [
+        184.642745,
+        127.278435,
+        127.738228,
+        134.659945,
+        127.697863,
+        135.646214,
+        127.905177
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52216,
+      "min": 51800,
+      "max": 54284,
+      "runs": [
+        52400,
+        52216,
+        51800,
+        52132,
+        51980,
+        52524,
+        54284
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.79694,
+      "min": 12.963661,
+      "max": 28.300795,
+      "runs": [
+        28.300795,
+        13.069607,
+        13.79694,
+        13.820434,
+        12.963661,
+        15.031996,
+        13.051958
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 131.307988,
+      "min": 125.997238,
+      "max": 357.773529,
+      "runs": [
+        357.773529,
+        131.307988,
+        126.604124,
+        139.953552,
+        140.344979,
+        125.997238,
+        127.61531
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52920,
+      "min": 52500,
+      "max": 55004,
+      "runs": [
+        52684,
+        55004,
+        52500,
+        52620,
+        52920,
+        54620,
+        53224
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.752367,
+      "min": 12.536351,
+      "max": 50.473388,
+      "runs": [
+        50.473388,
+        13.752367,
+        12.661231,
+        14.562681,
+        16.696697,
+        12.536351,
+        12.94493
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 136.744321,
+      "min": 127.215338,
+      "max": 317.200842,
+      "runs": [
+        317.200842,
+        140.679899,
+        127.215338,
+        134.854375,
+        137.862024,
+        132.622145,
+        136.744321
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52796,
+      "min": 52068,
+      "max": 54432,
+      "runs": [
+        52796,
+        52516,
+        52828,
+        54432,
+        52944,
+        52352,
+        52068
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 15.081118,
+      "min": 12.796346,
+      "max": 42.849417,
+      "runs": [
+        42.849417,
+        15.081118,
+        12.796346,
+        15.496219,
+        15.359106,
+        13.735004,
+        14.913578
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 134.072977,
+      "min": 125.231188,
+      "max": 145.942771,
+      "runs": [
+        145.942771,
+        131.282972,
+        125.231188,
+        135.678884,
+        134.072977,
+        138.973235,
+        125.967434
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52996,
+      "min": 52400,
+      "max": 54352,
+      "runs": [
+        52712,
+        52996,
+        54352,
+        53280,
+        52608,
+        53528,
+        52400
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 13.663133,
+      "min": 11.954023,
+      "max": 16.766546,
+      "runs": [
+        16.766546,
+        13.255021,
+        12.768181,
+        14.693159,
+        13.663133,
+        15.543359,
+        11.954023
+      ]
+    }
+  },
+  {
+    "case": "map-api-composed",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 137.865972,
+      "min": 127.096077,
+      "max": 144.639483,
+      "runs": [
+        144.639483,
+        136.326125,
+        128.925931,
+        137.890797,
+        140.072072,
+        137.865972,
+        127.096077
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 52288,
+      "min": 52132,
+      "max": 52716,
+      "runs": [
+        52408,
+        52288,
+        52220,
+        52132,
+        52352,
+        52284,
+        52716
+      ]
+    },
+    "collections": {
+      "median": 19,
+      "min": 19,
+      "max": 19,
+      "runs": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 14.429524,
+      "min": 12.531051,
+      "max": 16.799988,
+      "runs": [
+        16.799988,
+        15.37695,
+        13.233665,
+        14.121018,
+        14.429524,
+        14.575961,
+        12.531051
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 123.933863,
+      "min": 123.281252,
+      "max": 150.614475,
+      "runs": [
+        131.546731,
+        123.933863,
+        123.281252,
+        123.361982,
+        123.659263,
+        124.664517,
+        150.614475
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58316,
+      "min": 58016,
+      "max": 59064,
+      "runs": [
+        58016,
+        59064,
+        58272,
+        58440,
+        58140,
+        58316,
+        58436
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.483385,
+      "min": 18.351474,
+      "max": 21.980897,
+      "runs": [
+        21.980897,
+        18.692978,
+        18.761895,
+        18.351474,
+        19.483385,
+        21.234581,
+        19.729482
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 124.761948,
+      "min": 123.727239,
+      "max": 134.266284,
+      "runs": [
+        134.266284,
+        124.761948,
+        127.269839,
+        124.131058,
+        133.720303,
+        123.727239,
+        124.505923
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57916,
+      "min": 57208,
+      "max": 58672,
+      "runs": [
+        58672,
+        57700,
+        57208,
+        58220,
+        57916,
+        57748,
+        58092
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.322114,
+      "min": 18.610674,
+      "max": 22.376252,
+      "runs": [
+        21.682208,
+        18.921562,
+        19.322114,
+        18.746751,
+        22.376252,
+        18.610674,
+        19.57897
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 127.20589,
+      "min": 118.603406,
+      "max": 156.620174,
+      "runs": [
+        156.620174,
+        130.236382,
+        130.114966,
+        118.603406,
+        121.069951,
+        118.703882,
+        127.20589
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57860,
+      "min": 57688,
+      "max": 60392,
+      "runs": [
+        57704,
+        57836,
+        60392,
+        58096,
+        57968,
+        57688,
+        57860
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 20.621487,
+      "min": 17.921308,
+      "max": 30.322758,
+      "runs": [
+        30.322758,
+        20.767057,
+        23.77736,
+        17.921308,
+        19.264426,
+        18.039175,
+        20.621487
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 125.440527,
+      "min": 122.458566,
+      "max": 152.614124,
+      "runs": [
+        152.614124,
+        130.882078,
+        124.56919,
+        125.440527,
+        125.505907,
+        124.243075,
+        122.458566
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57852,
+      "min": 57304,
+      "max": 58104,
+      "runs": [
+        58104,
+        57852,
+        57696,
+        57304,
+        58080,
+        57664,
+        57944
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.142834,
+      "min": 18.291732,
+      "max": 28.346533,
+      "runs": [
+        28.346533,
+        21.734238,
+        19.142834,
+        18.736181,
+        18.899469,
+        19.456847,
+        18.291732
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 124.659699,
+      "min": 122.528265,
+      "max": 145.580619,
+      "runs": [
+        145.580619,
+        122.528265,
+        124.659699,
+        125.610381,
+        122.867755,
+        123.557504,
+        125.934782
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58060,
+      "min": 57316,
+      "max": 59952,
+      "runs": [
+        57316,
+        58252,
+        59952,
+        58024,
+        59752,
+        58048,
+        58060
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 20.762685,
+      "min": 19.247327,
+      "max": 24.679881,
+      "runs": [
+        24.679881,
+        20.762685,
+        20.496184,
+        20.955716,
+        20.119624,
+        19.247327,
+        22.39769
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 134.400033,
+      "min": 125.635338,
+      "max": 139.917616,
+      "runs": [
+        134.400033,
+        137.947181,
+        125.635338,
+        139.917616,
+        125.97065,
+        136.683027,
+        127.322798
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 57596,
+      "min": 57448,
+      "max": 58904,
+      "runs": [
+        58904,
+        58572,
+        58732,
+        57572,
+        57584,
+        57448,
+        57596
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 19.126761,
+      "min": 18.686316,
+      "max": 22.355801,
+      "runs": [
+        22.355801,
+        19.126761,
+        18.686316,
+        19.454763,
+        18.992783,
+        18.936911,
+        19.342321
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 125.939111,
+      "min": 122.112213,
+      "max": 192.382639,
+      "runs": [
+        132.690643,
+        125.939111,
+        128.489892,
+        125.730003,
+        122.112213,
+        192.382639,
+        123.644265
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58028,
+      "min": 57164,
+      "max": 59616,
+      "runs": [
+        57996,
+        59572,
+        57164,
+        59548,
+        58028,
+        59616,
+        57376
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 21.045921,
+      "min": 18.422898,
+      "max": 21.931466,
+      "runs": [
+        21.551158,
+        20.338511,
+        21.045921,
+        21.882965,
+        19.275482,
+        21.931466,
+        18.422898
+      ]
+    }
+  },
+  {
+    "case": "records-window",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 125.142885,
+      "min": 123.518992,
+      "max": 147.212135,
+      "runs": [
+        147.212135,
+        131.717358,
+        123.973676,
+        123.518992,
+        125.787229,
+        125.142885,
+        123.937518
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58868,
+      "min": 57512,
+      "max": 59344,
+      "runs": [
+        57932,
+        57544,
+        57512,
+        59344,
+        58868,
+        59252,
+        59132
+      ]
+    },
+    "collections": {
+      "median": 16,
+      "min": 16,
+      "max": 16,
+      "runs": [
+        16,
+        16,
+        16,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 18.912863,
+      "min": 18.222276,
+      "max": 25.439573,
+      "runs": [
+        25.439573,
+        20.630532,
+        18.222276,
+        18.912863,
+        18.861679,
+        18.259216,
+        19.110115
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 17.262255,
+      "min": 16.835895,
+      "max": 21.467444,
+      "runs": [
+        21.467444,
+        17.262255,
+        17.25939,
+        17.585235,
+        17.163712,
+        19.218263,
+        16.835895
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59612,
+      "min": 58800,
+      "max": 61088,
+      "runs": [
+        59612,
+        61088,
+        59668,
+        59332,
+        59776,
+        59304,
+        58800
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.193889,
+      "min": 2.050944,
+      "max": 2.277314,
+      "runs": [
+        2.277314,
+        2.193889,
+        2.22169,
+        2.211743,
+        2.123208,
+        2.132725,
+        2.050944
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.553026,
+      "min": 0.532778,
+      "max": 1.101944,
+      "runs": [
+        0.567472,
+        0.553717,
+        0.545131,
+        0.532778,
+        0.534572,
+        1.101944,
+        0.553026
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36448,
+      "min": 35372,
+      "max": 38468,
+      "runs": [
+        36748,
+        36396,
+        36792,
+        35372,
+        36448,
+        38468,
+        36124
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.344453,
+      "min": 17.718081,
+      "max": 22.139992,
+      "runs": [
+        22.139992,
+        17.763464,
+        18.344453,
+        18.486346,
+        18.524266,
+        18.077617,
+        17.718081
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59108,
+      "min": 58668,
+      "max": 59520,
+      "runs": [
+        59468,
+        59416,
+        59520,
+        58956,
+        58668,
+        59024,
+        59108
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.206203,
+      "min": 2.034523,
+      "max": 2.440687,
+      "runs": [
+        2.375927,
+        2.122206,
+        2.034523,
+        2.210901,
+        2.440687,
+        2.120342,
+        2.206203
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.645918,
+      "min": 0.61986,
+      "max": 0.674962,
+      "runs": [
+        0.674962,
+        0.657118,
+        0.637402,
+        0.61986,
+        0.628776,
+        0.661507,
+        0.645918
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36948,
+      "min": 36248,
+      "max": 39060,
+      "runs": [
+        39060,
+        36948,
+        36248,
+        37064,
+        36552,
+        38728,
+        36284
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 18.163707,
+      "min": 17.681182,
+      "max": 40.094882,
+      "runs": [
+        40.094882,
+        19.17351,
+        19.836861,
+        17.827805,
+        18.163707,
+        18.116029,
+        17.681182
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59004,
+      "min": 58784,
+      "max": 59288,
+      "runs": [
+        58940,
+        59004,
+        58972,
+        59020,
+        59288,
+        58784,
+        59276
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.192176,
+      "min": 2.036898,
+      "max": 3.234119,
+      "runs": [
+        3.234119,
+        2.192176,
+        2.21059,
+        2.113018,
+        2.249883,
+        2.036898,
+        2.115002
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.645096,
+      "min": 0.621823,
+      "max": 1.62281,
+      "runs": [
+        1.62281,
+        0.648072,
+        0.640768,
+        0.621823,
+        1.178135,
+        0.645096,
+        0.632122
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36236,
+      "min": 35892,
+      "max": 37008,
+      "runs": [
+        36544,
+        36200,
+        37008,
+        35892,
+        35912,
+        36588,
+        36236
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 17.975127,
+      "min": 16.909691,
+      "max": 25.335007,
+      "runs": [
+        25.335007,
+        19.111495,
+        17.053668,
+        18.439799,
+        17.975127,
+        17.611393,
+        16.909691
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59328,
+      "min": 58852,
+      "max": 59600,
+      "runs": [
+        59144,
+        58996,
+        59580,
+        59332,
+        59328,
+        58852,
+        59600
+      ]
+    },
+    "collections": {
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "runs": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 2.241487,
+      "min": 2.141672,
+      "max": 2.650756,
+      "runs": [
+        2.239834,
+        2.650756,
+        2.196883,
+        2.25945,
+        2.266583,
+        2.241487,
+        2.141672
+      ]
+    }
+  },
+  {
+    "case": "stored",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.643684,
+      "min": 0.627443,
+      "max": 1.253384,
+      "runs": [
+        1.253384,
+        0.643684,
+        0.648263,
+        0.643604,
+        0.627443,
+        0.661958,
+        0.629899
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36880,
+      "min": 36280,
+      "max": 37408,
+      "runs": [
+        36916,
+        36880,
+        36576,
+        37408,
+        36948,
+        36280,
+        36816
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.630488,
+      "min": 4.54557,
+      "max": 5.415283,
+      "runs": [
+        5.415283,
+        4.866576,
+        4.54557,
+        5.380939,
+        4.630488,
+        4.563243,
+        4.612064
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51612,
+      "min": 51244,
+      "max": 52308,
+      "runs": [
+        51596,
+        51736,
+        51356,
+        51244,
+        52308,
+        51712,
+        51612
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.934843,
+      "min": 4.717689,
+      "max": 5.364529,
+      "runs": [
+        5.143479,
+        4.934843,
+        5.364529,
+        4.887645,
+        4.818005,
+        4.717689,
+        4.9445
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51072,
+      "min": 50800,
+      "max": 53444,
+      "runs": [
+        52752,
+        50920,
+        51004,
+        50800,
+        51072,
+        53444,
+        52872
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.793661,
+      "min": 4.56135,
+      "max": 7.199893,
+      "runs": [
+        4.793661,
+        4.878337,
+        7.199893,
+        5.511973,
+        4.56135,
+        4.561701,
+        4.657879
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51276,
+      "min": 50852,
+      "max": 53820,
+      "runs": [
+        53820,
+        53488,
+        50852,
+        51028,
+        51276,
+        50992,
+        51532
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.63188,
+      "min": 4.534189,
+      "max": 4.806685,
+      "runs": [
+        4.733379,
+        4.549648,
+        4.595813,
+        4.63188,
+        4.711799,
+        4.534189,
+        4.806685
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51088,
+      "min": 50856,
+      "max": 52836,
+      "runs": [
+        52812,
+        51088,
+        51048,
+        51004,
+        52836,
+        52112,
+        50856
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.829918,
+      "min": 4.545801,
+      "max": 4.974516,
+      "runs": [
+        4.682274,
+        4.839455,
+        4.893635,
+        4.654002,
+        4.974516,
+        4.545801,
+        4.829918
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51140,
+      "min": 50828,
+      "max": 51644,
+      "runs": [
+        51644,
+        50984,
+        50904,
+        51592,
+        50828,
+        51624,
+        51140
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.623274,
+      "min": 4.521485,
+      "max": 5.102694,
+      "runs": [
+        5.102694,
+        4.623274,
+        4.521485,
+        4.71226,
+        4.672205,
+        4.556601,
+        4.574223
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 50924,
+      "min": 49636,
+      "max": 53144,
+      "runs": [
+        52644,
+        50924,
+        53144,
+        50996,
+        49696,
+        50840,
+        49636
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.702993,
+      "min": 4.447368,
+      "max": 8.629905,
+      "runs": [
+        8.629905,
+        4.6911,
+        4.702993,
+        4.724012,
+        4.447368,
+        4.774145,
+        4.556931
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51460,
+      "min": 50728,
+      "max": 51756,
+      "runs": [
+        50728,
+        51660,
+        51460,
+        51756,
+        51680,
+        51004,
+        51132
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-collected",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.956342,
+      "min": 4.601053,
+      "max": 6.58905,
+      "runs": [
+        6.58905,
+        4.601053,
+        4.956342,
+        5.094478,
+        5.525688,
+        4.903334,
+        4.821472
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 51084,
+      "min": 50624,
+      "max": 52880,
+      "runs": [
+        50752,
+        50624,
+        52588,
+        51428,
+        51084,
+        50704,
+        52880
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.143915,
+      "min": 3.967008,
+      "max": 7.260145,
+      "runs": [
+        7.260145,
+        4.217262,
+        4.149215,
+        4.143915,
+        4.012833,
+        4.122075,
+        3.967008
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49020,
+      "min": 48656,
+      "max": 49336,
+      "runs": [
+        49336,
+        49120,
+        49020,
+        49228,
+        48776,
+        48656,
+        48696
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.472815,
+      "min": 4.181485,
+      "max": 7.801068,
+      "runs": [
+        7.801068,
+        4.332135,
+        4.334718,
+        4.181485,
+        5.049465,
+        4.506037,
+        4.472815
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48360,
+      "min": 47972,
+      "max": 48996,
+      "runs": [
+        48852,
+        48304,
+        48172,
+        47972,
+        48996,
+        48412,
+        48360
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.333918,
+      "min": 4.25392,
+      "max": 4.573271,
+      "runs": [
+        4.463128,
+        4.283975,
+        4.25392,
+        4.333918,
+        4.573271,
+        4.302589,
+        4.376998
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49176,
+      "min": 48724,
+      "max": 51160,
+      "runs": [
+        49176,
+        49056,
+        50956,
+        49236,
+        48724,
+        51160,
+        49156
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.099092,
+      "min": 4.053618,
+      "max": 4.627372,
+      "runs": [
+        4.627372,
+        4.099092,
+        4.073335,
+        4.357181,
+        4.053618,
+        4.057775,
+        4.450064
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48664,
+      "min": 48104,
+      "max": 51044,
+      "runs": [
+        48104,
+        48356,
+        48276,
+        48664,
+        50668,
+        51044,
+        49080
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.427862,
+      "min": 4.185643,
+      "max": 5.013008,
+      "runs": [
+        4.499465,
+        4.302149,
+        4.427862,
+        4.516917,
+        4.354415,
+        5.013008,
+        4.185643
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49080,
+      "min": 47956,
+      "max": 51028,
+      "runs": [
+        47956,
+        48980,
+        51028,
+        49080,
+        49384,
+        49352,
+        48908
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.373662,
+      "min": 4.005438,
+      "max": 4.704404,
+      "runs": [
+        4.704404,
+        4.303261,
+        4.373662,
+        4.611483,
+        4.312278,
+        4.463007,
+        4.005438
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48704,
+      "min": 47968,
+      "max": 50496,
+      "runs": [
+        50428,
+        48440,
+        48248,
+        47968,
+        48736,
+        50496,
+        48704
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.514012,
+      "min": 4.18935,
+      "max": 12.928558,
+      "runs": [
+        12.928558,
+        4.278455,
+        4.18935,
+        4.444363,
+        4.514012,
+        4.565417,
+        4.526464
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49016,
+      "min": 48656,
+      "max": 51000,
+      "runs": [
+        49532,
+        48820,
+        51000,
+        48800,
+        48656,
+        49068,
+        49016
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-escape",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 4.257565,
+      "min": 4.105565,
+      "max": 13.303053,
+      "runs": [
+        13.303053,
+        4.269278,
+        4.346972,
+        4.106706,
+        4.105565,
+        4.257565,
+        4.120653
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 48540,
+      "min": 48164,
+      "max": 48720,
+      "runs": [
+        48552,
+        48164,
+        48552,
+        48352,
+        48540,
+        48348,
+        48720
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.472605,
+      "min": 6.203224,
+      "max": 8.970767,
+      "runs": [
+        8.970767,
+        6.420668,
+        6.472605,
+        6.42192,
+        6.477053,
+        6.203224,
+        6.603217
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49248,
+      "min": 48568,
+      "max": 50412,
+      "runs": [
+        49248,
+        49460,
+        49040,
+        49436,
+        48568,
+        50412,
+        48608
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 1.627819,
+      "min": 1.59642,
+      "max": 1.729999,
+      "runs": [
+        1.729999,
+        1.615587,
+        1.620065,
+        1.639681,
+        1.664678,
+        1.627819,
+        1.59642
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36200,
+      "min": 35084,
+      "max": 38152,
+      "runs": [
+        36584,
+        38152,
+        35084,
+        36148,
+        35576,
+        36212,
+        36200
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.740621,
+      "min": 6.561329,
+      "max": 7.860067,
+      "runs": [
+        7.476065,
+        6.561329,
+        6.752172,
+        6.614988,
+        7.860067,
+        6.587467,
+        6.740621
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49016,
+      "min": 48820,
+      "max": 50700,
+      "runs": [
+        50340,
+        49020,
+        49016,
+        50700,
+        49000,
+        48988,
+        48820
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 1.646404,
+      "min": 1.583347,
+      "max": 1.74677,
+      "runs": [
+        1.74677,
+        1.583347,
+        1.646404,
+        1.61217,
+        1.664477,
+        1.641054,
+        1.66603
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36160,
+      "min": 35656,
+      "max": 37184,
+      "runs": [
+        35900,
+        36052,
+        36160,
+        37120,
+        36776,
+        35656,
+        37184
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.464178,
+      "min": 6.382978,
+      "max": 6.998109,
+      "runs": [
+        6.464178,
+        6.539989,
+        6.868108,
+        6.454,
+        6.998109,
+        6.447608,
+        6.382978
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49116,
+      "min": 48272,
+      "max": 51164,
+      "runs": [
+        49032,
+        49116,
+        49792,
+        48272,
+        48864,
+        51164,
+        49304
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 1.614956,
+      "min": 1.60169,
+      "max": 1.771545,
+      "runs": [
+        1.69337,
+        1.710111,
+        1.60169,
+        1.771545,
+        1.614956,
+        1.608122,
+        1.606991
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36856,
+      "min": 35432,
+      "max": 37112,
+      "runs": [
+        36908,
+        36824,
+        36856,
+        35432,
+        37104,
+        37112,
+        35572
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 6.895649,
+      "min": 6.343645,
+      "max": 7.527742,
+      "runs": [
+        6.724441,
+        7.03676,
+        6.895649,
+        6.899196,
+        6.343645,
+        7.527742,
+        6.397575
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 49704,
+      "min": 48996,
+      "max": 51516,
+      "runs": [
+        51516,
+        48996,
+        49044,
+        50548,
+        49704,
+        48996,
+        50264
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-list",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 1.622018,
+      "min": 1.604215,
+      "max": 1.685896,
+      "runs": [
+        1.685896,
+        1.651323,
+        1.636245,
+        1.617771,
+        1.604215,
+        1.620245,
+        1.622018
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37216,
+      "min": 35776,
+      "max": 39028,
+      "runs": [
+        38556,
+        39028,
+        36860,
+        35776,
+        37348,
+        37216,
+        36536
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 8.712117,
+      "min": 8.535771,
+      "max": 21.307909,
+      "runs": [
+        21.307909,
+        8.587527,
+        8.628382,
+        8.712117,
+        9.092834,
+        8.856696,
+        8.535771
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53460,
+      "min": 52892,
+      "max": 53680,
+      "runs": [
+        53460,
+        53268,
+        53680,
+        53464,
+        53596,
+        52976,
+        52892
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 3.789217,
+      "min": 3.749685,
+      "max": 8.570485,
+      "runs": [
+        8.570485,
+        3.789217,
+        3.785771,
+        3.852816,
+        3.886218,
+        3.757669,
+        3.749685
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40544,
+      "min": 39872,
+      "max": 41136,
+      "runs": [
+        41080,
+        41136,
+        40268,
+        39872,
+        40544,
+        40064,
+        40828
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.599709,
+      "min": 10.180662,
+      "max": 15.542976,
+      "runs": [
+        15.542976,
+        10.599709,
+        11.210432,
+        11.119713,
+        10.56274,
+        10.180662,
+        10.322143
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53256,
+      "min": 52860,
+      "max": 55652,
+      "runs": [
+        52968,
+        53472,
+        53044,
+        55652,
+        53324,
+        53256,
+        52860
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 5.668162,
+      "min": 5.515018,
+      "max": 6.908743,
+      "runs": [
+        6.908743,
+        5.849759,
+        5.668162,
+        5.82329,
+        5.573025,
+        5.606158,
+        5.515018
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 40364,
+      "min": 39792,
+      "max": 41384,
+      "runs": [
+        39792,
+        40540,
+        40216,
+        41384,
+        41216,
+        40364,
+        40188
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.43871,
+      "min": 10.238067,
+      "max": 27.504841,
+      "runs": [
+        27.504841,
+        10.661734,
+        10.43871,
+        10.677072,
+        10.263194,
+        10.238067,
+        10.268133
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53196,
+      "min": 52444,
+      "max": 53856,
+      "runs": [
+        53856,
+        52444,
+        53364,
+        53196,
+        53236,
+        53140,
+        53060
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 5.762487,
+      "min": 5.62398,
+      "max": 11.861419,
+      "runs": [
+        11.861419,
+        5.700432,
+        6.630778,
+        5.646523,
+        5.762487,
+        5.62398,
+        5.794367
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 41208,
+      "min": 40756,
+      "max": 43076,
+      "runs": [
+        41200,
+        42820,
+        41208,
+        43076,
+        41208,
+        41052,
+        40756
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.419855,
+      "min": 10.259397,
+      "max": 27.344975,
+      "runs": [
+        27.344975,
+        10.331011,
+        10.352169,
+        10.259397,
+        10.419855,
+        11.228535,
+        10.965567
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 53156,
+      "min": 52500,
+      "max": 55388,
+      "runs": [
+        53512,
+        53056,
+        54068,
+        55388,
+        53156,
+        52500,
+        53108
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-pointers",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 5.657172,
+      "min": 5.498267,
+      "max": 12.896247,
+      "runs": [
+        12.896247,
+        5.846103,
+        5.624642,
+        5.592532,
+        5.76901,
+        5.498267,
+        5.657172
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 41108,
+      "min": 40144,
+      "max": 41328,
+      "runs": [
+        41308,
+        40932,
+        41108,
+        40960,
+        40144,
+        41328,
+        41152
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.059076,
+      "min": 9.794906,
+      "max": 12.026565,
+      "runs": [
+        9.968979,
+        9.794906,
+        9.859015,
+        12.026565,
+        10.059076,
+        10.569363,
+        11.906823
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59232,
+      "min": 58872,
+      "max": 59412,
+      "runs": [
+        59216,
+        59232,
+        59412,
+        59384,
+        59152,
+        58872,
+        59248
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.129314,
+      "min": 1.043224,
+      "max": 1.248405,
+      "runs": [
+        1.129314,
+        1.166183,
+        1.070756,
+        1.147378,
+        1.248405,
+        1.043224,
+        1.122622
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.351783,
+      "min": 0.342365,
+      "max": 0.390094,
+      "runs": [
+        0.351532,
+        0.354427,
+        0.349218,
+        0.374675,
+        0.342365,
+        0.390094,
+        0.351783
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36568,
+      "min": 35976,
+      "max": 38724,
+      "runs": [
+        36320,
+        38724,
+        36628,
+        36236,
+        36568,
+        36576,
+        35976
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 9.988295,
+      "min": 9.720408,
+      "max": 17.298442,
+      "runs": [
+        17.298442,
+        10.102807,
+        9.919407,
+        9.720408,
+        9.988295,
+        10.732876,
+        9.98052
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 58940,
+      "min": 58188,
+      "max": 61568,
+      "runs": [
+        61380,
+        58888,
+        58632,
+        58188,
+        58940,
+        61568,
+        59100
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.073711,
+      "min": 1.019661,
+      "max": 1.166022,
+      "runs": [
+        1.166022,
+        1.125737,
+        1.053825,
+        1.045939,
+        1.08356,
+        1.073711,
+        1.019661
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.330834,
+      "min": 0.314363,
+      "max": 0.344599,
+      "runs": [
+        0.341573,
+        0.334461,
+        0.319663,
+        0.330834,
+        0.320575,
+        0.344599,
+        0.314363
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36856,
+      "min": 35804,
+      "max": 37136,
+      "runs": [
+        36856,
+        37136,
+        36828,
+        35804,
+        36980,
+        36852,
+        36932
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.148351,
+      "min": 9.157514,
+      "max": 25.468846,
+      "runs": [
+        25.468846,
+        10.026566,
+        12.151697,
+        9.157514,
+        10.148351,
+        9.941218,
+        10.881842
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59208,
+      "min": 58796,
+      "max": 59532,
+      "runs": [
+        59208,
+        59384,
+        58796,
+        59468,
+        59532,
+        59028,
+        58984
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.086064,
+      "min": 1.017817,
+      "max": 1.568899,
+      "runs": [
+        1.568899,
+        1.053794,
+        1.072639,
+        1.117453,
+        1.086064,
+        1.017817,
+        1.117502
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.326606,
+      "min": 0.308432,
+      "max": 0.683006,
+      "runs": [
+        0.683006,
+        0.319793,
+        0.326606,
+        0.308432,
+        0.330774,
+        0.326857,
+        0.325473
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37048,
+      "min": 35952,
+      "max": 39440,
+      "runs": [
+        37224,
+        37048,
+        35952,
+        35976,
+        37292,
+        36320,
+        39440
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 10.049227,
+      "min": 9.135443,
+      "max": 12.483332,
+      "runs": [
+        12.483332,
+        10.049227,
+        9.927171,
+        10.091235,
+        9.135443,
+        12.472872,
+        10.040953
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 59300,
+      "min": 58844,
+      "max": 61360,
+      "runs": [
+        58892,
+        59300,
+        61344,
+        58844,
+        59164,
+        61360,
+        59668
+      ]
+    },
+    "collections": {
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "runs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 1.10577,
+      "min": 1.052051,
+      "max": 1.585741,
+      "runs": [
+        1.111161,
+        1.132892,
+        1.10577,
+        1.052382,
+        1.052051,
+        1.585741,
+        1.069814
+      ]
+    }
+  },
+  {
+    "case": "stored-reused",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.326175,
+      "min": 0.317179,
+      "max": 0.670754,
+      "runs": [
+        0.670754,
+        0.327597,
+        0.324602,
+        0.319192,
+        0.33403,
+        0.326175,
+        0.317179
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 35976,
+      "min": 35820,
+      "max": 37444,
+      "runs": [
+        35976,
+        37444,
+        35820,
+        36844,
+        36492,
+        35964,
+        35852
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 1,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.748489,
+      "min": 0.744431,
+      "max": 0.770028,
+      "runs": [
+        0.770028,
+        0.748188,
+        0.750963,
+        0.748489,
+        0.744431,
+        0.751865,
+        0.746324
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37200,
+      "min": 36128,
+      "max": 37736,
+      "runs": [
+        37200,
+        36916,
+        36128,
+        37516,
+        37544,
+        36420,
+        37736
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 1,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.562233,
+      "min": 0.547957,
+      "max": 0.599372,
+      "runs": [
+        0.599372,
+        0.555421,
+        0.566881,
+        0.547957,
+        0.557104,
+        0.562233,
+        0.568936
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36332,
+      "min": 35784,
+      "max": 38452,
+      "runs": [
+        36816,
+        36564,
+        38452,
+        36332,
+        36332,
+        36208,
+        35784
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 2,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.639045,
+      "min": 0.622014,
+      "max": 0.97573,
+      "runs": [
+        0.644806,
+        0.634587,
+        0.641309,
+        0.622014,
+        0.639045,
+        0.637171,
+        0.97573
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37096,
+      "min": 36012,
+      "max": 37592,
+      "runs": [
+        37260,
+        37096,
+        36012,
+        37560,
+        36744,
+        37592,
+        36260
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 2,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.746074,
+      "min": 0.734001,
+      "max": 0.830791,
+      "runs": [
+        0.830791,
+        0.753908,
+        0.734412,
+        0.745803,
+        0.734001,
+        0.779466,
+        0.746074
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36288,
+      "min": 35608,
+      "max": 38912,
+      "runs": [
+        36292,
+        36152,
+        35608,
+        38912,
+        36728,
+        36288,
+        36180
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 4,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.632984,
+      "min": 0.621142,
+      "max": 0.663801,
+      "runs": [
+        0.663801,
+        0.632984,
+        0.634788,
+        0.634507,
+        0.621142,
+        0.631261,
+        0.631191
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 36912,
+      "min": 36244,
+      "max": 37660,
+      "runs": [
+        36396,
+        36912,
+        37188,
+        36436,
+        37336,
+        37660,
+        36244
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 4,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.75465,
+      "min": 0.739371,
+      "max": 0.800375,
+      "runs": [
+        0.800375,
+        0.76578,
+        0.739371,
+        0.75465,
+        0.741415,
+        0.745252,
+        0.766301
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37016,
+      "min": 36400,
+      "max": 37220,
+      "runs": [
+        36452,
+        37016,
+        37220,
+        36928,
+        36400,
+        37048,
+        37032
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 8,
+    "variant": "baseline",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.655716,
+      "min": 0.626191,
+      "max": 0.961022,
+      "runs": [
+        0.682305,
+        0.64706,
+        0.709996,
+        0.626191,
+        0.655716,
+        0.961022,
+        0.630961
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37136,
+      "min": 36168,
+      "max": 37924,
+      "runs": [
+        37156,
+        36436,
+        37136,
+        37780,
+        37924,
+        36168,
+        37048
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "case": "visible",
+    "workers": 8,
+    "variant": "candidate",
+    "repetitions": 7,
+    "elapsed_ms": {
+      "median": 0.759198,
+      "min": 0.745002,
+      "max": 1.327202,
+      "runs": [
+        0.811094,
+        0.757696,
+        0.745002,
+        0.75523,
+        0.759198,
+        1.327202,
+        0.77077
+      ]
+    },
+    "peak_rss_kib": {
+      "median": 37096,
+      "min": 35824,
+      "max": 37380,
+      "runs": [
+        37380,
+        37096,
+        35824,
+        37144,
+        37212,
+        36576,
+        37020
+      ]
+    },
+    "collections": {
+      "median": 0,
+      "min": 0,
+      "max": 0,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "gc_pause_ms": {
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "runs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+]

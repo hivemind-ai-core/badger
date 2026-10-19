@@ -52,6 +52,11 @@ negative results; do not mark architectural sketches as implemented.
     [Results, broader controls and memory limits](reports/memory-management/I2c-summary.md).
 - [ ] I3: Extend sequence fusion through stored/composed pipelines where semantics
   permit; benchmark visible, stored, collected, and eager forms separately.
+  - [x] I3a: Fuse immutable nonescaping stored range/list descriptions consumed
+    by count/fold/for, preserving construction snapshots and reusable traversal.
+    Stored scalar kernels improve 96–97%; scalar/pointer lists 75–76%/45–56%.
+    Keep executable-level byte-control regressions and mixed applications visible.
+    [Allocation proof, profiles and limits](reports/memory-management/I3a-summary.md).
 - [ ] I4: Pack fixed-size pointer-free records directly into collection storage,
   then evaluate pointer-bearing layouts with precise tracing.
 - [ ] I5: Reuse consumed immutable structures when uniqueness is proven, including
@@ -943,6 +948,11 @@ Work in this order, keeping only measured improvements:
      reject/revert after small application gains, repeated JSON regression and
      8–14% byte-heavy coverage regression. Keep modern-compiler compatibility
      checks and bounded Miri model coverage. [Evidence](reports/memory-management/G8c-summary.md).
+   - [ ] G8d: Optimize bounded scalar buffer initialization/push or proven bulk
+     fills. I3a byte profiles put 67–71% of self samples in buffer::push and
+     whole-kernel GC pause near 0.5%. Preserve callback count/order, failure,
+     suspension, pointer barriers/roots and growth semantics. Save fresh baselines
+     and standalone/saved-MIR controls; native executable sensitivity remains open.
 4. [ ] I9/G9: Extend escape/lifetime proofs to stack or region storage. First
    specify roots across suspension, failure cleanup, aliases and cross-task
    publication. Evaluate scoped transient regions before general shared arenas;
@@ -1224,3 +1234,27 @@ clearing-time bottleneck. Next prefer existing I2/I4/I9 allocation elimination
 and packing work, plus G7e trace-cardinality attribution, over another zeroing
 micro-optimization without ordinary allocation-call CPU evidence. G8, regions,
 ring ownership and the broader memory-management roadmap remain open.
+
+### I3a complete — stored finite sequence fusion, with negative controls retained
+
+`10dde6a` removes iterator descriptions and per-element Options for immutable
+local range/list pipelines used only by supported count/fold/for consumers.
+Constructor arguments/callbacks stay at the declaration; each traversal has its
+own counters. Captured/escaping/mutable descriptions, unknown/scoped sources,
+stored aliases and collect/eager consumers keep ordinary semantics. Broad I3,
+interprocedural escape analysis, stack/region storage and arenas remain open.
+
+A committed before-edit baseline and 2,756 measured processes plus 12 perturbed
+profiles cover workers 1/2/4/8, exact same-native allocation counts, old/new MIR,
+standalone controls and unchanged original applications. Scalar time falls
+96–97%, with 1,048,576 Options removed; list time falls 45–76%. The scalar case
+has 60 total managed objects instead of 1,048,716, and two kernel GCs become zero.
+All 304 focused GC/semantic checks, 48 MIR probes, CLI/MIR tests and lint pass.
+
+Broader application changes remain mixed. A standalone byte control is still
+10.6–13.9% slower with separate source compilers despite byte-identical MIR;
+same-MIR cross-native comparison is +3.7–5.5%, same-native controls mixed.
+Matching relocated runtime instructions narrow but do not explain this sensitivity.
+Keep the raw negatives. Profiles identify per-element buffer push, not collection,
+as the dominant byte-fill cost; prioritize G8d alongside the remaining allocation
+elimination work. [Full evidence and validation](reports/memory-management/I3a-summary.md).

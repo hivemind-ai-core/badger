@@ -1,0 +1,17 @@
+[[vdso]+0xd4c] 3
+[[vdso]+0xd88] 1
+[libc.so.6+0x18fcc9] 1
+[libc.so.6+0x18fcd6] 1
+[libc.so.6+0x18fd36] 1
+[libc.so.6+0x18fd44] 1
+[stored-sequence-candidate+0xb757c0] 1
+[stored-sequence-candidate+0xb99d60] 1
+[stored-sequence-candidate+0xbb1200] 71
+badger_runtime::buffer::new 18
+badger_runtime::buffer::push 1184
+badger_runtime::gc::alloc 5
+badger_runtime::gc::collect_inner 7
+badger_runtime::intrinsics_std::buffer_freeze 2
+badger_runtime::intrinsics_std::buffer_push 75
+isolated-bytes-transient.buffers#21 219
+mremap 1

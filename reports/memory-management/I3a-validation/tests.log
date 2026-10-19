@@ -1,0 +1,80 @@
+   Compiling badger_formats v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_formats)
+   Compiling badger_valkey v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_valkey)
+   Compiling badger_sqlite v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_sqlite)
+   Compiling badger_mir v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_mir)
+   Compiling badger_driver v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_driver)
+   Compiling badger_cli v0.1.0 (/tmp/language-memory-management-2026-10-17/crates/badger_cli)
+    Finished `release` profile [optimized] target(s) in 59.85s
+     Running unittests src/main.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/badger-7961101032374a50)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/adversarial-35d79ffafd35f831)
+
+running 4 tests
+test reject_programs ... ok
+test run_optimized ... ok
+test run_single_worker ... ok
+test run_four_workers ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.15s
+
+     Running tests/docs.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/docs-2c96121cc7b6af0a)
+
+running 3 tests
+test diagnostic_codes_catalogued ... ok
+test api_reference_current ... ok
+test doc_examples_check ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.48s
+
+     Running tests/fuzz.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/fuzz-1bb382f7adaa2869)
+
+running 3 tests
+test formatter_is_idempotent ... ok
+test invalid_input_never_crashes ... ok
+test formatting_preserves_meaning ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.54s
+
+     Running tests/gc_retention.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/gc_retention-b447126d8eda8174)
+
+running 1 test
+test full_sweeps_keep_workers_stopped_until_task_results_and_lists_are_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.22s
+
+     Running tests/lsp.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/lsp-f32bce1b57eccf73)
+
+running 5 tests
+test code_action_inserts_import ... ok
+test code_action_adds_missing_arm ... ok
+test language_server_robustness ... ok
+test language_server ... ok
+test language_server_project_entries ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/mcp.rs (/home/dan/orca/projects/language/target/memory-2026-10-18/release/deps/mcp-a494da005b21830c)
+
+running 1 test
+error: cannot reserve a local port: Operation not permitted (os error 1)
+test mcp_tools ... FAILED
+
+failures:
+
+---- mcp_tools stdout ----
+
+thread 'mcp_tools' (5437) panicked at crates/badger_cli/tests/mcp.rs:38:56:
+called `Result::unwrap()` on an `Err` value: Error("EOF while parsing a value", line: 1, column: 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    mcp_tools
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p badger_cli --test mcp`

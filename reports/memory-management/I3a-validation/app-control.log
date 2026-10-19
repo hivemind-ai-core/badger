@@ -1,0 +1,398 @@
+rep=0 compare/batches w4 baseline
+rep=0 compare/batches w4 candidate
+rep=0 compare/snapshots w4 baseline
+rep=0 compare/snapshots w4 candidate
+rep=0 compare/snapshots w2 baseline
+rep=0 compare/snapshots w2 candidate
+rep=0 compare/batches w2 baseline
+rep=0 compare/batches w2 candidate
+rep=1 compare/batches w4 baseline
+rep=1 compare/batches w4 candidate
+rep=1 compare/snapshots w2 baseline
+rep=1 compare/snapshots w2 candidate
+rep=1 compare/batches w2 candidate
+rep=1 compare/batches w2 baseline
+rep=1 compare/snapshots w4 baseline
+rep=1 compare/snapshots w4 candidate
+rep=2 compare/snapshots w4 baseline
+rep=2 compare/snapshots w4 candidate
+rep=2 compare/batches w2 baseline
+rep=2 compare/batches w2 candidate
+rep=2 compare/snapshots w2 baseline
+rep=2 compare/snapshots w2 candidate
+rep=2 compare/batches w4 baseline
+rep=2 compare/batches w4 candidate
+rep=3 compare/batches w2 candidate
+rep=3 compare/batches w2 baseline
+rep=3 compare/snapshots w4 baseline
+rep=3 compare/snapshots w4 candidate
+rep=3 compare/batches w4 baseline
+rep=3 compare/batches w4 candidate
+rep=3 compare/snapshots w2 baseline
+rep=3 compare/snapshots w2 candidate
+rep=4 compare/batches w4 candidate
+rep=4 compare/batches w4 baseline
+rep=4 compare/snapshots w2 baseline
+rep=4 compare/snapshots w2 candidate
+rep=4 compare/snapshots w4 baseline
+rep=4 compare/snapshots w4 candidate
+rep=4 compare/batches w2 candidate
+rep=4 compare/batches w2 baseline
+rep=5 compare/snapshots w4 baseline
+rep=5 compare/snapshots w4 candidate
+rep=5 compare/snapshots w2 baseline
+rep=5 compare/snapshots w2 candidate
+rep=5 compare/batches w4 baseline
+rep=5 compare/batches w4 candidate
+rep=5 compare/batches w2 candidate
+rep=5 compare/batches w2 baseline
+rep=6 compare/snapshots w4 candidate
+rep=6 compare/snapshots w4 baseline
+rep=6 compare/batches w4 baseline
+rep=6 compare/batches w4 candidate
+rep=6 compare/snapshots w2 candidate
+rep=6 compare/snapshots w2 baseline
+rep=6 compare/batches w2 baseline
+rep=6 compare/batches w2 candidate
+rep=7 compare/batches w4 baseline
+rep=7 compare/batches w4 candidate
+rep=7 compare/snapshots w2 baseline
+rep=7 compare/snapshots w2 candidate
+rep=7 compare/batches w2 baseline
+rep=7 compare/batches w2 candidate
+rep=7 compare/snapshots w4 baseline
+rep=7 compare/snapshots w4 candidate
+rep=8 compare/snapshots w2 candidate
+rep=8 compare/snapshots w2 baseline
+rep=8 compare/batches w2 candidate
+rep=8 compare/batches w2 baseline
+rep=8 compare/snapshots w4 candidate
+rep=8 compare/snapshots w4 baseline
+rep=8 compare/batches w4 baseline
+rep=8 compare/batches w4 candidate
+rep=9 compare/snapshots w4 baseline
+rep=9 compare/snapshots w4 candidate
+rep=9 compare/snapshots w2 baseline
+rep=9 compare/snapshots w2 candidate
+rep=9 compare/batches w4 baseline
+rep=9 compare/batches w4 candidate
+rep=9 compare/batches w2 candidate
+rep=9 compare/batches w2 baseline
+rep=10 compare/batches w4 baseline
+rep=10 compare/batches w4 candidate
+rep=10 compare/snapshots w2 candidate
+rep=10 compare/snapshots w2 baseline
+rep=10 compare/snapshots w4 candidate
+rep=10 compare/snapshots w4 baseline
+rep=10 compare/batches w2 baseline
+rep=10 compare/batches w2 candidate
+rep=11 compare/snapshots w4 baseline
+rep=11 compare/snapshots w4 candidate
+rep=11 compare/batches w4 baseline
+rep=11 compare/batches w4 candidate
+rep=11 compare/snapshots w2 candidate
+rep=11 compare/snapshots w2 baseline
+rep=11 compare/batches w2 candidate
+rep=11 compare/batches w2 baseline
+rep=12 compare/snapshots w2 candidate
+rep=12 compare/snapshots w2 baseline
+rep=12 compare/snapshots w4 candidate
+rep=12 compare/snapshots w4 baseline
+rep=12 compare/batches w2 baseline
+rep=12 compare/batches w2 candidate
+rep=12 compare/batches w4 candidate
+rep=12 compare/batches w4 baseline
+rep=13 compare/batches w2 candidate
+rep=13 compare/batches w2 baseline
+rep=13 compare/snapshots w4 baseline
+rep=13 compare/snapshots w4 candidate
+rep=13 compare/batches w4 baseline
+rep=13 compare/batches w4 candidate
+rep=13 compare/snapshots w2 baseline
+rep=13 compare/snapshots w2 candidate
+rep=14 compare/batches w4 baseline
+rep=14 compare/batches w4 candidate
+rep=14 compare/snapshots w4 baseline
+rep=14 compare/snapshots w4 candidate
+rep=14 compare/snapshots w2 candidate
+rep=14 compare/snapshots w2 baseline
+rep=14 compare/batches w2 baseline
+rep=14 compare/batches w2 candidate
+[
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 606766,
+          "min": 572062,
+          "max": 1129646,
+          "count": 15,
+          "cv": 0.2064027849209799
+        },
+        "kernel_block_mean_ns": {
+          "median": 655615.8666666667,
+          "min": 624546.8,
+          "max": 988175.8666666667,
+          "count": 15,
+          "cv": 0.15418890703144278
+        },
+        "peak_rss_bytes": {
+          "median": 41603072,
+          "min": 39608320,
+          "max": 61444096,
+          "count": 15,
+          "cv": 0.13846077013219646
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 605063,
+          "min": 585898,
+          "max": 1171925,
+          "count": 15,
+          "cv": 0.32553432254804854
+        },
+        "kernel_block_mean_ns": {
+          "median": 910536.3333333334,
+          "min": 634086.6,
+          "max": 1068447.3333333333,
+          "count": 15,
+          "cv": 0.2004545226833679
+        },
+        "peak_rss_bytes": {
+          "median": 47734784,
+          "min": 39587840,
+          "max": 59604992,
+          "count": 15,
+          "cv": 0.17698716639100368
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.024186189608818687,
+      "min": -0.46325220467296835,
+      "max": 0.9652388706196433,
+      "count": 15,
+      "cv": 1.510145731398478
+    },
+    "faster_pairs": 7,
+    "paired_block_mean_change": {
+      "median": 0.04149077912709376,
+      "min": -0.33585722055682665,
+      "max": 0.6324338606338482,
+      "count": 15,
+      "cv": 1.742363210598014
+    },
+    "block_mean_faster_pairs": 6
+  },
+  {
+    "suite": "compare",
+    "case": "batches",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 601626,
+          "min": 580197,
+          "max": 657070,
+          "count": 15,
+          "cv": 0.03589465279097868
+        },
+        "kernel_block_mean_ns": {
+          "median": 646377.5333333333,
+          "min": 629085.4,
+          "max": 999328.5333333333,
+          "count": 15,
+          "cv": 0.18421444375196078
+        },
+        "peak_rss_bytes": {
+          "median": 40017920,
+          "min": 39514112,
+          "max": 51142656,
+          "count": 15,
+          "cv": 0.10500153510616393
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 608169,
+          "min": 588752,
+          "max": 1187223,
+          "count": 15,
+          "cv": 0.31411133207641534
+        },
+        "kernel_block_mean_ns": {
+          "median": 714840.3333333334,
+          "min": 631539.2,
+          "max": 1115660.8666666667,
+          "count": 15,
+          "cv": 0.20939205181386958
+        },
+        "peak_rss_bytes": {
+          "median": 40157184,
+          "min": 39518208,
+          "max": 64245760,
+          "count": 15,
+          "cv": 0.17480729531056002
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.029702383572683955,
+      "min": -0.09679181822332472,
+      "max": 0.9804320959782196,
+      "count": 15,
+      "cv": 1.9561107739180763
+    },
+    "faster_pairs": 6,
+    "paired_block_mean_change": {
+      "median": 0.012488323941816315,
+      "min": -0.35788951087690346,
+      "max": 0.7260204897798119,
+      "count": 15,
+      "cv": 2.599542925579179
+    },
+    "block_mean_faster_pairs": 6
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 2,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 992091,
+          "min": 956916,
+          "max": 1190469,
+          "count": 15,
+          "cv": 0.0639929105730969
+        },
+        "kernel_block_mean_ns": {
+          "median": 1105600.0666666667,
+          "min": 1087188.8666666667,
+          "max": 1259742.8666666667,
+          "count": 15,
+          "cv": 0.04237952609648913
+        },
+        "peak_rss_bytes": {
+          "median": 46272512,
+          "min": 45522944,
+          "max": 48078848,
+          "count": 15,
+          "cv": 0.011450226521710667
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 978236,
+          "min": 959019,
+          "max": 1211609,
+          "count": 15,
+          "cv": 0.0859694020879566
+        },
+        "kernel_block_mean_ns": {
+          "median": 1095601.0,
+          "min": 1072103.5333333334,
+          "max": 1329160.4666666666,
+          "count": 15,
+          "cv": 0.06182079861796574
+        },
+        "peak_rss_bytes": {
+          "median": 46157824,
+          "min": 45768704,
+          "max": 48201728,
+          "count": 15,
+          "cv": 0.011718405498190967
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": -0.0049536903907302365,
+      "min": -0.14421861426605576,
+      "max": 0.22638363507218617,
+      "count": 15,
+      "cv": 6.522570755356767
+    },
+    "faster_pairs": 9,
+    "paired_block_mean_change": {
+      "median": -0.003713431583338367,
+      "min": -0.13942040976298709,
+      "max": 0.15234296475949693,
+      "count": 15,
+      "cv": 12.037205565152972
+    },
+    "block_mean_faster_pairs": 8
+  },
+  {
+    "suite": "compare",
+    "case": "snapshots",
+    "workers": 4,
+    "variants": {
+      "baseline": {
+        "kernel_ns": {
+          "median": 989436,
+          "min": 952838,
+          "max": 1145155,
+          "count": 15,
+          "cv": 0.061730726596005474
+        },
+        "kernel_block_mean_ns": {
+          "median": 1100040.0,
+          "min": 1079594.0666666667,
+          "max": 1231155.2666666666,
+          "count": 15,
+          "cv": 0.04480691693369053
+        },
+        "peak_rss_bytes": {
+          "median": 46280704,
+          "min": 45875200,
+          "max": 48521216,
+          "count": 15,
+          "cv": 0.012663378928241256
+        }
+      },
+      "candidate": {
+        "kernel_ns": {
+          "median": 995076,
+          "min": 952748,
+          "max": 1193305,
+          "count": 15,
+          "cv": 0.05863347235925147
+        },
+        "kernel_block_mean_ns": {
+          "median": 1088121.1333333333,
+          "min": 1060996.4,
+          "max": 1190053.5333333334,
+          "count": 15,
+          "cv": 0.03375480716230666
+        },
+        "peak_rss_bytes": {
+          "median": 46288896,
+          "min": 45932544,
+          "max": 48156672,
+          "count": 15,
+          "cv": 0.0159742030871389
+        }
+      }
+    },
+    "paired_work_change": {
+      "median": 0.009498340468711453,
+      "min": -0.16801830319913025,
+      "max": 0.17500546488980606,
+      "count": 15,
+      "cv": 281.79115587511444
+    },
+    "faster_pairs": 7,
+    "paired_block_mean_change": {
+      "median": -0.032980915550574696,
+      "min": -0.09968183959458343,
+      "max": 0.08641742308754097,
+      "count": 15,
+      "cv": -2.231682388872834
+    },
+    "block_mean_faster_pairs": 11
+  }
+]

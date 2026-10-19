@@ -1,0 +1,1311 @@
+{
+  "baseline_revision": "78cc5a4",
+  "candidate_revision": "10dde6a",
+  "measured_processes": 2756,
+  "profile_processes": 12,
+  "measured_intervals_overlap": false,
+  "datasets": [
+    {
+      "path": "reports/memory-management/I3a-baseline/measurements.json.gz",
+      "sha256": "4c10144ed377e4ac8b6e2ef02dd607a8a9e513de34a99025268f6e93ad59af76",
+      "runs": 216,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+        "allocations": true,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101942,
+        "paired": true,
+        "cases": [
+          "visible",
+          "stored",
+          "stored-reused",
+          "stored-list",
+          "stored-pointers",
+          "stored-escape",
+          "stored-collected",
+          "collected",
+          "eager"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I3a-baseline"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "diagnostic": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate-diagnostic",
+          "sha256": "957cd37f50c492d1fd18ea48f30c942e461de77d596cb0441a93c9d1586a278e"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I3a-coverage/measurements.json.gz",
+      "sha256": "97f653dff4b0bbf8b959c8f238e547f2214e6150e7f6dd24b002224568bd30c9",
+      "runs": 672,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "baseline_revision": "78cc5a4",
+        "candidate_revision": "10dde6a",
+        "diagnostic": "None",
+        "allocations": false,
+        "suite": "coverage",
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "events": 262144,
+        "reps": 7,
+        "seed": 2026101944,
+        "paired": true,
+        "cases": [
+          "visible",
+          "stored",
+          "stored-reused",
+          "stored-list",
+          "stored-pointers",
+          "stored-escape",
+          "stored-collected",
+          "collected",
+          "eager",
+          "records-window",
+          "bytes-transient",
+          "map-api-composed"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I3a-coverage"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I3a-census/measurements.json.gz",
+      "sha256": "52ffc8331bb09ee82c3453e4e55d543ece8db316bdcf65f7963bc88ce712995e",
+      "runs": 216,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "candidate": "None",
+        "baseline_revision": "unspecified",
+        "candidate_revision": "unspecified",
+        "diagnostic": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-diagnostic",
+        "allocations": true,
+        "suite": "coverage",
+        "workers": [
+          1,
+          8
+        ],
+        "events": 262144,
+        "reps": 3,
+        "seed": 2026101945,
+        "paired": true,
+        "cases": [
+          "visible",
+          "stored",
+          "stored-reused",
+          "stored-list",
+          "stored-pointers",
+          "stored-escape",
+          "stored-collected",
+          "collected",
+          "eager"
+        ],
+        "profiles": [
+          "balanced",
+          "backpressure",
+          "fanout",
+          "cpu"
+        ],
+        "policies": [
+          "control",
+          "young64m",
+          "no-trim",
+          "minors32",
+          "pool256",
+          "pool512",
+          "pool1024",
+          "sweep-scoped",
+          "sweep-reuse",
+          "prefetch0",
+          "prefetch8",
+          "prefetch16",
+          "prefetch32",
+          "prefetch64",
+          "prefetch128",
+          "refill256",
+          "refill512",
+          "refill2048",
+          "inline0",
+          "inline128",
+          "inline256",
+          "inline256-pool256"
+        ],
+        "out": "reports/memory-management/I3a-census"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        },
+        "diagnostic": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-diagnostic",
+          "sha256": "f21baa88a3506ef122efada111716d0755070322f04a6cca33be418e44d91158"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I3a-native-mir/measurements.json.gz",
+      "sha256": "525a9a4aadec03c4cc04842bdd345d15216d614d4f8a6043c79228bc568b49c9",
+      "runs": 180,
+      "arguments": {
+        "reps": 5,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "stored",
+          "stored-reused",
+          "stored-list",
+          "stored-pointers",
+          "stored-escape",
+          "stored-collected",
+          "collected",
+          "eager"
+        ],
+        "diagnostic": false,
+        "seed": 2026101946,
+        "same_mir": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I3a-validation/coverage-baseline.bdgmir",
+          "sha256": "fe5114ac07402b115d758bd37a5492d16e740e5ab300badea86ab40053c74714"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I3a-validation/coverage-candidate.bdgmir",
+          "sha256": "7bbc8bdd4ec34b34f87af7c39146b8ebb5f3828fbb05a463a1305ae62b728f78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-native-control/measurements.json.gz",
+      "sha256": "225093610aec76e8e62677e06788d3a5ad6cfeac39329a33aea2fb43bcd6f797",
+      "runs": 80,
+      "arguments": {
+        "reps": 5,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "stored",
+          "stored-pointers",
+          "bytes-transient"
+        ],
+        "diagnostic": false,
+        "seed": 2026101947,
+        "same_mir": true
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I3a-validation/coverage-candidate.bdgmir",
+          "sha256": "7bbc8bdd4ec34b34f87af7c39146b8ebb5f3828fbb05a463a1305ae62b728f78"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I3a-validation/coverage-candidate.bdgmir",
+          "sha256": "7bbc8bdd4ec34b34f87af7c39146b8ebb5f3828fbb05a463a1305ae62b728f78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-native-census/measurements.json.gz",
+      "sha256": "5262dea9b436bd52cd792ab22178f4a324009c60d24f23fa7267293890c3b5cd",
+      "runs": 108,
+      "arguments": {
+        "reps": 3,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "stored",
+          "stored-reused",
+          "stored-list",
+          "stored-pointers",
+          "stored-escape",
+          "stored-collected",
+          "collected",
+          "eager"
+        ],
+        "diagnostic": true,
+        "seed": 2026101948,
+        "same_mir": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-diagnostic",
+          "sha256": "f21baa88a3506ef122efada111716d0755070322f04a6cca33be418e44d91158"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-diagnostic",
+          "sha256": "f21baa88a3506ef122efada111716d0755070322f04a6cca33be418e44d91158"
+        }
+      },
+      "effective_programs": {
+        "baseline": {
+          "path": "reports/memory-management/I3a-validation/coverage-baseline.bdgmir",
+          "sha256": "fe5114ac07402b115d758bd37a5492d16e740e5ab300badea86ab40053c74714"
+        },
+        "candidate": {
+          "path": "reports/memory-management/I3a-validation/coverage-candidate.bdgmir",
+          "sha256": "7bbc8bdd4ec34b34f87af7c39146b8ebb5f3828fbb05a463a1305ae62b728f78"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-applications/measurements.json.gz",
+      "sha256": "e63971cb52030538bbeaaa0d915510e9b6e28521b5dd68d3e17bbc13f612f9ed",
+      "runs": 504,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "baseline_revision": "78cc5a4",
+        "candidate_revision": "10dde6a",
+        "reps": 7,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "consumers": null,
+        "seed": 2026101949,
+        "cases": [
+          "realworld/cpu",
+          "realworld/reconcile",
+          "realworld/state",
+          "realworld/json",
+          "realworld/messaging",
+          "realworld/pipeline",
+          "compare/records",
+          "compare/snapshots",
+          "compare/batches"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I3a-applications"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I3a-isolated-source/measurements.json.gz",
+      "sha256": "aaca69298d66f3620ff8f4b1f959fbde6113310679f8ddd8411d592826433896",
+      "runs": 180,
+      "arguments": {
+        "reps": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "bytes-transient",
+          "stored-escape"
+        ],
+        "seed": 2026101950,
+        "same_native": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": {
+        "visible/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-baseline.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "visible/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-candidate.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "bytes-transient/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-baseline.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "bytes-transient/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-candidate.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "stored-escape/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-baseline.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        },
+        "stored-escape/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-candidate.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-isolated-native/measurements.json.gz",
+      "sha256": "1a2f27aa9ed9f1fa8e2606f70b310ada42849a7d8867ac59f1643f53e80a0a8f",
+      "runs": 180,
+      "arguments": {
+        "reps": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "bytes-transient",
+          "stored-escape"
+        ],
+        "seed": 2026101951,
+        "same_native": true
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": {
+        "visible/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-baseline.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "visible/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-candidate.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "bytes-transient/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-baseline.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "bytes-transient/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-candidate.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "stored-escape/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-baseline.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        },
+        "stored-escape/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-candidate.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-isolated-cross-native/measurements.json.gz",
+      "sha256": "cfd4025d2e1a071b0a0ca6c567bf318cd246626da25637fa8f5432bdb10ce347",
+      "runs": 180,
+      "arguments": {
+        "reps": 15,
+        "workers": [
+          1,
+          8
+        ],
+        "cases": [
+          "visible",
+          "bytes-transient",
+          "stored-escape"
+        ],
+        "seed": 2026101954,
+        "same_native": false
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": {
+        "visible/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-baseline.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "visible/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-visible-candidate.bdgmir",
+          "sha256": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba"
+        },
+        "bytes-transient/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-baseline.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "bytes-transient/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-bytes-transient-candidate.bdgmir",
+          "sha256": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157"
+        },
+        "stored-escape/baseline": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-baseline.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        },
+        "stored-escape/candidate": {
+          "path": "reports/memory-management/I3a-validation/isolated-stored-escape-candidate.bdgmir",
+          "sha256": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102"
+        }
+      }
+    },
+    {
+      "path": "reports/memory-management/I3a-app-repeat/measurements.json.gz",
+      "sha256": "dccd1ce210df7c8e2fb3a02667f09c1078c65564dc2f26d8cb78c04db140794a",
+      "runs": 120,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "baseline_revision": "78cc5a4",
+        "candidate_revision": "10dde6a",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          2,
+          4
+        ],
+        "consumers": null,
+        "seed": 2026101952,
+        "cases": [
+          "compare/batches",
+          "compare/snapshots"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I3a-app-repeat"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/map-helpers-candidate",
+          "sha256": "0e8f5320126b8cb8bc9cfef53703793ec956f7429bba92e201775c09e6706500"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": null
+    },
+    {
+      "path": "reports/memory-management/I3a-app-control/measurements.json.gz",
+      "sha256": "c63baf26a7646ee1ad3efe453ad3838c946db22a43c897b9f523bfa52db261d2",
+      "runs": 120,
+      "arguments": {
+        "baseline": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "candidate": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+        "baseline_revision": "10dde6a",
+        "candidate_revision": "10dde6a",
+        "reps": 15,
+        "warmups": 15,
+        "samples": 15,
+        "workers": [
+          2,
+          4
+        ],
+        "consumers": null,
+        "seed": 2026101953,
+        "cases": [
+          "compare/batches",
+          "compare/snapshots"
+        ],
+        "diagnostic": false,
+        "allocations": false,
+        "smoke": false,
+        "out": "reports/memory-management/I3a-app-control"
+      },
+      "binaries": {
+        "baseline": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        },
+        "candidate": {
+          "path": "/home/dan/orca/projects/language/target/memory-binaries-2026-10-18/stored-sequence-candidate",
+          "sha256": "24ff9100db3de8acd0e233c2daff0ccf3ea46973500a8383e98118ecedb22838"
+        }
+      },
+      "effective_programs": null
+    }
+  ],
+  "profile_artifact": {
+    "path": "reports/memory-management/I3a-byte-profile/profiles.json.gz",
+    "sha256": "3f42dc622673317a109ce7987a9c42006475fa283ff46abad34314a74ad26657"
+  },
+  "semantic_checks": {
+    "semantic": {
+      "path": "reports/memory-management/I3a-validation/semantic.json.gz",
+      "sha256": "97e2668efc41a8700112acd5e7994ca5c3cf4870345627592776c38e1efa0864",
+      "probes": 24,
+      "runs": 152
+    },
+    "semantic-diagnostic": {
+      "path": "reports/memory-management/I3a-validation/semantic-diagnostic.json.gz",
+      "sha256": "d112e477a6931b5798b39d8c3a967dbbd24747122ce00aa6cbe2fea1e7c9d3eb",
+      "probes": 24,
+      "runs": 152
+    }
+  },
+  "managed_traffic_same_native": [
+    {
+      "case": "collected",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              1223948
+            ],
+            "cell_bytes": [
+              40609234
+            ],
+            "requested_bytes": [
+              40608766
+            ]
+          },
+          "option_objects": [
+            1223345
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              1223948
+            ],
+            "cell_bytes": [
+              40609234
+            ],
+            "requested_bytes": [
+              40608766
+            ]
+          },
+          "option_objects": [
+            1223345
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        }
+      }
+    },
+    {
+      "case": "eager",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              527100
+            ],
+            "cell_bytes": [
+              26775472
+            ],
+            "requested_bytes": [
+              26775153
+            ]
+          },
+          "option_objects": [
+            524289
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              527100
+            ],
+            "cell_bytes": [
+              26775472
+            ],
+            "requested_bytes": [
+              26775153
+            ]
+          },
+          "option_objects": [
+            524289
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              1048716
+            ],
+            "cell_bytes": [
+              33562160
+            ],
+            "requested_bytes": [
+              33561773
+            ]
+          },
+          "option_objects": [
+            1048577
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              60
+            ],
+            "cell_bytes": [
+              4512
+            ],
+            "requested_bytes": [
+              4313
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored-collected",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              306080
+            ],
+            "cell_bytes": [
+              10171216
+            ],
+            "requested_bytes": [
+              10170884
+            ]
+          },
+          "option_objects": [
+            305837
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              306080
+            ],
+            "cell_bytes": [
+              10171216
+            ],
+            "requested_bytes": [
+              10170884
+            ]
+          },
+          "option_objects": [
+            305837
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "ListBuilder",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored-escape",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              262244
+            ],
+            "cell_bytes": [
+              8394768
+            ],
+            "requested_bytes": [
+              8394457
+            ]
+          },
+          "option_objects": [
+            262145
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              262244
+            ],
+            "cell_bytes": [
+              8394768
+            ],
+            "requested_bytes": [
+              8394457
+            ]
+          },
+          "option_objects": [
+            262145
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored-list",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              262321
+            ],
+            "cell_bytes": [
+              8663200
+            ],
+            "requested_bytes": [
+              8662856
+            ]
+          },
+          "option_objects": [
+            262145
+          ],
+          "allocated_types": [
+            "Buffer",
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              137
+            ],
+            "cell_bytes": [
+              272992
+            ],
+            "requested_bytes": [
+              272770
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Buffer",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored-pointers",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              295089
+            ],
+            "cell_bytes": [
+              11233888
+            ],
+            "requested_bytes": [
+              10989380
+            ]
+          },
+          "option_objects": [
+            262145
+          ],
+          "allocated_types": [
+            "Buffer",
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              32905
+            ],
+            "cell_bytes": [
+              2843680
+            ],
+            "requested_bytes": [
+              2599296
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Buffer",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Page",
+            "PageDirectory",
+            "Record",
+            "Result",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "case": "stored-reused",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              524404
+            ],
+            "cell_bytes": [
+              16784080
+            ],
+            "requested_bytes": [
+              16783747
+            ]
+          },
+          "option_objects": [
+            524289
+          ],
+          "allocated_types": [
+            "Cell",
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "Seq",
+            "String",
+            "closure"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              60
+            ],
+            "cell_bytes": [
+              4544
+            ],
+            "requested_bytes": [
+              4335
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "case": "visible",
+      "variants": {
+        "baseline": {
+          "totals": {
+            "objects": [
+              60
+            ],
+            "cell_bytes": [
+              4512
+            ],
+            "requested_bytes": [
+              4316
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "String"
+          ]
+        },
+        "candidate": {
+          "totals": {
+            "objects": [
+              60
+            ],
+            "cell_bytes": [
+              4512
+            ],
+            "requested_bytes": [
+              4316
+            ]
+          },
+          "option_objects": [
+            1
+          ],
+          "allocated_types": [
+            "Data",
+            "List",
+            "Map",
+            "MapNode",
+            "Option",
+            "Record",
+            "Result",
+            "String"
+          ]
+        }
+      }
+    }
+  ],
+  "production_sources": {
+    "crates/badger_mir/src/lower.rs": "f8485ea172700643700dcfa721ad7464f42063103b5a7b0cc6bc476cb6c1b450",
+    "crates/badger_mir/src/lower/fusion.rs": "5c3b4a2d2de3e8ed9a0b8daf89cd2fe0b0bfcc563f821e4c35f35b51a3ccefeb"
+  },
+  "validation_artifacts": {
+    "reports/memory-management/I3a-validation/summaries.py": "929e0c3287a1bda7a73fc0d2007c3415d11eb0ed4f7c3fdf36802750d826dcc0",
+    "reports/memory-management/I3a-validation/runtime-instructions.json": "2d06f3d049dfc44b5046b86b1eaadf316e3d6f8e57803bb96df5404ffd7a4600",
+    "reports/memory-management/I3a-validation/native_instruction_check.py": "00ae41cf2fad2bce61b2ef78b7a600174a9c14a60dfaabc1bff89be3c147bf96",
+    "reports/memory-management/I3a-validation/byte-profile.log": "7123dc976359afe6e9ee787f090299601e333d735537cfc47e8227e7b967f6f1",
+    "reports/memory-management/I3a-validation/profile_byte_control.py": "a634d60c34284815f85a10a4a5da920803186d16f79b633870677058ee3807e7",
+    "reports/memory-management/I3a-validation/cross-native.log": "ecd11f102931e8f7fcac34b199795df096dc399b48a46366daa0a90f3fecf6d0",
+    "reports/memory-management/I3a-validation/cross_native_controls.py": "eb37e2f21e016672a9fd24ef9ed0ac1a7752fc751a2d9e0f2a9fa59a365b4626",
+    "reports/memory-management/I3a-validation/app-control.log": "aa03efaec59f67362167551bbf1339bcccdf43e039a960df2a1d251c0a64abb5",
+    "reports/memory-management/I3a-validation/app-repeat.log": "71bc4ce9c390ba281fce00402133c9dba3941e9f317bc364f318a025dbf1887a",
+    "reports/memory-management/I3a-validation/isolated-stored-escape-candidate.bdgmir": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102",
+    "reports/memory-management/I3a-validation/isolated-stored-escape-baseline.bdgmir": "6757cf39c882565c727934491b4201fd30ee13eb88de2cddbbe51643a1634102",
+    "reports/memory-management/I3a-validation/isolated-stored-escape.bdg": "4b09e6f662b9b1fe37431e2a627657f6a23c5693aed8de88d8f31f8f5a893d55",
+    "reports/memory-management/I3a-validation/isolated-bytes-transient-candidate.bdgmir": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157",
+    "reports/memory-management/I3a-validation/isolated-bytes-transient-baseline.bdgmir": "c37119fa548fb5ed52a968139608e3eb0a6fba0c592920d7b03885c6f8cc4157",
+    "reports/memory-management/I3a-validation/isolated-bytes-transient.bdg": "ba677a354a73388d28a3f93b52d1a8ead1687ba89497bcf11c185d542554d44a",
+    "reports/memory-management/I3a-validation/isolated-visible-candidate.bdgmir": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba",
+    "reports/memory-management/I3a-validation/isolated-visible-baseline.bdgmir": "6489a4db5552fcb0ca99775345f036b77eb3a8fe99eef9600a66a35b050cffba",
+    "reports/memory-management/I3a-validation/isolated-visible.bdg": "546c80a3fa6add9d634bbcc050c88b325a11b33e604ab51c7a8b91bc25080e68",
+    "reports/memory-management/I3a-validation/isolated.log": "3c92e7e68d24e200df3757cd7f71f573225ae988c9220e003b90da317d6db033",
+    "reports/memory-management/I3a-validation/applications.log": "3c96e9965b1a50dc21b9744b68a524477b27731f7bdee08d2a1fc9d123a85502",
+    "reports/memory-management/I3a-validation/isolated_controls.py": "ee5d5831192077743e65502aa86e873d8f9a8e10c226503ab9e9128527a04c45",
+    "reports/memory-management/I3a-validation/census.log": "da61aeaf7e1f2edf601f2344f817f953d3da373f898b218b2d02580eee16c01c",
+    "reports/memory-management/I3a-validation/coverage-candidate.bdgmir": "7bbc8bdd4ec34b34f87af7c39146b8ebb5f3828fbb05a463a1305ae62b728f78",
+    "reports/memory-management/I3a-validation/coverage-baseline.bdgmir": "fe5114ac07402b115d758bd37a5492d16e740e5ab300badea86ab40053c74714",
+    "reports/memory-management/I3a-validation/native.log": "56044bcde6789907c8957128b0390f001eee4b2989e265c87c92717b0a552253",
+    "reports/memory-management/I3a-validation/coverage.log": "050c00f55b7ee1cd6096ed6d987902202ae0ae4297a3b3761d387961585be6c2",
+    "reports/memory-management/I3a-validation/harness.log": "28030ee58d7c154ad512e11c0430c1b8d88f6192319a34832c5b2dbc95c3074b",
+    "reports/memory-management/I3a-validation/tests-mir.log": "a4f55b52dd9b26f1a5c4000cee1972649173a9446c91aad547120cb976228e15",
+    "reports/memory-management/I3a-validation/audit.py": "39c99e741453298589f1c0c238b36741319dbf3587f25219c2332a005b659fc6",
+    "reports/memory-management/I3a-validation/clippy-diagnostic.log": "20f1d978270042f56a3fca1e7bc89bc620b29b833616bcc91beb955a0a453417",
+    "reports/memory-management/I3a-validation/tests-remaining.log": "e5758f60a98823d4d003120ccb5c94bb30257dc31934a37a015f728504ac2903",
+    "reports/memory-management/I3a-validation/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/memory-management/I3a-validation/clippy-ordinary.log": "1e94297d162d164d5cbd65f383fd968acced29970b561eea2f6a0810cdcadf5d",
+    "reports/memory-management/I3a-validation/semantic-diagnostic.json.gz": "d112e477a6931b5798b39d8c3a967dbbd24747122ce00aa6cbe2fea1e7c9d3eb",
+    "reports/memory-management/I3a-validation/native_attribution.py": "067a018303c5762775d1367aa3b77831d489c8fa0effe175bb9613ad253c7e62",
+    "reports/memory-management/I3a-validation/semantic-diagnostic.log": "b8f38966aee5fdd20a405e756d66bbb625b423d67a66a084101d04e8b7cd32d7",
+    "reports/memory-management/I3a-validation/semantic.json.gz": "97e2668efc41a8700112acd5e7994ca5c3cf4870345627592776c38e1efa0864",
+    "reports/memory-management/I3a-validation/tests.log": "7024f982dbe53e383cc08ca486f89001cbbdb89919cad99fca22484b76bc7c5b",
+    "reports/memory-management/I3a-validation/semantic.log": "b8f38966aee5fdd20a405e756d66bbb625b423d67a66a084101d04e8b7cd32d7",
+    "reports/memory-management/I3a-validation/build-diagnostic.log": "41160872f621fda34898032a567ea7867b85f8ab56a5154699fd550490455e59",
+    "reports/memory-management/I3a-validation/build-ordinary.log": "50b0d109b2027377227f744d3be1797032b35db02ef923df68352aa0375dc70b",
+    "reports/memory-management/I3a-validation/baseline.log": "8ca11881d7ec05820c0e11d5e36c33e54f2bf5ccc01677295462259d19926d4d"
+  },
+  "audit_sha256": "39c99e741453298589f1c0c238b36741319dbf3587f25219c2332a005b659fc6"
+}
