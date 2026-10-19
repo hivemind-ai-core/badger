@@ -1850,8 +1850,9 @@ fn take_ready() -> Option<Entry> {
     }
     let (a, b) = two_victims(w, n);
     let (first, second) = if local(a).queued() >= local(b).queued() { (a, b) } else { (b, a) };
-    steal_ready(local(first))
-        .or_else(|| steal_ready(local(second)))
+    let own = local(w).ready();
+    steal_ready(local(first), own)
+        .or_else(|| steal_ready(local(second), own))
         .or_else(|| steal_next(local(first)))
         .or_else(|| steal_next(local(second)))
 }
@@ -1893,8 +1894,29 @@ fn victim_random() -> u64 {
     })
 }
 
-/// Steal the oldest ready task from `q`.
-fn steal_ready(q: &LocalQueue) -> Option<Entry> {
+/// Steal from `q`'s ready queue into `dest` (this worker's own queue) and
+/// return the task to run now.
+///
+/// A long ready queue means its owner cannot keep up, so about half of it
+/// moves over in one attempt (Go's `runtime.runqsteal`): the attempt takes
+/// at most `floor(observed / 2)` tasks, where `observed` is the length
+/// read here, so a thief never takes the whole queue. The victim's next
+/// slot is a queue of its own and is never touched.
+///
+/// `steal_batch_with_limit_and_pop` takes `min((len - 1) / 2, limit - 1)`
+/// plus the one it returns, sizing that from the length it reads itself:
+/// an owner push or pop between the two reads moves it by one, so one task
+/// past half of what was observed here can be taken (the limit still
+/// bounds the attempt, and stealing is best-effort).
+fn steal_ready(q: &LocalQueue, dest: &Worker<Entry>) -> Option<Entry> {
+    let observed = q.ready_stealer.len();
+    if observed >= 2 {
+        match q.ready_stealer.steal_batch_with_limit_and_pop(dest, observed / 2) {
+            Steal::Success(e) => return Some(e),
+            Steal::Empty => return None,
+            Steal::Retry => {}
+        }
+    }
     match q.ready_stealer.steal() {
         Steal::Success(e) => Some(e),
         Steal::Empty | Steal::Retry => None,
@@ -3779,11 +3801,43 @@ mod tests {
             q.ready().push(entry(id));
         }
         q.next().push(entry(9));
-        assert_eq!(steal_ready(&q).map(|e| e.0), Some(1));
+        assert_eq!(steal_ready(&q, &Worker::new_fifo()).map(|e| e.0), Some(1));
         assert_eq!(q.pop(false).map(|e| e.0), Some(2));
         assert_eq!(steal_next(&q).map(|e| e.0), Some(9));
         assert_eq!(steal_next(&q).map(|e| e.0), None);
         assert_eq!(q.pop(true).map(|e| e.0), Some(3));
+        assert_eq!(q.queued(), 0);
+    }
+
+    /// A long ready queue is stolen from in a batch of about half: never
+    /// the whole queue, and never its next slot.
+    #[test]
+    fn thief_takes_at_most_half_of_a_long_queue() {
+        let q = LocalQueue::new();
+        let dest = Worker::new_fifo();
+        for id in 1..=9 {
+            q.ready().push(entry(id));
+        }
+        q.next().push(entry(99));
+        let taken = steal_ready(&q, &dest).expect("a task to run");
+        // the batch moves to the thief, behind the task it runs now
+        let batch = dest.len() as u64;
+        let left = q.ready_stealer.len() as u64;
+        assert_eq!(taken.0, 1, "the oldest task runs now");
+        assert!(batch <= 4, "batch of {batch} from 9 (half is 4)");
+        assert!(left >= 5, "victim kept {left} of 9");
+        assert_eq!(1 + batch + left, 9);
+        assert_eq!(q.next_stealer.len(), 1, "the next slot is not stolen");
+    }
+
+    /// A short ready queue is stolen from one task at a time.
+    #[test]
+    fn a_short_queue_is_stolen_one_at_a_time() {
+        let q = LocalQueue::new();
+        let dest = Worker::new_fifo();
+        q.ready().push(entry(1));
+        assert_eq!(steal_ready(&q, &dest).map(|e| e.0), Some(1));
+        assert_eq!(dest.len(), 0, "a single task is not batched");
         assert_eq!(q.queued(), 0);
     }
 
@@ -3817,7 +3871,7 @@ mod tests {
         assert_eq!(q.queued(), 3);
         assert_eq!(q.pop(false).map(|e| e.0), Some(1));
         assert_eq!(q.queued(), 2);
-        assert_eq!(steal_ready(&q).map(|e| e.0), Some(3));
+        assert_eq!(steal_ready(&q, &Worker::new_fifo()).map(|e| e.0), Some(3));
         assert_eq!(q.queued(), 1);
         assert_eq!(q.pop(true).map(|e| e.0), Some(2));
         assert_eq!(q.queued(), 0);
