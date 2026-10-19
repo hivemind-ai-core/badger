@@ -60,6 +60,35 @@ exports.activate = () => new LanguageClient("badger", "badger",
   { documentSelector: [{ scheme: "file", pattern: "**/*.bdg" }] }).start();
 ```
 
+## Formatting
+
+The server advertises `textDocument/formatting`, so a client can offer to
+format a document. A request is answered with the standard `TextEdit[]`: one
+edit whose range covers the whole document and whose new text is the
+canonical layout — the same one `badger format` writes, so a file formatted
+in the editor and one formatted on the command line agree. The client asks
+for the formatting and applies the edits; the server never rewrites a file
+on its own.
+
+In VS Code, with the Badger language client running:
+
+```json
+{
+  "editor.formatOnSave": true
+}
+```
+
+In Neovim (0.11+), on a save:
+
+```lua
+vim.api.nvim_create_autocmd("BufWritePost", {
+  pattern = "*.bdg",
+  callback = function() vim.lsp.buf.format({ async = false }) end,
+})
+```
+
+In Helix, with `editor.format-on-save = true` in `config.toml`.
+
 ## Syntax highlighting
 
 `editors/tree-sitter-badger` is a tree-sitter grammar with highlight

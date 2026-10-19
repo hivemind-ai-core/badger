@@ -1,0 +1,50 @@
+// @name@: a command-line program.
+//
+// `badger run` runs `main`; the options are parsed by `std.cli`, whose
+// record type is the interface.
+//
+//     badger run . -- --name Ada --count 2 --verbose
+import std.cli
+import std.io
+
+/// The program's options: every field is an option, spelled in kebab case
+/// (`--dry-run` for `dry_run`); `args` collects the positional arguments.
+pub type Options = {
+    name: String,
+    count: Int,
+    verbose: Bool,
+    args: List<String>,
+}
+
+/// The values the options start from.
+pub fn defaults() -> Options {
+    { name: cli.text("world"), count: cli.integer(1), verbose: cli.flag(false), args: cli.text_list([]) }
+}
+
+/// The program's errors.
+pub enum AppError {
+    cli(source: cli.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let options = cli.parse_env_program("@name@", defaults())?
+    if options.verbose {
+        io.println($"@name@: {options.count} greeting(s) for {options.name}")?
+    }
+    for _ in 0..options.count {
+        io.println($"Hello, {options.name}!")?
+    }
+    for argument in options.args {
+        io.println($"argument: {argument}")?
+    }
+    ok(())
+}
+
+fn test_the_defaults() -> Unit {
+    let options = defaults()
+    assert(options.name == "world")
+    assert(options.count == 1)
+    assert(!options.verbose)
+    assert(options.args.is_empty())
+}

@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod bench;
 mod completions;
 mod doc;
 mod doctor;
@@ -13,6 +14,7 @@ mod init;
 mod lsp;
 mod mcp;
 mod search;
+mod templates;
 mod watch;
 use badger_base::diagnostics::json_str;
 use badger_driver::{Outcome, Session};
@@ -192,6 +194,9 @@ enum Command {
         /// The filter is one test's full name, or its function's name.
         #[arg(long)]
         exact: bool,
+        /// Re-run the tests when a source file of the project changes.
+        #[arg(long)]
+        watch: bool,
     },
     /// Run a user task: a typed function declared in the project's
     /// `[tasks]` table (`name = "src/file.bdg#function"`).
@@ -221,6 +226,9 @@ enum Command {
         /// Evaluate in a program started with `badger run --inspect ADDR`.
         #[arg(long, value_name = "ADDR")]
         connect: Option<String>,
+        /// Load a file's definitions into the session before the prompt.
+        #[arg(long, value_name = "FILE")]
+        load: Option<PathBuf>,
     },
     /// Inspect program structure.
     Inspect {
@@ -311,6 +319,39 @@ enum Command {
         /// Compare with the pages in `--out` and fail if any differ.
         #[arg(long)]
         check: bool,
+        /// Write the pages as one HTML file and open it.
+        #[arg(long)]
+        open: bool,
+    },
+    /// Rename a definition and every use of it: the edits are computed
+    /// and applied to the files.
+    Rename {
+        /// The file the definition (or a use of it) is in.
+        path: PathBuf,
+        /// The line of the definition (1-based).
+        #[arg(long)]
+        line: usize,
+        /// The column of the definition (1-based).
+        #[arg(long)]
+        col: usize,
+        /// The new name.
+        #[arg(long)]
+        name: String,
+    },
+    /// Run the benchmark programs and report their measurements.
+    Bench {
+        /// The directory holding the benchmark programs (default `bench`).
+        #[arg(default_value = "bench")]
+        path: PathBuf,
+        /// Write the measurements to this file as JSON.
+        #[arg(long, value_name = "FILE")]
+        out: Option<PathBuf>,
+        /// Compare the measurements with a baseline file written by `--out`.
+        #[arg(long, value_name = "FILE")]
+        compare: Option<PathBuf>,
+        /// The number of workers the programs run with.
+        #[arg(long)]
+        workers: Option<usize>,
     },
     /// Create a project: `NAME/badger.toml` and `NAME/src/main.bdg` (a
     /// program with a test). An existing directory is never written into.
@@ -318,6 +359,10 @@ enum Command {
         /// The package name, also the directory (lowercase, `_` between
         /// words).
         name: String,
+        /// The shape of the project: `cli`, `service`, `framework`, `lib`,
+        /// or `worker` (default: a program with a test).
+        #[arg(long, value_name = "NAME")]
+        template: Option<String>,
     },
     /// Turn a directory into a project: `badger.toml` and
     /// `src/main.bdg` (or `src/lib.bdg` with `--lib`). The directory is
@@ -666,7 +711,7 @@ fn command(mut cli: Cli) -> ExitCode {
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
             run_and_exit(&mut session, &project, args, &opts)
         }
-        Command::Test { args, json, list, exact } => {
+        Command::Test { args, json, list, exact, watch } => {
             // `[path] [filter]`: a first argument naming an existing file or
             // directory is the program; anything else is the filter
             let mut args = args.into_iter();
@@ -680,6 +725,26 @@ fn command(mut cli: Cli) -> ExitCode {
                 Some(a) => (PathBuf::from("."), Some(a)),
                 None => (PathBuf::from("."), None),
             };
+            if watch {
+                // the tests run again on every change, as `badger watch`
+                // runs its command
+                let mut command = vec![exe_path()];
+                command.push("test".into());
+                if json {
+                    command.push("--json".into());
+                }
+                if list {
+                    command.push("--list".into());
+                }
+                if exact {
+                    command.push("--exact".into());
+                }
+                command.push(path.display().to_string());
+                if let Some(f) = &filter {
+                    command.push(f.clone());
+                }
+                return watch::watch(&path, command);
+            }
             badger_driver::LISTING.store(list, std::sync::atomic::Ordering::Relaxed);
             let opts =
                 badger_driver::RunOptions { tests: true, filter, json, list, exact, ..Default::default() };
@@ -833,14 +898,68 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Doc { target, out, check } => match doc::run(&target, out.as_deref(), check) {
+        Command::Doc { target, out, open, .. } if open => match doc::open(&target, out.as_deref()) {
+            Ok(written) => {
+                println!("wrote {written}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Doc { target, out, check, .. } => match doc::run(&target, out.as_deref(), check) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("error: {e}");
                 ExitCode::FAILURE
             }
         },
-        Command::New { name } => {
+        Command::Rename { path, line, col, name } => {
+            let edits = match lsp::query(
+                "rename",
+                &path,
+                Some(line),
+                Some(col),
+                Some(&name),
+                std::collections::HashMap::new(),
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            match apply_edits(&edits) {
+                Ok(files) => {
+                    if files.is_empty() {
+                        eprintln!("error: nothing to rename");
+                        return ExitCode::FAILURE;
+                    }
+                    for f in files {
+                        println!("renamed in {f}");
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::Bench { path, out, compare, workers } => {
+            match bench::run(&path, workers, out.as_deref(), compare.as_deref()) {
+                Ok(text) => {
+                    print!("{text}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Command::New { name, template } => {
             if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
                 || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
             {
@@ -854,10 +973,20 @@ fn command(mut cli: Cli) -> ExitCode {
                 eprintln!("error: {} already exists", dir.display());
                 return ExitCode::FAILURE;
             }
-            let files = [
-                ("badger.toml", format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
+            // a template supplies the files; without one, the project is
+            // a program with a test
+            let files = match &template {
+                Some(t) => match templates::plan(&name, t) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        eprintln!("error: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                },
+                None => vec![
+                ("badger.toml".to_string(), format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
                 (
-                    "src/main.bdg",
+                    "src/main.bdg".to_string(),
                     format!(
                         "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
                          import std.io\n\n\
@@ -866,7 +995,8 @@ fn command(mut cli: Cli) -> ExitCode {
                          fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
                     ),
                 ),
-            ];
+                ],
+            };
             for (f, text) in &files {
                 let p = dir.join(f);
                 if let Err(e) =
@@ -876,21 +1006,30 @@ fn command(mut cli: Cli) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             }
+            let mut made: Vec<String> = vec![];
+            for (f, _) in &files {
+                made.push(format!("{name}/{f}"));
+            }
             println!(
-                "created {name}/badger.toml and {name}/src/main.bdg\n\nnext:\n    cd {name}\n    badger run\n    badger test\n    badger generate feature orders   # a typed feature module"
+                "created {}\n\nnext:\n    cd {name}\n    badger run\n    badger test\n    badger generate feature orders   # a typed feature module",
+                made.join(" and ")
             );
             ExitCode::SUCCESS
         }
-        Command::Generate { what, files, item, dry_run, .. } if what == "feature" || what == "worker" => {
+        Command::Generate { what, files, item, dry_run, .. }
+            if matches!(what.as_str(), "feature" | "worker" | "service" | "cli" | "library") =>
+        {
             let Some(name) = files.first().map(|f| f.to_string_lossy().to_string()) else {
                 eprintln!("error: `badger generate {what}` needs a name (`badger generate {what} orders`)");
                 return ExitCode::from(2);
             };
             let dir = files.get(1).cloned().unwrap_or_else(|| PathBuf::from("."));
-            let planned = if what == "worker" {
-                generate::plan_worker(&dir, &name)
-            } else {
-                generate::plan(&dir, &name, item.as_deref())
+            let planned = match what.as_str() {
+                "worker" => generate::plan_worker(&dir, &name),
+                "service" => generate::plan_service(&dir, &name),
+                "cli" => generate::plan_cli(&dir, &name),
+                "library" => generate::plan_library(&dir, &name),
+                _ => generate::plan(&dir, &name, item.as_deref()),
             };
             let plan = match planned {
                 Ok(p) => p,
@@ -929,6 +1068,13 @@ fn command(mut cli: Cli) -> ExitCode {
                 );
                 return ExitCode::SUCCESS;
             }
+            if what == "service" || what == "cli" || what == "library" {
+                println!(
+                    "\nnext: import {name} where it is used, and read the generated module's\n\
+                     leading comment: it says what the module offers."
+                );
+                return ExitCode::SUCCESS;
+            }
             println!(
                 "\nnext: import {name}.memory, {name}.service, and {name}.http where the application is composed:\n\n    \
                  store: memory.store(),\n    {name}: service.{name}({{ store: ref(#store) }}),\n\n\
@@ -938,7 +1084,9 @@ fn command(mut cli: Cli) -> ExitCode {
         }
         Command::Generate { what, files, database, schema, check, .. } => {
             if what != "sql" {
-                eprintln!("error: unknown generator `{what}` (available: sql, feature, worker)");
+                eprintln!(
+                    "error: unknown generator `{what}` (available: sql, feature, worker, service, cli, library)"
+                );
                 return ExitCode::FAILURE;
             }
             if files.is_empty() {
@@ -978,9 +1126,9 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Repl { connect } => match connect {
-            Some(addr) => remote_repl(&addr),
-            None => repl(),
+        Command::Repl { connect, load } => match connect {
+            Some(addr) => remote_repl(&addr, load),
+            None => repl(load),
         },
         Command::Inspect { what, json, connect: Some(addr), .. } => {
             const REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
@@ -1394,8 +1542,29 @@ fn print_snapshot(what: &str, text: &str) {
 /// REPL connected to a running program: definitions become new compatible
 /// code versions; expressions run inside the program; `:tasks`, `:channels`,
 /// `:system`, `:heap`, `:code` show inspection snapshots.
-fn remote_repl(addr: &str) -> ExitCode {
+fn remote_repl(addr: &str, load: Option<PathBuf>) -> ExitCode {
+    if load_file(addr, load).is_err() {
+        return ExitCode::FAILURE;
+    }
     if repl_loop(addr, "remote> ") == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+}
+
+/// Load a file's definitions into the session: the file's text is
+/// evaluated as one block, so every definition in it is in scope
+/// afterwards.
+fn load_file(addr: &str, load: Option<PathBuf>) -> Result<(), String> {
+    let Some(path) = load else { return Ok(()) };
+    let text =
+        std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    match badger_driver::inspect::eval(addr, &text) {
+        Ok(reply) => {
+            if !reply.trim().is_empty() {
+                println!("{reply}");
+            }
+            Ok(())
+        }
+        Err(e) => Err(format!("{}: {e}", path.display())),
+    }
 }
 
 /// Read inputs and evaluate each in the program at `addr`; `:tasks`,
@@ -1510,16 +1679,80 @@ pub(crate) fn run_session(setup: &SessionSetup) -> ExitCode {
     run_and_exit(&mut s, &setup.file, vec![], &opts)
 }
 
-fn repl() -> ExitCode {
+fn repl(load: Option<PathBuf>) -> ExitCode {
     let Some(setup) = prepare_session("badger-repl") else { return ExitCode::FAILURE };
     let (addr, cleanup) = (setup.addr.clone(), setup.dir.clone());
     std::thread::spawn(move || {
         wait_for_session(&addr);
+        if let Err(e) = load_file(&addr, load) {
+            eprintln!("error: {e}");
+            let _ = std::fs::remove_dir_all(&cleanup);
+            exit_now(1);
+        }
         let code = repl_loop(&addr, "badger> ");
         let _ = std::fs::remove_dir_all(&cleanup);
         exit_now(code)
     });
     run_session(&setup)
+}
+
+/// This executable's path: the commands that run the tool again use it.
+fn exe_path() -> String {
+    std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "badger".into())
+}
+
+/// The byte offset of a 1-based line and column (columns count
+/// characters, as in `badger check --json`).
+fn offset_of(text: &str, line: usize, col: usize) -> usize {
+    let mut offset = 0;
+    for (i, l) in text.split_inclusive('\n').enumerate() {
+        if i + 1 == line {
+            for (chars, (b, _)) in l.char_indices().enumerate() {
+                if chars + 1 == col {
+                    return offset + b;
+                }
+            }
+            return offset + l.len();
+        }
+        offset += l.len();
+    }
+    offset
+}
+
+/// Apply the edits a rename computed: every edit names a file, a range
+/// (1-based lines and columns), and the text that replaces it. The
+/// edits of a file are applied from its end, so the ranges stay valid.
+fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
+    let list = edits["edits"].as_array().cloned().unwrap_or_default();
+    let mut by_file: std::collections::HashMap<String, Vec<&serde_json::Value>> = Default::default();
+    for e in &list {
+        let file = e["file"].as_str().unwrap_or_default().to_string();
+        by_file.entry(file).or_default().push(e);
+    }
+    let mut changed = vec![];
+    for (file, mut es) in by_file {
+        let mut text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
+        es.sort_by_key(|e| {
+            (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0)))
+        });
+        for e in es {
+            let line = e["line"].as_i64().unwrap_or(1).max(1) as usize;
+            let col = e["col"].as_i64().unwrap_or(1).max(1) as usize;
+            let end_line = e["end_line"].as_i64().unwrap_or(line as i64).max(1) as usize;
+            let end_col = e["end_col"].as_i64().unwrap_or(col as i64).max(1) as usize;
+            let a = offset_of(&text, line, col);
+            let b = offset_of(&text, end_line, end_col);
+            if a > b || b > text.len() {
+                return Err(format!("{file}: an edit is outside the file"));
+            }
+            let new = e["text"].as_str().unwrap_or_default();
+            text.replace_range(a..b, new);
+        }
+        std::fs::write(&file, &text).map_err(|e| format!("{file}: {e}"))?;
+        changed.push(file);
+    }
+    changed.sort();
+    Ok(changed)
 }
 
 fn depth(s: &str) -> i32 {

@@ -1,0 +1,58 @@
+// @name@: an HTTP service.
+//
+// The service itself is in `service.bdg` (its operations over an
+// in-memory store); the routes that bind them to HTTP are in
+// `routes.bdg`.
+//
+// `badger run` answers a few requests in-process (no socket, no port), so
+// the project runs anywhere; `badger test` runs the tests. To serve it
+// for real, bind the routes to a server:
+//
+//     let plan = system {
+//         notes: service.notes(),
+//         api: http.server({ address: "127.0.0.1", port: 8080, handler: ref(#api) }),
+//     }
+import std.http
+import std.io
+import std.route
+import std.system
+import routes
+import service
+
+/// The application's errors.
+pub enum AppError {
+    route(source: route.RouteError),
+    system(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        notes: service.notes(),
+    }
+    use running <- system.run(plan)
+    let api = route.table(routes.routes(running.notes))?
+    let created = http.call(api, http.request(#post, "/notes", "{\"title\": \"  Write the docs  \"}"))
+    io.println($"POST /notes        -> {created.status} {created.body.to_text().unwrap_or("")}")?
+    let listed = http.call(api, http.request(#get, "/notes", ""))
+    io.println($"GET  /notes        -> {listed.status} {listed.body.to_text().unwrap_or("")}")?
+    let done = http.call(api, http.request(#post, "/notes/1/done", "{}"))
+    io.println($"POST /notes/1/done -> {done.status} {done.body.to_text().unwrap_or("")}")?
+    let missing = http.call(api, http.request(#post, "/notes/9/done", "{}"))
+    io.println($"POST /notes/9/done -> {missing.status} {missing.body.to_text().unwrap_or("")}")?
+    ok(())
+}
+
+fn test_the_routes() -> Result<Unit, AppError> {
+    let plan = system {
+        notes: service.notes(),
+    }
+    use running <- system.run(plan)
+    let api = route.table(routes.routes(running.notes))?
+    assert(http.call(api, http.request(#post, "/notes", "{\"title\": \"first\"}")).status == 201)
+    assert(http.call(api, http.request(#get, "/notes", "")).status == 200)
+    assert(http.call(api, http.request(#post, "/notes/1/done", "{}")).status == 200)
+    assert(http.call(api, http.request(#post, "/notes/9/done", "{}")).status == 404)
+    assert(http.call(api, http.request(#post, "/notes", "{\"title\": \" \"}")).status == 400)
+    ok(())
+}

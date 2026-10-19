@@ -1,0 +1,52 @@
+// The service: a typed set of operations over an in-memory store. The
+// operations are the service's contract: the HTTP routes, the command
+// line, and the workers all call the same ones.
+import std.app
+import std.list
+import std.text
+
+/// One record of the service.
+pub type Note = { id: Int, title: String, done: Bool }
+
+/// A new record.
+pub type NewNote = { title: String }
+
+/// What can go wrong.
+pub enum Error {
+    invalid(message: String),
+    not_found(id: Int),
+} derive(Error)
+
+/// The service's operations.
+pub type Operations = {
+    create: app.Operation<NewNote, Note, Error, !{Io, Wait, State}>,
+    list: app.Operation<{}, List<Note>, Error, !{Io, Wait, State}>,
+    complete: app.Operation<Int, Note, Error, !{Io, Wait, State}>,
+}
+
+/// The service, over an in-memory store.
+pub provider notes(config: {}) -> Result<Operations, Error> {
+    let rows: Atom<List<Note>> = Atom.new([])
+    ok({
+        create: app.from_fn({ id: #notes/create, version: 1, doc: "Add a note." }, fn(_call, input: NewNote) -> Result<Note, Error> {
+            let title = text.trim(input.title)
+            if title == "" {
+                return err(Error.invalid("a note needs a title"))
+            }
+            let all = rows.update(fn(current) { current.append({ id: current.len() + 1, title, done: false }) })
+            ok(all[all.len() - 1])
+        }),
+        list: app.from_fn({ id: #notes/list, version: 1, doc: "Every note." }, fn(_call, _input: {}) -> Result<List<Note>, Error> {
+            ok(rows.get())
+        }),
+        complete: app.from_fn({ id: #notes/complete, version: 1, doc: "Mark a note done." }, fn(_call, id: Int) -> Result<Note, Error> {
+            let all = rows.update(fn(current) {
+                list.map(current, fn(n) { if n.id == id { { ..n, done: true } } else { n } })
+            })
+            match list.find(all, fn(n) { n.id == id }) {
+                .some(n) => ok(n),
+                .none => err(Error.not_found(id)),
+            }
+        }),
+    })
+}

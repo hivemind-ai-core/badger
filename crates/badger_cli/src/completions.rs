@@ -99,14 +99,14 @@ const COMMANDS: &[Cmd] = &[
     Cmd {
         name: "test",
         about: "run the test functions of a program",
-        flags: &["--json", "--list", "--exact"],
+        flags: &["--json", "--list", "--exact", "--watch"],
     },
     Cmd { name: "task", about: "run a user task of the project", flags: &["--project", "--profile"] },
     Cmd { name: "format", about: "rewrite the sources in the canonical layout", flags: &["--check"] },
     Cmd {
         name: "repl",
         about: "interactive session: definitions accumulate, expressions evaluate",
-        flags: &["--connect"],
+        flags: &["--connect", "--load"],
     },
     Cmd {
         name: "inspect",
@@ -122,8 +122,8 @@ const COMMANDS: &[Cmd] = &[
         about: "answer one question about a program as JSON",
         flags: &["--line", "--col", "--source", "--name", "--overlays"],
     },
-    Cmd { name: "doc", about: "reference documentation in Markdown", flags: &["--out", "--check"] },
-    Cmd { name: "new", about: "create a project in a new directory", flags: &[] },
+    Cmd { name: "doc", about: "reference documentation in Markdown", flags: &["--out", "--check", "--open"] },
+    Cmd { name: "new", about: "create a project in a new directory", flags: &["--template"] },
     Cmd {
         name: "generate",
         about: "generate typed code",
@@ -147,6 +147,16 @@ const COMMANDS: &[Cmd] = &[
         name: "search",
         about: "find a definition in the standard library and the project",
         flags: &["--json"],
+    },
+    Cmd {
+        name: "rename",
+        about: "rename a definition and every use of it",
+        flags: &["--line", "--col", "--name"],
+    },
+    Cmd {
+        name: "bench",
+        about: "run the benchmark programs and report their measurements",
+        flags: &["--out", "--compare", "--workers"],
     },
 ];
 

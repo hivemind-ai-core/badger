@@ -185,7 +185,7 @@ $ badger run --release --workers 4 . -- some args
 port=8080 db=demo.db half=4040
 ```
 
-### `badger test [PATH] [FILTER] [--json] [--list] [--exact]`
+### `badger test [PATH] [FILTER] [--json] [--list] [--exact] [--watch]`
 
 Run `test_*` functions. A test function takes no parameters and returns
 `Unit` or a `Result`; a failed assertion, a defect, or an `err` result
@@ -204,6 +204,7 @@ otherwise it is FILTER. FILTER keeps the tests whose name contains it.
 | `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[...]}`; each test has `name`, `ok`, `kind` (`passed`, `assertion`, `defect`, `cancelled`, or `error` for a returned `err`), `message`, `location` (`file:line:column` of a failed assertion or defect), `ms`, and `detail` (the line the text report prints). |
 | `--list` | Print the selected tests' names (with `--json`, `{"tests":[{"name"}]}`) without running them. |
 | `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
+| `--watch` | Run the tests, then run them again whenever a source file of the project changes (the files are polled; Ctrl-C stops it). |
 
 Exit status: 0 when every test that ran passed (also when the filter
 matched none), 1 when one failed or the program does not check.
@@ -365,11 +366,15 @@ would reformat fmt.bdg
 
 ## REPL
 
-### `badger repl [--connect ADDR]`
+### `badger repl [--connect ADDR] [--load FILE]`
 
 Interactive session: definitions accumulate, expressions evaluate. With
 `--connect ADDR`, evaluate inside a program started with
 `badger run --inspect ADDR`. Full reference: [repl.md](repl.md).
+
+| Flag | Meaning |
+|---|---|
+| `--load FILE` | Load a file's definitions into the session before the prompt: the file's text is evaluated as one block, so every definition in it is in scope afterwards. |
 
 ## Tools
 
@@ -467,6 +472,37 @@ std.route.query_params  pub fn query_params(uri: String) -> Params {
     The query parameters of a request URI (`?a=1&b=2`): the names and values are percent-decoded.
 ```
 
+### `badger rename PATH --line N --col N --name NEW`
+
+Rename a definition, and every use of it, in the files of the project.
+The position is a line and a column (1-based, as in `badger check
+--json`); it may point at the definition or at one of its uses. The
+edits are computed and applied, and the files that changed are named.
+
+```sh
+$ badger rename src/orders.bdg --line 12 --col 4 --name find_order
+renamed in src/orders.bdg
+```
+
+### `badger bench [PATH] [--out FILE] [--compare FILE] [--workers N]`
+
+Run the benchmark programs and report their measurements. PATH is the
+directory holding the programs (default `bench`); the `.bdg` files in it
+are run in release mode, and each one's printed measurements
+(`label: value unit`) are collected.
+
+| Flag | Meaning |
+|---|---|
+| `--out FILE` | Write the measurements to FILE as JSON (`{program: {label: {value, unit}}}`). |
+| `--compare FILE` | Compare the measurements with a baseline written that way, and report the change of each. |
+| `--workers N` | Run the programs with N workers. |
+
+```sh
+$ badger bench --out /tmp/base.json
+$ badger bench --compare /tmp/base.json
+bench/messages.bdg: prompt channel 1234.000 ns/message (-3.2% against 1275.000)
+```
+
 ### `badger graph KIND [PATH] [--format FORMAT] [--std]`
 
 Program structure as a graph. PATH defaults to `.`.
@@ -496,7 +532,7 @@ digraph calls {
 }
 ```
 
-### `badger doc TARGET [--out DIR] [--check]`
+### `badger doc TARGET [--out DIR] [--check] [--open]`
 
 Reference documentation in Markdown from checked interfaces. TARGET is
 `std` (every standard module, one page each plus an index), one standard
@@ -506,6 +542,7 @@ module (`std.list`), or a program path.
 |---|---|
 | `--out DIR` | Write the pages into DIR instead of printing them. |
 | `--check` | With `--out`: compare with the pages in DIR and fail if any differ or a page has no module. |
+| `--open` | Write the reference as one HTML page and open it: the page goes into `--out` when a directory is given, and into a private directory otherwise. |
 
 ```sh
 badger doc std --out docs/api --check
@@ -565,11 +602,15 @@ functions: `NAME.bdg` next to each `NAME.sql`. Guide: [typed-sql.md](../typed-sq
 badger generate sql src/queries.sql --schema schema.sql
 ```
 
-### `badger new NAME`
+### `badger new NAME [--template NAME]`
 
 Creates the directory `NAME` with `badger.toml` (package `NAME`, entry
 `src/main.bdg`) and `src/main.bdg`: a program with a `main` and one test.
 `NAME` is a lowercase identifier; an existing directory is an error.
+
+| Flag | Meaning |
+|---|---|
+| `--template NAME` | The shape of the project: `cli` (a program that parses options), `service` (routes over a store), `framework` (the shape of the framework example), `lib` (a library package), or `worker` (a background worker). Without it, the project is a program with a test. |
 
 ### `badger init [PATH] [--lib]`
 
@@ -623,6 +664,34 @@ placeholder), `processing`, a `processor` provider running a supervised
 worker, `submit`, and a test that a submitted job is processed. It is
 checked, and its test run, in a copy of the project first, like
 `generate feature`; an existing module is never replaced.
+
+### `badger generate service NAME [DIR] [--dry-run]`
+
+Adds a service module under the entry's directory: `NAME/model.bdg` (the
+record, its errors, and the service's operations), `NAME/store.bdg` (the
+in-memory store), `NAME/service.bdg` (the operations over the store, and
+a test), and `NAME/http.bdg` (the route table, with the status each
+error carries, and a test). It is checked, and its tests run, in a copy
+of the project first, like `generate feature`; an existing module is
+never replaced.
+
+```sh
+badger generate service orders
+```
+
+### `badger generate cli NAME [DIR] [--dry-run]`
+
+Adds `NAME.bdg` under the entry's directory: the command's options (a
+record type), their parsing (`std.cli`), and a test that the options are
+parsed. It is checked, and its test run, in a copy of the project first,
+like `generate feature`; an existing module is never replaced.
+
+### `badger generate library NAME [DIR] [--dry-run]`
+
+Adds `NAME.bdg` under the entry's directory: a library module with a
+public type, an operation over it, and a test. It is checked, and its
+test run, in a copy of the project first, like `generate feature`; an
+existing module is never replaced.
 
 ### `badger update [PATH]`
 
