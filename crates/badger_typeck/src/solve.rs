@@ -2233,6 +2233,10 @@ impl Infer<'_, '_> {
                 }
             }
             TyKind::Skolem(_) => {
+                // every bound (or supertrait) declaring the method: one is
+                // the call; several are told apart by the call's type, or
+                // the call is ambiguous (not decided by the bounds' order)
+                let mut found: Vec<(DefId, Vec<Ty>)> = vec![];
                 for (proto, pargs, subj) in self.givens.clone() {
                     if !self.icx.try_unify(&subj, &r) {
                         continue;
@@ -2243,12 +2247,60 @@ impl Infer<'_, '_> {
                     );
                     for p in protos {
                         let pa = if p == proto { pargs.clone() } else { vec![] };
-                        if let Some(c) = self.protocol_member(p, &pa, &r, name, explicit) {
-                            return Lookup::Found(c.0, c.1);
+                        let declares =
+                            self.g.env.protocols.get(&p).is_some_and(|i| i.methods.contains_key(&name));
+                        if declares && !found.iter().any(|(q, _)| *q == p) {
+                            found.push((p, pa));
                         }
                     }
                 }
-                Lookup::NotFound
+                if found.len() > 1
+                    && let Some(f) = fn_ty
+                {
+                    let mut fits = vec![];
+                    for (p, pa) in &found {
+                        let (snap, np) = (self.icx.snapshot(), self.pending.len());
+                        let ok = self
+                            .protocol_member(*p, pa, &r, name, explicit)
+                            .is_some_and(|(_, ty)| self.fits_call(&ty, f));
+                        self.icx.rollback(snap);
+                        self.pending.truncate(np);
+                        if ok {
+                            fits.push((*p, pa.clone()));
+                        }
+                    }
+                    if fits.len() > 1 && !final_ {
+                        return Lookup::Unknown;
+                    }
+                    if !fits.is_empty() {
+                        found = fits;
+                    }
+                }
+                if found.len() > 1 {
+                    let m = self.sym(name).to_string();
+                    let names: Vec<String> = found
+                        .iter()
+                        .map(|(p, _)| format!("`{}`", self.sym(self.g.hir.defs[*p].name)))
+                        .collect();
+                    self.error(
+                        "E0340",
+                        span,
+                        format!(
+                            "ambiguous method `{m}`: {} {} declare it",
+                            names.join(" and "),
+                            if names.len() == 2 { "both" } else { "all" }
+                        ),
+                        "several bounds apply; annotate the expected type",
+                    );
+                    return Lookup::Found(Target::Field(name), error_ty());
+                }
+                match found.first() {
+                    Some((p, pa)) => match self.protocol_member(*p, pa, &r, name, explicit) {
+                        Some(c) => Lookup::Found(c.0, c.1),
+                        None => Lookup::NotFound,
+                    },
+                    None => Lookup::NotFound,
+                }
             }
             TyKind::Dyn(p, pargs) => {
                 let (p, pargs) = (*p, pargs.clone());

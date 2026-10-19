@@ -1,0 +1,12 @@
+// expect-error: E0340
+// Two bounds that both declare `m`: a call the expected type cannot tell
+// apart is ambiguous, whichever order the bounds are written in.
+pub protocol P { fn m(self: &Self) -> Int }
+
+pub protocol Q { fn m(self: &Self) -> String }
+
+fn pick<T>(t: &T) -> String where T: P + Q { t.m() }
+
+fn either<T>(t: &T) where T: Q + P { let x = t.m() }
+
+pub fn main() {}
