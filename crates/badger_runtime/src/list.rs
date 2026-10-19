@@ -240,6 +240,45 @@ pub fn page_read(page: u64, slot: usize, repr: Repr) -> u64 {
     unsafe { repr.load(obj(page).payload().add(PAGE_HDR + slot * repr.size() as usize)) }
 }
 
+/// Contiguous element storage of page `p`, for bulk copies.
+pub fn page_elems(w: u64, p: usize) -> *const u8 {
+    unsafe { obj(hdr(w).page(p)).payload().add(PAGE_HDR) }
+}
+
+/// Copy every element of `l` into `dst`, one bulk run per page. Element
+/// width is `l`'s representation width; `dst` must have room for `len` of
+/// them. Runs stay within a page, so pointer elements copy as full words.
+pub fn copy_into(l: u64, dst: *mut u8) {
+    let h = hdr(l);
+    let (cap, n, size) = (h.cap(), h.len(), h.repr().size() as usize);
+    let mut i = 0;
+    while i < n {
+        let end = (i + cap).min(n);
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                obj(h.page(i / cap)).payload().add(PAGE_HDR),
+                dst.add(i * size),
+                (end - i) * size,
+            );
+        }
+        i = end;
+    }
+}
+
+/// A frozen array holding `l`'s elements (a contiguous copy of its pages).
+pub fn to_array(l: u64, elem: &'static TypeDesc) -> u64 {
+    let r = gc::Roots::new();
+    r.add(l);
+    let n = len(l);
+    let w = r.add(crate::buffer::new(elem, n));
+    {
+        let d = crate::buffer::data(w);
+        copy_into(l, d.items.as_mut_ptr());
+        d.items.set_len(n);
+    }
+    crate::buffer::freeze(w)
+}
+
 /// Address of element `i` (stable while the list is alive); out of range
 /// is a task defect.
 pub fn addr(w: u64, i: usize) -> *mut u8 {
@@ -333,6 +372,11 @@ fn new_page(elem: &'static TypeDesc, cap: usize) -> u64 {
 /// extends there, even when workers append to one list concurrently.
 fn claim(count: &AtomicU64, used: usize) -> bool {
     count.compare_exchange(used as u64, used as u64 + 1, Ordering::AcqRel, Ordering::Relaxed).is_ok()
+}
+
+/// Claim `n` free slots at once, for a bulk append.
+fn claim_n(count: &AtomicU64, used: usize, n: usize) -> bool {
+    count.compare_exchange(used as u64, used as u64 + n as u64, Ordering::AcqRel, Ordering::Relaxed).is_ok()
 }
 
 /// Make page `page` slot `p` of list `w`'s directory, which holds `p`
@@ -436,6 +480,79 @@ fn copy_tail(w: u64) {
         dir_used(nd).store(p as u64 + 1, Ordering::Release);
     }
     h.set_dir(nd);
+}
+
+/// Append `n` packed elements from `src` (contiguous, at `dst`'s element
+/// width) to `dst`, filling whole runs into destination pages instead of
+/// one `push` per element. `dst` is a fresh list or builder and must not be
+/// shared with another version; `dst` must be rooted by the caller and
+/// `src` must stay valid (it does: pages never move).
+pub fn push_raw(dst: u64, src: *const u8, n: usize) {
+    if n == 0 {
+        return;
+    }
+    let r = gc::Roots::new();
+    r.add(dst);
+    let mut done = 0;
+    while done < n {
+        let h = hdr(dst);
+        let (len, cap, elem) = (h.len(), h.cap(), h.elem());
+        let size = elem.repr().size() as usize;
+        let off = len % cap;
+        let page = if off == 0 {
+            // A bulk append knows how many elements remain, so a first page
+            // can be the exact size the run needs instead of growing by
+            // copying (which `push` must do, one element at a time).
+            let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS.max(n - done)) } else { cap };
+            let page = r.add(new_page(elem, slots));
+            unsafe { (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release) };
+            put_page(dst, len / cap, page);
+            page
+        } else {
+            hdr(dst).page(len / cap)
+        };
+        let free = slots(page, size) - off;
+        if free == 0 {
+            copy_tail(dst);
+            continue;
+        }
+        let run = free.min(n - done);
+        let count = unsafe { &*(obj(page).payload().add(8) as *const AtomicU64) };
+        if !claim_n(count, off, run) {
+            copy_tail(dst);
+            continue;
+        }
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                src.add(done * size),
+                obj(page).payload().add(PAGE_HDR + off * size),
+                run * size,
+            );
+        }
+        if elem.is_ptr() {
+            gc::barrier(page);
+        }
+        hdr(dst).set_len(len + run);
+        done += run;
+    }
+}
+
+/// Append the elements of `src[start..end]` to `dst`, one bulk run per
+/// source page. `dst` is a fresh list or builder; `dst` and `src` must be
+/// rooted by the caller.
+pub fn push_run(dst: u64, src: u64, start: usize, end: usize) {
+    if start >= end {
+        return;
+    }
+    let h = hdr(src);
+    let (cap, size) = (h.cap(), h.repr().size() as usize);
+    let mut i = start;
+    while i < end {
+        let (p, off) = (i / cap, i % cap);
+        let run = (cap - off).min(end - i);
+        push_raw(dst, unsafe { obj(h.page(p)).payload().add(PAGE_HDR + off * size) }, run);
+        i += run;
+    }
 }
 
 /// Freeze a builder into a list, taking over its directory.

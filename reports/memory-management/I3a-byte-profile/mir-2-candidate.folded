@@ -1,0 +1,23 @@
+<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>>::insert 1
+[[vdso]+0xd4c] 2
+[[vdso]+0xd97] 1
+[libc.so.6+0x18fcc9] 2
+[libc.so.6+0x18fcee] 1
+[stored-sequence-candidate+0xb43c60] 30
+[stored-sequence-candidate+0xb757c0] 1
+[stored-sequence-candidate+0xbb1200] 57
+__mmap 1
+badger_runtime::abi::badger_rt_list_get 3
+badger_runtime::buffer::new 8
+badger_runtime::buffer::push 1113
+badger_runtime::gc::alloc 3
+badger_runtime::gc::budget_check 1
+badger_runtime::gc::collect_inner 8
+badger_runtime::intrinsics_std::buffer_freeze 2
+badger_runtime::intrinsics_std::buffer_push 58
+badger_runtime::task::harvest_events 1
+badger_runtime::task::worker_index 1
+core::ptr::drop_glue::<<alloc::collections::vec_deque::drain::Drain<_, _> as core::ops::drop::Drop>::drop::DropGuard<badger_runtime::task::External, alloc::alloc::Global>> 1
+isolated-bytes-transient.buffers#21 292
+mremap 1
+munmap 1

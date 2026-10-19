@@ -9,6 +9,7 @@ enum Source {
     Bounds(ExprId, ExprId),
     Range(ExprId, bool),
     List(ExprId, Ty, bool),
+    Stored(LocalId),
 }
 enum Stage {
     Map(ExprId),
@@ -20,6 +21,23 @@ enum Active {
     Filter(Operand),
     Take(Local),
 }
+#[derive(Clone)]
+enum PreparedStage {
+    Map(Operand, Repr),
+    Filter(Operand),
+    Take(Operand),
+}
+/// Construction-time snapshots. Traversals create their own mutable position
+/// and take counters; every retained pointer remains a typed MIR operand.
+#[derive(Clone)]
+pub(super) struct Prepared {
+    start: Operand,
+    end: Operand,
+    inclusive: Operand,
+    list: Option<(Operand, Ty)>,
+    stages: Vec<PreparedStage>,
+}
+pub(super) struct SequencePlan(Source, Vec<Stage>);
 enum Terminal {
     Fold(ExprId, ExprId),
     Count,
@@ -56,6 +74,11 @@ impl FnLower<'_, '_, '_> {
         if depth > 16 {
             return None;
         }
+        if let ExprKind::Local(local) = self.hir().exprs[e].kind
+            && self.stored_sequences.contains_key(&local)
+        {
+            return Some((Source::Stored(local), vec![]));
+        }
         match self.inst.coercions.get(&e) {
             Some(badger_typeck::Coercion::RangeToSeq) => return Some((Source::Range(e, true), vec![])),
             Some(badger_typeck::Coercion::ToSeq) if self.m.lay.is_std(&self.ty(e), "List") => {
@@ -85,6 +108,111 @@ impl FnLower<'_, '_, '_> {
         }
     }
 
+    /// Find the local at the base of a supported terminal's inline adapters.
+    /// Returning the exact expression (not just its local) lets the use audit
+    /// reject even one escaping reference to an otherwise eligible binding.
+    fn sequence_local_use(&self, e: ExprId, depth: usize) -> Option<ExprId> {
+        if depth > 16 {
+            return None;
+        }
+        if matches!(self.hir().exprs[e].kind, ExprKind::Local(_)) {
+            return Some(e);
+        }
+        let (name, args) = self.sequence_call(e)?;
+        match (name.as_str(), args.as_slice()) {
+            ("std.seq.map" | "std.seq.filter" | "std.seq.take", [inner, _]) => {
+                self.sequence_local_use(*inner, depth + 1)
+            }
+            _ => None,
+        }
+    }
+
+    fn eligible_sequence_locals(&self) -> rustc_hash::FxHashSet<LocalId> {
+        use rustc_hash::FxHashSet;
+        let hir = self.hir();
+        let body = match self.owner {
+            Owner::Fn(def) => match &hir.defs[def].kind {
+                DefKind::Fn(f) => f.body,
+                _ => None,
+            },
+            Owner::Global(def) => match &hir.defs[def].kind {
+                DefKind::Global(g) => Some(g.value),
+                _ => None,
+            },
+            Owner::Lambda(e) => match &hir.exprs[e].kind {
+                ExprKind::Lambda(l) => Some(l.body),
+                _ => None,
+            },
+        };
+        let Some(body) = body else { return FxHashSet::default() };
+        let mut exprs = vec![];
+        badger_typeck::program::walk_exprs(hir, body, &mut |e| exprs.push(e));
+        let mut allowed = FxHashSet::default();
+        for &e in &exprs {
+            let iter = match &hir.exprs[e].kind {
+                ExprKind::For { iter, .. }
+                    if matches!(self.inst.res.get(&e), Some(Res::Iter(IterKind::Seq))) =>
+                {
+                    Some(*iter)
+                }
+                _ => self.sequence_call(e).and_then(|(name, args)| match (name.as_str(), args.as_slice()) {
+                    ("std.seq.fold", [iter, _, _]) | ("std.seq.count", [iter]) => Some(*iter),
+                    _ => None,
+                }),
+            };
+            if let Some(iter) = iter
+                && let Some(reference) = self.sequence_local_use(iter, 0)
+            {
+                allowed.insert(reference);
+            }
+        }
+        let mut candidates = FxHashSet::default();
+        let mut rejected = FxHashSet::default();
+        for e in exprs {
+            match &hir.exprs[e].kind {
+                ExprKind::Local(local) => {
+                    if allowed.contains(&e) {
+                        candidates.insert(*local);
+                    } else {
+                        rejected.insert(*local);
+                    }
+                }
+                ExprKind::Lambda(l) => rejected.extend(l.captures.iter().copied()),
+                _ => {}
+            }
+        }
+        candidates.retain(|local| {
+            let l = &hir.locals[*local];
+            l.owner == Some(self.owner)
+                && !l.mutable
+                && !rejected.contains(local)
+                && !self.inst.poly_locals.contains_key(local)
+        });
+        candidates
+    }
+
+    pub(super) fn stored_sequence_plan(
+        &mut self,
+        pat: PatId,
+        init: ExprId,
+    ) -> Option<(LocalId, SequencePlan)> {
+        if !self.m.fuse_sequences {
+            return None;
+        }
+        let PatKind::Bind(local) = self.hir().pats[pat].kind else { return None };
+        if !self.m.lay.is_std(&self.pat_ty(pat), "Seq") {
+            return None;
+        }
+        if self.sequence_locals.is_none() {
+            self.sequence_locals = Some(self.eligible_sequence_locals());
+        }
+        if !self.sequence_locals.as_ref()?.contains(&local) {
+            return None;
+        }
+        let (source, stages) = self.sequence_plan(init, 0)?;
+        Some((local, SequencePlan(source, stages)))
+    }
+
     pub(super) fn fused_terminal(&self, e: ExprId) -> Option<Plan> {
         let (name, args) = self.sequence_call(e)?;
         let (iter, terminal) = match (name.as_str(), args.as_slice()) {
@@ -101,38 +229,55 @@ impl FnLower<'_, '_, '_> {
         Some(Plan { source, stages, terminal: Terminal::For(pat, body) })
     }
 
-    pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
+    pub(super) fn prepare_sequence(&mut self, plan: SequencePlan) -> Option<Prepared> {
+        let SequencePlan(source, stages) = plan;
         let mut list_source = None;
-        let (start, end, inclusive) = match plan.source {
-            Source::Bounds(lo, hi) => (self.lower(lo)?, self.lower(hi)?, int(0)),
-            Source::Range(expr, coerced) => {
-                let r = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
-                let mut field =
-                    |offset| self.assign(Repr::I64, Rvalue::Load { base: r, offset, repr: Repr::I64 });
-                (field(0), field(8), field(16))
-            }
-            Source::List(expr, elem, coerced) => {
-                let l = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
-                let n = self.rt("badger_rt_list_len", vec![l], Repr::I64);
-                list_source = Some((l, elem));
-                (int(0), n, int(0))
-            }
+        let mut prepared = if let Source::Stored(local) = source {
+            self.stored_sequences[&local].clone()
+        } else {
+            let (start, end, inclusive) = match source {
+                Source::Bounds(lo, hi) => (self.lower(lo)?, self.lower(hi)?, int(0)),
+                Source::Range(expr, coerced) => {
+                    let r = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
+                    let mut field =
+                        |offset| self.assign(Repr::I64, Rvalue::Load { base: r, offset, repr: Repr::I64 });
+                    (field(0), field(8), field(16))
+                }
+                Source::List(expr, elem, coerced) => {
+                    let l = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
+                    let n = self.rt("badger_rt_list_len", vec![l], Repr::I64);
+                    list_source = Some((l, elem));
+                    (int(0), n, int(0))
+                }
+                Source::Stored(_) => unreachable!(),
+            };
+            Prepared { start, end, inclusive, list: list_source, stages: vec![] }
         };
-        let mut stages = vec![];
-        for stage in plan.stages {
-            stages.push(match stage {
+        for stage in stages {
+            prepared.stages.push(match stage {
                 Stage::Map(expr) => {
                     let TyKind::Fn(ft) = &*self.ty(expr) else { unreachable!() };
                     let ret = self.repr(&ft.ret);
-                    Active::Map(self.lower(expr)?, ret)
+                    PreparedStage::Map(self.lower(expr)?, ret)
                 }
-                Stage::Filter(expr) => Active::Filter(self.lower(expr)?),
-                Stage::Take(expr) => {
-                    let n = self.lower(expr)?;
-                    Active::Take(self.copy_to_local(n, Repr::I64, None))
-                }
+                Stage::Filter(expr) => PreparedStage::Filter(self.lower(expr)?),
+                Stage::Take(expr) => PreparedStage::Take(self.lower(expr)?),
             });
         }
+        Some(prepared)
+    }
+
+    pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
+        let Prepared { start, end, inclusive, list: list_source, stages } =
+            self.prepare_sequence(SequencePlan(plan.source, plan.stages))?;
+        let stages: Vec<_> = stages
+            .into_iter()
+            .map(|stage| match stage {
+                PreparedStage::Map(f, ret) => Active::Map(f, ret),
+                PreparedStage::Filter(f) => Active::Filter(f),
+                PreparedStage::Take(n) => Active::Take(self.copy_to_local(n, Repr::I64, None)),
+            })
+            .collect();
         let ret = match plan.terminal {
             Terminal::For(..) => Repr::I8,
             _ => self.repr(&self.ty(e)),

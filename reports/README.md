@@ -25,6 +25,7 @@ states the revision it measured; newer work can change its numbers.
 | [2026-10-15-memory-optimization-plan.md](2026-10-15-memory-optimization-plan.md) | Memory management optimization plan and findings |
 | [2026-10-15-adversarial.md](2026-10-15-adversarial.md) | Defects found by adversarial testing (cited by `tests/adversarial`) |
 | [experience-report.md](experience-report.md) | Hands-on report from writing `examples/13_rest_service.bdg`: what worked, friction by impact, things that could not be demonstrated |
+| [ergonomics-investigation.md](ergonomics-investigation.md) | Audit of papercuts in the language, stdlib, web framework, tooling, diagnostics, and docs; ranked recommendations; cross-referenced with the experience report |
 
 ## Archive
 

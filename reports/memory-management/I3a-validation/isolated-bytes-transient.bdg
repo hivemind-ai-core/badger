@@ -1,0 +1,44 @@
+import std.array
+import std.codec
+import std.env
+import std.inspect
+import std.io
+import std.list
+import std.seq
+import std.time
+type Config = { mode: String, n: Int, rounds: Int, payload: Int, retain: Int }
+fn buffers(c: Config, narrow: Bool) -> Int {
+    var total = 0
+    if narrow {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U8])) })
+        for i in 0..c.n {
+            let value = U8.try_from(i % 251).unwrap_or(0U8)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U8)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    } else {
+        let retained = array.build(c.retain, fn(_: Int) { Cell.new(array.from_list([0U64])) })
+        for i in 0..c.n {
+            let value = U64.try_from(i % 251).unwrap_or(0U64)
+            let a = array.build(c.payload, fn(_: Int) { value })
+            total = total + Int.try_from(a.get(c.payload - 1).unwrap_or(0U64)).unwrap_or(0)
+            retained[i % c.retain].set(a)
+        }
+        for a in retained { total = total + a.get().len() }
+    }
+    total
+}
+
+fn work(c: Config) -> Int { buffers(c, true) }
+pub fn main() -> Result<Unit, io.Error> {
+    let c = codec.decode_text<Config>(env.get("GC_BENCH_CONFIG").unwrap_or("")).unwrap_or({ mode: "invalid", n: 1, rounds: 1, payload: 1, retain: 1 })
+    let before = inspect.heap()
+    let start = time.now()
+    let checksum = work(c)
+    let elapsed_ns = time.as_nanos(time.now() - start)
+    let after = inspect.heap()
+    io.println(codec.encode_text({ config: c, checksum, elapsed_ns, before, after }))?
+    ok(())
+}

@@ -162,18 +162,36 @@ pub fn json_quote(s: &str) -> String {
 }
 
 /// Append into an existing encoder buffer without a temporary quoted string.
+/// Scans bytes and copies unescaped spans whole, so the common case (letters,
+/// digits and multi-byte UTF-8, which never needs a `\u`) is one `push_str`
+/// per run rather than one push per character.
 pub(crate) fn write_json_quote(s: &str, o: &mut String) {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
     o.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => o.push_str("\\\""),
-            '\\' => o.push_str("\\\\"),
-            '\n' => o.push_str("\\n"),
-            '\r' => o.push_str("\\r"),
-            '\t' => o.push_str("\\t"),
-            c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
-            c => o.push(c),
+    let bytes = s.as_bytes();
+    let mut start = 0;
+    while let Some(k) = bytes[start..].iter().position(|&c| c == b'"' || c == b'\\' || c < 0x20) {
+        let i = start + k;
+        if start < i {
+            o.push_str(&s[start..i]);
         }
+        let b = bytes[i];
+        match b {
+            b'"' => o.push_str("\\\""),
+            b'\\' => o.push_str("\\\\"),
+            b'\n' => o.push_str("\\n"),
+            b'\r' => o.push_str("\\r"),
+            b'\t' => o.push_str("\\t"),
+            _ => {
+                o.push_str("\\u00");
+                o.push(HEX[(b >> 4) as usize] as char);
+                o.push(HEX[(b & 0xf) as usize] as char);
+            }
+        }
+        start = i + 1;
+    }
+    if start < bytes.len() {
+        o.push_str(&s[start..]);
     }
     o.push('"');
 }

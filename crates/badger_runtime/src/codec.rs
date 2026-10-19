@@ -7,8 +7,6 @@
 //! its natural JSON value. Decoding validates against the schema and reports
 //! the failing path.
 
-use std::fmt::Write as _;
-
 use serde_json::Value as J;
 
 use crate::desc::{Kind, TypeDesc};
@@ -62,14 +60,14 @@ pub fn wire_name(ty: &str, member: &str) -> String {
 
 // Keep the common, unversioned member borrowed. The callback only writes
 // native output, so a thread-local borrow never spans a managed allocation.
-fn with_name<R>(ty: &str, member: &str, f: impl FnOnce(&str) -> R) -> R {
+pub(crate) fn with_name<R>(ty: &str, member: &str, f: impl FnOnce(&str) -> R) -> R {
     WIRE.with(|c| match &*c.borrow() {
         Some(w) => f(w.names.get(&format!("{ty}.{member}")).map_or(member, String::as_str)),
         None => f(member),
     })
 }
 
-fn name_matches(ty: &str, member: &str, name: &str) -> bool {
+pub(crate) fn name_matches(ty: &str, member: &str, name: &str) -> bool {
     WIRE.with(|c| {
         let wire = c.borrow();
         let Some(w) = &*wire else { return member == name };
@@ -77,6 +75,34 @@ fn name_matches(ty: &str, member: &str, name: &str) -> bool {
         w.names.get(&key).map_or(member, String::as_str) == name
             || w.aliases.get(&key).is_some_and(|aliases| aliases.iter().any(|a| a == name))
     })
+}
+
+/// Whether any wire naming (renames or accepted aliases) is active on this
+/// thread. Callers can then compare member names directly instead of paying a
+/// thread-local lookup per key.
+pub(crate) fn wire_active() -> bool {
+    WIRE.with(|c| c.borrow().is_some())
+}
+
+/// How a JSON key ranks for member `member` of type `ty`: 0 for the current
+/// wire name, 1+ for the position of an accepted alias, `None` for no match.
+/// Mirrors [`lookup`]'s precedence (current name, then the first declared
+/// alias that is present).
+pub(crate) fn wire_rank(ty: &str, member: &str, key: &str) -> Option<usize> {
+    WIRE.with(|c| {
+        let wire = c.borrow();
+        let Some(w) = &*wire else { return (member == key).then_some(0) };
+        let k = format!("{ty}.{member}");
+        if w.names.get(&k).map_or(member, String::as_str) == key {
+            return Some(0);
+        }
+        w.aliases.get(&k).and_then(|a| a.iter().position(|x| x == key)).map(|i| i + 1)
+    })
+}
+
+/// Whether decoding a SQLite row (which has no boolean type) is active.
+pub(crate) fn int_bools() -> bool {
+    INT_BOOLS.with(|c| c.get())
 }
 
 fn lookup<'j>(m: &'j serde_json::Map<String, J>, ty: &str, member: &str) -> Option<&'j J> {
@@ -91,9 +117,47 @@ fn lookup<'j>(m: &'j serde_json::Map<String, J>, ty: &str, member: &str) -> Opti
 }
 
 pub fn encode(d: &TypeDesc, w: u64) -> String {
-    let mut s = String::new();
+    // Most encoded values are small objects; one modest reservation avoids
+    // the first few doublings of the output buffer.
+    let mut s = String::with_capacity(64);
     enc(d, w, &mut s);
     s
+}
+
+/// Append `v` in decimal. Encoders write many integers; this avoids the
+/// `core::fmt` machinery (and its formatting buffer) for each one.
+fn write_u64(o: &mut String, v: u64) {
+    let mut buf = [0u8; 20];
+    let mut i = buf.len();
+    let mut v = v;
+    loop {
+        i -= 1;
+        buf[i] = b'0' + (v % 10) as u8;
+        v /= 10;
+        if v == 0 {
+            break;
+        }
+    }
+    o.push_str(std::str::from_utf8(&buf[i..]).expect("decimal digits"));
+}
+
+fn write_i64(o: &mut String, v: i64) {
+    if v < 0 {
+        o.push('-');
+        write_u64(o, v.unsigned_abs());
+    } else {
+        write_u64(o, v as u64);
+    }
+}
+
+/// Write member `member`'s wire name, or its plain name when no wire naming
+/// is active for this encode (checked once per record or enum).
+fn write_member_name(ty: &str, member: &str, o: &mut String, wire: bool) {
+    if wire {
+        with_name(ty, member, |name| write_json_quote(name, o));
+    } else {
+        write_json_quote(member, o);
+    }
 }
 
 fn enc(d: &TypeDesc, w: u64, o: &mut String) {
@@ -105,9 +169,9 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
         Kind::Bool => o.push_str(if w & 1 != 0 { "true" } else { "false" }),
         Kind::Int { signed: false, bits } => {
             let m = if *bits == 64 { u64::MAX } else { (1u64 << bits) - 1 };
-            write!(o, "{}", w & m).unwrap()
+            write_u64(o, w & m)
         }
-        Kind::Int { .. } => write!(o, "{}", crate::value::as_i64(d, w)).unwrap(),
+        Kind::Int { .. } => write_i64(o, crate::value::as_i64(d, w)),
         Kind::Float { bits } => {
             // an F32 encodes its own shortest digits, not the widened ones
             let f = if *bits == 32 {
@@ -121,10 +185,19 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("null")
             }
         }
-        Kind::Char => write_json_quote(&char::from_u32(w as u32).map(String::from).unwrap_or_default(), o),
+        Kind::Char => {
+            // encode into a stack buffer: a `String` per character is an
+            // allocation for a value that is at most four bytes
+            let mut buf = [0u8; 4];
+            let s: &str = match char::from_u32(w as u32) {
+                Some(c) => c.encode_utf8(&mut buf),
+                None => "",
+            };
+            write_json_quote(s, o)
+        }
         Kind::Symbol | Kind::String => write_json_quote(str_of(w), o),
         Kind::Bytes => write_json_quote(&String::from_utf8_lossy(bytes_of(w)), o),
-        Kind::Duration | Kind::Instant | Kind::Timestamp => write!(o, "{}", w as i64).unwrap(),
+        Kind::Duration | Kind::Instant | Kind::Timestamp => write_i64(o, w as i64),
         Kind::Record { fields, .. } if d.name == SECRET => {
             if REVEAL.with(|c| c.get()) {
                 let p = unsafe { obj(w).payload() };
@@ -146,11 +219,13 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push(']');
             } else {
                 o.push('{');
+                // One wire check for the whole record instead of one per field.
+                let wire = crate::codec::wire_active();
                 for (i, f) in fields.iter().enumerate() {
                     if i > 0 {
                         o.push(',');
                     }
-                    with_name(&d.name, &f.name, |name| write_json_quote(name, o));
+                    write_member_name(&d.name, &f.name, o, wire);
                     o.push(':');
                     enc(f.desc, unsafe { f.repr.load(p.add(f.offset as usize)) }, o);
                 }
@@ -172,18 +247,23 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 }
                 return;
             }
+            let wire = crate::codec::wire_active();
             if v.fields.is_empty() {
-                with_name(&d.name, &v.name, |name| write_json_quote(name, o));
+                write_member_name(&d.name, &v.name, o, wire);
                 return;
             }
             o.push('{');
-            with_name(&d.name, &v.name, |name| write_json_quote(name, o));
+            write_member_name(&d.name, &v.name, o, wire);
             o.push_str(":{");
             for (i, (f, val)) in v.fields.iter().zip(vals).enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
-                with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
+                if wire {
+                    with_name(&format!("{}.{}", d.name, v.name), &f.name, |name| write_json_quote(name, o));
+                } else {
+                    write_json_quote(&f.name, o);
+                }
                 o.push(':');
                 enc(f.desc, val, o);
             }
@@ -246,19 +326,19 @@ pub struct DecodeError {
 impl DecodeError {
     // Child errors are relative to their own root. Prepend segments only
     // while unwinding a failure; successful decoding builds no path strings.
-    fn at(self, segment: std::fmt::Arguments<'_>) -> Self {
+    pub(crate) fn at(self, segment: std::fmt::Arguments<'_>) -> Self {
         Self { path: format!("${segment}{}", &self.path[1..]), message: self.message }
     }
 
-    fn name(self, name: &str) -> Self {
+    pub(crate) fn name(self, name: &str) -> Self {
         self.at(format_args!(".{name}"))
     }
 
-    fn field(self, ty: &str, member: &str) -> Self {
+    pub(crate) fn field(self, ty: &str, member: &str) -> Self {
         with_name(ty, member, |name| self.name(name))
     }
 
-    fn index(self, i: usize) -> Self {
+    pub(crate) fn index(self, i: usize) -> Self {
         self.at(format_args!("[{i}]"))
     }
 }
@@ -269,10 +349,7 @@ fn fail<T>(msg: impl Into<String>) -> Result<T, DecodeError> {
 
 /// Decode JSON text against a descriptor.
 pub fn decode(d: &'static TypeDesc, text: &str) -> Result<u64, DecodeError> {
-    let j: J = serde_json::from_str(text)
-        .map_err(|e| DecodeError { path: "$".into(), message: format!("invalid JSON: {e}") })?;
-    let _g = Roots::new();
-    dec(d, &j)
+    crate::json::decode(d, text)
 }
 
 /// Decode a `Data` value against a descriptor.

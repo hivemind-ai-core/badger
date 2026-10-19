@@ -1,0 +1,21 @@
+<alloc::vec::Vec<badger_runtime::task::External> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<badger_runtime::task::External, alloc::collections::vec_deque::drain::Drain<badger_runtime::task::External>>>::from_iter 1
+[[vdso]+0xd4c] 1
+[libc.so.6+0x18fcc9] 3
+[libc.so.6+0x18fccf] 1
+[libc.so.6+0x18fd3d] 1
+[stored-sequence-candidate+0xb43c60] 17
+[stored-sequence-candidate+0xbb1200] 67
+badger_runtime::abi::badger_rt_list_get 1
+badger_runtime::buffer::is_buffer 1
+badger_runtime::buffer::new 9
+badger_runtime::buffer::push 1155
+badger_runtime::gc::alloc 7
+badger_runtime::gc::budget_check 1
+badger_runtime::gc::collect_inner 5
+badger_runtime::intrinsics_std::buffer_freeze 6
+badger_runtime::intrinsics_std::buffer_push 116
+badger_runtime::task::harvest_events 1
+badger_runtime::task::has_ready 1
+badger_runtime::task::worker_index 1
+isolated-bytes-transient.buffers#21 308
+munmap 1

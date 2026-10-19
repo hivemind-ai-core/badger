@@ -126,6 +126,14 @@ impl Items {
     pub fn iter(&self) -> impl ExactSizeIterator<Item = u64> + '_ {
         (0..self.len).map(|i| self.get(i).unwrap())
     }
+    /// Raw element storage, for bulk copies that write packed words directly.
+    pub fn as_mut_ptr(&self) -> *mut u8 {
+        self.ptr
+    }
+    /// The stored length after a bulk copy has filled the reserved slots.
+    pub fn set_len(&mut self, n: usize) {
+        self.len = n;
+    }
     fn from_words(repr: Repr, words: Vec<u64>) -> Items {
         if repr.size() == 8 {
             let mut words = std::mem::ManuallyDrop::new(words);
@@ -265,6 +273,25 @@ pub fn frozen(elem: &'static TypeDesc, words: Vec<u64>) -> u64 {
     d.items = Items::from_words(elem.repr(), words);
     d.frozen = true;
     w
+}
+
+/// A frozen array of `n` elements copied verbatim from `src`, which holds
+/// them contiguously at this element's representation width (list pages and
+/// other packed storage do). Bulk element copies use this instead of a
+/// per-element `push`, which costs a bounds check and store per word.
+pub fn frozen_from_raw(elem: &'static TypeDesc, src: *const u8, n: usize) -> u64 {
+    let r = gc::Roots::new();
+    let w = r.add(new(elem, n));
+    {
+        let d = data(w);
+        if n > 0 {
+            unsafe {
+                std::ptr::copy_nonoverlapping(src, d.items.as_mut_ptr(), n * elem.repr().size() as usize)
+            };
+        }
+        d.items.set_len(n);
+    }
+    freeze(w)
 }
 pub fn freeze(w: u64) -> u64 {
     let d = data(w);
