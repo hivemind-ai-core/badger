@@ -111,9 +111,15 @@ impl Diagnostics {
     pub fn push(&mut self, d: Diagnostic) {
         self.items.push(d);
     }
-
     pub fn extend(&mut self, ds: impl IntoIterator<Item = Diagnostic>) {
         self.items.extend(ds);
+    }
+
+    /// Forget every diagnostic: a session reused for a later build must not
+    /// carry the earlier program's warnings and errors (`has_errors` short
+    /// circuits checking, and a caller renders the whole list).
+    pub fn clear(&mut self) {
+        self.items.clear();
     }
 
     pub fn len(&self) -> usize {

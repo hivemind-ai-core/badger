@@ -66,11 +66,9 @@ are correctness-and-scale work, not current throughput wins.
   front end 119.34 → 98.53 ms. The typecheck half (≈16 ms per extra entry)
   remains; the plan for it is [2026-10-19-std-check-reuse-plan.md](reports/2026-10-19-std-check-reuse-plan.md)
   (reuse the std prefix of the check, keyed by the std module set) and is
-  being implemented. Separate small gap: `badger test` builds a fresh
-  `Session` per `[entries]`/`[tasks]` selection (`badger_cli/src/main.rs:637`),
-  so it gets no parse cache at all; reusing one session needs a diagnostics
-  reset that keeps `std_parsed` (diagnostics accumulate and short-circuit
-  `check_one` at `driver/src/lib.rs:746`).
+  being implemented. The `badger test` gap is closed: selections reuse one
+  session per package (`Session::reset_for_build`), so they get both caches;
+  the first build in each loop still pays the standard library.
 - C1.3/C1.4: a reusable compiler context with a content-keyed parse cache
   (remapping spans, file ids, and symbols), then checked-library reuse.
   Parsing is the landed C1.2b work (above). Checked-library reuse landed
@@ -78,11 +76,14 @@ are correctness-and-scale work, not current throughput wins.
   keyed by the std module set, so each further entry re-checks only its own
   code — one entry's typecheck 16.4 → 2.9 ms (binding groups 9.75 → 0.44 ms),
   a five-check project 76.8 → 28.2 ms, verified by a 559-file differential
-  `badger check` sweep with no output differences. Remains: step 8 of the plan
-  (`TypeEnv::build`'s std prefix, ≈0.9 ms/check), a persistent `Session` for
-  watch/REPL (`driver/src/live.rs:114-117`, three `Session::new()` per REPL
-  line), and the `badger test` session gap noted under C1.2b. Report:
-  [2026-10-19-std-check-reuse.md](reports/2026-10-19-std-check-reuse.md).
+  `badger check` sweep with no output differences. Watch/REPL and `badger test` reuse one
+  session across a rebuild loop, so the cache applies there too: a watch
+  reload's front end 38.8 → 5.9 ms, a five-item REPL session 279.6 → 91.2 ms,
+  a five-selection `badger test` 208.1 → 70.4 ms
+  ([2026-10-19-session-reuse.md](reports/2026-10-19-session-reuse.md)).
+  Remains: step 8 of the plan (`TypeEnv::build`'s std prefix, ≈0.9 ms/check),
+  a path-keyed source reuse (a long watch/REPL session appends a `FileId` per
+  re-read file), and the LSP's per-query session (`analysis.rs:219`).
 - C2: re-measured 2026-10-19 (`BADGER_TIMINGS=1/2`): the standard library's
   binding groups take **10.5–12.5 ms** of a check (the ~39 ms claim is
   stale) — now only on a session's *first* check, since C1.4 caches them
@@ -92,6 +93,8 @@ are correctness-and-scale work, not current throughput wins.
   reclamation instead of leaking replaced builds (`mem::forget(built)` at
   `live.rs:144,153` and `inspect.rs:208`). Reclaiming needs a liveness
   argument first: the replaced build's compiled code may still be running.
+  The front-end half is done: watch, `badger test` and the REPL reuse one
+  session, so a rebuild does not re-parse or re-check the standard library.
 - C4: a root-store/frame counter to prove the landed root reductions
   (no counter exists yet; codegen owner).
 - R1 (memory-management owner): keep the mark stack and remembered buffer

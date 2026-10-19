@@ -255,6 +255,17 @@ impl Session {
         self.interner.intern(s)
     }
 
+    /// Drop the state a previous program left behind, keeping the parsed and
+    /// checked standard library. Commands that build repeatedly in one session
+    /// (`--watch` reloads, `badger test` selections, REPL probes) call this
+    /// instead of starting a new session, so the standard library is neither
+    /// re-parsed nor re-checked. Source files are not dropped: the cached
+    /// standard-library spans belong to their `FileId`s.
+    pub fn reset_for_build(&mut self) {
+        self.diagnostics.clear();
+        self.natives.clear();
+    }
+
     /// Resolve a CLI path (file, or project directory with `badger.toml`) to the
     /// entry file and module root directory.
     pub fn entry_of(path: &Path) -> Result<(PathBuf, PathBuf, Option<String>), String> {
