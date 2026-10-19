@@ -99,6 +99,7 @@ pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> 
     let off = disabled();
     let dump = std::env::var_os("BADGER_DUMP_MIR_PASSES").is_some();
     let mut report = vec![];
+    let mut representation_changed = false;
     for (name, run) in passes(level) {
         let skipped = off.iter().any(|d| {
             d == name || (name.starts_with(d.as_str()) && name[d.len()..].chars().all(|c| c.is_ascii_digit()))
@@ -106,7 +107,16 @@ pub fn optimize(prog: &mut Program, level: Level) -> Vec<(&'static str, usize)> 
         if skipped {
             continue;
         }
+        // The cleanup simplification after the representation passes only
+        // has work when one of them changed something; the first
+        // simplification already reached a fixpoint.
+        if name == "simplify2" && !representation_changed {
+            continue;
+        }
         let n = run(prog);
+        if n > 0 && matches!(name, "maps-private" | "maps-snapshot" | "split" | "niche" | "enums") {
+            representation_changed = true;
+        }
         report.push((name, n));
         if dump {
             eprintln!("=== after {name} ({n}) ===\n{}", crate::mir::dump(prog));

@@ -24,11 +24,16 @@ pub fn simplify(prog: &mut Program) -> usize {
 
 fn simplify_func(f: &mut Func) -> usize {
     let mut total = 0;
-    for _ in 0..ROUNDS {
+    for round in 0..ROUNDS {
         let mut changed = fold(f);
         changed += propagate(f);
-        changed += dead_assignments(f);
         changed += cfg::cleanup(f);
+        // Nothing new can become dead when the other passes found no work
+        // (a dead value has no uses), so the final round can stop here.
+        if changed == 0 && round > 0 {
+            break;
+        }
+        changed += dead_assignments(f);
         total += changed;
         if changed == 0 {
             break;
@@ -37,7 +42,6 @@ fn simplify_func(f: &mut Func) -> usize {
     total
 }
 
-/// Fold constant operations and identities.
 fn fold(f: &mut Func) -> usize {
     let bools = bool_locals(f);
     let mut changed = 0;
@@ -423,16 +427,6 @@ pub(crate) fn bool_locals(f: &Func) -> FxHashSet<Local> {
     bools
 }
 
-/// Reads of a statement's rvalue/operands.
-fn reads(s: &Stmt) -> Vec<Operand> {
-    match s {
-        Stmt::Assign(_, rv) => rv.operands(),
-        Stmt::Store { base, value, .. } => vec![*base, *value],
-        Stmt::GlobalStore { value, .. } => vec![*value],
-        Stmt::Poll | Stmt::Loc { .. } => vec![],
-    }
-}
-
 fn operand_repr(f: &Func, o: &Operand) -> Option<Repr> {
     match o {
         Operand::Local(l) => Some(f.locals[*l].repr),
@@ -640,86 +634,140 @@ fn removable(rv: &Rvalue) -> bool {
 
 /// Remove assignments whose destination is dead and whose evaluation is
 /// side-effect and defect free.
+fn words(n: usize) -> usize {
+    n.div_ceil(64).max(1)
+}
+
+fn set_bit(bits: &mut [u64], l: Local) {
+    bits[l.index() / 64] |= 1 << (l.index() % 64);
+}
+
+fn clear_bit(bits: &mut [u64], l: Local) {
+    bits[l.index() / 64] &= !(1 << (l.index() % 64));
+}
+
+fn has_bit(bits: &[u64], l: Local) -> bool {
+    bits[l.index() / 64] & (1 << (l.index() % 64)) != 0
+}
+
+fn union_into(dst: &mut [u64], src: &[u64]) {
+    for (d, s) in dst.iter_mut().zip(src) {
+        *d |= *s;
+    }
+}
+
+fn term_local(t: &Option<Term>) -> Option<Local> {
+    match t {
+        Some(Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o)) => match o {
+            Operand::Local(l) => Some(*l),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn for_each_use(s: &Stmt, f: &mut impl FnMut(Local)) {
+    match s {
+        Stmt::Assign(_, rv) => {
+            for o in rv.operands() {
+                if let Operand::Local(l) = o {
+                    f(l);
+                }
+            }
+        }
+        Stmt::Store { base, value, .. } => {
+            for o in [base, value] {
+                if let Operand::Local(l) = *o {
+                    f(l);
+                }
+            }
+        }
+        Stmt::GlobalStore { value, .. } => {
+            if let Operand::Local(l) = *value {
+                f(l);
+            }
+        }
+        Stmt::Poll | Stmt::Loc { .. } => {}
+    }
+}
+
+/// Remove assignments whose destination is dead and whose evaluation is
+/// side-effect and defect free. Liveness is a bitset dataflow: locals are
+/// dense indices and functions can have thousands of them.
 fn dead_assignments(f: &mut Func) -> usize {
     let n = f.blocks.len();
-    let mut live_in: Vec<FxHashSet<Local>> = vec![FxHashSet::default(); n];
-    let mut live_out: Vec<FxHashSet<Local>> = vec![FxHashSet::default(); n];
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for b in (0..n).rev() {
-            let mut out: FxHashSet<Local> = FxHashSet::default();
-            if let Some(t) = &f.blocks[b].term {
-                for s in t.successors() {
-                    if s.index() < n {
-                        out.extend(live_in[s.index()].iter().copied());
-                    }
-                }
-            }
-            let mut cur = out.clone();
-            if let Some(t) = &f.blocks[b].term {
-                match t {
-                    Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) => {
-                        if let Operand::Local(l) = o {
-                            cur.insert(*l);
+    let w = words(f.locals.len());
+    let mut removed = 0;
+    // Removing one dead definition can make the definitions of its operands
+    // dead too (including across blocks), so iterate to a fixpoint.
+    for _ in 0..8 {
+        let mut live_in: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
+        let mut live_out: Vec<Vec<u64>> = vec![vec![0u64; w]; n];
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for b in (0..n).rev() {
+                let mut out = vec![0u64; w];
+                if let Some(t) = &f.blocks[b].term {
+                    for s in t.successors() {
+                        if s.index() < n {
+                            union_into(&mut out, &live_in[s.index()]);
                         }
                     }
-                    _ => {}
+                }
+                let mut cur = out.clone();
+                if let Some(l) = term_local(&f.blocks[b].term) {
+                    set_bit(&mut cur, l);
+                }
+                for s in f.blocks[b].stmts.iter().rev() {
+                    if let Stmt::Assign(l, _) = s {
+                        clear_bit(&mut cur, *l);
+                    }
+                    for_each_use(s, &mut |l| set_bit(&mut cur, l));
+                }
+                if out != live_out[b] || cur != live_in[b] {
+                    live_out[b] = out;
+                    live_in[b] = cur;
+                    changed = true;
                 }
             }
-            for s in f.blocks[b].stmts.iter().rev() {
+        }
+        let mut round = 0;
+        for b in 0..n {
+            let mut cur = live_out[b].clone();
+            if let Some(l) = term_local(&f.blocks[b].term) {
+                set_bit(&mut cur, l);
+            }
+            let len = f.blocks[b].stmts.len();
+            let mut dead = vec![false; len];
+            for (i, s) in f.blocks[b].stmts.iter().enumerate().rev() {
+                if let Stmt::Assign(l, rv) = s
+                    && !has_bit(&cur, *l)
+                    && removable(rv)
+                {
+                    // a removed definition's operands no longer count as
+                    // live, which can make their definitions dead too
+                    dead[i] = true;
+                    continue;
+                }
                 if let Stmt::Assign(l, _) = s {
-                    cur.remove(l);
+                    clear_bit(&mut cur, *l);
                 }
-                for o in reads(s) {
-                    if let Operand::Local(l) = o {
-                        cur.insert(l);
-                    }
+                for_each_use(s, &mut |l| set_bit(&mut cur, l));
+            }
+            let mut kept = Vec::with_capacity(len);
+            for (i, s) in std::mem::take(&mut f.blocks[b].stmts).into_iter().enumerate() {
+                if dead[i] {
+                    round += 1;
+                } else {
+                    kept.push(s);
                 }
             }
-            if out != live_out[b] || cur != live_in[b] {
-                live_out[b] = out;
-                live_in[b] = cur;
-                changed = true;
-            }
+            f.blocks[b].stmts = kept;
         }
-    }
-    let mut removed = 0;
-    for b in 0..n {
-        let mut cur = live_out[b].clone();
-        // the terminator reads its operands: seed them before the scan
-        if let Some(t) = &f.blocks[b].term {
-            match t {
-                Term::Branch(o, _, _) | Term::Switch(o, _, _) | Term::Return(o) => {
-                    if let Operand::Local(l) = o {
-                        cur.insert(*l);
-                    }
-                }
-                _ => {}
-            }
-        }
-        let mut dead = vec![];
-        for (i, s) in f.blocks[b].stmts.iter().enumerate().rev() {
-            if let Stmt::Assign(l, rv) = s
-                && !cur.contains(l)
-                && removable(rv)
-            {
-                dead.push(i);
-            }
-            if let Stmt::Assign(l, _) = s {
-                cur.remove(l);
-            }
-            for o in reads(s) {
-                if let Operand::Local(l) = o {
-                    cur.insert(l);
-                }
-            }
-        }
-        // collected from the last statement backwards: remove in that same
-        // (descending) order so earlier indices stay valid
-        for i in dead {
-            f.blocks[b].stmts.remove(i);
-            removed += 1;
+        removed += round;
+        if round == 0 {
+            break;
         }
     }
     // self copies carry no information
