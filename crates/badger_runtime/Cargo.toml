@@ -9,6 +9,7 @@ license.workspace = true
 ahash = { version = "0.8.12", default-features = false }
 backtrace = "0.3.76"
 corosensei = "0.3"
+crossbeam-deque = "0.8.8"
 badger_native = { path = "../badger_native" }
 libc = "0.2.190"
 regex = "1.13.1"
