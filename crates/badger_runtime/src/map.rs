@@ -5,7 +5,7 @@
 //!
 //! A map object's payload is the trie root (0 when empty) and the length.
 
-use std::hash::Hasher;
+use std::hash::{BuildHasher, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::desc::{Kind, TypeDesc};
@@ -36,8 +36,17 @@ fn set(m: u64, root: u64, len: usize) {
     }
 }
 
+/// Key hashes, fixed per build: a key hashes the same in every process, so
+/// a map's shape and iteration order never depend on a random seed.
+static HASHER: ahash::RandomState = ahash::RandomState::with_seeds(
+    0x243f_6a88_85a3_08d3,
+    0x1319_8a2e_0370_7344,
+    0xa409_3822_299f_31d0,
+    0x082e_fa98_ec4e_6c89,
+);
+
 fn hash(key: &TypeDesc, k: u64) -> u64 {
-    let mut h = rustc_hash::FxHasher::default();
+    let mut h = HASHER.build_hasher();
     crate::value::hash(key, k, &mut h);
     h.finish()
 }

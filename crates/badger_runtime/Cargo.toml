@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+ahash = { version = "0.8.12", default-features = false }
 backtrace = "0.3.76"
 corosensei = "0.3"
 badger_native = { path = "../badger_native" }
