@@ -726,6 +726,7 @@ pub fn print_stats() {
         sum(&|w| &w.notifies),
     );
     print_reasons();
+    crate::channel::print_fallbacks();
 }
 
 fn try_lock() -> bool {

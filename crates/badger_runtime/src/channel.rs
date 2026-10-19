@@ -7,8 +7,45 @@
 //! or finishes) — so staged messages are never stranded. Admission counts
 //! staged, queued, and leased messages against capacity; a producer flushes
 //! its own staging before waiting for capacity.
+//!
+//! # The state machine
+//!
+//! A channel is in one phase at a time: `EMPTY` (nothing to take, nobody
+//! registered), `VALUE` (messages to take, nobody registered) or `BLOCKED`
+//! (a task is registered: a parked receiver or sender, a selection, a
+//! producer waiting for capacity), and it may be closed. The phase, the
+//! closed bit and the channel's owner share one atomic word
+//! ([`ChanData::state`]); every task registered with the channel is in one
+//! list ([`Waiters`]), in arrival order.
+//!
+//! Each operation linearizes at the one atomic write that makes it the
+//! channel's owner: the compare-and-swap in [`try_fast`] for an unlocked
+//! fast path, the one in [`claim`] for code holding the runtime lock (with
+//! one worker, the single runtime thread owns every channel between task
+//! switches). Everything it decides, it decides as owner from the
+//! channel's contents, and the store that ends the ownership publishes the
+//! new phase. A fast path and a slow path therefore never both act on the
+//! same event: whichever takes the channel first sees the other's effects
+//! completely or not at all.
+//!
+//! The contract the operations keep (`spec/tla/ChannelBadger.tla`):
+//!
+//! - a value reaches a receiver: a send hands it to the first live parked
+//!   receiver, else commits it to a parked selection offering to receive,
+//!   else queues it; a queued value is taken by the next receive, and a
+//!   selection that is registered but not parked probes again before it
+//!   parks;
+//! - a registration is not forgotten: only its task removes it (when its
+//!   wait ends, or when it finishes), except that the operation serving an
+//!   entry removes it (a receiver or sender handed its value, a parked
+//!   receiver or producer woken to retry, which registers again if it must
+//!   wait), and closing (the last transition) wakes and removes every
+//!   entry; a selection's entries are never served this way;
+//! - a handed-over value stays handed over: a cancellation arriving after
+//!   the hand-off is honored after the operation completes.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 use rustc_hash::FxHashMap;
 
@@ -29,6 +66,152 @@ impl Drop for Batch {
     }
 }
 
+/// The bits of [`ChanData::state`].
+pub mod word {
+    /// Owner: nobody, an unlocked fast path ([`super::try_fast`]), or code
+    /// holding the runtime lock ([`super::claim`]) until it releases it.
+    pub const FREE: u8 = 0;
+    pub const FAST: u8 = 1;
+    pub const CLAIMED: u8 = 2;
+    pub const OWNER: u8 = 0b11;
+    /// Phase: nothing to take and nobody registered; messages to take and
+    /// nobody registered; a task registered (see [`super::Waiters`]).
+    pub const EMPTY: u8 = 0;
+    pub const VALUE: u8 = 1 << 2;
+    pub const BLOCKED: u8 = 2 << 2;
+    pub const PHASE: u8 = 0b11 << 2;
+    pub const CLOSED: u8 = 1 << 4;
+    /// One worker: code that needs no claim has used the channel since the
+    /// phase was published (cleared by the next fast path's release).
+    pub const STALE: u8 = 1 << 5;
+}
+
+/// What a registered task waits for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WaitKind {
+    /// A parked receiver: a sender hands it the message.
+    Recv = 0,
+    /// A parked sender with its (still owned) value: a receiver takes it.
+    Send = 1,
+    /// A selection offering to receive: a send commits to it while it is
+    /// parked ([`commit_select_receive`]); otherwise it probes again.
+    WatchRecv = 2,
+    /// A selection offering to send: woken when space may have opened.
+    WatchSpace = 3,
+    /// A batch producer waiting for capacity.
+    Capacity = 4,
+}
+
+/// A task registered with a channel.
+#[derive(Clone, Copy, Debug)]
+pub struct Waiter {
+    pub task: TaskId,
+    pub kind: WaitKind,
+    /// The wait it registered for (`task::begin_wait`): it is served only
+    /// while still in that wait (`task::waits`, `task::deliver`).
+    pub wait: u64,
+    /// Its record (`task::current_ptr`), for a fast path's `task::deliver`.
+    pub rec: usize,
+    /// A sender's value and its byte charge.
+    pub value: u64,
+    pub size: usize,
+}
+
+/// Every task registered with a channel, in arrival order, with a count
+/// per kind. An operation serves the first entry of the kind it completes,
+/// so each kind keeps its arrival order; a task has at most one entry of
+/// each kind.
+#[derive(Default)]
+pub struct Waiters {
+    list: VecDeque<Waiter>,
+    counts: [usize; 5],
+}
+
+impl Waiters {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.list.is_empty()
+    }
+
+    #[inline]
+    pub fn count(&self, k: WaitKind) -> usize {
+        self.counts[k as usize]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Waiter> {
+        self.list.iter()
+    }
+
+    fn push(&mut self, w: Waiter) {
+        debug_assert!(
+            !self.list.iter().any(|x| x.task == w.task && x.kind == w.kind),
+            "a task waits at most once of each kind"
+        );
+        self.counts[w.kind as usize] += 1;
+        self.list.push_back(w);
+    }
+
+    /// Put back an entry [`Waiters::pop`] took, ahead of its kind.
+    fn push_front(&mut self, w: Waiter) {
+        self.counts[w.kind as usize] += 1;
+        self.list.push_front(w);
+    }
+
+    /// Remove and return the first entry of kind `k`.
+    #[inline]
+    fn pop(&mut self, k: WaitKind) -> Option<Waiter> {
+        if self.counts[k as usize] == 0 {
+            return None;
+        }
+        self.counts[k as usize] -= 1;
+        if self.list.front().is_some_and(|w| w.kind == k) {
+            return self.list.pop_front();
+        }
+        let i = self.list.iter().position(|w| w.kind == k).expect("counted entry");
+        self.list.remove(i)
+    }
+
+    /// Remove task `id`'s entry of kind `k`. Searched from both ends:
+    /// waiters that leave in or against the order they arrived, as when a
+    /// scope cancels many tasks blocked on one channel, cost O(1) each
+    /// instead of a scan of every waiter (which made cancelling n of them
+    /// O(n²)).
+    fn remove(&mut self, id: TaskId, k: WaitKind) {
+        if self.counts[k as usize] == 0 {
+            return;
+        }
+        let q = &self.list;
+        let n = q.len();
+        let is = |w: &Waiter| w.task == id && w.kind == k;
+        let found = (0..n.div_ceil(2)).find_map(|j| {
+            if is(&q[j]) {
+                Some(j)
+            } else if is(&q[n - 1 - j]) {
+                Some(n - 1 - j)
+            } else {
+                None
+            }
+        });
+        if let Some(i) = found {
+            self.list.remove(i);
+            self.counts[k as usize] -= 1;
+        }
+    }
+
+    /// Remove every entry of task `id`.
+    fn remove_task(&mut self, id: TaskId) {
+        for k in [WaitKind::Recv, WaitKind::Send, WaitKind::WatchRecv, WaitKind::WatchSpace, WaitKind::Capacity] {
+            self.remove(id, k);
+        }
+    }
+
+    /// Remove every entry (closing the channel).
+    fn take_all(&mut self) -> VecDeque<Waiter> {
+        self.counts = [0; 5];
+        std::mem::take(&mut self.list)
+    }
+}
+
 /// A channel's state. Every field except `state` and the creation-time
 /// constants (`elem`, `capacity`, `max_batch`, `batched`, `byte_budget`) is
 /// read and written only by the channel's current owner: an unlocked fast
@@ -38,10 +221,11 @@ impl Drop for Batch {
 pub struct ChanData {
     /// Creation number (inspection lists channels in creation order).
     pub seq: u64,
-    /// Ownership with several workers: 0 free, 1 held by an unlocked fast
-    /// path, 2 claimed by code holding the runtime lock (until it releases
-    /// that lock).
-    pub state: std::sync::atomic::AtomicU8,
+    /// Owner, phase and closed bits ([`word`]). Whenever the owner is
+    /// `FREE` (and, with one worker, `STALE` is clear) the phase and closed
+    /// bits are [`ChanData::word`] of the contents: every owner publishes
+    /// them as it lets go.
+    pub state: AtomicU8,
     pub elem: &'static TypeDesc,
     pub capacity: usize,
     pub max_batch: usize,
@@ -62,22 +246,11 @@ pub struct ChanData {
     /// Unreleased leases and the tasks holding them (released when the
     /// holder finishes; traced so a lease outlives its last reference).
     pub leases: Vec<(TaskId, u64)>,
-    /// Parked receivers and the wait each registered (see `task::waits`).
-    /// (task, its wait, its record: see `task::deliver`)
-    pub recv_waiters: VecDeque<(TaskId, u64, usize)>,
-    /// Waiting senders with their (still owned) values.
-    /// Parked senders with their values and byte charges.
-    /// (task, value, byte charge, its wait, its record)
-    pub send_waiters: VecDeque<(TaskId, u64, usize, u64, usize)>,
-    /// Batch producers waiting for capacity.
-    pub cap_waiters: VecDeque<TaskId>,
+    /// Every task registered with the channel.
+    pub waiters: Waiters,
     /// Recycled page buffers (bounded reserve).
     pub pool: Vec<Vec<u64>>,
     pub published_batches: u64,
-    /// Tasks (e.g. in `select`) waiting for capacity without committing a value.
-    pub space_waiters: VecDeque<TaskId>,
-    /// Tasks (e.g. in `select`) notified when a message may be available.
-    pub recv_watchers: VecDeque<TaskId>,
     /// Admission byte budget (0 = unlimited) and bytes currently queued.
     pub byte_budget: usize,
     pub bytes: usize,
@@ -102,6 +275,30 @@ impl ChanData {
             "batch channel occupancy drifted"
         );
         self.queue.len() + self.accepted
+    }
+
+    /// The phase and closed bits of the contents.
+    fn word(&self) -> u8 {
+        let phase = if !self.waiters.is_empty() {
+            word::BLOCKED
+        } else if !self.queue.is_empty() || !self.batches.is_empty() {
+            word::VALUE
+        } else {
+            word::EMPTY
+        };
+        phase | if self.closed { word::CLOSED } else { 0 }
+    }
+
+    /// Register the running task.
+    fn register(&mut self, kind: WaitKind, value: u64, size: usize) {
+        self.waiters.push(Waiter {
+            task: task::current_id(),
+            kind,
+            wait: task::begin_wait(),
+            rec: task::current_ptr(),
+            value,
+            size,
+        });
     }
 }
 
@@ -209,7 +406,7 @@ fn trace_chan(o: *mut Header, f: &mut dyn FnMut(u64)) {
     d.queue.iter().for_each(|w| f(*w));
     d.batches.iter().flatten().for_each(|w| f(*w));
     d.staging.values().flatten().for_each(|w| f(*w));
-    d.send_waiters.iter().for_each(|(_, w, _, _, _)| f(*w));
+    d.waiters.iter().filter(|w| w.kind == WaitKind::Send).for_each(|w| f(w.value));
 }
 
 /// Channel numbers for inspection, in creation order.
@@ -246,8 +443,8 @@ pub fn snapshot_json() -> String {
                 d.count(),
                 d.leased,
                 d.closed,
-                d.send_waiters.len() + d.cap_waiters.len(),
-                d.recv_waiters.len(),
+                d.waiters.count(WaitKind::Send) + d.waiters.count(WaitKind::Capacity),
+                d.waiters.count(WaitKind::Recv),
                 d.bytes,
             )
         })
@@ -297,11 +494,20 @@ fn finalize_batch(o: *mut Header) {
 
 /// A channel's state. With several workers, code holding the runtime lock
 /// claims the channel on first access (waiting out an unlocked fast path),
-/// and keeps it until the lock is released.
+/// and keeps it until the lock is released. With one worker nothing claims
+/// (no fast path runs meanwhile): the channel is marked `STALE` instead, so
+/// the next fast path decides from its contents, not the published phase.
 pub fn data<'a>(ch: u64) -> &'a mut ChanData {
     let d = raw(ch);
-    if task::multi() && task::holds_lock() {
-        claim(ch, d);
+    if task::multi() {
+        if task::holds_lock() {
+            claim(ch, d);
+        }
+    } else {
+        let w = d.state.load(Ordering::Relaxed);
+        if w & word::STALE == 0 {
+            d.state.store(w | word::STALE, Ordering::Relaxed);
+        }
     }
     d
 }
@@ -315,24 +521,40 @@ struct Claims(std::cell::UnsafeCell<Vec<u64>>);
 unsafe impl Sync for Claims {}
 static CLAIMED: Claims = Claims(std::cell::UnsafeCell::new(Vec::new()));
 
+/// Make the runtime lock's holder the channel's owner: the
+/// compare-and-swap from `FREE` is the linearization point of every
+/// operation on the channel until the lock is released.
 fn claim(ch: u64, d: &ChanData) {
-    use std::sync::atomic::Ordering;
-    // one thread holds the runtime lock: a claim already made is its own
-    if d.state.load(Ordering::Acquire) == 2 {
-        return;
-    }
-    while d.state.compare_exchange_weak(0, 2, Ordering::Acquire, Ordering::Relaxed).is_err() {
-        std::hint::spin_loop();
+    let mut w = d.state.load(Ordering::Acquire);
+    loop {
+        match w & word::OWNER {
+            // one thread holds the runtime lock: a claim already made is its own
+            word::CLAIMED => return,
+            word::FREE => match d.state.compare_exchange_weak(
+                w,
+                w | word::CLAIMED,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(x) => w = x,
+            },
+            _ => {
+                std::hint::spin_loop();
+                w = d.state.load(Ordering::Acquire);
+            }
+        }
     }
     unsafe { (*CLAIMED.0.get()).push(ch) };
 }
 
 /// Release every channel claimed under the runtime lock (called as the
-/// lock is released).
+/// lock is released), publishing each one's phase.
 pub fn release_claims() {
     let claimed = unsafe { &mut *CLAIMED.0.get() };
     for ch in claimed.drain(..) {
-        raw(ch).state.store(0, std::sync::atomic::Ordering::Release);
+        let d = raw(ch);
+        d.state.store(word::FREE | d.word(), Ordering::Release);
     }
 }
 
@@ -341,51 +563,138 @@ pub fn data_elem(ch: u64) -> &'static TypeDesc {
     raw(ch).elem
 }
 
-/// Take a channel for an unlocked fast path, if nothing else holds it.
-/// Another fast path holds a channel for a few instructions, and a claim by
-/// the runtime lock's holder lasts until it releases that lock: wait for
-/// either briefly, with backoff, rather than falling back to the runtime
-/// lock (one fallback would claim the channel and make every other
-/// operation on it fall back too). The wait is bounded: the lock's holder
-/// may be a collection waiting for this worker to reach a safe point, which
-/// the fallback is.
-fn try_fast(d: &ChanData) -> bool {
-    use std::sync::atomic::Ordering;
+/// A channel's word as its last owner published it (read without claiming:
+/// inspection and tests).
+pub fn word_of(ch: u64) -> u8 {
+    raw(ch).state.load(Ordering::Acquire)
+}
+
+/// The phase and closed bits a fast path may decline on without taking the
+/// channel, from a load of its word: `None` while stale (one worker: only
+/// the contents tell). They may be out of date by the time it acts, which a
+/// decline tolerates: the path it hands the operation to decides from the
+/// contents.
+fn published(w: u8) -> Option<u8> {
+    (w & word::STALE == 0).then_some(w & (word::PHASE | word::CLOSED))
+}
+
+/// Take a channel for an unlocked fast path, if nothing else holds it (`w`:
+/// a load of its word). Another fast path holds a channel for a few
+/// instructions, and a claim by the runtime lock's holder lasts until it
+/// releases that lock: wait for either briefly, with backoff, rather than
+/// falling back to the runtime lock (one fallback would claim the channel
+/// and make every other operation on it fall back too). The wait is
+/// bounded: the lock's holder may be a collection waiting for this worker
+/// to reach a safe point, which the fallback is.
+///
+/// The successful compare-and-swap is the fast path's linearization point:
+/// it keeps the phase bits it read, so it succeeds only on the state the
+/// last owner published, and from then until [`end_fast`] nothing else
+/// reads or writes the channel.
+#[inline]
+fn try_fast(d: &ChanData, w: u8) -> bool {
+    (w & word::OWNER == word::FREE
+        && d.state.compare_exchange(w, w | word::FAST, Ordering::Acquire, Ordering::Relaxed).is_ok())
+        || try_fast_spin(d)
+}
+
+/// [`try_fast`] after its first attempt failed: wait with backoff.
+#[cold]
+#[inline(never)]
+fn try_fast_spin(d: &ChanData) -> bool {
+    let started = task::stats_on().then(std::time::Instant::now);
+    let mut spun = 0u64;
     let mut spins = 1u32;
-    for _ in 0..24 {
-        if d.state.compare_exchange_weak(0, 1, Ordering::Acquire, Ordering::Relaxed).is_ok() {
-            return true;
-        }
+    for _ in 1..24 {
         for _ in 0..spins {
             std::hint::spin_loop();
         }
+        spun += spins as u64;
         spins = (spins * 2).min(256);
+        let w = d.state.load(Ordering::Relaxed);
+        if w & word::OWNER == word::FREE
+            && d.state.compare_exchange_weak(w, w | word::FAST, Ordering::Acquire, Ordering::Relaxed).is_ok()
+        {
+            return true;
+        }
+    }
+    if let Some(t) = started {
+        stat_fallback(fallback::BUSY, spun, t.elapsed().as_nanos() as u64);
     }
     false
 }
 
+/// End a fast path: publish the phase of what it leaves and free the
+/// channel (the release that makes its effects visible to the next owner).
 fn end_fast(d: &ChanData) {
-    d.state.store(0, std::sync::atomic::Ordering::Release);
+    d.state.store(word::FREE | d.word(), Ordering::Release);
 }
 
-/// Unlocked prompt send: queue `v` when no task waits on the channel (no
-/// one to wake), it has room, and admission is by count alone. `false`
+/// Why a fast path declined (`BADGER_RUNTIME_STATS=1`): counted on the
+/// decline path from what the fast path read, never changing what it does.
+mod fallback {
+    /// Another fast path or a claim held the channel past the backoff.
+    pub const BUSY: usize = 0;
+    /// A task waits on the channel that the fast path does not serve.
+    pub const WAITER: usize = 1;
+    /// No room, nothing to take, closed, or admission not by count alone.
+    pub const STATE: usize = 2;
+    pub const NAMES: [&str; 3] = ["channel busy", "a task waits on the channel", "no room, or nothing to take"];
+}
+
+static FALLBACKS: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
+static FALLBACK_SPINS: AtomicU64 = AtomicU64::new(0);
+static FALLBACK_SPIN_NS: AtomicU64 = AtomicU64::new(0);
+
+/// Count a fast-path decline (statistics on only).
+fn stat_fallback(reason: usize, spins: u64, spin_ns: u64) {
+    if task::stats_on() {
+        FALLBACKS[reason].fetch_add(1, Ordering::Relaxed);
+        FALLBACK_SPINS.fetch_add(spins, Ordering::Relaxed);
+        FALLBACK_SPIN_NS.fetch_add(spin_ns, Ordering::Relaxed);
+    }
+}
+
+/// The fast-path declines, printed with the runtime statistics.
+pub fn print_fallbacks() {
+    let total: u64 = FALLBACKS.iter().map(|c| c.load(Ordering::Relaxed)).sum();
+    eprintln!(
+        "[runtime stats] channel fast path declined {total} times ({} spin iterations, {:.3} ms spinning)",
+        FALLBACK_SPINS.load(Ordering::Relaxed),
+        FALLBACK_SPIN_NS.load(Ordering::Relaxed) as f64 / 1e6
+    );
+    for (c, name) in FALLBACKS.iter().zip(fallback::NAMES) {
+        eprintln!("[runtime stats]   {:>9} x {name}", c.load(Ordering::Relaxed));
+    }
+}
+
+/// Unlocked prompt send: hand `v` to the first live parked receiver, or
+/// else queue it when it has room and admission is by count alone; only
+/// while no selection offers to receive and no sender waits (the locked
+/// path commits to the one and keeps the order behind the other). `false`
 /// means the locked path must decide.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap.
 pub fn send_fast(ch: u64, v: u64) -> bool {
     let d = raw(ch);
     // a byte budget (fixed at creation) charges the message's size, which
     // depends only on the value: measured before taking the channel
     let size = if d.byte_budget > 0 { admission_size(d.elem, v) } else { 0 };
-    if !try_fast(d) {
+    if !try_fast(d, d.state.load(Ordering::Relaxed)) {
         return false;
     }
     let mut ok = false;
     let fits = d.byte_budget == 0 || (size <= d.byte_budget && d.bytes + size <= d.byte_budget);
-    if !d.closed && !d.batched && fits && d.recv_watchers.is_empty() && d.send_waiters.is_empty() {
-        // hand off to a parked receiver (the channel is held, so the
-        // receiver cannot finish and leave it meanwhile)
-        while let Some((_, wait, p)) = d.recv_waiters.pop_front() {
-            if task::deliver(p, wait, v, d.elem.is_ptr(), 1) {
+    let unserved = if d.waiters.is_empty() {
+        0
+    } else {
+        d.waiters.count(WaitKind::WatchRecv) + d.waiters.count(WaitKind::Send)
+    };
+    if !d.closed && !d.batched && fits && unserved == 0 {
+        // the channel is held, so the receiver cannot finish and leave it
+        // meanwhile
+        while let Some(r) = d.waiters.pop(WaitKind::Recv) {
+            if task::deliver(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
                 ok = true;
                 break;
             }
@@ -398,16 +707,22 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
             ok = true;
         }
     }
+    let why = (!ok && task::stats_on()).then_some(if unserved > 0 { fallback::WAITER } else { fallback::STATE });
     end_fast(d);
+    if let Some(r) = why {
+        stat_fallback(r, 0, 0);
+    }
     ok
 }
 
 /// Unlocked batch append: add `v` to the calling producer's existing
 /// staging when it does not fill the batch (no publication, so no one to
 /// wake) and admission is by count alone.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap.
 pub fn append_fast(ch: u64, v: u64) -> bool {
     let d = raw(ch);
-    if !try_fast(d) {
+    if !try_fast(d, d.state.load(Ordering::Relaxed)) {
         return false;
     }
     let me = task::current_id();
@@ -421,19 +736,33 @@ pub fn append_fast(ch: u64, v: u64) -> bool {
         gc::barrier(ch);
         d.accepted += 1;
     }
+    let why = (!ok && task::stats_on()).then_some(fallback::STATE);
     end_fast(d);
+    if let Some(r) = why {
+        stat_fallback(r, 0, 0);
+    }
     ok
 }
 
 /// Unlocked single-message batch receive: take the oldest published
 /// message when no producer waits for capacity (no one to wake).
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap, or, when the published
+/// phase is `EMPTY` (nothing published, nobody registered), declines at
+/// the load of the word without taking the channel.
 pub fn recv_one_fast(ch: u64) -> Option<u64> {
     let d = raw(ch);
-    if !try_fast(d) {
+    let w = d.state.load(Ordering::Acquire);
+    if published(w).is_some_and(|p| p & word::PHASE == word::EMPTY) {
+        stat_fallback(fallback::STATE, 0, 0);
+        return None;
+    }
+    if !try_fast(d, w) {
         return None;
     }
     let mut v = None;
-    if d.batched && d.byte_budget == 0 && d.cap_waiters.is_empty() {
+    let waiting = d.waiters.count(WaitKind::Capacity);
+    if d.batched && d.byte_budget == 0 && waiting == 0 {
         while d.batches.front().is_some_and(VecDeque::is_empty) {
             drop_front_batch(&mut d.batches);
         }
@@ -445,38 +774,58 @@ pub fn recv_one_fast(ch: u64) -> Option<u64> {
             d.accepted -= 1;
         }
     }
+    let why = (v.is_none() && task::stats_on()).then_some(if waiting > 0 { fallback::WAITER } else { fallback::STATE });
     end_fast(d);
+    if let Some(r) = why {
+        stat_fallback(r, 0, 0);
+    }
     v
 }
 
-/// Unlocked prompt receive: take the oldest message when no task waits to
-/// send or for space (no one to admit or wake). `None` means the locked
-/// path must decide.
+/// Unlocked prompt receive: take the oldest message, or a parked sender's
+/// value, when no selection waits for space (no one to wake). `None` means
+/// the locked path must decide.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap, or, when the published
+/// phase is `EMPTY` (nothing queued, nobody registered), declines at the
+/// load of the word without taking the channel.
 pub fn recv_fast(ch: u64) -> Option<u64> {
     let d = raw(ch);
-    if !try_fast(d) {
+    let w = d.state.load(Ordering::Acquire);
+    if published(w).is_some_and(|p| p & word::PHASE == word::EMPTY) {
+        stat_fallback(fallback::STATE, 0, 0);
+        return None;
+    }
+    if !try_fast(d, w) {
         return None;
     }
     let mut v = None;
-    if !d.batched && d.space_waiters.is_empty() {
+    let watching = if d.waiters.is_empty() { 0 } else { d.waiters.count(WaitKind::WatchSpace) };
+    if !d.batched && watching == 0 {
         if let Some(x) = d.queue.pop_front() {
             if let Some(sz) = d.sizes.pop_front() {
                 d.bytes -= sz;
             }
             v = Some(x);
             // a sender parked on the full queue moves into the freed slot
-            admit_sender_fast(d);
+            if !d.waiters.is_empty() {
+                admit_sender_fast(d);
+            }
         } else {
             // capacity zero or a drained queue: take a parked sender's value
-            while let Some((_, x, _, wait, p)) = d.send_waiters.pop_front() {
-                if task::deliver(p, wait, 0, false, 1) {
-                    v = Some(x);
+            while let Some(s) = d.waiters.pop(WaitKind::Send) {
+                if task::deliver(s.rec, s.wait, 0, false, 1) {
+                    v = Some(s.value);
                     break;
                 }
             }
         }
     }
+    let why = (v.is_none() && task::stats_on()).then_some(if watching > 0 { fallback::WAITER } else { fallback::STATE });
     end_fast(d);
+    if let Some(r) = why {
+        stat_fallback(r, 0, 0);
+    }
     v
 }
 
@@ -494,15 +843,19 @@ pub enum Free {
 /// A prompt receive that waits, without the runtime lock: takes a message
 /// as [`recv_fast`] does, or else registers and parks without the lock
 /// ([`task::park_free`]) until a sender hands it one.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap: taking a message, or
+/// registering (published as `BLOCKED` by [`end_fast`]) and then completing
+/// when a sender's hand-off delivers to it.
 pub fn recv_free(ch: u64) -> Free {
     if !task::can_suspend_free() {
         return Free::Locked;
     }
     let d = raw(ch);
-    if !try_fast(d) {
+    if !try_fast(d, d.state.load(Ordering::Relaxed)) {
         return Free::Locked;
     }
-    if d.batched || !d.space_waiters.is_empty() {
+    if d.batched || d.waiters.count(WaitKind::WatchSpace) > 0 {
         end_fast(d);
         return Free::Locked;
     }
@@ -514,10 +867,10 @@ pub fn recv_free(ch: u64) -> Free {
         end_fast(d);
         return Free::Done(x);
     }
-    while let Some((_, x, _, wait, p)) = d.send_waiters.pop_front() {
-        if task::deliver(p, wait, 0, false, 1) {
+    while let Some(s) = d.waiters.pop(WaitKind::Send) {
+        if task::deliver(s.rec, s.wait, 0, false, 1) {
             end_fast(d);
-            return Free::Done(x);
+            return Free::Done(s.value);
         }
     }
     if d.closed || !task::begin_park_free(1) {
@@ -526,7 +879,7 @@ pub fn recv_free(ch: u64) -> Free {
     }
     let _r = gc::Roots::new();
     _r.add(ch);
-    d.recv_waiters.push_back((task::current_id(), task::begin_wait(), task::current_ptr()));
+    d.register(WaitKind::Recv, 0, 0);
     let added = note_waiting(ch);
     end_fast(d);
     task::park_free();
@@ -542,25 +895,27 @@ pub fn recv_free(ch: u64) -> Free {
 /// A prompt send that waits, without the runtime lock: hands `v` to a
 /// parked receiver or queues it as [`send_fast`] does, or else registers
 /// with it and parks without the lock until a receiver takes it.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap, as [`recv_free`] does.
 pub fn send_free(ch: u64, v: u64) -> Free {
     if !task::can_suspend_free() {
         return Free::Locked;
     }
     let d = raw(ch);
-    if d.byte_budget > 0 || !try_fast(d) {
+    if d.byte_budget > 0 || !try_fast(d, d.state.load(Ordering::Relaxed)) {
         return Free::Locked;
     }
-    if d.closed || d.batched || !d.recv_watchers.is_empty() {
+    if d.closed || d.batched || d.waiters.count(WaitKind::WatchRecv) > 0 {
         end_fast(d);
         return Free::Locked;
     }
-    while let Some((_, wait, p)) = d.recv_waiters.pop_front() {
-        if task::deliver(p, wait, v, d.elem.is_ptr(), 1) {
+    while let Some(r) = d.waiters.pop(WaitKind::Recv) {
+        if task::deliver(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
             end_fast(d);
             return Free::Done(0);
         }
     }
-    if d.capacity > 0 && d.queue.len() < d.capacity && d.send_waiters.is_empty() {
+    if d.capacity > 0 && d.queue.len() < d.capacity && d.waiters.count(WaitKind::Send) == 0 {
         push_back_charged(&mut d.queue, v);
         gc::barrier(ch);
         push_back_charged(&mut d.sizes, 0);
@@ -576,7 +931,7 @@ pub fn send_free(ch: u64, v: u64) -> Free {
     if d.elem.is_ptr() {
         _r.add(v);
     }
-    d.send_waiters.push_back((task::current_id(), v, 0, task::begin_wait(), task::current_ptr()));
+    d.register(WaitKind::Send, v, 0);
     gc::barrier(ch);
     let added = note_waiting(ch);
     end_fast(d);
@@ -599,23 +954,23 @@ pub fn withdraw(ch: u64) {
     let me = task::current_id();
     let d = data(ch);
     debug_assert!(!d.batched, "waits without the lock are on prompt channels");
-    remove_waiter(&mut d.recv_waiters, |w| w.0, me);
-    remove_waiter(&mut d.send_waiters, |w| w.0, me);
+    d.waiters.remove(me, WaitKind::Recv);
+    d.waiters.remove(me, WaitKind::Send);
     done_waiting(ch, true);
 }
 
 /// [`admit_sender`] for a fast path holding the channel.
 fn admit_sender_fast(d: &mut ChanData) {
-    while let Some((s, v, size, wait, p)) = d.send_waiters.pop_front() {
-        let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
+    while let Some(s) = d.waiters.pop(WaitKind::Send) {
+        let fits = d.byte_budget == 0 || d.bytes + s.size <= d.byte_budget;
         if d.capacity == 0 || !fits || d.queue.len() >= d.capacity {
-            d.send_waiters.push_front((s, v, size, wait, p));
+            d.waiters.push_front(s);
             return;
         }
-        if task::deliver(p, wait, 0, false, 1) {
-            push_back_charged(&mut d.queue, v);
-            d.bytes += size;
-            push_back_charged(&mut d.sizes, size);
+        if task::deliver(s.rec, s.wait, 0, false, 1) {
+            push_back_charged(&mut d.queue, s.value);
+            d.bytes += s.size;
+            push_back_charged(&mut d.sizes, s.size);
             return;
         }
     }
@@ -625,8 +980,8 @@ fn admit_sender_fast(d: &mut ChanData) {
 pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: bool) -> u64 {
     let w = gc::alloc(chan_desc(), 8);
     let d = Box::new(ChanData {
-        seq: NEXT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-        state: std::sync::atomic::AtomicU8::new(0),
+        seq: NEXT_SEQ.fetch_add(1, Ordering::Relaxed),
+        state: AtomicU8::new(word::FREE | word::EMPTY),
         elem,
         capacity,
         max_batch: max_batch.max(1),
@@ -638,13 +993,9 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         staging: FxHashMap::default(),
         leased: 0,
         leases: vec![],
-        recv_waiters: VecDeque::new(),
-        send_waiters: VecDeque::new(),
-        cap_waiters: VecDeque::new(),
+        waiters: Waiters::default(),
         pool: vec![],
         published_batches: 0,
-        space_waiters: VecDeque::new(),
-        recv_watchers: VecDeque::new(),
         byte_budget: 0,
         bytes: 0,
         sizes: VecDeque::new(),
@@ -656,18 +1007,33 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
     w
 }
 
-fn wake_one_receiver(d: &mut ChanData) {
-    while let Some((r, wait, _)) = d.recv_waiters.pop_front() {
-        if task::waits(r, wait) {
-            task::wake(r, task::Wake::Normal);
-            return;
+/// Wake up to `n` live parked receivers (each removed: it was served, and
+/// registers again if another receiver took the message first).
+fn wake_receivers(d: &mut ChanData, mut n: usize) {
+    while n > 0
+        && let Some(r) = d.waiters.pop(WaitKind::Recv)
+    {
+        if task::waits(r.task, r.wait) {
+            task::wake(r.task, task::Wake::Normal);
+            n -= 1;
         }
     }
 }
 
+/// Wake the producers waiting for capacity (each removed: it retries, and
+/// registers again if there is still no room).
 fn wake_capacity(d: &mut ChanData) {
-    for t in std::mem::take(&mut d.cap_waiters) {
-        task::wake(t, task::Wake::Normal);
+    while let Some(w) = d.waiters.pop(WaitKind::Capacity) {
+        task::wake(w.task, task::Wake::Normal);
+    }
+}
+
+/// Wake every selection registered with kind `k` without removing it: a
+/// selection probes all its cases again when it runs, and removes its own
+/// registrations ([`unwatch`]) only then, so none is lost meanwhile.
+fn wake_watchers(d: &ChanData, k: WaitKind) {
+    for w in d.waiters.iter().filter(|w| w.kind == k) {
+        task::wake(w.task, task::Wake::Normal);
     }
 }
 
@@ -761,10 +1127,8 @@ pub fn admission_size(d: &TypeDesc, w: u64) -> usize {
     }
 }
 
-fn wake_space(d: &mut ChanData) {
-    for t in std::mem::take(&mut d.space_waiters) {
-        task::wake(t, task::Wake::Normal);
-    }
+fn wake_space(d: &ChanData) {
+    wake_watchers(d, WaitKind::WatchSpace);
 }
 
 /// Prompt send. Waits for capacity (or a receiver when capacity is zero).
@@ -787,25 +1151,27 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
         // hand off directly to a waiting receiver
         if fits {
-            while let Some((r, wait, _)) = d.recv_waiters.pop_front() {
-                if task::waits(r, wait) {
-                    task::wake_with(r, v, d.elem.is_ptr(), 1);
+            while let Some(r) = d.waiters.pop(WaitKind::Recv) {
+                if task::waits(r.task, r.wait) {
+                    task::wake_with(r.task, v, d.elem.is_ptr(), 1);
                     return SendResult::Sent;
                 }
             }
-            // a rendezvous with a selection parked on a receive of this channel
-            if d.capacity == 0 && commit_select_receive(ch, v) {
+            // a selection parked on a receive of this channel commits to it
+            // (at every capacity: a queued value would wake it only to
+            // probe again, and a wake to it may arrive while it is not
+            // parked)
+            if commit_select_receive(ch, v) {
                 return SendResult::Sent;
             }
         }
+        // queued: every selection still watching this channel is not
+        // parked (or committed elsewhere), and probes again before it parks
         if d.queue.len() < d.capacity && fits {
             push_back_charged(&mut d.queue, v);
             gc::barrier(ch);
             d.bytes += size;
             push_back_charged(&mut d.sizes, size);
-            for t in std::mem::take(&mut d.recv_watchers) {
-                task::wake(t, task::Wake::Normal);
-            }
             return SendResult::Sent;
         }
         if !wait && !fits {
@@ -814,7 +1180,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
         if !wait {
             return SendResult::Full;
         }
-        d.send_waiters.push_back((me, v, size, task::begin_wait(), task::current_ptr()));
+        d.register(WaitKind::Send, v, size);
         gc::barrier(ch);
         let added = note_waiting(ch);
         task::park_for("channel send");
@@ -825,7 +1191,7 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Sent;
         }
         // not taken: withdraw our reservation (the value is still ours)
-        remove_waiter(&mut d.send_waiters, |w| w.0, me);
+        d.waiters.remove(me, WaitKind::Send);
         done_waiting(ch, added);
         if status == 2 || d.closed {
             return SendResult::Closed;
@@ -837,16 +1203,16 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
 /// case commits on its behalf).
 fn commit_select_receive(ch: u64, v: u64) -> bool {
     let me = task::current_id();
-    let watchers: Vec<TaskId> = data(ch).recv_watchers.iter().copied().collect();
-    for t in watchers {
-        let Some(tk) = task::task(t) else { continue };
-        if t == me || !task::is_parked(t) || tk.select_done.is_some() {
-            continue;
+    let d = data(ch);
+    if d.waiters.count(WaitKind::WatchRecv) == 0 {
+        return false;
+    }
+    for w in d.waiters.iter().filter(|w| w.kind == WaitKind::WatchRecv && w.task != me) {
+        if let Some((tk, i, _)) = select_offer(w, ch, false) {
+            tk.select_done = Some(i);
+            task::wake_with(w.task, v, d.elem.is_ptr(), 1);
+            return true;
         }
-        let Some(&(_, i, _, _)) = tk.select_offer.iter().find(|c| c.0 == ch && !c.2) else { continue };
-        tk.select_done = Some(i);
-        task::wake_with(t, v, data(ch).elem.is_ptr(), 1);
-        return true;
     }
     false
 }
@@ -855,18 +1221,34 @@ fn commit_select_receive(ch: u64, v: u64) -> bool {
 /// case commits on its behalf).
 fn commit_select_send(ch: u64) -> Option<u64> {
     let me = task::current_id();
-    let waiters: Vec<TaskId> = data(ch).space_waiters.iter().copied().collect();
-    for t in waiters {
-        let Some(tk) = task::task(t) else { continue };
-        if t == me || !task::is_parked(t) || tk.select_done.is_some() {
-            continue;
+    let d = data(ch);
+    if d.waiters.count(WaitKind::WatchSpace) == 0 {
+        return None;
+    }
+    for w in d.waiters.iter().filter(|w| w.kind == WaitKind::WatchSpace && w.task != me) {
+        if let Some((tk, i, v)) = select_offer(w, ch, true) {
+            tk.select_done = Some(i);
+            task::wake_with(w.task, 0, false, 1);
+            return Some(v);
         }
-        let Some(&(_, i, _, v)) = tk.select_offer.iter().find(|c| c.0 == ch && c.2) else { continue };
-        tk.select_done = Some(i);
-        task::wake_with(t, 0, false, 1);
-        return Some(v);
     }
     None
+}
+
+/// The selection registered as `w`, if it is still in the wait it
+/// registered for (parked, not cancelled), nothing committed it yet, and it
+/// offers a case on `ch` (a send case when `send`): its record, the case's
+/// index, and the offered value.
+fn select_offer(w: &Waiter, ch: u64, send: bool) -> Option<(&'static mut task::Task, usize, u64)> {
+    if !task::waits(w.task, w.wait) {
+        return None;
+    }
+    let tk = task::task(w.task)?;
+    if tk.select_done.is_some() {
+        return None;
+    }
+    let &(_, i, _, v) = tk.select_offer.iter().find(|c| c.0 == ch && c.2 == send)?;
+    Some((tk, i, v))
 }
 
 pub enum RecvResult {
@@ -879,18 +1261,18 @@ pub enum RecvResult {
 /// (a sender whose value does not fit the budget yet keeps waiting, first
 /// in line).
 fn admit_sender(d: &mut ChanData) {
-    while let Some((s, v, size, wait, p)) = d.send_waiters.pop_front() {
-        if task::waits(s, wait) {
-            let fits = d.byte_budget == 0 || d.bytes + size <= d.byte_budget;
+    while let Some(s) = d.waiters.pop(WaitKind::Send) {
+        if task::waits(s.task, s.wait) {
+            let fits = d.byte_budget == 0 || d.bytes + s.size <= d.byte_budget;
             if d.capacity == 0 || !fits || d.queue.len() >= d.capacity {
                 // rendezvous: the receiver takes it directly (handled by caller)
-                d.send_waiters.push_front((s, v, size, wait, p));
+                d.waiters.push_front(s);
                 return;
             }
-            push_back_charged(&mut d.queue, v);
-            d.bytes += size;
-            push_back_charged(&mut d.sizes, size);
-            task::wake_with(s, 0, false, 1);
+            push_back_charged(&mut d.queue, s.value);
+            d.bytes += s.size;
+            push_back_charged(&mut d.sizes, s.size);
+            task::wake_with(s.task, 0, false, 1);
             return;
         }
     }
@@ -910,10 +1292,10 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Value(v);
         }
         // rendezvous / waiting sender with capacity zero
-        while let Some((s, v, _, wait, _)) = d.send_waiters.pop_front() {
-            if task::waits(s, wait) {
-                task::wake_with(s, 0, false, 1);
-                return RecvResult::Value(v);
+        while let Some(s) = d.waiters.pop(WaitKind::Send) {
+            if task::waits(s.task, s.wait) {
+                task::wake_with(s.task, 0, false, 1);
+                return RecvResult::Value(s.value);
             }
         }
         // a rendezvous with a selection parked on a send to this channel
@@ -929,7 +1311,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Empty;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
+        d.register(WaitKind::Recv, 0, 0);
         let added = note_waiting(ch);
         task::park_for("channel receive");
         let (v, status) = task::take_delivered();
@@ -937,7 +1319,7 @@ pub fn recv(ch: u64, wait: bool) -> RecvResult {
             done_waiting(ch, added);
             return RecvResult::Value(v);
         }
-        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
+        data(ch).waiters.remove(me, WaitKind::Recv);
         done_waiting(ch, added);
     }
 }
@@ -962,42 +1344,48 @@ pub fn close(ch: u64) {
             }
         }
     }
+    // the last transition: every registration is woken and removed (each
+    // waiter, and each selection's probe, finds the channel closed)
     let d = data(ch);
     d.closed = true;
-    for (r, wait, _) in std::mem::take(&mut d.recv_waiters) {
-        if task::waits(r, wait) {
-            task::wake(r, task::Wake::Normal);
+    for w in d.waiters.take_all() {
+        match w.kind {
+            WaitKind::Recv => {
+                if task::waits(w.task, w.wait) {
+                    task::wake(w.task, task::Wake::Normal);
+                }
+            }
+            WaitKind::Send => {
+                if task::waits(w.task, w.wait) {
+                    task::wake_with(w.task, 0, false, 2);
+                }
+            }
+            WaitKind::Capacity | WaitKind::WatchSpace | WaitKind::WatchRecv => {
+                task::wake(w.task, task::Wake::Normal)
+            }
         }
-    }
-    for (s, _, _, wait, _) in std::mem::take(&mut d.send_waiters) {
-        if task::waits(s, wait) {
-            task::wake_with(s, 0, false, 2);
-        }
-    }
-    wake_capacity(d);
-    wake_space(d);
-    for t in std::mem::take(&mut d.recv_watchers) {
-        task::wake(t, task::Wake::Normal);
     }
 }
 
 /// Unlocked close of a prompt channel no selection watches: parked
 /// receivers wake to find it closed, parked senders get their values back
 /// as closed. `false`: the locked path must close it.
+///
+/// Linearizes at [`try_fast`]'s compare-and-swap.
 pub fn close_fast(ch: u64) -> bool {
     let d = raw(ch);
-    if !try_fast(d) {
+    if !try_fast(d, d.state.load(Ordering::Relaxed)) {
         return false;
     }
-    let ok =
-        !d.batched && d.recv_watchers.is_empty() && d.space_waiters.is_empty() && d.cap_waiters.is_empty();
+    let ok = !d.batched
+        && d.waiters.count(WaitKind::WatchRecv) == 0
+        && d.waiters.count(WaitKind::WatchSpace) == 0
+        && d.waiters.count(WaitKind::Capacity) == 0;
     if ok {
         d.closed = true;
-        for (_, wait, p) in std::mem::take(&mut d.recv_waiters) {
-            task::deliver(p, wait, 0, false, 0);
-        }
-        for (_, _, _, wait, p) in std::mem::take(&mut d.send_waiters) {
-            task::deliver(p, wait, 0, false, 2);
+        for w in d.waiters.take_all() {
+            let status = if w.kind == WaitKind::Send { 2 } else { 0 };
+            task::deliver(w.rec, w.wait, 0, false, status);
         }
     }
     end_fast(d);
@@ -1056,23 +1444,26 @@ pub fn flush_due(producer: TaskId, chans: &[u64]) {
     }
 }
 
-/// Register the current task to be woken when `ch` may have a message.
+/// Register the current task (a selection) to be committed to, or woken,
+/// when `ch` may have a message. It stays registered until [`unwatch`].
 pub fn watch_recv(ch: u64) {
-    data(ch).recv_watchers.push_back(task::current_id());
+    data(ch).register(WaitKind::WatchRecv, 0, 0);
     let _ = note_waiting(ch);
 }
 
-/// Register the current task to be woken when `ch` may have space.
+/// Register the current task (a selection) to be woken when `ch` may have
+/// space. It stays registered until [`unwatch`].
 pub fn watch_space(ch: u64) {
-    data(ch).space_waiters.push_back(task::current_id());
+    data(ch).register(WaitKind::WatchSpace, 0, 0);
     let _ = note_waiting(ch);
 }
 
+/// Withdraw the current task's selection registrations with `ch`.
 pub fn unwatch(ch: u64) {
     let me = task::current_id();
     let d = data(ch);
-    d.recv_watchers.retain(|t| *t != me);
-    d.space_waiters.retain(|t| *t != me);
+    d.waiters.remove(me, WaitKind::WatchRecv);
+    d.waiters.remove(me, WaitKind::WatchSpace);
 }
 
 // ------------------------------------------------------------------ batches
@@ -1091,13 +1482,13 @@ pub fn publish(ch: u64, producer: TaskId) {
     release_buf::<u64>(staged.capacity());
     let batch = VecDeque::from(staged);
     charge_buffer::<u64>(batch.capacity());
+    let n = batch.len();
     push_back_charged(&mut d.batches, batch);
     d.published_batches += 1;
-    wake_one_receiver(d);
+    // a receiver per message (a single-message receiver takes one)
+    wake_receivers(d, n);
     // selections waiting on this channel
-    for t in std::mem::take(&mut d.recv_watchers) {
-        task::wake(t, task::Wake::Normal);
-    }
+    wake_watchers(d, WaitKind::WatchRecv);
 }
 
 /// Scheduler hook: a task scheduled out; publish its staged batches.
@@ -1169,9 +1560,10 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
             return SendResult::Full;
         }
         let d = data(ch);
-        d.cap_waiters.push_back(me);
+        d.register(WaitKind::Capacity, 0, 0);
         let _ = note_waiting(ch);
         task::park_for("batch capacity");
+        data(ch).waiters.remove(me, WaitKind::Capacity);
     }
 }
 
@@ -1213,10 +1605,10 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
             return None;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
+        d.register(WaitKind::Recv, 0, 0);
         let _ = note_waiting(ch);
         task::park_for("batch receive");
-        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
+        data(ch).waiters.remove(me, WaitKind::Recv);
     }
 }
 
@@ -1248,10 +1640,10 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
             return RecvResult::Empty;
         }
         let me = task::current_id();
-        d.recv_waiters.push_back((me, task::begin_wait(), task::current_ptr()));
+        d.register(WaitKind::Recv, 0, 0);
         let _ = note_waiting(ch);
         task::park_for("batch receive");
-        remove_waiter(&mut data(ch).recv_waiters, |w| w.0, me);
+        data(ch).waiters.remove(me, WaitKind::Recv);
     }
 }
 
@@ -1285,28 +1677,6 @@ fn done_waiting(ch: u64, added: bool) {
     }
 }
 
-/// Remove task `id`'s entry from a list of parked senders or receivers (a
-/// task waits at most once in each). Searched from both ends: waiters
-/// that leave in or against the order they arrived, as when a scope
-/// cancels many tasks blocked on one channel, cost O(1) each instead of a
-/// scan of every waiter (which made cancelling n of them O(n²)).
-fn remove_waiter<T>(q: &mut VecDeque<T>, task_of: impl Fn(&T) -> TaskId, id: TaskId) {
-    let n = q.len();
-    let found = (0..n.div_ceil(2)).find_map(|k| {
-        if task_of(&q[k]) == id {
-            Some(k)
-        } else if task_of(&q[n - 1 - k]) == id {
-            Some(n - 1 - k)
-        } else {
-            None
-        }
-    });
-    if let Some(i) = found {
-        q.remove(i);
-    }
-    debug_assert!(!q.iter().any(|w| task_of(w) == id), "a task waits at most once in a waiter list");
-}
-
 /// A finished task leaves the channels it was registered with: a waiter
 /// abandoned by cancellation is withdrawn (with the value it offered), and
 /// its unreleased leases return their capacity (a lease is released by
@@ -1315,11 +1685,7 @@ pub fn task_finished(id: TaskId) {
     let Some(t) = task::task(id) else { return };
     for ch in std::mem::take(&mut t.chan_regs) {
         let d = data(ch);
-        remove_waiter(&mut d.send_waiters, |w| w.0, id);
-        remove_waiter(&mut d.recv_waiters, |w| w.0, id);
-        d.cap_waiters.retain(|t| *t != id);
-        d.space_waiters.retain(|t| *t != id);
-        d.recv_watchers.retain(|t| *t != id);
+        d.waiters.remove_task(id);
         let held: Vec<u64> = d.leases.iter().filter(|(t, _)| *t == id).map(|(_, b)| *b).collect();
         for b in held {
             release(b);
