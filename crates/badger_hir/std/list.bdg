@@ -1,5 +1,8 @@
 // Paged lists and builders.
 
+import std.array
+import std.buffer
+
 extern "intrinsic" fn list_len<T>(list: List<T>) -> Int
 extern "intrinsic" fn list_get<T>(list: List<T>, index: Int) -> Option<T>
 extern "intrinsic" fn list_builder<T>() -> ListBuilder<T>
@@ -407,28 +410,40 @@ pub fn zip<A, B>(a: List<A>, b: List<B>) -> List<(A, B)> {
 
 /// The item with the smallest key (the first, on ties).
 pub fn min_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
-    var best: Option<(K, T)> = Option.none
+    // best key and item stay separate locals: a `(K, T)` record would be
+    // allocated once per item when `T` or `K` holds a pointer.
+    var best_k: Option<K> = Option.none
+    var best_x: Option<T> = Option.none
     for x in list {
         let k = key(x)
-        best = match best {
-            .some((bk, bx)) => if k < bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
-            .none => Option.some((k, x)),
+        let better = match best_k {
+            .some(bk) => k < bk,
+            .none => true,
+        }
+        if better {
+            best_k = Option.some(k)
+            best_x = Option.some(x)
         }
     }
-    best.map(fn(p) => p.1)
+    best_x
 }
 
 /// The item with the largest key (the first, on ties).
 pub fn max_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd {
-    var best: Option<(K, T)> = Option.none
+    var best_k: Option<K> = Option.none
+    var best_x: Option<T> = Option.none
     for x in list {
         let k = key(x)
-        best = match best {
-            .some((bk, bx)) => if k > bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
-            .none => Option.some((k, x)),
+        let better = match best_k {
+            .some(bk) => k > bk,
+            .none => true,
+        }
+        if better {
+            best_k = Option.some(k)
+            best_x = Option.some(x)
         }
     }
-    best.map(fn(p) => p.1)
+    best_x
 }
 
 /// The items `keep` accepts and those it refuses, each in order.
@@ -456,12 +471,19 @@ pub fn sort_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: Partial
 
 /// Sorted by `compare` (negative: the first argument goes first; 0:
 /// equal), stably. A bottom-up merge sort: O(n log n) comparisons.
+///
+/// Each pass merges into one contiguous buffer (`push` per element) and
+/// freezes it into an array for the next pass, instead of rebuilding a paged
+/// list every pass. Reads are direct array indexing.
 pub fn sort_with<T>(list: List<T>, compare: fn(T, T) -> Int) -> List<T> {
     let n = list_len(list)
-    var run = list
+    if n < 2 {
+        return list
+    }
+    var src = list.to_array()
     var width = 1
     while width < n {
-        let b = list_builder()
+        var dst = buffer.with_capacity<T>(n)
         var lo = 0
         while lo < n {
             let mid = if lo + width < n { lo + width } else { n }
@@ -469,30 +491,30 @@ pub fn sort_with<T>(list: List<T>, compare: fn(T, T) -> Int) -> List<T> {
             var i = lo
             var j = mid
             while i < mid && j < hi {
-                let (x, y) = (at(run, i), at(run, j))
+                let (x, y) = (src[i], src[j])
                 // on a tie the left run's item goes first: stable
                 if compare(y, x) < 0 {
-                    list_builder_append(b, y)
+                    dst.push(y)
                     j = j + 1
                 } else {
-                    list_builder_append(b, x)
+                    dst.push(x)
                     i = i + 1
                 }
             }
             while i < mid {
-                list_builder_append(b, at(run, i))
+                dst.push(src[i])
                 i = i + 1
             }
             while j < hi {
-                list_builder_append(b, at(run, j))
+                dst.push(src[j])
                 j = j + 1
             }
             lo = hi
         }
-        run = list_finish(b)
+        src = buffer.freeze(dst)
         width = width * 2
     }
-    run
+    src.to_list()
 }
 
 /// Consecutive equal items collapsed to one.
@@ -545,41 +567,17 @@ pub fn chunks_of<T>(list: List<T>, size: Int) -> List<List<T>> {
 
 /// The items grouped by `key`, each group in order.
 pub fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash {
-    // positions per key, then each group sliced out in one pass
-    let index: Map<K, Int> = map_empty()
-    let keys = list_builder()
-    let members = list_builder()
-    var pos = 0
+    // Append to each group's list as items arrive: their order is kept, and
+    // no per-item records are built or sorted (as an index-then-sort build
+    // needs). Only the groups themselves are allocated, once each.
+    let out: Map<K, List<T>> = map_empty()
     for x in list {
         let k = key(x)
-        let g = match map_get(index, k) {
+        let group = match map_get(out, k) {
             .some(g) => g,
-            .none => {
-                let g = list_builder_len(keys)
-                map_insert_mut(index, k, g)
-                list_builder_append(keys, k)
-                g
-            },
+            .none => empty(),
         }
-        // (group, position): sorted on these alone, a group keeps the
-        // items' order (positions never tie, so items are never compared)
-        list_builder_append(members, (g, pos, x))
-        pos = pos + 1
-    }
-    let ks = list_finish(keys)
-    let ordered = list_sort(list_finish(members))
-    let out: Map<K, List<T>> = map_empty()
-    var i = 0
-    var g = 0
-    let n = list_len(ordered)
-    while i < n {
-        let b = list_builder()
-        while i < n && at(ordered, i).0 == g {
-            list_builder_append(b, at(ordered, i).2)
-            i = i + 1
-        }
-        map_insert_mut(out, at(ks, g), list_finish(b))
-        g = g + 1
+        map_insert_mut(out, k, list_append(group, x))
     }
     out
 }

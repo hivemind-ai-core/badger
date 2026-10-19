@@ -500,7 +500,10 @@ pub fn push_raw(dst: u64, src: *const u8, n: usize) {
         let size = elem.repr().size() as usize;
         let off = len % cap;
         let page = if off == 0 {
-            let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS) } else { cap };
+            // A bulk append knows how many elements remain, so a first page
+            // can be the exact size the run needs instead of growing by
+            // copying (which `push` must do, one element at a time).
+            let slots = if len == 0 { cap.min(FIRST_PAGE_SLOTS.max(n - done)) } else { cap };
             let page = r.add(new_page(elem, slots));
             unsafe { (*(obj(page).payload().add(8) as *const AtomicU64)).store(0, Ordering::Release) };
             put_page(dst, len / cap, page);
