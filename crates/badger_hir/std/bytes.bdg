@@ -92,6 +92,14 @@ pub fn hex(b: Bytes) -> String { bytes_hex(b) }
 pub fn from_text(s: String) -> Bytes { text_to_bytes(s) }
 /// Validate UTF-8.
 pub fn to_text(b: Bytes) -> Result<String, String> { text_from_bytes(b) }
+
+/// The text, or `default` when the bytes are not valid text.
+pub fn to_text_or(b: Bytes, default: String) -> String {
+    match text_from_bytes(b) {
+        .ok(s) => s,
+        .err(_) => default,
+    }
+}
 /// Consume a byte buffer into immutable bytes.
 pub fn freeze(buffer: Buffer<Byte>) -> Bytes { bytes_from_buffer(buffer) }
 pub fn from_list(list: List<Byte>) -> Bytes { bytes_from_list(list) }
@@ -108,4 +116,6 @@ impl Bytes {
     pub fn concat(self: &Self, other: Bytes) -> Bytes { bytes_concat(self, other) }
     pub fn hex(self: &Self) -> String { bytes_hex(self) }
     pub fn to_text(self: &Self) -> Result<String, String> { text_from_bytes(self) }
+    /// The text, or `default` when the bytes are not valid text.
+    pub fn to_text_or(self: &Self, default: String) -> String { to_text_or(self, default) }
 }

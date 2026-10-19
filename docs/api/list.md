@@ -95,6 +95,14 @@ fn count<T>(list: List<T>, test: fn(T) -> Bool) -> Int
 
 How many items satisfy `test`.
 
+### `count_by`
+
+```badger
+fn count_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, Int> where K: Hash
+```
+
+How many items share each key.
+
 ### `dedup`
 
 ```badger
@@ -179,6 +187,14 @@ fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Ha
 ```
 
 The items grouped by `key`, each group in order.
+
+### `group_by_key`
+
+```badger
+fn group_by_key<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+```
+
+The items grouped by `key` (the name Python's `sorted(key=...)` uses).
 
 ### `len`
 
@@ -305,6 +321,14 @@ fn sort_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialOrd
 
 Sorted by `key`, stably (equal keys keep their order). O(n log n);
 each key is computed once.
+
+### `sort_by_key`
+
+```badger
+fn sort_by_key<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialOrd
+```
+
+The items sorted by `key` (the name Python's `sorted(key=...)` uses).
 
 ### `sort_with`
 
@@ -444,6 +468,12 @@ fn contains(self: &Self, value: T) -> Bool
 fn count(self: &Self, test: fn(T) -> Bool) -> Int
 ```
 
+### `List.count_by`
+
+```badger
+fn count_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, Int> where K: Hash
+```
+
 ### `List.dedup`
 
 ```badger
@@ -518,6 +548,12 @@ Checked lookup: `none` when out of range (any integer index type).
 
 ```badger
 fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
+```
+
+### `List.group_by_key`
+
+```badger
+fn group_by_key<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
 ```
 
 ### `List.is_empty`
@@ -624,6 +660,12 @@ fn sort(self: &Self) -> List<T>
 
 ```badger
 fn sort_by<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd
+```
+
+### `List.sort_by_key`
+
+```badger
+fn sort_by_key<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd
 ```
 
 ### `List.sort_with`

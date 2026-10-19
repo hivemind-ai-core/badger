@@ -17,6 +17,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 extern "native badger_template.render" fn t_render(text: String, context: Data, html: Bool) -> Result<String, Error>
 extern "native badger_template.compile" fn t_compile(templates: Map<String, String>, html: Bool) -> Result<native.Handle, Error>
 extern "native badger_template.render_named" fn t_render_named(set: native.Handle, name: String, context: Data) -> Result<String, Error>

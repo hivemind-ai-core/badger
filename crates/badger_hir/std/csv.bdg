@@ -16,6 +16,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 extern "native badger_formats.csv_rows" fn csv_rows(text: String, delimiter: String) -> Result<List<List<String>>, Error>
 extern "native badger_formats.csv_records" fn csv_records(text: String, delimiter: String) -> Result<List<Map<String, String>>, Error>
 extern "native badger_formats.csv_encode" fn csv_encode(rows: List<List<String>>, delimiter: String) -> Result<String, Error>

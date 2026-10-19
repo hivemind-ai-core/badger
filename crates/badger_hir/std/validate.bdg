@@ -1,0 +1,68 @@
+// Validation rules: one place to state what a valid value is.
+//
+// A rule pairs a condition with the error it reports. `validate` returns
+// the first violation; `validate_all` collects every violation, so a
+// caller can report all the problems at once.
+//
+// ```badger
+// validate(book, [
+//     validate.rule(!text.is_empty(book.title), "title is required"),
+//     validate.rule(book.title.len() <= 200, "title is too long"),
+// ])
+// ```
+
+import std.list
+import std.text
+
+/// A rule: a condition and the error it reports when it fails.
+pub type Rule<E> = (Bool, E)
+
+/// A rule that holds when `condition` holds.
+pub fn rule<E>(condition: Bool, error: E) -> Rule<E> { (condition, error) }
+
+/// The value when every rule holds; the first failing rule's error
+/// otherwise.
+pub fn validate<T, E>(value: T, rules: List<Rule<E>>) -> Result<T, E> {
+    for (holds, error) in rules {
+        if !holds {
+            return err(error)
+        }
+    }
+    ok(value)
+}
+
+/// The value when every rule holds; every failing rule's error otherwise,
+/// in rule order.
+pub fn validate_all<T, E>(value: T, rules: List<Rule<E>>) -> Result<T, List<E>> {
+    var errors: List<E> = list.empty()
+    for (holds, error) in rules {
+        if !holds {
+            errors = errors.append(error)
+        }
+    }
+    if errors.is_empty() {
+        ok(value)
+    } else {
+        err(errors)
+    }
+}
+
+// ---------------------------------------------------------------- common conditions
+
+/// The text is not empty (nor only blanks).
+pub fn not_blank(value: String) -> Bool { !text.is_blank(value) }
+
+/// The text is at most `n` characters long.
+pub fn at_most(value: String, n: Int) -> Bool { text.len(value) <= n }
+
+/// The text is at least `n` characters long.
+pub fn at_least(value: String, n: Int) -> Bool { text.len(value) >= n }
+
+/// The number is in `low..=high`.
+pub fn in_range(value: Int, low: Int, high: Int) -> Bool { value >= low && value <= high }
+
+/// The number is greater than `low`.
+pub fn greater_than(value: Int, low: Int) -> Bool { value > low }
+
+/// The number is less than `high`.
+pub fn less_than(value: Int, high: Int) -> Bool { value < high }

@@ -109,6 +109,39 @@ report failures as plain data.
 Standard providers include `sqlite.pool`, `postgres.pool`, `http.server`,
 `http.limited_server`, and `otel.exporter` ([chapter 10](10-services.md)).
 
+### A provider's background work
+
+A provider that wants work of its own — a heartbeat, a poller, a
+notifier — starts it on the scope the provider is given (its first
+parameter). The scope belongs to the node: the worker is supervised, and
+it stops when the system halts.
+
+```badger
+import std.system
+import std.task
+import std.worker
+
+pub enum AppError {
+    system(source: system.Error),
+} derive(Error, From)
+
+provider heartbeat(scope, _config: { every: Int }) -> Result<Unit, AppError> {
+    scope.worker(fn() -> Result<Unit, AppError> {
+        loop {
+            task.sleep(1s)
+        }
+        ok(())
+    }, worker.on_failure({ max_restarts: 3, window: 1s, backoff: 10ms }))
+    ok(())
+}
+```
+
+Do **not** open a `task.scope()` inside a provider to get a task of its
+own. A scope belongs to the function that opened it: the provider's
+scope ends when the provider returns, so the task it waits for never
+finishes, and the system hangs at startup — with no port, no log line,
+and no worker pool. The scope the provider is given is the one to use.
+
 ## Startup failure
 
 ```badger
@@ -474,6 +507,110 @@ Each stage's `enter` may add fields to the context, so the handler sees
 |---|---|
 | `handle(f)` | `f(ctx) -> Result<Reply, E>`: a reply only |
 | `handle_context(f)` | `f(ctx) -> Result<(ctx, Reply), E>`: a reply and updated field values |
+
+### The error type of a stage
+
+One rule, in one place: **a stage's callbacks use the pipeline's error
+type** — the `E` of the handler's `Result<_, E>` — unless the stage names
+one itself. A stage names one in either of two ways:
+
+- the callback's own parameter: `error(ctx, error: AppError)`;
+- the factory's result annotation: `stage NAME() -> Result<_, AppError>`,
+  which names it for every callback of that stage.
+
+So the same stage may be written three ways, and they mean the same
+thing. Inferred (the pipeline's error type is `AppError`):
+
+```badger
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum AppError {
+    failed(message: String),
+}
+
+stage logging() {
+    enter(ctx) { pipeline.next(ctx) }
+    error(ctx, error) {
+        // `error` is an `AppError` here: the pipeline's handler says so
+        match error {
+            .failed(message) => { pipeline.propagate(ctx, AppError.failed(message)) },
+        }
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = pipeline {
+        logging(),
+        handle(fn(_ctx) -> Result<Int, AppError> { ok(1) }),
+    }
+    let _ = plan
+    ok(())
+}
+```
+
+Named by the callback:
+
+```badger
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum AppError {
+    failed(message: String),
+}
+
+stage logging() {
+    enter(ctx) { pipeline.next(ctx) }
+    error(ctx, error: AppError) {
+        match error {
+            .failed(message) => { pipeline.propagate(ctx, AppError.failed(message)) },
+        }
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = pipeline {
+        logging(),
+        handle(fn(_ctx) -> Result<Int, AppError> { ok(1) }),
+    }
+    let _ = plan
+    ok(())
+}
+```
+
+Named by the factory, for a stage used in pipelines of several error
+types:
+
+```badger
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum AppError {
+    failed(message: String),
+}
+
+stage logging() -> Result<_, AppError> {
+    enter(ctx) { pipeline.next(ctx) }
+    error(ctx, error) {
+        match error {
+            .failed(message) => { pipeline.propagate(ctx, AppError.failed(message)) },
+        }
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = pipeline {
+        logging(),
+        handle(fn(_ctx) -> Result<Int, AppError> { ok(1) }),
+    }
+    let _ = plan
+    ok(())
+}
+```
+
+A stage that names a *different* error type does not fit the pipeline it
+is used in, and the compiler says so — a stage's `error` callback never
+fails silently.
 
 ### Order of callbacks
 

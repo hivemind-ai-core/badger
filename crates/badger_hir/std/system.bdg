@@ -53,6 +53,8 @@ impl Display for Error {
     }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {
     fn code(self: &Self) -> Symbol { self.node }
     fn cause(self: &Self) -> Option<dyn prelude.Error> {

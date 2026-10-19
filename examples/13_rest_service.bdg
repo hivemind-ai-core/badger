@@ -121,6 +121,20 @@ pub enum AppError {
     not_found(id: Int),
 } derive(Error, From)
 
+// The status each error is answered with. The route system reads it, so a
+// handler's `Err` produces the status the application intended instead of
+// a generic 500.
+impl HttpStatus for AppError {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .decode(_) => 400,
+            .invalid_input(_) => 400,
+            .not_found(_) => 404,
+            _ => 500,
+        }
+    }
+}
+
 // A closed result for the validation pipeline.
 enum Validation {
     ok,

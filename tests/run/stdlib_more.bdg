@@ -22,6 +22,10 @@ pub enum AppError {
     route(source: route.RouteError),
 } derive(Error, From)
 
+// The status each error is answered with (500 unless the error chooses
+// one): the route system uses it.
+impl HttpStatus for AppError {}
+
 pub fn main() -> Result<Unit, AppError> {
     say(path.join("/tmp", "notes.txt"))
     say(path.extension("archive.tar.gz").unwrap_or("?"))

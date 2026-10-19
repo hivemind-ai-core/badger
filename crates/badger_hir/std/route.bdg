@@ -36,13 +36,15 @@ impl Display for RouteError {
 
 impl Error for RouteError {}
 
+impl HttpStatus for RouteError {}
+
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
 
 fn json_reply<T>(status: Int, value: T) -> http.Response where T: Codec {
     { status, headers: map { "content-type" => "application/json" }, body: codec.encode(value) }
 }
 
-fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
+fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus {
     {
         method,
         path,
@@ -56,26 +58,26 @@ fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request
                 .ok(r) => r,
                 .err(e) => {
                     trace_event(#route/handler_error, { route: name, message: e.display() })
-                    json_reply(500, { error: "internal server error" })
+                    http.error_reply(e)
                 },
             }
         },
     }
 }
 
-pub fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
+pub fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus {
     route(#get, path, name, handler)
 }
 
-pub fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
+pub fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus {
     route(#post, path, name, handler)
 }
 
-pub fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
+pub fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus {
     route(#put, path, name, handler)
 }
 
-pub fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display {
+pub fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus {
     route(#delete, path, name, handler)
 }
 
@@ -83,7 +85,7 @@ pub fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -
 /// (a failure is a structured 400 reply naming the input path) and the
 /// handler's `(status, reply)` is encoded with `R`'s schema. Both schemas
 /// are part of the description (OpenAPI).
-pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params, B) -> Result<(Int, R), E>) -> Route where B: Codec, R: Codec, E: Display {
+pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params, B) -> Result<(Int, R), E>) -> Route where B: Codec, R: Codec, E: Display, E: HttpStatus {
     {
         method,
         path,
@@ -99,7 +101,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
                     .ok((status, reply)) => json_reply(status, reply),
                     .err(e) => {
                         trace_event(#route/handler_error, { route: name, message: e.display() })
-                        json_reply(500, { error: "internal server error" })
+                        http.error_reply(e)
                     },
                 },
             }
@@ -108,7 +110,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
 }
 
 /// A typed JSON route without a request body.
-pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<(Int, R), E>) -> Route where R: Codec, E: Display {
+pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<(Int, R), E>) -> Route where R: Codec, E: Display, E: HttpStatus {
     {
         method: #get,
         path,
@@ -122,7 +124,7 @@ pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Para
                 .ok((status, reply)) => json_reply(status, reply),
                 .err(e) => {
                     trace_event(#route/handler_error, { route: name, message: e.display() })
-                    json_reply(500, { error: "internal server error" })
+                    http.error_reply(e)
                 },
             }
         },
@@ -136,7 +138,7 @@ extern "intrinsic" fn data_field_names(schema: String) -> List<String>
 /// fields are the pattern's `:name`s; numbers and booleans are parsed), the
 /// body into `B`, and the reply encodes `R`. Invalid parameters or bodies are
 /// structured 400 replies; all three schemas are part of the description.
-pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, P, B) -> Result<(Int, R), E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display {
+pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, P, B) -> Result<(Int, R), E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus {
     {
         method,
         path,
@@ -156,7 +158,7 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
                             .ok((status, reply)) => json_reply(status, reply),
                             .err(e) => {
                                 trace_event(#route/handler_error, { route: name, message: e.display() })
-                                json_reply(500, { error: "internal server error" })
+                                http.error_reply(e)
                             },
                         },
                     }
@@ -169,6 +171,50 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
 fn segments(path: String) -> List<String> {
     list.filter(text.split(path, "/"), fn(s) { !text.is_empty(s) })
 }
+
+/// The path of a request URI, without its query string: `/search?q=bad`
+/// becomes `/search`.
+pub fn path_of(uri: String) -> String {
+    match text.index_of(uri, "?") {
+        .some(i) => text.slice(uri, 0, i).unwrap_or(uri),
+        .none => uri,
+    }
+}
+
+/// The query string of a request URI (without the `?`), if it has one.
+pub fn query_of(uri: String) -> Option<String> {
+    match text.index_of(uri, "?") {
+        .some(i) => Option.some(text.slice(uri, i + 1, text.len(uri)).unwrap_or("")),
+        .none => Option.none,
+    }
+}
+
+/// The query parameters of a request URI (`?a=1&b=2`): the names and
+/// values are percent-decoded. A parameter without a value (`?a`) has the
+/// empty string as its value.
+pub fn query_params(uri: String) -> Params {
+    var out: Params = map.empty()
+    match query_of(uri) {
+        .some(query) => {
+            for pair in text.split(query, "&") {
+                if pair == "" {
+                    continue
+                }
+                let (name, value) = match text.index_of(pair, "=") {
+                    .some(i) => (text.slice(pair, 0, i).unwrap_or(""), text.slice(pair, i + 1, text.len(pair)).unwrap_or("")),
+                    .none => (pair, ""),
+                }
+                out = map.insert(out, url_decode(name), url_decode(value))
+            }
+        },
+        .none => (),
+    }
+    out
+}
+
+/// The query parameters of a request: `params.get("q")` for
+/// `GET /search?q=bad`.
+pub fn params(request: http.Request) -> Params { query_params(request.path) }
 
 /// The `:name` parameters of a pattern, in order.
 pub fn params_of(path: String) -> List<String> {
@@ -283,14 +329,24 @@ pub fn table(routes: List<Route>) -> Result<http.Handler, RouteError> {
     ok(http.handler(fn(request) -> Result<http.Response, RouteError> {
         for r in routes {
             if r.method == request.method {
-                match match_path(r.path, request.path) {
-                    .some(params) => { return ok(r.run(request, params)) },
+                match match_path(r.path, path_of(request.path)) {
+                    .some(params) => { return ok(r.run(request, with_query(params, request))) },
                     .none => (),
                 }
             }
         }
         ok(json_reply(404, { error: "not found" }))
     }))
+}
+
+/// The path parameters of a match with the request's query parameters
+/// added: a path parameter wins over a query parameter of the same name.
+fn with_query(params: Params, request: http.Request) -> Params {
+    var out = query_params(request.path)
+    for (name, value) in map.to_list(params) {
+        out = map.insert(out, name, value)
+    }
+    out
 }
 
 /// Build the URL of a named route from its parameters. An unknown route,

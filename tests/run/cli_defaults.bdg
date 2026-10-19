@@ -1,0 +1,18 @@
+// The command line as a value (std.cli): every field is an option, its
+// value the default. The program's own arguments are parsed into it.
+import std.cli
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let opts = cli.parse_env({
+        host: cli.text("127.0.0.1"),
+        port: cli.integer(8080),
+        verbose: cli.flag(false),
+        tag: cli.text_list([]),
+    })
+    match opts {
+        .ok(o) => io.println($"{o.host}:{o.port} verbose={o.verbose} tags={o.tag.len()}")?,
+        .err(e) => io.println($"{e.code}: {e.message}")?,
+    }
+    ok(())
+}

@@ -4,11 +4,16 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod completions;
 mod doc;
+mod doctor;
 mod generate;
 mod graph;
+mod init;
 mod lsp;
 mod mcp;
+mod search;
+mod watch;
 use badger_base::diagnostics::json_str;
 use badger_driver::{Outcome, Session};
 
@@ -139,6 +144,21 @@ enum Command {
         /// Arguments passed to the program (after `--`).
         #[arg(last = true)]
         args: Vec<String>,
+    },
+    /// Re-run a command when a source file of the project changes: the
+    /// default is `badger check PATH`, and with `-- COMMAND...` the
+    /// given command runs instead (in the project's directory). The
+    /// files are polled, so the command needs no file-watching
+    /// dependency. The command's exit status is reported, but does not
+    /// end the watch (Ctrl-C does).
+    Watch {
+        /// Project directory to watch (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// The command to run on a change (after `--`); the default is
+        /// `badger check PATH`.
+        #[arg(last = true)]
+        command: Vec<String>,
     },
     /// Run a program again from a reproduction bundle (`badger run --record`):
     /// every external operation is answered from the bundle, nothing is
@@ -299,6 +319,18 @@ enum Command {
         /// words).
         name: String,
     },
+    /// Turn a directory into a project: `badger.toml` and
+    /// `src/main.bdg` (or `src/lib.bdg` with `--lib`). The directory is
+    /// created when it does not exist; an existing file is never
+    /// overwritten.
+    Init {
+        /// The directory to turn into a project (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Make a library package (`src/lib.bdg`, no `main`).
+        #[arg(long)]
+        lib: bool,
+    },
     /// Generate code: `sql` turns SQL files of named queries
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
     /// to each `NAME.sql`. Types come from Postgres (`--database`, or
@@ -357,6 +389,35 @@ enum Command {
         /// Program to examine (for `type` and `effect`).
         path: Option<PathBuf>,
         /// Print JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Report the environment for bug reports: the version, the current
+    /// directory, the project (its name, its manifest, its sources), the
+    /// effective runtime settings, and the `BADGER_*` environment
+    /// variables that are set.
+    Doctor {
+        /// Print the report as a JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print a shell completion script for the given shell, so the
+    /// command names and their flags are not typed by hand.
+    Completions {
+        /// The shell to write the script for.
+        #[arg(value_parser = ["bash", "zsh", "fish", "powershell"])]
+        shell: String,
+    },
+    /// Find a definition in the standard library and in the project's
+    /// modules: the name (or a word of it) is looked for in the names
+    /// and in the documentation.
+    Search {
+        /// The text to look for.
+        query: String,
+        /// The project to search as well (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Print the matches as JSON.
         #[arg(long)]
         json: bool,
     },
@@ -1122,6 +1183,9 @@ fn command(mut cli: Cli) -> ExitCode {
                             );
                         } else {
                             println!("{} {title}\n\n{text}", target.to_uppercase());
+                            println!(
+                                "\nThe common diagnostics are grouped by what you were probably\ntrying to do in docs/common-errors.md."
+                            );
                         }
                         ExitCode::SUCCESS
                     }
@@ -1155,10 +1219,50 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
+        Command::Doctor { json } => {
+            let report = doctor::report();
+            if json {
+                println!("{}", report.json());
+            } else {
+                print!("{}", report.text());
+            }
+            ExitCode::SUCCESS
+        }
+        Command::Completions { shell } => match completions::script(&shell) {
+            Some(script) => {
+                print!("{script}");
+                ExitCode::SUCCESS
+            }
+            None => {
+                eprintln!("error: no completion script for `{shell}`");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Init { path, lib } => {
+            if let Err(e) = init::init(&path, lib) {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+            println!("{}", init::report(&path, lib));
+            ExitCode::SUCCESS
+        }
+        Command::Watch { path, command } => watch::watch(&path, command),
+        Command::Search { query, path, json } => {
+            let found = search::search(&query, &path);
+            if json {
+                println!("{}", search::json(&found));
+            } else if found.is_empty() {
+                eprintln!("no match for `{query}`");
+            } else {
+                print!("{}", search::text(&found));
+            }
+            ExitCode::SUCCESS
+        }
     }
 }
 
-fn source_files(p: &Path, out: &mut Vec<PathBuf>) {
+/// The `.bdg` files under `p` (recursively).
+pub(crate) fn source_files(p: &Path, out: &mut Vec<PathBuf>) {
     if p.is_dir() {
         let mut entries: Vec<std::fs::DirEntry> =
             std::fs::read_dir(p).into_iter().flatten().flatten().collect();

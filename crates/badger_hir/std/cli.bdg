@@ -16,6 +16,7 @@
 import std.prelude
 
 import std.codec
+import std.env
 import std.list
 import std.schema
 import std.text as texts
@@ -32,6 +33,8 @@ impl Display for Error {
         if self.code == #cli/help { self.usage } else { $"{self.message}\n\n{self.usage}" }
     }
 }
+
+impl HttpStatus for Error {}
 
 impl prelude.Error for Error {
     fn code(self: &Self) -> Symbol { self.code }
@@ -179,16 +182,51 @@ fn convert(kind: String, choices: List<String>, raw: String) -> Result<Data, Str
 /// Parse `args` (as `env.args()` gives them) into `T`.
 pub fn parse<T>(args: List<String>) -> Result<T, Error> where T: Codec { parse_from<T>("", args, map {}) }
 
+/// The program's own arguments, parsed into `T`: the value is the
+/// interface — every field is an option, its value the default.
+///
+/// ```badger
+/// let opts = cli.parse_env({ host: cli.text("127.0.0.1"), port: cli.integer(8080) })
+/// ```
+///
+/// A field of type `Option<T>` may be left out (it is `none` then); a
+/// `List<T>` field may repeat.
+pub fn parse_env<T>(defaults: T) -> Result<T, Error> where T: Codec { parse_or<T>(env.args(), defaults) }
+
+/// `parse_env`, naming the program in the help text.
+pub fn parse_env_program<T>(program: String, defaults: T) -> Result<T, Error> where T: Codec {
+    parse_from<T>(program, env.args(), defaults_of(defaults))
+}
+
+fn defaults_of<T>(defaults: T) -> Map<String, Data> where T: Codec {
+    var base: Map<String, Data> = map {}
+    for (k, v) in schema.fields(defaults) {
+        base = base.insert(k, v)
+    }
+    base
+}
+
+/// A text option's default value.
+pub fn text(value: String) -> String { value }
+
+/// An integer option's default value.
+pub fn integer(value: Int) -> Int { value }
+
+/// A number option's default value.
+pub fn number(value: Float) -> Float { value }
+
+/// A flag's default value (a flag is `--name` / `--no-name`).
+pub fn flag(value: Bool) -> Bool { value }
+
+/// A repeatable text option's default values.
+pub fn text_list(values: List<String>) -> List<String> { values }
+
 /// `parse`, naming the program in the help text.
 pub fn parse_program<T>(program: String, args: List<String>) -> Result<T, Error> where T: Codec { parse_from<T>(program, args, map {}) }
 
 /// Parse `args` into `T`, taking fields not given from `defaults`.
 pub fn parse_or<T>(args: List<String>, defaults: T) -> Result<T, Error> where T: Codec {
-    var base: Map<String, Data> = map {}
-    for (k, v) in schema.fields(defaults) {
-        base = base.insert(k, v)
-    }
-    parse_from<T>("", args, base)
+    parse_from<T>("", args, defaults_of(defaults))
 }
 
 fn parse_from<T>(program: String, args: List<String>, base: Map<String, Data>) -> Result<T, Error> where T: Codec {

@@ -310,8 +310,11 @@ Each field of `T` maps to a configuration key and an environment variable:
 - A missing field is an error naming both places to set it, except an
   `Option` field, which becomes `none`.
 - Conversion by field type: `String` as is; `Bool` from `true`, `false`,
-  `1`, `0`; integers and floats parsed; other types (lists, records) from
-  JSON text, or as a string when it is not JSON.
+  `1`, `0`; integers and floats parsed; a duration (`Duration`,
+  `Instant`, `Timestamp`) from the duration spelling the language uses
+  (`10s`, `500ms`, `2us`, `1ns`, `5min`, `1h`) or from a plain number of
+  milliseconds; other types (lists, records) from JSON text, or as a
+  string when it is not JSON.
 - `config.Error` has `key` (the configuration key or environment variable
   that failed) and `message`.
 - Environment reads by `std.config` are recorded in reproduction bundles

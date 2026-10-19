@@ -228,6 +228,28 @@ struct Server { handle: native.Handle, scope: Int }
 A running server: the module's listener, and the scope of its acceptor
 and request tasks.
 
+### `StatusError`
+
+```badger
+struct StatusError<E> { pub status: Int, pub error: E }
+```
+
+An error that carries the status the application intends: the route
+system answers with that status (and the error's message) instead of a
+generic 500.
+
+#### `StatusError.display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+#### `StatusError.http_status`
+
+```badger
+fn http_status(self: &Self) -> Int
+```
+
 ### `Streamed`
 
 ```badger
@@ -273,6 +295,16 @@ fn encode_event(e: Event) -> String
 An event in the wire format (ends with the blank line that dispatches
 it).
 
+### `error_reply`
+
+```badger
+fn error_reply<E>(error: E) -> Response where E: Display, E: HttpStatus
+```
+
+The reply for an error: the status it carries and, for a client
+error, its message. A server error keeps its message to itself (it is
+an internal detail, not the client's business).
+
 ### `event`
 
 ```badger
@@ -295,10 +327,19 @@ stops too and its cleanups run.
 ### `handler`
 
 ```badger
-fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Response, E> !Eff: Transfer
+fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, E: HttpStatus, fn(Request) -> Result<Response, E> !Eff: Transfer
 ```
 
-Package a request callback.
+Package a request callback. An error is answered with the status it
+carries (500 unless it chooses one).
+
+### `internal_status`
+
+```badger
+internal_status: A
+```
+
+The default status for an error that does not choose one.
 
 ### `is_websocket`
 
@@ -372,6 +413,16 @@ comments are skipped, and a block without data dispatches nothing).
 fn port(s: Server) -> Int
 ```
 
+### `reply_for_error`
+
+```badger
+fn reply_for_error<E>(error: E) -> Result<Response, Error> where E: Display, E: HttpStatus
+```
+
+The reply for an application error: the status it carries and its
+message. The route system does this by itself; use it where a reply
+is built by hand (a pipeline stage, for instance).
+
 ### `request`
 
 ```badger
@@ -383,12 +434,13 @@ A request value for `call`.
 ### `scoped`
 
 ```badger
-fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer
+fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, E: HttpStatus, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer
 ```
 
 Package a request-scoped callback: it runs under a fresh request region
 `S`, may capture longer-lived values (a system's pool), and replies
-through its scope (`respond` or `stream`). Errors become 500 replies.
+through its scope (`respond` or `stream`). An error is answered with
+the status it carries (500 unless it chooses one).
 
 ### `server`
 
@@ -406,6 +458,22 @@ fn stats(s: Server) -> LimitStats
 ```
 
 Effective limits of a running server and its rejection count.
+
+### `status`
+
+```badger
+fn status<E>(code: Int, error: E) -> StatusError<E>
+```
+
+An error with the status the application intends.
+
+### `status_text`
+
+```badger
+fn status_text(code: Int) -> String
+```
+
+The reason phrase of a status code ("not found" for 404).
 
 ### `stop`
 
@@ -426,11 +494,11 @@ A streamed reply of `chunks` with the given status and content type.
 ### `streaming_handler`
 
 ```badger
-fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Streamed, E> !Eff: Transfer
+fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, E: HttpStatus, fn(Request) -> Result<Streamed, E> !Eff: Transfer
 ```
 
 Package a streaming request callback; an error before streaming starts
-becomes a 500 reply.
+is answered with the status it carries.
 
 ### `text`
 
@@ -447,4 +515,13 @@ fn websocket_handler<E, Eff>(session: fn(Request, websocket.WebSocket) -> Result
 Package a WebSocket session callback: each upgrade request runs it in
 its own task (see `RequestScope.websocket`); other requests are
 answered 426 (Upgrade Required).
+
+### `with_status`
+
+```badger
+fn with_status<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec
+```
+
+A JSON reply with the given status (the spelling `with_status` has in
+most frameworks).
 

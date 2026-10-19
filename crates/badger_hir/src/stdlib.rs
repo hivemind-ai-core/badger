@@ -80,5 +80,8 @@ std_modules![
     "schema",
     "compiler",
     "fetch",
-    "jobs"
+    "jobs",
+    "validate",
+    "kv",
+    "default"
 ];

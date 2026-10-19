@@ -164,6 +164,23 @@ fn propagate<C, R, E>(context: C, error: E) -> ErrorStep<C, R, E>
 fn recover<C, R, E>(context: C, reply: R) -> ErrorStep<C, R, E>
 ```
 
+### `recover_with`
+
+```badger
+fn recover_with<C, R, E, Eff>(reply: fn(E) -> R) -> Stage<C, C, R, E, Eff>
+```
+
+A stage that turns an error into a reply: `reply` maps the error to
+the reply the pipeline returns, and the pipeline ends with that reply
+even when the handler failed.
+
+```badger
+pipeline {
+    pipeline.recover_with(fn(e: AppError) -> http.Response { ... }),
+    handle(handler),
+}
+```
+
 ### `run_handler`
 
 ```badger

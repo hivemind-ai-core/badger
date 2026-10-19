@@ -39,6 +39,30 @@ fn display(self: &Self) -> String
 
 ## Functions
 
+### `flag`
+
+```badger
+fn flag(value: Bool) -> Bool
+```
+
+A flag's default value (a flag is `--name` / `--no-name`).
+
+### `integer`
+
+```badger
+fn integer(value: Int) -> Int
+```
+
+An integer option's default value.
+
+### `number`
+
+```badger
+fn number(value: Float) -> Float
+```
+
+A number option's default value.
+
 ### `parse`
 
 ```badger
@@ -46,6 +70,30 @@ fn parse<T>(args: List<String>) -> Result<T, Error> where T: Codec
 ```
 
 Parse `args` (as `env.args()` gives them) into `T`.
+
+### `parse_env`
+
+```badger
+fn parse_env<T>(defaults: T) -> Result<T, Error> where T: Codec
+```
+
+The program's own arguments, parsed into `T`: the value is the
+interface — every field is an option, its value the default.
+
+```badger
+let opts = cli.parse_env({ host: cli.text("127.0.0.1"), port: cli.integer(8080) })
+```
+
+A field of type `Option<T>` may be left out (it is `none` then); a
+`List<T>` field may repeat.
+
+### `parse_env_program`
+
+```badger
+fn parse_env_program<T>(program: String, defaults: T) -> Result<T, Error> where T: Codec
+```
+
+`parse_env`, naming the program in the help text.
 
 ### `parse_or`
 
@@ -62,6 +110,22 @@ fn parse_program<T>(program: String, args: List<String>) -> Result<T, Error> whe
 ```
 
 `parse`, naming the program in the help text.
+
+### `text`
+
+```badger
+fn text(value: String) -> String
+```
+
+A text option's default value.
+
+### `text_list`
+
+```badger
+fn text_list(values: List<String>) -> List<String>
+```
+
+A repeatable text option's default values.
 
 ### `usage`
 

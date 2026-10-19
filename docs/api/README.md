@@ -74,3 +74,6 @@
 | [`std.compiler`](compiler.md) | Compiler services: diagnostics, types, definitions, references, symbols, |
 | [`std.fetch`](fetch.md) | Outbound HTTP(S) requests, run on the blocking pool (the calling task |
 | [`std.jobs`](jobs.md) | Durable jobs on SQLite, for one host: deduplicated ingestion, typed and |
+| [`std.validate`](validate.md) | Validation rules: one place to state what a valid value is. |
+| [`std.kv`](kv.md) | Key/value helpers: the shape every configuration block, header read and |
+| [`std.default`](default.md) | The default value of each built-in type, in one place. |

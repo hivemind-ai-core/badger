@@ -1,0 +1,65 @@
+// A handler's error is answered with the status the application intended
+// (F-A1), and the query string is part of the request: a route matches
+// its path, and the query is readable with `route.params` (F-A2, F-N2).
+import std.http
+import std.io
+import std.route
+import std.text
+
+pub enum AppError {
+    invalid_input(message: String),
+    not_found(id: Int),
+    http(source: http.Error),
+    route(source: route.RouteError),
+    io(source: io.Error),
+} derive(Error, From)
+
+// The status each error is answered with.
+impl HttpStatus for AppError {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .invalid_input(_) => 400,
+            .not_found(_) => 404,
+            _ => 500,
+        }
+    }
+}
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let routes = [
+        route.get("/books/:id", #books/show, fn(_req, params) -> Result<http.Response, AppError> {
+            match params.get("id") {
+                .some(id) => {
+                    if id == "0" {
+                        return err(AppError.not_found(0))
+                    }
+                    ok(http.json(200, { id: id })?)
+                },
+                .none => err(AppError.invalid_input("no id")),
+            }
+        }),
+        route.get("/search", #books/search, fn(req, _params) -> Result<http.Response, AppError> {
+            ok(http.json(200, { q: route.params(req).get("q").unwrap_or("") })?)
+        }),
+        route.get("/bad", #books/bad, fn(_req, _params) -> Result<http.Response, AppError> {
+            err(AppError.invalid_input("title required"))
+        }),
+    ]
+    let h = route.table(routes)?
+    // a path parameter, and a path parameter that fails
+    io.println(show(http.call(h, http.request(#get, "/books/7", ""))))?
+    io.println(show(http.call(h, http.request(#get, "/books/0", ""))))?
+    // the query string does not stop the route from matching
+    io.println(show(http.call(h, http.request(#get, "/search?q=dune&page=2", ""))))?
+    // a path parameter is not confused by a query parameter of the same name
+    io.println(show(http.call(h, http.request(#get, "/books/7?id=other", ""))))?
+    // the intended status, not a 500
+    io.println(show(http.call(h, http.request(#get, "/bad", ""))))?
+    // no route matches
+    io.println(show(http.call(h, http.request(#get, "/nope", ""))))?
+    ok(())
+}

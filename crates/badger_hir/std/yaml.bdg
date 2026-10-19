@@ -13,6 +13,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 extern "native badger_formats.yaml_parse" fn yaml_parse(text: String) -> Result<Data, Error>
 extern "native badger_formats.yaml_encode" fn yaml_encode(document: Data) -> Result<String, Error>
 

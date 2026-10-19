@@ -259,6 +259,31 @@ protocol From { from: fn(T) -> Self }
 protocol Hash {  }
 ```
 
+### `HttpStatus`
+
+```badger
+protocol HttpStatus { http_status: fn(&Self) -> Int }
+```
+
+How an error is reported over HTTP: the status the route system (and
+any HTTP server) answers with.
+
+The default is 500 ("internal server error"), so an error type that
+says nothing about HTTP keeps the old behaviour. An application
+implements it once, on its error type:
+
+```badger
+impl HttpStatus for AppError {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .invalid_input(_) => 400,
+            .not_found(_) => 404,
+            _ => 500,
+        }
+    }
+}
+```
+
 ### `I16`
 
 ```badger
@@ -519,6 +544,12 @@ pub extern type String
 
 ```badger
 fn display(self: &Self) -> String
+```
+
+#### `String.http_status`
+
+```badger
+fn http_status(self: &Self) -> Int
 ```
 
 ### `Symbol`

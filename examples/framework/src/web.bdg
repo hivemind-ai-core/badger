@@ -16,6 +16,10 @@ pub enum Error {
     admission(source: admission.Error),
 } derive(Error, From)
 
+// The status each error is answered with (500 unless the error chooses
+// one): the route system reads it.
+impl HttpStatus for Error {}
+
 // Log each request's outcome; `leave` sees the reply of every later stage.
 stage access_log() -> Result<_, Error> {
     leave(ctx, response: http.Response) {

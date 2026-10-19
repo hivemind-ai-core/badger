@@ -265,6 +265,33 @@ replay: 0 recorded operation(s) answered from the bundle
 replay: reproduced the recorded outcome (exit 0)
 ```
 
+### `badger watch [PATH] [-- COMMAND...]`
+
+Re-run a command when a source file of the project changes. The files
+are polled (their size and modification time), so the command needs no
+file-watching dependency. The default command is `badger check PATH`;
+with `-- COMMAND...` the given command runs instead, in the project's
+directory.
+
+| Argument | Meaning |
+|---|---|
+| `PATH` | Project directory to watch (default `.`). |
+| `COMMAND...` | The command to run on a change (after `--`). |
+
+Every `.bdg` file under PATH is watched. A change is reported, and the
+command runs again. Its exit status is reported, but does not end the
+watch; Ctrl-C does.
+
+```sh
+$ badger watch
+watching /home/you/shop (3 source file(s))
+running: badger check /home/you/shop
+exit status: 0
+changed: /home/you/shop/src/main.bdg
+running: badger check /home/you/shop
+exit status: 0
+```
+
 ## Compile and deploy
 
 ### `badger compile [PATH] [-o FILE] [--profile NAME] [--workers N] [--opt LEVEL]`
@@ -420,6 +447,26 @@ $ badger query hover src/main.bdg --line 22 --col 53
 {"text":"half: fn(Int) -> Int\nrequires n % 2 == 0\nensures result * 2 == n"}
 ```
 
+### `badger search QUERY [PATH] [--json]`
+
+Find a definition: the query is looked for in the names and in the
+documentation of the standard library and of the project's modules. PATH
+is the project to search as well (default `.`).
+
+| Flag | Meaning |
+|---|---|
+| `--json` | Print the matches as a JSON array. |
+
+Each match names the module, the item, and its documentation. The
+standard library is searched in its sources, the project in its checked
+interface (the same one `badger query api` prints).
+
+```sh
+$ badger search percent-decoded
+std.route.query_params  pub fn query_params(uri: String) -> Params {
+    The query parameters of a request URI (`?a=1&b=2`): the names and values are percent-decoded.
+```
+
 ### `badger graph KIND [PATH] [--format FORMAT] [--std]`
 
 Program structure as a graph. PATH defaults to `.`.
@@ -524,6 +571,25 @@ Creates the directory `NAME` with `badger.toml` (package `NAME`, entry
 `src/main.bdg`) and `src/main.bdg`: a program with a `main` and one test.
 `NAME` is a lowercase identifier; an existing directory is an error.
 
+### `badger init [PATH] [--lib]`
+
+Turns a directory into a project: `badger.toml` (the package's name is
+the directory's name) and `src/main.bdg` (or `src/lib.bdg` with
+`--lib`). The directory is created when it does not exist. An existing
+file is never overwritten: the command fails and says so.
+
+| Flag | Meaning |
+|---|---|
+| `--lib` | A library package: `src/lib.bdg`, `kind = "library"`, no `main`. |
+
+Exit status: 0 when the project was written, 1 when a file was there
+already.
+
+```sh
+$ badger init ~/shop
+created /home/you/shop/badger.toml and /home/you/shop/src/main.bdg
+```
+
 ### `badger generate feature NAME [DIR] [--item NAME] [--dry-run]`
 
 Adds a typed feature module to the project in `DIR` (default `.`), under
@@ -567,6 +633,64 @@ Prints `locked NAME VERSION (HASH)` per dependency. See
 
 ```sh
 badger update
+```
+
+### `badger doctor [--json]`
+
+The environment, for a bug report: the version, the current directory,
+the project (its name, its manifest, its number of sources), the
+effective runtime settings (the worker count and the HTTP limits, as
+`badger inspect runtime` computes them), and the `BADGER_*` environment
+variables that are set. Only what can be determined is reported: a fact
+that is unknown is left out.
+
+| Flag | Meaning |
+|---|---|
+| `--json` | Print the report as a JSON object. |
+
+```sh
+$ badger doctor
+badger: 0.1.0
+cwd: /home/you/shop
+
+project:
+  root: /home/you/shop
+  name: shop
+  config: /home/you/shop/badger.toml
+  source files: 3
+
+runtime:
+  workers: 2
+  http_max_body_bytes: 16777216
+  http_max_header_bytes: 65536
+  http_max_in_flight: 1024
+  http_max_stream_buffer_bytes: 1048576
+
+environment:
+  BADGER_EXE: /usr/local/bin/badger
+```
+
+### `badger completions SHELL`
+
+Prints a shell completion script for SHELL: the names of the commands
+and the main flags of each of them, so they are not typed by hand. The
+script says how to install it.
+
+| SHELL | Install with |
+|---|---|
+| `bash` | `source <(badger completions bash)` |
+| `zsh` | `badger completions zsh > "${fpath[1]}/_badger"` |
+| `fish` | `badger completions fish > ~/.config/fish/completions/badger.fish` |
+| `powershell` | `badger completions powershell \| Out-String \| Invoke-Expression` |
+
+Exit status: 2 for an unknown shell (the argument parser's usage
+error).
+
+```sh
+$ badger completions bash | head -3
+# badger completion for bash.
+#
+# Install:  source <(badger completions bash)
 ```
 
 ## Servers

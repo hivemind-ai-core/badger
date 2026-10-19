@@ -68,6 +68,9 @@ impl<T> List<T> {
     pub fn unique(self: &Self) -> List<T> where T: Hash { unique(self) }
     pub fn chunks_of(self: &Self, size: Int) -> List<List<T>> { chunks_of(self, size) }
     pub fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
+    pub fn group_by_key<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(self, key) }
+    pub fn sort_by_key<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd { sort_by(self, key) }
+    pub fn count_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, Int> where K: Hash { count_by(self, key) }
     pub fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E>) -> Result<A, E> { try_fold(self, initial, f) }
     pub fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E>) -> Result<Unit, E> { try_each(self, f) }
     pub fn validate<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>> { validate(self, f) }
@@ -612,6 +615,26 @@ pub fn group_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K
             .none => empty(),
         }
         map_insert_mut(out, k, list_append(group, x))
+    }
+    out
+}
+
+/// The items grouped by `key` (the name Python's `sorted(key=...)` uses).
+pub fn group_by_key<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash { group_by(list, key) }
+
+/// The items sorted by `key` (the name Python's `sorted(key=...)` uses).
+pub fn sort_by_key<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialOrd { sort_by(list, key) }
+
+/// How many items share each key.
+pub fn count_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, Int> where K: Hash {
+    let out: Map<K, Int> = map_empty()
+    for x in list {
+        let k = key(x)
+        let n = match map_get(out, k) {
+            .some(c) => c,
+            .none => 0,
+        }
+        map_insert_mut(out, k, n + 1)
     }
     out
 }
