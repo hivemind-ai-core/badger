@@ -17,6 +17,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 /// The SHA-256 digest (32 bytes).
 pub fn sha256(data: Bytes) -> Bytes { c_sha256(data) }
 

@@ -1,0 +1,100 @@
+// Result, validation and key/value helpers (S-01, S-02, S-03, S-04,
+// S-07, S-08, S-13).
+
+import std.bytes
+import std.default
+import std.io
+import std.kv
+import std.list
+import std.map
+import std.result
+import std.text
+import std.validate
+
+pub enum AppError {
+    invalid_input(message: String),
+    not_found(id: Int),
+}
+
+impl Display for AppError {
+    fn display(self: &Self) -> String {
+        match self {
+            .invalid_input(m) => m,
+            .not_found(id) => $"no book {id}",
+        }
+    }
+}
+
+fn validate_title(title: String) -> Result<String, AppError> {
+    result.must(!text.is_empty(title), AppError.invalid_input("title required"))?;
+    result.must(text.len(title) <= 200, AppError.invalid_input("title too long"))?;
+    ok(title)
+}
+
+fn validate_title_all(title: String) -> Result<String, List<AppError>> {
+    validate.validate_all(title, [
+        validate.rule(!text.is_empty(title), AppError.invalid_input("title required")),
+        validate.rule(text.len(title) <= 200, AppError.invalid_input("title too long")),
+    ])
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    // S-02: both sides of a result at once
+    let mapped = result.bimap(ok(2), fn(x: Int) -> String { $"#{x}" }, fn(_e: String) -> Int { 0 })
+    io.println(result.unwrap_or(mapped, "none"))?
+
+    // S-01: early return and guard helpers
+    match validate_title("Dune") {
+        .ok(t) => io.println(t)?,
+        .err(e) => io.println(e.display())?,
+    }
+    match validate_title("") {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println(e.display())?,
+    }
+
+    // S-07: every violation, not just the first
+    match validate_title_all("") {
+        .ok(_) => io.println("unexpected")?,
+        .err(errors) => {
+            for e in errors {
+                io.println(e.display())?
+            }
+        },
+    }
+
+    // S-13: the rule-list form
+    match validate.validate("x", [validate.rule(text.len("x") > 3, "too short")]) {
+        .ok(_) => io.println("unexpected")?,
+        .err(e) => io.println(e)?,
+    }
+
+    // S-08: key/value helpers
+    let headers = kv.from_list([("content-type", "application/json"), ("accept", "*/*")])
+    io.println(kv.get_or(headers, "accept", "none"))?
+    io.println(kv.len(kv.merge(headers, kv.from_list([("accept", "text/plain")]))))?
+    io.println(kv.to_list(kv.map_keys(headers, fn(k: String) -> String { k.to_upper() })).len())?
+
+    // S-04: counting by key
+    let counts = list.count_by(["a", "b", "a", "c", "a"], fn(s: String) -> String { s })
+    io.println(counts.get("a").unwrap_or(0))?
+    io.println(map.len(list.group_by_key(["a", "b", "a"], fn(s: String) -> String { s })))?
+
+    // S-15: the default of each built-in type
+    let defaults = {
+        port: default.int(),
+        ratio: default.float(),
+        verbose: default.bool(),
+        name: default.string(),
+        tags: default.list(),
+        headers: default.map(),
+        extra: default.option(),
+    }
+    io.println($"{defaults.port} {defaults.ratio} {defaults.verbose} {defaults.name} {defaults.tags.len()} {defaults.headers.len()}")?
+
+    // S-03: the text, or a default
+    io.println(bytes.to_text_or(bytes.from_text("hello"), "?"))?
+    io.println(bytes.to_text_or(bytes.from_list([0xff, 0xfe]), "?"))?
+
+    ok(())
+}

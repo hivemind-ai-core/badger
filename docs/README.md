@@ -22,6 +22,9 @@ references to look things up.
 
 ## Topics
 
+- [Common errors](common-errors.md): the diagnostics you meet first, grouped by what you were trying to do.
+- [The type system](type-system.md): rows, effect rows, `From`, and how `?` resolves an error.
+- [Idiomatic Badger](idiomatic.md): the conventions — one error type, validation, configuration, routes, pipeline stages, background workers, and tests.
 - [Collections: choosing and costs](collections.md)
 - [Typed SQL](typed-sql.md)
 - [Releases](releases.md): packaging a program to run elsewhere.

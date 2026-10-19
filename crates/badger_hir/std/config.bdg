@@ -12,6 +12,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { $"{self.key}: {self.message}" }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 extern "intrinsic" fn config_from_env<T>(prefix: String) -> Result<T, Error>

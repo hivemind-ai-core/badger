@@ -13,6 +13,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 extern "native badger_crypto.base64_encode" fn b64_encode(data: Bytes, url: Bool) -> String
 extern "native badger_crypto.base64_decode" fn b64_decode(text: String, url: Bool) -> Result<Bytes, Error>
 extern "native badger_crypto.hex_decode" fn hex_dec(text: String) -> Result<Bytes, Error>

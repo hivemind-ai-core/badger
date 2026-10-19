@@ -1,0 +1,38 @@
+// The default value of each built-in type, in one place.
+//
+// A record's fields follow the same convention, so a settings record or
+// a DTO does not repeat the zero values:
+//
+// ```badger
+// import std.default
+//
+// let settings = {
+//     port: default.int(),
+//     name: default.string(),
+//     tags: default.list(),
+// }
+// ```
+
+import std.list as lists
+import std.map as maps
+
+/// The default of an `Int` field (0).
+pub fn int() -> Int { 0 }
+
+/// The default of a `Float` field (0.0).
+pub fn float() -> Float { 0.0 }
+
+/// The default of a `Bool` field (false).
+pub fn bool() -> Bool { false }
+
+/// The default of a `String` field (the empty text).
+pub fn string() -> String { "" }
+
+/// The default of a `List<T>` field (empty).
+pub fn list<T>() -> List<T> { lists.empty() }
+
+/// The default of a `Map<K, V>` field (empty).
+pub fn map<K, V>() -> Map<K, V> where K: Hash { maps.empty() }
+
+/// The default of an `Option<T>` field (none).
+pub fn option<T>() -> Option<T> { Option.none }

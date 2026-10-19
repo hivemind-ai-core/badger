@@ -417,6 +417,15 @@ fn config_object(
                 Ok(n) => serde_json::json!(n),
                 Err(_) => return Err(bad(&key, format!("expected a number, found `{v}`"))),
             },
+            (Kind::Duration | Kind::Instant | Kind::Timestamp, Ok(v)) => match duration_nanos(&v) {
+                Some(n) => serde_json::Value::from(n),
+                None => {
+                    return Err(bad(
+                        &key,
+                        format!("expected a duration (10s, 500ms) or a number of milliseconds, found `{v}`"),
+                    ));
+                }
+            },
             (_, Ok(v)) => serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v)),
         };
         obj.insert(f.name.clone(), j);
@@ -551,8 +560,43 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
             Ok(n) => serde_json::json!(n),
             Err(_) => return bad(format!("expected a number, found `{v}`")),
         },
+        Kind::Duration | Kind::Instant | Kind::Timestamp => match duration_nanos(&v) {
+            Some(n) => serde_json::Value::from(n),
+            None => {
+                return bad(format!(
+                    "expected a duration (10s, 500ms) or a number of milliseconds, found `{v}`"
+                ));
+            }
+        },
         _ => serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v)),
     })
+}
+
+/// A duration written as the language spells it (`10s`, `500ms`, `2us`,
+/// `1ns`, `5min`, `1h`) or as a plain number of milliseconds. The result
+/// is nanoseconds, the unit the runtime keeps.
+fn duration_nanos(text: &str) -> Option<i64> {
+    let t = text.trim();
+    if t.is_empty() {
+        return None;
+    }
+    // a plain number is a number of milliseconds
+    if let Ok(n) = t.parse::<i64>() {
+        return n.checked_mul(1_000_000);
+    }
+    let unit_start = t.find(|c: char| c.is_ascii_alphabetic())?;
+    let (number, unit) = t.split_at(unit_start);
+    let value: i64 = number.parse().ok()?;
+    let scale = match unit {
+        "ns" => 1,
+        "us" => 1_000,
+        "ms" => 1_000_000,
+        "s" => 1_000_000_000,
+        "min" => 60_000_000_000,
+        "h" => 3_600_000_000_000,
+        _ => return None,
+    };
+    value.checked_mul(scale)
 }
 
 /// One source's value for a setting.
@@ -814,4 +858,33 @@ fn wire_names(names: u64, aliases: u64) -> codec::WireNames {
         w.aliases.insert(str_of(k).to_string(), olds);
     }
     w
+}
+
+#[cfg(test)]
+mod tests {
+    use super::duration_nanos;
+
+    #[test]
+    fn durations_are_read_in_the_language_spelling() {
+        assert_eq!(duration_nanos("10s"), Some(10_000_000_000));
+        assert_eq!(duration_nanos("500ms"), Some(500_000_000));
+        assert_eq!(duration_nanos("2us"), Some(2_000));
+        assert_eq!(duration_nanos("7ns"), Some(7));
+        assert_eq!(duration_nanos("5min"), Some(300_000_000_000));
+        assert_eq!(duration_nanos("1h"), Some(3_600_000_000_000));
+    }
+
+    #[test]
+    fn a_plain_number_is_milliseconds() {
+        assert_eq!(duration_nanos("500"), Some(500_000_000));
+        assert_eq!(duration_nanos(" 500 "), Some(500_000_000));
+    }
+
+    #[test]
+    fn other_text_is_not_a_duration() {
+        assert_eq!(duration_nanos(""), None);
+        assert_eq!(duration_nanos("soon"), None);
+        assert_eq!(duration_nanos("10days"), None);
+        assert_eq!(duration_nanos("10 s"), None);
+    }
 }

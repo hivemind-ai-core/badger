@@ -16,6 +16,10 @@ pub enum AppError {
     system(source: system.Error),
 } derive(Error, From)
 
+// The status each error is answered with (500 unless the error chooses
+// one): the route system reads it.
+impl HttpStatus for AppError {}
+
 fn fail_request(db: sqlite.Pool) -> Result<Unit, AppError> {
     use tx <- sqlite.transaction(db)
     sqlite.execute(tx, "INSERT INTO hits (path) VALUES ('fail')", [])?

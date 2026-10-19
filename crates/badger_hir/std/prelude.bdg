@@ -156,6 +156,29 @@ pub protocol Display {
     fn display(self: &Self) -> String
 }
 
+/// How an error is reported over HTTP: the status the route system (and
+/// any HTTP server) answers with.
+///
+/// The default is 500 ("internal server error"), so an error type that
+/// says nothing about HTTP keeps the old behaviour. An application
+/// implements it once, on its error type:
+///
+/// ```badger
+/// impl HttpStatus for AppError {
+///     fn http_status(self: &Self) -> Int {
+///         match self {
+///             .invalid_input(_) => 400,
+///             .not_found(_) => 404,
+///             _ => 500,
+///         }
+///     }
+/// }
+/// ```
+pub protocol HttpStatus {
+    /// The status this error is answered with.
+    fn http_status(self: &Self) -> Int { 500 }
+}
+
 /// An expected failure: display text, a stable machine-readable code, an
 /// optional cause (the causal chain), and structured details.
 pub protocol Error: Display {
@@ -290,6 +313,9 @@ extern "intrinsic" fn data_to_string(value: Data) -> String
 
 impl Display for String {
     fn display(self: &Self) -> String { self }
+}
+impl HttpStatus for String {
+    fn http_status(self: &Self) -> Int { 500 }
 }
 impl Display for Bool {
     fn display(self: &Self) -> String { if self { "true" } else { "false" } }

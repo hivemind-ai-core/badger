@@ -27,6 +27,18 @@ pub enum AppError {
     invalid_input(message: String),
 } derive(Error, From)
 
+// The status each error is answered with: the route system reads it, so a
+// handler's `Err` produces the status the application intended.
+impl HttpStatus for AppError {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .decode(_) => 400,
+            .invalid_input(_) => 400,
+            _ => 500,
+        }
+    }
+}
+
 stage timing() {
     enter(ctx) {
         pipeline.next({ ..ctx, [#orders/started]: time.now() })

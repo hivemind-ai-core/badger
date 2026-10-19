@@ -38,19 +38,19 @@ fn display(self: &Self) -> String
 ### `delete`
 
 ```badger
-fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display
+fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
 
 ### `get`
 
 ```badger
-fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display
+fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
 
 ### `json`
 
 ```badger
-fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params, B) -> Result<(Int, R), E>) -> Route where B: Codec, R: Codec, E: Display
+fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, Params, B) -> Result<(Int, R), E>) -> Route where B: Codec, R: Codec, E: Display, E: HttpStatus
 ```
 
 A typed JSON route: the request body is validated against `B`'s schema
@@ -61,7 +61,7 @@ are part of the description (OpenAPI).
 ### `json_get`
 
 ```badger
-fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<(Int, R), E>) -> Route where R: Codec, E: Display
+fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<(Int, R), E>) -> Route where R: Codec, E: Display, E: HttpStatus
 ```
 
 A typed JSON route without a request body.
@@ -76,6 +76,15 @@ An OpenAPI 3.1 document for the table, from the same descriptions:
 operation ids are route names, path parameters come from the patterns,
 and typed routes contribute their body/reply JSON Schemas.
 
+### `params`
+
+```badger
+fn params(request: http.Request) -> Params
+```
+
+The query parameters of a request: `params.get("q")` for
+`GET /search?q=bad`.
+
 ### `params_of`
 
 ```badger
@@ -84,17 +93,44 @@ fn params_of(path: String) -> List<String>
 
 The `:name` parameters of a pattern, in order.
 
+### `path_of`
+
+```badger
+fn path_of(uri: String) -> String
+```
+
+The path of a request URI, without its query string: `/search?q=bad`
+becomes `/search`.
+
 ### `post`
 
 ```badger
-fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display
+fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
 
 ### `put`
 
 ```badger
-fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display
+fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
+
+### `query_of`
+
+```badger
+fn query_of(uri: String) -> Option<String>
+```
+
+The query string of a request URI (without the `?`), if it has one.
+
+### `query_params`
+
+```badger
+fn query_params(uri: String) -> Params
+```
+
+The query parameters of a request URI (`?a=1&b=2`): the names and
+values are percent-decoded. A parameter without a value (`?a`) has the
+empty string as its value.
 
 ### `table`
 
@@ -107,7 +143,7 @@ Validate a route table and compile it into an HTTP handler.
 ### `typed`
 
 ```badger
-fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, P, B) -> Result<(Int, R), E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display
+fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request, P, B) -> Result<(Int, R), E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus
 ```
 
 A fully typed route: path parameters decode into `P` (a record whose

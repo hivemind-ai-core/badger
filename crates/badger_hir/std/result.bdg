@@ -14,6 +14,16 @@ pub fn map_err<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F> {
     }
 }
 
+/// Map both sides of a result: `ok_fn` on success, `err_fn` on failure.
+/// The counterpart of `map` and `map_err` for the common "change the
+/// error type on the way out" case.
+pub fn bimap<T, U, E, F>(r: Result<T, E>, ok_fn: fn(T) -> U, err_fn: fn(E) -> F) -> Result<U, F> {
+    match r {
+        .ok(x) => Result.ok(ok_fn(x)),
+        .err(e) => Result.err(err_fn(e)),
+    }
+}
+
 pub fn unwrap_or<T, E>(r: Result<T, E>, default: T) -> T {
     match r {
         .ok(x) => x,
@@ -86,7 +96,36 @@ pub fn transpose<T, E>(r: Result<Option<T>, E>) -> Option<Result<T, E>> {
     }
 }
 
+// ---------------------------------------------------------------- early return and validation
+
+/// Leave the current function with `error`: `return result.bail(error)`.
+/// The result's value type is the one the caller expects, so a guard
+/// clause reads as one line:
+///
+/// ```badger
+/// if title == "" { return bail(AppError.invalid_input("title required")) }
+/// ```
+pub fn bail<T, E>(error: E) -> Result<T, E> { err(error) }
+
+/// `ok(())` when `condition` holds, `err(error)` otherwise. The result can
+/// be chained with `?` or returned directly.
+pub fn must<E>(condition: Bool, error: E) -> Result<Unit, E> {
+    if condition { ok(()) } else { err(error) }
+}
+
+/// `ok(())` when `a` and `b` are equal, `err(error)` otherwise.
+pub fn must_eq<T, E>(a: T, b: T, error: E) -> Result<Unit, E> where T: Eq {
+    if a == b { ok(()) } else { err(error) }
+}
+
+/// The value when `valid` accepts it, `err(error())` otherwise. The error
+/// is built only when the value is rejected.
+pub fn check<T, E>(value: T, valid: fn(&T) -> Bool, error: fn() -> E) -> Result<T, E> {
+    if valid(&value) { ok(value) } else { err(error()) }
+}
+
 impl<T, E> Result<T, E> {
+    pub fn bimap<U, F>(self: &Self, ok_fn: fn(T) -> U, err_fn: fn(E) -> F) -> Result<U, F> { bimap(self, ok_fn, err_fn) }
     pub fn unwrap_or_else(self: &Self, fallback: once fn(E) -> T) -> T { unwrap_or_else(self, fallback) }
     pub fn and_then<U>(self: &Self, f: once fn(T) -> Result<U, E>) -> Result<U, E> { and_then(self, f) }
     pub fn or_else<F>(self: &Self, f: once fn(E) -> Result<T, F>) -> Result<T, F> { or_else(self, f) }

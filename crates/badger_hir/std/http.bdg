@@ -26,7 +26,31 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
+
+/// The default status for an error that does not choose one.
+pub let internal_status = 500
+
+/// An error that carries the status the application intends: the route
+/// system answers with that status (and the error's message) instead of a
+/// generic 500.
+pub struct StatusError<E> {
+    pub status: Int,
+    pub error: E,
+}
+
+impl<E> Display for StatusError<E> where E: Display {
+    fn display(self: &Self) -> String { self.error.display() }
+}
+
+impl<E> HttpStatus for StatusError<E> {
+    fn http_status(self: &Self) -> Int { self.status }
+}
+
+/// An error with the status the application intends.
+pub fn status<E>(code: Int, error: E) -> StatusError<E> { { status: code, error } }
 
 /// A streamed reply: the head is sent first, then each chunk as the
 /// request task produces it (chunked transfer encoding). The chunk sequence
@@ -169,8 +193,9 @@ fn send_full(ex: Exchange, response: Response) -> Unit {
 
 /// Package a request-scoped callback: it runs under a fresh request region
 /// `S`, may capture longer-lived values (a system's pool), and replies
-/// through its scope (`respond` or `stream`). Errors become 500 replies.
-pub fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer {
+/// through its scope (`respond` or `stream`). An error is answered with
+/// the status it carries (500 unless it chooses one).
+pub fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff) -> Handler where E: Display, E: HttpStatus, for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !Eff: Transfer {
     {
         run: fn(request, exchange) {
             let scope: RequestScope<Unit> = { brand: identity<Int, system.Brand<Unit>>(0), request, exchange }
@@ -178,7 +203,7 @@ pub fn scoped<E, Eff>(f: for<S: Scope> fn(RequestScope<S>) -> Result<Sent, E> !E
                 .ok(_) => Reply.sent,
                 .err(e) => {
                     trace_event(#http/handler_error, { message: e.display() })
-                    Reply.full(error_response(500, "internal server error"))
+                    Reply.full(error_reply(e))
                 },
             }
         },
@@ -244,15 +269,16 @@ extern "intrinsic" fn task_id() -> Int
 extern "intrinsic" fn task_cancel(id: Int) -> Unit
 extern "intrinsic" fn trace_event<T>(name: Symbol, data: T) -> Unit
 
-/// Package a request callback.
-pub fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Response, E> !Eff: Transfer {
+/// Package a request callback. An error is answered with the status it
+/// carries (500 unless it chooses one).
+pub fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler where E: Display, E: HttpStatus, fn(Request) -> Result<Response, E> !Eff: Transfer {
     {
         run: fn(request, _exchange) {
             match f(request) {
                 .ok(r) => Reply.full(r),
                 .err(e) => {
                     trace_event(#http/handler_error, { message: e.display() })
-                    Reply.full(error_response(500, "internal server error"))
+                    Reply.full(error_reply(e))
                 },
             }
         },
@@ -260,15 +286,15 @@ pub fn handler<E, Eff>(f: fn(Request) -> Result<Response, E> !Eff) -> Handler wh
 }
 
 /// Package a streaming request callback; an error before streaming starts
-/// becomes a 500 reply.
-pub fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, fn(Request) -> Result<Streamed, E> !Eff: Transfer {
+/// is answered with the status it carries.
+pub fn streaming_handler<E, Eff>(f: fn(Request) -> Result<Streamed, E> !Eff) -> Handler where E: Display, E: HttpStatus, fn(Request) -> Result<Streamed, E> !Eff: Transfer {
     {
         run: fn(request, _exchange) {
             match f(request) {
                 .ok(s) => Reply.stream(s),
                 .err(e) => {
                     trace_event(#http/handler_error, { message: e.display() })
-                    Reply.full(error_response(500, "internal server error"))
+                    Reply.full(error_reply(e))
                 },
             }
         },
@@ -498,6 +524,63 @@ fn error_response(status: Int, message: String) -> Response {
 /// A JSON reply with the given status.
 pub fn json<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec {
     ok({ status, headers: map { "content-type" => "application/json" }, body: codec.encode(value) })
+}
+
+/// A JSON reply with the given status (the spelling `with_status` has in
+/// most frameworks).
+pub fn with_status<T>(status: Int, value: T) -> Result<Response, Error> where T: Codec { json(status, value) }
+
+/// The reason phrase of a status code ("not found" for 404).
+pub fn status_text(code: Int) -> String {
+    match code {
+        200 => "ok",
+        201 => "created",
+        202 => "accepted",
+        204 => "no content",
+        301 => "moved permanently",
+        302 => "found",
+        304 => "not modified",
+        400 => "bad request",
+        401 => "unauthorized",
+        403 => "forbidden",
+        404 => "not found",
+        405 => "method not allowed",
+        406 => "not acceptable",
+        409 => "conflict",
+        410 => "gone",
+        413 => "payload too large",
+        415 => "unsupported media type",
+        418 => "i'm a teapot",
+        422 => "unprocessable entity",
+        426 => "upgrade required",
+        429 => "too many requests",
+        431 => "request header fields too large",
+        500 => "internal server error",
+        501 => "not implemented",
+        502 => "bad gateway",
+        503 => "service unavailable",
+        504 => "gateway timeout",
+        _ => "error",
+    }
+}
+
+/// The reply for an error: the status it carries and, for a client
+/// error, its message. A server error keeps its message to itself (it is
+/// an internal detail, not the client's business).
+pub fn error_reply<E>(error: E) -> Response where E: Display, E: HttpStatus {
+    let code = error.http_status()
+    if code >= 500 {
+        { status: code, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: status_text(code) }) }
+    } else {
+        { status: code, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: status_text(code), message: error.display() }) }
+    }
+}
+
+/// The reply for an application error: the status it carries and its
+/// message. The route system does this by itself; use it where a reply
+/// is built by hand (a pipeline stage, for instance).
+pub fn reply_for_error<E>(error: E) -> Result<Response, Error> where E: Display, E: HttpStatus {
+    ok(error_reply(error))
 }
 
 pub fn text(status: Int, body: String) -> Result<Response, Error> {

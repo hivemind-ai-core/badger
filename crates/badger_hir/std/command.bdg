@@ -91,6 +91,8 @@ impl Display for Error {
     }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 /// Check a command table: names present, unique, and not `help`, and no

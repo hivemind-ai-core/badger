@@ -14,6 +14,39 @@ fn and_then<T, U, E>(r: Result<T, E>, f: once fn(T) -> Result<U, E>) -> Result<U
 
 Chain a fallible step: `f` runs only on success.
 
+### `bail`
+
+```badger
+fn bail<T, E>(error: E) -> Result<T, E>
+```
+
+Leave the current function with `error`: `return result.bail(error)`.
+The result's value type is the one the caller expects, so a guard
+clause reads as one line:
+
+```badger
+if title == "" { return bail(AppError.invalid_input("title required")) }
+```
+
+### `bimap`
+
+```badger
+fn bimap<T, U, E, F>(r: Result<T, E>, ok_fn: fn(T) -> U, err_fn: fn(E) -> F) -> Result<U, F>
+```
+
+Map both sides of a result: `ok_fn` on success, `err_fn` on failure.
+The counterpart of `map` and `map_err` for the common "change the
+error type on the way out" case.
+
+### `check`
+
+```badger
+fn check<T, E>(value: T, valid: fn(&T) -> Bool, error: fn() -> E) -> Result<T, E>
+```
+
+The value when `valid` accepts it, `err(error())` otherwise. The error
+is built only when the value is rejected.
+
 ### `error`
 
 ```badger
@@ -47,6 +80,23 @@ fn map<T, U, E>(r: Result<T, E>, f: fn(T) -> U) -> Result<U, E>
 ```badger
 fn map_err<T, E, F>(r: Result<T, E>, f: fn(E) -> F) -> Result<T, F>
 ```
+
+### `must`
+
+```badger
+fn must<E>(condition: Bool, error: E) -> Result<Unit, E>
+```
+
+`ok(())` when `condition` holds, `err(error)` otherwise. The result can
+be chained with `?` or returned directly.
+
+### `must_eq`
+
+```badger
+fn must_eq<T, E>(a: T, b: T, error: E) -> Result<Unit, E> where T: Eq
+```
+
+`ok(())` when `a` and `b` are equal, `err(error)` otherwise.
 
 ### `or_else`
 
@@ -93,6 +143,12 @@ The value, if successful.
 
 ```badger
 fn and_then<U>(self: &Self, f: once fn(T) -> Result<U, E>) -> Result<U, E>
+```
+
+### `Result.bimap`
+
+```badger
+fn bimap<U, F>(self: &Self, ok_fn: fn(T) -> U, err_fn: fn(E) -> F) -> Result<U, F>
 ```
 
 ### `Result.error`

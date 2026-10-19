@@ -89,11 +89,11 @@ fn map_api(c: Config) -> Int {
                 if c.mode == "map-api-filter" { assert(k % 3 != 0 && v == words[k]) }
                 else {
                     let expected = if k < c.n / 2 { words[k] }
-                        else if k < c.n {
-                            let suffix = text.repeat("y", c.payload + k % 3)
-                            $"{words[k]}:{suffix}"
-                        }
-                        else { text.repeat("y", c.payload + k % 3) }
+                    else if k < c.n {
+                        let suffix = text.repeat("y", c.payload + k % 3)
+                        $"{words[k]}:{suffix}"
+                    }
+                    else { text.repeat("y", c.payload + k % 3) }
                     assert(v == expected)
                 }
             }

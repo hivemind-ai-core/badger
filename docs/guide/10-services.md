@@ -81,9 +81,107 @@ bindings](08-systems-and-pipelines.md#operations-and-bindings)).
 | `http.streaming_handler(f)` | Returns `Result<http.Streamed, E>` (chunked reply) |
 | `http.websocket_handler(f)` | `fn(http.Request, websocket.WebSocket) -> Result<Unit, E>` |
 
-A handler error becomes a 500 reply. Reply helpers are `http.text(status,
-body)` and `http.json(status, value)`. Values tied to one request (the
-body reader) cannot outlive it (E0401).
+A handler error becomes the reply its status asks for — 500 unless the
+error says otherwise. Reply helpers are `http.text(status, body)` and
+`http.json(status, value)`. Values tied to one request (the body reader)
+cannot outlive it (E0401).
+
+### The status of an error
+
+An error carries the status it should be answered with through the
+`HttpStatus` protocol. The default is 500 ("internal server error"), so
+an error type that says nothing about HTTP keeps the old behaviour; an
+application implements it once, on its error type:
+
+```badger
+import std.http
+import std.io
+import std.route
+import std.text
+
+pub enum AppError {
+    invalid_input(message: String),
+    not_found(id: Int),
+    route(source: route.RouteError),
+    io(source: io.Error),
+} derive(Error, From)
+
+// The status each error is answered with.
+impl HttpStatus for AppError {
+    fn http_status(self: &Self) -> Int {
+        match self {
+            .invalid_input(_) => 400,
+            .not_found(_) => 404,
+            _ => 500,
+        }
+    }
+}
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let handler = route.table([
+        route.get("/notes/:id", #notes/show, fn(_request, _params) -> Result<http.Response, AppError> {
+            err(AppError.not_found(1))
+        }),
+    ])?
+    io.println(show(http.call(handler, http.request(#get, "/notes/1", ""))))?
+    ok(())
+}
+```
+
+```text
+404 {"error":"not found","message":"not found: 1"}
+```
+
+A client error (a 4xx) is answered with the error's message; a server
+error (a 5xx) keeps its message to itself. `http.StatusError` carries a
+status for the one-off case: `http.status(404, error)`.
+
+### Query parameters
+
+A route matches its path; the query string is part of the request, not of
+the path. `route.params(request)` reads it:
+
+```badger
+import std.http
+import std.io
+import std.route
+import std.text
+
+pub enum AppError {
+    http(source: http.Error),
+    route(source: route.RouteError),
+    io(source: io.Error),
+} derive(Error, From)
+
+impl HttpStatus for AppError { }
+
+fn show(r: http.Response) -> String {
+    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let handler = route.table([
+        route.get("/search", #search, fn(request, _params) -> Result<http.Response, AppError> {
+            let q = route.params(request).get("q").unwrap_or("")
+            ok(http.json(200, { q: q })?)
+        }),
+    ])?
+    io.println(show(http.call(handler, http.request(#get, "/search?q=dune&page=2", ""))))?
+    ok(())
+}
+```
+
+```text
+200 {"q":"dune"}
+```
+
+A path parameter and a query parameter of the same name: the path
+parameter wins. `route.path_of(uri)` and `route.query_of(uri)` split a
+URI into its two parts.
 
 ### Serve it
 

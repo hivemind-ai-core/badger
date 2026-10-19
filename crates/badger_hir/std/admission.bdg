@@ -39,6 +39,8 @@ impl Display for Error {
     }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 /// A gate's counters: `executing` and `waiting` now; `admitted`,

@@ -14,6 +14,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 extern "intrinsic" fn write_out(text: String, newline: Bool, stderr: Bool) -> Result<Unit, Error>

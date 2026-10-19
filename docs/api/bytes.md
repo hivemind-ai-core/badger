@@ -112,6 +112,14 @@ fn to_text(b: Bytes) -> Result<String, String>
 
 Validate UTF-8.
 
+### `to_text_or`
+
+```badger
+fn to_text_or(b: Bytes, default: String) -> String
+```
+
+The text, or `default` when the bytes are not valid text.
+
 ## Methods on other types
 
 ### `Bytes.concat`
@@ -179,4 +187,12 @@ fn starts_with(self: &Self, prefix: Bytes) -> Bool
 ```badger
 fn to_text(self: &Self) -> Result<String, String>
 ```
+
+### `Bytes.to_text_or`
+
+```badger
+fn to_text_or(self: &Self, default: String) -> String
+```
+
+The text, or `default` when the bytes are not valid text.
 

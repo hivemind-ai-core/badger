@@ -79,6 +79,20 @@ pub fn make_passthrough<C, R, E, Eff>(
     { name, enter: fn(c) { ok(Enter.next(c)) }, leave, error }
 }
 
+/// A stage that turns an error into a reply: `reply` maps the error to
+/// the reply the pipeline returns, and the pipeline ends with that reply
+/// even when the handler failed.
+///
+/// ```badger
+/// pipeline {
+///     pipeline.recover_with(fn(e: AppError) -> http.Response { ... }),
+///     handle(handler),
+/// }
+/// ```
+pub fn recover_with<C, R, E, Eff>(reply: fn(E) -> R) -> Stage<C, C, R, E, Eff> {
+    make_passthrough(#pipeline/recover, Option.none, Option.some(fn(c: C, e: E) { ErrorStep.recover(c, reply(e)) }))
+}
+
 /// Terminal handler returning only a reply.
 pub fn handle<C, R, E, Eff>(f: fn(C) -> Result<R, E> !Eff) -> Handler<C, R, E, Eff> {
     {

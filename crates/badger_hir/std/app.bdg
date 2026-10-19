@@ -158,6 +158,8 @@ impl Display for Error {
     }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 /// Validated metadata of a set of operations: identities unique, versions

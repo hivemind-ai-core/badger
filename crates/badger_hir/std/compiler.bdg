@@ -22,6 +22,8 @@ impl Display for Error {
     fn display(self: &Self) -> String { self.message }
 }
 
+impl HttpStatus for Error {}
+
 impl prelude.Error for Error {}
 
 pub struct Location {

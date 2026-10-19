@@ -1,0 +1,43 @@
+// Key/value helpers: the shape every configuration block, header read and
+// form parser uses.
+//
+// A `Map<K, V>` is the natural shape for lookup, but parsing produces a
+// list of pairs, and a few places (environment variables, form fields)
+// want the list form. `from_list` and `to_list` convert between the two;
+// the rest are the map operations under the name a parser site expects.
+
+import std.list
+import std.map
+
+/// A map from a list of pairs (later duplicates win).
+pub fn from_list<K, V>(entries: List<(K, V)>) -> Map<K, V> where K: Hash { map.from_list(entries) }
+
+/// The entries of a map, in its entry order.
+pub fn to_list<K, V>(m: Map<K, V>) -> List<(K, V)> { map.to_list(m) }
+
+/// The value at `key`, if any.
+pub fn get<K, V>(m: Map<K, V>, key: K) -> Option<V> { map.get(m, key) }
+
+/// The value at `key`, or `default`.
+pub fn get_or<K, V>(m: Map<K, V>, key: K, default: V) -> V { map.get_or(m, key, default) }
+
+/// How many entries the map has.
+pub fn len<K, V>(m: Map<K, V>) -> Int { map.len(m) }
+
+/// Both maps' entries; `b`'s win where both have a key.
+pub fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V> where K: Hash { map.merge(a, b) }
+
+/// The entries `keep` accepts.
+pub fn filter<K, V>(m: Map<K, V>, keep: fn(K, V) -> Bool) -> Map<K, V> where K: Hash { map.filter(m, keep) }
+
+/// The same entries with `f` applied to each key.
+pub fn map_keys<K, V, W>(m: Map<K, V>, f: fn(K) -> W) -> Map<W, V> where W: Hash {
+    var out = map.empty<W, V>()
+    for (k, v) in m {
+        out = out.insert(f(k), v)
+    }
+    out
+}
+
+/// The same entries with `f` applied to each value.
+pub fn map_values<K, V, W>(m: Map<K, V>, f: fn(V) -> W) -> Map<K, W> where K: Hash { map.map_values(m, f) }
