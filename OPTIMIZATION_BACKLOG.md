@@ -51,6 +51,17 @@ match.
 
 ### 0.1 HotSpot-style polling page for the GC handshake
 
+**Status:** **not adopted as written** (2026-10-19). The race it removes is gone: the
+handshake is `STOP` plus a per-worker `IN_COMPILED` counter under
+sequentially consistent ordering, and the worker increments the counter
+before it reads `STOP` while the collector stores `STOP` before it reads the
+counters, so there is no window. The mechanism also only pays off when the
+*generated code* polls at safepoints; with the poll in the runtime the
+collector must still wait for the counter to drain, so the fault would
+replace the load, not the wait. The prerequisite is safepoint polls in the
+generated code, with Phase 2's QSBR work; see
+[the Phase 0 report](reports/2026-10-19-optimization-backlog-phase-0.md).
+
 - **Goal**: replace the current `STOP: AtomicU8` poll-check in the GC
   handshake with a HotSpot-style "mprotect a per-worker page" trap
   (BACKLOG sync slice 0, audit G3 race).
@@ -160,6 +171,10 @@ match.
 
 ### 0.6 Keep mark stack and remembered buffer across collections (R1)
 
+**Status:** landed 2026-10-19 (`e5967d3`): the buffers are handed out under a flag
+and cleared before use. Neutral in the measurement (two allocations per
+collection, below the noise); kept because it is strictly less work.
+
 - **Goal**: the mark stack (`gc.rs:690` `let mut stack: Vec<u64>`)
   and the remembered buffer (`gc.rs:700-701`) are allocated fresh
   on every collection. Reuse the allocation across collections,
@@ -177,6 +192,11 @@ match.
 
 ### 0.7 Drop the `occupied` sort in `trim_empty_chunks` (R1)
 
+**Status:** landed 2026-10-19 (`5bae53c`): the chunk ranges are sorted once and each
+cell is looked up, instead of sorting every cell address. A full collection
+over a 200 000-object heap goes from 190 ms to 65 ms (-65%, 2.9x); see the
+[Phase 0 report](reports/2026-10-19-optimization-backlog-phase-0.md).
+
 - **Goal**: `trim_empty_chunks` (`gc.rs:966-979`) sorts the
   `occupied` array; this is O(n log n) on a list of length n at
   every collection. The sort is not necessary — the only thing
@@ -193,6 +213,12 @@ match.
   `BADGER_GC_PROFILE` "trim_empty_chunks" phase counter shortens.
 
 ### 0.8 External memory accounting (R1)
+
+**Status:** landed 2026-10-19 (`274743a`): the channel's queues, sizes, batches,
+staging, leases and page pool, and the admission gates' waiter queues, are
+charged to the external counters as they grow and released as they are
+freed, moved or dropped; resident memory is reported next to managed,
+external and pressure.
 
 - **Goal**: channel queues (`channel.rs:38` `queue: VecDeque<u64>`),
   staging (`channel.rs:46` `staging: FxHashMap<TaskId, Vec<u64>>`),
@@ -615,6 +641,7 @@ listed.
 | `OrdMap` / `OrdSet` (sorted maps) | no current standard-library function is hot enough | `research/10-persistent-data-structures.md` §7 |
 | Async / signal-based preemption | the BUDGET poll is sufficient; signal preemption is ~10 µs/signal | `research/12-runtime-scaling-extra.md` §16 |
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
+| HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |

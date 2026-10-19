@@ -100,7 +100,18 @@ are correctness-and-scale work, not current throughput wins.
 - R1 (memory-management owner): keep the mark stack and remembered buffer
   across collections; no `occupied` sort in `trim_empty_chunks`; account
   channel queues and staging as external memory; report managed,
-  external, pressure, and RSS separately.
+  external, pressure, and RSS separately. Done 2026-10-19
+  (`perf/optimization-backlog-2026-10-19`): the mark stack and the
+  remembered buffer are reused across collections (`e5967d3`, neutral in
+  the measurement), `trim_empty_chunks` indexes the chunk ranges instead
+  of sorting every cell address (`5bae53c`: a full collection over a
+  200 000-object heap goes from 190 ms to 65 ms), and the channel's native
+  buffers and the admission gates' waiter queues are charged to the
+  external counters, with resident memory reported next to managed,
+  external and pressure (`274743a`). The work also found a collector bug
+  that the R1 items had to work around: a dead list directory's weak slot
+  named a page freed in an earlier minor collection, and the clearing pass
+  read the freed cell (`66a5222`, reproduced on `main`).
 - R2: done 2026-10-19 (`perf/runtime-stdlib-2026-10-19`): `chunks`,
   `to_array`, `bytes`/`buffer` conversions and `concat`/`slice` copy whole
   packed runs; on the measured workloads the wall-clock is dominated by
