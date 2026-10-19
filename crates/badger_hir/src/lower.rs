@@ -8,6 +8,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use crate::hir::*;
 
 /// A parsed source module handed to lowering.
+#[derive(Clone)]
 pub struct ParsedModule {
     pub path: Vec<Symbol>,
     pub file: FileId,

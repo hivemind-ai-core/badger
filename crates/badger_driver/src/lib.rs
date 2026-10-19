@@ -38,6 +38,11 @@ pub struct Session {
     pub overlays: std::collections::HashMap<PathBuf, String>,
     /// Native modules the last `compile_binary` program calls.
     pub natives: Vec<String>,
+    /// Parsed standard-library modules, by std module name. A session checks
+    /// a project's main entry and every `[entries]`/`[tasks]` module; the
+    /// standard library is the same for all of them, so it is parsed once and
+    /// reused (the embedded sources never change within a session).
+    std_parsed: std::collections::HashMap<String, ParsedModule>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -574,12 +579,21 @@ impl Session {
             done.push(name.clone());
             let Some(idx) = names.iter().position(|n| *n == name) else { continue };
             let src = badger_hir::stdlib::STD_MODULES[idx].1;
+            // The std sources are embedded and fixed for the session, so a
+            // module is parsed once and cloned for later entries.
+            if let Some(m) = self.std_parsed.get(&name).cloned() {
+                add_imports(&m.ast, src, &mut wanted, &self.interner);
+                parsed.push((idx, m));
+                continue;
+            }
             let file = self.sources.add(format!("<std>/{name}.bdg"), src);
             if let Some(ast) = self.parse(file) {
                 add_imports(&ast, src, &mut wanted, &self.interner);
                 let mut mpath = vec![std_sym];
                 mpath.extend(name.split('/').map(|s| self.sym(s)));
-                parsed.push((idx, ParsedModule { path: mpath, file, ast, is_std: true, dependency: false }));
+                let m = ParsedModule { path: mpath, file, ast, is_std: true, dependency: false };
+                self.std_parsed.insert(name.clone(), m.clone());
+                parsed.push((idx, m));
             }
         }
         // in the library's own order
