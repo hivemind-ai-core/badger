@@ -185,7 +185,16 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("null")
             }
         }
-        Kind::Char => write_json_quote(&char::from_u32(w as u32).map(String::from).unwrap_or_default(), o),
+        Kind::Char => {
+            // encode into a stack buffer: a `String` per character is an
+            // allocation for a value that is at most four bytes
+            let mut buf = [0u8; 4];
+            let s: &str = match char::from_u32(w as u32) {
+                Some(c) => c.encode_utf8(&mut buf),
+                None => "",
+            };
+            write_json_quote(s, o)
+        }
         Kind::Symbol | Kind::String => write_json_quote(str_of(w), o),
         Kind::Bytes => write_json_quote(&String::from_utf8_lossy(bytes_of(w)), o),
         Kind::Duration | Kind::Instant | Kind::Timestamp => write_i64(o, w as i64),

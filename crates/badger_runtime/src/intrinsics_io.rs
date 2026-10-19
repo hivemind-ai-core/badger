@@ -170,30 +170,25 @@ pub(crate) fn write_json_quote(s: &str, o: &mut String) {
     o.push('"');
     let bytes = s.as_bytes();
     let mut start = 0;
-    let mut i = 0;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if b == b'"' || b == b'\\' || b < 0x20 {
-            if start < i {
-                o.push_str(&s[start..i]);
-            }
-            match b {
-                b'"' => o.push_str("\\\""),
-                b'\\' => o.push_str("\\\\"),
-                b'\n' => o.push_str("\\n"),
-                b'\r' => o.push_str("\\r"),
-                b'\t' => o.push_str("\\t"),
-                _ => {
-                    o.push_str("\\u00");
-                    o.push(HEX[(b >> 4) as usize] as char);
-                    o.push(HEX[(b & 0xf) as usize] as char);
-                }
-            }
-            i += 1;
-            start = i;
-        } else {
-            i += 1;
+    while let Some(k) = bytes[start..].iter().position(|&c| c == b'"' || c == b'\\' || c < 0x20) {
+        let i = start + k;
+        if start < i {
+            o.push_str(&s[start..i]);
         }
+        let b = bytes[i];
+        match b {
+            b'"' => o.push_str("\\\""),
+            b'\\' => o.push_str("\\\\"),
+            b'\n' => o.push_str("\\n"),
+            b'\r' => o.push_str("\\r"),
+            b'\t' => o.push_str("\\t"),
+            _ => {
+                o.push_str("\\u00");
+                o.push(HEX[(b >> 4) as usize] as char);
+                o.push(HEX[(b & 0xf) as usize] as char);
+            }
+        }
+        start = i + 1;
     }
     if start < bytes.len() {
         o.push_str(&s[start..]);
