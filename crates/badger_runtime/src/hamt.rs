@@ -18,6 +18,14 @@
 //! buckets). `flags` say whether keys/values are managed pointers, for
 //! tracing.
 //!
+//! A root holding at most `FLAT_MAX` (8) entries is *flat*: a node with both
+//! bitmaps zero whose entries are scanned linearly (a collision bucket is
+//! the only other node without bitmaps, and it is never a root). Its
+//! entries are in the order a trie holding them would visit, so iteration
+//! does not depend on the representation: inserting a ninth entry promotes
+//! the root to a trie, and removing down to `FLAT_MAX` flattens it again.
+//! The representation is thus a function of the length alone.
+//!
 //! Callers keep the trie being read or updated reachable (rooted), and root
 //! keys and values passed in; allocation of new nodes may collect.
 //! Fresh builders use a separate insertion path: all their nodes are private
@@ -104,6 +112,64 @@ impl Node {
     }
     fn child(self, i: usize) -> u64 {
         self.word(HDR + self.entries() * 24 + i * 8)
+    }
+    /// A root node in the flat representation (see the module docs).
+    fn flat(self) -> bool {
+        self.datamap() == 0 && self.nodemap() == 0
+    }
+}
+
+/// Filler for entry buffers.
+const BLANK: Entry = Entry { hash: 0, key: 0, val: 0 };
+
+/// The most entries a flat root holds.
+pub(crate) const FLAT_MAX: usize = 8;
+
+fn chunk(hash: u64, shift: u32) -> u32 {
+    ((hash >> shift) & 31) as u32
+}
+
+/// Put `es` (entries agreeing on their hashes below `shift`) in the order
+/// a trie node holding them visits them: entries alone in their hash chunk
+/// first, then the entries of each shared chunk, chunks ascending, each
+/// group in its own child's order. Stable, so entries with equal full
+/// hashes keep their collision-bucket order. At most [`FLAT_MAX`] + 1
+/// entries.
+fn trie_order(es: &mut [Entry], shift: u32) {
+    if es.len() < 2 || collision(shift) {
+        return;
+    }
+    for i in 1..es.len() {
+        let mut j = i;
+        while j > 0 && chunk(es[j - 1].hash, shift) > chunk(es[j].hash, shift) {
+            es.swap(j - 1, j);
+            j -= 1;
+        }
+    }
+    let run = |es: &[Entry], i: usize| {
+        let c = chunk(es[i].hash, shift);
+        es[i..].iter().take_while(|e| chunk(e.hash, shift) == c).count()
+    };
+    let mut buf = [BLANK; FLAT_MAX + 1];
+    let (mut k, mut groups) = (0, 0);
+    for alone in [true, false] {
+        groups = k;
+        let mut i = 0;
+        while i < es.len() {
+            let r = run(es, i);
+            if (r == 1) == alone {
+                buf[k..k + r].copy_from_slice(&es[i..i + r]);
+                k += r;
+            }
+            i += r;
+        }
+    }
+    es.copy_from_slice(&buf[..es.len()]);
+    let mut i = groups;
+    while i < es.len() {
+        let r = run(es, i);
+        trie_order(&mut es[i..i + r], shift + BITS);
+        i += r;
     }
 }
 
@@ -410,6 +476,12 @@ pub fn get(root: u64, hash: u64, key: u64, eq: &dyn Fn(u64, u64) -> bool) -> Opt
         return None;
     }
     let mut n = Node::of(root);
+    if n.flat() {
+        return (0..n.entries())
+            .map(|i| n.entry(i))
+            .find(|e| e.hash == hash && eq(e.key, key))
+            .map(|e| e.val);
+    }
     let mut shift = 0;
     loop {
         if collision(shift) {
@@ -464,9 +536,82 @@ fn insert_with<M: Mutation>(
     mode: M,
 ) -> (u64, bool) {
     if root == 0 {
-        return (alloc_owned(bit(e.hash, 0), 0, flags, &[e], &[], mode), true);
+        return (alloc_owned(0, 0, flags, &[e], &[], mode), true);
+    }
+    if Node::of(root).flat() {
+        return insert_flat(root, e, flags, eq, mode);
     }
     insert_at(root, e, 0, flags, eq, mode)
+}
+
+/// Insert into flat root `w`, promoting it to a trie at [`FLAT_MAX`] + 1
+/// entries.
+fn insert_flat<M: Mutation>(
+    w: u64,
+    e: Entry,
+    flags: u32,
+    eq: &dyn Fn(u64, u64) -> bool,
+    mode: M,
+) -> (u64, bool) {
+    let n = Node::of(w);
+    let ne = n.entries();
+    if let Some(i) = (0..ne).find(|&i| n.entry(i).hash == e.hash && eq(n.entry(i).key, e.key)) {
+        return (edit(w, 0, 0, Edit { at: i, del: 1, ins: Some(e) }, Edit::none(), mode), false);
+    }
+    let mut buf = [BLANK; FLAT_MAX + 1];
+    for (i, x) in buf.iter_mut().enumerate().take(ne) {
+        *x = n.entry(i);
+    }
+    // Appended last, so `e` follows any entries sharing its full hash, as
+    // it would in a collision bucket.
+    buf[ne] = e;
+    let es = &mut buf[..ne + 1];
+    trie_order(es, 0);
+    if ne == FLAT_MAX {
+        return (build(es, 0, flags, mode), true);
+    }
+    if mode.can_edit(n) && HDR + es.len() * 24 <= unsafe { obj(w).payload_size() } {
+        unsafe {
+            let p = n.0.add(HDR) as *mut u64;
+            for (i, x) in es.iter().enumerate() {
+                *p.add(i * 3) = x.hash;
+                *p.add(i * 3 + 1) = x.key;
+                *p.add(i * 3 + 2) = x.val;
+            }
+            *(n.0.add(12) as *mut u32) = es.len() as u32;
+        }
+        gc::barrier(w);
+        return (w, true);
+    }
+    (alloc_owned(0, 0, flags, es, &[], mode), true)
+}
+
+/// The trie node holding `es` (distinct keys, at least two, at most
+/// [`FLAT_MAX`] + 1, agreeing on their hashes below `shift`, in
+/// [`trie_order`]): the shape insertions one by one would give.
+fn build<M: Mutation>(es: &[Entry], shift: u32, flags: u32, mode: M) -> u64 {
+    if collision(shift) {
+        return alloc_owned(0, 0, flags, es, &[], mode);
+    }
+    let r = gc::Roots::new();
+    let (mut dm, mut nm, mut alone) = (0, 0, 0);
+    let mut children = [0; FLAT_MAX / 2];
+    let mut nc = 0;
+    let mut i = 0;
+    while i < es.len() {
+        let b = bit(es[i].hash, shift);
+        let n = es[i..].iter().take_while(|e| bit(e.hash, shift) == b).count();
+        if n == 1 {
+            dm |= b;
+            alone += 1;
+        } else {
+            nm |= b;
+            children[nc] = r.add(build(&es[i..i + n], shift + BITS, flags, mode));
+            nc += 1;
+        }
+        i += n;
+    }
+    alloc_owned(dm, nm, flags, &es[..alone], &children[..nc], mode)
 }
 
 fn insert_at<M: Mutation>(
@@ -533,13 +678,41 @@ enum Removed {
 /// (the trie is unchanged).
 pub fn remove(root: u64, hash: u64, key: u64, eq: &dyn Fn(u64, u64) -> bool) -> Option<u64> {
     get(root, hash, key, eq)?;
+    let n = Node::of(root);
+    if n.flat() || count_upto(root, FLAT_MAX + 2) == FLAT_MAX + 1 {
+        // the result is flat (a trie root holds more than FLAT_MAX entries)
+        let mut buf = [BLANK; FLAT_MAX + 1];
+        let mut k = 0;
+        for_each(root, &mut |e| {
+            if e.hash != hash || !eq(e.key, key) {
+                buf[k] = e;
+                k += 1;
+            }
+        });
+        if k == 0 {
+            return Some(0);
+        }
+        trie_order(&mut buf[..k], 0);
+        return Some(alloc_node(0, 0, n.flags(), &buf[..k], &[]));
+    }
     Some(match remove_at(root, hash, key, 0, eq) {
         Removed::Node(w) => w,
-        Removed::Lone(e) => {
-            let flags = Node::of(root).flags();
-            alloc_node(bit(e.hash, 0), 0, flags, &[e], &[])
-        }
+        Removed::Lone(e) => alloc_node(0, 0, n.flags(), &[e], &[]),
     })
+}
+
+/// The number of entries below `w`, or some number from `limit` up once
+/// there are at least `limit`.
+fn count_upto(w: u64, limit: usize) -> usize {
+    let n = Node::of(w);
+    let mut count = n.entries();
+    for i in 0..n.children() {
+        if count >= limit {
+            break;
+        }
+        count += count_upto(n.child(i), limit - count);
+    }
+    count
 }
 
 /// Remove a key known to be present below `w`.
@@ -772,6 +945,114 @@ mod tests {
         // unit-test mutator is single-threaded, rather than a task runtime.
         transient_matches_a_model_and_stops_allocating_for_replacements();
         owned_collision_buckets_preserve_all_epochs();
+        flat_roots_iterate_like_tries();
+    }
+
+    /// Check the representation and the CHAMP invariants of a root
+    /// holding `len` distinct keys.
+    fn check(root: u64, len: usize) {
+        fn node(w: u64, shift: u32, prefix: u64, seen: &mut Vec<u64>) {
+            let n = Node::of(w);
+            let (dm, nm) = (n.datamap(), n.nodemap());
+            let low = |h: u64| if collision(shift) { h } else { h & ((1u64 << shift) - 1) };
+            if collision(shift) {
+                assert!(n.entries() >= 2 && n.children() == 0);
+            }
+            let mut bits = (0..32).filter(|i| dm & (1 << i) != 0);
+            for i in 0..n.entries() {
+                let e = n.entry(i);
+                assert_eq!(low(e.hash), prefix);
+                if !collision(shift) {
+                    assert_eq!(chunk(e.hash, shift), bits.next().unwrap());
+                }
+                seen.push(e.key);
+            }
+            let mut bits = (0..32u32).filter(|i| nm & (1 << i) != 0);
+            for i in 0..n.children() {
+                let c = bits.next().unwrap();
+                assert!(count_upto(n.child(i), 2) >= 2, "a child holds at least two entries");
+                node(n.child(i), shift + BITS, prefix | ((c as u64) << shift), seen);
+            }
+        }
+        if len == 0 {
+            assert_eq!(root, 0);
+            return;
+        }
+        let n = Node::of(root);
+        assert_eq!(n.flat(), len <= FLAT_MAX);
+        let mut seen = vec![];
+        if n.flat() {
+            assert_eq!(n.entries(), len);
+            for_each(root, &mut |e| seen.push(e.key));
+        } else {
+            node(root, 0, 0, &mut seen);
+        }
+        assert_eq!(seen.len(), len);
+        seen.sort();
+        seen.dedup();
+        assert_eq!(seen.len(), len, "no duplicate keys");
+    }
+
+    /// Insert `keys` into a trie, never a flat root.
+    fn trie_only(keys: &[u64], hash: fn(u64) -> u64) -> u64 {
+        let eq = |a: u64, b: u64| a == b;
+        let e = |k| Entry { hash: hash(k), key: k, val: k };
+        let mut t = alloc_node(bit(hash(keys[0]), 0), 0, 0, &[e(keys[0])], &[]);
+        for &k in &keys[1..] {
+            t = insert_at(t, e(k), 0, 0, &eq, Persistent).0;
+        }
+        t
+    }
+
+    fn order(root: u64) -> Vec<u64> {
+        let mut out = vec![];
+        for_each(root, &mut |e| out.push(e.key));
+        out
+    }
+
+    fn flat_roots_iterate_like_tries() {
+        let eq = |a: u64, b: u64| a == b;
+        // dense low chunks, one full collision class, and spread hashes
+        let hashes: [fn(u64) -> u64; 3] = [|k| k * 33, |k| if k % 3 == 0 { 7 } else { k << 60 | k }, h];
+        let mut x: u64 = 7;
+        for hash in hashes {
+            for _ in 0..if cfg!(miri) { 4 } else { 40 } {
+                let mut keys: Vec<u64> = (0..14).collect();
+                for i in (1..keys.len()).rev() {
+                    x ^= x << 13;
+                    x ^= x >> 7;
+                    x ^= x << 17;
+                    keys.swap(i, (x % (i as u64 + 1)) as usize);
+                }
+                let e = |k| Entry { hash: hash(k), key: k, val: k };
+                let mut t = 0;
+                let mut builder = 0;
+                for n in 1..=keys.len() {
+                    t = insert(t, e(keys[n - 1]), 0, &eq).0;
+                    builder = insert_mut(builder, e(keys[n - 1]), 0, &eq).0;
+                    check(t, n);
+                    check(builder, n);
+                    // A flat root visits its entries as the trie would.
+                    assert_eq!(order(t), order(trie_only(&keys[..n], hash)));
+                    assert_eq!(order(builder), order(t));
+                }
+                // Remove in another order, through the flat boundary.
+                let mut left = keys.clone();
+                for i in 0..keys.len() {
+                    let k = keys[i * 5 % keys.len()];
+                    left.retain(|&y| y != k);
+                    t = remove(t, hash(k), k, &eq).unwrap();
+                    assert!(remove(t, hash(k), k, &eq).is_none());
+                    check(t, left.len());
+                    if !left.is_empty() {
+                        // replay the survivors in their original insertion order
+                        let survivors: Vec<u64> = keys.iter().copied().filter(|y| left.contains(y)).collect();
+                        assert_eq!(order(t), order(trie_only(&survivors, hash)));
+                    }
+                }
+                assert_eq!(t, 0);
+            }
+        }
     }
 
     fn owned_collision_buckets_preserve_all_epochs() {

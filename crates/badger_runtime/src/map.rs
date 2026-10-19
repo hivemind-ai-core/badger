@@ -4,6 +4,9 @@
 //! Keys use descriptor-driven equality and hashing.
 //!
 //! A map object's payload is the trie root (0 when empty) and the length.
+//! A map of at most eight entries has a flat root: one node holding the
+//! entries in a linearly scanned array (see [`crate::hamt`]), traced like
+//! any trie node through the root word.
 
 use std::hash::{BuildHasher, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
