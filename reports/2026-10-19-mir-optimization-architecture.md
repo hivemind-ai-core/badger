@@ -354,3 +354,72 @@ Validation run: `cargo test -p badger_cli --release --test programs`
 `packed_arrays`, `adversarial`, `gc_retention`, and the new
 `mir_optimization` integration tests (3 passed). This is structural and
 behavioural validation, not a benchmark comparison.
+
+### Benchmark comparison
+
+Measured 2026-10-19 on the same host (AMD Ryzen 7 8745HS, 16 logical CPUs,
+Linux 7.2.2), with release binaries built from `main` at `d1dac09` and from
+this branch at `14c54af` (the branch includes a merge of `d1dac09`).
+Runs alternated between the two binaries in both orders; no CPU pinning or
+frequency isolation was imposed.
+
+- **Realworld suite** (`bench/realworld`, Badger only): six workloads,
+  workers 1 and 4 (workers are only exercised by messaging and pipeline),
+  three fresh processes per cell, two warmups plus five samples per process;
+  three alternating rounds per binary. Values below are the median of the
+  three per-run kernel medians, in milliseconds.
+
+| workload | workers | main | branch | delta |
+|---|---:|---:|---:|---:|
+| cpu | 1 | 49.38 | 49.24 | −0.3% |
+| json | 1 | 4.77 | 4.83 | +1.2% |
+| messaging | 1 | 0.92 | 0.93 | +1.6% |
+| messaging | 4 | 1.00 | 0.98 | −1.6% |
+| pipeline | 1 | 50.23 | 50.41 | +0.4% |
+| pipeline | 4 | 13.30 | 13.42 | +0.9% |
+| reconcile | 1 | 5.45 | 5.46 | +0.3% |
+| state | 1 | 1.12 | 1.18 | +4.8% |
+
+Startup/compilation in that suite increased by 8–15% (60–70 ms range),
+consistent with the added MIR passes. Peak RSS was within ±2% of main.
+
+- **Language microbenchmarks** (`bench/baseline.py`): every `bench/*.bdg`
+  program at 1/2/4/8 workers, two rounds of three fresh runs per binary.
+  Selected results (median run time in ms):
+
+| program | workers | main | branch | delta |
+|---|---:|---:|---:|---:|
+| runtime | 1 | 26.81 | 19.73 | −26.4% |
+| runtime | 2 | 27.17 | 19.45 | −28.4% |
+| runtime | 4 | 27.55 | 19.81 | −28.1% |
+| runtime | 8 | 28.63 | 21.10 | −26.3% |
+| records | 1 | 421.20 | 406.14 | −3.6% |
+| collections | 1 | 68.24 | 65.71 | −3.7% |
+| heap | 4 | 148.69 | 141.48 | −4.8% |
+| parallel | all | ±1% | unchanged | — |
+| parallel_alloc | 2 | 28.11 | 26.91 | −4.3% |
+| independent_channels | 4 | 2.86 | 2.39 | −16.4% |
+
+The per-operation `runtime.bdg` output explains the win: scalar calls
+1.51–1.65 ns → 1.07–1.28 ns (about −30%), call plus inner call 1.74–1.79 ns
+→ 1.10–1.19 ns (about −37%), and calls with four rooted pointers 1.62–1.73
+ns → 1.15–1.21 ns (about −31%). Recursion timing stayed within its
+run-to-run noise. The other microbenchmarks are mostly unchanged; a few
+high-worker cells vary by 5–10% in both directions, consistent with the
+unpinned host.
+
+- **Compile cost** (`badger compile`, median of six runs): small programs
+  +1–10%; `bench/runtime.bdg` 61.95 → 71.06 ms (+14.7%, of which 17.8 ms is
+  the MIR pipeline); generated programs of 200 and 800 functions 81.00 →
+  92.34 ms (+14.0%) and 262.46 → 312.44 ms (+19.0%, 104 ms MIR pipeline).
+  Binary MIR for `bench/records.bdg` shrank from 22,077 to 16,197 bytes.
+
+Interpretation: the release pipeline materially improves repeated direct
+calls in `runtime.bdg`, is neutral on the application-shaped realworld
+workloads, and costs a modest amount of compile/startup time. The realworld
+`state` kernel is 5% slower in this sample; the 1 ms kernel makes it the
+least stable cell, but the direction was reproduced across rounds and is not
+explained by a known transformation. No claim of Go/Java-competitive
+application performance follows from these numbers; the eager list-building
+pipelines and persistent-map snapshot work remain the larger structural
+costs.
