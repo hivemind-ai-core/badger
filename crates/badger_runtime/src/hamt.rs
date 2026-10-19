@@ -26,6 +26,11 @@
 //! the root to a trie, and removing down to `FLAT_MAX` flattens it again.
 //! The representation is thus a function of the length alone.
 //!
+//! The CHAMP invariants hold for every trie node: no key occurs twice,
+//! entries and children are in hash-chunk (bit) order, and `datamap` and
+//! `nodemap` are disjoint. With the canonical shape, two tries with equal
+//! contents have equal bitmaps node by node, which [`equal`] exploits.
+//!
 //! Callers keep the trie being read or updated reachable (rooted), and root
 //! keys and values passed in; allocation of new nodes may collect.
 //! Fresh builders use a separate insertion path: all their nodes are private
@@ -177,6 +182,16 @@ fn bit(hash: u64, shift: u32) -> u32 {
     1 << ((hash >> shift) & 31)
 }
 
+/// The node-local CHAMP invariants a node's header can show: disjoint
+/// bitmaps, one entry (child) per `datamap` (`nodemap`) bit, and for a node
+/// without bitmaps (a flat root or a collision bucket) no children. Entries
+/// sit at their bit's [`index`], so bit order is kept by construction.
+fn champ(datamap: u32, nodemap: u32, entries: usize, children: usize) -> bool {
+    datamap & nodemap == 0
+        && children == nodemap.count_ones() as usize
+        && (entries == datamap.count_ones() as usize || datamap == 0 && nodemap == 0)
+}
+
 fn index(map: u32, b: u32) -> usize {
     (map & (b - 1)).count_ones() as usize
 }
@@ -276,6 +291,7 @@ fn alloc_node_sized(
     children: &[u64],
     size: usize,
 ) -> u64 {
+    debug_assert!(champ(datamap, nodemap, entries.len(), children.len()));
     let w = gc::alloc(node_desc(), size);
     unsafe {
         let p = obj(w).payload();
@@ -348,6 +364,7 @@ fn splice_owned<M: Mutation>(
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
     let new_nc = nc - c.del + c.ins.is_some() as usize;
+    debug_assert!(champ(datamap, nodemap, new_ne, new_nc));
     // An editable copy can be inserted into again. Reserve a little room so
     // a growing node is not reallocated and recopied for every entry.
     let needed = HDR + new_ne * 24 + new_nc * 8;
@@ -406,6 +423,7 @@ fn edit<M: Mutation>(w: u64, datamap: u32, nodemap: u32, e: Edit<Entry>, c: Edit
     let (ne, nc) = (n.entries(), n.children());
     let new_ne = ne - e.del + e.ins.is_some() as usize;
     let new_nc = nc - c.del + c.ins.is_some() as usize;
+    debug_assert!(champ(datamap, nodemap, new_ne, new_nc));
     if HDR + new_ne * 24 + new_nc * 8 > unsafe { obj(w).payload_size() } {
         return splice_owned(w, datamap, nodemap, e, c, mode);
     }
@@ -885,6 +903,35 @@ pub fn for_each(root: u64, f: &mut dyn FnMut(Entry)) {
     }
 }
 
+/// Whether tries `a` and `b` hold the same entries, where `same` compares
+/// two entries with equal hashes. Equal contents give equal shapes (module
+/// docs), so the walk pairs up nodes and stops at the first difference in
+/// bitmaps or hashes, with no lookups. When `shared` (`same` is reflexive),
+/// a subtree both tries share is equal without a walk.
+pub(crate) fn equal(a: u64, b: u64, same: &dyn Fn(Entry, Entry) -> bool, shared: bool) -> bool {
+    if a == 0 || b == 0 {
+        return a == b;
+    }
+    if a == b && shared {
+        return true;
+    }
+    let (x, y) = (Node::of(a), Node::of(b));
+    let ne = x.entries();
+    if x.datamap() != y.datamap() || x.nodemap() != y.nodemap() || ne != y.entries() {
+        return false;
+    }
+    // Only entries with equal full hashes (a collision bucket, or adjacent
+    // in a flat root) can be in a different order.
+    if (0..ne).any(|i| x.entry(i).hash != y.entry(i).hash) {
+        return false;
+    }
+    let matched = |e: Entry, i: usize| {
+        same(e, y.entry(i)) || (0..ne).any(|j| j != i && y.entry(j).hash == e.hash && same(e, y.entry(j)))
+    };
+    (0..ne).all(|i| matched(x.entry(i), i))
+        && (0..x.children()).all(|i| equal(x.child(i), y.child(i), same, shared))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -945,7 +992,7 @@ mod tests {
         // unit-test mutator is single-threaded, rather than a task runtime.
         transient_matches_a_model_and_stops_allocating_for_replacements();
         owned_collision_buckets_preserve_all_epochs();
-        flat_roots_iterate_like_tries();
+        flat_roots_iterate_like_tries_and_compare_structurally();
     }
 
     /// Check the representation and the CHAMP invariants of a root
@@ -954,6 +1001,7 @@ mod tests {
         fn node(w: u64, shift: u32, prefix: u64, seen: &mut Vec<u64>) {
             let n = Node::of(w);
             let (dm, nm) = (n.datamap(), n.nodemap());
+            assert!(champ(dm, nm, n.entries(), n.children()));
             let low = |h: u64| if collision(shift) { h } else { h & ((1u64 << shift) - 1) };
             if collision(shift) {
                 assert!(n.entries() >= 2 && n.children() == 0);
@@ -1010,8 +1058,9 @@ mod tests {
         out
     }
 
-    fn flat_roots_iterate_like_tries() {
+    fn flat_roots_iterate_like_tries_and_compare_structurally() {
         let eq = |a: u64, b: u64| a == b;
+        let same = |a: Entry, b: Entry| a.key == b.key && a.val == b.val;
         // dense low chunks, one full collision class, and spread hashes
         let hashes: [fn(u64) -> u64; 3] = [|k| k * 33, |k| if k % 3 == 0 { 7 } else { k << 60 | k }, h];
         let mut x: u64 = 7;
@@ -1035,12 +1084,17 @@ mod tests {
                     // A flat root visits its entries as the trie would.
                     assert_eq!(order(t), order(trie_only(&keys[..n], hash)));
                     assert_eq!(order(builder), order(t));
+                    assert!(equal(t, builder, &same, true) && equal(t, builder, &same, false));
+                    // reversed insertion reverses collision-bucket order
+                    let reversed = keys[..n].iter().rev().fold(0, |r, &y| insert(r, e(y), 0, &eq).0);
+                    assert!(equal(t, reversed, &same, true) && equal(reversed, t, &same, false));
                 }
                 // Remove in another order, through the flat boundary.
                 let mut left = keys.clone();
                 for i in 0..keys.len() {
                     let k = keys[i * 5 % keys.len()];
                     left.retain(|&y| y != k);
+                    let before = t;
                     t = remove(t, hash(k), k, &eq).unwrap();
                     assert!(remove(t, hash(k), k, &eq).is_none());
                     check(t, left.len());
@@ -1048,6 +1102,11 @@ mod tests {
                         // replay the survivors in their original insertion order
                         let survivors: Vec<u64> = keys.iter().copied().filter(|y| left.contains(y)).collect();
                         assert_eq!(order(t), order(trie_only(&survivors, hash)));
+                        let rebuilt = survivors.iter().fold(0, |r, &y| insert(r, e(y), 0, &eq).0);
+                        assert!(equal(t, rebuilt, &same, true));
+                        assert!(!equal(t, before, &same, true));
+                        let (changed, added) = insert(t, Entry { val: 999, ..e(left[0]) }, 0, &eq);
+                        assert!(!added && !equal(changed, t, &same, true));
                     }
                 }
                 assert_eq!(t, 0);

@@ -230,23 +230,34 @@ pub(crate) fn for_each(m: u64, f: &mut dyn FnMut(u64, u64)) {
     hamt::for_each(root(m), &mut |e| f(e.key, e.val));
 }
 
+/// Equal lengths, then a paired walk of the two tries (`hamt::equal`).
 pub fn eq(a: u64, b: u64) -> bool {
     if len(a) != len(b) {
         return false;
     }
     let (kd, vd) = descs(a);
-    let rb = root(b);
-    let key_eq = |x, y| crate::value::eq(kd, x, y);
-    let mut same = true;
-    hamt::for_each(root(a), &mut |e| {
-        if same {
-            same = match hamt::get(rb, e.hash, e.key, &key_eq) {
-                Some(v2) => vd.is_none_or(|vd| crate::value::eq(vd, e.val, v2)),
-                None => false,
-            };
-        }
-    });
-    same
+    let same = |x: Entry, y: Entry| {
+        crate::value::eq(kd, y.key, x.key) && vd.is_none_or(|vd| crate::value::eq(vd, x.val, y.val))
+    };
+    hamt::equal(root(a), root(b), &same, reflexive(kd) && vd.is_none_or(reflexive))
+}
+
+/// Whether every value of `d` equals itself, so a subtree two maps share
+/// needs no comparison (not so with floats: NaN).
+fn reflexive(d: &TypeDesc) -> bool {
+    matches!(
+        d.kind,
+        Kind::Unit
+            | Kind::Bool
+            | Kind::Char
+            | Kind::Int { .. }
+            | Kind::Duration
+            | Kind::Instant
+            | Kind::Timestamp
+            | Kind::Symbol
+            | Kind::String
+            | Kind::Bytes
+    )
 }
 
 #[cfg(test)]
