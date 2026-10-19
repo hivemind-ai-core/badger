@@ -1,0 +1,7 @@
+// `records.omit` needs a literal label list (the result shape is static).
+// expect-error: E0344
+import std.records
+fn drop(r: { a: Int, b: Int }, labels: List<Symbol>) {
+    let _ = records.omit(r, labels)
+}
+pub fn main() {}

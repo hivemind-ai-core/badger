@@ -312,6 +312,151 @@ pub fn try_collect<T, E, Eff>(s: Stream<Result<T, E>, Eff>) -> Result<List<T>, E
     ok(b.finish())
 }
 
+/// All but the first `n` items.
+pub fn skip<T, Eff>(s: Stream<T, Eff>, n: Int) -> Stream<T, !{State, Eff}> {
+    let left = Atom.new(n)
+    {
+        next: fn() {
+            while left.get() > 0 {
+                left.set(left.get() - 1)
+                match s.next() {
+                    .some(_) => (),
+                    .none => return Option.none,
+                }
+            }
+            s.next()
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// Items after the leading ones `skip` accepts.
+pub fn skip_while<T, Eff>(s: Stream<T, Eff>, skip: fn(T) -> Bool !Eff) -> Stream<T, !{State, Eff}> {
+    let skipping = Atom.new(true)
+    {
+        next: fn() -> Option<T> {
+            loop {
+                match s.next() {
+                    .some(x) => if !skipping.get() || !skip(x) {
+                        skipping.set(false)
+                        return Option.some(x)
+                    },
+                    .none => { return Option.none },
+                }
+            }
+        },
+        close: fn() { s.close() },
+    }
+}
+
+/// Pairs from `a` and `b` (as long as the shorter).
+pub fn zip<A, B, Eff>(a: Stream<A, Eff>, b: Stream<B, Eff>) -> Stream<(A, B), Eff> {
+    {
+        next: fn() {
+            match a.next() {
+                .some(x) => match b.next() {
+                    .some(y) => Option.some((x, y)),
+                    .none => Option.none,
+                },
+                .none => Option.none,
+            }
+        },
+        close: fn() {
+            a.close()
+            b.close()
+        },
+    }
+}
+
+/// Read and discard every remaining item: how many there were.
+pub fn count<T, Eff>(s: Stream<T, Eff>) -> Int {
+    var n = 0
+    loop {
+        match s.next() {
+            .some(_) => { n = n + 1 },
+            .none => break,
+        }
+    }
+    n
+}
+
+/// The last item (reading the rest of the stream).
+pub fn last<T, Eff>(s: Stream<T, Eff>) -> Option<T> {
+    var out: Option<T> = Option.none
+    loop {
+        match s.next() {
+            .some(x) => { out = Option.some(x) },
+            .none => break,
+        }
+    }
+    out
+}
+
+/// The first item (the stream is closed after reading it).
+pub fn first<T, Eff>(s: Stream<T, Eff>) -> Option<T> { find(s, fn(_x) => true) }
+
+/// Whether some item satisfies `test` (the stream is closed when decided).
+pub fn any<T, Eff>(s: Stream<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool {
+    loop {
+        match s.next() {
+            .some(x) => if test(x) {
+                s.close()
+                return true
+            },
+            .none => { return false },
+        }
+    }
+}
+
+/// Whether every item satisfies `test` (the stream is closed when decided).
+pub fn all<T, Eff>(s: Stream<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool {
+    loop {
+        match s.next() {
+            .some(x) => if !test(x) {
+                s.close()
+                return false
+            },
+            .none => { return true },
+        }
+    }
+}
+
+/// The item with the smallest key (the first, on ties).
+pub fn min_by<T, K, Eff>(s: Stream<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    loop {
+        match s.next() {
+            .some(x) => {
+                let k = key(x)
+                best = match best {
+                    .some((bk, bx)) => if k < bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+                    .none => Option.some((k, x)),
+                }
+            }
+            .none => break,
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
+/// The item with the largest key (the first, on ties).
+pub fn max_by<T, K, Eff>(s: Stream<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd {
+    var best: Option<(K, T)> = Option.none
+    loop {
+        match s.next() {
+            .some(x) => {
+                let k = key(x)
+                best = match best {
+                    .some((bk, bx)) => if k > bk { Option.some((k, x)) } else { Option.some((bk, bx)) },
+                    .none => Option.some((k, x)),
+                }
+            }
+            .none => break,
+        }
+    }
+    best.map(fn(p) => p.1)
+}
+
 impl<T, Eff> Stream<T, Eff> {
     pub fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Stream<U, Eff> { map(self, f) }
     pub fn filter(self: &Self, keep: fn(T) -> Bool !Eff) -> Stream<T, Eff> { filter(self, keep) }
@@ -327,4 +472,14 @@ impl<T, Eff> Stream<T, Eff> {
     pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A { fold(self, initial, f) }
     pub fn drain(self: &Self) -> Int { drain(self) }
     pub fn collect_at_most(self: &Self, limit: Int) -> Option<List<T>> { collect_at_most(self, limit) }
+    pub fn skip(self: &Self, n: Int) -> Stream<T, !{State, Eff}> { skip(self, n) }
+    pub fn skip_while(self: &Self, skip: fn(T) -> Bool !Eff) -> Stream<T, !{State, Eff}> { skip_while(self, skip) }
+    pub fn zip<U>(self: &Self, other: Stream<U, Eff>) -> Stream<(T, U), Eff> { zip(self, other) }
+    pub fn count(self: &Self) -> Int { count(self) }
+    pub fn last(self: &Self) -> Option<T> { last(self) }
+    pub fn first(self: &Self) -> Option<T> { first(self) }
+    pub fn any(self: &Self, test: fn(T) -> Bool !Eff) -> Bool { any(self, test) }
+    pub fn all(self: &Self, test: fn(T) -> Bool !Eff) -> Bool { all(self, test) }
+    pub fn min_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd { min_by(self, key) }
+    pub fn max_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd { max_by(self, key) }
 }

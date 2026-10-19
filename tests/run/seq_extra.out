@@ -1,0 +1,15 @@
+chain [0, 1, 2, 10, 11]
+dedup [0, 1, 2]
+distinct [0, 1, 2]
+interpose [0, -1, 1, -1, 2]
+chunk_by [[0, 0], [1, 1], [2, 2]]
+windows [[1, 2], [2, 3], [3, 4]]
+zip_with [10, 12, 14]
+step_by [0, 3, 6, 9]
+frequencies 3 3
+index_by 2 3
+fold_while -1
+position 5
+min 3 max 7 product 24
+repeat ["x", "x", "x"] iterate [1, 2, 4, 8, 16]
+each 6

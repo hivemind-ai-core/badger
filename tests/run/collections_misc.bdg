@@ -1,0 +1,46 @@
+// Deque, heap, bitset, sorted set, and stream additions.
+import std.io
+import std.deque
+import std.heap
+import std.bits
+import std.sorted
+import std.stream
+import std.list
+
+pub fn main() -> Result<Unit, io.Error> {
+    let d = deque.from_list([1, 2, 3, 4])
+    io.println($"deque get {d.get(0).unwrap_or(-1)} {d.get(3).unwrap_or(-1)} {d.get(9).unwrap_or(-1)} contains {d.contains(3)} {d.contains(9)} fold {d.fold(0, fn(a, x) => a + x)} reversed {d.reverse().to_list()}")?
+
+    let h = heap.from_list([5, 1, 4, 2]).push(0)
+    io.println($"heap peek {h.peek().unwrap_or(-1)} sorted {h.to_list()}")?
+
+    let bs = bits.from_list([1, 5, 64])
+    io.println($"bits min {bs.min().unwrap_or(-1)} max {bs.max().unwrap_or(-1)} toggle {bs.toggle(5).to_list()} subset {bits.from_list([1, 5]).is_subset(bs)} symdiff {bs.symmetric_difference(bits.from_list([5, 7])).to_list()}")?
+    io.println($"bits fold {bs.fold(0, fn(a, x) => a + x)}")?
+
+    let sm = sorted.empty<Int, String>().insert(3, "c").insert(1, "a").insert(2, "b")
+    io.println($"sorted get_or {sm.get_or(9, "z")} update {sm.update(2, fn(v) => $"{v}!").get(2).unwrap_or("-")}")?
+    io.println($"sorted filter {sm.filter(fn(_k, v) => v != "b").keys()} map_values {sm.map_values(fn(v) => v.to_upper()).values()}")?
+    let popped = sm.pop_first()
+    io.println($"sorted pop_first {popped.map(fn(p) => p.0.0).unwrap_or(-1)} rest {popped.map(fn(p) => p.1.to_list().len()).unwrap_or(-1)}")?
+    io.println($"sorted merge {sm.merge(sorted.empty<Int, String>().insert(2, "B").insert(4, "d")).values()} fold {sm.fold(0, fn(a, e) => a + e.0)}")?
+    io.println($"sorted range_inclusive {sm.range_inclusive(2, 3).map(fn(e) => e.0)}")?
+
+    let ss = sorted.set_of([3, 1, 2, 3]).insert(9).insert(0)
+    io.println($"sset len {ss.len()} first {ss.first().unwrap_or(-1)} last {ss.last().unwrap_or(-1)} floor {ss.floor(4).unwrap_or(-1)} ceiling {ss.ceiling(4).unwrap_or(-1)}")?
+    io.println($"sset to_list {ss.to_list()} range {ss.range(1, 5)} range_inc {ss.range_inclusive(1, 3).len()}")?
+    let sa = sorted.set_of([1, 2, 3])
+    let sb = sorted.set_of([3, 4])
+    io.println($"sset union {sa.union(sb).to_list().sort()} inter {sa.intersection(sb).to_list().sort()} diff {sa.difference(sb).to_list().sort()} subset {sorted.set_of([1, 2]).is_subset(sa)}")?
+    io.println($"sset filter {sa.filter(fn(k) => k > 1).to_list().sort()} map {sa.map(fn(k) => k * 10).to_list().sort()}")?
+
+    let s = stream.from_list([1, 2, 3, 4, 5])
+    io.println($"stream skip {stream.collect(s.skip(2))} skip_while {stream.collect(stream.from_list([1, 2, 5, 1]).skip_while(fn(x) => x < 4))}")?
+    io.println($"stream zip {stream.collect(stream.zip(stream.from_list([1, 2, 3]), stream.from_list(["a", "b"]))).len()}")?
+    io.println($"stream count {stream.from_list([1, 2, 3]).count()} last {stream.from_list([1, 2, 3]).last().unwrap_or(-1)} first {stream.from_list([1, 2, 3]).first().unwrap_or(-1)}")?
+    io.println($"stream any {stream.from_list([1, 2, 3]).any(fn(x) => x == 2)} all {stream.from_list([1, 2, 3]).all(fn(x) => x > 0)}")?
+    let low = stream.from_list([{ n: "a", v: 3 }, { n: "b", v: 1 }])
+    let high = stream.from_list([{ n: "a", v: 3 }, { n: "b", v: 1 }])
+    io.println($"stream min_by {low.min_by(fn(p) => p.v).map(fn(p) => p.n).unwrap_or("-")} max_by {high.max_by(fn(p) => p.v).map(fn(p) => p.n).unwrap_or("-")}")?
+    ok(())
+}

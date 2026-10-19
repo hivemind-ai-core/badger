@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 badger_base.workspace = true
 badger_hir.workspace = true
+badger_syntax.workspace = true
 badger_typeck.workspace = true
 badger_runtime.workspace = true
 index_vec.workspace = true

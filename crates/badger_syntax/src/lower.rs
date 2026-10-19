@@ -135,6 +135,21 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn item(&mut self, it: cst::Item<'_>) -> Option<Item> {
         let span = self.span(it.span);
         let is_pub = it.is_pub;
+        // `@derive(A, B)` names protocols; they feed the same derive path as
+        // `derive(A, B)`, so resolution and validation are shared.
+        let attribute_derives: Vec<cst::T<'_>> = it
+            .attributes
+            .iter()
+            .filter(|a| a.name.text == "derive")
+            .flat_map(|a| a.args.iter())
+            .filter_map(|arg| match arg {
+                cst::AttrArg::Name(id) => {
+                    Some((cst::Ty::Path { module: vec![], names: vec![*id], args: vec![] }, id.span))
+                }
+                _ => None,
+            })
+            .collect();
+        let attributes = self.attributes(it.attributes);
         let kind = match it.kind {
             cst::ItemKind::Import { path, alias, items } => {
                 let path = path.into_iter().map(|n| self.name(n)).collect();
@@ -160,7 +175,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         StructField { is_pub, name, ty }
                     })
                     .collect();
-                let derives = derives.into_iter().map(|t| self.ty(t)).collect();
+                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
+                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
             cst::ItemKind::Enum { name, generics, variants, derives } => {
@@ -182,7 +198,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                         Variant { name: vname, fields, span: vspan }
                     })
                     .collect();
-                let derives = derives.into_iter().map(|t| self.ty(t)).collect();
+                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
+                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {
@@ -246,7 +263,31 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
             cst::ItemKind::Error => return None,
         };
-        Some(Item { kind, span, is_pub })
+        Some(Item { kind, span, is_pub, attributes })
+    }
+
+    fn attributes(&mut self, attrs: Vec<cst::Attribute<'_>>) -> Vec<Attribute> {
+        attrs
+            .into_iter()
+            .map(|a| {
+                let span = self.span(a.span);
+                let name = self.interner.intern(a.name.text);
+                let args = a.args.into_iter().map(|x| self.attr_arg(x)).collect();
+                Attribute { name, args, span }
+            })
+            .collect()
+    }
+
+    fn attr_arg(&mut self, a: cst::AttrArg<'_>) -> AttrArg {
+        match a {
+            cst::AttrArg::Name(n) => AttrArg::Name(self.interner.intern(n.text)),
+            cst::AttrArg::Symbol(s, _) => AttrArg::Symbol(self.interner.intern(s)),
+            cst::AttrArg::Int(n, _) => AttrArg::Int(n.parse().unwrap_or(0)),
+            cst::AttrArg::Str(s, sp) => AttrArg::Str(self.unescape(s, self.span(sp))),
+            cst::AttrArg::KeyValue(k, v) => {
+                AttrArg::KeyValue(self.interner.intern(k.text), Box::new(self.attr_arg(*v)))
+            }
+        }
     }
 
     fn members(&mut self, members: Vec<cst::Member<'_>>) -> (Vec<FnDecl>, Vec<(Name, Option<TypeId>)>) {
@@ -380,6 +421,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                 }),
                 span,
                 is_pub: false,
+                attributes: vec![],
             });
             self.alloc_expr(ExprKind::Name(fname), n.span)
         };
@@ -587,6 +629,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             kind: ItemKind::Global { kind, pat: hidden_pat, ty, value },
             span,
             is_pub: false,
+            attributes: vec![],
         });
         for n in names {
             let whole = self.alloc_expr(ExprKind::Name(hidden), n.span);
@@ -605,6 +648,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                 kind: ItemKind::Global { kind, pat: bind, ty: None, value: block },
                 span,
                 is_pub: item.is_pub,
+                attributes: vec![],
             });
         }
     }

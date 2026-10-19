@@ -32,11 +32,30 @@ pub struct Label {
 
 // ------------------------------------------------------------------ items
 
+/// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`.
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub name: Symbol,
+    pub args: Vec<AttrArg>,
+    pub span: Span,
+}
+
+/// An attribute argument.
+#[derive(Debug, Clone)]
+pub enum AttrArg {
+    Name(Symbol),
+    Symbol(Symbol),
+    Int(i64),
+    Str(String),
+    KeyValue(Symbol, Box<AttrArg>),
+}
+
 #[derive(Debug, Clone)]
 pub struct Item {
     pub kind: ItemKind,
     pub span: Span,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Clone)]

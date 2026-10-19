@@ -1,0 +1,16 @@
+// `@derive(...)` feeds the same derive path as `derive(...)`.
+import std.io
+
+@derive(Eq, Display)
+pub struct Point {
+    pub x: Int,
+    pub y: Int,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let a: Point = { x: 1, y: 2 }
+    let b: Point = { x: 1, y: 2 }
+    let c: Point = { x: 3, y: 2 }
+    io.println($"{a == b} {a == c} {b}")?
+    ok(())
+}

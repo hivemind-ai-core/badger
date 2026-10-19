@@ -100,6 +100,38 @@ impl<T> List<T> {
     pub fn element_ref(self: &Self, index: Int) -> ElementRef<T> where T: Share { element_ref(self, index) }
     /// Explicit contiguous collection: copies the elements into an array.
     pub fn to_array(self: &Self) -> Array<T> { list_to_array(self) }
+    /// Run `f` on each item, in order.
+    pub fn each(self: &Self, f: fn(T) -> Unit) -> Unit { each(self, f) }
+    /// The smallest item (the first, on ties).
+    pub fn min(self: &Self) -> Option<T> where T: PartialOrd { min(self) }
+    /// The largest item (the first, on ties).
+    pub fn max(self: &Self) -> Option<T> where T: PartialOrd { max(self) }
+    /// The sum of `f` over the items.
+    pub fn sum_by(self: &Self, f: fn(T) -> Int) -> Int { sum_by(self, f) }
+    /// `sep` between consecutive items.
+    pub fn interpose(self: &Self, sep: T) -> List<T> { interpose(self, sep) }
+    /// The first `n` items and the rest, in one pass.
+    pub fn split_at(self: &Self, n: Int) -> (List<T>, List<T>) { split_at(self, n) }
+    /// The leading items `keep` accepts, and the rest, in one pass.
+    pub fn split_while(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>) { split_while(self, keep) }
+    /// Consecutive runs with equal keys, each a list.
+    pub fn chunk_by<K>(self: &Self, key: fn(T) -> K) -> List<List<T>> where K: PartialEq { chunk_by(self, key) }
+    /// Consecutive items with equal keys collapsed to the first.
+    pub fn dedup_by<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialEq { dedup_by(self, key) }
+    /// Overlapping consecutive windows of `size`.
+    pub fn windows(self: &Self, size: Int) -> List<List<T>> { windows(self, size) }
+    /// How often each distinct item occurs.
+    pub fn frequencies(self: &Self) -> Map<T, Int> where T: Hash { frequencies(self) }
+    /// One item per distinct key: the last item with that key.
+    pub fn index_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, T> where K: Hash { index_by(self, key) }
+    /// Pairs combined by `f` (as long as the shorter list).
+    pub fn zip_with<U, C>(self: &Self, other: List<U>, f: fn(T, U) -> C) -> List<C> { zip_with(self, other, f) }
+    /// Fold while `f` gives `some`; `none` when it stopped early.
+    pub fn fold_while<A>(self: &Self, initial: A, f: fn(A, T) -> Option<A>) -> Option<A> { fold_while(self, initial, f) }
+    /// The last `n` items.
+    pub fn take_last(self: &Self, n: Int) -> List<T> { take_last(self, n) }
+    /// All but the last `n` items.
+    pub fn drop_last(self: &Self, n: Int) -> List<T> { drop_last(self, n) }
 }
 
 fn element_ref<T>(list: List<T>, index: Int) -> ElementRef<T> {
@@ -141,6 +173,7 @@ pub fn empty<T>() -> List<T> {
 }
 
 /// A lazy sequence over a list.
+@fusion(role = source, template = list)
 pub fn of<T>(list: List<T>) -> Seq<T> {
     {
         start: fn() {
@@ -159,6 +192,7 @@ pub fn of<T>(list: List<T>) -> Seq<T> {
 }
 
 /// Collect a sequence into a list.
+@fusion(role = terminal, template = collect)
 pub fn collect<T>(items: Seq<T>) -> List<T> {
     let b = list_builder()
     for x in items {
@@ -174,6 +208,7 @@ pub fn reverse<T>(list: List<T>) -> List<T> { list_reverse(list) }
 pub fn slice<T>(list: List<T>, start: Int, end: Int) -> List<T> { list_slice(list, start, end) }
 pub fn sort<T>(list: List<T>) -> List<T> where T: PartialOrd { list_sort(list) }
 
+@fusion(role = stage, template = eager_map)
 pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
     let b = list_builder_capacity<U>(list_len(list))
     for x in list {
@@ -182,6 +217,7 @@ pub fn map<T, U>(list: List<T>, f: fn(T) -> U) -> List<U> {
     list_finish(b)
 }
 
+@fusion(role = stage, template = eager_filter)
 pub fn filter<T>(list: List<T>, keep: fn(T) -> Bool) -> List<T> {
     let b = list_builder()
     for x in list {
@@ -219,6 +255,7 @@ pub fn map_then_filter<T, U>(list: List<T>, f: fn(T) -> U, keep: fn(U) -> Bool) 
     list_finish(b)
 }
 
+@fusion(role = terminal, template = eager_fold)
 pub fn fold<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> A {
     var acc = initial
     for x in list {
@@ -648,3 +685,224 @@ pub fn sum(list: List<Int>) -> Int {
 }
 
 pub fn range(start: Int, end: Int) -> List<Int> { list_range(start, end) }
+
+// ---------------------------------------------------------------- reshaping
+
+/// Run `f` on each item, in order.
+pub fn each<T>(list: List<T>, f: fn(T) -> Unit) -> Unit {
+    for x in list {
+        f(x)
+    }
+}
+
+/// The smallest item (the first, on ties).
+pub fn min<T>(list: List<T>) -> Option<T> where T: PartialOrd { min_by(list, fn(x) => x) }
+
+/// The largest item (the first, on ties).
+pub fn max<T>(list: List<T>) -> Option<T> where T: PartialOrd { max_by(list, fn(x) => x) }
+
+/// The sum of `f` over the items.
+pub fn sum_by<T>(list: List<T>, f: fn(T) -> Int) -> Int {
+    var total = 0
+    for x in list {
+        total = total + f(x)
+    }
+    total
+}
+
+/// The product of the items (`1` when empty).
+pub fn product(list: List<Int>) -> Int {
+    var acc = 1
+    for x in list {
+        acc = acc * x
+    }
+    acc
+}
+
+/// `sep` between consecutive items (empty and single-item lists unchanged).
+pub fn interpose<T>(list: List<T>, sep: T) -> List<T> {
+    let b = list_builder()
+    var first = true
+    for x in list {
+        if first {
+            first = false
+        } else {
+            list_builder_append(b, sep)
+        }
+        list_builder_append(b, x)
+    }
+    list_finish(b)
+}
+
+/// One level of nesting removed, in order.
+pub fn flatten<T>(list: List<List<T>>) -> List<T> {
+    let b = list_builder()
+    for inner in list {
+        list_builder_extend(b, inner)
+    }
+    list_finish(b)
+}
+
+/// The first `n` items and the rest, in one pass (`n` below 0 puts
+/// everything in the second list, above the length nothing).
+pub fn split_at<T>(list: List<T>, n: Int) -> (List<T>, List<T>) {
+    let head = list_builder()
+    let tail = list_builder()
+    var i = 0
+    for x in list {
+        if i < n { list_builder_append(head, x) } else { list_builder_append(tail, x) }
+        i = i + 1
+    }
+    (list_finish(head), list_finish(tail))
+}
+
+/// The leading items `keep` accepts, and the rest, in one pass.
+pub fn split_while<T>(list: List<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>) {
+    let head = list_builder()
+    let tail = list_builder()
+    var leading = true
+    for x in list {
+        if leading && keep(x) {
+            list_builder_append(head, x)
+        } else {
+            leading = false
+            list_builder_append(tail, x)
+        }
+    }
+    (list_finish(head), list_finish(tail))
+}
+
+/// Consecutive runs with equal keys, each a list (an empty list yields no
+/// runs; unlike `group_by`, runs are not merged across the list).
+pub fn chunk_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<List<T>> where K: PartialEq {
+    let out = list_builder<List<T>>()
+    var group = list_builder<T>()
+    var started = false
+    var prev: Option<K> = Option.none
+    for x in list {
+        let k = key(x)
+        let same = match prev {
+            .some(p) => p == k,
+            .none => false,
+        }
+        if started && !same {
+            list_builder_append(out, list_finish(group))
+            group = list_builder()
+        }
+        list_builder_append(group, x)
+        started = true
+        prev = Option.some(k)
+    }
+    if started {
+        list_builder_append(out, list_finish(group))
+    }
+    list_finish(out)
+}
+
+/// Consecutive items with equal keys collapsed to the first.
+pub fn dedup_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialEq {
+    let b = list_builder()
+    var prev: Option<K> = Option.none
+    for x in list {
+        let k = key(x)
+        let same = match prev {
+            .some(p) => p == k,
+            .none => false,
+        }
+        if !same {
+            list_builder_append(b, x)
+        }
+        prev = Option.some(k)
+    }
+    list_finish(b)
+}
+
+/// Overlapping consecutive windows of `size` (`size` below 1, or a list
+/// shorter than `size`, yields no windows).
+pub fn windows<T>(list: List<T>, size: Int) -> List<List<T>> {
+    let out = list_builder<List<T>>()
+    let n = list_len(list)
+    if size < 1 || n < size {
+        return list_finish(out)
+    }
+    var i = 0
+    while i + size <= n {
+        list_builder_append(out, list_slice(list, i, i + size))
+        i = i + 1
+    }
+    list_finish(out)
+}
+
+/// How often each distinct item occurs.
+pub fn frequencies<T>(list: List<T>) -> Map<T, Int> where T: Hash {
+    var counts: Map<T, Int> = map_empty()
+    for x in list {
+        let n = match map_get(counts, x) {
+            .some(v) => v,
+            .none => 0,
+        }
+        map_insert_mut(counts, x, n + 1)
+    }
+    counts
+}
+
+/// One item per distinct key: the last item with that key (input order).
+pub fn index_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, T> where K: Hash {
+    let out: Map<K, T> = map_empty()
+    for x in list {
+        let k = key(x)
+        map_insert_mut(out, k, x)
+    }
+    out
+}
+
+/// Pairs of items at the same positions combined by `f` (as long as the
+/// shorter list).
+pub fn zip_with<A, B, C>(a: List<A>, b: List<B>, f: fn(A, B) -> C) -> List<C> {
+    let out = list_builder()
+    let n = if list_len(a) < list_len(b) { list_len(a) } else { list_len(b) }
+    var i = 0
+    while i < n {
+        list_builder_append(out, f(at(a, i), at(b, i)))
+        i = i + 1
+    }
+    list_finish(out)
+}
+
+/// The first components and the second components, each in order.
+pub fn unzip<A, B>(list: List<(A, B)>) -> (List<A>, List<B>) {
+    let first = list_builder()
+    let second = list_builder()
+    for (a, b) in list {
+        list_builder_append(first, a)
+        list_builder_append(second, b)
+    }
+    (list_finish(first), list_finish(second))
+}
+
+/// Fold while `f` gives `some`; the result is the final state, or `none`
+/// when `f` stopped the fold early (its `none` is not a value).
+pub fn fold_while<T, A>(list: List<T>, initial: A, f: fn(A, T) -> Option<A>) -> Option<A> {
+    var acc: Option<A> = Option.some(initial)
+    for x in list {
+        match acc {
+            .some(a) => { acc = f(a, x) },
+            .none => { break },
+        }
+    }
+    acc
+}
+
+/// The last `n` items (all of them if there are fewer).
+pub fn take_last<T>(list: List<T>, n: Int) -> List<T> {
+    let len = list_len(list)
+    let start = if n < 0 || n > len { 0 } else { len - n }
+    list_slice(list, start, len)
+}
+
+/// All but the last `n` items.
+pub fn drop_last<T>(list: List<T>, n: Int) -> List<T> {
+    let len = list_len(list)
+    let end = if n < 0 || n > len { 0 } else { len - n }
+    list_slice(list, 0, end)
+}

@@ -108,6 +108,11 @@ impl Diagnostics {
         });
     }
 
+    /// Keep only the diagnostics `keep` accepts.
+    pub fn retain(&mut self, mut keep: impl FnMut(&Diagnostic) -> bool) {
+        self.items.retain(|d| keep(d));
+    }
+
     pub fn push(&mut self, d: Diagnostic) {
         self.items.push(d);
     }

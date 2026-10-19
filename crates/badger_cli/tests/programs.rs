@@ -186,6 +186,25 @@ fn warning_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+#[test]
+fn attribute_allow_silences_warnings() {
+    let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let plain = dir.join("plain.bdg");
+    std::fs::write(&plain, "fn test_needs_args(x: Int) {}\npub fn main() {}\n").unwrap();
+    let silenced = dir.join("silenced.bdg");
+    std::fs::write(&silenced, "@allow(E0142)\nfn test_needs_args(x: Int) {}\npub fn main() {}\n").unwrap();
+    let json = |f: &std::path::Path| {
+        let out = lang().args(["check", "--json"]).arg(f).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let control = json(&plain);
+    assert!(control.contains("E0142"), "control has no E0142: {control}");
+    let silenced_json = json(&silenced);
+    assert!(!silenced_json.contains("E0142"), "@allow did not silence E0142: {silenced_json}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
 /// `main -> Int` exits with the value it returns (clamped to 0..=255).

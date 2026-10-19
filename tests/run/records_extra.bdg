@@ -1,0 +1,26 @@
+// Record reshaping: omit several labels, rename, merge, and field count.
+import std.io
+import std.records
+
+struct Point {
+    pub x: Int,
+    pub y: Int,
+    pub z: Int,
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let r = { x: 1, y: 2, z: 3, tag: "t" }
+    let no_tag = records.omit(r, [#tag])
+    io.println($"omit {no_tag.x} {no_tag.y} {no_tag.z}")?
+    let renamed = records.rename(r, #x, #first)
+    io.println($"rename {renamed.first} {renamed.y} {renamed.tag}")?
+    let pt: Point = { x: 0, y: 0, z: 0 }
+    io.println($"field_count {records.field_count(&r)} {records.field_count(&pt)}")?
+    let left = records.merge_left({ a: 1, b: 2 }, { b: 9, c: 3 })
+    io.println($"merge_left {left.a} {left.b} {left.c}")?
+    let right = records.merge({ a: 1, b: 2 }, { b: 9, c: 3 })
+    io.println($"merge {right.a} {right.b} {right.c}")?
+    let p = records.project<Point>({ x: 1, y: 2, z: 3 })
+    io.println($"project {p.x} {p.y} {p.z}")?
+    ok(())
+}

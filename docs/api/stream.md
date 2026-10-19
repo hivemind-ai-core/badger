@@ -19,6 +19,18 @@ struct Stream<T, Eff> { pub next: fn() -> Option<T>, pub close: fn() -> Unit }
 `Eff` is what pulling may do (and whether the stream captures task-local
 state).
 
+#### `Stream.all`
+
+```badger
+fn all(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
+```
+
+#### `Stream.any`
+
+```badger
+fn any(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
+```
+
 #### `Stream.batches`
 
 ```badger
@@ -29,6 +41,12 @@ fn batches(self: &Self, size: Int) -> Stream<List<T>, Eff>
 
 ```badger
 fn collect_at_most(self: &Self, limit: Int) -> Option<List<T>>
+```
+
+#### `Stream.count`
+
+```badger
+fn count(self: &Self) -> Int
 ```
 
 #### `Stream.drain`
@@ -67,10 +85,22 @@ fn filter_map<U>(self: &Self, f: fn(T) -> Option<U> !Eff) -> Stream<U, Eff>
 fn find(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<T>
 ```
 
+#### `Stream.first`
+
+```badger
+fn first(self: &Self) -> Option<T>
+```
+
 #### `Stream.fold`
 
 ```badger
 fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A
+```
+
+#### `Stream.last`
+
+```badger
+fn last(self: &Self) -> Option<T>
 ```
 
 #### `Stream.map`
@@ -79,10 +109,34 @@ fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A
 fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Stream<U, Eff>
 ```
 
+#### `Stream.max_by`
+
+```badger
+fn max_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
+```
+
+#### `Stream.min_by`
+
+```badger
+fn min_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
+```
+
 #### `Stream.scan`
 
 ```badger
 fn scan<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> Stream<A, !{State, Eff}>
+```
+
+#### `Stream.skip`
+
+```badger
+fn skip(self: &Self, n: Int) -> Stream<T, !{State, Eff}>
+```
+
+#### `Stream.skip_while`
+
+```badger
+fn skip_while(self: &Self, skip: fn(T) -> Bool !Eff) -> Stream<T, !{State, Eff}>
 ```
 
 #### `Stream.take`
@@ -103,7 +157,29 @@ fn try_each<E>(self: &Self, f: fn(T) -> Result<Unit, E> !Eff) -> Result<Unit, E>
 fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Stream<Result<U, E>, Eff>
 ```
 
+#### `Stream.zip`
+
+```badger
+fn zip<U>(self: &Self, other: Stream<U, Eff>) -> Stream<(T, U), Eff>
+```
+
 ## Functions
+
+### `all`
+
+```badger
+fn all<T, Eff>(s: Stream<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool
+```
+
+Whether every item satisfies `test` (the stream is closed when decided).
+
+### `any`
+
+```badger
+fn any<T, Eff>(s: Stream<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool
+```
+
+Whether some item satisfies `test` (the stream is closed when decided).
 
 ### `batches`
 
@@ -140,6 +216,14 @@ fn collect_at_most<T, Eff>(s: Stream<T, Eff>, limit: Int) -> Option<List<T>>
 
 Every remaining item when there are at most `limit`; otherwise
 `none`, with the stream closed after reading one item past the limit.
+
+### `count`
+
+```badger
+fn count<T, Eff>(s: Stream<T, Eff>) -> Int
+```
+
+Read and discard every remaining item: how many there were.
 
 ### `drain`
 
@@ -188,6 +272,14 @@ fn find<T, Eff>(s: Stream<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<T>
 The first item `matches` accepts, reading no further (the stream is
 closed when one is found).
 
+### `first`
+
+```badger
+fn first<T, Eff>(s: Stream<T, Eff>) -> Option<T>
+```
+
+The first item (the stream is closed after reading it).
+
 ### `fold`
 
 ```badger
@@ -219,11 +311,35 @@ fn from_receiver<T>(r: channel.Receiver<T>) -> Stream<T, !{Wait}>
 Messages from a receiver until it is closed and drained. Closing the
 stream closes the receiver: further sends fail.
 
+### `last`
+
+```badger
+fn last<T, Eff>(s: Stream<T, Eff>) -> Option<T>
+```
+
+The last item (reading the rest of the stream).
+
 ### `map`
 
 ```badger
 fn map<T, U, Eff>(s: Stream<T, Eff>, f: fn(T) -> U !Eff) -> Stream<U, Eff>
 ```
+
+### `max_by`
+
+```badger
+fn max_by<T, K, Eff>(s: Stream<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
+```
+
+The item with the largest key (the first, on ties).
+
+### `min_by`
+
+```badger
+fn min_by<T, K, Eff>(s: Stream<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
+```
+
+The item with the smallest key (the first, on ties).
 
 ### `scan`
 
@@ -233,6 +349,22 @@ fn scan<T, A, Eff>(s: Stream<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> Stre
 
 The running results of `f`, starting from `initial` (not itself
 produced): `scan([1, 2, 3], 0, +)` is 1, 3, 6.
+
+### `skip`
+
+```badger
+fn skip<T, Eff>(s: Stream<T, Eff>, n: Int) -> Stream<T, !{State, Eff}>
+```
+
+All but the first `n` items.
+
+### `skip_while`
+
+```badger
+fn skip_while<T, Eff>(s: Stream<T, Eff>, skip: fn(T) -> Bool !Eff) -> Stream<T, !{State, Eff}>
+```
+
+Items after the leading ones `skip` accepts.
 
 ### `take`
 
@@ -276,4 +408,12 @@ fn try_map<T, U, E, Eff>(s: Stream<T, Eff>, f: fn(T) -> Result<U, E> !Eff) -> St
 
 A fallible transform: each item becomes `ok` or `err` (reading goes on;
 `try_collect` and `try_each` stop at the first error).
+
+### `zip`
+
+```badger
+fn zip<A, B, Eff>(a: Stream<A, Eff>, b: Stream<B, Eff>) -> Stream<(A, B), Eff>
+```
+
+Pairs from `a` and `b` (as long as the shorter).
 

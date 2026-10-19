@@ -20,6 +20,38 @@ struct Deque<T> { front: deque.Cons<T>, front_len: Int, back: deque.Cons<T>, bac
 A deque: `front` holds the first elements in order, `back` the last in
 reverse; each side is rebuilt from the other when it runs out.
 
+#### `Deque.contains`
+
+```badger
+fn contains(self: &Self, value: T) -> Bool where T: PartialEq
+```
+
+Whether some element equals `value`.
+
+#### `Deque.each`
+
+```badger
+fn each(self: &Self, f: fn(T) -> Unit) -> Unit
+```
+
+Run `f` on each element, first to last.
+
+#### `Deque.fold`
+
+```badger
+fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A
+```
+
+Fold over the elements, first to last.
+
+#### `Deque.get`
+
+```badger
+fn get(self: &Self, index: Int) -> Option<T>
+```
+
+The element at `index`, from the nearer end.
+
 #### `Deque.is_empty`
 
 ```badger
@@ -72,6 +104,14 @@ fn push_back(self: &Self, item: T) -> Deque<T>
 fn push_front(self: &Self, item: T) -> Deque<T>
 ```
 
+#### `Deque.reverse`
+
+```badger
+fn reverse(self: &Self) -> Deque<T>
+```
+
+The elements, last to first.
+
 #### `Deque.to_list`
 
 ```badger
@@ -89,6 +129,14 @@ fn empty<T>() -> Deque<T>
 ```
 
 An empty deque.
+
+### `from_list`
+
+```badger
+fn from_list<T>(items: List<T>) -> Deque<T>
+```
+
+A deque of `items`, in order (as `of`).
 
 ### `of`
 

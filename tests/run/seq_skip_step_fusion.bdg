@@ -1,0 +1,23 @@
+// `skip`/`step_by` in a fused pipeline keep their position and results.
+import std.io
+import std.list
+import std.seq
+
+fn event(log: Cell<List<Int>>, code: Int, value: Int) -> Int {
+    log.set(log.get().append(code))
+    value
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{seq.range(0, 10).skip(3).collect()}")?
+    io.println($"{seq.range(0, 10).step_by(3).collect()}")?
+    io.println($"{seq.range(0, 20).map(fn(x: Int) { x + 1 }).skip(5).take(3).collect()}")?
+    io.println($"{seq.range(0, 20).filter(fn(x: Int) { x % 2 == 0 }).step_by(2).collect()}")?
+    // a non-positive step passes everything; an over-long skip is empty
+    io.println($"{seq.range(0, 5).step_by(0).collect()} {seq.range(0, 5).step_by(-2).collect()} {seq.range(0, 3).skip(10).collect()}")?
+    // earlier stages run for skipped items; later stages do not
+    let log = Cell.new(list.empty<Int>())
+    let got = seq.range(0, 6).map(fn(x: Int) { event(log, 100 + x, x) }).skip(2).filter(fn(x: Int) { event(log, 200 + x, 0); x % 2 == 0 }).collect()
+    io.println($"{got} {log.get()}")?
+    ok(())
+}

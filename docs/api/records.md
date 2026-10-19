@@ -26,6 +26,15 @@ closed subset `T` can be projected out. Solved by the compiler.
 
 ## Functions
 
+### `field_count`
+
+```badger
+fn field_count
+```
+
+The number of fields of the record behind `value` (a compile-time
+constant).
+
 ### `merge`
 
 ```badger
@@ -33,6 +42,23 @@ fn merge
 ```
 
 Right-biased merge: overlapping fields take the right value and type.
+
+### `merge_left`
+
+```badger
+fn merge_left
+```
+
+Left-biased merge: overlapping fields take the left value and type.
+
+### `omit`
+
+```badger
+fn omit
+```
+
+The record without the fields in a literal label list, in one copy
+(`[#a, #b]`; each label must exist).
 
 ### `project`
 
@@ -49,4 +75,13 @@ fn remove
 ```
 
 The record without field `label` (a literal, existing label).
+
+### `rename`
+
+```badger
+fn rename
+```
+
+The record with field `from` renamed to `to` (both literal labels; `from`
+must exist; `to` must not).
 

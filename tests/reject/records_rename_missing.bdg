@@ -1,0 +1,7 @@
+// `records.rename` needs a label that exists.
+// expect-error: E0301
+import std.records
+fn re(r: { a: Int }) {
+    let _ = records.rename(r, #nope, #m)
+}
+pub fn main() {}

@@ -69,6 +69,9 @@ pub fn of<T>(items: List<T>) -> Deque<T> {
     list.fold(items, empty(), fn(d, x) { d.push_back(x) })
 }
 
+/// A deque of `items`, in order (as `of`).
+pub fn from_list<T>(items: List<T>) -> Deque<T> { of(items) }
+
 impl<T> Deque<T> {
     pub fn len(self: &Self) -> Int {
         self.front_len + self.back_len
@@ -143,6 +146,73 @@ impl<T> Deque<T> {
 
     pub fn peek_back(self: &Self) -> Option<T> {
         self.pop_back().map(fn(p) { p.0 })
+    }
+
+    /// The element at `index`, from the nearer end.
+    pub fn get(self: &Self, index: Int) -> Option<T> {
+        if index < 0 {
+            return Option.none
+        }
+        if index < self.front_len {
+            var cur = self.front
+            var i = 0
+            loop {
+                let .cons(c) = cur else { return Option.none }
+                let (x, rest) = c.get()
+                if i == index {
+                    return Option.some(x)
+                }
+                cur = rest
+                i = i + 1
+            }
+        } else {
+            let back_index = self.len() - 1 - index
+            if back_index < 0 {
+                return Option.none
+            }
+            var cur = self.back
+            var i = 0
+            loop {
+                let .cons(c) = cur else { return Option.none }
+                let (x, rest) = c.get()
+                if i == back_index {
+                    return Option.some(x)
+                }
+                cur = rest
+                i = i + 1
+            }
+        }
+    }
+
+    /// Whether some element equals `value`.
+    pub fn contains(self: &Self, value: T) -> Bool where T: PartialEq {
+        for x in self.to_list() {
+            if x == value {
+                return true
+            }
+        }
+        false
+    }
+
+    /// Run `f` on each element, first to last.
+    pub fn each(self: &Self, f: fn(T) -> Unit) -> Unit {
+        for x in self.to_list() {
+            f(x)
+        }
+    }
+
+    /// Fold over the elements, first to last.
+    pub fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A {
+        var acc = initial
+        for x in self.to_list() {
+            acc = f(acc, x)
+        }
+        acc
+    }
+
+    /// The elements, last to first.
+    pub fn reverse(self: &Self) -> Deque<T> {
+        list.fold(self.to_list(), empty(), fn(d, x) { d.push_front(x) })
     }
 
     /// The elements, first to last.

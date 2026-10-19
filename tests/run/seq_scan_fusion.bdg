@@ -1,0 +1,11 @@
+// `scan` fuses as a stateful one-to-one stage (running accumulators).
+import std.io
+import std.list
+import std.seq
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{seq.range(0, 5).scan(0, fn(a: Int, x: Int) { a + x }).collect()}")?
+    io.println($"{seq.range(0, 10).map(fn(x: Int) { x * 2 }).scan(0, fn(a: Int, x: Int) { a + x }).take(3).collect()}")?
+    io.println($"{seq.range(0, 6).scan(1, fn(a: Int, x: Int) { a * (x + 1) }).last().unwrap_or(0)}")?
+    ok(())
+}

@@ -5,8 +5,7 @@
 //     let h = heap.of([5, 1, 4])
 //     let (smallest, rest) = h.pop().unwrap_or((0, h))   // 1
 //
-// For the largest first, order a wrapper or negate the key; to order by a
-// key, push `(key, element)` pairs (tuples order by position).
+// For the largest first, negate the key (or reverse `to_list`).
 import std.list
 
 enum Node<T> {
@@ -62,6 +61,9 @@ pub fn empty<T>() -> Heap<T> {
 pub fn of<T>(items: List<T>) -> Heap<T> where T: PartialOrd {
     list.fold(items, empty(), fn(h, x) { h.push(x) })
 }
+
+/// A heap of `items` (as `of`).
+pub fn from_list<T>(items: List<T>) -> Heap<T> where T: PartialOrd { of(items) }
 
 impl<T> Heap<T> {
     pub fn len(self: &Self) -> Int {

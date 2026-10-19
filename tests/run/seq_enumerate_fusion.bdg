@@ -1,0 +1,12 @@
+// `enumerate` fuses: indices count the items reaching the stage.
+import std.io
+import std.list
+import std.seq
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{seq.range(0, 4).enumerate().map(fn(p: (Int, Int)) { p.1 }).collect()}")?
+    io.println($"{seq.range(0, 10).filter(fn(x: Int) { x % 2 == 0 }).enumerate().map(fn(p: (Int, Int)) { p.0 * 100 + p.1 }).take(2).collect()}")?
+    io.println($"{seq.range(0, 3).enumerate().fold(0, fn(a: Int, p: (Int, Int)) { a + p.0 })}")?
+    io.println($"{seq.range(5, 8).enumerate().count()}")?
+    ok(())
+}

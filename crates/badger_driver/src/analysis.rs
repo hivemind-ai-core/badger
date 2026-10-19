@@ -509,6 +509,8 @@ impl Ix<'_> {
                     && lines.is_empty()
                     && (l.trim_start().starts_with("requires ")
                         || l.trim_start().starts_with("ensures ")) => {}
+                // or above an attribute (`@name(...)`) on the item
+                None if l.trim_start().starts_with('@') => {}
                 None => break,
             }
         }

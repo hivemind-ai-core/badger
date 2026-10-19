@@ -72,6 +72,11 @@ struct ModScope {
     names: FxHashMap<Symbol, (Res, Span)>,
 }
 
+/// Attributes the compiler recognises. The first built-in attributes are a
+/// separate phase; until a name is listed here it is unknown, which is an
+/// error in standard-library sources and a warning elsewhere.
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion"];
+
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
 pub fn lower_program(
@@ -669,8 +674,44 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     // ------------------------------------------------------------ items
 
+    /// Record the item's attributes and report any the compiler does not
+    /// know (an error in standard-library sources, a warning elsewhere).
+    fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
+        if item.attributes.is_empty() {
+            return;
+        }
+        let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
+        for attr in &item.attributes {
+            let name = self.cx.interner.resolve(attr.name).to_string();
+            if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
+                let msg = format!("unknown attribute `@{name}`");
+                let mut d = Diagnostic::error(msg).with_code("E0191");
+                if !is_std {
+                    d = Diagnostic::warning(format!("unknown attribute `@{name}`")).with_code("E0191");
+                }
+                self.cx.diags.push(d.with_label(attr.span, "not recognised by the compiler"));
+                continue;
+            }
+            // `@allow(<code>, ...)` silences those warnings inside this item
+            if name == "allow" {
+                for arg in &attr.args {
+                    let code = match arg {
+                        ast::AttrArg::Name(s) => Some(self.cx.interner.resolve(*s).to_string()),
+                        ast::AttrArg::Str(s) => Some(s.clone()),
+                        _ => None,
+                    };
+                    if let Some(code) = code {
+                        self.cx.hir.allows.push((code, item.span));
+                    }
+                }
+            }
+        }
+        self.cx.hir.attributes.entry(def).or_default().extend(item.attributes.iter().cloned());
+    }
+
     fn lower_item(&mut self, def: DefId, item: &ast::Item) -> DefKind {
         self.cur_def = Some(def);
+        self.record_attributes(def, item);
         match &item.kind {
             ast::ItemKind::Import(_) => unreachable!(),
             ast::ItemKind::TypeAlias { generics, ty, .. } => {

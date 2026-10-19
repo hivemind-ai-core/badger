@@ -65,6 +65,15 @@ when it returns (it cannot escape `fill`).
 fn builder<T>() -> ListBuilder<T>
 ```
 
+### `chunk_by`
+
+```badger
+fn chunk_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<List<T>> where K: PartialEq
+```
+
+Consecutive runs with equal keys, each a list (an empty list yields no
+runs; unlike `group_by`, runs are not merged across the list).
+
 ### `chunks_of`
 
 ```badger
@@ -110,6 +119,30 @@ fn dedup<T>(list: List<T>) -> List<T> where T: PartialEq
 ```
 
 Consecutive equal items collapsed to one.
+
+### `dedup_by`
+
+```badger
+fn dedup_by<T, K>(list: List<T>, key: fn(T) -> K) -> List<T> where K: PartialEq
+```
+
+Consecutive items with equal keys collapsed to the first.
+
+### `drop_last`
+
+```badger
+fn drop_last<T>(list: List<T>, n: Int) -> List<T>
+```
+
+All but the last `n` items.
+
+### `each`
+
+```badger
+fn each<T>(list: List<T>, f: fn(T) -> Unit) -> Unit
+```
+
+Run `f` on each item, in order.
 
 ### `empty`
 
@@ -174,11 +207,36 @@ fn flat_map<T, U>(list: List<T>, f: fn(T) -> List<U>) -> List<U>
 
 Each item's results, flattened in order.
 
+### `flatten`
+
+```badger
+fn flatten<T>(list: List<List<T>>) -> List<T>
+```
+
+One level of nesting removed, in order.
+
 ### `fold`
 
 ```badger
 fn fold<T, A>(list: List<T>, initial: A, f: fn(A, T) -> A) -> A
 ```
+
+### `fold_while`
+
+```badger
+fn fold_while<T, A>(list: List<T>, initial: A, f: fn(A, T) -> Option<A>) -> Option<A>
+```
+
+Fold while `f` gives `some`; the result is the final state, or `none`
+when `f` stopped the fold early (its `none` is not a value).
+
+### `frequencies`
+
+```badger
+fn frequencies<T>(list: List<T>) -> Map<T, Int> where T: Hash
+```
+
+How often each distinct item occurs.
 
 ### `group_by`
 
@@ -195,6 +253,22 @@ fn group_by_key<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, List<T>> where K
 ```
 
 The items grouped by `key` (the name Python's `sorted(key=...)` uses).
+
+### `index_by`
+
+```badger
+fn index_by<T, K>(list: List<T>, key: fn(T) -> K) -> Map<K, T> where K: Hash
+```
+
+One item per distinct key: the last item with that key (input order).
+
+### `interpose`
+
+```badger
+fn interpose<T>(list: List<T>, sep: T) -> List<T>
+```
+
+`sep` between consecutive items (empty and single-item lists unchanged).
 
 ### `len`
 
@@ -217,6 +291,14 @@ fn map_then_filter<T, U>(list: List<T>, f: fn(T) -> U, keep: fn(U) -> Bool) -> L
 One pass for `map(..).filter(..)`: the compiler uses it when the map
 callback is side-effect free and cannot fail.
 
+### `max`
+
+```badger
+fn max<T>(list: List<T>) -> Option<T> where T: PartialOrd
+```
+
+The largest item (the first, on ties).
+
 ### `max_by`
 
 ```badger
@@ -224,6 +306,14 @@ fn max_by<T, K>(list: List<T>, key: fn(T) -> K) -> Option<T> where K: PartialOrd
 ```
 
 The item with the largest key (the first, on ties).
+
+### `min`
+
+```badger
+fn min<T>(list: List<T>) -> Option<T> where T: PartialOrd
+```
+
+The smallest item (the first, on ties).
 
 ### `min_by`
 
@@ -264,6 +354,14 @@ fn position<T>(list: List<T>, matches: fn(T) -> Bool) -> Option<Int>
 ```
 
 The position of the first item `matches` accepts.
+
+### `product`
+
+```badger
+fn product(list: List<Int>) -> Int
+```
+
+The product of the items (`1` when empty).
 
 ### `range`
 
@@ -343,11 +441,36 @@ Each pass merges into one contiguous buffer (`push` per element) and
 freezes it into an array for the next pass, instead of rebuilding a paged
 list every pass. Reads are direct array indexing.
 
+### `split_at`
+
+```badger
+fn split_at<T>(list: List<T>, n: Int) -> (List<T>, List<T>)
+```
+
+The first `n` items and the rest, in one pass (`n` below 0 puts
+everything in the second list, above the length nothing).
+
+### `split_while`
+
+```badger
+fn split_while<T>(list: List<T>, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+The leading items `keep` accepts, and the rest, in one pass.
+
 ### `sum`
 
 ```badger
 fn sum(list: List<Int>) -> Int
 ```
+
+### `sum_by`
+
+```badger
+fn sum_by<T>(list: List<T>, f: fn(T) -> Int) -> Int
+```
+
+The sum of `f` over the items.
 
 ### `take`
 
@@ -356,6 +479,14 @@ fn take<T>(list: List<T>, n: Int) -> List<T>
 ```
 
 The first `n` items (all of them if there are fewer).
+
+### `take_last`
+
+```badger
+fn take_last<T>(list: List<T>, n: Int) -> List<T>
+```
+
+The last `n` items (all of them if there are fewer).
 
 ### `take_while`
 
@@ -397,6 +528,14 @@ fn unique<T>(list: List<T>) -> List<T> where T: Hash
 
 The first of each set of equal items, in order.
 
+### `unzip`
+
+```badger
+fn unzip<A, B>(list: List<(A, B)>) -> (List<A>, List<B>)
+```
+
+The first components and the second components, each in order.
+
 ### `validate`
 
 ```badger
@@ -406,6 +545,15 @@ fn validate<T, U, E>(list: List<T>, f: fn(T) -> Result<U, E>) -> Result<List<U>,
 Validation: `f` over every item, collecting every error (in order)
 rather than stopping at the first.
 
+### `windows`
+
+```badger
+fn windows<T>(list: List<T>, size: Int) -> List<List<T>>
+```
+
+Overlapping consecutive windows of `size` (`size` below 1, or a list
+shorter than `size`, yields no windows).
+
 ### `zip`
 
 ```badger
@@ -413,6 +561,15 @@ fn zip<A, B>(a: List<A>, b: List<B>) -> List<(A, B)>
 ```
 
 Pairs of items at the same positions (as long as the shorter list).
+
+### `zip_with`
+
+```badger
+fn zip_with<A, B, C>(a: List<A>, b: List<B>, f: fn(A, B) -> C) -> List<C>
+```
+
+Pairs of items at the same positions combined by `f` (as long as the
+shorter list).
 
 ## Methods on other types
 
@@ -435,6 +592,14 @@ fn append(self: &Self, value: T) -> List<T>
 ```
 
 A new list with `value` appended (pages are shared, not copied).
+
+### `List.chunk_by`
+
+```badger
+fn chunk_by<K>(self: &Self, key: fn(T) -> K) -> List<List<T>> where K: PartialEq
+```
+
+Consecutive runs with equal keys, each a list.
 
 ### `List.chunks`
 
@@ -479,6 +644,30 @@ fn count_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, Int> where K: Hash
 ```badger
 fn dedup(self: &Self) -> List<T> where T: PartialEq
 ```
+
+### `List.dedup_by`
+
+```badger
+fn dedup_by<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialEq
+```
+
+Consecutive items with equal keys collapsed to the first.
+
+### `List.drop_last`
+
+```badger
+fn drop_last(self: &Self, n: Int) -> List<T>
+```
+
+All but the last `n` items.
+
+### `List.each`
+
+```badger
+fn each(self: &Self, f: fn(T) -> Unit) -> Unit
+```
+
+Run `f` on each item, in order.
 
 ### `List.element_ref`
 
@@ -536,6 +725,22 @@ fn flat_map<U>(self: &Self, f: fn(T) -> List<U>) -> List<U>
 fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A) -> A
 ```
 
+### `List.fold_while`
+
+```badger
+fn fold_while<A>(self: &Self, initial: A, f: fn(A, T) -> Option<A>) -> Option<A>
+```
+
+Fold while `f` gives `some`; `none` when it stopped early.
+
+### `List.frequencies`
+
+```badger
+fn frequencies(self: &Self) -> Map<T, Int> where T: Hash
+```
+
+How often each distinct item occurs.
+
 ### `List.get`
 
 ```badger
@@ -555,6 +760,22 @@ fn group_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
 ```badger
 fn group_by_key<K>(self: &Self, key: fn(T) -> K) -> Map<K, List<T>> where K: Hash
 ```
+
+### `List.index_by`
+
+```badger
+fn index_by<K>(self: &Self, key: fn(T) -> K) -> Map<K, T> where K: Hash
+```
+
+One item per distinct key: the last item with that key.
+
+### `List.interpose`
+
+```badger
+fn interpose(self: &Self, sep: T) -> List<T>
+```
+
+`sep` between consecutive items.
 
 ### `List.is_empty`
 
@@ -580,11 +801,27 @@ fn len(self: &Self) -> Int
 fn map<U>(self: &Self, f: fn(T) -> U) -> List<U>
 ```
 
+### `List.max`
+
+```badger
+fn max(self: &Self) -> Option<T> where T: PartialOrd
+```
+
+The largest item (the first, on ties).
+
 ### `List.max_by`
 
 ```badger
 fn max_by<K>(self: &Self, key: fn(T) -> K) -> Option<T> where K: PartialOrd
 ```
+
+### `List.min`
+
+```badger
+fn min(self: &Self) -> Option<T> where T: PartialOrd
+```
+
+The smallest item (the first, on ties).
 
 ### `List.min_by`
 
@@ -674,11 +911,43 @@ fn sort_by_key<K>(self: &Self, key: fn(T) -> K) -> List<T> where K: PartialOrd
 fn sort_with(self: &Self, compare: fn(T, T) -> Int) -> List<T>
 ```
 
+### `List.split_at`
+
+```badger
+fn split_at(self: &Self, n: Int) -> (List<T>, List<T>)
+```
+
+The first `n` items and the rest, in one pass.
+
+### `List.split_while`
+
+```badger
+fn split_while(self: &Self, keep: fn(T) -> Bool) -> (List<T>, List<T>)
+```
+
+The leading items `keep` accepts, and the rest, in one pass.
+
+### `List.sum_by`
+
+```badger
+fn sum_by(self: &Self, f: fn(T) -> Int) -> Int
+```
+
+The sum of `f` over the items.
+
 ### `List.take`
 
 ```badger
 fn take(self: &Self, n: Int) -> List<T>
 ```
+
+### `List.take_last`
+
+```badger
+fn take_last(self: &Self, n: Int) -> List<T>
+```
+
+The last `n` items.
 
 ### `List.take_while`
 
@@ -724,11 +993,27 @@ fn unique(self: &Self) -> List<T> where T: Hash
 fn validate<U, E>(self: &Self, f: fn(T) -> Result<U, E>) -> Result<List<U>, List<E>>
 ```
 
+### `List.windows`
+
+```badger
+fn windows(self: &Self, size: Int) -> List<List<T>>
+```
+
+Overlapping consecutive windows of `size`.
+
 ### `List.zip`
 
 ```badger
 fn zip<U>(self: &Self, other: List<U>) -> List<(T, U)>
 ```
+
+### `List.zip_with`
+
+```badger
+fn zip_with<U, C>(self: &Self, other: List<U>, f: fn(T, U) -> C) -> List<C>
+```
+
+Pairs combined by `f` (as long as the shorter list).
 
 ### `ListBuilder.append`
 

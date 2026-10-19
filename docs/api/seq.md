@@ -24,6 +24,22 @@ fn any<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool
 
 Whether some item satisfies `test` (stopping at the first).
 
+### `chain`
+
+```badger
+fn chain<T, Eff>(a: Seq<T, Eff>, b: Seq<T, Eff>) -> Seq<T, Eff>
+```
+
+`a`'s items followed by `b`'s.
+
+### `chunk_by`
+
+```badger
+fn chunk_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Seq<List<T>, Eff> where K: PartialEq
+```
+
+Consecutive runs with equal keys, each a list.
+
 ### `chunks`
 
 ```badger
@@ -46,6 +62,30 @@ already closed). `for` loops call this when they exit early.
 ```badger
 fn count<T, Eff>(items: Seq<T, Eff>) -> Int
 ```
+
+### `dedup`
+
+```badger
+fn dedup<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: PartialEq
+```
+
+Consecutive equal items collapsed to the first.
+
+### `distinct`
+
+```badger
+fn distinct<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: Hash
+```
+
+The first of each set of equal items.
+
+### `each`
+
+```badger
+fn each<T, Eff>(items: Seq<T, Eff>, f: fn(T) -> Unit !Eff) -> Unit
+```
+
+Run `f` on each item, in order.
 
 ### `enumerate`
 
@@ -103,6 +143,23 @@ fn flat_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Seq<U, Eff> !Eff) -> Seq<
 fn fold<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> A !Eff) -> A
 ```
 
+### `fold_while`
+
+```badger
+fn fold_while<T, A, Eff>(items: Seq<T, Eff>, initial: A, f: fn(A, T) -> Option<A> !Eff) -> Option<A>
+```
+
+Fold while `f` gives `some`; the result is the final state, or `none`
+when `f` stopped the fold early.
+
+### `frequencies`
+
+```badger
+fn frequencies<T, Eff>(items: Seq<T, Eff>) -> Map<T, Int> where T: Hash
+```
+
+How often each distinct item occurs.
+
 ### `from_fn`
 
 ```badger
@@ -126,6 +183,31 @@ fn group_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Map<K, List<
 
 Group items by key. Groups keep the items' iteration order.
 
+### `index_by`
+
+```badger
+fn index_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Map<K, T> where K: Hash
+```
+
+One item per distinct key: the last item with that key.
+
+### `interpose`
+
+```badger
+fn interpose<T, Eff>(items: Seq<T, Eff>, sep: T) -> Seq<T, Eff> where T: Share
+```
+
+`sep` between consecutive items (nothing before the first).
+
+### `iterate`
+
+```badger
+fn iterate<T, Eff>(initial: T, f: fn(T) -> T !Eff) -> Seq<T, Eff> where T: Share
+```
+
+`initial`, then `f` applied over and over: an infinite sequence (`take`
+bounds it).
+
 ### `last`
 
 ```badger
@@ -138,6 +220,14 @@ fn last<T, Eff>(items: Seq<T, Eff>) -> Option<T>
 fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff>
 ```
 
+### `max`
+
+```badger
+fn max<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd
+```
+
+The largest item (the first, on ties).
+
 ### `max_by`
 
 ```badger
@@ -145,6 +235,14 @@ fn max_by<T, K, Eff>(items: Seq<T, Eff>, key: fn(T) -> K !Eff) -> Option<T> wher
 ```
 
 The item with the largest key (the first, on ties).
+
+### `min`
+
+```badger
+fn min<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd
+```
+
+The smallest item (the first, on ties).
 
 ### `min_by`
 
@@ -162,11 +260,35 @@ fn partition<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> (List<T>, 
 
 The items `keep` accepts and those it refuses, each in order.
 
+### `position`
+
+```badger
+fn position<T, Eff>(items: Seq<T, Eff>, matches: fn(T) -> Bool !Eff) -> Option<Int>
+```
+
+The position of the first item `matches` accepts.
+
+### `product`
+
+```badger
+fn product<Eff>(items: Seq<Int, Eff>) -> Int
+```
+
+The product of the items (`1` when empty).
+
 ### `range`
 
 ```badger
 fn range(start: Int, end: Int) -> Seq<Int, !{}>
 ```
+
+### `repeat`
+
+```badger
+fn repeat<T>(value: T, count: Int) -> Seq<T, !{}> where T: Share
+```
+
+`value` repeated `count` times (nothing when `count` is not positive).
 
 ### `scan`
 
@@ -202,6 +324,14 @@ fn skip_while<T, Eff>(items: Seq<T, Eff>, skip: fn(T) -> Bool !Eff) -> Seq<T, Ef
 ```
 
 Items after the leading ones `skip` accepts.
+
+### `step_by`
+
+```badger
+fn step_by<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff>
+```
+
+Every `n`-th item, from the first (`n` below 1 counts as 1).
 
 ### `sum`
 
@@ -260,11 +390,28 @@ fn try_map<T, U, E, Eff>(items: Seq<T, Eff>, f: fn(T) -> Result<U, E> !Eff) -> S
 `f` over the items, lazily, as results: `try_collect` (or `try_each`)
 then stops at the first error, so later items are never mapped.
 
+### `windows`
+
+```badger
+fn windows<T, Eff>(items: Seq<T, Eff>, size: Int) -> Seq<List<T>, Eff>
+```
+
+Overlapping consecutive windows of `size` (`size` below 1, or fewer
+items than `size`, yields nothing).
+
 ### `zip`
 
 ```badger
 fn zip<A, B, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>) -> Seq<(A, B), Eff>
 ```
+
+### `zip_with`
+
+```badger
+fn zip_with<A, B, C, Eff>(a: Seq<A, Eff>, b: Seq<B, Eff>, f: fn(A, B) -> C !Eff) -> Seq<C, Eff>
+```
+
+Pairs with `other` combined by `f` (as long as the shorter).
 
 ## Methods on other types
 
@@ -279,6 +426,22 @@ fn all(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
 ```badger
 fn any(self: &Self, test: fn(T) -> Bool !Eff) -> Bool
 ```
+
+### `Seq.chain`
+
+```badger
+fn chain(self: &Self, other: Seq<T, Eff>) -> Seq<T, Eff>
+```
+
+This sequence's items, then `other`'s.
+
+### `Seq.chunk_by`
+
+```badger
+fn chunk_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Seq<List<T>, Eff> where K: PartialEq
+```
+
+Consecutive runs with equal keys, each a list.
 
 ### `Seq.chunks`
 
@@ -297,6 +460,30 @@ fn collect(self: &Self) -> List<T>
 ```badger
 fn count(self: &Self) -> Int
 ```
+
+### `Seq.dedup`
+
+```badger
+fn dedup(self: &Self) -> Seq<T, Eff> where T: PartialEq
+```
+
+Consecutive equal items collapsed to the first.
+
+### `Seq.distinct`
+
+```badger
+fn distinct(self: &Self) -> Seq<T, Eff> where T: Hash
+```
+
+The first of each set of equal items.
+
+### `Seq.each`
+
+```badger
+fn each(self: &Self, f: fn(T) -> Unit !Eff) -> Unit
+```
+
+Run `f` on each item, in order.
 
 ### `Seq.enumerate`
 
@@ -346,11 +533,43 @@ fn flat_map<U>(self: &Self, f: fn(T) -> Seq<U, Eff> !Eff) -> Seq<U, Eff>
 fn fold<A>(self: &Self, initial: A, f: fn(A, T) -> A !Eff) -> A
 ```
 
+### `Seq.fold_while`
+
+```badger
+fn fold_while<A>(self: &Self, initial: A, f: fn(A, T) -> Option<A> !Eff) -> Option<A>
+```
+
+Fold while `f` gives `some`; `none` when it stopped early.
+
+### `Seq.frequencies`
+
+```badger
+fn frequencies(self: &Self) -> Map<T, Int> where T: Hash
+```
+
+How often each distinct item occurs.
+
 ### `Seq.group_by`
 
 ```badger
 fn group_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Map<K, List<T>> where K: Hash
 ```
+
+### `Seq.index_by`
+
+```badger
+fn index_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Map<K, T> where K: Hash
+```
+
+One item per distinct key: the last item with that key.
+
+### `Seq.interpose`
+
+```badger
+fn interpose(self: &Self, sep: T) -> Seq<T, Eff> where T: Share
+```
+
+`sep` between consecutive items.
 
 ### `Seq.last`
 
@@ -364,11 +583,27 @@ fn last(self: &Self) -> Option<T>
 fn map<U>(self: &Self, f: fn(T) -> U !Eff) -> Seq<U, Eff>
 ```
 
+### `Seq.max`
+
+```badger
+fn max(self: &Self) -> Option<T> where T: PartialOrd
+```
+
+The largest item (the first, on ties).
+
 ### `Seq.max_by`
 
 ```badger
 fn max_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```
+
+### `Seq.min`
+
+```badger
+fn min(self: &Self) -> Option<T> where T: PartialOrd
+```
+
+The smallest item (the first, on ties).
 
 ### `Seq.min_by`
 
@@ -381,6 +616,14 @@ fn min_by<K>(self: &Self, key: fn(T) -> K !Eff) -> Option<T> where K: PartialOrd
 ```badger
 fn partition(self: &Self, keep: fn(T) -> Bool !Eff) -> (List<T>, List<T>)
 ```
+
+### `Seq.position`
+
+```badger
+fn position(self: &Self, matches: fn(T) -> Bool !Eff) -> Option<Int>
+```
+
+The position of the first item `matches` accepts.
 
 ### `Seq.scan`
 
@@ -399,6 +642,14 @@ fn skip(self: &Self, n: Int) -> Seq<T, Eff>
 ```badger
 fn skip_while(self: &Self, skip: fn(T) -> Bool !Eff) -> Seq<T, Eff>
 ```
+
+### `Seq.step_by`
+
+```badger
+fn step_by(self: &Self, n: Int) -> Seq<T, Eff>
+```
+
+Every `n`-th item, from the first.
 
 ### `Seq.take`
 
@@ -430,9 +681,25 @@ fn try_fold<A, E>(self: &Self, initial: A, f: fn(A, T) -> Result<A, E> !Eff) -> 
 fn try_map<U, E>(self: &Self, f: fn(T) -> Result<U, E> !Eff) -> Seq<Result<U, E>, Eff>
 ```
 
+### `Seq.windows`
+
+```badger
+fn windows(self: &Self, size: Int) -> Seq<List<T>, Eff>
+```
+
+Overlapping consecutive windows of `size`.
+
 ### `Seq.zip`
 
 ```badger
 fn zip<U>(self: &Self, other: Seq<U, Eff>) -> Seq<(T, U), Eff>
 ```
+
+### `Seq.zip_with`
+
+```badger
+fn zip_with<U, C>(self: &Self, other: Seq<U, Eff>, f: fn(T, U) -> C !Eff) -> Seq<C, Eff>
+```
+
+Pairs with `other` combined by `f` (as long as the shorter).
 

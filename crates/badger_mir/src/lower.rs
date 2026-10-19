@@ -46,6 +46,45 @@ pub struct Mono<'g, 'a> {
     /// The instance whose body is being lowered (polymorphic recursion is
     /// a request for the same definition at a deeper type).
     current: Option<(DefId, Vec<Ty>)>,
+    /// Fusion templates declared by `@fusion(role = ..., template = ...)`
+    /// on standard-library items, keyed by definition path (a method shares
+    /// its free function's path).
+    fusion: FxHashMap<String, String>,
+}
+
+/// The `@fusion(...)` template of each annotated standard-library item,
+/// keyed by definition path.
+fn fusion_templates(g: &Global) -> FxHashMap<String, String> {
+    let mut out = FxHashMap::default();
+    for (def, attrs) in &g.hir.attributes {
+        let m = &g.hir.modules[g.hir.defs[*def].module];
+        if !m.is_std {
+            continue;
+        }
+        for a in attrs {
+            if g.interner.resolve(a.name) != "fusion" {
+                continue;
+            }
+            let mut template = None;
+            for arg in &a.args {
+                if let badger_syntax::ast::AttrArg::KeyValue(k, v) = arg
+                    && g.interner.resolve(*k) == "template"
+                {
+                    template = match &**v {
+                        badger_syntax::ast::AttrArg::Name(s) => Some(g.interner.resolve(*s).to_string()),
+                        badger_syntax::ast::AttrArg::Str(s) => Some(s.clone()),
+                        _ => None,
+                    };
+                }
+            }
+            if let Some(t) = template {
+                let mp: Vec<&str> = m.path.iter().map(|s| g.interner.resolve(*s)).collect();
+                let path = format!("{}.{}", mp.join("."), g.interner.resolve(g.hir.defs[*def].name));
+                out.insert(path, t);
+            }
+        }
+    }
+    out
 }
 
 impl<'g, 'a> Mono<'g, 'a> {
@@ -69,6 +108,7 @@ impl<'g, 'a> Mono<'g, 'a> {
             errors: vec![],
             fuse_sequences: false,
             current: None,
+            fusion: fusion_templates(g),
         }
     }
 
@@ -2146,7 +2186,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 Some(self.assign(r, Rvalue::Load { base: args[0], offset: 0, repr: r }))
             }
             // typed projection onto a closed subset (field copies)
-            "project" | "remove" => {
+            "project" | "remove" | "omit" => {
                 let (t, src) = (targs[0].clone(), targs[1].clone());
                 if t == src {
                     return Some(args[0]);
@@ -2180,6 +2220,56 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                     self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
                 }
                 Some(obj)
+            }
+            // left-biased union (the mirror of `merge`: the left operand wins)
+            "merge_left" => {
+                let (a_t, b_t, c_t) = (targs[0].clone(), targs[1].clone(), targs[2].clone());
+                let a = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let b = Operand::Local(self.copy_to_local(args[1], Repr::Ptr, None));
+                let layout = self.m.lay.record(&c_t);
+                let al = self.m.lay.record(&a_t);
+                let desc = self.m.lay.desc(&c_t);
+                let obj = self
+                    .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size });
+                for fl in &layout.fields {
+                    let v = if al.field(fl.label).is_some() {
+                        self.load_field(&a_t, fl.label, a)
+                    } else {
+                        self.load_field(&b_t, fl.label, b)
+                    };
+                    self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
+                }
+                Some(obj)
+            }
+            // one label copied to a different label (the only source label
+            // the target lacks is where the renamed field comes from)
+            "rename" => {
+                let (t, src) = (targs[0].clone(), targs[1].clone());
+                if t == src {
+                    return Some(args[0]);
+                }
+                let base = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let layout = self.m.lay.record(&t);
+                let desc = self.m.lay.desc(&t);
+                let sl = self.m.lay.record(&src);
+                let renamed_from = sl.fields.iter().map(|f| f.label).find(|l| layout.field(*l).is_none());
+                let obj = self
+                    .assign(Repr::Ptr, Rvalue::Alloc { desc: desc as *const _ as u64, size: layout.size });
+                for fl in &layout.fields {
+                    let from_label = if sl.field(fl.label).is_some() {
+                        fl.label
+                    } else {
+                        renamed_from.unwrap_or(fl.label)
+                    };
+                    let v = self.load_field(&src, from_label, base);
+                    self.emit(Stmt::Store { base: obj, offset: fl.offset, repr: fl.repr, value: v });
+                }
+                Some(obj)
+            }
+            // the number of fields of a record/struct type: a constant
+            "field_count" => {
+                let layout = self.m.lay.record(&targs[0]);
+                Some(Operand::Const(Const::Int(layout.fields.len() as i64, Repr::I64)))
             }
             // a builder's append within its tail page, without a runtime
             // call (a builder's pages are its own until it is finished);
@@ -2327,7 +2417,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let hir = self.hir();
         let is_entries = |def: DefId| {
             let p = self.m.def_path(def);
-            p == "std.map.entries" || p == "std.map.to_list"
+            self.m.fusion.get(&p).is_some_and(|t| t == "entries")
+                || p == "std.map.entries"
+                || p == "std.map.to_list"
         };
         match &hir.exprs[e].kind {
             ExprKind::MethodCall { recv, args, .. } if args.is_empty() => {
@@ -2399,7 +2491,10 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     }
 
     fn is_list_stage_def(&self, def: DefId, name: &str) -> bool {
-        self.m.def_path(def) == format!("std.list.{name}")
+        // `@fusion(template = eager_<name>)`, or the legacy path
+        let p = self.m.def_path(def);
+        self.m.fusion.get(&p).is_some_and(|t| *t == format!("eager_{name}"))
+            || p == format!("std.list.{name}")
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,

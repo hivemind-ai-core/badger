@@ -18,10 +18,30 @@ every function is listed in the [API reference](api/README.md).
 | A pipeline over items, possibly large or infinite | `Seq<T>` | Lazy: nothing runs until consumed; early exits close scoped sources |
 | Items arriving over time from other tasks | `Stream<T>`, channels | Suspending: a consumer parks until the next item |
 | Keys in order: first/last, floor/ceiling, ranges | `sorted.SortedMap<K, V>` | A persistent AVL tree keyed by `<`: O(log n) lookups and updates, entries in key order |
+| Key membership in order | `sorted.SortedSet<K>` | The same tree without values: ordered iteration, ranges, and set algebra |
 | The smallest item next (priority queue) | `heap.Heap<T>` | A persistent leftist heap: O(log n) `push`/`pop`/`merge`, O(1) `peek` |
 | A queue or stack used at both ends | `deque.Deque<T>` | Amortized O(1) `push_front`/`push_back`/`pop_front`/`pop_back` |
 | A bounded cache that evicts the least recently used | `lru.Cache<K, V>` | `get` records a use and returns the updated cache; O(log n) per operation |
 | Sets of small non-negative integers | `bits.BitSet` | 63 per word: O(1) `contains`, word-wise `union`/`intersection`/`difference` |
+
+Reshaping, in one call each (see each function's entry in the
+[API reference](api/README.md)):
+
+- **Count**: `list.frequencies` (occurrences by value), `list.count`,
+  `map.count`, `seq.frequencies`.
+- **Key**: `list.index_by`/`seq.index_by` (one item per key),
+  `list.group_by` (a list per key), `map.map_keys`/`invert`.
+- **Split**: `list.split_at`, `list.split_while`, `list.take_last`/
+  `drop_last`.
+- **Window**: `list.chunks_of`, `list.windows`/`seq.windows`
+  (overlapping), `seq.chunks`.
+- **Runs**: `list.chunk_by`/`seq.chunk_by` (consecutive equal keys),
+  `list.dedup`/`dedup_by`/`unique`, `seq.dedup`/`distinct`.
+- **Sides**: `list.interpose`/`seq.interpose`, `list.flatten`,
+  `seq.chain`, `list.zip_with`/`seq.zip_with`, `list.unzip`.
+- **Maps and sets**: `map.select_keys`/`omit_keys`/`put_new`/
+  `update_with`, `set.is_superset`/`is_disjoint`/`symmetric_difference`/
+  `map`.
 
 Rules of thumb:
 
