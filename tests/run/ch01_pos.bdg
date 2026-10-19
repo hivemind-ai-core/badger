@@ -79,7 +79,7 @@ pub fn main() -> Result<Unit, io.Error> {
     let methods = set { #get, #post }
     let empty = {}
     let raw = """raw {count} \n stays"""
-    let raw_i = $"" "interp {count}" ""
+    let raw_i = $"""interp {count}"""
     let escapes = "tab\tq\"b\\s\'"
     let d = 2min + 1h + 3s + 4ms + 5us + 6ns
     io.println($"{count} {ratio} {mask} {bits} {big} {small} {f32v} {exp} {message}")?

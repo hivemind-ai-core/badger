@@ -592,11 +592,13 @@ where
         let type_e = type_ident.clone().map(Expr::TypeName);
         let brace = choice((record, block_e));
         let paren = choice((unit, group));
-        let system = choice((system, name_e.clone()));
-        let pipeline = choice((pipeline, name_e.clone()));
-        let map_lit = choice((map_lit, name_e.clone()));
-        let set_lit = choice((set_lit, name_e.clone()));
-        let ref_expr = choice((ref_expr, name_e.clone()));
+        // (each falls back to a plain name: these words are contextual; the
+        // reporting pass below tries them all before `name_e`)
+        let system_or_name = choice((system.clone(), name_e.clone()));
+        let pipeline_or_name = choice((pipeline.clone(), name_e.clone()));
+        let map_or_name = choice((map_lit.clone(), name_e.clone()));
+        let set_or_name = choice((set_lit.clone(), name_e.clone()));
+        let ref_or_name = choice((ref_expr.clone(), name_e.clone()));
         // the reporting pass tries the alternatives as combinators (a
         // custom parser reports its errors where it started, not where
         // they are)
@@ -652,11 +654,11 @@ where
                 Some(Tok::Word("return")) => inp.parse(&return_expr),
                 Some(Tok::Word("break")) => inp.parse(&break_expr),
                 Some(Tok::Word("continue")) => inp.parse(&continue_expr),
-                Some(Tok::Word("system")) => inp.parse(&system),
-                Some(Tok::Word("pipeline")) => inp.parse(&pipeline),
-                Some(Tok::Word("map")) => inp.parse(&map_lit),
-                Some(Tok::Word("set")) => inp.parse(&set_lit),
-                Some(Tok::Word("ref")) => inp.parse(&ref_expr),
+                Some(Tok::Word("system")) => inp.parse(&system_or_name),
+                Some(Tok::Word("pipeline")) => inp.parse(&pipeline_or_name),
+                Some(Tok::Word("map")) => inp.parse(&map_or_name),
+                Some(Tok::Word("set")) => inp.parse(&set_or_name),
+                Some(Tok::Word("ref")) => inp.parse(&ref_or_name),
                 Some(Tok::Word("_")) => inp.parse(&hole),
                 Some(Tok::Word(w)) if is_type_ident(w) => inp.parse(&type_e),
                 Some(Tok::Word(_)) => inp.parse(&name_e),
@@ -1016,10 +1018,18 @@ where
         _ => inp.parse(&expr_stmt),
     })
     .boxed();
-    let stmt = if FAST { fast_stmt } else { rich_stmt }.labelled("statement").recover_with(via_parser(
-        skip_balanced(&[Tok::Sep, Tok::Semi, Tok::RBrace])
-            .map_with(|_, e| Stmt::Expr((Expr::Error, e.span()))),
-    ));
+    // a statement ends at a newline, a `;`, or the block's end: `price qty`
+    // is two statements only if they are on separate lines
+    let stmt_end =
+        choice((sep.clone(), just(Tok::Semi).ignored().rewind(), just(Tok::RBrace).ignored().rewind()))
+            .labelled("a new line or `;`");
+    let stmt = if FAST { fast_stmt } else { rich_stmt }
+        .labelled("statement")
+        .then_ignore(stmt_end)
+        .recover_with(via_parser(
+            skip_balanced(&[Tok::Sep, Tok::Semi, Tok::RBrace])
+                .map_with(|_, e| Stmt::Expr((Expr::Error, e.span()))),
+        ));
     block.define(
         choice((
             sep.clone().to(None),
@@ -1356,6 +1366,11 @@ where
     ))
     .map_with(|(is_pub, kind), e| Item { kind, span: e.span(), is_pub })
     .labelled("declaration")
+    // declarations, too, are separated by newlines or `;`
+    .then_ignore(
+        choice((sep.clone(), just(Tok::Semi).ignored().rewind(), end().rewind()))
+            .labelled("a new line or `;`"),
+    )
     .recover_with(via_parser(skip_balanced(&[Tok::Sep]).map_with(|_, e| Item {
         kind: ItemKind::Error,
         span: e.span(),

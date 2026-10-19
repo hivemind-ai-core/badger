@@ -1,0 +1,9 @@
+// expect-error: E0001
+// Statements are separated by a new line or `;`: two expressions side by
+// side are a missing operator, not two statements.
+fn total(price: Int, qty: Int) -> Int {
+    let t = price qty
+    t
+}
+
+pub fn main() {}

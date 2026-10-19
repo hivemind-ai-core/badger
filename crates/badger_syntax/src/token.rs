@@ -637,6 +637,45 @@ enum Ends {
     Yes,
     Continues,
     No,
+    /// `>`: a comparison continuing onto the next line, or a generic
+    /// argument list closing at the end of a declaration (`-> List<T>`).
+    /// The next line decides: one starting with a declaration or statement
+    /// keyword is a new statement.
+    Closes,
+}
+
+/// Words that begin a declaration or statement and never a comparison's
+/// right operand: after a line ending in `>`, they start a new one.
+fn starts_statement(t: &Tok<'_>) -> bool {
+    matches!(
+        t,
+        Tok::Word(
+            "pub"
+                | "fn"
+                | "extern"
+                | "import"
+                | "type"
+                | "struct"
+                | "enum"
+                | "protocol"
+                | "impl"
+                | "provider"
+                | "stage"
+                | "let"
+                | "var"
+                | "const"
+                | "use"
+                | "return"
+                | "break"
+                | "continue"
+                | "for"
+                | "while"
+                | "loop"
+                | "defer"
+                | "requires"
+                | "ensures"
+        )
+    )
 }
 
 fn ends(t: &Tok<'_>) -> Ends {
@@ -660,6 +699,7 @@ fn ends(t: &Tok<'_>) -> Ends {
         | Tok::RBrace
         | Tok::Question => Ends::Yes,
         Tok::Pipe => Ends::Continues,
+        Tok::Gt => Ends::Closes,
         _ => Ends::No,
     }
 }
@@ -680,7 +720,9 @@ pub fn layout<'a>(tokens: Vec<(Tok<'a>, Span)>) -> (Vec<(Tok<'a>, Span)>, Option
     let mut stack: Vec<Tok<'_>> = vec![];
     let mut too_deep = None;
     let mut last_ends = false;
+    let mut last_closes = false;
     let mut pending: Option<Span> = None;
+    let mut soft: Option<Span> = None;
     // inside an interpolated string (its holes are part of the string)
     let mut interp = 0usize;
     for (t, s) in tokens {
@@ -702,12 +744,21 @@ pub fn layout<'a>(tokens: Vec<(Tok<'a>, Span)>) -> (Vec<(Tok<'a>, Span)>, Option
             if last_ends && matches!(stack.last(), None | Some(Tok::LBrace)) && pending.is_none() {
                 pending = Some(sp(s.start, s.start + 1));
             }
+            if last_closes && matches!(stack.last(), None | Some(Tok::LBrace)) && soft.is_none() {
+                soft = Some(sp(s.start, s.start + 1));
+            }
             last_ends = false;
+            last_closes = false;
             continue;
         }
         let kind = ends(&t);
         if let Some(p) = pending.take()
             && kind != Ends::Continues
+        {
+            out.push((Tok::Sep, p));
+        }
+        if let Some(p) = soft.take()
+            && starts_statement(&t)
         {
             out.push((Tok::Sep, p));
         }
@@ -725,6 +776,7 @@ pub fn layout<'a>(tokens: Vec<(Tok<'a>, Span)>) -> (Vec<(Tok<'a>, Span)>, Option
             _ => {}
         }
         last_ends = kind == Ends::Yes;
+        last_closes = kind == Ends::Closes;
         out.push((t, s));
     }
     if let Some(p) = pending {
