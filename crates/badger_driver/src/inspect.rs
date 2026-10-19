@@ -127,7 +127,12 @@ fn eval_start(input: &str) -> Eval {
             "\nimport std.inspect\nfn {eval_fn}() -> String {{\n    let value = {{\n    let _ = ()\n{trimmed}\n    }}\n    inspect.show(value)\n}}\n"
         );
     }
-    let mut session = Session::new();
+    // One session across evaluations: the parsed and checked standard library
+    // is reused, so a line re-checks only its own program. It is taken for the
+    // duration and put back below; an evaluation that fails early leaves the
+    // next one to start from a fresh session.
+    let mut session = SESSION.with(|s| s.borrow_mut().take()).unwrap_or_default();
+    session.reset_for_build();
     let mut suffix = imports.join("\n");
     for (_, src) in &items {
         suffix.push('\n');
@@ -158,21 +163,22 @@ fn eval_start(input: &str) -> Eval {
     let mut new_sig = None;
     if is_item && !is_import {
         let name = item_name(trimmed).unwrap_or_default();
-        let mut probe = Session::new();
-        probe.entry_suffix = session.entry_suffix.clone();
-        if let Some(sig) = probe.explain_def(&repl.entry, &name) {
+        // the same session for both probes: the standard library is already
+        // parsed and checked, so each probe re-checks only the entry
+        session.reset_for_build();
+        if let Some(sig) = session.explain_def(&repl.entry, &name) {
             // the previous definition: an earlier REPL one, or the program's
             let previous = match repl.sigs.iter().find(|(n, _)| *n == name) {
                 Some((_, old)) => Some(old.clone()),
                 None => {
-                    let mut base = Session::new();
                     let mut prev = repl.imports.join("\n");
                     for (_, src) in &repl.items {
                         prev.push('\n');
                         prev.push_str(src);
                     }
-                    base.entry_suffix = prev;
-                    base.explain_def(&repl.entry, &name)
+                    session.entry_suffix = prev;
+                    session.reset_for_build();
+                    session.explain_def(&repl.entry, &name)
                 }
             };
             if let Some(old) = previous
@@ -186,6 +192,8 @@ fn eval_start(input: &str) -> Eval {
             new_sig = Some((name, sig));
         }
     }
+    // keep the session for the next line
+    SESSION.with(|s| *s.borrow_mut() = Some(session));
     badger_runtime::live::publish(&built.types, &entries);
     repl.items = items;
     repl.imports = imports;
@@ -211,6 +219,15 @@ fn eval_start(input: &str) -> Eval {
         Some(id) => Eval::Running(id),
         None => Eval::Done(String::new()),
     }
+}
+
+thread_local! {
+    /// The REPL's session, kept across evaluations so each typed line
+    /// re-checks only its own program (the standard library is parsed and
+    /// checked once). `Session` is deliberately single-threaded and
+    /// evaluations run on the scheduler thread. Every evaluation re-reads the
+    /// entry file, so `sources` retains one copy per line typed.
+    static SESSION: std::cell::RefCell<Option<Session>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Result of an evaluation task, once it has finished (scheduler thread).

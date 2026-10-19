@@ -1,0 +1,6 @@
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println("main")?
+    ok(())
+}

@@ -1,0 +1,9 @@
+# The `web` entry imports `std.http`, so its standard module set differs
+# from the main entry's: the cache must miss (a stale hit would use schemes
+# allocated for a different module set).
+[package]
+name = "stdmix"
+entry = "src/main.bdg"
+
+[entries]
+web = "src/web.bdg"

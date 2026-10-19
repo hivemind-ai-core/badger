@@ -631,10 +631,12 @@ fn command(mut cli: Cli) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
                 report(&s, false);
-                // a project's other entry points: tests in modules they reach
+                // a project's other entry points: tests in modules they reach.
+                // One session for all of them: the parsed and checked standard
+                // library is reused, so only the entry itself is re-checked.
                 for sel in badger_driver::project_entry_points(&pkg) {
                     badger_driver::select_entry(Some(sel));
-                    let mut s = Session::new();
+                    s.reset_for_build();
                     if s.run(&pkg, vec![], &opts).is_err() {
                         report(&s, json);
                         return ExitCode::FAILURE;

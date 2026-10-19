@@ -47,27 +47,40 @@ earlier callback keeps the original two-pass lowering.
 
 ## Measurements
 
-Host: AMD Ryzen 7 8745HS, 16 logical CPUs, Linux 7.2.2, shared with two
-unrelated `rustc` processes (load average 5–8). Runs alternated between
-the `main` binary and this branch in both orders; kernel medians are over
-20 warm iterations per process and the reported value is the median of
-interleaved process samples. Treat small deltas as directional.
+The comparison was made on `main` immediately **before** and **after**
+merging this work: the pre-merge binary is `main` at `9ac2158` and the
+post-merge binary is `main` at `703dd04`. Both therefore contain the
+unrelated frontend/stdlib performance work merged at `9ac2158`, so the
+difference isolates the MIR and fusion changes.
 
-| case | main | branch | delta |
+Host: AMD Ryzen 7 8745HS, 16 logical CPUs, Linux 7.2.2, shared with
+concurrent `rustc` builds (load average 5–13). Pre/post runs alternated in
+both orders; kernel values are medians of 20 warm iterations per process
+and then the median of 12 process pairs. The table below is the final
+pre/post round; `records` shows the noise scale in its range.
+
+| case | before (`9ac2158`) | after (`703dd04`) | delta |
 |---|---:|---:|---:|
-| realworld `reconcile` (filter→map chain), kernel | 5.054 ms | 4.697 ms | −7.1% |
-| same binary, fusion vs `BADGER_NO_LIST_FUSION=1` | 5.043 ms | 4.728 ms | −6.2% |
-| realworld `state` (snapshot iterate), kernel | 1.074 ms | 1.059 ms | −1.4% |
-| `bench/collections` run time | 69.32 ms | 67.93 ms | −2.0% |
-| `bench/runtime` run time | 19.34 ms | 19.33 ms | 0.0% |
-| `bench/records` run time | 417.5 ms | 425.6 ms | +1.9% |
-| `bench/parallel_alloc` run time | 33.81 ms | 34.44 ms | +1.9% |
+| realworld `cpu`, kernel | 57.82 ms | 54.87 ms | −5.1% |
+| realworld `reconcile` (filter→map), kernel | 5.596 ms | 5.447 ms | −2.7% |
+| realworld `state` (snapshot iterate), kernel | 1.132 ms | 1.123 ms | −0.8% |
+| realworld `messaging`, kernel | 1.113 ms | 1.132 ms | +1.7% |
+| realworld `pipeline`, kernel | 52.78 ms | 52.70 ms | −0.2% |
+| `bench/collections` run time | 75.45 ms | 76.07 ms | +0.8% |
+| `bench/runtime` run time | 20.844 ms | 20.834 ms | 0.0% |
+| `bench/records` run time | 793.5 ms | 828.0 ms | +4.3% (range 452–924) |
+| `bench/parallel_alloc` run time | 37.92 ms | 37.72 ms | −0.5% |
+| `bench/messages` run time | 16.75 ms | 16.88 ms | +0.7% |
 
-The `runtime` call benchmark was faster than this base in the earlier
-release-MIR comparison; `main` has since gained independent standard-library
-speedups, so against `9ac2158` it is level. The `records` and
-`parallel_alloc` differences are within the host noise observed while
-another build was running.
+In the quieter first round (load ~5), the same pre/post change measured
+`reconcile` 5.054 → 4.697 ms (−7.1%) and `state` 1.074 → 1.059 ms (−1.4%);
+within the post-merge binary, `reconcile` with fusion enabled measured
+4.728 ms against 5.043 ms with `BADGER_NO_LIST_FUSION=1` (−6.2%). The
+`cpu`, `records`, and `collections` swings are larger than the expected
+effect and track host load; they are not attributable to the fusion
+changes. `runtime` is level against `9ac2158` because `main` already
+contains independent standard-library speedups that closed the call-cost
+gap reported against the earlier base.
 
 Structural checks on a filter→map program: the control MIR contains two
 list-builder creations for the chain; the fused form contains one.
