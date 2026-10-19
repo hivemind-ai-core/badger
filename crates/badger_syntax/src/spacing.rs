@@ -193,8 +193,17 @@ fn lex(line: &str) -> Option<Vec<Tok>> {
         }
         if c.is_ascii_digit() {
             let mut j = i;
+            // `0x1e-3` is a subtraction; `1.5e-3` is one number
+            let radix =
+                c == '0' && b.get(i + 1).is_some_and(|x| matches!(x, 'x' | 'X' | 'b' | 'B' | 'o' | 'O'));
             while j < b.len()
-                && (is_ident_char(b[j]) || (b[j] == '.' && b.get(j + 1).is_some_and(|d| d.is_ascii_digit())))
+                && (is_ident_char(b[j])
+                    || (b[j] == '.' && b.get(j + 1).is_some_and(|d| d.is_ascii_digit()))
+                    || (!radix
+                        && matches!(b[j], '+' | '-')
+                        && j > i
+                        && matches!(b[j - 1], 'e' | 'E')
+                        && b.get(j + 1).is_some_and(|d| d.is_ascii_digit())))
             {
                 j += 1;
             }
@@ -548,6 +557,9 @@ mod tests {
             ),
             ("import std.system.{component, ref}", "import std.system.{component, ref}"),
             ("let x = a<<2 | b>>1", "let x = a << 2 | b >> 1"),
+            // a signed exponent is part of the number; a hex digit `e` is not
+            ("let f = 1.5e-3+2E+4", "let f = 1.5e-3 + 2E+4"),
+            ("let h = 0x1e-3", "let h = 0x1e - 3"),
             // an effect marker before `=>` stays apart from it
             (".real(f)! => x", ".real(f) ! => x"),
             ("use tx<-sqlite.transaction(db)", "use tx <- sqlite.transaction(db)"),

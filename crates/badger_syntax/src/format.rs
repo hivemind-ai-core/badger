@@ -22,6 +22,8 @@ pub fn format(src: &str) -> String {
         let line = raw.trim_end();
         if in_raw_string || in_block_comment > 0 {
             // inside multi-line literals and comments: keep the line verbatim
+            // (a raw string's trailing spaces are part of its value)
+            let line = if in_raw_string { raw } else { line };
             out.push_str(line);
             out.push('\n');
             let level = stack.last().map(|l| l + 1).unwrap_or(0);
@@ -171,5 +173,8 @@ mod tests {
         assert_eq!(format(inline), "fn f() -> Unit {\n    io.println($\"\"\"\\n{{ok}} {3}\"\"\")\n}\n");
         let multi = "let s = $\"\"\"a {x}\n  { b\n\"\"\"\nlet t = 1\n";
         assert_eq!(format(multi), multi);
+        // trailing spaces and a tab-only line inside are part of the value
+        let spaces = "let s = \"\"\"\na  \n\t\n\"\"\"\n";
+        assert_eq!(format(spaces), spaces);
     }
 }
