@@ -6,6 +6,14 @@ measurements are from
 [2026-10-19-frontend-session-reuse.md](2026-10-19-frontend-session-reuse.md)
 and [2026-10-19-backlog-audit.md](2026-10-19-backlog-audit.md).
 
+**Implemented 2026-10-19** (`perf/std-check-reuse-2026-10-19`, merged as
+`ea63b58`): see [2026-10-19-std-check-reuse.md](2026-10-19-std-check-reuse.md)
+for the landed design, measurements and the 559-file differential check.
+**One premise below is wrong**: a matching std module set does **not** yield
+matching `DefId`s (lowering allocates standard definitions in an order that
+depends on the interner), so the cache keys definitions by `(Span, Symbol)` and
+remaps them. Steps 1-7 are done; step 8 and the watch/REPL follow-ups are not.
+
 ## Why
 
 Per extra `[entries]`/`[tasks]` selection the front end costs ≈15.6 ms

@@ -73,11 +73,21 @@ are correctness-and-scale work, not current throughput wins.
   `check_one` at `driver/src/lib.rs:746`).
 - C1.3/C1.4: a reusable compiler context with a content-keyed parse cache
   (remapping spans, file ids, and symbols), then checked-library reuse.
-  Prerequisite as above; the parse half is the landed C1.2b work.
+  Parsing is the landed C1.2b work (above). Checked-library reuse landed
+  2026-10-19 (`perf/std-check-reuse-2026-10-19`): `Session` keeps a `StdCache`
+  keyed by the std module set, so each further entry re-checks only its own
+  code — one entry's typecheck 16.4 → 2.9 ms (binding groups 9.75 → 0.44 ms),
+  a five-check project 76.8 → 28.2 ms, verified by a 559-file differential
+  `badger check` sweep with no output differences. Remains: step 8 of the plan
+  (`TypeEnv::build`'s std prefix, ≈0.9 ms/check), a persistent `Session` for
+  watch/REPL (`driver/src/live.rs:114-117`, three `Session::new()` per REPL
+  line), and the `badger test` session gap noted under C1.2b. Report:
+  [2026-10-19-std-check-reuse.md](reports/2026-10-19-std-check-reuse.md).
 - C2: re-measured 2026-10-19 (`BADGER_TIMINGS=1/2`): the standard library's
   binding groups take **10.5–12.5 ms** of a check (the ~39 ms claim is
-  stale) and the effect fixpoint 0.53 ms. Solver retry counters and scaling
-  fixtures remain.
+  stale) — now only on a session's *first* check, since C1.4 caches them
+  (0.44 ms on a hit) — and the effect fixpoint 0.53 ms. Solver retry counters
+  and scaling fixtures remain.
 - C3: cross-build instance and code reuse for watch/REPL, and code
   reclamation instead of leaking replaced builds (`mem::forget(built)` at
   `live.rs:144,153` and `inspect.rs:208`). Reclaiming needs a liveness
