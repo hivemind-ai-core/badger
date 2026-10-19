@@ -649,7 +649,8 @@ pub fn barrier(o: u64) {
 
 pub fn collect() {
     let started = std::time::Instant::now();
-    // several workers: wait until none executes compiled code
+    // several workers: the grace period (no worker runs compiled code
+    // until the resume)
     #[cfg(feature = "gc-profile")]
     let mut profile = diagnostics::Collection::new();
     crate::task::stop_the_world();

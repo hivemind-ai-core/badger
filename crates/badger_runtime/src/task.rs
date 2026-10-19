@@ -19,7 +19,7 @@
 
 use std::cell::{Cell, UnsafeCell};
 use std::collections::{BinaryHeap, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU8, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
@@ -29,6 +29,7 @@ use crossbeam_deque::{Steal, Stealer, Worker};
 use rustc_hash::FxHashMap;
 
 use crate::desc::TypeDesc;
+use crate::gc_handshake;
 
 pub type TaskId = u64;
 
@@ -789,22 +790,18 @@ fn unlock() {
     }
 }
 
-/// Workers currently executing compiled code (outside the runtime lock).
-static IN_COMPILED: [Counter; MAX_WORKERS] = [const { Counter(AtomicIsize::new(0)) }; MAX_WORKERS];
-
-/// One worker thread's count, on its own cache line: a compiled-code
-/// interval starts and ends on one thread (tasks change threads only while
-/// suspended inside the runtime), so each thread updates only its own
-/// slot, and switching tasks never writes a line other workers write.
-#[repr(align(128))]
-struct Counter(AtomicIsize);
-
-/// This worker thread's [`IN_COMPILED`] slot.
-fn in_compiled() -> &'static AtomicIsize {
-    &IN_COMPILED[worker_index()].0
+/// This worker thread is about to run compiled code and still holds the
+/// runtime lock (see [`gc_handshake`]): a compiled-code interval starts and
+/// ends on one thread (tasks change threads only while suspended inside the
+/// runtime).
+fn go_online_locked() {
+    gc_handshake::online_locked(worker_index());
 }
-/// Set while a collection waits for every worker to reach a safe point.
-static STOP: AtomicBool = AtomicBool::new(false);
+
+/// This worker thread stops running compiled code (a quiescent state).
+fn go_offline() {
+    gc_handshake::offline(worker_index());
+}
 /// Most worker threads (per-worker tables are sized by it).
 pub const MAX_WORKERS: usize = 64;
 /// A managed pointer compiled code just returned to runtime code, per
@@ -875,14 +872,14 @@ fn chaos_jitter() {
 
 /// Compiled code is about to call into the runtime (a safe point).
 pub extern "C" fn badger_rt_enter(_ctx: *mut TaskCtx, why: u64) {
-    in_compiled().fetch_sub(1, Ordering::SeqCst);
+    go_offline();
     chaos_jitter();
     lock_for(why as u16);
 }
 
 /// Compiled code continues after a runtime call.
 pub extern "C" fn badger_rt_leave(_ctx: *mut TaskCtx) {
-    in_compiled().fetch_add(1, Ordering::SeqCst);
+    go_online_locked();
     unlock();
     chaos_jitter();
 }
@@ -890,14 +887,14 @@ pub extern "C" fn badger_rt_leave(_ctx: *mut TaskCtx) {
 /// A foreign call from compiled code: it cannot touch managed memory, so it
 /// does not hold up a collection.
 pub extern "C" fn badger_rt_safe_begin(_ctx: *mut TaskCtx) {
-    in_compiled().fetch_sub(1, Ordering::SeqCst);
+    go_offline();
 }
 
 pub extern "C" fn badger_rt_safe_end(_ctx: *mut TaskCtx) {
-    // increments only under the lock, so a collection in progress (which
+    // goes online only under the lock, so a collection in progress (which
     // holds the lock) finishes first
     lock_for(reason::SAFE_END);
-    in_compiled().fetch_add(1, Ordering::SeqCst);
+    go_online_locked();
     unlock();
 }
 
@@ -938,18 +935,15 @@ pub fn enter_runtime_holding(w: u64) {
 /// within one task budget of polls. Another thread's budget is never
 /// written: the running task owns it.
 pub fn stop_the_world() {
-    if !multi() {
-        return;
-    }
-    STOP.store(true, Ordering::SeqCst);
-    while IN_COMPILED.iter().map(|c| c.0.load(Ordering::SeqCst)).sum::<isize>() > 0 {
-        std::hint::spin_loop();
-        std::thread::yield_now();
+    if multi() {
+        gc_handshake::stop_the_world(workers());
     }
 }
 
 pub fn resume_the_world() {
-    STOP.store(false, Ordering::SeqCst);
+    if multi() {
+        gc_handshake::resume_the_world();
+    }
 }
 
 /// The running task (no table lookup: a task's entry stays in place while
@@ -1481,7 +1475,7 @@ pub fn yield_free() {
     let t = current().unwrap();
     if !can_suspend_free()
         || flags_of(t) & (FLAG_CANCEL | FLAG_FAIL) != 0
-        || STOP.load(Ordering::SeqCst)
+        || gc_handshake::stopping()
         || events_due()
     {
         // (a collection waiting for this worker: the lock is a safe point)
@@ -1504,20 +1498,10 @@ pub fn yield_free() {
     }
 }
 
-/// A worker without the runtime lock is about to run compiled code: count
-/// it among [`IN_COMPILED`], waiting out a collection stopping the world.
+/// A worker without the runtime lock is about to run compiled code: it goes
+/// online, waiting out a collection stopping the world.
 fn gc_enter() {
-    loop {
-        in_compiled().fetch_add(1, Ordering::SeqCst);
-        if !STOP.load(Ordering::SeqCst) {
-            return;
-        }
-        in_compiled().fetch_sub(1, Ordering::SeqCst);
-        while STOP.load(Ordering::SeqCst) {
-            std::hint::spin_loop();
-            std::thread::yield_now();
-        }
-    }
+    gc_handshake::online(worker_index());
 }
 
 fn publish_current() {
@@ -3216,7 +3200,7 @@ fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
     let p = e.1 as *mut Task;
     let notify = match res {
         CoroutineResult::Yield(Signal::ParkFree) => {
-            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            go_offline();
             let ready = with_task(p, |t| match t.pending_wake.take() {
                 Some(w) => {
                     t.wake = w;
@@ -3231,12 +3215,12 @@ fn suspended_free(e: Entry, res: &CoroutineResult<Signal, ()>) -> bool {
             ready && enqueue(e, false)
         }
         CoroutineResult::Yield(Signal::YieldFree) => {
-            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            go_offline();
             with_task(p, |t| t.state.set(State::Ready));
             enqueue(e, false)
         }
         CoroutineResult::Return(()) if unsafe { (*p).free_exit } => {
-            in_compiled().fetch_sub(1, Ordering::SeqCst);
+            go_offline();
             finish_free(p);
             false
         }
