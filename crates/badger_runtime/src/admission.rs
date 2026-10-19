@@ -6,6 +6,7 @@
 use std::collections::{HashSet, VecDeque};
 use std::sync::Mutex;
 
+use crate::gc;
 use crate::task::{self, TaskId, Wake};
 
 struct Gate {
@@ -64,7 +65,15 @@ pub fn acquire(id: usize, wait: Option<std::time::Duration>) -> u64 {
             return FULL;
         }
         let ticket = NEXT_TICKET.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // The gate's own queue is native memory outside the managed heap.
+        // Gates live for the process and never shrink their queue, so the
+        // charge is released only when the process ends.
+        let was = g.waiting.capacity();
         g.waiting.push_back((task::current_id(), ticket));
+        let grew = g.waiting.capacity() - was;
+        if grew > 0 {
+            gc::external_alloc(grew * std::mem::size_of::<(TaskId, u64)>());
+        }
         ticket
     };
     // a cancelled waiter leaves the queue, returning a permit handed to it

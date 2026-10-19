@@ -21,6 +21,14 @@ pub struct Batch {
     pub released: bool,
 }
 
+impl Drop for Batch {
+    fn drop(&mut self) {
+        // An unreleased lease still owns its messages' buffer; a released
+        // one moved them to the pool (`mem::take` left this empty).
+        release_buf::<u64>(self.items.capacity());
+    }
+}
+
 /// A channel's state. Every field except `state` and the creation-time
 /// constants (`elem`, `capacity`, `max_batch`, `batched`, `byte_budget`) is
 /// read and written only by the channel's current owner: an unlocked fast
@@ -94,6 +102,79 @@ impl ChanData {
             "batch channel occupancy drifted"
         );
         self.queue.len() + self.accepted
+    }
+}
+
+/// Native bytes a buffer of `cap` elements occupies.
+fn buf_bytes<T>(cap: usize) -> usize {
+    cap * std::mem::size_of::<T>()
+}
+
+/// Charge the storage a `T` buffer gains when its capacity grows from `was`
+/// to `now`. Only the growth is charged; a buffer keeps its charge until
+/// [`release_buf`] releases its whole capacity as the native storage is
+/// freed.
+fn charge_growth<T>(was: usize, now: usize) {
+    if now > was {
+        gc::external_alloc(buf_bytes::<T>(now - was));
+    }
+}
+
+/// Charge a `T` buffer's whole capacity, taken over from a container whose
+/// storage was uncharged (a conversion allocates a fresh buffer).
+fn charge_buffer<T>(cap: usize) {
+    if cap > 0 {
+        gc::external_alloc(buf_bytes::<T>(cap));
+    }
+}
+
+/// Release a `T` buffer's whole capacity from the external counters, as its
+/// native storage is freed.
+fn release_buf<T>(cap: usize) {
+    if cap > 0 {
+        gc::external_free(buf_bytes::<T>(cap));
+    }
+}
+
+/// Push onto a charged channel `Vec`, reporting any capacity growth.
+fn push_charged<T>(v: &mut Vec<T>, x: T) {
+    let was = v.capacity();
+    v.push(x);
+    charge_growth::<T>(was, v.capacity());
+}
+
+/// `VecDeque::push_back` onto a charged channel buffer, reporting any
+/// capacity growth.
+fn push_back_charged<T>(q: &mut VecDeque<T>, x: T) {
+    let was = q.capacity();
+    q.push_back(x);
+    charge_growth::<T>(was, q.capacity());
+}
+
+/// Drop the front (empty) sealed batch, releasing its native storage.
+fn drop_front_batch(batches: &mut VecDeque<VecDeque<u64>>) {
+    if let Some(b) = batches.pop_front() {
+        release_buf::<u64>(b.capacity());
+    }
+}
+
+impl Drop for ChanData {
+    fn drop(&mut self) {
+        // Every buffer the channel still holds: queued messages, message
+        // sizes, leases, sealed batches (outer and inner), per-producer
+        // staging, and the recycled page pool. Buffers released while the
+        // channel lived were freed then; the waiter lists hold no charge.
+        let mut bytes = buf_bytes::<u64>(self.queue.capacity())
+            + buf_bytes::<usize>(self.sizes.capacity())
+            + buf_bytes::<(TaskId, u64)>(self.leases.capacity())
+            + buf_bytes::<VecDeque<u64>>(self.batches.capacity())
+            + buf_bytes::<Vec<u64>>(self.pool.capacity());
+        bytes += self.batches.iter().map(|b| buf_bytes::<u64>(b.capacity())).sum::<usize>();
+        bytes += self.staging.values().map(|v| buf_bytes::<u64>(v.capacity())).sum::<usize>();
+        bytes += self.pool.iter().map(|v| buf_bytes::<u64>(v.capacity())).sum::<usize>();
+        if bytes > 0 {
+            gc::external_free(bytes);
+        }
     }
 }
 
@@ -310,10 +391,10 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
             }
         }
         if !ok && d.capacity > 0 && d.queue.len() < d.capacity {
-            d.queue.push_back(v);
+            push_back_charged(&mut d.queue, v);
             gc::barrier(ch);
             d.bytes += size;
-            d.sizes.push_back(size);
+            push_back_charged(&mut d.sizes, size);
             ok = true;
         }
     }
@@ -336,7 +417,7 @@ pub fn append_fast(ch: u64, v: u64) -> bool {
         && d.queue.len() + d.accepted < d.capacity
         && d.staging.get(&me).is_some_and(|st| st.len() + 1 < d.max_batch);
     if ok {
-        d.staging.get_mut(&me).expect("staging").push(v);
+        push_charged(d.staging.get_mut(&me).expect("staging"), v);
         gc::barrier(ch);
         d.accepted += 1;
     }
@@ -354,12 +435,12 @@ pub fn recv_one_fast(ch: u64) -> Option<u64> {
     let mut v = None;
     if d.batched && d.byte_budget == 0 && d.cap_waiters.is_empty() {
         while d.batches.front().is_some_and(VecDeque::is_empty) {
-            d.batches.pop_front();
+            drop_front_batch(&mut d.batches);
         }
         if let Some(front) = d.batches.front_mut() {
             v = front.pop_front();
             if front.is_empty() {
-                d.batches.pop_front();
+                drop_front_batch(&mut d.batches);
             }
             d.accepted -= 1;
         }
@@ -480,9 +561,9 @@ pub fn send_free(ch: u64, v: u64) -> Free {
         }
     }
     if d.capacity > 0 && d.queue.len() < d.capacity && d.send_waiters.is_empty() {
-        d.queue.push_back(v);
+        push_back_charged(&mut d.queue, v);
         gc::barrier(ch);
-        d.sizes.push_back(0);
+        push_back_charged(&mut d.sizes, 0);
         end_fast(d);
         return Free::Done(0);
     }
@@ -532,9 +613,9 @@ fn admit_sender_fast(d: &mut ChanData) {
             return;
         }
         if task::deliver(p, wait, 0, false, 1) {
-            d.queue.push_back(v);
+            push_back_charged(&mut d.queue, v);
             d.bytes += size;
-            d.sizes.push_back(size);
+            push_back_charged(&mut d.sizes, size);
             return;
         }
     }
@@ -718,10 +799,10 @@ pub fn send(ch: u64, v: u64, wait: bool) -> SendResult {
             }
         }
         if d.queue.len() < d.capacity && fits {
-            d.queue.push_back(v);
+            push_back_charged(&mut d.queue, v);
             gc::barrier(ch);
             d.bytes += size;
-            d.sizes.push_back(size);
+            push_back_charged(&mut d.sizes, size);
             for t in std::mem::take(&mut d.recv_watchers) {
                 task::wake(t, task::Wake::Normal);
             }
@@ -806,9 +887,9 @@ fn admit_sender(d: &mut ChanData) {
                 d.send_waiters.push_front((s, v, size, wait, p));
                 return;
             }
-            d.queue.push_back(v);
+            push_back_charged(&mut d.queue, v);
             d.bytes += size;
-            d.sizes.push_back(size);
+            push_back_charged(&mut d.sizes, size);
             task::wake_with(s, 0, false, 1);
             return;
         }
@@ -870,6 +951,7 @@ pub fn close(ch: u64) {
             d.accepted -= staged.iter().map(Vec::len).sum::<usize>();
             for items in staged {
                 uncharge(ch, &items);
+                release_buf::<u64>(items.capacity());
             }
             data(ch).staged_at.clear();
         } else {
@@ -927,9 +1009,21 @@ pub fn close_fast(ch: u64) -> bool {
 /// Waiting senders get their values back with a closed error.
 pub fn close_receiver(ch: u64) {
     let d = data(ch);
+    // the messages move into uncharged temporaries: release each buffer's
+    // charge as it is emptied (the channel's own buffers keep theirs).
     let queued: Vec<u64> = d.queue.drain(..).collect();
-    let mut batches: Vec<Vec<u64>> = d.batches.drain(..).map(Vec::from).collect();
-    batches.extend(d.staging.drain().map(|(_, v)| v));
+    let mut batches: Vec<Vec<u64>> = d
+        .batches
+        .drain(..)
+        .map(|b| {
+            release_buf::<u64>(b.capacity());
+            Vec::from(b)
+        })
+        .collect();
+    batches.extend(d.staging.drain().map(|(_, v)| {
+        release_buf::<u64>(v.capacity());
+        v
+    }));
     d.accepted -= batches.iter().map(Vec::len).sum::<usize>();
     d.staged_at.clear();
     d.sizes.clear();
@@ -989,9 +1083,15 @@ pub fn publish(ch: u64, producer: TaskId) {
     d.staged_at.remove(&producer);
     let Some(staged) = d.staging.remove(&producer) else { return };
     if staged.is_empty() {
+        release_buf::<u64>(staged.capacity());
         return;
     }
-    d.batches.push_back(VecDeque::from(staged));
+    // the buffer moves into an uncharged temporary (`VecDeque::from`), which
+    // may allocate a fresh one: release the old charge, charge the new.
+    release_buf::<u64>(staged.capacity());
+    let batch = VecDeque::from(staged);
+    charge_buffer::<u64>(batch.capacity());
+    push_back_charged(&mut d.batches, batch);
     d.published_batches += 1;
     wake_one_receiver(d);
     // selections waiting on this channel
@@ -1040,8 +1140,16 @@ pub fn append(ch: u64, v: u64, wait: bool) -> SendResult {
             d.bytes += size;
             let page = d.pool.pop().unwrap_or_default();
             d.staged_at.entry(me).or_insert_with(std::time::Instant::now);
-            let st = d.staging.entry(me).or_insert(page);
-            st.push(v);
+            // a page popped from the pool carries its charge into staging;
+            // one dropped because the entry exists releases its own.
+            let st = match d.staging.entry(me) {
+                std::collections::hash_map::Entry::Occupied(e) => {
+                    release_buf::<u64>(page.capacity());
+                    e.into_mut()
+                }
+                std::collections::hash_map::Entry::Vacant(e) => e.insert(page),
+            };
+            push_charged(st, v);
             gc::barrier(ch);
             d.accepted += 1;
             let full = st.len() >= d.max_batch;
@@ -1085,14 +1193,18 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
             let d = data(ch);
             // another receiver may have taken it while this one allocated
             let Some(items) = d.batches.pop_front() else { continue };
+            // the buffer moves into an uncharged `Vec` (which may allocate a
+            // fresh one): release the old charge, charge the new.
+            release_buf::<u64>(items.capacity());
             let items: Vec<u64> = items.into();
+            charge_buffer::<u64>(items.capacity());
             d.leased += items.len();
             unsafe {
                 let p = obj(b).payload();
                 *(p as *mut *mut Batch) = Box::into_raw(Box::new(Batch { items, released: false }));
                 *(p.add(8) as *mut u64) = ch;
             }
-            data(ch).leases.push((task::current_id(), b));
+            push_charged(&mut data(ch).leases, (task::current_id(), b));
             gc::barrier(ch);
             let _ = note_waiting(ch);
             return Some(b);
@@ -1117,12 +1229,12 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
     loop {
         let d = data(ch);
         while d.batches.front().is_some_and(VecDeque::is_empty) {
-            d.batches.pop_front();
+            drop_front_batch(&mut d.batches);
         }
         if let Some(front) = d.batches.front_mut() {
             let v = front.pop_front().expect("nonempty batch");
             if front.is_empty() {
-                d.batches.pop_front();
+                drop_front_batch(&mut d.batches);
             }
             d.accepted -= 1;
             uncharge(ch, &[v]);
@@ -1239,7 +1351,10 @@ pub fn release(b: u64) {
     d.accepted -= items.len();
     items.clear();
     if d.pool.len() < 4 {
-        d.pool.push(items);
+        // the page keeps its charge; it returns to the pool's account
+        push_charged(&mut d.pool, items);
+    } else {
+        release_buf::<u64>(items.capacity());
     }
     wake_capacity(d);
 }

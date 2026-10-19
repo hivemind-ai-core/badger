@@ -427,6 +427,18 @@ pub fn memory_bytes() -> (usize, usize) {
     (heap().live, EXTERNAL_LIVE.load(Ordering::Relaxed))
 }
 
+/// Resident set size (Linux `/proc/self/statm`: pages × page size), the
+/// collector's resident-memory input. 0 where unavailable.
+pub fn resident_bytes() -> usize {
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let Ok(text) = std::fs::read_to_string("/proc/self/statm") else { return 0 };
+    text.split_whitespace()
+        .nth(1)
+        .and_then(|p| p.parse::<usize>().ok())
+        .map(|pages| pages.saturating_mul(page.max(1) as usize))
+        .unwrap_or(0)
+}
+
 /// Allocate an object that is never collected (literals, static closures).
 pub fn alloc_immortal(desc: &'static TypeDesc, payload: usize) -> u64 {
     unsafe {
@@ -703,6 +715,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     {
         profile.snapshot("objects_before", all_objects().count());
         profile.snapshot("external_before", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("resident_before", resident_bytes());
         profile.snapshot("pool_before", pool_reserved_bytes());
         profile.snapshot("pressure_managed", ALLOCATED.load(Ordering::Relaxed));
         profile.snapshot("pressure_external", EXTERNAL_PRESSURE.load(Ordering::Relaxed));
@@ -1001,6 +1014,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     {
         profile.snapshot("objects_after", all_objects().count());
         profile.snapshot("external_after", EXTERNAL_LIVE.load(Ordering::Relaxed));
+        profile.snapshot("resident_after", resident_bytes());
         profile.snapshot("pool_after", pool_reserved_bytes());
         profile.snapshot("managed_live", h.live);
         profile.phase("finish");
