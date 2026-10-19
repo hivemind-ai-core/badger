@@ -7,10 +7,13 @@ states the revision it measured; newer work can change its numbers.
 
 | Report | What it covers |
 |---|---|
+| [2026-10-19-language-and-compiler-changes.md](2026-10-19-language-and-compiler-changes.md) | Ergonomics backlog for the compiler team: syntax, type system, diagnostics, runtime semantics, incremental build — merge of the ergonomics investigation and the experience report |
+| [2026-10-19-library-and-framework-changes.md](2026-10-19-library-and-framework-changes.md) | Ergonomics backlog for the library team: standard library, extended library, application services framework (amendments, improvements, additions), CLI and docs — same merge, other half |
 | [2026-10-19-mir-optimization-architecture.md](2026-10-19-mir-optimization-architecture.md) | Release MIR optimization pipeline, closure specialization, and the verified superoptimizer mode |
 | [2026-10-19-sequence-fusion-and-presized-builders.md](2026-10-19-sequence-fusion-and-presized-builders.md) | `Seq.collect`/`sum` fusion, pre-sized list builders, and sequence-operation measurements |
 | [2026-10-19-map-builder-node-headroom.md](2026-10-19-map-builder-node-headroom.md) | Bulk map builder node growth: fewer reallocations and copies |
 | [2026-10-19-eager-list-map-and-map-entries.md](2026-10-19-eager-list-map-and-map-entries.md) | Eager `List.filter`/`map` fusion, map entries fusion, and cursor entry loading |
+| [2026-10-19-sequence-collection-audit.md](2026-10-19-sequence-collection-audit.md) | Sequence/collection surface audit against Clojure/Elixir/Rust, the additions made, and the compiler/runtime optimizations still needed |
 | [2026-10-17-go-elixir-report-status.md](2026-10-17-go-elixir-report-status.md) | What became of each recommendation in the Go/Elixir design report |
 | [2026-10-17-performance-optimization-results.md](2026-10-17-performance-optimization-results.md) | Compiler and runtime optimization results (targeted probes and the telemetry application) |
 | [2026-10-17-gc-profiling.md](2026-10-17-gc-profiling.md) | Application and GC profiling; data in [gc-profile-2026-10-17/](gc-profile-2026-10-17/) |
@@ -27,8 +30,6 @@ states the revision it measured; newer work can change its numbers.
 | [2026-10-15-compiler-codegen-optimization-audit.md](2026-10-15-compiler-codegen-optimization-audit.md) | Compiler codegen optimization audit; probes in [compiler-codegen-audit/](compiler-codegen-audit/) |
 | [2026-10-15-memory-optimization-plan.md](2026-10-15-memory-optimization-plan.md) | Memory management optimization plan and findings |
 | [2026-10-15-adversarial.md](2026-10-15-adversarial.md) | Defects found by adversarial testing (cited by `tests/adversarial`) |
-| [experience-report.md](experience-report.md) | Hands-on report from writing `examples/13_rest_service.bdg`: what worked, friction by impact, things that could not be demonstrated |
-| [ergonomics-investigation.md](ergonomics-investigation.md) | Audit of papercuts in the language, stdlib, web framework, tooling, diagnostics, and docs; ranked recommendations; cross-referenced with the experience report |
 
 ## Archive
 
