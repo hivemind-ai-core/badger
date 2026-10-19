@@ -1,4 +1,4 @@
-# Optimisation backlog: Phase 0 (and one bug the work found)
+# Optimisation backlog: Phase 0 and the Phase 1 models
 
 Branch `perf/optimization-backlog-2026-10-19`, based on `main` at `c82d139`.
 The branch carries `OPTIMIZATION_BACKLOG.md` (and the research notes 09-13 it
@@ -175,6 +175,67 @@ Phase 2 QSBR work, which needs the same contract, and with the Phase 1
 TLA+ model of the handshake. §0.1 is recorded in the backlog's "Not
 adopted" table with this reason, and the handshake is instead specified by
 `spec/tla/GcHandshake.tla`.
+
+## Phase 1: the TLA+ models, and three findings
+
+`aec138e` adds the Phase 1 models (`spec/tla/`): the per-channel state
+machine (plain TLA+, with the code's ownership protocol as the atomicity
+rule) and the stop-the-world handshake (PlusCal), with a runner that
+executes every check and compares the outcome with the expected one, and
+two Badger programs that reproduce the findings on the real runtime.
+
+The models are the contract the later phases must keep, and they are
+checked against the current code: the prompt-channel protocol satisfies
+`NoLostWake`, `RegisteredWhileWaiting`, `AtMostOnce` and
+`EveryBlockedRecvWoken` at the model's bounds (3 tasks, 1 channel, prompt
+capacity 0 and 1, batch capacity 2, one and three workers, cancellation and
+spurious wakes), and the GC handshake satisfies every property. Each
+deliberate mutation of either protocol is caught (a fast path that ignores
+the watchers, a selection that does not claim, a worker that checks `STOP`
+before it counts itself, one that unlocks before it counts, one that
+publishes a root after it uncounts, a nested stop).
+
+**Three findings.** The model of the *current* code passes the properties
+the backlog asks for, and still finds three things:
+
+- **F1 -- a value handed to a receiver that is then cancelled is lost.** The
+  receiver is handed the value and becomes ready; before it runs, it is
+  cancelled, so the wake finds it ready and does nothing; when it resumes,
+  `park()` honours the cancellation before the receive takes the delivered
+  value, and the task abandons. The sender got success and nobody has the
+  value, which contradicts "After ownership commits, cancellation does not
+  silently retract a message" (`spec/05-tasks-and-channels.md:141`).
+  Reproduced at `13e7756` with one worker (`spec/tla/repro/
+  cancel_after_handoff.bdg` prints "empty: the sent value is gone") and
+  reproduced again on this branch.
+- **F2 -- a published batch wakes one receiver; the rest of its messages
+  strand.** `publish` wakes one parked receiver per sealed batch, but
+  `recv_one` takes one message, so with two receivers parked and a batch of
+  two published the second receiver stays parked with a message published,
+  until another publish or the close. That contradicts "multiple receivers
+  distribute messages" (`spec/05-tasks-and-channels.md:113-114`).
+  Reproduced at `13e7756` with one and with four workers
+  (`spec/tla/repro/batch_two_receivers.bdg` prints "r1 got 1" and then
+  deadlocks) and reproduced again on this branch.
+- **F3 -- the queue branch of `send` wakes the watchers and forgets them.**
+  With a selection parked on a capacity-1 channel, a locked send queues its
+  value and wakes the selection without handing it the value, so the
+  abstract state goes `Blocked` -> `WithValue` in one step and the
+  selection's registration is dropped. Not a lost wake-up in the current
+  code (the model says so), but the woken selection then races every other
+  receiver for the value.
+
+F1 and F2 are spec violations, not just smells: they are recorded in
+`BACKLOG.md` and are part of the §1.2 refactor's acceptance.
+
+**The model also settles §0.1.** The GC handshake model says the same thing
+the phase 0 analysis said, in the model's own terms: the protocol is
+sequentially consistent and every property holds; what it relies on is
+store-then-load on both sides (`STOP` and the counters, all `SeqCst`),
+counting before unlocking, publishing a root before uncounting, and no
+nested stop. A polling page would have to keep the same invariant, and
+without polls in the generated code it buys nothing: the collector still
+waits for the counters to drain.
 
 ## What did not move
 
