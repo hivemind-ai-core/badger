@@ -1,0 +1,8 @@
+// A `let ... else` whose pattern always matches never runs its `else`.
+// expect-warning: E0346
+fn f(o: Option<Int>) -> Int {
+    let x = o else { return 0 }
+    x.unwrap_or(1)
+}
+
+pub fn main() {}

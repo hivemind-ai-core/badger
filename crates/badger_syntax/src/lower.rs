@@ -1089,6 +1089,30 @@ impl<'a, 'i> Lower<'a, 'i> {
         self.alloc_expr(ExprKind::Block { stmts }, span)
     }
 
+    /// A pattern that always matches (a name, `_`, a tuple or record of
+    /// them) where an `else` is written for the case it does not.
+    fn warn_irrefutable(&mut self, pat: PatId, form: &str, why: &str) {
+        fn always(ast: &Ast, p: PatId) -> bool {
+            match &ast.pats[p].kind {
+                PatKind::Bind(_) | PatKind::Discard => true,
+                PatKind::Tuple(ps) => ps.iter().all(|q| always(ast, *q)),
+                PatKind::Record { fields, .. } => {
+                    fields.iter().all(|(_, q)| q.is_none_or(|q| always(ast, q)))
+                }
+                _ => false,
+            }
+        }
+        if always(&self.ast, pat) {
+            let span = self.ast.pats[pat].span;
+            self.diags.push(
+                Diagnostic::warning(format!("this {form} pattern always matches"))
+                    .with_code("E0346")
+                    .with_label(span, why.to_string())
+                    .with_note("bind it with a plain `let`, or match a variant (`.some(x)`)"),
+            );
+        }
+    }
+
     /// A `let ... else` block ending in `err(...)` returns it: `let .some(x)
     /// = e else { err(AppError.missing) }` is `... else { return err(...) }`.
     fn return_tail_err(&mut self, block: ExprId) {
@@ -1128,6 +1152,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::Stmt::Let { kind, pat, ty, value, els: Some(els), span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
+                self.warn_irrefutable(pat, "`let ... else`", "the `else` block never runs");
                 let ty = ty.map(|t| self.ty(t));
                 let value = self.expr(value);
                 let mut names = vec![];
@@ -1331,6 +1356,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                 // `if let p = e { a } else { b }` is `match e { p => a, _ => b }`
                 cst::Cond::Let(pat, scrutinee) => {
                     let pat = self.pattern(pat);
+                    if els.is_some() {
+                        self.warn_irrefutable(pat, "`if let`", "the `else` branch never runs");
+                    }
                     let scrutinee = self.expr(*scrutinee);
                     let then = self.block(then);
                     let otherwise = match els {

@@ -1,0 +1,6 @@
+// expect-error: E0345
+// A hole as a pipe stage stands for the stage's function: it is reported
+// with that function's type, not as a call with the wrong arguments.
+pub fn main() {
+    let a = [1, 2] |> _
+}

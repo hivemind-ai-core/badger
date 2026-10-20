@@ -2002,8 +2002,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     fn lower_pipe(&mut self, lhs: ast::ExprId, rhs: ast::ExprId, span: Span) -> ExprId {
         let l = self.lower_expr(lhs);
+        // `x |> _`: the hole is the stage's function (a call of `hole`
+        // written as `_` takes no arguments of its own)
+        let hole = matches!(&self.ast.exprs[rhs].kind,
+            ast::ExprKind::Call { callee, args, .. } if args.is_empty()
+                && matches!(self.ast.exprs[*callee].kind, ast::ExprKind::Std("hole")));
         match &self.ast.exprs[rhs].kind {
-            ast::ExprKind::Call { callee, type_args, args } => {
+            ast::ExprKind::Call { callee, type_args, args } if !hole => {
                 let (callee, type_args, args) = (*callee, type_args.clone(), args.clone());
                 self.lower_call(callee, &type_args, &args, span, Some(l))
             }

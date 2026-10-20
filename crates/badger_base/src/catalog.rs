@@ -332,6 +332,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `test_*` function runs only when it takes no parameters (warning): `badger test` skips this one. Remove the parameters, or rename the function if it is a helper.",
     ),
     (
+        "E0346",
+        "irrefutable pattern with else",
+        "A `let ... else` or `if let ... else` pattern always matches (a name, `_`, or a tuple or record of them), so its `else` never runs (warning). Use a plain `let`, or match the case you mean (`let .some(x) = o else { ... }`).",
+    ),
+    (
         "E0193",
         "misplaced status",
         "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one code from 100 to 599 (an error otherwise), and a warning when the enum does not derive `HttpError`. Variants without one answer 500.",
