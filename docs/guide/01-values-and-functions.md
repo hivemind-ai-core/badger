@@ -612,7 +612,10 @@ fn parse_all(lines: List<String>) -> Result<List<Int>, AppError> {
 Unlike a closure, a local function does not capture the enclosing
 function's variables (an unknown name there says so): pass what it needs,
 or use a closure. It is private to its block, and it is reported as
-`parse_all.lift`.
+`parse_all.lift`. A binding of the same name in the block (a later
+`let g`) or nested inside it hides the function from where it is bound,
+as any binding hides an outer one; a local function inside a test is a
+helper, not a test, whatever its name.
 
 ## Pipes
 
