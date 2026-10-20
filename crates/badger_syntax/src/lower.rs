@@ -1024,12 +1024,14 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
         }
         let scoped = !frame.is_empty();
+        let lifted: Vec<Symbol> = frame.values().copied().collect();
         if scoped {
             self.local_fns.push(frame);
         }
         let block = self.block_items(b, span);
         if scoped {
             self.local_fns.pop();
+            self.ast.local_fn_blocks.insert(block, lifted);
         }
         block
     }
@@ -1272,10 +1274,15 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
             cst::Expr::Name(n) => {
                 let mut n = self.name(n);
+                let written = n.sym;
                 if let Some(lifted) = self.local_fn(n.sym) {
                     n.sym = lifted;
                 }
-                self.alloc_expr(ExprKind::Name(n), span)
+                let id = self.alloc_expr(ExprKind::Name(n), span);
+                if n.sym != written {
+                    self.ast.local_fn_refs.insert(id, written);
+                }
+                id
             }
             cst::Expr::TypeName(n) => {
                 let n = self.name(n);

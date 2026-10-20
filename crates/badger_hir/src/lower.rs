@@ -593,6 +593,9 @@ struct BodyCx<'c, 'a> {
     module: ModuleId,
     /// Lexical value scopes (innermost last).
     locals: Vec<FxHashMap<Symbol, LocalId>>,
+    /// Blocks declaring local functions being lowered: the depth of
+    /// `locals` there and the lifted names.
+    local_fn_frames: Vec<(usize, Vec<Symbol>)>,
     /// Generic/type parameter scopes.
     generics: Vec<FxHashMap<Symbol, GenericId>>,
     owners: Vec<OwnerFrame>,
@@ -618,6 +621,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast,
             module,
             locals: vec![],
+            local_fn_frames: vec![],
             generics: vec![],
             owners: vec![],
             loops: vec![],
@@ -1511,7 +1515,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     })
                     .collect(),
             ),
-            ast::ExprKind::Name(n) => return self.lower_name(*n, span),
+            ast::ExprKind::Name(n) => {
+                let n = self.unhidden(e, *n);
+                return self.lower_name(n, span);
+            }
             ast::ExprKind::TypeName(n) => {
                 let s = self.sym(n.sym);
                 self.err(
@@ -1674,7 +1681,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             }
             ast::ExprKind::Block { stmts } => {
                 self.locals.push(FxHashMap::default());
+                let frame = self.ast.local_fn_blocks.get(&e).cloned();
+                if let Some(f) = &frame {
+                    self.local_fn_frames.push((self.locals.len(), f.clone()));
+                }
                 let (stmts, tail) = self.lower_stmts(stmts);
+                if frame.is_some() {
+                    self.local_fn_frames.pop();
+                }
                 self.locals.pop();
                 ExprKind::Block { stmts, tail }
             }
@@ -1773,6 +1787,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::Lit::Bool(b) => Lit::Bool(*b),
             ast::Lit::Unit => Lit::Unit,
         }
+    }
+
+    /// A name the syntax rewrote to a local function, as written when a
+    /// binding of it is as close as the function's block or closer (`fn g`
+    /// then `let g = 5`: `g` is the `let`).
+    fn unhidden(&self, e: ast::ExprId, n: ast::Name) -> ast::Name {
+        let Some(&written) = self.ast.local_fn_refs.get(&e) else { return n };
+        let Some(local) = self.locals.iter().rposition(|s| s.contains_key(&written)) else { return n };
+        let block = self.local_fn_frames.iter().rev().find(|(_, f)| f.contains(&n.sym)).map(|(d, _)| *d);
+        // inside a lifted function's own body there is no frame: its
+        // parameters and locals hide the other local functions
+        if block.is_none_or(|d| local + 1 >= d) { ast::Name { sym: written, span: n.span } } else { n }
     }
 
     fn lower_name(&mut self, n: ast::Name, span: Span) -> ExprId {
@@ -1977,8 +2003,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             self.lower_expr(callee)
         } else {
             match &self.ast.exprs[callee].kind {
-                ast::ExprKind::Name(n) if self.lookup_local(n.sym).is_none() => {
-                    let n = *n;
+                ast::ExprKind::Name(n) if self.lookup_local(self.unhidden(callee, *n).sym).is_none() => {
+                    let n = self.unhidden(callee, *n);
                     let targs = type_args.iter().map(|t| self.lower_ty(*t)).collect();
                     let kind = match self.lookup_module_name(n.sym) {
                         Some(Res::Def(d)) => self.def_value(d, n, targs),

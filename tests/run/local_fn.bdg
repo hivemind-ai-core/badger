@@ -1,5 +1,7 @@
 // Local functions: generic, recursive, mutually recursive, visible in the
-// whole block, and declared inside a closure's body too.
+// whole block, and declared inside a closure's body too. A `let` (or a
+// parameter) of the same name hides one from where it is bound, as any
+// binding hides an outer one.
 import std.io
 
 @derive(Error, From)
@@ -25,5 +27,29 @@ pub fn main() -> Result<Unit, AppError> {
         twice(x)
     }
     io.println($"{f(21)} {lift<Int>(err("bad")).is_err()}")?
+    io.println($"{hidden()} {nested()} {by_param(4)}")?
     ok(())
+}
+
+fn hidden() -> Int {
+    fn g(n: Int) -> Int => n
+    let before = g(1)
+    let g = 5
+    before + g
+}
+
+fn nested() -> Int {
+    fn g(n: Int) -> Int => n * 10
+    let r = {
+        let g = 2
+        g + 1
+    }
+    r + g(1)
+}
+
+fn by_param(g: Int) -> Int {
+    // the local function, declared closer than the parameter, wins
+    fn g(n: Int) -> Int => n + 100
+    let h = fn(g: Int) => g * 2
+    g(1) + h(g(0))
 }
