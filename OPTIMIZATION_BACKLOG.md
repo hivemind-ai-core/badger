@@ -718,6 +718,25 @@ lifetime information.
 
 ### 4.3 Alive2-style translation validation across the MIR pipeline
 
+**Status:** landed 2026-10-20, with the gate changed from what the item
+specifies. The item's gate — "the post-MIR-optimisation program must be
+bit-equivalent to the pre-MIR-optimisation program" — **is not a gate**:
+the release passes restructure the program by design, so a bit-for-bit
+comparison of the optimised and unoptimised programs rejects every
+program the optimiser touches, correct or not (measured: `simplify`
+alone reports 2324 changes on `tests/run/acceptance_static.bdg`; the
+optimised and unoptimised dumps diverge at the first renumbering and
+never re-converge). `BADGER_MIR_VALIDATE=1` instead runs two checks:
+a **structural determinism** check (`badger_mir::validate::compare`,
+bit-for-bit over the whole program, optimiser run twice, first
+difference reported) and a **behavioural parity** check (the program
+run optimised and with the MIR pipeline off, stdout and exit compared,
+first differing line reported). The behavioural check is the one that
+catches a broken rewrite; a debug-only `BADGER_MIR_BREAK=superopt` hook
+makes the multiplication rewrite shift by one bit too many, and the
+check fails the compilation on it. See
+[the report](reports/2026-10-20-mir-translation-validation.md).
+
 - **Goal**: an end-to-end translation validator: for every
   compiled `badger run` of a test program, the validator proves
   the post-MIR-optimisation program is equivalent to the

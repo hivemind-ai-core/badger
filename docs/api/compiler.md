@@ -10,6 +10,14 @@ columns in characters.
 
 ## Types
 
+### `ApiItem`
+
+```badger
+struct ApiItem { pub module: String, pub name: String, pub kind: String, pub signature: String, pub declaration: String, pub doc: String } derive(Codec, Display)
+```
+
+A public item of a module's interface.
+
 ### `Check`
 
 ```badger
@@ -102,6 +110,12 @@ struct Root { pub entry: String, pub module: Option<String>, pub function: Optio
 
 An entry point a check covered: `main`, an `[entries]` name, or
 `task:NAME`, with its module and function when they resolved.
+
+### `Symbol`
+
+```badger
+struct Symbol { pub name: String, pub kind: String, pub detail: String, pub line: Int, pub col: Int, pub container: Option<String> } derive(Codec, Display)
+```
 
 ### `TaskSite`
 

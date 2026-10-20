@@ -15,7 +15,7 @@ index_vec::define_index_type! {
     pub struct FuncId = u32;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Program {
     pub funcs: IndexVec<FuncId, Func>,
     /// Instance of `main`.
@@ -59,7 +59,7 @@ pub struct Program {
 }
 
 /// The runtime objects a lowered program refers to by address.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Origins {
     /// Every descriptor the compiler created.
     pub descs: Vec<&'static badger_runtime::TypeDesc>,
@@ -84,7 +84,7 @@ pub enum FuncKind {
     DisplayHook,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Func {
     pub name: String,
     pub kind: FuncKind,
@@ -103,19 +103,19 @@ pub struct Func {
     pub is_global: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LocalDecl {
     pub repr: Repr,
     pub name: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub term: Option<Term>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Assign(Local, Rvalue),
     /// Store into a managed object's payload at `offset`.

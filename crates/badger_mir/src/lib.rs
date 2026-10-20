@@ -19,6 +19,7 @@ pub mod roots;
 pub mod serial;
 pub mod split;
 pub mod sra;
+pub mod validate;
 pub mod verify;
 
 pub use lower::{lower_program, lower_program_optimized};
