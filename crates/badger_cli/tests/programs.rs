@@ -1701,6 +1701,10 @@ fn diagnostics_early_phases() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("did you mean `result`?") && text.contains("did you mean `total`?"), "{text}");
     assert!(text.contains("`trim` is in std.text"), "{text}");
+    // a local hiding a module: the method call's error explains it
+    let out = lang().args(["check", "--json", "tests/diagnostics/local_hides_module.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("E0309") && text.contains("hides the imported module `list`"), "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual

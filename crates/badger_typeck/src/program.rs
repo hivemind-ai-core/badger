@@ -1013,6 +1013,17 @@ pub fn check_program_with<'a>(
         }
     }
     mark(&mut clock, "module-values");
+    // an error at `list.map(xs, f)` where `list` is a local hiding the module
+    for d in &mut diags {
+        if let Some(p) = d.primary()
+            && let Some((_, note)) = hir
+                .shadowed_module_calls
+                .iter()
+                .find(|(s, _)| s.file == p.file && s.start <= p.start && p.end <= s.end)
+        {
+            d.notes.push(note.clone());
+        }
+    }
     (Checked { g, types }, diags, cached)
 }
 

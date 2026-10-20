@@ -1907,6 +1907,30 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         })
     }
 
+    /// `list.map(xs, f)` where a local named `list` hides the imported
+    /// module `list` (which has a `map`): it calls the local's method, not
+    /// the module function. An error at such a call says so.
+    fn check_shadowed_module_call(&mut self, base: ast::ExprId, method: ast::Name, call: Span) {
+        let ast::ExprKind::Name(n) = &self.ast.exprs[base].kind else { return };
+        let n = *n;
+        if self.cx.hir.modules[self.module].is_std || !self.locals.iter().any(|f| f.contains_key(&n.sym)) {
+            return;
+        }
+        let Some((Res::Module(m), _)) =
+            self.cx.scopes[self.module.into_raw().into_u32() as usize].names.get(&n.sym).copied()
+        else {
+            return;
+        };
+        if !self.cx.hir.modules[m].items.contains_key(&method.sym) {
+            return;
+        }
+        let (v, f) = (self.sym(n.sym), self.sym(method.sym));
+        self.cx.hir.shadowed_module_calls.push((
+            call,
+            format!("`{v}` here is a local value (it hides the imported module `{v}`), so `{v}.{f}(...)` calls its method; rename the local to call the module's `{f}`"),
+        ));
+    }
+
     fn lower_call_with(
         &mut self,
         callee: ast::ExprId,
@@ -1918,6 +1942,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         if let ast::ExprKind::Field { base, name } = &self.ast.exprs[callee].kind {
             let (base, name) = (*base, *name);
             if self.namespace_of(base).is_none() {
+                self.check_shadowed_module_call(base, name, span);
                 let recv = self.lower_expr(base);
                 let targs = type_args.iter().map(|t| self.lower_ty(*t)).collect();
                 let args = args(self);

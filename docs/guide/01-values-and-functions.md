@@ -646,6 +646,12 @@ SHOUT
   `f(a + 1)`.
 - There are no placeholders and no last-argument pipe.
 - A newline before `|>` continues the expression.
+- A standard module function and the method of the same name are the same
+  operation: `list.map(xs, f)`, `xs.map(f)`, and `xs |> list.map(f)` are
+  interchangeable. A local named like an imported module (`list`, `text`)
+  hides the module while it is in scope, so there `list.map(...)` is a
+  method call on the local; an error at such a call says so. Name locals
+  `items`, `label`, and so on.
 
 ### `?` in a pipe
 

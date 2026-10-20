@@ -1,0 +1,9 @@
+// A local named like an imported module hides it: `list.map(list, f)` is a
+// method call on the local value, and the error says so (experience F3).
+import std.list
+
+fn double_all(list: List<Int>) -> List<Int> { list.map(list, fn(x) => x * 2) }
+
+pub fn main() {
+    let xs = double_all([1, 2])
+}

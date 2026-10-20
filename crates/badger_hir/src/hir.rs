@@ -43,6 +43,9 @@ pub struct Hir {
     /// Warning-suppression regions from `@allow(<code>)`: a warning with that
     /// code whose primary span lies inside a region is dropped.
     pub allows: Vec<(String, Span)>,
+    /// Method calls `x.f(...)` on a local `x` that hides an imported module
+    /// with a function `f`: an error inside one says which `x` it means.
+    pub shadowed_module_calls: Vec<(Span, String)>,
 }
 
 impl Hir {
