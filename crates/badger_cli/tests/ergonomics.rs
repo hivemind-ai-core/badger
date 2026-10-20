@@ -46,6 +46,43 @@ fn rename_changes_the_definition_and_its_uses() {
     assert_eq!(String::from_utf8_lossy(&run.stdout).trim(), "2");
 }
 
+/// A rename that would change what a name refers to is refused, and the
+/// file is left alone: a local captured by a later one of the new name,
+/// a use of an outer one captured by the renamed one, and a function
+/// clashing with another. A record shorthand, in an expression or a
+/// pattern, keeps its field label.
+#[test]
+fn rename_refuses_a_clash() {
+    let dir = scratch("rename-clash");
+    let file = dir.join("main.bdg");
+    let source = "fn other() -> Int { 3 }\n\nfn helper(a: Int) -> Int {\n    let b = 2\n    let total = a + b\n    total\n}\n\nfn outer(n: Int) -> Int {\n    let m = 1\n    let f = fn(k: Int) -> Int { k + m }\n    f(n)\n}\n\nfn shape(x: Int) -> Int {\n    let p = { x, y: 1 }\n    let { y, .. } = p\n    p.x + y\n}\n\npub fn main() { let _ = helper(1) + outer(2) + other() + shape(3) }\n";
+    std::fs::write(&file, source).expect("the program");
+    let rename = |line: &str, col: &str, name: &str| {
+        lang()
+            .args(["rename", file.to_str().unwrap(), "--line", line, "--col", col, "--name", name])
+            .output()
+            .expect("badger rename")
+    };
+    for (line, col, name) in [("3", "11", "b"), ("11", "16", "m"), ("3", "4", "other")] {
+        let out = rename(line, col, name);
+        assert!(!out.status.success(), "renaming at {line}:{col} to {name} was allowed");
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("would"), "{err}");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), source);
+    }
+    let out = rename("3", "11", "first");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = rename("15", "10", "width");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = rename("17", "11", "height");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("let total = first + b") && text.contains("{ x: width, y: 1 }"), "{text}");
+    assert!(text.contains("let { y: height, .. } = p") && text.contains("p.x + height"), "{text}");
+    let run = lang().args(["run", file.to_str().unwrap()]).output().expect("badger run");
+    assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stderr));
+}
+
 /// A file's definitions can be loaded into a REPL session.
 #[test]
 fn repl_loads_a_file() {
@@ -92,15 +129,8 @@ fn bench_reports_measurements() {
     assert!(text.contains("loop "), "{text}");
     // the baseline is JSON, and holds the measurements
     let json: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&baseline).expect("the baseline"))
-            .expect("json");
-    let program = json
-        .as_object()
-        .expect("an object")
-        .keys()
-        .next()
-        .expect("the program")
-        .clone();
+        serde_json::from_str(&std::fs::read_to_string(&baseline).expect("the baseline")).expect("json");
+    let program = json.as_object().expect("an object").keys().next().expect("the program").clone();
     assert!(json[&program]["sum"]["value"].as_f64().unwrap() > 0.0);
     // a comparison against the baseline reports the change
     let out = lang()

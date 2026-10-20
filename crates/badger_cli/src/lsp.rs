@@ -702,6 +702,8 @@ impl Server {
         if !locs.iter().any(|(l, _)| l.path == path && l.start <= off && off <= l.end) {
             return Err("nothing to rename here".into());
         }
+        let file = doc_path(params);
+        self.check_rename(&file, &locs, &old, new)?;
         let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
         for (l, shorthand) in &locs {
             let mut e = self.loc_json(l);
@@ -711,6 +713,137 @@ impl Server {
             changes.entry(uri).or_default().push(e);
         }
         Ok(json!({ "changes": changes }))
+    }
+
+    /// Refuse a rename that changes what the program means: the renamed
+    /// text is analysed again, and every reference must resolve as before
+    /// (no use captured by, or captured from, another `new`), with no new
+    /// errors (a second definition of `new`).
+    fn check_rename(
+        &self,
+        file: &Path,
+        locs: &[(analysis::Loc, bool)],
+        old: &str,
+        new: &str,
+    ) -> Result<(), String> {
+        let Some(before) = self.analysis_for(file) else { return Ok(()) };
+        let prog = self.owner.get(file).cloned().unwrap_or_else(|| self.program_path(file));
+        // the edits of each file, sorted: (old start, old end, new length)
+        let mut edits: HashMap<String, Vec<(usize, usize, usize)>> = HashMap::new();
+        for (l, shorthand) in locs {
+            let len = if *shorthand { old.len() + 2 + new.len() } else { new.len() };
+            edits
+                .entry(canonical(Path::new(&l.path)).display().to_string())
+                .or_default()
+                .push((l.start, l.end, len));
+        }
+        let mut overlays = self.docs.clone();
+        for (path, es) in &mut edits {
+            es.sort();
+            let Some(f) =
+                before.files.iter().find(|f| canonical(Path::new(&f.path)).display().to_string() == *path)
+            else {
+                continue;
+            };
+            let mut text = f.text.clone();
+            let mut mine: Vec<&(analysis::Loc, bool)> = locs
+                .iter()
+                .filter(|(l, _)| canonical(Path::new(&l.path)).display().to_string() == *path)
+                .collect();
+            mine.sort_by_key(|(l, _)| std::cmp::Reverse(l.start));
+            for (l, shorthand) in mine {
+                let t = if *shorthand { format!("{old}: {new}") } else { new.to_string() };
+                text.replace_range(l.start..l.end, &t);
+            }
+            overlays.insert(PathBuf::from(path), text);
+        }
+        let after = if prog.is_dir() || prog == file {
+            analysis::analyze(&prog, overlays)
+        } else {
+            analyze_owning(&prog, file, &overlays).1
+        };
+        // a position in either text, as one in the text before: inside an
+        // edit it is that edit (its spelling changed), elsewhere shifted back
+        #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+        enum Pos {
+            Plain(String, usize),
+            Edit(String, usize),
+        }
+        let canon = |path: &str, off: usize, renamed: bool| -> Pos {
+            let key = canonical(Path::new(path)).display().to_string();
+            let mut shift: isize = 0;
+            for (i, (s, e, n)) in edits.get(&key).map(|v| v.as_slice()).unwrap_or(&[]).iter().enumerate() {
+                let (s2, e2) = if renamed {
+                    ((*s as isize + shift) as usize, (*s as isize + shift) as usize + n)
+                } else {
+                    (*s, *e)
+                };
+                if off >= s2 && off < e2.max(s2 + 1) {
+                    return Pos::Edit(key, i);
+                }
+                if off < s2 {
+                    break;
+                }
+                shift += *n as isize - (*e - *s) as isize;
+            }
+            let back = if renamed { (off as isize - shift) as usize } else { off };
+            Pos::Plain(key, back)
+        };
+        let resolutions = |a: &Analysis, renamed: bool| -> HashMap<Pos, HashSet<Pos>> {
+            let mut m: HashMap<Pos, HashSet<Pos>> = HashMap::new();
+            for f in &a.files {
+                for r in &f.refs {
+                    let Some(t) = &r.target else { continue };
+                    if t.start == r.start && t.path == f.path {
+                        continue;
+                    }
+                    let to = if t.path.starts_with('<') {
+                        Pos::Plain(t.path.clone(), t.start)
+                    } else {
+                        canon(&t.path, t.start, renamed)
+                    };
+                    m.entry(canon(&f.path, r.start, renamed)).or_default().insert(to);
+                }
+            }
+            m
+        };
+        let errors = |a: &Analysis| {
+            a.diagnostics.iter().filter(|d| d.severity == badger_base::Severity::Error).count()
+        };
+        if errors(&after) > errors(before) {
+            let d = after.diagnostics.iter().find(|d| d.severity == badger_base::Severity::Error);
+            let why = d.map(|d| format!(": {}", d.message)).unwrap_or_default();
+            return Err(format!("renaming `{old}` to `{new}` would not check{why}"));
+        }
+        let (was, now) = (resolutions(before, false), resolutions(&after, true));
+        let line = |p: &Pos| -> String {
+            let (Pos::Plain(path, off) | Pos::Edit(path, off)) = p;
+            let off = match p {
+                Pos::Edit(path, i) => edits[path][*i].0,
+                _ => *off,
+            };
+            let text = before
+                .files
+                .iter()
+                .find(|f| canonical(Path::new(&f.path)).display().to_string() == *path)
+                .map(|f| f.text.as_str())
+                .unwrap_or("");
+            let n = text.get(..off.min(text.len())).map(|t| t.matches('\n').count() + 1).unwrap_or(0);
+            format!("{}:{n}", Path::new(path).file_name().and_then(|f| f.to_str()).unwrap_or(path))
+        };
+        for (at, targets) in &was {
+            let moved = match now.get(at) {
+                Some(t) => !targets.is_subset(t),
+                None => true,
+            };
+            if moved {
+                return Err(format!(
+                    "renaming `{old}` to `{new}` would change what the name at {} refers to (another `{new}` is in scope)",
+                    line(at)
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn prepare_rename(&mut self, params: &Value) -> Value {
