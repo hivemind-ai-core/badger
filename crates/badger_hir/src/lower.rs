@@ -100,6 +100,8 @@ impl Place {
             Place::Item("fn") => "a function",
             Place::Item("struct") => "a struct",
             Place::Item("enum") => "an enum",
+            Place::Item("type") => "a type",
+            Place::Item("let") => "a module-level value",
             Place::Item(_) => "this declaration",
             Place::Method => "a method",
             Place::Field => "a struct field",
@@ -110,12 +112,24 @@ impl Place {
     }
 }
 
-/// Whether a module declares attribute `name` (`lib.name`): `None` while
-/// it cannot be known. Modules cannot declare attributes yet, so a library's
-/// attribute is never reported as unknown; with declarations, an
-/// undeclared one is (a warning outside the standard library).
-fn library_attribute_declared(_module: ModuleId, _name: &str) -> Option<bool> {
-    None
+/// How an attribute field's value is written.
+#[derive(Clone, Copy)]
+enum AttrValue {
+    Bool,
+    Int,
+    Str,
+    Symbol,
+    /// A variant of this payload-free enum, by name.
+    Variant(DefId),
+}
+
+/// A use of a library's attribute, checked against its declaration once
+/// every module is lowered (the declaring module may come later).
+struct AttrUse {
+    lib: ModuleId,
+    attr: ast::Attribute,
+    place: Place,
+    is_std: bool,
 }
 
 /// Where each of the compiler's attributes may be written (`allow`
@@ -213,6 +227,7 @@ pub fn lower_program(
         const_checks: vec![],
         failed_imports: FxHashSet::default(),
         provider_inits: vec![],
+        attr_uses: vec![],
     };
     cx.collect(modules);
     if let Some(e) = entry {
@@ -227,6 +242,8 @@ pub fn lower_program(
     cx.resolve_late_ctors();
     cx.check_consts();
     cx.check_provider_scopes();
+    cx.check_attribute_declarations();
+    cx.check_attribute_uses();
     cx.report_unused(modules);
     cx.hir
 }
@@ -247,9 +264,226 @@ struct Cx<'a> {
     /// Each provider's `init` (a closure, or the function generated for
     /// it), checked once every body is lowered.
     provider_inits: Vec<ExprId>,
+    /// Uses of libraries' attributes, checked once every module is lowered.
+    attr_uses: Vec<AttrUse>,
 }
 
 impl Cx<'_> {
+    /// A declared attribute's fields hold what an attribute argument can
+    /// write: `Bool`, an integer type, `String`, `Symbol`, an enum whose
+    /// variants carry nothing, or an `Option` of one (E0150 otherwise).
+    fn check_attribute_declarations(&mut self) {
+        let mut bad = vec![];
+        for (_, def) in self.hir.defs.iter() {
+            let DefKind::Attribute(a) = &def.kind else { continue };
+            for f in &a.fields {
+                let inner = match self.option_arg(&f.ty) {
+                    Some(t) => t,
+                    None => &f.ty,
+                };
+                if self.attr_value_kind(inner).is_none() {
+                    bad.push((f.span, self.sym(f.name).to_string()));
+                }
+            }
+        }
+        for (span, name) in bad {
+            self.err(
+                "E0150",
+                span,
+                format!("attribute field `{name}` cannot be written in an attribute"),
+                "a field is `Bool`, an integer type, `String`, `Symbol`, an enum whose variants carry nothing, or an `Option` of one",
+            );
+        }
+    }
+
+    /// `Option<T>`'s `T`.
+    fn option_arg<'t>(&self, t: &'t HTy) -> Option<&'t HTy> {
+        match &t.kind {
+            HTyKind::Named { def, args } if self.hir.try_lang("Option") == Some(*def) && args.len() == 1 => {
+                Some(&args[0])
+            }
+            _ => None,
+        }
+    }
+
+    /// What an argument of a field of this type is written as.
+    fn attr_value_kind(&self, t: &HTy) -> Option<AttrValue> {
+        let HTyKind::Named { def, args } = &t.kind else { return None };
+        if !args.is_empty() {
+            return None;
+        }
+        let lang = |n: &str| self.hir.try_lang(n) == Some(*def);
+        if lang("Bool") {
+            return Some(AttrValue::Bool);
+        }
+        if ["Int", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64"].iter().any(|n| lang(n)) {
+            return Some(AttrValue::Int);
+        }
+        if lang("String") {
+            return Some(AttrValue::Str);
+        }
+        if lang("Symbol") {
+            return Some(AttrValue::Symbol);
+        }
+        match &self.hir.defs[*def].kind {
+            DefKind::Enum(e) if e.generics.is_empty() && e.variants.iter().all(|v| v.fields.is_empty()) => {
+                Some(AttrValue::Variant(*def))
+            }
+            _ => None,
+        }
+    }
+
+    /// Each use of a library's attribute against its declaration: the module
+    /// declares it (a warning in user code otherwise, an error in standard-
+    /// library sources), it is visible, it lists the position, and its
+    /// arguments give each field without an `Option` once, of its type
+    /// (E0151 otherwise).
+    fn check_attribute_uses(&mut self) {
+        for u in std::mem::take(&mut self.attr_uses) {
+            let full = self.sym(u.attr.name).to_string();
+            let own = full.rsplit('.').next().unwrap_or("").to_string();
+            let own_sym = self.interner.intern(&own);
+            let found = self.hir.modules[u.lib].items.get(&own_sym).copied();
+            let Some(def) = found.filter(|d| matches!(self.hir.defs[*d].kind, DefKind::Attribute(_))) else {
+                let msg = format!("unknown attribute `@{full}`: its module declares no attribute `{own}`");
+                let d = if u.is_std { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
+                self.diags.push(
+                    d.with_code("E0191")
+                        .with_label(u.attr.span, "not declared by its module")
+                        .with_note("check the library's documentation for its attributes"),
+                );
+                continue;
+            };
+            let use_err = |this: &mut Self, at: Span, msg: String, label: &str| {
+                this.diags.push(Diagnostic::error(msg).with_code("E0151").with_label(at, label.to_string()));
+            };
+            if !self.hir.defs[def].is_pub {
+                use_err(
+                    self,
+                    u.attr.span,
+                    format!("attribute `@{full}` is private to its module"),
+                    "not `pub`",
+                );
+                continue;
+            }
+            let DefKind::Attribute(decl) = &self.hir.defs[def].kind else { continue };
+            let decl = decl.clone();
+            // the position
+            let fits = decl.positions.iter().any(|(p, _)| match (p, u.place) {
+                (AttributePosition::Type, Place::Item("struct" | "enum" | "type")) => true,
+                (AttributePosition::Fn(_), Place::Item("fn")) => true,
+                (AttributePosition::Field, Place::Field) => true,
+                (AttributePosition::Variant, Place::Variant) => true,
+                (AttributePosition::Value, Place::Item("let")) => true,
+                _ => false,
+            });
+            if !fits {
+                let listed: Vec<&str> = decl
+                    .positions
+                    .iter()
+                    .map(|(p, _)| match p {
+                        AttributePosition::Type => "a type",
+                        AttributePosition::Fn(_) => "a function",
+                        AttributePosition::Field => "a struct field",
+                        AttributePosition::Variant => "an enum variant",
+                        AttributePosition::Value => "a module-level value",
+                    })
+                    .collect();
+                use_err(
+                    self,
+                    u.attr.span,
+                    format!("`@{full}` does not apply to {}", u.place.describe()),
+                    &format!("it is declared for {}", listed.join(", ")),
+                );
+                continue;
+            }
+            // the arguments: `key = value`, or one positional value for an
+            // attribute with exactly one field without an `Option`
+            let required: Vec<usize> =
+                (0..decl.fields.len()).filter(|i| self.option_arg(&decl.fields[*i].ty).is_none()).collect();
+            let mut given: Vec<(usize, &ast::AttrArg, Span)> = vec![];
+            let mut failed = false;
+            for arg in &u.attr.args {
+                match arg {
+                    ast::AttrArg::KeyValue(k, v) => {
+                        let key = self.sym(*k).to_string();
+                        match decl.fields.iter().position(|f| f.name == *k) {
+                            None => {
+                                use_err(
+                                    self,
+                                    u.attr.span,
+                                    format!("`@{full}` has no field `{key}`"),
+                                    "unknown field",
+                                );
+                                failed = true;
+                            }
+                            Some(i) if given.iter().any(|(j, _, _)| *j == i) => {
+                                use_err(
+                                    self,
+                                    u.attr.span,
+                                    format!("`{key}` is given twice"),
+                                    "a second value",
+                                );
+                                failed = true;
+                            }
+                            Some(i) => given.push((i, v, u.attr.span)),
+                        }
+                    }
+                    v if u.attr.args.len() == 1 && required.len() == 1 => {
+                        given.push((required[0], v, u.attr.span))
+                    }
+                    _ => {
+                        use_err(
+                            self,
+                            u.attr.span,
+                            format!("`@{full}` takes its fields by name (`field = value`)"),
+                            "a positional value",
+                        );
+                        failed = true;
+                    }
+                }
+            }
+            if failed {
+                continue;
+            }
+            for i in &required {
+                if !given.iter().any(|(j, _, _)| j == i) {
+                    let n = self.sym(decl.fields[*i].name).to_string();
+                    use_err(self, u.attr.span, format!("`@{full}` needs `{n}`"), "missing a field");
+                }
+            }
+            for (i, v, at) in given {
+                let f = &decl.fields[i];
+                let ty = self.option_arg(&f.ty).unwrap_or(&f.ty).clone();
+                let Some(kind) = self.attr_value_kind(&ty) else { continue };
+                let ok = match (kind, v) {
+                    (AttrValue::Bool, ast::AttrArg::Name(n)) => matches!(self.sym(*n), "true" | "false"),
+                    (AttrValue::Int, ast::AttrArg::Int(_)) => true,
+                    (AttrValue::Str, ast::AttrArg::Str(_)) => true,
+                    (AttrValue::Symbol, ast::AttrArg::Symbol(_)) => true,
+                    (AttrValue::Variant(e), ast::AttrArg::Name(n)) => match &self.hir.defs[e].kind {
+                        DefKind::Enum(en) => en.variants.iter().any(|vd| vd.name == *n),
+                        _ => false,
+                    },
+                    _ => false,
+                };
+                if !ok {
+                    let n = self.sym(f.name).to_string();
+                    let want = match kind {
+                        AttrValue::Bool => "`true` or `false`".to_string(),
+                        AttrValue::Int => "an integer".to_string(),
+                        AttrValue::Str => "a string".to_string(),
+                        AttrValue::Symbol => "a symbol (`#name`)".to_string(),
+                        AttrValue::Variant(e) => {
+                            format!("a variant of `{}`", self.sym(self.hir.defs[e].name))
+                        }
+                    };
+                    use_err(self, at, format!("`{n}` of `@{full}` is {want}"), "a value of another kind");
+                }
+            }
+        }
+    }
+
     /// Warnings for what a program's own modules never use: imports
     /// (E0195), private top-level items (E0196), and `let` bindings never
     /// read (E0197). Standard-library and dependency modules are not
@@ -585,6 +819,7 @@ impl Cx<'_> {
                     ast::ItemKind::Import(_) => None,
                     ast::ItemKind::TypeAlias { name, .. } => Some((name.sym, name.span)),
                     ast::ItemKind::Struct(s) => Some((s.name.sym, s.name.span)),
+                    ast::ItemKind::Attribute(a) => Some((a.name.sym, a.name.span)),
                     ast::ItemKind::Enum(e) => Some((e.name.sym, e.name.span)),
                     ast::ItemKind::Protocol(p) => Some((p.name.sym, p.name.span)),
                     ast::ItemKind::Fn(f) => Some((f.name.sym, f.name.span)),
@@ -1041,19 +1276,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         continue;
                     }
                 };
-                // one the module does not declare: a warning in user code (a
-                // library may be newer or older than its user), an error in
-                // standard-library sources
-                if library_attribute_declared(module, &name) == Some(false) {
-                    report(
-                        self,
-                        is_std,
-                        format!("unknown attribute `@{name}`"),
-                        attr.span,
-                        "not declared by its module",
-                        "check the library's documentation for its attributes",
-                    );
-                }
+                // checked against the module's declaration once every module
+                // is lowered
+                self.cx.attr_uses.push(AttrUse { lib: module, attr: attr.clone(), place, is_std });
                 continue;
             }
             // the compiler's own names: a closed set, so an unknown one is
@@ -1118,6 +1343,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::ItemKind::Fn(_) => "fn",
             ast::ItemKind::Struct(_) => "struct",
             ast::ItemKind::Enum(_) => "enum",
+            ast::ItemKind::TypeAlias { .. } | ast::ItemKind::ExternType { .. } => "type",
+            ast::ItemKind::Global { .. } => "let",
             _ => "other",
         };
         self.check_attributes(&item.attributes, Place::Item(kind), item.span);
@@ -1268,6 +1495,46 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.record_attributes(def, item);
         match &item.kind {
             ast::ItemKind::Import(_) => unreachable!(),
+            ast::ItemKind::Attribute(a) => {
+                let n = self.cx.interner.resolve(a.name.sym).to_string();
+                if KNOWN_ATTRIBUTES.contains(&n.as_str()) {
+                    self.err(
+                        "E0150",
+                        a.name.span,
+                        format!("`{n}` is one of the compiler's attributes"),
+                        "choose another name",
+                    );
+                }
+                let mut positions: Vec<(AttributePosition, Span)> = vec![];
+                for (p, span) in &a.positions {
+                    let p = match p {
+                        ast::AttrPosition::Type => AttributePosition::Type,
+                        ast::AttrPosition::Fn(t) => AttributePosition::Fn(self.lower_ty(*t)),
+                        ast::AttrPosition::Field => AttributePosition::Field,
+                        ast::AttrPosition::Variant => AttributePosition::Variant,
+                        ast::AttrPosition::Value => AttributePosition::Value,
+                    };
+                    let same =
+                        |q: &AttributePosition| std::mem::discriminant(q) == std::mem::discriminant(&p);
+                    if positions.iter().any(|(q, _)| same(q)) {
+                        self.err("E0150", *span, "this position is listed twice", "remove one");
+                        continue;
+                    }
+                    positions.push((p, *span));
+                }
+                let fields = a
+                    .fields
+                    .iter()
+                    .map(|f| FieldDef {
+                        attributes: f.attributes.clone(),
+                        name: f.name.sym,
+                        ty: self.lower_ty(f.ty),
+                        is_pub: f.is_pub,
+                        span: f.name.span,
+                    })
+                    .collect();
+                DefKind::Attribute(AttributeDef { positions, fields })
+            }
             ast::ItemKind::TypeAlias { generics, ty, .. } => {
                 let generics = self.push_generics(generics, Some(def));
                 let ty = self.lower_ty(*ty);

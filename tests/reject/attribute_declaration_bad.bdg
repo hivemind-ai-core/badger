@@ -1,0 +1,6 @@
+// expect-error: E0150
+// An attribute declaration lists each position once, and does not take a
+// name of the compiler's.
+pub attribute allow on type {}
+pub attribute twice on field, field {}
+pub fn main() {}

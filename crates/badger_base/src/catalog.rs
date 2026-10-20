@@ -186,6 +186,16 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise (an error: a typo, or a library's attribute written without its namespace). A library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports (an error otherwise); one the module does not declare is a warning in user code and an error in standard-library sources.",
     ),
     (
+        "E0150",
+        "attribute declaration",
+        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type`, `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer type, `String`, `Symbol`, an enum whose variants carry nothing, or an `Option` of one.",
+    ),
+    (
+        "E0151",
+        "attribute use",
+        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`).",
+    ),
+    (
         "E0200",
         "fusion shape mismatch",
         "A `@fusion(...)` annotation whose kind does not match the function it is written on: the kind fixes the role (`source`, `stage`, or `terminal`) and the number of parameters, counting the sequence as the first, and a kind that takes a parameter (`cursor` a `mode`, `accumulate` a `combine`) must be given one. It would never fuse.",

@@ -48,6 +48,8 @@ pub enum SymbolKind {
     Type,
     Value,
     Impl,
+    /// A library's attribute declaration.
+    Attribute,
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +250,7 @@ fn kind_of(k: &DefKind, method: bool) -> Option<SymbolKind> {
         DefKind::Protocol(_) => SymbolKind::Protocol,
         DefKind::Alias(_) | DefKind::Opaque(_) => SymbolKind::Type,
         DefKind::Impl(_) => SymbolKind::Impl,
+        DefKind::Attribute(_) => SymbolKind::Attribute,
         DefKind::Pending => return None,
     })
 }

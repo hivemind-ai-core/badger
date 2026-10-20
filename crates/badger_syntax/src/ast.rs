@@ -81,6 +81,8 @@ pub enum ItemKind {
     },
     Struct(StructDecl),
     Enum(EnumDecl),
+    /// A library's attribute declaration (`attribute route on fn(...) -> ... { ... }`).
+    Attribute(AttributeDecl),
     Protocol(ProtocolDecl),
     Impl(ImplDecl),
     Fn(FnDecl),
@@ -119,6 +121,24 @@ pub struct GenericParam {
 pub struct WherePred {
     pub ty: TypeId,
     pub bounds: Vec<TypeId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttributeDecl {
+    pub name: Name,
+    pub positions: Vec<(AttrPosition, Span)>,
+    pub fields: Vec<StructField>,
+}
+
+/// Where a declared attribute may be written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttrPosition {
+    Type,
+    /// A top-level function of this signature (a function type).
+    Fn(TypeId),
+    Field,
+    Variant,
+    Value,
 }
 
 #[derive(Debug, Clone)]

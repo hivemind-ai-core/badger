@@ -25,6 +25,21 @@ pub struct Attribute<'a> {
     pub span: Span,
 }
 
+/// Where a declared attribute may be written.
+#[derive(Debug, Clone)]
+pub enum AttrPosition<'a> {
+    /// A type declaration.
+    Type,
+    /// A top-level function of this signature (a function type).
+    Fn(T<'a>),
+    /// A struct field.
+    Field,
+    /// An enum variant.
+    Variant,
+    /// A module-level value (`let`).
+    Value,
+}
+
 /// An attribute argument. Names and symbols are the common forms; a
 /// `key = value` pair carries a key and one value.
 #[derive(Debug, Clone)]
@@ -109,6 +124,14 @@ pub enum ItemKind<'a> {
         repr_c: bool,
         name: Ident<'a>,
         generics: Vec<Generic<'a>>,
+        fields: Vec<(Vec<Attribute<'a>>, bool, Ident<'a>, T<'a>)>,
+    },
+    /// `attribute route on fn(Request) -> Response, type { method: Method }`:
+    /// a library's attribute, the positions it may be written at, and its
+    /// fields.
+    Attribute {
+        name: Ident<'a>,
+        positions: Vec<(AttrPosition<'a>, Span)>,
         fields: Vec<(Vec<Attribute<'a>>, bool, Ident<'a>, T<'a>)>,
     },
     Enum {
