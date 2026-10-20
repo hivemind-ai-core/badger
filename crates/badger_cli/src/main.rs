@@ -376,28 +376,17 @@ enum Command {
         #[arg(long, value_name = "N")]
         workers: Option<usize>,
     },
-    /// Create a project: `NAME/badger.toml` and `NAME/src/main.bdg` (a
-    /// program with a test). An existing directory is never written into.
-    New {
-        /// The package name, also the directory (lowercase, `_` between
-        /// words).
-        name: String,
-        /// The shape of the project: `cli`, `service`, `framework`, `lib`,
-        /// or `worker` (default: a program with a test).
-        #[arg(long, value_name = "NAME", value_parser = templates::names())]
-        template: Option<String>,
-    },
     /// Turn a directory into a project: `badger.toml` and
-    /// `src/main.bdg` (or `src/lib.bdg` with `--lib`). The directory is
-    /// created when it does not exist; an existing file is never
-    /// overwritten.
+    /// `src/main.bdg` (a program with a test). The directory is created
+    /// when it does not exist; an existing file is never overwritten.
     Init {
-        /// The directory to turn into a project (default `.`).
+        /// The directory of the project (default `.`).
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Make a library package (`src/lib.bdg`, no `main`).
-        #[arg(long)]
-        lib: bool,
+        /// The shape of the project: `cli`, `service`, `framework`,
+        /// `library`, or `worker` (default: a program with a test).
+        #[arg(long, value_name = "NAME", value_parser = templates::names())]
+        template: Option<String>,
     },
     /// Generate code: `sql` turns SQL files of named queries
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
@@ -1092,63 +1081,16 @@ fn command(cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::New { name, template } => {
-            if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
-                || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-            {
-                eprintln!(
-                    "error: `{name}` is not a package name: use a lowercase identifier such as `inventory`"
-                );
-                return ExitCode::FAILURE;
+        Command::Init { path, template } => match init::init(&path, template.as_deref()) {
+            Ok(files) => {
+                println!("{}", init::report(&path, &files));
+                ExitCode::SUCCESS
             }
-            let dir = PathBuf::from(&name);
-            if dir.exists() {
-                eprintln!("error: {} already exists", dir.display());
-                return ExitCode::FAILURE;
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
             }
-            // a template supplies the files; without one, the project is
-            // a program with a test
-            let files = match &template {
-                Some(t) => match templates::plan(&name, t) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("error: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                },
-                None => vec![
-                ("badger.toml".to_string(), format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
-                (
-                    "src/main.bdg".to_string(),
-                    format!(
-                        "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
-                         import std.io\n\n\
-                         fn greeting(name: String) -> String {{\n    $\"Hello, {{name}}!\"\n}}\n\n\
-                         pub fn main() -> Result<Unit, io.Error> {{\n    io.println(greeting(\"{name}\"))?\n    ok(())\n}}\n\n\
-                         fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
-                    ),
-                ),
-                ],
-            };
-            for (f, text) in &files {
-                let p = dir.join(f);
-                if let Err(e) =
-                    std::fs::create_dir_all(p.parent().unwrap()).and_then(|_| std::fs::write(&p, text))
-                {
-                    eprintln!("error: {}: {e}", p.display());
-                    return ExitCode::FAILURE;
-                }
-            }
-            let mut made: Vec<String> = vec![];
-            for (f, _) in &files {
-                made.push(format!("{name}/{f}"));
-            }
-            println!(
-                "created {}\n\nnext:\n    cd {name}\n    badger run\n    badger test\n    badger generate feature orders   # a typed feature module",
-                made.join(" and ")
-            );
-            ExitCode::SUCCESS
-        }
+        },
         Command::Generate {
             what,
             files,
@@ -1556,14 +1498,6 @@ fn command(cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Init { path, lib } => {
-            if let Err(e) = init::init(&path, lib) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            println!("{}", init::report(&path, lib));
-            ExitCode::SUCCESS
-        }
         Command::Watch { path, command } => watch::watch(&path, command),
         Command::Search { query, path, json } => {
             let found = search::search(&query, &path);

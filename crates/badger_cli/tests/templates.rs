@@ -1,4 +1,4 @@
-//! The project templates of `badger new --template=NAME`: every template
+//! The project templates of `badger init --template=NAME`: every template
 //! must produce a project that checks, runs, and passes its tests.
 
 #[path = "../src/templates.rs"]
@@ -19,7 +19,7 @@ fn temp_dir(tag: &str) -> PathBuf {
     dir
 }
 
-/// Write the plan of `template` into `dir`, as `badger new` would.
+/// Write the plan of `template` into `dir`, as `badger init` would.
 fn write(dir: &Path, template: &str, name: &str) {
     for (path, text) in templates::plan(name, template).unwrap() {
         let file = dir.join(&path);
@@ -40,7 +40,7 @@ fn report(output: &std::process::Output) -> String {
 fn the_templates_are_planned() {
     assert_eq!(
         templates::names(),
-        vec!["cli", "service", "framework", "lib", "worker"]
+        vec!["cli", "service", "framework", "library", "worker"]
     );
     for template in templates::names() {
         let files = templates::plan("inventory", template).unwrap();
@@ -95,7 +95,7 @@ fn every_template_checks_and_runs() {
         );
 
         let run = badger().args(["run", path]).output().unwrap();
-        if template == "lib" {
+        if template == "library" {
             // a library package has no `main` to run
             assert!(!run.status.success(), "{template} should not run");
             assert!(report(&run).contains("is a library"), "{}", report(&run));

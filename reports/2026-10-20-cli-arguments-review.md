@@ -121,38 +121,36 @@ another command are all status 2.
 `--output` still works for `compile` and `release` (a hidden alias of
 `--out`); `badger task --project` does not (the path is positional now).
 
-## Proposed, not done
+## Proposed, and done
 
-These change what a user types, so they need a decision rather than a
-patch.
+These change what a user types, so each is a commit of its own.
 
 1. **`badger new` and `badger init` are one command.** Both write
    `badger.toml` and an entry module; `new` refuses an existing
-   directory, `init` refuses an existing file. One command
-   (`badger init [PATH] [--template NAME]`) covers both, and `new` can
-   go. The `--lib` flag of `init` and the `lib` template of `new` are the
-   same thing twice.
-2. **"library" has three spellings**: the `lib` template of `new`, the
+   directory, `init` refuses an existing file. `badger init [PATH]
+   [--template NAME]` covers both: the directory is created when it does
+   not exist, an existing file is never overwritten, and the package's
+   name is the directory's name (as `init` always took it). `badger new`
+   is gone.
+2. **"library" had three spellings**: the `lib` template of `new`, the
    `--lib` flag of `init`, and the `library` generator of `generate`.
-   The manifest's `kind` is `library`; the template list should use the
-   same word.
+   The manifest's `kind` is `library`, so the template is `library` now
+   (and `--lib` is `--template library`).
 3. **`badger query rename` and `badger rename` are one operation**: the
-   first returns the edits as JSON, the second applies them. A
-   `badger rename --json` that returns the edits without writing them
-   would cover the machine-readable case, and `query rename` could go.
-4. **`badger check`, `badger query check`, and `badger query
-   diagnostics`** overlap: the first prints diagnostics (as text or
-   JSON), the second prints them with what was checked, the third prints
-   them flattened to one location each. They serve a person, an agent,
-   and an editor; the split is defensible, but `check --json` and
-   `query check` differ only in what surrounds the diagnostics.
-5. **`badger test [PATH] [FILTER]`** is the only command whose
-   positional argument means two things (a path if it exists, a filter
-   otherwise). `badger run` does the same with a path and an `[entries]`
-   name, so the pattern is familiar; a `--filter` flag would end it.
-6. **`badger doctor` repeats `badger inspect runtime`.** The doctor
-   report is for bug reports, so it may keep the settings; but it could
-   point at the command instead of repeating it.
+   first returned the edits as JSON, the second applied them. `badger
+   rename --json` returns the edits and writes nothing; `query rename`
+   is gone.
+4. **`badger test [PATH] [FILTER]`** was the only command whose
+   positional argument meant two things (a path if it exists, a filter
+   otherwise). The filter is `--filter` now, and the positional is the
+   path.
+5. **`badger doctor` repeats `badger inspect runtime`.** The doctor
+   report is for bug reports, so it keeps the settings it can
+   determine, and names the command that prints all of them.
+
+`badger check`, `badger query check`, and `badger query diagnostics`
+stay as they are: they serve a person, an agent, and an editor, and the
+reference says which is which.
 
 ## Notes
 

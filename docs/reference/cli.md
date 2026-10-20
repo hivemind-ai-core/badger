@@ -609,26 +609,16 @@ Each generator takes its own flags: `--check`, `--database`, and
 generators (`--item` only for `feature`). A flag of another generator is
 a usage error (status 2), never quietly ignored.
 
-### `badger new NAME [--template NAME]`
-
-Creates the directory `NAME` with `badger.toml` (package `NAME`, entry
-`src/main.bdg`) and `src/main.bdg`: a program with a `main` and one test.
-`NAME` is a lowercase identifier; an existing directory is an error.
-
-| Flag | Meaning |
-|---|---|
-| `--template NAME` | The shape of the project: `cli` (a program that parses options), `service` (routes over a store), `framework` (the shape of the framework example), `lib` (a library package), or `worker` (a background worker). Without it, the project is a program with a test. |
-
-### `badger init [PATH] [--lib]`
+### `badger init [PATH] [--template NAME]`
 
 Turns a directory into a project: `badger.toml` (the package's name is
-the directory's name) and `src/main.bdg` (or `src/lib.bdg` with
-`--lib`). The directory is created when it does not exist. An existing
+the directory's name) and `src/main.bdg`, a program with a `main` and
+one test. The directory is created when it does not exist. An existing
 file is never overwritten: the command fails and says so.
 
 | Flag | Meaning |
 |---|---|
-| `--lib` | A library package: `src/lib.bdg`, `kind = "library"`, no `main`. |
+| `--template NAME` | The shape of the project: `cli` (a program that parses options), `service` (routes over a store), `framework` (the shape of the framework example), `library` (a library package: `src/lib.bdg`, `kind = "library"`, no `main`), or `worker` (a background worker). Without it, the project is a program with a test. |
 
 Exit status: 0 when the project was written, 1 when a file was there
 already.
