@@ -73,6 +73,13 @@ enum Terminal {
     /// item that does.
     Any(ExprId),
     All(ExprId),
+    /// The first item the predicate accepts, the first `some` the callback
+    /// gives, the first item, and the position of the first accepted item.
+    /// Each stops at the item it returns.
+    Find(ExprId),
+    FindMap(ExprId),
+    First,
+    Position(ExprId),
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -129,6 +136,10 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.collect" | "std.list.collect" => "collect",
                 "std.seq.any" => "any",
                 "std.seq.all" => "all",
+                "std.seq.find" => "find",
+                "std.seq.find_map" => "find_map",
+                "std.seq.first" => "first",
+                "std.seq.position" => "position",
                 _ => return None,
             }
             .to_string(),
@@ -333,6 +344,10 @@ impl FnLower<'_, '_, '_> {
             ("collect", [iter]) => (*iter, Terminal::Collect),
             ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
             ("all", [iter, test]) => (*iter, Terminal::All(*test)),
+            ("find", [iter, matches]) => (*iter, Terminal::Find(*matches)),
+            ("find_map", [iter, f]) => (*iter, Terminal::FindMap(*f)),
+            ("first", [iter]) => (*iter, Terminal::First),
+            ("position", [iter, matches]) => (*iter, Terminal::Position(*matches)),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -515,11 +530,27 @@ impl FnLower<'_, '_, '_> {
                 let init = self.bool_op(matches!(plan.terminal, Terminal::All(_)));
                 (Some(self.copy_to_local(init, Repr::I8, None)), None)
             }
+            // The searches keep `none`: the answer when nothing is found.
+            Terminal::Find(_) | Terminal::FindMap(_) | Terminal::First | Terminal::Position(_) => {
+                let opt = self.ty(e);
+                let none = self.alloc_enum(&opt, 0, vec![]);
+                (Some(self.copy_to_local(none, Repr::Ptr, None)), None)
+            }
             Terminal::Collect | Terminal::For(..) => (None, None),
         };
         // The search predicate is construction-time, like a fold's callback.
         let search = match plan.terminal {
-            Terminal::Any(cb) | Terminal::All(cb) => Some(self.lower(cb)?),
+            Terminal::Any(cb)
+            | Terminal::All(cb)
+            | Terminal::Find(cb)
+            | Terminal::FindMap(cb)
+            | Terminal::Position(cb) => Some(self.lower(cb)?),
+            _ => None,
+        };
+        // `position` counts the items that reach the terminal, not the
+        // source's index (an earlier filter would drop some).
+        let pos = match plan.terminal {
+            Terminal::Position(_) => Some(self.copy_to_local(int(0), Repr::I64, None)),
             _ => None,
         };
         // `collect` builds its list in the fused loop. When the source count
@@ -726,6 +757,60 @@ impl FnLower<'_, '_, '_> {
                 self.switch(done);
                 let outcome = self.bool_op(matches!(plan.terminal, Terminal::Any(_)));
                 self.emit(Stmt::Assign(acc, Rvalue::Use(outcome)));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::FindMap(_) => {
+                // the first `some`: the callback's own `Option` is the result
+                let acc = acc.unwrap();
+                let opt = self.call(Callee::Closure(search?), vec![value], Repr::Ptr);
+                let ol = self.copy_to_local(opt, Repr::Ptr, None);
+                let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(ol)));
+                let done = self.block();
+                self.term(Term::Switch(tag, vec![(1, done)], step));
+                self.switch(done);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(Operand::Local(ol))));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::Find(_) | Terminal::First | Terminal::Position(_) => {
+                let acc = acc.unwrap();
+                // the position is taken before it is advanced, so it is this
+                // item's; the counter advances even when the item is refused.
+                let payload = match plan.terminal {
+                    Terminal::Position(_) => {
+                        // snapshot before advancing: the local is mutated
+                        let idx = Operand::Local(self.copy_to_local(
+                            Operand::Local(pos.unwrap()),
+                            Repr::I64,
+                            None,
+                        ));
+                        let inc = self.assign(
+                            Repr::I64,
+                            Rvalue::Bin {
+                                op: BinOp::Add,
+                                a: Operand::Local(pos.unwrap()),
+                                b: int(1),
+                                ty: NumTy::I(64, false),
+                                loc: 0,
+                            },
+                        );
+                        self.emit(Stmt::Assign(pos.unwrap(), Rvalue::Use(inc)));
+                        idx
+                    }
+                    _ => value,
+                };
+                let done = self.block();
+                match plan.terminal {
+                    // `first` takes whatever reaches it
+                    Terminal::First => self.term(Term::Goto(done)),
+                    _ => {
+                        let accepted = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                        self.term(Term::Branch(accepted, done, step));
+                    }
+                }
+                self.switch(done);
+                let opt = self.ty(e);
+                let found = self.alloc_enum(&opt, 1, vec![payload]);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(found)));
                 self.term(Term::Goto(exit));
             }
             Terminal::For(pat, expr) => {

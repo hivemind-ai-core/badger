@@ -117,7 +117,8 @@ fn a_search_terminal_fuses_into_the_loop() {
         &source,
         "import std.seq\npub fn main() -> Int {\n    \
          let found = seq.range(0, 100).map(fn(x: Int) { x }).any(fn(x: Int) { x == 3 })\n    \
-         assert(found)\n    0\n}\n",
+         let first = seq.range(0, 100).map(fn(x: Int) { x }).find(fn(x: Int) { x == 3 })\n    \
+         assert(found && first == Option.some(3))\n    0\n}\n",
     )
     .unwrap();
     let out = lang().args(["run", "--release", "--dump-mir"]).arg(&source).output().unwrap();
