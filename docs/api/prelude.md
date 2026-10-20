@@ -308,7 +308,7 @@ protocol Hash {  }
 ### `HttpStatus`
 
 ```badger
-protocol HttpStatus { http_status: fn(&Self) -> Int }
+protocol HttpStatus { http_code: fn(&Self) -> Symbol, http_status: fn(&Self) -> Int }
 ```
 
 How an error is reported over HTTP: the status the route system (and

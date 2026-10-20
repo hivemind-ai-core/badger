@@ -245,6 +245,12 @@ error carries the error's message; a server error does not.
 fn display(self: &Self) -> String
 ```
 
+#### `StatusError.http_code`
+
+```badger
+fn http_code(self: &Self) -> Symbol
+```
+
 #### `StatusError.http_status`
 
 ```badger
@@ -312,8 +318,10 @@ fn error_reply<E>(error: E) -> Response where E: Display, E: HttpStatus
 ```
 
 The reply for an error: the status it carries and, for a client
-error, its message. A server error keeps its message to itself (it is
-an internal detail, not the client's business).
+error, its code (`http_code`, the variant name unless the error says
+otherwise) and message, as `{"error": "not_found", "message": "..."}`. A
+server error keeps both to itself (they are internal details, not the
+client's business): its reply names the status only.
 
 ### `event`
 

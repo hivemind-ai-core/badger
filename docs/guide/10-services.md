@@ -130,7 +130,7 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 ```text
-404 {"error":"not found","message":"not found: 1"}
+404 {"error":"not_found","message":"not found: 1"}
 ```
 
 A client error (a 4xx) is answered with the error's message; a server

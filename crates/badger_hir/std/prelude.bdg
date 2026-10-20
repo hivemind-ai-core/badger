@@ -183,6 +183,9 @@ pub protocol Display {
 pub protocol HttpStatus {
     /// The status this error is answered with.
     fn http_status(self: &Self) -> Int { 500 }
+    /// The stable code a client error reply carries (`"error"`): by default,
+    /// as `Error.code`, the enum variant (or type) name.
+    fn http_code(self: &Self) -> Symbol { error_code(self) }
 }
 
 /// An expected failure: display text, a stable machine-readable code, an

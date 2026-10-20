@@ -60,7 +60,7 @@ pub fn main() -> Result<Unit, AppError> {
 
 ```text
 ok(note 7)
-404 {"error":"not found","message":"not found: 0"}
+404 {"error":"not_found","message":"not found: 0"}
 ```
 
 - Every function returns `Result<_, AppError>`. The name is `AppError` in a
@@ -71,8 +71,11 @@ ok(note 7)
   500, so an error type that says nothing about HTTP keeps the old
   behaviour. An empty implementation — `impl HttpStatus for AppError { }` —
   is the 500 form.
-- A 4xx is the application's own message, and the client gets it. A 5xx is
-  an internal detail, and the client gets only the status text.
+- A 4xx is the application's own code and message, and the client gets
+  both: `{"error": "not_found", "message": "..."}`. The code is the variant
+  name (`http_code` overrides it), the same convention as the route
+  system's own `route/invalid_body`. A 5xx is an internal detail, and the
+  client gets only the status text.
 
 | Error | Status | The message in the reply |
 |---|---|---|
@@ -395,7 +398,7 @@ pub fn main() -> Result<Unit, AppError> {
 ```text
 200 ok
 200 {"id":7,"title":"note 7"}
-404 {"error":"not found","message":"not found: 999"}
+404 {"error":"not_found","message":"not found: 999"}
 201 {"id":2,"title":"milk"}
 200 {"id":3,"title":"typed"}
 200 {"q":"dune"}
