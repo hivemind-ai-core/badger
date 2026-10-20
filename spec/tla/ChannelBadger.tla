@@ -1,8 +1,8 @@
 ---------------------------- MODULE ChannelBadger ----------------------------
 (***************************************************************************)
 (* The per-channel state machine of crates/badger_runtime/src/channel.rs   *)
-(* (the Go-style protocol of 9f1ff4c and c4750f8), one channel, a bounded  *)
-(* set of tasks.                                                           *)
+(* (the Go-style protocol of 9f1ff4c and c4750f8, with ac3f85c's claims),  *)
+(* one channel, a bounded set of tasks.                                    *)
 (*                                                                         *)
 (* The channel. One atomic word (`ChanData::state`, channel.rs:70) holds   *)
 (* the owner (free, an unlocked fast path, the runtime lock's claim), the  *)
@@ -10,7 +10,9 @@
 (* STALE bit; c.own, c.pub, c.pclosed and c.stale are those fields (a fast *)
 (* path's ownership is never visible: its body is one step). Every task    *)
 (* registered with the channel is in one list (`Waiters`, channel.rs:125), *)
-(* c.ws, in arrival order, with a count per kind, c.cnt.                   *)
+(* c.ws, in arrival order, with a count per kind, c.cnt. The receivers a   *)
+(* batch publication woke and that have not taken a message yet are        *)
+(* c.woken (`ChanData::woken`, channel.rs:257).                            *)
 (*                                                                         *)
 (* Granularity. A fast path (try_fast .. end_fast) owns the channel from   *)
 (* its compare-and-swap to its releasing store, so its body is one atomic  *)
@@ -18,9 +20,9 @@
 (* try_fast that gives up is the same step taking its "decline" branch,    *)
 (* and so is a recv_fast / recv_one_fast that declines on a published      *)
 (* EMPTY phase after one load. Code holding the runtime lock claims the    *)
-(* channel on first `data()` (channel.rs:500, claim at 527) and keeps the  *)
-(* claim until the lock is released (release_claims, channel.rs:553, from  *)
-(* task.rs:783), which publishes the phase; so a locked body is a step (or *)
+(* channel on first `data()` (channel.rs:507, claim at 534) and keeps the  *)
+(* claim until the lock is released (release_claims, channel.rs:560, from  *)
+(* task.rs:784), which publishes the phase; so a locked body is a step (or *)
 (* a run of steps) during which no fast path can run. With one worker      *)
 (* nothing claims: `data()` marks the word STALE and the next fast path    *)
 (* decides from the contents (its end_fast clears STALE). Task-state       *)
@@ -30,7 +32,7 @@
 (*                                                                         *)
 (* Workers: with one worker (Workers = 1) at most one task is Running and  *)
 (* a task runs until it parks or finishes; the waits without the lock      *)
-(* (send_free, recv_free) do not exist (task.rs:1422 can_suspend_free).    *)
+(* (send_free, recv_free) do not exist (task.rs:1416 can_suspend_free).    *)
 (* With several workers every task has its own worker and every           *)
 (* interleaving of steps is possible.                                      *)
 (*                                                                         *)
@@ -39,9 +41,12 @@
 (* before the refactor: it differs from the code only where the code is    *)
 (* stricter or adds a device the contract does not need -- a publication   *)
 (* may wake and forget the watchers, and no receive declines on the        *)
-(* published phase. Mutation names a deliberate defect, used to show that  *)
-(* the properties catch it (see README.md); three of them put back the     *)
-(* defects of the code before the refactor (findings F1, F2, F3).          *)
+(* published phase. Both carry the rule F4 added: a batch publication's    *)
+(* wake is a claim on a message, and a claim whose receiver leaves without *)
+(* taking a message passes on (c.woken, below). Mutation names a           *)
+(* deliberate defect, used to show that the properties catch it (see       *)
+(* README.md); four of them put back the defects of the code before their  *)
+(* fixes (findings F1, F2, F3, F4).                                        *)
 (***************************************************************************)
 EXTENDS Naturals, Sequences, FiniteSets, TLC
 
@@ -64,10 +69,14 @@ Mutations ==
       "fast_ignores_watchers",  \* send_fast queues past a registered selection
       "select_no_claim",        \* the claim is dropped between probe and registration
       "no_stale",               \* one worker: locked code does not mark the word STALE
-      "one_wake_per_batch",     \* F2: a publication wakes one receiver
+      "one_wake_per_batch",     \* F2: a publication wakes one receiver, and
+                                \*     nothing passes a wake on (no claims)
+      "one_wake_claimed",       \* a publication wakes one receiver, with claims
       "cancel_retracts",        \* F1: a cancellation undoes a completed hand-off
-      "queue_forgets_watchers"  \* F3: a send commits to a selection only at
-    }                           \*     capacity 0; queueing wakes and forgets watchers
+      "queue_forgets_watchers", \* F3: a send commits to a selection only at
+                                \*     capacity 0; queueing wakes and forgets watchers
+      "dead_keeps_claim"        \* F4: a woken receiver that dies keeps its claim
+    }
 
 ASSUME Kinds \subseteq {"prompt", "batch"} /\ Kinds # {}
 ASSUME WorkerCounts \subseteq {1, 3} /\ WorkerCounts # {}
@@ -153,14 +162,14 @@ TakeAll(cx) == [cx EXCEPT !.ws = <<>>, !.cnt = [k \in WaitKinds |-> 0]]
 
 -----------------------------------------------------------------------------
 (* The word. Whoever owns the channel publishes the phase of what it       *)
-(* leaves as it lets go (ChanData::word, channel.rs:281).                  *)
+(* leaves as it lets go (ChanData::word, channel.rs:288).                  *)
 
 Word(cx) ==
     IF cx.ws # <<>> THEN "BLOCKED"
     ELSE IF cx.queue # <<>> \/ cx.batches # <<>> THEN "VALUE"
     ELSE "EMPTY"
 
-\* end_fast (channel.rs:629): store FREE | word(), which clears STALE
+\* end_fast (channel.rs:636): store FREE | word(), which clears STALE
 EndFast(cx) ==
     Once({[x EXCEPT !.own = "free", !.pub = Word(x), !.pclosed = x.closed, !.stale = FALSE] : x \in {cx}})
 
@@ -173,7 +182,7 @@ Rel(cx) ==
     IF Multi THEN Once({[x EXCEPT !.own = "free", !.pub = Word(x), !.pclosed = x.closed] : x \in {cx}})
     ELSE MarkStale(cx)
 
-\* published() (channel.rs:577): recv_fast and recv_one_fast decline on a
+\* published() (channel.rs:584): recv_fast and recv_one_fast decline on a
 \* published EMPTY phase after one load, without taking the channel (owned
 \* or not: a claim keeps the phase it found)
 DeclinesOnPhase(cx) == Impl = "current" /\ ~cx.stale /\ cx.pub = "EMPTY"
@@ -194,26 +203,43 @@ Give(tsx, t, V, s) == WakeOne([tsx EXCEPT ![t].dv = V, ![t].dst = s], t)
 GiveSet(tsx, S, s) ==
     Once({[t \in Tasks |-> IF t \in S THEN Give(x, t, {}, s)[t] ELSE x[t]] : x \in {tsx}})
 
-\* wake_receivers (channel.rs:1012): pop Recv entries in order, waking the
-\* live ones, until n are woken: <<indices popped, tasks>>
-RECURSIVE WakeRecv(_, _, _, _, _)
-WakeRecv(ws, i, tsx, n, S) ==
-    IF n = 0 \/ i > Len(ws) THEN <<S, tsx>>
-    ELSE IF ws[i].k # "Recv" THEN WakeRecv(ws, i + 1, tsx, n, S)
-    ELSE IF LiveW(tsx, ws[i]) THEN WakeRecv(ws, i + 1, WakeOne(tsx, ws[i].t), n - 1, S \cup {i})
-    ELSE WakeRecv(ws, i + 1, tsx, n, S \cup {i})
+\* wake_receivers (channel.rs:1022): pop Recv entries in order, waking the
+\* live ones, until n are woken: <<indices popped, tasks, tasks woken>>
+RECURSIVE WakeRecv(_, _, _, _, _, _)
+WakeRecv(ws, i, tsx, n, S, V) ==
+    IF n = 0 \/ i > Len(ws) THEN <<S, tsx, V>>
+    ELSE IF ws[i].k # "Recv" THEN WakeRecv(ws, i + 1, tsx, n, S, V)
+    ELSE IF LiveW(tsx, ws[i])
+         THEN WakeRecv(ws, i + 1, WakeOne(tsx, ws[i].t), n - 1, S \cup {i}, V \cup {ws[i].t})
+    ELSE WakeRecv(ws, i + 1, tsx, n, S \cup {i}, V)
+\* ... on the channel: each receiver woken holds a claim on a published
+\* message (ChanData::woken) until it takes one, finds none or dies
+WakeRecvs(cx, tsx, n) ==
+    Once({<< [cx EXCEPT !.ws = DropIdx(@, wr[1]), !.cnt["Recv"] = @ - Cardinality(wr[1]),
+                        !.woken = IF Mutation = "one_wake_per_batch" THEN @ ELSE @ \cup wr[3]], wr[2] >>
+          : wr \in {WakeRecv(cx.ws, 1, tsx, n, {}, {})}})
 
-\* publish (channel.rs:1472): seal the producer's staging, wake a receiver
+\* publish (channel.rs:1502): seal the producer's staging, wake a receiver
 \* per message, then wake every watcher (wake_watchers, which keeps them;
 \* the contract may also forget them)
 Publish(cx, tsx, p) ==
     IF cx.staging[p] = <<>> THEN <<cx, tsx>>
-    ELSE LET n  == IF Mutation = "one_wake_per_batch" THEN 1 ELSE Len(cx.staging[p])
-         IN Once({LET c1 == [cx EXCEPT !.batches = Append(@, cx.staging[p]), !.staging[p] = <<>>,
-                                       !.ws = DropIdx(@, wr[1]), !.cnt["Recv"] = @ - Cardinality(wr[1])]
-                      t1 == WakeSet(wr[2], TasksOf(c1, "WatchRecv"))
-                  IN IF Impl = "contract" THEN <<DrainKind(c1, "WatchRecv"), t1>> ELSE <<c1, t1>>
-                  : wr \in {WakeRecv(cx.ws, 1, tsx, n, {})}})
+    ELSE LET n  == IF Mutation \in {"one_wake_per_batch", "one_wake_claimed"} THEN 1
+                   ELSE Len(cx.staging[p])
+         IN Once({LET t1 == WakeSet(r[2], TasksOf(r[1], "WatchRecv"))
+                  IN IF Impl = "contract" THEN <<DrainKind(r[1], "WatchRecv"), t1>> ELSE <<r[1], t1>>
+                  : r \in {WakeRecvs([cx EXCEPT !.batches = Append(@, cx.staging[p]),
+                                                !.staging[p] = <<>>], tsx, n)}})
+
+\* release_claim (channel.rs:1044): the receiver t took a message, found
+\* none, or died; its claim is released and passed on: a published message
+\* that no woken receiver is on its way to wakes another parked receiver.
+\* A task without a claim (a sender, a producer, a selection, a receiver
+\* that was not woken by a publication) changes nothing
+ReleaseClaim(cx, tsx, t) ==
+    IF t \notin cx.woken THEN <<cx, tsx>>
+    ELSE Once({IF SumLens(x.batches) > Cardinality(x.woken) THEN WakeRecvs(x, tsx, 1) ELSE <<x, tsx>>
+               : x \in {[cx EXCEPT !.woken = @ \ {t}]}})
 RECURSIVE PublishAll(_, _, _)
 PublishAll(cx, tsx, S) ==
     IF S = {} THEN <<cx, tsx>>
@@ -236,13 +262,17 @@ Count(cx) == SumLens(cx.batches) + SumOver(cx.staging, Tasks)
 
 \* a task leaves (park() honoring a cancellation): a producer's staged
 \* messages are published first (after_resume, Signal::Abandon), then
-\* task_finished (channel.rs:1684) withdraws every registration
+\* task_finished (channel.rs:1729) withdraws every registration and
+\* releases the task's claim (the mutation: the dead task keeps it, and the
+\* message it was woken for is stranded)
 Leave(cx, tsx, t) ==
-    Once({<< Rel(RemoveTask(p[1], t)),
-             [p[2] EXCEPT ![t].st = "Done", ![t].pc = "Done", ![t].dv = {}, ![t].dst = 0] >>
+    Once({Once({<< Rel(q[1]),
+                   [q[2] EXCEPT ![t].st = "Done", ![t].pc = "Done", ![t].dv = {}, ![t].dst = 0] >>
+                : q \in {IF Mutation = "dead_keeps_claim" THEN <<RemoveTask(p[1], t), p[2]>>
+                         ELSE ReleaseClaim(RemoveTask(p[1], t), p[2], t)}})
           : p \in {Publish(cx, tsx, t)}})
 
-\* park() after a wait (task.rs:1360, interrupts_after_wait at 1386): a
+\* park() after a wait (task.rs:1354, interrupts_after_wait at 1380): a
 \* pending cancellation is honored unless a waker completed the operation
 \* (status 1); the mutation is the code before c4750f8
 Honors(t) == ts[t].cancel /\ (ts[t].dst # 1 \/ Mutation = "cancel_retracts")
@@ -257,7 +287,7 @@ Init ==
     /\ cfg.kind = "prompt" => cfg.cap \in Capacities
     /\ c = [closed |-> FALSE, own |-> "free", pub |-> "EMPTY", pclosed |-> FALSE, stale |-> FALSE,
             queue |-> <<>>, batches |-> <<>>, staging |-> [t \in Tasks |-> <<>>],
-            ws |-> <<>>, cnt |-> [k \in WaitKinds |-> 0]]
+            ws |-> <<>>, cnt |-> [k \in WaitKinds |-> 0], woken |-> {}]
     /\ ts = [t \in Tasks |->
                [pc |-> "Start", role |-> "none", st |-> "Ready", gen |-> 0,
                 cancel |-> FALSE, pw |-> FALSE, dv |-> {}, dst |-> 0,
@@ -297,7 +327,7 @@ ResumeLocked(t, l) ==
 (* Prompt send: chan_send (intrinsics_task.rs:479) = send_fast, then       *)
 (* send_free, then the locked send.                                        *)
 
-\* send_fast (channel.rs:678): only while no selection offers to receive
+\* send_fast (channel.rs:685): only while no selection offers to receive
 \* and no sender waits
 SFast(t) ==
     LET v == <<t, ts[t].k>>
@@ -330,7 +360,7 @@ SFast(t) ==
              /\ UNCHANGED res
        /\ UNCHANGED <<cfg, lock, env>>
 
-\* send_free (channel.rs:900): several workers only
+\* send_free (channel.rs:907): several workers only
 SFree(t) ==
     LET v == <<t, ts[t].k>>
         i == FirstLive(c, "Recv", ts)
@@ -362,7 +392,7 @@ SFree(t) ==
        /\ UNCHANGED <<cfg, lock, env>>
 
 \* the worker after the task suspended without the lock (suspended_free,
-\* task.rs:3215): a wake that arrived while parking makes it ready
+\* task.rs:3199): a wake that arrived while parking makes it ready
 ParkFree(t, l, next) ==
     /\ ts[t].pc = l /\ ts[t].st = "Parking"
     /\ ts' = [ts EXCEPT ![t].st = IF ts[t].pw THEN "Ready" ELSE "Parked",
@@ -383,7 +413,7 @@ SFreeResume(t) ==
     /\ UNCHANGED <<cfg, c, lock, env>>
 
 \* take the runtime lock (and the claim); after a wait without the lock that
-\* ended without completing: withdraw (channel.rs:953), then honor a
+\* ended without completing: withdraw (channel.rs:960), then honor a
 \* cancellation (after_free_wait, intrinsics_task.rs:90)
 LockStep(t, l, body) ==
     LET cw == IF ts[t].woken THEN RemoveTK(RemoveTK(c, t, "Recv"), t, "Send") ELSE c IN
@@ -398,13 +428,13 @@ LockStep(t, l, body) ==
     /\ UNCHANGED <<cfg, res, env>>
 
 \* parked selections offering a receive on this channel, still in the wait
-\* they registered for (commit_select_receive, channel.rs:1204; select_offer)
+\* they registered for (commit_select_receive, channel.rs:1234; select_offer)
 SelCands(cx, tsx, me) ==
     {i \in OfKind(cx, "WatchRecv") :
         LET s == cx.ws[i].t IN
         s # me /\ LiveW(tsx, cx.ws[i]) /\ ~tsx[s].sel /\ tsx[s].offer}
 
-\* the locked send (channel.rs:1135), holding the lock and the claim
+\* the locked send (channel.rs:1165), holding the lock and the claim
 SBody(t) ==
     LET v == <<t, ts[t].k>>
         i == FirstLive(c, "Recv", ts)
@@ -496,7 +526,7 @@ TryTake(cx, tsx, t, fin(_)) ==
         /\ ts' = Got(Give(tsx, cx.ws[i].t, {}, 1), t, cx.ws[i].v)
 CanTake(cx, tsx) == cx.queue # <<>> \/ FirstLive(cx, "Send", tsx) > 0
 
-\* recv_fast (channel.rs:792)
+\* recv_fast (channel.rs:799)
 RFast(t) ==
     /\ Running(t, "RFast")
     /\ IF DeclinesOnPhase(c) \/ c.own # "free" THEN
@@ -509,7 +539,7 @@ RFast(t) ==
           /\ ts' = Goto(ts, t, IF Multi THEN "RFree" ELSE "RLock")
     /\ UNCHANGED <<cfg, lock, res, env>>
 
-\* recv_free (channel.rs:850)
+\* recv_free (channel.rs:857)
 RFree(t) ==
     /\ Running(t, "RFree")
     /\ IF c.own # "free" THEN
@@ -534,7 +564,7 @@ RFreeResume(t) ==
                            ![t].dst = 0, ![t].woken = TRUE, ![t].pc = "RLock"]
     /\ UNCHANGED <<cfg, c, lock, res, env>>
 
-\* the locked recv (channel.rs:1281)
+\* the locked recv (channel.rs:1311)
 RBody(t) ==
     LET c0 == PopTo(c, "Send", 0) IN
     /\ Running(t, "RBody")
@@ -568,7 +598,7 @@ RResume(t) ==
 -----------------------------------------------------------------------------
 (* Close: chan_close = close_fast, then the locked close.                  *)
 
-\* close_fast (channel.rs:1375): prompt channels no selection watches and no
+\* close_fast (channel.rs:1405): prompt channels no selection watches and no
 \* producer waits on
 CFast(t) ==
     /\ Running(t, "CFast")
@@ -583,7 +613,7 @@ CFast(t) ==
           /\ c' = c /\ ts' = Goto(ts, t, "CLock")
     /\ UNCHANGED <<cfg, lock, res, env>>
 
-\* close (channel.rs:1327): publish every producer's staging, then wake and
+\* close (channel.rs:1357): publish every producer's staging, then wake and
 \* remove every registration
 CLock(t) ==
     LET p  == PublishAll(c, ts, Tasks)
@@ -609,7 +639,9 @@ SelLock(t) ==
     /\ UNCHANGED <<cfg, res, env>>
 
 \* recv(ch, false) / recv_one(ch, false); a batch receive wakes and removes
-\* the producers waiting for capacity (wake_capacity, channel.rs:1025)
+\* the producers waiting for capacity (wake_capacity, channel.rs:1055). A
+\* selection holds no claim (a publication wakes it as a watcher, never
+\* through wake_receivers), so recv_one's release_claim changes nothing here
 SelProbe(t) ==
     /\ Running(t, "SelProbe")
     /\ IF cfg.kind = "prompt" /\ CanTake(c, ts) THEN
@@ -628,7 +660,7 @@ SelProbe(t) ==
           /\ lock' = lock
     /\ UNCHANGED <<cfg, res, env>>
 
-\* watch_recv (channel.rs:1449), offer_cases, park_for
+\* watch_recv (channel.rs:1479), offer_cases, park_for
 SelWatch(t) ==
     /\ Running(t, "SelWatch")
     /\ IF ts[t].cancel THEN
@@ -640,7 +672,7 @@ SelWatch(t) ==
     /\ lock' = NoTask
     /\ UNCHANGED <<cfg, res, env>>
 
-\* park returns; unwatch (channel.rs:1462); take_committed
+\* park returns; unwatch (channel.rs:1492); take_committed
 SelResume(t) ==
     LET t1 == [ts EXCEPT ![t].st = "Running", ![t].gen = @ + 1, ![t].offer = FALSE] IN
     /\ ResumeLocked(t, "SelResume")
@@ -665,7 +697,7 @@ NextMsg(tsx, t) ==
     IF tsx[t].k < Msgs THEN [tsx EXCEPT ![t].k = @ + 1, ![t].pc = "AFast"]
     ELSE [tsx EXCEPT ![t].pc = "AFinish"]
 
-\* append_fast (channel.rs:723)
+\* append_fast (channel.rs:730)
 AFast(t) ==
     LET v == <<t, ts[t].k>> IN
     /\ Running(t, "AFast")
@@ -686,7 +718,7 @@ ALock(t) ==
     /\ ts' = Goto(ts, t, "ABody")
     /\ UNCHANGED <<cfg, res, env>>
 
-\* append (channel.rs:1511)
+\* append (channel.rs:1541)
 ABody(t) ==
     LET v == <<t, ts[t].k>> IN
     /\ Running(t, "ABody")
@@ -728,7 +760,7 @@ AFinish(t) ==
     /\ c' = Rel(p[1]) /\ ts' = Finish(p[2], t)
     /\ UNCHANGED <<cfg, lock, res, env>>
 
-\* recv_one_fast (channel.rs:753)
+\* recv_one_fast (channel.rs:760)
 OFast(t) ==
     /\ Running(t, "OFast")
     /\ IF DeclinesOnPhase(c) \/ c.own # "free" THEN
@@ -746,20 +778,23 @@ OLock(t) ==
     /\ ts' = Goto(ts, t, "OBody")
     /\ UNCHANGED <<cfg, res, env>>
 
-\* recv_one (channel.rs:1618)
+\* recv_one (channel.rs:1654): every way out releases the receiver's claim
+\* (taking a message, finding the channel closed, registering again)
 OBody(t) ==
     /\ Running(t, "OBody")
     /\ IF c.batches # <<>> THEN
-          /\ c' = Rel(DrainKind(PopBatch(c), "Capacity")) /\ lock' = NoTask
-          /\ ts' = Got(WakeSet(ts, TasksOf(c, "Capacity")), t, Head(Head(c.batches)))
-       ELSE IF c.closed /\ \A x \in Tasks : c.staging[x] = <<>> THEN
-          /\ c' = Rel(c) /\ lock' = NoTask
-          /\ ts' = Complete([ts EXCEPT ![t].gotClosed = TRUE], t)
-       ELSE IF ts[t].cancel THEN
-          LET r == Leave(c, ts, t) IN /\ c' = r[1] /\ ts' = r[2] /\ lock' = NoTask
-       ELSE
-          /\ c' = Rel(Push(c, W(t, "Recv", ts[t].gen, NoVal))) /\ lock' = NoTask
-          /\ ts' = [ts EXCEPT ![t].st = "Parked", ![t].pc = "OResume"]
+          \E r \in {ReleaseClaim(PopBatch(c), ts, t)} :
+             /\ c' = Rel(DrainKind(r[1], "Capacity")) /\ lock' = NoTask
+             /\ ts' = Got(WakeSet(r[2], TasksOf(c, "Capacity")), t, Head(Head(c.batches)))
+       ELSE \E r \in {ReleaseClaim(c, ts, t)} :
+          IF c.closed /\ \A x \in Tasks : c.staging[x] = <<>> THEN
+             /\ c' = Rel(r[1]) /\ lock' = NoTask
+             /\ ts' = Complete([r[2] EXCEPT ![t].gotClosed = TRUE], t)
+          ELSE IF ts[t].cancel THEN
+             LET l == Leave(r[1], r[2], t) IN /\ c' = l[1] /\ ts' = l[2] /\ lock' = NoTask
+          ELSE
+             /\ c' = Rel(Push(r[1], W(t, "Recv", ts[t].gen, NoVal))) /\ lock' = NoTask
+             /\ ts' = [r[2] EXCEPT ![t].st = "Parked", ![t].pc = "OResume"]
     /\ UNCHANGED <<cfg, res, env>>
 
 OResume(t) ==
@@ -772,7 +807,7 @@ OResume(t) ==
     /\ UNCHANGED <<cfg, res, env>>
 
 -----------------------------------------------------------------------------
-(* The environment: a cancellation (cancel_with, task.rs:2160: set the     *)
+(* The environment: a cancellation (cancel_with, task.rs:2144: set the     *)
 (* flag, then wake_waiting with Cancelled) and a wake that delivers        *)
 (* nothing (a timer, a case on another channel). Both take the runtime     *)
 (* lock; with one worker they run from the scheduler, between tasks.       *)
@@ -821,6 +856,7 @@ TypeOK ==
     /\ c.own \in {"free", "claim"}
     /\ c.pub \in {"EMPTY", "VALUE", "BLOCKED"}
     /\ c.cnt \in [WaitKinds -> Nat]
+    /\ c.woken \subseteq Tasks
     /\ \A i \in DOMAIN c.ws : c.ws[i].t \in Tasks /\ c.ws[i].k \in WaitKinds
     /\ \A t \in Tasks : ts[t].st \in {"Ready", "Running", "Parking", "Parked", "Done"}
     /\ res \in [Vals -> {"pending", "sent", "closed"}]
@@ -858,12 +894,14 @@ Deliverable == Avail > 0 \/ c.closed
 (* message may wait for a woken receiver that has not run yet: Retrying    *)
 (* counts the receivers on their way (woken in a batch receive or a        *)
 (* selection and not about to honor a cancellation, or holding the lock in *)
-(* its body). With at most two receivers (3 tasks) the bound is 0 there    *)
-(* too; it matters from three receivers on.                                *)
+(* its body). A woken receiver about to honor a cancellation takes no      *)
+(* message, so it is on its way only if it holds a claim, which it passes  *)
+(* on as it leaves (release_claim). With at most two receivers (3 tasks)   *)
+(* the bound is 0 there too; it matters from three receivers on.           *)
 Retrying ==
     {u \in Tasks :
         \/ /\ ts[u].pc \in {"OResume", "SelResume"} /\ ts[u].st = "Ready"
-           /\ ~(ts[u].cancel /\ ts[u].dst # 1)
+           /\ (~(ts[u].cancel /\ ts[u].dst # 1) \/ u \in c.woken)
         \/ ts[u].pc \in {"OBody", "SelProbe"} /\ lock = u}
 Owed == IF cfg.kind = "prompt" THEN 0 ELSE Cardinality(Retrying)
 NoLostWake == \A t \in Tasks : RecvWaiting(t) => (~c.closed /\ Avail <= Owed)
@@ -936,6 +974,15 @@ OneEntryPerKind ==
 PhasePublished ==
     c.own = "free" /\ ~c.stale => (c.pub = Word(c) /\ c.pclosed = c.closed)
 
+(* The claims (invariant): every receiver holding a claim is on its way to *)
+(* the channel -- woken in recv_one and not yet run, or in its body under  *)
+(* the lock. A claim held by a task that left (F4's mutation) undercounts  *)
+(* the unclaimed messages for good.                                        *)
+ClaimsHeld ==
+    \A u \in c.woken :
+        \/ ts[u].pc = "OResume" /\ ts[u].st = "Ready"
+        \/ ts[u].pc = "OBody" /\ lock = u
+
 (* 2'. Every blocked receive is eventually woken (liveness), unless no     *)
 (* task is left that could still send to or close the channel and nothing *)
 (* is deliverable. The literal "every blocked recv is eventually woken" is *)
@@ -955,6 +1002,6 @@ TraceAlias ==
                                   IF ts[t].cancel THEN "cancel" ELSE "",
                                   ts[t].dv, ts[t].dst, ts[t].got>>],
      closed |-> c.closed, word |-> <<c.own, c.pub, c.stale>>, queue |-> c.queue,
-     batches |-> c.batches, staging |-> c.staging,
+     batches |-> c.batches, staging |-> c.staging, woken |-> c.woken,
      ws |-> [i \in DOMAIN c.ws |-> <<c.ws[i].t, c.ws[i].k, c.ws[i].g>>]]
 =============================================================================

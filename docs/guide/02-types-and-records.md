@@ -591,9 +591,9 @@ a 2.0 by 3.0 rect
 `Share`, `Transfer`, and `Unscoped` are compiler-checked capabilities, not
 protocols you implement (E0217). See [chapter 7](07-effects-and-ownership.md).
 
-## `derive`
+## `@derive`
 
-`derive(...)` after a struct or enum asks the compiler to implement
+`@derive(...)` on a struct or enum asks the compiler to implement
 protocols.
 
 ```badger
@@ -640,7 +640,7 @@ dot
 
 - Equality, hashing, and `Codec` encoding are structural and available
   without `derive` whenever every field supports them. Deriving them
-  documents the intent and makes the compiler check it: `derive(Eq)` on a
+  documents the intent and makes the compiler check it: `@derive(Eq)` on a
   struct with a `Float` or function field is E0204.
 - `Default` pairs with a record update for settings:
   `{ ..Settings.default(), port: 8080 }`. `default_of()` is the default

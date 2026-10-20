@@ -110,7 +110,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "intrinsic outside std",
         "`extern \"intrinsic\"` declarations are reserved for the standard library.",
     ),
-    ("E0117", "cannot derive", "Only protocols can appear in `derive(...)`."),
+    ("E0117", "cannot derive", "Only protocols can appear in `@derive(...)`."),
     (
         "E0118",
         "incomplete public signature",
