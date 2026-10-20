@@ -429,7 +429,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                     .map(|(p, sp)| {
                         let span = self.span(sp);
                         let p = match p {
-                            cst::AttrPosition::Type => AttrPosition::Type,
+                            cst::AttrPosition::Type(p) => AttrPosition::Type(p.map(|t| self.ty(t))),
                             cst::AttrPosition::Field => AttrPosition::Field,
                             cst::AttrPosition::Variant => AttrPosition::Variant,
                             cst::AttrPosition::Value => AttrPosition::Value,
@@ -610,7 +610,28 @@ impl<'a, 'i> Lower<'a, 'i> {
         match a {
             cst::AttrArg::Name(n) => AttrArg::Name(self.interner.intern(n.text)),
             cst::AttrArg::Symbol(s, _) => AttrArg::Symbol(self.interner.intern(s)),
-            cst::AttrArg::Int(n, _) => AttrArg::Int(n.parse().unwrap_or(0)),
+            cst::AttrArg::Int(n, _) => AttrArg::Int(n.replace('_', "").parse().unwrap_or(0)),
+            cst::AttrArg::NegInt(n, _) => AttrArg::Int(-n.replace('_', "").parse::<i64>().unwrap_or(0)),
+            cst::AttrArg::Float(n, neg, _) => {
+                let (digits, _) = split_suffix(n);
+                let v = digits.replace('_', "").parse::<f64>().unwrap_or(0.0);
+                AttrArg::Float(if neg { -v } else { v })
+            }
+            cst::AttrArg::Duration(text, _) => {
+                let unit_start = text.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(text.len());
+                let (n, u) = text.split_at(unit_start);
+                let value = n.replace('_', "").parse::<u128>().unwrap_or(0);
+                let unit = match u {
+                    "ns" => DurationUnit::Ns,
+                    "us" => DurationUnit::Us,
+                    "ms" => DurationUnit::Ms,
+                    "s" => DurationUnit::S,
+                    "min" => DurationUnit::Min,
+                    _ => DurationUnit::H,
+                };
+                AttrArg::Duration(value * unit.nanos())
+            }
+            cst::AttrArg::List(xs, _) => AttrArg::List(xs.into_iter().map(|x| self.attr_arg(x)).collect()),
             cst::AttrArg::Str(s, sp) => AttrArg::Str(self.unescape(s, self.span(sp))),
             cst::AttrArg::KeyValue(k, v) => {
                 AttrArg::KeyValue(self.interner.intern(k.text), Box::new(self.attr_arg(*v)))

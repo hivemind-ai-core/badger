@@ -117,6 +117,8 @@ impl Place {
 enum AttrValue {
     Bool,
     Int,
+    Float,
+    Duration,
     Str,
     Symbol,
     /// A variant of this payload-free enum, by name.
@@ -296,7 +298,7 @@ impl Cx<'_> {
                     Some(t) => t,
                     None => &f.ty,
                 };
-                if self.attr_value_kind(inner).is_none() {
+                if self.attr_field_kind(inner).is_none() {
                     bad.push((f.span, self.sym(f.name).to_string()));
                 }
             }
@@ -306,7 +308,7 @@ impl Cx<'_> {
                 "E0150",
                 span,
                 format!("attribute field `{name}` cannot be written in an attribute"),
-                "a field is `Bool`, an integer type, `String`, `Symbol`, an enum whose variants carry nothing, or an `Option` of one",
+                "a field is `Bool`, an integer or float type, `Duration`, `String`, `Symbol`, an enum whose variants carry nothing, a `List` of one, or an `Option` of either",
             );
         }
     }
@@ -318,6 +320,35 @@ impl Cx<'_> {
                 Some(&args[0])
             }
             _ => None,
+        }
+    }
+
+    /// What a field of this type is written as, and whether it is a list
+    /// of such values (`[a, b]`).
+    fn attr_field_kind(&self, t: &HTy) -> Option<(AttrValue, bool)> {
+        if let HTyKind::Named { def, args } = &t.kind
+            && self.hir.try_lang("List") == Some(*def)
+            && args.len() == 1
+        {
+            return self.attr_value_kind(&args[0]).map(|k| (k, true));
+        }
+        self.attr_value_kind(t).map(|k| (k, false))
+    }
+
+    /// Whether argument `v` is a value of kind `k`.
+    fn attr_value_fits(&self, k: AttrValue, v: &ast::AttrArg) -> bool {
+        match (k, v) {
+            (AttrValue::Bool, ast::AttrArg::Name(n)) => matches!(self.sym(*n), "true" | "false"),
+            (AttrValue::Int, ast::AttrArg::Int(_)) => true,
+            (AttrValue::Float, ast::AttrArg::Float(_) | ast::AttrArg::Int(_)) => true,
+            (AttrValue::Duration, ast::AttrArg::Duration(_)) => true,
+            (AttrValue::Str, ast::AttrArg::Str(_)) => true,
+            (AttrValue::Symbol, ast::AttrArg::Symbol(_)) => true,
+            (AttrValue::Variant(e), ast::AttrArg::Name(n)) => match &self.hir.defs[e].kind {
+                DefKind::Enum(en) => en.variants.iter().any(|vd| vd.name == *n),
+                _ => false,
+            },
+            _ => false,
         }
     }
 
@@ -333,6 +364,12 @@ impl Cx<'_> {
         }
         if ["Int", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64"].iter().any(|n| lang(n)) {
             return Some(AttrValue::Int);
+        }
+        if ["Float", "F32", "F64"].iter().any(|n| lang(n)) {
+            return Some(AttrValue::Float);
+        }
+        if lang("Duration") {
+            return Some(AttrValue::Duration);
         }
         if lang("String") {
             return Some(AttrValue::Str);
@@ -385,7 +422,7 @@ impl Cx<'_> {
             let decl = decl.clone();
             // the position
             let fits = decl.positions.iter().any(|(p, _)| match (p, u.place) {
-                (AttributePosition::Type, Place::Item("struct" | "enum" | "type")) => true,
+                (AttributePosition::Type(_), Place::Item("struct" | "enum" | "type")) => true,
                 (AttributePosition::Fn(_), Place::Item("fn")) => true,
                 (AttributePosition::Field, Place::Field) => true,
                 (AttributePosition::Variant, Place::Variant) => true,
@@ -397,7 +434,7 @@ impl Cx<'_> {
                     .positions
                     .iter()
                     .map(|(p, _)| match p {
-                        AttributePosition::Type => "a type",
+                        AttributePosition::Type(_) => "a type",
                         AttributePosition::Fn(_) => "a function",
                         AttributePosition::Field => "a struct field",
                         AttributePosition::Variant => "an enum variant",
@@ -475,28 +512,32 @@ impl Cx<'_> {
             for (i, v, at) in given {
                 let f = &decl.fields[i];
                 let ty = self.option_arg(&f.ty).unwrap_or(&f.ty).clone();
-                let Some(kind) = self.attr_value_kind(&ty) else { continue };
-                let ok = match (kind, v) {
-                    (AttrValue::Bool, ast::AttrArg::Name(n)) => matches!(self.sym(*n), "true" | "false"),
-                    (AttrValue::Int, ast::AttrArg::Int(_)) => true,
-                    (AttrValue::Str, ast::AttrArg::Str(_)) => true,
-                    (AttrValue::Symbol, ast::AttrArg::Symbol(_)) => true,
-                    (AttrValue::Variant(e), ast::AttrArg::Name(n)) => match &self.hir.defs[e].kind {
-                        DefKind::Enum(en) => en.variants.iter().any(|vd| vd.name == *n),
-                        _ => false,
-                    },
-                    _ => false,
+                let Some((kind, list)) = self.attr_field_kind(&ty) else { continue };
+                let ok = match (list, v) {
+                    (true, ast::AttrArg::List(xs)) => xs.iter().all(|x| self.attr_value_fits(kind, x)),
+                    (true, _) => false,
+                    (false, v) => self.attr_value_fits(kind, v),
                 };
                 if !ok {
                     let n = self.sym(f.name).to_string();
-                    let want = match kind {
+                    let one = match kind {
                         AttrValue::Bool => "`true` or `false`".to_string(),
                         AttrValue::Int => "an integer".to_string(),
+                        AttrValue::Float => "a number".to_string(),
+                        AttrValue::Duration => "a duration (`5s`)".to_string(),
                         AttrValue::Str => "a string".to_string(),
                         AttrValue::Symbol => "a symbol (`#name`)".to_string(),
                         AttrValue::Variant(e) => {
                             format!("a variant of `{}`", self.sym(self.hir.defs[e].name))
                         }
+                    };
+                    let want = if list {
+                        format!(
+                            "a list (`[...]`) of {}",
+                            one.trim_start_matches("a ").trim_start_matches("an ")
+                        )
+                    } else {
+                        one
                     };
                     use_err(self, at, format!("`{n}` of `@{full}` is {want}"), "a value of another kind");
                     fits_values = false;
@@ -590,6 +631,9 @@ impl Cx<'_> {
             _ => None,
         });
         let only_fns = sig.is_some() && decl.positions.len() == 1;
+        // `on type: Codec`: each type's entry carries its schema
+        let codec_types = decl.positions.iter().any(|(p, _)| matches!(p, AttributePosition::Type(Some(_))));
+        let only_types = codec_types && decl.positions.len() == 1;
         let string = self.lang_ty("String", vec![], at);
         let name = self.interner.intern(&format!("{}.uses", self.sym(self.hir.defs[attr].name)));
         let table =
@@ -609,6 +653,8 @@ impl Cx<'_> {
                     (self.interner.intern("name"), string.clone()),
                     (self.interner.intern("kind"), self.lang_ty("Symbol", vec![], at)),
                     (self.interner.intern("owner"), self.lang_ty("Option", vec![string.clone()], at)),
+                    (self.interner.intern("file"), string.clone()),
+                    (self.interner.intern("line"), self.lang_ty("Int", vec![], at)),
                 ],
                 rest: None,
             },
@@ -619,6 +665,11 @@ impl Cx<'_> {
         if let Some(sig) = &sig {
             let call_ty = if only_fns { sig.clone() } else { self.lang_ty("Option", vec![sig.clone()], at) };
             entry_fields.push((self.interner.intern("call"), call_ty));
+        }
+        if codec_types {
+            let schema_ty =
+                if only_types { string.clone() } else { self.lang_ty("Option", vec![string.clone()], at) };
+            entry_fields.push((self.interner.intern("schema"), schema_ty));
         }
         let entry_ty = HTy { kind: HTyKind::Record { fields: entry_fields, rest: None }, span: at };
         let table_ty = self.lang_ty("List", vec![entry_ty], at);
@@ -653,6 +704,10 @@ impl Cx<'_> {
                 .collect::<Vec<_>>()
                 .join(".");
             let item_name = self.sym(item_def.name).to_string();
+            // where the use is written
+            let um = &self.hir.modules[item_def.module];
+            let file_name = um.file_name.clone();
+            let line = um.line_starts.partition_point(|&s| s <= span.start as u32).max(1);
             let (name, owner, kind) = match (member, place) {
                 (Some(m), Place::Variant) => (self.sym(m).to_string(), Some(item_name.clone()), "variant"),
                 (Some(m), _) => (self.sym(m).to_string(), Some(item_name.clone()), "field"),
@@ -664,6 +719,8 @@ impl Cx<'_> {
             let m = lit(self, Lit::Str(module_name));
             let n = lit(self, Lit::Str(name));
             let k = lit(self, Lit::Symbol(self.interner.intern(kind)));
+            let fl = lit(self, Lit::Str(file_name));
+            let ln = lit(self, Lit::Int { value: line as u128, suffix: None });
             let o = match owner {
                 Some(o) => {
                     let x = lit(self, Lit::Str(o));
@@ -679,6 +736,8 @@ impl Cx<'_> {
                         (self.interner.intern("name"), span, n),
                         (self.interner.intern("kind"), span, k),
                         (self.interner.intern("owner"), span, o),
+                        (self.interner.intern("file"), span, fl),
+                        (self.interner.intern("line"), span, ln),
                     ],
                 },
                 span,
@@ -717,6 +776,37 @@ impl Cx<'_> {
                 };
                 entry.push((self.interner.intern("call"), span, call));
             }
+            if codec_types {
+                // `schema<T>().describe()`: the type's fields, variants, and
+                // element types (a type that is not `Codec` is a type error
+                // at the use)
+                let schema = if matches!(place, Place::Item("struct" | "enum" | "type")) {
+                    let t = HTy { kind: HTyKind::Named { def: item, args: vec![] }, span };
+                    let of = match self.hir.try_lang("schema") {
+                        Some(d) => ExprKind::Def { def: d, type_args: vec![t] },
+                        None => ExprKind::Error,
+                    };
+                    let of = self.hir.exprs.alloc(Expr { kind: of, span });
+                    let made = self
+                        .hir
+                        .exprs
+                        .alloc(Expr { kind: ExprKind::Call { callee: of, args: vec![] }, span });
+                    let d = self.hir.exprs.alloc(Expr {
+                        kind: ExprKind::MethodCall {
+                            recv: made,
+                            method: self.interner.intern("describe"),
+                            method_span: span,
+                            type_args: vec![],
+                            args: vec![],
+                        },
+                        span,
+                    });
+                    if only_types { d } else { self.some_expr(d, span) }
+                } else {
+                    self.none_expr(span)
+                };
+                entry.push((self.interner.intern("schema"), span, schema));
+            }
             entries.push(
                 self.hir.exprs.alloc(Expr { kind: ExprKind::Record { spread: None, fields: entry }, span }),
             );
@@ -739,9 +829,39 @@ impl Cx<'_> {
 
     /// An attribute argument as an expression of field type `ty`.
     fn attr_value_expr(&mut self, ty: &HTy, v: &ast::AttrArg, span: Span) -> ExprId {
+        if let HTyKind::Named { def, args } = &ty.kind
+            && self.hir.try_lang("List") == Some(*def)
+            && let (Some(elem), ast::AttrArg::List(xs)) = (args.first(), v)
+        {
+            let elem = elem.clone();
+            let items = xs.iter().map(|x| self.attr_value_expr(&elem, x, span)).collect();
+            return self.hir.exprs.alloc(Expr { kind: ExprKind::List(items), span });
+        }
         let kind = match (self.attr_value_kind(ty), v) {
+            (Some(AttrValue::Float), ast::AttrArg::Float(f)) if *f < 0.0 => {
+                let m = self
+                    .hir
+                    .exprs
+                    .alloc(Expr { kind: ExprKind::Lit(Lit::Float { value: -*f, suffix: None }), span });
+                ExprKind::Unary { op: UnOp::Neg, operand: m }
+            }
+            (Some(AttrValue::Float), ast::AttrArg::Float(f)) => {
+                ExprKind::Lit(Lit::Float { value: *f, suffix: None })
+            }
+            (Some(AttrValue::Float), ast::AttrArg::Int(n)) => {
+                ExprKind::Lit(Lit::Float { value: *n as f64, suffix: None })
+            }
+            (Some(AttrValue::Duration), ast::AttrArg::Duration(d)) => ExprKind::Lit(Lit::Duration(*d)),
             (Some(AttrValue::Bool), ast::AttrArg::Name(n)) => {
                 ExprKind::Lit(Lit::Bool(self.sym(*n) == "true"))
+            }
+            // a negative value is the negation of its magnitude
+            (Some(AttrValue::Int), ast::AttrArg::Int(n)) if *n < 0 => {
+                let m = self.hir.exprs.alloc(Expr {
+                    kind: ExprKind::Lit(Lit::Int { value: n.unsigned_abs() as u128, suffix: None }),
+                    span,
+                });
+                ExprKind::Unary { op: UnOp::Neg, operand: m }
             }
             (Some(AttrValue::Int), ast::AttrArg::Int(n)) => {
                 ExprKind::Lit(Lit::Int { value: *n as u128, suffix: None })
@@ -1115,6 +1235,8 @@ impl Cx<'_> {
                 dependency: m.dependency,
                 items: FxHashMap::default(),
                 attributes: FxHashMap::default(),
+                file_name: m.ast.file_name.clone(),
+                line_starts: m.ast.line_starts.clone(),
                 tests: vec![],
             });
             let mut defs = vec![];
@@ -1734,8 +1856,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         }
                         ast::AttrArg::Str(s) => s.clone(),
                         ast::AttrArg::Int(n) => n.to_string(),
-                        // a nested key/value is not a value the compiler reads
-                        ast::AttrArg::KeyValue(..) => continue,
+                        ast::AttrArg::Float(f) => f.to_string(),
+                        ast::AttrArg::Duration(d) => d.to_string(),
+                        // a nested key/value or a list is not a value the
+                        // compiler reads
+                        ast::AttrArg::KeyValue(..) | ast::AttrArg::List(_) => continue,
                     };
                     match key.as_str() {
                         "role" => role = Some(value),
@@ -1844,7 +1969,21 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 let mut positions: Vec<(AttributePosition, Span)> = vec![];
                 for (p, span) in &a.positions {
                     let p = match p {
-                        ast::AttrPosition::Type => AttributePosition::Type,
+                        ast::AttrPosition::Type(p) => {
+                            let p = p.map(|t| self.lower_ty(t));
+                            // the protocol a type's entry offers: `Codec` (its schema)
+                            if let Some(t) = &p
+                                && !matches!(&t.kind, HTyKind::Named { def, .. } if self.cx.hir.try_lang("Codec") == Some(*def))
+                            {
+                                self.err(
+                                    "E0150",
+                                    *span,
+                                    "a type position names `Codec` or nothing",
+                                    "`on type: Codec` gives each use its type's schema",
+                                );
+                            }
+                            AttributePosition::Type(p)
+                        }
                         ast::AttrPosition::Fn(t) => AttributePosition::Fn(self.lower_ty(*t)),
                         ast::AttrPosition::Field => AttributePosition::Field,
                         ast::AttrPosition::Variant => AttributePosition::Variant,

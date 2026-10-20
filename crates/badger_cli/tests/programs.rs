@@ -332,6 +332,46 @@ fn attribute_tables_read_their_uses() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Attribute values of every field type (floats, durations, negative
+/// numbers, lists), each use's file and line, `on type: Codec` uses with
+/// their type's schema; a type position of another protocol is rejected,
+/// and the API listing (`badger query api`, `badger doc`) shows the
+/// declarations.
+#[test]
+fn attribute_values_locations_and_schemas() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-values-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"attrvalues\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    let web = "pub enum Mode {\n    fast,\n    safe,\n}\n\n/// How a job runs.\npub attribute tuning on fn() -> Int {\n    ratio: Float,\n    timeout: Duration,\n    offset: Int,\n    tags: List<String>,\n    weights: Option<List<Float>>,\n    modes: List<Mode>,\n}\n\npub attribute model on type: Codec { name: String }\n\npub fn report() -> List<String> {\n    let models = model.uses.map(fn(u) => $\"{u.value.name}: {u.schema}\")\n    let tunings = tuning.uses.map(fn(u) => $\"{u.target.name} at {u.target.file}:{u.target.line}: ratio={u.value.ratio} timeout={u.value.timeout} offset={u.value.offset} tags={u.value.tags} weights={u.value.weights} modes={u.value.modes.len()} call={(u.call)()}\")\n    models.concat(tunings)\n}\n";
+    std::fs::write(dir.join("src/web.bdg"), web).unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "import std.io\nimport web\n\n@web.model(\"book\")\npub struct Book {\n    pub id: Int,\n    pub title: String,\n}\n\n@web.tuning(ratio = 0.5, timeout = 250ms, offset = -3, tags = [\"a\", \"b\"], weights = [1, -2.5], modes = [fast, safe])\npub fn tuned() -> Int { 42 }\n\n@web.tuning(ratio = -1, timeout = 2s, offset = 0, tags = [], modes = [])\npub fn plain() -> Int { 0 }\n\npub fn main() -> Result<Unit, io.Error> {\n    for line in web.report() {\n        io.println(line)?\n    }\n    ok(())\n}\n").unwrap();
+    let run = lang().arg("run").arg(&dir).output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&run.stdout),
+        "book: {\"record\":\"Book\",\"fields\":{\"id\":\"I64\",\"title\":\"String\"}}\ntuned at src/main.bdg:10: ratio=0.5 timeout=250.000ms offset=-3 tags=[\"a\", \"b\"] weights=some([1.0, -2.5]) modes=2 call=42\nplain at src/main.bdg:13: ratio=-1.0 timeout=2s offset=0 tags=[] weights=none modes=0 call=0\n",
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let api = lang().args(["query", "api"]).arg(&dir).output().unwrap();
+    let api = String::from_utf8_lossy(&api.stdout).to_string();
+    assert!(
+        api.contains("\"declaration\":\"attribute model on type: Codec { name: String }\"")
+            && api.contains("\"doc\":\"How a job runs.\"")
+            && api.contains("\"kind\":\"attribute\""),
+        "{api}"
+    );
+    let out = dir.join("doc");
+    assert!(lang().arg("doc").arg(&dir).arg("--out").arg(&out).status().unwrap().success());
+    let page = std::fs::read_to_string(out.join("web.md")).unwrap();
+    assert!(page.contains("## Attributes\n\n### `@web.model`"), "{page}");
+    std::fs::write(dir.join("src/web.bdg"), web.replace("type: Codec", "type: Display")).unwrap();
+    let check = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+    let json = String::from_utf8_lossy(&check.stdout);
+    assert!(json.contains("\"code\":\"E0150\"") && json.contains("names `Codec` or nothing"), "{json}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));

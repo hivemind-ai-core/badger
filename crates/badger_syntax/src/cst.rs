@@ -28,8 +28,8 @@ pub struct Attribute<'a> {
 /// Where a declared attribute may be written.
 #[derive(Debug, Clone)]
 pub enum AttrPosition<'a> {
-    /// A type declaration.
-    Type,
+    /// A type declaration, of a protocol it must implement (`type: Codec`).
+    Type(Option<T<'a>>),
     /// A top-level function of this signature (a function type).
     Fn(T<'a>),
     /// A struct field.
@@ -52,6 +52,14 @@ pub enum AttrArg<'a> {
     Int(&'a str, Span),
     /// A string literal (its text).
     Str(&'a str, Span),
+    /// A decimal literal (its text), `-` for a negative one.
+    Float(&'a str, bool, Span),
+    /// A duration literal (`5s`, its text).
+    Duration(&'a str, Span),
+    /// `-1`: a negative integer (its text without the sign).
+    NegInt(&'a str, Span),
+    /// `[a, b]`: a list of values.
+    List(Vec<AttrArg<'a>>, Span),
     /// `key = value`.
     KeyValue(Ident<'a>, Box<AttrArg<'a>>),
 }

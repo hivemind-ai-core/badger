@@ -1,8 +1,15 @@
 // expect-error: E0150
-// An attribute's fields hold what an argument can write: no floats, lists,
-// records, or enums whose variants carry data.
+// An attribute's fields hold what an argument can write: no records, maps,
+// functions, or enums whose variants carry data (each one E0150).
+pub enum Shape {
+    circle(radius: Float),
+    square,
+}
+
 pub attribute measured on type {
-    ratio: Float,
+    size: { width: Int, height: Int },
+    shape: Shape,
+    lookup: Map<String, Int>,
 }
 
 pub fn main() {}

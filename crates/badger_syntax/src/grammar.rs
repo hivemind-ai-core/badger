@@ -181,12 +181,30 @@ where
             _ => unreachable!(),
         })
         .labelled("attribute name");
-    let attr_value = choice((
+    let attr_scalar = choice((
         select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
         select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
         select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
         select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        select! { Tok::Float(n) => n }.map_with(|n, e| AttrArg::Float(n, false, e.span())),
+        select! { Tok::Duration(n) => n }.map_with(|n, e| AttrArg::Duration(n, e.span())),
+        just(Tok::Minus).ignore_then(choice((
+            select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::NegInt(n, e.span())),
+            select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::NegInt(n, e.span())),
+            select! { Tok::Float(n) => n }.map_with(|n, e| AttrArg::Float(n, true, e.span())),
+        ))),
         attr_word.clone().map(AttrArg::Name),
+    ));
+    // `[a, b]`: a list of values (no nesting)
+    let attr_value = choice((
+        attr_scalar
+            .clone()
+            .separated_by(just(Tok::Comma))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just(Tok::LBracket), just(Tok::RBracket))
+            .map_with(|xs, e| AttrArg::List(xs, e.span())),
+        attr_scalar,
     ));
     let attr_arg = attr_word
         .clone()
@@ -1315,7 +1333,7 @@ where
         });
     // `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`
     let attr_position = choice((
-        kw("type").to(AttrPosition::Type),
+        kw("type").ignore_then(just(Tok::Colon).ignore_then(ty.clone()).or_not()).map(AttrPosition::Type),
         kw("field").to(AttrPosition::Field),
         kw("variant").to(AttrPosition::Variant),
         kw("value").to(AttrPosition::Value),

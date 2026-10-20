@@ -544,3 +544,15 @@ The response with another status: a handler that built its body by
 hand (with `http.text`, `http.json`, or its own bytes) attaches the
 status it means with this.
 
+## Attributes
+
+### `@http.status`
+
+```badger
+attribute status on variant { code: Int }
+```
+
+The HTTP status an error variant is answered with:
+`@http.status(404) not_found(id: Int)`, read by `derive(HttpError)` (an
+error status, 400 to 599; a variant without one is answered 500).
+

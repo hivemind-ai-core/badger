@@ -24,6 +24,11 @@ pub struct Ast {
     pub local_fn_refs: std::collections::HashMap<ExprId, Symbol>,
     /// Attributes on statements, with the statement's span.
     pub stmt_attributes: Vec<(Span, Vec<Attribute>)>,
+    /// The file's name as shown to people, and the byte offset each line
+    /// starts at (set by whoever parsed it from a named file): where an
+    /// attribute table says a use is.
+    pub file_name: String,
+    pub line_starts: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -60,6 +65,10 @@ pub enum AttrArg {
     Symbol(Symbol),
     Int(i64),
     Str(String),
+    Float(f64),
+    /// In nanoseconds.
+    Duration(u128),
+    List(Vec<AttrArg>),
     KeyValue(Symbol, Box<AttrArg>),
 }
 
@@ -133,7 +142,8 @@ pub struct AttributeDecl {
 /// Where a declared attribute may be written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttrPosition {
-    Type,
+    /// A type, of a protocol it must implement (`type: Codec`).
+    Type(Option<TypeId>),
     /// A top-level function of this signature (a function type).
     Fn(TypeId),
     Field,

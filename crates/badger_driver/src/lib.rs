@@ -527,6 +527,14 @@ impl Session {
             }
             i += 1;
         }
+        // an attribute use's `target.file`: relative to the project, so a
+        // build does not record where it ran
+        let base = root.parent().filter(|p| p.join("badger.toml").exists()).unwrap_or(&root).to_path_buf();
+        for m in &mut modules {
+            if let Ok(rel) = Path::new(&m.ast.file_name).strip_prefix(&base) {
+                m.ast.file_name = rel.display().to_string();
+            }
+        }
         self.check_layers(&root, &modules);
         // the standard library: the modules the program can reach (imported
         // directly or by other standard modules) and the core modules whose
@@ -665,6 +673,15 @@ impl Session {
     }
 
     fn parse(&mut self, file: FileId) -> Option<ast::Ast> {
+        let mut ast = self.parse_text(file)?;
+        let src = self.sources.get(file);
+        ast.file_name = src.name.clone();
+        ast.line_starts =
+            std::iter::once(0).chain(src.text.match_indices('\n').map(|(i, _)| i as u32 + 1)).collect();
+        Some(ast)
+    }
+
+    fn parse_text(&mut self, file: FileId) -> Option<ast::Ast> {
         let mut diags = vec![];
         // (disjoint borrows: the text is not copied)
         if self.recover_syntax {

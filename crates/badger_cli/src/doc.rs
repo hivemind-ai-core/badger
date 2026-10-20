@@ -265,6 +265,16 @@ fn page(module: &str, intro: &str, items: &[Value], target: &str) -> String {
             entry(&mut t, "###", &name(i), i);
         }
     }
+    let attrs: Vec<&Value> = items.iter().filter(|i| kind(i) == "attribute").collect();
+    if !attrs.is_empty() {
+        // used as `@http.status`: by the module's last name
+        let file = module.rsplit('/').next().unwrap_or(module);
+        let last = file.trim_end_matches(".bdg").rsplit('.').next().unwrap_or(file);
+        t.push_str("## Attributes\n\n");
+        for i in &attrs {
+            entry(&mut t, "###", &format!("@{last}.{}", name(i)), i);
+        }
+    }
     if !methods.is_empty() {
         t.push_str("## Methods on other types\n\n");
         for ms in methods.values() {

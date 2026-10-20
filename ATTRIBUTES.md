@@ -98,15 +98,18 @@ the compiler's own names.
 
 ## User-defined attributes (agreed 2026-10-20; declarations, uses, and reading implemented)
 
-**Status:** declarations, uses, and reading work; types do not yet carry
-their schema, and entries do not yet carry a file and line.
+**Status:** implemented: declarations, uses, reading, schemas for
+`on type: Codec`, each use's file and line, and the declarations in
+`badger query api` / `badger doc`. Not yet: `repeatable`.
 
 - A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
   formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated
   one, a compiler name, or a field type an argument cannot write is E0150.
-  Field types are, for now, `Bool`, the integer types, `String`, `Symbol`,
-  payload-free enums, and `Option`s of them (floats, durations, and lists
-  wait for attribute arguments that can write them).
+  Field types are `Bool`, the integer and float types, `Duration`,
+  `String`, `Symbol`, payload-free enums, a `List` of one, and an `Option`
+  of either; arguments write them as `true`, `-3`, `0.5`, `250ms`, `"s"`,
+  `#sym`, `get`, `["a", "b"]`. A type position names `Codec` or nothing
+  (E0150 otherwise).
 - A use (`@lib.name(...)`) is checked against the declaration once every
   module is lowered: an attribute its module does not declare is a warning
   in user code (E0191; an error in std); a private one, a position the
@@ -115,13 +118,15 @@ their schema, and entries do not yet carry a file and line.
   annotated with a library's attribute counts as used (E0196).
 - Reading: `NAME.uses` in the declaring module is a module-level value,
   built when the program is lowered and initialized before the module's own
-  values: a `List` of `{ value, target, call }`, one per use in the program
+  values: a `List` of `{ value, target, call, schema }`, one per use in the program
   (definition order). `value` is the use's fields (an `Option` left out is
   `none`); `target` is `{ module: String, name: String, kind: Symbol
-  (#fn, #type, #field, #variant, #value), owner: Option<String> }` (the
-  struct or enum of a field or variant); `call` is the annotated function,
-  of the declared `fn(SIGNATURE)` type — an `Option` when the attribute has
-  other positions too. A function of another signature is a type error at
+  (#fn, #type, #field, #variant, #value), owner: Option<String>, file:
+  String, line: Int }` (the owner: the struct or enum of a field or
+  variant; the file relative to the project); `call` is the annotated
+  function, of the declared `fn(SIGNATURE)` type, and `schema` (for
+  `on type: Codec`) the type's `schema<T>().describe()` — each an `Option`
+  when the attribute has other positions too. A function of another signature is a type error at
   its use. Reading the uses from another module, or naming the attribute as
   a value otherwise, is E0151. The table is an ordinary value, so what it
   references is kept by reachability like anything else, and it is in saved
@@ -193,9 +198,9 @@ annotating a particular function or type has no point:
 
 - `on fn(SIGNATURE)`: each use carries the function as a value of that type
   (`use.call`); annotating a function of another signature is an error.
-- `on type`: each use carries the type's description (its schema, as
-  `schema.of<T>()` gives) and, when the declaration names a protocol
-  (`on type: Codec`), what that protocol offers for it.
+- `on type: Codec`: each use carries the type's schema (`use.schema`, as
+  `schema<T>().describe()` gives); a plain `on type` carries the target
+  only.
 - `on field` / `on variant`: the owning type (as for `type`) and the
   field's or variant's name and type.
 

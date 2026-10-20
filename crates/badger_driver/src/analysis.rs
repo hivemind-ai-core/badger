@@ -466,6 +466,20 @@ impl Ix<'_> {
                 let t = src.get(def.span.start as usize..end.max(def.span.start) as usize).unwrap_or("");
                 format!("fn {}", t.split_whitespace().collect::<Vec<_>>().join(" "))
             }
+            // an attribute's whole declaration: its positions and fields
+            DefKind::Attribute(a) => {
+                let one = |sp: Span| self.text(sp).split_whitespace().collect::<Vec<_>>().join(" ");
+                let on: Vec<String> = a.positions.iter().map(|(_, sp)| one(*sp)).collect();
+                let fields: Vec<String> = a
+                    .fields
+                    .iter()
+                    .map(|f| format!("{}: {}", self.s.interner.resolve(f.name), one(f.ty.span)))
+                    .collect();
+                let name = self.s.interner.resolve(def.name);
+                let body =
+                    if fields.is_empty() { String::new() } else { format!(" {{ {} }}", fields.join(", ")) };
+                format!("attribute {name} on {}{body}", on.join(", "))
+            }
             _ => String::new(),
         }
     }
@@ -1086,6 +1100,7 @@ fn index(s: &Session, hir: &badger_hir::Hir, checked: &badger_typeck::Checked<'_
         let mut items: Vec<Item> = m
             .items
             .iter()
+            .chain(m.attributes.iter())
             .filter(|(_, d)| !m.is_std || hir.defs[**d].is_pub)
             .filter_map(|(n, d)| {
                 let def = &hir.defs[*d];

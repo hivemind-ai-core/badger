@@ -90,6 +90,10 @@ pub struct Module {
     /// after `@` and as `NAME.uses`), so `attribute status` and
     /// `fn status` live side by side.
     pub attributes: FxHashMap<Symbol, DefId>,
+    /// The file's name as shown to people, and where each of its lines
+    /// starts (byte offsets): for attribute tables' `file` and `line`.
+    pub file_name: String,
+    pub line_starts: Vec<u32>,
     pub tests: Vec<DefId>,
 }
 
@@ -259,7 +263,8 @@ pub struct AttributeDef {
 /// A position a declared attribute may be written at.
 #[derive(Debug, Clone)]
 pub enum AttributePosition {
-    Type,
+    /// A type; `Some` of the protocol it must implement (`type: Codec`).
+    Type(Option<HTy>),
     /// A top-level function of this signature.
     Fn(HTy),
     Field,
