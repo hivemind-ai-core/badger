@@ -1,0 +1,9 @@
+// Methods are found as `Type.method` by `query symbol`.
+pub struct Order { qty: Int }
+impl Order {
+    pub fn doubled(self: &Self) -> Int => self.qty * 2
+}
+impl Display for Order {
+    fn display(self: &Self) -> String => "o"
+}
+pub fn main() {}

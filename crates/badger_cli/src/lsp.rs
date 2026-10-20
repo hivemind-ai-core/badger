@@ -1252,7 +1252,14 @@ pub fn query(
                     return true;
                 }
                 let mut rest = scope.clone();
-                if h.container.as_deref() == rest.last().copied() {
+                // a method's container is its impl (`impl Order`, or
+                // `impl Display for Order`): `Order.total` names it
+                let owner = h.container.as_deref().map(|c| {
+                    let c = c.strip_prefix("impl ").unwrap_or(c);
+                    let c = c.rsplit(" for ").next().unwrap_or(c);
+                    c.split('<').next().unwrap_or(c).trim()
+                });
+                if owner.is_some() && owner == rest.last().copied() {
                     rest.pop();
                 } else if h.container.is_some() {
                     return false;

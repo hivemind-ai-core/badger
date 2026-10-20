@@ -642,6 +642,9 @@ fn index(s: &Session, hir: &badger_hir::Hir, checked: &badger_typeck::Checked<'_
                 };
                 ix.add_ref(&mut refs, ex.span, r);
             }
+            // a hole `_`: its hover is the type expected there (the call's
+            // type), not the internal `hole` function
+            ExprKind::Def { def, .. } if hir.try_lang("hole") == Some(*def) => {}
             ExprKind::Def { def, type_args } => {
                 let r = Ref {
                     start: 0,
@@ -736,7 +739,9 @@ fn index(s: &Session, hir: &badger_hir::Hir, checked: &badger_typeck::Checked<'_
             _ => {}
         }
         // every expression: its type, for hovers anywhere inside it
+        let hole_fn = matches!(ex.kind, ExprKind::Def { def, .. } if hir.try_lang("hole") == Some(def));
         if !matches!(ex.kind, ExprKind::Block { .. } | ExprKind::Lambda(_) | ExprKind::Error)
+            && !hole_fn
             && let Some(t) = types.exprs.get(&e)
         {
             ix.add_ref(
