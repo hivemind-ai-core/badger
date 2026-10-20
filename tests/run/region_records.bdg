@@ -1,0 +1,42 @@
+// Region records: a `region` block's records stay in it, and a record built
+// in a region the caller gives (`R: Scope`) is returned to the caller.
+import std.io
+
+struct Batch<R: Scope> { name: String, items: List<Int> }
+
+fn batch<R: Scope>(name: String, items: List<Int>) -> Batch<R> { { name, items } }
+
+fn total<R: Scope>(b: &Batch<R>) -> Int { b.items.fold(0, fn(a, x) { a + x }) }
+
+fn summary<R: Scope>(n: Int) -> Batch<R> {
+    region Scratch {
+        let scratch: Batch<Scratch> = batch("scratch", [n, n + 1])
+        var acc = 0
+        for x in [1, 2, 3] {
+            acc = acc + x * total(&scratch)
+        }
+        batch("summary", [acc])
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let sum = region Main {
+        let s: Batch<Main> = summary(2)
+        let all: Batch<Main> = batch("all", [1, total(&s)])
+        // plain data leaves the region
+        total(&all)
+    }
+    io.println($"sum {sum}")?
+    // nested regions: the inner one's records use the outer one's
+    let pair = region Outer {
+        let a: Batch<Outer> = batch("a", [10])
+        region Inner {
+            let b: Batch<Inner> = batch($"{a.name}+", [total(&a) + 1])
+            (a.name, b.name, total(&b))
+        }
+    }
+    io.println($"pair {pair.0} {pair.1} {pair.2}")?
+    // `region` is still an ordinary name
+    let region = 3
+    io.println($"region {region}")
+}

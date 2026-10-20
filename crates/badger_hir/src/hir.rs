@@ -46,6 +46,11 @@ pub struct Hir {
     /// Warning-suppression regions from `@allow(<code>)`: a warning with that
     /// code whose primary span lies inside a region is dropped.
     pub allows: Vec<(String, Span)>,
+    /// `region R { ... }` blocks: each block with its region's name. The
+    /// region is a generic parameter bounded by `Scope`, visible only to the
+    /// types written inside the block; the block itself is an ordinary
+    /// `Block` (a region is a static brand, not a runtime scope).
+    pub region_blocks: FxHashMap<ExprId, GenericId>,
     /// Method calls `x.f(...)` on a local `x` that hides an imported module
     /// with a function `f`: an error inside one says which `x` it means.
     pub shadowed_module_calls: Vec<(Span, String)>,

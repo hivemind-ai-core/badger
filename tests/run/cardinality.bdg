@@ -40,6 +40,10 @@ pub fn main() -> Result<Unit, io.Error> {
     )
     // The count of an empty pipeline is 0.
     assert(xs.seq().filter(fn(x: Int) { x > 9 }).count() == 0)
+    // `distinct` keeps the first of each set of equal items.
+    let dups = [1, 2, 1, 3, 2]
+    assert(dups.seq().distinct().collect().len() == 3)
+    assert(seq.range(0, 9).map(fn(x: Int) { x % 3 }).distinct().collect().len() == 3)
     // The accumulators share one shape: count, sum, product.
     assert(seq.sum(seq.range(0, 5)) == 10)
     assert(seq.sum(seq.range(0, 0)) == 0)

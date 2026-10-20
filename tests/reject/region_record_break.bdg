@@ -1,0 +1,12 @@
+// expect-error: E0414
+// `break` with a region's record leaves the region.
+struct Node<R: Scope> { value: Int }
+fn make<R: Scope>(value: Int) -> Node<R> { { value } }
+pub fn main() -> Unit {
+    let _ = loop {
+        region Local {
+            let n: Node<Local> = make(1)
+            break n
+        }
+    }
+}

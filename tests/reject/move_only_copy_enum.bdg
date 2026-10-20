@@ -1,0 +1,14 @@
+// expect-error: E0415
+// An enum takes the marker as a struct does.
+@move_only
+pub enum Ticket { open(seat: Int), closed }
+fn seat(t: Ticket) -> Int {
+    match t {
+        .open(n) => n,
+        .closed => 0,
+    }
+}
+pub fn main() {
+    let t = Ticket.open(1)
+    let _ = seat(t) + seat(t)
+}

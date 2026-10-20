@@ -1,0 +1,11 @@
+// expect-error: E0414
+// Storing a region's record into a cell from outside the block.
+struct Node<R: Scope> { value: Int }
+fn make<R: Scope>(value: Int) -> Node<R> { { value } }
+pub fn main() -> Unit {
+    let cell = Cell.new(make(0))
+    region Local {
+        let n: Node<Local> = make(1)
+        cell.set(n)
+    }
+}

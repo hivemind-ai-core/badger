@@ -83,15 +83,16 @@ where
 pub const BLOCK_BODY: &str = "a block `{ ... }`";
 
 /// An expected-found error whose expectation is a whole phrase, built at
-/// run time (the body of an `if` says which `if`).
-fn expected_phrase<'t, 's: 't, I, Er>(what: String, found: Option<Tok<'s>>, span: Span) -> Er
+/// run time (the body of an `if` says which `if`). The phrase is `None` in
+/// the fast pass, whose error type keeps nothing.
+fn expected_phrase<'t, 's: 't, I, Er>(what: Option<String>, found: Option<Tok<'s>>, span: Span) -> Er
 where
     I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
     Er: ParseErr<'t, 's, I>,
 {
     use chumsky::label::LabelError;
     use chumsky::util::MaybeRef;
-    let patterns = [chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(what))];
+    let patterns = what.into_iter().map(|w| chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(w)));
     <Er as LabelError<'t, I, chumsky::error::RichPattern<'t, Tok<'s>>>>::expected_found(
         patterns,
         found.map(MaybeRef::Val),
@@ -119,7 +120,9 @@ where
         inp.next();
         let at = inp.span_since(&c);
         inp.rewind(save);
-        Err(expected_phrase::<I, Er>(format!("{BLOCK_BODY} {after}"), inp.peek(), at))
+        // the fast pass tracks no errors, so it needs no phrase
+        let what = (core::mem::size_of::<Er>() != 0).then(|| format!("{BLOCK_BODY} {after}"));
+        Err(expected_phrase::<I, Er>(what, inp.peek(), at))
     })
 }
 
@@ -613,6 +616,10 @@ where
             .map(|(s, span)| Expr::Ref(s, span));
         let unsafe_expr =
             kw("unsafe").ignore_then(body_block(block.clone(), "after `unsafe`")).map(Expr::Unsafe);
+        let region_expr = kw("region")
+            .ignore_then(type_ident.clone())
+            .then(body_block(block.clone(), "after the region's name"))
+            .map(|(n, b)| Expr::Region(n, b));
         let return_expr =
             kw("return").ignore_then(expr.clone().or_not()).map(|e| Expr::Return(e.map(Box::new)));
         let break_expr = kw("break").ignore_then(expr.clone().or_not()).map(|e| Expr::Break(e.map(Box::new)));
@@ -698,6 +705,7 @@ where
         let map_or_name = choice((map_lit.clone(), name_e.clone()));
         let set_or_name = choice((set_lit.clone(), name_e.clone()));
         let ref_or_name = choice((ref_expr.clone(), name_e.clone()));
+        let region_or_name = choice((region_expr.clone(), name_e.clone()));
         // the reporting pass tries the alternatives as combinators (a
         // custom parser reports its errors where it started, not where
         // they are)
@@ -716,6 +724,7 @@ where
             set_lit.clone(),
             ref_expr.clone(),
             unsafe_expr.clone(),
+            region_expr.clone(),
             return_expr.clone(),
             break_expr.clone(),
             continue_expr.clone(),
@@ -758,6 +767,7 @@ where
                 Some(Tok::Word("map")) => inp.parse(&map_or_name),
                 Some(Tok::Word("set")) => inp.parse(&set_or_name),
                 Some(Tok::Word("ref")) => inp.parse(&ref_or_name),
+                Some(Tok::Word("region")) => inp.parse(&region_or_name),
                 Some(Tok::Word("_")) => inp.parse(&hole),
                 Some(Tok::Word(w)) if is_type_ident(w) => inp.parse(&type_e),
                 Some(Tok::Word(_)) => inp.parse(&name_e),

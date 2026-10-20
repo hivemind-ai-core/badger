@@ -1,0 +1,9 @@
+// expect-error: E0415
+// A generic function that uses its argument twice would copy it.
+@move_only
+pub struct Token { pub id: Int }
+fn twice<T>(x: T) -> (T, T) { (x, x) }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let _ = twice(t)
+}

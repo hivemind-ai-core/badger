@@ -19,6 +19,9 @@ Ownership properties are separate from ordinary shape types:
 - A linear value is affine and must also be used: it is consumed exactly once
   on every path that leaves its scope normally. Resources are linear; see
   [Linear resources](#linear-resources).
+- A move-only value is affine because its type says so: a struct or enum
+  marked `@move_only` is moved, never copied. See
+  [Move-only types](#move-only-types).
 - Task-confined mutable cells can have aliases within their owning task but
   cannot cross a task boundary. `Cell<T>` is an explicit such type.
 - `Transfer` means the value can cross a task boundary by safe sharing or by
@@ -85,6 +88,49 @@ either: one connection is read by one task while another writes, and the
 server side belongs to the request scope that closes it when the session
 returns.
 
+## Move-only types
+
+A struct or enum declared with the `@move_only` attribute is *move-only*: each
+of its values has one owning use, like a builder's, although the type holds
+nothing affine. The marker is opt-in; a type without it is copied as before.
+
+```badger fragment
+@move_only
+pub struct Ticket { pub seat: Int }
+```
+
+A move-only value moves wherever an affine one does: when it is bound
+(`let b = a`), passed by value, returned, stored in a record, variant, list,
+map, or set, matched by a pattern that binds its parts, or captured by a
+closure that takes it (a capture moves into the closure when its body
+consumes it, or when the binding is not used after the closure). Using the old
+binding again would copy the value, and is E0414; so is a second move on
+another loop iteration. A generic function or closure whose body uses a value
+of its parameter type more than once cannot take a move-only argument for it
+(E0414), and taking a move-only value out of a borrow is E0414 as well. A
+move-only type does not implement `Share`, so the functions that duplicate
+`T: Share` values reject it (E0341). A module-level value cannot hold one
+(E0138): every use of a module value reads the same value, so each would be a
+copy.
+
+Reading a move-only value does not move it: a field read of a copyable field
+(`t.seat`), a `self: &Self` method, a `&T` parameter (`read(&t)`), a
+comparison, and interpolation borrow it. A method taking `self` by value
+consumes its receiver. An aggregate holding a move-only value is move-only in
+turn, as one holding a buffer is affine.
+
+The marker and linearity answer different questions. A move-only value must
+be *moved* rather than copied; it may still be dropped unused, at the end of
+its scope or with `_`. A linear value must be *used*: consumed on every
+normal exit from its scope. Every linear type is affine, so a linear value is
+also moved, never copied; a move-only type is not linear, and user types
+cannot be declared linear. A value that is both (a move-only type holding a
+resource) carries both rules at once: the value is moved, never copied, and
+the resource inside it is consumed by moving it in, so the obligation to close
+it rests with whatever takes the resource out again, or with the runtime's
+finalizer if the holder is dropped. The marker is a static guarantee: the
+value's representation, the MIR, and the generated code are unchanged.
+
 ## Borrowing and regions
 
 `&T` borrows read access; `&mut T` borrows exclusive access. Borrows cannot
@@ -114,6 +160,49 @@ closure capturing it. The source type grammar supports `for<S: Scope> fn(...)`
 for these checked callback contracts, not unrestricted higher-rank inference.
 Resource implementations declare their handle's region parameter; the compiler
 may elide it in diagnostic/display contexts where its origin is unambiguous.
+
+### Region blocks and region records
+
+A `region` block names a lexical region that ends with the block:
+
+```text
+region Scratch { statements; result }
+```
+
+`region` is a keyword only before a type-level name and a block; elsewhere
+it is an ordinary name. The name is a region type parameter (bounded by
+`Scope`) in scope for the types written inside the block. A struct or enum
+whose last type parameter is a region is a *region record*: `Node<Scratch>`
+is a `Node` of region `Scratch`. A region record is created in the region its
+type names, and none of its values outlives that region. Region brands are
+invariant: `Node<A>` and `Node<B>` are different types for different regions.
+
+A region outlives the places where it is in scope: a block's region outlives
+the statements of its block; a function's region parameter (`R: Scope`),
+provided by the caller, outlives the function's return. A value of a block's
+region therefore cannot be the block's result, be returned (`return`) or
+broken (`break`) out of it, be assigned to a `var` declared outside it, or be
+stored into a cell, atom, collection, or channel reached from outside it. A
+closure, sequence, task, `dyn` value, or handle built from one cannot leave
+the block either. A violation is E0414. A record of a function's region
+parameter is returned to the caller:
+
+```text
+fn make<R: Scope>(v: Int) -> Node<R> { { value: v } }  // R outlives the return
+fn leak<R: Scope>(v: Int) -> Node<R> {
+    region Scratch {
+        let n: Node<Scratch> = make(v)
+        n                                            // E0414
+    }
+}
+```
+
+The region of a block is checked like the fresh region of a `for<S: Scope>`
+callback: the block's body is the callback's body, and the locals it uses
+from outside are its captures. A brand is a static guarantee. A region
+record is allocated, traced, and collected like any other record, and a
+`region` block runs as an ordinary block. The runtime type descriptor has a
+region flag for the brand, which tracing and collection ignore.
 
 Child tasks in a scope may borrow enclosing *shareable* resources if they finish
 before that resource closes. A task-local transaction does not become shareable

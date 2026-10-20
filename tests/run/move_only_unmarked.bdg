@@ -1,0 +1,18 @@
+// The same shapes without `@move_only` copy as they always have: the gate
+// that keeps the marker opt-in.
+import std.io
+
+pub struct Token { pub id: Int }
+
+fn take(t: Token) -> Int { t.id }
+fn twice<T>(x: T) -> (T, T) { (x, x) }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let t: Token = { id: 1 }
+    let a = t
+    let xs = [t, t]
+    let r = { tok: t }
+    let f = fn() => take(t)
+    let (p, q) = twice(t)
+    io.println(take(a) + take(t) + xs.len() + take(r.tok) + f() + take(p) + take(q))
+}

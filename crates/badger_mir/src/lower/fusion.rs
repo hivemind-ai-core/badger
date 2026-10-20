@@ -32,6 +32,8 @@ enum Stage {
     Enumerate(Ty),
     /// The element type (for structural equality).
     Dedup(Ty),
+    /// The element type (the seen set's key).
+    Distinct(Ty),
 }
 enum Active {
     Map(Operand, Repr),
@@ -46,6 +48,8 @@ enum Active {
     Enumerate(Local, Ty),
     /// Previous item, a `seen` flag, and the element descriptor.
     Dedup(Local, Local, Operand),
+    /// The seen set, the key type, and the set's type.
+    Distinct(Local, Ty, Ty),
 }
 #[derive(Clone)]
 enum PreparedStage {
@@ -56,6 +60,8 @@ enum PreparedStage {
     Scan(Operand, Operand, Repr),
     Enumerate(Ty),
     Dedup(Ty, Repr, Operand),
+    /// The key type and the seen set's type.
+    Distinct(Ty, Ty),
 }
 /// Construction-time snapshots. Traversals create their own mutable position
 /// and take counters; every retained pointer remains a typed MIR operand.
@@ -139,6 +145,7 @@ impl FnLower<'_, '_, '_> {
             "std.seq.scan" => FusionTemplate::new("scan", &[]),
             "std.seq.enumerate" => FusionTemplate::new("enumerate", &[]),
             "std.seq.dedup" => FusionTemplate::new("dedup", &[]),
+            "std.seq.distinct" => FusionTemplate::new("distinct", &[]),
             "std.seq.fold" => FusionTemplate::new("fold", &[]),
             "std.seq.count" => FusionTemplate::new("accumulate", &[("combine", "count")]),
             "std.seq.sum" => FusionTemplate::new("accumulate", &[("combine", "add")]),
@@ -230,6 +237,13 @@ impl FnLower<'_, '_, '_> {
                 stages.push(Stage::Dedup(elem));
                 Some((source, stages))
             }
+            ("distinct", [inner]) => {
+                let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
+                let t = self.ty(e);
+                let elem = self.m.lay.args(&t).first()?.clone();
+                stages.push(Stage::Distinct(elem));
+                Some((source, stages))
+            }
             _ => None,
         }
     }
@@ -251,6 +265,7 @@ impl FnLower<'_, '_, '_> {
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
+            ("distinct", [inner]) => self.sequence_local_use(*inner, depth + 1),
             _ => None,
         }
     }
@@ -435,6 +450,13 @@ impl FnLower<'_, '_, '_> {
                     let desc = self.desc_op(&ty);
                     PreparedStage::Dedup(ty, repr, desc)
                 }
+                Stage::Distinct(elem) => {
+                    let set = badger_typeck::ty::mk(TyKind::Con(
+                        self.m.g.env.b.map,
+                        vec![elem.clone(), badger_typeck::ty::unit()],
+                    ));
+                    PreparedStage::Distinct(elem, set)
+                }
             });
         }
         Some(prepared)
@@ -502,9 +524,26 @@ impl FnLower<'_, '_, '_> {
         }
         let Prepared { start, end, inclusive, list: list_source, stages } =
             self.prepare_sequence(SequencePlan(plan.source, plan.stages))?;
+        // `distinct` keeps its seen set in a fresh map. The sets are created
+        // here, in stage order, because activation cannot fail; the loop body
+        // only ever replaces one with the map an insert returned.
+        let mut sets = Vec::with_capacity(stages.len());
+        for stage in &stages {
+            sets.push(match stage {
+                PreparedStage::Distinct(elem, set) => Some(self.intrinsic(
+                    "map_empty",
+                    vec![elem.clone(), badger_typeck::ty::unit()],
+                    vec![],
+                    set,
+                    self.span(e),
+                )?),
+                _ => None,
+            });
+        }
         let stages: Vec<_> = stages
             .into_iter()
-            .map(|stage| match stage {
+            .enumerate()
+            .map(|(i, stage)| match stage {
                 PreparedStage::Map(f, ret) => Active::Map(f, ret),
                 PreparedStage::Filter(f) => Active::Filter(f),
                 PreparedStage::Cursor(mode, n) => {
@@ -524,6 +563,10 @@ impl FnLower<'_, '_, '_> {
                 }
                 PreparedStage::Enumerate(ty) => {
                     Active::Enumerate(self.copy_to_local(int(0), Repr::I64, None), ty)
+                }
+                PreparedStage::Distinct(elem, set) => {
+                    let empty = sets[i].unwrap_or_else(|| unreachable!());
+                    Active::Distinct(self.copy_to_local(empty, Repr::Ptr, None), elem, set)
                 }
                 PreparedStage::Dedup(_ty, repr, desc) => {
                     // `prev` is read only after `seen` is set, so a zero
@@ -737,6 +780,31 @@ impl FnLower<'_, '_, '_> {
                         value,
                     });
                     value = obj;
+                }
+                Active::Distinct(seen, elem, set) => {
+                    // keep the first of each set of equal items: the map is
+                    // the set of items seen so far
+                    let unit = badger_typeck::ty::unit();
+                    let bool_ty =
+                        badger_typeck::ty::mk(TyKind::Con(self.m.g.env.b.bool_, vec![]));
+                    let seen_before = self.intrinsic(
+                        "map_contains",
+                        vec![elem.clone(), unit.clone()],
+                        vec![Operand::Local(seen), value],
+                        &bool_ty,
+                        self.span(e),
+                    )?;
+                    let duplicate = self.block();
+                    self.term(Term::Branch(seen_before, step, duplicate));
+                    self.switch(duplicate);
+                    let inserted = self.intrinsic(
+                        "map_insert",
+                        vec![elem.clone(), unit],
+                        vec![Operand::Local(seen), value, unit_op()],
+                        &set,
+                        self.span(e),
+                    )?;
+                    self.emit(Stmt::Assign(seen, Rvalue::Use(inserted)));
                 }
                 Active::Dedup(prev, seen, desc) => {
                     // collapse consecutive equal items: keep the first, drop
