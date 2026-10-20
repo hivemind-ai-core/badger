@@ -79,11 +79,21 @@ program, in `crates/badger_driver/src/`:
   records that never leave a function out of the heap.
 - `layout.rs`: concrete layouts and the runtime type descriptors.
 - Lazy `Seq` pipelines are lowered as one loop for `collect`, `sum`,
-  `fold`, `count`, `any`, `all`, and `for`; `collect` and eager
+  `count`, `product`, `fold`, `any`, `all`, and `for`; `collect` and eager
   `List.map`/`scan` use a builder pre-sized from the known input length
-  (scalar elements). `any`/`all` stop at the first item that decides.
+  (scalar elements). `count`/`sum`/`product` are one accumulator shape with
+  a combine step; `any`/`all` stop at the first item that decides.
   `count` over a source that knows its length, through stages that neither
   drop nor re-shape items, is that length: no loop is emitted.
+- `@fusion(role = ..., template = ...)` marks a sequence function for
+  fusion. The kind is one of a closed set (the sources; the stages `call`,
+  `cursor` with a `mode`, `scan`, `enumerate`, `dedup`; the terminals
+  `fold`, `accumulate` with a `combine`, `collect`, and the searches), the
+  role, arity, and required parameters must match the function it is
+  written on (`E0200`), and the values must be ones the compiler knows
+  (`E0194`). Any module may annotate — the recognizers still require a
+  matching shape and receiver type, so an unsuited marking simply does not
+  fuse.
 - Eager list and map chains are lowered as one traversal before code
   generation: `filter(..).map(..)` / `map(..).filter(..)` when the earlier
   callback is pure and infallible (`BADGER_NO_LIST_FUSION=1` disables), and

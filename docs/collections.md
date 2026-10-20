@@ -71,7 +71,7 @@ Rules of thumb:
 | `take`, `skip`, `slice`, `take_while`, `skip_while` (lists) | O(result) | A new list of the kept items |
 | `find`, `position`, `any`, `all`, `find_map` | O(position found) | Stop at the first match |
 | `count` | O(1) on a counted source, else O(n) | See [counting](#counting) |
-| `sum`, `fold`, `min_by`, `max_by` | O(n) | `min_by`/`max_by` keep the first item on ties |
+| `sum`, `product`, `fold`, `min_by`, `max_by` | O(n) | `min_by`/`max_by` keep the first item on ties |
 | `sort`, `sort_by`, `sort_with` | O(n log n) | Stable; `sort_by` computes each key once |
 | `dedup` | O(n) | Consecutive duplicates only |
 | `unique`, `group_by` | O(n) expected | Hash-based; each group keeps input order |

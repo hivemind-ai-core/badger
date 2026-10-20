@@ -1,0 +1,25 @@
+// A library declares its attributes: the positions each may be written at
+// (a function position names the signature), and its fields.
+import std.http
+import std.io
+
+enum Method {
+    get,
+    post,
+}
+
+/// A route: the handler, its method, and its path.
+pub attribute route on fn(http.Request) -> http.Response, value {
+    method: Method,
+    path: String,
+    summary: Option<String>,
+}
+
+pub attribute column on field { name: String, primary: Option<Bool> }
+
+pub attribute marker on type, variant {}
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println("declared")?
+    ok(())
+}

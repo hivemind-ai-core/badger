@@ -420,6 +420,44 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let ty = self.ty(ty);
                 ItemKind::TypeAlias { name, generics, ty }
             }
+            cst::ItemKind::Attribute { name, positions, fields } => {
+                let name = self.value_name(name);
+                let positions = positions
+                    .into_iter()
+                    .map(|(p, sp)| {
+                        let span = self.span(sp);
+                        let p = match p {
+                            cst::AttrPosition::Type => AttrPosition::Type,
+                            cst::AttrPosition::Field => AttrPosition::Field,
+                            cst::AttrPosition::Variant => AttrPosition::Variant,
+                            cst::AttrPosition::Value => AttrPosition::Value,
+                            cst::AttrPosition::Fn(t) => {
+                                let t = self.ty(t);
+                                if !matches!(self.ast.types[t].kind, TypeKind::Fn { .. }) {
+                                    self.error(
+                                        "E0150",
+                                        span,
+                                        "an attribute position is `type`, `field`, `variant`, `value`, or a function type",
+                                        "e.g. `on fn(http.Request) -> http.Response`",
+                                    );
+                                }
+                                AttrPosition::Fn(t)
+                            }
+                        };
+                        (p, span)
+                    })
+                    .collect();
+                let fields = fields
+                    .into_iter()
+                    .map(|(attrs, is_pub, n, t)| {
+                        let attributes = self.attributes(attrs);
+                        let name = self.value_name(n);
+                        let ty = self.ty(t);
+                        StructField { attributes, is_pub, name, ty }
+                    })
+                    .collect();
+                ItemKind::Attribute(AttributeDecl { name, positions, fields })
+            }
             cst::ItemKind::Struct { repr_c, name, generics, fields } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);

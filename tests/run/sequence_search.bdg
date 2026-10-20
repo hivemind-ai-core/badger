@@ -28,6 +28,30 @@ pub fn main() -> Result<Unit, io.Error> {
     let scanned = Cell.new(0)
     assert(!seq.range(0, 100).all(fn(x: Int) { scanned.set(scanned.get() + 1); x < 3 }))
     assert(scanned.get() == 4)
+    // The searches that return `Option`.
+    assert(xs.seq().find(fn(x: Int) { x > 3 }) == Option.some(4))
+    assert(xs.seq().find(fn(x: Int) { x > 9 }) == Option.none)
+    assert(xs.seq().first() == Option.some(1))
+    assert(seq.range(0, 0).first() == Option.none)
+    assert(xs.seq().position(fn(x: Int) { x == 4 }) == Option.some(3))
+    assert(xs.seq().position(fn(x: Int) { x == 9 }) == Option.none)
+    // The position counts the items that reach it, not source indices.
+    assert(
+        xs
+        .seq()
+        .filter(fn(x: Int) { x % 2 == 0 })
+        .position(fn(x: Int) { x == 4 }) == Option.some(1)
+    )
+    assert(xs.seq().find_map(fn(x: Int) { if x > 3 { Option.some(x) } else { Option.none } }) == Option.some(4))
+    assert(
+        xs
+        .seq()
+        .find_map(fn(x: Int) { Option.none }) == Option.none
+    )
+    // A search stops at the item it returns.
+    let probed = Cell.new(0)
+    assert(xs.seq().find(fn(x: Int) { probed.set(probed.get() + 1); x > 2 }) == Option.some(3))
+    assert(probed.get() == 3)
     io.println("search fusion: ok")?
     ok(())
 }

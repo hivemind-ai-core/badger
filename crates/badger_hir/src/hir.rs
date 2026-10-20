@@ -115,6 +115,8 @@ pub enum DefKind {
     Protocol(ProtocolDef),
     Impl(ImplDef),
     /// Placeholder while collecting; replaced during lowering.
+    /// A library's attribute declaration.
+    Attribute(AttributeDef),
     Pending,
 }
 
@@ -235,6 +237,25 @@ pub struct EnumDef {
     pub generics: Vec<GenericId>,
     pub variants: Vec<VariantDef>,
     pub derives: Vec<Derive>,
+}
+
+/// `attribute NAME on POSITIONS { FIELDS }`: where it may be written, and the
+/// fields a use gives.
+#[derive(Debug, Clone)]
+pub struct AttributeDef {
+    pub positions: Vec<(AttributePosition, Span)>,
+    pub fields: Vec<FieldDef>,
+}
+
+/// A position a declared attribute may be written at.
+#[derive(Debug, Clone)]
+pub enum AttributePosition {
+    Type,
+    /// A top-level function of this signature.
+    Fn(HTy),
+    Field,
+    Variant,
+    Value,
 }
 
 /// What a statement or parameter attribute is on.

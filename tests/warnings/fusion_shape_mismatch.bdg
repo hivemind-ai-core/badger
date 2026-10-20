@@ -1,0 +1,12 @@
+// A `@fusion` annotation must agree with the function it is written on:
+// the kind fixes the role and the arity, and a kind that takes a parameter
+// must be given one.
+// expect-warning: E0200
+@fusion(role = stage, template = accumulate, combine = add)
+pub fn counted(xs: List<Int>) -> List<Int> { xs }
+
+// expect-warning: E0200
+@fusion(role = stage, template = cursor)
+pub fn no_mode(xs: List<Int>, _n: Int) -> List<Int> { xs }
+
+pub fn main() {}

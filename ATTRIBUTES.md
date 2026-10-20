@@ -57,7 +57,7 @@ tags, or on the same line):
 | a top-level declaration (`fn`, `struct`, `enum`, `type`, `protocol`, `impl`, `let`, `import`) | `@derive(Eq) pub struct Point { ... }` |
 | an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
-| a struct field | `@flatten pub id: BookId` (where it applies), `@app.column("px") pub x: Int` |
+| a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
 | an enum variant | `@status(404) @message("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
@@ -74,9 +74,8 @@ attribute is namespaced by its module, `@lib.name` (`@app.operation`, after
 error, E0191, otherwise), which also counts as a use of the import. One the
 module does not declare is a warning in user code (an error in
 standard-library sources), so a library newer or older than its user does
-not break the build; modules cannot declare attributes yet, so until
-declared attributes (below) every attribute of an imported module is
-accepted, and nothing checks its arguments.
+not break the build; one it declares is checked against the declaration
+(E0151; see [User-defined attributes](#user-defined-attributes-design-agreed-2026-10-20-declarations-and-uses-checked)).
 
 **`@allow(CODE, ...)`** works in every position: it silences that warning
 within what it tags (an item, a method, a field, a variant, a parameter's
@@ -97,7 +96,24 @@ Run-time-readable, user-declared attributes are planned after 1.0 (next
 section); the namespacing rule above is what keeps them from colliding with
 the compiler's own names.
 
-## User-defined attributes (design, agreed 2026-10-20; not implemented)
+## User-defined attributes (design, agreed 2026-10-20; declarations and uses checked)
+
+**Status:** declarations and uses are checked; the read side does not
+exist yet.
+
+- A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
+  formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated
+  one, a compiler name, or a field type an argument cannot write is E0150.
+  Field types are, for now, `Bool`, the integer types, `String`, `Symbol`,
+  payload-free enums, and `Option`s of them (floats, durations, and lists
+  wait for attribute arguments that can write them).
+- A use (`@lib.name(...)`) is checked against the declaration once every
+  module is lowered: an attribute its module does not declare is a warning
+  in user code (E0191; an error in std); a private one, a position the
+  declaration does not list, an unknown or repeated field, a missing
+  non-`Option` field, or a value of the wrong kind is E0151.
+- Not yet: a function's signature against `on fn(SIGNATURE)`, and reading
+  (`NAME.uses`).
 
 A library declares an attribute; other modules annotate with it; only the
 declaring module reads it, at run time, as the list of every use in the

@@ -11,12 +11,20 @@ enum Source {
     List(ExprId, Ty, bool),
     Stored(LocalId),
 }
+/// The positional stages share one shape: a counter that admits some items
+/// and drops the rest. `take` admits while the count lasts, `skip` drops
+/// the first `n`, and `step_by` passes one then drops `n - 1`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CursorMode {
+    Take,
+    Skip,
+    StepBy,
+}
 enum Stage {
     Map(ExprId),
     Filter(ExprId),
-    Take(ExprId),
-    Skip(ExprId),
-    StepBy(ExprId),
+    /// `take`/`skip`/`step_by`: the counter's argument.
+    Cursor(CursorMode, ExprId),
     FilterMap(ExprId),
     /// `f` and the initial accumulator.
     Scan(ExprId, ExprId),
@@ -28,10 +36,8 @@ enum Stage {
 enum Active {
     Map(Operand, Repr),
     Filter(Operand),
-    Take(Local),
-    Skip(Local),
-    /// `n` and the remaining-skip counter (reset to `n - 1` on each pass).
-    StepBy(Local, Local),
+    /// The argument and the counter it spends.
+    Cursor { mode: CursorMode, arg: Local, left: Local },
     /// The callback and the `Option<U>` it returns.
     FilterMap(Operand, Ty),
     /// The callback, the running accumulator, and its representation.
@@ -45,9 +51,7 @@ enum Active {
 enum PreparedStage {
     Map(Operand, Repr),
     Filter(Operand),
-    Take(Operand),
-    Skip(Operand),
-    StepBy(Operand),
+    Cursor(CursorMode, Operand),
     FilterMap(Operand, Ty),
     Scan(Operand, Operand, Repr),
     Enumerate(Ty),
@@ -64,15 +68,29 @@ pub(super) struct Prepared {
     stages: Vec<PreparedStage>,
 }
 pub(super) struct SequencePlan(Source, Vec<Stage>);
+/// The terminal accumulators share one shape: a running value updated per
+/// item. `count` adds one, `sum` adds the item, and `product` multiplies.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Combine {
+    Add,
+    Count,
+    Mul,
+}
 enum Terminal {
     Fold(ExprId, ExprId),
-    Count,
-    Sum,
+    Accumulate(Combine),
     Collect,
     /// `any`/`all`: the predicate decides, and the loop stops at the first
     /// item that does.
     Any(ExprId),
     All(ExprId),
+    /// The first item the predicate accepts, the first `some` the callback
+    /// gives, the first item, and the position of the first accepted item.
+    /// Each stops at the item it returns.
+    Find(ExprId),
+    FindMap(ExprId),
+    First,
+    Position(ExprId),
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -105,34 +123,35 @@ impl FnLower<'_, '_, '_> {
     /// The fusion template of a called standard-library definition: from its
     /// `@fusion(...)` annotation, or the legacy path table (kept while the
     /// annotations are rolled out) so nothing regresses.
-    fn fusion_template(&self, name: &str) -> Option<String> {
+    fn fusion_template(&self, name: &str) -> Option<FusionTemplate> {
         if let Some(t) = self.m.fusion.get(name) {
             return Some(t.clone());
         }
-        Some(
-            match name {
-                "std.seq.range" => "range",
-                "std.seq.from_range" => "from_range",
-                "std.list.of" | "std.list.seq" => "list",
-                "std.list.map" | "std.list.filter" => "call",
-                "std.seq.map" | "std.seq.filter" => "call",
-                "std.seq.take" => "take",
-                "std.seq.skip" => "skip",
-                "std.seq.step_by" => "step_by",
-                "std.seq.filter_map" => "call",
-                "std.seq.scan" => "scan",
-                "std.seq.enumerate" => "enumerate",
-                "std.seq.dedup" => "dedup",
-                "std.seq.fold" => "fold",
-                "std.seq.count" => "count",
-                "std.seq.sum" => "sum",
-                "std.seq.collect" | "std.list.collect" => "collect",
-                "std.seq.any" => "any",
-                "std.seq.all" => "all",
-                _ => return None,
-            }
-            .to_string(),
-        )
+        Some(match name {
+            "std.seq.range" => FusionTemplate::new("range", &[]),
+            "std.seq.from_range" => FusionTemplate::new("from_range", &[]),
+            "std.list.of" | "std.list.seq" => FusionTemplate::new("list", &[]),
+            "std.list.map" | "std.list.filter" => FusionTemplate::new("call", &[]),
+            "std.seq.map" | "std.seq.filter" | "std.seq.filter_map" => FusionTemplate::new("call", &[]),
+            "std.seq.take" => FusionTemplate::new("cursor", &[("mode", "take")]),
+            "std.seq.skip" => FusionTemplate::new("cursor", &[("mode", "skip")]),
+            "std.seq.step_by" => FusionTemplate::new("cursor", &[("mode", "step_by")]),
+            "std.seq.scan" => FusionTemplate::new("scan", &[]),
+            "std.seq.enumerate" => FusionTemplate::new("enumerate", &[]),
+            "std.seq.dedup" => FusionTemplate::new("dedup", &[]),
+            "std.seq.fold" => FusionTemplate::new("fold", &[]),
+            "std.seq.count" => FusionTemplate::new("accumulate", &[("combine", "count")]),
+            "std.seq.sum" => FusionTemplate::new("accumulate", &[("combine", "add")]),
+            "std.seq.product" => FusionTemplate::new("accumulate", &[("combine", "mul")]),
+            "std.seq.collect" | "std.list.collect" => FusionTemplate::new("collect", &[]),
+            "std.seq.any" => FusionTemplate::new("any", &[]),
+            "std.seq.all" => FusionTemplate::new("all", &[]),
+            "std.seq.find" => FusionTemplate::new("find", &[]),
+            "std.seq.find_map" => FusionTemplate::new("find_map", &[]),
+            "std.seq.first" => FusionTemplate::new("first", &[]),
+            "std.seq.position" => FusionTemplate::new("position", &[]),
+            _ => return None,
+        })
     }
 
     fn sequence_plan(&self, e: ExprId, depth: usize) -> Option<(Source, Vec<Stage>)> {
@@ -154,20 +173,24 @@ impl FnLower<'_, '_, '_> {
         }
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        match (template.as_str(), args.as_slice()) {
+        match (template.kind.as_str(), args.as_slice()) {
             ("range", [lo, hi]) => Some((Source::Bounds(*lo, *hi), vec![])),
             ("from_range", [r]) => Some((Source::Range(*r, false), vec![])),
             ("list", [list]) => {
                 let elem = self.m.lay.args(&self.ty(*list)).first()?.clone();
                 Some((Source::List(*list, elem, false), vec![]))
             }
-            ("take" | "skip" | "step_by", [inner, arg]) => {
+            ("cursor", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
-                stages.push(match template.as_str() {
-                    "take" => Stage::Take(*arg),
-                    "skip" => Stage::Skip(*arg),
-                    _ => Stage::StepBy(*arg),
-                });
+                // `mode` is checked where the annotation is read; a marking
+                // without one does not fuse.
+                let mode = match template.param("mode")? {
+                    "take" => CursorMode::Take,
+                    "skip" => CursorMode::Skip,
+                    "step_by" => CursorMode::StepBy,
+                    _ => return None,
+                };
+                stages.push(Stage::Cursor(mode, *arg));
                 Some((source, stages))
             }
             ("call", [inner, arg]) => {
@@ -223,8 +246,8 @@ impl FnLower<'_, '_, '_> {
         }
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        match (template.as_str(), args.as_slice()) {
-            ("call" | "take" | "skip" | "step_by", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
+        match (template.kind.as_str(), args.as_slice()) {
+            ("call" | "cursor", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
@@ -262,10 +285,8 @@ impl FnLower<'_, '_, '_> {
                 }
                 _ => self.sequence_call(e).and_then(|(name, args)| {
                     let template = self.fusion_template(&name)?;
-                    match (template.as_str(), args.as_slice()) {
-                        ("fold", [iter, _, _]) | ("count" | "sum", [iter]) | ("collect", [iter]) => {
-                            Some(*iter)
-                        }
+                    match (template.kind.as_str(), args.as_slice()) {
+                        ("fold", [iter, _, _]) | ("accumulate" | "collect", [iter]) => Some(*iter),
                         _ => None,
                     }
                 }),
@@ -326,13 +347,24 @@ impl FnLower<'_, '_, '_> {
     pub(super) fn fused_terminal(&self, e: ExprId) -> Option<Plan> {
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
-        let (iter, terminal) = match (template.as_str(), args.as_slice()) {
+        let (iter, terminal) = match (template.kind.as_str(), args.as_slice()) {
             ("fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
-            ("count", [iter]) => (*iter, Terminal::Count),
-            ("sum", [iter]) => (*iter, Terminal::Sum),
+            ("accumulate", [iter]) => (
+                *iter,
+                Terminal::Accumulate(match template.param("combine")? {
+                    "add" => Combine::Add,
+                    "count" => Combine::Count,
+                    "mul" => Combine::Mul,
+                    _ => return None,
+                }),
+            ),
             ("collect", [iter]) => (*iter, Terminal::Collect),
             ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
             ("all", [iter, test]) => (*iter, Terminal::All(*test)),
+            ("find", [iter, matches]) => (*iter, Terminal::Find(*matches)),
+            ("find_map", [iter, f]) => (*iter, Terminal::FindMap(*f)),
+            ("first", [iter]) => (*iter, Terminal::First),
+            ("position", [iter, matches]) => (*iter, Terminal::Position(*matches)),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -385,9 +417,7 @@ impl FnLower<'_, '_, '_> {
                     PreparedStage::Map(self.lower(expr)?, ret)
                 }
                 Stage::Filter(expr) => PreparedStage::Filter(self.lower(expr)?),
-                Stage::Take(expr) => PreparedStage::Take(self.lower(expr)?),
-                Stage::Skip(expr) => PreparedStage::Skip(self.lower(expr)?),
-                Stage::StepBy(expr) => PreparedStage::StepBy(self.lower(expr)?),
+                Stage::Cursor(mode, expr) => PreparedStage::Cursor(mode, self.lower(expr)?),
                 Stage::FilterMap(expr) => {
                     let TyKind::Fn(ft) = &*self.ty(expr) else { unreachable!() };
                     // the callback returns `Option<U>`
@@ -464,7 +494,9 @@ impl FnLower<'_, '_, '_> {
     }
 
     pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
-        if matches!(plan.terminal, Terminal::Count) && self.count_is_known(&plan) {
+        if matches!(plan.terminal, Terminal::Accumulate(Combine::Count))
+            && self.count_is_known(&plan)
+        {
             let (start, end, inclusive, _) = self.lower_source(&plan.source)?;
             return Some(self.clamped_span(start, end, inclusive));
         }
@@ -475,11 +507,16 @@ impl FnLower<'_, '_, '_> {
             .map(|stage| match stage {
                 PreparedStage::Map(f, ret) => Active::Map(f, ret),
                 PreparedStage::Filter(f) => Active::Filter(f),
-                PreparedStage::Take(n) => Active::Take(self.copy_to_local(n, Repr::I64, None)),
-                PreparedStage::Skip(n) => Active::Skip(self.copy_to_local(n, Repr::I64, None)),
-                PreparedStage::StepBy(n) => {
-                    let n = self.copy_to_local(n, Repr::I64, None);
-                    Active::StepBy(n, self.copy_to_local(int(0), Repr::I64, None))
+                PreparedStage::Cursor(mode, n) => {
+                    let arg = self.copy_to_local(n, Repr::I64, None);
+                    // `step_by` starts having passed nothing and is primed by
+                    // the last stage below; the others spend a count from the
+                    // start.
+                    let left = match mode {
+                        CursorMode::StepBy => self.copy_to_local(int(0), Repr::I64, None),
+                        _ => self.copy_to_local(Operand::Local(arg), Repr::I64, None),
+                    };
+                    Active::Cursor { mode, arg, left }
                 }
                 PreparedStage::FilterMap(f, opt) => Active::FilterMap(f, opt),
                 PreparedStage::Scan(f, initial, ret) => {
@@ -508,18 +545,38 @@ impl FnLower<'_, '_, '_> {
                 let acc = self.copy_to_local(initial, ret, None);
                 (Some(acc), Some(self.lower(f)?))
             }
-            Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            // `count` and `sum` start at 0, `product` at 1.
+            Terminal::Accumulate(combine) => {
+                let start = if combine == Combine::Mul { int(1) } else { int(0) };
+                (Some(self.copy_to_local(start, Repr::I64, None)), None)
+            }
             // `any` keeps false and `all` keeps true: the answer when no item
             // decides. The loop overwrites it and exits at the first decider.
             Terminal::Any(_) | Terminal::All(_) => {
                 let init = self.bool_op(matches!(plan.terminal, Terminal::All(_)));
                 (Some(self.copy_to_local(init, Repr::I8, None)), None)
             }
+            // The searches keep `none`: the answer when nothing is found.
+            Terminal::Find(_) | Terminal::FindMap(_) | Terminal::First | Terminal::Position(_) => {
+                let opt = self.ty(e);
+                let none = self.alloc_enum(&opt, 0, vec![]);
+                (Some(self.copy_to_local(none, Repr::Ptr, None)), None)
+            }
             Terminal::Collect | Terminal::For(..) => (None, None),
         };
         // The search predicate is construction-time, like a fold's callback.
         let search = match plan.terminal {
-            Terminal::Any(cb) | Terminal::All(cb) => Some(self.lower(cb)?),
+            Terminal::Any(cb)
+            | Terminal::All(cb)
+            | Terminal::Find(cb)
+            | Terminal::FindMap(cb)
+            | Terminal::Position(cb) => Some(self.lower(cb)?),
+            _ => None,
+        };
+        // `position` counts the items that reach the terminal, not the
+        // source's index (an earlier filter would drop some).
+        let pos = match plan.terminal {
+            Terminal::Position(_) => Some(self.copy_to_local(int(0), Repr::I64, None)),
             _ => None,
         };
         // `collect` builds its list in the fused loop. When the source count
@@ -565,7 +622,7 @@ impl FnLower<'_, '_, '_> {
         // An exhausted downstream take stops before requesting another
         // upstream item, including before upstream map/filter side effects.
         for stage in &stages {
-            if let Active::Take(left) = stage {
+            if let Active::Cursor { mode: CursorMode::Take, left, .. } = stage {
                 let empty = cmp(self, CmpOp::Le, Operand::Local(*left), int(0));
                 let more = self.block();
                 self.term(Term::Branch(empty, exit, more));
@@ -614,10 +671,30 @@ impl FnLower<'_, '_, '_> {
                     self.term(Term::Branch(keep, accepted, step));
                     self.switch(accepted);
                 }
-                Active::Take(left) => {
-                    let n = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(n)));
-                }
+                Active::Cursor { mode, arg, left } => match mode {
+                    // `take` admits while the count lasts
+                    CursorMode::Take => {
+                        let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                        self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                    }
+                    // `skip` and `step_by` drop while the skip lasts
+                    CursorMode::Skip | CursorMode::StepBy => {
+                        let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
+                        let skipping = self.block();
+                        let passing = self.block();
+                        self.term(Term::Branch(positive, skipping, passing));
+                        self.switch(skipping);
+                        let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
+                        self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
+                        self.term(Term::Goto(step));
+                        self.switch(passing);
+                        if mode == CursorMode::StepBy {
+                            // one passed: drop the rest of the step
+                            let reset = bin(self, BinOp::Sub, Operand::Local(arg), int(1));
+                            self.emit(Stmt::Assign(left, Rvalue::Use(reset)));
+                        }
+                    }
+                },
                 Active::FilterMap(f, opt_ty) => {
                     // `f(x)` is `Option<U>`: pass on `some`, skip `none`
                     let opt = self.call(Callee::Closure(f), vec![value], Repr::Ptr);
@@ -683,32 +760,6 @@ impl FnLower<'_, '_, '_> {
                     self.term(Term::Goto(passing));
                     self.switch(passing);
                 }
-                Active::Skip(left) => {
-                    // drop this item while the counter is positive, then pass
-                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
-                    let skipping = self.block();
-                    let passing = self.block();
-                    self.term(Term::Branch(positive, skipping, passing));
-                    self.switch(skipping);
-                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
-                    self.term(Term::Goto(step));
-                    self.switch(passing);
-                }
-                Active::StepBy(n, left) => {
-                    // pass one, then skip `n - 1` (a non-positive `n` passes all)
-                    let positive = cmp(self, CmpOp::Gt, Operand::Local(left), int(0));
-                    let skipping = self.block();
-                    let passing = self.block();
-                    self.term(Term::Branch(positive, skipping, passing));
-                    self.switch(skipping);
-                    let dec = bin(self, BinOp::Sub, Operand::Local(left), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(dec)));
-                    self.term(Term::Goto(step));
-                    self.switch(passing);
-                    let reset = bin(self, BinOp::Sub, Operand::Local(n), int(1));
-                    self.emit(Stmt::Assign(left, Rvalue::Use(reset)));
-                }
             }
         }
         match plan.terminal {
@@ -726,6 +777,60 @@ impl FnLower<'_, '_, '_> {
                 self.switch(done);
                 let outcome = self.bool_op(matches!(plan.terminal, Terminal::Any(_)));
                 self.emit(Stmt::Assign(acc, Rvalue::Use(outcome)));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::FindMap(_) => {
+                // the first `some`: the callback's own `Option` is the result
+                let acc = acc.unwrap();
+                let opt = self.call(Callee::Closure(search?), vec![value], Repr::Ptr);
+                let ol = self.copy_to_local(opt, Repr::Ptr, None);
+                let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(ol)));
+                let done = self.block();
+                self.term(Term::Switch(tag, vec![(1, done)], step));
+                self.switch(done);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(Operand::Local(ol))));
+                self.term(Term::Goto(exit));
+            }
+            Terminal::Find(_) | Terminal::First | Terminal::Position(_) => {
+                let acc = acc.unwrap();
+                // the position is taken before it is advanced, so it is this
+                // item's; the counter advances even when the item is refused.
+                let payload = match plan.terminal {
+                    Terminal::Position(_) => {
+                        // snapshot before advancing: the local is mutated
+                        let idx = Operand::Local(self.copy_to_local(
+                            Operand::Local(pos.unwrap()),
+                            Repr::I64,
+                            None,
+                        ));
+                        let inc = self.assign(
+                            Repr::I64,
+                            Rvalue::Bin {
+                                op: BinOp::Add,
+                                a: Operand::Local(pos.unwrap()),
+                                b: int(1),
+                                ty: NumTy::I(64, false),
+                                loc: 0,
+                            },
+                        );
+                        self.emit(Stmt::Assign(pos.unwrap(), Rvalue::Use(inc)));
+                        idx
+                    }
+                    _ => value,
+                };
+                let done = self.block();
+                match plan.terminal {
+                    // `first` takes whatever reaches it
+                    Terminal::First => self.term(Term::Goto(done)),
+                    _ => {
+                        let accepted = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                        self.term(Term::Branch(accepted, done, step));
+                    }
+                }
+                self.switch(done);
+                let opt = self.ty(e);
+                let found = self.alloc_enum(&opt, 1, vec![payload]);
+                self.emit(Stmt::Assign(acc, Rvalue::Use(found)));
                 self.term(Term::Goto(exit));
             }
             Terminal::For(pat, expr) => {
@@ -749,23 +854,26 @@ impl FnLower<'_, '_, '_> {
                 )?;
                 self.term(Term::Goto(step));
             }
-            _ => {
+            Terminal::Accumulate(combine) => {
                 let acc = acc.unwrap();
                 let loc = self.m.loc(self.span(e));
-                let next = if let Some(f) = fold {
-                    self.call(Callee::Closure(f), vec![Operand::Local(acc), value], ret)
-                } else {
-                    self.assign(
-                        Repr::I64,
-                        Rvalue::Bin {
-                            op: BinOp::Add,
-                            a: Operand::Local(acc),
-                            b: if matches!(plan.terminal, Terminal::Sum) { value } else { int(1) },
-                            ty: NumTy::I(64, true),
-                            loc,
-                        },
-                    )
+                let (op, rhs) = match combine {
+                    Combine::Add => (BinOp::Add, value),
+                    Combine::Count => (BinOp::Add, int(1)),
+                    Combine::Mul => (BinOp::Mul, value),
                 };
+                let next = self.assign(
+                    Repr::I64,
+                    Rvalue::Bin { op, a: Operand::Local(acc), b: rhs, ty: NumTy::I(64, true), loc },
+                );
+                self.emit(Stmt::Assign(acc, Rvalue::Use(next)));
+                self.term(Term::Goto(step));
+            }
+            _ => {
+                // what remains is a user `fold`'s callback
+                let acc = acc.unwrap();
+                let f = fold.unwrap_or_else(|| unreachable!());
+                let next = self.call(Callee::Closure(f), vec![Operand::Local(acc), value], ret);
                 self.emit(Stmt::Assign(acc, Rvalue::Use(next)));
                 self.term(Term::Goto(step));
             }
