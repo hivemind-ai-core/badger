@@ -129,6 +129,8 @@ set_literal      = "set", "{", arguments, "}" ;
 lambda           = [ "once" ], "fn", "(", params, ")",
                    [ "->", type_expr ], [ effect ], ( block | "=>", expr ) ;
 condition        = expr | "let", pattern, "=", expr ;
+(* every control-flow body is a block: a bare statement is not a body, so
+   `if x return` is not a form of the language *)
 if_expr          = "if", condition, block, [ "else", (block | if_expr) ] ;
 match_expr       = "match", expr, "{", { match_arm }, "}" ;
 match_arm        = pattern, { "|", pattern }, [ "if", expr ], "=>", expr, [ "," ], { NEWLINE } ;
