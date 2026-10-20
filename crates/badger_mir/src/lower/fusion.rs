@@ -68,10 +68,17 @@ pub(super) struct Prepared {
     stages: Vec<PreparedStage>,
 }
 pub(super) struct SequencePlan(Source, Vec<Stage>);
+/// The terminal accumulators share one shape: a running value updated per
+/// item. `count` adds one, `sum` adds the item, and `product` multiplies.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Combine {
+    Add,
+    Count,
+    Mul,
+}
 enum Terminal {
     Fold(ExprId, ExprId),
-    Count,
-    Sum,
+    Accumulate(Combine),
     Collect,
     /// `any`/`all`: the predicate decides, and the loop stops at the first
     /// item that does.
@@ -137,6 +144,7 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.fold" => "fold",
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
+                "std.seq.product" => "product",
                 "std.seq.collect" | "std.list.collect" => "collect",
                 "std.seq.any" => "any",
                 "std.seq.all" => "all",
@@ -344,8 +352,9 @@ impl FnLower<'_, '_, '_> {
         let template = self.fusion_template(&name)?;
         let (iter, terminal) = match (template.as_str(), args.as_slice()) {
             ("fold", [iter, initial, f]) => (*iter, Terminal::Fold(*initial, *f)),
-            ("count", [iter]) => (*iter, Terminal::Count),
-            ("sum", [iter]) => (*iter, Terminal::Sum),
+            ("count", [iter]) => (*iter, Terminal::Accumulate(Combine::Count)),
+            ("sum", [iter]) => (*iter, Terminal::Accumulate(Combine::Add)),
+            ("product", [iter]) => (*iter, Terminal::Accumulate(Combine::Mul)),
             ("collect", [iter]) => (*iter, Terminal::Collect),
             ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
             ("all", [iter, test]) => (*iter, Terminal::All(*test)),
@@ -482,7 +491,9 @@ impl FnLower<'_, '_, '_> {
     }
 
     pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
-        if matches!(plan.terminal, Terminal::Count) && self.count_is_known(&plan) {
+        if matches!(plan.terminal, Terminal::Accumulate(Combine::Count))
+            && self.count_is_known(&plan)
+        {
             let (start, end, inclusive, _) = self.lower_source(&plan.source)?;
             return Some(self.clamped_span(start, end, inclusive));
         }
@@ -531,7 +542,11 @@ impl FnLower<'_, '_, '_> {
                 let acc = self.copy_to_local(initial, ret, None);
                 (Some(acc), Some(self.lower(f)?))
             }
-            Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            // `count` and `sum` start at 0, `product` at 1.
+            Terminal::Accumulate(combine) => {
+                let start = if combine == Combine::Mul { int(1) } else { int(0) };
+                (Some(self.copy_to_local(start, Repr::I64, None)), None)
+            }
             // `any` keeps false and `all` keeps true: the answer when no item
             // decides. The loop overwrites it and exits at the first decider.
             Terminal::Any(_) | Terminal::All(_) => {
@@ -836,23 +851,26 @@ impl FnLower<'_, '_, '_> {
                 )?;
                 self.term(Term::Goto(step));
             }
-            _ => {
+            Terminal::Accumulate(combine) => {
                 let acc = acc.unwrap();
                 let loc = self.m.loc(self.span(e));
-                let next = if let Some(f) = fold {
-                    self.call(Callee::Closure(f), vec![Operand::Local(acc), value], ret)
-                } else {
-                    self.assign(
-                        Repr::I64,
-                        Rvalue::Bin {
-                            op: BinOp::Add,
-                            a: Operand::Local(acc),
-                            b: if matches!(plan.terminal, Terminal::Sum) { value } else { int(1) },
-                            ty: NumTy::I(64, true),
-                            loc,
-                        },
-                    )
+                let (op, rhs) = match combine {
+                    Combine::Add => (BinOp::Add, value),
+                    Combine::Count => (BinOp::Add, int(1)),
+                    Combine::Mul => (BinOp::Mul, value),
                 };
+                let next = self.assign(
+                    Repr::I64,
+                    Rvalue::Bin { op, a: Operand::Local(acc), b: rhs, ty: NumTy::I(64, true), loc },
+                );
+                self.emit(Stmt::Assign(acc, Rvalue::Use(next)));
+                self.term(Term::Goto(step));
+            }
+            _ => {
+                // what remains is a user `fold`'s callback
+                let acc = acc.unwrap();
+                let f = fold.unwrap_or_else(|| unreachable!());
+                let next = self.call(Callee::Closure(f), vec![Operand::Local(acc), value], ret);
                 self.emit(Stmt::Assign(acc, Rvalue::Use(next)));
                 self.term(Term::Goto(step));
             }

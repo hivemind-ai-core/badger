@@ -891,6 +891,7 @@ pub fn min<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { min_by
 pub fn max<T, Eff>(items: Seq<T, Eff>) -> Option<T> where T: PartialOrd { max_by(items, fn(x) => x) }
 
 /// The product of the items (`1` when empty).
+@fusion(role = terminal, template = product)
 pub fn product<Eff>(items: Seq<Int, Eff>) -> Int {
     var acc = 1
     for x in items {

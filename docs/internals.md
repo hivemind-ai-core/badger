@@ -79,9 +79,10 @@ program, in `crates/badger_driver/src/`:
   records that never leave a function out of the heap.
 - `layout.rs`: concrete layouts and the runtime type descriptors.
 - Lazy `Seq` pipelines are lowered as one loop for `collect`, `sum`,
-  `fold`, `count`, `any`, `all`, and `for`; `collect` and eager
+  `count`, `product`, `fold`, `any`, `all`, and `for`; `collect` and eager
   `List.map`/`scan` use a builder pre-sized from the known input length
-  (scalar elements). `any`/`all` stop at the first item that decides.
+  (scalar elements). `count`/`sum`/`product` are one accumulator shape with
+  a combine step; `any`/`all` stop at the first item that decides.
   `count` over a source that knows its length, through stages that neither
   drop nor re-shape items, is that length: no loop is emitted.
 - Eager list and map chains are lowered as one traversal before code

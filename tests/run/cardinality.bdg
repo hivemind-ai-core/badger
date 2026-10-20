@@ -41,6 +41,12 @@ pub fn main() -> Result<Unit, io.Error> {
     )
     // The count of an empty pipeline is 0.
     assert(xs.seq().filter(fn(x: Int) { x > 9 }).count() == 0)
+    // The accumulators share one shape: count, sum, product.
+    assert(seq.sum(seq.range(0, 5)) == 10)
+    assert(seq.sum(seq.range(0, 0)) == 0)
+    assert(seq.product(seq.range(1, 5)) == 24)
+    assert(seq.product(seq.range(0, 0)) == 1)
+    assert(seq.sum(xs.seq().map(fn(x: Int) { x })) == 15)
     // An effectful callback must still see every item: the count cannot skip
     // work that is observable.
     let seen = Cell.new(0)
