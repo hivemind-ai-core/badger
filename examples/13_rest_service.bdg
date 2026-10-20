@@ -1,42 +1,27 @@
-// A database-backed REST service that exercises most of Badger.
+// A database-backed REST service.
 //
-// What it demonstrates (every feature used is named in a comment):
+// What it demonstrates:
 //
-//   * Domain modelling: records, type aliases, structs with private fields,
-//     enums with payloads, and the `Display` protocol.
+//   * Domain modelling: records, a `@flatten` struct for the row id (it is a
+//     plain number in JSON and in SQL rows), and the `Display` protocol.
 //
-//   * Functions: positional args, generics, lambdas, closures, the `|>`
-//     pipe, early `return`, `?` propagation, contracts (`requires`/`ensures`).
+//   * Errors: one `AppError` enum. `derive(From)` lets `?` convert every
+//     underlying error; `derive(HttpError)` answers each variant with its
+//     `@status`, and `@message` is its text, so a handler just returns `err`.
 //
-//   * Pattern matching: variants, literals, ranges, guards, multi-pattern
-//     arms (`a | b =>`), nested records, and `if let ... else`.
+//   * HTTP: JSON routes with typed path and query parameters
+//     (`route.get_json` and friends), behind a pipeline of stages (an access
+//     log and a timer). Invalid parameters and bodies are 400 replies
+//     without a line of code; each request runs as its own task.
 //
-//   * Errors: `Option` and `Result`, the `?` operator, `derive(Error, From)`
-//     on an enum to fold every underlying error into one variant.
+//   * SQLite: a pool, versioned migrations, transactions, named parameters
+//     bound from records, and rows decoded straight into the domain type.
 //
-//   * Collections: `List`, `Map`, `ListBuilder`, lazy `Seq`, ranges,
-//     `group_by`, and `fold`. Generic helpers over them.
+//   * Lifecycle: `system { ... }` with providers wired by `ref(#name)`, a
+//     supervised worker that reports stats, and an `Atom` shared by both.
 //
-//   * Concurrency: a `task.scope` with `spawn`ed children, an `Atom` shared
-//     across tasks, a typed `Channel` for notifications, and a supervised
-//     worker that periodically reports stats.
-//
-//   * SQLite: a pool, versioned migrations, prepared statements, scoped
-//     transactions, and typed row decoding (query_as / query_one_as).
-//
-//   * HTTP: typed routing with `std.route` (path params, JSON bodies),
-//     behind a pipeline of interceptor stages (timing, access log,
-//     error -> JSON reply). Each request runs as its own task; failures
-//     do not affect the others.
-//
-//   * Lifecycle: `system { ... }` with providers wired by `ref(#name)`,
-//     ordered start/stop, typed inputs and outputs.
-//
-//   * Observability: structured logs, traced events, and metrics on a
-//     shared `Atom`.
-//
-//   * Tests: `http.call` drives the handler in-process (no socket, no
-//     port). Each test asserts a sequence of API outcomes.
+//   * Tests: one in-memory plan, driven in-process with `http.call_text`
+//     (no socket, no port).
 //
 // Try it:
 //
@@ -44,8 +29,8 @@
 //     badger test  13_rest_service.bdg
 //
 //     # Run as a server:
-//     badger run 13_rest_service.bdg -- \
-//         BOOKS_ADDRESS=127.0.0.1 BOOKS_PORT=8080 BOOKS_DATABASE=books.db
+//     BOOKS_ADDRESS=127.0.0.1 BOOKS_PORT=8080 BOOKS_DATABASE=books.db \
+//     BOOKS_REPORT_EVERY_MS=60000 badger run 13_rest_service.bdg
 //
 //     curl localhost:8080/health
 //     curl -X POST localhost:8080/books -d '{"title":"Badger","author":"D."}'
@@ -53,22 +38,16 @@
 //     curl localhost:8080/books/1
 //     curl -X PUT localhost:8080/books/1 -d '{"title":"Badger","author":"Ada"}'
 //     curl -X DELETE localhost:8080/books/1
-//     curl "localhost:8080/search/badger"
-import std.bytes
-import std.channel
-import std.codec
+//     curl "localhost:8080/search?q=badger"
+//     curl localhost:8080/stats
 import std.config
 import std.http
 import std.io
 import std.list
 import std.log
-import std.map
 import std.pipeline
 import std.pipeline.{handle}
-import std.result
 import std.route
-import std.seq
-import std.set
 import std.sqlite
 import std.system
 import std.task
@@ -88,9 +67,9 @@ type Settings = {
 
 // ---- Domain types --------------------------------------------------------
 
-// A nominal wrapper around the row id; the struct keeps its identity
-// from the database row and gains Display for logging. (Records serialize
-// as their fields, so the wire form is `"id":N`.)
+/// The row id, a type of its own; `@flatten` makes it its number on the
+/// wire (`"id": 1`) and in rows.
+@flatten
 pub struct BookId {
     pub value: Int,
 }
@@ -99,60 +78,28 @@ impl Display for BookId {
     fn display(self: &Self) -> String { $"book-{self.value}" }
 }
 
-pub fn book_id(value: Int) -> BookId { { value } }
-
-// Records are the everyday data model.
 pub type Book = { id: BookId, title: String, author: String }
 pub type NewBook = { title: String, author: String }
-pub type BookPatch = { title: String, author: String }
 
-// A typed error. `derive(Error)` makes it printable; `derive(From)` lets
-// the `?` operator convert each underlying error into the matching
-// variant without an explicit match.
-@derive(Error, From)
+/// Every way a request can fail. A variant without `@status` is a 500,
+/// whose details stay in the log.
+@derive(Error, HttpError, From)
 pub enum AppError {
     configuration(source: config.Error),
     database(source: sqlite.Error),
-    decode(source: codec.DecodeError),
-    http(source: http.Error),
     route(source: route.RouteError),
     system(source: system.Error),
     io(source: io.Error),
+    @status(400) @message("{message}")
     invalid_input(message: String),
+    @status(404) @message("no book {id}")
     not_found(id: Int),
-}
-
-// The status each error is answered with. The route system reads it, so a
-// handler's `Err` produces the status the application intended instead of
-// a generic 500.
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .decode(_) => 400,
-            .invalid_input(_) => 400,
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
-}
-
-// A closed result for the validation pipeline.
-enum Validation {
-    ok,
-    bad(message: String),
-}
-
-// A small helper enum used by the stats report.
-enum Status {
-    open,
-    done,
 }
 
 // ---- Schema migrations ---------------------------------------------------
 
-// Each migration is a (version, name, sql) triple; versions increase.
-// `sqlite.require_current` will refuse to start on a database that does
-// not match exactly the migrations the program knows.
+// Versions increase; `sqlite.require_current` refuses to start on a
+// database that does not match exactly the migrations the program knows.
 pub let migrations: List<sqlite.Migration> = [
     {
         version: 1,
@@ -161,45 +108,20 @@ pub let migrations: List<sqlite.Migration> = [
     },
 ]
 
-// ---- Validation: contracts and pattern matching --------------------------
+// ---- Validation ----------------------------------------------------------
 
-// A generic helper: the first element of any list, or none.
-fn first<T>(items: List<T>) -> Option<T> {
-    match items.first() {
-        .some(v) => Option.some(v),
-        .none => Option.none,
-    }
-}
-
-// Trim and return the value. An empty input becomes an empty output;
-// callers check for emptiness themselves.
-fn trim(value: String) -> String {
-    text.trim(value)
-}
-
+/// Trimmed fields, or every problem at once.
 fn validate(input: NewBook) -> Result<NewBook, AppError> {
-    let title = trim(input.title)
-    let author = trim(input.author)
+    let book = { title: text.trim(input.title), author: text.trim(input.author) }
     let problems: ListBuilder<String> = list.builder()
-    if title == "" { problems.append("title must not be empty") }
-    if author == "" { problems.append("author must not be empty") }
-    if title.len() > 200 { problems.append($"title is longer than 200 characters (got {title.len()})") }
+    if book.title == "" { problems.append("title must not be empty") }
+    if book.author == "" { problems.append("author must not be empty") }
+    if book.title.len() > 200 { problems.append($"title is longer than 200 characters (got {book.title.len()})") }
     let messages = problems.finish()
-    if messages.is_empty() {
-        ok({ title, author })
-    } else {
-        err(AppError.invalid_input(text.join(messages, "; ")))
-    }
+    if messages.is_empty() { ok(book) } else { err(AppError.invalid_input(text.join(messages, "; "))) }
 }
 
 // ---- The store: typed SQLite queries -------------------------------------
-
-type BookRow = { id: Int, title: String, author: String }
-type StatsRow = { total: Int }
-
-fn row_to_book(row: BookRow) -> Book {
-    { id: book_id(row.id), title: row.title, author: row.author }
-}
 
 pub type Store = {
     list: fn() -> Result<List<Book>, AppError> !{Io, Wait},
@@ -207,7 +129,7 @@ pub type Store = {
     stats: fn() -> Result<Int, AppError> !{Io, Wait},
     find: fn(Int) -> Result<Option<Book>, AppError> !{Io, Wait},
     insert: fn(NewBook) -> Result<Book, AppError> !{Io, Wait},
-    update: fn(Int, BookPatch) -> Result<Option<Book>, AppError> !{Io, Wait},
+    update: fn(Int, NewBook) -> Result<Option<Book>, AppError> !{Io, Wait},
     remove: fn(Int) -> Result<Bool, AppError> !{Io, Wait},
 }
 
@@ -215,76 +137,35 @@ pub provider store(config: { pool: sqlite.Pool, migrate: Bool }) -> Result<Store
     let pool = config.pool
     if config.migrate {
         let _ = sqlite.migrate(pool, migrations)?
-        ()
     } else {
         sqlite.require_current(pool, migrations)?
     }
-
-    // Lift a Result<List<BookRow>, sqlite.Error> into the store's return type.
-    let lift_rows = fn(r: Result<List<BookRow>, sqlite.Error>) -> Result<List<Book>, AppError> {
-        r
-            |> result.map(fn(rows) => rows.map(row_to_book))
-            |> result.map_err(AppError.database)
-    }
-
-    let list = fn() {
-        lift_rows(sqlite.query_as<BookRow>(pool, "SELECT id, title, author FROM books ORDER BY id", []))
-    }
-
-    // A substring search using SQL LIKE; `?` parameters are bound from a
-    // `List<Data>` to prevent injection.
-    let search = fn(query) {
-        let pattern = $"%{query}%"
-        lift_rows(sqlite.query_as<BookRow>(pool, "SELECT id, title, author FROM books WHERE title LIKE ? OR author LIKE ? ORDER BY id", [Data.string(pattern), Data.string(pattern)]))
-    }
-
-    // One aggregate query, typed through a row record.
-    let stats = fn() {
-        let row = sqlite.query_one_as<StatsRow>(pool, "SELECT COUNT(*) AS total FROM books", [])?
-        ok(row.total)
-    }
-
-    let find = fn(id) {
-        // Use query_as (which returns a list) so a missing row is none
-        // instead of the "expected exactly one row" error.
-        match sqlite.query_as<BookRow>(pool, "SELECT id, title, author FROM books WHERE id = ?", [Data.int(id)]) {
-            .ok(rows) => ok(rows.first().map(row_to_book)),
-            .err(e) => err(AppError.database(e)),
-        }
-    }
-
-    let insert = fn(input) {
-        // A transaction gives one connection for both writes.
-        use tx <- sqlite.transaction(pool)
-        sqlite.execute(tx, "INSERT INTO books (title, author) VALUES (?, ?)", [
-            Data.string(input.title),
-            Data.string(input.author),
-        ])?
-        let row = sqlite.query_one_as<BookRow>(tx, "SELECT id, title, author FROM books WHERE id = last_insert_rowid()", [])?
-        ok(row_to_book(row))
-    }
-
-    let update = fn(id, patch) {
-        use tx <- sqlite.transaction(pool)
-        let changed = sqlite.execute(tx, "UPDATE books SET title = ?, author = ? WHERE id = ?", [
-            Data.string(patch.title),
-            Data.string(patch.author),
-            Data.int(id),
-        ])?
-        if changed == 0 {
-            return ok(Option.none)
-        }
-        let row = sqlite.query_one_as<BookRow>(tx, "SELECT id, title, author FROM books WHERE id = ?", [Data.int(id)])?
-        ok(Option.some(row_to_book(row)))
-    }
-
-    let remove = fn(id) {
-        use tx <- sqlite.transaction(pool)
-        let n = sqlite.execute(tx, "DELETE FROM books WHERE id = ?", [Data.int(id)])?
-        ok(n > 0)
-    }
-
-    ok({ list, search, stats, find, insert, update, remove })
+    ok({
+        list: fn() { ok(sqlite.query_as<Book>(pool, "SELECT id, title, author FROM books ORDER BY id", [])?) },
+        // `:pattern` is bound from the record's field (twice), never
+        // spliced into the SQL
+        search: fn(query) {
+            let sql = "SELECT id, title, author FROM books WHERE title LIKE :pattern OR author LIKE :pattern ORDER BY id"
+            ok(sqlite.query_as<Book>(pool, sql, { pattern: $"%{query}%" })?)
+        },
+        stats: fn() { ok(sqlite.query_one_as<{ total: Int }>(pool, "SELECT COUNT(*) AS total FROM books", [])?.total) },
+        find: fn(id) { ok(sqlite.query_opt_as<Book>(pool, "SELECT id, title, author FROM books WHERE id = :id", { id })?) },
+        insert: fn(book) {
+            // one connection for both statements
+            use tx <- sqlite.transaction(pool)
+            let _ = sqlite.execute(tx, "INSERT INTO books (title, author) VALUES (:title, :author)", book)?
+            ok(sqlite.query_one_as<Book>(tx, "SELECT id, title, author FROM books WHERE id = last_insert_rowid()", [])?)
+        },
+        update: fn(id, book) {
+            use tx <- sqlite.transaction(pool)
+            let changed = sqlite.execute(tx, "UPDATE books SET title = :title, author = :author WHERE id = :id", { ..book, id })?
+            if changed == 0 {
+                return ok(none)
+            }
+            ok(sqlite.query_opt_as<Book>(tx, "SELECT id, title, author FROM books WHERE id = :id", { id })?)
+        },
+        remove: fn(id) { ok(sqlite.execute(pool, "DELETE FROM books WHERE id = :id", { id })? > 0) },
+    })
 }
 
 // ---- Cross-cutting pipeline stages --------------------------------------
@@ -299,13 +180,6 @@ stage timing() {
             elapsed: time.now() - ctx[#books/started],
         })
         pipeline.leave(ctx, response)
-    }
-    error(ctx, error) {
-        log.warn("request failed", {
-            elapsed: time.now() - ctx[#books/started],
-            message: error.display(),
-        })
-        pipeline.propagate(ctx, error)
     }
 }
 
@@ -326,116 +200,38 @@ stage access_log(requests: Atom<Int>) -> Result<_, AppError> {
 
 // ---- The routes ---------------------------------------------------------
 //
-// The route system converts any handler error into a 500 "internal server
-// error", so every handler maps AppError to a proper http.Response (with
-// the right status) before returning it. `reply_for_error` does that.
+// A handler receives its typed parameters (and body) and returns the reply
+// or an `AppError`; the route answers with 200 (201 for a POST) or with
+// the error's status, code, and message.
 
-fn reply_for_error(error: AppError) -> Result<http.Response, AppError> {
-    let body = match error {
-        .decode(e) => { error: "bad request", message: e.message },
-        .invalid_input(message) => { error: "bad request", message },
-        .not_found(id) => { error: "not found", message: $"no book {id}" },
-        .database(e) => { error: "database error", message: e.message },
-        _ => { error: "internal server error", message: error.display() },
-    }
-    let status = match error {
-        .decode(_) | .invalid_input(_) => 400,
-        .not_found(_) => 404,
-        _ => 500,
-    }
-    http.json(status, body) |> result.map_err(AppError.http)
-}
+type ById = { id: Int }
 
-// Pack a (status, body) reply as an http.Response, returning Err on encode failure.
-fn with_status<T>(status: Int, body: T) -> Result<http.Response, AppError> where T: Codec {
-    match http.json(status, body) {
-        .ok(r) => ok(r),
-        .err(e) => err(AppError.http(e)),
-    }
+fn found<T>(id: Int, value: Option<T>) -> Result<T, AppError> {
+    value.ok_or(AppError.not_found(id))
 }
 
 fn routes(store: Store) -> List<route.Route> {
     [
-        route.get("/health", #books/health, fn(_request, _params) -> Result<http.Response, AppError> {
-            match http.text(200, "ok") {
-                .ok(r) => ok(r),
-                .err(e) => err(AppError.http(e)),
-            }
+        route.get_json("/health", #books/health, fn(_: {}) -> Result<{ status: String }, AppError> { ok({ status: "ok" }) }),
+        route.get_json("/books", #books/list, fn(_: {}) { store.list() }),
+        route.post_json("/books", #books/create, fn(_: {}, input: NewBook) { store.insert(validate(input)?) }),
+        route.get_json("/books/:id", #books/show, fn(p: ById) { found(p.id, store.find(p.id)?) }),
+        route.put_json("/books/:id", #books/update, fn(p: ById, input: NewBook) {
+            found(p.id, store.update(p.id, validate(input)?)?)
         }),
-        route.get("/books", #books/list, fn(_request, _params) -> Result<http.Response, AppError> {
-            with_status(200, store.list()?)
-        }),
-        // POST /books: decode the body, validate, insert. Any of these can
-        // produce an error which we map to a specific HTTP status.
-        route.post("/books", #books/create, fn(request, _params) -> Result<http.Response, AppError> {
-            match codec.decode<NewBook>(request.body) {
-                .ok(input) => match validate(input) {
-                    .ok(checked) => with_status(201, store.insert(checked)?),
-                    .err(e) => reply_for_error(e),
-                },
-                .err(e) => reply_for_error(AppError.decode(e)),
+        route.delete_json("/books/:id", #books/delete, fn(p: ById) -> Result<{ deleted: Bool }, AppError> {
+            if !store.remove(p.id)? {
+                return err(AppError.not_found(p.id))
             }
+            ok({ deleted: true })
         }),
-        route.get("/books/:id", #books/show, fn(_request, params) -> Result<http.Response, AppError> {
-            let id = match params.get("id") {
-                .some(s) => match text.parse_int(s) {
-                    .some(n) => n,
-                    .none => return reply_for_error(AppError.invalid_input($"id is not a number: {s}")),
-                },
-                .none => return reply_for_error(AppError.invalid_input("id is required")),
-            }
-            match store.find(id) {
-                .ok(.some(book)) => with_status(200, book),
-                .ok(.none) => reply_for_error(AppError.not_found(id)),
-                .err(e) => reply_for_error(e),
-            }
+        // `GET /search?q=badger`: a parameter the path does not bind comes
+        // from the query string
+        route.get_json("/search", #books/search, fn(p: { q: String }) {
+            let hits = store.search(p.q)?
+            ok({ query: p.q, count: hits.len(), hits })
         }),
-        route.put("/books/:id", #books/update, fn(request, params) -> Result<http.Response, AppError> {
-            let id = match params.get("id") {
-                .some(s) => match text.parse_int(s) {
-                    .some(n) => n,
-                    .none => return reply_for_error(AppError.invalid_input($"id is not a number: {s}")),
-                },
-                .none => return reply_for_error(AppError.invalid_input("id is required")),
-            }
-            match codec.decode<BookPatch>(request.body) {
-                .ok(patch) => match validate(patch) {
-                    .ok(checked) => match store.update(id, checked) {
-                        .ok(.some(book)) => with_status(200, book),
-                        .ok(.none) => reply_for_error(AppError.not_found(id)),
-                        .err(e) => reply_for_error(e),
-                    },
-                    .err(e) => reply_for_error(e),
-                },
-                .err(e) => reply_for_error(AppError.decode(e)),
-            }
-        }),
-        route.delete("/books/:id", #books/delete, fn(_request, params) -> Result<http.Response, AppError> {
-            let id = match params.get("id") {
-                .some(s) => match text.parse_int(s) {
-                    .some(n) => n,
-                    .none => return reply_for_error(AppError.invalid_input($"id is not a number: {s}")),
-                },
-                .none => return reply_for_error(AppError.invalid_input("id is required")),
-            }
-            match store.remove(id) {
-                .ok(true) => with_status(200, { deleted: true }),
-                .ok(false) => reply_for_error(AppError.not_found(id)),
-                .err(e) => reply_for_error(e),
-            }
-        }),
-        // Free-text search over title and author. The query goes in
-        // the path; `?` would require the route system to split path
-        // from query, which it doesn't here.
-        route.get("/search/:q", #books/search, fn(_request, params) -> Result<http.Response, AppError> {
-            let q = params.get_or("q", "")
-            let hits = if q == "" { store.list()? } else { store.search(q)? }
-            with_status(200, { query: q, count: hits.len(), hits })
-        }),
-        // Aggregate stats from one round trip.
-        route.get("/stats", #books/stats, fn(_request, _params) -> Result<http.Response, AppError> {
-            with_status(200, { total: store.stats()? })
-        }),
+        route.get_json("/stats", #books/stats, fn(_: {}) { ok({ total: store.stats()? }) }),
     ]
 }
 
@@ -443,28 +239,19 @@ fn routes(store: Store) -> List<route.Route> {
 
 pub provider api(config: { store: Store, requests: Atom<Int> }) -> Result<http.Handler, AppError> {
     let table = route.table(routes(config.store))?
-
-    // The pipeline wraps each request: count, time, log. The route
-    // table already maps AppError to a status-specific reply.
+    // each request: count and log it, time it, then route it
     let process = pipeline.compile(pipeline {
         access_log(config.requests),
         timing(),
         handle(fn(ctx) -> Result<http.Response, AppError> { ok(http.call(table, ctx.request)) }),
     })
-
     ok(http.handler(fn(request) { process({ request }) }))
 }
 
-// ---- A typed notification channel: writes notify a background listener ---
-
-type Change = { kind: String, book: Book }
-
 // ---- The stats worker: a background task that reports periodically -----
 //
-// Provider that owns one task: it reads the database every `every` and
-// logs a one-line summary. The system shuts it down with the rest. The
-// `scope` parameter is the provider's lifecycle scope: a worker started
-// with `scope.worker` is supervised and stops with the system.
+// A worker started with `scope.worker` is supervised (restarted after a
+// failure, within the limits) and stops with the system.
 provider stats_reporter(scope, config: { store: Store, every: Duration, requests: Atom<Int> }) -> Result<Unit, AppError> {
     let store = config.store
     let requests = config.requests
@@ -485,205 +272,87 @@ provider stats_reporter(scope, config: { store: Store, every: Duration, requests
 
 pub fn main() -> Result<Unit, AppError> {
     let settings = config.from_env<Settings>("BOOKS_")?
-
-    // A shared counter: the access-log stage increments it on every
-    // request; the reporter reads it to print summaries.
+    // requests served: the access log counts, the reporter reads
     let requests: Atom<Int> = Atom.new(0)
-
     let plan = system {
         database: sqlite.pool({ path: settings.database }),
-        // `migrate: true` runs the pending migrations at startup;
-        // production code paths often use `false` so a service refuses
-        // to start on a database that's not the one it was built for.
+        // `migrate: true` applies pending migrations at startup; `false`
+        // refuses to start on a database that is not the expected one
         store: store({ pool: ref(#database), migrate: true }),
         api: api({ store: ref(#store), requests }),
         reporter: stats_reporter({ store: ref(#store), every: time.millis(settings.report_every_ms), requests }),
-        server: http.server({
-            address: settings.address,
-            port: settings.port,
-            handler: ref(#api),
-        }),
+        server: http.server({ address: settings.address, port: settings.port, handler: ref(#api) }),
     }
-
     use running <- system.run(plan)
-    io.println($"serving on http://{settings.address}:{settings.port}")?
-    io.println($"  GET    /health")?
-    io.println($"  GET    /books")?
-    io.println($"  POST   /books")?
-    io.println($"  GET    /books/:id")?
-    io.println($"  PUT    /books/:id")?
-    io.println($"  DELETE /books/:id")?
-    io.println($"  GET    /search/:q")?
-    io.println($"  GET    /stats")?
+    log.info("serving", { address: settings.address, port: settings.port })
     running.wait_for_shutdown()?
     ok(())
 }
 
 // ---- Tests: drive the API in-process, no port ---------------------------
 
-fn call(api: http.Handler, method: Symbol, path: String, body: String) -> (Int, String) {
-    let response = http.call(api, http.request(method, path, body))
-    let text = response.body.to_text().unwrap_or("?")
-    (response.status, text)
-}
-
-fn contains(haystack: String, needle: String) -> Bool {
-    text.contains(haystack, needle)
-}
-
-// Each test builds its own in-memory plan and runs `use running <- ...`
-// so the handler lives only for the test. The plan is short and reused
-// in each test, just like the framework's tests.
-fn test_health() -> Result<Unit, AppError> {
+/// The service over an in-memory database, without the server and worker.
+fn in_memory() -> _ {
     let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
+    system {
         database: sqlite.pool({ path: ":memory:" }),
         store: store({ pool: ref(#database), migrate: true }),
         api: api({ store: ref(#store), requests }),
     }
-    use running <- system.run(plan)
-    let api = running.api
-    assert(call(api, #get, "/health", "") == (200, "ok"))
+}
+
+fn test_health() -> Result<Unit, AppError> {
+    use running <- system.run(in_memory())
+    assert(http.call_text(running.api, #get, "/health", "") == (200, "{\"status\":\"ok\"}"))
     ok(())
 }
 
 fn test_create_and_show() -> Result<Unit, AppError> {
-    let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
-        database: sqlite.pool({ path: ":memory:" }),
-        store: store({ pool: ref(#database), migrate: true }),
-        api: api({ store: ref(#store), requests }),
-    }
-    use running <- system.run(plan)
+    use running <- system.run(in_memory())
     let api = running.api
-    let (status, body) = call(api, #post, "/books", "{\"title\":\"Badger\",\"author\":\"D.\"}")
-    assert(status == 201)
-    assert(contains(body, "\"title\":\"Badger\""))
-    assert(contains(body, "\"author\":\"D.\""))
-
-    let (s2, b2) = call(api, #get, "/books/1", "")
-    assert(s2 == 200)
-    assert(contains(b2, "\"author\":\"D.\""))
-
-    // 404 with structured error payload.
-    let (s3, b3) = call(api, #get, "/books/999", "")
-    assert(s3 == 404)
-    assert(contains(b3, "no book 999"))
+    let created = http.call_text(api, #post, "/books", "{\"title\":\" Badger \",\"author\":\"D.\"}")
+    assert(created == (201, "{\"author\":\"D.\",\"id\":1,\"title\":\"Badger\"}"))
+    assert(http.call_text(api, #get, "/books/1", "") == (200, created.1))
+    assert(http.call_text(api, #get, "/books/999", "") == (404, "{\"error\":\"not_found\",\"message\":\"no book 999\"}"))
+    assert(http.call_text(api, #get, "/books/abc", "").0 == 400)
     ok(())
 }
 
 fn test_validation_errors() -> Result<Unit, AppError> {
-    let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
-        database: sqlite.pool({ path: ":memory:" }),
-        store: store({ pool: ref(#database), migrate: true }),
-        api: api({ store: ref(#store), requests }),
-    }
-    use running <- system.run(plan)
+    use running <- system.run(in_memory())
     let api = running.api
-    assert(call(api, #post, "/books", "{\"title\":\"\",\"author\":\"D.\"}").0 == 400)
-    assert(call(api, #post, "/books", "{\"title\":\"ok\",\"author\":\"\"}").0 == 400)
-    // Multiple problems joined in one message.
-    let (_, body) = call(api, #post, "/books", "{\"title\":\"\",\"author\":\"\"}")
-    assert(contains(body, "title must not be empty"))
-    assert(contains(body, "author must not be empty"))
-    assert(call(api, #post, "/books", "not json").0 == 400)
+    assert(http.call_text(api, #post, "/books", "{\"title\":\"\",\"author\":\"D.\"}").0 == 400)
+    // every problem in one message
+    let (status, body) = http.call_text(api, #post, "/books", "{\"title\":\"\",\"author\":\"\"}")
+    assert(status == 400)
+    assert(text.contains(body, "title must not be empty; author must not be empty"))
+    assert(http.call_text(api, #post, "/books", "not json").0 == 400)
     ok(())
 }
 
 fn test_update_and_delete() -> Result<Unit, AppError> {
-    let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
-        database: sqlite.pool({ path: ":memory:" }),
-        store: store({ pool: ref(#database), migrate: true }),
-        api: api({ store: ref(#store), requests }),
-    }
-    use running <- system.run(plan)
+    use running <- system.run(in_memory())
     let api = running.api
-    let _ = call(api, #post, "/books", "{\"title\":\"A\",\"author\":\"B\"}")
-
-    let (status, _) = call(api, #put, "/books/1", "{\"title\":\"A2\",\"author\":\"B2\"}")
-    assert(status == 200)
-
-    let (_, body) = call(api, #get, "/books/1", "")
-    assert(contains(body, "\"title\":\"A2\""))
-
-    assert(call(api, #delete, "/books/999", "").0 == 404)
-    assert(call(api, #delete, "/books/1", "") == (200, "{\"deleted\":true}"))
-    let (_, list_body) = call(api, #get, "/books", "")
-    assert(list_body == "[]")
+    let _ = http.call_text(api, #post, "/books", "{\"title\":\"A\",\"author\":\"B\"}")
+    assert(http.call_text(api, #put, "/books/1", "{\"title\":\"A2\",\"author\":\"B2\"}") == (200, "{\"author\":\"B2\",\"id\":1,\"title\":\"A2\"}"))
+    assert(http.call_text(api, #put, "/books/7", "{\"title\":\"A2\",\"author\":\"B2\"}").0 == 404)
+    assert(http.call_text(api, #delete, "/books/999", "").0 == 404)
+    assert(http.call_text(api, #delete, "/books/1", "") == (200, "{\"deleted\":true}"))
+    assert(http.call_text(api, #get, "/books", "") == (200, "[]"))
     ok(())
 }
 
-fn test_list_and_search() -> Result<Unit, AppError> {
-    let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
-        database: sqlite.pool({ path: ":memory:" }),
-        store: store({ pool: ref(#database), migrate: true }),
-        api: api({ store: ref(#store), requests }),
-    }
-    use running <- system.run(plan)
+fn test_search_and_stats() -> Result<Unit, AppError> {
+    use running <- system.run(in_memory())
     let api = running.api
-    let titles = [
-        "{\"title\":\"Badger\",\"author\":\"Ada\"}",
-        "{\"title\":\"Beaver\",\"author\":\"Bram\"}",
-        "{\"title\":\"Otter\",\"author\":\"Olaf\"}",
-    ]
-    for body in titles {
-        let _ = call(api, #post, "/books", body)
+    for body in ["{\"title\":\"Badger\",\"author\":\"Ada\"}", "{\"title\":\"Beaver\",\"author\":\"Bram\"}", "{\"title\":\"Otter\",\"author\":\"Olaf\"}"] {
+        let _ = http.call_text(api, #post, "/books", body)
     }
-
-    let (status, body) = call(api, #get, "/search/bad", "")
-    assert(status == 200)
-    assert(contains(body, "\"count\":1"))
-    assert(contains(body, "\"Badger\""))
-    assert(!contains(body, "Beaver"))
-
-    // A query that matches several rows.
-    let (_, multi) = call(api, #get, "/search/er", "")
-    assert(contains(multi, "\"Badger\""))
-    assert(contains(multi, "\"Beaver\""))
+    let (status, body) = http.call_text(api, #get, "/search?q=bad", "")
+    assert(status == 200 && text.contains(body, "\"count\":1") && text.contains(body, "\"Badger\""))
+    let (_, several) = http.call_text(api, #get, "/search?q=er", "")
+    assert(text.contains(several, "\"Badger\"") && text.contains(several, "\"Beaver\""))
+    assert(http.call_text(api, #get, "/search", "").0 == 400)
+    assert(http.call_text(api, #get, "/stats", "") == (200, "{\"total\":3}"))
     ok(())
-}
-
-fn test_stats_endpoint() -> Result<Unit, AppError> {
-    let requests: Atom<Int> = Atom.new(0)
-    let plan = system {
-        database: sqlite.pool({ path: ":memory:" }),
-        store: store({ pool: ref(#database), migrate: true }),
-        api: api({ store: ref(#store), requests }),
-    }
-    use running <- system.run(plan)
-    let api = running.api
-    let (status, body) = call(api, #get, "/stats", "")
-    assert(status == 200)
-    assert(contains(body, "\"total\":0"))
-    let _ = call(api, #post, "/books", "{\"title\":\"x\",\"author\":\"y\"}")
-    let (_, body2) = call(api, #get, "/stats", "")
-    assert(contains(body2, "\"total\":1"))
-    ok(())
-}
-
-fn test_first_helper() -> Unit {
-    assert(first([1, 2, 3]) == Option.some(1))
-    assert(first([]) == Option.none)
-    assert(first(["only"]) == Option.some("only"))
-}
-
-fn test_match_with_alternatives_and_guards() -> Unit {
-    let describe = fn(n: Int) -> String {
-        match n {
-            0 => "zero",
-            1 | 2 | 3 => "small",
-            n if n < 0 => "negative",
-            n if n < 100 => "medium",
-            _ => "large",
-        }
-    }
-    assert(describe(0) == "zero")
-    assert(describe(1) == "small")
-    assert(describe(3) == "small")
-    assert(describe(-5) == "negative")
-    assert(describe(50) == "medium")
-    assert(describe(1000) == "large")
 }

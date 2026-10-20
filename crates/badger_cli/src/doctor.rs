@@ -74,7 +74,15 @@ pub fn report() -> Report {
         Ok(all) => (reported_settings(&all), None),
         Err(e) => (vec![], Some(e)),
     };
-    let mut env: Vec<(String, String)> = std::env::vars().filter(|(k, _)| k.starts_with("BADGER_")).collect();
+    // credentials in the environment (a database URL's password, a token)
+    // are masked, as `inspect config` masks them
+    let mut env: Vec<(String, String)> = std::env::vars()
+        .filter(|(k, _)| k.starts_with("BADGER_"))
+        .map(|(k, v)| {
+            let v = crate::redact::setting(&k, &v);
+            (k, v)
+        })
+        .collect();
     env.sort();
     Report { version: env!("CARGO_PKG_VERSION").to_string(), cwd, project, runtime, runtime_error, env }
 }
@@ -105,7 +113,7 @@ impl Report {
             }
         }
         s.push('\n');
-        s.push_str("runtime:\n");
+        s.push_str("runtime (as `badger inspect runtime` computes them):\n");
         match &self.runtime_error {
             Some(e) => s.push_str(&format!("  error: {e}\n")),
             None => {

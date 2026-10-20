@@ -194,6 +194,10 @@ can infer exactly; multiple distinct source errors require an error annotation
 or explicit mapping rather than guessing a conversion target.
 Polymorphic recursion requires an explicit signature. Scope callbacks have
 restricted higher-rank checking, described in [memory](04-memory-and-collections.md).
+A struct or enum whose last type parameter is a region (`Node<R: Scope>`) is a
+region record, branded with the region its values belong to; a `region` block
+names a region that ends with the block, and its records cannot outlive it
+(see [region blocks and region records](04-memory-and-collections.md#region-blocks-and-region-records)).
 
 Specialize generic record operations for concrete shapes. Keep shape descriptors
 for reflection and diagnostics once per shape, not a field-name map on each

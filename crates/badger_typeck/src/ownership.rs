@@ -3271,7 +3271,8 @@ struct Linear<'o, 'i, 'g, 'a> {
 impl<'o, 'i, 'g, 'a> Linear<'o, 'i, 'g, 'a> {
     fn check(o: &'o mut Own<'i, 'g, 'a>, d: DefId, body: ExprId, params: &[PatId]) {
         let module = o.inf.g.hir.defs[d].module;
-        let mut l = Linear { o, module, loops: vec![], depth: FxHashMap::default(), exits: FxHashMap::default() };
+        let mut l =
+            Linear { o, module, loops: vec![], depth: FxHashMap::default(), exits: FxHashMap::default() };
         l.function(body, params);
     }
 
@@ -3356,7 +3357,8 @@ impl<'o, 'i, 'g, 'a> Linear<'o, 'i, 'g, 'a> {
 
     /// The bindings of `scope` still pending leave it at `at`.
     fn leave(&mut self, scope: &[LocalId], p: &mut Pending, at: Span, how: Leave) {
-        let mut left: Vec<(LocalId, Span)> = scope.iter().filter_map(|l| p.remove(l).map(|s| (*l, s))).collect();
+        let mut left: Vec<(LocalId, Span)> =
+            scope.iter().filter_map(|l| p.remove(l).map(|s| (*l, s))).collect();
         left.sort_by_key(|x| x.1.range().start);
         for (l, bound) in left {
             self.leak(l, bound, bound, at, how);
@@ -3431,7 +3433,8 @@ impl<'o, 'i, 'g, 'a> Linear<'o, 'i, 'g, 'a> {
     /// leave their scope; the others reach the loop's exit or head.
     fn exit_loop(&mut self, target: ExprId, at: Span, p: &mut Pending, cont: bool) {
         let Some(k) = self.loops.iter().position(|x| *x == target) else { return };
-        let inner: Vec<LocalId> = p.keys().copied().filter(|l| self.depth.get(l).is_some_and(|d| *d > k)).collect();
+        let inner: Vec<LocalId> =
+            p.keys().copied().filter(|l| self.depth.get(l).is_some_and(|d| *d > k)).collect();
         self.leave(&inner, p, at, if cont { Leave::Continue } else { Leave::Break });
         let slot = self.exits.entry(target).or_default();
         let slot = if cont { &mut slot.1 } else { &mut slot.0 };

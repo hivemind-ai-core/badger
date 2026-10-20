@@ -53,8 +53,9 @@ test result: FAILED. 3 passed; 1 failed
 - `badger test` with no path tests the current project, including the
   project's modules the entry imports (reported as `util.test_name`), but
   not dependencies.
-- `badger test PATH FILTER` runs only tests whose names contain `FILTER`.
-  `badger test ports.bdg port` runs the two port tests.
+- `badger test --filter FILTER` runs only the tests whose names contain
+  `FILTER`. `badger test ports.bdg --filter port` runs the two port
+  tests.
 - `badger test --json` prints the results as one JSON object.
 - The exit status is 0 when every test passed and 1 otherwise.
 
@@ -175,7 +176,11 @@ pub fn main() -> Result<Unit, io.Error> {
 - `ensures COND` is checked at every return: the end of the body,
   `return`, and `?` alike. `result` names the value being returned.
 - Conditions are `Bool` expressions over the parameters (and `result`).
-  The optional string explains the clause.
+  The optional string explains the clause. A condition may be a bound
+  (`requires name.len() <= 40`) or call a predicate function; one whose
+  body is a single expression (`fn short(s: String) -> Bool => s.len()
+  <= 40`) is evaluated at each call, so `requires short(name)` is proven
+  or refuted like the bound it states.
 - Clauses go on the lines before a function or method with a body. They
   cannot `return` or use `?` (E0140), and a protocol method's signature
   cannot carry them; put them on each implementation.

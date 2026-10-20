@@ -204,6 +204,17 @@ fn language_server() {
         json!({ "textDocument": { "uri": uri }, "options": { "tabSize": 4, "insertSpaces": true } }),
     );
     assert_eq!(f["result"][0]["newText"], SRC);
+    // text that does not parse is left as it is
+    let broken = format!("{messy}\nfn broken( {{\n");
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 7 }, "contentChanges": [{ "text": broken }] }),
+    );
+    let f = c.request(
+        "textDocument/formatting",
+        json!({ "textDocument": { "uri": uri }, "options": { "tabSize": 4, "insertSpaces": true } }),
+    );
+    assert_eq!(f["result"], json!([]), "{f}");
 
     c.request("shutdown", Value::Null);
     c.notify("exit", Value::Null);
@@ -341,7 +352,7 @@ fn code_action_adds_missing_arm() {
     let dir = std::env::temp_dir().join(format!("badger-lsp-arm-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("demo.bdg");
-    let src = "enum Shape {\n    circle(r: Int),\n    square(s: Int),\n    point,\n}\n\nfn size(s: Shape) -> Int {\n    match s {\n        .circle(r) => r,\n        .point => 0,\n    }\n}\n\npub fn main() -> Unit {}\n";
+    let src = "enum Shape {\n    circle(r: Int),\n    square(s: Int),\n    point,\n}\n\npub fn size(s: Shape) -> Int {\n    match s {\n        .circle(r) => r,\n        .point => 0,\n    }\n}\n\npub fn main() -> Unit {}\n";
     std::fs::write(&file, src).unwrap();
     let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
     let mut c = Client::start();
@@ -369,5 +380,122 @@ fn code_action_adds_missing_arm() {
         json!({ "textDocument": { "uri": uri, "version": 2 }, "contentChanges": [{ "text": fixed }] }),
     );
     assert!(c.diagnostics(&uri).is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Quick fixes for common mistakes: a near-miss name is replaced by the
+/// suggestion, and an ignored `Result` is propagated with `?` or discarded
+/// with `let _ =`.
+#[test]
+fn code_actions_common_fixes() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-fixes-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "import std.io\n\nfn total(items: List<Int>) -> Int => items.len()\n\npub fn main() -> Result<Unit, io.Error> {\n    let n = totl([1])\n    io.println(\"x\")\n    ok(())\n}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let titles: Vec<String> =
+        r["result"].as_array().unwrap().iter().map(|a| a["title"].as_str().unwrap().to_string()).collect();
+    assert!(titles.contains(&"Change to `total`".to_string()), "{r}");
+    // fixed name: the ignored result remains, with its two fixes
+    let fixed = src.replace("totl(", "total(");
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 2 }, "contentChanges": [{ "text": fixed }] }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let actions = r["result"].as_array().unwrap();
+    let titles: Vec<&str> = actions.iter().map(|a| a["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, vec!["Propagate the error with `?`", "Discard the result with `let _ =`"], "{r}");
+    assert_eq!(actions[0]["edit"]["changes"][&uri][0]["newText"], "?");
+    // where `?` would not check (the function returns `Int`), only
+    // discarding is offered
+    let plain = "import std.io\n\nfn count() -> Int {\n    io.println(\"x\")\n    3\n}\n\npub fn main() -> Unit { let _ = count() }\n";
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 3 }, "contentChanges": [{ "text": plain }] }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let titles: Vec<&str> =
+        r["result"].as_array().unwrap().iter().map(|a| a["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, vec!["Discard the result with `let _ =`"], "{r}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The missing arm goes before the match's own closing brace, whatever
+/// braces its arms hold in chars and comments.
+#[test]
+fn code_action_missing_arm_skips_braces_in_chars_and_comments() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-arm-chars-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "enum Tok { open, close, word(s: String) }\nfn show(t: Tok) -> Char {\n    match t {\n        // a } in a comment\n        .open => '{',\n        .close => '}',\n    }\n}\npub fn main() -> Unit {}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let edit = &r["result"][0]["edit"]["changes"][&uri][0];
+    assert_eq!(edit["range"]["start"], json!({ "line": 6, "character": 0 }), "{r}");
+    assert_eq!(edit["newText"], "        .word(_) => panic(\"not handled yet: .word(_)\"),\n", "{r}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// While a bracket is unclosed (as when one is being typed), the file is
+/// still indexed from the text as if it were balanced: its symbols and
+/// hovers stay, and the bracket is the only error reported.
+#[test]
+fn unclosed_bracket_keeps_the_index() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-unclosed-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "fn helper(n: Int) -> Int {\n    if n > 0 {\n        n * 2\n}\n\npub fn main() -> Unit {\n    let _ = helper(3)\n}\n\nfn other() -> String { \"x\" }\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    assert!(ds[0]["message"].as_str().unwrap().contains("unclosed"), "{ds:?}");
+    let r = c.request("textDocument/documentSymbol", json!({ "textDocument": { "uri": uri } }));
+    let names: Vec<&str> =
+        r["result"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["helper", "main", "other"], "{r}");
+    let h = c.request("textDocument/hover", pos(&uri, 6, 13));
+    assert!(h["result"]["contents"]["value"].as_str().unwrap_or("").contains("fn(Int) -> Int"), "{h}");
     let _ = std::fs::remove_dir_all(&dir);
 }

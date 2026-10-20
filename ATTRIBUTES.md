@@ -1,13 +1,13 @@
 # Attributes
 
 **Status: Phase 1 implemented.** The syntax (lexer, grammar, CST, AST, HIR
-storage) and the unknown-attribute policy are in place on
-`feature/attributes`; the *recognised set is empty*, so any attribute is
-unknown — an error in standard-library sources, a warning elsewhere — until
-the first built-in attributes land (Phase 2). Placement is **item position
-only** for now (a function-level attribute is the coarse silencing scope);
-statement/scope placement lands with the warning-silencing built-in.
-`derive(...)` is unchanged. The design and open questions below still apply.
+storage) and the unknown-attribute policy are in place. Attributes may be
+written on declarations, methods, local functions, struct fields, enum
+variants, parameters, and statements (see
+[Placement, namespaces, and visibility](#placement-namespaces-and-visibility));
+a library's attributes are namespaced by its module (`@lib.name`).
+The old `derive(...)` form has since been removed (Phase 3): `@derive(...)` is
+the only spelling. The design and open questions below still apply.
 
 ## Why
 
@@ -45,9 +45,55 @@ list. Arguments are identifiers, symbols, string/int literals, and
 expression arguments would require compile-time evaluation and are out of
 scope.
 
-Placement is **open**, but unification with `derive` requires *item
-position* to be supported (`fn`, `struct`, `enum`). The first
-implementation needs functions and type declarations.
+A name may be qualified, `@lib.name(...)`: see the next section.
+
+## Placement, namespaces, and visibility
+
+**Where an attribute may be written** (each on the lines before what it
+tags, or on the same line):
+
+| Position | Example |
+|---|---|
+| a top-level declaration (`fn`, `struct`, `enum`, `type`, `protocol`, `impl`, `let`, `import`) | `@derive(Eq) pub struct Point { ... }` |
+| an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
+| a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
+| a struct field | `@flatten pub id: BookId` (where it applies), `@app.column("px") pub x: Int` |
+| an enum variant | `@status(404) @message("no book {id}") not_found(id: Int)` |
+| a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
+| a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
+
+Expressions (calls included) take no attributes: a caller-side hint such as
+"inline this call" is not part of the language.
+
+**Namespaces.** A name without a namespace (`@allow`, `@derive`) is the
+compiler's: the set is closed, so an unknown one is a warning in user code
+(an error in standard-library sources), and a known one written where it
+does not apply is an error (E0199). A library's attribute is namespaced by
+its module, `@lib.name` (`@app.operation`, after `import std.app`): the
+first segment must be a module the file imports (E0191 otherwise), which
+also counts as a use of the import. A library attribute is recorded and
+visible to the compiler; nothing checks its name or arguments yet — that
+comes with declared attributes (below).
+
+**`@allow(CODE, ...)`** works in every position: it silences that warning
+within what it tags (an item, a method, a field, a variant, a parameter's
+pattern, a statement), in `check`, `run`, and `test` alike.
+
+**Who can see an attribute.** Attributes live on the syntax tree at compile
+time and are not carried through values: an attribute can be read where the
+tagged node itself is visible, never through a variable that happens to hold
+the tagged thing.
+
+| Reader | Sees | Not |
+|---|---|---|
+| The compiler | every position above (whether a pass acts on one depends on the pass) | — |
+| Macros (when they exist) | top-level functions and types by name; statements, blocks, and local functions inside the body passed to the macro | `impl` methods (the macro cannot see which impl a value has); a function stored in a variable (it could change at run time) |
+| Run time (user-defined attributes, later) | top-level declarations, enum variants, and struct fields, compiled into a static table on the type's descriptor (as `@message` already is) | methods, statements, parameters, local functions |
+
+Run-time-readable, user-declared attributes (`pub attribute status(code:
+Int) on variant`, read with a typed query) are planned after 1.0; the
+namespacing rule above is what keeps them from colliding with the
+compiler's own names.
 
 ## Semantics, by phase
 
@@ -194,16 +240,19 @@ recognised attribute is a row, and the consumer does the work.
 | Attribute | Consumer | Class |
 |---|---|---|
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
+| `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
+| `@status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
+| `@message("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |
 | `@inline(always\|never)` | inliner | metadata |
 | `@must_use` | unused-value diagnostic | metadata |
 | `@expect_taken` | branch-probability hint | metadata |
 | `@compile_time_only` | compile-time evaluation | blocked (no CT eval) |
 
-Migration: accept `derive(...)` as sugar that parses to `@derive(...)`
-(keeping the old spelling working), or convert the standard library’s uses
-and drop the old form. Either way the AST field (`StructDecl::derives` /
-`EnumDecl::derives`) collapses into the general attribute list.
+Migration (Phase 3, done): every `derive(...)` clause was converted to
+`@derive(...)` and the old clause was deleted from the grammar, so the CST no
+longer carries a `derives` clause; the AST field (`StructDecl::derives` /
+`EnumDecl::derives`) is populated solely from the attribute.
 
 A useful side effect of unifying: `derive` is currently matched by
 **protocol name string** (`env.rs:845-943`), so a user protocol named
@@ -241,16 +290,20 @@ specific pass reads, it belongs in an attribute.
   `derive(A, B)` (resolution and validation shared), so `@derive(Eq,
   Display)` behaves exactly like the old form. `tests/run/attributes_derive.bdg`
   and `tests/reject/derive_attribute_nonprotocol.bdg` cover it.
-- `@allow(<code>, ...)` — **done (item scope)**. During lowering each
-  `@allow` records a suppression region (the item's span) in `Hir::allows`;
-  when a check finishes, `Session::suppress_warnings` drops any *warning*
-  whose code matches and whose primary span lies inside a region (errors are
-  never suppressed). `crates/badger_cli/tests/programs.rs::
-  attribute_allow_silences_warnings` covers it (E0142). Statement/block
-  placement is a refinement still to add.
+- `@allow(<code>, ...)` — **done (every position)**. During lowering each
+  `@allow` records a suppression region (what it tags) in `Hir::allows`;
+  `suppress_allowed` drops any *warning* whose code matches and whose
+  primary span lies inside a region (errors are never suppressed), when a
+  check finishes and when a program is compiled to run or test.
+  `crates/badger_cli/tests/programs.rs::attribute_allow_silences_warnings`
+  and `attributes_in_every_position` cover it.
+- **Phase 3** — **done**: every source migrated to `@derive(...)` and the old
+  clause removed from the grammar (see the migration plan).
+- Methods', fields', variants' (`VariantDef::attributes`, `FieldDef::attributes`,
+  `Hir::attributes` for methods) and statements' and parameters'
+  (`Hir::scoped_attributes`) attributes are stored for passes to read.
 - **Next**: `@inline(always|never)` (needs a MIR function flag from the HIR
-  attributes); then Phase 3, delete the `derive(...)` form (see the migration
-  plan).
+  attributes).
 
 ## Migration plan (replacing the `derive` syntax)
 
@@ -290,9 +343,11 @@ work, and treat the attribute unification as its own project.
 
 ## Open questions
 
-- **Placement**: functions only, or also types, `let`/`var` bindings,
-  expressions, modules? (Nothing here depends on the answer for functions.)
-- **Unknown-attribute policy** (error everywhere vs warn in user code).
+- ~~**Placement**~~: decided (see
+  [Placement, namespaces, and visibility](#placement-namespaces-and-visibility));
+  expressions take none.
+- ~~**Unknown-attribute policy**~~: decided — warn in user code, error in
+  standard-library sources; namespaced names are libraries'.
 - **Interface stability**: are attributes part of public compatibility?
 - **Naming**: one `@fusion(role, template)` versus `@source(…)` /
   `@stage(…)` / `@terminal(…)`.

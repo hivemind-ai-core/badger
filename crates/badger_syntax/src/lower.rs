@@ -144,8 +144,183 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     /// Is derive type `t` the prelude's `Default`?
     fn names_default(&self, t: TypeId) -> bool {
+        self.names_derive(t, "Default")
+    }
+
+    /// Is derive type `t` the bare name `which`?
+    fn names_derive(&self, t: TypeId, which: &str) -> bool {
         matches!(&self.ast.types[t].kind,
-            TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == "Default")
+            TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == which)
+    }
+
+    /// Variant attributes: `@status(code)`, read by `derive(HttpError)`, and
+    /// `@message("text {field}")`, read by `derive(Error)` and
+    /// `derive(Display)`.
+    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool, display: bool) {
+        for v in variants {
+            let mut status: Option<Span> = None;
+            for a in &v.attributes {
+                match self.interner.resolve(a.name) {
+                    "message" => {
+                        let [AttrArg::Str(template)] = a.args.as_slice() else {
+                            self.error(
+                                "E0198",
+                                a.span,
+                                "`@message` takes one string",
+                                "e.g. `@message(\"no book {id}\")`",
+                            );
+                            continue;
+                        };
+                        let fields: Vec<String> = v
+                            .fields
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (l, _))| match l {
+                                Some(l) => self.interner.resolve(l.sym).to_string(),
+                                None => i.to_string(),
+                            })
+                            .collect();
+                        match message_placeholders(template) {
+                            Err(why) => {
+                                self.error("E0198", a.span, format!("`@message` template: {why}"), "here")
+                            }
+                            Ok(names) => {
+                                if let Some(bad) = names.iter().find(|n| !fields.contains(n)) {
+                                    let vname = self.interner.resolve(v.name.sym).to_string();
+                                    let have = if fields.is_empty() {
+                                        "it has no fields".to_string()
+                                    } else {
+                                        format!("its fields are {}", fields.join(", "))
+                                    };
+                                    self.error(
+                                        "E0198",
+                                        a.span,
+                                        format!(
+                                            "`@message` names `{{{bad}}}`, which is not a field of `{vname}`"
+                                        ),
+                                        have,
+                                    );
+                                } else if !display {
+                                    self.diags.push(
+                                        Diagnostic::warning(
+                                            "`@message` has no effect without `derive(Error)` or `derive(Display)`",
+                                        )
+                                        .with_code("E0198")
+                                        .with_label(a.span, "read by the derived display of the enum"),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    "status" => {
+                        if let Some(first) = status {
+                            self.diags.push(
+                                Diagnostic::error("a variant has one `@status`")
+                                    .with_code("E0193")
+                                    .with_label(a.span, "a second one")
+                                    .with_label(first, "the first"),
+                            );
+                            continue;
+                        }
+                        status = Some(a.span);
+                        // an error's status: a client (4xx) or server (5xx) error
+                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (400..=599).contains(n));
+                        if !ok {
+                            self.error(
+                                "E0193",
+                                a.span,
+                                "`@status` takes one HTTP error status code (400 to 599)",
+                                "e.g. `@status(404)`",
+                            );
+                        } else if !http {
+                            self.diags.push(
+                                Diagnostic::warning("`@status` has no effect without `derive(HttpError)`")
+                                    .with_code("E0193")
+                                    .with_label(a.span, "read by `derive(HttpError)` on the enum"),
+                            );
+                        }
+                    }
+                    // the rest (a library's, an unknown one, a misplaced one)
+                    // are checked with every other attribute
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    /// `enum E { @status(404) missing(id: Int), other } derive(HttpError)` is
+    /// `impl HttpStatus for E { fn http_status(self: &Self) -> Int { match self { .missing(_) => 404, _ => 500 } } }`.
+    fn derive_http_error(&mut self, name: Name, generics: &[GenericParam], variants: &[Variant], at: Span) {
+        let path = |this: &mut Self, text: &str, args: Vec<TypeId>| {
+            let sym = this.interner.intern(text);
+            this.alloc_ty(TypeKind::Path { module: vec![], name: Name { sym, span: at }, args }, at)
+        };
+        let gens: Vec<GenericParam> =
+            generics.iter().map(|g| GenericParam { name: g.name, bounds: vec![] }).collect();
+        let args: Vec<TypeId> = generics
+            .iter()
+            .map(|g| self.alloc_ty(TypeKind::Path { module: vec![], name: g.name, args: vec![] }, at))
+            .collect();
+        let ename = self.interner.resolve(name.sym).to_string();
+        let self_ty = path(self, &ename, args);
+        let protocol = path(self, "HttpStatus", vec![]);
+        let int = path(self, "Int", vec![]);
+        let selfref_inner = path(self, "Self", vec![]);
+        let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
+        let self_sym = self.interner.intern("self");
+        let self_pat = self.alloc_pat(PatKind::Bind(Name { sym: self_sym, span: at }), at);
+        let mut arms = vec![];
+        let mut all = true;
+        for v in variants {
+            let code =
+                v.attributes.iter().find_map(|a| match (self.interner.resolve(a.name), a.args.as_slice()) {
+                    ("status", [AttrArg::Int(n)]) => Some(*n),
+                    _ => None,
+                });
+            let Some(code) = code else {
+                all = false;
+                continue;
+            };
+            let pargs = (!v.fields.is_empty())
+                .then(|| v.fields.iter().map(|_| self.alloc_pat(PatKind::Discard, v.span)).collect());
+            let pat = self.alloc_pat(PatKind::Variant { ty: None, name: v.name, args: pargs }, v.span);
+            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: code as u128, suffix: None }), v.span);
+            arms.push(MatchArm { pat, guard: None, body, span: v.span });
+        }
+        if !all || arms.is_empty() {
+            let pat = self.alloc_pat(PatKind::Discard, at);
+            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: 500, suffix: None }), at);
+            arms.push(MatchArm { pat, guard: None, body, span: at });
+        }
+        let scrutinee = self.alloc_expr(ExprKind::Name(Name { sym: self_sym, span: at }), at);
+        let body = self.alloc_expr(ExprKind::Match { scrutinee, arms }, at);
+        let method = FnDecl {
+            attributes: vec![],
+            name: Name { sym: self.interner.intern("http_status"), span: at },
+            is_pub: false,
+            generics: vec![],
+            params: vec![Param { attributes: vec![], pat: self_pat, ty: Some(selfref) }],
+            ret: Some(int),
+            effect: None,
+            where_preds: vec![],
+            body: Some(body),
+            span: at,
+            contracts: vec![],
+            result_inferred: false,
+        };
+        self.extra_items.push(Item {
+            kind: ItemKind::Impl(ImplDecl {
+                generics: gens,
+                protocol: Some(protocol),
+                self_ty,
+                where_preds: vec![],
+                methods: vec![method],
+                assoc_types: vec![],
+            }),
+            span: at,
+            is_pub: false,
+            attributes: vec![],
+        });
     }
 
     /// `struct S<T> { a: A, .. } derive(Default)` is
@@ -185,6 +360,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             .collect();
         let body = self.alloc_expr(ExprKind::Record { spread: None, entries }, at);
         let method = FnDecl {
+            attributes: vec![],
             name: Name { sym: self.interner.intern("default"), span: at },
             is_pub: false,
             generics: vec![],
@@ -244,34 +420,45 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let ty = self.ty(ty);
                 ItemKind::TypeAlias { name, generics, ty }
             }
-            cst::ItemKind::Struct { repr_c, name, generics, fields, derives } => {
+            cst::ItemKind::Struct { repr_c, name, generics, fields } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
                 let fields: Vec<StructField> = fields
                     .into_iter()
-                    .map(|(is_pub, n, t)| {
+                    .map(|(attrs, is_pub, n, t)| {
+                        let attributes = self.attributes(attrs);
                         let name = self.value_name(n);
                         let ty = self.ty(t);
-                        StructField { is_pub, name, ty }
+                        StructField { attributes, is_pub, name, ty }
                     })
                     .collect();
-                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
-                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
-                // `derive(Default)` is an impl built from the fields' defaults
+                let mut derives: Vec<TypeId> = attribute_derives.iter().map(|t| self.ty(t.clone())).collect();
+                // `@derive(Default)` is an impl built from the fields' defaults
                 if let Some(i) = derives.iter().position(|t| self.names_default(*t)) {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
                     self.derive_default(name, &generics, &fields, at);
                 }
+                if let Some(i) = derives.iter().position(|t| self.names_derive(*t, "HttpError")) {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.diags.push(
+                        Diagnostic::error("`derive(HttpError)` is for an enum")
+                            .with_code("E0193")
+                            .with_label(at, "on a struct")
+                            .with_note("each variant of an error enum gives its status: `@derive(HttpError) enum AppError { @status(404) missing(id: Int), ... }`; for one status, `impl HttpStatus for T { fn http_status(self: &Self) -> Int { 404 } }`"),
+                    );
+                }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
-            cst::ItemKind::Enum { name, generics, variants, derives } => {
+            cst::ItemKind::Enum { name, generics, variants } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
-                let variants = variants
+                let variants: Vec<Variant> = variants
                     .into_iter()
                     .map(|v| {
                         let vspan = self.span(v.span);
+                        let attributes = self.attributes(v.attributes);
                         let vname = self.value_name(v.name);
                         let fields = v
                             .fields
@@ -281,11 +468,22 @@ impl<'a, 'i> Lower<'a, 'i> {
                                 (l, self.ty(t))
                             })
                             .collect();
-                        Variant { name: vname, fields, span: vspan }
+                        Variant { attributes, name: vname, fields, span: vspan }
                     })
                     .collect();
-                let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
-                derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
+                let mut derives: Vec<TypeId> = attribute_derives.iter().map(|t| self.ty(t.clone())).collect();
+                // `@derive(HttpError)`: an HttpStatus implementation from the
+                // variants' `@status(code)`
+                let http = derives.iter().position(|t| self.names_derive(*t, "HttpError"));
+                if let Some(i) = http {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.derive_http_error(name, &generics, &variants, at);
+                }
+                let display = derives
+                    .iter()
+                    .any(|t| self.names_derive(*t, "Error") || self.names_derive(*t, "Display"));
+                self.check_variant_attributes(&variants, http.is_some(), display);
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {
@@ -357,9 +555,13 @@ impl<'a, 'i> Lower<'a, 'i> {
             .into_iter()
             .map(|a| {
                 let span = self.span(a.span);
-                let name = self.interner.intern(a.name.text);
+                let namespace: Vec<Symbol> =
+                    a.namespace.iter().map(|n| self.interner.intern(n.text)).collect();
+                let full =
+                    a.namespace.iter().map(|n| n.text).chain([a.name.text]).collect::<Vec<_>>().join(".");
+                let name = self.interner.intern(&full);
                 let args = a.args.into_iter().map(|x| self.attr_arg(x)).collect();
-                Attribute { name, args, span }
+                Attribute { name, namespace, args, span }
             })
             .collect()
     }
@@ -381,9 +583,12 @@ impl<'a, 'i> Lower<'a, 'i> {
         let mut assoc = vec![];
         for m in members {
             match m {
-                cst::Member::Fn(d) => {
+                cst::Member::Fn(mut d) => {
                     let span = self.span(d.span);
-                    methods.push(self.fn_decl(d, span))
+                    let attributes = self.attributes(std::mem::take(&mut d.attributes));
+                    let mut decl = self.fn_decl(d, span);
+                    decl.attributes = attributes;
+                    methods.push(decl)
                 }
                 cst::Member::AssocType(n, t) => {
                     let n = self.type_name(n);
@@ -412,6 +617,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         let where_preds = self.where_preds(d.where_preds);
         let body = d.body.map(|b| self.block(b));
         FnDecl {
+            attributes: vec![],
             name,
             is_pub: d.is_pub,
             generics,
@@ -470,7 +676,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             // `(config)`: the scope is unused
             let pspan = self.span(params_span);
             let scope = self.alloc_pat(PatKind::Discard, pspan);
-            params.insert(0, Param { pat: scope, ty: None });
+            params.insert(0, Param { attributes: vec![], pat: scope, ty: None });
         } else if params.len() != 2 {
             self.error(
                 "E0705",
@@ -500,6 +706,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             let fname = Name { sym: self.interner.intern(&text), span: n.span };
             self.extra_items.push(Item {
                 kind: ItemKind::Fn(FnDecl {
+                    attributes: vec![],
                     name: fname,
                     is_pub: false,
                     generics: vec![],
@@ -584,6 +791,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             let kind: &'static str = match m.kind.text {
                 "enter" => "enter",
                 "leave" => "leave",
+                "around" => "around",
                 _ => "error",
             };
             let own = m.ret.map(|t| self.ty(t));
@@ -622,6 +830,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         let body =
             self.alloc_expr(ExprKind::Block { stmts: vec![Stmt::Expr { expr: call, semi: false }] }, span);
         FnDecl {
+            attributes: vec![],
             name: n,
             is_pub,
             generics,
@@ -663,9 +872,10 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn params(&mut self, ps: Vec<cst::Param<'_>>) -> Vec<Param> {
         ps.into_iter()
             .map(|p| {
+                let attributes = self.attributes(p.attributes);
                 let pat = self.pattern(p.pat);
                 let ty = p.ty.map(|t| self.ty(t));
-                Param { pat, ty }
+                Param { attributes, pat, ty }
             })
             .collect()
     }
@@ -897,12 +1107,14 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
         }
         let scoped = !frame.is_empty();
+        let lifted: Vec<Symbol> = frame.values().copied().collect();
         if scoped {
             self.local_fns.push(frame);
         }
         let block = self.block_items(b, span);
         if scoped {
             self.local_fns.pop();
+            self.ast.local_fn_blocks.insert(block, lifted);
         }
         block
     }
@@ -915,8 +1127,9 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     /// A local function: lifted to a private module function (it does not
     /// capture the enclosing function's locals; a closure does).
-    fn local_fn_decl(&mut self, d: cst::FnDecl<'_>) -> Stmt {
+    fn local_fn_decl(&mut self, mut d: cst::FnDecl<'_>) -> Stmt {
         let span = self.span(d.span);
+        let attributes = self.attributes(std::mem::take(&mut d.attributes));
         let written = self.interner.intern(d.name.text);
         let lifted = self.local_fn(written).unwrap_or(written);
         if d.is_pub {
@@ -939,7 +1152,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         decl.name = Name { sym: lifted, span: decl.name.span };
         decl.is_pub = false;
         self.ast.local_fns.push(lifted);
-        self.extra_items.push(Item { kind: ItemKind::Fn(decl), span, is_pub: false, attributes: vec![] });
+        self.extra_items.push(Item { kind: ItemKind::Fn(decl), span, is_pub: false, attributes });
         let unit = self.alloc_expr(ExprKind::Lit(Lit::Unit), span);
         Stmt::Expr { expr: unit, semi: true }
     }
@@ -960,6 +1173,30 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
         }
         self.alloc_expr(ExprKind::Block { stmts }, span)
+    }
+
+    /// A pattern that always matches (a name, `_`, a tuple or record of
+    /// them) where an `else` is written for the case it does not.
+    fn warn_irrefutable(&mut self, pat: PatId, form: &str, why: &str) {
+        fn always(ast: &Ast, p: PatId) -> bool {
+            match &ast.pats[p].kind {
+                PatKind::Bind(_) | PatKind::Discard => true,
+                PatKind::Tuple(ps) => ps.iter().all(|q| always(ast, *q)),
+                PatKind::Record { fields, .. } => {
+                    fields.iter().all(|(_, q)| q.is_none_or(|q| always(ast, q)))
+                }
+                _ => false,
+            }
+        }
+        if always(&self.ast, pat) {
+            let span = self.ast.pats[pat].span;
+            self.diags.push(
+                Diagnostic::warning(format!("this {form} pattern always matches"))
+                    .with_code("E0346")
+                    .with_label(span, why.to_string())
+                    .with_note("bind it with a plain `let`, or match a variant (`.some(x)`)"),
+            );
+        }
     }
 
     /// A `let ... else` block ending in `err(...)` returns it: `let .some(x)
@@ -989,6 +1226,13 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn stmt(&mut self, s: cst::Stmt<'_>) -> Stmt {
         match s {
             cst::Stmt::Fn(d) => self.local_fn_decl(*d),
+            cst::Stmt::Attributed(tags, inner) => {
+                let span = self.span(cst_stmt_span(&inner));
+                let tags = self.attributes(tags);
+                let st = self.stmt(*inner);
+                self.ast.stmt_attributes.push((span, tags));
+                st
+            }
             cst::Stmt::Let { kind, pat, ty, value, els: None, span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
@@ -1001,6 +1245,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::Stmt::Let { kind, pat, ty, value, els: Some(els), span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
+                self.warn_irrefutable(pat, "`let ... else`", "the `else` block never runs");
                 let ty = ty.map(|t| self.ty(t));
                 let value = self.expr(value);
                 let mut names = vec![];
@@ -1018,7 +1263,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                 };
                 let otherwise = self.block(*els);
                 self.return_tail_err(otherwise);
-                let diverge = self.alloc_expr(ExprKind::Std("diverge"), span);
+                // generated references are zero-width (see `provider`): hover
+                // and references over the `else` block are its own
+                let diverge = self.alloc_expr(ExprKind::Std("diverge"), Span { end: span.start, ..span });
                 let otherwise = self.alloc_expr(
                     ExprKind::Call { callee: diverge, args: vec![otherwise], type_args: vec![] },
                     span,
@@ -1120,10 +1367,15 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
             cst::Expr::Name(n) => {
                 let mut n = self.name(n);
+                let written = n.sym;
                 if let Some(lifted) = self.local_fn(n.sym) {
                     n.sym = lifted;
                 }
-                self.alloc_expr(ExprKind::Name(n), span)
+                let id = self.alloc_expr(ExprKind::Name(n), span);
+                if n.sym != written {
+                    self.ast.local_fn_refs.insert(id, written);
+                }
+                id
             }
             cst::Expr::TypeName(n) => {
                 let n = self.name(n);
@@ -1204,6 +1456,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                 // `if let p = e { a } else { b }` is `match e { p => a, _ => b }`
                 cst::Cond::Let(pat, scrutinee) => {
                     let pat = self.pattern(pat);
+                    if els.is_some() {
+                        self.warn_irrefutable(pat, "`if let`", "the `else` branch never runs");
+                    }
                     let scrutinee = self.expr(*scrutinee);
                     let then = self.block(then);
                     let otherwise = match els {
@@ -1317,6 +1572,11 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::Expr::Unsafe(b) => {
                 let b = self.block(b);
                 self.alloc_expr(ExprKind::Unsafe(b), span)
+            }
+            cst::Expr::Region(n, b) => {
+                let name = self.name(n);
+                let body = self.block(b);
+                self.alloc_expr(ExprKind::Region { name, body }, span)
             }
             cst::Expr::Return(e) => {
                 let e = e.map(|e| self.expr(*e));
@@ -1717,7 +1977,7 @@ fn expr_children(kind: &ExprKind, f: &mut impl FnMut(ExprId)) {
             f(*iter);
             f(*body)
         }
-        ExprKind::Loop { body } | ExprKind::Unsafe(body) => f(*body),
+        ExprKind::Loop { body } | ExprKind::Unsafe(body) | ExprKind::Region { body, .. } => f(*body),
         ExprKind::Block { stmts } => {
             for s in stmts {
                 stmt(s, f)
@@ -1743,5 +2003,52 @@ fn bound_names(ast: &Ast, p: PatId, out: &mut Vec<Name>) {
         }
         PatKind::Variant { args: Some(ps), .. } => ps.iter().for_each(|q| bound_names(ast, *q, out)),
         _ => {}
+    }
+}
+
+/// The field names a `@message` template interpolates (`{id}`), with `{{`
+/// and `}}` for literal braces; the same rules the runtime renders it with.
+pub fn message_placeholders(template: &str) -> Result<Vec<String>, String> {
+    let mut names = vec![];
+    let mut chars = template.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+            }
+            '{' => {
+                let mut name = String::new();
+                loop {
+                    match chars.next() {
+                        Some('}') => break,
+                        Some(c) if c.is_alphanumeric() || c == '_' => name.push(c),
+                        Some(c) => {
+                            return Err(format!("`{c}` in a placeholder (write `{{{{` for a literal brace)"));
+                        }
+                        None => return Err("an unclosed `{`".into()),
+                    }
+                }
+                if name.is_empty() {
+                    return Err("an empty `{}`".into());
+                }
+                names.push(name);
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+            }
+            '}' => return Err("a lone `}` (write `}}` for a literal brace)".into()),
+            _ => {}
+        }
+    }
+    Ok(names)
+}
+
+/// A statement's source span.
+fn cst_stmt_span(s: &cst::Stmt<'_>) -> crate::token::Span {
+    match s {
+        cst::Stmt::Fn(d) => d.span,
+        cst::Stmt::Let { span, .. } | cst::Stmt::Use { span, .. } | cst::Stmt::Assign { span, .. } => *span,
+        cst::Stmt::Expr((_, span)) => *span,
+        cst::Stmt::Attributed(_, inner) => cst_stmt_span(inner),
     }
 }

@@ -7,17 +7,21 @@ This chapter shows each piece with one small example and links to the full API.
 
 ### Handlers and routes
 
+A JSON route's handler takes its typed parameters (and body) and returns
+the reply, or an error:
+
 ```badger
 import std.http
 import std.io
 import std.route
-import std.text
 
 type NewNote = { title: String }
 type Note = { id: Int, title: String }
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
+    @status(404) @message("no note {id}")
+    not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
 }
@@ -25,47 +29,55 @@ pub enum AppError {
 fn routes() -> List<route.Route> {
     [
         route.get("/health", #health, fn(_request, _params) { http.text(200, "ok") }),
-        route.json_get("/notes/:id", #notes/show, fn(_request, params) -> Result<(Int, Note), String> {
-            ok((200, { id: 1, title: $"note {params["id"]}" }))
+        route.get_json("/notes/:id", #notes/show, fn(p: { id: Int }) -> Result<Note, AppError> {
+            if p.id > 100 { return err(AppError.not_found(p.id)) }
+            ok({ id: p.id, title: $"note {p.id}" })
         }),
-        route.json(#post, "/notes", #notes/create, fn(_request, _params, body: NewNote) -> Result<(Int, Note), String> {
-            ok((201, { id: 2, title: body.title }))
+        route.post_json("/notes", #notes/create, fn(_: {}, body: NewNote) -> Result<Note, AppError> {
+            ok({ id: 2, title: body.title })
         }),
     ]
 }
 
-fn show(r: http.Response) -> String {
-    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
-}
-
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table(routes())?
-    io.println(show(http.call(handler, http.request(#get, "/health", ""))))?
-    io.println(show(http.call(handler, http.request(#get, "/notes/7", ""))))?
-    io.println(show(http.call(handler, http.request(#post, "/notes", "{\"title\":\"milk\"}"))))?
-    io.println(show(http.call(handler, http.request(#post, "/notes", "{}"))))?
-    io.println(show(http.call(handler, http.request(#get, "/missing", ""))))?
+    io.println($"{http.call_text(handler, #get, "/health", "")}")?
+    io.println($"{http.call_text(handler, #get, "/notes/7", "")}")?
+    io.println($"{http.call_text(handler, #get, "/notes/700", "")}")?
+    io.println($"{http.call_text(handler, #post, "/notes", "{\"title\":\"milk\"}")}")?
+    io.println($"{http.call_text(handler, #post, "/notes", "{}")}")?
+    io.println($"{http.call_text(handler, #get, "/missing", "")}")?
     ok(())
 }
 ```
 
 ```text
-200 ok
-200 {"id":1,"title":"note 7"}
-201 {"id":2,"title":"milk"}
-400 {"error":"route/invalid_body","message":"missing required field","path":"$.title"}
-404 {"error":"route/not_found"}
+(200, "ok")
+(200, "{\"id\":7,\"title\":\"note 7\"}")
+(404, "{\"error\":\"not_found\",\"message\":\"no note 700\"}")
+(201, "{\"id\":2,\"title\":\"milk\"}")
+(400, "{\"error\":\"route/invalid_body\",\"message\":\"missing required field\",\"path\":\"$.title\"}")
+(404, "{\"error\":\"route/not_found\"}")
 ```
 
-`http.call(handler, request)` runs a handler in-process, with no socket.
-Use it in tests.
+`http.call_text(handler, method, path, body)` runs a handler in-process,
+with no socket, and gives the reply's status and body text; use it in
+tests (`http.call(handler, http.request(method, path, body))` gives the
+whole response).
 
 | Route constructor | Handler receives | Notes |
 |---|---|---|
-| `route.get`, `post`, `put`, `delete` | `(request, params)` | Returns `Result<http.Response, E>` |
-| `route.json_get(path, name, f)` | `(request, params)` | Returns `(status, reply)`, encoded as JSON |
-| `route.json(method, path, name, f)` | `(request, params, body)` | The body is decoded and validated first; a failure is a 400 naming the field |
-| `route.typed(method, path, name, f)` | `(request, path_params, body)` | Path parameters decode into a record too |
+| `route.get_json`, `delete_json(path, name, f)` | `(params)` | The reply is sent with 200 |
+| `route.post_json`, `put_json(path, name, f)` | `(params, body)` | The body is decoded and validated first; the reply is sent with 201 (POST) or 200 (PUT) |
+| `route.typed(method, path, name, f)` | `(request, params, body)` | Returns `(status, reply)`: another status, or the request itself |
+| `route.json_get(path, name, f)`, `route.json(method, ...)` | `(request, params map[, body])` | Return `(status, reply)`, encoded as JSON |
+| `route.get`, `post`, `put`, `delete` | `(request, params map)` | Return `Result<http.Response, E>` (a reply that is not JSON) |
+
+The parameter record of `get_json` and its siblings names the path's
+`:name`s (`{}` for none) and may name query parameters too; numbers,
+booleans, and `Option`s are parsed, and an invalid or missing one is a
+400 naming it. The parameter, body, and reply types are part of the
+route's description (and its OpenAPI document).
 
 `route.table(routes)` validates the table (unique names, well-formed
 paths, no two routes matching the same requests) and returns an
@@ -91,8 +103,11 @@ cannot outlive it (E0401).
 
 An error carries the status it should be answered with through the
 `HttpStatus` protocol. The default is 500 ("internal server error"), so
-an error type that says nothing about HTTP keeps the old behaviour; an
-application implements it once, on its error type:
+an error type that says nothing about HTTP keeps the old behaviour. An
+application states it once, on its error type: `derive(HttpError)`
+answers each variant marked `@status(code)` with that code, and the
+others with 500. (Implementing `HttpStatus` by hand, with a `match` in
+`http_status`, decides it some other way.)
 
 ```badger
 import std.http
@@ -100,23 +115,16 @@ import std.io
 import std.route
 import std.text
 
-@derive(Error, From)
+// The status each error is answered with: the variant's `@status`; its
+// message: the variant's `@message`, if it has one.
+@derive(Error, HttpError, From)
 pub enum AppError {
+    @status(400)
     invalid_input(message: String),
+    @status(404) @message("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
-}
-
-// The status each error is answered with.
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .invalid_input(_) => 400,
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
 }
 
 fn show(r: http.Response) -> String {
@@ -135,56 +143,49 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 ```text
-404 {"error":"not found","message":"not found: 1"}
+404 {"error":"not_found","message":"no note 1"}
 ```
 
-A client error (a 4xx) is answered with the error's message; a server
-error (a 5xx) keeps its message to itself. `http.StatusError` carries a
+A client error (a 4xx) is answered with the error's code (the variant
+name) and message; a server error (a 5xx) keeps both to itself. `http.StatusError` carries a
 status for the one-off case: `http.status(404, error)`.
 
 ### Query parameters
 
 A route matches its path; the query string is part of the request, not of
-the path. `route.params(request)` reads it:
+the path. A `get_json` route's parameter fields that the path does not
+bind come from it (an `Option` field may be missing):
 
 ```badger
 import std.http
 import std.io
 import std.route
-import std.text
 
-@derive(Error, From)
+@derive(Error, HttpError, From)
 pub enum AppError {
-    http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
 }
 
-impl HttpStatus for AppError { }
-
-fn show(r: http.Response) -> String {
-    $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"
-}
-
 pub fn main() -> Result<Unit, AppError> {
     let handler = route.table([
-        route.get("/search", #search, fn(request, _params) -> Result<http.Response, AppError> {
-            let q = route.params(request).get("q").unwrap_or("")
-            ok(http.json(200, { q: q })?)
+        route.get_json("/search", #search, fn(p: { q: String, page: Option<Int> }) -> Result<{ q: String, page: Int }, AppError> {
+            ok({ q: p.q, page: p.page.unwrap_or(1) })
         }),
     ])?
-    io.println(show(http.call(handler, http.request(#get, "/search?q=dune&page=2", ""))))?
+    io.println($"{http.call_text(handler, #get, "/search?q=dune&page=2", "")}")?
     ok(())
 }
 ```
 
 ```text
-200 {"q":"dune"}
+(200, "{\"page\":2,\"q\":\"dune\"}")
 ```
 
-A path parameter and a query parameter of the same name: the path
-parameter wins. `route.path_of(uri)` and `route.query_of(uri)` split a
-URI into its two parts.
+Elsewhere `route.params(request)` reads the query string as a map. A path
+parameter and a query parameter of the same name: the path parameter
+wins. `route.path_of(uri)` and `route.query_of(uri)` split a URI into its
+two parts.
 
 ### Serve it
 
@@ -369,7 +370,7 @@ pub fn main() -> Result<Unit, AppError> {
     sqlite.execute(db, "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL, qty INTEGER NOT NULL)", [])?
     sqlite.transaction(db, fn(tx) -> Result<Unit, AppError> {
         for name in ["milk", "eggs"] {
-            sqlite.execute(tx, "INSERT INTO items (name, qty) VALUES (?, ?)", [Data.string(name), Data.int(2)])?
+            sqlite.execute(tx, "INSERT INTO items (name, qty) VALUES (:name, :qty)", { name, qty: 2 })?
         }
         ok(())
     })?
@@ -377,6 +378,8 @@ pub fn main() -> Result<Unit, AppError> {
     for item in items {
         io.println($"{item.id} {item.name} x{item.qty}")?
     }
+    let first = sqlite.query_opt_as<Item>(db, "SELECT id, name, qty FROM items WHERE id = ?", 1)?
+    io.println($"first: {first.map(fn(i) => i.name).unwrap_or("none")}")?
     ok(())
 }
 ```
@@ -384,6 +387,7 @@ pub fn main() -> Result<Unit, AppError> {
 ```text
 1 milk x2
 2 eggs x2
+first: milk
 ```
 
 | Function | Returns |
@@ -391,11 +395,16 @@ pub fn main() -> Result<Unit, AppError> {
 | `sqlite.execute(conn, sql, params)` | Changed row count |
 | `sqlite.query(conn, sql, params)` | `List<Data>` |
 | `sqlite.query_one(conn, sql, params)` | One row as `Data`; zero or several rows is an error |
-| `sqlite.query_as<T>`, `query_one_as<T>` | Rows decoded as record `T` (an `Option` field for a nullable column) |
+| `sqlite.query_opt(conn, sql, params)` | At most one row: `none` for no rows; several rows is an error |
+| `sqlite.query_as<T>`, `query_one_as<T>`, `query_opt_as<T>` | Rows decoded as record `T` (an `Option` field for a nullable column) |
 | `sqlite.transaction(pool, body)` | Commits after `ok`; rolls back after `err`, a defect, or cancellation |
 
-`conn` is a pool or a transaction. Parameters are `?` placeholders bound
-from a `List<Data>`. A transaction is confined to its task (E0402) and to
+`conn` is a pool or a transaction. The parameters are any encodable
+value: a list or tuple binds `?` placeholders in order (`(title, author)`),
+a record binds named ones by field (`{ id, title }` for `:id` and
+`:title`; `@id` and `$id` too, and a record may carry more fields than the
+statement names), and a single value is the one `?` (`id`). `[]` or `{}`
+is none. A transaction is confined to its task (E0402) and to
 its callback (E0401). In a system, use the `sqlite.pool` provider with
 `{ path }`.
 
@@ -406,7 +415,7 @@ statements:
 | Code | Mistake |
 |---|---|
 | E0180 | The statement does not compile (unknown table or column, syntax), or does not suit the call |
-| E0181 | The parameter list literal has the wrong length |
+| E0181 | A parameter list or tuple literal has the wrong length, or a record literal lacks a field a placeholder names |
 | E0182 | `query_as` row type does not match the result columns |
 
 [Typed SQL](../typed-sql.md) generates typed functions from `.sql` files
@@ -446,7 +455,7 @@ pub enum AppError {
 pub fn main() -> Result<Unit, AppError> {
     let url = env.get("DATABASE_URL").unwrap_or("postgres://localhost/app")
     let db = postgres.connect(url)?
-    let users = postgres.query_as<User>(db, "SELECT id, name FROM users WHERE name LIKE $1", [Data.string("a%")])?
+    let users = postgres.query_as<User>(db, "SELECT id, name FROM users WHERE name LIKE :pattern", { pattern: "a%" })?
     for u in users {
         io.println($"{u.id} {u.name}")?
     }
@@ -455,11 +464,13 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 `std.postgres` has the shape of `std.sqlite` (`execute`, `query`,
-`query_one`, `query_as`, `query_one_as`, `transaction`) over a connection
-pool. Differences:
+`query_one`, `query_opt`, `query_as`, `query_one_as`, `query_opt_as`,
+`transaction`) over a connection pool. Differences:
 
-- Parameters are `$1`, `$2`, ..., parsed by the server as each parameter's
-  type.
+- Positional parameters are `$1`, `$2`, ..., parsed by the server as each
+  parameter's type. A record binds `:name` placeholders only (`@` and `$`
+  are Postgres operators); `::` casts, strings, and comments are left
+  alone.
 - `postgres.connect(url)` opens one connection immediately, so a bad
   address or credentials fail there. `connect_with(url, { max_connections })`
   sizes the pool (default 16).

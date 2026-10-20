@@ -80,7 +80,7 @@ pub fn from_range(r: Range<Int>) -> Seq<Int, !{}> {
     }
 }
 
-@fusion(role = stage, template = map)
+@fusion(role = stage, template = call)
 pub fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff> {
     {
         start: fn() {
@@ -95,7 +95,7 @@ pub fn map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> U !Eff) -> Seq<U, Eff> {
     }
 }
 
-@fusion(role = stage, template = filter)
+@fusion(role = stage, template = call)
 pub fn filter<T, Eff>(items: Seq<T, Eff>, keep: fn(T) -> Bool !Eff) -> Seq<T, Eff> {
     {
         start: fn() {
@@ -133,7 +133,7 @@ pub fn take<T, Eff>(items: Seq<T, Eff>, n: Int) -> Seq<T, Eff> {
 }
 
 /// `f`'s values, skipping the items it maps to `none`.
-@fusion(role = stage, template = filter_map)
+@fusion(role = stage, template = call)
 pub fn filter_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Seq<U, Eff> {
     {
         start: fn() {

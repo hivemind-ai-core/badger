@@ -123,6 +123,8 @@ struct Analysis<'a> {
     /// The function whose body is being walked, and its return points.
     current: Option<DefId>,
     returns: Vec<(ExprId, Env)>,
+    /// Small predicate functions being evaluated at a call's arguments.
+    inlining: std::cell::Cell<u32>,
 }
 
 fn is_std(hir: &Hir, span: Span) -> bool {
@@ -243,13 +245,40 @@ impl<'a> Analysis<'a> {
     fn call_result(&self, call: ExprId, env: &Env) -> V {
         let Some(d) = self.callee(call) else { return V::Unknown };
         let Some(f) = self.fn_def(d) else { return V::Unknown };
-        let (Some(r), false) = (f.result, f.ensures.is_empty()) else { return V::Unknown };
+        let (Some(r), false) = (f.result, f.ensures.is_empty()) else {
+            // a small predicate (`fn short(s: String) -> Bool => s.len() <=
+            // 5`): its one expression, at the arguments, so `requires
+            // short(s)` is proven like the bound it states
+            // (only predicates: other helpers stay opaque, as their
+            // results are not stated)
+            if let Some(b) = f.body
+                && self.types.exprs.get(&call).is_some_and(|t| t == "Bool")
+                && !is_std(self.hir, self.hir.defs[d].span)
+                && self.inlining.get() < 3
+                && self.one_expression(b)
+            {
+                self.inlining.set(self.inlining.get() + 1);
+                let v = self.eval(b, &self.call_env(call, f, env));
+                self.inlining.set(self.inlining.get() - 1);
+                return v;
+            }
+            return V::Unknown;
+        };
         // assume the callee's postconditions (checked in it, or proven)
         let mut callee_env = self.call_env(call, f, env);
         for pc in &f.ensures {
             self.refine(pc.cond, true, &mut callee_env);
         }
         callee_env.get(r)
+    }
+
+    /// A body that is one expression (no statements).
+    fn one_expression(&self, b: ExprId) -> bool {
+        match &self.hir.exprs[b].kind {
+            ExprKind::Block { stmts, tail: Some(t) } => stmts.is_empty() && self.one_expression(*t),
+            ExprKind::Block { .. } => false,
+            _ => true,
+        }
     }
 
     fn binary(&self, op: BinOp, lhs: ExprId, rhs: ExprId, env: &Env) -> V {
@@ -1111,6 +1140,7 @@ fn analyze(
         escapes: HashSet::new(),
         current: None,
         returns: vec![],
+        inlining: std::cell::Cell::new(0),
     };
     let mut elided = badger_mir::lower::Elided::default();
     let fns: Vec<(DefId, &FnDef)> = hir

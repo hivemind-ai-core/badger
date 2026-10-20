@@ -17,12 +17,17 @@ pub fn format(src: &str) -> String {
     let mut in_raw_string = false;
     let mut blank_run = 0usize;
     let mut prev_opened = false;
-    let lines: Vec<&str> = src.lines().collect();
+    // a line ending in an operator (or `=`, `=>`) continues on the next,
+    // which is indented one level past the statement's first line
+    let mut continued: Option<usize> = None;
+    // lines without their `\n`; a `\r` before it is kept here, and is
+    // dropped from code lines (the file's line ending is restored below)
+    let lines: Vec<&str> = src.split_inclusive('\n').map(|l| l.strip_suffix('\n').unwrap_or(l)).collect();
     for (li, raw) in lines.iter().enumerate() {
         let line = raw.trim_end();
         if in_raw_string || in_block_comment > 0 {
             // inside multi-line literals and comments: keep the line verbatim
-            // (a raw string's trailing spaces are part of its value)
+            // (a raw string's trailing spaces and `\r` are part of its value)
             let line = if in_raw_string { raw } else { line };
             out.push_str(line);
             out.push('\n');
@@ -34,6 +39,7 @@ pub fn format(src: &str) -> String {
         let trimmed = line.trim_start();
         if trimmed.is_empty() {
             blank_run += 1;
+            continued = None;
             continue;
         }
         // indentation follows the line as it will be written (spacing can
@@ -50,6 +56,11 @@ pub fn format(src: &str) -> String {
         if trimmed.starts_with("|>") {
             indent += 1;
         }
+        if let Some(base) = continued
+            && closes_first == 0
+        {
+            indent = indent.max(base + 1);
+        }
         if blank_run > 0 && !prev_opened && !trimmed.starts_with(['}', ')', ']']) && li > 0 && !out.is_empty()
         {
             out.push('\n');
@@ -59,10 +70,20 @@ pub fn format(src: &str) -> String {
             out.push_str("    ");
         }
         out.push_str(trimmed);
-        out.push('\n');
         let before = stack.len();
         scan(trimmed, &mut stack, indent, &mut in_block_comment, &mut in_raw_string);
+        if in_raw_string {
+            // a raw string opened on this line: what follows the opening
+            // quotes, to the line's end, is part of its value
+            out.push_str(&raw[line.len()..]);
+        }
+        out.push('\n');
         prev_opened = stack.len() > before || trimmed.ends_with(['{', '(', '[']);
+        continued = if !in_raw_string && in_block_comment == 0 && ends_continued(trimmed) {
+            Some(continued.unwrap_or(indent))
+        } else {
+            None
+        };
     }
     while out.ends_with("\n\n") {
         out.pop();
@@ -73,7 +94,96 @@ pub fn format(src: &str) -> String {
     if !out.ends_with('\n') {
         out.push('\n');
     }
+    // a file written with `\r\n` keeps it (lines ending in a `\r` of
+    // their own, inside raw strings, already have it)
+    if src.find('\n').is_some_and(|i| i > 0 && src.as_bytes()[i - 1] == b'\r') {
+        let mut crlf = String::with_capacity(out.len() + out.len() / 32);
+        let mut prev = '\0';
+        for c in out.chars() {
+            if c == '\n' && prev != '\r' {
+                crlf.push('\r');
+            }
+            crlf.push(c);
+            prev = c;
+        }
+        return crlf;
+    }
     out
+}
+
+/// Does a line end in a binary operator, `=`, or `=>` (so the statement
+/// continues on the next line)? Judged on its code: strings, chars, and a
+/// trailing comment are set aside (a line inside, or opening, a block
+/// comment or raw string is not judged).
+fn ends_continued(line: &str) -> bool {
+    let Some(code) = code_of(line) else { return false };
+    let l = code.trim_end();
+    const OPS: [&str; 16] =
+        ["=>", "==", "!=", "<=", ">=", "&&", "||", "<<", "=", "+", "-", "*", "/", "%", "|", "^"];
+    OPS.iter().any(|op| l.ends_with(op)) && !l.ends_with("->") && !l.ends_with("|>")
+}
+
+/// The line's code without its literals and comments, or `None` when a
+/// block comment or raw string runs past it.
+fn code_of(line: &str) -> Option<String> {
+    let b = line.as_bytes();
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i..].starts_with(b"//") {
+            break;
+        }
+        if b[i..].starts_with(b"/*") {
+            // block comments nest
+            let mut depth = 0usize;
+            loop {
+                if b[i..].starts_with(b"/*") {
+                    depth += 1;
+                    i += 2;
+                } else if b[i..].starts_with(b"*/") {
+                    depth -= 1;
+                    i += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else if i >= b.len() {
+                    return None;
+                } else {
+                    i += 1;
+                }
+            }
+            out.push(' ');
+            continue;
+        }
+        if b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"$\"\"\"") {
+            let open = if b[i] == b'$' { 4 } else { 3 };
+            let end = line[i + open..].find("\"\"\"")?;
+            i += open + end + 3;
+            out.push_str("\"\"");
+            continue;
+        }
+        if b[i] == b'"' || (b[i] == b'$' && b.get(i + 1) == Some(&b'"')) {
+            i = crate::spacing::string_end(line, i)?;
+            out.push_str("\"\"");
+            continue;
+        }
+        if b[i] == b'\'' {
+            let mut j = i + 1;
+            while j < b.len() && b[j] != b'\'' {
+                if b[j] == b'\\' {
+                    j += 1;
+                }
+                j += 1;
+            }
+            i = j + 1;
+            out.push_str("' '");
+            continue;
+        }
+        let c = line[i..].chars().next()?;
+        out.push(c);
+        i += c.len_utf8();
+    }
+    Some(out)
 }
 
 /// Count closing brackets at the start of a line (they dedent it).
@@ -165,6 +275,20 @@ mod tests {
     }
 
     #[test]
+    fn continuation_lines_are_indented() {
+        let src = "fn g(n: Int) -> Int =>\nn * 2\nfn h() -> Int {\n    let t = 1 +\n    2 +\n    3\n    t\n}\n/* a */\nconst k = 1\n";
+        let want = "fn g(n: Int) -> Int =>\n    n * 2\nfn h() -> Int {\n    let t = 1 +\n        2 +\n        3\n    t\n}\n/* a */\nconst k = 1\n";
+        assert_eq!(format(src), want);
+        assert_eq!(format(want), want);
+        // judged on the code: a string or a trailing comment does not hide
+        // the operator, and one inside a string or comment is not one
+        let lits = "fn h() -> Int {\nlet s = \"x\" +\n\"y\"\nlet t = 1 + // one\n2\nlet u = \"a +\"\nlet v = 1 // c +\nt\n/* a /* b */ c */\nt\n}\n";
+        let want = "fn h() -> Int {\n    let s = \"x\" +\n        \"y\"\n    let t = 1 + // one\n        2\n    let u = \"a +\"\n    let v = 1 // c +\n    t\n    /* a /* b */ c */\n    t\n}\n";
+        assert_eq!(format(lits), want);
+        assert_eq!(format(want), want);
+    }
+
+    #[test]
     fn raw_strings_are_verbatim() {
         let src = "let s = \"\"\"\n  keep {\n\"\"\"\nlet t = 1\n";
         assert_eq!(format(src), src);
@@ -176,5 +300,18 @@ mod tests {
         // trailing spaces and a tab-only line inside are part of the value
         let spaces = "let s = \"\"\"\na  \n\t\n\"\"\"\n";
         assert_eq!(format(spaces), spaces);
+        // so are those on the line that opens it
+        let opening = "fn f() {\n    let s = \"\"\"abc   \n\"\"\"\n}\n";
+        assert_eq!(format(opening), opening);
+    }
+
+    #[test]
+    fn line_endings_are_kept() {
+        // a CRLF file stays CRLF, and a raw string's own `\r` is kept
+        let crlf = "fn f() {\r\nlet s = \"\"\"a\r\nb\"\"\"\r\n}\r\n";
+        assert_eq!(format(crlf), "fn f() {\r\n    let s = \"\"\"a\r\nb\"\"\"\r\n}\r\n");
+        let mixed = "fn f() {\nlet s = \"\"\"a\r\nb\"\"\"\n}\n";
+        assert_eq!(format(mixed), "fn f() {\n    let s = \"\"\"a\r\nb\"\"\"\n}\n");
+        assert_eq!(format(&format(crlf)), format(crlf));
     }
 }

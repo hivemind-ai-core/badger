@@ -1,0 +1,4 @@
+{"id":7,"tags":[1,2],"title":"Dune"}
+7 Dune 2
+7 true
+{"type":"object","properties":{"id":{"type":"integer"},"tags":{"type":"array","items":{"type":"integer"}},"title":{"type":"string"}},"required":["id","tags","title"]}

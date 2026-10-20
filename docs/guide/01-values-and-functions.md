@@ -612,7 +612,10 @@ fn parse_all(lines: List<String>) -> Result<List<Int>, AppError> {
 Unlike a closure, a local function does not capture the enclosing
 function's variables (an unknown name there says so): pass what it needs,
 or use a closure. It is private to its block, and it is reported as
-`parse_all.lift`.
+`parse_all.lift`. A binding of the same name in the block (a later
+`let g`) or nested inside it hides the function from where it is bound,
+as any binding hides an outer one; a local function inside a test is a
+helper, not a test, whatever its name.
 
 ## Pipes
 
@@ -646,6 +649,12 @@ SHOUT
   `f(a + 1)`.
 - There are no placeholders and no last-argument pipe.
 - A newline before `|>` continues the expression.
+- A standard module function and the method of the same name are the same
+  operation: `list.map(xs, f)`, `xs.map(f)`, and `xs |> list.map(f)` are
+  interchangeable. A local named like an imported module (`list`, `text`)
+  hides the module while it is in scope, so there `list.map(...)` is a
+  method call on the local; an error at such a call says so. Name locals
+  `items`, `label`, and so on.
 
 ### `?` in a pipe
 
@@ -746,7 +755,9 @@ A brace that starts with `label:`, `..spread`, or a lone name followed by
 ## `if`
 
 `if` is an expression. With `else`, both branches must have the same
-type; without `else`, it is `Unit`.
+type; without `else`, it is `Unit`. A branch is a block: a bare
+statement is not a branch, so `if n > 10 return` is a syntax error and
+the branch is written `if n > 10 { return }`.
 
 ```badger
 import std.io

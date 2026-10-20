@@ -103,6 +103,7 @@ report failures as plain data.
 | `InitScope` method | Effect |
 |---|---|
 | `scope.on_halt(f)` | Register cleanup; halts run in reverse registration order, once each |
+| `scope.on_stop(f)` | Run `f` as the system starts halting, before any worker stops (stop taking work) |
 | `scope.worker(factory, policy)` | Start a managed worker owned by the node |
 | `scope.worker_with(name, factory, policy, shutdown)` | The same, with a name and a shutdown policy |
 | `scope.acquire(provider, config)` | Start a nested resource whose cleanup belongs to this node |
@@ -222,7 +223,6 @@ error as data.
 import std.channel
 import std.io
 import std.system
-import std.task
 import std.worker
 
 @derive(Error, From)
@@ -350,6 +350,24 @@ unchanged; after a conflict it loads and decides again, calling
 (send email, `jobs.submit_in`) only after it returns. `decide.memory()`
 is an in-memory stream; a durable one implements `load` and `append`
 (`decide.Stream`).
+
+### A channel between nodes
+
+`channel.resource<T>()` is a provider of a channel the system owns: it is
+created when its node starts and closed as the system starts halting,
+before any worker stops, so a consumer whose worker drains
+(`worker.drain(limit)`) receives every queued event and then the end. One
+node publishes through `ref(#events).sender`, another consumes
+`ref(#events).receiver`, so a request handler hands work to a background
+worker without polling:
+
+```badger fragment
+let plan = system {
+    events: component(channel.resource<Change>(), { ..channel.defaults, capacity: 64 }),
+    notifier: component(notifier, { changes: ref(#events).receiver }),
+    api: component(api, { publish: ref(#events).sender }),
+}
+```
 
 ## Select and replace nodes
 
@@ -498,6 +516,7 @@ Each stage's `enter` may add fields to the context, so the handler sees
 | `enter` | `fn(ctx) -> Result<Enter, E>` | `pipeline.next(ctx)` to continue, `pipeline.stop(ctx, reply)` to answer early |
 | `leave` | `fn(ctx, reply) -> Result<(ctx, reply), E>` | `pipeline.leave(ctx, reply)` |
 | `error` | `fn(ctx, error) -> ErrorStep` | `pipeline.propagate(ctx, error)` or `pipeline.recover(ctx, reply)` |
+| `around` | `fn(ctx, next) -> Result<Reply, E>` | `next(ctx)` (the rest of the pipeline), or another result |
 
 `stage NAME(params) { ... }` declares a stage factory: a pipeline calls it
 (`log_stage()`), and parameterized factories capture their arguments.
@@ -510,6 +529,22 @@ Each stage's `enter` may add fields to the context, so the handler sees
   #app/name()` sets it.
 - `pipeline.stage({ name, enter, leave, error })` builds the same stage as a
   value.
+- `around(ctx, next)` wraps the rest in one place (time it, log on the
+  way out, map or recover an error), instead of an `enter`/`leave`/`error`
+  trio. It is a stage of its own: no other callback goes with it. It sees
+  the result, not context fields the later stages set.
+  `pipeline.around(name, f)` builds one as a value.
+
+```badger fragment
+stage timed() -> Result<_, AppError> {
+    around(ctx, next) {
+        let t0 = time.now()
+        let r = next(ctx)
+        log.info("handled", { path: ctx.path, ok: r.is_ok(), ms: time.as_millis(time.since(t0)) })
+        r
+    }
+}
+```
 
 | Handler | Returns |
 |---|---|

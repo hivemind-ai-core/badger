@@ -3066,7 +3066,8 @@ fn pin_to_cpu(cpu: usize) -> bool {
     }
 }
 
-/// The CPUs the current thread may run on.
+/// The CPUs the current thread may run on (a test checks pinning with it).
+#[cfg(test)]
 fn affinity() -> Vec<usize> {
     let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
     unsafe { libc::CPU_ZERO(&mut set) };

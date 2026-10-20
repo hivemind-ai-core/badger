@@ -16,6 +16,14 @@ pub struct Ast {
     pub items: Vec<Item>,
     /// Module functions lifted from local `fn` declarations.
     pub local_fns: Vec<Symbol>,
+    /// The blocks declaring local functions, with the lifted names.
+    pub local_fn_blocks: std::collections::HashMap<ExprId, Vec<Symbol>>,
+    /// Names rewritten to a lifted local function, with the name as
+    /// written: a binding of it closer than the function's block (a later
+    /// `let`) still hides the function.
+    pub local_fn_refs: std::collections::HashMap<ExprId, Symbol>,
+    /// Attributes on statements, with the statement's span.
+    pub stmt_attributes: Vec<(Span, Vec<Attribute>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,7 +45,10 @@ pub struct Label {
 /// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`.
 #[derive(Debug, Clone)]
 pub struct Attribute {
+    /// The full name: `allow`, or `lib.name` for a library's attribute
+    /// (whose `namespace` is `[lib]`).
     pub name: Symbol,
+    pub namespace: Vec<Symbol>,
     pub args: Vec<AttrArg>,
     pub span: Span,
 }
@@ -121,6 +132,7 @@ pub struct StructDecl {
 
 #[derive(Debug, Clone)]
 pub struct StructField {
+    pub attributes: Vec<Attribute>,
     pub is_pub: bool,
     pub name: Name,
     pub ty: TypeId,
@@ -136,6 +148,8 @@ pub struct EnumDecl {
 
 #[derive(Debug, Clone)]
 pub struct Variant {
+    /// `@status(404)` and the like, read by derives (`derive(HttpError)`).
+    pub attributes: Vec<Attribute>,
     pub name: Name,
     pub fields: Vec<(Option<Name>, TypeId)>,
     pub span: Span,
@@ -163,6 +177,8 @@ pub struct ImplDecl {
 
 #[derive(Debug, Clone)]
 pub struct FnDecl {
+    /// A method's attributes (an item's are on the item).
+    pub attributes: Vec<Attribute>,
     pub name: Name,
     pub is_pub: bool,
     pub generics: Vec<GenericParam>,
@@ -196,6 +212,7 @@ pub struct Contract {
 
 #[derive(Debug, Clone)]
 pub struct Param {
+    pub attributes: Vec<Attribute>,
     pub pat: PatId,
     pub ty: Option<TypeId>,
 }
@@ -487,6 +504,12 @@ pub enum ExprKind {
     Pipeline(Vec<ExprId>),
     Ref(Label),
     Unsafe(ExprId),
+    /// `region R { ... }`: the block's lexical region, named `R` in the
+    /// types written inside it.
+    Region {
+        name: Name,
+        body: ExprId,
+    },
     /// A standard-library item named by its module path
     /// (`pipeline.stage`), from a desugared declaration.
     Std(&'static str),

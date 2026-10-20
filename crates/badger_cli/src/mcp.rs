@@ -345,6 +345,9 @@ impl Mcp {
                     Err(e) => text(format!("{printed}evaluation did not finish: {e}"), true),
                 }
             }
+            "check" if !a["files"].is_null() && !a["files"].is_object() => {
+                text("`files` maps file paths to their unsaved text (an object)", true)
+            }
             "check" if a["files"].is_object() => {
                 let Some(path) = a["path"].as_str() else {
                     return text("`files` needs the project's `path`", true);
@@ -382,13 +385,33 @@ impl Mcp {
                 let (Some(name), Some(path)) = (a["name"].as_str(), a["path"].as_str()) else {
                     return text("give `name` and `path`", true);
                 };
+                // a name or item is a word, never an option of the command
+                let word = |s: &str| {
+                    s.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+                        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                };
+                if !word(name) {
+                    return text(format!("`name` must be a word (letters, digits, `_`): `{name}`"), true);
+                }
+                // `dry_run` writes nothing: only a real boolean `false` (or no
+                // value) writes files
+                let dry_run = match &a["dry_run"] {
+                    Value::Null => false,
+                    Value::Bool(b) => *b,
+                    other => return text(format!("`dry_run` must be true or false, not {other}"), true),
+                };
                 let mut args =
                     vec!["generate".to_string(), what.to_string(), name.to_string(), arg_path(path)];
-                if let Some(item) = a["item"].as_str() {
-                    args.push("--item".into());
-                    args.push(item.to_string());
+                match (&a["item"], what) {
+                    (Value::Null, _) => {}
+                    (_, "worker") => return text("`item` applies only to `feature`", true),
+                    (Value::String(item), _) if word(item) => {
+                        args.push("--item".into());
+                        args.push(item.clone());
+                    }
+                    (other, _) => return text(format!("`item` must be a word, not {other}"), true),
                 }
-                if a["dry_run"].as_bool().unwrap_or(false) {
+                if dry_run {
                     args.push("--dry-run".into());
                 }
                 match badger_cmd(&args, Duration::from_secs(300)) {
@@ -505,21 +528,44 @@ impl Mcp {
                             vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
                         subprocess_result(&args)
                     }
-                    "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
-                    | "symbol" | "diagnostics" => {
+                    "hover" | "definition" | "references" | "completion" | "symbols" | "symbol"
+                    | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
+                        for k in ["line", "col"] {
+                            match &a[k] {
+                                Value::Null => {}
+                                v => match v.as_u64() {
+                                    Some(n) if n >= 1 => {
+                                        args.push(format!("--{k}"));
+                                        args.push(n.to_string());
+                                    }
+                                    _ => return text(format!("`{k}` is a position from 1, not {v}"), true),
+                                },
+                            }
+                        }
+                        if kind == "symbol"
+                            && let Some(n) = a["name"].as_str()
+                        {
+                            args.push(format!("--name={n}"));
+                        }
+                        subprocess_result(&args)
+                    }
+                    // the rename computes the edits; `--json` writes nothing
+                    "rename" => {
+                        let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                        let mut args = vec!["rename".to_string(), arg_path(path)];
                         for k in ["line", "col"] {
                             if let Some(v) = a[k].as_u64() {
                                 args.push(format!("--{k}"));
                                 args.push(v.to_string());
                             }
                         }
-                        if matches!(kind, "rename" | "symbol")
-                            && let Some(n) = a["name"].as_str()
-                        {
-                            args.push(format!("--name={n}"));
+                        if let Some(n) = a["name"].as_str() {
+                            args.push("--name".into());
+                            args.push(n.to_string());
                         }
+                        args.push("--json".into());
                         subprocess_result(&args)
                     }
                     // `check` has its own tool
@@ -533,6 +579,19 @@ impl Mcp {
             }
             "run" => {
                 let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                // a wrongly typed option is refused, not read as absent
+                for (opt, want, ok) in [
+                    ("test", "true or false", a["test"].is_boolean()),
+                    ("release", "true or false", a["release"].is_boolean()),
+                    ("profile", "true or false", a["profile"].is_boolean()),
+                    ("args", "a list of strings", a["args"].is_array()),
+                    ("breakpoints", "a list", a["breakpoints"].is_array()),
+                    ("timeout_secs", "a number", a["timeout_secs"].is_number()),
+                ] {
+                    if !a[opt].is_null() && !ok {
+                        return text(format!("`{opt}` is {want}, not {}", a[opt]), true);
+                    }
+                }
                 // options that would be ignored are refused, not dropped
                 let debugging = a["breakpoints"].as_array().is_some_and(|b| !b.is_empty());
                 for opt in ["commands", "max_stops"] {
@@ -566,6 +625,10 @@ impl Mcp {
                 if let Some(xs) = a["args"].as_array()
                     && args[0] == "run"
                 {
+                    // program arguments are strings (not dropped silently)
+                    if let Some(bad) = xs.iter().find(|x| !x.is_string()) {
+                        return text(format!("`args` are strings; {bad} is not"), true);
+                    }
                     args.push("--".into());
                     args.extend(xs.iter().filter_map(|x| x.as_str().map(str::to_string)));
                 }

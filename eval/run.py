@@ -57,8 +57,8 @@ def tests(badger, path, cwd):
         v = json.loads(out.strip().splitlines()[-1])
     except (ValueError, IndexError):
         return 0, None
-    if not isinstance(v, dict):
-        return 0, None  # diagnostics: it did not check, so nothing ran
+    if not isinstance(v, dict) or v.get("diagnostics"):
+        return 0, None  # it did not check, so nothing ran
     return v["passed"], v["passed"] + v["failed"]
 
 

@@ -20,11 +20,8 @@ struct Measurement {
 /// its subdirectories (those have their own runners).
 fn programs(path: &Path) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(path) else { return vec![] };
-    let mut out: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|x| x == "bdg"))
-        .collect();
+    let mut out: Vec<PathBuf> =
+        entries.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "bdg")).collect();
     out.sort();
     out
 }
@@ -104,10 +101,7 @@ fn compare_with(baseline: &Path, all: &[Measurement]) -> Result<String, String> 
                 out.push_str(&format!("{}: {} {:.3} {}\n", m.program, m.label, m.value, m.unit));
             }
             None => {
-                out.push_str(&format!(
-                    "{}: {} {:.3} {} (new)\n",
-                    m.program, m.label, m.value, m.unit
-                ));
+                out.push_str(&format!("{}: {} {:.3} {} (new)\n", m.program, m.label, m.value, m.unit));
             }
         }
     }

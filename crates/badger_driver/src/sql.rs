@@ -25,6 +25,8 @@ enum Call {
     QueryOne,
     QueryAs,
     QueryOneAs,
+    QueryOpt,
+    QueryOptAs,
 }
 
 impl Call {
@@ -35,6 +37,8 @@ impl Call {
             Call::QueryOne => "sqlite.query_one",
             Call::QueryAs => "sqlite.query_as",
             Call::QueryOneAs => "sqlite.query_one_as",
+            Call::QueryOpt => "sqlite.query_opt",
+            Call::QueryOptAs => "sqlite.query_opt_as",
         }
     }
 }
@@ -44,8 +48,10 @@ struct Site {
     kind: Call,
     sql: String,
     span: Span,
-    /// The number of parameters, when they are a list literal.
+    /// The number of parameters, when they are a list or tuple literal.
     params: Option<usize>,
+    /// The field names, when the parameters are a record literal.
+    fields: Option<Vec<String>>,
 }
 
 fn is_ddl(stmt: &str) -> bool {
@@ -74,6 +80,8 @@ pub fn check(
         ("sqlite.query_one", Call::QueryOne),
         ("sqlite.query_as", Call::QueryAs),
         ("sqlite.query_one_as", Call::QueryOneAs),
+        ("sqlite.query_opt", Call::QueryOpt),
+        ("sqlite.query_opt_as", Call::QueryOptAs),
     ]
     .iter()
     .filter_map(|(n, k)| hir.try_lang(n).map(|d| (d, *k)))
@@ -97,10 +105,16 @@ pub fn check(
         let Some(sql) = args.get(1) else { continue };
         let ExprKind::Lit(Lit::Str(text)) = &hir.exprs[*sql].kind else { continue };
         let params = args.get(2).and_then(|p| match &hir.exprs[*p].kind {
-            ExprKind::List(items) => Some(items.len()),
+            ExprKind::List(items) | ExprKind::Tuple(items) => Some(items.len()),
             _ => None,
         });
-        sites.push(Site { call: e, kind, sql: text.clone(), span: hir.exprs[*sql].span, params });
+        let fields = args.get(2).and_then(|p| match &hir.exprs[*p].kind {
+            ExprKind::Record { spread: None, fields } => {
+                Some(fields.iter().map(|(l, _, _)| interner.resolve(*l).to_string()).collect())
+            }
+            _ => None,
+        });
+        sites.push(Site { call: e, kind, sql: text.clone(), span: hir.exprs[*sql].span, params, fields });
     }
     if sites.is_empty() {
         return vec![];
@@ -202,7 +216,7 @@ fn check_call(
                 .with_label(s.span, "returns rows")
                 .with_note("use `sqlite.query` (or `query_one`) to read them"),
         ),
-        Call::QueryOne | Call::QueryOneAs if !rows => out.push(
+        Call::QueryOne | Call::QueryOneAs | Call::QueryOpt | Call::QueryOptAs if !rows => out.push(
             Diagnostic::error(format!(
                 "`{}` needs a statement that returns a row; this one returns none",
                 s.kind.name()
@@ -228,7 +242,27 @@ fn check_call(
             .with_label(s.span, "the statement"),
         );
     }
-    if matches!(s.kind, Call::QueryAs | Call::QueryOneAs)
+    if let Some(fields) = &s.fields
+        && !batch
+    {
+        for name in &p.names {
+            let problem = match name {
+                None => Some(
+                    "a positional `?` takes its value in order: name it (`:name`) or pass a list".to_string(),
+                ),
+                Some(n) => {
+                    let key = n.trim_start_matches([':', '@', '$']);
+                    (!fields.iter().any(|f| f == key))
+                        .then(|| format!("no field `{key}` in the parameters for `{n}`"))
+                }
+            };
+            if let Some(why) = problem {
+                out.push(Diagnostic::error(why).with_code("E0181").with_label(s.span, "the statement"));
+                break;
+            }
+        }
+    }
+    if matches!(s.kind, Call::QueryAs | Call::QueryOneAs | Call::QueryOptAs)
         && rows
         && let Some((name, fields)) = row_type(hir, types, interner, s)
     {
@@ -290,7 +324,11 @@ fn row_type(
 ) -> Option<(String, Vec<Field>)> {
     let ty = types.exprs.get(&s.call)?;
     let inner = ty.strip_prefix("Result<")?;
-    let inner = if s.kind == Call::QueryAs { inner.strip_prefix("List<")? } else { inner };
+    let inner = match s.kind {
+        Call::QueryAs => inner.strip_prefix("List<")?,
+        Call::QueryOptAs => inner.strip_prefix("Option<")?,
+        _ => inner,
+    };
     if inner.starts_with('{') {
         // up to the matching brace
         let mut depth = 0;
@@ -344,6 +382,17 @@ fn field_type(hir: &Hir, interner: &Interner, ty: &badger_hir::HTy) -> (bool, Op
             if interner.resolve(hir.defs[*def].name) == "Option" && args.len() == 1 =>
         {
             (true, name(&args[0]))
+        }
+        // a `@flatten` struct is stored as its one field
+        HTyKind::Named { def, .. }
+            if let DefKind::Struct(st) = &hir.defs[*def].kind
+                && st.fields.len() == 1
+                && hir
+                    .attributes
+                    .get(def)
+                    .is_some_and(|a| a.iter().any(|a| interner.resolve(a.name) == "flatten")) =>
+        {
+            field_type(hir, interner, &st.fields[0].ty)
         }
         _ => (false, name(ty)),
     }

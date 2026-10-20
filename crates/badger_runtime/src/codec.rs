@@ -3,7 +3,8 @@
 //! Descriptors are the derived schemas: records/structs encode as objects
 //! (field names are the wire names), enums as `{"variant": {...fields}}` or a
 //! bare string for nullary variants (`Option` encodes as the value or
-//! `null`), lists as arrays, maps with string keys as objects, and `Data` as
+//! `null`; as `[value]` when the value can be `null` itself, so `some(none)`
+//! is not `none`), lists and sets as arrays, maps with string keys as objects, and `Data` as
 //! its natural JSON value. Decoding validates against the schema and reports
 //! the failing path.
 
@@ -206,6 +207,11 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("\"[redacted]\"")
             }
         }
+        // `@flatten`: the one field's value
+        Kind::Record { fields, flat: true, .. } => {
+            let p = unsafe { obj(w).payload() };
+            enc(fields[0].desc, unsafe { fields[0].repr.load(p.add(fields[0].offset as usize)) }, o)
+        }
         Kind::Record { fields, tuple, .. } => {
             let p = unsafe { obj(w).payload() };
             if *tuple {
@@ -242,6 +248,10 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             if d.name == "Option" {
                 if v.fields.is_empty() {
                     o.push_str("null");
+                } else if nullable(v.fields[0].desc) {
+                    o.push('[');
+                    enc(v.fields[0].desc, vals[0], o);
+                    o.push(']');
                 } else {
                     enc(v.fields[0].desc, vals[0], o);
                 }
@@ -295,7 +305,10 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
         }
         Kind::Set { elem } => {
             o.push('[');
-            for (i, (k, _)) in map::entries(w).into_iter().enumerate() {
+            // in order, as a map's keys are (the encoding is deterministic)
+            let mut es = map::entries(w);
+            es.sort_by(|a, b| crate::value::cmp(elem, a.0, b.0));
+            for (i, (k, _)) in es.into_iter().enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
@@ -392,6 +405,48 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// Can a value of this type encode as `null`? An `Option` of one encodes
+/// `some(v)` as `[v]`, so `some(none)` and `none` stay apart.
+pub(crate) fn nullable(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::Unit => true,
+        Kind::Enum { .. } => d.name == "Option" || d.name == "Data",
+        Kind::Record { fields, flat: true, .. } if fields.len() == 1 => nullable(fields[0].desc),
+        _ => false,
+    }
+}
+
+/// Can a field of this type be left out? An `Option` (absent is `none`), or
+/// a `@flatten` struct whose one field can (absent wraps that field's).
+pub(crate) fn omittable(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::Enum { .. } => d.name == "Option",
+        Kind::Record { fields, flat: true, .. } if fields.len() == 1 => omittable(fields[0].desc),
+        _ => false,
+    }
+}
+
+/// The value of a left-out field of an [`omittable`] type (rooted).
+pub(crate) fn absent(d: &'static TypeDesc) -> u64 {
+    match &d.kind {
+        Kind::Record { fields, size, flat: true, .. } if fields.len() == 1 => {
+            let v = absent(fields[0].desc);
+            flat_record(d, *size, &fields[0], v)
+        }
+        _ => root(crate::make_enum(d, 0, &[])),
+    }
+}
+
+/// A `@flatten` struct holding `v` as its one field.
+pub(crate) fn flat_record(d: &'static TypeDesc, size: u32, field: &crate::desc::Field, v: u64) -> u64 {
+    if field.desc.is_ptr() {
+        root(v);
+    }
+    let w = root(gc::alloc(d, size as usize));
+    unsafe { field.repr.store(obj(w).payload().add(field.offset as usize), v) };
+    w
+}
+
 fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::Unit => Ok(0),
@@ -447,6 +502,10 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
             Ok(w)
         }
+        Kind::Record { fields, size, flat: true, .. } => {
+            let v = dec(fields[0].desc, j)?;
+            Ok(flat_record(d, *size, &fields[0], v))
+        }
         Kind::Record { fields, tuple, size, .. } => {
             let mut vals = Vec::with_capacity(fields.len());
             if *tuple {
@@ -462,7 +521,7 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 for f in fields {
                     let value = match lookup(m, &d.name, &f.name) {
                         Some(v) => dec(f.desc, v),
-                        None if f.desc.name == "Option" => dec(f.desc, &J::Null),
+                        None if omittable(f.desc) => Ok(absent(f.desc)),
                         None => fail("missing required field"),
                     };
                     vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);
@@ -483,7 +542,15 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 if j.is_null() {
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = dec(variants[1].fields[0].desc, j)?;
+                let p = variants[1].fields[0].desc;
+                let v = if nullable(p) {
+                    match j.as_array().map(|a| a.as_slice()) {
+                        Some([x]) => dec(p, x)?,
+                        _ => return fail("expected `null` or a one-element array (`[value]`)"),
+                    }
+                } else {
+                    dec(p, j)?
+                };
                 return Ok(root(make_enum(d, 1, &[v])));
             }
             if let Some(s) = j.as_str() {
@@ -523,6 +590,15 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 list::push(l, v);
             }
             Ok(l)
+        }
+        Kind::Set { elem } => {
+            let Some(a) = j.as_array() else { return fail("expected an array") };
+            let out = root(map::new(d));
+            for (i, x) in a.iter().enumerate() {
+                let v = dec(elem, x).map_err(|e| e.index(i))?;
+                map::insert_mut(out, v, 0);
+            }
+            Ok(out)
         }
         Kind::Map { key, val } => {
             let Some(m) = j.as_object() else { return fail("expected an object") };
@@ -631,6 +707,10 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             unsafe { rfields[0].repr.store(obj(w).payload().add(rfields[0].offset as usize), v) };
             Ok(w)
         }
+        Kind::Record { fields: rfields, size, flat: true, .. } => {
+            let v = dec_data(rfields[0].desc, w)?;
+            Ok(flat_record(d, *size, &rfields[0], v))
+        }
         Kind::Record { fields: rfields, tuple, size, .. } => {
             let mut vals = Vec::with_capacity(rfields.len());
             if *tuple {
@@ -654,7 +734,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 for f in rfields {
                     let value = match lookup_data(&entries, &d.name, &f.name) {
                         Some(v) => dec_data(f.desc, v),
-                        None if f.desc.name == "Option" => Ok(root(make_enum(f.desc, 0, &[]))),
+                        None if omittable(f.desc) => Ok(absent(f.desc)),
                         None => fail("missing required field"),
                     };
                     vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);
@@ -672,7 +752,15 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 if tag == 0 {
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = dec_data(variants[1].fields[0].desc, w)?;
+                let p = variants[1].fields[0].desc;
+                let v = if nullable(p) {
+                    if tag != 5 || list::len(fields[0]) != 1 {
+                        return fail("expected `null` or a one-element array (`[value]`)");
+                    }
+                    dec_data(p, list::get(fields[0], 0))?
+                } else {
+                    dec_data(p, w)?
+                };
                 return Ok(root(make_enum(d, 1, &[v])));
             }
             if tag == 4 {
@@ -721,6 +809,18 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             for i in 0..list::len(l) {
                 let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
                 list::push(out, v);
+            }
+            Ok(out)
+        }
+        Kind::Set { elem } => {
+            if tag != 5 {
+                return fail("expected an array");
+            }
+            let l = fields[0];
+            let out = root(map::new(d));
+            for i in 0..list::len(l) {
+                let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
+                map::insert_mut(out, v, 0);
             }
             Ok(out)
         }

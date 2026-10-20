@@ -11,6 +11,9 @@
 //! resources and other runtime handles; plain data cannot). It also rejects
 //! spawning a child task that uses a scoped value into a task scope older
 //! than that value's region: the child could outlive the resource.
+//!
+//! A `region R { ... }` block is checked like such a callback: its body is
+//! the callback's, and the locals it uses from outside are its captures.
 
 use badger_base::{Diagnostic, Span};
 use badger_hir::{ExprId, ExprKind, LocalId, PatId, PatKind, Stmt};
@@ -50,8 +53,11 @@ pub fn check(inf: &mut Infer<'_, '_>) {
     let lambdas = std::mem::take(&mut inf.region_lambdas);
     for (lam, regions) in lambdas {
         let hir = inf.g.hir;
-        let ExprKind::Lambda(l) = &hir.exprs[lam].kind else { continue };
-        let body = l.body;
+        let (body, captures) = match &hir.exprs[lam].kind {
+            ExprKind::Lambda(l) => (l.body, l.captures.clone()),
+            ExprKind::Block { .. } => (lam, outer_locals(hir, lam)),
+            _ => continue,
+        };
         let mut r = Regions { inf, regions, tainted: FxHashMap::default() };
         // fixpoint over let-bound locals (loops and reassignment)
         for _ in 0..3 {
@@ -73,9 +79,38 @@ pub fn check(inf: &mut Infer<'_, '_>) {
         r.spawns(body);
         // storing a scoped value into state that outlives the callback
         // (reached through a capture or a local alias of one)
-        let captures = derived_from(hir, body, &l.captures);
+        let captures = derived_from(hir, body, &captures);
         r.stores(body, &captures);
     }
+}
+
+/// The locals a block uses (or assigns) that are bound outside it.
+fn outer_locals(hir: &badger_hir::Hir, block: ExprId) -> Vec<LocalId> {
+    let span = hir.exprs[block].span;
+    let inside = |l: LocalId| {
+        let s = hir.locals[l].span;
+        s.file == span.file && s.start >= span.start && s.end <= span.end
+    };
+    let mut out = vec![];
+    crate::program::walk_exprs(hir, block, &mut |x| {
+        let used: Vec<LocalId> = match &hir.exprs[x].kind {
+            ExprKind::Local(l) => vec![*l],
+            ExprKind::Block { stmts, .. } => stmts
+                .iter()
+                .filter_map(|s| match s {
+                    Stmt::Assign { local, .. } => Some(*local),
+                    _ => None,
+                })
+                .collect(),
+            _ => vec![],
+        };
+        for l in used {
+            if !inside(l) && !out.contains(&l) {
+                out.push(l);
+            }
+        }
+    });
+    out
 }
 
 struct Regions<'i, 'g, 'a> {
@@ -225,7 +260,10 @@ impl Regions<'_, '_, '_> {
                 opaque && (self.tainted(*recv) || args.clone().into_iter().any(|a| self.tainted(a)))
             }
             ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => opaque && self.tainted(*base),
-            ExprKind::Try(x) | ExprKind::Unsafe(x) => self.tainted(*x),
+            // `r?` is `r`'s success value: plain data cannot hold on to the
+            // scope even when the `Result` could (an error with a `dyn` cause)
+            ExprKind::Try(x) => opaque && self.tainted(*x),
+            ExprKind::Unsafe(x) => self.tainted(*x),
             ExprKind::Lambda(l) => l.captures.iter().any(|c| self.tainted.get(c).copied().unwrap_or(false)),
             ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => {
                 opaque && xs.clone().into_iter().any(|x| self.tainted(x))
@@ -450,6 +488,18 @@ impl Regions<'_, '_, '_> {
     }
 
     fn report(&mut self, span: Span) {
+        if let Some(&r) = self.regions.first()
+            && self.inf.icx.skolems[r as usize].lexical
+        {
+            let name = self.inf.g.interner.resolve(self.inf.icx.skolems[r as usize].name).to_string();
+            self.inf.push_diag(
+                Diagnostic::error(format!("a value derived from region `{name}` outlives its region"))
+                    .with_code("E0414")
+                    .with_label(span, format!("this can still reach a value of region `{name}`"))
+                    .with_note("closures, lazy sequences, tasks, and handles built from a region's values cannot leave its `region` block; return plain data instead"),
+            );
+            return;
+        }
         self.inf.push_diag(
             Diagnostic::error("a value derived from a scoped value escapes its callback")
                 .with_code("E0401")

@@ -47,6 +47,14 @@ The monotonic clock's current instant.
 fn seconds(n: Int) -> Duration
 ```
 
+### `since`
+
+```badger
+fn since(start: Instant) -> Duration !{Io}
+```
+
+The time elapsed since `start` (an instant from `now()`).
+
 ### `sleep`
 
 ```badger

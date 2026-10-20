@@ -1,0 +1,28 @@
+// `@flatten`: a one-field struct is its field's value in JSON, data,
+// schemas, configuration, and SQL rows.
+import std.codec
+import std.io
+import std.schema
+
+@flatten
+@derive(Codec, Display)
+pub struct BookId { value: Int }
+
+@flatten
+@derive(Codec)
+pub struct Title { text: String }
+
+@derive(Codec)
+pub struct Book { id: BookId, title: Title, tags: List<BookId> }
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let b: Book = { id: { value: 7 }, title: { text: "Dune" }, tags: [{ value: 1 }, { value: 2 }] }
+    let text = codec.encode_text(b)
+    let _ = io.println(text)
+    let back = codec.decode_text<Book>(text)?
+    let _ = io.println($"{back.id.value} {back.title.text} {back.tags.len()}")
+    let d = codec.from_data<Book>(codec.to_data(b))?
+    let _ = io.println($"{d.id.value} {codec.encode_text(d) == text}")
+    let _ = io.println(schema.json_schema(schema.of<Book>()))
+    ok(())
+}

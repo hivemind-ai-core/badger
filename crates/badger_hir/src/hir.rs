@@ -40,9 +40,20 @@ pub struct Hir {
     pub const_local_inits: Vec<(LocalId, ExprId)>,
     /// Attributes declared on each item (`@name(...)`), in source order.
     pub attributes: FxHashMap<DefId, Vec<badger_syntax::ast::Attribute>>,
+    /// Attributes on statements and parameters, with the span they cover
+    /// (an item's, a method's, a field's, and a variant's are on those).
+    pub scoped_attributes: Vec<ScopedAttributes>,
     /// Warning-suppression regions from `@allow(<code>)`: a warning with that
     /// code whose primary span lies inside a region is dropped.
     pub allows: Vec<(String, Span)>,
+    /// `region R { ... }` blocks: each block with its region's name. The
+    /// region is a generic parameter bounded by `Scope`, visible only to the
+    /// types written inside the block; the block itself is an ordinary
+    /// `Block` (a region is a static brand, not a runtime scope).
+    pub region_blocks: FxHashMap<ExprId, GenericId>,
+    /// Method calls `x.f(...)` on a local `x` that hides an imported module
+    /// with a function `f`: an error inside one says which `x` it means.
+    pub shadowed_module_calls: Vec<(Span, String)>,
 }
 
 impl Hir {
@@ -217,6 +228,7 @@ pub struct StructDef {
 
 #[derive(Debug, Clone)]
 pub struct FieldDef {
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
     pub name: Symbol,
     pub ty: HTy,
     pub is_pub: bool,
@@ -230,11 +242,28 @@ pub struct EnumDef {
     pub derives: Vec<Derive>,
 }
 
+/// What a statement or parameter attribute is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttributeTarget {
+    Statement,
+    Param,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScopedAttributes {
+    pub target: AttributeTarget,
+    pub span: Span,
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
+}
+
 #[derive(Debug, Clone)]
 pub struct VariantDef {
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
     pub name: Symbol,
     pub fields: Vec<(Option<Symbol>, HTy)>,
     pub span: Span,
+    /// `@message("no book {id}")`: the variant's derived display.
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,17 @@
+// Each effect of `work` comes from a call in its body: `badger explain
+// effect work` names the first one per effect.
+import std.io
+import std.task
+
+fn helper() -> Int {
+    task.sleep(1ms)
+    1
+}
+
+pub fn work(c: Cell<Int>) -> Result<Int, io.Error> {
+    io.println("start")?
+    c.set(helper())
+    ok(c.get())
+}
+
+pub fn main() {}

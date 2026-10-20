@@ -81,6 +81,9 @@ pub struct Field {
 pub struct Variant {
     pub name: String,
     pub fields: Vec<Field>,
+    /// `@message("no book {id}")`: the template of the variant's
+    /// error-style display (`{field}` interpolates a field).
+    pub message: Option<String>,
 }
 
 #[derive(Debug)]
@@ -107,6 +110,9 @@ pub enum Kind {
         fields: Vec<Field>,
         nominal: bool,
         tuple: bool,
+        /// `@flatten`: a one-field struct encoded as its field's value
+        /// (`BookId { value: 1 }` is `1` in JSON, data, and schemas).
+        flat: bool,
     },
     /// Boxed enum: `u32` tag at payload offset 0, variant fields after.
     Enum {
@@ -164,6 +170,11 @@ pub struct TypeDesc {
     /// Whether values of this type may contain a float (0: not yet known;
     /// 1: no; 2: may), cached for equality. Reset with `leaf`.
     pub floats: std::sync::atomic::AtomicU8,
+    /// The type is region-branded (a struct or enum whose last type
+    /// parameter is a region, `Node<R: Scope>`): the type checker proved
+    /// that none of its values outlives the region it was created in. The
+    /// brand is static: tracing, layout, and collection ignore it.
+    pub region: bool,
 }
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -178,7 +189,14 @@ impl TypeDesc {
             unit_variants: Default::default(),
             leaf: std::sync::atomic::AtomicU8::new(0),
             floats: std::sync::atomic::AtomicU8::new(0),
+            region: false,
         }
+    }
+
+    /// The descriptor of a region-branded type (see [`TypeDesc::region`]).
+    pub fn with_region(mut self) -> TypeDesc {
+        self.region = true;
+        self
     }
 
     /// Objects of this type hold no managed pointers: marking need not
@@ -294,4 +312,35 @@ pub mod builtin {
     static_desc!(duration, "Duration", Kind::Duration);
     static_desc!(instant, "Instant", Kind::Instant);
     static_desc!(fn_, "Fn", Kind::Fn);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The region brand is static: a branded descriptor has the same
+    /// representation, size, and tracing as an unbranded one.
+    #[test]
+    fn region_brand_leaves_tracing_unchanged() {
+        let record = || Kind::Record {
+            size: 16,
+            fields: vec![
+                Field { name: "value".into(), offset: 0, repr: Repr::I64, desc: builtin::int() },
+                Field { name: "name".into(), offset: 8, repr: Repr::Ptr, desc: builtin::string() },
+            ],
+            nominal: true,
+            tuple: false,
+            flat: false,
+        };
+        let plain = TypeDesc::new("Node", record());
+        let branded = TypeDesc::new("Node", record()).with_region();
+        assert!(branded.region && !plain.region);
+        assert_eq!(branded.repr(), plain.repr());
+        assert_eq!(branded.payload_size(), plain.payload_size());
+        assert_eq!(branded.is_leaf(), plain.is_leaf());
+        assert_eq!(
+            branded.fields().iter().map(|f| (f.offset, f.repr)).collect::<Vec<_>>(),
+            plain.fields().iter().map(|f| (f.offset, f.repr)).collect::<Vec<_>>()
+        );
+    }
 }

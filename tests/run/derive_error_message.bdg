@@ -1,0 +1,37 @@
+// `@message("...")` on a variant is its derived display (the error
+// message): `{field}` interpolates a field, `{{`/`}}` are braces; variants
+// without one keep `variant: payload`. Client error replies carry it.
+import std.http
+import std.io
+
+@derive(Error, HttpError, From)
+pub enum AppError {
+    @status(404) @message("no book {id}")
+    not_found(id: Int),
+    @status(409) @message("a book called {title} by {author} exists")
+    duplicate(title: String, author: String),
+    @status(400) @message("nothing to do {{yet}}")
+    empty,
+    @status(400)
+    invalid(message: String),
+    io(source: io.Error),
+}
+
+@derive(Display)
+enum Shape {
+    @message("a circle of radius {0}")
+    circle(Float),
+    square(side: Int),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    io.println(AppError.not_found(7).display())?
+    io.println($"{AppError.duplicate("Dune", "Herbert")}")?
+    io.println($"{AppError.empty}")?
+    io.println($"{AppError.invalid("bad")}")?
+    io.println($"{Shape.circle(1.5)} {Shape.square(2)}")?
+    io.println($"{[AppError.not_found(1)]}")?
+    let reply = http.error_reply(AppError.not_found(3))
+    io.println($"{reply.status} {reply.body.to_text().unwrap_or("")}")?
+    ok(())
+}

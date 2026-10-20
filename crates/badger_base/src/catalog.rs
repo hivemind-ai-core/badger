@@ -183,7 +183,12 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0191",
         "unknown attribute",
-        "The compiler does not recognise this attribute. Standard-library sources reject unknown attributes; other code warns.",
+        "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise; a library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports. Standard-library sources reject both; other code warns, so an attribute from a newer compiler or library does not break an older build.",
+    ),
+    (
+        "E0199",
+        "misplaced attribute",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
     ),
     (
         "E0190",
@@ -200,7 +205,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0204",
         "underivable protocol",
-        "Supported derivations: Eq, Hash, Display, Codec, From, Error, and Default (structs; every field's type must implement Default).",
+        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@status(code)`).",
     ),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
     (
@@ -330,6 +335,42 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0142",
         "test with parameters",
         "A `test_*` function runs only when it takes no parameters (warning): `badger test` skips this one. Remove the parameters, or rename the function if it is a helper.",
+    ),
+    (
+        "E0346",
+        "irrefutable pattern with else",
+        "A `let ... else` or `if let ... else` pattern always matches (a name, `_`, or a tuple or record of them), so its `else` never runs (warning). Use a plain `let`, or match the case you mean (`let .some(x) = o else { ... }`).",
+    ),
+    (
+        "E0195",
+        "unused import",
+        "An import whose name the module never uses (warning). Remove it. Standard-library and dependency modules are not checked.",
+    ),
+    (
+        "E0196",
+        "unused item",
+        "A function, value, or type that is not `pub` and that nothing in its module uses (warning). Remove it, mark it `pub` if other modules are meant to use it, or start its name with `_`; `@allow(E0196)` on the item also silences it. `main` and `test_` functions are used by the tools.",
+    ),
+    (
+        "E0197",
+        "unused variable",
+        "A `let` binding whose value is never read (warning; assigning a `var` is not reading it). Remove it, start its name with `_` (`let _total = ...`), or discard the value with `let _ = ...`.",
+    ),
+    (
+        "E0198",
+        "message template",
+        "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
+    ),
+    ("E0194", "unknown fusion kind", "A `@fusion(...)` role or template is not one the compiler knows."),
+    (
+        "E0193",
+        "misplaced status",
+        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
+    ),
+    (
+        "E0192",
+        "misplaced flatten",
+        "`@flatten` marks a struct with exactly one field (and takes no arguments): it encodes, decodes, and appears in schemas as that field's value, so `@flatten pub struct BookId { value: Int }` in a record is `\"id\": 1`, not `\"id\": {\"value\": 1}`.",
     ),
     (
         "E0148",
@@ -515,6 +556,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0413",
         "linear value not consumed",
         "Resources (`fs.File`, `channel.Batch`) are linear: each value is consumed exactly once, by its consuming operation (`close`, `release`) or by moving it on (into a call by value, a return, an aggregate, or a closure that consumes it), on every path that leaves its scope normally: the end of the scope, `return`, `break`, `continue`, or an assignment over it. Reading or writing through a borrow does not consume it, and `_` or an expression statement cannot discard one. Error exits (`?`, `return err(..)`) are not checked: the runtime closes or releases the resource there.",
+    ),
+    (
+        "E0414",
+        "region value outlives its region",
+        "A `region R { ... }` block names a lexical region that ends with the block, and a struct or enum whose last type parameter is a region (`struct Node<R: Scope>`) is branded with the region its values belong to (`Node<R>`). A value of the block's region cannot be the block's result, be returned or broken out of it, be assigned to a variable declared outside it, or be stored into a cell, collection, or channel from outside it; nor can a closure, sequence, task, or handle that captures one. Build the value in a region that outlives the place it goes to: a region parameter of the function (`fn make<R: Scope>() -> Node<R>`), which the caller provides.",
     ),
     (
         "E0409",

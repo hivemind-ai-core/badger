@@ -1313,8 +1313,14 @@ impl Infer<'_, '_> {
             _ => None,
         };
         let mut cands: Vec<(Target, Ty)> = vec![];
-        if let Some(head) = head {
-            let idxs = self.g.env.impls_by_head.get(&head).cloned().unwrap_or_default();
+        // structural types (`()`, tuples, records) through the structural
+        // implementations (`impl Default for Unit`)
+        let structural = matches!(&*st, TyKind::Tuple(_) | TyKind::Record(_));
+        if head.is_some() || structural {
+            let idxs = match head {
+                Some(head) => self.g.env.impls_by_head.get(&head).cloned().unwrap_or_default(),
+                None => self.g.env.structural_impls.clone(),
+            };
             for i in idxs {
                 let imp = self.g.env.impls[i].clone();
                 if let Some(c) = self.impl_member(&imp, &st, name, explicit, span) {

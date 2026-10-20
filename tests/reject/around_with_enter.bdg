@@ -1,0 +1,12 @@
+// expect-error: E0702
+// An `around` stage runs the rest of the pipeline itself: it takes no
+// other callback.
+import std.pipeline
+
+pub fn main() {
+    let s = pipeline.stage({
+        name: #app/both,
+        enter: fn(c: { x: Int }) => pipeline.next(c),
+        around: fn(c: { x: Int }, next) => next(c),
+    })
+}

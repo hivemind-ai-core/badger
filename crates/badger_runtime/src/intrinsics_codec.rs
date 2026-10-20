@@ -43,7 +43,11 @@ define_intrinsics! {
         for (k, v) in crate::map::entries(m) {
             let key = str_of(k).to_string();
             let text = str_of(v).to_string();
-            let field = d.field(&key).map(|f| f.desc);
+            // an optional parameter parses as its payload type
+            let field = d.field(&key).map(|f| match &f.desc.kind {
+                crate::desc::Kind::Enum { variants, .. } if f.desc.name == "Option" => variants[1].fields[0].desc,
+                _ => f.desc,
+            });
             let val = match field.map(|f| &f.kind) {
                 Some(crate::desc::Kind::Int { .. }) => text.parse::<i64>().map(serde_json::Value::from).unwrap_or(serde_json::Value::String(text)),
                 Some(crate::desc::Kind::Float { .. }) => text.parse::<f64>().ok().and_then(|f| serde_json::Number::from_f64(f).map(serde_json::Value::Number)).unwrap_or(serde_json::Value::String(text)),
@@ -438,7 +442,7 @@ fn optional_record(d: &'static TypeDesc) -> Option<&'static TypeDesc> {
     }
     let p = variants.get(1)?.fields.first()?.desc;
     match &p.kind {
-        Kind::Record { tuple: false, .. } if p.name != crate::codec::SECRET => Some(p),
+        Kind::Record { tuple: false, flat: false, .. } if p.name != crate::codec::SECRET => Some(p),
         _ => None,
     }
 }
@@ -450,7 +454,8 @@ fn leaves(t: &'static TypeDesc, env_pre: &str, key_pre: &str, optional: Option<&
         let path = format!("{key_pre}{}", f.name);
         let env = format!("{env_pre}{}", f.name.to_uppercase());
         match &f.desc.kind {
-            Kind::Record { tuple: false, .. } if f.desc.name != crate::codec::SECRET => {
+            // (a `@flatten` struct is one setting, as its field is)
+            Kind::Record { tuple: false, flat: false, .. } if f.desc.name != crate::codec::SECRET => {
                 leaves(f.desc, &format!("{env}_"), &format!("{path}."), optional, out)
             }
             // an optional record: its fields, `none` when none is set
@@ -503,6 +508,11 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
                 None => d,
             }
         }
+        _ => d,
+    };
+    // a `@flatten` struct's setting is its field's
+    let d = match &d.kind {
+        Kind::Record { fields, flat: true, .. } => fields[0].desc,
         _ => d,
     };
     Ok(match &d.kind {
@@ -728,7 +738,7 @@ fn resolve_layers(
         }
         let value = match cs.last() {
             Some(c) => c.value.clone(),
-            None if l.desc.name == "Option" => serde_json::Value::Null,
+            None if crate::codec::omittable(l.desc) => serde_json::Value::Null,
             None => {
                 let msg = if !mode.profile {
                     "missing required environment variable".to_string()

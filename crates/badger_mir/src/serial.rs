@@ -561,12 +561,13 @@ fn kind_out(w: &mut W, pool: &mut Pool<'_>, k: &Kind) -> Result<(), String> {
         Kind::Timestamp => w.u8(8),
         Kind::String => w.u8(9),
         Kind::Bytes => w.u8(10),
-        Kind::Record { size, fields: fs, nominal, tuple } => {
+        Kind::Record { size, fields: fs, nominal, tuple, flat } => {
             w.u8(11);
             w.u32(*size);
             fields(w, pool, fs)?;
             w.bool(*nominal);
             w.bool(*tuple);
+            w.bool(*flat);
         }
         Kind::Enum { size, variants } => {
             w.u8(12);
@@ -575,6 +576,7 @@ fn kind_out(w: &mut W, pool: &mut Pool<'_>, k: &Kind) -> Result<(), String> {
             for v in variants {
                 w.str(&v.name);
                 fields(w, pool, &v.fields)?;
+                w.opt_str(&v.message);
             }
         }
         Kind::Closure { size, captures } => {
@@ -1289,7 +1291,7 @@ fn read_kind(d: &mut Dec<'_>) -> Result<Kind, String> {
         11 => {
             let size = d.r.u32()?;
             let fs = fields(d)?;
-            Kind::Record { size, fields: fs, nominal: d.r.bool()?, tuple: d.r.bool()? }
+            Kind::Record { size, fields: fs, nominal: d.r.bool()?, tuple: d.r.bool()?, flat: d.r.bool()? }
         }
         12 => {
             let size = d.r.u32()?;
@@ -1297,7 +1299,8 @@ fn read_kind(d: &mut Dec<'_>) -> Result<Kind, String> {
             let mut variants = vec![];
             for _ in 0..n {
                 let name = d.r.str()?;
-                variants.push(Variant { name, fields: fields(d)? });
+                let fields = fields(d)?;
+                variants.push(Variant { name, fields, message: d.r.opt_str()? });
             }
             Kind::Enum { size, variants }
         }

@@ -57,6 +57,16 @@ apply: !{} plus the effects of its callbacks
 `counter` is `!{}`: a cell created and used only inside the function is
 private computation, not observable state.
 
+For a function whose body has effects, each is followed by where it first
+comes from, so an unexpected `State` or `Wait` leads to its call:
+
+```text
+work: !{Io, State, Wait}
+  Io: app.bdg:10:5 `io.println("start")`
+  State: app.bdg:11:5 `c.set(helper())`
+  Wait: app.bdg:11:11 `helper()`
+```
+
 ### Bounds are upper bounds
 
 ```badger
@@ -544,5 +554,60 @@ The standard library uses regions for every resource with a lifetime:
 
 A trailing region parameter may be elided in annotations: `sqlite.Pool`
 means `sqlite.Pool<_>`.
+
+### Region blocks
+
+A `region` block opens a region of your own. Its name is a type-level name
+inside the block, and a struct whose last type parameter is a region
+(`R: Scope`) is a *region record*: `Batch<Scratch>` is a batch of region
+`Scratch`. Use one for scratch values that must not outlive a computation:
+
+```badger
+import std.io
+
+struct Batch<R: Scope> { name: String, items: List<Int> }
+
+fn batch<R: Scope>(name: String, items: List<Int>) -> Batch<R> { { name, items } }
+
+fn total<R: Scope>(b: &Batch<R>) -> Int { b.items.fold(0, fn(a, x) { a + x }) }
+
+// the caller gives the region of the result: it outlives the return
+fn summary<R: Scope>(n: Int) -> Batch<R> {
+    region Scratch {
+        let scratch: Batch<Scratch> = batch("scratch", [n, n + 1])
+        batch("summary", [total(&scratch)])
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let sum = region Main {
+        let s: Batch<Main> = summary(2)
+        total(&s)
+    }
+    io.println($"sum {sum}")
+}
+```
+
+```text
+sum 5
+```
+
+`Scratch` ends with its block, so a `Batch<Scratch>` cannot leave it: not
+as the block's result, not by `return` or `break`, not into an outer `var`,
+cell, or collection, and not inside a closure or task. All are E0414:
+
+```badger fragment
+fn leak<R: Scope>(n: Int) -> Batch<R> {
+    region Scratch {
+        let scratch: Batch<Scratch> = batch("scratch", [n])
+        scratch
+        // E0414: a value of region `Scratch` outlives its region
+    }
+}
+```
+
+The brand is a static guarantee: region records are allocated and
+collected like any other value, and a `region` block runs as an ordinary
+block.
 
 Next: [Systems and pipelines](08-systems-and-pipelines.md).

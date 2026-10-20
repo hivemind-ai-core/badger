@@ -248,9 +248,14 @@ outer nominal type. Otherwise use a local nominal wrapper. Structural aliases
 are not distinct implementation identities. Primitive/structural operations are
 provided through generic implementations and compiler derivation.
 
-`derive(Eq, Hash, Display, Codec, From, Error, Default)` requests supported
-derivations (`Default`, on a struct, is an implementation whose `default()`
-gives every field `default_of()`; each field type must implement `Default`);
+`derive(Eq, Hash, Display, Codec, From, Error, Default, HttpError)` requests
+supported derivations (`Default`, on a struct, is an implementation whose
+`default()` gives every field `default_of()`; each field type must implement
+`Default`. `HttpError`, on an enum, implements `HttpStatus` from each
+variant's `@status(code)` attribute, 500 for a variant without one. Under
+`Error` and `Display`, a variant's `@message("text {field}")` attribute is
+its display: each `{field}` names a field of the variant, `{{` and `}}`
+are literal braces);
 each has a checked schema and can fail with a normal diagnostic. Derivation
 does not expose a general macro evaluator. Equality and hashing preserve their
 laws; floats do not automatically satisfy total equality/hash constraints.

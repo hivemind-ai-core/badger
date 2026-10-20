@@ -1,0 +1,7 @@
+no book 7
+a book called Dune by Herbert exists
+nothing to do {yet}
+invalid: bad
+a circle of radius 1.5 square: 2
+[not_found(1)]
+404 {"error":"not_found","message":"no book 3"}

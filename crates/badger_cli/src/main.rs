@@ -13,6 +13,7 @@ mod graph;
 mod init;
 mod lsp;
 mod mcp;
+mod redact;
 mod search;
 mod templates;
 mod watch;
@@ -193,12 +194,15 @@ enum Command {
         #[arg(long)]
         release: bool,
     },
-    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [path] [filter]`
+    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [PATH]`
     /// (path defaults to the current project).
     Test {
-        /// An optional program path, then an optional name filter.
-        #[arg(num_args = 0..=2)]
-        args: Vec<String>,
+        /// The program or project to test (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// The tests to run: the ones whose name contains it.
+        #[arg(long, value_name = "NAME")]
+        filter: Option<String>,
         /// Print the results as one JSON object (with each failure's kind,
         /// message, location, and duration).
         #[arg(long)]
@@ -360,6 +364,9 @@ enum Command {
         /// The new name.
         #[arg(long)]
         name: String,
+        /// Print the edits as JSON and write nothing.
+        #[arg(long)]
+        json: bool,
     },
     /// Run the benchmark programs and report their measurements.
     Bench {
@@ -545,9 +552,7 @@ fn exit_on_internal_errors() {
 /// program once, so a program with external effects happens twice: the mode
 /// is for the test corpus, not for such a program.
 fn mir_validate_run() -> Option<ExitCode> {
-    if std::env::var_os("BADGER_MIR_VALIDATE").is_none() {
-        return None;
-    }
+    std::env::var_os("BADGER_MIR_VALIDATE")?;
     // The two children keep the mode on so the driver's structural check
     // runs inside them; the marker stops the wrapper from re-entering.
     if std::env::var_os("BADGER_MIR_VALIDATE_CHILD").is_some() {
@@ -563,7 +568,10 @@ fn mir_validate_run() -> Option<ExitCode> {
     }
     // an interactive, recording, or benchmarking run has effects the check
     // must not double, and saved binary MIR has no unoptimized form
-    if flags.iter().any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug")) {
+    if flags
+        .iter()
+        .any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug"))
+    {
         return None;
     }
     if flags.iter().any(|f| f.ends_with(".bdgmir")) {
@@ -831,20 +839,23 @@ fn command(cli: Cli) -> ExitCode {
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
             run_and_exit(&mut session, &path, args, &opts)
         }
-        Command::Test { args, json, list, exact, watch } => {
-            // `[path] [filter]`: a first argument naming an existing file or
-            // directory is the program; anything else is the filter
-            let mut args = args.into_iter();
-            let (path, filter) = match args.next() {
-                Some(a) if Path::new(&a).exists() => (PathBuf::from(a), args.next()),
-                // a mistyped path is not a filter that matches nothing
-                Some(a) if looks_like_path(&a) => {
-                    eprintln!("error: no such file or directory: {a}");
-                    return ExitCode::FAILURE;
+        Command::Test { path, filter, json, list, exact, watch } => {
+            if !path.exists() {
+                // a test name is not a path: it goes after `--filter`
+                let message = format!(
+                    "no such file or directory: {} (a test's name goes after --filter)",
+                    path.display()
+                );
+                if json {
+                    println!(
+                        "{{\"passed\":0,\"failed\":0,\"tests\":[],\"error\":{}}}",
+                        serde_json::Value::String(message)
+                    );
+                } else {
+                    eprintln!("error: {message}");
                 }
-                Some(a) => (PathBuf::from("."), Some(a)),
-                None => (PathBuf::from("."), None),
-            };
+                return ExitCode::FAILURE;
+            }
             if watch {
                 // the tests run again on every change, as `badger watch`
                 // runs its command
@@ -859,10 +870,11 @@ fn command(cli: Cli) -> ExitCode {
                 if exact {
                     command.push("--exact".into());
                 }
-                command.push(path.display().to_string());
                 if let Some(f) = &filter {
+                    command.push("--filter".into());
                     command.push(f.clone());
                 }
+                command.push(path.display().to_string());
                 return watch::watch(&path, command);
             }
             badger_driver::LISTING.store(list, std::sync::atomic::Ordering::Relaxed);
@@ -873,7 +885,7 @@ fn command(cli: Cli) -> ExitCode {
                 let mut s = if i == 0 { std::mem::take(&mut session) } else { Session::new() };
                 badger_driver::select_entry(None);
                 if s.run(&pkg, vec![], &opts).is_err() {
-                    report(&s, json);
+                    test_failure_report(&s, json);
                     return ExitCode::FAILURE;
                 }
                 report(&s, false);
@@ -884,12 +896,12 @@ fn command(cli: Cli) -> ExitCode {
                     badger_driver::select_entry(Some(sel));
                     s.reset_for_build();
                     if s.run(&pkg, vec![], &opts).is_err() {
-                        report(&s, json);
+                        test_failure_report(&s, json);
                         return ExitCode::FAILURE;
                     }
                 }
             }
-            exit_now(badger_driver::finish_tests(json))
+            exit_now(badger_driver::finish_tests(json, opts.filter.as_deref()))
         }
         Command::Contracts { path, json, tests: true } => match session.contract_test_report(&path) {
             Ok((clauses, suggestions, (ran, failed))) => {
@@ -1037,9 +1049,9 @@ fn command(cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Rename { path, line, col, name } => {
+        Command::Rename { path, line, col, name, json } => {
             let edits = match lsp::query(
-                "rename",
+                lsp::RENAME,
                 &path,
                 Some(line),
                 Some(col),
@@ -1052,6 +1064,11 @@ fn command(cli: Cli) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
+            // `--json` reports the edits and writes nothing
+            if json {
+                println!("{edits}");
+                return ExitCode::SUCCESS;
+            }
             match apply_edits(&edits) {
                 Ok(files) => {
                     if files.is_empty() {
@@ -1091,16 +1108,7 @@ fn command(cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Generate {
-            what,
-            files,
-            item,
-            dry_run,
-            check,
-            database,
-            schema,
-        } if what != "sql" =>
-        {
+        Command::Generate { what, files, item, dry_run, check, database, schema } if what != "sql" => {
             // a flag of another generator is a usage error, not one that
             // is quietly ignored
             if check {
@@ -1178,15 +1186,7 @@ fn command(cli: Cli) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Command::Generate {
-            what,
-            files,
-            item,
-            dry_run,
-            check,
-            database,
-            schema,
-        } => {
+        Command::Generate { what, files, item, dry_run, check, database, schema } => {
             if dry_run {
                 return wrong_flag(&what, "dry-run");
             }
@@ -1263,6 +1263,10 @@ fn command(cli: Cli) -> ExitCode {
                 }
             }
         }
+        Command::Inspect { path, .. } if !path.exists() => {
+            eprintln!("error: no such file or directory: {}", path.display());
+            ExitCode::FAILURE
+        }
         Command::Inspect { what, path, json, profile, .. } if what == "config" => {
             match Session::effective_config(&path, profile.as_deref()) {
                 Ok(entries) => {
@@ -1276,7 +1280,7 @@ fn command(cli: Cli) -> ExitCode {
                     let entries: Vec<_> = entries
                         .into_iter()
                         .map(|(k, v, s)| {
-                            let v = redact_setting(&k, &v);
+                            let v = redact::setting(&k, &v);
                             (k, v, s)
                         })
                         .collect();
@@ -1340,6 +1344,12 @@ fn command(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Inspect { what, path, json, .. } => {
+            if INSPECT_REMOTE.contains(&what.as_str()) && !INSPECT_LOCAL.contains(&what.as_str()) {
+                eprintln!(
+                    "error: `{what}` is a snapshot of a running program: add `--connect ADDR`, the address of a program started with `badger run --inspect ADDR`"
+                );
+                return ExitCode::from(2);
+            }
             if what != "plans" {
                 eprintln!(
                     "error: `{what}` is not something `badger inspect` reads (one of: {}; with `--connect ADDR`: {})",
@@ -1352,6 +1362,10 @@ fn command(cli: Cli) -> ExitCode {
                 report(&session, json);
                 return ExitCode::FAILURE;
             };
+            if plans.is_empty() && !json {
+                println!("(no `system` or `pipeline` plans in {})", path.display());
+                return ExitCode::SUCCESS;
+            }
             if json {
                 let ps: Vec<String> = plans
                     .iter()
@@ -1547,14 +1561,35 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
         source_files(p, &mut files);
     }
     let mut changed = 0;
+    // a file that cannot be read or does not parse is reported and left
+    // alone; the others are still formatted
+    let mut failed = 0;
+    let mut sources = badger_base::SourceMap::default();
+    let mut interner = badger_base::Interner::default();
     for f in files {
         let src = match std::fs::read_to_string(&f) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("error: cannot read {}: {e}", f.display());
-                return ExitCode::FAILURE;
+                failed += 1;
+                continue;
             }
         };
+        let id = sources.add(f.display().to_string(), src.clone());
+        let mut diags = vec![];
+        if let Err(e) = badger_syntax::parse(id, &src, &mut interner, &mut diags) {
+            let at = e.span();
+            let (line, col) = sources.get(id).line_col(at.start as usize);
+            // named on the command line: an error; found in a directory (a
+            // test of a syntax error, say): skipped, with a warning
+            if paths.contains(&f) {
+                eprintln!("error: {}:{line}:{col}: does not parse ({e}); not formatted", f.display());
+                failed += 1;
+            } else {
+                eprintln!("warning: {}:{line}:{col}: does not parse ({e}); skipped", f.display());
+            }
+            continue;
+        }
         let out = badger_syntax::format::format(&src);
         if out != src {
             changed += 1;
@@ -1562,11 +1597,11 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
                 println!("would reformat {}", f.display());
             } else if let Err(e) = std::fs::write(&f, out) {
                 eprintln!("error: cannot write {}: {e}", f.display());
-                return ExitCode::FAILURE;
+                failed += 1;
             }
         }
     }
-    if check && changed > 0 { ExitCode::FAILURE } else { ExitCode::SUCCESS }
+    if failed > 0 || (check && changed > 0) { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
 /// Human-readable rendering of an inspection snapshot (JSON from the
@@ -1658,8 +1693,7 @@ fn remote_repl(addr: &str, load: Option<PathBuf>) -> ExitCode {
 /// afterwards.
 fn load_file(addr: &str, load: Option<PathBuf>) -> Result<(), String> {
     let Some(path) = load else { return Ok(()) };
-    let text =
-        std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     match badger_driver::inspect::eval(addr, &text) {
         Ok(reply) => {
             if !reply.trim().is_empty() {
@@ -1836,9 +1870,7 @@ fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
     let mut changed = vec![];
     for (file, mut es) in by_file {
         let mut text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
-        es.sort_by_key(|e| {
-            (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0)))
-        });
+        es.sort_by_key(|e| (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0))));
         for e in es {
             let line = e["line"].as_i64().unwrap_or(1).max(1) as usize;
             let col = e["col"].as_i64().unwrap_or(1).max(1) as usize;
@@ -1907,6 +1939,19 @@ fn diagnostics_json(session: &Session) -> serde_json::Value {
     serde_json::from_str(&session.diagnostics.render_json(&session.sources)).unwrap_or_default()
 }
 
+/// `badger test` when the program does not build: with `--json`, the
+/// documented result object (no tests ran) carrying the diagnostics.
+fn test_failure_report(session: &Session, json: bool) {
+    if json && session.diagnostics.has_errors() {
+        println!(
+            "{{\"passed\":0,\"failed\":0,\"tests\":[],\"diagnostics\":{}}}",
+            session.diagnostics.render_json(&session.sources)
+        );
+    } else {
+        report(session, json);
+    }
+}
+
 pub(crate) fn report(session: &Session, json: bool) {
     if json {
         println!("{}", session.diagnostics.render_json(&session.sources));
@@ -1925,33 +1970,7 @@ fn default_binary_name(path: &Path) -> PathBuf {
     path.with_extension("bdgmir")
 }
 
-/// An argument meant as a path (not an entry name or a test filter).
+/// An argument meant as a path (not an entry name).
 fn looks_like_path(a: &str) -> bool {
     a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
-}
-
-/// A configured value as `badger inspect config` shows it: redacted when
-/// its key names a credential (`password`, `secret`, `token`, `api_key`,
-/// `dsn`, ...), with a URL's password masked otherwise. A reference to
-/// the environment (`${NAME}`) is shown as written.
-fn redact_setting(key: &str, value: &str) -> String {
-    if value.starts_with("${") && value.ends_with('}') {
-        return value.to_string();
-    }
-    let last = key.rsplit('.').next().unwrap_or(key).to_ascii_lowercase();
-    let sensitive =
-        ["password", "passwd", "secret", "token", "credential", "private_key", "api_key", "apikey", "dsn"];
-    if sensitive.iter().any(|s| last.contains(s)) {
-        return "[redacted]".to_string();
-    }
-    // scheme://user:password@host
-    if let Some(at) = value.find('@')
-        && let Some(start) = value.find("://")
-        && start < at
-        && let Some(colon) = value[start + 3..at].find(':')
-    {
-        let colon = start + 3 + colon;
-        return format!("{}:[redacted]{}", &value[..colon], &value[at..]);
-    }
-    value.to_string()
 }

@@ -47,11 +47,11 @@ are exempt.
 Keywords include `import`, `as`, `pub`, `type`, `struct`, `enum`, `protocol`,
 `impl`, `for`, `where`, `derive`, `fn`, `once`, `let`, `var`, `const`, `if`,
 `else`, `match`, `while`, `loop`, `in`, `break`, `continue`, `return`, `use`,
-`system`, `pipeline`, `ref`, `map`, `set`, `unsafe`, `extern`, `dyn`, `repr`,
-`requires`, and `ensures`.
+`system`, `pipeline`, `ref`, `map`, `set`, `region`, `unsafe`, `extern`, `dyn`,
+`repr`, `requires`, and `ensures`.
 `true` and `false` are boolean literals. `mut` is reserved for exclusive borrows.
-`system`, `pipeline`, `ref`, `map`, `set`, `derive`, `repr`, `requires`, and
-`ensures` are contextual:
+`system`, `pipeline`, `ref`, `map`, `set`, `region`, `derive`, `repr`,
+`requires`, and `ensures` are contextual:
 their special syntax is recognized in the corresponding form, while module
 paths such as `std.system` and calls such as `pipeline.compile` remain valid.
 Keywords after a dot can name a declared member; ordinary declarations still
@@ -195,6 +195,12 @@ lambda. `continue` targets the nearest loop. Ranges `start..end` and
 `start..=end` are lazy integer sequences with exclusive/inclusive upper bounds.
 Self tail recursion is lowered to a loop; other tail-call optimization is not
 a source-level stack-space guarantee.
+
+Every control-flow body is a block: the two branches of an `if`, a `while`, a
+`for`, a `loop`, an `unsafe` block, and the `else` of a `let ... else`. A body
+is never a bare statement: `if x return` is a syntax error (E0001), and the
+block is written `if x { return }`. A function or lambda body is a block too,
+or `=> expression` for a body of one expression.
 
 `match` is exhaustive. Arms use `=>`; guards use `if`. Guarded arms do not
 establish exhaustiveness. Patterns include literals, bindings, `_`, tuples,

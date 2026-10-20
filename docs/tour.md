@@ -47,7 +47,7 @@ The commands you will use most:
 |---|---|
 | `badger run FILE` | Compile and run; arguments after `--` go to the program |
 | `badger check FILE` | Parse and check without running |
-| `badger test FILE [FILTER]` | Run the `test_*` functions |
+| `badger test FILE [--filter NAME]` | Run the `test_*` functions |
 | `badger repl` | Interactive session: definitions accumulate, expressions print |
 | `badger format FILE` | Rewrite a file in the canonical layout |
 | `badger explain E0337` | Explain a diagnostic code |
@@ -542,9 +542,7 @@ with status 101.
 ```badger
 import std.io
 import std.list
-import std.map
 import std.seq
-import std.set
 
 type Person = { name: String, age: Int, team: String }
 
@@ -1084,10 +1082,10 @@ test test_wrong_on_purpose ... FAILED (assertion failed: expected 80, found 90 a
 test result: FAILED. 2 passed; 1 failed
 ```
 
-A second argument filters tests by name:
+`--filter` selects the tests by name:
 
 ```sh
-badger test pricing.bdg parse
+badger test pricing.bdg --filter parse
 ```
 
 Output:

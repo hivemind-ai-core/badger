@@ -67,7 +67,14 @@ impl std::fmt::Display for Difference {
     }
 }
 
-fn at(function: usize, name: &str, block: Option<usize>, statement: Option<usize>, left: String, right: String) -> Difference {
+fn at(
+    function: usize,
+    name: &str,
+    block: Option<usize>,
+    statement: Option<usize>,
+    left: String,
+    right: String,
+) -> Difference {
     Difference { function, name: name.to_string(), block, statement, left, right }
 }
 
@@ -97,7 +104,11 @@ pub fn compare(left: &Program, right: &Program) -> Result<(), Difference> {
         return Err(program(format!("{:?}", left.static_closures), format!("{:?}", right.static_closures)));
     }
     if left.display_hooks.len() != right.display_hooks.len()
-        || left.display_hooks.iter().zip(&right.display_hooks).any(|(a, b)| a.0 as *const _ != b.0 as *const _ || a.1 != b.1)
+        || left
+            .display_hooks
+            .iter()
+            .zip(&right.display_hooks)
+            .any(|(a, b)| !std::ptr::eq(a.0, b.0) || a.1 != b.1)
     {
         return Err(program(format!("{:?}", left.display_hooks), format!("{:?}", right.display_hooks)));
     }
@@ -105,12 +116,15 @@ pub fn compare(left: &Program, right: &Program) -> Result<(), Difference> {
         return Err(program(format!("{:?}", left.tests), format!("{:?}", right.tests)));
     }
     if left.test_errors.len() != right.test_errors.len()
-        || left.test_errors.iter().zip(&right.test_errors).any(|(a, b)| a.0 != b.0 || a.1 as *const _ != b.1 as *const _)
+        || left.test_errors.iter().zip(&right.test_errors).any(|(a, b)| a.0 != b.0 || !std::ptr::eq(a.1, b.1))
     {
         return Err(program(format!("{:?}", left.test_errors), format!("{:?}", right.test_errors)));
     }
     if left.funcs.len() != right.funcs.len() {
-        return Err(program(format!("{} functions", left.funcs.len()), format!("{} functions", right.funcs.len())));
+        return Err(program(
+            format!("{} functions", left.funcs.len()),
+            format!("{} functions", right.funcs.len()),
+        ));
     }
     for (id, (l, r)) in left.funcs.iter().zip(&right.funcs).enumerate() {
         compare_func(id, l, r)?;
@@ -148,10 +162,20 @@ fn compare_func(index: usize, l: &Func, r: &Func) -> Result<(), Difference> {
         ));
     }
     if l.live_key != r.live_key || l.live_sig != r.live_sig {
-        return Err(d(None, None, format!("{:?} {:?}", l.live_key, l.live_sig), format!("{:?} {:?}", r.live_key, r.live_sig)));
+        return Err(d(
+            None,
+            None,
+            format!("{:?} {:?}", l.live_key, l.live_sig),
+            format!("{:?} {:?}", r.live_key, r.live_sig),
+        ));
     }
     if l.locals.len() != r.locals.len() {
-        return Err(d(None, None, format!("{} locals", l.locals.len()), format!("{} locals", r.locals.len())));
+        return Err(d(
+            None,
+            None,
+            format!("{} locals", l.locals.len()),
+            format!("{} locals", r.locals.len()),
+        ));
     }
     for (i, (a, b)) in l.locals.iter().zip(&r.locals).enumerate() {
         // The local's name is debug metadata the dump shows; a pass that
@@ -161,11 +185,21 @@ fn compare_func(index: usize, l: &Func, r: &Func) -> Result<(), Difference> {
         }
     }
     if l.blocks.len() != r.blocks.len() {
-        return Err(d(None, None, format!("{} blocks", l.blocks.len()), format!("{} blocks", r.blocks.len())));
+        return Err(d(
+            None,
+            None,
+            format!("{} blocks", l.blocks.len()),
+            format!("{} blocks", r.blocks.len()),
+        ));
     }
     for (b, (lb, rb)) in l.blocks.iter().zip(&r.blocks).enumerate() {
         if lb.stmts.len() != rb.stmts.len() {
-            return Err(d(Some(b), None, format!("{} statements", lb.stmts.len()), format!("{} statements", rb.stmts.len())));
+            return Err(d(
+                Some(b),
+                None,
+                format!("{} statements", lb.stmts.len()),
+                format!("{} statements", rb.stmts.len()),
+            ));
         }
         for (s, (ls, rs)) in lb.stmts.iter().zip(&rb.stmts).enumerate() {
             if ls != rs {

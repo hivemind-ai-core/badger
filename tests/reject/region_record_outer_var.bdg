@@ -1,0 +1,12 @@
+// expect-error: E0414
+// Assigning a region's record to a variable declared outside the block.
+struct Node<R: Scope> { value: Int }
+fn make<R: Scope>(value: Int) -> Node<R> { { value } }
+pub fn main() -> Unit {
+    var keep = make(0)
+    let _ = keep.value
+    region Local {
+        let n: Node<Local> = make(1)
+        keep = n
+    }
+}

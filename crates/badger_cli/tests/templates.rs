@@ -29,19 +29,12 @@ fn write(dir: &Path, template: &str, name: &str) {
 }
 
 fn report(output: &std::process::Output) -> String {
-    format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    )
+    format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr))
 }
 
 #[test]
 fn the_templates_are_planned() {
-    assert_eq!(
-        templates::names(),
-        vec!["cli", "service", "framework", "library", "worker"]
-    );
+    assert_eq!(templates::names(), vec!["cli", "service", "framework", "library", "worker"]);
     for template in templates::names() {
         let files = templates::plan("inventory", template).unwrap();
         assert!(!files.is_empty(), "{template} has no files");
@@ -49,18 +42,11 @@ fn the_templates_are_planned() {
             .iter()
             .find(|(path, _)| path == "badger.toml")
             .unwrap_or_else(|| panic!("{template} has no badger.toml"));
-        assert!(
-            manifest.1.contains("name = \"inventory\""),
-            "{template}: {}",
-            manifest.1
-        );
+        assert!(manifest.1.contains("name = \"inventory\""), "{template}: {}", manifest.1);
         for (path, text) in &files {
             assert!(!Path::new(path).is_absolute(), "{template}: {path} is absolute");
             assert!(!path.contains(".."), "{template}: {path} leaves the project");
-            assert!(
-                !text.contains("@name@"),
-                "{template}: {path} keeps the placeholder"
-            );
+            assert!(!text.contains("@name@"), "{template}: {path} keeps the placeholder");
         }
     }
 }
@@ -81,18 +67,10 @@ fn every_template_checks_and_runs() {
         let path = dir.to_str().unwrap();
 
         let check = badger().args(["check", path]).output().unwrap();
-        assert!(
-            check.status.success(),
-            "{template} does not check:\n{}",
-            report(&check)
-        );
+        assert!(check.status.success(), "{template} does not check:\n{}", report(&check));
 
         let test = badger().args(["test", path]).output().unwrap();
-        assert!(
-            test.status.success(),
-            "{template} does not pass its tests:\n{}",
-            report(&test)
-        );
+        assert!(test.status.success(), "{template} does not pass its tests:\n{}", report(&test));
 
         let run = badger().args(["run", path]).output().unwrap();
         if template == "library" {
@@ -100,11 +78,7 @@ fn every_template_checks_and_runs() {
             assert!(!run.status.success(), "{template} should not run");
             assert!(report(&run).contains("is a library"), "{}", report(&run));
         } else {
-            assert!(
-                run.status.success(),
-                "{template} does not run:\n{}",
-                report(&run)
-            );
+            assert!(run.status.success(), "{template} does not run:\n{}", report(&run));
         }
         let _ = std::fs::remove_dir_all(&dir);
     }

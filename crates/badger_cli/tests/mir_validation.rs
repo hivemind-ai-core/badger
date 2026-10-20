@@ -43,7 +43,8 @@ fn the_check_passes_the_correct_pipeline_and_does_not_change_the_output() {
     let dir = temp("ok");
     let src = dir.join("ok.bdg");
     std::fs::write(&src, PROGRAM).unwrap();
-    let plain = out(lang().args(["run", "--release", "--opt", "superopt"]).arg(&src).args(["--", "a", "b", "c"]));
+    let plain =
+        out(lang().args(["run", "--release", "--opt", "superopt"]).arg(&src).args(["--", "a", "b", "c"]));
     let checked = out(lang()
         .env("BADGER_MIR_VALIDATE", "1")
         .args(["run", "--release", "--opt", "superopt"])

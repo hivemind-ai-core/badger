@@ -648,8 +648,11 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
         }
         Kind::Float { .. } => "{\"type\":\"number\"}".into(),
         Kind::String | Kind::Symbol | Kind::Char | Kind::Bytes => "{\"type\":\"string\"}".into(),
-        Kind::List { elem } | Kind::Set { elem } => {
+        Kind::List { elem } => {
             format!("{{\"type\":\"array\",\"items\":{}}}", json_schema(elem, depth + 1))
+        }
+        Kind::Set { elem } => {
+            format!("{{\"type\":\"array\",\"items\":{},\"uniqueItems\":true}}", json_schema(elem, depth + 1))
         }
         Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
             let elem = crate::buffer::array_elem(d).expect("array");
@@ -661,6 +664,7 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
         Kind::Record { .. } if d.name == crate::codec::SECRET => {
             "{\"type\":\"string\",\"writeOnly\":true}".into()
         }
+        Kind::Record { fields, flat: true, .. } => json_schema(fields[0].desc, depth),
         Kind::Record { fields, tuple: true, .. } => {
             let items: Vec<String> = fields.iter().map(|f| json_schema(f.desc, depth + 1)).collect();
             format!(
@@ -683,7 +687,7 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
                 .collect();
             let required: Vec<String> = fields
                 .iter()
-                .filter(|f| f.desc.name != "Option")
+                .filter(|f| !crate::codec::omittable(f.desc))
                 .map(|f| json_quote(&crate::codec::wire_name(&d.name, &f.name)))
                 .collect();
             format!(
@@ -696,6 +700,11 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
             .get(1)
             .and_then(|v| v.fields.first())
         {
+            // a value that can be `null` itself is wrapped: `[value]`
+            Some(f) if crate::codec::nullable(f.desc) => format!(
+                "{{\"anyOf\":[{{\"type\":\"array\",\"prefixItems\":[{}],\"minItems\":1,\"maxItems\":1}},{{\"type\":\"null\"}}]}}",
+                json_schema(f.desc, depth + 1)
+            ),
             Some(f) => format!("{{\"anyOf\":[{},{{\"type\":\"null\"}}]}}", json_schema(f.desc, depth + 1)),
             None => "{}".into(),
         },

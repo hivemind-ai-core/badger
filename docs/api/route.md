@@ -41,11 +41,31 @@ fn display(self: &Self) -> String
 fn delete<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
 
+### `delete_json`
+
+```badger
+fn delete_json<P, R, E>(path: String, name: Symbol, handler: fn(P) -> Result<R, E>) -> Route where P: Codec, R: Codec, E: Display, E: HttpStatus
+```
+
+A JSON DELETE route, as `get_json` (status 200).
+
 ### `get`
 
 ```badger
 fn get<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
+
+### `get_json`
+
+```badger
+fn get_json<P, R, E>(path: String, name: Symbol, handler: fn(P) -> Result<R, E>) -> Route where P: Codec, R: Codec, E: Display, E: HttpStatus
+```
+
+A JSON GET route: the path's `:name`s (and the query's parameters)
+decode into `P` (`{}` for none; numbers and booleans are parsed), and
+the handler's reply is sent with status 200. An invalid parameter is a
+structured 400 reply, an error the status it carries (`HttpStatus`).
+For another status, use `typed`.
 
 ### `json`
 
@@ -73,8 +93,9 @@ fn openapi(routes: List<Route>, title: String, version: String) -> Result<String
 ```
 
 An OpenAPI 3.1 document for the table, from the same descriptions:
-operation ids are route names, path parameters come from the patterns,
-and typed routes contribute their body/reply JSON Schemas.
+operation ids are route names, path parameters come from the patterns
+(and query parameters from the other fields of a `get_json`-style
+route's parameter type), and typed routes contribute their body/reply JSON Schemas.
 
 ### `params`
 
@@ -108,11 +129,29 @@ becomes `/search`.
 fn post<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
 
+### `post_json`
+
+```badger
+fn post_json<P, B, R, E>(path: String, name: Symbol, handler: fn(P, B) -> Result<R, E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus
+```
+
+A JSON POST route: parameters as `get_json`, the body decodes into `B`
+(an invalid body is a structured 400 reply), and the reply is sent with
+status 201 (created).
+
 ### `put`
 
 ```badger
 fn put<E>(path: String, name: Symbol, handler: fn(http.Request, Params) -> Result<http.Response, E>) -> Route where E: Display, E: HttpStatus
 ```
+
+### `put_json`
+
+```badger
+fn put_json<P, B, R, E>(path: String, name: Symbol, handler: fn(P, B) -> Result<R, E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus
+```
+
+A JSON PUT route, as `post_json` with status 200.
 
 ### `query_of`
 

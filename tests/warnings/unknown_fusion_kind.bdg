@@ -1,0 +1,7 @@
+// The `@fusion` vocabulary is closed: an unknown role or kind warns in user
+// code (it is an error in standard-library sources).
+// expect-warning: E0194
+@fusion(role = stage, template = nonsense)
+fn mine(xs: List<Int>) -> List<Int> { xs }
+
+pub fn main() {}

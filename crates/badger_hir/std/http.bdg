@@ -47,7 +47,10 @@ impl<E> Display for StatusError<E> where E: Display {
 
 impl<E> HttpStatus for StatusError<E> {
     fn http_status(self: &Self) -> Int { self.status }
+    fn http_code(self: &Self) -> Symbol { error_code(self.error) }
 }
+
+extern "intrinsic" fn error_code<T>(value: T) -> Symbol
 
 /// An error with the status the application intends.
 pub fn status<E>(code: Int, error: E) -> StatusError<E> { { status: code, error } }
@@ -510,6 +513,13 @@ pub fn call(h: Handler, request: Request) -> Response {
     }
 }
 
+/// Run a handler in-process (tests): the status and body text of its reply
+/// to `method path` with `body` (`""` for none).
+pub fn call_text(h: Handler, method: Symbol, path: String, body: String) -> (Int, String) {
+    let response = call(h, request(method, path, body))
+    (response.status, response.body.to_text().unwrap_or(""))
+}
+
 /// A request value for `call`.
 pub fn request(method: Symbol, path: String, body: String) -> Request {
     { method, path, headers: map {}, body: text_to_bytes(body) }
@@ -569,14 +579,16 @@ pub fn status_text(code: Int) -> String {
 }
 
 /// The reply for an error: the status it carries and, for a client
-/// error, its message. A server error keeps its message to itself (it is
-/// an internal detail, not the client's business).
+/// error, its code (`http_code`, the variant name unless the error says
+/// otherwise) and message, as `{"error": "not_found", "message": "..."}`. A
+/// server error keeps both to itself (they are internal details, not the
+/// client's business): its reply names the status only.
 pub fn error_reply<E>(error: E) -> Response where E: Display, E: HttpStatus {
     let code = error.http_status()
     if code >= 500 {
         { status: code, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: status_text(code) }) }
     } else {
-        { status: code, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: status_text(code), message: error.display() }) }
+        { status: code, headers: map { "content-type" => "application/json" }, body: codec.encode({ error: $"{error.http_code()}", message: error.display() }) }
     }
 }
 

@@ -66,7 +66,11 @@ fn mixed_lifetimes_reuse_dead_lines_in_place() {
             if round == 1 {
                 settled = gc::pool_reserved_bytes();
             } else if round > 1 && !gc::verify() {
-                assert_eq!(gc::pool_reserved_bytes(), settled, "round {round}: dead lines must be reused in place");
+                assert_eq!(
+                    gc::pool_reserved_bytes(),
+                    settled,
+                    "round {round}: dead lines must be reused in place"
+                );
             }
         }
         // (old churn survivors are found by a full collection)

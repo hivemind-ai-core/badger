@@ -34,13 +34,20 @@ enum Op {
     QueryOne,
 }
 
+/// A statement's parameters: bound in order (`?`), or by name (`:id`,
+/// `@id`, `$id`) from a record's fields.
+enum Params {
+    Positional(Vec<Sql>),
+    Named(Vec<(String, Sql)>),
+}
+
 enum Job {
-    Run { sql: String, params: Vec<Sql>, op: Op, done: Completion },
+    Run { sql: String, params: Params, op: Op, done: Completion },
     Begin { done: Completion },
 }
 
 enum TxJob {
-    Run { sql: String, params: Vec<Sql>, op: Op, done: Completion },
+    Run { sql: String, params: Params, op: Op, done: Completion },
     Finish { commit: bool, done: Option<Completion> },
 }
 
@@ -119,18 +126,58 @@ fn sql_error(e: impl std::fmt::Display) -> Error {
     Error::new("sqlite/error", e.to_string())
 }
 
-fn run(c: &Connection, sql: &str, params: &[Sql], op: Op) -> Outcome {
+/// Bind a record's fields to a statement's named parameters: every
+/// placeholder needs a field (SQLite would bind a missing one to NULL);
+/// fields no placeholder names are allowed (a record may carry more).
+fn bind_named(st: &mut rusqlite::Statement<'_>, fields: &[(String, Sql)]) -> Result<(), Error> {
+    for i in 1..=st.parameter_count() {
+        let Some(name) = st.parameter_name(i).map(str::to_string) else {
+            return Err(Error::new(
+                "sqlite/params",
+                format!(
+                    "parameter {i} is positional (`?`), but the parameters are a record: name it (`:name`)"
+                ),
+            ));
+        };
+        let key = name.trim_start_matches([':', '@', '$']);
+        let Some((_, v)) = fields.iter().find(|(k, _)| k == key) else {
+            return Err(Error::new(
+                "sqlite/params",
+                format!("no field `{key}` in the parameters for `{name}`"),
+            ));
+        };
+        st.raw_bind_parameter(i, v).map_err(sql_error)?;
+    }
+    Ok(())
+}
+
+fn run(c: &Connection, sql: &str, params: &Params, op: Op) -> Outcome {
     if let Op::Execute = op {
-        if params.is_empty() {
-            c.execute_batch(sql).map_err(sql_error)?;
-            return Ok(Value::Int(c.changes() as i64));
+        match params {
+            Params::Positional(ps) if ps.is_empty() => {
+                c.execute_batch(sql).map_err(sql_error)?;
+                return Ok(Value::Int(c.changes() as i64));
+            }
+            Params::Positional(ps) => {
+                let n = c.execute(sql, params_from_iter(ps.iter())).map_err(sql_error)?;
+                return Ok(Value::Int(n as i64));
+            }
+            Params::Named(fields) => {
+                let mut st = c.prepare(sql).map_err(sql_error)?;
+                bind_named(&mut st, fields)?;
+                return Ok(Value::Int(st.raw_execute().map_err(sql_error)? as i64));
+            }
         }
-        let n = c.execute(sql, params_from_iter(params.iter())).map_err(sql_error)?;
-        return Ok(Value::Int(n as i64));
     }
     let mut st = c.prepare(sql).map_err(sql_error)?;
     let names: Vec<String> = st.column_names().iter().map(|s| s.to_string()).collect();
-    let mut rows = st.query(params_from_iter(params.iter())).map_err(sql_error)?;
+    let mut rows = match params {
+        Params::Positional(ps) => st.query(params_from_iter(ps.iter())).map_err(sql_error)?,
+        Params::Named(fields) => {
+            bind_named(&mut st, fields)?;
+            st.raw_query()
+        }
+    };
     let mut out = vec![];
     while let Some(r) = rows.next().map_err(sql_error)? {
         let mut row = vec![];
@@ -332,8 +379,19 @@ fn target(a: &Args, i: usize) -> Result<Arc<Target>, Error> {
 }
 
 fn statement(a: Args, done: Completion, op: Op) {
-    let parsed = (|| -> Result<(Arc<Target>, String, Vec<Sql>), Error> {
-        Ok((target(&a, 0)?, a.str(1)?.to_string(), a.list(2)?.iter().map(sql_param).collect()))
+    let parsed = (|| -> Result<(Arc<Target>, String, Params), Error> {
+        // a list (or tuple) binds in order, a record by name, and a single
+        // value is the one positional parameter
+        let params = match a.get(2) {
+            Some(Value::List(xs)) => Params::Positional(xs.iter().map(sql_param).collect()),
+            Some(Value::Map(fs)) if fs.is_empty() => Params::Positional(vec![]),
+            Some(Value::Map(fs)) => {
+                Params::Named(fs.iter().map(|(k, v)| (k.clone(), sql_param(v))).collect())
+            }
+            Some(v) => Params::Positional(vec![sql_param(v)]),
+            None => return Err(Error::new("sqlite/params", "missing parameters")),
+        };
+        Ok((target(&a, 0)?, a.str(1)?.to_string(), params))
     })();
     let (t, sql, params) = match parsed {
         Ok(x) => x,

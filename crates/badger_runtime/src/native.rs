@@ -828,7 +828,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
             for (f, v) in fields.iter().zip(got) {
                 match v {
                     Some(v) => vals.push(v),
-                    None if f.desc.name == "Option" => vals.push(root(make_enum(f.desc, 0, &[]))),
+                    None if crate::codec::omittable(f.desc) => vals.push(crate::codec::absent(f.desc)),
                     None => return Err(format!("missing field `{}` of `{}`", f.name, d.name)),
                 }
             }
@@ -842,6 +842,16 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
                 list::push(l, v);
             }
             l
+        }
+        // a set travels as a list of its elements
+        (Kind::Set { elem }, tag::LIST) => {
+            let n = r.count()?;
+            let out = root(map::new(d));
+            for _ in 0..n {
+                let v = decode(elem, r, m)?;
+                map::insert_mut(out, v, 0);
+            }
+            out
         }
         (Kind::Map { key, val }, tag::MAP) if matches!(key.kind, Kind::String | Kind::Symbol) => {
             let n = r.count()?;

@@ -64,7 +64,7 @@ send is uncertain), looking again every `idle` when none was due.
 ### `Entry`
 
 ```badger
-struct Entry { pub id: Int, pub job: String, pub key: String, pub kind: String, pub payload: String, pub status: String, pub receipt: Option<String>, pub attempts: Int } derive(Codec, Display)
+@derive(Codec, Display) struct Entry { pub id: Int, pub job: String, pub key: String, pub kind: String, pub payload: String, pub status: String, pub receipt: Option<String>, pub attempts: Int }
 ```
 
 An outbox entry: `pending`, `sending`, `confirmed`, `rejected`,
@@ -104,7 +104,7 @@ fn from(e: sqlite.Error) -> Self
 ### `Job`
 
 ```badger
-struct Job { pub id: String, pub kind: String, pub version: Int, pub status: String, pub step: String, pub attempts: Int, pub max_attempts: Int, pub run_at: Int, pub owner: Option<String>, pub error: Option<String>, pub created: Int, pub updated: Int } derive(Codec, Display)
+@derive(Codec, Display) struct Job { pub id: String, pub kind: String, pub version: Int, pub status: String, pub step: String, pub attempts: Int, pub max_attempts: Int, pub run_at: Int, pub owner: Option<String>, pub error: Option<String>, pub created: Int, pub updated: Int }
 ```
 
 A job as stored.
@@ -334,7 +334,7 @@ Whether `submit` created a job or the event was seen before.
 ### `Transition`
 
 ```badger
-struct Transition { pub at: Int, pub step: String, pub status: String, pub note: Option<String> } derive(Codec, Display)
+@derive(Codec, Display) struct Transition { pub at: Int, pub step: String, pub status: String, pub note: Option<String> }
 ```
 
 One recorded transition of a job.

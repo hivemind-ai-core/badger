@@ -14,11 +14,12 @@ import std.app
 pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
 
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
     storage(message: String),
-} derive(Error)
+}
 
 pub type Store = {
     insert: fn(New@Item@) -> Result<@Item@, Error> !{Io, Wait, State},
@@ -79,10 +80,11 @@ pub provider @name@(config: { store: model.Store }) -> Result<model.Operations, 
     })
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_create_and_find() -> Result<Unit, TestError> {
     let plan = system {
@@ -142,11 +144,12 @@ pub fn routes(@name@: model.Operations) -> List<route.Route> {
     ]
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     route(source: route.RouteError),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_routes() -> Result<Unit, TestError> {
     let plan = system {
@@ -176,9 +179,10 @@ import std.worker
 /// A job's state (what the work needs; stored as JSON).
 pub type Job = { id: Int }
 
+@derive(Error)
 pub enum Failure {
     failed(message: String),
-} derive(Error)
+}
 
 /// One step of a job: do the work and decide what happens next (`done`,
 /// `again`, `after(delay)`, or `failed(reason)`); external effects go in
@@ -203,11 +207,12 @@ pub fn submit(store: jobs.Store, event: String, job: Job) -> Result<jobs.Submitt
     store.submit(processing.kind, event, processing.version, job, 5)
 }
 
+@derive(Error, From)
 pub enum TestError {
     jobs(source: jobs.Error),
     system(source: system.Error),
     timeout,
-} derive(Error, From)
+}
 
 fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
     let plan = system {
@@ -238,10 +243,11 @@ pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
 
 /// What can go wrong.
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
-} derive(Error)
+}
 
 /// The service's operations.
 pub type Operations = {
@@ -308,10 +314,11 @@ pub provider @name@(config: { store: store.Store }) -> Result<model.Operations, 
     })
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_create_and_find() -> Result<Unit, TestError> {
     let plan = system {
@@ -340,11 +347,12 @@ import @name@.service
 import @name@.store
 
 /// The service's errors, as the HTTP layer sees them.
+@derive(Error, From)
 pub enum Error {
     @name@(source: model.Error),
     route(source: route.RouteError),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 /// The status each error is answered with (500 unless the error chooses
 /// one): the route system reads it.
@@ -490,6 +498,17 @@ const RESERVED: &[&str] = &[
     "generate_probe",
 ];
 
+/// A generated module named like a standard one (`io`, `json`) would hide
+/// it in every module importing both.
+fn std_clash(name: &str) -> Result<(), String> {
+    if badger_driver::std_modules().contains(&name) {
+        return Err(format!(
+            "`{name}` is a standard module (`std.{name}`): a module of that name hides it where both are imported; choose another name"
+        ));
+    }
+    Ok(())
+}
+
 fn pascal(s: &str) -> String {
     s.split('_')
         .filter(|p| !p.is_empty())
@@ -524,13 +543,12 @@ pub fn plan_worker(dir: &Path, name: &str) -> Result<Plan, String> {
     if RESERVED.contains(&name) || ["jobs", "system", "task", "time", "worker"].contains(&name) {
         return Err(format!("`{name}` is a module the generated file imports: choose another name"));
     }
+    std_clash(name)?;
     let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
     let file = src.join(format!("{name}.bdg"));
-    if dir.join(&file).exists() || dir.join(src.join(name)).exists() {
-        return Err(format!(
-            "{} already exists: a worker is generated only into new files",
-            dir.join(&file).display()
-        ));
+    // (name the path that is there: the module file or its directory)
+    if let Some(taken) = [dir.join(&file), dir.join(src.join(name))].into_iter().find(|p| p.exists()) {
+        return Err(format!("{} already exists: a worker is generated only into new files", taken.display()));
     }
     Ok(Plan {
         root: src.join(name),
@@ -552,6 +570,7 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
     if RESERVED.contains(&name) {
         return Err(format!("`{name}` is a module the generated files import: choose another feature name"));
     }
+    std_clash(name)?;
     let item = match item {
         Some(i) => i.to_string(),
         None => name.strip_suffix('s').filter(|s| !s.is_empty()).unwrap_or(name).to_string(),
@@ -562,10 +581,12 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
     // modules resolve from the entry's directory
     let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
     let root = src.join(name);
-    if dir.join(&root).exists() || dir.join(src.join(format!("{name}.bdg"))).exists() {
+    if let Some(taken) =
+        [dir.join(&root), dir.join(src.join(format!("{name}.bdg")))].into_iter().find(|p| p.exists())
+    {
         return Err(format!(
             "{} already exists: a feature is generated only into new files",
-            dir.join(&root).display()
+            taken.display()
         ));
     }
     let fill = |t: &str| {
@@ -582,8 +603,18 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
 /// The names the generated files import for themselves: a generated
 /// module may not have one of them.
 const RESERVED_SERVICE: &[&str] = &[
-    "app", "endpoint", "generate_probe", "http", "list", "model", "route", "service", "std",
-    "store", "system", "text",
+    "app",
+    "endpoint",
+    "generate_probe",
+    "http",
+    "list",
+    "model",
+    "route",
+    "service",
+    "std",
+    "store",
+    "system",
+    "text",
 ];
 
 /// The names the generated command's files import for themselves.
@@ -599,14 +630,10 @@ fn check_name(name: &str, kind: &str, reserved: &[&str]) -> Result<(), String> {
         || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
         || KEYWORDS.contains(&name)
     {
-        return Err(format!(
-            "`{name}` is not a {kind} name: use a lowercase identifier such as `orders`"
-        ));
+        return Err(format!("`{name}` is not a {kind} name: use a lowercase identifier such as `orders`"));
     }
     if reserved.contains(&name) {
-        return Err(format!(
-            "`{name}` is a module the generated files import: choose another {kind} name"
-        ));
+        return Err(format!("`{name}` is a module the generated files import: choose another {kind} name"));
     }
     Ok(())
 }
@@ -614,32 +641,19 @@ fn check_name(name: &str, kind: &str, reserved: &[&str]) -> Result<(), String> {
 /// The record's name for a feature, a service, or a library `name` (the
 /// name without a final `s`).
 fn item_of(name: &str) -> String {
-    name.strip_suffix('s')
-        .filter(|s| !s.is_empty())
-        .unwrap_or(name)
-        .to_string()
+    name.strip_suffix('s').filter(|s| !s.is_empty()).unwrap_or(name).to_string()
 }
 
 /// The text of a generated file: the name and the record's name are
 /// filled in.
 fn fill(name: &str, item: &str, t: &str) -> String {
-    t.replace("@name@", name)
-        .replace("@Item@", &pascal(item))
-        .replace("@item@", &item.replace('_', " "))
+    t.replace("@name@", name).replace("@Item@", &pascal(item)).replace("@item@", &item.replace('_', " "))
 }
 
 /// The generator's files: the path each takes in the project, and its
 /// text (the name and the record's name are filled in).
-fn generated(
-    root: &Path,
-    name: &str,
-    item: &str,
-    files: &[(&str, &str)],
-) -> Vec<(PathBuf, String)> {
-    files
-        .iter()
-        .map(|(f, t)| (root.join(format!("{f}.bdg")), fill(name, item, t)))
-        .collect()
+fn generated(root: &Path, name: &str, item: &str, files: &[(&str, &str)]) -> Vec<(PathBuf, String)> {
+    files.iter().map(|(f, t)| (root.join(format!("{f}.bdg")), fill(name, item, t))).collect()
 }
 
 /// Plan service `name` in the project at `dir`: a module with the
@@ -670,10 +684,7 @@ pub fn plan_service(dir: &Path, name: &str) -> Result<Plan, String> {
             ("http", SERVICE_HTTP),
         ],
     );
-    let imports = ["http", "model", "service", "store"]
-        .iter()
-        .map(|m| format!("{name}.{m}"))
-        .collect();
+    let imports = ["http", "model", "service", "store"].iter().map(|m| format!("{name}.{m}")).collect();
     Ok(Plan { root, files, imports })
 }
 
@@ -714,11 +725,7 @@ pub fn plan_library(dir: &Path, name: &str) -> Result<Plan, String> {
         ));
     }
     let text = fill(name, &item, LIBRARY);
-    Ok(Plan {
-        root: src.join(name),
-        files: vec![(file, text)],
-        imports: vec![name.to_string()],
-    })
+    Ok(Plan { root: src.join(name), files: vec![(file, text)], imports: vec![name.to_string()] })
 }
 
 fn copy_project(from: &Path, to: &Path) -> std::io::Result<()> {

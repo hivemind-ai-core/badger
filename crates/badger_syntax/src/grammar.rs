@@ -78,6 +78,51 @@ where
     )
 }
 
+/// The phrase the errors use for a body that must be a block. The grammar
+/// and the reporter share it, so the message stays in one piece.
+pub const BLOCK_BODY: &str = "a block `{ ... }`";
+
+/// An expected-found error whose expectation is a whole phrase, built at
+/// run time (the body of an `if` says which `if`).
+fn expected_phrase<'t, 's: 't, I, Er>(what: String, found: Option<Tok<'s>>, span: Span) -> Er
+where
+    I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
+    Er: ParseErr<'t, 's, I>,
+{
+    use chumsky::label::LabelError;
+    use chumsky::util::MaybeRef;
+    let patterns = [chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(what))];
+    <Er as LabelError<'t, I, chumsky::error::RichPattern<'t, Tok<'s>>>>::expected_found(
+        patterns,
+        found.map(MaybeRef::Val),
+        span,
+    )
+}
+
+/// The body of a control-flow construct: a block, always. A statement
+/// without braces (`if x return`) is a common slip, so the error names the
+/// block that is missing, at the token that should have opened it.
+fn body_block<'t, 's: 't, I, Er>(
+    block: impl Parser<'t, I, Block<'s>, extra::Err<Er>> + Clone,
+    after: &'static str,
+) -> impl Parser<'t, I, Block<'s>, extra::Err<Er>> + Clone
+where
+    I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
+    Er: ParseErr<'t, 's, I> + 't,
+{
+    custom(move |inp: &mut chumsky::input::InputRef<'t, '_, I, extra::Err<Er>>| {
+        if matches!(inp.peek(), Some(Tok::LBrace)) {
+            return inp.parse(&block);
+        }
+        let c = inp.cursor();
+        let save = inp.save();
+        inp.next();
+        let at = inp.span_since(&c);
+        inp.rewind(save);
+        Err(expected_phrase::<I, Er>(format!("{BLOCK_BODY} {after}"), inp.peek(), at))
+    })
+}
+
 /// Items, then the end of input.
 pub fn program<'t, 's: 't, I, Er>() -> impl Parser<'t, I, Vec<Item<'s>>, extra::Err<Er>> + Clone
 where
@@ -124,6 +169,54 @@ where
 
     // `#name` or `#ns/name` (one token)
     let symbol = select! { Tok::Symbol(s) => s }.map_with(|s, e| (s, e.span())).labelled("symbol");
+
+    // `@name` / `@name(a, b)` / `@name(key = value)`
+    let attr_word = any()
+        .filter(|t: &Tok<'s>| matches!(t, Tok::Word(_)))
+        .map_with(|t, e| match t {
+            Tok::Word(text) => Ident { text, span: e.span() },
+            _ => unreachable!(),
+        })
+        .labelled("attribute name");
+    let attr_value = choice((
+        select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
+        select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
+        select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        attr_word.clone().map(AttrArg::Name),
+    ));
+    let attr_arg = attr_word
+        .clone()
+        .then_ignore(just(Tok::Assign))
+        .then(attr_value.clone())
+        .map(|(k, v)| AttrArg::KeyValue(k, Box::new(v)))
+        .or(attr_value.clone());
+    // `@lib.name`: a library's attribute, named after its module
+    let attr_path = attr_word
+        .clone()
+        .then(just(Tok::Dot).ignore_then(attr_word.clone()).repeated().collect::<Vec<_>>())
+        .map(|(first, rest)| {
+            let mut all = vec![first];
+            all.extend(rest);
+            let name = all.pop().unwrap();
+            (all, name)
+        });
+    let attribute = just(Tok::At)
+        .ignore_then(attr_path)
+        .then(
+            just(Tok::LParen)
+                .ignore_then(attr_arg.separated_by(just(Tok::Comma)).allow_trailing().collect::<Vec<_>>())
+                .then_ignore(just(Tok::RParen))
+                .or_not(),
+        )
+        .map_with(|((namespace, name), args), e| Attribute {
+            namespace,
+            name,
+            args: args.unwrap_or_default(),
+            span: e.span(),
+        });
+    // A run of attributes prefixes a declaration (newline-separated or not).
+    let attributes = attribute.clone().then_ignore(sep.clone().repeated()).repeated().collect::<Vec<_>>();
 
     let lit = select! {
         Tok::Int(n) => Lit::Int(n),
@@ -380,10 +473,11 @@ where
     // ------------------------------------------------------------ expressions
     let mut expr = Recursive::declare();
     let mut block = Recursive::declare();
-    let params = pattern
+    let params = attributes
         .clone()
+        .then(pattern.clone())
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
-        .map(|(pat, ty)| Param { pat, ty })
+        .map(|((attributes, pat), ty)| Param { attributes, pat, ty })
         .separated_by(just(Tok::Comma))
         .allow_trailing()
         .collect::<Vec<_>>()
@@ -453,12 +547,16 @@ where
         let if_expr = recursive(|if_| {
             kw("if")
                 .ignore_then(cond.clone())
-                .then(block.clone())
+                .then(body_block(block.clone(), "after the `if` condition"))
                 .then(
                     sep.clone()
                         .or_not()
                         .ignore_then(kw("else"))
-                        .ignore_then(choice((if_, block.clone().map_with(|b, e| (Expr::Block(b), e.span())))))
+                        .ignore_then(choice((
+                            if_,
+                            body_block(block.clone(), "after `else`")
+                                .map_with(|b, e| (Expr::Block(b), e.span())),
+                        )))
                         .or_not(),
                 )
                 .map_with(|((cond, then), els), e| {
@@ -493,15 +591,15 @@ where
             .map(|(s, arms)| Expr::Match { scrutinee: Box::new(s), arms });
         let while_expr = kw("while")
             .ignore_then(cond.clone())
-            .then(block.clone())
+            .then(body_block(block.clone(), "after the `while` condition"))
             .map(|(cond, body)| Expr::While { cond, body });
         let for_expr = kw("for")
             .ignore_then(pattern.clone())
             .then_ignore(kw("in"))
             .then(expr.clone())
-            .then(block.clone())
+            .then(body_block(block.clone(), "after the `for` header"))
             .map(|((pat, iter), body)| Expr::For { pat, iter: Box::new(iter), body });
-        let loop_expr = kw("loop").ignore_then(block.clone()).map(Expr::Loop);
+        let loop_expr = kw("loop").ignore_then(body_block(block.clone(), "after `loop`")).map(Expr::Loop);
         let system = kw("system")
             .ignore_then(braced(label.clone().then_ignore(just(Tok::Colon)).then(expr.clone())))
             .map(Expr::System);
@@ -513,7 +611,12 @@ where
         let ref_expr = kw("ref")
             .ignore_then(symbol.clone().delimited_by(just(Tok::LParen), just(Tok::RParen)))
             .map(|(s, span)| Expr::Ref(s, span));
-        let unsafe_expr = kw("unsafe").ignore_then(block.clone()).map(Expr::Unsafe);
+        let unsafe_expr =
+            kw("unsafe").ignore_then(body_block(block.clone(), "after `unsafe`")).map(Expr::Unsafe);
+        let region_expr = kw("region")
+            .ignore_then(type_ident.clone())
+            .then(body_block(block.clone(), "after the region's name"))
+            .map(|(n, b)| Expr::Region(n, b));
         let return_expr =
             kw("return").ignore_then(expr.clone().or_not()).map(|e| Expr::Return(e.map(Box::new)));
         let break_expr = kw("break").ignore_then(expr.clone().or_not()).map(|e| Expr::Break(e.map(Box::new)));
@@ -599,6 +702,7 @@ where
         let map_or_name = choice((map_lit.clone(), name_e.clone()));
         let set_or_name = choice((set_lit.clone(), name_e.clone()));
         let ref_or_name = choice((ref_expr.clone(), name_e.clone()));
+        let region_or_name = choice((region_expr.clone(), name_e.clone()));
         // the reporting pass tries the alternatives as combinators (a
         // custom parser reports its errors where it started, not where
         // they are)
@@ -617,6 +721,7 @@ where
             set_lit.clone(),
             ref_expr.clone(),
             unsafe_expr.clone(),
+            region_expr.clone(),
             return_expr.clone(),
             break_expr.clone(),
             continue_expr.clone(),
@@ -659,6 +764,7 @@ where
                 Some(Tok::Word("map")) => inp.parse(&map_or_name),
                 Some(Tok::Word("set")) => inp.parse(&set_or_name),
                 Some(Tok::Word("ref")) => inp.parse(&ref_or_name),
+                Some(Tok::Word("region")) => inp.parse(&region_or_name),
                 Some(Tok::Word("_")) => inp.parse(&hole),
                 Some(Tok::Word(w)) if is_type_ident(w) => inp.parse(&type_e),
                 Some(Tok::Word(_)) => inp.parse(&name_e),
@@ -949,7 +1055,7 @@ where
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
-        .then(kw("else").ignore_then(block.clone()).map(Box::new).or_not())
+        .then(kw("else").ignore_then(body_block(block.clone(), "after `else`")).map(Box::new).or_not())
         .map_with(|((((kind, pat), ty), value), els), e| Stmt::Let {
             kind,
             pat,
@@ -1067,6 +1173,7 @@ where
                     body,
                 ),
                  e| FnDecl {
+                    attributes: vec![],
                     contracts,
                     is_pub,
                     name,
@@ -1088,12 +1195,23 @@ where
                 .labelled("a new line or `;`"),
         )
         .map(|d| Stmt::Fn(Box::new(d)));
+    // a statement's or local function's attributes, on the lines before it
+    let tagged = |tags: Vec<Attribute<'s>>, s: Stmt<'s>| match s {
+        _ if tags.is_empty() => s,
+        Stmt::Fn(mut d) => {
+            d.attributes = tags;
+            Stmt::Fn(d)
+        }
+        s => Stmt::Attributed(tags, Box::new(s)),
+    };
     block.define(
         choice((
             sep.clone().to(None),
             just(Tok::Semi).to(Some(BlockItem::Semi)),
-            local_fn.map(|s| Some(BlockItem::Stmt(s))),
-            stmt.map(|s| Some(BlockItem::Stmt(s))),
+            attributes
+                .clone()
+                .then(choice((local_fn, stmt)))
+                .map(move |(tags, s)| Some(BlockItem::Stmt(tagged(tags, s)))),
         ))
         .repeated()
         .collect::<Vec<_>>()
@@ -1104,24 +1222,25 @@ where
     );
     let assoc_type =
         kw("type").ignore_then(name.clone()).then(just(Tok::Assign).ignore_then(ty.clone()).or_not());
+    // members on one line are separated, as statements are
+    let member_end =
+        choice((sep.clone(), just(Tok::Semi).ignored().rewind(), just(Tok::RBrace).ignored().rewind()))
+            .labelled("a new line or `;`");
     let members = choice((
         sep.clone().to(None),
-        fn_decl(member.clone().boxed()).map(|f| Some(Member::Fn(f))),
-        assoc_type.map(|(n, t)| Some(Member::AssocType(n, t))),
+        just(Tok::Semi).to(None),
+        attributes.clone().then(fn_decl(member.clone().boxed())).then_ignore(member_end.clone()).map(
+            |(tags, mut f)| {
+                f.attributes = tags;
+                Some(Member::Fn(f))
+            },
+        ),
+        assoc_type.then_ignore(member_end.clone()).map(|(n, t)| Some(Member::AssocType(n, t))),
     ))
     .repeated()
     .collect::<Vec<_>>()
     .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
     .map(|ms| ms.into_iter().flatten().collect::<Vec<_>>());
-    let derives = sep.clone().or_not().ignore_then(kw("derive")).ignore_then(
-        path_type
-            .clone()
-            .separated_by(just(Tok::Comma))
-            .allow_trailing()
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .delimited_by(just(Tok::LParen), just(Tok::RParen)),
-    );
     // `{ SEPC* (ITEM (SEPC+ ITEM)*)? SEPC* }`
     fn sepc_list<'t, 's: 't, I, O, Er>(
         item: impl Parser<'t, I, O, extra::Err<Er>> + Clone,
@@ -1174,12 +1293,13 @@ where
         .then_ignore(just(Tok::Assign))
         .then(ty.clone())
         .map(|(((p, name), g), ty)| (p, ItemKind::TypeAlias { name, generics: g.unwrap_or_default(), ty }));
-    let struct_field = is_pub
+    let struct_field = attributes
         .clone()
+        .then(is_pub.clone())
         .then(member.clone())
         .then_ignore(just(Tok::Colon))
         .then(ty.clone())
-        .map(|((p, n), t)| (p, n, t));
+        .map(|(((a, p), n), t)| (a, p, n, t));
     let struct_decl = is_pub
         .clone()
         .then(kw("repr").then(kw("c")).or_not().map(|r| r.is_some()))
@@ -1187,22 +1307,14 @@ where
         .then(name.clone())
         .then(generics.clone().or_not())
         .then(sepc_list(struct_field))
-        .then(derives.clone().or_not())
-        .map(|(((((p, repr_c), name), g), fields), derives)| {
-            (
-                p,
-                ItemKind::Struct {
-                    repr_c,
-                    name,
-                    generics: g.unwrap_or_default(),
-                    fields,
-                    derives: derives.unwrap_or_default(),
-                },
-            )
+        .map(|((((p, repr_c), name), g), fields)| {
+            (p, ItemKind::Struct { repr_c, name, generics: g.unwrap_or_default(), fields })
         });
     let variant_field = member.clone().then_ignore(just(Tok::Colon)).or_not().then(ty.clone());
-    let variant = member
+    // a variant may carry attributes (`@status(404) not_found(id: Int)`)
+    let variant = attributes
         .clone()
+        .then(member.clone())
         .then(
             variant_field
                 .separated_by(just(Tok::Comma))
@@ -1211,24 +1323,20 @@ where
                 .delimited_by(just(Tok::LParen), just(Tok::RParen))
                 .or_not(),
         )
-        .map_with(|(name, fields), e| Variant { name, fields: fields.unwrap_or_default(), span: e.span() });
+        .map_with(|((attributes, name), fields), e| Variant {
+            attributes,
+            name,
+            fields: fields.unwrap_or_default(),
+            span: e.span(),
+        });
     let enum_decl = is_pub
         .clone()
         .then_ignore(kw("enum"))
         .then(name.clone())
         .then(generics.clone().or_not())
         .then(sepc_list(variant))
-        .then(derives.clone().or_not())
-        .map(|((((p, name), g), variants), derives)| {
-            (
-                p,
-                ItemKind::Enum {
-                    name,
-                    generics: g.unwrap_or_default(),
-                    variants,
-                    derives: derives.unwrap_or_default(),
-                },
-            )
+        .map(|(((p, name), g), variants)| {
+            (p, ItemKind::Enum { name, generics: g.unwrap_or_default(), variants })
         });
     let protocol = is_pub
         .clone()
@@ -1284,6 +1392,7 @@ where
         .then(where_clause.clone().or_not())
         .map_with(|(((((((p, abi), name), g), params), ret), effect), w), e| {
             let decl = FnDecl {
+                attributes: vec![],
                 contracts: vec![],
                 is_pub: p,
                 name,
@@ -1320,16 +1429,21 @@ where
         .map(|(((((((contracts, p), name), alias), (params, params_span)), ret), effect), body)| {
             (p, ItemKind::Provider { contracts, name, alias, params, params_span, ret, effect, body })
         });
-    let member = choice((kw("enter").to("enter"), kw("leave").to("leave"), kw("error").to("error")))
-        .map_with(|text, e| Ident { text, span: e.span() })
-        .labelled("a stage callback (`enter`, `leave`, or `error`)")
-        .then(params.clone())
-        .then(ret.clone().or_not())
-        .then(choice((
-            block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
-            just(Tok::FatArrow).ignore_then(expr.clone()),
-        )))
-        .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
+    let member = choice((
+        kw("enter").to("enter"),
+        kw("leave").to("leave"),
+        kw("error").to("error"),
+        kw("around").to("around"),
+    ))
+    .map_with(|text, e| Ident { text, span: e.span() })
+    .labelled("a stage callback (`enter`, `leave`, `error`, or `around`)")
+    .then(params.clone())
+    .then(ret.clone().or_not())
+    .then(choice((
+        block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
+        just(Tok::FatArrow).ignore_then(expr.clone()),
+    )))
+    .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
     let stage_item = contracts
         .clone()
         .then(is_pub.clone())
@@ -1340,11 +1454,24 @@ where
         .then(params.clone())
         .then(ret.clone().or_not())
         .then(
-            choice((sep.clone().to(None), member.map(Some)))
-                .repeated()
-                .collect::<Vec<_>>()
-                .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
-                .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
+            choice((
+                sep.clone().to(None),
+                just(Tok::Semi).to(None),
+                member
+                    .then_ignore(
+                        choice((
+                            sep.clone(),
+                            just(Tok::Semi).ignored().rewind(),
+                            just(Tok::RBrace).ignored().rewind(),
+                        ))
+                        .labelled("a new line or `;`"),
+                    )
+                    .map(Some),
+            ))
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
+            .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
         )
         .map(|(((((((contracts, p), name), alias), g), params), ret), (members, body_span))| {
             (
@@ -1361,38 +1488,6 @@ where
                 },
             )
         });
-    // `@name` / `@name(a, b)` / `@name(key = value)`
-    let attr_word = any()
-        .filter(|t: &Tok<'s>| matches!(t, Tok::Word(_)))
-        .map_with(|t, e| match t {
-            Tok::Word(text) => Ident { text, span: e.span() },
-            _ => unreachable!(),
-        })
-        .labelled("attribute name");
-    let attr_value = choice((
-        select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
-        select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
-        select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
-        select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
-        attr_word.clone().map(AttrArg::Name),
-    ));
-    let attr_arg = attr_word
-        .clone()
-        .then_ignore(just(Tok::Assign))
-        .then(attr_value.clone())
-        .map(|(k, v)| AttrArg::KeyValue(k, Box::new(v)))
-        .or(attr_value.clone());
-    let attribute = just(Tok::At)
-        .ignore_then(attr_word)
-        .then(
-            just(Tok::LParen)
-                .ignore_then(attr_arg.separated_by(just(Tok::Comma)).allow_trailing().collect::<Vec<_>>())
-                .then_ignore(just(Tok::RParen))
-                .or_not(),
-        )
-        .map_with(|(name, args), e| Attribute { name, args: args.unwrap_or_default(), span: e.span() });
-    // A run of attributes prefixes a declaration (newline-separated or not).
-    let attributes = attribute.then_ignore(sep.clone().repeated()).repeated().collect::<Vec<_>>();
     let item = attributes
         .then(choice((
             import,

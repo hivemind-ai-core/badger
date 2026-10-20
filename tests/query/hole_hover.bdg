@@ -1,0 +1,4 @@
+// Hover on a hole shows the type expected there.
+fn f() -> Int => 1 + _
+
+pub fn main() {}

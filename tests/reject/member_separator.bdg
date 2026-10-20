@@ -1,0 +1,8 @@
+// expect-error: E0001
+// Members of an `impl` (or a protocol, or a stage's callbacks) on one line
+// are separated by `;`, as statements are.
+pub struct S { a: Int }
+
+impl S { fn x(self: &Self) -> Int { 1 } fn y(self: &Self) -> Int { 2 } }
+
+pub fn main() -> Unit {}

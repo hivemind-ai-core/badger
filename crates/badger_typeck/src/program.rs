@@ -104,6 +104,8 @@ pub struct Global<'a> {
     /// The protocols each declared generic (skolem) is bounded by, kept
     /// for requirements checked after its function (implied capabilities).
     pub skolem_bounds: RefCell<FxHashMap<u32, Vec<DefId>>>,
+    /// Where each function first needs each effect (`badger explain effect`).
+    pub effect_sites: RefCell<FxHashMap<DefId, Vec<(Symbol, Span)>>>,
     /// Helpers storing one parameter into another's container (computed
     /// on first use; see `regions::store_summaries`).
     #[allow(clippy::type_complexity)]
@@ -520,6 +522,7 @@ pub fn check_program_with<'a>(
         dups_final: std::cell::Cell::new(false),
         skolem_owner: RefCell::new(FxHashMap::default()),
         skolem_bounds: RefCell::new(FxHashMap::default()),
+        effect_sites: RefCell::new(FxHashMap::default()),
         implied: RefCell::new(FxHashMap::default()),
         store_summaries: RefCell::new(None),
         store_seed: None,
@@ -1013,6 +1016,17 @@ pub fn check_program_with<'a>(
         }
     }
     mark(&mut clock, "module-values");
+    // an error at `list.map(xs, f)` where `list` is a local hiding the module
+    for d in &mut diags {
+        if let Some(p) = d.primary()
+            && let Some((_, note)) = hir
+                .shadowed_module_calls
+                .iter()
+                .find(|(s, _)| s.file == p.file && s.start <= p.start && p.end <= s.end)
+        {
+            d.notes.push(note.clone());
+        }
+    }
     (Checked { g, types }, diags, cached)
 }
 

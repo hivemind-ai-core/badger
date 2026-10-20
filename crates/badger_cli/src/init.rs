@@ -29,7 +29,15 @@ fn package_name(dir: &Path) -> String {
         }
     }
     let out = out.trim_matches('_').to_string();
-    if out.is_empty() { "app".to_string() } else { out }
+    // a name `import` could not refer to (a reserved word, `std`) gets a
+    // suffix
+    if out.is_empty() {
+        "app".to_string()
+    } else if badger_syntax::RESERVED.contains(&out.as_str()) || out == "std" {
+        format!("{out}_pkg")
+    } else {
+        out
+    }
 }
 
 /// The manifest of the new project.

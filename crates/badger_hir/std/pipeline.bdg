@@ -36,6 +36,9 @@ pub struct Stage<In, Out, R, E, Eff: Effect> {
     pub enter: fn(In) -> Result<Enter<In, Out, R>, E> !Eff,
     pub leave: Option<fn(Out, R) -> Result<(Out, R), E> !Eff>,
     pub error: Option<fn(Out, E) -> ErrorStep<Out, R, E> !Eff>,
+    /// `around(ctx, next)`: runs the rest of the pipeline (`next(ctx)`) and
+    /// sees, changes, or recovers its result in one place.
+    pub around: Option<fn(Out, fn(Out) -> Result<R, E> !Eff) -> Result<R, E> !Eff>,
 }
 
 pub struct Handler<C, R, E, Eff: Effect> {
@@ -65,7 +68,7 @@ pub fn make_stage<In, Out, R, E, Eff>(
     error: Option<fn(Out, E) -> ErrorStep<Out, R, E> !Eff>,
 ) -> Stage<In, Out, R, E, Eff> where Out: records.Extends<In> {
     match enter {
-        .some(f) => { name, enter: f, leave, error },
+        .some(f) => { name, enter: f, leave, error, around: Option.none },
         .none => panic("stage without enter"),
     }
 }
@@ -76,7 +79,27 @@ pub fn make_passthrough<C, R, E, Eff>(
     leave: Option<fn(C, R) -> Result<(C, R), E> !Eff>,
     error: Option<fn(C, E) -> ErrorStep<C, R, E> !Eff>,
 ) -> Stage<C, C, R, E, Eff> {
-    { name, enter: fn(c) { ok(Enter.next(c)) }, leave, error }
+    { name, enter: fn(c) { ok(Enter.next(c)) }, leave, error, around: Option.none }
+}
+
+/// A stage that wraps the rest of the pipeline: `around(ctx, next)` calls
+/// `next(ctx)` (the later stages and the handler) and returns its result,
+/// or another one: time a request, log on the way out, map or recover an
+/// error. Context fields set by the later stages do not reach it.
+///
+/// ```badger
+/// pipeline {
+///     pipeline.around(#app/timed, fn(ctx, next) {
+///         let t0 = time.now()
+///         let r = next(ctx)
+///         log.info("handled", { ms: time.as_millis(time.since(t0)) })
+///         r
+///     }),
+///     handle(handler),
+/// }
+/// ```
+pub fn around<C, R, E, Eff>(name: Symbol, around: fn(C, fn(C) -> Result<R, E> !Eff) -> Result<R, E> !Eff) -> Stage<C, C, R, E, Eff> {
+    { name, enter: fn(c) { ok(Enter.next(c)) }, leave: Option.none, error: Option.none, around: Option.some(around) }
 }
 
 /// A stage that turns an error into a reply: `reply` maps the error to
@@ -192,7 +215,7 @@ fn run_stage_inner<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: f
         // this stage's own fields never existed: earlier stages handle it
         .err(e) => Unwind.error(ctx, e),
         .ok(.stop(c, reply)) => Unwind.done(c, reply),
-        .ok(.next(out)) => match rest(out) {
+        .ok(.next(out)) => match run_rest(stage.around, rest, out) {
             .done(out2, reply) => match stage.leave {
                 .none => Unwind.done(records.project<In>(out2), reply),
                 .some(f) => match f(out2, reply) {
@@ -207,6 +230,25 @@ fn run_stage_inner<In, Out, R, E, Eff>(stage: Stage<In, Out, R, E, Eff>, rest: f
                     .recover(out3, reply) => Unwind.done(records.project<In>(out3), reply),
                 },
             },
+        },
+    }
+}
+
+/// The rest of the chain, through the stage's `around` when it has one.
+fn run_rest<Out, R, E, Eff>(around: Option<fn(Out, fn(Out) -> Result<R, E> !Eff) -> Result<R, E> !Eff>, rest: fn(Out) -> Unwind<Out, R, E> !Eff, out: Out) -> Unwind<Out, R, E> {
+    match around {
+        .none => rest(out),
+        .some(wrap) => {
+            let next = fn(o: Out) -> Result<R, E> {
+                match rest(o) {
+                    .done(_, reply) => ok(reply),
+                    .error(_, e) => err(e),
+                }
+            }
+            match wrap(out, next) {
+                .ok(reply) => Unwind.done(out, reply),
+                .err(e) => Unwind.error(out, e),
+            }
         },
     }
 }

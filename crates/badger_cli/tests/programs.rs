@@ -186,6 +186,70 @@ fn warning_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Attributes in every position they may take (declarations, methods,
+/// fields, parameters, local functions, statements, blocks), a library's
+/// namespaced ones included: `@allow` silences what it tags, in `check` and
+/// `run` alike, and an import used only by an attribute is used.
+#[test]
+fn attributes_in_every_position() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-positions-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("positions.bdg");
+    std::fs::write(&f, "import std.app\nimport std.io\n@allow(E0195)\nimport std.text\n\npub struct Point {\n    @app.column(\"px\") pub x: Int,\n    @allow(E0196) pub y: Int,\n}\n\nimpl Point {\n    @allow(E0197)\n    pub fn norm(self: &Self) -> Int {\n        let unused = 1\n        self.x + self.y\n    }\n    @app.operation(#points/sum)\n    pub fn sum(self: &Self) -> Int { self.x + self.y }\n}\n\nfn apply(@app.input f: fn(Int) -> Int, @allow(E0197) x: Int) -> Int { f(x) }\n\npub fn main() -> Result<Unit, io.Error> {\n    @allow(E0197)\n    fn helper() -> Int {\n        let ignored = 2\n        3\n    }\n    @allow(E0197)\n    let quiet = 1\n    @allow(E0197) {\n        let also_quiet = 2\n    }\n    let loud = 3\n    let p: Point = { x: 1, y: 2 }\n    io.println($\"{p.norm()} {p.sum()} {apply(fn(v) => v + 1, helper())}\")?\n    ok(())\n}\n").unwrap();
+    let check = lang().args(["check", "--json"]).arg(&f).output().unwrap();
+    let json = String::from_utf8_lossy(&check.stdout).to_string();
+    assert!(check.status.success(), "{json}");
+    assert_eq!(json.matches("\"code\":\"").count(), 1, "only `loud` is reported: {json}");
+    assert!(json.contains("unused variable `loud`"), "{json}");
+    let run = lang().arg("run").arg(&f).output().unwrap();
+    let stderr = String::from_utf8_lossy(&run.stderr).to_string();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "3 3 4\n");
+    assert!(
+        stderr.contains("`loud`") && !stderr.contains("`quiet`") && !stderr.contains("`text`"),
+        "{stderr}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The gate of region records: one program returns a record built in a
+/// region, and is rejected (E0414) when that region is the function's own
+/// `region` block, which ends before the return, and accepted when it is
+/// the function's region parameter, which the caller provides.
+#[test]
+fn region_record_return_needs_an_outliving_region() {
+    let program = |region: &str| {
+        format!(
+            "import std.io\n\
+             struct Node<R: Scope> {{ value: Int }}\n\
+             fn make<R: Scope>(value: Int) -> Node<R> {{ {{ value }} }}\n\
+             fn build<R: Scope>(value: Int) -> Node<R> {{\n\
+             region Local {{\n\
+             let n: Node<{region}> = make(value)\n\
+             n\n\
+             }}\n\
+             }}\n\
+             pub fn main() -> Result<Unit, io.Error> {{ io.println($\"{{build(7).value}}\") }}\n"
+        )
+    };
+    let dir = std::env::temp_dir().join(format!("badger-region-gate-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let local = dir.join("local.bdg");
+    std::fs::write(&local, program("Local")).unwrap();
+    let out = lang().args(["check", "--json"]).arg(&local).output().unwrap();
+    let json = String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success() && json.contains("\"code\":\"E0414\""), "not rejected: {json}");
+    let caller = dir.join("caller.bdg");
+    std::fs::write(&caller, program("R")).unwrap();
+    let out = lang().arg("run").arg(&caller).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success() && text == "7\n",
+        "not accepted: {text}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));
@@ -202,6 +266,41 @@ fn attribute_allow_silences_warnings() {
     assert!(control.contains("E0142"), "control has no E0142: {control}");
     let silenced_json = json(&silenced);
     assert!(!silenced_json.contains("E0142"), "@allow did not silence E0142: {silenced_json}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Unused names are reported with their kind, and a `_` name, `@allow`,
+/// `pub`, `main`, and `test_` functions are not.
+#[test]
+fn unused_names_and_their_exemptions() {
+    let dir = std::env::temp_dir().join(format!("badger-unused-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let check = |name: &str, src: &str| {
+        let f = dir.join(name);
+        std::fs::write(&f, src).unwrap();
+        let out = lang().args(["check", "--json"]).arg(&f).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let flagged = check(
+        "flagged.bdg",
+        "import std.text\nfn helper() -> Int { 1 }\ntype Pair = (Int, Int)\npub fn main() {\n    let total = 3\n    var count = 0\n    count = 1\n}\n",
+    );
+    for want in [
+        "unused import `text`",
+        "function `helper` is never used",
+        "type `Pair` is never used",
+        "unused variable `total`",
+        "unused variable `count`",
+    ] {
+        assert!(flagged.contains(want), "missing {want}: {flagged}");
+    }
+    let exempt = check(
+        "exempt.bdg",
+        "import std.text\n@allow(E0196)\nfn helper() -> Int { 1 }\nfn _later() -> Int { 2 }\npub fn shared() -> Int { 3 }\nfn used() -> Int { 4 }\nfn test_used() { assert(used() == 4) }\npub fn main() {\n    let _ignored = 1\n    let (a, _) = (1, 2)\n    let n = text.trim(\" x \")\n    let _ = n.len() + a\n}\n",
+    );
+    for code in ["E0195", "E0196", "E0197"] {
+        assert!(!exempt.contains(code), "unexpected {code}: {exempt}");
+    }
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -379,11 +478,20 @@ fn query_symbol() {
 /// `--json`.
 #[test]
 fn test_runner_options() {
+    // a program that does not build: the same JSON object, with no tests
+    // and the diagnostics
+    let broken = std::env::temp_dir().join(format!("badger-test-broken-{}.bdg", std::process::id()));
+    std::fs::write(&broken, "fn test_x() -> Unit { nope }\npub fn main() {}\n").unwrap();
+    let out = lang().arg("test").arg("--json").arg(&broken).output().unwrap();
+    let _ = std::fs::remove_file(&broken);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(!out.status.success() && v["tests"] == serde_json::json!([]), "{v}");
+    assert_eq!(v["diagnostics"][0]["code"], "E0127", "{v}");
     let dir = root().join("examples/framework");
     let out = lang().arg("test").arg(&dir).arg("--list").output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(text.lines().any(|l| l == "test_health") && !text.contains(" ok"), "{text}");
-    let out = lang().arg("test").arg(&dir).args(["test_health", "--exact"]).output().unwrap();
+    let out = lang().arg("test").arg(&dir).args(["--filter", "test_health", "--exact"]).output().unwrap();
     assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed; 0 failed"));
     let file = std::env::temp_dir().join(format!("badger-test-kinds-{}.bdg", std::process::id()));
     std::fs::write(
@@ -465,6 +573,11 @@ fn generate_feature() {
     assert!(!again.status.success() && String::from_utf8_lossy(&again.stderr).contains("already exists"));
     let reserved = generate(&["http"]);
     assert!(!reserved.status.success());
+    // nor under a standard module's name, which it would hide
+    let hidden = generate(&["log"]);
+    assert!(!hidden.status.success() && String::from_utf8_lossy(&hidden.stderr).contains("standard module"));
+    let hidden = lang().args(["generate", "worker", "io"]).arg(&dir).output().unwrap();
+    assert!(!hidden.status.success() && String::from_utf8_lossy(&hidden.stderr).contains("standard module"));
     // a worker: one module with a durable job kind, checked and tested
     let worker = lang().args(["generate", "worker", "emails"]).arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&worker.stdout).to_string();
@@ -1236,7 +1349,7 @@ fn explain_types() {
         ("Point", "struct Point { x: Int, y: Int }"),
         ("Shape", "enum Shape { circle(r: Int), empty }"),
         ("Pair", "type Pair<T> = (T, T)"),
-        ("Box2", "struct Box2<T> { pub value: T, count: Int } derive(Eq)"),
+        ("Box2", "@derive(Eq) struct Box2<T> { pub value: T, count: Int }"),
         ("Named", "protocol Named { name: fn(&Self) -> String }"),
         ("show_all", "fn<T, U>(T, U) -> String where T: Display, U: Display, U: Eq"),
     ];
@@ -1247,6 +1360,17 @@ fn explain_types() {
     }
     let out = lang().args(["explain", "effect", "show_all"]).arg(&file).output().unwrap();
     assert!(String::from_utf8_lossy(&out.stdout).contains("show_all: !{}"));
+    // each effect's first origin in the body
+    let file = root().join("tests/explain/effects.bdg");
+    let out = lang().args(["explain", "effect", "work"]).arg(&file).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("work: !{Io, State, Wait}"), "{text}");
+    assert!(text.contains("Io: ") && text.contains(":12:5 `io.println(\"start\")`"), "{text}");
+    assert!(text.contains("Wait: ") && text.contains("`helper()`"), "{text}");
+    // a precondition that calls a predicate function is proven like a bound
+    let out = lang().args(["contracts", "tests/contracts/predicates.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("2 clause(s): 2 proven"), "{text}");
 }
 
 /// Checking proposed edits in their project (`badger query check
@@ -1439,13 +1563,22 @@ fn native_modules() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `badger query rename` returns edits (not applied) for every use, in each
-/// of a project's entry points and tasks; inputs a query cannot answer are
-/// errors rather than empty results.
+/// `badger rename --json` returns the edits (and writes nothing) for every
+/// use, in each of a project's entry points and tasks; inputs a query
+/// cannot answer are errors rather than empty results.
 #[test]
 fn query_rename_and_unsupported_inputs() {
     let q = |args: &[&str]| {
         let out = lang().arg("query").args(args).output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    // the rename with `--json`: the edits, and nothing written
+    let r = |args: &[&str]| {
+        let out = lang().arg("rename").args(args).arg("--json").output().unwrap();
         (
             out.status.success(),
             String::from_utf8_lossy(&out.stdout).to_string(),
@@ -1467,7 +1600,7 @@ fn query_rename_and_unsupported_inputs() {
     // from the definition, from the task-only module, and from the main entry's module
     for (file, line, col) in [("shapes.bdg", "3", "8"), ("jobs.bdg", "5", "40"), ("report.bdg", "3", "62")] {
         let p = format!("tests/projects/overlay/src/{file}");
-        let (ok, out, err) = q(&["rename", &p, "--line", line, "--col", col, "--name", "surface"]);
+        let (ok, out, err) = r(&[&p, "--line", line, "--col", col, "--name", "surface"]);
         assert!(ok, "{err}");
         assert_eq!(files(&out), all, "{file}: {out}");
     }
@@ -1478,16 +1611,8 @@ fn query_rename_and_unsupported_inputs() {
             .count(),
         1
     );
-    let (ok, _, err) = q(&[
-        "rename",
-        "tests/projects/overlay/src/shapes.bdg",
-        "--line",
-        "3",
-        "--col",
-        "8",
-        "--name",
-        "Surface",
-    ]);
+    let (ok, _, err) =
+        r(&["tests/projects/overlay/src/shapes.bdg", "--line", "3", "--col", "8", "--name", "Surface"]);
     assert!(!ok && err.contains("cannot replace"), "{err}");
     let (ok, _, err) = q(&["symbols", "tests/projects/overlay"]);
     assert!(!ok && err.contains("needs a source file"), "{err}");
@@ -1511,12 +1636,23 @@ fn query_rename_and_unsupported_inputs() {
         c
     };
     let p = "tests/query/desugared_bindings.bdg";
-    let (ok, out, err) = q(&["rename", p, "--line", "6", "--col", "15", "--name", "w"]);
+    let (ok, out, err) = r(&[p, "--line", "6", "--col", "15", "--name", "w"]);
     assert!(ok, "{err}");
     assert_eq!(cols(&out), vec![(6, 15), (7, 5)], "{out}");
-    let (ok, out, err) = q(&["rename", p, "--line", "11", "--col", "13", "--name", "q"]);
+    let (ok, out, err) = r(&[p, "--line", "11", "--col", "13", "--name", "q"]);
     assert!(ok, "{err}");
     assert_eq!(cols(&out), vec![(11, 13), (11, 26), (11, 32), (11, 36)], "{out}");
+    // a hole's hover is the type expected there
+    let (ok, out, _) = q(&["hover", "tests/query/hole_hover.bdg", "--line", "2", "--col", "22"]);
+    assert!(ok && out.contains("\"Int\""), "{out}");
+    // positions are 1-based and on a line of the file
+    let (ok, _, err) = q(&["hover", "tests/query/symbol_methods.bdg", "--line", "0", "--col", "0"]);
+    assert!(!ok && err.contains("start at 1"), "{err}");
+    let (ok, _, err) = q(&["hover", "tests/query/symbol_methods.bdg", "--line", "500", "--col", "1"]);
+    assert!(!ok && err.contains("past the end of the file"), "{err}");
+    // a method by its type: `Order.doubled`
+    let (ok, out, err) = q(&["symbol", "tests/query/symbol_methods.bdg", "--name", "Order.doubled"]);
+    assert!(ok && out.contains("\"name\":\"doubled\"") && out.contains("\"kind\":\"method\""), "{out}{err}");
 }
 
 /// Project tooling: optional paths (the current project), named entries,
@@ -1694,6 +1830,11 @@ fn diagnostics_early_phases() {
     let text = String::from_utf8_lossy(&out.stderr);
     assert!(text.contains("non_ascii_columns.bdg:4:41 ]"), "{text}");
     assert!(!text.contains("╭─▶"), "the label spans one line: {text}");
+    // labels in one file are one group, in line order (one header)
+    let out = lang().args(["check", "tests/diagnostics/second_label_above.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(text.matches("second_label_above.bdg:").count(), 1, "{text}");
+    assert!(text.find("first defined here") < text.find("redefined here"), "{text}");
     // a `.source` file is outside the formatting check (it does not parse)
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
@@ -1708,6 +1849,23 @@ fn diagnostics_early_phases() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("did you mean `result`?") && text.contains("did you mean `total`?"), "{text}");
     assert!(text.contains("`trim` is in std.text"), "{text}");
+    // a local hiding a module: the method call's error explains it
+    let out = lang().args(["check", "--json", "tests/diagnostics/local_hides_module.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("E0309") && text.contains("hides the imported module `list`"), "{text}");
+    // a block's type mismatch points at its last expression or statement
+    let out = lang().args(["check", "--json", "tests/diagnostics/block_result_span.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let lines: Vec<u64> = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "E0300")
+        .map(|d| d["labels"][0]["start"]["line"].as_u64().unwrap())
+        .collect();
+    assert_eq!(lines, vec![6, 10], "{text}");
+    assert!(text.contains("the block ends in a statement"), "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual
@@ -1727,6 +1885,40 @@ fn test_runner_controlled_clock() {
     ] {
         assert!(text.contains(want), "missing {want:?} in {text}");
     }
+}
+
+/// Local functions inside a test (even `test_*` ones taking parameters)
+/// are helpers: only the test itself runs, with no E0142 warning.
+#[test]
+fn test_runner_skips_local_functions() {
+    let out = lang().args(["test", "tests/testing/local_helpers.bdg"]).current_dir(root()).output().unwrap();
+    let (text, err) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(out.status.success(), "{text}{err}");
+    assert!(text.contains("1 passed; 0 failed") && !text.contains("test_value"), "{text}");
+    assert!(!err.contains("E0142"), "{err}");
+}
+
+/// Missing paths and empty selections fail: `inspect` of a path that does
+/// not exist, `test --json` of one (with a JSON report), and a test filter
+/// matching no test; a running program's snapshot without `--connect`
+/// says how to connect.
+#[test]
+fn cli_reports_missing_inputs() {
+    let out = lang().args(["inspect", "config", "tests/no-such-dir"]).current_dir(root()).output().unwrap();
+    assert!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("no such file"));
+    let out = lang().args(["inspect", "tasks"]).current_dir(root()).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--connect ADDR"), "{out:?}");
+    let out = lang().args(["test", "tests/no-such.bdg", "--json"]).current_dir(root()).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("a JSON report");
+    assert!(!out.status.success() && v["error"].as_str().unwrap().contains("no such file"), "{v}");
+    let out = lang()
+        .args(["test", "tests/testing/local_helpers.bdg", "--filter", "nomatch"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success() && String::from_utf8_lossy(&out.stderr).contains("no test matches `nomatch`")
+    );
 }
 
 /// Simulation fixtures: seeded scheduling, record/replay of interleavings,
@@ -2802,4 +2994,26 @@ fn conflicting_imports_are_reported() {
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(!out.status.success());
     assert!(text.contains("\"code\":\"E0141\"") && text.contains("`greet` is imported twice"), "{text}");
+}
+
+/// `badger format` leaves a file that does not parse alone (an error when
+/// the file is named, a warning when it is found in a directory), and an
+/// unreadable file does not stop the others being formatted.
+#[test]
+fn format_skips_broken_files() {
+    let dir = std::env::temp_dir().join(format!("badger-format-broken-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.bdg"), "fn  good( ) -> Int => 1\n").unwrap();
+    let broken = "fn bad( -> Int =>\n   1 +\n";
+    std::fs::write(dir.join("b.bdg"), broken).unwrap();
+    std::fs::write(dir.join("c.bdg"), [0xffu8, 0xfe, b'\n']).unwrap();
+    let out = lang().arg("format").arg(&dir).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("b.bdg:1:7: does not parse") && err.contains("cannot read"), "{err}");
+    assert_eq!(std::fs::read_to_string(dir.join("a.bdg")).unwrap(), "fn good() -> Int => 1\n");
+    assert_eq!(std::fs::read_to_string(dir.join("b.bdg")).unwrap(), broken);
+    let out = lang().arg("format").arg(dir.join("b.bdg")).output().unwrap();
+    assert!(!out.status.success(), "a named file that does not parse is an error");
+    let _ = std::fs::remove_dir_all(&dir);
 }

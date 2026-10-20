@@ -529,6 +529,10 @@ impl<'a> P<'a> {
                 unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
                 Ok(w)
             }
+            Kind::Record { fields, size, flat: true, .. } => {
+                let v = self.value(fields[0].desc)?;
+                Ok(crate::codec::flat_record(d, *size, &fields[0], v))
+            }
             Kind::Record { fields, tuple, size, .. } => {
                 if *tuple {
                     let vals = self.tuple(fields)?;
@@ -543,7 +547,17 @@ impl<'a> P<'a> {
                     self.literal(b"null")?;
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = self.value(variants[1].fields[0].desc)?;
+                let p = variants[1].fields[0].desc;
+                if !crate::codec::nullable(p) {
+                    let v = self.value(p)?;
+                    return Ok(root(make_enum(d, 1, &[v])));
+                }
+                // `[value]`: a value that can be `null` itself
+                self.expect_dec(b'[', "`null` or a one-element array (`[value]`)")?;
+                self.ws();
+                let v = self.value(p).map_err(|e| add_index(e, 0))?;
+                self.ws();
+                self.expect_dec(b']', "`]` after the one element")?;
                 Ok(root(make_enum(d, 1, &[v])))
             }
             Kind::Enum { variants, .. } => self.enumeration(d, variants),
@@ -573,6 +587,31 @@ impl<'a> P<'a> {
                 Ok(l)
             }
             Kind::Map { key, val } => self.mapping(d, key, val),
+            Kind::Set { elem } => {
+                self.expect_dec(b'[', "an array")?;
+                self.ws();
+                let out = root(crate::map::new(d));
+                if self.peek() == Some(b']') {
+                    self.i += 1;
+                    return Ok(out);
+                }
+                let mut i = 0usize;
+                loop {
+                    let v = self.value(elem).map_err(|e| add_index(e, i))?;
+                    crate::map::insert_mut(out, v, 0);
+                    i += 1;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.i += 1,
+                        Some(b']') => {
+                            self.i += 1;
+                            break;
+                        }
+                        _ => return jerr("expected `,` or `]`"),
+                    }
+                }
+                Ok(out)
+            }
             Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
                 let elem = crate::buffer::array_elem(d).expect("array");
                 self.expect_dec(b'[', "an array")?;
@@ -923,7 +962,7 @@ fn record_value(
     present: Vec<Option<(u64, usize)>>,
 ) -> Result<u64, PErr> {
     for (f, p) in fields.iter().zip(&present) {
-        if p.is_none() && f.desc.name != "Option" {
+        if p.is_none() && !crate::codec::omittable(f.desc) {
             return Err(PErr::Dec(
                 DecodeError { path: "$".into(), message: "missing required field".into() }
                     .field(&ty.name, &f.name),
@@ -935,7 +974,7 @@ fn record_value(
     for (f, p) in fields.iter().zip(present) {
         let v = match p {
             Some((v, _)) => v,
-            None => root(make_enum(f.desc, 0, &[])),
+            None => crate::codec::absent(f.desc),
         };
         unsafe { f.repr.store(pl.add(f.offset as usize), v) };
     }

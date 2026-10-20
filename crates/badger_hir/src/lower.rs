@@ -70,12 +70,83 @@ fn edit_distance(a: &str, b: &str) -> usize {
 
 struct ModScope {
     names: FxHashMap<Symbol, (Res, Span)>,
+    /// The names this module's imports bind, where.
+    imports: Vec<(Symbol, Span)>,
+    /// The names this module's code looked up (its imports and its own
+    /// items alike): what is not here is unused.
+    used: std::cell::RefCell<FxHashSet<Symbol>>,
 }
 
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message"];
+
+/// Where an attribute is written.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Place {
+    /// A top-level declaration (or a local function), by its keyword.
+    Item(&'static str),
+    Method,
+    Field,
+    Variant,
+    Param,
+    Statement,
+}
+
+impl Place {
+    fn describe(self) -> &'static str {
+        match self {
+            Place::Item("fn") => "a function",
+            Place::Item("struct") => "a struct",
+            Place::Item("enum") => "an enum",
+            Place::Item(_) => "this declaration",
+            Place::Method => "a method",
+            Place::Field => "a struct field",
+            Place::Variant => "an enum variant",
+            Place::Param => "a parameter",
+            Place::Statement => "a statement",
+        }
+    }
+}
+
+/// Where each of the compiler's attributes may be written (`allow`
+/// anywhere).
+fn attribute_fits(name: &str, place: Place) -> bool {
+    match name {
+        "allow" => true,
+        "derive" => matches!(place, Place::Item("struct" | "enum")),
+        "flatten" => place == Place::Item("struct"),
+        "fusion" => matches!(place, Place::Item("fn") | Place::Method),
+        "status" | "message" => place == Place::Variant,
+        _ => true,
+    }
+}
+
+/// The closed fusion vocabulary: the values a `@fusion(...)` annotation may
+/// carry. A `stage`'s kind is either named here or derived from the
+/// callback's shape (the `call` kind).
+const FUSION_ROLES: &[&str] = &["source", "stage", "terminal"];
+const FUSION_KINDS: &[&str] = &[
+    // sources
+    "range",
+    "from_range",
+    "list",
+    "entries", //
+    // stages
+    "call",
+    "take",
+    "skip",
+    "step_by",
+    "scan",
+    "enumerate",
+    "dedup", //
+    // terminals
+    "fold",
+    "count",
+    "sum",
+    "collect",
+];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
@@ -109,6 +180,7 @@ pub fn lower_program(
     cx.resolve_late_ctors();
     cx.check_consts();
     cx.check_provider_scopes();
+    cx.report_unused(modules);
     cx.hir
 }
 
@@ -131,6 +203,131 @@ struct Cx<'a> {
 }
 
 impl Cx<'_> {
+    /// Warnings for what a program's own modules never use: imports
+    /// (E0195), private top-level items (E0196), and `let` bindings never
+    /// read (E0197). Standard-library and dependency modules are not
+    /// checked; a name starting with `_` is never reported, and `@allow`
+    /// silences an item's.
+    fn report_unused(&mut self, modules: &[ParsedModule]) {
+        let checked = |m: &ParsedModule| !m.is_std && !m.dependency;
+        // a file loaded as two modules (a project's entry, checked on its
+        // own) is one source: what either used is used, reported once
+        let mut by_file: FxHashMap<badger_base::FileId, FxHashSet<Symbol>> = FxHashMap::default();
+        for (mi, _) in modules.iter().enumerate() {
+            let file = self.hir.modules[module_id(mi)].file;
+            by_file.entry(file).or_default().extend(self.scopes[mi].used.borrow().iter().copied());
+        }
+        // a file with errors lost some of its uses to error recovery: its
+        // unused names are not reported until it lowers cleanly
+        let broken: FxHashSet<badger_base::FileId> = self
+            .diags
+            .iter()
+            .filter(|d| d.severity == badger_base::Severity::Error)
+            .filter_map(|d| d.primary().map(|s| s.file))
+            .collect();
+        let mut files = FxHashSet::default();
+        for (mi, m) in modules.iter().enumerate() {
+            if !checked(m) {
+                continue;
+            }
+            let mid = module_id(mi);
+            let file = self.hir.modules[mid].file;
+            if broken.contains(&file) || !files.insert(file) {
+                continue;
+            }
+            let used = by_file[&self.hir.modules[mid].file].clone();
+            for (name, at) in self.scopes[mi].imports.clone() {
+                let n = self.sym(name).to_string();
+                if !used.contains(&name) && !n.starts_with('_') && !at.is_dummy() {
+                    self.diags.push(
+                        Diagnostic::warning(format!("unused import `{n}`"))
+                            .with_code("E0195")
+                            .with_label(at, "never used in this module")
+                            .with_note("remove it"),
+                    );
+                }
+            }
+            let mut items: Vec<(Symbol, DefId)> =
+                self.hir.modules[mid].items.iter().map(|(k, v)| (*k, *v)).collect();
+            items.sort_by_key(|(_, d)| self.hir.defs[*d].span.start);
+            for (name, d) in items {
+                let def = &self.hir.defs[d];
+                let what = match &def.kind {
+                    DefKind::Fn(_) => "function",
+                    DefKind::Global(_) => "value",
+                    DefKind::Struct(_) => "struct",
+                    DefKind::Enum(_) => "enum",
+                    DefKind::Alias(_) => "type",
+                    DefKind::Protocol(_) => "protocol",
+                    _ => continue,
+                };
+                let n = self.sym(name).to_string();
+                if def.is_pub
+                    || used.contains(&name)
+                    || n == "main"
+                    || n.starts_with("test_")
+                    || n.starts_with('_')
+                    || def.span.is_dummy()
+                {
+                    continue;
+                }
+                let span = def.span;
+                self.diags.push(
+                    Diagnostic::warning(format!("{what} `{n}` is never used"))
+                        .with_code("E0196")
+                        .with_label(span, "not used in this module, and not `pub`")
+                        .with_note(format!("remove it, mark it `pub`, or name it `_{n}`")),
+                );
+            }
+        }
+        if files.is_empty() {
+            return;
+        }
+        // locals: read when an expression names them (a lambda's captures
+        // are the same locals); an assignment is not a read
+        let mut read = FxHashSet::default();
+        for (_, e) in self.hir.exprs.iter() {
+            match &e.kind {
+                ExprKind::Local(l) => {
+                    read.insert(*l);
+                }
+                ExprKind::Lambda(lam) => read.extend(lam.captures.iter().copied()),
+                _ => {}
+            }
+        }
+        let mut bound = vec![];
+        for (_, e) in self.hir.exprs.iter() {
+            let ExprKind::Block { stmts, .. } = &e.kind else { continue };
+            for s in stmts {
+                if let Stmt::Let { pat, .. } = s {
+                    self.hir.pat_binders(*pat, &mut bound);
+                }
+            }
+        }
+        bound.sort();
+        bound.dedup();
+        for l in bound {
+            let local = &self.hir.locals[l];
+            let n = self.sym(local.name).to_string();
+            let synthetic = n.starts_with('_') || !n.chars().all(|c| c.is_alphanumeric() || c == '_');
+            // a module-level binding is a global, read through its definition
+            if synthetic
+                || matches!(local.owner, None | Some(Owner::Global(_)))
+                || read.contains(&l)
+                || local.span.is_dummy()
+                || !files.contains(&local.span.file)
+            {
+                continue;
+            }
+            self.diags.push(
+                Diagnostic::warning(format!("unused variable `{n}`"))
+                    .with_code("E0197")
+                    .with_label(local.span, "never read")
+                    .with_note(format!("name it `_{n}`, or discard the value with `let _ = ...`")),
+            );
+        }
+    }
+
     /// Import cycles may join modules of types and functions into one
     /// checked group, but not modules that initialize module-level values.
     fn check_import_cycles(&mut self, modules: &[ParsedModule]) {
@@ -542,7 +739,9 @@ impl Cx<'_> {
             for (k, v) in &self.hir.modules[mid].items {
                 names.insert(*k, (Res::Def(*v), self.hir.defs[*v].span));
             }
-            self.scopes.push(ModScope { names });
+            let mut imports: Vec<(Symbol, Span)> = imported.into_iter().map(|(n, (_, at))| (n, at)).collect();
+            imports.sort_by_key(|(_, at)| at.start);
+            self.scopes.push(ModScope { names, imports, used: Default::default() });
         }
     }
 
@@ -554,6 +753,29 @@ impl Cx<'_> {
 
     fn lower_module(&mut self, mi: usize, m: &ParsedModule) {
         let mid = module_id(mi);
+        // imports' and statements' attributes, checked against the
+        // module's imports
+        let imports_tagged = m
+            .ast
+            .items
+            .iter()
+            .any(|it| matches!(it.kind, ast::ItemKind::Import(_)) && !it.attributes.is_empty());
+        if imports_tagged || !m.ast.stmt_attributes.is_empty() {
+            let mut lx = BodyCx::new(self, &m.ast, mid);
+            for it in &m.ast.items {
+                if matches!(it.kind, ast::ItemKind::Import(_)) && !it.attributes.is_empty() {
+                    lx.check_attributes(&it.attributes, Place::Item("import"), it.span);
+                }
+            }
+            for (span, attrs) in &m.ast.stmt_attributes {
+                lx.check_attributes(attrs, Place::Statement, *span);
+                lx.cx.hir.scoped_attributes.push(ScopedAttributes {
+                    target: AttributeTarget::Statement,
+                    span: *span,
+                    attributes: attrs.clone(),
+                });
+            }
+        }
         for (ii, item) in m.ast.items.iter().enumerate() {
             let Some(def) = self.item_defs[mi][ii] else { continue };
             let mut lx = BodyCx::new(self, &m.ast, mid);
@@ -561,7 +783,9 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && !m.dependency && name.starts_with("test_") {
+                // a local function (lifted as `test_x.helper`) is not a test
+                let local = m.ast.local_fns.contains(&self.hir.defs[def].name);
+                if !m.is_std && !m.dependency && !local && name.starts_with("test_") {
                     if f.params.is_empty() {
                         self.hir.modules[mid].tests.push(def);
                     } else {
@@ -593,6 +817,9 @@ struct BodyCx<'c, 'a> {
     module: ModuleId,
     /// Lexical value scopes (innermost last).
     locals: Vec<FxHashMap<Symbol, LocalId>>,
+    /// Blocks declaring local functions being lowered: the depth of
+    /// `locals` there and the lifted names.
+    local_fn_frames: Vec<(usize, Vec<Symbol>)>,
     /// Generic/type parameter scopes.
     generics: Vec<FxHashMap<Symbol, GenericId>>,
     owners: Vec<OwnerFrame>,
@@ -618,6 +845,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast,
             module,
             locals: vec![],
+            local_fn_frames: vec![],
             generics: vec![],
             owners: vec![],
             loops: vec![],
@@ -723,30 +951,67 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     }
 
     fn lookup_module_name(&self, name: Symbol) -> Option<Res> {
-        self.cx.scopes[self.module.into_raw().into_u32() as usize].names.get(&name).map(|r| r.0)
+        let scope = &self.cx.scopes[self.module.into_raw().into_u32() as usize];
+        let found = scope.names.get(&name).map(|r| r.0);
+        if found.is_some() {
+            scope.used.borrow_mut().insert(name);
+        }
+        found
     }
 
     // ------------------------------------------------------------ items
 
-    /// Record the item's attributes and report any the compiler does not
-    /// know (an error in standard-library sources, a warning elsewhere).
-    fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
-        if item.attributes.is_empty() {
-            return;
-        }
-        let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
-        for attr in &item.attributes {
+    /// Check attributes written at `place`, covering `scope`: a library's
+    /// (`@lib.name`) needs `lib` to be a module this one imports; the rest
+    /// are the compiler's, and one it does not know is reported (an error
+    /// in standard-library sources, a warning elsewhere, so a newer
+    /// attribute does not break an older compiler); one written where it
+    /// does not apply is an error. `@allow(<code>, ...)` silences those
+    /// warnings within `scope`.
+    fn check_attributes(&mut self, attrs: &[ast::Attribute], place: Place, scope: Span) {
+        let is_std = self.cx.hir.modules[self.module].is_std;
+        let report = |this: &mut Self, msg: String, at: Span, label: &str, note: Option<&str>| {
+            let mut d = if is_std { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
+            d = d.with_code("E0191").with_label(at, label.to_string());
+            if let Some(n) = note {
+                d = d.with_note(n.to_string());
+            }
+            this.cx.diags.push(d);
+        };
+        for attr in attrs {
             let name = self.cx.interner.resolve(attr.name).to_string();
-            if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
-                let msg = format!("unknown attribute `@{name}`");
-                let mut d = Diagnostic::error(msg).with_code("E0191");
-                if !is_std {
-                    d = Diagnostic::warning(format!("unknown attribute `@{name}`")).with_code("E0191");
+            if let Some(&first) = attr.namespace.first() {
+                // a library's attribute: named after a module it imports
+                if !matches!(self.lookup_module_name(first), Some(Res::Module(_))) {
+                    let ns = self.cx.interner.resolve(first).to_string();
+                    report(
+                        self,
+                        format!("attribute `@{name}`: `{ns}` is not an imported module"),
+                        attr.span,
+                        "a library's attributes are named after its module",
+                        Some("import the module that defines it (`import lib`, for `@lib.name`)"),
+                    );
                 }
-                self.cx.diags.push(d.with_label(attr.span, "not recognised by the compiler"));
                 continue;
             }
-            // `@allow(<code>, ...)` silences those warnings inside this item
+            if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
+                report(
+                    self,
+                    format!("unknown attribute `@{name}`"),
+                    attr.span,
+                    "not recognised by the compiler",
+                    Some("a name without a namespace is the compiler's; a library's is `@lib.name`"),
+                );
+                continue;
+            }
+            if !attribute_fits(&name, place) {
+                self.cx.diags.push(
+                    Diagnostic::error(format!("`@{name}` does not apply to {}", place.describe()))
+                        .with_code("E0199")
+                        .with_label(attr.span, "written here"),
+                );
+                continue;
+            }
             if name == "allow" {
                 for arg in &attr.args {
                     let code = match arg {
@@ -755,7 +1020,96 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         _ => None,
                     };
                     if let Some(code) = code {
-                        self.cx.hir.allows.push((code, item.span));
+                        self.cx.hir.allows.push((code, scope));
+                    }
+                }
+            }
+        }
+    }
+
+    /// A parameter's attributes, covering its pattern.
+    fn param_attributes(&mut self, p: &ast::Param) {
+        if p.attributes.is_empty() {
+            return;
+        }
+        let span = self.ast.pats[p.pat].span;
+        self.check_attributes(&p.attributes, Place::Param, span);
+        self.cx.hir.scoped_attributes.push(ScopedAttributes {
+            target: AttributeTarget::Param,
+            span,
+            attributes: p.attributes.clone(),
+        });
+    }
+
+    /// Record the item's attributes, check them, and check the ones
+    /// particular to an item (`@flatten`, `@fusion`).
+    fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
+        if item.attributes.is_empty() {
+            return;
+        }
+        let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
+        let kind = match &item.kind {
+            ast::ItemKind::Fn(_) => "fn",
+            ast::ItemKind::Struct(_) => "struct",
+            ast::ItemKind::Enum(_) => "enum",
+            _ => "other",
+        };
+        self.check_attributes(&item.attributes, Place::Item(kind), item.span);
+        let mut flattened: Option<Span> = None;
+        for attr in &item.attributes {
+            let name = self.cx.interner.resolve(attr.name).to_string();
+            if !attr.namespace.is_empty() || !attribute_fits(&name, Place::Item(kind)) {
+                continue;
+            }
+            // `@flatten`: a one-field struct encoded as its field's value
+            if name == "flatten" {
+                let one_field = matches!(&item.kind, ast::ItemKind::Struct(s) if s.fields.len() == 1);
+                if let Some(first) = flattened {
+                    self.cx.diags.push(
+                        Diagnostic::warning("`@flatten` is written twice")
+                            .with_code("E0192")
+                            .with_label(attr.span, "a second one")
+                            .with_label(first, "the first"),
+                    );
+                } else if !attr.args.is_empty() {
+                    self.cx.diags.push(
+                        Diagnostic::error("`@flatten` takes no arguments")
+                            .with_code("E0192")
+                            .with_label(attr.span, "remove the arguments")
+                            .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
+                    );
+                } else if !one_field {
+                    self.cx.diags.push(
+                        Diagnostic::error("`@flatten` marks a struct with exactly one field")
+                            .with_code("E0192")
+                            .with_label(attr.span, "not a one-field struct")
+                            .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
+                    );
+                }
+                flattened = flattened.or(Some(attr.span));
+            }
+            // `@fusion(role = ..., template = ...)`: a closed vocabulary
+            if name == "fusion" {
+                for arg in &attr.args {
+                    let ast::AttrArg::KeyValue(k, v) = arg else { continue };
+                    let (label, allowed) = match self.cx.interner.resolve(*k) {
+                        "role" => ("role", FUSION_ROLES),
+                        "template" => ("kind", FUSION_KINDS),
+                        _ => continue,
+                    };
+                    let value = match &**v {
+                        ast::AttrArg::Name(s) => self.cx.interner.resolve(*s).to_string(),
+                        ast::AttrArg::Str(s) => s.clone(),
+                        _ => continue,
+                    };
+                    if !allowed.contains(&value.as_str()) {
+                        let msg = format!("unknown fusion {label} `{value}`");
+                        let mut d = Diagnostic::error(msg).with_code("E0194");
+                        if !is_std {
+                            d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
+                                .with_code("E0194");
+                        }
+                        self.cx.diags.push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
                     }
                 }
             }
@@ -796,11 +1150,16 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 let fields = s
                     .fields
                     .iter()
-                    .map(|f| FieldDef {
-                        name: f.name.sym,
-                        ty: self.lower_ty(f.ty),
-                        is_pub: f.is_pub,
-                        span: f.name.span,
+                    .map(|f| {
+                        let span = f.name.span.to(self.ast.types[f.ty].span);
+                        self.check_attributes(&f.attributes, Place::Field, span);
+                        FieldDef {
+                            attributes: f.attributes.clone(),
+                            name: f.name.sym,
+                            ty: self.lower_ty(f.ty),
+                            is_pub: f.is_pub,
+                            span: f.name.span,
+                        }
                     })
                     .collect();
                 let derives = self.lower_derives(&s.derives);
@@ -818,7 +1177,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     }
                     let fields =
                         v.fields.iter().map(|(l, t)| (l.map(|l| l.sym), self.lower_ty(*t))).collect();
-                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span });
+                    let message = v.attributes.iter().find_map(|a| match a.args.as_slice() {
+                        [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
+                        _ => None,
+                    });
+                    self.check_attributes(&v.attributes, Place::Variant, v.span);
+                    variants.push(VariantDef {
+                        attributes: v.attributes.clone(),
+                        name: v.name.sym,
+                        fields,
+                        span: v.span,
+                        message,
+                    });
                 }
                 let derives = self.lower_derives(&e.derives);
                 self.generics.pop();
@@ -850,7 +1220,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 for m in &i.methods {
                     // inherent methods are private unless `pub`; protocol
                     // methods are as visible as the protocol
+                    self.check_attributes(&m.attributes, Place::Method, m.span);
                     let mdef = self.alloc_method_def(m, def, protocol.is_some() || m.is_pub);
+                    if !m.attributes.is_empty() {
+                        self.cx.hir.attributes.entry(mdef).or_default().extend(m.attributes.iter().cloned());
+                    }
                     methods.push(mdef);
                 }
                 self.in_impl = false;
@@ -1086,6 +1460,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.check_bound_once(&pats);
         self.in_params = true;
         for (i, p) in f.params.iter().enumerate() {
+            self.param_attributes(p);
             if i == 0
                 && let ast::PatKind::Bind(n) = &self.ast.pats[p.pat].kind
             {
@@ -1404,7 +1779,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             match self.lookup_module_name(name.sym) {
                 Some(Res::Def(d)) => return Some(TypeRes::Def(d)),
                 _ => {
-                    self.err("E0122", name.span, format!("unknown type `{text}`"), "not found in this scope");
+                    let mut d = Diagnostic::error(format!("unknown type `{text}`"))
+                        .with_code("E0122")
+                        .with_label(name.span, "not found in this scope");
+                    if let Some(near) = self.nearest_name(&text) {
+                        d = d.with_note(format!("did you mean `{near}`?"));
+                    }
+                    self.cx.diags.push(d);
                     return None;
                 }
             }
@@ -1444,7 +1825,27 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             None => {
                 let s = self.sym(name.sym);
                 let mp = self.cx.path_str(&self.cx.hir.modules[m].path.clone());
-                self.err("E0113", name.span, format!("module `{mp}` has no item `{s}`"), "not found");
+                let mut d = Diagnostic::error(format!("module `{mp}` has no item `{s}`"))
+                    .with_code("E0113")
+                    .with_label(name.span, "not found");
+                // the nearest of the members visible here
+                let limit = if s.chars().count() <= 3 { 1 } else { 2 };
+                let upper = |x: &str| x.starts_with(|c: char| c.is_uppercase());
+                let near = self.cx.hir.modules[m]
+                    .items
+                    .iter()
+                    .filter(|(_, d)| self.cx.hir.defs[**d].is_pub || m == self.module)
+                    .map(|(k, _)| self.cx.interner.resolve(*k).to_string())
+                    .filter(|n| upper(n) == upper(&s) && !n.starts_with('_'))
+                    .map(|n| (edit_distance(&s, &n), n))
+                    .filter(|(dist, _)| *dist <= limit)
+                    .min();
+                if let Some((_, near)) = near {
+                    // as written: by the module's last segment (`io.println`)
+                    let short = mp.rsplit('.').next().unwrap_or(&mp);
+                    d = d.with_note(format!("did you mean `{short}.{near}`?"));
+                }
+                self.cx.diags.push(d);
                 None
             }
         }
@@ -1499,7 +1900,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     })
                     .collect(),
             ),
-            ast::ExprKind::Name(n) => return self.lower_name(*n, span),
+            ast::ExprKind::Name(n) => {
+                let n = self.unhidden(e, *n);
+                return self.lower_name(n, span);
+            }
             ast::ExprKind::TypeName(n) => {
                 let s = self.sym(n.sym);
                 self.err(
@@ -1662,7 +2066,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             }
             ast::ExprKind::Block { stmts } => {
                 self.locals.push(FxHashMap::default());
+                let frame = self.ast.local_fn_blocks.get(&e).cloned();
+                if let Some(f) = &frame {
+                    self.local_fn_frames.push((self.locals.len(), f.clone()));
+                }
                 let (stmts, tail) = self.lower_stmts(stmts);
+                if frame.is_some() {
+                    self.local_fn_frames.pop();
+                }
                 self.locals.pop();
                 ExprKind::Block { stmts, tail }
             }
@@ -1733,6 +2144,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
             },
             ast::ExprKind::Unsafe(b) => ExprKind::Unsafe(self.lower_expr(*b)),
+            ast::ExprKind::Region { name, body } => {
+                let bounds = match self.cx.hir.try_lang("Scope") {
+                    Some(def) => vec![HTy { kind: HTyKind::Named { def, args: vec![] }, span: name.span }],
+                    None => vec![],
+                };
+                let g = self.cx.hir.generics.alloc(GenericParam {
+                    name: name.sym,
+                    span: name.span,
+                    bounds,
+                    owner: self.cur_def,
+                });
+                self.generics.push(FxHashMap::from_iter([(name.sym, g)]));
+                let body = self.lower_expr(*body);
+                self.generics.pop();
+                self.cx.hir.region_blocks.insert(body, g);
+                return body;
+            }
         };
         self.alloc(kind, span)
     }
@@ -1761,6 +2189,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::Lit::Bool(b) => Lit::Bool(*b),
             ast::Lit::Unit => Lit::Unit,
         }
+    }
+
+    /// A name the syntax rewrote to a local function, as written when a
+    /// binding of it is as close as the function's block or closer (`fn g`
+    /// then `let g = 5`: `g` is the `let`).
+    fn unhidden(&self, e: ast::ExprId, n: ast::Name) -> ast::Name {
+        let Some(&written) = self.ast.local_fn_refs.get(&e) else { return n };
+        let Some(local) = self.locals.iter().rposition(|s| s.contains_key(&written)) else { return n };
+        let block = self.local_fn_frames.iter().rev().find(|(_, f)| f.contains(&n.sym)).map(|(d, _)| *d);
+        // inside a lifted function's own body there is no frame: its
+        // parameters and locals hide the other local functions
+        if block.is_none_or(|d| local + 1 >= d) { ast::Name { sym: written, span: n.span } } else { n }
     }
 
     fn lower_name(&mut self, n: ast::Name, span: Span) -> ExprId {
@@ -1822,6 +2262,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             Some(Ns::Type(ty)) => {
                 let kind = self.type_member(ty, name, targs);
                 self.alloc(kind, span)
+            }
+            // `Typo.member`: the unknown type is reported (once)
+            None if matches!(self.ast.exprs[base].kind, ast::ExprKind::TypeName(_)) => {
+                self.alloc(ExprKind::Error, span)
             }
             None => {
                 if !targs.is_empty() {
@@ -1907,6 +2351,30 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         })
     }
 
+    /// `list.map(xs, f)` where a local named `list` hides the imported
+    /// module `list` (which has a `map`): it calls the local's method, not
+    /// the module function. An error at such a call says so.
+    fn check_shadowed_module_call(&mut self, base: ast::ExprId, method: ast::Name, call: Span) {
+        let ast::ExprKind::Name(n) = &self.ast.exprs[base].kind else { return };
+        let n = *n;
+        if self.cx.hir.modules[self.module].is_std || !self.locals.iter().any(|f| f.contains_key(&n.sym)) {
+            return;
+        }
+        let Some((Res::Module(m), _)) =
+            self.cx.scopes[self.module.into_raw().into_u32() as usize].names.get(&n.sym).copied()
+        else {
+            return;
+        };
+        if !self.cx.hir.modules[m].items.contains_key(&method.sym) {
+            return;
+        }
+        let (v, f) = (self.sym(n.sym), self.sym(method.sym));
+        self.cx.hir.shadowed_module_calls.push((
+            call,
+            format!("`{v}` here is a local value (it hides the imported module `{v}`), so `{v}.{f}(...)` calls its method; rename the local to call the module's `{f}`"),
+        ));
+    }
+
     fn lower_call_with(
         &mut self,
         callee: ast::ExprId,
@@ -1918,6 +2386,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         if let ast::ExprKind::Field { base, name } = &self.ast.exprs[callee].kind {
             let (base, name) = (*base, *name);
             if self.namespace_of(base).is_none() {
+                self.check_shadowed_module_call(base, name, span);
                 let recv = self.lower_expr(base);
                 let targs = type_args.iter().map(|t| self.lower_ty(*t)).collect();
                 let args = args(self);
@@ -1940,8 +2409,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             self.lower_expr(callee)
         } else {
             match &self.ast.exprs[callee].kind {
-                ast::ExprKind::Name(n) if self.lookup_local(n.sym).is_none() => {
-                    let n = *n;
+                ast::ExprKind::Name(n) if self.lookup_local(self.unhidden(callee, *n).sym).is_none() => {
+                    let n = self.unhidden(callee, *n);
                     let targs = type_args.iter().map(|t| self.lower_ty(*t)).collect();
                     let kind = match self.lookup_module_name(n.sym) {
                         Some(Res::Def(d)) => self.def_value(d, n, targs),
@@ -1965,8 +2434,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     fn lower_pipe(&mut self, lhs: ast::ExprId, rhs: ast::ExprId, span: Span) -> ExprId {
         let l = self.lower_expr(lhs);
+        // `x |> _`: the hole is the stage's function (a call of `hole`
+        // written as `_` takes no arguments of its own)
+        let hole = matches!(&self.ast.exprs[rhs].kind,
+            ast::ExprKind::Call { callee, args, .. } if args.is_empty()
+                && matches!(self.ast.exprs[*callee].kind, ast::ExprKind::Std("hole")));
         match &self.ast.exprs[rhs].kind {
-            ast::ExprKind::Call { callee, type_args, args } => {
+            ast::ExprKind::Call { callee, type_args, args } if !hole => {
                 let (callee, type_args, args) = (*callee, type_args.clone(), args.clone());
                 self.lower_call(callee, &type_args, &args, span, Some(l))
             }
@@ -2117,6 +2591,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let saved_loops = std::mem::take(&mut self.loops);
         let pats: Vec<ast::PatId> = params.iter().map(|p| p.pat).collect();
         self.check_bound_once(&pats);
+        for p in params {
+            self.param_attributes(p);
+        }
         let was_params = std::mem::replace(&mut self.in_params, true);
         let mut params: Vec<Param> = params
             .iter()
@@ -2201,7 +2678,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     let span = *span;
                     let call_id = *call;
                     let lam_params: Vec<ast::Param> =
-                        pats.iter().map(|&p| ast::Param { pat: p, ty: None }).collect();
+                        pats.iter().map(|&p| ast::Param { attributes: vec![], pat: p, ty: None }).collect();
                     let body_span = rest
                         .first()
                         .map(|s| stmt_span(self.ast, s))
@@ -2787,18 +3264,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         "E0702",
                         path[0].span,
                         "unexpected stage field",
-                        "expected name, enter, leave, or error",
+                        "expected name, enter, leave, error, or around",
                     );
                     continue;
                 }
             };
             let key = self.sym(label.sym);
-            if !matches!(key.as_str(), "name" | "enter" | "leave" | "error") {
+            if !matches!(key.as_str(), "name" | "enter" | "leave" | "error" | "around") {
                 self.err(
                     "E0702",
                     label.span,
                     format!("unknown stage field `{key}`"),
-                    "expected name, enter, leave, or error",
+                    "expected name, enter, leave, error, or around",
                 );
                 continue;
             }
@@ -2825,6 +3302,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let enter = fields.remove("enter");
         let leave = fields.remove("leave");
         let error = fields.remove("error");
+        // `around(ctx, next)` wraps the rest by itself
+        if let Some(a) = fields.remove("around") {
+            if enter.is_some() || leave.is_some() || error.is_some() {
+                self.err(
+                    "E0702",
+                    span,
+                    "an `around` stage has no `enter`, `leave`, or `error`",
+                    "`around(ctx, next)` runs the rest of the pipeline itself: split the other callbacks into a stage of their own",
+                );
+            }
+            return self.call_lang("pipeline.around", vec![name, a], span);
+        }
         let leave = wrap(self, leave);
         let error = wrap(self, error);
         match enter {
@@ -3008,7 +3497,11 @@ fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
             go(*callee);
             args.iter().for_each(|a| go(*a))
         }
-        K::Try(x) | K::Unary { operand: x, .. } | K::Unsafe(x) | K::Loop { body: x } => go(*x),
+        K::Try(x)
+        | K::Unary { operand: x, .. }
+        | K::Unsafe(x)
+        | K::Loop { body: x }
+        | K::Region { body: x, .. } => go(*x),
         K::Binary { lhs, rhs, .. } => {
             go(*lhs);
             go(*rhs)

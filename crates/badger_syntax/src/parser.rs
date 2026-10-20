@@ -70,11 +70,26 @@ pub fn parse_recovering(
     };
     let (tokens, lex_errors) = token::lex(src);
     let mut errors: Vec<Diagnostic> = lex_errors.into_iter().map(|e| syntax(e.span, e.message)).collect();
-    // unbalanced brackets explain everything after them: report them alone
+    // unbalanced brackets explain everything after them: report them alone,
+    // with the tree of the text as if they were balanced (for the editor's
+    // symbols, hover, and completion while one is being typed)
     let brackets = bracket_errors(file, src, &tokens);
     if !brackets.is_empty() {
         errors.extend(brackets);
-        return (Ast::default(), errors);
+        let (tokens, too_deep) = token::layout(repair_brackets(src, tokens));
+        if too_deep.is_some() {
+            return (Ast::default(), errors);
+        }
+        let eoi: token::Span = (src.len()..src.len()).into();
+        let input = tokens.as_slice().split_token_span(eoi);
+        let (items, _) = grammar::program::<_, grammar::Error<'_, '_>>().parse(input).into_output_errors();
+        // the repaired tree's own findings are left out, as its errors are
+        let mut scratch = vec![];
+        let mut lower = Lower::new(file, src, interner, &mut scratch);
+        if let Some(items) = items {
+            lower.items(items);
+        }
+        return (lower.ast, errors);
     }
     let (tokens, too_deep) = token::layout(tokens);
     if let Some(at) = too_deep {
@@ -185,7 +200,12 @@ fn describe(e: &grammar::Error<'_, '_>) -> String {
                 "`!=`", "`%`", "`&&`", "`&`", "`*`", "`+`", "`-`", "`..=`", "`..`", "`/`", "`<<`", "`<=`",
                 "`<`", "`==`", "`^`", "`|>`", "`|`", "`||`", "`>`", "`.`", "`?`", "`(`", "`[`",
             ];
-            if names.iter().filter(|n| OPERATORS.contains(&n.as_str())).count() >= 4 {
+            // a body that must be a block says so: the operators that could
+            // continue the condition are noise beside it
+            let block_body = names.iter().any(|n| n.starts_with(grammar::BLOCK_BODY));
+            if block_body {
+                names.retain(|n| !OPERATORS.contains(&n.as_str()));
+            } else if names.iter().filter(|n| OPERATORS.contains(&n.as_str())).count() >= 4 {
                 names.retain(|n| !OPERATORS.contains(&n.as_str()));
                 names.push("an operator".into());
             }
@@ -254,6 +274,47 @@ fn bracket_errors(file: FileId, src: &str, tokens: &[(Tok<'_>, token::Span)]) ->
     out
 }
 
+/// The tokens with their brackets balanced, guessing where the missing
+/// ones go: a stray closer is dropped, a mismatched one closes what is
+/// open up to its opener, and what is still open closes before the next
+/// line starting at column 0 (the next declaration) or at the end.
+fn repair_brackets<'a>(src: &str, tokens: Vec<(Tok<'a>, token::Span)>) -> Vec<(Tok<'a>, token::Span)> {
+    let close_of = |t: Tok<'_>| match t {
+        Tok::LParen => Tok::RParen,
+        Tok::LBracket => Tok::RBracket,
+        _ => Tok::RBrace,
+    };
+    let at = |p: usize| -> token::Span { (p..p).into() };
+    let mut stack: Vec<Tok<'a>> = vec![];
+    let mut out = Vec::with_capacity(tokens.len() + 4);
+    for (t, s) in tokens {
+        let line_start = s.start == 0 || src.as_bytes().get(s.start - 1) == Some(&b'\n');
+        let closer = matches!(t, Tok::RParen | Tok::RBracket | Tok::RBrace);
+        if line_start && !closer && !stack.is_empty() {
+            while let Some(open) = stack.pop() {
+                out.push((close_of(open), at(s.start)));
+            }
+        }
+        match t {
+            Tok::LParen | Tok::LBracket | Tok::LBrace => stack.push(t),
+            Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                let Some(depth) = stack.iter().rposition(|o| close_of(*o) == t) else { continue };
+                while stack.len() > depth + 1 {
+                    let open = stack.pop().unwrap();
+                    out.push((close_of(open), at(s.start)));
+                }
+                stack.pop();
+            }
+            _ => {}
+        }
+        out.push((t, s));
+    }
+    while let Some(open) = stack.pop() {
+        out.push((close_of(open), at(src.len())));
+    }
+    out
+}
+
 /// The tokens of a source that parses, as `(kind, text)` pairs: a
 /// whitespace-insensitive fingerprint of its structure (used to check that
 /// formatting preserves meaning). A trailing comma before a closer is left
@@ -305,6 +366,13 @@ mod tests {
             .iter()
             .map(|d| (d.labels[0].span.start, format!("{}: {}", d.message, d.labels[0].message)))
             .collect()
+    }
+
+    /// Whether a source parses (the syntax errors are what matters here).
+    fn parses(src: &str) -> bool {
+        let mut sm = SourceMap::default();
+        let f = sm.add("t", src);
+        parse(f, &sm.get(f).text, &mut Interner::new(), &mut vec![]).is_ok()
     }
 
     fn body_expr(ast: &Ast) -> ExprId {
@@ -427,6 +495,39 @@ mod tests {
     fn reports_error_span() {
         let errs = errors("let x = 1 + ");
         assert_eq!(errs[0].0, 12, "{errs:?}");
+    }
+
+    /// A control-flow body is a block, always: `if x return` is not a form
+    /// of the language, and the error says which block is missing.
+    #[test]
+    fn a_body_is_a_block() {
+        for (src, after) in [
+            ("fn f() {\n    if x return\n}", "after the `if` condition"),
+            ("fn f() {\n    if x { } else return\n}", "after `else`"),
+            ("fn f() {\n    while x do_it()\n}", "after the `while` condition"),
+            ("fn f() {\n    for x in y do_it()\n}", "after the `for` header"),
+            ("fn f() {\n    loop do_it()\n}", "after `loop`"),
+            ("fn f() {\n    unsafe do_it()\n}", "after `unsafe`"),
+            ("fn f() {\n    let x = 1 else return\n}", "after `else`"),
+        ] {
+            let errs = errors(src);
+            assert_eq!(errs.len(), 1, "{src}: {errs:?}");
+            assert!(errs[0].1.contains("a block `{ ... }`"), "{src}: {errs:?}");
+            assert!(errs[0].1.contains(after), "{src}: {errs:?}");
+        }
+        // the block is what parses
+        for src in [
+            "fn f() {\n    if x { return }\n}",
+            "fn f() {\n    if x { } else { return }\n}",
+            "fn f() {\n    while x { do_it() }\n}",
+            "fn f() {\n    for x in y { do_it() }\n}",
+            "fn f() {\n    loop { do_it() }\n}",
+            "fn f() {\n    unsafe { do_it() }\n}",
+            "fn f() {\n    let x = 1 else { return }\n}",
+            "fn f() {\n    if x { } else if y { } else { }\n}",
+        ] {
+            assert!(parses(src), "{src}");
+        }
     }
 
     #[test]

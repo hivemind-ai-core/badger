@@ -846,19 +846,7 @@ impl Session {
 
     /// Drop warnings suppressed by an `@allow(<code>)` region.
     fn suppress_warnings(&mut self, hir: &badger_hir::Hir) {
-        if hir.allows.is_empty() {
-            return;
-        }
-        let allows = &hir.allows;
-        self.diagnostics.retain(|d| {
-            if d.severity != badger_base::Severity::Warning {
-                return true;
-            }
-            let (Some(code), Some(span)) = (d.code, d.primary()) else { return true };
-            !allows.iter().any(|(c, r)| {
-                c.as_str() == code && r.file == span.file && r.start <= span.start && span.end <= r.end
-            })
-        });
+        suppress_allowed(&mut self.diagnostics, hir)
     }
 
     /// Give each diagnostic without one a readable scope: the innermost
@@ -1257,6 +1245,8 @@ impl Session {
                 Diagnostic::error(format!("no `{entry_fn}` function in the entry module")).with_code("E0012"),
             );
         }
+        // `@allow(...)` applies to running (and testing) as to checking
+        suppress_allowed(&mut self.diagnostics, &hir);
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
@@ -1279,8 +1269,10 @@ impl Session {
                 Ok(r) => r,
                 Err(e) => {
                     self.diagnostics.push(
-                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
-                            .with_code("E9001"),
+                        Diagnostic::error(format!(
+                            "internal compiler error: MIR translation validation failed: {e}"
+                        ))
+                        .with_code("E9001"),
                     );
                     return Err(Outcome::Errors);
                 }
@@ -1435,8 +1427,10 @@ impl Session {
                 Ok(_) => {}
                 Err(e) => {
                     self.diagnostics.push(
-                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
-                            .with_code("E9001"),
+                        Diagnostic::error(format!(
+                            "internal compiler error: MIR translation validation failed: {e}"
+                        ))
+                        .with_code("E9001"),
                     );
                     return Err(Outcome::Errors);
                 }
@@ -1801,9 +1795,14 @@ pub fn take_tests() -> (usize, usize, Vec<String>) {
 /// Set while `badger test --list` collects names (nothing runs).
 pub static LISTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-pub fn finish_tests(json: bool) -> i32 {
+pub fn finish_tests(json: bool, filter: Option<&str>) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));
+    // a filter that selects nothing is most likely mistyped: not a pass
+    let unmatched = filter.filter(|_| ran == 0 && results.is_empty());
+    if let Some(f) = unmatched {
+        eprintln!("error: no test matches `{f}`");
+    }
     if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
         if json {
             println!("{{\"tests\":[{}]}}", results.join(","));
@@ -1815,11 +1814,11 @@ pub fn finish_tests(json: bool) -> i32 {
     } else {
         println!(
             "\ntest result: {}. {} passed; {failed} failed",
-            if failed == 0 { "ok" } else { "FAILED" },
+            if failed == 0 && unmatched.is_none() { "ok" } else { "FAILED" },
             ran - failed
         );
     }
-    if failed == 0 { 0 } else { 1 }
+    if failed == 0 && unmatched.is_none() { 0 } else { 1 }
 }
 
 fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &RunOptions) -> i32 {
@@ -2121,10 +2120,11 @@ pub fn describe_def(
                 .collect();
             let derives: Vec<String> =
                 sd.derives.iter().map(|d| interner.resolve(hir.defs[d.protocol].name).to_string()).collect();
+            // as written: `@derive(Eq) struct ...` (one line, for hovers too)
             let der =
-                if derives.is_empty() { String::new() } else { format!(" derive({})", derives.join(", ")) };
+                if derives.is_empty() { String::new() } else { format!("@derive({}) ", derives.join(", ")) };
             return Some((
-                format!("struct {name}{} {{ {} }}{der}", gen_list(&gn), fields.join(", ")),
+                format!("{der}struct {name}{} {{ {} }}", gen_list(&gn), fields.join(", ")),
                 "(a type)".into(),
             ));
         }
@@ -2246,7 +2246,38 @@ pub fn describe_def(
                 .params
                 .iter()
                 .any(|p| badger_typeck::ty::ty_any(p, &mut |k| matches!(k, badger_typeck::TyKind::Fn(_))));
-            format!("!{{{}}}{}", ls.join(", "), if open { " plus the effects of its callbacks" } else { "" })
+            let mut text = format!(
+                "!{{{}}}{}",
+                ls.join(", "),
+                if open { " plus the effects of its callbacks" } else { "" }
+            );
+            // where each effect comes from: the first call (or operation)
+            // in the body that needs it
+            let sites = g.effect_sites.borrow().get(&def).cloned().unwrap_or_default();
+            let mut origins: Vec<(String, String)> = sites
+                .iter()
+                .filter_map(|(l, sp)| {
+                    let label = interner.resolve(*l).to_string();
+                    if label.starts_with('%') || sp.is_dummy() {
+                        return None;
+                    }
+                    let f = sources.get(sp.file);
+                    let (line, col) = f.line_col(sp.start as usize);
+                    let snippet: String = f.text[sp.range()].split_whitespace().collect::<Vec<_>>().join(" ");
+                    let snippet = if snippet.chars().count() > 60 {
+                        format!("{}...", snippet.chars().take(57).collect::<String>())
+                    } else {
+                        snippet
+                    };
+                    Some((label, format!("{}:{line}:{col} `{snippet}`", f.name)))
+                })
+                .collect();
+            origins.sort();
+            origins.dedup_by(|a, b| a.0 == b.0);
+            for (label, at) in origins {
+                text.push_str(&format!("\n  {label}: {at}"));
+            }
+            text
         }
         _ => "(not a function)".to_string(),
     };
@@ -2354,4 +2385,21 @@ fn check_typed<'a>(
         }
     }
     (checked, diags, fresh)
+}
+
+/// Drop the warnings an `@allow(<code>)` region covers.
+fn suppress_allowed(diagnostics: &mut Diagnostics, hir: &badger_hir::Hir) {
+    if hir.allows.is_empty() {
+        return;
+    }
+    let allows = &hir.allows;
+    diagnostics.retain(|d| {
+        if d.severity != badger_base::Severity::Warning {
+            return true;
+        }
+        let (Some(code), Some(span)) = (d.code, d.primary()) else { return true };
+        !allows.iter().any(|(c, r)| {
+            c.as_str() == code && r.file == span.file && r.start <= span.start && span.end <= r.end
+        })
+    });
 }

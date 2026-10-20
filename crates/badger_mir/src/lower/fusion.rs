@@ -110,12 +110,12 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.range" => "range",
                 "std.seq.from_range" => "from_range",
                 "std.list.of" | "std.list.seq" => "list",
-                "std.seq.map" => "map",
-                "std.seq.filter" => "filter",
+                "std.list.map" | "std.list.filter" => "call",
+                "std.seq.map" | "std.seq.filter" => "call",
                 "std.seq.take" => "take",
                 "std.seq.skip" => "skip",
                 "std.seq.step_by" => "step_by",
-                "std.seq.filter_map" => "filter_map",
+                "std.seq.filter_map" => "call",
                 "std.seq.scan" => "scan",
                 "std.seq.enumerate" => "enumerate",
                 "std.seq.dedup" => "dedup",
@@ -155,15 +155,30 @@ impl FnLower<'_, '_, '_> {
                 let elem = self.m.lay.args(&self.ty(*list)).first()?.clone();
                 Some((Source::List(*list, elem, false), vec![]))
             }
-            ("map" | "filter" | "take" | "skip" | "step_by" | "filter_map", [inner, arg]) => {
+            ("take" | "skip" | "step_by", [inner, arg]) => {
                 let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
                 stages.push(match template.as_str() {
-                    "map" => Stage::Map(*arg),
-                    "filter" => Stage::Filter(*arg),
                     "take" => Stage::Take(*arg),
                     "skip" => Stage::Skip(*arg),
-                    "step_by" => Stage::StepBy(*arg),
-                    _ => Stage::FilterMap(*arg),
+                    _ => Stage::StepBy(*arg),
+                });
+                Some((source, stages))
+            }
+            ("call", [inner, arg]) => {
+                // the callback's shape decides the stage; a `Seq` result
+                // keeps this the sequence pipeline (a `List.map` chain is
+                // the eager engine's)
+                let t = self.ty(e);
+                if !self.m.lay.is_std(&t, "Seq") {
+                    return None;
+                }
+                let (source, mut stages) = self.sequence_plan(*inner, depth + 1)?;
+                stages.push(if self.callback_returns_bool(*arg) {
+                    Stage::Filter(*arg)
+                } else if self.callback_returns_option(*arg) {
+                    Stage::FilterMap(*arg)
+                } else {
+                    Stage::Map(*arg)
                 });
                 Some((source, stages))
             }
@@ -203,9 +218,7 @@ impl FnLower<'_, '_, '_> {
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
         match (template.as_str(), args.as_slice()) {
-            ("map" | "filter" | "take" | "skip" | "step_by" | "filter_map", [inner, _]) => {
-                self.sequence_local_use(*inner, depth + 1)
-            }
+            ("call" | "take" | "skip" | "step_by", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
@@ -573,19 +586,15 @@ impl FnLower<'_, '_, '_> {
                     let passing = self.block();
                     self.switch(first);
                     self.emit(Stmt::Assign(seen, Rvalue::Use(int(1))));
-                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(rest);
-                    let eq = self.rt(
-                        "badger_rt_eq",
-                        vec![desc.clone(), Operand::Local(prev), value.clone()],
-                        Repr::I8,
-                    );
+                    let eq = self.rt("badger_rt_eq", vec![desc, Operand::Local(prev), value], Repr::I8);
                     let eqb = self.copy_to_local(eq, Repr::I8, None);
                     let changed = self.block();
                     self.term(Term::Branch(Operand::Local(eqb), step, changed));
                     self.switch(changed);
-                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(passing);
                 }

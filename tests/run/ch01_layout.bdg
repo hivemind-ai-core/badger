@@ -3,10 +3,10 @@
 import std.io
 pub fn main() -> Result<Unit, io.Error> {
     let x = 1 +
-    2 *
-    3
+        2 *
+        3
     let ok_and = true &&
-    false
+        false
     let y = f(
         1,
         2,

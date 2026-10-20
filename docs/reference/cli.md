@@ -60,10 +60,11 @@ type Settings = {
     db: { path: String },
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 /// Half of an even number.
 requires n % 2 == 0
@@ -133,6 +134,19 @@ workspace root, every member package. A single file need not have a
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
+Three commands report diagnostics, for three readers: `badger check`
+reports them for a person (as text) or as a JSON array; `badger query
+check` reports them with what was checked (the inputs and the roots),
+for an agent; `badger query diagnostics` reports them flattened to one
+location each, as the editor wants them.
+
+Among the warnings are the names a program's own modules never use: an
+import (E0195), a function, value, or type that is not `pub` (E0196), and a
+`let` binding whose value is never read (E0197). A name starting with `_`
+is never reported, `main` and `test_` functions are used by the tools, and
+`@allow(CODE)` on an item silences it. Standard-library and dependency
+modules are not checked, nor is a file with errors (until it lowers cleanly).
+
 ```sh
 badger check                 # the current project
 badger check src/util.bdg    # one file (checked with its project, if any)
@@ -187,7 +201,7 @@ $ badger run --release --workers 4 . -- some args
 port=8080 db=demo.db half=4040
 ```
 
-### `badger test [PATH] [FILTER] [--json] [--list] [--exact] [--watch]`
+### `badger test [PATH] [--filter FILTER] [--json] [--list] [--exact] [--watch]`
 
 Run `test_*` functions. A test function takes no parameters and returns
 `Unit` or a `Result`; a failed assertion, a defect, or an `err` result
@@ -198,11 +212,13 @@ tested). For a project, the modules reached from each `[entries]` and
 `[tasks]` module are included too (each test runs once); at a workspace
 root, every member package is tested.
 
-The first argument is PATH when it names an existing file or directory;
-otherwise it is FILTER. FILTER keeps the tests whose name contains it.
+FILTER keeps the tests whose name contains it. PATH is the program or
+project to test (default `.`); a path that does not exist is an error
+(a test's name goes after `--filter`).
 
 | Flag | Meaning |
 |---|---|
+| `--filter NAME` | Run only the tests whose name contains NAME. |
 | `--json` | Print one JSON object at the end: `{"passed":N,"failed":N,"tests":[...]}`; each test has `name`, `ok`, `kind` (`passed`, `assertion`, `defect`, `cancelled`, or `error` for a returned `err`), `message`, `location` (`file:line:column` of a failed assertion or defect), `ms`, and `detail` (the line the text report prints). |
 | `--list` | Print the selected tests' names (with `--json`, `{"tests":[{"name"}]}`) without running them. |
 | `--exact` | FILTER names one test: its full name (`orders.service.test_create`) or its function's name. |
@@ -212,7 +228,7 @@ Exit status: 0 when every test that ran passed (also when the filter
 matched none), 1 when one failed or the program does not check.
 
 ```sh
-$ badger test half
+$ badger test --filter half
 test test_half ... ok
 
 test result: ok. 1 passed; 0 failed
@@ -435,18 +451,17 @@ one.
 | `definition` | PATH, `--line`, `--col` | Location of the definition. |
 | `references` | PATH, `--line`, `--col` | Every use, across all of a project's entry points and tasks. |
 | `completion` | PATH, `--line`, `--col` | Completion items at the position. |
-| `rename` | PATH, `--line`, `--col`, `--name` | `{"edits": [...]}`: the edits a rename makes. Nothing is written. |
 
 | Flag | Meaning |
 |---|---|
 | `--line N`, `--col N` | Position (1-based). |
 | `--source TEXT` | Ask about this source text, checked on its own, instead of PATH. `-` reads it from standard input. |
-| `--name NAME` | The new name for `rename`. |
+| `--name NAME` | The name of the definition `symbol` looks for. |
 | `--overlays FILE` | Proposed file contents to check instead of the files on disk: a JSON object from path (relative to the program's directory) to text. `-` reads standard input. Nothing is written. |
 
 Exit status: 0 when the question was answered, also when the answer lists
-errors; 1 when it could not be (no PATH or `--source`, unknown KIND, a
-missing file).
+errors; 1 when it could not be (no PATH or `--source`, a missing file);
+2 for an unknown KIND (the parser lists the questions).
 
 ```sh
 $ badger query hover src/main.bdg --line 22 --col 53
@@ -473,12 +488,16 @@ std.route.query_params  pub fn query_params(uri: String) -> Params {
     The query parameters of a request URI (`?a=1&b=2`): the names and values are percent-decoded.
 ```
 
-### `badger rename PATH --line N --col N --name NEW`
+### `badger rename PATH --line N --col N --name NEW [--json]`
 
 Rename a definition, and every use of it, in the files of the project.
 The position is a line and a column (1-based, as in `badger check
 --json`); it may point at the definition or at one of its uses. The
 edits are computed and applied, and the files that changed are named.
+
+| Flag | Meaning |
+|---|---|
+| `--json` | Print the edits as JSON (`{"edits": [...]}`) and write nothing. |
 
 ```sh
 $ badger rename src/orders.bdg --line 12 --col 4 --name find_order
@@ -706,9 +725,9 @@ badger update
 The environment, for a bug report: the version, the current directory,
 the project (its name, its manifest, its number of sources), the
 effective runtime settings (the worker count and the HTTP limits, as
-`badger inspect runtime` computes them), and the `BADGER_*` environment
-variables that are set. Only what can be determined is reported: a fact
-that is unknown is left out.
+`badger inspect runtime` computes them -- that command prints all of
+them), and the `BADGER_*` environment variables that are set. Only what
+can be determined is reported: a fact that is unknown is left out.
 
 | Flag | Meaning |
 |---|---|
@@ -725,7 +744,7 @@ project:
   config: /home/you/shop/badger.toml
   source files: 3
 
-runtime:
+runtime (as `badger inspect runtime` computes them):
   workers: 2
   http_max_body_bytes: 16777216
   http_max_header_bytes: 65536
