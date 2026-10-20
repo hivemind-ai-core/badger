@@ -3688,6 +3688,7 @@ fn run_scheduler_work() {
 /// Isolate tests: each starts on the real clock with no controlled sleeps.
 pub fn reset_test_state() {
     crate::intrinsics_os::set_manual_clock(None);
+    crate::intrinsics_task::reset_select_rotation();
     rt().virtual_timers.clear();
     let mut c = SCHED.lock().unwrap();
     c.seed = std::env::var("BADGER_SCHED_SEED").ok().and_then(|v| v.parse().ok());

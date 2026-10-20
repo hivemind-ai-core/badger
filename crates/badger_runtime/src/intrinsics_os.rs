@@ -269,6 +269,7 @@ define_intrinsics! {
     }
     // controlled scheduling
     fn sched_seed(ctx, targs, ret, seed) {
+        crate::intrinsics_task::reset_select_rotation();
         let mut c = crate::task::SCHED.lock().unwrap();
         c.seed = Some(seed);
         c.replay.clear();
@@ -276,6 +277,7 @@ define_intrinsics! {
         0
     }
     fn sched_record(ctx, targs, ret) {
+        crate::intrinsics_task::reset_select_rotation();
         let mut c = crate::task::SCHED.lock().unwrap();
         c.record = true;
         c.decisions.clear();
@@ -292,6 +294,7 @@ define_intrinsics! {
         l
     }
     fn sched_replay(ctx, targs, ret, decisions) {
+        crate::intrinsics_task::reset_select_rotation();
         let ds: Vec<u32> = crate::list::to_vec(decisions).into_iter().map(|w| w as u32).collect();
         let mut c = crate::task::SCHED.lock().unwrap();
         c.seed = None;

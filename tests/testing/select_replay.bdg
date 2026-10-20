@@ -1,0 +1,58 @@
+// A seeded or replayed schedule reproduces which case a `select` takes,
+// whatever ran earlier in the process (fair rotation restarts with it).
+import std.channel
+import std.test
+
+fn scenario() -> String {
+    let a = match channel.create<Int>(channel.defaults) { .ok(c) => c, .err(_) => test.fail("cfg") }
+    let b = match channel.create<Int>(channel.defaults) { .ok(c) => c, .err(_) => test.fail("cfg") }
+    for i in 0..3 {
+        let _ = a.sender.send(i)
+        let _ = b.sender.send(10 + i)
+    }
+    var out = ""
+    for _ in 0..3 {
+        match channel.select([channel.Op.recv(a.receiver), channel.Op.recv(b.receiver)], some(10ms)) {
+            .received(i, v) => { out = $"{out} {i}:{v}" },
+            _ => { out = $"{out} other" },
+        }
+    }
+    out
+}
+
+fn test_select_same_seed_same_result() {
+    test.schedule_seed(3)
+    let x = scenario()
+    test.schedule_seed(3)
+    let y = scenario()
+    test.fifo_schedule()
+    test.assert_eq(x, y)
+}
+
+fn test_select_replay() {
+    test.schedule_seed(5)
+    test.record_schedule()
+    let x = scenario()
+    test.replay_schedule(test.recorded_schedule())
+    let y = scenario()
+    test.fifo_schedule()
+    test.assert_eq(x, y)
+}
+
+fn test_select_explore_is_reproducible() {
+    // explore runs body under seeds 1..=2; the same seed must give the same outcome
+    let seen: Atom<List<String>> = Atom.new([])
+    test.explore(2, fn() -> Result<Unit, String> {
+        let v = scenario()
+        let _ = seen.update(fn(l) { l.append(v) })
+        ok(())
+    })
+    let first = seen.get()
+    let again: Atom<List<String>> = Atom.new([])
+    test.explore(2, fn() -> Result<Unit, String> {
+        let v = scenario()
+        let _ = again.update(fn(l) { l.append(v) })
+        ok(())
+    })
+    test.assert_eq($"{first}", $"{again.get()}")
+}

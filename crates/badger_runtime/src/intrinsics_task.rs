@@ -357,8 +357,7 @@ define_intrinsics! {
     // lists; returns `Selected<T>`.
     // a rotating start position for fair selection
     fn select_seq(ctx, targs, ret) {
-        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        SELECT_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
     fn chan_select(ctx, targs, ret, kinds, chans, values, start, timeout) {
         let ret = rdesc(ret);
@@ -794,4 +793,13 @@ fn take_committed(kinds: u64) -> Option<(usize, u64)> {
     let (v, _) = task::take_delivered();
     let _ = kinds;
     Some((i, v))
+}
+
+/// The rotation of fair selection: it restarts with each test and each
+/// seeded or replayed schedule, so a controlled schedule reproduces which
+/// case a `select` takes (not what ran earlier in the process).
+static SELECT_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn reset_select_rotation() {
+    SELECT_SEQ.store(0, std::sync::atomic::Ordering::Relaxed);
 }

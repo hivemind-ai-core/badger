@@ -1962,6 +1962,15 @@ fn cli_reports_missing_inputs() {
     );
 }
 
+/// Seeded and replayed schedules reproduce `select` outcomes, also after
+/// other tests ran in the same process.
+#[test]
+fn test_runner_select_is_reproducible() {
+    let out = lang().args(["test", "tests/testing/select_replay.bdg"]).current_dir(root()).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success() && text.contains("3 passed; 0 failed"), "{text}");
+}
+
 /// Simulation fixtures: seeded scheduling, record/replay of interleavings,
 /// exploration reporting the failing seed, and property checks.
 #[test]
