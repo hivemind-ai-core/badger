@@ -97,7 +97,12 @@ Run-time-readable, user-declared attributes are planned after 1.0 (next
 section); the namespacing rule above is what keeps them from colliding with
 the compiler's own names.
 
-## User-defined attributes (design, agreed 2026-10-20; not implemented)
+## User-defined attributes (design, agreed 2026-10-20; declarations parse)
+
+**Status:** the declaration (`attribute NAME on POSITIONS { FIELDS }`) is
+parsed, formatted, and lowered (`DefKind::Attribute`, with E0150 for a bad
+position, a repeated one, or a compiler name). Uses are not yet checked
+against declarations, and the read side (`NAME.uses`) does not exist yet.
 
 A library declares an attribute; other modules annotate with it; only the
 declaring module reads it, at run time, as the list of every use in the

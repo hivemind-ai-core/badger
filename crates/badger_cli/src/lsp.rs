@@ -156,6 +156,8 @@ fn symbol_kind(k: SymbolKind) -> u32 {
         SymbolKind::Type => 26,
         SymbolKind::Value => 13,
         SymbolKind::Impl => 5,
+        // a declared attribute is a struct of its fields
+        SymbolKind::Attribute => 23,
     }
 }
 
@@ -169,6 +171,7 @@ fn completion_kind(k: SymbolKind) -> u32 {
         SymbolKind::Type => 7,
         SymbolKind::Value => 6,
         SymbolKind::Impl => 9,
+        SymbolKind::Attribute => 22,
     }
 }
 

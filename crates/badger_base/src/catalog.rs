@@ -186,6 +186,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise (an error: a typo, or a library's attribute written without its namespace). A library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports (an error otherwise); one the module does not declare is a warning in user code and an error in standard-library sources.",
     ),
     (
+        "E0150",
+        "attribute declaration",
+        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type`, `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...).",
+    ),
+    (
         "E0199",
         "misplaced attribute",
         "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",

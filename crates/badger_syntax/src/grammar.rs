@@ -1299,10 +1299,29 @@ where
         .then_ignore(kw("struct"))
         .then(name.clone())
         .then(generics.clone().or_not())
-        .then(sepc_list(struct_field))
+        .then(sepc_list(struct_field.clone()))
         .map(|((((p, repr_c), name), g), fields)| {
             (p, ItemKind::Struct { repr_c, name, generics: g.unwrap_or_default(), fields })
         });
+    // `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`
+    let attr_position = choice((
+        kw("type").to(AttrPosition::Type),
+        kw("field").to(AttrPosition::Field),
+        kw("variant").to(AttrPosition::Variant),
+        kw("value").to(AttrPosition::Value),
+        // a function position names the signature the functions have
+        choice((kw("fn"), kw("once"))).rewind().ignore_then(ty.clone()).map(AttrPosition::Fn),
+    ))
+    .map_with(|p, e| (p, e.span()))
+    .labelled("an attribute position (`type`, `fn(...) -> ...`, `field`, `variant`, or `value`)");
+    let attribute_decl = is_pub
+        .clone()
+        .then_ignore(kw("attribute"))
+        .then(value_ident.clone())
+        .then_ignore(kw("on"))
+        .then(attr_position.separated_by(just(Tok::Comma)).at_least(1).collect::<Vec<_>>())
+        .then(sepc_list(struct_field.clone()))
+        .map(|(((p, name), positions), fields)| (p, ItemKind::Attribute { name, positions, fields }));
     let variant_field = member.clone().then_ignore(just(Tok::Colon)).or_not().then(ty.clone());
     // a variant may carry attributes (`@status(404) not_found(id: Int)`)
     let variant = attributes
@@ -1487,6 +1506,7 @@ where
             extern_type,
             type_decl,
             struct_decl,
+            attribute_decl,
             enum_decl,
             protocol,
             impl_decl,

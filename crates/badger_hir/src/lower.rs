@@ -546,6 +546,7 @@ impl Cx<'_> {
                     ast::ItemKind::Import(_) => None,
                     ast::ItemKind::TypeAlias { name, .. } => Some((name.sym, name.span)),
                     ast::ItemKind::Struct(s) => Some((s.name.sym, s.name.span)),
+                    ast::ItemKind::Attribute(a) => Some((a.name.sym, a.name.span)),
                     ast::ItemKind::Enum(e) => Some((e.name.sym, e.name.span)),
                     ast::ItemKind::Protocol(p) => Some((p.name.sym, p.name.span)),
                     ast::ItemKind::Fn(f) => Some((f.name.sym, f.name.span)),
@@ -1149,6 +1150,46 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.record_attributes(def, item);
         match &item.kind {
             ast::ItemKind::Import(_) => unreachable!(),
+            ast::ItemKind::Attribute(a) => {
+                let n = self.cx.interner.resolve(a.name.sym).to_string();
+                if KNOWN_ATTRIBUTES.contains(&n.as_str()) {
+                    self.err(
+                        "E0150",
+                        a.name.span,
+                        format!("`{n}` is one of the compiler's attributes"),
+                        "choose another name",
+                    );
+                }
+                let mut positions: Vec<(AttributePosition, Span)> = vec![];
+                for (p, span) in &a.positions {
+                    let p = match p {
+                        ast::AttrPosition::Type => AttributePosition::Type,
+                        ast::AttrPosition::Fn(t) => AttributePosition::Fn(self.lower_ty(*t)),
+                        ast::AttrPosition::Field => AttributePosition::Field,
+                        ast::AttrPosition::Variant => AttributePosition::Variant,
+                        ast::AttrPosition::Value => AttributePosition::Value,
+                    };
+                    let same =
+                        |q: &AttributePosition| std::mem::discriminant(q) == std::mem::discriminant(&p);
+                    if positions.iter().any(|(q, _)| same(q)) {
+                        self.err("E0150", *span, "this position is listed twice", "remove one");
+                        continue;
+                    }
+                    positions.push((p, *span));
+                }
+                let fields = a
+                    .fields
+                    .iter()
+                    .map(|f| FieldDef {
+                        attributes: f.attributes.clone(),
+                        name: f.name.sym,
+                        ty: self.lower_ty(f.ty),
+                        is_pub: f.is_pub,
+                        span: f.name.span,
+                    })
+                    .collect();
+                DefKind::Attribute(AttributeDef { positions, fields })
+            }
             ast::ItemKind::TypeAlias { generics, ty, .. } => {
                 let generics = self.push_generics(generics, Some(def));
                 let ty = self.lower_ty(*ty);
