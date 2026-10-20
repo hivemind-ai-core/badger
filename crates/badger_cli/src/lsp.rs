@@ -244,6 +244,10 @@ struct Server {
     /// them, dropped at the next change): a module reachable only from a
     /// task still has its uses found and renamed.
     entries: HashMap<PathBuf, Vec<Analysis>>,
+    /// Whether adding `?` at an offset of a file's text checks (by the
+    /// text's hash): the quick fix for an ignored `Result` is offered only
+    /// where it does.
+    propagates: HashMap<(u64, usize), bool>,
 }
 
 impl Server {
@@ -256,6 +260,7 @@ impl Server {
             owner: HashMap::new(),
             dirty: HashSet::new(),
             entries: HashMap::new(),
+            propagates: HashMap::new(),
         }
     }
 
@@ -622,10 +627,13 @@ impl Server {
             // an ignored `Result`: propagate it, or discard it explicitly
             if d["code"] == "E0337" {
                 let (start, end) = (d["range"]["start"].clone(), d["range"]["end"].clone());
-                for (title, at, new_text) in [
+                let warning = d["severity"].as_u64().is_some_and(|s| s > 1);
+                let propagate = self.propagates_at(&file, &text, offset(&text, &end), warning);
+                let fixes = [
                     ("Propagate the error with `?`", end, "?"),
                     ("Discard the result with `let _ =`", start, "let _ = "),
-                ] {
+                ];
+                for (title, at, new_text) in fixes.into_iter().skip(if propagate { 0 } else { 1 }) {
                     actions.push(json!({
                         "title": title,
                         "kind": "quickfix",
@@ -713,6 +721,41 @@ impl Server {
             changes.entry(uri).or_default().push(e);
         }
         Ok(json!({ "changes": changes }))
+    }
+
+    /// Does the program still check with `?` added at byte `at` of
+    /// `file` (the enclosing function returns a `Result` whose error the
+    /// ignored one converts into)? Analysed once per text and offset.
+    fn propagates_at(&mut self, file: &Path, text: &str, at: usize, fixes_warning: bool) -> bool {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        text.hash(&mut h);
+        let key = (h.finish(), at);
+        if let Some(ok) = self.propagates.get(&key) {
+            return *ok;
+        }
+        let Some(before) = self.analysis_for(file) else { return false };
+        let errors = |a: &Analysis| {
+            a.diagnostics.iter().filter(|d| d.severity == badger_base::Severity::Error).count()
+        };
+        let was = errors(before);
+        let mut edited = text.to_string();
+        if at > edited.len() || !edited.is_char_boundary(at) {
+            return false;
+        }
+        edited.insert(at, '?');
+        let mut overlays = self.docs.clone();
+        overlays.insert(file.to_path_buf(), edited);
+        let prog = self.owner.get(file).cloned().unwrap_or_else(|| self.program_path(file));
+        let after = analyze_owning(&prog, file, &overlays).1;
+        // the fix removes the ignored `Result` (an error, or a warning
+        // where allowed) and adds no error of its own
+        let ok = if fixes_warning { errors(&after) <= was } else { errors(&after) < was };
+        if self.propagates.len() > 256 {
+            self.propagates.clear();
+        }
+        self.propagates.insert(key, ok);
+        ok
     }
 
     /// Refuse a rename that changes what the program means: the renamed
@@ -1134,29 +1177,25 @@ fn missing_arm(uri: &str, text: &str, d: &Value) -> Option<Value> {
         units += c.len_utf16();
         offset += c.len_utf8();
     }
-    let bytes = text.as_bytes();
-    let open = offset + text[offset..].find('{')?;
-    let (mut depth, mut i, mut in_string) = (0usize, open, false);
-    let close = loop {
-        let c = *bytes.get(i)?;
-        if in_string {
-            if c == b'\\' {
-                i += 1;
-            } else if c == b'"' {
-                in_string = false;
+    // the match's braces, by token (not inside strings, chars, comments)
+    use badger_syntax::token::Tok;
+    let (tokens, _) = badger_syntax::token::lex(text);
+    let mut depth = 0usize;
+    let mut close = None;
+    for (t, s) in tokens.iter().filter(|(_, s)| s.start >= offset) {
+        match t {
+            Tok::LBrace => depth += 1,
+            Tok::RBrace if depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(s.start);
+                    break;
+                }
             }
-        } else if c == b'"' {
-            in_string = true;
-        } else if c == b'{' {
-            depth += 1;
-        } else if c == b'}' {
-            depth -= 1;
-            if depth == 0 {
-                break i;
-            }
+            _ => {}
         }
-        i += 1;
-    };
+    }
+    let close = close?;
     let close_line_start = text[..close].rfind('\n').map(|p| p + 1).unwrap_or(0);
     let before = &text[close_line_start..close];
     let message = pattern.replace('\\', "\\\\").replace('"', "\\\"");
