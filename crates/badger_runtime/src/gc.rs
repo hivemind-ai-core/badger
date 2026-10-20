@@ -195,15 +195,19 @@ fn refill_bytes() -> usize {
 /// line, set while a live or quarantined cell overlaps the line), which
 /// occupies its first `HEADER_LINES` lines; their bits are always set. A cell
 /// never crosses a block boundary, so its block is its address rounded down.
+/// Lines are as fine as cells, so the lines of a live cell hold no free
+/// bytes.
 const BLOCK: usize = 32 << 10;
-const LINE: usize = 32;
+const LINE: usize = 16;
 const LINES: usize = BLOCK / LINE;
 type LineMap = [u64; LINES / 64];
 const HEADER_LINES: usize = std::mem::size_of::<LineMap>() / LINE;
 const HEADER_BITS: u64 = (1 << HEADER_LINES) - 1;
+/// Holes kept by size are smaller than the largest pooled cell.
+const HOLE_CLASSES: usize = 1024 / 16;
 /// Cells above this size that miss the current hole take the overflow
 /// region instead, so the rest of the hole is kept for smaller cells.
-const MEDIUM: usize = 4 * LINE;
+const MEDIUM: usize = 128;
 
 #[derive(Clone, Copy)]
 struct Chunk {
@@ -268,16 +272,21 @@ fn mark_lines(p: *mut Header, payload: usize) {
         return;
     }
     let offset = p.addr() & (BLOCK - 1);
+    let (first, last) = (offset / LINE, (offset + size - 1) / LINE);
     let map = line_map(p as *mut u8);
-    for line in offset / LINE..=(offset + size - 1) / LINE {
-        map[line / 64] |= 1 << (line % 64);
+    for word in first / 64..=last / 64 {
+        let low = if word == first / 64 { first % 64 } else { 0 };
+        let high = if word == last / 64 { last % 64 } else { 63 };
+        map[word] |= (u64::MAX << low) & (u64::MAX >> (63 - high));
     }
 }
 
 /// A worker's small-cell allocator, Immix-style: cells are bump-allocated
 /// in holes (runs of free lines) of the worker's blocks, and a dead cell is
 /// reclaimed by its lines staying clear at the next collection, so
-/// partly live blocks are reused in place and nothing moves. The pool is
+/// partly live blocks are reused in place and nothing moves. A hole too
+/// small for the cell that looked for one is kept by size rather than
+/// passed over until the next collection. The pool is
 /// touched only by its worker's allocations, and by the collector while
 /// the world is stopped, which marks the lines of the survivors of its
 /// worker's object list and then rebuilds the block lists
@@ -296,6 +305,10 @@ struct Pool {
     /// search from.
     scan: *mut u8,
     scan_line: usize,
+    /// Holes passed over and rests of regions left behind since the last
+    /// collection, by size (16-byte classes, linked through their first
+    /// word): a cell of exactly that size takes one before bumping.
+    holes: [*mut u8; HOLE_CLASSES],
     /// Blocks with live and free lines, and blocks with no live line, as
     /// the last collection left them (taken from the back).
     recyclable: Vec<*mut u8>,
@@ -319,6 +332,7 @@ static POOLS: Pools = Pools(
             over_recycled: false,
             scan: std::ptr::null_mut(),
             scan_line: 0,
+            holes: [std::ptr::null_mut(); HOLE_CLASSES],
             recyclable: Vec::new(),
             empty: Vec::new(),
             chunks: Vec::new(),
@@ -335,7 +349,7 @@ fn pool(w: usize) -> &'static mut Pool {
 
 impl Pool {
     /// The next hole of at least `size` bytes in the partly live blocks
-    /// (smaller holes on the way are left until the next collection).
+    /// (smaller holes on the way are kept by size).
     fn next_hole(&mut self, size: usize) -> bool {
         loop {
             if self.scan.is_null() {
@@ -346,15 +360,28 @@ impl Pool {
             match next_hole(line_map(self.scan), self.scan_line) {
                 Some((start, end)) => {
                     self.scan_line = end;
+                    let hole = unsafe { self.scan.add(start * LINE) };
                     if (end - start) * LINE >= size {
-                        self.cursor = unsafe { self.scan.add(start * LINE) };
+                        self.cursor = hole;
                         self.left = (end - start) * LINE;
                         self.recycled = true;
                         return true;
                     }
+                    self.keep_hole(hole, (end - start) * LINE);
                 }
                 None => self.scan = std::ptr::null_mut(),
             }
+        }
+    }
+
+    /// Keep the free `bytes` at `p` (fewer than the largest pooled cell)
+    /// for a cell of exactly that size.
+    fn keep_hole(&mut self, p: *mut u8, bytes: usize) {
+        debug_assert!(bytes < HOLE_CLASSES * 16);
+        if bytes >= cell_size(0) {
+            let class = bytes / 16 - 1;
+            unsafe { *(p as *mut *mut u8) = self.holes[class] };
+            self.holes[class] = p;
         }
     }
 
@@ -435,6 +462,7 @@ impl Pool {
         self.over = std::ptr::null_mut();
         self.over_left = 0;
         self.scan = std::ptr::null_mut();
+        self.holes.fill(std::ptr::null_mut());
         self.recyclable.clear();
         self.empty.clear();
         for chunk in self.chunks.iter().rev() {
@@ -474,6 +502,19 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
         return unsafe { alloc_zeroed(layout(payload)) as *mut Header };
     }
     let pool = pool(w);
+    let class = size / 16 - 1;
+    let p = pool.holes[class];
+    if !p.is_null() {
+        unsafe {
+            pool.holes[class] = *(p as *mut *mut u8);
+            std::ptr::write_bytes(p, 0, size);
+        }
+        #[cfg(feature = "gc-profile")]
+        {
+            pool.reused = true;
+        }
+        return p as *mut Header;
+    }
     if pool.left >= size {
         return pool.bump(false, size);
     }
@@ -483,13 +524,15 @@ fn alloc_cell(w: usize, payload: usize) -> *mut Header {
 /// A cell that misses the current hole. A medium cell takes the overflow
 /// region while the hole still has room for smaller cells and a block with
 /// no live line is at hand; otherwise the next hole that fits is taken, or
-/// a block with no live line (from a new chunk if need be).
+/// a block with no live line (from a new chunk if need be). The rest of a
+/// region left behind is kept by size.
 #[cold]
 fn alloc_cell_slow(pool: &mut Pool, size: usize) -> *mut Header {
     if size > MEDIUM && pool.left >= MEDIUM {
         if pool.over_left < size
             && let Some((block, recycled)) = pool.take_block(false)
         {
+            pool.keep_hole(pool.over, pool.over_left);
             pool.over = unsafe { block.add(HEADER_LINES * LINE) };
             pool.over_left = BLOCK - HEADER_LINES * LINE;
             pool.over_recycled = recycled;
@@ -498,6 +541,8 @@ fn alloc_cell_slow(pool: &mut Pool, size: usize) -> *mut Header {
             return pool.bump(true, size);
         }
     }
+    pool.keep_hole(pool.cursor, pool.left);
+    pool.left = 0;
     if !pool.next_hole(size) {
         let Some((block, recycled)) = pool.take_block(true) else { return std::ptr::null_mut() };
         pool.cursor = unsafe { block.add(HEADER_LINES * LINE) };
@@ -1670,6 +1715,23 @@ mod pool_tests {
             free_cell(p, payload);
         }
         pool(w).rebuild(false);
+        // A hole passed over by a larger cell serves the next cell of its size.
+        pool(w).clear_lines();
+        pool(w).rebuild(false);
+        let (a, b, c) = (alloc_cell(w, 16), alloc_cell(w, 16), alloc_cell(w, 16));
+        assert_eq!((b.addr() - a.addr(), c.addr() - b.addr()), (32, 32));
+        pool(w).clear_lines();
+        mark_lines(a, 16);
+        mark_lines(c, 16);
+        pool(w).rebuild(false);
+        let d = alloc_cell(w, 32);
+        assert_eq!(d.addr(), c.addr() + 32);
+        assert_eq!(alloc_cell(w, 16), b);
+        for (p, payload) in [(a, 16), (b, 16), (c, 16), (d, 32)] {
+            free_cell(p, payload);
+        }
+        pool(w).clear_lines();
+        pool(w).rebuild(false);
         // Cross a chunk boundary, then retain just one quarantined cell from
         // the first chunk: only the chunks with no live line are released.
         let payload = small_max() - HEADER;
@@ -1725,7 +1787,7 @@ mod pool_tests {
         map[0] = HEADER_BITS;
         assert_eq!(next_hole(&map, HEADER_LINES), Some((HEADER_LINES, LINES)));
         map[1] = 1 << 3 | 1 << 4;
-        map[15] = 1 << 63;
+        map[LINES / 64 - 1] = 1 << 63;
         assert_eq!(next_hole(&map, HEADER_LINES), Some((HEADER_LINES, 67)));
         assert_eq!(next_hole(&map, 67), Some((69, LINES - 1)));
         assert_eq!(next_hole(&map, LINES - 1), None);
