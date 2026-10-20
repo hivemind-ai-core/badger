@@ -78,6 +78,51 @@ where
     )
 }
 
+/// The phrase the errors use for a body that must be a block. The grammar
+/// and the reporter share it, so the message stays in one piece.
+pub const BLOCK_BODY: &str = "a block `{ ... }`";
+
+/// An expected-found error whose expectation is a whole phrase, built at
+/// run time (the body of an `if` says which `if`).
+fn expected_phrase<'t, 's: 't, I, Er>(what: String, found: Option<Tok<'s>>, span: Span) -> Er
+where
+    I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
+    Er: ParseErr<'t, 's, I>,
+{
+    use chumsky::label::LabelError;
+    use chumsky::util::MaybeRef;
+    let patterns = [chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(what))];
+    <Er as LabelError<'t, I, chumsky::error::RichPattern<'t, Tok<'s>>>>::expected_found(
+        patterns,
+        found.map(MaybeRef::Val),
+        span,
+    )
+}
+
+/// The body of a control-flow construct: a block, always. A statement
+/// without braces (`if x return`) is a common slip, so the error names the
+/// block that is missing, at the token that should have opened it.
+fn body_block<'t, 's: 't, I, Er>(
+    block: impl Parser<'t, I, Block<'s>, extra::Err<Er>> + Clone,
+    after: &'static str,
+) -> impl Parser<'t, I, Block<'s>, extra::Err<Er>> + Clone
+where
+    I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
+    Er: ParseErr<'t, 's, I> + 't,
+{
+    custom(move |inp: &mut chumsky::input::InputRef<'t, '_, I, extra::Err<Er>>| {
+        if matches!(inp.peek(), Some(Tok::LBrace)) {
+            return inp.parse(&block);
+        }
+        let c = inp.cursor();
+        let save = inp.save();
+        inp.next();
+        let at = inp.span_since(&c);
+        inp.rewind(save);
+        Err(expected_phrase::<I, Er>(format!("{BLOCK_BODY} {after}"), inp.peek(), at))
+    })
+}
+
 /// Items, then the end of input.
 pub fn program<'t, 's: 't, I, Er>() -> impl Parser<'t, I, Vec<Item<'s>>, extra::Err<Er>> + Clone
 where
@@ -453,12 +498,16 @@ where
         let if_expr = recursive(|if_| {
             kw("if")
                 .ignore_then(cond.clone())
-                .then(block.clone())
+                .then(body_block(block.clone(), "after the `if` condition"))
                 .then(
                     sep.clone()
                         .or_not()
                         .ignore_then(kw("else"))
-                        .ignore_then(choice((if_, block.clone().map_with(|b, e| (Expr::Block(b), e.span())))))
+                        .ignore_then(choice((
+                            if_,
+                            body_block(block.clone(), "after `else`")
+                                .map_with(|b, e| (Expr::Block(b), e.span())),
+                        )))
                         .or_not(),
                 )
                 .map_with(|((cond, then), els), e| {
@@ -493,15 +542,15 @@ where
             .map(|(s, arms)| Expr::Match { scrutinee: Box::new(s), arms });
         let while_expr = kw("while")
             .ignore_then(cond.clone())
-            .then(block.clone())
+            .then(body_block(block.clone(), "after the `while` condition"))
             .map(|(cond, body)| Expr::While { cond, body });
         let for_expr = kw("for")
             .ignore_then(pattern.clone())
             .then_ignore(kw("in"))
             .then(expr.clone())
-            .then(block.clone())
+            .then(body_block(block.clone(), "after the `for` header"))
             .map(|((pat, iter), body)| Expr::For { pat, iter: Box::new(iter), body });
-        let loop_expr = kw("loop").ignore_then(block.clone()).map(Expr::Loop);
+        let loop_expr = kw("loop").ignore_then(body_block(block.clone(), "after `loop`")).map(Expr::Loop);
         let system = kw("system")
             .ignore_then(braced(label.clone().then_ignore(just(Tok::Colon)).then(expr.clone())))
             .map(Expr::System);
@@ -513,7 +562,8 @@ where
         let ref_expr = kw("ref")
             .ignore_then(symbol.clone().delimited_by(just(Tok::LParen), just(Tok::RParen)))
             .map(|(s, span)| Expr::Ref(s, span));
-        let unsafe_expr = kw("unsafe").ignore_then(block.clone()).map(Expr::Unsafe);
+        let unsafe_expr =
+            kw("unsafe").ignore_then(body_block(block.clone(), "after `unsafe`")).map(Expr::Unsafe);
         let return_expr =
             kw("return").ignore_then(expr.clone().or_not()).map(|e| Expr::Return(e.map(Box::new)));
         let break_expr = kw("break").ignore_then(expr.clone().or_not()).map(|e| Expr::Break(e.map(Box::new)));
@@ -949,7 +999,7 @@ where
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
         .then_ignore(just(Tok::Assign))
         .then(expr.clone())
-        .then(kw("else").ignore_then(block.clone()).map(Box::new).or_not())
+        .then(kw("else").ignore_then(body_block(block.clone(), "after `else`")).map(Box::new).or_not())
         .map_with(|((((kind, pat), ty), value), els), e| Stmt::Let {
             kind,
             pat,

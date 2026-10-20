@@ -200,7 +200,12 @@ fn describe(e: &grammar::Error<'_, '_>) -> String {
                 "`!=`", "`%`", "`&&`", "`&`", "`*`", "`+`", "`-`", "`..=`", "`..`", "`/`", "`<<`", "`<=`",
                 "`<`", "`==`", "`^`", "`|>`", "`|`", "`||`", "`>`", "`.`", "`?`", "`(`", "`[`",
             ];
-            if names.iter().filter(|n| OPERATORS.contains(&n.as_str())).count() >= 4 {
+            // a body that must be a block says so: the operators that could
+            // continue the condition are noise beside it
+            let block_body = names.iter().any(|n| n.starts_with(grammar::BLOCK_BODY));
+            if block_body {
+                names.retain(|n| !OPERATORS.contains(&n.as_str()));
+            } else if names.iter().filter(|n| OPERATORS.contains(&n.as_str())).count() >= 4 {
                 names.retain(|n| !OPERATORS.contains(&n.as_str()));
                 names.push("an operator".into());
             }
@@ -363,6 +368,13 @@ mod tests {
             .collect()
     }
 
+    /// Whether a source parses (the syntax errors are what matters here).
+    fn parses(src: &str) -> bool {
+        let mut sm = SourceMap::default();
+        let f = sm.add("t", src);
+        parse(f, &sm.get(f).text, &mut Interner::new(), &mut vec![]).is_ok()
+    }
+
     fn body_expr(ast: &Ast) -> ExprId {
         let ItemKind::Global { value, .. } = ast.items[0].kind else { panic!() };
         value
@@ -483,6 +495,39 @@ mod tests {
     fn reports_error_span() {
         let errs = errors("let x = 1 + ");
         assert_eq!(errs[0].0, 12, "{errs:?}");
+    }
+
+    /// A control-flow body is a block, always: `if x return` is not a form
+    /// of the language, and the error says which block is missing.
+    #[test]
+    fn a_body_is_a_block() {
+        for (src, after) in [
+            ("fn f() {\n    if x return\n}", "after the `if` condition"),
+            ("fn f() {\n    if x { } else return\n}", "after `else`"),
+            ("fn f() {\n    while x do_it()\n}", "after the `while` condition"),
+            ("fn f() {\n    for x in y do_it()\n}", "after the `for` header"),
+            ("fn f() {\n    loop do_it()\n}", "after `loop`"),
+            ("fn f() {\n    unsafe do_it()\n}", "after `unsafe`"),
+            ("fn f() {\n    let x = 1 else return\n}", "after `else`"),
+        ] {
+            let errs = errors(src);
+            assert_eq!(errs.len(), 1, "{src}: {errs:?}");
+            assert!(errs[0].1.contains("a block `{ ... }`"), "{src}: {errs:?}");
+            assert!(errs[0].1.contains(after), "{src}: {errs:?}");
+        }
+        // the block is what parses
+        for src in [
+            "fn f() {\n    if x { return }\n}",
+            "fn f() {\n    if x { } else { return }\n}",
+            "fn f() {\n    while x { do_it() }\n}",
+            "fn f() {\n    for x in y { do_it() }\n}",
+            "fn f() {\n    loop { do_it() }\n}",
+            "fn f() {\n    unsafe { do_it() }\n}",
+            "fn f() {\n    let x = 1 else { return }\n}",
+            "fn f() {\n    if x { } else if y { } else { }\n}",
+        ] {
+            assert!(parses(src), "{src}");
+        }
     }
 
     #[test]
