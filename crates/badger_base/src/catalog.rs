@@ -337,6 +337,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `let ... else` or `if let ... else` pattern always matches (a name, `_`, or a tuple or record of them), so its `else` never runs (warning). Use a plain `let`, or match the case you mean (`let .some(x) = o else { ... }`).",
     ),
     (
+        "E0194",
+        "unknown fusion kind",
+        "A `@fusion(...)` role or template is not one the compiler knows.",
+    ),
+    (
         "E0193",
         "misplaced status",
         "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
