@@ -46,8 +46,21 @@ are correctness-and-scale work, not current throughput wins.
   - **F3:** the queue branch of `send` wakes the watchers and forgets them;
     not a lost wake-up, but the woken selection races every other receiver
     for the value.
-  F1, F2 and F3 are part of the slice 4 lead's acceptance: the Go-style
-  channel refactor must make the two repro programs pass.
+  F1, F2 and F3 were part of the slice 4 lead's acceptance, and the
+  Go-style channel refactor (`9f1ff4c`, in `main`) fixes all three: their
+  checks pass, each comes back as a mutation that puts the old code back,
+  and the two repro programs pass.
+- **F4 (open, found by the model of the refactored protocol, 2026-10-20):**
+  a batch receiver woken to *retry* and then cancelled takes its wake with
+  it -- the publication wakes one receiver per message, but the woken
+  receiver takes a message only when it runs, and a cancellation before it
+  runs makes `park()` honour the interrupt and abandon, so the message is
+  stranded. Reproduced on the real runtime
+  (`spec/tla/repro/cancel_after_retry_wake.bdg`: "r2 got 1", "r1 cancelled",
+  then a deadlock with the third receiver waiting). It needs four tasks, so
+  it is outside the three-task bounds the model normally uses, and the §1.2
+  contract has the same gap: the contract must pass a cancelled receiver's
+  wake on to another receiver.
 - Slice 1, ownership APIs: split `ChanData` into immutable configuration
   and guarded state; stable waiter records independent of `Task`.
 - Slice 2, GC coordination without the runtime lock: collector election,

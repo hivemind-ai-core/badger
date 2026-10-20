@@ -5,14 +5,16 @@
 #
 #   spec/tla/run.sh            every check
 #   spec/tla/run.sh NAME...    the named checks (see the list at the end)
+#   spec/tla/run.sh JAR [NAME...]  the same, with the TLC jar's path first
 #
-# TLA2TOOLS names the jar (default ~/.local/share/tla/tla2tools.jar; TLC 2.19
+# TLA2TOOLS (or a first argument ending in .jar) names the jar (default ~/.local/share/tla/tla2tools.jar; TLC 2.19
 # from https://github.com/tlaplus/tlaplus/releases). TLC_WORKERS sets TLC's
 # -workers (default auto).
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 jar=${TLA2TOOLS:-$HOME/.local/share/tla/tla2tools.jar}
+if [ $# -gt 0 ] && [[ $1 == *.jar ]]; then jar=$1; shift; fi
 workers=${TLC_WORKERS:-auto}
 [ -f "$jar" ] || { echo "run.sh: no TLC jar at $jar (set TLA2TOOLS)" >&2; exit 2; }
 
@@ -63,35 +65,65 @@ check() {
 selected=("$@")
 
 # --- channel state machine (ChannelBadger.tla) -------------------------------
+cur='s/^    Impl = .*/    Impl = "current"/'
+four='s/^    Tasks = .*/    Tasks = {t1, t2, t3, t4}/;s/^    Kinds = .*/    Kinds = {"batch"}/;s/^    Ops = .*/    Ops = 1/;s/^    WorkerCounts = .*/    WorkerCounts = {1}/;s/^    MaxSpurious = .*/    MaxSpurious = 0/'
 # the current code, prompt channels: every safety invariant holds
 check channel                ChannelBadger ChannelBadger.cfg pass
 # the current code, prompt channels: every blocked receive is woken
 check channel-live           ChannelBadger ChannelBadgerLive.cfg pass
+# the current code under the contract's configuration (both kinds, every
+# property), with the list and word invariants and WatchKept
+check channel-full           ChannelBadger ChannelBadgerContract.cfg pass "$cur" \
+    'INVARIANTS\n    CountsMatch\n    OneEntryPerKind\n    PhasePublished\nPROPERTIES\n    WatchKept'
+check channel-full-live      ChannelBadger ChannelBadgerContractLive.cfg pass "$cur"
 # the contract (OPTIMIZATION_BACKLOG.md 1.2), both kinds: everything holds
 check contract               ChannelBadger ChannelBadgerContract.cfg pass
 check contract-live          ChannelBadger ChannelBadgerContractLive.cfg pass
-# finding F1: a value handed to a receiver that is then cancelled is lost
-check f1-cancel-after-handoff ChannelBadger ChannelBadger.cfg ExactlyOnce \
+# the contract lets a publication forget the watchers; the code does not
+check contract-forgets-watchers ChannelBadger ChannelBadgerContract.cfg WatchKept '' \
+    'PROPERTIES\n    WatchKept'
+# findings F1-F3 of the model of the code before the refactor: fixed
+check f1-cancel-after-handoff ChannelBadger ChannelBadger.cfg pass \
     's/^    AtMostOnce$/    ExactlyOnce/'
-# finding F2: a published batch wakes one receiver; a second message strands
-check f2-batch-one-wake      ChannelBadger ChannelBadger.cfg NoLostWake \
+check f2-batch-one-wake      ChannelBadger ChannelBadger.cfg pass \
     's/^    Kinds = .*/    Kinds = {"batch"}/'
-# finding F3: the queue branch of send wakes the watchers and forgets them
-check f3-one-step            ChannelBadger ChannelBadger.cfg OneStep '' \
+check f2-batch-one-wake-live ChannelBadger ChannelBadgerLive.cfg pass \
+    's/^    Kinds = .*/    Kinds = {"batch"}/'
+check f3-one-step            ChannelBadger ChannelBadger.cfg pass '' \
     'PROPERTIES\n    OneStep'
-check f3-registration-served ChannelBadger ChannelBadger.cfg RegistrationServed '' \
+check f3-registration-served ChannelBadger ChannelBadger.cfg pass '' \
     'PROPERTIES\n    RegistrationServed'
+# finding F4: a batch receiver woken to retry and then cancelled takes its
+# wake with it (four tasks: three receivers); without the cancellation the
+# same configuration passes
+check f4-cancel-after-retry-wake ChannelBadger ChannelBadger.cfg NoLostWake "$four"
+check f4-cancel-after-retry-wake-live ChannelBadger ChannelBadgerLive.cfg temporal "$four"
+check f4-no-cancel           ChannelBadger ChannelBadger.cfg pass \
+    "$four;s/^    MaxCancels = .*/    MaxCancels = 0/"
 # mutations: the defect the slice-4 trace shows, and the probe-register window
 check m-fast-ignores-watchers ChannelBadger ChannelBadger.cfg NoLostWake \
     's/^    Mutation = .*/    Mutation = "fast_ignores_watchers"/'
-check m-select-no-claim      ChannelBadger ChannelBadger.cfg NoLostWake \
-    's/^    Mutation = .*/    Mutation = "select_no_claim"/'
-# the liveness property alone catches the slice-4 defect too
 check m-fast-ignores-watchers-live ChannelBadger ChannelBadgerLive.cfg temporal \
     's/^    Mutation = .*/    Mutation = "fast_ignores_watchers"/'
-# and the batch finding F2
-check f2-batch-one-wake-live ChannelBadger ChannelBadgerLive.cfg temporal \
-    's/^    Kinds = .*/    Kinds = {"batch"}/'
+check m-select-no-claim      ChannelBadger ChannelBadger.cfg NoLostWake \
+    's/^    Mutation = .*/    Mutation = "select_no_claim"/'
+# one worker, locked code that does not mark the word STALE: the published
+# phase is wrong, and nothing else is (a decline on it is always safe)
+check m-no-stale             ChannelBadger ChannelBadger.cfg PhasePublished \
+    's/^    Mutation = .*/    Mutation = "no_stale"/'
+check m-no-stale-safe        ChannelBadger ChannelBadger.cfg pass \
+    's/^    Mutation = .*/    Mutation = "no_stale"/;/^    PhasePublished$/d'
+# the code before the refactor, one defect at a time: F1, F2, F3 come back
+check m-cancel-retracts      ChannelBadger ChannelBadger.cfg ExactlyOnce \
+    's/^    Mutation = .*/    Mutation = "cancel_retracts"/;s/^    AtMostOnce$/    ExactlyOnce/'
+check m-one-wake-per-batch   ChannelBadger ChannelBadger.cfg NoLostWake \
+    's/^    Mutation = .*/    Mutation = "one_wake_per_batch"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
+check m-one-wake-per-batch-live ChannelBadger ChannelBadgerLive.cfg temporal \
+    's/^    Mutation = .*/    Mutation = "one_wake_per_batch"/;s/^    Kinds = .*/    Kinds = {"batch"}/'
+check m-queue-forgets-watchers ChannelBadger ChannelBadger.cfg OneStep \
+    's/^    Mutation = .*/    Mutation = "queue_forgets_watchers"/' 'PROPERTIES\n    OneStep'
+check m-queue-forgets-watchers-reg ChannelBadger ChannelBadger.cfg RegistrationServed \
+    's/^    Mutation = .*/    Mutation = "queue_forgets_watchers"/' 'PROPERTIES\n    RegistrationServed'
 
 # --- GC handshake (GcHandshake.tla) -----------------------------------------
 check gc                     GcHandshake GcHandshake.cfg pass

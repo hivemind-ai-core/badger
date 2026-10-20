@@ -252,8 +252,9 @@ publishes a root after it uncounts, a nested stop). All 17 checks were
 re-run on this branch after the models were integrated: every outcome
 matched its expectation.
 
-**Three findings.** The model of the *current* code passes the properties
-the backlog asks for, and still finds three things:
+**Four findings.** The model of the *current* code passes the properties
+the backlog asks for, and still finds three things (a fourth, below, needs
+the refactored code):
 
 - **F1 -- a value handed to a receiver that is then cancelled is lost.** The
   receiver is handed the value and becomes ready; before it runs, it is
@@ -284,6 +285,21 @@ the backlog asks for, and still finds three things:
 
 F1 and F2 are spec violations, not just smells: they are recorded in
 `BACKLOG.md` and are part of the §1.2 refactor's acceptance.
+
+**F4 -- a batch receiver woken to retry and then cancelled takes its wake
+with it (open).** Found by the model of the *refactored* protocol
+(`16bbcbb`): a publication wakes one receiver per message, but the wake is
+a wake to *retry* -- the woken receiver takes a message only when it runs
+-- and if it is cancelled before it runs, `park()` honours the interrupt
+(rightly: nothing was handed to it, its status is not 1) and the task
+abandons without passing its wake on. The message is stranded. Reproduced
+on the real runtime at `9f1ff4c` with one worker
+(`spec/tla/repro/cancel_after_retry_wake.bdg`: "r2 got 1", "r1 cancelled",
+then a deadlock with the third receiver waiting on a batch receive). The
+same configuration without the cancellation passes, and prompt channels are
+not affected (a prompt value is handed over with status 1, which F1's fix
+protects). It needs four tasks, so it is outside the three-task bounds the
+backlog names, and the §1.2 contract has the same gap.
 
 **The model also settles §0.1.** The GC handshake model says the same thing
 the phase 0 analysis said, in the model's own terms: the protocol is
@@ -398,7 +414,8 @@ own:
 
 | item | what it needs | why it is not done here |
 |------|---------------|------------------------|
-| §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | in flight; the model describes the old protocol today |
+| §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | **done** (`16bbcbb`): the model now describes the new protocol, all 33 checks match, and it found F4 (above), which is open |
+| F4 | a batch receiver woken to retry and then cancelled must pass its wake on, or the message must go to another receiver | open: reproduced on the real runtime; needs four tasks, and the §1.2 contract has the same gap |
 | §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | **landed** (above) as a robustness change: the epoch makes the acknowledgement real and removes the "no nested stop" and "balanced slots" dependencies, but its latency claim did not hold |
 | §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
 | §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |
