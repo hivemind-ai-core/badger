@@ -164,15 +164,14 @@ fn layout(payload: usize) -> Layout {
 }
 
 /// Small objects (header and payload up to `SMALL_MAX` bytes) live in
-/// 16-byte size classes carved from 256 KiB chunks; each worker keeps free
-/// lists per class, filled by the sweep of its own object list, and
-/// allocates from them without the lock (like its object list). Small
-/// cells are reused, not returned to the system. Larger objects use the
-/// system allocator.
+/// 16-byte cells carved from each worker's blocks (see [`Pool`]); larger
+/// objects use the system allocator.
 // Dense HAMT roots occupy 288 bytes; pool their frequent persistent path copies.
 const SMALL_MAX: usize = 512;
-// Diagnostic builds can compare larger classes without changing their binary.
-const CLASSES: usize = if cfg!(feature = "gc-profile") { 1024 / 16 } else { SMALL_MAX / 16 };
+/// The allocation census's 16-byte size classes (diagnostic builds can
+/// compare larger pooled cells without changing their binary).
+#[cfg(feature = "gc-profile")]
+const CLASSES: usize = 1024 / 16;
 fn small_max() -> usize {
     #[cfg(feature = "gc-profile")]
     return diagnostics::pool_max(SMALL_MAX);
@@ -191,19 +190,120 @@ fn refill_bytes() -> usize {
     BIG_CHUNK
 }
 
+/// Chunks are divided into aligned blocks of `BLOCK` bytes, and blocks into
+/// lines of `LINE` bytes. A block starts with its line bitmap (one bit per
+/// line, set while a live or quarantined cell overlaps the line), which
+/// occupies its first `HEADER_LINES` lines; their bits are always set. A cell
+/// never crosses a block boundary, so its block is its address rounded down.
+const BLOCK: usize = 32 << 10;
+const LINE: usize = 32;
+const LINES: usize = BLOCK / LINE;
+type LineMap = [u64; LINES / 64];
+const HEADER_LINES: usize = std::mem::size_of::<LineMap>() / LINE;
+const HEADER_BITS: u64 = (1 << HEADER_LINES) - 1;
+/// Cells above this size that miss the current hole take the overflow
+/// region instead, so the rest of the hole is kept for smaller cells.
+const MEDIUM: usize = 4 * LINE;
+
 #[derive(Clone, Copy)]
 struct Chunk {
     base: *mut u8,
     bytes: usize,
     align: usize,
+    /// Blocks handed out, from the start; the blocks after them are still
+    /// zero and have no line bitmap yet.
+    used: usize,
 }
 
+impl Chunk {
+    fn blocks(&self) -> usize {
+        self.bytes / BLOCK
+    }
+
+    fn block(&self, i: usize) -> *mut u8 {
+        unsafe { self.base.add(i * BLOCK) }
+    }
+}
+
+/// The line bitmap of the block holding `p`.
+fn line_map<'a>(p: *mut u8) -> &'a mut LineMap {
+    unsafe { &mut *(p.map_addr(|a| a & !(BLOCK - 1)) as *mut LineMap) }
+}
+
+/// The free lines from line `from` on: the next run of clear bits, as a
+/// line range.
+fn next_hole(map: &LineMap, from: usize) -> Option<(usize, usize)> {
+    let mut start = from;
+    while start < LINES {
+        let free = !map[start / 64] >> (start % 64);
+        if free != 0 {
+            start += free.trailing_zeros() as usize;
+            break;
+        }
+        start = (start / 64 + 1) * 64;
+    }
+    if start >= LINES {
+        return None;
+    }
+    let mut end = start;
+    while end < LINES {
+        let used = map[end / 64] >> (end % 64);
+        if used != 0 {
+            end += used.trailing_zeros() as usize;
+            break;
+        }
+        end = (end / 64 + 1) * 64;
+    }
+    Some((start, end.min(LINES)))
+}
+
+fn block_empty(map: &LineMap) -> bool {
+    map[0] == HEADER_BITS && map[1..].iter().all(|&w| w == 0)
+}
+
+/// Mark the lines overlapped by the small cell at `p` live.
+fn mark_lines(p: *mut Header, payload: usize) {
+    let size = cell_size(payload);
+    if size > small_max() {
+        return;
+    }
+    let offset = p.addr() & (BLOCK - 1);
+    let map = line_map(p as *mut u8);
+    for line in offset / LINE..=(offset + size - 1) / LINE {
+        map[line / 64] |= 1 << (line % 64);
+    }
+}
+
+/// A worker's small-cell allocator, Immix-style: cells are bump-allocated
+/// in holes (runs of free lines) of the worker's blocks, and a dead cell is
+/// reclaimed by its lines staying clear at the next collection, so
+/// partly live blocks are reused in place and nothing moves. The pool is
+/// touched only by its worker's allocations, and by the collector while
+/// the world is stopped, which marks the lines of the survivors of its
+/// worker's object list and then rebuilds the block lists
+/// ([`Pool::rebuild`]).
 struct Pool {
-    free: [*mut u8; CLASSES],
-    bump: *mut u8,
+    /// The hole being allocated from: the next cell and the bytes left.
+    cursor: *mut u8,
     left: usize,
+    /// The hole held dead cells: its cells are zeroed as they are handed out.
+    recycled: bool,
+    /// The overflow region (a block with no live line) for medium cells.
+    over: *mut u8,
+    over_left: usize,
+    over_recycled: bool,
+    /// The partly live block being searched for holes, and the line to
+    /// search from.
+    scan: *mut u8,
+    scan_line: usize,
+    /// Blocks with live and free lines, and blocks with no live line, as
+    /// the last collection left them (taken from the back).
+    recyclable: Vec<*mut u8>,
+    empty: Vec<*mut u8>,
     chunks: Vec<Chunk>,
-    active: *mut u8,
+    /// Whether the last cell came from dead cells' lines (the census).
+    #[cfg(feature = "gc-profile")]
+    reused: bool,
 }
 
 struct Pools([UnsafeCell<Pool>; crate::task::MAX_WORKERS]);
@@ -211,93 +311,209 @@ unsafe impl Sync for Pools {}
 static POOLS: Pools = Pools(
     [const {
         UnsafeCell::new(Pool {
-            free: [std::ptr::null_mut(); CLASSES],
-            bump: std::ptr::null_mut(),
+            cursor: std::ptr::null_mut(),
             left: 0,
+            recycled: false,
+            over: std::ptr::null_mut(),
+            over_left: 0,
+            over_recycled: false,
+            scan: std::ptr::null_mut(),
+            scan_line: 0,
+            recyclable: Vec::new(),
+            empty: Vec::new(),
             chunks: Vec::new(),
-            active: std::ptr::null_mut(),
+            #[cfg(feature = "gc-profile")]
+            reused: false,
         })
     }; crate::task::MAX_WORKERS],
 );
+
+#[allow(clippy::mut_from_ref)]
+fn pool(w: usize) -> &'static mut Pool {
+    unsafe { &mut *POOLS.0[w].get() }
+}
+
+impl Pool {
+    /// The next hole of at least `size` bytes in the partly live blocks
+    /// (smaller holes on the way are left until the next collection).
+    fn next_hole(&mut self, size: usize) -> bool {
+        loop {
+            if self.scan.is_null() {
+                let Some(block) = self.recyclable.pop() else { return false };
+                self.scan = block;
+                self.scan_line = HEADER_LINES;
+            }
+            match next_hole(line_map(self.scan), self.scan_line) {
+                Some((start, end)) => {
+                    self.scan_line = end;
+                    if (end - start) * LINE >= size {
+                        self.cursor = unsafe { self.scan.add(start * LINE) };
+                        self.left = (end - start) * LINE;
+                        self.recycled = true;
+                        return true;
+                    }
+                }
+                None => self.scan = std::ptr::null_mut(),
+            }
+        }
+    }
+
+    /// Bump-allocate `size` bytes from the overflow region or the hole,
+    /// which has room for them.
+    #[inline]
+    fn bump(&mut self, overflow: bool, size: usize) -> *mut Header {
+        let (cursor, left, recycled) = if overflow {
+            (&mut self.over, &mut self.over_left, self.over_recycled)
+        } else {
+            (&mut self.cursor, &mut self.left, self.recycled)
+        };
+        let p = *cursor;
+        *cursor = unsafe { p.add(size) };
+        *left -= size;
+        if recycled {
+            unsafe { std::ptr::write_bytes(p, 0, size) };
+        }
+        #[cfg(feature = "gc-profile")]
+        {
+            self.reused = recycled;
+        }
+        p as *mut Header
+    }
+
+    /// A block with no live line, and whether it held dead cells: an empty
+    /// block, else a fresh one (from a new chunk when none is left and
+    /// `grow`).
+    fn take_block(&mut self, grow: bool) -> Option<(*mut u8, bool)> {
+        if let Some(block) = self.empty.pop() {
+            return Some((block, true));
+        }
+        if !self.chunks.last().is_some_and(|c| c.used < c.blocks()) {
+            if !grow {
+                return None;
+            }
+            let bytes = if self.chunks.is_empty() { CHUNK } else { refill_bytes() };
+            let align = if bytes == BIG_CHUNK { BIG_CHUNK } else { BLOCK };
+            let base = unsafe { alloc_zeroed(Layout::from_size_align(bytes, align).unwrap()) };
+            if base.is_null() {
+                return None;
+            }
+            // a hint only (Miri does not model it)
+            if bytes == BIG_CHUNK && !cfg!(miri) {
+                unsafe { libc::madvise(base as *mut libc::c_void, bytes, libc::MADV_HUGEPAGE) };
+            }
+            self.chunks.push(Chunk { base, bytes, align, used: 0 });
+            POOL_RESERVED.fetch_add(bytes, Ordering::Relaxed);
+            #[cfg(feature = "gc-profile")]
+            allocations::record_pool_event(allocations::PoolEvent::Refill, bytes);
+        }
+        let chunk = self.chunks.last_mut().unwrap();
+        let block = chunk.block(chunk.used);
+        chunk.used += 1;
+        line_map(block)[0] = HEADER_BITS;
+        Some((block, false))
+    }
+
+    /// After a collection's sweep (when the lines of every live or
+    /// quarantined cell are marked): with `trim`, whole chunks with no live
+    /// line are released; every block not yet handed out stays fresh, the
+    /// others are sorted by their line bitmaps, and allocation starts over.
+    fn rebuild(&mut self, trim: bool) {
+        if trim {
+            self.chunks.retain(|chunk| {
+                let empty = (0..chunk.used).all(|i| block_empty(line_map(chunk.block(i))));
+                if empty {
+                    unsafe { dealloc(chunk.base, Layout::from_size_align(chunk.bytes, chunk.align).unwrap()) };
+                    POOL_RESERVED.fetch_sub(chunk.bytes, Ordering::Relaxed);
+                    #[cfg(feature = "gc-profile")]
+                    allocations::record_pool_event(allocations::PoolEvent::Trim, chunk.bytes);
+                }
+                !empty
+            });
+        }
+        self.cursor = std::ptr::null_mut();
+        self.left = 0;
+        self.over = std::ptr::null_mut();
+        self.over_left = 0;
+        self.scan = std::ptr::null_mut();
+        self.recyclable.clear();
+        self.empty.clear();
+        for chunk in self.chunks.iter().rev() {
+            for i in (0..chunk.used).rev() {
+                let block = chunk.block(i);
+                let map = line_map(block);
+                if block_empty(map) {
+                    self.empty.push(block);
+                } else if map.iter().any(|&w| w != u64::MAX) {
+                    self.recyclable.push(block);
+                }
+            }
+        }
+    }
+
+    /// Before a full collection's sweep: no line is live.
+    fn clear_lines(&mut self) {
+        for chunk in &self.chunks {
+            for i in 0..chunk.used {
+                let map = line_map(chunk.block(i));
+                map.fill(0);
+                map[0] = HEADER_BITS;
+            }
+        }
+    }
+}
 
 fn cell_size(payload: usize) -> usize {
     (HEADER + payload.max(8) + 15) & !15
 }
 
 /// A zeroed cell for an object with `payload` bytes, owned by worker `w`.
+#[inline]
 fn alloc_cell(w: usize, payload: usize) -> *mut Header {
     let size = cell_size(payload);
     if size > small_max() {
         return unsafe { alloc_zeroed(layout(payload)) as *mut Header };
     }
-    let pool = unsafe { &mut *POOLS.0[w].get() };
-    let class = size / 16 - 1;
-    let p = pool.free[class];
-    if !p.is_null() {
-        unsafe {
-            pool.free[class] = *(p as *mut *mut u8);
-            std::ptr::write_bytes(p, 0, size);
-        }
-        return p as *mut Header;
+    let pool = pool(w);
+    if pool.left >= size {
+        return pool.bump(false, size);
     }
-    if pool.left < size {
-        let bytes = if pool.chunks.is_empty() { CHUNK } else { refill_bytes() };
-        let align = if bytes == BIG_CHUNK { BIG_CHUNK } else { 16 };
-        let chunk = unsafe { alloc_zeroed(Layout::from_size_align(bytes, align).unwrap()) };
-        if chunk.is_null() {
-            return chunk as *mut Header;
-        }
-        // a hint only (Miri does not model it)
-        if bytes == BIG_CHUNK && !cfg!(miri) {
-            unsafe { libc::madvise(chunk as *mut libc::c_void, bytes, libc::MADV_HUGEPAGE) };
-        }
-        pool.chunks.push(Chunk { base: chunk, bytes, align });
-        pool.active = chunk;
-        POOL_RESERVED.fetch_add(bytes, Ordering::Relaxed);
-        #[cfg(feature = "gc-profile")]
-        allocations::record_pool_event(allocations::PoolEvent::Refill, bytes);
-        pool.bump = chunk;
-        pool.left = bytes;
-    }
-    let p = pool.bump;
-    pool.bump = unsafe { p.add(size) };
-    pool.left -= size;
-    p as *mut Header
+    alloc_cell_slow(pool, size)
 }
 
-/// Return the cell of a dead object with `payload` bytes to worker `w`'s
-/// pool (only while the world is stopped, by the sweep of `w`'s own object
-/// list: a pool is otherwise touched only by its worker's allocations).
-fn free_cell(w: usize, p: *mut Header, payload: usize) {
-    let size = cell_size(payload);
-    if size > small_max() {
-        return unsafe { dealloc(p as *mut u8, layout(payload)) };
+/// A cell that misses the current hole. A medium cell takes the overflow
+/// region while the hole still has room for smaller cells and a block with
+/// no live line is at hand; otherwise the next hole that fits is taken, or
+/// a block with no live line (from a new chunk if need be).
+#[cold]
+fn alloc_cell_slow(pool: &mut Pool, size: usize) -> *mut Header {
+    if size > MEDIUM && pool.left >= MEDIUM {
+        if pool.over_left < size
+            && let Some((block, recycled)) = pool.take_block(false)
+        {
+            pool.over = unsafe { block.add(HEADER_LINES * LINE) };
+            pool.over_left = BLOCK - HEADER_LINES * LINE;
+            pool.over_recycled = recycled;
+        }
+        if pool.over_left >= size {
+            return pool.bump(true, size);
+        }
     }
-    let pool = unsafe { &mut *POOLS.0[w].get() };
-    let class = size / 16 - 1;
-    unsafe { *(p as *mut *mut u8) = pool.free[class] };
-    pool.free[class] = p as *mut u8;
+    if !pool.next_hole(size) {
+        let Some((block, recycled)) = pool.take_block(true) else { return std::ptr::null_mut() };
+        pool.cursor = unsafe { block.add(HEADER_LINES * LINE) };
+        pool.left = BLOCK - HEADER_LINES * LINE;
+        pool.recycled = recycled;
+    }
+    pool.bump(false, size)
 }
 
-/// Quarantine drains on the collector thread without the original worker's
-/// identity. Find the owning pool only here, rather than checking verifier
-/// state for every ordinary sweep return. Large cells have no pool owner.
-fn free_quarantined(p: *mut Header, payload: usize) {
-    let w = if cell_size(payload) <= small_max() {
-        POOLS
-            .0
-            .iter()
-            .position(|pool| {
-                unsafe { &*pool.get() }.chunks.iter().any(|c| {
-                    let address = p as usize;
-                    address >= c.base as usize && address < c.base as usize + c.bytes
-                })
-            })
-            .expect("quarantined pool cell has an owner")
-    } else {
-        0
-    };
-    free_cell(w, p, payload);
+/// Release the cell of a dead object with `payload` bytes (only while the
+/// world is stopped). A small cell needs nothing: its lines are not marked
+/// by the sweep, so they are free once its block is rebuilt.
+fn free_cell(p: *mut Header, payload: usize) {
+    if cell_size(payload) > small_max() {
+        unsafe { dealloc(p as *mut u8, layout(payload)) };
+    }
 }
 
 /// `BADGER_GC_STRESS=1`: collect before every allocation (a debugging aid
@@ -367,13 +583,13 @@ pub fn alloc(desc: &'static TypeDesc, payload: usize) -> u64 {
     }
     unsafe {
         let w = crate::task::worker_index();
-        #[cfg(feature = "gc-profile")]
-        let source = allocations::cell_source(w, payload);
         let p = alloc_cell(w, payload);
         if p.is_null() {
             eprintln!("fatal: out of memory");
             std::process::abort();
         }
+        #[cfg(feature = "gc-profile")]
+        let source = allocations::cell_source(w, payload);
         (*p).desc = desc;
         (*p).meta = (payload as u64) << 32;
         let list = objects(w);
@@ -909,6 +1125,14 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
         }
         profile.phase("allocation_census");
     }
+    if !minor {
+        // a full collection marks every survivor's lines again
+        for w in 0..crate::task::MAX_WORKERS {
+            pool(w).clear_lines();
+        }
+    }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("clear_lines");
     if !checking && lists.len() > 1 && total >= PARALLEL_SWEEP {
         let starts: Vec<usize> = lists.iter().map(|&w| from(w)).collect();
         live = sweep_parallel(
@@ -940,7 +1164,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
                         h.quarantine.push_back((p, was));
                         h.quarantine_bytes += HEADER + size;
                     } else {
-                        free_cell(wl, p, (*p).payload_size());
+                        free_cell(p, (*p).payload_size());
                     }
                 },
             );
@@ -957,8 +1181,13 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
             let size = (*p).payload_size();
             h.quarantine_bytes -= HEADER + size;
             h.freed.remove(&(p as usize));
-            free_quarantined(p, size);
+            free_cell(p, size);
         }
+    }
+    // quarantined cells keep their lines (some were released just now,
+    // and their lines stay marked until the next full collection)
+    for &(p, _) in &h.quarantine {
+        mark_lines(p, unsafe { (*p).payload_size() });
     }
     for (wl, c) in COUNTS.iter().enumerate() {
         c.0.store(objects(wl).len(), Ordering::Relaxed);
@@ -970,7 +1199,6 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     #[cfg(feature = "gc-profile")]
     let trim = diagnostics::trim();
     if !minor && trim {
-        trim_empty_chunks(h);
         if h.temp_roots.capacity() > h.temp_roots.len().max(4096) * 4 {
             h.temp_roots.shrink_to(h.temp_roots.len().max(4096));
         }
@@ -983,6 +1211,11 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     }
     #[cfg(feature = "gc-profile")]
     profile.phase("trim");
+    for w in 0..crate::task::MAX_WORKERS {
+        pool(w).rebuild(!minor && trim);
+    }
+    #[cfg(feature = "gc-profile")]
+    profile.phase("blocks");
     // every worker is stopped: their unpublished debt is part of `live`
     for d in &DEBT {
         d.0.store(0, Ordering::Relaxed);
@@ -1023,86 +1256,12 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     SCRATCH.give(stack, remembered);
 }
 
-/// Whole chunks with neither live nor quarantined cells can be released.
-/// Purge every free-list link before deallocating any retired chunk.
-fn trim_empty_chunks(h: &Heap) {
-    // A chunk is occupied when a live or quarantined cell lies in it. The
-    // chunks are few and the cells are many: index the chunks and look each
-    // cell up, rather than sorting every cell address at every collection.
-    let mut ranges: Vec<(usize, usize)> = Vec::new();
-    for pool in &POOLS.0 {
-        let pool = unsafe { &*pool.get() };
-        for chunk in &pool.chunks {
-            ranges.push((chunk.base as usize, chunk.base as usize + chunk.bytes));
-        }
-    }
-    ranges.sort_unstable();
-    let mut occupied: FxHashSet<usize> = FxHashSet::default();
-    for p in all_objects().chain(h.quarantine.iter().map(|(p, _)| *p)) {
-        let address = p as usize;
-        // The chunks do not overlap, so the last one that starts at or
-        // before the cell is the only one that can hold it.
-        let i = ranges.partition_point(|r| r.0 <= address);
-        if i > 0 && address < ranges[i - 1].1 {
-            occupied.insert(ranges[i - 1].0);
-        }
-    }
-    let mut retired = vec![];
-    for pool in &POOLS.0 {
-        let pool = unsafe { &mut *pool.get() };
-        for chunk in std::mem::take(&mut pool.chunks) {
-            let start = chunk.base as usize;
-            if !occupied.contains(&start) {
-                if pool.active == chunk.base {
-                    pool.active = std::ptr::null_mut();
-                    pool.bump = std::ptr::null_mut();
-                    pool.left = 0;
-                }
-                retired.push(chunk);
-            } else {
-                pool.chunks.push(chunk);
-            }
-        }
-    }
-    if retired.is_empty() {
-        return;
-    }
-    let mut ranges: Vec<_> = retired.iter().map(|c| (c.base as usize, c.base as usize + c.bytes)).collect();
-    ranges.sort_unstable();
-    let released = |p: *mut u8| {
-        let i = ranges.partition_point(|r| r.0 <= p as usize);
-        i > 0 && (p as usize) < ranges[i - 1].1
-    };
-    for pool in &POOLS.0 {
-        let pool = unsafe { &mut *pool.get() };
-        for head in &mut pool.free {
-            let mut link: *mut *mut u8 = head;
-            unsafe {
-                while !(*link).is_null() {
-                    let cell = *link;
-                    let next = *(cell as *mut *mut u8);
-                    if released(cell) {
-                        *link = next;
-                    } else {
-                        link = cell as *mut *mut u8;
-                    }
-                }
-            }
-        }
-    }
-    for c in retired {
-        unsafe { dealloc(c.base, Layout::from_size_align(c.bytes, c.align).unwrap()) };
-        POOL_RESERVED.fetch_sub(c.bytes, Ordering::Relaxed);
-        #[cfg(feature = "gc-profile")]
-        allocations::record_pool_event(allocations::PoolEvent::Trim, c.bytes);
-    }
-}
-
 #[cfg(any(target_arch = "x86_64", feature = "gc-profile"))]
 const SWEEP_PREFETCH: usize = 32;
 
 /// Sweep `list[start..]` in place: marked objects survive (`keep`; their
-/// marks stay when `sticky`), the others are handed to `free`.
+/// marks stay when `sticky`, and their lines are marked live in the
+/// list's own pool), the others are handed to `free`.
 fn sweep_from(
     list: &mut Vec<*mut Header>,
     start: usize,
@@ -1138,6 +1297,7 @@ fn sweep_from(
                 if !sticky {
                     (*p).meta &= !MARK;
                 }
+                mark_lines(p, (*p).payload_size());
                 keep(p);
                 list[j] = p;
                 j += 1;
@@ -1226,7 +1386,7 @@ fn sweep_list(wl: usize, start: usize, sticky: bool) -> SweptList {
             if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
                 fin.push(p);
             } else {
-                free_cell(wl, p, (*p).payload_size());
+                free_cell(p, (*p).payload_size());
             }
         },
     );
@@ -1276,7 +1436,7 @@ fn sweep_parallel(
                 if let Kind::Opaque { finalize: Some(_), .. } = &(*p).desc().kind {
                     fin.push(p);
                 } else {
-                    free_cell(wl, p, (*p).payload_size());
+                    free_cell(p, (*p).payload_size());
                 }
             },
         );
@@ -1299,11 +1459,11 @@ fn sweep_parallel(
         out
     });
     let mut live = 0;
-    for (&wl, (l, fin)) in lists.iter().zip(results) {
+    for (l, fin) in results {
         live += l;
         for p in fin {
             finalize(p);
-            free_cell(wl, p, unsafe { (*p).payload_size() });
+            free_cell(p, unsafe { (*p).payload_size() });
         }
     }
     live
@@ -1312,11 +1472,11 @@ fn sweep_parallel(
 #[cfg(any(feature = "gc-profile", test))]
 fn finish_sweep(lists: &[usize], results: Vec<SweptList>) -> usize {
     let mut live = 0;
-    for (&wl, (l, fin)) in lists.iter().zip(results) {
+    for (_, (l, fin)) in lists.iter().zip(results) {
         live += l;
         for p in fin {
             finalize(p);
-            free_cell(wl, p, unsafe { (*p).payload_size() });
+            free_cell(p, unsafe { (*p).payload_size() });
         }
     }
     live
@@ -1416,7 +1576,7 @@ mod pool_tests {
     use super::*;
 
     #[test]
-    fn cells_reuse_zeroed_storage_and_trim_respects_quarantine() {
+    fn cells_reuse_dead_lines_and_trim_respects_quarantine() {
         // An isolated test process avoids racing other runtime unit tests that
         // use the global heap. Its only test is this allocator exercise.
         if std::env::var_os("BADGER_POOL_TEST_CHILD").is_none() {
@@ -1437,7 +1597,7 @@ mod pool_tests {
                     let output = command
                         .args([
                             "--exact",
-                            "gc::pool_tests::cells_reuse_zeroed_storage_and_trim_respects_quarantine",
+                            "gc::pool_tests::cells_reuse_dead_lines_and_trim_respects_quarantine",
                         ])
                         .env("BADGER_POOL_TEST_CHILD", "1")
                         .env("BADGER_GC_POOL_MAX", limit.to_string())
@@ -1456,76 +1616,121 @@ mod pool_tests {
             return;
         }
         let w = 0;
+        let size_of = |payload: usize| {
+            if cell_size(payload) <= small_max() { cell_size(payload) } else { layout(payload).size() }
+        };
+        // Every cell is zeroed, and the pooled ones lie in one block each.
+        let mut cells = vec![];
         for payload in 0..=1040 {
-            let bytes =
-                if cell_size(payload) <= small_max() { cell_size(payload) } else { layout(payload).size() };
+            let bytes = size_of(payload);
             let p = alloc_cell(w, payload);
             assert!(!p.is_null());
             unsafe {
                 assert!(std::slice::from_raw_parts(p as *const u8, bytes).iter().all(|&b| b == 0));
                 std::ptr::write_bytes(p as *mut u8, 0xAB, bytes);
             }
-            free_cell(w, p, payload);
-            let q = alloc_cell(w, payload);
             if cell_size(payload) <= small_max() {
-                assert_eq!(p, q);
+                let offset = p.addr() & (BLOCK - 1);
+                assert!(offset >= HEADER_LINES * LINE && offset + bytes <= BLOCK);
             }
-            unsafe {
-                assert!(std::slice::from_raw_parts(q as *const u8, bytes).iter().all(|&b| b == 0));
-            }
-            free_cell(w, q, payload);
+            cells.push((p, payload));
         }
+        // A collection that keeps every third cell: the others' lines are
+        // reused in place, zeroed, and never overlap a survivor.
+        let reserved = pool_reserved_bytes();
+        let mut kept = vec![];
+        for (i, &(p, payload)) in cells.iter().enumerate() {
+            if i % 3 == 0 {
+                mark_lines(p, payload);
+                kept.push((p, payload));
+            } else {
+                free_cell(p, payload);
+            }
+        }
+        pool(w).rebuild(false);
+        assert!(!pool(w).recyclable.is_empty());
+        let mut again = vec![];
+        for payload in (0..=small_max() - HEADER).step_by(8).cycle().take(300) {
+            let p = alloc_cell(w, payload);
+            let bytes = cell_size(payload);
+            unsafe {
+                assert!(std::slice::from_raw_parts(p as *const u8, bytes).iter().all(|&b| b == 0));
+            }
+            for &(q, kept_payload) in &kept {
+                let (a, b) = (p.addr(), q.addr());
+                assert!(a + bytes <= b || b + size_of(kept_payload) <= a, "{a:#x} overlaps a survivor at {b:#x}");
+            }
+            again.push((p, payload));
+        }
+        assert_eq!(pool_reserved_bytes(), reserved, "dead lines are reused before new chunks");
+        for &(p, payload) in &kept {
+            assert!(unsafe { std::slice::from_raw_parts(p as *const u8, size_of(payload)) }.iter().all(|&b| b == 0xAB));
+        }
+        for (p, payload) in again.into_iter().chain(kept) {
+            free_cell(p, payload);
+        }
+        pool(w).rebuild(false);
         // Cross a chunk boundary, then retain just one quarantined cell from
-        // the first chunk. Free-list links into retired chunks must be purged.
+        // the first chunk: only the chunks with no live line are released.
         let payload = small_max() - HEADER;
-        let cells: Vec<_> = (0..CHUNK / small_max() + 8).map(|_| alloc_cell(w, payload)).collect();
-        assert!(unsafe { &*POOLS.0[w].get() }.chunks.len() >= 2);
-        assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks[1].bytes, refill_bytes());
+        let cells: Vec<_> = (0..2 * CHUNK / small_max() + 8).map(|_| alloc_cell(w, payload)).collect();
+        assert!(pool(w).chunks.len() >= 2);
+        assert_eq!(pool(w).chunks[1].bytes, refill_bytes());
         let held = cells[0];
+        assert!(held.addr() >= pool(w).chunks[0].base.addr() && held.addr() < pool(w).chunks[0].base.addr() + CHUNK);
         // This raw allocator fixture has not published a managed pointer
         // word, which normally exposes the provenance used by payload().
         let _ = held.expose_provenance();
-        for p in cells.into_iter().skip(1) {
-            free_cell(w, p, payload);
+        for &p in &cells[1..] {
+            free_cell(p, payload);
         }
-        let desc = crate::desc::builtin::unit();
         unsafe {
-            (*held).desc = desc;
+            (*held).desc = crate::desc::builtin::unit();
             (*held).meta = (payload as u64) << 32;
             std::ptr::write_bytes((*held).payload(), 0xCD, payload);
         }
-        heap().quarantine.push_back((held, desc));
-        heap().quarantine_bytes = HEADER + payload;
-        trim_empty_chunks(heap());
-        assert_eq!(unsafe { &*POOLS.0[w].get() }.chunks.len(), 1);
+        pool(w).clear_lines();
+        mark_lines(held, payload);
+        pool(w).rebuild(true);
+        assert_eq!(pool(w).chunks.len(), 1);
         unsafe {
             assert!(std::slice::from_raw_parts((*held).payload(), payload).iter().all(|&b| b == 0xCD));
         }
-        assert_eq!(heap().quarantine.pop_front().unwrap().0, held);
-        heap().quarantine_bytes = 0;
-        free_cell(w, held, payload);
-        trim_empty_chunks(heap());
-        let pool = unsafe { &*POOLS.0[w].get() };
-        assert!(pool.chunks.is_empty());
-        assert!(pool.free.iter().all(|p| p.is_null()));
-        assert!(pool.active.is_null());
-        assert_eq!(pool.left, 0);
+        free_cell(held, payload);
+        pool(w).clear_lines();
+        pool(w).rebuild(true);
+        let p = pool(w);
+        assert!(p.chunks.is_empty() && p.recyclable.is_empty() && p.empty.is_empty());
+        assert!(p.cursor.is_null() && p.over.is_null() && p.scan.is_null());
+        assert_eq!(p.left + p.over_left, 0);
         assert_eq!(pool_reserved_bytes(), 0);
 
-        // Quarantine may release a different worker's pooled cell. It must
-        // return to that worker, while system cells need no pool lookup.
+        // A pool belongs to its worker; large cells need no pool.
         let p = alloc_cell(7, 8);
-        assert!(!p.is_null());
-        free_quarantined(p, 8);
-        let q = alloc_cell(7, 8);
-        assert_eq!(p, q);
-        free_cell(7, q, 8);
+        assert!(!p.is_null() && pool(7).chunks.len() == 1 && pool(0).chunks.is_empty());
+        free_cell(p, 8);
         let large = small_max() + 1;
         let p = alloc_cell(7, large);
         assert!(!p.is_null());
-        free_quarantined(p, large);
-        trim_empty_chunks(heap());
-        assert!(unsafe { &*POOLS.0[7].get() }.chunks.is_empty());
+        free_cell(p, large);
+        pool(7).clear_lines();
+        pool(7).rebuild(true);
+        assert!(pool(7).chunks.is_empty());
         assert_eq!(pool_reserved_bytes(), 0);
+    }
+
+    #[test]
+    fn holes_are_runs_of_clear_lines() {
+        let mut map: LineMap = [0; LINES / 64];
+        map[0] = HEADER_BITS;
+        assert_eq!(next_hole(&map, HEADER_LINES), Some((HEADER_LINES, LINES)));
+        map[1] = 1 << 3 | 1 << 4;
+        map[15] = 1 << 63;
+        assert_eq!(next_hole(&map, HEADER_LINES), Some((HEADER_LINES, 67)));
+        assert_eq!(next_hole(&map, 67), Some((69, LINES - 1)));
+        assert_eq!(next_hole(&map, LINES - 1), None);
+        assert!(!block_empty(&map));
+        map.fill(u64::MAX);
+        assert_eq!(next_hole(&map, 0), None);
     }
 }
