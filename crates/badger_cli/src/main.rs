@@ -360,6 +360,9 @@ enum Command {
         /// The new name.
         #[arg(long)]
         name: String,
+        /// Print the edits as JSON and write nothing.
+        #[arg(long)]
+        json: bool,
     },
     /// Run the benchmark programs and report their measurements.
     Bench {
@@ -1037,9 +1040,9 @@ fn command(cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Rename { path, line, col, name } => {
+        Command::Rename { path, line, col, name, json } => {
             let edits = match lsp::query(
-                "rename",
+                lsp::RENAME,
                 &path,
                 Some(line),
                 Some(col),
@@ -1052,6 +1055,11 @@ fn command(cli: Cli) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
+            // `--json` reports the edits and writes nothing
+            if json {
+                println!("{edits}");
+                return ExitCode::SUCCESS;
+            }
             match apply_edits(&edits) {
                 Ok(files) => {
                     if files.is_empty() {

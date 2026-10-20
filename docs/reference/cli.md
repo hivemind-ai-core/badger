@@ -435,18 +435,17 @@ one.
 | `definition` | PATH, `--line`, `--col` | Location of the definition. |
 | `references` | PATH, `--line`, `--col` | Every use, across all of a project's entry points and tasks. |
 | `completion` | PATH, `--line`, `--col` | Completion items at the position. |
-| `rename` | PATH, `--line`, `--col`, `--name` | `{"edits": [...]}`: the edits a rename makes. Nothing is written. |
 
 | Flag | Meaning |
 |---|---|
 | `--line N`, `--col N` | Position (1-based). |
 | `--source TEXT` | Ask about this source text, checked on its own, instead of PATH. `-` reads it from standard input. |
-| `--name NAME` | The new name for `rename`. |
+| `--name NAME` | The name of the definition `symbol` looks for. |
 | `--overlays FILE` | Proposed file contents to check instead of the files on disk: a JSON object from path (relative to the program's directory) to text. `-` reads standard input. Nothing is written. |
 
 Exit status: 0 when the question was answered, also when the answer lists
-errors; 1 when it could not be (no PATH or `--source`, unknown KIND, a
-missing file).
+errors; 1 when it could not be (no PATH or `--source`, a missing file);
+2 for an unknown KIND (the parser lists the questions).
 
 ```sh
 $ badger query hover src/main.bdg --line 22 --col 53
@@ -473,12 +472,16 @@ std.route.query_params  pub fn query_params(uri: String) -> Params {
     The query parameters of a request URI (`?a=1&b=2`): the names and values are percent-decoded.
 ```
 
-### `badger rename PATH --line N --col N --name NEW`
+### `badger rename PATH --line N --col N --name NEW [--json]`
 
 Rename a definition, and every use of it, in the files of the project.
 The position is a line and a column (1-based, as in `badger check
 --json`); it may point at the definition or at one of its uses. The
 edits are computed and applied, and the files that changed are named.
+
+| Flag | Meaning |
+|---|---|
+| `--json` | Print the edits as JSON (`{"edits": [...]}`) and write nothing. |
 
 ```sh
 $ badger rename src/orders.bdg --line 12 --col 4 --name find_order

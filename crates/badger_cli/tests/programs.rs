@@ -1439,13 +1439,22 @@ fn native_modules() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `badger query rename` returns edits (not applied) for every use, in each
-/// of a project's entry points and tasks; inputs a query cannot answer are
-/// errors rather than empty results.
+/// `badger rename --json` returns the edits (and writes nothing) for every
+/// use, in each of a project's entry points and tasks; inputs a query
+/// cannot answer are errors rather than empty results.
 #[test]
 fn query_rename_and_unsupported_inputs() {
     let q = |args: &[&str]| {
         let out = lang().arg("query").args(args).output().unwrap();
+        (
+            out.status.success(),
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+        )
+    };
+    // the rename with `--json`: the edits, and nothing written
+    let r = |args: &[&str]| {
+        let out = lang().arg("rename").args(args).arg("--json").output().unwrap();
         (
             out.status.success(),
             String::from_utf8_lossy(&out.stdout).to_string(),
@@ -1467,7 +1476,7 @@ fn query_rename_and_unsupported_inputs() {
     // from the definition, from the task-only module, and from the main entry's module
     for (file, line, col) in [("shapes.bdg", "3", "8"), ("jobs.bdg", "5", "40"), ("report.bdg", "3", "62")] {
         let p = format!("tests/projects/overlay/src/{file}");
-        let (ok, out, err) = q(&["rename", &p, "--line", line, "--col", col, "--name", "surface"]);
+        let (ok, out, err) = r(&[&p, "--line", line, "--col", col, "--name", "surface"]);
         assert!(ok, "{err}");
         assert_eq!(files(&out), all, "{file}: {out}");
     }
@@ -1478,8 +1487,7 @@ fn query_rename_and_unsupported_inputs() {
             .count(),
         1
     );
-    let (ok, _, err) = q(&[
-        "rename",
+    let (ok, _, err) = r(&[
         "tests/projects/overlay/src/shapes.bdg",
         "--line",
         "3",
@@ -1511,10 +1519,10 @@ fn query_rename_and_unsupported_inputs() {
         c
     };
     let p = "tests/query/desugared_bindings.bdg";
-    let (ok, out, err) = q(&["rename", p, "--line", "6", "--col", "15", "--name", "w"]);
+    let (ok, out, err) = r(&[p, "--line", "6", "--col", "15", "--name", "w"]);
     assert!(ok, "{err}");
     assert_eq!(cols(&out), vec![(6, 15), (7, 5)], "{out}");
-    let (ok, out, err) = q(&["rename", p, "--line", "11", "--col", "13", "--name", "q"]);
+    let (ok, out, err) = r(&[p, "--line", "11", "--col", "13", "--name", "q"]);
     assert!(ok, "{err}");
     assert_eq!(cols(&out), vec![(11, 13), (11, 26), (11, 32), (11, 36)], "{out}");
 }

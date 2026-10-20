@@ -5,7 +5,8 @@
 Compiler services: diagnostics, types, definitions, references, symbols,
 and completions of a source file (checked with its project, if any),
 checks of proposed edits in their project, and diagnostic explanations. Each call runs `badger query` (the language
-server's analysis) as a subprocess; positions are 1-based lines and
+server's analysis) as a subprocess -- the rename runs `badger rename`
+--; positions are 1-based lines and
 columns in characters.
 
 ## Types

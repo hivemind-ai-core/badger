@@ -1,7 +1,8 @@
 // Compiler services: diagnostics, types, definitions, references, symbols,
 // and completions of a source file (checked with its project, if any),
 // checks of proposed edits in their project, and diagnostic explanations. Each call runs `badger query` (the language
-// server's analysis) as a subprocess; positions are 1-based lines and
+// server's analysis) as a subprocess -- the rename runs `badger rename`
+// --; positions are 1-based lines and
 // columns in characters.
 
 import std.prelude
@@ -291,7 +292,7 @@ pub fn graph(kind: String, path: String) -> Result<Graph, Error> !{Io, Wait} {
 /// used (in every entry point and task of a project). Nothing is written:
 /// apply the edits, or check them first with `check_project`.
 pub fn rename(path: String, line: Int, col: Int, name: String) -> Result<List<Edit>, Error> !{Io, Wait} {
-    let e: Edits = decode(ask(at("rename", path, line, col).concat([$"--name={name}"]))?)?
+    let e: Edits = decode(ask(["rename", path, "--line", $"{line}", "--col", $"{col}", $"--name={name}", "--json"])?)?
     ok(e.edits)
 }
 

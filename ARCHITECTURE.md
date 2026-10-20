@@ -663,8 +663,8 @@ language server checks unsaved buffers: every entry point and task, as
 References and rename consider every entry point of a project: the
 server also analyses each `[entries]` and `[tasks]` program (when first
 asked, until the next change) and looks the definition up in each, so a
-module reachable only from a task is renamed with the rest. `badger query
-rename` returns the edits without applying them.
+module reachable only from a task is renamed with the rest. `badger rename
+--json` returns the edits without applying them.
 
 `badger doc std --out docs/api` writes the standard library reference
 (`crates/badger_cli/src/doc.rs`) from the `api` query: declarations and `///`
