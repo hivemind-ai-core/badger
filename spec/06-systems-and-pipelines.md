@@ -80,6 +80,9 @@ The initializer's `InitScope<S>` has these checked operations:
   handle is valid until this scope closes, registering its cleanup.
 - `scope.on_halt(callback)` registers a one-shot, possibly fallible cleanup
   callback. It may capture this scope's resources; it cannot outlive the scope.
+- `scope.on_stop(callback)` runs once when the system starts halting, before
+  any node's activities are stopped: the node stops taking new work (an
+  intake channel closes), so activities draining what was queued can finish.
 - `scope.worker(factory, policy)` starts a managed activity owned by the node,
   with its declared restart and shutdown policy.
 
