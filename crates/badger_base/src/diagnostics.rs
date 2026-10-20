@@ -221,7 +221,17 @@ impl Diagnostics {
                 }
                 continue;
             }
-            for l in d.labels.iter().filter(|l| !l.span.is_dummy()) {
+            // in source order within each file: ariadne starts a new group
+            // (headed by the report's own location) at a label above the last
+            let mut labels: Vec<&Label> = d.labels.iter().filter(|l| !l.span.is_dummy()).collect();
+            let mut files: Vec<FileId> = vec![];
+            for l in &labels {
+                if !files.contains(&l.span.file) {
+                    files.push(l.span.file);
+                }
+            }
+            labels.sort_by_key(|l| (files.iter().position(|f| *f == l.span.file), l.span.start));
+            for l in labels {
                 report = report.with_label(
                     ariadne::Label::new((key(l.span.file), l.span.range()))
                         .with_message(&l.message)

@@ -1,0 +1,8 @@
+// A second label above the first (the earlier definition) is shown under
+// the same header, in line order, not under a second header that repeats
+// the first label's position.
+fn helper() -> Int { 1 }
+
+fn helper() -> Int { 2 }
+
+pub fn main() {}

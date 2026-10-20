@@ -1733,6 +1733,11 @@ fn diagnostics_early_phases() {
     let text = String::from_utf8_lossy(&out.stderr);
     assert!(text.contains("non_ascii_columns.bdg:4:41 ]"), "{text}");
     assert!(!text.contains("╭─▶"), "the label spans one line: {text}");
+    // labels in one file are one group, in line order (one header)
+    let out = lang().args(["check", "tests/diagnostics/second_label_above.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(text.matches("second_label_above.bdg:").count(), 1, "{text}");
+    assert!(text.find("first defined here") < text.find("redefined here"), "{text}");
     // a `.source` file is outside the formatting check (it does not parse)
     let out = lang().args(["check", "--json", "tests/diagnostics/syntax_phase.source"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
