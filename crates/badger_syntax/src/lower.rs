@@ -1192,7 +1192,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                 };
                 let otherwise = self.block(*els);
                 self.return_tail_err(otherwise);
-                let diverge = self.alloc_expr(ExprKind::Std("diverge"), span);
+                // generated references are zero-width (see `provider`): hover
+                // and references over the `else` block are its own
+                let diverge = self.alloc_expr(ExprKind::Std("diverge"), Span { end: span.start, ..span });
                 let otherwise = self.alloc_expr(
                     ExprKind::Call { callee: diverge, args: vec![otherwise], type_args: vec![] },
                     span,
