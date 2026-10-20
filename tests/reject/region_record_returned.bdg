@@ -1,0 +1,12 @@
+// expect-error: E0414
+// A record of a `region` block's region returned from the function: the
+// region ends before the return site.
+struct Node<R: Scope> { value: Int }
+fn make<R: Scope>(value: Int) -> Node<R> { { value } }
+fn build<R: Scope>(value: Int) -> Node<R> {
+    region Local {
+        let n: Node<Local> = make(value)
+        n
+    }
+}
+pub fn main() -> Unit { let _ = build(1) }

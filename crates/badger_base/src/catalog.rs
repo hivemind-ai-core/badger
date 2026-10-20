@@ -558,6 +558,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "Resources (`fs.File`, `channel.Batch`) are linear: each value is consumed exactly once, by its consuming operation (`close`, `release`) or by moving it on (into a call by value, a return, an aggregate, or a closure that consumes it), on every path that leaves its scope normally: the end of the scope, `return`, `break`, `continue`, or an assignment over it. Reading or writing through a borrow does not consume it, and `_` or an expression statement cannot discard one. Error exits (`?`, `return err(..)`) are not checked: the runtime closes or releases the resource there.",
     ),
     (
+        "E0414",
+        "region value outlives its region",
+        "A `region R { ... }` block names a lexical region that ends with the block, and a struct or enum whose last type parameter is a region (`struct Node<R: Scope>`) is branded with the region its values belong to (`Node<R>`). A value of the block's region cannot be the block's result, be returned or broken out of it, be assigned to a variable declared outside it, or be stored into a cell, collection, or channel from outside it; nor can a closure, sequence, task, or handle that captures one. Build the value in a region that outlives the place it goes to: a region parameter of the function (`fn make<R: Scope>() -> Node<R>`), which the caller provides.",
+    ),
+    (
         "E0409",
         "not an FFI type",
         "Foreign functions exchange primitives, raw pointers (`ffi.Ptr<T>`), and `repr c` structs. Managed values (strings, lists, records, closures) need an adapter such as `ffi.with_cstring`.",

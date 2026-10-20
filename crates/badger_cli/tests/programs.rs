@@ -211,6 +211,45 @@ fn attributes_in_every_position() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// The gate of region records: one program returns a record built in a
+/// region, and is rejected (E0414) when that region is the function's own
+/// `region` block, which ends before the return, and accepted when it is
+/// the function's region parameter, which the caller provides.
+#[test]
+fn region_record_return_needs_an_outliving_region() {
+    let program = |region: &str| {
+        format!(
+            "import std.io\n\
+             struct Node<R: Scope> {{ value: Int }}\n\
+             fn make<R: Scope>(value: Int) -> Node<R> {{ {{ value }} }}\n\
+             fn build<R: Scope>(value: Int) -> Node<R> {{\n\
+             region Local {{\n\
+             let n: Node<{region}> = make(value)\n\
+             n\n\
+             }}\n\
+             }}\n\
+             pub fn main() -> Result<Unit, io.Error> {{ io.println($\"{{build(7).value}}\") }}\n"
+        )
+    };
+    let dir = std::env::temp_dir().join(format!("badger-region-gate-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let local = dir.join("local.bdg");
+    std::fs::write(&local, program("Local")).unwrap();
+    let out = lang().args(["check", "--json"]).arg(&local).output().unwrap();
+    let json = String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success() && json.contains("\"code\":\"E0414\""), "not rejected: {json}");
+    let caller = dir.join("caller.bdg");
+    std::fs::write(&caller, program("R")).unwrap();
+    let out = lang().arg("run").arg(&caller).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success() && text == "7\n",
+        "not accepted: {text}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));

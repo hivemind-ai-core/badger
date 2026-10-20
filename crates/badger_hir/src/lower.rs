@@ -2144,6 +2144,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
             },
             ast::ExprKind::Unsafe(b) => ExprKind::Unsafe(self.lower_expr(*b)),
+            ast::ExprKind::Region { name, body } => {
+                let bounds = match self.cx.hir.try_lang("Scope") {
+                    Some(def) => vec![HTy { kind: HTyKind::Named { def, args: vec![] }, span: name.span }],
+                    None => vec![],
+                };
+                let g = self.cx.hir.generics.alloc(GenericParam {
+                    name: name.sym,
+                    span: name.span,
+                    bounds,
+                    owner: self.cur_def,
+                });
+                self.generics.push(FxHashMap::from_iter([(name.sym, g)]));
+                let body = self.lower_expr(*body);
+                self.generics.pop();
+                self.cx.hir.region_blocks.insert(body, g);
+                return body;
+            }
         };
         self.alloc(kind, span)
     }
@@ -3480,7 +3497,11 @@ fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
             go(*callee);
             args.iter().for_each(|a| go(*a))
         }
-        K::Try(x) | K::Unary { operand: x, .. } | K::Unsafe(x) | K::Loop { body: x } => go(*x),
+        K::Try(x)
+        | K::Unary { operand: x, .. }
+        | K::Unsafe(x)
+        | K::Loop { body: x }
+        | K::Region { body: x, .. } => go(*x),
         K::Binary { lhs, rhs, .. } => {
             go(*lhs);
             go(*rhs)

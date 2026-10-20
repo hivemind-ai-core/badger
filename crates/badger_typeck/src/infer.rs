@@ -138,8 +138,9 @@ pub struct Infer<'g, 'a> {
     /// the expressions' own resolutions).
     pub displays: FxHashMap<ExprId, Target>,
     pub coercions: FxHashMap<ExprId, Coercion>,
-    /// Callbacks that introduced region brands (`for<S>` arguments) and
-    /// their region skolems, for the escape analysis in `regions`.
+    /// Callbacks (`for<S>` arguments) and `region` blocks that introduced
+    /// region brands, with their region skolems, for the escape analysis in
+    /// `regions`.
     pub region_lambdas: Vec<(ExprId, Vec<u32>)>,
     /// Open tails of the function types in a declared result: a returned
     /// closure may be task-confined (`%confined`), which the declared
@@ -378,6 +379,12 @@ impl<'g, 'a> Infer<'g, 'a> {
                     .with_code("E0302")
                     .with_label(span, format!("`{r}` only exposes its declared prefix"))
                     .with_shapes(self.show(expected), self.show(actual))
+            }
+            UnifyError::Escape { skolem, .. } if self.icx.skolems[skolem as usize].lexical => {
+                self.region_outlived(skolem, span)
+            }
+            UnifyError::Mismatch(..) if let Some(r) = self.outlived_region(expected, actual) => {
+                self.region_outlived(r, span)
             }
             UnifyError::Escape { skolem, .. } => {
                 // fresh callback regions are numbered internally (`S12`)
@@ -1182,6 +1189,12 @@ impl<'g, 'a> Infer<'g, 'a> {
                 }
                 t
             }
+            ExprKind::Block { .. }
+                if let Some(&g) = hir.region_blocks.get(&e)
+                    && !self.generics.contains_key(&g) =>
+            {
+                self.region_block(e, g, expected)
+            }
             ExprKind::Block { stmts, tail } => {
                 for s in &stmts {
                     self.stmt(s);
@@ -1716,6 +1729,69 @@ impl<'g, 'a> Infer<'g, 'a> {
                 error_ty()
             }
         }
+    }
+
+    /// `region R { ... }`: the block is checked one level deeper with `R`
+    /// bound to a fresh lexical region, so no type of an outer level (the
+    /// block's value, a `return`, a `break`, an outer `var`, a captured
+    /// cell) can come to name `R`.
+    fn region_block(&mut self, e: ExprId, g: GenericId, expected: Option<&Ty>) -> Ty {
+        let out = match expected {
+            Some(x) => x.clone(),
+            None => self.icx.fresh(),
+        };
+        self.icx.level += 1;
+        let r = self.icx.fresh_lexical_region(self.g.hir.generics[g].name);
+        if let TyKind::Skolem(k) = &*r {
+            self.region_lambdas.push((e, vec![*k]));
+        }
+        self.generics.insert(g, r);
+        let t = self.check_inner(e, None);
+        self.generics.remove(&g);
+        self.icx.level -= 1;
+        let span = match &self.g.hir.exprs[e].kind {
+            ExprKind::Block { tail: Some(x), .. } => self.g.hir.exprs[*x].span,
+            _ => self.g.hir.exprs[e].span,
+        };
+        self.expect(span, &out, &t);
+        out
+    }
+
+    /// The lexical region that `actual` names where `expected` has another
+    /// type: a value of a `region` block reaching a place that outlives it.
+    fn outlived_region(&mut self, expected: &Ty, actual: &Ty) -> Option<u32> {
+        let (e, a) = (self.icx.resolve(expected), self.icx.resolve(actual));
+        match (&*e, &*a) {
+            (TyKind::Skolem(x), TyKind::Skolem(y)) if x == y => None,
+            (_, TyKind::Skolem(y)) if self.icx.skolems[*y as usize].lexical => Some(*y),
+            (TyKind::Ref(_, x), _) => self.outlived_region(x, &a),
+            (_, TyKind::Ref(_, y)) => self.outlived_region(&e, y),
+            (TyKind::Con(d1, xs), TyKind::Con(d2, ys)) | (TyKind::Dyn(d1, xs), TyKind::Dyn(d2, ys))
+                if d1 == d2 && xs.len() == ys.len() =>
+            {
+                xs.iter().zip(ys).find_map(|(x, y)| self.outlived_region(x, y))
+            }
+            (TyKind::Tuple(xs), TyKind::Tuple(ys)) if xs.len() == ys.len() => {
+                xs.iter().zip(ys).find_map(|(x, y)| self.outlived_region(x, y))
+            }
+            (TyKind::Fn(f1), TyKind::Fn(f2)) if f1.params.len() == f2.params.len() => f1
+                .params
+                .iter()
+                .chain([&f1.ret])
+                .zip(f2.params.iter().chain([&f2.ret]))
+                .find_map(|(x, y)| self.outlived_region(x, y)),
+            _ => None,
+        }
+    }
+
+    /// E0414: a value of a `region` block's region where it would outlive
+    /// the block.
+    fn region_outlived(&self, region: u32, span: Span) -> Diagnostic {
+        let name = self.g.interner.resolve(self.icx.skolems[region as usize].name).to_string();
+        Diagnostic::error(format!("a value of region `{name}` outlives its region"))
+            .with_code("E0414")
+            .with_label(span, format!("this value belongs to region `{name}`, which ends with its `region` block"))
+            .with_note("a `region` block's values cannot be its result, be returned or broken out of it, or be stored where they outlive it; build the value in a region that outlives the place it goes to (a region parameter of the function, `R: Scope`)")
     }
 
     /// Unify in a snapshot; keep the result only if it succeeds.

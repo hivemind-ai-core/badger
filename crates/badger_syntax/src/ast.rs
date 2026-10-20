@@ -504,6 +504,12 @@ pub enum ExprKind {
     Pipeline(Vec<ExprId>),
     Ref(Label),
     Unsafe(ExprId),
+    /// `region R { ... }`: the block's lexical region, named `R` in the
+    /// types written inside it.
+    Region {
+        name: Name,
+        body: ExprId,
+    },
     /// A standard-library item named by its module path
     /// (`pipeline.stage`), from a desugared declaration.
     Std(&'static str),
