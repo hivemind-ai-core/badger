@@ -107,14 +107,33 @@ first differing line. `crates/badger_cli/tests/mir_validation.rs` proves
 both halves of the acceptance: the correct pipeline passes with the check
 on and produces identical output with it off, and the broken rewrite is
 caught. The hook and the test land in the commit whose subject is
-`test(mir): deliberately broken rewrite the parity gate must catch` (the
-gate itself is the preceding commit, `996c018`); the task summary records
-that commit's SHA.
+`test(mir): deliberately broken rewrite the parity gate must catch`; the
+task summary records that commit's SHA.
 
 ## Verification
 
-- `cargo build --workspace`: clean.
-- `cargo test --workspace`: pass.
-- `cargo test -p badger_cli --test programs` with `BADGER_MIR_VALIDATE=1`
-  and without: pass, and the stdout of every `tests/run` program is
-  identical with the check on and off.
+- `cargo build --workspace`: clean on the branch's own changes. The one
+  warning in the tree, `function 'affinity' is never used`
+  (`crates/badger_runtime/src/task.rs`), comes from the NUMA pinning merge
+  on `main`, not from this work; `crates/badger_runtime` is another
+  worker's area and is not touched here.
+- `cargo test --workspace`: red only on failures that are already red on
+  `main`, and that this branch does not touch. `main_error_report`
+  (`crates/badger_cli/tests/programs.rs:1784`) expects the error origin at
+  `tests/errors/main_error.bdg:14:16`; the derive-attribute migration
+  (`3d8f5c6`) moved that `err(...)` to line 16, and the expectation was not
+  updated, so the test fails on `main` (verified by running it in the
+  `main` worktree at `b168512`). `api_reference_current` was also red on
+  `main`: `7ca370b` fixed the derive attributes of `Symbol` and `ApiItem`
+  in `crates/badger_hir/std/compiler.bdg` (so the generator now documents
+  them) without regenerating `docs/api`; this branch regenerates it and the
+  test passes. Fixing the stale source line is left to its author: the
+  repository's rule is that incidental-behaviour tests are not re-pinned
+  regardless of author. `sampling_profile` is timing-sensitive and passes
+  in isolation.
+- `cargo test -p badger_cli --test programs` (the corpus gate): with
+  `BADGER_MIR_VALIDATE=1` 76 passed / 2 failed (`main_error_report`, above,
+  and the `sampling_profile` flake); without it 77 passed / 1 failed (the
+  same `main_error_report`). The check adds no deterministic failure, and
+  the stdout of every `tests/run` program is identical with the check on
+  and off (the test compares each program's output against its `.out`).
