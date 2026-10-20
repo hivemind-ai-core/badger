@@ -337,6 +337,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A `let ... else` or `if let ... else` pattern always matches (a name, `_`, or a tuple or record of them), so its `else` never runs (warning). Use a plain `let`, or match the case you mean (`let .some(x) = o else { ... }`).",
     ),
     (
+        "E0194",
+        "message template",
+        "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
+    ),
+    (
         "E0193",
         "misplaced status",
         "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one code from 100 to 599 (an error otherwise), and a warning when the enum does not derive `HttpError`. Variants without one answer 500.",

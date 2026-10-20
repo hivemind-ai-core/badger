@@ -352,6 +352,43 @@ pub fn fmt_duration(nanos: i64) -> String {
 /// Display a value. Strings display raw at the top level and quoted inside
 /// aggregates. User `Display` implementations registered on descriptors are
 /// used when present.
+/// A variant's `@message("no book {id}")`: each `{field}` is the field's
+/// display (as in an error-style display); `{{` and `}}` are braces. The
+/// compiler checked the template, so an unknown name is left as written.
+fn render_message(ctx: *mut TaskCtx, template: &str, fields: &[crate::desc::Field], p: *mut u8, o: &mut String) {
+    let mut chars = template.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+                o.push('{');
+            }
+            '{' => {
+                let mut name = String::new();
+                for c in chars.by_ref() {
+                    if c == '}' {
+                        break;
+                    }
+                    name.push(c);
+                }
+                match fields.iter().find(|f| f.name == name) {
+                    Some(f) => write_display(ctx, f.desc, field_word(p, f.offset, f.repr), true, o),
+                    None => {
+                        o.push('{');
+                        o.push_str(&name);
+                        o.push('}');
+                    }
+                }
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+                o.push('}');
+            }
+            c => o.push(c),
+        }
+    }
+}
+
 pub fn display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool) -> String {
     if matches!(d.kind, Kind::Dynamic) && w != 0 {
         return display(ctx, dynamic_desc(w), w, top);
@@ -460,12 +497,17 @@ fn write_display(ctx: *mut TaskCtx, d: &TypeDesc, w: u64, top: bool, o: &mut Str
             let p = unsafe { obj(w).payload() };
             let t = unsafe { *(p as *const u32) };
             let v = &variants[t as usize];
+            // error-style display at the top: `variant: payload`, or the
+            // variant's `@message` template
+            let error_style = top && d.name != "Option" && d.name != "Result";
+            if let (true, Some(template)) = (error_style, &v.message) {
+                render_message(ctx, template, &v.fields, p, o);
+                return;
+            }
             if v.fields.is_empty() {
                 o.push_str(&v.name);
                 return;
             }
-            // error-style display at the top: `variant: payload`
-            let error_style = top && d.name != "Option" && d.name != "Result";
             if error_style {
                 for c in v.name.chars() {
                     o.push(if c == '_' { ' ' } else { c });

@@ -103,12 +103,13 @@ import std.io
 import std.route
 import std.text
 
-// The status each error is answered with: the variant's `@status`.
+// The status each error is answered with: the variant's `@status`; its
+// message: the variant's `@message`, if it has one.
 @derive(Error, HttpError, From)
 pub enum AppError {
     @status(400)
     invalid_input(message: String),
-    @status(404)
+    @status(404) @message("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
@@ -130,11 +131,11 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 ```text
-404 {"error":"not_found","message":"not found: 1"}
+404 {"error":"not_found","message":"no note 1"}
 ```
 
-A client error (a 4xx) is answered with the error's message; a server
-error (a 5xx) keeps its message to itself. `http.StatusError` carries a
+A client error (a 4xx) is answered with the error's code (the variant
+name) and message; a server error (a 5xx) keeps both to itself. `http.StatusError` carries a
 status for the one-off case: `http.status(404, error)`.
 
 ### Query parameters

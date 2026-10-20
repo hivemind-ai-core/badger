@@ -830,7 +830,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     }
                     let fields =
                         v.fields.iter().map(|(l, t)| (l.map(|l| l.sym), self.lower_ty(*t))).collect();
-                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span });
+                    let message = v.attributes.iter().find_map(|a| match a.args.as_slice() {
+                        [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
+                        _ => None,
+                    });
+                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span, message });
                 }
                 let derives = self.lower_derives(&e.derives);
                 self.generics.pop();

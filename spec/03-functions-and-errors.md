@@ -252,7 +252,10 @@ provided through generic implementations and compiler derivation.
 supported derivations (`Default`, on a struct, is an implementation whose
 `default()` gives every field `default_of()`; each field type must implement
 `Default`. `HttpError`, on an enum, implements `HttpStatus` from each
-variant's `@status(code)` attribute, 500 for a variant without one);
+variant's `@status(code)` attribute, 500 for a variant without one. Under
+`Error` and `Display`, a variant's `@message("text {field}")` attribute is
+its display: each `{field}` names a field of the variant, `{{` and `}}`
+are literal braces);
 each has a checked schema and can fail with a normal diagnostic. Derivation
 does not expose a general macro evaluator. Equality and hashing preserve their
 laws; floats do not automatically satisfy total equality/hash constraints.

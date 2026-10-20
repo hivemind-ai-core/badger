@@ -1,0 +1,9 @@
+// expect-error: E0194
+// A `@message` placeholder names a field of its variant.
+@derive(Error)
+pub enum E {
+    @message("no book {book}")
+    not_found(id: Int),
+}
+
+pub fn main() -> Unit {}

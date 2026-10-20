@@ -238,6 +238,8 @@ pub struct VariantDef {
     pub name: Symbol,
     pub fields: Vec<(Option<Symbol>, HTy)>,
     pub span: Span,
+    /// `@message("no book {id}")`: the variant's derived display.
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Clone)]

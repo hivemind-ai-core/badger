@@ -198,6 +198,7 @@ recognised attribute is a row, and the consumer does the work.
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
 | `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
 | `@status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
+| `@message("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |
 | `@inline(always\|never)` | inliner | metadata |
 | `@must_use` | unused-value diagnostic | metadata |
