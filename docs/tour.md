@@ -1084,10 +1084,10 @@ test test_wrong_on_purpose ... FAILED (assertion failed: expected 80, found 90 a
 test result: FAILED. 2 passed; 1 failed
 ```
 
-A second argument filters tests by name:
+`--filter` selects the tests by name:
 
 ```sh
-badger test pricing.bdg parse
+badger test pricing.bdg --filter parse
 ```
 
 Output:

@@ -193,12 +193,15 @@ enum Command {
         #[arg(long)]
         release: bool,
     },
-    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [path] [filter]`
+    /// Run the `test_*` functions of the entry module and the package modules it imports (not those of dependencies): `badger test [PATH]`
     /// (path defaults to the current project).
     Test {
-        /// An optional program path, then an optional name filter.
-        #[arg(num_args = 0..=2)]
-        args: Vec<String>,
+        /// The program or project to test (default `.`).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// The tests to run: the ones whose name contains it.
+        #[arg(long, value_name = "NAME")]
+        filter: Option<String>,
         /// Print the results as one JSON object (with each failure's kind,
         /// message, location, and duration).
         #[arg(long)]
@@ -834,20 +837,15 @@ fn command(cli: Cli) -> ExitCode {
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
             run_and_exit(&mut session, &path, args, &opts)
         }
-        Command::Test { args, json, list, exact, watch } => {
-            // `[path] [filter]`: a first argument naming an existing file or
-            // directory is the program; anything else is the filter
-            let mut args = args.into_iter();
-            let (path, filter) = match args.next() {
-                Some(a) if Path::new(&a).exists() => (PathBuf::from(a), args.next()),
-                // a mistyped path is not a filter that matches nothing
-                Some(a) if looks_like_path(&a) => {
-                    eprintln!("error: no such file or directory: {a}");
-                    return ExitCode::FAILURE;
-                }
-                Some(a) => (PathBuf::from("."), Some(a)),
-                None => (PathBuf::from("."), None),
-            };
+        Command::Test { path, filter, json, list, exact, watch } => {
+            if !path.exists() {
+                // a test name is not a path: it goes after `--filter`
+                eprintln!(
+                    "error: no such file or directory: {} (a test's name goes after --filter)",
+                    path.display()
+                );
+                return ExitCode::FAILURE;
+            }
             if watch {
                 // the tests run again on every change, as `badger watch`
                 // runs its command
@@ -862,10 +860,11 @@ fn command(cli: Cli) -> ExitCode {
                 if exact {
                     command.push("--exact".into());
                 }
-                command.push(path.display().to_string());
                 if let Some(f) = &filter {
+                    command.push("--filter".into());
                     command.push(f.clone());
                 }
+                command.push(path.display().to_string());
                 return watch::watch(&path, command);
             }
             badger_driver::LISTING.store(list, std::sync::atomic::Ordering::Relaxed);
