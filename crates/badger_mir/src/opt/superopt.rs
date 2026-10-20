@@ -34,6 +34,16 @@ struct Candidate {
     proven: bool,
 }
 
+/// `BADGER_MIR_BREAK=superopt` (debug builds only): apply the multiplication
+/// rewrite with the wrong shift, the deliberately broken rewrite the
+/// translation-validation gate exists to catch. A release build ignores the
+/// variable, so a shipped compiler can never take this path; the gate's own
+/// test sets it to prove the gate fails a miscompile. See
+/// `crates/badger_cli/tests/mir_validation.rs`.
+fn broken() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("BADGER_MIR_BREAK").is_some_and(|v| v == "superopt")
+}
+
 pub fn superopt(prog: &mut Program) -> usize {
     prog.funcs.iter_mut().map(superopt_func).sum()
 }
@@ -190,11 +200,15 @@ fn rewrite(
             if k >= *bits {
                 return None;
             }
+            let shift = u32::from(k) + u32::from(broken());
+            if shift >= u32::from(*bits) {
+                return None;
+            }
             Some(Candidate {
                 rv: Rvalue::Bin {
                     op: BinOp::Shl,
                     a: x,
-                    b: int_const(k as i64),
+                    b: int_const(shift as i64),
                     ty: NumTy::I(*bits, *signed),
                     loc: 0,
                 },
