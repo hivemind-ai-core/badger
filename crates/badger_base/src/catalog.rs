@@ -188,7 +188,12 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0150",
         "attribute declaration",
-        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type`, `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...).",
+        "A library's attribute is declared `attribute NAME on POSITION, ... { FIELD: TYPE, ... }`: each position is `type`, `field`, `variant`, `value`, or a function type (`fn(http.Request) -> http.Response`, the signature the annotated functions have), listed once; the name cannot be one of the compiler's attributes (`allow`, `derive`, ...); and each field holds what an attribute argument can write: `Bool`, an integer type, `String`, `Symbol`, an enum whose variants carry nothing, or an `Option` of one.",
+    ),
+    (
+        "E0151",
+        "attribute use",
+        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`).",
     ),
     (
         "E0199",

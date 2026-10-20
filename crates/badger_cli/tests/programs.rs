@@ -199,7 +199,9 @@ fn attributes_in_every_position() {
     let check = lang().args(["check", "--json"]).arg(&f).output().unwrap();
     let json = String::from_utf8_lossy(&check.stdout).to_string();
     assert!(check.status.success(), "{json}");
-    assert_eq!(json.matches("\"code\":\"").count(), 1, "only `loud` is reported: {json}");
+    // (`std.app` declares none of these attributes: those warn, E0191)
+    assert_eq!(json.matches("\"code\":\"E0197\"").count(), 1, "only `loud` is unused: {json}");
+    assert!(!json.contains("\"code\":\"E0195\""), "an attribute's namespace is a use: {json}");
     assert!(json.contains("unused variable `loud`"), "{json}");
     let run = lang().arg("run").arg(&f).output().unwrap();
     let stderr = String::from_utf8_lossy(&run.stderr).to_string();
@@ -208,6 +210,44 @@ fn attributes_in_every_position() {
         stderr.contains("`loud`") && !stderr.contains("`quiet`") && !stderr.contains("`text`"),
         "{stderr}"
     );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A library's declared attributes: uses that fit are accepted; each
+/// misfit (a wrong value, a missing or unknown field, a position not
+/// declared, a private attribute) is E0151, and an undeclared one warns.
+#[test]
+fn declared_attributes_check_their_uses() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-uses-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"attruses\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    std::fs::write(dir.join("src/web.bdg"), "// The library: its attributes.\nimport std.http\n\npub enum Method {\n    get,\n    post,\n}\n\n/// A route: method and path, a summary if any.\npub attribute route on fn(http.Request) -> http.Response {\n    method: Method,\n    path: String,\n    summary: Option<String>,\n}\n\npub attribute table on type { name: String }\n\npub attribute column on field {\n    name: String,\n    primary: Option<Bool>,\n    width: Option<Int>,\n}\n\nattribute hidden on type {}\n").unwrap();
+    let check = |main: &str| {
+        std::fs::write(dir.join("src/main.bdg"), main).unwrap();
+        let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let good = check(
+        "import std.http\nimport std.io\nimport web\n\n@web.table(\"books\")\npub struct Book {\n    @web.column(name = \"id\", primary = true) pub id: Int,\n    pub title: String,\n}\n\n@web.route(method = get, path = \"/books\")\npub fn list(request: http.Request) -> http.Response { { status: 200, headers: map {}, body: request.body } }\n\npub fn main() -> Result<Unit, io.Error> {\n    io.println(\"ok\")?\n    ok(())\n}\n",
+    );
+    assert_eq!(good.trim(), "[]", "a fitting use is accepted: {good}");
+    let cases = [
+        ("@web.table(name = 3)\npub struct A { pub v: Int }\n", "E0151", "is a string"),
+        ("pub struct A {\n    @web.column(primary = true) pub v: Int,\n}\n", "E0151", "needs `name`"),
+        (
+            "pub struct A {\n    @web.column(name = \"v\", colour = \"red\") pub v: Int,\n}\n",
+            "E0151",
+            "no field `colour`",
+        ),
+        ("@web.table(\"t\")\npub fn g() -> Int { 1 }\n", "E0151", "does not apply to a function"),
+        ("@web.hidden\npub struct H { pub v: Int }\n", "E0151", "private"),
+        ("@web.nosuch\npub struct N { pub v: Int }\n", "E0191", "declares no attribute"),
+    ];
+    for (body, code, text) in cases {
+        let json = check(&format!("import web\n\n{body}\npub fn main() {{}}\n"));
+        assert!(json.contains(&format!("\"code\":\"{code}\"")) && json.contains(text), "{body}: {json}");
+    }
     let _ = std::fs::remove_dir_all(dir);
 }
 

@@ -1,0 +1,8 @@
+// expect-error: E0150
+// An attribute's fields hold what an argument can write: no floats, lists,
+// records, or enums whose variants carry data.
+pub attribute measured on type {
+    ratio: Float,
+}
+
+pub fn main() {}
