@@ -1489,7 +1489,9 @@ fn query_rename_and_unsupported_inputs() {
     let (ok, _, err) = q(&["hover", "tests/projects/overlay/src/nope.bdg", "--line", "1", "--col", "1"]);
     assert!(!ok && err.contains("no such file"), "{err}");
     let (ok, _, err) = q(&["bogus", "tests/projects/overlay"]);
-    assert!(!ok && err.contains("unknown query `bogus` (diagnostics, check,"), "{err}");
+    // the parser knows the questions: an unknown one is a usage error
+    assert!(!ok && err.contains("invalid value 'bogus'"), "{err}");
+    assert!(err.contains("diagnostics, check,"), "{err}");
     // a `let ... else` binding and an or-pattern's binding, renamed from
     // their declarations, change every occurrence
     let cols = |out: &str| -> Vec<(u64, u64)> {
@@ -1782,7 +1784,7 @@ fn main_error_report() {
     assert_eq!(out.status.code(), Some(1));
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(
-        err.contains("error[wrap]: wrap: bad: 4\n  caused by: bad: 4\n  details: {\"wrap\":{\"source\":{\"bad\":{\"n\":4}}}}\n  at tests/errors/main_error.bdg:14:16"),
+        err.contains("error[wrap]: wrap: bad: 4\n  caused by: bad: 4\n  details: {\"wrap\":{\"source\":{\"bad\":{\"n\":4}}}}\n  at tests/errors/main_error.bdg:16:16"),
         "{err}"
     );
 }
