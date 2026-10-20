@@ -81,9 +81,9 @@ pub struct Declaration {
     pub end_col: Int,
 }
 
+@derive(Codec, Display)
 pub struct Symbol {
     pub name: String,
-    @derive(Codec, Display)
     /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, `value`,
     /// or `impl`.
     pub kind: String,
@@ -147,11 +147,11 @@ pub struct Check {
 }
 
 /// A public item of a module's interface.
+@derive(Codec, Display)
 pub struct ApiItem {
     /// The module (`std.list`, or a program's source file).
     pub module: String,
     pub name: String,
-    @derive(Codec, Display)
     /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, or
     /// `value`.
     pub kind: String,
