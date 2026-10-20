@@ -1,0 +1,11 @@
+// expect-error: E0404
+// `close` consumes a file: writing to it afterwards is a use after move.
+import std.fs
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let f = fs.create("/tmp/after-close.txt")?
+    f.close()?
+    f.write_text("late")?
+    ok(())
+}
