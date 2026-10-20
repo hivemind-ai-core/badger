@@ -47,7 +47,13 @@ impl Builtins {
     /// The standard library's affine types (builders and buffers: each
     /// value has one owner and moves rather than being shared).
     pub const AFFINE_STD: &'static [&'static str] =
-        &["ListBuilder", "Buffer", "Batch", "MapBuilder", "SetBuilder", "FixedBuffer"];
+        &["ListBuilder", "Buffer", "Batch", "MapBuilder", "SetBuilder", "FixedBuffer", "File"];
+
+    /// The standard library's linear types (resources), each with the
+    /// operation that consumes it: affine (listed in [`Self::AFFINE_STD`]),
+    /// and each value must also be consumed on every path that leaves its
+    /// binding's scope normally (see `ownership::Linear`).
+    pub const LINEAR_STD: &'static [(&'static str, &'static str)] = &[("File", "close"), ("Batch", "release")];
 
     /// Whether values of type constructor `d` are confined to their task.
     pub fn is_confined(&self, d: DefId) -> bool {

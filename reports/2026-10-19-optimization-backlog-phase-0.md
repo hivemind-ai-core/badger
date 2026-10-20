@@ -471,6 +471,79 @@ behavioural check is the sound one: it catches the deliberately broken rewrite
 (`8a9f2a4`): 51 checks, ten mutations, every property has a mutation that
 breaks it, and the model finds no defect in the protocol.
 
+## Phase 3 and Phase 4
+
+**§3.2 (MIR escape analysis) is not adopted** (2026-10-20): after `sra`,
+`enums` and `niche`, the only allocation in a timed loop of `bench/records` is
+the record stored with `Atom.set` -- a real escape by design (19 998 710
+objects over the loop's 20 M iterations, unchanged by any escape analysis).
+Every hot allocation on the other benchmarks escapes for real (returned,
+appended, inserted, spawned, sent or registered). Over the 242 `tests/run`
+programs, 9 207 of 10 279 sites escape; the remaining 1 072 are merges (360),
+arguments of direct or static-closure calls (461) and arguments of read-only
+runtime functions (~220, which needs the runtime to accept a non-heap object).
+None of them is in a measured hot loop, so the expected win is 0%, not 5-15%,
+and the use-after-free surface (a new rvalue, root exclusion, publishing
+pointer fields at safe points, loop-reuse liveness, callee summaries) does not
+pay for a measured 0%. The survey and its script are in
+`reports/2026-10-20-mir-escape-analysis.md`.
+
+**§3.4 (linear resources) landed**: the typeck tracks a `Linear` mode (use at
+least once) next to `Affine` (use at most once), and the standard library's
+file and batch-channel resources are linear. The new diagnostic `E0413` says
+so, with a span and a message naming the resource. The runtime does not
+change: the mode is a static guarantee, and the finalizers stay.
+
+**§4.1 (SMT-validated rules) landed**: `opt::smt` states every algebraic rule
+`opt::superopt` applies as a bitvector claim `premises => src == dst` and asks
+Z3 for a counterexample, so an unsatisfiable answer proves the rewrite is
+exact at every bit of the operation's width. `Candidate` now names the rule it
+matched instead of carrying a hand-written "proven" flag, and the match site's
+premises (an operand's boolean domain, a nonzero shift amount) are stated with
+the rule. Each shift amount the optimiser can use is checked as a concrete
+constant rather than quantified -- Z3 does not decide the 64-bit
+variable-divisor division identity within the budget. `BADGER_MIR_SMT=1` runs
+the check once per compilation (11 rules, 81 claims, ~170 ms), prints the
+verdict for each rule, and withholds any rule the solver does not prove; the
+optimiser's hot path never calls the solver, and the corpus is identical with
+the check on and off at `--opt superopt`.
+
+**The check found a wrong rule**: `(x << k) >> k` was masked with `~(2^k - 1)`,
+which keeps the high bits, while the left-then-right shift pair keeps the low
+`bits - k` bits. The mask is corrected and the rule is proved. That is the
+item's point: the rules are proven, not assumed.
+
+## Where the backlog stands
+
+| phase | item | outcome |
+|-------|------|---------|
+| 0 | 0.1 safepoint polling page | **not adopted** (the handshake is already race-free; the mechanism needs polls in the generated code) |
+| 0 | 0.2 Chase-Lev ready queues | landed |
+| 0 | 0.3 AHash | **reverted** (1.6-2x regression on the map cells) |
+| 0 | 0.4 flat map of at most eight entries | landed, but the expected win did not materialise |
+| 0 | 0.5 CHAMP invariants | landed as a paired walk (the O(1) hashcode is not) |
+| 0 | 0.6 scratch buffers | landed (neutral) |
+| 0 | 0.7 chunk index | **landed: a full collection 91 ms -> 36 ms** |
+| 0 | 0.8 external memory accounting | landed |
+| 0 | 0.9 two random victims | landed |
+| 0 | 0.10 half-steal | landed |
+| 1 | 1.1 channel model | landed (38 checks, then 51 with the GC model) |
+| 1 | 1.2 Go-style channel refactor | landed, with F1 and F2 fixed |
+| 1 | 1.3 GC handshake model | landed, rewritten for the QSBR grace period |
+| 2 | 2.1 QSBR handshake | landed as a robustness change, not a latency win |
+| 2 | 2.2 per-worker heap segments | **already satisfied** (it was, before the backlog was written) |
+| 2 | 2.3 Immix-style blocks and lines | **landed: the 10-20% win holds** |
+| 2 | 2.4 NUMA pinning | landed behind a flag (its gate needs a two-socket host) |
+| 3 | 3.1 the typeck's arena | **not adopted**; the traffic it aimed at was fixed instead (typecheck -33%) |
+| 3 | 3.2 MIR escape analysis | **not adopted** (surveyed: the hot allocations escape for real) |
+| 3 | 3.3 region annotations | open |
+| 3 | 3.4 linear resources | landed (E0413) |
+| 3 | 3.5 move-only marker | open |
+| 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
+| 4 | 4.2 egg for straight-line MIR | open |
+| 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
+| 4 | 4.4 lifetime-driven inlining | open |
+
 ## What is left
 
 Phase 0 is done, with three items measured against their gates rather than
@@ -491,6 +564,9 @@ own:
 | §2.3 Immix-style blocks and lines | a line bitmap and in-place reuse of dead lines | **landed**: the expected 10-20% holds (the work ratio 0.79-0.90, the mutator time 13-22% lower, the trim 24 ms -> 1-3 ms) |
 | §3.1 the type check's allocation traffic | an arena for the typeck's short-lived nodes | **not adopted as an arena** (the typeck never touches the managed heap); the traffic was fixed instead -- allocations 831K -> 386K, the type check phase -33% |
 | §4.3 translation validation | an end-to-end validator over the MIR pipeline | **landed in its cheap form** (the structural comparator and the behavioural gate); the SMT version is open |
+| §3.2 MIR escape analysis | stack-allocate the records that do not escape | **not adopted**: after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real, and the leftovers run once or cross into the runtime -- the expected win is 0% |
+| §3.4 linear resources | a `Linear` mode in the typeck, applied to the file, socket and channel modules | **landed**: `E0413` says when a linear resource was not used |
+| §4.1 SMT-validated rules | every algebraic rule proven with Z3 | **landed**: 11 rules, 81 claims; the check found a wrong shift mask |
 | §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | **landed** (above) as a robustness change: the epoch makes the acknowledgement real and removes the "no nested stop" and "balanced slots" dependencies, but its latency claim did not hold |
 | §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
 | §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |

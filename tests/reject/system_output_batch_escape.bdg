@@ -27,7 +27,10 @@ pub fn main() -> Result<Unit, AppError> {
     })?
     ch.sender.close()
     match ch.receiver.recv_batch() {
-        .some(b) => { for c in b.items() { say($"escaped resource used after halt: bump={c.bump()} closed={c.closed()}") } },
+        .some(b) => {
+            for c in b.items() { say($"escaped resource used after halt: bump={c.bump()} closed={c.closed()}") }
+            b.release()
+        },
         _ => (),
     }
     ok(())

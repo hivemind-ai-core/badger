@@ -616,6 +616,24 @@ owners' gates. See
 
 ### 3.2 MIR escape analysis (extend `sra.rs`)
 
+**Status:** **not adopted** (2026-10-20): there is nothing on the gate
+benchmark for stack allocation to take
+([`reports/2026-10-20-mir-escape-analysis.md`](reports/2026-10-20-mir-escape-analysis.md)).
+After `sra`, `enums` and `niche`, the only allocation in a timed loop of
+`bench/records` is the record stored with `Atom.set`, a real escape by
+design. The `gc-profile` count is 19 998 710 objects over the loop's 20 M
+iterations, and a perfect analysis leaves it unchanged, so the expected win
+is 0 %, not 5-15 %. On collections, messages, parallel_alloc, heap,
+parallel, runtime, telemetry and the realworld workload, every hot
+allocation escapes for real: returned, appended, inserted, spawned, sent or
+registered. Over the 242 `tests/run` programs, 9 207 of 10 279 sites
+escape. The remaining 1 072 are merges (360), arguments of direct or
+static-closure calls (461) and arguments of read-only runtime functions
+(~220, which needs the runtime to accept a non-heap object: out of scope).
+None of them is in a measured hot loop. The use-after-free surface (a new
+rvalue, root exclusion, publishing pointer fields at safe points,
+loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
+
 - **Goal**: the existing `sra.rs` does partial scalar replacement;
   this extends it to a Whaley-Rinard-style compositional escape
   analysis, so records that don't escape the function are
@@ -659,6 +677,31 @@ owners' gates. See
 
 ### 3.4 Linear types for resources (file / socket / channel)
 
+**Status:** landed 2026-10-20: the typeck tracks a `Linear` mode (use at
+least once) next to the existing `Affine` (use at most once), and the
+standard library's file and batch-channel resources are linear. Like
+`Affine`, the mode is chosen per type (`Builtins::LINEAR_STD`) and tracked
+per binding by a must-consume pass. **The rules per resource**: a `File` is
+used by `close` or by a move, and reads and writes only borrow it; a
+`Batch` is used by `release` or by a move; sending on a channel neither uses
+nor consumes it. A linear value must be moved -- closed, released, passed
+by value into a call, returned, stored, or captured by a closure that
+consumes it -- on every normal exit from its scope (scope end, return,
+break, continue, an assignment over a variable); discarding one with `_` or
+as an expression statement is the new **E0413** "linear value not consumed".
+Error exits (`?`, `return err(..)`) and calls that never return are not
+checked. The channel endpoints, `ReplySender` and `websocket.WebSocket` are
+deliberately *not* linear: they are shared handles copied into tasks, and
+`http`'s `run_websocket` uses the server socket after passing it to the
+session. The runtime, the MIR, the codegen and the finalizers are
+unchanged: the mode is a static guarantee. The corpus impact is one
+program: `tests/run/readers_writers.bdg` dropped an open reader and wrote
+after close (now the static E0404, moved to
+`tests/reject/file_use_after_close.bdg`), and
+`tests/reject/system_output_batch_escape.bdg` now releases its lease. The
+mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
+`spec/04`.
+
 - **Goal**: extend `ownership.rs` to track a `linear` mode (use at
   least once) in addition to `affine` (use at most once); apply
   it to the standard library's file / socket / channel modules.
@@ -701,6 +744,27 @@ Phase 4 is the MIR superoptimisation research. The cheap items
 lifetime information.
 
 ### 4.1 SMT-validated algebraic rules with Z3 (Alive-style)
+
+**Status:** landed 2026-10-20: `opt::smt` states every algebraic rule `opt::superopt`
+applies as a bitvector claim `premises => src == dst` and asks Z3 for a
+counterexample, so an unsatisfiable answer proves the rewrite is exact at
+every bit of the operation's width. `Candidate` now names the rule it matched
+instead of carrying a hand-written "proven" flag, and the match site's
+premises (an operand's boolean domain, a nonzero shift amount) are stated
+with the rule. Each shift amount the optimiser can use is checked as a
+concrete constant rather than quantified: Z3 does not decide the 64-bit
+variable-divisor division identity within the budget. `BADGER_MIR_SMT=1`
+runs the check once per compilation (11 rules, 81 claims, ~170 ms), prints the
+verdict for each rule, and withholds any rule the solver does not prove; the
+optimiser's hot path never calls the solver, and the corpus is identical with
+the check on and off at `--opt superopt`. **The check found one wrong rule**:
+`(x << k) >> k` was masked with `~(2^k - 1)`, which keeps the high bits,
+while the left-then-right shift pair keeps the low `bits - k` bits. The mask
+is corrected and the rule is proved. The negative control is in the tree as
+its own commit (`644ea69`): the claim `x * 2^k -> x << (k + 1)`, the
+multiplication rewrite shifted one bit too far, is put through the check and
+the solver is asserted to refute it with a counterexample -- a wrong rule
+cannot pass the check.
 
 - **Goal**: refactor `superopt.rs::Candidate` (`superopt.rs:30-32`)
   into `(precondition, transformation)` form, in the style of
@@ -834,6 +898,7 @@ listed.
 | Async / signal-based preemption | the BUDGET poll is sufficient; signal preemption is ~10 µs/signal | `research/12-runtime-scaling-extra.md` §16 |
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
 | HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
+| MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |

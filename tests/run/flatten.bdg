@@ -5,12 +5,15 @@ import std.io
 import std.schema
 
 @flatten
-pub struct BookId { value: Int } derive(Codec, Display)
+@derive(Codec, Display)
+pub struct BookId { value: Int }
 
 @flatten
-pub struct Title { text: String } derive(Codec)
+@derive(Codec)
+pub struct Title { text: String }
 
-pub struct Book { id: BookId, title: Title, tags: List<BookId> } derive(Codec)
+@derive(Codec)
+pub struct Book { id: BookId, title: Title, tags: List<BookId> }
 
 pub fn main() -> Result<Unit, codec.DecodeError> {
     let b: Book = { id: { value: 7 }, title: { text: "Dune" }, tags: [{ value: 1 }, { value: 2 }] }

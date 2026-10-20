@@ -1,0 +1,51 @@
+// A file's life under the linear rule: moved into a record and taken back
+// out, kept in a `var` that is reassigned only after its file is closed,
+// read to the end through borrows, and closed on every normal path. A call
+// that never returns (`panic`) is not a normal exit.
+import std.fs
+import std.io
+import std.path
+
+type Log = { name: String, file: fs.File }
+
+fn open_log(dir: String, name: String) -> Result<Log, io.Error> {
+    let file = fs.create(path.join(dir, name))?
+    ok({ name, file })
+}
+
+fn close_log(log: Log) -> Result<String, io.Error> {
+    let { name, file } = log
+    file.close()?
+    ok(name)
+}
+
+fn must_open(p: String) -> fs.File !{Io, Wait} {
+    match fs.open(p) {
+        .ok(f) => f,
+        .err(e) => panic($"cannot open {p}: {e.kind}"),
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let dir = fs.make_temp_dir("lang-file-linear-")?
+    let log = open_log(dir, "a.txt")?
+    log.file.write_text("alpha\n")?
+    io.println($"closed {close_log(log)?}")?
+
+    var current = fs.create(path.join(dir, "b.txt"))?
+    current.write_text("beta\n")?
+    current.close()?
+    current = fs.append_to(path.join(dir, "b.txt"))?
+    current.write_text("gamma\n")?
+    current.close()?
+
+    let r = must_open(path.join(dir, "b.txt"))
+    var chunks = 0
+    while let .some(_) = r.read(3)? {
+        chunks = chunks + 1
+    }
+    r.close()?
+    io.println($"{chunks} chunks")?
+    io.print(fs.read_text(path.join(dir, "b.txt"))?)?
+    fs.remove_all(dir)
+}

@@ -14,11 +14,12 @@ import std.app
 pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
 
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
     storage(message: String),
-} derive(Error)
+}
 
 pub type Store = {
     insert: fn(New@Item@) -> Result<@Item@, Error> !{Io, Wait, State},
@@ -79,10 +80,11 @@ pub provider @name@(config: { store: model.Store }) -> Result<model.Operations, 
     })
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_create_and_find() -> Result<Unit, TestError> {
     let plan = system {
@@ -142,11 +144,12 @@ pub fn routes(@name@: model.Operations) -> List<route.Route> {
     ]
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     route(source: route.RouteError),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_routes() -> Result<Unit, TestError> {
     let plan = system {
@@ -176,9 +179,10 @@ import std.worker
 /// A job's state (what the work needs; stored as JSON).
 pub type Job = { id: Int }
 
+@derive(Error)
 pub enum Failure {
     failed(message: String),
-} derive(Error)
+}
 
 /// One step of a job: do the work and decide what happens next (`done`,
 /// `again`, `after(delay)`, or `failed(reason)`); external effects go in
@@ -203,11 +207,12 @@ pub fn submit(store: jobs.Store, event: String, job: Job) -> Result<jobs.Submitt
     store.submit(processing.kind, event, processing.version, job, 5)
 }
 
+@derive(Error, From)
 pub enum TestError {
     jobs(source: jobs.Error),
     system(source: system.Error),
     timeout,
-} derive(Error, From)
+}
 
 fn test_a_submitted_job_is_processed() -> Result<Unit, TestError> {
     let plan = system {
@@ -238,10 +243,11 @@ pub type @Item@ = { id: Int, title: String }
 pub type New@Item@ = { title: String }
 
 /// What can go wrong.
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
-} derive(Error)
+}
 
 /// The service's operations.
 pub type Operations = {
@@ -308,10 +314,11 @@ pub provider @name@(config: { store: store.Store }) -> Result<model.Operations, 
     })
 }
 
+@derive(Error, From)
 pub enum TestError {
     @name@(source: model.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn test_create_and_find() -> Result<Unit, TestError> {
     let plan = system {
@@ -340,11 +347,12 @@ import @name@.service
 import @name@.store
 
 /// The service's errors, as the HTTP layer sees them.
+@derive(Error, From)
 pub enum Error {
     @name@(source: model.Error),
     route(source: route.RouteError),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 /// The status each error is answered with (500 unless the error chooses
 /// one): the route system reads it.

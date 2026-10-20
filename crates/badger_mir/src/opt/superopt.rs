@@ -6,8 +6,8 @@
 //! - Algebraic identities whose equivalence holds for every bit pattern at
 //!   the operation's width: multiplication by a power of two is a left
 //!   shift, unsigned division and remainder by a power of two are a right
-//!   shift and a mask, and a shift pair that clears low bits is a mask.
-//!   These are exact for the wrapping operations MIR emits (checked
+//!   shift and a mask, and a left-then-right shift pair is a mask of the low
+//!   bits. These are exact for the wrapping operations MIR emits (checked
 //!   operations are never rewritten, and the constant shift amounts are in
 //!   range, so no defect can appear or disappear).
 //! - Boolean identities (`x == 1` is `x` when every definition of `x`
@@ -19,19 +19,28 @@
 //! assignments of its free boolean variables before it is applied, so a
 //! mistaken rule cannot change behaviour. Expressions with more than 16
 //! free bits are never rewritten by a boolean rule.
+//!
+//! The rules themselves are stated, and their claims proved, in [`smt`]: the
+//! match site names the rule it matched, and when the check is enabled
+//! (`BADGER_MIR_SMT=1`) a rule the solver does not prove is not applied. With
+//! the check off the optimiser never calls the solver.
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::mir::*;
 
 use super::simplify::bool_locals;
+use super::smt::{self, Rule};
 
-/// A rewrite candidate.
+/// A rewrite candidate: the rule that justifies it and the value it rewrites
+/// to. The rule's preconditions -- a shift amount in range, an operand's
+/// boolean domain -- are the ones the match site established when it built
+/// the candidate; they are stated with the rule in [`smt`], which the solver
+/// discharges, and where the rule needs it the site re-checks them with
+/// [`verify`].
 struct Candidate {
+    rule: Rule,
     rv: Rvalue,
-    /// Independent of boolean-domain assumptions: true when the identity is
-    /// exact for all bit patterns.
-    proven: bool,
 }
 
 /// `BADGER_MIR_BREAK=superopt` (debug builds only): apply the multiplication
@@ -45,6 +54,10 @@ fn broken() -> bool {
 }
 
 pub fn superopt(prog: &mut Program) -> usize {
+    if smt::enabled() {
+        smt::run();
+        smt::report();
+    }
     prog.funcs.iter_mut().map(superopt_func).sum()
 }
 
@@ -78,7 +91,9 @@ fn superopt_func(f: &mut Func) -> usize {
             let repr = f.locals[*dest].repr;
             let mut candidate = canonicalize(rv);
             if let Some(c) = rewrite(rv, &bools, f, &defs, &def_at, b, i) {
-                let ok = c.proven || verify(rv, &c.rv, &defs, &bools, f).is_some();
+                let ok = smt::accepted(c.rule)
+                    && (!smt::needs_exhaustive(c.rule)
+                        || verify(rv, &c.rv, &defs, &bools, f).is_some());
                 if ok {
                     candidate = canonicalize(&c.rv);
                 }
@@ -205,6 +220,7 @@ fn rewrite(
                 return None;
             }
             Some(Candidate {
+                rule: Rule::MulPow2,
                 rv: Rvalue::Bin {
                     op: BinOp::Shl,
                     a: x,
@@ -212,7 +228,6 @@ fn rewrite(
                     ty: NumTy::I(*bits, *signed),
                     loc: 0,
                 },
-                proven: true,
             })
         }
         Rvalue::Bin { op, a, b, ty: NumTy::I(bits, false), loc } if matches!(op, BinOp::Div | BinOp::Rem) => {
@@ -222,6 +237,7 @@ fn rewrite(
                 return None;
             }
             Some(Candidate {
+                rule: if *op == BinOp::Div { Rule::UDivPow2 } else { Rule::URemPow2 },
                 rv: if *op == BinOp::Div {
                     Rvalue::Bin {
                         op: BinOp::Shr,
@@ -239,7 +255,6 @@ fn rewrite(
                         loc: 0,
                     }
                 },
-                proven: true,
             })
         }
         Rvalue::Bin { op: BinOp::Shr, a: Operand::Local(inner), b, ty: NumTy::I(bits, false), loc: 0 } => {
@@ -258,17 +273,17 @@ fn rewrite(
             if k == 0 || k >= *bits {
                 return None;
             }
-            let m = mask(*bits);
-            let low = ((1u64 << k) - 1) & m;
+            // (x << k) >> k keeps x's low `bits - k` bits; the high bits the
+            // left shift dropped stay zero.
             Some(Candidate {
+                rule: Rule::ShrShlMask,
                 rv: Rvalue::Bin {
                     op: BinOp::And,
                     a: x,
-                    b: int_const((m ^ low) as i64),
+                    b: int_const(mask(*bits - k) as i64),
                     ty: NumTy::I(*bits, false),
                     loc: 0,
                 },
-                proven: true,
             })
         }
         Rvalue::Cmp { op: CmpOp::Eq, a, b, ty: NumTy::I(_, _) }
@@ -290,12 +305,15 @@ fn rewrite(
                 (CmpOp::Eq, 0) | (CmpOp::Ne, 1) => false,
                 _ => return None,
             };
-            Some(Candidate { rv: if keep { Rvalue::Use(*x) } else { Rvalue::Not(*x) }, proven: false })
+            Some(Candidate {
+                rule: if keep { Rule::BoolCmpKeep } else { Rule::BoolCmpFlip },
+                rv: if keep { Rvalue::Use(*x) } else { Rvalue::Not(*x) },
+            })
         }
         Rvalue::Not(Operand::Local(inner)) => {
             match earlier_def(defs, f, block, at, *inner)? {
                 Rvalue::Not(x) if is_bool(&x) && stable_operands(&Rvalue::Use(x), def_at, f, block, at) => {
-                    Some(Candidate { rv: Rvalue::Use(x), proven: true })
+                    Some(Candidate { rule: Rule::DoubleNeg, rv: Rvalue::Use(x) })
                 }
                 // !(a == b) is (a != b), and _not_ of an integer ordering is
                 // its opposite ordering. Floating ordering is excluded (NaN);
@@ -313,7 +331,7 @@ fn rewrite(
                         CmpOp::Gt => CmpOp::Le,
                         CmpOp::Ge => CmpOp::Lt,
                     };
-                    Some(Candidate { rv: Rvalue::Cmp { op, a, b, ty }, proven: true })
+                    Some(Candidate { rule: Rule::CmpInvert, rv: Rvalue::Cmp { op, a, b, ty } })
                 }
                 _ => None,
             }
@@ -329,6 +347,7 @@ fn rewrite(
                     // x + x == x << 1
                     if *op == BinOp::Add && a == b {
                         return Some(Candidate {
+                            rule: Rule::AddSelfShl,
                             rv: Rvalue::Bin {
                                 op: BinOp::Shl,
                                 a: *a,
@@ -336,7 +355,6 @@ fn rewrite(
                                 ty: NumTy::I(bits, signed),
                                 loc: 0,
                             },
-                            proven: true,
                         });
                     }
                     // (x op c) op c collapses to (x op c) for & and |
@@ -351,8 +369,8 @@ fn rewrite(
                         && ((const_of(&c1).unwrap_or(0) as u64) & mask(bits)) == ((c2 as u64) & mask(bits))
                     {
                         return Some(Candidate {
+                            rule: Rule::MaskIdempotent,
                             rv: Rvalue::Bin { op: inner_op, a: x, b: c1, ty: *ty, loc: 0 },
-                            proven: true,
                         });
                     }
                     return None;
@@ -376,7 +394,7 @@ fn rewrite(
             {
                 return None;
             }
-            Some(Candidate { rv: Rvalue::Use(x), proven: true })
+            Some(Candidate { rule: Rule::AddSubCancel, rv: Rvalue::Use(x) })
         }
         _ => None,
     }

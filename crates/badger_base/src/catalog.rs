@@ -519,7 +519,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0404",
         "use after move",
-        "Affine values (builders, buffers, leases, `once` closures) have one owning use. Passing one by value, storing, returning, or capturing it moves it.",
+        "Affine values (builders, buffers, leases, files, `once` closures) have one owning use. Passing one by value, storing, returning, or capturing it moves it; a file's `close` and a lease's `release` consume it.",
     ),
     (
         "E0405",
@@ -545,6 +545,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0412",
         "implicit borrow of an owned value",
         "Ordinary function arguments borrow explicitly: pass `&x` or `&mut x` where the function takes `&T` or `&mut T` and `x` is an owned affine value. Only method receivers are borrowed automatically.",
+    ),
+    (
+        "E0413",
+        "linear value not consumed",
+        "Resources (`fs.File`, `channel.Batch`) are linear: each value is consumed exactly once, by its consuming operation (`close`, `release`) or by moving it on (into a call by value, a return, an aggregate, or a closure that consumes it), on every path that leaves its scope normally: the end of the scope, `return`, `break`, `continue`, or an assignment over it. Reading or writing through a borrow does not consume it, and `_` or an expression statement cannot discard one. Error exits (`?`, `return err(..)`) are not checked: the runtime closes or releases the resource there.",
     ),
     (
         "E0409",

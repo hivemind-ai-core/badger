@@ -6,7 +6,7 @@
 
 [
   "import" "as" "type" "struct" "enum" "protocol" "impl" "where"
-  "let" "var" "const" "use" "extern" "dyn" "derive" "repr" "unsafe"
+  "let" "var" "const" "use" "extern" "dyn" "repr" "unsafe"
   "system" "pipeline" "map" "set" "ref" "provider" "stage"
 ] @keyword
 

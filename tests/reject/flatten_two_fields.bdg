@@ -1,6 +1,7 @@
 // expect-error: E0192
 // `@flatten` marks a struct with exactly one field.
 @flatten
-pub struct Pair { a: Int, b: Int } derive(Codec)
+@derive(Codec)
+pub struct Pair { a: Int, b: Int }
 
 pub fn main() {}

@@ -1,0 +1,18 @@
+// expect-error: E0413
+// A successful early `return` leaves the open file unconsumed (only error
+// exits are left to the finalizer).
+import std.fs
+import std.io
+
+fn append(p: String, text: String) -> Result<Unit, io.Error> {
+    let f = fs.append_to(p)?
+    if text == "" {
+        return ok(())
+    }
+    f.write_text(text)?
+    f.close()
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    append("/tmp/early.txt", "")
+}

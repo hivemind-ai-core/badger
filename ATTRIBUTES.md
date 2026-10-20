@@ -9,7 +9,8 @@ the first built-in attributes land (Phase 2). Placement is **item position**
 variant position** (`@status(404) not_found(id: Int)`, read by
 `derive(HttpError)`); statement/scope placement lands with the
 warning-silencing built-in.
-`derive(...)` is unchanged. The design and open questions below still apply.
+The old `derive(...)` form has since been removed (Phase 3): `@derive(...)` is
+the only spelling. The design and open questions below still apply.
 
 ## Why
 
@@ -205,10 +206,10 @@ recognised attribute is a row, and the consumer does the work.
 | `@expect_taken` | branch-probability hint | metadata |
 | `@compile_time_only` | compile-time evaluation | blocked (no CT eval) |
 
-Migration: accept `derive(...)` as sugar that parses to `@derive(...)`
-(keeping the old spelling working), or convert the standard library’s uses
-and drop the old form. Either way the AST field (`StructDecl::derives` /
-`EnumDecl::derives`) collapses into the general attribute list.
+Migration (Phase 3, done): every `derive(...)` clause was converted to
+`@derive(...)` and the old clause was deleted from the grammar, so the CST no
+longer carries a `derives` clause; the AST field (`StructDecl::derives` /
+`EnumDecl::derives`) is populated solely from the attribute.
 
 A useful side effect of unifying: `derive` is currently matched by
 **protocol name string** (`env.rs:845-943`), so a user protocol named
@@ -253,9 +254,10 @@ specific pass reads, it belongs in an attribute.
   never suppressed). `crates/badger_cli/tests/programs.rs::
   attribute_allow_silences_warnings` covers it (E0142). Statement/block
   placement is a refinement still to add.
+- **Phase 3** — **done**: every source migrated to `@derive(...)` and the old
+  clause removed from the grammar (see the migration plan).
 - **Next**: `@inline(always|never)` (needs a MIR function flag from the HIR
-  attributes); then Phase 3, delete the `derive(...)` form (see the migration
-  plan).
+  attributes), statement/block-scope `@allow`, and moves 1 + 3.
 
 ## Migration plan (replacing the `derive` syntax)
 

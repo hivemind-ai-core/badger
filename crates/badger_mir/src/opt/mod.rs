@@ -4,6 +4,7 @@
 pub mod cfg;
 pub mod cse;
 pub mod simplify;
+pub mod smt;
 pub mod specialize;
 pub mod superopt;
 

@@ -2530,11 +2530,12 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
             return None;
         }
         let source = self.map_entries_source(recv)?;
-        let kind = if self.is_list_stage_def(outer, "map") && args.len() == 1 {
-            0
-        } else if self.is_list_stage_def(outer, "filter") && args.len() == 1 {
-            1
-        } else if self.is_list_stage_def(outer, "fold") && args.len() == 2 {
+        let path = self.m.def_path(outer);
+        let is_fold = self.m.fusion.get(&path).is_some_and(|t| t == "fold") || path == "std.list.fold";
+        let kind = if self.is_list_call(outer) && args.len() == 1 {
+            // map (0) or filter (1), by the callback's shape
+            if self.callback_returns_bool(args[0]) { 1 } else { 0 }
+        } else if is_fold && args.len() == 2 {
             2
         } else {
             return None;
@@ -2568,11 +2569,14 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         self.call_def(new_def, targs, ops, ret_ty, span)
     }
 
-    fn is_list_stage_def(&self, def: DefId, name: &str) -> bool {
-        // `@fusion(template = eager_<name>)`, or the legacy path
+    /// A callback stage on a `List` (`map`/`filter`): the `call` template, or
+    /// the legacy paths. Which of the two it is comes from the callback's
+    /// return type, not the name.
+    fn is_list_call(&self, def: DefId) -> bool {
         let p = self.m.def_path(def);
-        self.m.fusion.get(&p).is_some_and(|t| *t == format!("eager_{name}"))
-            || p == format!("std.list.{name}")
+        self.m.fusion.get(&p).is_some_and(|t| t == "call")
+            || p == "std.list.map"
+            || p == "std.list.filter"
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,
@@ -2584,17 +2588,18 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let Res::Method(Target::Fn { def, args: targs }) = self.inst.res.get(&e)? else {
                     return None;
                 };
-                let is_map = self.is_list_stage_def(*def, "map");
-                let is_filter = self.is_list_stage_def(*def, "filter");
-                (is_map || is_filter).then(|| (is_map, *recv, args[0], targs.clone()))
+                if !self.is_list_call(*def) {
+                    return None;
+                }
+                let is_map = !self.callback_returns_bool(args[0]);
+                Some((is_map, *recv, args[0], targs.clone()))
             }
             ExprKind::Call { callee, args } if args.len() == 2 => {
                 let ExprKind::Def { def, .. } = &hir.exprs[*callee].kind else { return None };
-                let is_map = self.is_list_stage_def(*def, "map");
-                let is_filter = self.is_list_stage_def(*def, "filter");
-                if !(is_map || is_filter) {
+                if !self.is_list_call(*def) {
                     return None;
                 }
+                let is_map = !self.callback_returns_bool(args[1]);
                 let targs = match self.inst.res.get(callee) {
                     Some(Res::Callee { args, .. }) => args.clone(),
                     _ => vec![],
@@ -2626,10 +2631,20 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         if std::env::var_os("BADGER_NO_LIST_FUSION").is_some() {
             return None;
         }
+        // the eager engine: only a `List` receiver (a `Seq` chain is the
+        // sequence pipeline's, below)
+        let rt = self.ty(recv);
+        if !self.m.lay.is_std(&rt, "List") {
+            return None;
+        }
         let (inner_is_map, inner_recv, earlier, inner_targs) = self.list_stage(recv)?;
-        let (new_name, targs) = if self.is_list_stage_def(outer, "map") && !inner_is_map {
+        if !self.is_list_call(outer) {
+            return None;
+        }
+        let outer_is_map = !self.callback_returns_bool(callback);
+        let (new_name, targs) = if outer_is_map && !inner_is_map {
             ("list.filter_then_map", outer_targs.to_vec())
-        } else if self.is_list_stage_def(outer, "filter") && inner_is_map {
+        } else if !outer_is_map && inner_is_map {
             ("list.map_then_filter", inner_targs.clone())
         } else {
             return None;
@@ -2642,6 +2657,18 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let early = self.lower(earlier)?;
         let late = self.lower(callback)?;
         self.call_def(new_def, targs, vec![xs, early, late], ret_ty, span)
+    }
+
+    /// Whether a callback returns `Bool` (the `filter` shape).
+    fn callback_returns_bool(&self, cb: ExprId) -> bool {
+        let t = self.ty(cb);
+        matches!(&*t, TyKind::Fn(ft) if self.m.lay.is_std(&ft.ret, "Bool"))
+    }
+
+    /// Whether a callback returns `Option<..>` (the `filter_map` shape).
+    fn callback_returns_option(&self, cb: ExprId) -> bool {
+        let t = self.ty(cb);
+        matches!(&*t, TyKind::Fn(ft) if self.m.lay.is_std(&ft.ret, "Option"))
     }
 
     /// A lambda whose body has no calls, allocation, mutation, or operation
