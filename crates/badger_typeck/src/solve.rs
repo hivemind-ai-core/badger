@@ -1775,6 +1775,8 @@ impl Infer<'_, '_> {
                         "Option",
                         "Result",
                         "Data",
+                        // indirection for recursive data: its content's encoding
+                        "Box",
                     ];
                     let user = !self.g.hir.modules[self.g.hir.defs[d].module].is_std;
                     // library types are data when listed, or when they say so
@@ -1805,7 +1807,7 @@ impl Infer<'_, '_> {
                     // (but a `config.Secret` decodes from a string and
                     // encodes redacted)
                     if which == "Codec"
-                        && !(name == "Secret" && !user)
+                        && !((name == "Secret" || name == "Box") && !user)
                         && let Some(si) = self.g.env.structs.get(&d)
                         && si.module_differs(self.module)
                         && si.fields.iter().any(|f| !f.2)

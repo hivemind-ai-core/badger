@@ -1,0 +1,17 @@
+// A recursive type through `Box` is data: `Box` encodes as its content,
+// so a tree is written as the tree itself and decodes back.
+import std.codec
+import std.io
+
+@derive(Codec, Eq)
+pub enum Tree { leaf, node(left: Box<Tree>, value: Int, right: Box<Tree>) }
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let t = Tree.node(Box.new(Tree.node(Box.new(Tree.leaf), 1, Box.new(Tree.leaf))), 2, Box.new(Tree.leaf))
+    let text = codec.encode_text(t)
+    let _ = io.println(text)
+    let back = codec.decode_text<Tree>(text)?
+    let data = codec.from_data<Tree>(codec.to_data(t))?
+    let _ = io.println($"{back == t} {data == t}")
+    ok(())
+}

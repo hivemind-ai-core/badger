@@ -96,7 +96,9 @@ impl<T> Display for Located<T> where T: Display {
     fn display(self: &Self) -> String { $"{self.value} ({self.file}:{self.line}:{self.column})" }
 }
 
-/// Immutable indirection for recursive definitions.
+/// Immutable indirection for recursive definitions. It encodes as its
+/// content (a `Box<Tree>` field is the tree itself on the wire).
+@flatten
 pub struct Box<T> {
     value: T,
 }

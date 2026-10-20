@@ -95,7 +95,8 @@ fn display(self: &Self) -> String
 struct Box<T> { value: T }
 ```
 
-Immutable indirection for recursive definitions.
+Immutable indirection for recursive definitions. It encodes as its
+content (a `Box<Tree>` field is the tree itself on the wire).
 
 #### `Box.display`
 
