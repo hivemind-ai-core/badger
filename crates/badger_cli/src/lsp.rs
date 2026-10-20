@@ -619,8 +619,41 @@ impl Server {
                 actions.push(action);
                 continue;
             }
+            // an ignored `Result`: propagate it, or discard it explicitly
+            if d["code"] == "E0337" {
+                let (start, end) = (d["range"]["start"].clone(), d["range"]["end"].clone());
+                for (title, at, new_text) in [
+                    ("Propagate the error with `?`", end, "?"),
+                    ("Discard the result with `let _ =`", start, "let _ = "),
+                ] {
+                    actions.push(json!({
+                        "title": title,
+                        "kind": "quickfix",
+                        "diagnostics": [d.clone()],
+                        "edit": { "changes": { uri.clone(): [{ "range": { "start": at, "end": at }, "newText": new_text }] } },
+                    }));
+                }
+                continue;
+            }
             if d["code"] != "E0127" {
                 continue;
+            }
+            // a near miss: replace the name with the suggestion
+            let notes = d["data"]["notes"].as_array().cloned().unwrap_or_default();
+            if let Some(near) = notes
+                .iter()
+                .filter_map(|n| {
+                    n.as_str()?.strip_prefix("did you mean `")?.strip_suffix("`?").map(str::to_string)
+                })
+                .next()
+            {
+                actions.push(json!({
+                    "title": format!("Change to `{near}`"),
+                    "kind": "quickfix",
+                    "diagnostics": [d.clone()],
+                    "isPreferred": true,
+                    "edit": { "changes": { uri.clone(): [{ "range": d["range"].clone(), "newText": near }] } },
+                }));
             }
             let msg = d["message"].as_str().unwrap_or("");
             let Some(name) = msg.strip_prefix("unknown name `").and_then(|r| r.split('`').next()) else {

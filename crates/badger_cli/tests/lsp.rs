@@ -371,3 +371,47 @@ fn code_action_adds_missing_arm() {
     assert!(c.diagnostics(&uri).is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Quick fixes for common mistakes: a near-miss name is replaced by the
+/// suggestion, and an ignored `Result` is propagated with `?` or discarded
+/// with `let _ =`.
+#[test]
+fn code_actions_common_fixes() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-fixes-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "import std.io\n\nfn total(items: List<Int>) -> Int => items.len()\n\npub fn main() -> Result<Unit, io.Error> {\n    let n = totl([1])\n    io.println(\"x\")\n    ok(())\n}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let titles: Vec<String> =
+        r["result"].as_array().unwrap().iter().map(|a| a["title"].as_str().unwrap().to_string()).collect();
+    assert!(titles.contains(&"Change to `total`".to_string()), "{r}");
+    // fixed name: the ignored result remains, with its two fixes
+    let fixed = src.replace("totl(", "total(");
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 2 }, "contentChanges": [{ "text": fixed }] }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let actions = r["result"].as_array().unwrap();
+    let titles: Vec<&str> = actions.iter().map(|a| a["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, vec!["Propagate the error with `?`", "Discard the result with `let _ =`"], "{r}");
+    assert_eq!(actions[0]["edit"]["changes"][&uri][0]["newText"], "?");
+    let _ = std::fs::remove_dir_all(&dir);
+}
