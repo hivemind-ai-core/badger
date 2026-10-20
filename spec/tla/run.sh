@@ -147,14 +147,50 @@ check m-dead-keeps-claim-held ChannelBadger ChannelBadger.cfg ClaimsHeld \
     "$dead;s/^    Kinds = .*/    Kinds = {\"batch\"}/"
 
 # --- GC handshake (GcHandshake.tla) -----------------------------------------
+# gcm MUTATION: the sed script that selects a mutation
+gcm() { echo "s/^    Mutation = .*/    Mutation = \"$1\"/"; }
+# gconly NAME: the sed script that keeps TypeOK and NAME (an invariant or a
+# property) and drops every other invariant and property
+gconly() { echo "/^INVARIANTS/,\${/^    /{/^    \\(TypeOK\\|$1\\)\$/!d}}"; }
+# the QSBR handshake of 6cd8e06: every property holds
 check gc                     GcHandshake GcHandshake.cfg pass
-check gc-check-before-inc    GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
-    's/^    Mutation = .*/    Mutation = "check_before_inc"/'
-check gc-unlock-before-inc   GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
-    's/^    Mutation = .*/    Mutation = "unlock_before_inc"/'
-check gc-dec-before-publish  GcHandshake GcHandshake.cfg RootsPublished \
-    's/^    Mutation = .*/    Mutation = "dec_before_publish"/'
-check gc-nested-collect      GcHandshake GcHandshake.cfg ScanUnderStop \
-    's/^    Mutation = .*/    Mutation = "nested_collect"/'
+# finding G1: a slot the grace period read as acknowledged falls back to the
+# old epoch in online's window (published, not yet re-read), contrary to
+# stop_the_world's comment; harmless (the worker backs out)
+check gc-acks-stay           GcHandshake GcHandshake.cfg AcksStay \
+    "$(gconly AcksStay);s/^INVARIANTS\$/INVARIANTS\n    AcksStay/"
+# online's re-read may test the parity alone (a variant, not a defect)
+check gc-recheck-parity      GcHandshake GcHandshake.cfg pass "$(gcm recheck_parity)"
+# mutations: each breaks the property its check names
+check gc-online-no-publish   GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm online_no_publish);$(gconly EveryWorkerObservesEpoch)"
+check gc-online-no-publish-slot GcHandshake GcHandshake.cfg SlotMatches \
+    "$(gcm online_no_publish);$(gconly SlotMatches)"
+check gc-online-no-recheck   GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm online_no_recheck);$(gconly EveryWorkerObservesEpoch)"
+check gc-online-no-backout   GcHandshake GcHandshake.cfg temporal \
+    "$(gcm online_no_backout);$(gconly CollectionCompletes)"
+check gc-online-no-backout-spin GcHandshake GcHandshake.cfg temporal \
+    "$(gcm online_no_backout);$(gconly SpinnersProceed)"
+check gc-unlock-before-online GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm unlock_before_online);$(gconly EveryWorkerObservesEpoch)"
+check gc-offline-before-publish GcHandshake GcHandshake.cfg RootsPublished \
+    "$(gcm offline_before_publish);$(gconly RootsPublished)"
+check gc-read-before-advance GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm read_before_advance);$(gconly EveryWorkerObservesEpoch)"
+check gc-scan-before-grace   GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm scan_before_grace);$(gconly EveryWorkerObservesEpoch)"
+check gc-nested-grace        GcHandshake GcHandshake.cfg ScanUnderStop \
+    "$(gcm nested_grace);$(gconly ScanUnderStop)"
+check gc-nested-grace-resume GcHandshake GcHandshake.cfg ResumeAfterSweep \
+    "$(gcm nested_grace);$(gconly ResumeAfterSweep)"
+check gc-nested-resume-ends  GcHandshake GcHandshake.cfg ScanUnderStop \
+    "$(gcm nested_resume_ends);$(gconly ScanUnderStop)"
+check gc-nested-resume-ends-resume GcHandshake GcHandshake.cfg ResumeAfterSweep \
+    "$(gcm nested_resume_ends);$(gconly ResumeAfterSweep)"
+check gc-poll-acks           GcHandshake GcHandshake.cfg SlotMatches \
+    "$(gcm poll_acks);$(gconly SlotMatches)"
+check gc-poll-acks-observes  GcHandshake GcHandshake.cfg EveryWorkerObservesEpoch \
+    "$(gcm poll_acks);$(gconly EveryWorkerObservesEpoch)"
 
 exit $failed
