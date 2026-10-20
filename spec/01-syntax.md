@@ -234,13 +234,12 @@ program reports what each missing piece must be.
 the rest of the block when it matches; otherwise the `else` block runs,
 and it must not finish (its type is `Never`: it ends in `return`,
 `break`, `continue`, a panic, or another call returning `Never`; E0300
-otherwise). It is `let (names) = match EXPR { PATTERN => (names), _ =>
-block }`; it takes no type annotation.
+otherwise). A block ending in `err(...)` returns it: `else { err(e) }` is
+`else { return err(e) }`. It is `let (names) = match EXPR { PATTERN =>
+(names), _ => block }`; it takes no type annotation.
 
 ```badger fragment
-let .some(user) = users.get(id) else {
-    return err(Error.unknown_user(id))
-}
+let .some(user) = users.get(id) else { err(Error.unknown_user(id)) }
 greet(user)
 ```
 

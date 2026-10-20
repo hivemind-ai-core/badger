@@ -803,6 +803,30 @@ impl<'a, 'i> Lower<'a, 'i> {
         self.alloc_expr(ExprKind::Block { stmts }, span)
     }
 
+    /// A `let ... else` block ending in `err(...)` returns it: `let .some(x)
+    /// = e else { err(AppError.missing) }` is `... else { return err(...) }`.
+    fn return_tail_err(&mut self, block: ExprId) {
+        let ExprKind::Block { stmts } = &self.ast.exprs[block].kind else { return };
+        let Some(Stmt::Expr { expr, semi: false }) = stmts.last() else { return };
+        let expr = *expr;
+        let is_err = match &self.ast.exprs[expr].kind {
+            ExprKind::Call { callee, .. } => {
+                matches!(&self.ast.exprs[*callee].kind, ExprKind::Name(n) if self.interner.resolve(n.sym) == "err")
+            }
+            _ => false,
+        };
+        if !is_err {
+            return;
+        }
+        let span = self.ast.exprs[expr].span;
+        let ret = self.alloc_expr(ExprKind::Return(Some(expr)), span);
+        if let ExprKind::Block { stmts } = &mut self.ast.exprs[block].kind
+            && let Some(Stmt::Expr { expr, .. }) = stmts.last_mut()
+        {
+            *expr = ret;
+        }
+    }
+
     fn stmt(&mut self, s: cst::Stmt<'_>) -> Stmt {
         match s {
             cst::Stmt::Let { kind, pat, ty, value, els: None, span } => {
@@ -833,6 +857,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                     ),
                 };
                 let otherwise = self.block(*els);
+                self.return_tail_err(otherwise);
                 let diverge = self.alloc_expr(ExprKind::Std("diverge"), span);
                 let otherwise = self.alloc_expr(
                     ExprKind::Call { callee: diverge, args: vec![otherwise], type_args: vec![] },

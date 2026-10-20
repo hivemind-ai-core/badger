@@ -1,0 +1,11 @@
+// A `let ... else` block ending in `err(...)` returns it.
+import std.io
+pub enum AppError { missing(what: String) } derive(Error)
+fn first(o: Option<Int>) -> Result<Int, AppError> {
+    let .some(v) = o else { err(AppError.missing("value")) }
+    ok(v + 1)
+}
+pub fn main() -> Result<Unit, io.Error> {
+    io.println($"{first(Option.some(1))} {first(Option.none)}")?
+    ok(())
+}
