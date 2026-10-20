@@ -648,8 +648,11 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
         }
         Kind::Float { .. } => "{\"type\":\"number\"}".into(),
         Kind::String | Kind::Symbol | Kind::Char | Kind::Bytes => "{\"type\":\"string\"}".into(),
-        Kind::List { elem } | Kind::Set { elem } => {
+        Kind::List { elem } => {
             format!("{{\"type\":\"array\",\"items\":{}}}", json_schema(elem, depth + 1))
+        }
+        Kind::Set { elem } => {
+            format!("{{\"type\":\"array\",\"items\":{},\"uniqueItems\":true}}", json_schema(elem, depth + 1))
         }
         Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
             let elem = crate::buffer::array_elem(d).expect("array");

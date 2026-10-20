@@ -300,7 +300,10 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
         }
         Kind::Set { elem } => {
             o.push('[');
-            for (i, (k, _)) in map::entries(w).into_iter().enumerate() {
+            // in order, as a map's keys are (the encoding is deterministic)
+            let mut es = map::entries(w);
+            es.sort_by(|a, b| crate::value::cmp(elem, a.0, b.0));
+            for (i, (k, _)) in es.into_iter().enumerate() {
                 if i > 0 {
                     o.push(',');
                 }
@@ -564,6 +567,15 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             }
             Ok(l)
         }
+        Kind::Set { elem } => {
+            let Some(a) = j.as_array() else { return fail("expected an array") };
+            let out = root(map::new(d));
+            for (i, x) in a.iter().enumerate() {
+                let v = dec(elem, x).map_err(|e| e.index(i))?;
+                map::insert_mut(out, v, 0);
+            }
+            Ok(out)
+        }
         Kind::Map { key, val } => {
             let Some(m) = j.as_object() else { return fail("expected an object") };
             let out = root(map::new(d));
@@ -765,6 +777,18 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             for i in 0..list::len(l) {
                 let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
                 list::push(out, v);
+            }
+            Ok(out)
+        }
+        Kind::Set { elem } => {
+            if tag != 5 {
+                return fail("expected an array");
+            }
+            let l = fields[0];
+            let out = root(map::new(d));
+            for i in 0..list::len(l) {
+                let v = dec_data(elem, list::get(l, i)).map_err(|e| e.index(i))?;
+                map::insert_mut(out, v, 0);
             }
             Ok(out)
         }

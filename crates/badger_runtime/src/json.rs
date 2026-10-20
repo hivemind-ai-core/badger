@@ -577,6 +577,31 @@ impl<'a> P<'a> {
                 Ok(l)
             }
             Kind::Map { key, val } => self.mapping(d, key, val),
+            Kind::Set { elem } => {
+                self.expect_dec(b'[', "an array")?;
+                self.ws();
+                let out = root(crate::map::new(d));
+                if self.peek() == Some(b']') {
+                    self.i += 1;
+                    return Ok(out);
+                }
+                let mut i = 0usize;
+                loop {
+                    let v = self.value(elem).map_err(|e| add_index(e, i))?;
+                    crate::map::insert_mut(out, v, 0);
+                    i += 1;
+                    self.ws();
+                    match self.peek() {
+                        Some(b',') => self.i += 1,
+                        Some(b']') => {
+                            self.i += 1;
+                            break;
+                        }
+                        _ => return jerr("expected `,` or `]`"),
+                    }
+                }
+                Ok(out)
+            }
             Kind::Opaque { .. } if crate::buffer::array_elem(d).is_some() => {
                 let elem = crate::buffer::array_elem(d).expect("array");
                 self.expect_dec(b'[', "an array")?;
