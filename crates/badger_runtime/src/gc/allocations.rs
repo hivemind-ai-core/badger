@@ -22,16 +22,18 @@ pub(super) enum CellSource {
     System,
 }
 
-/// Classify immediately before allocation: this worker alone mutates its
-/// pool, and no safepoint or managed allocation intervenes before alloc_cell.
+/// Classify immediately after allocation: this worker alone mutates its
+/// pool, and no safepoint or managed allocation intervenes after alloc_cell.
+/// A pooled cell is reused when it lies in dead cells' lines, and bumped
+/// when it lies in a block never handed out before.
 pub(super) fn cell_source(worker: usize, payload: usize) -> Option<CellSource> {
     path()?;
-    let size = cell_size(payload);
-    Some(if size > small_max() {
+    Some(if cell_size(payload) > small_max() {
         CellSource::System
+    } else if super::pool(worker).reused {
+        CellSource::Reused
     } else {
-        let pool = unsafe { &*super::POOLS.0[worker].get() };
-        if pool.free[size / 16 - 1].is_null() { CellSource::Bump } else { CellSource::Reused }
+        CellSource::Bump
     })
 }
 
