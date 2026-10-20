@@ -1,0 +1,14 @@
+// expect-error: E0608
+// A provider's body must not open `task.scope()`: the scope ends when the
+// provider returns, so a task waited on in it keeps the system from
+// starting. Use the scope the provider is given (`scope.worker(...)`).
+import std.io
+import std.task
+
+provider pool(scope, config: {}) -> Result<Unit, io.Error> {
+    use s <- task.scope()
+    let t = s.spawn(fn() { 1 })
+    ok(())
+}
+
+pub fn main() {}

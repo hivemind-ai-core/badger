@@ -550,6 +550,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "reserved system key",
         "`brand`, `started`, and `wait_for_shutdown` are fields of a running system, so they cannot be plan keys.",
     ),
+    (
+        "E0608",
+        "scope opened in a provider",
+        "A provider's body calls `task.scope()`. That scope ends when the provider returns, so a task waited on in it keeps the system from finishing startup (it hangs with no output). Start work with the scope the provider is given: `scope.worker(...)` for a long-running task, `scope.spawn(...)` for a helper. A closure handed to a worker may open its own scope.",
+    ),
     ("E0701", "empty pipeline", "A pipeline ends with a terminal `handle(...)` or `handle_context(...)`."),
     (
         "E0702",

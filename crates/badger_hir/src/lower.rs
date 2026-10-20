@@ -94,6 +94,7 @@ pub fn lower_program(
         const_locals: FxHashSet::default(),
         const_checks: vec![],
         failed_imports: FxHashSet::default(),
+        provider_inits: vec![],
     };
     cx.collect(modules);
     if let Some(e) = entry {
@@ -107,6 +108,7 @@ pub fn lower_program(
     }
     cx.resolve_late_ctors();
     cx.check_consts();
+    cx.check_provider_scopes();
     cx.hir
 }
 
@@ -123,6 +125,9 @@ struct Cx<'a> {
     /// Names a failing import would have bound, per module: their unknown
     /// uses are not reported again (the import's error explains them).
     failed_imports: FxHashSet<(ModuleId, Symbol)>,
+    /// Each provider's `init` (a closure, or the function generated for
+    /// it), checked once every body is lowered.
+    provider_inits: Vec<ExprId>,
 }
 
 impl Cx<'_> {
@@ -273,6 +278,49 @@ impl Cx<'_> {
 
     fn err(&mut self, code: &'static str, span: Span, msg: impl Into<String>, label: impl Into<String>) {
         self.diags.push(Diagnostic::error(msg).with_code(code).with_label(span, label));
+    }
+
+    /// A provider's own body must not open `task.scope()`: the scope ends
+    /// when the provider returns, so a task it waits for keeps startup from
+    /// finishing (the scope the provider is given is the one to use).
+    /// Closures it hands on (a worker's body) run as their own tasks and
+    /// may open scopes.
+    fn check_provider_scopes(&mut self) {
+        let hir = &self.hir;
+        let is_scope = |d: DefId| {
+            let def = &hir.defs[d];
+            let m = &hir.modules[def.module];
+            m.is_std
+                && m.path.last().is_some_and(|p| self.interner.resolve(*p) == "task")
+                && self.interner.resolve(def.name) == "scope"
+        };
+        let mut found = vec![];
+        for &init in &self.provider_inits {
+            let body = match &hir.exprs[init].kind {
+                ExprKind::Lambda(l) => Some(l.body),
+                ExprKind::Def { def, .. } => match &hir.defs[*def].kind {
+                    DefKind::Fn(f) => f.body,
+                    _ => None,
+                },
+                _ => None,
+            };
+            let mut stack: Vec<ExprId> = body.into_iter().collect();
+            while let Some(e) = stack.pop() {
+                match &hir.exprs[e].kind {
+                    ExprKind::Lambda(_) => {}
+                    ExprKind::Def { def, .. } if is_scope(*def) => found.push(hir.exprs[e].span),
+                    k => k.for_each_child(|c| stack.push(c)),
+                }
+            }
+        }
+        for span in found {
+            self.diags.push(
+                Diagnostic::error("a provider opens `task.scope()` in its own body")
+                    .with_code("E0608")
+                    .with_label(span, "this scope ends when the provider returns")
+                    .with_note("a task waited on in it keeps the system from starting; start work with the scope the provider is given (`scope.worker(...)`, `scope.spawn(...)`)"),
+            );
+        }
     }
 
     // ------------------------------------------------------------ collection
@@ -925,7 +973,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         self.err("E0118", span, "public values must declare their type", "add `: Type`");
                     }
                 }
+                let is_provider = matches!(&self.ast.exprs[*value].kind,
+                    ast::ExprKind::Call { callee, .. } if matches!(self.ast.exprs[*callee].kind, ast::ExprKind::Std("system.provider")));
                 let value = self.lower_expr(*value);
+                if is_provider
+                    && let ExprKind::Call { args, .. } = &self.cx.hir.exprs[value].kind
+                    && let Some(ExprKind::Record { fields, .. }) =
+                        args.first().map(|a| &self.cx.hir.exprs[*a].kind)
+                    && let Some((_, _, init)) =
+                        fields.iter().find(|f| self.cx.interner.resolve(f.0) == "init")
+                {
+                    self.cx.provider_inits.push(*init);
+                }
                 self.locals.pop();
                 self.owners.pop();
                 let (name, span) = match &self.ast.pats[*pat].kind {
