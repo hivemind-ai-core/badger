@@ -992,20 +992,17 @@ fn command(mut cli: Cli) -> ExitCode {
                     }
                 },
                 None => vec![
-                    (
-                        "badger.toml".to_string(),
-                        format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n"),
-                    ),
-                    (
-                        "src/main.bdg".to_string(),
-                        format!(
-                            "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
+                ("badger.toml".to_string(), format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
+                (
+                    "src/main.bdg".to_string(),
+                    format!(
+                        "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
                          import std.io\n\n\
                          fn greeting(name: String) -> String {{\n    $\"Hello, {{name}}!\"\n}}\n\n\
                          pub fn main() -> Result<Unit, io.Error> {{\n    io.println(greeting(\"{name}\"))?\n    ok(())\n}}\n\n\
                          fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
-                        ),
                     ),
+                ),
                 ],
             };
             for (f, text) in &files {
@@ -1608,7 +1605,8 @@ fn remote_repl(addr: &str, load: Option<PathBuf>) -> ExitCode {
 /// afterwards.
 fn load_file(addr: &str, load: Option<PathBuf>) -> Result<(), String> {
     let Some(path) = load else { return Ok(()) };
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let text =
+        std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     match badger_driver::inspect::eval(addr, &text) {
         Ok(reply) => {
             if !reply.trim().is_empty() {
@@ -1785,7 +1783,9 @@ fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
     let mut changed = vec![];
     for (file, mut es) in by_file {
         let mut text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
-        es.sort_by_key(|e| (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0))));
+        es.sort_by_key(|e| {
+            (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0)))
+        });
         for e in es {
             let line = e["line"].as_i64().unwrap_or(1).max(1) as usize;
             let col = e["col"].as_i64().unwrap_or(1).max(1) as usize;
