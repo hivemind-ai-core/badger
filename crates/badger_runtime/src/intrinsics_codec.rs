@@ -961,7 +961,9 @@ fn wire_clash(d: &'static TypeDesc, seen: &mut Vec<*const TypeDesc>) -> Option<S
         for m in members {
             let n = codec::wire_name(ty, m);
             if let Some((_, first)) = names.iter().find(|(x, _)| *x == n) {
-                return Some(format!("wire names collide: `{ty}.{first}` and `{ty}.{m}` both encode as `{n}`"));
+                return Some(format!(
+                    "wire names collide: `{ty}.{first}` and `{ty}.{m}` both encode as `{n}`"
+                ));
             }
             names.push((n, m));
         }
