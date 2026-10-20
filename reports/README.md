@@ -7,6 +7,7 @@ states the revision it measured; newer work can change its numbers.
 
 | Report | What it covers |
 |---|---|
+| [2026-10-20-mir-escape-analysis.md](2026-10-20-mir-escape-analysis.md) | Why MIR escape analysis with stack allocation (§3.2) is not adopted: the remaining allocations escape; survey script in [escape-analysis-survey/](escape-analysis-survey/) |
 | [2026-10-19-language-and-compiler-changes.md](2026-10-19-language-and-compiler-changes.md) | Ergonomics backlog for the compiler team: syntax, type system, diagnostics, runtime semantics, incremental build — merge of the ergonomics investigation and the experience report |
 | [2026-10-19-library-and-framework-changes.md](2026-10-19-library-and-framework-changes.md) | Ergonomics backlog for the library team: standard library, extended library, application services framework (amendments, improvements, additions), CLI and docs — same merge, other half |
 | [2026-10-19-mir-optimization-architecture.md](2026-10-19-mir-optimization-architecture.md) | Release MIR optimization pipeline, closure specialization, and the verified superoptimizer mode |

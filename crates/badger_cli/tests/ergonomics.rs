@@ -104,7 +104,7 @@ fn bench_reports_measurements() {
     assert!(json[&program]["sum"]["value"].as_f64().unwrap() > 0.0);
     // a comparison against the baseline reports the change
     let out = lang()
-        .args(["bench", dir.to_str().unwrap(), "--compare", baseline.to_str().unwrap()])
+        .args(["bench", dir.to_str().unwrap(), "--baseline", baseline.to_str().unwrap()])
         .output()
         .expect("badger bench");
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));

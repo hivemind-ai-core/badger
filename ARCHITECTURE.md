@@ -673,7 +673,7 @@ the module's leading comment as its introduction. `tests/docs.rs` keeps it
 current and checks every `badger` code block in the specification and guides.
 
 `badger graph calls|modules|types|systems [PATH] [--format dot|mermaid|json]
-[--std]` draws program structure from the same analysis: calls from each
+[--json] [--std]` draws program structure from the same analysis: calls from each
 resolved call target to its enclosing function, imports between modules,
 types used by struct fields and enum variants, and system plan nodes with
 the nodes they reference (a node without references is drawn alone).

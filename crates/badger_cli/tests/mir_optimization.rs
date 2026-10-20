@@ -32,7 +32,8 @@ fn temp(name: &str) -> PathBuf {
 fn large_helper(capture: bool) -> String {
     let mut s =
         String::from("import std.io\n\nfn apply_many(f: fn(Int) -> Int, x: Int) -> Int {\n    var v = x\n");
-    for i in 0..90 {
+    // more statements than the inliner takes, copies aside
+    for i in 0..180 {
         s.push_str(&format!("    v = v + {}\n", i % 7 + 1));
     }
     s.push_str("    f(v)\n}\n\npub fn main() -> Unit {\n");
@@ -51,7 +52,7 @@ fn a_large_helper_called_with_a_known_closure_is_specialized() {
     let src = dir.join("specialize.bdg");
     std::fs::write(&src, large_helper(true)).unwrap();
     let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
-    assert_eq!(stdout, "720\n");
+    assert_eq!(stdout, "1436\n");
     assert!(mir.contains(".spec"), "no specialized clone:\n{mir}");
     assert!(mir.contains("callee: Lambda("), "no direct lambda call:\n{mir}");
     assert!(!mir.contains("callee: Closure("), "indirect closure call remains:\n{mir}");
@@ -65,7 +66,7 @@ fn a_large_helper_called_with_a_known_closure_is_specialized() {
         .arg(&src)
         .output()
         .unwrap());
-    assert_eq!(stdout, "720\n");
+    assert_eq!(stdout, "1436\n");
     assert!(control.contains("callee: Closure("), "control lost its closure call:\n{control}");
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -76,7 +77,7 @@ fn a_non_capturing_closure_environment_is_eliminated() {
     let src = dir.join("nocapture.bdg");
     std::fs::write(&src, large_helper(false)).unwrap();
     let (stdout, mir) = ok(lang().args(["run", "--release", "--dump-mir"]).arg(&src).output().unwrap());
-    assert_eq!(stdout, "720\n");
+    assert_eq!(stdout, "1436\n");
     assert!(!mir.contains("callee: Closure("), "indirect closure call remains:\n{mir}");
     assert!(mir.contains("callee: Lambda("), "no direct lambda call:\n{mir}");
     assert!(!mir.contains("Alloc {"), "closure environment was not eliminated:\n{mir}");

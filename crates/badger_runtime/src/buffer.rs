@@ -185,6 +185,8 @@ pub struct BufData {
 // Actual offsets in BufData (unlike MIR Load offsets, which add HEADER).
 pub const ITEMS_PTR: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, ptr)) as i32;
 pub const ITEMS_LEN: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, len)) as i32;
+pub const ITEMS_CAP: i32 = (std::mem::offset_of!(BufData, items) + std::mem::offset_of!(Items, cap)) as i32;
+pub const FROZEN: i32 = std::mem::offset_of!(BufData, frozen) as i32;
 
 pub fn desc() -> &'static TypeDesc {
     static D: std::sync::OnceLock<&'static TypeDesc> = std::sync::OnceLock::new();
@@ -544,6 +546,9 @@ mod tests {
                 let d = obj(pointers).payload() as *const u8;
                 assert_eq!(*(d.add(ITEMS_PTR as usize) as *const *const u8), items(pointers).as_ptr());
                 assert_eq!(*(d.add(ITEMS_LEN as usize) as *const usize), 512);
+                assert_eq!(*(d.add(ITEMS_CAP as usize) as *const usize), items(pointers).capacity());
+                assert!(!*(d.add(FROZEN as usize) as *const bool));
+                assert!(*(obj(scalars).payload().add(FROZEN as usize) as *const bool));
                 assert_eq!(d, address as *const u8);
                 assert_eq!(obj(pointers).payload_size(), std::mem::size_of::<BufData>());
             }

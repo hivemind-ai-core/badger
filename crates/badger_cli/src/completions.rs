@@ -1,168 +1,124 @@
 //! Shell completion scripts for `badger`.
 //!
 //! The scripts are written by hand (no completion generator, and no
-//! dependency on one): they complete the names of the commands and the
-//! main flags of each of them, so the user stops typing them.
+//! dependency on one), but what they complete is read from the argument
+//! parser: the commands, their flags, and the values those flags and
+//! arguments take. So they cannot drift from `badger --help`.
 
-/// A command of `badger`, with the flags it takes.
+use clap::{CommandFactory, builder::Arg};
+
+use crate::Cli;
+
+/// A command of `badger`, with what it completes.
 struct Cmd {
     /// The command's name, as it is typed.
-    name: &'static str,
+    name: String,
     /// What the command does, in one line.
-    about: &'static str,
-    /// The command's flags (the names in `FLAGS`).
-    flags: &'static [&'static str],
+    about: String,
+    /// The command's flags.
+    flags: Vec<Flag>,
+    /// The values the command's first argument takes, when it takes only
+    /// a fixed set.
+    values: Vec<String>,
 }
 
-/// A flag of a command: its name, what it does, and the name of the
-/// value it takes (empty when it takes none).
+/// A flag of a command.
 struct Flag {
-    name: &'static str,
-    about: &'static str,
-    value: &'static str,
+    /// Its names: the long one, and the short one when it has one.
+    names: Vec<String>,
+    /// What it does, in one line.
+    about: String,
+    /// The name of the value it takes (empty when it takes none).
+    value: String,
+    /// The values it takes, when it takes only a fixed set.
+    values: Vec<String>,
 }
 
-/// Every flag the commands take.
-const FLAGS: &[Flag] = &[
-    Flag { name: "--json", about: "print the result as JSON", value: "" },
-    Flag { name: "-o", about: "write the output to FILE", value: "FILE" },
-    Flag { name: "--output", about: "write the output to FILE", value: "FILE" },
-    Flag { name: "--profile", about: "merge the profile NAME into the configuration", value: "NAME" },
-    Flag { name: "--workers", about: "run the tasks on N worker threads", value: "N" },
-    Flag { name: "--opt", about: "MIR optimization level: release, aggressive, superopt", value: "LEVEL" },
-    Flag { name: "--release", about: "optimize the generated code", value: "" },
-    Flag { name: "--dump-mir", about: "print the MIR of the program", value: "" },
-    Flag { name: "--watch", about: "recheck the sources when they change", value: "" },
-    Flag { name: "--inspect", about: "serve inspection snapshots at ADDR", value: "ADDR" },
-    Flag { name: "--reconstruct", about: "restart the program on an incompatible change", value: "" },
-    Flag { name: "--bench", about: "report how long the program ran", value: "" },
-    Flag { name: "--debug", about: "register debug information for a debugger", value: "" },
-    Flag { name: "--record", about: "write a reproduction bundle to FILE", value: "FILE" },
-    Flag { name: "--compare", about: "report the differences from the recording", value: "" },
-    Flag { name: "--list", about: "list the selected tests instead of running them", value: "" },
-    Flag { name: "--exact", about: "the filter names one test", value: "" },
-    Flag { name: "--project", about: "the project directory", value: "DIR" },
-    Flag { name: "--check", about: "report the differences instead of writing", value: "" },
-    Flag { name: "--connect", about: "the address of a running program", value: "ADDR" },
-    Flag { name: "--format", about: "the output format: dot, mermaid, json", value: "FORMAT" },
-    Flag { name: "--std", about: "include the standard library", value: "" },
-    Flag { name: "--line", about: "the line of the position (1-based)", value: "N" },
-    Flag { name: "--col", about: "the column of the position (1-based)", value: "N" },
-    Flag { name: "--source", about: "ask about this source text", value: "TEXT" },
-    Flag { name: "--name", about: "the new name", value: "NAME" },
-    Flag { name: "--overlays", about: "the proposed file contents", value: "FILE" },
-    Flag { name: "--out", about: "write the pages into DIR", value: "DIR" },
-    Flag { name: "--item", about: "the name of the generated record", value: "NAME" },
-    Flag { name: "--dry-run", about: "print the plan and write nothing", value: "" },
-    Flag { name: "--database", about: "the Postgres URL to take the types from", value: "URL" },
-    Flag { name: "--schema", about: "the SQLite schema file", value: "FILE" },
-    Flag { name: "--tests", about: "also run the tests", value: "" },
-    Flag { name: "--lib", about: "make a library package", value: "" },
-];
+/// The parser, with what it adds itself (`build` adds the `help`
+/// command, the `--help` and `--version` flags).
+fn parser() -> clap::Command {
+    let mut cli = Cli::command();
+    cli.build();
+    cli
+}
 
-/// Every command, in the order `badger --help` lists them.
-const COMMANDS: &[Cmd] = &[
-    Cmd { name: "check", about: "parse and check a program", flags: &["--json"] },
-    Cmd {
-        name: "compile",
-        about: "check a program and save it as binary MIR",
-        flags: &["-o", "--output", "--profile", "--workers", "--opt"],
-    },
-    Cmd {
-        name: "release",
-        about: "write a self-contained release directory",
-        flags: &["-o", "--output", "--profile", "--workers", "--opt"],
-    },
-    Cmd { name: "start", about: "start a release directory", flags: &["--workers"] },
-    Cmd {
-        name: "run",
-        about: "compile a program with the JIT and run it",
-        flags: &[
-            "--release",
-            "--dump-mir",
-            "--opt",
-            "--profile",
-            "--watch",
-            "--inspect",
-            "--workers",
-            "--reconstruct",
-            "--bench",
-            "--debug",
-            "--record",
-        ],
-    },
-    Cmd {
-        name: "replay",
-        about: "run a program again from a reproduction bundle",
-        flags: &["--compare", "--release"],
-    },
-    Cmd {
-        name: "test",
-        about: "run the test functions of a program",
-        flags: &["--json", "--list", "--exact", "--watch"],
-    },
-    Cmd { name: "task", about: "run a user task of the project", flags: &["--project", "--profile"] },
-    Cmd { name: "format", about: "rewrite the sources in the canonical layout", flags: &["--check"] },
-    Cmd {
-        name: "repl",
-        about: "interactive session: definitions accumulate, expressions evaluate",
-        flags: &["--connect", "--load"],
-    },
-    Cmd {
-        name: "inspect",
-        about: "inspect the program structure",
-        flags: &["--json", "--profile", "--connect"],
-    },
-    Cmd { name: "update", about: "resolve the dependencies and rewrite badger.lock", flags: &[] },
-    Cmd { name: "lsp", about: "language server over stdio", flags: &[] },
-    Cmd { name: "mcp", about: "Model Context Protocol server over stdio", flags: &[] },
-    Cmd { name: "graph", about: "the program structure as a graph", flags: &["--format", "--std"] },
-    Cmd {
-        name: "query",
-        about: "answer one question about a program as JSON",
-        flags: &["--line", "--col", "--source", "--name", "--overlays"],
-    },
-    Cmd { name: "doc", about: "reference documentation in Markdown", flags: &["--out", "--check", "--open"] },
-    Cmd { name: "new", about: "create a project in a new directory", flags: &["--template"] },
-    Cmd {
-        name: "generate",
-        about: "generate typed code",
-        flags: &["--item", "--dry-run", "--database", "--schema", "--check"],
-    },
-    Cmd {
-        name: "contracts",
-        about: "list the contract clauses and what was decided about them",
-        flags: &["--json", "--tests"],
-    },
-    Cmd {
-        name: "explain",
-        about: "explain a diagnostic code, or the type of a definition",
-        flags: &["--json"],
-    },
-    Cmd { name: "watch", about: "re-run a command when a source file changes", flags: &[] },
-    Cmd { name: "init", about: "turn a directory into a Badger project", flags: &["--lib"] },
-    Cmd { name: "doctor", about: "report the environment, for bug reports", flags: &["--json"] },
-    Cmd { name: "completions", about: "print a shell completion script", flags: &[] },
-    Cmd {
-        name: "search",
-        about: "find a definition in the standard library and the project",
-        flags: &["--json"],
-    },
-    Cmd {
-        name: "rename",
-        about: "rename a definition and every use of it",
-        flags: &["--line", "--col", "--name"],
-    },
-    Cmd {
-        name: "bench",
-        about: "run the benchmark programs and report their measurements",
-        flags: &["--out", "--compare", "--workers"],
-    },
-];
+/// The commands of `badger`, as the parser holds them.
+fn commands() -> Vec<Cmd> {
+    parser()
+        .get_subcommands()
+        .map(|c| Cmd {
+            name: c.get_name().to_string(),
+            about: c.get_about().map(|a| a.to_string()).unwrap_or_default(),
+            flags: c
+                .get_arguments()
+                .filter(|a| !a.is_positional() && !a.is_hide_set())
+                .map(flag)
+                .collect(),
+            values: c
+                .get_arguments()
+                .find(|a| a.is_positional())
+                .map(values)
+                .unwrap_or_default(),
+        })
+        .collect()
+}
 
-/// The flag `name`, with what it does.
-fn flag(name: &str) -> Option<&'static Flag> {
-    FLAGS.iter().find(|f| f.name == name)
+/// The global flags of `badger` itself.
+fn global_flags() -> Vec<Flag> {
+    parser()
+        .get_arguments()
+        .filter(|a| !a.is_positional() && !a.is_hide_set())
+        .map(flag)
+        .collect()
+}
+
+/// A flag, as the scripts complete it.
+fn flag(a: &Arg) -> Flag {
+    let mut names = vec![];
+    if let Some(long) = a.get_long() {
+        names.push(format!("--{long}"));
+    }
+    if let Some(short) = a.get_short() {
+        names.push(format!("-{short}"));
+    }
+    // a flag that takes no value (a switch) has no value name
+    let takes = a.get_action().takes_values();
+    Flag {
+        names,
+        about: a.get_help().map(|h| h.to_string()).unwrap_or_default(),
+        value: if takes {
+            a.get_value_names().and_then(|v| v.first()).map(|v| v.to_string()).unwrap_or_default()
+        } else {
+            String::new()
+        },
+        values: values(a),
+    }
+}
+
+/// The values an argument takes, when it takes only a fixed set.
+fn values(a: &Arg) -> Vec<String> {
+    a.get_possible_values()
+        .iter()
+        .filter(|v| !v.is_hide_set())
+        .map(|v| v.get_name().to_string())
+        .collect()
+}
+
+/// The text as a shell word in single quotes.
+fn quoted(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+/// The text as a fish description (single quotes, escaped with a
+/// backslash).
+fn fish_quoted(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"\'"))
+}
+
+/// The text as a zsh `_arguments` description: the brackets around it
+/// belong to the syntax, so they are escaped.
+fn zsh_description(s: &str) -> String {
+    s.replace('[', "\\[").replace(']', "\\]")
 }
 
 /// The completion script for `shell` (`None` for an unknown shell).
@@ -177,12 +133,31 @@ pub fn script(shell: &str) -> Option<String> {
 }
 
 /// The names of the commands, separated by spaces.
-fn command_names() -> String {
-    COMMANDS.iter().map(|c| c.name).collect::<Vec<_>>().join(" ")
+fn command_names(cmds: &[Cmd]) -> String {
+    cmds.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(" ")
+}
+
+/// The flags that take a fixed set of values, in the order they first
+/// appear (the same flag in two commands is listed once).
+fn flag_values(cmds: &[Cmd]) -> Vec<(String, Vec<String>)> {
+    let mut out: Vec<(String, Vec<String>)> = vec![];
+    for c in cmds {
+        for f in &c.flags {
+            if f.values.is_empty() {
+                continue;
+            }
+            let name = f.names.first().cloned().unwrap_or_default();
+            if !out.iter().any(|(n, _)| n == &name) {
+                out.push((name, f.values.clone()));
+            }
+        }
+    }
+    out
 }
 
 /// The script for bash.
 fn bash() -> String {
+    let cmds = commands();
     let mut s = String::new();
     s.push_str(
         "# badger completion for bash.\n\
@@ -191,27 +166,43 @@ fn bash() -> String {
          # Put that line in ~/.bashrc to load it in every new shell.\n\
          \n\
          _badger_complete() {\n\
-         \x20   local cur prev cmd flags i\n\
+         \x20   local cur prev cmd cmd_i flags i n\n\
          \x20   COMPREPLY=()\n\
          \x20   cur=\"${COMP_WORDS[COMP_CWORD]}\"\n\
          \x20   prev=\"${COMP_WORDS[COMP_CWORD-1]}\"\n\
-         \n\
+         \x20   \n\
          \x20   # the command: the first word that is not a flag\n\
          \x20   cmd=\"\"\n\
+         \x20   cmd_i=0\n\
          \x20   for (( i=1; i < COMP_CWORD; i++ )); do\n\
          \x20       case \"${COMP_WORDS[i]}\" in\n\
          \x20           -*) ;;\n\
-         \x20           *) cmd=\"${COMP_WORDS[i]}\"; break ;;\n\
+         \x20           *) cmd=\"${COMP_WORDS[i]}\"; cmd_i=$i; break ;;\n\
          \x20       esac\n\
          \x20   done\n\
-         \n\
-         \x20   flags=\"--help --version\"\n\
+         \x20   \n\
+         \x20   # the arguments already given after the command\n\
+         \x20   n=0\n\
+         \x20   for (( i=cmd_i+1; i < COMP_CWORD; i++ )); do\n\
+         \x20       case \"${COMP_WORDS[i]}\" in\n\
+         \x20           -*) ;;\n\
+         \x20           *) n=$((n+1)) ;;\n\
+         \x20       esac\n\
+         \x20   done\n\
+         \x20   \n\
+         \x20   flags=\"",
+    );
+    s.push_str(&global_flags().iter().flat_map(|f| f.names.clone()).collect::<Vec<_>>().join(" "));
+    s.push_str(
+        "\"\n\
          \x20   case \"$cmd\" in\n",
     );
-    for c in COMMANDS {
+    for c in &cmds {
         s.push_str(&format!("        {}) flags=\"$flags", c.name));
-        for f in c.flags {
-            s.push_str(&format!(" {f}"));
+        for f in &c.flags {
+            for n in &f.names {
+                s.push_str(&format!(" {n}"));
+            }
         }
         s.push_str("\" ;;\n");
     }
@@ -226,18 +217,41 @@ fn bash() -> String {
          \x20   if [[ -z \"$cmd\" ]]; then\n\
          \x20       COMPREPLY=( $(compgen -W \"",
     );
-    s.push_str(&command_names());
+    s.push_str(&command_names(&cmds));
     s.push_str(
         "\" -- \"$cur\") )\n\
          \x20       return 0\n\
          \x20   fi\n\
          \n\
-         \x20   # the values of the flags that have a fixed set\n\
-         \x20   case \"$prev\" in\n\
-         \x20       --opt) COMPREPLY=( $(compgen -W \"release aggressive superopt\" -- \"$cur\") ); return 0 ;;\n\
-         \x20       --format) COMPREPLY=( $(compgen -W \"dot mermaid json\" -- \"$cur\") ); return 0 ;;\n\
-         \x20       --shell) COMPREPLY=( $(compgen -W \"bash zsh fish powershell\" -- \"$cur\") ); return 0 ;;\n\
-         \x20   esac\n\
+         \x20   # the values of a flag that has a fixed set\n\
+         \x20   case \"$prev\" in\n",
+    );
+    for (name, values) in flag_values(&cmds) {
+        s.push_str(&format!(
+            "        {name}) COMPREPLY=( $(compgen -W \"{}\" -- \"$cur\") ); return 0 ;;\n",
+            values.join(" ")
+        ));
+    }
+    s.push_str(
+        "    esac\n\
+         \n\
+         \x20   # the values of a first argument that has a fixed set\n\
+         \x20   if [[ $n -eq 0 ]]; then\n\
+         \x20       case \"$cmd\" in\n",
+    );
+    for c in &cmds {
+        if c.values.is_empty() {
+            continue;
+        }
+        s.push_str(&format!(
+            "        {}) COMPREPLY=( $(compgen -W \"{}\" -- \"$cur\") ); return 0 ;;\n",
+            c.name,
+            c.values.join(" ")
+        ));
+    }
+    s.push_str(
+        "        esac\n\
+         \x20   fi\n\
          \n\
          \x20   COMPREPLY=( $(compgen -f -- \"$cur\") )\n\
          }\n\
@@ -249,6 +263,7 @@ fn bash() -> String {
 
 /// The script for zsh.
 fn zsh() -> String {
+    let cmds = commands();
     let mut s = String::new();
     s.push_str(
         "# badger completion for zsh.\n\
@@ -260,8 +275,8 @@ fn zsh() -> String {
          \x20   local -a commands\n\
          \x20   commands=(\n",
     );
-    for c in COMMANDS {
-        s.push_str(&format!("        '{}:{}'\n", c.name, c.about));
+    for c in &cmds {
+        s.push_str(&format!("        {}:{}\n", quoted(&c.name), quoted(&c.about)));
     }
     s.push_str(
         "    )\n\
@@ -274,22 +289,34 @@ fn zsh() -> String {
          \x20       args)\n\
          \x20           case \"${words[1]}\" in\n",
     );
-    for c in COMMANDS {
+    for c in &cmds {
         s.push_str(&format!("                {}) ", c.name));
-        if c.flags.is_empty() {
+        if c.flags.is_empty() && c.values.is_empty() {
             s.push_str("_files ;;\n");
             continue;
         }
         s.push_str("_arguments");
-        for f in c.flags {
-            let Some(flag) = flag(f) else { continue };
-            if flag.value.is_empty() {
-                s.push_str(&format!(" '{}[{}]'", flag.name, flag.about));
-            } else {
-                s.push_str(&format!(" '{}[{}]:{}:'", flag.name, flag.about, flag.value));
+        for f in &c.flags {
+            for n in &f.names {
+                if f.value.is_empty() {
+                    s.push_str(&format!(" '{}[{}]'", n, zsh_description(&f.about)));
+                } else {
+                    s.push_str(&format!(
+                        " '{}[{}]:{}:'",
+                        n,
+                        zsh_description(&f.about),
+                        f.value
+                    ));
+                }
             }
         }
-        s.push_str(" '*:file:_files' ;;\n");
+        if c.values.is_empty() {
+            s.push_str(" '*:file:_files'");
+        } else {
+            s.push_str(&format!(" '1:({})'", c.values.join(" ")));
+            s.push_str(" '*:file:_files'");
+        }
+        s.push_str(" ;;\n");
     }
     s.push_str(
         "                *) _files ;;\n\
@@ -305,6 +332,7 @@ fn zsh() -> String {
 
 /// The script for fish.
 fn fish() -> String {
+    let cmds = commands();
     let mut s = String::new();
     s.push_str(
         "# badger completion for fish.\n\
@@ -313,27 +341,36 @@ fn fish() -> String {
          \n\
          complete -c badger -f\n",
     );
-    for c in COMMANDS {
+    for c in &cmds {
         s.push_str(&format!(
-            "complete -c badger -n '__fish_use_subcommand' -a '{}' -d '{}'\n",
-            c.name, c.about
+            "complete -c badger -n '__fish_use_subcommand' -a {} -d {}\n",
+            fish_quoted(&c.name),
+            fish_quoted(&c.about)
         ));
-        for f in c.flags {
-            let Some(flag) = flag(f) else { continue };
-            let long = flag.name.strip_prefix("--").unwrap_or("");
-            let short = if long.is_empty() { flag.name.strip_prefix('-').unwrap_or("") } else { "" };
+        for f in &c.flags {
+            let long = f.names.iter().find(|n| n.starts_with("--"));
+            let short = f.names.iter().find(|n| n.starts_with('-') && !n.starts_with("--"));
             let mut line = format!("complete -c badger -n '__fish_seen_subcommand_from {}' ", c.name);
-            if !long.is_empty() {
-                line.push_str(&format!("-l {long} "));
+            if let Some(long) = long {
+                line.push_str(&format!("-l {} ", long.trim_start_matches("--")));
             }
-            if !short.is_empty() {
-                line.push_str(&format!("-s {short} "));
+            if let Some(short) = short {
+                line.push_str(&format!("-s {} ", short.trim_start_matches('-')));
             }
-            if !flag.value.is_empty() {
+            if !f.value.is_empty() {
                 line.push_str("-r ");
             }
-            line.push_str(&format!("-d '{}'\n", flag.about));
+            line.push_str(&format!("-d {}\n", fish_quoted(&f.about)));
             s.push_str(&line);
+        }
+        if !c.values.is_empty() {
+            for v in &c.values {
+                s.push_str(&format!(
+                    "complete -c badger -n '__fish_seen_subcommand_from {}' -a {}\n",
+                    c.name,
+                    fish_quoted(v)
+                ));
+            }
         }
     }
     s
@@ -341,6 +378,7 @@ fn fish() -> String {
 
 /// The script for PowerShell.
 fn powershell() -> String {
+    let cmds = commands();
     let mut s = String::new();
     s.push_str(
         "# badger completion for PowerShell.\n\
@@ -350,23 +388,30 @@ fn powershell() -> String {
          \n\
          Register-ArgumentCompleter -Native -CommandName 'badger' -ScriptBlock {\n\
          \x20   param($wordToComplete, $commandAst, $cursorPosition)\n\
-         \n\
+         \x20   \n\
          \x20   $commands = @(\n",
     );
-    for c in COMMANDS {
+    for c in &cmds {
         s.push_str(&format!("        '{}',\n", c.name));
     }
     s.push_str("    )\n");
     s.push_str("    $flags = @{\n");
-    for c in COMMANDS {
+    for c in &cmds {
         s.push_str(&format!("        '{}' = @(", c.name));
         for (i, f) in c.flags.iter().enumerate() {
             if i > 0 {
                 s.push_str(", ");
             }
-            s.push_str(&format!("'{f}'"));
+            s.push_str(&format!("'{}'", f.names.join("', '")));
         }
         s.push_str(")\n");
+    }
+    s.push_str("    }\n");
+    s.push_str(
+        "    $values = @{\n",
+    );
+    for (name, values) in flag_values(&cmds) {
+        s.push_str(&format!("        '{}' = @('{}')\n", name, values.join("', '")));
     }
     s.push_str(
         "    }\n\
@@ -379,6 +424,8 @@ fn powershell() -> String {
          \x20   $candidates = @()\n\
          \x20   if (-not $command) {\n\
          \x20       $candidates = $commands\n\
+         \x20   } elseif ($values.ContainsKey($wordToComplete)) {\n\
+         \x20       $candidates = $values[$wordToComplete]\n\
          \x20   } elseif ($flags.ContainsKey($command)) {\n\
          \x20       $candidates = $flags[$command]\n\
          \x20   }\n\

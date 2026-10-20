@@ -2271,6 +2271,84 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
                 let layout = self.m.lay.record(&targs[0]);
                 Some(Operand::Const(Const::Int(layout.fields.len() as i64, Repr::I64)))
             }
+            // a buffer's push into reserved capacity, without a runtime call
+            // (a buffer is affine: its storage is its own until it is
+            // frozen); a full or frozen buffer takes the runtime path, which
+            // grows (and may collect) or panics
+            "buffer_push" if self.builder_elem(&targs[0]).is_some() => {
+                let repr = self.builder_elem(&targs[0]).unwrap();
+                let size = repr.size() as i64;
+                let u = NumTy::I(64, false);
+                let b = Operand::Local(self.copy_to_local(args[0], Repr::Ptr, None));
+                let v = Operand::Local(self.copy_to_local(args[1], repr, None));
+                let load = |s: &mut Self, base: Operand, offset: i32, repr: Repr| {
+                    s.assign(repr, Rvalue::Load { base, offset, repr })
+                };
+                let bin = |s: &mut Self, op: BinOp, a: Operand, b: Operand| {
+                    s.assign(Repr::I64, Rvalue::Bin { op, a, b, ty: u, loc: 0 })
+                };
+                let len = load(self, b, badger_runtime::buffer::ITEMS_LEN, Repr::I64);
+                let cap = load(self, b, badger_runtime::buffer::ITEMS_CAP, Repr::I64);
+                let full = self.assign(Repr::I8, Rvalue::Cmp { op: CmpOp::Ge, a: len, b: cap, ty: u });
+                let frozen = load(self, b, badger_runtime::buffer::FROZEN, Repr::I8);
+                let slow_path = self.assign(
+                    Repr::I8,
+                    Rvalue::Bin { op: BinOp::Or, a: full, b: frozen, ty: NumTy::I(8, false), loc: 0 },
+                );
+                let (fast, slow, join) = (self.block(), self.block(), self.block());
+                self.term(Term::Branch(slow_path, slow, fast));
+                self.switch(fast);
+                let ptr = load(self, b, badger_runtime::buffer::ITEMS_PTR, Repr::I64);
+                let offset = bin(self, BinOp::Mul, len, int(size));
+                let at = bin(self, BinOp::Add, ptr, offset);
+                self.emit(Stmt::Store {
+                    base: at,
+                    offset: -(badger_runtime::gc::HEADER as i32),
+                    repr,
+                    value: v,
+                });
+                let len1 = bin(self, BinOp::Add, len, int(1));
+                self.emit(Stmt::Store {
+                    base: b,
+                    offset: badger_runtime::buffer::ITEMS_LEN,
+                    repr: Repr::I64,
+                    value: len1,
+                });
+                if repr == Repr::Ptr {
+                    // the write barrier for the buffer (it may predate a
+                    // collection): see `gc::barrier`
+                    let meta = load(self, b, -8, Repr::I64);
+                    let mask = (badger_runtime::gc::MARK
+                        | badger_runtime::gc::IMMORTAL
+                        | badger_runtime::gc::REMEMBERED) as i64;
+                    let bits = bin(self, BinOp::And, meta, int(mask));
+                    let old = self.assign(
+                        Repr::I8,
+                        Rvalue::Cmp {
+                            op: CmpOp::Eq,
+                            a: bits,
+                            b: int(badger_runtime::gc::MARK as i64),
+                            ty: NumTy::I(64, true),
+                        },
+                    );
+                    let remember = self.block();
+                    self.term(Term::Branch(old, remember, join));
+                    self.switch(remember);
+                    self.rt("badger_rt_barrier", vec![b], Repr::I8);
+                }
+                self.term(Term::Goto(join));
+                self.switch(slow);
+                let tp = self.m.targs_ptr(&targs);
+                let rd = self.m.lay.desc(ret_ty) as *const TypeDesc as u64;
+                self.call(
+                    Callee::Intrinsic { name: "badger_rt_i_buffer_push".into(), targs: tp, ret: rd },
+                    vec![b, v],
+                    Repr::I64,
+                );
+                self.term(Term::Goto(join));
+                self.switch(join);
+                Some(unit_op())
+            }
             // a builder's append within its tail page, without a runtime
             // call (a builder's pages are its own until it is finished);
             // a new page, or a finished builder, takes the runtime path

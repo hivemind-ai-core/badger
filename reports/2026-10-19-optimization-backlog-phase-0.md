@@ -434,6 +434,43 @@ work: the migration of the derive clauses to prefix attributes put two of
 them inside their struct bodies, so `std.compiler` did not parse and the
 MCP session's compiler queries failed (`7ca370b`).
 
+## The wave after Phase 2.1
+
+**§2.3 (Immix-style blocks and lines)** landed (`9d6d5b1`, `5a14cda`):
+chunks are divided into 32 KiB blocks of 16-byte lines, each headed by its
+line bitmap; cells are bump-allocated in holes, the sweep marks the lines of
+its list's survivors, and the pool is rebuilt from the bitmaps after each
+collection -- partly live blocks are reused in place, blocks with no live line
+are reused whole, and a full collection releases the chunks with no live line
+by bitmap. The size-class free lists are gone. The item's expected win holds:
+the telemetry work ratio 0.79/0.90/0.82/0.85 (balanced and fanout, at one and
+four workers), the mutator time 13-22% lower, the process CPU 11-18% lower,
+and the full-collection trim down from up to 24 ms to 1-3 ms. The trade-off:
+the peak RSS of a heap fragmented at the grain of single cells goes from 59 to
+66 MiB.
+
+**§3.1's arena half is not adopted**, and the reason is the item's premise:
+the typeck never touches the managed heap, so an arena there would be dead
+code. The traffic the item aimed at is real, though (~831K allocations per
+check), and the fix was better than the arena would have been: the type tree
+is shared when nothing changed, and the children walk does not allocate
+(`090efbc`). Allocations go 831K -> 386K, the type check phase over the
+610-file corpus 46.2 s -> 31.2 s (-33%), the whole check 80.0 s -> 57.3 s,
+with stdout, stderr and exit status identical on every file.
+
+**§4.3 (translation validation)** landed in its cheap form (`a9618b9`):
+`BADGER_MIR_VALIDATE=1` runs a bit-for-bit whole-program MIR comparator over
+two optimiser runs, and a behavioural gate (the program runs optimised and
+with the MIR pipeline off). The item's literal "optimised against
+unoptimised, bit for bit" is not a gate -- the release passes restructure by
+design, so it rejects correct and broken optimisations alike -- and the
+behavioural check is the sound one: it catches the deliberately broken rewrite
+(`n*4` -> `n<<3`, silent `y=24`).
+
+**§1.3's model of the GC handshake** was rewritten for the QSBR grace period
+(`8a9f2a4`): 51 checks, ten mutations, every property has a mutation that
+breaks it, and the model finds no defect in the protocol.
+
 ## What is left
 
 Phase 0 is done, with three items measured against their gates rather than
@@ -450,7 +487,10 @@ own:
 |------|---------------|------------------------|
 | §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | **done** (`16bbcbb`): the model now describes the new protocol, all 33 checks match, and it found F4 (above), which is open |
 | F4 | a batch receiver woken to retry and then cancelled must pass its wake on, or the message must go to another receiver | **fixed** (`ac3f85c`): the channel keeps the claims, and a released claim is passed on |
-| §2.2 per-worker heap segments | a per-worker bump pool and free list | **already satisfied**: `POOLS.0[w]`, `alloc_cell(w, ...)` and `free_cell(w, ...)` are per-worker, and were at the snapshot the backlog was written against; the missing part is §2.3's block and line layer |
+| §2.2 per-worker heap segments | a per-worker bump pool and free list | **already satisfied**: `POOLS.0[w]`, `alloc_cell(w, ...)` and `free_cell(w, ...)` are per-worker, and were at the snapshot the backlog was written against; the missing part was §2.3's block and line layer, which has landed |
+| §2.3 Immix-style blocks and lines | a line bitmap and in-place reuse of dead lines | **landed**: the expected 10-20% holds (the work ratio 0.79-0.90, the mutator time 13-22% lower, the trim 24 ms -> 1-3 ms) |
+| §3.1 the type check's allocation traffic | an arena for the typeck's short-lived nodes | **not adopted as an arena** (the typeck never touches the managed heap); the traffic was fixed instead -- allocations 831K -> 386K, the type check phase -33% |
+| §4.3 translation validation | an end-to-end validator over the MIR pipeline | **landed in its cheap form** (the structural comparator and the behavioural gate); the SMT version is open |
 | §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | **landed** (above) as a robustness change: the epoch makes the acknowledgement real and removes the "no nested stop" and "balanced slots" dependencies, but its latency claim did not hold |
 | §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
 | §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |

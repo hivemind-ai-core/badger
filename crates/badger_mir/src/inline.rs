@@ -4,15 +4,16 @@
 //!
 //! A callee is inlined when it is an ordinary function (not a lambda, a
 //! display hook, or a module-value getter), does not call itself, and is
-//! small (`MAX_CALLEE` statements); each call's arguments and the callee's
+//! small (`MAX_CALLEE` statements, not counting copies); each call's arguments and the callee's
 //! result must have exactly the representations of its parameters and
 //! return (no conversion is implied by the call). Inlining runs in rounds
 //! over the callees' bodies as they were before the round, and stops
 //! growing a caller past `MAX_CALLER` statements. Source positions and
 //! checks inside the callee are kept, so debug lines and defects are
-//! unchanged; a callee's polls are kept when it loops, and dropped when its
-//! body has no cycle (its work is bounded, between the caller's own polls),
-//! so an inlined helper adds no budget bookkeeping to its caller's loop.
+//! unchanged; a callee's polls are kept when it loops (except its entry
+//! poll, which only calls need), and dropped when its body has no cycle (its
+//! work is bounded, between the caller's own polls), so an inlined helper
+//! adds no budget bookkeeping to its caller's loop.
 //!
 //! Calls through a closure whose lambda is known (the closure object was
 //! allocated in the caller, possibly reached through plain copies, with that
@@ -30,11 +31,19 @@ const MAX_HIGHER_ORDER: usize = 96;
 const MAX_CALLER: usize = 4000;
 const ROUNDS: usize = 2;
 
+/// Statements that do work: inlining runs before simplification, so plain
+/// copies and conversions to the same type (which simplification removes)
+/// do not count against a callee.
 fn size(f: &Func) -> usize {
+    let free = |s: &Stmt| match s {
+        Stmt::Loc { .. } | Stmt::Assign(_, Rvalue::Use(_)) => true,
+        Stmt::Assign(_, Rvalue::Convert { from, to, checked: false, .. }) => from == to,
+        _ => false,
+    };
     f.blocks
         .iter()
         .filter(|b| !(b.stmts.is_empty() && matches!(b.term, Some(Term::Unreachable))))
-        .map(|b| b.stmts.iter().filter(|s| !matches!(s, Stmt::Loc { .. })).count() + 1)
+        .map(|b| b.stmts.iter().filter(|s| !free(s)).count() + 1)
         .sum()
 }
 
@@ -166,8 +175,14 @@ fn inline_at(f: &mut Func, bi: BlockId, at: usize, callee: &Func, env: Operand) 
         c => *c,
     };
     let bounded = !has_cycle(callee);
-    for cb in callee.blocks.iter() {
-        let stmts = cb.stmts.iter().filter(|s| !(bounded && matches!(s, Stmt::Poll)));
+    // the entry poll exists for calls (recursion polls on the way down); an
+    // inlined body is not called, and its loops poll at their heads
+    let entry = BlockId::new(0);
+    let reentered =
+        callee.blocks.iter().any(|b| b.term.as_ref().is_some_and(|t| t.successors().contains(&entry)));
+    for (cbi, cb) in callee.blocks.iter_enumerated() {
+        let drop_polls = bounded || (cbi == entry && !reentered);
+        let stmts = cb.stmts.iter().filter(|s| !(drop_polls && matches!(s, Stmt::Poll)));
         let mut nb = Block { stmts: stmts.map(|s| remap_stmt(s, &lmap)).collect(), term: None };
         nb.term = cb.term.as_ref().map(|t| match t {
             Term::Goto(x) => Term::Goto(bmap(*x)),

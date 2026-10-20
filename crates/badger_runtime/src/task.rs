@@ -2008,6 +2008,31 @@ pub fn current_ptr() -> usize {
 /// task `t` if it is still parked in wait `wait`, and make it ready.
 /// Returns whether it was delivered.
 pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bool {
+    deliver_from(t, wait, value, is_ptr, status, false)
+}
+
+/// [`deliver`] from a fast path that still holds the channel: telling an
+/// idle worker (a lock and a futex wake) waits for [`notify_deferred`],
+/// after the channel is released, so the channel's other users (and a
+/// runtime lock holder claiming it) do not wait for the wake.
+pub fn deliver_held(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bool {
+    deliver_from(t, wait, value, is_ptr, status, true)
+}
+
+thread_local! {
+    /// A [`deliver_held`] made a task ready that idle workers were not told of.
+    static NOTIFY_DEFERRED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Tell idle workers of tasks [`deliver_held`] made ready (a channel fast
+/// path calls it after releasing the channel).
+pub fn notify_deferred() {
+    if NOTIFY_DEFERRED.with(|n| n.replace(false)) {
+        notify_ready();
+    }
+}
+
+fn deliver_from(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64, held: bool) -> bool {
     let t = t as *mut Task;
     let slot = wake_slot();
     let woke = with_task(t, |t| {
@@ -2042,7 +2067,11 @@ pub fn deliver(t: usize, wait: u64, value: u64, is_ptr: bool, status: u64) -> bo
     match woke {
         Some(ready) => {
             if ready && enqueue((unsafe { (*t).id }, t as usize), slot) {
-                notify_ready();
+                if held {
+                    NOTIFY_DEFERRED.with(|n| n.set(true));
+                } else {
+                    notify_ready();
+                }
             }
             true
         }

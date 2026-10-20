@@ -509,6 +509,20 @@ cost.
 
 ### 2.3 Immix-style block reclamation (sub-strategy of the bump pool)
 
+**Status:** landed 2026-10-20 (`9d6d5b1`, `5a14cda`): chunks are divided into 32 KiB
+blocks of 16-byte lines, each block headed by its line bitmap. Cells are
+bump-allocated in holes, the sweep marks the lines of its list's survivors
+(sticky across minor collections), and the pool is rebuilt from the bitmaps
+after each collection: partly live blocks are reused in place, blocks with
+no live line are reused whole, and a full collection releases the chunks
+with no live line by bitmap. The size-class free lists are gone. **The
+expected win holds**: the telemetry work ratio 0.79/0.90/0.82/0.85
+(balanced and fanout, at one and four workers), the mutator time 13-22%
+lower, the process CPU 11-18% lower, and the full-collection trim down from
+up to 24 ms to 1-3 ms. The trade-off: the peak RSS of a heap fragmented at
+the grain of single cells goes from 59 to 66 MiB (78 MiB before the
+follow-up that keeps the holes it passes over by size).
+
 - **Goal**: keep the existing bump pool as the primary allocator;
   add an Immix-style line-bitmap "is this 32-byte line live?"
   check on free, so partially-used blocks can be reused in place
@@ -572,10 +586,11 @@ analyses the Badger program's bindings, not the compiler's values. Stable
 Rust cannot point `Rc`/`Vec`/`HashMap` at an arena. The malloc traffic was
 real, but most of it was `resolve`/`ty_map` copying unchanged type trees and
 a `Vec` per visited expression. Sharing unchanged subtrees (`090efbc`) halves
-the typecheck allocations: typecheck −16.8 % and `badger check` wall
-−10.4 % over the 610-file corpus, with output identical. What allocation
-still costs is better taken by a process-wide allocator: jemalloc measured
-a further −13 % on typecheck, but that needs the runtime owners' gates. See
+the typecheck allocations (831K -> 386K per check): typecheck -16.8 % and
+`badger check` wall -10.4 % over the 610-file corpus, with output identical.
+What allocation still costs is better taken by a process-wide allocator:
+jemalloc measured a further -13 % on typecheck, but that needs the runtime
+owners' gates. See
 [the report](reports/2026-10-20-typeck-allocation.md).
 
 - **Goal**: add a `bumpalo` / `typed-arena`-style arena for
@@ -600,6 +615,24 @@ a further −13 % on typecheck, but that needs the runtime owners' gates. See
   559-file sweep; the per-binding mode diagnostics are unchanged.
 
 ### 3.2 MIR escape analysis (extend `sra.rs`)
+
+**Status:** **not adopted** (2026-10-20): there is nothing on the gate
+benchmark for stack allocation to take
+([`reports/2026-10-20-mir-escape-analysis.md`](reports/2026-10-20-mir-escape-analysis.md)).
+After `sra`, `enums` and `niche`, the only allocation in a timed loop of
+`bench/records` is the record stored with `Atom.set`, a real escape by
+design. The `gc-profile` count is 19 998 710 objects over the loop's 20 M
+iterations, and a perfect analysis leaves it unchanged, so the expected win
+is 0 %, not 5-15 %. On collections, messages, parallel_alloc, heap,
+parallel, runtime, telemetry and the realworld workload, every hot
+allocation escapes for real: returned, appended, inserted, spawned, sent or
+registered. Over the 242 `tests/run` programs, 9 207 of 10 279 sites
+escape. The remaining 1 072 are merges (360), arguments of direct or
+static-closure calls (461) and arguments of read-only runtime functions
+(~220, which needs the runtime to accept a non-heap object: out of scope).
+None of them is in a measured hot loop. The use-after-free surface (a new
+rvalue, root exclusion, publishing pointer fields at safe points,
+loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
 
 - **Goal**: the existing `sra.rs` does partial scalar replacement;
   this extends it to a Whaley-Rinard-style compositional escape
@@ -732,6 +765,20 @@ lifetime information.
 
 ### 4.3 Alive2-style translation validation across the MIR pipeline
 
+**Status:** landed in its cheap form 2026-10-20 (`a9618b9`): `BADGER_MIR_VALIDATE=1`
+runs a bit-for-bit whole-program MIR comparator over two optimiser runs
+(so it catches non-determinism) and a behavioural gate (the program runs
+optimised and with the MIR pipeline off; the first differing stdout line or
+exit status fails the run). The item's literal "optimised against
+unoptimised, bit for bit" is **not** a gate -- the release passes restructure
+by design (simplify alone reports 2324 changes on
+`tests/run/acceptance_static.bdg`, and the dumps diverge at the first
+renumbering) -- so it rejects correct and broken optimisations alike. The
+behavioural check is the sound one: it catches the deliberately broken
+rewrite (`BADGER_MIR_BREAK=superopt` turns `n*4` into `n<<3`, which
+silently produced `y=24`), and the corpus is identical with the check on
+and off. The full SMT version (an SMT model of MIR) is still open.
+
 **Status:** landed 2026-10-20, with the gate changed from what the item
 specifies. The item's gate — "the post-MIR-optimisation program must be
 bit-equivalent to the pre-MIR-optimisation program" — **is not a gate**:
@@ -805,6 +852,7 @@ listed.
 | Async / signal-based preemption | the BUDGET poll is sufficient; signal preemption is ~10 µs/signal | `research/12-runtime-scaling-extra.md` §16 |
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
 | HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
+| MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |
