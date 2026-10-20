@@ -204,6 +204,17 @@ fn language_server() {
         json!({ "textDocument": { "uri": uri }, "options": { "tabSize": 4, "insertSpaces": true } }),
     );
     assert_eq!(f["result"][0]["newText"], SRC);
+    // text that does not parse is left as it is
+    let broken = format!("{messy}\nfn broken( {{\n");
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 7 }, "contentChanges": [{ "text": broken }] }),
+    );
+    let f = c.request(
+        "textDocument/formatting",
+        json!({ "textDocument": { "uri": uri }, "options": { "tabSize": 4, "insertSpaces": true } }),
+    );
+    assert_eq!(f["result"], json!([]), "{f}");
 
     c.request("shutdown", Value::Null);
     c.notify("exit", Value::Null);

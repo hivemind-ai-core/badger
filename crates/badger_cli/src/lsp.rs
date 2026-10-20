@@ -944,6 +944,13 @@ impl Server {
     fn format(&mut self, params: &Value) -> Value {
         let file = doc_path(params);
         let text = self.text(&file);
+        // text that does not parse is left as it is, as `badger format`
+        // leaves it (its layout is part of what is being fixed)
+        let mut sources = badger_base::SourceMap::default();
+        let id = sources.add("format", text.clone());
+        if badger_syntax::parse(id, &text, &mut badger_base::Interner::new(), &mut vec![]).is_err() {
+            return json!([]);
+        }
         let formatted = badger_syntax::format::format(&text);
         if formatted == text {
             return json!([]);
