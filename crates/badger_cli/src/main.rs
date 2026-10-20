@@ -1932,7 +1932,7 @@ fn default_binary_name(path: &Path) -> PathBuf {
     path.with_extension("bdgmir")
 }
 
-/// An argument meant as a path (not an entry name or a test filter).
+/// An argument meant as a path (not an entry name).
 fn looks_like_path(a: &str) -> bool {
     a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
 }

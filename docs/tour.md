@@ -47,7 +47,7 @@ The commands you will use most:
 |---|---|
 | `badger run FILE` | Compile and run; arguments after `--` go to the program |
 | `badger check FILE` | Parse and check without running |
-| `badger test FILE [FILTER]` | Run the `test_*` functions |
+| `badger test FILE [--filter NAME]` | Run the `test_*` functions |
 | `badger repl` | Interactive session: definitions accumulate, expressions print |
 | `badger format FILE` | Rewrite a file in the canonical layout |
 | `badger explain E0337` | Explain a diagnostic code |
