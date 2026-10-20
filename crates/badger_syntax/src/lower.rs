@@ -156,15 +156,27 @@ impl<'a, 'i> Lower<'a, 'i> {
     /// Variant attributes: `@status(code)`, read by `derive(HttpError)`.
     fn check_variant_attributes(&mut self, variants: &[Variant], http: bool) {
         for v in variants {
+            let mut status: Option<Span> = None;
             for a in &v.attributes {
                 match self.interner.resolve(a.name) {
                     "status" => {
-                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (100..=599).contains(n));
+                        if let Some(first) = status {
+                            self.diags.push(
+                                Diagnostic::error("a variant has one `@status`")
+                                    .with_code("E0193")
+                                    .with_label(a.span, "a second one")
+                                    .with_label(first, "the first"),
+                            );
+                            continue;
+                        }
+                        status = Some(a.span);
+                        // an error's status: a client (4xx) or server (5xx) error
+                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (400..=599).contains(n));
                         if !ok {
                             self.error(
                                 "E0193",
                                 a.span,
-                                "`@status` takes one HTTP status code (100 to 599)",
+                                "`@status` takes one HTTP error status code (400 to 599)",
                                 "e.g. `@status(404)`",
                             );
                         } else if !http {
@@ -376,6 +388,16 @@ impl<'a, 'i> Lower<'a, 'i> {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
                     self.derive_default(name, &generics, &fields, at);
+                }
+                if let Some(i) = derives.iter().position(|t| self.names_derive(*t, "HttpError")) {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.diags.push(
+                        Diagnostic::error("`derive(HttpError)` is for an enum")
+                            .with_code("E0193")
+                            .with_label(at, "on a struct")
+                            .with_note("each variant of an error enum gives its status: `enum AppError { @status(404) missing(id: Int), ... } derive(HttpError)`; for one status, `impl HttpStatus for T { fn http_status(self: &Self) -> Int { 404 } }`"),
+                    );
                 }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }

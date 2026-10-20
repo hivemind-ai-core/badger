@@ -1,0 +1,6 @@
+// expect-warning: E0192
+// `@flatten` written twice is reported once, as a warning.
+@flatten @flatten
+pub struct BookId { value: Int }
+
+pub fn main() -> Unit {}

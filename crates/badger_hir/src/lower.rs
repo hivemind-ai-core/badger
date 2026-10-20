@@ -741,6 +741,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             return;
         }
         let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
+        let mut flattened: Option<Span> = None;
         for attr in &item.attributes {
             let name = self.cx.interner.resolve(attr.name).to_string();
             if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
@@ -755,7 +756,21 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             // `@flatten`: a one-field struct encoded as its field's value
             if name == "flatten" {
                 let one_field = matches!(&item.kind, ast::ItemKind::Struct(s) if s.fields.len() == 1);
-                if !one_field || !attr.args.is_empty() {
+                if let Some(first) = flattened {
+                    self.cx.diags.push(
+                        Diagnostic::warning("`@flatten` is written twice")
+                            .with_code("E0192")
+                            .with_label(attr.span, "a second one")
+                            .with_label(first, "the first"),
+                    );
+                } else if !attr.args.is_empty() {
+                    self.cx.diags.push(
+                        Diagnostic::error("`@flatten` takes no arguments")
+                            .with_code("E0192")
+                            .with_label(attr.span, "remove the arguments")
+                            .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
+                    );
+                } else if !one_field {
                     self.cx.diags.push(
                         Diagnostic::error("`@flatten` marks a struct with exactly one field")
                             .with_code("E0192")
@@ -763,6 +778,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
                     );
                 }
+                flattened = flattened.or(Some(attr.span));
             }
             // `@allow(<code>, ...)` silences those warnings inside this item
             if name == "allow" {
