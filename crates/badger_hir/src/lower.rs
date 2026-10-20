@@ -154,6 +154,8 @@ const FUSION_KINDS: &[&str] = &[
     "count",
     "sum",
     "collect",
+    "any",
+    "all",
 ];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's

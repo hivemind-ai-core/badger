@@ -109,6 +109,26 @@ fn count_of_a_counted_source_skips_the_loop_only_when_skipping_is_unobservable()
 }
 
 #[test]
+fn a_search_terminal_fuses_into_the_loop() {
+    let dir = std::env::temp_dir().join(format!("badger-search-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("search.bdg");
+    std::fs::write(
+        &source,
+        "import std.seq\npub fn main() -> Int {\n    \
+         let found = seq.range(0, 100).map(fn(x: Int) { x }).any(fn(x: Int) { x == 3 })\n    \
+         assert(found)\n    0\n}\n",
+    )
+    .unwrap();
+    let out = lang().args(["run", "--release", "--dump-mir"]).arg(&source).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let mir = String::from_utf8_lossy(&out.stderr);
+    let main = mir.split("\nfn 1 ").next().unwrap().to_string();
+    assert!(!main.contains("callee: Closure"), "{main}");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn visible_pipeline_is_a_loop_before_dump_and_save() {
     let dir = std::env::temp_dir().join(format!("badger-fusion-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

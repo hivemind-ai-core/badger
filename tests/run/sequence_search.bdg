@@ -1,0 +1,33 @@
+// `any` and `all` fuse into the pipeline loop and stop at the first item
+// that decides, so a callback with an effect runs only that far.
+import std.io
+import std.seq
+
+pub fn main() -> Result<Unit, io.Error> {
+    let xs = [1, 2, 3, 4, 5]
+    // Inline pipelines.
+    assert(xs.seq().any(fn(x: Int) { x == 3 }))
+    assert(!xs
+        .seq()
+        .any(fn(x: Int) { x == 9 }))
+    assert(xs.seq().all(fn(x: Int) { x < 6 }))
+    assert(!xs
+        .seq()
+        .all(fn(x: Int) { x < 5 }))
+    // Ranges, and the source boundary.
+    assert(seq.range(0, 10).any(fn(x: Int) { x == 3 }))
+    assert(!seq.range(0, 0).any(fn(x: Int) { true }))
+    assert(seq.range(0, 0).all(fn(x: Int) { false }))
+    // A stage before the search.
+    assert(xs.seq().map(fn(x: Int) { x }).any(fn(x: Int) { x == 4 }))
+    assert(xs.seq().filter(fn(x: Int) { x % 2 == 0 }).all(fn(x: Int) { x > 1 }))
+    // The stop is real: the predicate sees only the items up to the decider.
+    let seen = Cell.new(0)
+    assert(seq.range(0, 100).any(fn(x: Int) { seen.set(seen.get() + 1); x == 3 }))
+    assert(seen.get() == 4)
+    let scanned = Cell.new(0)
+    assert(!seq.range(0, 100).all(fn(x: Int) { scanned.set(scanned.get() + 1); x < 3 }))
+    assert(scanned.get() == 4)
+    io.println("search fusion: ok")?
+    ok(())
+}

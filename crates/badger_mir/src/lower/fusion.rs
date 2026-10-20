@@ -69,6 +69,10 @@ enum Terminal {
     Count,
     Sum,
     Collect,
+    /// `any`/`all`: the predicate decides, and the loop stops at the first
+    /// item that does.
+    Any(ExprId),
+    All(ExprId),
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -123,6 +127,8 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
                 "std.seq.collect" | "std.list.collect" => "collect",
+                "std.seq.any" => "any",
+                "std.seq.all" => "all",
                 _ => return None,
             }
             .to_string(),
@@ -325,6 +331,8 @@ impl FnLower<'_, '_, '_> {
             ("count", [iter]) => (*iter, Terminal::Count),
             ("sum", [iter]) => (*iter, Terminal::Sum),
             ("collect", [iter]) => (*iter, Terminal::Collect),
+            ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
+            ("all", [iter, test]) => (*iter, Terminal::All(*test)),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -416,6 +424,21 @@ impl FnLower<'_, '_, '_> {
             })
     }
 
+    /// A `Bool` operand: the `Int`-literal conversion a lowered `Bool`
+    /// constant uses.
+    fn bool_op(&mut self, value: bool) -> Operand {
+        self.assign(
+            Repr::I8,
+            Rvalue::Convert {
+                a: int(i64::from(value)),
+                from: NumTy::I(64, false),
+                to: NumTy::I(8, false),
+                checked: false,
+                loc: 0,
+            },
+        )
+    }
+
     /// `max(0, (end - start) + inclusive)`: how many items the source yields.
     /// A start past the end is an empty range, which the subtraction alone
     /// would report as negative.
@@ -486,7 +509,18 @@ impl FnLower<'_, '_, '_> {
                 (Some(acc), Some(self.lower(f)?))
             }
             Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            // `any` keeps false and `all` keeps true: the answer when no item
+            // decides. The loop overwrites it and exits at the first decider.
+            Terminal::Any(_) | Terminal::All(_) => {
+                let init = self.bool_op(matches!(plan.terminal, Terminal::All(_)));
+                (Some(self.copy_to_local(init, Repr::I8, None)), None)
+            }
             Terminal::Collect | Terminal::For(..) => (None, None),
+        };
+        // The search predicate is construction-time, like a fold's callback.
+        let search = match plan.terminal {
+            Terminal::Any(cb) | Terminal::All(cb) => Some(self.lower(cb)?),
+            _ => None,
         };
         // `collect` builds its list in the fused loop. When the source count
         // is known and no filter can drop items, pages are sized up front.
@@ -678,6 +712,22 @@ impl FnLower<'_, '_, '_> {
             }
         }
         match plan.terminal {
+            Terminal::Any(_) | Terminal::All(_) => {
+                let acc = acc.unwrap();
+                let decided = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                // `any` stops on a match, `all` on a miss.
+                let hit = if matches!(plan.terminal, Terminal::Any(_)) {
+                    decided
+                } else {
+                    self.assign(Repr::I8, Rvalue::Not(decided))
+                };
+                let done = self.block();
+                self.term(Term::Branch(hit, done, step));
+                self.switch(done);
+                let outcome = self.bool_op(matches!(plan.terminal, Terminal::Any(_)));
+                self.emit(Stmt::Assign(acc, Rvalue::Use(outcome)));
+                self.term(Term::Goto(exit));
+            }
             Terminal::For(pat, expr) => {
                 let ty = self.pat_ty(pat);
                 self.bind_irrefutable(pat, value, &ty);
