@@ -579,6 +579,19 @@ impl Mcp {
             }
             "run" => {
                 let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                // a wrongly typed option is refused, not read as absent
+                for (opt, want, ok) in [
+                    ("test", "true or false", a["test"].is_boolean()),
+                    ("release", "true or false", a["release"].is_boolean()),
+                    ("profile", "true or false", a["profile"].is_boolean()),
+                    ("args", "a list of strings", a["args"].is_array()),
+                    ("breakpoints", "a list", a["breakpoints"].is_array()),
+                    ("timeout_secs", "a number", a["timeout_secs"].is_number()),
+                ] {
+                    if !a[opt].is_null() && !ok {
+                        return text(format!("`{opt}` is {want}, not {}", a[opt]), true);
+                    }
+                }
                 // options that would be ignored are refused, not dropped
                 let debugging = a["breakpoints"].as_array().is_some_and(|b| !b.is_empty());
                 for opt in ["commands", "max_stops"] {

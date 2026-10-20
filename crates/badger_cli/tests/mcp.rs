@@ -88,6 +88,13 @@ fn mcp_tools() {
         );
     }
     assert!(call("run", json!({ "path": at, "args": [1, 2] })).1);
+    // wrongly typed options are refused, not read as absent
+    for bad in [json!({ "args": "x" }), json!({ "test": "yes" }), json!({ "release": 1 })] {
+        let mut a = bad.clone();
+        a["path"] = json!(at);
+        let (out, err) = call("run", a);
+        assert!(err && out.contains(" is "), "{bad}: {out}");
+    }
     let (out, err) = call("generate", json!({ "what": "feature", "name": "orders", "path": at }));
     assert!(!err && project.join("src/orders/service.bdg").is_file(), "{out}");
     assert!(call("generate", json!({ "what": "feature", "name": "orders", "path": at })).1);
