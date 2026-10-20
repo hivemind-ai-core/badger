@@ -83,15 +83,16 @@ where
 pub const BLOCK_BODY: &str = "a block `{ ... }`";
 
 /// An expected-found error whose expectation is a whole phrase, built at
-/// run time (the body of an `if` says which `if`).
-fn expected_phrase<'t, 's: 't, I, Er>(what: String, found: Option<Tok<'s>>, span: Span) -> Er
+/// run time (the body of an `if` says which `if`). The phrase is `None` in
+/// the fast pass, whose error type keeps nothing.
+fn expected_phrase<'t, 's: 't, I, Er>(what: Option<String>, found: Option<Tok<'s>>, span: Span) -> Er
 where
     I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
     Er: ParseErr<'t, 's, I>,
 {
     use chumsky::label::LabelError;
     use chumsky::util::MaybeRef;
-    let patterns = [chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(what))];
+    let patterns = what.into_iter().map(|w| chumsky::error::RichPattern::Label(std::borrow::Cow::Owned(w)));
     <Er as LabelError<'t, I, chumsky::error::RichPattern<'t, Tok<'s>>>>::expected_found(
         patterns,
         found.map(MaybeRef::Val),
@@ -119,7 +120,9 @@ where
         inp.next();
         let at = inp.span_since(&c);
         inp.rewind(save);
-        Err(expected_phrase::<I, Er>(format!("{BLOCK_BODY} {after}"), inp.peek(), at))
+        // the fast pass tracks no errors, so it needs no phrase
+        let what = (core::mem::size_of::<Er>() != 0).then(|| format!("{BLOCK_BODY} {after}"));
+        Err(expected_phrase::<I, Er>(what, inp.peek(), at))
     })
 }
 
