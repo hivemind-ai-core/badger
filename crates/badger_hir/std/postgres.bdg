@@ -73,6 +73,8 @@ pub type Description = {
 }
 
 // the `badger_postgres` native module (crates/badger_postgres)
+// parameters as `Data`, `Bytes` tagged so the driver sends `bytea`
+extern "intrinsic" fn codec_to_sql_params<T>(value: T) -> Data
 extern "native badger_postgres.connect" fn pg_connect(url: String, max_connections: Int) -> Result<native.Handle, native.Error> !{Io, Wait}
 extern "native badger_postgres.close" fn pg_close(pool: native.Handle) -> Unit
 extern "native badger_postgres.is_closed" fn pg_is_closed(pool: native.Handle) -> Bool
@@ -116,21 +118,21 @@ pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { pg_is_closed(pool.handle) }
 /// count. Without parameters, several `;`-separated statements may run
 /// together (a schema script); the count is the last one's.
 pub fn execute<C, P>(conn: C, sql: String, params: P) -> Result<Int, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(pg_execute(conn.connection(), sql, codec.to_data(params)))
+    lift(pg_execute(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 pub fn query<C, P>(conn: C, sql: String, params: P) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(pg_query(conn.connection(), sql, codec.to_data(params)))
+    lift(pg_query(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 /// Exactly one row as `Data`; zero or several rows are an error.
 pub fn query_one<C, P>(conn: C, sql: String, params: P) -> Result<Data, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(pg_query_one(conn.connection(), sql, codec.to_data(params)))
+    lift(pg_query_one(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 /// At most one row as `Data`: none for no rows; several rows are an error.
 pub fn query_opt<C, P>(conn: C, sql: String, params: P) -> Result<Option<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
-    let rows = lift(pg_query(conn.connection(), sql, codec.to_data(params)))?
+    let rows = lift(pg_query(conn.connection(), sql, codec_to_sql_params(params)))?
     if rows.len() > 1 {
         return err({ code: #postgres/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
     }
@@ -147,7 +149,7 @@ fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
 /// Rows as `T`, a record whose fields are named like the result's columns
 /// (an `Option` field for a column that can be NULL).
 pub fn query_as<T, C, P>(conn: C, sql: String, params: P) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
-    list.try_map(lift(pg_query(conn.connection(), sql, codec.to_data(params)))?, decode_row)
+    list.try_map(lift(pg_query(conn.connection(), sql, codec_to_sql_params(params)))?, decode_row)
 }
 
 /// At most one row, as `T` (see `query_as`): none for no rows; several rows
@@ -161,7 +163,7 @@ pub fn query_opt_as<T, C, P>(conn: C, sql: String, params: P) -> Result<Option<T
 
 /// Exactly one row, as `T` (see `query_as`).
 pub fn query_one_as<T, C, P>(conn: C, sql: String, params: P) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
-    decode_row(lift(pg_query_one(conn.connection(), sql, codec.to_data(params)))?)
+    decode_row(lift(pg_query_one(conn.connection(), sql, codec_to_sql_params(params)))?)
 }
 
 /// What the server says `sql` takes and returns (without running it).

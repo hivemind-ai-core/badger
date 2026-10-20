@@ -59,6 +59,8 @@ extern "native badger_sqlite.begin" fn sql_begin(pool: native.Handle) -> Result<
 extern "native badger_sqlite.finish" fn sql_finish(tx: native.Handle, commit: Bool) -> Result<Unit, native.Error> !{Io, Wait}
 // `codec.from_data`, with `Bool` also read from the integers 0 and 1
 extern "intrinsic" fn codec_from_sql_row<T>(data: Data) -> Result<T, codec.DecodeError>
+// parameters as `Data`, `Bytes` tagged so the driver binds a blob
+extern "intrinsic" fn codec_to_sql_params<T>(value: T) -> Data
 extern "intrinsic" fn cleanup_push(f: fn() -> Unit) -> Int
 extern "intrinsic" fn cleanup_remove(handle: Int) -> Unit
 
@@ -91,25 +93,25 @@ pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { sql_is_closed(pool.handle) }
 // in order (`[id]`, `(title, author)`), a record binds named placeholders
 // by field (`{ id, title }` for `:id` and `:title`, or `@id`, `$id`), and
 // a single value is the one `?` (`id`). Values are converted as `Codec`
-// encodes them; `[]` or `{}` is none.
+// encodes them (`Bytes` binds a blob); `[]` or `{}` is none.
 
 /// Execute a statement with bound parameters; returns the changed row count.
 pub fn execute<C, P>(conn: C, sql: String, params: P) -> Result<Int, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(sql_execute(conn.connection(), sql, codec.to_data(params)))
+    lift(sql_execute(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 pub fn query<C, P>(conn: C, sql: String, params: P) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(sql_query(conn.connection(), sql, codec.to_data(params)))
+    lift(sql_query(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 /// Exactly one row as `Data`; zero or several rows are an error.
 pub fn query_one<C, P>(conn: C, sql: String, params: P) -> Result<Data, Error> !{Io, Wait} where C: Connection, P: Codec {
-    lift(sql_query_one(conn.connection(), sql, codec.to_data(params)))
+    lift(sql_query_one(conn.connection(), sql, codec_to_sql_params(params)))
 }
 
 /// At most one row as `Data`: none for no rows; several rows are an error.
 pub fn query_opt<C, P>(conn: C, sql: String, params: P) -> Result<Option<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
-    at_most_one(lift(sql_query(conn.connection(), sql, codec.to_data(params)))?)
+    at_most_one(lift(sql_query(conn.connection(), sql, codec_to_sql_params(params)))?)
 }
 
 fn at_most_one<T>(rows: List<T>) -> Result<Option<T>, Error> {
@@ -131,12 +133,12 @@ fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
 /// `[database] schema`, `badger check` checks a literal statement's columns
 /// against `T`.
 pub fn query_as<T, C, P>(conn: C, sql: String, params: P) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
-    list.try_map(lift(sql_query(conn.connection(), sql, codec.to_data(params)))?, decode_row)
+    list.try_map(lift(sql_query(conn.connection(), sql, codec_to_sql_params(params)))?, decode_row)
 }
 
 /// Exactly one row, as `T` (see `query_as`).
 pub fn query_one_as<T, C, P>(conn: C, sql: String, params: P) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
-    decode_row(lift(sql_query_one(conn.connection(), sql, codec.to_data(params)))?)
+    decode_row(lift(sql_query_one(conn.connection(), sql, codec_to_sql_params(params)))?)
 }
 
 /// At most one row, as `T` (see `query_as`): none for no rows (a lookup by

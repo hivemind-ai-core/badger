@@ -187,7 +187,11 @@ fn run(c: &Connection, sql: &str, params: &Params, op: Op) -> Outcome {
                 Sql::Integer(i) => Value::Int(i),
                 Sql::Real(f) => Value::Float(f),
                 Sql::Text(s) => Value::Str(s),
-                Sql::Blob(b) => Value::Str(String::from_utf8_lossy(&b).into_owned()),
+                // as the codec encodes `Bytes`: a `Bytes` field reads it exactly
+                Sql::Blob(b) => {
+                    use base64::Engine;
+                    Value::Str(base64::engine::general_purpose::STANDARD.encode(&b))
+                }
             };
             row.push((n.clone(), v));
         }
@@ -351,6 +355,15 @@ fn sql_param(v: &Value) -> Sql {
         Value::Float(f) => Sql::Real(*f),
         Value::Str(s) | Value::Symbol(s) => Sql::Text(s.clone()),
         Value::Bytes(b) => Sql::Blob(b.clone()),
+        // `Bytes`, as the codec tags a parameter
+        Value::Map(m) if m.len() == 1 && m[0].0 == "$bytes" && matches!(m[0].1, Value::Str(_)) => {
+            use base64::Engine;
+            let Value::Str(t) = &m[0].1 else { unreachable!() };
+            match base64::engine::general_purpose::STANDARD.decode(t) {
+                Ok(b) => Sql::Blob(b),
+                Err(_) => Sql::Text(t.clone()),
+            }
+        }
         other => Sql::Text(json(other).to_string()),
     }
 }

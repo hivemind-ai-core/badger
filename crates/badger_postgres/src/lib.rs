@@ -15,8 +15,9 @@
 //! `json` or `jsonb` parameter is sent as JSON (null is SQL NULL). Results come back as `Data`
 //! objects by column name: integers, floats and booleans as themselves,
 //! `numeric` as exact decimal text, dates and times as ISO 8601 text,
-//! `json`/`jsonb` as their values, arrays as lists, `bytea` as `\x` hex
-//! text, and other text-like types (enums, `citext`) as text.
+//! `json`/`jsonb` as their values, arrays as lists, `bytea` as base64 text
+//! (as `Codec` encodes `Bytes`), and other text-like types (enums, `citext`)
+//! as text.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -235,6 +236,17 @@ fn text_of(v: &Value, ty: &Type) -> Result<String, String> {
             s.push('}');
             s
         }
+        // `Bytes`, as the codec tags a parameter: sent as `bytea` hex
+        Value::Map(m) if m.len() == 1 && m[0].0 == "$bytes" && matches!(m[0].1, Value::Str(_)) => {
+            use base64::Engine;
+            let Value::Str(t) = &m[0].1 else { unreachable!() };
+            let b = base64::engine::general_purpose::STANDARD.decode(t).map_err(|e| e.to_string())?;
+            let mut s = String::from("\\x");
+            for x in b {
+                s.push_str(&format!("{x:02x}"));
+            }
+            s
+        }
         Value::Map(_) => return Err(format!("an object was given for a parameter of type {}", ty.name())),
         Value::Unit | Value::Null => unreachable!("NULL is sent as such"),
         Value::Variant(n, xs) if xs.is_empty() => n.clone(),
@@ -385,12 +397,10 @@ fn decode(ty: &Type, raw: &[u8]) -> Result<Value, String> {
         Type::FLOAT8 => Value::Float(pt::float8_from_sql(raw).map_err(e)?),
         Type::NUMERIC => Value::Str(numeric_text(raw)?),
         Type::CHAR => Value::Str((pt::char_from_sql(raw).map_err(e)? as u8 as char).to_string()),
+        // as the codec encodes `Bytes`: a `Bytes` field reads it exactly
         Type::BYTEA => {
-            let mut s = String::from("\\x");
-            for x in pt::bytea_from_sql(raw) {
-                s.push_str(&format!("{x:02x}"));
-            }
-            Value::Str(s)
+            use base64::Engine;
+            Value::Str(base64::engine::general_purpose::STANDARD.encode(pt::bytea_from_sql(raw)))
         }
         Type::JSON => value_of(serde_json::from_slice(raw).map_err(|e| e.to_string())?),
         Type::JSONB => {

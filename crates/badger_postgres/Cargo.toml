@@ -10,6 +10,7 @@ description = "The PostgreSQL client native module behind std.postgres (tokio-po
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+base64 = "0.22.1"
 badger_native.workspace = true
 tokio-postgres = "0.7.18"
 deadpool-postgres = "0.14.2"

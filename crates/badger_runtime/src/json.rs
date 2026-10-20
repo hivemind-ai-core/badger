@@ -530,9 +530,17 @@ impl<'a> P<'a> {
                 }
                 _ => derr("expected a character"),
             },
+            // base64 text
             Kind::Bytes => match self.peek() {
-                Some(b'"') => self.managed_bytes(crate::desc::builtin::bytes()),
-                _ => derr("expected a string"),
+                Some(b'"') => {
+                    use base64::Engine;
+                    let text = self.string()?;
+                    match base64::engine::general_purpose::STANDARD.decode(text.as_bytes()) {
+                        Ok(b) => Ok(root(crate::string::new_bytes(&b))),
+                        Err(_) => derr("expected base64 text"),
+                    }
+                }
+                _ => derr("expected a string (base64)"),
             },
             Kind::Duration | Kind::Instant | Kind::Timestamp => {
                 match self.peek() {

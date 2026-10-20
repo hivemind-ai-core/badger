@@ -1,0 +1,37 @@
+// `Bytes` is base64 text in JSON and `Data` (exact, whatever the bytes),
+// a statement parameter binds a blob, and a blob column reads back into a
+// `Bytes` field unchanged.
+import std.bytes
+import std.codec
+import std.io
+import std.schema
+import std.sqlite
+
+@derive(Codec, Eq)
+pub struct Blob { data: Bytes }
+
+@derive(Error, From)
+pub enum AppError {
+    database(source: sqlite.Error),
+    decode(source: codec.DecodeError),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let b: Blob = { data: bytes.from_list([255U8, 0U8, 128U8, 10U8]) }
+    let text = codec.encode_text(b)
+    let _ = io.println(text)
+    let back = codec.decode_text<Blob>(text)?
+    let data = codec.from_data<Blob>(codec.to_data(b))?
+    let bin = codec.decode<Blob>(codec.encode(b))?
+    let _ = io.println($"{back == b} {data == b} {bin == b}")
+    let _ = io.println($"{codec.decode_text<Blob>("{\"data\":\"not base64!\"}").is_err()}")
+    let _ = io.println(schema.json_schema(schema.of<Blob>()))
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE t (data BLOB NOT NULL)", [])?
+    sqlite.execute(db, "INSERT INTO t (data) VALUES (?)", [b.data])?
+    sqlite.execute(db, "INSERT INTO t (data) VALUES (:data)", b)?
+    let _ = io.println($"{sqlite.query(db, "SELECT typeof(data) AS kind, hex(data) AS hex FROM t", [])?}")
+    let rows = sqlite.query_as<Blob>(db, "SELECT data FROM t", [])?
+    let _ = io.println($"{rows.len()} {rows.all(fn(r) => r == b)}")
+    ok(())
+}

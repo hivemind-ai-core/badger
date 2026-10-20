@@ -1,0 +1,6 @@
+{"data":"/wCACg=="}
+true true true
+true
+{"type":"object","properties":{"data":{"type":"string","contentEncoding":"base64"}},"required":["data"]}
+[{"hex":"FF00800A","kind":"blob"}, {"hex":"FF00800A","kind":"blob"}]
+2 true

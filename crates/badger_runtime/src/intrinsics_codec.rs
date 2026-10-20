@@ -133,6 +133,20 @@ define_intrinsics! {
     }
     fn codec_from_data(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_data(targ(targs, 0), d)) }
     fn codec_from_sql_row(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_sql_row(targ(targs, 0), d)) }
+    fn codec_to_sql_params(ctx, targs, ret, v) {
+        // as `codec_to_data`, with `Bytes` tagged so the driver binds a blob
+        let text = codec::encode_sql_params(targ(targs, 0), v);
+        let mut de = serde_json::Deserializer::from_str(&text);
+        de.disable_recursion_limit();
+        let j: serde_json::Value = serde::Deserialize::deserialize(&mut de).unwrap_or(serde_json::Value::Null);
+        if let Some(n) = codec::first_unrepresentable(&j) {
+            crate::task::panic_current(
+                format!("{n} does not fit `Data.int` (conversions to Data do not truncate)"),
+                crate::task::caller_location(),
+            );
+        }
+        codec::data_of(rdesc(ret), &j)
+    }
     fn codec_to_data(ctx, targs, ret, v) {
         let text = codec::encode(targ(targs, 0), v);
         // the encoder's own output, nested at most `codec::MAX_DEPTH` deep:

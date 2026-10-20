@@ -15,6 +15,7 @@ regex = "1.13.1"
 rustc-hash.workspace = true
 serde = "1.0.229"
 serde_json = { version = "1.0.154", features = ["unbounded_depth"] }
+base64 = "0.22.1"
 
 [features]
 # Collector diagnostics and policy experiments, absent from normal builds.

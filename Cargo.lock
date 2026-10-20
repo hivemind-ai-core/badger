@@ -388,6 +388,7 @@ name = "badger_postgres"
 version = "0.1.0"
 dependencies = [
  "badger_native",
+ "base64 0.22.1",
  "bytes",
  "deadpool-postgres",
  "fallible-iterator 0.2.0",
@@ -406,6 +407,7 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "badger_native",
+ "base64 0.22.1",
  "corosensei",
  "crossbeam-deque",
  "libc",
@@ -420,6 +422,7 @@ name = "badger_sqlite"
 version = "0.1.0"
 dependencies = [
  "badger_native",
+ "base64 0.22.1",
  "rusqlite",
  "serde_json",
 ]

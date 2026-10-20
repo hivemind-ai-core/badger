@@ -4,10 +4,11 @@
 //! (field names are the wire names), enums as `{"variant": {...fields}}` or a
 //! bare string for nullary variants (`Option` encodes as the value or
 //! `null`; as `[value]` when the value can be `null` itself, so `some(none)`
-//! is not `none`), lists and sets as arrays, maps with string keys as objects, and `Data` as
+//! is not `none`), `Bytes` as base64 text, lists and sets as arrays, maps with string keys as objects, and `Data` as
 //! its natural JSON value. Decoding validates against the schema and reports
 //! the failing path.
 
+use base64::Engine;
 use serde_json::Value as J;
 
 use crate::desc::{Kind, TypeDesc};
@@ -229,7 +230,17 @@ fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
             write_json_quote(s, o)
         }
         Kind::Symbol | Kind::String => write_json_quote(str_of(w), o),
-        Kind::Bytes => write_json_quote(&String::from_utf8_lossy(bytes_of(w)), o),
+        Kind::Bytes => {
+            let text = base64::engine::general_purpose::STANDARD.encode(bytes_of(w));
+            // a statement parameter keeps its kind: the driver binds a blob
+            if SQL_BYTES.with(|c| c.get()) {
+                o.push_str("{\"$bytes\":");
+                write_json_quote(&text, o);
+                o.push('}');
+            } else {
+                write_json_quote(&text, o);
+            }
+        }
         Kind::Duration | Kind::Instant | Kind::Timestamp => write_i64(o, w as i64),
         Kind::Record { fields, .. } if d.name == SECRET => {
             if REVEAL.with(|c| c.get()) {
@@ -419,6 +430,30 @@ thread_local! {
     static INT_BOOLS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+thread_local! {
+    /// Encoding statement parameters: `Bytes` is tagged (`{"$bytes": ..}`)
+    /// so the driver binds a blob, not text.
+    static SQL_BYTES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Statement parameters as JSON text, `Bytes` tagged for the driver.
+pub fn encode_sql_params(d: &TypeDesc, w: u64) -> String {
+    let outer = SQL_BYTES.with(|c| c.replace(true));
+    let s = encode(d, w);
+    SQL_BYTES.with(|c| c.set(outer));
+    s
+}
+
+/// `Bytes` from its base64 text. A row's column comes as base64 when it is a
+/// blob; a text column read into `Bytes` is its UTF-8 bytes.
+fn bytes_from_text(s: &str) -> Result<u64, DecodeError> {
+    match base64::engine::general_purpose::STANDARD.decode(s) {
+        Ok(b) => Ok(root(crate::string::new_bytes(&b))),
+        Err(_) if INT_BOOLS.with(|c| c.get()) => Ok(root(crate::string::new_bytes(s.as_bytes()))),
+        Err(_) => fail("expected base64 text"),
+    }
+}
+
 /// Decode a SQLite row (`Data`) against a descriptor.
 pub fn from_sql_row(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
     struct Reset;
@@ -521,8 +556,8 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             None => fail("expected a character"),
         },
         Kind::Bytes => match j.as_str() {
-            Some(s) => Ok(root(crate::string::new_bytes(s.as_bytes()))),
-            None => fail("expected a string"),
+            Some(s) => bytes_from_text(s),
+            None => fail("expected a string (base64)"),
         },
         Kind::Duration | Kind::Instant | Kind::Timestamp => {
             j.as_i64().map(|v| v as u64).ok_or(()).or_else(|_| fail("expected an integer"))
@@ -723,8 +758,8 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             _ => fail("expected a character"),
         },
         Kind::Bytes => match tag {
-            4 => Ok(root(crate::string::new_bytes(str_of(fields[0]).as_bytes()))),
-            _ => fail("expected a string"),
+            4 => bytes_from_text(str_of(fields[0])),
+            _ => fail("expected a string (base64)"),
         },
         Kind::Duration | Kind::Instant | Kind::Timestamp => match tag {
             2 => Ok(fields[0]),
@@ -948,7 +983,7 @@ fn dec_str_key(d: &'static TypeDesc, s: &str) -> Result<u64, DecodeError> {
             Some(c) => Ok(c as u64),
             None => fail("expected a character"),
         },
-        Kind::Bytes => Ok(root(crate::string::new_bytes(s.as_bytes()))),
+        Kind::Bytes => bytes_from_text(s),
         Kind::Enum { .. } if d.name == "Data" => {
             let w = root(new_string(s));
             Ok(root(make_enum(d, 4, &[w])))

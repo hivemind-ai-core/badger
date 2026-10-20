@@ -647,7 +647,8 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
             "{\"type\":\"integer\"}".into()
         }
         Kind::Float { .. } => "{\"type\":\"number\"}".into(),
-        Kind::String | Kind::Symbol | Kind::Char | Kind::Bytes => "{\"type\":\"string\"}".into(),
+        Kind::String | Kind::Symbol | Kind::Char => "{\"type\":\"string\"}".into(),
+        Kind::Bytes => "{\"type\":\"string\",\"contentEncoding\":\"base64\"}".into(),
         Kind::List { elem } => {
             format!("{{\"type\":\"array\",\"items\":{}}}", json_schema(elem, depth + 1))
         }

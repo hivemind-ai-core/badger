@@ -673,7 +673,10 @@ An `Option` field is its value or `null`, and may be left out (it
 decodes as `none`; so may a `@flatten` struct over an `Option`). When the
 value can be `null` itself -- `Option<Option<T>>`, `Option<Unit>` --
 `some(v)` is written `[v]`, so a patch can say "clear it" (`[null]`)
-apart from "leave it" (`null`). A `Set` is an array, in sorted order.
+apart from "leave it" (`null`). A `Set` is an array, in sorted order;
+`Bytes` is base64 text (and a blob or `bytea` in SQL); a map with keys
+that are not strings has each key as its encoding (`{"1":..}`,
+`{"[1,\"a\"]":..}`).
 
 ```badger fragment
 @derive(Codec)
