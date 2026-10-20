@@ -1242,6 +1242,17 @@ fn explain_types() {
     }
     let out = lang().args(["explain", "effect", "show_all"]).arg(&file).output().unwrap();
     assert!(String::from_utf8_lossy(&out.stdout).contains("show_all: !{}"));
+    // each effect's first origin in the body
+    let file = root().join("tests/explain/effects.bdg");
+    let out = lang().args(["explain", "effect", "work"]).arg(&file).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("work: !{Io, State, Wait}"), "{text}");
+    assert!(text.contains("Io: ") && text.contains(":12:5 `io.println(\"start\")`"), "{text}");
+    assert!(text.contains("Wait: ") && text.contains("`helper()`"), "{text}");
+    // a precondition that calls a predicate function is proven like a bound
+    let out = lang().args(["contracts", "tests/contracts/predicates.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("2 clause(s): 2 proven"), "{text}");
 }
 
 /// Checking proposed edits in their project (`badger query check

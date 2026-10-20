@@ -57,6 +57,16 @@ apply: !{} plus the effects of its callbacks
 `counter` is `!{}`: a cell created and used only inside the function is
 private computation, not observable state.
 
+For a function whose body has effects, each is followed by where it first
+comes from, so an unexpected `State` or `Wait` leads to its call:
+
+```text
+work: !{Io, State, Wait}
+  Io: app.bdg:10:5 `io.println("start")`
+  State: app.bdg:11:5 `c.set(helper())`
+  Wait: app.bdg:11:11 `helper()`
+```
+
 ### Bounds are upper bounds
 
 ```badger

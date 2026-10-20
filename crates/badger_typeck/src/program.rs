@@ -104,6 +104,8 @@ pub struct Global<'a> {
     /// The protocols each declared generic (skolem) is bounded by, kept
     /// for requirements checked after its function (implied capabilities).
     pub skolem_bounds: RefCell<FxHashMap<u32, Vec<DefId>>>,
+    /// Where each function first needs each effect (`badger explain effect`).
+    pub effect_sites: RefCell<FxHashMap<DefId, Vec<(Symbol, Span)>>>,
     /// Helpers storing one parameter into another's container (computed
     /// on first use; see `regions::store_summaries`).
     #[allow(clippy::type_complexity)]
@@ -520,6 +522,7 @@ pub fn check_program_with<'a>(
         dups_final: std::cell::Cell::new(false),
         skolem_owner: RefCell::new(FxHashMap::default()),
         skolem_bounds: RefCell::new(FxHashMap::default()),
+        effect_sites: RefCell::new(FxHashMap::default()),
         implied: RefCell::new(FxHashMap::default()),
         store_summaries: RefCell::new(None),
         store_seed: None,

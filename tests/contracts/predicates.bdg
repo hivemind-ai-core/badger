@@ -1,0 +1,17 @@
+// A precondition may be a bound or a call to a small predicate function;
+// the analysis evaluates the predicate at each call, so both are proven.
+import std.io
+
+fn short(s: String) -> Bool => s.len() <= 5
+
+requires s.len() <= 5, "a name has at most 5 characters"
+fn greet(s: String) -> String { $"hi {s}" }
+
+requires short(s)
+fn greet2(s: String) -> String { $"hi {s}" }
+
+pub fn main() -> Result<Unit, io.Error> {
+    io.println(greet(""))?
+    io.println(greet2("bob"))?
+    ok(())
+}

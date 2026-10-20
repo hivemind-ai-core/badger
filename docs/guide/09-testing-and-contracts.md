@@ -175,7 +175,11 @@ pub fn main() -> Result<Unit, io.Error> {
 - `ensures COND` is checked at every return: the end of the body,
   `return`, and `?` alike. `result` names the value being returned.
 - Conditions are `Bool` expressions over the parameters (and `result`).
-  The optional string explains the clause.
+  The optional string explains the clause. A condition may be a bound
+  (`requires name.len() <= 40`) or call a predicate function; one whose
+  body is a single expression (`fn short(s: String) -> Bool => s.len()
+  <= 40`) is evaluated at each call, so `requires short(name)` is proven
+  or refuted like the bound it states.
 - Clauses go on the lines before a function or method with a body. They
   cannot `return` or use `?` (E0140), and a protocol method's signature
   cannot carry them; put them on each implementation.

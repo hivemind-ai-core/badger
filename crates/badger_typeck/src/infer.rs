@@ -2982,6 +2982,11 @@ impl<'g, 'a> Infer<'g, 'a> {
             }
         }
         let ctx = self.fns.pop().unwrap();
+        if let Owner::Fn(d) = owner
+            && self.mode == Mode::Generic
+        {
+            self.g.effect_sites.borrow_mut().insert(d, ctx.eff_sites.clone());
+        }
         self.solve_some();
         self.finish_effects(&ctx);
         match &ctx.bound {

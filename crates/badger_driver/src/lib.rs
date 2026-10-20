@@ -2210,7 +2210,38 @@ pub fn describe_def(
                 .params
                 .iter()
                 .any(|p| badger_typeck::ty::ty_any(p, &mut |k| matches!(k, badger_typeck::TyKind::Fn(_))));
-            format!("!{{{}}}{}", ls.join(", "), if open { " plus the effects of its callbacks" } else { "" })
+            let mut text = format!(
+                "!{{{}}}{}",
+                ls.join(", "),
+                if open { " plus the effects of its callbacks" } else { "" }
+            );
+            // where each effect comes from: the first call (or operation)
+            // in the body that needs it
+            let sites = g.effect_sites.borrow().get(&def).cloned().unwrap_or_default();
+            let mut origins: Vec<(String, String)> = sites
+                .iter()
+                .filter_map(|(l, sp)| {
+                    let label = interner.resolve(*l).to_string();
+                    if label.starts_with('%') || sp.is_dummy() {
+                        return None;
+                    }
+                    let f = sources.get(sp.file);
+                    let (line, col) = f.line_col(sp.start as usize);
+                    let snippet: String = f.text[sp.range()].split_whitespace().collect::<Vec<_>>().join(" ");
+                    let snippet = if snippet.chars().count() > 60 {
+                        format!("{}...", snippet.chars().take(57).collect::<String>())
+                    } else {
+                        snippet
+                    };
+                    Some((label, format!("{}:{line}:{col} `{snippet}`", f.name)))
+                })
+                .collect();
+            origins.sort();
+            origins.dedup_by(|a, b| a.0 == b.0);
+            for (label, at) in origins {
+                text.push_str(&format!("\n  {label}: {at}"));
+            }
+            text
         }
         _ => "(not a function)".to_string(),
     };
