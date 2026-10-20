@@ -1705,6 +1705,19 @@ fn diagnostics_early_phases() {
     let out = lang().args(["check", "--json", "tests/diagnostics/local_hides_module.bdg"]).output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("E0309") && text.contains("hides the imported module `list`"), "{text}");
+    // a block's type mismatch points at its last expression or statement
+    let out = lang().args(["check", "--json", "tests/diagnostics/block_result_span.bdg"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let lines: Vec<u64> = v
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "E0300")
+        .map(|d| d["labels"][0]["start"]["line"].as_u64().unwrap())
+        .collect();
+    assert_eq!(lines, vec![6, 10], "{text}");
+    assert!(text.contains("the block ends in a statement"), "{text}");
 }
 
 /// `badger test`: controlled clocks are per test and drive sleeps by virtual

@@ -872,11 +872,42 @@ impl<'g, 'a> Infer<'g, 'a> {
                 return expected.clone();
             }
             if let Err(err) = self.icx.unify(expected, &t) {
-                let span = self.g.hir.exprs[e].span;
+                // a block's value is its last expression: point there, not
+                // at the whole block (its closing `}`)
+                let (span, ends_in_statement) = self.result_span(e);
+                let n = self.diags.len();
                 self.report_unify(err, span, expected, &t);
+                if ends_in_statement && let Some(d) = self.diags.get_mut(n) {
+                    d.notes.push(
+                        "the block ends in a statement (a `let`, an assignment, or `;`), so its value is `()`".into(),
+                    );
+                }
             }
         }
         t
+    }
+
+    /// Where a value of expression `e` comes from: a block's last
+    /// expression (through nested blocks), or its last statement when it
+    /// ends without one (then its value is `()`).
+    fn result_span(&self, mut e: ExprId) -> (Span, bool) {
+        let hir = self.g.hir;
+        loop {
+            match &hir.exprs[e].kind {
+                ExprKind::Block { tail: Some(t), .. } => e = *t,
+                ExprKind::Block { stmts, tail: None } => {
+                    let last = stmts.last().map(|s| match s {
+                        Stmt::Let { span, .. } | Stmt::Assign { span, .. } => *span,
+                        Stmt::Expr { expr, .. } => hir.exprs[*expr].span,
+                    });
+                    return match last {
+                        Some(sp) => (sp, true),
+                        None => (hir.exprs[e].span, false),
+                    };
+                }
+                _ => return (hir.exprs[e].span, false),
+            }
+        }
     }
 
     pub fn check_opt(&mut self, e: ExprId, expected: Option<&Ty>) -> Ty {

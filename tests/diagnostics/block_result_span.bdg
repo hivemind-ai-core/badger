@@ -1,0 +1,16 @@
+// A block whose value has the wrong type is reported at its last
+// expression (or its last statement), not across the whole block.
+fn f(n: Int) -> Int {
+    let x = n + 1
+    let y = x * 2
+    io.println("hi")
+}
+fn g(n: Int) -> Result<Int, String> {
+    let a = n
+    match a {
+        0 => ok(1),
+        _ => err("x"),
+    };
+}
+import std.io
+pub fn main() {}
