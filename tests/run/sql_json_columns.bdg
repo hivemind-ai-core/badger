@@ -1,0 +1,25 @@
+// A list, map, or record field is written to an SQL column as JSON text
+// and read back from it by `query_as`.
+import std.io
+import std.sqlite
+
+@derive(Codec, Eq)
+pub struct Address { city: String, zip: String }
+
+@derive(Codec, Eq)
+pub struct Row { id: Int, tags: List<String>, counts: Map<String, Int>, address: Address }
+
+@derive(Error, From)
+pub enum AppError {
+    database(source: sqlite.Error),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE t (id INTEGER PRIMARY KEY, tags TEXT NOT NULL, counts TEXT NOT NULL, address TEXT NOT NULL)", [])?
+    let r: Row = { id: 1, tags: ["a", "b"], counts: map { "x" => 2 }, address: { city: "Oslo", zip: "0150" } }
+    sqlite.execute(db, "INSERT INTO t (id, tags, counts, address) VALUES (:id, :tags, :counts, :address)", r)?
+    let back = sqlite.query_one_as<Row>(db, "SELECT id, tags, counts, address FROM t", [])?
+    let _ = io.println($"{back == r} {back.tags} {back.address.city}")
+    ok(())
+}

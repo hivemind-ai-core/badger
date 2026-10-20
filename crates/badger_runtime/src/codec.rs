@@ -479,6 +479,15 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// Is a value of this type written to an SQL column as JSON text?
+fn json_text_column(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::List { .. } | Kind::Map { .. } | Kind::Set { .. } => true,
+        Kind::Record { flat, .. } => !flat && d.name != SECRET,
+        _ => false,
+    }
+}
+
 /// The one character of a string (`"x"`), or none (`""`, `"xyz"`).
 pub(crate) fn one_char(s: &str) -> Option<char> {
     let mut cs = s.chars();
@@ -758,6 +767,14 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
         return Ok(w);
     }
     let (tag, fields) = enum_parts(w);
+    // a row's column holding a list, map, set, or record: stored as its
+    // JSON text (as a statement parameter writes it)
+    if tag == 4 && INT_BOOLS.with(|c| c.get()) && json_text_column(d) {
+        return match serde_json::from_str::<J>(str_of(fields[0])) {
+            Ok(j) => dec(d, &j),
+            Err(_) => fail("expected JSON text"),
+        };
+    }
     match &d.kind {
         Kind::Unit => Ok(0),
         Kind::Bool => match tag {
