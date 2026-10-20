@@ -86,6 +86,10 @@ pub struct Module {
     pub dependency: bool,
     /// Items declared in this module (both namespaces; case distinguishes).
     pub items: FxHashMap<Symbol, DefId>,
+    /// The attributes it declares: a namespace of their own (named only
+    /// after `@` and as `NAME.uses`), so `attribute status` and
+    /// `fn status` live side by side.
+    pub attributes: FxHashMap<Symbol, DefId>,
     pub tests: Vec<DefId>,
 }
 

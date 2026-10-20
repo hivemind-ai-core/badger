@@ -1333,7 +1333,7 @@ where
         .then(sepc_list(struct_field.clone()))
         .map(|(((p, name), positions), fields)| (p, ItemKind::Attribute { name, positions, fields }));
     let variant_field = member.clone().then_ignore(just(Tok::Colon)).or_not().then(ty.clone());
-    // a variant may carry attributes (`@status(404) not_found(id: Int)`)
+    // a variant may carry attributes (`@http.status(404) not_found(id: Int)`)
     let variant = attributes
         .clone()
         .then(member.clone())

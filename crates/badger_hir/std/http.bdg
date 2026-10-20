@@ -33,6 +33,13 @@ impl prelude.Error for Error {}
 /// The default status for an error that does not choose one.
 pub let internal_status = 500
 
+/// The HTTP status an error variant is answered with:
+/// `@http.status(404) not_found(id: Int)`, read by `derive(HttpError)` (an
+/// error status, 400 to 599; a variant without one is answered 500).
+pub attribute status on variant {
+    code: Int,
+}
+
 /// An error that carries the status the application intends: the route
 /// system answers with that status instead of a generic 500. A client
 /// error carries the error's message; a server error does not.

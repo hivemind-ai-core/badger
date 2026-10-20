@@ -203,7 +203,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0199",
         "misplaced attribute",
-        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@message` on an enum variant, `@move_only` (without arguments) on a struct or enum. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
     ),
     (
         "E0190",
@@ -220,7 +220,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0204",
         "underivable protocol",
-        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@status(code)`).",
+        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@http.status(code)`).",
     ),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
     (
@@ -384,7 +384,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0193",
         "misplaced status",
-        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
+        "`@http.status(code)` (the attribute `std.http` declares) on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
     ),
     (
         "E0192",

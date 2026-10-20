@@ -58,7 +58,7 @@ tags, or on the same line):
 | an `impl` method | `@allow(E0197) pub fn norm(self: &Self) -> Int { ... }` |
 | a local (nested) function | `@allow(E0196) fn helper() -> Int { ... }` |
 | a struct field | `@flatten pub id: BookId` (where it applies), `@db.column(name = "px") pub x: Int` |
-| an enum variant | `@status(404) @message("no book {id}") not_found(id: Int)` |
+| an enum variant | `@http.status(404) @message("no book {id}") not_found(id: Int)` |
 | a parameter (functions, methods, lambdas) | `fn f(@allow(E0197) x: Int)` |
 | a statement (a block written as a statement included) | `@allow(E0197) let total = 0` |
 
@@ -154,6 +154,9 @@ pub attribute column on field {
 - **One use per item** unless declared `repeatable` (a function serving two
   routes).
 - A name of the compiler's (`allow`, `derive`, ...) cannot be declared.
+- Attributes have a namespace of their own: they are named only after `@`
+  and as `NAME.uses`, so `std.http` declares `attribute status` beside its
+  function `status`.
 
 **Use.** Namespaced by the declaring module, with `key = value` arguments
 (one positional argument when the attribute has exactly one required
@@ -349,7 +352,7 @@ recognised attribute is a row, and the consumer does the work.
 |---|---|---|
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
 | `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
-| `@status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
+| `@http.status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
 | `@message("text {field}")` (variant) | `derive(Error)` / `derive(Display)`: the variant's display (done) | metadata |
 | `@move_only` (struct, enum) | ownership: the type's values are moved, never copied (done; E0414) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |

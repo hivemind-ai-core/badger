@@ -80,7 +80,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message", "move_only"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "message", "move_only"];
 
 /// Where an attribute is written.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -151,7 +151,7 @@ fn attribute_fits(name: &str, place: Place) -> bool {
         "derive" | "move_only" => matches!(place, Place::Item("struct" | "enum")),
         "flatten" => place == Place::Item("struct"),
         "fusion" => matches!(place, Place::Item("fn") | Place::Method),
-        "status" | "message" => place == Place::Variant,
+        "message" => place == Place::Variant,
         _ => true,
     }
 }
@@ -358,7 +358,7 @@ impl Cx<'_> {
             let full = self.sym(u.attr.name).to_string();
             let own = full.rsplit('.').next().unwrap_or("").to_string();
             let own_sym = self.interner.intern(&own);
-            let found = self.hir.modules[u.lib].items.get(&own_sym).copied();
+            let found = self.hir.modules[u.lib].attributes.get(&own_sym).copied();
             let Some(def) = found.filter(|d| matches!(self.hir.defs[*d].kind, DefKind::Attribute(_))) else {
                 let msg = format!("unknown attribute `@{full}`: its module declares no attribute `{own}`");
                 let d = if u.is_std { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
@@ -1114,6 +1114,7 @@ impl Cx<'_> {
                 is_std: m.is_std,
                 dependency: m.dependency,
                 items: FxHashMap::default(),
+                attributes: FxHashMap::default(),
                 tests: vec![],
             });
             let mut defs = vec![];
@@ -1157,8 +1158,13 @@ impl Cx<'_> {
                     is_pub: item.is_pub,
                     kind: DefKind::Pending,
                 });
+                let namespace = if matches!(item.kind, ast::ItemKind::Attribute(_)) {
+                    &mut self.hir.modules[mid].attributes
+                } else {
+                    &mut self.hir.modules[mid].items
+                };
                 if !matches!(item.kind, ast::ItemKind::Impl(_))
-                    && let Some(prev) = self.hir.modules[mid].items.insert(name, def)
+                    && let Some(prev) = namespace.insert(name, def)
                 {
                     let prev_span = self.hir.defs[prev].span;
                     let n = self.sym(name).to_string();
@@ -1598,13 +1604,19 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             // always an error (a typo, or a library's name without its
             // namespace)
             if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
+                // `@status` moved to the module it belongs to
+                let note = if name == "status" {
+                    "an HTTP status is `@http.status(code)`, after `import std.http`"
+                } else {
+                    "a name without a namespace is the compiler's; a library's is `@lib.name`"
+                };
                 report(
                     self,
                     true,
                     format!("unknown attribute `@{name}`"),
                     attr.span,
                     "not one of the compiler's attributes",
-                    "a name without a namespace is the compiler's; a library's is `@lib.name`",
+                    note,
                 );
                 continue;
             }
@@ -2960,6 +2972,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 );
                 ExprKind::Error
             }
+            // an attribute of this module: read as `NAME.uses` (anything
+            // else is reported once the tables are built)
+            None if let Some(&a) = self.cx.hir.modules[self.module].attributes.get(&n.sym) => {
+                ExprKind::Def { def: a, type_args: vec![] }
+            }
             None => {
                 self.unknown_name(n.sym, n.span);
                 ExprKind::Error
@@ -2992,7 +3009,27 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         type_args: &[ast::TypeId],
     ) -> ExprId {
         let targs: Vec<HTy> = type_args.iter().map(|t| self.lower_ty(*t)).collect();
+        // `NAME.uses` reads this module's attribute `NAME`, even beside a
+        // function of that name (a function has no fields)
+        if self.cx.interner.resolve(name.sym) == "uses"
+            && let ast::ExprKind::Name(n) = &self.ast.exprs[base].kind
+            && self.lookup_local(n.sym).is_none()
+            && let Some(&a) = self.cx.hir.modules[self.module].attributes.get(&n.sym)
+        {
+            let bspan = self.ast.exprs[base].span;
+            let b = self.alloc(ExprKind::Def { def: a, type_args: vec![] }, bspan);
+            return self.alloc(ExprKind::Field { base: b, label: name.sym, label_span: name.span }, span);
+        }
         match self.namespace_of(base) {
+            // another module's attribute (only its module reads its uses:
+            // reported once the tables are built)
+            Some(Ns::Module(m))
+                if !self.cx.hir.modules[m].items.contains_key(&name.sym)
+                    && self.cx.hir.modules[m].attributes.contains_key(&name.sym) =>
+            {
+                let a = self.cx.hir.modules[m].attributes[&name.sym];
+                self.alloc(ExprKind::Def { def: a, type_args: vec![] }, span)
+            }
             Some(Ns::Module(m)) => {
                 let kind = match self.module_item(m, name) {
                     Some(d) => self.def_value(d, name, targs),

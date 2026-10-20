@@ -20,7 +20,7 @@ type Note = { id: Int, title: String }
 
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @status(404) @message("no note {id}")
+    @http.status(404) @message("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
@@ -105,7 +105,7 @@ An error carries the status it should be answered with through the
 `HttpStatus` protocol. The default is 500 ("internal server error"), so
 an error type that says nothing about HTTP keeps the old behaviour. An
 application states it once, on its error type: `derive(HttpError)`
-answers each variant marked `@status(code)` with that code, and the
+answers each variant marked `@http.status(code)` with that code, and the
 others with 500. (Implementing `HttpStatus` by hand, with a `match` in
 `http_status`, decides it some other way.)
 
@@ -115,13 +115,13 @@ import std.io
 import std.route
 import std.text
 
-// The status each error is answered with: the variant's `@status`; its
+// The status each error is answered with: the variant's `@http.status`; its
 // message: the variant's `@message`, if it has one.
 @derive(Error, HttpError, From)
 pub enum AppError {
-    @status(400)
+    @http.status(400)
     invalid_input(message: String),
-    @status(404) @message("no note {id}")
+    @http.status(404) @message("no note {id}")
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
