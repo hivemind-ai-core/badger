@@ -533,6 +533,31 @@ What would pay instead is **effect** information (a total, effect-free callee wi
 unused result), not lifetimes. The report and the survey script are in
 `reports/2026-10-20-lifetime-driven-optimisation.md`.
 
+## The last two language features
+
+**§3.3 (region blocks and region records)** landed: `region Scratch { ... }`
+names a lexical region that ends with the block (Tofte-Talpin's letregion,
+Cyclone's region blocks), and `region` is contextual. A struct or enum whose
+last type parameter is a region (`struct Node<R: Scope>`) is a *region record*,
+branded with its region in `Ty`. The block is checked one level deeper with a
+fresh lexical region skolem, so its records cannot be the block's result, be
+returned or broken out of it, or reach an outer var or captured state; the
+checker treats the block the way it treats a `for<S>` callback for closures,
+tasks, dyn values and stores. The violations are the new **E0414**. HIR lowers
+the block to an ordinary block, so the MIR, the codegen and the runtime see a
+plain block, and `TypeDesc` gains a static `region` flag that tracing and
+collection ignore.
+
+**§3.5 (move-only types)** landed: a struct or enum marked `@move_only` is
+affine by declaration -- its values, and the aggregates holding them, are moved
+and never copied, and each copy the affine check would reject is reported as
+one. A generic function or closure that uses its argument twice, and taking a
+value out of a borrow, are copies too. The diagnostic is **E0415** (E0414 went
+to the region blocks, which landed first). Unlike a linear resource (E0413), a
+move-only value may be dropped unused. The item's escape-analysis half does not
+apply: §3.2 was surveyed and not adopted, so the marker's value is the static
+guarantee, not the scalar replacement it would have enabled.
+
 ## Where the backlog stands
 
 | phase | item | outcome |
@@ -556,9 +581,9 @@ unused result), not lifetimes. The report and the survey script are in
 | 2 | 2.4 NUMA pinning | landed behind a flag (its gate needs a two-socket host) |
 | 3 | 3.1 the typeck's arena | **not adopted**; the traffic it aimed at was fixed instead (typecheck -33%) |
 | 3 | 3.2 MIR escape analysis | **not adopted** (surveyed: the hot allocations escape for real) |
-| 3 | 3.3 region annotations | open |
+| 3 | 3.3 region annotations | landed (`region` blocks and region records, E0414) |
 | 3 | 3.4 linear resources | landed (E0413) |
-| 3 | 3.5 move-only marker | open |
+| 3 | 3.5 move-only marker | landed (`@move_only`, E0415) |
 | 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
 | 4 | 4.2 egg for straight-line MIR | open |
 | 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
