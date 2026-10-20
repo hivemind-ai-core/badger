@@ -797,17 +797,9 @@ impl<'a> P<'a> {
                 return jerr("expected a colon");
             }
             self.i += 1;
-            // A map key is decoded from its JSON string; reparse the key's own
-            // text so its type sees the same input `dec` gave it.
-            let kw = match P::new(&self.text[kstart..kend]).value(key) {
-                Ok(v) => v,
-                Err(PErr::Dec(e)) => return Err(PErr::Dec(e.name(&k))),
-                Err(PErr::Json(m)) => {
-                    return Err(PErr::Dec(
-                        DecodeError { path: "$".into(), message: format!("invalid JSON: {m}") }.name(&k),
-                    ));
-                }
-            };
+            // a map key is its member name, decoded as the codec encodes it
+            let _ = (kstart, kend);
+            let kw = crate::codec::key_value(key, &k).map_err(|e| PErr::Dec(e.name(&k)))?;
             let vw = self.value(val).map_err(|e| add_name(e, &k))?;
             map::insert_mut(out, kw, vw);
             self.ws();

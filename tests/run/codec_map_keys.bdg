@@ -1,0 +1,41 @@
+// Map keys of any type round-trip: a key's member name is its own encoding
+// (unquoted when that is a string), not its `Display` text.
+import std.codec
+import std.io
+
+@flatten
+@derive(Codec, Eq, Hash)
+pub struct Slug { value: String }
+
+@derive(Codec, Eq, Hash)
+pub enum Color { red, green }
+
+impl Display for Color {
+    fn display(self: &Self) -> String { match self { .red => "Red", .green => "Green" } }
+}
+
+@derive(Codec, Eq)
+pub struct Counts {
+    by_int: Map<Int, String>,
+    by_bool: Map<Bool, Int>,
+    by_pair: Map<(Int, String), Int>,
+    by_color: Map<Color, Int>,
+    by_slug: Map<Slug, Int>,
+}
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let dune: Slug = { value: "dune" }
+    let c: Counts = {
+        by_int: map { 1 => "one", -2 => "minus two" },
+        by_bool: map { true => 1 },
+        by_pair: map { (1, "a") => 3 },
+        by_color: map { Color.red => 4 },
+        by_slug: map { dune => 5 },
+    }
+    let text = codec.encode_text(c)
+    let _ = io.println(text)
+    let back = codec.decode_text<Counts>(text)?
+    let data = codec.from_data<Counts>(codec.to_data(c))?
+    let _ = io.println($"{back == c} {data == c}")
+    ok(())
+}

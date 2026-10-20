@@ -329,7 +329,7 @@ fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
                 if i > 0 {
                     o.push(',');
                 }
-                write_json_quote(&crate::value::display(std::ptr::null_mut(), key, k, true), o);
+                write_json_quote(&key_text(key, k), o);
                 o.push(':');
                 enc(val, v, o);
             }
@@ -636,7 +636,7 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             let Some(m) = j.as_object() else { return fail("expected an object") };
             let out = root(map::new(d));
             for (k, v) in m {
-                let kw = dec(key, &J::String(k.clone())).map_err(|e| e.name(k))?;
+                let kw = key_value(key, k).map_err(|e| e.name(k))?;
                 let vw = dec(val, v).map_err(|e| e.name(k))?;
                 map::insert_mut(out, kw, vw);
             }
@@ -863,7 +863,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             let out = root(map::new(d));
             for (k, v) in map::entries(fields[0]) {
                 let ks = str_of(k);
-                let kw = dec_str_key(key, ks).map_err(|e| e.name(ks))?;
+                let kw = key_value(key, ks).map_err(|e| e.name(ks))?;
                 let vw = dec_data(val, v).map_err(|e| e.name(ks))?;
                 map::insert_mut(out, kw, vw);
             }
@@ -906,6 +906,40 @@ fn lookup_data(entries: &[(u64, u64)], ty: &str, member: &str) -> Option<u64> {
 /// Decode a `Data` object key (a managed string) against `d`, mirroring
 /// `dec(d, &J::String(s))` for the types that can be map keys. Other key
 /// types keep `dec`'s exact errors through the JSON path.
+/// A map key as its object member name: the key's own encoding, unquoted
+/// when that is a string (`"red"` is `red`, `1` is `1`, `[1,"a"]` as is), so
+/// it decodes back with [`key_value`] whatever the key type.
+pub(crate) fn key_text(key: &TypeDesc, k: u64) -> String {
+    let mut t = String::new();
+    enc(key, k, &mut t);
+    if t.starts_with('"') { serde_json::from_str::<String>(&t).unwrap_or(t) } else { t }
+}
+
+/// Does a key type always encode as a JSON string (its member name is the
+/// string itself, never JSON text)?
+fn key_is_text(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::String | Kind::Symbol | Kind::Char | Kind::Bytes => true,
+        Kind::Enum { variants, .. } => {
+            d.name == "Data" || (d.name != "Option" && variants.iter().all(|v| v.fields.is_empty()))
+        }
+        Kind::Record { fields, flat: true, .. } if fields.len() == 1 => key_is_text(fields[0].desc),
+        _ => false,
+    }
+}
+
+/// The key named `name` in an encoded map (see [`key_text`]).
+pub(crate) fn key_value(key: &'static TypeDesc, name: &str) -> Result<u64, DecodeError> {
+    if key_is_text(key) {
+        return dec_str_key(key, name);
+    }
+    // JSON text (`1`, `true`, `[1,"a"]`), or a string variant of a mixed enum
+    match serde_json::from_str::<J>(name) {
+        Ok(j) => dec(key, &j),
+        Err(_) => dec(key, &J::String(name.to_owned())),
+    }
+}
+
 fn dec_str_key(d: &'static TypeDesc, s: &str) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::String => Ok(root(new_string(s))),
