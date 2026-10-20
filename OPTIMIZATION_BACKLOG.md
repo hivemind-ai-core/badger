@@ -658,6 +658,19 @@ loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
 
 ### 3.3 Region annotation on builtin types
 
+**Status:** landed 2026-10-20: `region Scratch { ... }` names a lexical region that ends with
+the block (Tofte-Talpin's letregion, Cyclone's region blocks), and `region` is
+contextual. A struct or enum whose last type parameter is a region
+(`struct Node<R: Scope>`) is a *region record*, branded with its region in `Ty`
+through that argument. The block is checked one level deeper with a fresh
+lexical region skolem, so its records cannot be the block's result, be returned
+or broken out of it, or reach an outer var or captured state; `regions.rs`
+checks the block the way it checks a `for<S>` callback for closures, tasks, dyn
+values and stores. The violations are the new **E0414**. HIR lowers the block to
+an ordinary block plus `Hir::region_blocks`, so the MIR, the codegen and the
+runtime see a plain block, and `TypeDesc` gains a static `region` flag that
+tracing and collection ignore.
+
 **Status:** landed 2026-10-20 as a **static guarantee; the expected win does
 not hold without a runtime arena**. The brand reuses the type checker's
 existing region machinery: a region record is a struct or enum whose last
@@ -754,6 +767,16 @@ mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
   `E04xx` (linear-use-before-move) are reviewed.
 
 ### 3.5 Move-only marker for user-defined types
+
+**Status:** landed 2026-10-20: a struct or enum marked `@move_only` is affine by declaration
+-- its values, and the aggregates holding them, are moved and never copied, and
+each copy the affine check would reject is reported as one. A generic function
+or closure that uses its argument twice, and taking a value out of a borrow, are
+copies too. The diagnostic is **E0415** (E0414 was taken by the region blocks,
+which landed first). Unlike a linear resource (E0413), a move-only value may be
+dropped unused. The item's escape-analysis half does not apply: §3.2 was
+surveyed and not adopted, so the marker's value is the static guarantee, not the
+scalar replacement it would have enabled.
 
 **Status:** **the marker landed; the `sra` half is not adopted with it**
 (2026-10-20). A struct or enum written `@move_only` is affine by
