@@ -1,0 +1,36 @@
+// A `@flatten` struct over an `Option` may be left out, as an `Option`
+// may: decoding a record without it gives the absent value, the schema
+// does not require it, and a nullable column fills it.
+import std.codec
+import std.io
+import std.schema
+import std.sqlite
+import std.time
+
+@flatten
+pub struct Email { address: Option<String> } derive(Codec)
+
+pub struct User { name: String, email: Email } derive(Codec)
+
+pub enum AppError {
+    db(source: sqlite.Error),
+    decode(source: codec.DecodeError),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let t0 = time.now()
+    let u = codec.decode_text<User>("{\"name\":\"ada\"}")?
+    io.println($"{u.name} {u.email.address}")?
+    io.println(codec.encode_text(u))?
+    io.println(schema.json_schema(schema.of<User>()))?
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE users (name TEXT NOT NULL, email TEXT)", [])?
+    sqlite.execute(db, "INSERT INTO users VALUES ('bo', NULL), ('cy', 'cy@example.com')", [])?
+    let us = sqlite.query_as<User>(db, "SELECT name, email FROM users ORDER BY name", [])?
+    for x in us {
+        io.println($"{x.name} {x.email.address}")?
+    }
+    io.println($"{time.since(t0) >= 0s}")?
+    ok(())
+}

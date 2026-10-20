@@ -828,7 +828,7 @@ fn decode(d: &'static TypeDesc, r: &mut Reader<'_>, m: &'static Loaded) -> Resul
             for (f, v) in fields.iter().zip(got) {
                 match v {
                     Some(v) => vals.push(v),
-                    None if f.desc.name == "Option" => vals.push(root(make_enum(f.desc, 0, &[]))),
+                    None if crate::codec::omittable(f.desc) => vals.push(crate::codec::absent(f.desc)),
                     None => return Err(format!("missing field `{}` of `{}`", f.name, d.name)),
                 }
             }

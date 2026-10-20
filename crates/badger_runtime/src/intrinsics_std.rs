@@ -684,7 +684,7 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
                 .collect();
             let required: Vec<String> = fields
                 .iter()
-                .filter(|f| f.desc.name != "Option")
+                .filter(|f| !crate::codec::omittable(f.desc))
                 .map(|f| json_quote(&crate::codec::wire_name(&d.name, &f.name)))
                 .collect();
             format!(
