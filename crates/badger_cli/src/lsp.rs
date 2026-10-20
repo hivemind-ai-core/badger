@@ -1069,18 +1069,22 @@ fn plain_range(file: &str, text: &str, r: &Value) -> Value {
 }
 
 /// The questions `badger query` answers.
-pub const QUERY_KINDS: [&str; 10] = [
+pub const QUERY_KINDS: [&str; 9] = [
     "diagnostics",
     "check",
     "hover",
     "definition",
     "references",
     "completion",
-    "rename",
     "symbols",
     "symbol",
     "api",
 ];
+
+/// The rename, which `badger rename` asks for: it is not a question
+/// `badger query` answers (the rename command computes the edits and
+/// applies them).
+pub const RENAME: &str = "rename";
 
 /// The parser of the question `badger query` answers: the questions are
 /// listed in the help and completed by the shell, and an unknown one is
@@ -1127,7 +1131,9 @@ pub fn query(
         return api(path);
     }
     const KINDS: &[&str] = &QUERY_KINDS;
-    if !KINDS.contains(&kind) {
+    // the rename is the rename command's, not a question `badger query`
+    // answers
+    if !KINDS.contains(&kind) && kind != RENAME {
         return Err(format!("unknown query `{kind}` ({})", KINDS.join(", ")));
     }
     // inputs a kind cannot answer are errors, not empty answers (a check

@@ -528,7 +528,7 @@ impl Mcp {
                             vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
                         subprocess_result(&args)
                     }
-                    "hover" | "definition" | "references" | "completion" | "rename" | "symbols"
+                    "hover" | "definition" | "references" | "completion" | "symbols"
                     | "symbol" | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
@@ -544,11 +544,28 @@ impl Mcp {
                                 },
                             }
                         }
-                        if matches!(kind, "rename" | "symbol")
+                        if kind == "symbol"
                             && let Some(n) = a["name"].as_str()
                         {
                             args.push(format!("--name={n}"));
                         }
+                        subprocess_result(&args)
+                    }
+                    // the rename computes the edits; `--json` writes nothing
+                    "rename" => {
+                        let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
+                        let mut args = vec!["rename".to_string(), arg_path(path)];
+                        for k in ["line", "col"] {
+                            if let Some(v) = a[k].as_u64() {
+                                args.push(format!("--{k}"));
+                                args.push(v.to_string());
+                            }
+                        }
+                        if let Some(n) = a["name"].as_str() {
+                            args.push("--name".into());
+                            args.push(n.to_string());
+                        }
+                        args.push("--json".into());
                         subprocess_result(&args)
                     }
                     // `check` has its own tool
