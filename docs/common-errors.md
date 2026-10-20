@@ -207,6 +207,7 @@ pub fn main() -> Result<Unit, io.Error> {
 |---|---|
 | E0404 | use after move |
 | E0412 | implicit borrow of an owned value |
+| E0413 | linear value not consumed |
 | E0401 | region escape |
 
 Some values have one owner. Passing a builder, a buffer, a lease, or a
@@ -216,7 +217,10 @@ Ordinary function arguments borrow explicitly, so a function that takes
 value: E0412. A value tied to a scope (a transaction, a task handle, a
 running system) cannot outlive the callback that introduced the scope:
 E0401, so return plain data from such a callback instead of the scoped
-value itself.
+value itself. A resource (an open file, a batch lease) must also be
+consumed: a file that is opened and dropped without `close` (or written
+to and dropped) is E0413, on any path that leaves its scope other than
+an error exit (`?`).
 
 ```badger fragment
 pub fn main() -> Result<Unit, io.Error> {

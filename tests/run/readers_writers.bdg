@@ -33,13 +33,13 @@ pub fn main() -> Result<Unit, io.Error> {
         pieces = pieces + 1
     }
     io.println($"{pieces} pieces of at most 4 bytes")?
-    // a closed file refuses further use; a new file cannot replace one
-    match f.write_text("late") {
-        .ok(_) => io.println("wrote after close?")?,
-        .err(e) => io.println($"after close: {e.kind}")?,
-    }
+    r.close()?
+    // a new file cannot replace one (files are linear: one that opens is closed)
     match fs.create_new(p) {
-        .ok(_) => io.println("replaced?")?,
+        .ok(g) => {
+            g.close()?
+            io.println("replaced?")?
+        },
         .err(e) => io.println($"create_new: {e.kind}")?,
     }
     // standard output as a writer

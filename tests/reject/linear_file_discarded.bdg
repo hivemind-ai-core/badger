@@ -1,0 +1,12 @@
+// expect-error: E0413
+// A file discarded with `_` is dropped without being consumed.
+import std.fs
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    match fs.create_new("/tmp/discarded.txt") {
+        .ok(_) => io.println("created")?,
+        .err(e) => io.println($"not created: {e.kind}")?,
+    }
+    ok(())
+}

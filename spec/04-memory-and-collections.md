@@ -16,6 +16,9 @@ Ownership properties are separate from ordinary shape types:
   Primitive values and transitively shareable records inherit this capability.
 - An affine value has one owning use. Moving it invalidates the source binding.
   Builders and mutable buffers are affine. They may be borrowed.
+- A linear value is affine and must also be used: it is consumed exactly once
+  on every path that leaves its scope normally. Resources are linear; see
+  [Linear resources](#linear-resources).
 - Task-confined mutable cells can have aliases within their owning task but
   cannot cross a task boundary. `Cell<T>` is an explicit such type.
 - `Transfer` means the value can cross a task boundary by safe sharing or by
@@ -33,6 +36,54 @@ assert these capabilities without the compiler verifying their representation.
 binding: a unique buffer may be appended to through its owner interface.
 `var` permits rebinding while preserving the binding's type. It does not grant
 mutation rights to shared immutable data.
+
+## Linear resources
+
+Linearity is a property of a type, like affinity, and is checked per binding.
+A value of a linear type is *consumed* when it moves: by its consuming
+operation, by value into a call, by a return, into an aggregate (a record, a
+variant, a list), or into a closure whose body consumes it. Reading or writing
+it through a borrow (a `&self` method, `&x`) uses it without consuming it.
+
+Every path that leaves a linear binding's scope normally must have consumed
+it: the end of the scope, `return`, `break` and `continue` out of the loop
+that binds it, and an assignment over a `var` that still holds one. A linear
+value cannot be discarded by `_` or as an expression statement. A parameter of
+a linear type is a binding of the function's body; a generic parameter is not
+linear, so a function generic in the value it takes (`io.copy`, `io.lines`)
+takes the obligation with the value. A violation is E0413.
+
+Error exits are not checked: `?` and `return err(..)` leave the resource to the
+runtime, which closes it once nothing can reach it (a file) or when its task
+finishes (a lease). So is a call that never returns. The runtime keeps these
+finalizers: linearity is a static guarantee about checked code, not a change
+of representation, and a value held by a dropped aggregate or a generic
+function is still closed by them.
+
+The module that defines a linear type implements its consuming operations and
+may drop its values; every other module, standard or not, is checked.
+
+| Resource | Consumed by | Borrowing uses |
+|---|---|---|
+| `fs.File` | `close` (flushes and closes) or a move | `read`, `write`, `flush`, `write_text` |
+| `channel.Batch<T>` (a batch lease) | `release` or a move | `len`, `items` |
+
+Opening a file and closing it uses it; opening a file and dropping it, or
+writing to it and dropping it, does not. After `close` the file is moved, so a
+later read or write is a use after move (E0404) rather than a runtime
+`#io/closed` error.
+
+Channel endpoints (`Sender`, `Receiver`, their batch forms, and the one-shot
+`ReplySender`/`ReplyReceiver`) are not linear: they are shared handles, copied
+into the tasks that produce or consume, so sending on a sender neither uses
+nor consumes the channel and dropping one copy is not a leak. A channel's
+lifetime is its scope (`channel.open` closes it when the body ends) or an
+explicit `close` on any copy, which the other side observes. A one-shot reply
+answers dynamically (a second send is refused; closing without a reply makes
+the receiver's `recv` return `none`). `websocket.WebSocket` is not linear
+either: one connection is read by one task while another writes, and the
+server side belongs to the request scope that closes it when the session
+returns.
 
 ## Borrowing and regions
 

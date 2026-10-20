@@ -36,7 +36,10 @@ extern "native badger_fs.flush" fn fs_file_flush(file: native.Handle) -> Result<
 extern "native badger_fs.close" fn fs_file_close(file: native.Handle) -> Result<Unit, io.Error> !{Io, Wait}
 
 /// An open file: an `io.Reader` and `io.Writer` (as its mode allows).
-/// Closed by `close`, or once nothing can reach it.
+/// Linear: each file is consumed exactly once, by `close` or by moving it
+/// on (into a call, a return, or a value that holds it); reading and
+/// writing borrow it. A file dropped on an error path (`?`) or held by a
+/// value that is dropped is closed once nothing can reach it.
 pub struct File {
     handle: native.Handle,
 }
@@ -51,8 +54,8 @@ impl io.Writer for File {
 }
 
 impl File {
-    /// Flush and close; later reads and writes fail with `#io/closed`.
-    pub fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_close(self.handle) }
+    /// Flush and close, consuming the file.
+    pub fn close(self: Self) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_close(self.handle) }
     pub fn write_text(self: &Self, text: String) -> Result<Unit, io.Error> !{Io, Wait} { fs_file_write(self.handle, text_to_bytes(text)) }
 }
 

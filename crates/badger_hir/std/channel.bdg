@@ -6,7 +6,10 @@ pub extern type Sender<T>
 pub extern type Receiver<T>
 pub extern type BatchSender<T>
 pub extern type BatchReceiver<T>
-/// A leased, sealed batch of messages; release it when processed.
+/// A leased, sealed batch of messages; release it when processed. Linear:
+/// each lease is consumed exactly once, by `release` or by moving it on;
+/// reading its messages borrows it. A lease dropped on an error path (`?`)
+/// is released when its task finishes.
 pub extern type Batch<T>
 /// The sending half of a one-shot reply: one value, once.
 pub extern type ReplySender<T>

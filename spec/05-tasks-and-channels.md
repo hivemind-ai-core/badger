@@ -132,7 +132,7 @@ The core endpoint operations are:
 | `batch_sender.append(value)` | Wait for capacity and accept into runtime-owned staging |
 | `batch_sender.flush()` | Publish accepted messages preceding this flush for this producer |
 | `receiver.recv()` | Wait for one message; return `.none` after closure and drain |
-| `receiver.recv_batch()` | Receive a leased sealed batch when supported |
+| `receiver.recv_batch()` | Receive a leased sealed batch when supported; the lease is linear (release it) |
 | `sender.close()` | Close admission and initiate publication/drain of accepted data |
 | `try_send` / `try_recv` | Never park; distinguish full, empty, and closed states |
 
