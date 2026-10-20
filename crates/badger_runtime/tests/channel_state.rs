@@ -10,7 +10,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static CH: AtomicU64 = AtomicU64::new(0);
 /// What the helper tasks saw (`u64::MAX`: nothing yet).
-static GOT: [AtomicU64; 2] = [AtomicU64::new(u64::MAX), AtomicU64::new(u64::MAX)];
+static GOT: [AtomicU64; 4] = [
+    AtomicU64::new(u64::MAX),
+    AtomicU64::new(u64::MAX),
+    AtomicU64::new(u64::MAX),
+    AtomicU64::new(u64::MAX),
+];
 static SLOT: AtomicU64 = AtomicU64::new(0);
 
 fn entry(adapter: Adapter) -> u64 {
@@ -157,11 +162,38 @@ fn publish_wakes_a_receiver_per_message() {
     assert_eq!(got, [1, 2]);
 }
 
+/// Three receivers parked on a batch channel, a sealed batch of two: the
+/// batch wakes the first two, and the first is cancelled before it runs.
+/// Its wake is a wake to *retry* -- it takes the message when it runs --
+/// so the cancelled receiver must pass it on, or the second message is
+/// stranded and the third receiver waits for it forever.
+fn cancel_after_retry_wake_passes_the_wake_on() {
+    reset();
+    let roots = gc::Roots::new();
+    let ch = roots.add(channel::new(int(), 4, 2, true));
+    CH.store(ch, Ordering::Relaxed);
+    let ids = [spawn(batch_receiver), spawn(batch_receiver), spawn(batch_receiver)];
+    task::yield_now(); // they park
+    assert_eq!(channel::data(ch).waiters.count(WaitKind::Recv), 3);
+    assert!(matches!(channel::append(ch, 1, true), SendResult::Sent));
+    assert!(matches!(channel::append(ch, 2, true), SendResult::Sent)); // fills the batch: published
+    // the first woken receiver is cancelled before it runs
+    task::cancel(ids[0]);
+    for id in ids {
+        task::await_task(id, false);
+    }
+    let mut got: Vec<u64> = GOT.iter().map(|g| g.load(Ordering::Relaxed)).filter(|v| *v != u64::MAX).collect();
+    got.sort_unstable();
+    assert_eq!(got, vec![1, 2], "both messages were taken: the cancelled receiver's wake went on");
+    assert!(channel::data(ch).batches.is_empty(), "no message was stranded");
+}
+
 extern "C" fn main_task(_: *mut TaskCtx, _: u64, _: *const u64) -> u64 {
     phase_follows_contents();
     send_commits_to_a_parked_selection();
     cancel_after_handoff_keeps_the_value();
     publish_wakes_a_receiver_per_message();
+    cancel_after_retry_wake_passes_the_wake_on();
     0
 }
 
