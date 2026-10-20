@@ -1,0 +1,11 @@
+// expect-error: E0413
+// A file opened, written, and dropped without `close`: writing borrows the
+// file, so nothing consumes it before the end of its scope.
+import std.fs
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let f = fs.create("/tmp/never-closed.txt")?
+    f.write_text("hello")?
+    ok(())
+}

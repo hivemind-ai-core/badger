@@ -69,6 +69,12 @@ thiserror = "2.0.21"
 # --- CLI -------------------------------------------------------------------
 clap = { version = "4.6.7", features = ["derive"] }
 
+# --- solver ----------------------------------------------------------------
+# SMT check for the superoptimiser's algebraic rules (opt-in, `BADGER_MIR_SMT=1`).
+# `bundled` builds the Z3 it ships from source; the optimiser's hot path never
+# calls it. See `crates/badger_mir/src/opt/smt.rs`.
+z3 = { version = "0.21.1", features = ["bundled"] }
+
 # --- testing ---------------------------------------------------------------
 insta = "1.49.0"
 pretty_assertions = "1.4.1"

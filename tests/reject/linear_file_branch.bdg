@@ -1,0 +1,17 @@
+// expect-error: E0413
+// A file closed on one branch only: the other path drops it.
+import std.fs
+import std.io
+
+fn log(p: String, verbose: Bool) -> Result<Unit, io.Error> {
+    let f = fs.append_to(p)?
+    if verbose {
+        f.write_text("detail\n")?
+        f.close()?
+    }
+    ok(())
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    log("/tmp/branch.txt", true)
+}

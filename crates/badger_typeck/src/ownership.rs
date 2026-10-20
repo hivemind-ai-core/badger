@@ -14,6 +14,11 @@
 //! Borrows cannot outlive their owner (returned or escaping their block), and
 //! `&mut` needs an assignable place. Branches merge conservatively and loop
 //! bodies are checked as if run twice.
+//!
+//! Linear values (resources: files, batch leases) are affine and must also
+//! be consumed on every path that leaves their scope normally (see
+//! [`Linear`]): ownership is the `Affine` mode's per-type classification,
+//! tracked per binding, with a must-consume check after the move check.
 
 use badger_base::{Diagnostic, Span};
 use badger_hir::{DefId, DefKind, ExprId, ExprKind, InterpPart, LocalId, PatId, PatKind, Stmt, UnOp};
@@ -89,6 +94,9 @@ struct Own<'i, 'g, 'a> {
     /// A named standard definition that stores a one-shot callback as an
     /// ordinary function (see [`TRUSTED_ONCE_STORE`]).
     stores_once: bool,
+    /// Where each local is moved: a `Local` expression used by value, or a
+    /// closure whose body consumes the capture (the linear check's uses).
+    moves: FxHashSet<(ExprId, LocalId)>,
 }
 
 /// Standard modules whose code is not checked for ownership: they hand
@@ -141,6 +149,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         unread: FxHashMap::default(),
         exits: FxHashMap::default(),
         stores_once: false,
+        moves: FxHashSet::default(),
     };
     o.stores_once = trusted_std(o.inf, d, TRUSTED_ONCE_STORE);
     for p in params.clone() {
@@ -179,6 +188,7 @@ pub fn check_def(inf: &mut Infer<'_, '_>, d: DefId) {
         );
     }
     o.check_escape(body, true);
+    Linear::check(&mut o, d, body, &params);
     o.unused_tasks(body);
     o.check_consuming_result(body);
     // a var's last assigned `Result` that nothing reads afterwards
@@ -759,6 +769,7 @@ pub fn check_deferred_dups(inf: &mut Infer<'_, '_>) {
         unread: FxHashMap::default(),
         exits: FxHashMap::default(),
         stores_once: false,
+        moves: FxHashSet::default(),
     };
     for (def, args, span) in calls {
         o.inf.g.dup_done.borrow_mut().insert(def);
@@ -828,6 +839,7 @@ pub fn generic_pass(inf: &mut Infer<'_, '_>, d: DefId, scheme: &crate::program::
         unread: FxHashMap::default(),
         exits: FxHashMap::default(),
         stores_once: false,
+        moves: FxHashSet::default(),
     };
     for p in params {
         let mut ls = vec![];
@@ -1935,7 +1947,7 @@ impl Own<'_, '_, '_> {
                     .with_code("E0404")
                     .with_label(span, "value used here after move")
                     .with_label(moved, "value moved here")
-                    .with_note("affine values (builders, buffers, leases, consuming closures) have one owning use; borrow with `&` to keep using it"),
+                    .with_note("affine values (builders, buffers, leases, files, consuming closures) have one owning use; borrow with `&` to keep using it"),
                 span,
             );
             return;
@@ -2501,6 +2513,9 @@ impl Own<'_, '_, '_> {
         match &hir.exprs[e].kind {
             ExprKind::Local(l) => {
                 self.use_local(*l, span, mode, st);
+                if mode == Mode::Move {
+                    self.moves.insert((e, *l));
+                }
                 false
             }
             ExprKind::Def { .. } => {
@@ -2753,6 +2768,9 @@ impl Own<'_, '_, '_> {
                     self.use_local(*c, span, mode, st);
                     if mode == Mode::Borrow {
                         borrowed.push(*c);
+                    }
+                    if consumed {
+                        self.moves.insert((e, *c));
                     }
                 }
                 if !borrowed.is_empty() {
@@ -3212,4 +3230,462 @@ fn trusted_std(inf: &Infer<'_, '_>, d: DefId, list: &[(&str, &str)]) -> bool {
     let module = m.path.last().map(|s| inf.sym(*s).to_string()).unwrap_or_default();
     let name = inf.sym(def.name).to_string();
     list.iter().any(|(mm, n)| *mm == module && *n == name)
+}
+
+/// Linear bindings not consumed on some path to here, each with the span
+/// that bound it.
+type Pending = FxHashMap<LocalId, Span>;
+
+/// How a linear value leaves its scope unconsumed.
+#[derive(Clone, Copy)]
+enum Leave {
+    End,
+    Return,
+    Break,
+    Continue,
+    Overwrite,
+}
+
+/// The linear half of the ownership check. A value of a linear type (a
+/// resource: [`crate::env::Builtins::LINEAR_STD`]) is affine, and must also
+/// be consumed -- moved: by its consuming operation (`close`, `release`), by
+/// value into a call, a return, an aggregate, or a closure that consumes it
+/// -- on every path that leaves its binding's scope normally: the end of the
+/// scope, `return`, `break`, `continue`, or an assignment over it. A value
+/// of a linear type cannot be discarded (`_`, an expression statement).
+/// Error exits (`?`, `return err(..)`) and calls that never return are not
+/// checked: there the runtime's finalizer, or the task's exit, releases the
+/// resource. A linear type's own module implements its consuming operations
+/// and may drop its values.
+struct Linear<'o, 'i, 'g, 'a> {
+    o: &'o mut Own<'i, 'g, 'a>,
+    module: badger_hir::ModuleId,
+    /// Loops being walked, innermost last.
+    loops: Vec<ExprId>,
+    /// How many loops enclose each linear binding.
+    depth: FxHashMap<LocalId, usize>,
+    /// Per loop: the pending bindings at its `break`s and `continue`s.
+    exits: FxHashMap<ExprId, (Option<Pending>, Option<Pending>)>,
+}
+
+impl<'o, 'i, 'g, 'a> Linear<'o, 'i, 'g, 'a> {
+    fn check(o: &'o mut Own<'i, 'g, 'a>, d: DefId, body: ExprId, params: &[PatId]) {
+        let module = o.inf.g.hir.defs[d].module;
+        let mut l = Linear { o, module, loops: vec![], depth: FxHashMap::default(), exits: FxHashMap::default() };
+        l.function(body, params);
+    }
+
+    /// A function or closure body: its parameters are bound for the body.
+    fn function(&mut self, body: ExprId, params: &[PatId]) {
+        let loops = std::mem::take(&mut self.loops);
+        let mut p = Pending::default();
+        let mut scope = vec![];
+        for pat in params {
+            self.bind(*pat, &mut p, &mut scope);
+        }
+        if !self.walk(body, &mut p) {
+            let at = self.end_of(body);
+            self.leave(&scope, &mut p, at, Leave::End);
+        }
+        self.loops = loops;
+    }
+
+    /// The linear type `t` is (outside its own module), with the operation
+    /// that consumes it.
+    fn linear(&mut self, t: &Ty) -> Option<(String, &'static str)> {
+        let t = self.o.inf.icx.resolve(t);
+        let TyKind::Con(d, _) = &*t else { return None };
+        let name = self.o.inf.lang_name(*d)?;
+        let (_, consumer) = crate::env::Builtins::LINEAR_STD.iter().find(|(n, _)| *n == name)?;
+        (self.o.inf.g.hir.defs[*d].module != self.module).then_some((name, *consumer))
+    }
+
+    fn local_linear(&mut self, l: LocalId) -> Option<(String, &'static str)> {
+        let t = self.o.local_ty(l)?;
+        self.linear(&t)
+    }
+
+    /// Bind a pattern's linear locals (pending until consumed) and reject a
+    /// linear value it discards.
+    fn bind(&mut self, pat: PatId, p: &mut Pending, scope: &mut Vec<LocalId>) {
+        let hir = self.o.inf.g.hir;
+        match &hir.pats[pat].kind {
+            PatKind::Bind(l) => {
+                if self.local_linear(*l).is_some() {
+                    p.insert(*l, hir.locals[*l].span);
+                    self.depth.insert(*l, self.loops.len());
+                    scope.push(*l);
+                }
+            }
+            PatKind::Discard => {
+                if let Some(t) = self.o.inf.pats.get(&pat).cloned() {
+                    self.discarded(&t, hir.pats[pat].span);
+                }
+            }
+            PatKind::Tuple(ps) => {
+                for x in ps {
+                    self.bind(*x, p, scope);
+                }
+            }
+            PatKind::Record { fields, .. } => {
+                for (_, x) in fields {
+                    self.bind(*x, p, scope);
+                }
+            }
+            PatKind::Variant { args, .. } => {
+                for x in args {
+                    self.bind(*x, p, scope);
+                }
+            }
+            PatKind::Lit(_) | PatKind::Error => {}
+        }
+    }
+
+    fn discarded(&mut self, t: &Ty, span: Span) {
+        let Some((ty, consumer)) = self.linear(t) else { return };
+        self.o.report(
+            Diagnostic::error(format!("a linear `{ty}` is discarded without being consumed"))
+                .with_code("E0413")
+                .with_label(span, "the value is dropped here")
+                .with_note(format!(
+                    "a `{ty}` must be consumed on every path: bind it and call `{consumer}`, or move it on"
+                )),
+            span,
+        );
+    }
+
+    /// The bindings of `scope` still pending leave it at `at`.
+    fn leave(&mut self, scope: &[LocalId], p: &mut Pending, at: Span, how: Leave) {
+        let mut left: Vec<(LocalId, Span)> = scope.iter().filter_map(|l| p.remove(l).map(|s| (*l, s))).collect();
+        left.sort_by_key(|x| x.1.range().start);
+        for (l, bound) in left {
+            self.leak(l, bound, bound, at, how);
+        }
+    }
+
+    fn leak(&mut self, l: LocalId, bound: Span, primary: Span, at: Span, how: Leave) {
+        let Some((ty, consumer)) = self.local_linear(l) else { return };
+        let name = self.o.name(l);
+        let here = match how {
+            Leave::End => "dropped here, at the end of its scope",
+            Leave::Return => "dropped by this `return`",
+            Leave::Break => "dropped by this `break`",
+            Leave::Continue => "dropped by this `continue`",
+            Leave::Overwrite => "overwritten here",
+        };
+        self.o.report(
+            Diagnostic::error(format!("linear value `{name}` is dropped without being consumed"))
+                .with_code("E0413")
+                .with_label(bound, format!("this `{ty}` must be consumed: call `{consumer}`, or move it on"))
+                .with_label(at, here)
+                .with_note(format!(
+                    "a `{ty}` is a linear resource, consumed exactly once on every path; reading or writing it through a borrow does not consume it"
+                )),
+            primary,
+        );
+    }
+
+    /// The last character of an expression (a block's closing brace).
+    fn end_of(&self, e: ExprId) -> Span {
+        let s = self.o.inf.g.hir.exprs[e].span;
+        Span::new(s.file, s.range().end.saturating_sub(1).max(s.range().start), s.range().end)
+    }
+
+    fn union(into: &mut Pending, from: &Pending) {
+        for (l, s) in from {
+            into.entry(*l).or_insert(*s);
+        }
+    }
+
+    /// `return err(..)`: an error exit, like `?`.
+    fn error_exit(&self, v: ExprId) -> bool {
+        let inf = &self.o.inf;
+        let hir = inf.g.hir;
+        let ExprKind::Call { callee, .. } = &hir.exprs[v].kind else { return false };
+        match &hir.exprs[*callee].kind {
+            ExprKind::Def { def, .. } => {
+                hir.modules[hir.defs[*def].module].is_std && inf.sym(hir.defs[*def].name) == "err"
+            }
+            ExprKind::Ctor { enum_def, variant, .. } => {
+                *enum_def == inf.g.env.b.result
+                    && inf
+                        .g
+                        .env
+                        .enums
+                        .get(enum_def)
+                        .and_then(|e| e.variants.get(*variant as usize))
+                        .is_some_and(|v| inf.sym(v.name) == "err")
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether an expression's type is `Never` (a call that never returns).
+    fn never(&mut self, e: ExprId) -> bool {
+        let Some(t) = self.o.inf.exprs.get(&e).cloned() else { return false };
+        let t = self.o.inf.icx.resolve(&t);
+        matches!(&*t, TyKind::Con(d, _) if *d == self.o.inf.g.env.b.never)
+    }
+
+    /// A `break` or `continue` to `target`: the bindings inside the loop
+    /// leave their scope; the others reach the loop's exit or head.
+    fn exit_loop(&mut self, target: ExprId, at: Span, p: &mut Pending, cont: bool) {
+        let Some(k) = self.loops.iter().position(|x| *x == target) else { return };
+        let inner: Vec<LocalId> = p.keys().copied().filter(|l| self.depth.get(l).is_some_and(|d| *d > k)).collect();
+        self.leave(&inner, p, at, if cont { Leave::Continue } else { Leave::Break });
+        let slot = self.exits.entry(target).or_default();
+        let slot = if cont { &mut slot.1 } else { &mut slot.0 };
+        match slot {
+            Some(s) => Self::union(s, p),
+            None => *slot = Some(p.clone()),
+        }
+    }
+
+    /// Walk `e` in evaluation order; true when control does not continue
+    /// after it.
+    fn walk(&mut self, e: ExprId, p: &mut Pending) -> bool {
+        let hir = self.o.inf.g.hir;
+        let span = hir.exprs[e].span;
+        match &hir.exprs[e].kind {
+            ExprKind::Local(l) => {
+                if self.o.moves.contains(&(e, *l)) {
+                    p.remove(l);
+                }
+                false
+            }
+            ExprKind::Lambda(lam) => {
+                for c in &lam.captures {
+                    if self.o.moves.contains(&(e, *c)) {
+                        p.remove(c);
+                    }
+                }
+                let params: Vec<PatId> = lam.params.iter().map(|x| x.pat).collect();
+                self.function(lam.body, &params);
+                false
+            }
+            ExprKind::Block { stmts, tail } => {
+                let mut scope = vec![];
+                for s in stmts {
+                    match s {
+                        Stmt::Let { pat, init, .. } => {
+                            if self.walk(*init, p) {
+                                return true;
+                            }
+                            self.bind(*pat, p, &mut scope);
+                        }
+                        Stmt::Assign { local, value, span } => {
+                            if self.walk(*value, p) {
+                                return true;
+                            }
+                            if self.local_linear(*local).is_some() {
+                                if let Some(bound) = p.get(local).copied() {
+                                    self.leak(*local, bound, *span, *span, Leave::Overwrite);
+                                }
+                                p.insert(*local, *span);
+                            }
+                        }
+                        Stmt::Expr { expr, .. } => {
+                            if self.walk(*expr, p) {
+                                return true;
+                            }
+                            if !matches!(
+                                hir.exprs[*expr].kind,
+                                ExprKind::Local(_) | ExprKind::Field { .. } | ExprKind::Index { .. }
+                            ) && let Some(t) = self.o.inf.exprs.get(expr).cloned()
+                            {
+                                self.discarded(&t, hir.exprs[*expr].span);
+                            }
+                        }
+                    }
+                }
+                if let Some(t) = tail
+                    && self.walk(*t, p)
+                {
+                    return true;
+                }
+                let at = self.end_of(e);
+                self.leave(&scope, p, at, Leave::End);
+                false
+            }
+            ExprKind::If { cond, then, els } => {
+                if self.walk(*cond, p) {
+                    return true;
+                }
+                let mut a = p.clone();
+                let da = self.walk(*then, &mut a);
+                let mut b = p.clone();
+                let db = match els {
+                    Some(x) => self.walk(*x, &mut b),
+                    None => false,
+                };
+                match (da, db) {
+                    (true, true) => return true,
+                    (true, false) => *p = b,
+                    (false, true) => *p = a,
+                    (false, false) => {
+                        Self::union(&mut a, &b);
+                        *p = a;
+                    }
+                }
+                false
+            }
+            ExprKind::Binary { op: badger_hir::BinOp::And | badger_hir::BinOp::Or, lhs, rhs } => {
+                if self.walk(*lhs, p) {
+                    return true;
+                }
+                let mut s = p.clone();
+                if !self.walk(*rhs, &mut s) {
+                    Self::union(p, &s);
+                }
+                false
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                if self.walk(*scrutinee, p) {
+                    return true;
+                }
+                let mut out: Option<Pending> = None;
+                for a in arms {
+                    let mut s = p.clone();
+                    let mut scope = vec![];
+                    self.bind(a.pat, &mut s, &mut scope);
+                    if let Some(g) = a.guard
+                        && self.walk(g, &mut s)
+                    {
+                        continue;
+                    }
+                    if !self.walk(a.body, &mut s) {
+                        let at = self.end_of(a.body);
+                        self.leave(&scope, &mut s, at, Leave::End);
+                        match &mut out {
+                            Some(o) => Self::union(o, &s),
+                            None => out = Some(s),
+                        }
+                    }
+                }
+                match out {
+                    Some(o) => {
+                        *p = o;
+                        false
+                    }
+                    None => !arms.is_empty(),
+                }
+            }
+            ExprKind::While { cond, body } => {
+                self.loops.push(e);
+                let mut broke: Option<Pending> = None;
+                for _ in 0..2 {
+                    self.walk(*cond, p);
+                    let mut s = p.clone();
+                    let d = self.walk(*body, &mut s);
+                    let (b, c) = self.exits.remove(&e).unwrap_or_default();
+                    if !d {
+                        Self::union(p, &s);
+                    }
+                    if let Some(c) = c {
+                        Self::union(p, &c);
+                    }
+                    if let Some(b) = b {
+                        Self::union(broke.get_or_insert_with(Pending::default), &b);
+                    }
+                }
+                self.loops.pop();
+                if let Some(b) = broke {
+                    Self::union(p, &b);
+                }
+                false
+            }
+            ExprKind::For { pat, iter, body } => {
+                if self.walk(*iter, p) {
+                    return true;
+                }
+                self.loops.push(e);
+                let mut broke: Option<Pending> = None;
+                for _ in 0..2 {
+                    let mut s = p.clone();
+                    let mut scope = vec![];
+                    self.bind(*pat, &mut s, &mut scope);
+                    let d = self.walk(*body, &mut s);
+                    if !d {
+                        let at = self.end_of(*body);
+                        self.leave(&scope, &mut s, at, Leave::End);
+                    }
+                    let (b, c) = self.exits.remove(&e).unwrap_or_default();
+                    if !d {
+                        Self::union(p, &s);
+                    }
+                    if let Some(c) = c {
+                        Self::union(p, &c);
+                    }
+                    if let Some(b) = b {
+                        Self::union(broke.get_or_insert_with(Pending::default), &b);
+                    }
+                }
+                self.loops.pop();
+                if let Some(b) = broke {
+                    Self::union(p, &b);
+                }
+                false
+            }
+            ExprKind::Loop { body } => {
+                self.loops.push(e);
+                let mut broke: Option<Pending> = None;
+                for _ in 0..2 {
+                    let mut s = p.clone();
+                    let d = self.walk(*body, &mut s);
+                    let (b, c) = self.exits.remove(&e).unwrap_or_default();
+                    if !d {
+                        Self::union(p, &s);
+                    }
+                    if let Some(c) = c {
+                        Self::union(p, &c);
+                    }
+                    if let Some(b) = b {
+                        Self::union(broke.get_or_insert_with(Pending::default), &b);
+                    }
+                }
+                self.loops.pop();
+                match broke {
+                    Some(b) => {
+                        *p = b;
+                        false
+                    }
+                    None => true,
+                }
+            }
+            ExprKind::Return { value, .. } => {
+                if let Some(v) = value {
+                    if self.walk(*v, p) {
+                        return true;
+                    }
+                    if self.error_exit(*v) {
+                        return true;
+                    }
+                }
+                let all: Vec<LocalId> = p.keys().copied().collect();
+                self.leave(&all, p, span, Leave::Return);
+                true
+            }
+            ExprKind::Break { value, target } => {
+                if let Some(v) = value
+                    && self.walk(*v, p)
+                {
+                    return true;
+                }
+                self.exit_loop(*target, span, p, false);
+                true
+            }
+            ExprKind::Continue { target } => {
+                self.exit_loop(*target, span, p, true);
+                true
+            }
+            kind => {
+                for c in children(kind) {
+                    if self.walk(c, p) {
+                        return true;
+                    }
+                }
+                matches!(kind, ExprKind::Call { .. } | ExprKind::MethodCall { .. }) && self.never(e)
+            }
+        }
+    }
 }

@@ -398,6 +398,50 @@ buf.push(1)   // E0404: use of moved value `buf`
 | E0407 | Returning or storing a borrow that would outlive its owner |
 | E0408 | `&mut` of something not assignable: a plain `let` value (builders and buffers are fine), a temporary, or a shared borrow |
 | E0412 | Passing an owned affine value where a function takes `&T` |
+| E0413 | A resource (file, batch lease) dropped without being closed, released, or moved on |
+
+### Resources are used exactly once
+
+A file and a batch lease are *linear*: affine, and each must be consumed on
+every path out of its scope, by `close` (a file) or `release` (a lease), or
+by moving it on (passing it by value, returning it, storing it). Reads and
+writes borrow it. So a file is closed deterministically, where the program
+says, instead of by the finalizer once nothing can reach it.
+
+```badger
+import std.fs
+import std.io
+import std.path
+
+fn save(f: fs.File, text: String) -> Result<Unit, io.Error> {
+    f.write_text(text)?
+    f.close()
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let dir = fs.make_temp_dir("guide-")?
+    let p = path.join(dir, "notes.txt")
+    let f = fs.create(p)?
+    f.write_text("first\n")?
+    save(f, "second\n")?
+    io.print(fs.read_text(p)?)?
+    fs.remove_all(dir)
+}
+```
+
+```text
+first
+second
+```
+
+Leaving out the `save` call is E0413: the file is written (borrowed) but
+never consumed. The diagnostic points at the binding and at where the value
+is dropped: the end of its scope, a `return`, a `break` or `continue`, or an
+assignment over it. Discarding one (`let _ = fs.open(p)?`, `.ok(_)`) is E0413
+too. An error exit (`?`, `return err(..)`) is not checked: there the runtime
+closes the file, as it does for a file held by a value that is dropped.
+Channel endpoints are shared handles, not resources of this kind: see
+[the specification](../../spec/04-memory-and-collections.md#linear-resources).
 
 ### Moving into a task
 

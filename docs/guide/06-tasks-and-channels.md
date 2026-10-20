@@ -393,7 +393,8 @@ delivery. Heap limits are separate (`[runtime] heap_max_bytes`).
 `channel.batch` (and the scoped `channel.open_batch`) stage appended
 messages and publish them in sealed batches. `sender.append(v)` stages,
 `sender.flush()` publishes, `receiver.recv_batch()` returns a leased
-`Batch<T>`, and `batch.release()` returns its page. `examples/09_batch_channels.bdg`
+`Batch<T>`, and `batch.release()` returns its page. The lease is linear:
+every path that keeps it must release it or move it on (E0413). `examples/09_batch_channels.bdg`
 is a complete program; [std.channel](../api/channel.md) has every option.
 
 ## Select one of several operations
