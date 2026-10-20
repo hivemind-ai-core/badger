@@ -14,7 +14,7 @@ columns in characters.
 ### `ApiItem`
 
 ```badger
-struct ApiItem { pub module: String, pub name: String, pub kind: String, pub signature: String, pub declaration: String, pub doc: String } derive(Codec, Display)
+@derive(Codec, Display) struct ApiItem { pub module: String, pub name: String, pub kind: String, pub signature: String, pub declaration: String, pub doc: String }
 ```
 
 A public item of a module's interface.
@@ -22,7 +22,7 @@ A public item of a module's interface.
 ### `Check`
 
 ```badger
-struct Check { pub ok: Bool, pub diagnostics: List<compiler.Diagnostic>, pub inputs: List<compiler.Input>, pub unused_overlays: List<String>, pub roots: List<compiler.Root>, pub tests: List<String>, pub tasks: List<compiler.TaskSite> } derive(Codec, Display)
+@derive(Codec, Display) struct Check { pub ok: Bool, pub diagnostics: List<compiler.Diagnostic>, pub inputs: List<compiler.Input>, pub unused_overlays: List<String>, pub roots: List<compiler.Root>, pub tests: List<String>, pub tasks: List<compiler.TaskSite> }
 ```
 
 The result of checking a project with proposed file contents.
@@ -30,31 +30,31 @@ The result of checking a project with proposed file contents.
 ### `Completion`
 
 ```badger
-struct Completion { pub name: String, pub detail: Option<String> } derive(Codec, Display)
+@derive(Codec, Display) struct Completion { pub name: String, pub detail: Option<String> }
 ```
 
 ### `Declaration`
 
 ```badger
-struct Declaration { pub name: String, pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int } derive(Codec, Display)
+@derive(Codec, Display) struct Declaration { pub name: String, pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int }
 ```
 
 ### `Diagnostic`
 
 ```badger
-struct Diagnostic { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub severity: String, pub code: Option<String>, pub message: String, pub notes: List<String>, pub label: String, pub expected: Option<String>, pub actual: Option<String>, pub scope: Option<String>, pub related: List<compiler.Related>, pub declarations: List<compiler.Declaration> } derive(Codec, Display)
+@derive(Codec, Display) struct Diagnostic { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub severity: String, pub code: Option<String>, pub message: String, pub notes: List<String>, pub label: String, pub expected: Option<String>, pub actual: Option<String>, pub scope: Option<String>, pub related: List<compiler.Related>, pub declarations: List<compiler.Declaration> }
 ```
 
 ### `Edge`
 
 ```badger
-struct Edge { pub from: String, pub to: String } derive(Codec, Display)
+@derive(Codec, Display) struct Edge { pub from: String, pub to: String }
 ```
 
 ### `Edit`
 
 ```badger
-struct Edit { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub text: String } derive(Codec, Display)
+@derive(Codec, Display) struct Edit { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub text: String }
 ```
 
 A replacement of the text between two positions.
@@ -77,7 +77,7 @@ fn display(self: &Self) -> String
 ### `Graph`
 
 ```badger
-struct Graph { pub nodes: List<String>, pub edges: List<compiler.Edge> } derive(Codec, Display)
+@derive(Codec, Display) struct Graph { pub nodes: List<String>, pub edges: List<compiler.Edge> }
 ```
 
 Program structure: named nodes and directed edges.
@@ -85,7 +85,7 @@ Program structure: named nodes and directed edges.
 ### `Input`
 
 ```badger
-struct Input { pub file: String, pub proposed: Bool, pub bytes: Int, pub hash: String } derive(Codec, Display)
+@derive(Codec, Display) struct Input { pub file: String, pub proposed: Bool, pub bytes: Int, pub hash: String }
 ```
 
 A file a check read: whether it was proposed content (rather than the
@@ -94,19 +94,19 @@ file on disk), its size in bytes, and a hash of its text.
 ### `Location`
 
 ```badger
-struct Location { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int } derive(Codec, Display)
+@derive(Codec, Display) struct Location { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int }
 ```
 
 ### `Related`
 
 ```badger
-struct Related { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub message: String } derive(Codec, Display)
+@derive(Codec, Display) struct Related { pub file: String, pub line: Int, pub col: Int, pub end_line: Int, pub end_col: Int, pub message: String }
 ```
 
 ### `Root`
 
 ```badger
-struct Root { pub entry: String, pub module: Option<String>, pub function: Option<String> } derive(Codec, Display)
+@derive(Codec, Display) struct Root { pub entry: String, pub module: Option<String>, pub function: Option<String> }
 ```
 
 An entry point a check covered: `main`, an `[entries]` name, or
@@ -115,13 +115,13 @@ An entry point a check covered: `main`, an `[entries]` name, or
 ### `Symbol`
 
 ```badger
-struct Symbol { pub name: String, pub kind: String, pub detail: String, pub line: Int, pub col: Int, pub container: Option<String> } derive(Codec, Display)
+@derive(Codec, Display) struct Symbol { pub name: String, pub kind: String, pub detail: String, pub line: Int, pub col: Int, pub container: Option<String> }
 ```
 
 ### `TaskSite`
 
 ```badger
-struct TaskSite { pub function: String, pub file: String, pub line: Int, pub col: Int } derive(Codec, Display)
+@derive(Codec, Display) struct TaskSite { pub function: String, pub file: String, pub line: Int, pub col: Int }
 ```
 
 Where a task is spawned (`spawn` or `capture`), and the function

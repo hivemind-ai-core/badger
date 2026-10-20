@@ -20,7 +20,7 @@ task as a defect.
 ### `Error`
 
 ```badger
-struct Error { pub kind: Symbol, pub message: String } derive(Codec)
+@derive(Codec) struct Error { pub kind: Symbol, pub message: String }
 ```
 
 An expected failure reported by a native module: a `kind` such as

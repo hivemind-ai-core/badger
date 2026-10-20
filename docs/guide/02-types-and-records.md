@@ -657,9 +657,11 @@ configuration, and appears in schemas as its field's value.
 
 ```badger fragment
 @flatten
-pub struct BookId { value: Int } derive(Codec)
+@derive(Codec)
+pub struct BookId { value: Int }
 
-pub struct Book { id: BookId, title: String } derive(Codec)
+@derive(Codec)
+pub struct Book { id: BookId, title: String }
 // {"id":7,"title":"Dune"}
 ```
 

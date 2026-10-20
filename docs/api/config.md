@@ -29,7 +29,7 @@ A resolved configuration and the provenance of each of its settings.
 ### `Secret`
 
 ```badger
-struct Secret { value: String } derive(Codec)
+@derive(Codec) struct Secret { value: String }
 ```
 
 A secret setting: configured like a string, but shown and encoded as

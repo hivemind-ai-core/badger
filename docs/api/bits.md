@@ -16,7 +16,7 @@ returns a new set.
 ### `BitSet`
 
 ```badger
-struct BitSet { words: List<Int> } derive(Eq)
+@derive(Eq) struct BitSet { words: List<Int> }
 ```
 
 Equal sets have equal words (trailing zero words are dropped).

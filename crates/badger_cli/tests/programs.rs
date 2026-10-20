@@ -1279,7 +1279,7 @@ fn explain_types() {
         ("Point", "struct Point { x: Int, y: Int }"),
         ("Shape", "enum Shape { circle(r: Int), empty }"),
         ("Pair", "type Pair<T> = (T, T)"),
-        ("Box2", "struct Box2<T> { pub value: T, count: Int } derive(Eq)"),
+        ("Box2", "@derive(Eq) struct Box2<T> { pub value: T, count: Int }"),
         ("Named", "protocol Named { name: fn(&Self) -> String }"),
         ("show_all", "fn<T, U>(T, U) -> String where T: Display, U: Display, U: Eq"),
     ];

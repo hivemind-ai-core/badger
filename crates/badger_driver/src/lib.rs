@@ -2126,10 +2126,11 @@ pub fn describe_def(
                 .collect();
             let derives: Vec<String> =
                 sd.derives.iter().map(|d| interner.resolve(hir.defs[d.protocol].name).to_string()).collect();
+            // as written: `@derive(Eq) struct ...` (one line, for hovers too)
             let der =
-                if derives.is_empty() { String::new() } else { format!(" derive({})", derives.join(", ")) };
+                if derives.is_empty() { String::new() } else { format!("@derive({}) ", derives.join(", ")) };
             return Some((
-                format!("struct {name}{} {{ {} }}{der}", gen_list(&gn), fields.join(", ")),
+                format!("{der}struct {name}{} {{ {} }}", gen_list(&gn), fields.join(", ")),
                 "(a type)".into(),
             ));
         }
