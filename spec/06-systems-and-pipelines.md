@@ -219,8 +219,8 @@ once, with a block or `=> expression` body, and at least one is present;
 callbacks capture the factory's parameters. A callback may annotate its own
 result (`enter(ctx) -> Result<_, E> { ... }`), which takes precedence over
 the stage's. The optional `-> Result<_, E>`
-names the stage's error type once: it annotates the results of `enter` and
-`leave` and the type of `error`'s error parameter. `as #label` names the
+names the stage's error type once: it annotates the results of `enter`,
+`leave`, and `around` and the type of `error`'s error parameter. `as #label` names the
 stage explicitly, as for providers. `requires` / `ensures` lines before a
 stage are its factory's contract. A `pub stage` declares its parameter
 types; its `pipeline.Stage` type follows from its callbacks. `stage` is a

@@ -10,7 +10,7 @@ type Ctx = { path: String }
 
 fn say(s: String) -> Unit { let _ = io.println(s) }
 
-stage logged() -> Result<Unit, AppError> {
+stage logged() -> Result<_, AppError> {
     around(ctx: Ctx, next) {
         say($"in {ctx.path}")
         let r = next(ctx)

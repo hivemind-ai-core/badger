@@ -714,8 +714,6 @@ impl<'a, 'i> Lower<'a, 'i> {
             let own = m.ret.map(|t| self.ty(t));
             let ret = match kind {
                 _ if own.is_some() => own,
-                // `around(ctx, next)` returns the rest's `Result<Reply, E>`
-                "around" => None,
                 "error" => {
                     // `error(ctx, error)`: the error parameter has the stage's error type
                     if let (Some(e), Some(p)) = (error_ty, params.get_mut(1))
