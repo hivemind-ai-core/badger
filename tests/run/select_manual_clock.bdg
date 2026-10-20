@@ -1,0 +1,23 @@
+// Under a controlled clock, `select` and `choose` time out on virtual time,
+// exactly as `task.sleep` does (not on the real clock).
+import std.channel
+import std.io
+import std.task
+import std.test
+import std.time
+
+pub fn main() -> Result<Unit, channel.ConfigError> {
+    test.manual_clock(0)
+    let ch = channel.create<Int>(channel.defaults)?
+    let t0 = time.now()
+    let r = channel.select([channel.Op.recv(ch.receiver)], some(250ms))
+    let is_timeout = match r { .timeout => true, _ => false }
+    let _ = io.println($"timeout {is_timeout} virtual elapsed {time.as_millis(time.now() - t0)}ms (expected 250)")
+    let t1 = time.now()
+    let c = channel.choose([channel.on_recv(ch.receiver, fn(v: Option<Int>) { v })], some(300ms))
+    let _ = io.println($"choose {c} virtual elapsed {time.as_millis(time.now() - t1)}ms (expected 300)")
+    let t2 = time.now()
+    task.sleep(100ms)
+    let _ = io.println($"sleep virtual elapsed {time.as_millis(time.now() - t2)}ms (expected 100)")
+    ok(())
+}

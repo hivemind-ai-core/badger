@@ -1,0 +1,3 @@
+timeout true virtual elapsed 250ms (expected 250)
+choose none virtual elapsed 300ms (expected 300)
+sleep virtual elapsed 100ms (expected 100)

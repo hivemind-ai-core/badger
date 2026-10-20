@@ -325,7 +325,8 @@ define_intrinsics! {
         g.add(chans);
         g.add(values);
         let n = crate::list::len(kinds);
-        let deadline = if (timeout as i64) >= 0 { Some(std::time::Instant::now() + std::time::Duration::from_nanos(timeout)) } else { None };
+        // on the task clock, which a test may control (as `task.sleep` is)
+        let deadline = if (timeout as i64) >= 0 { Some(task::monotonic_nanos().saturating_add(timeout as i64)) } else { None };
         if n == 0 {
             return make_variant(ret, "timeout", &[]);
         }
@@ -359,7 +360,7 @@ define_intrinsics! {
                 }
             }
             if let Some(dl) = deadline
-                && std::time::Instant::now() >= dl {
+                && task::monotonic_nanos() >= dl {
                     return make_variant(ret, "timeout", &[]);
                 }
             for i in 0..n {
@@ -369,7 +370,7 @@ define_intrinsics! {
             // a rendezvous partner may commit one of these cases while we wait
             offer_cases(kinds, chans, |i| crate::list::get(values, i));
             match deadline {
-                Some(dl) => { task::sleep(dl.saturating_duration_since(std::time::Instant::now())); }
+                Some(dl) => { task::sleep(std::time::Duration::from_nanos(dl.saturating_sub(task::monotonic_nanos()).max(0) as u64)); }
                 None => { task::park_for("select"); }
             }
             for i in 0..n {
@@ -397,7 +398,8 @@ define_intrinsics! {
         g.add(values);
         g.add(odescs);
         let n = crate::list::len(kinds);
-        let deadline = if (timeout as i64) >= 0 { Some(std::time::Instant::now() + std::time::Duration::from_nanos(timeout)) } else { None };
+        // on the task clock, which a test may control (as `task.sleep` is)
+        let deadline = if (timeout as i64) >= 0 { Some(task::monotonic_nanos().saturating_add(timeout as i64)) } else { None };
         let result = |i: i64, v: u64| make_record(ret, &[("index", i as u64), ("value", v)]);
         if n == 0 {
             return result(-1, 0);
@@ -440,7 +442,7 @@ define_intrinsics! {
                 return result(-1, 0);
             }
             if let Some(dl) = deadline
-                && std::time::Instant::now() >= dl
+                && task::monotonic_nanos() >= dl
             {
                 return result(-1, 0);
             }
@@ -454,7 +456,7 @@ define_intrinsics! {
             }
             match deadline {
                 Some(dl) => {
-                    task::sleep(dl.saturating_duration_since(std::time::Instant::now()));
+                    task::sleep(std::time::Duration::from_nanos(dl.saturating_sub(task::monotonic_nanos()).max(0) as u64));
                 }
                 None => {
                     task::park_for("select");
