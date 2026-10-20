@@ -1,0 +1,10 @@
+// Local functions inside a test are its helpers, not tests: whatever their
+// names, `badger test` neither runs them nor warns that they take
+// parameters.
+import std.test
+
+fn test_sum() {
+    fn test_value(n: Int) -> Int => n * 2
+    fn helper() -> Int => 1
+    test.assert_eq(test_value(2) + helper(), 5)
+}

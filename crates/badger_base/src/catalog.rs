@@ -359,7 +359,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0193",
         "misplaced status",
-        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one code from 100 to 599 (an error otherwise), and a warning when the enum does not derive `HttpError`. Variants without one answer 500.",
+        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one error code from 400 to 599 (an error otherwise, as is a second `@status`), and a warning when the enum does not derive `HttpError`. Variants without one answer 500. `derive(HttpError)` itself is for an enum (on a struct it is this error).",
     ),
     (
         "E0192",

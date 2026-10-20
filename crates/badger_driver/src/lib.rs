@@ -1801,9 +1801,14 @@ pub fn take_tests() -> (usize, usize, Vec<String>) {
 /// Set while `badger test --list` collects names (nothing runs).
 pub static LISTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-pub fn finish_tests(json: bool) -> i32 {
+pub fn finish_tests(json: bool, filter: Option<&str>) -> i32 {
     let t = TALLY.lock().unwrap().take();
     let (ran, failed, results) = t.map(|t| (t.ran, t.failed, t.results)).unwrap_or((0, 0, vec![]));
+    // a filter that selects nothing is most likely mistyped: not a pass
+    let unmatched = filter.filter(|_| ran == 0 && results.is_empty());
+    if let Some(f) = unmatched {
+        eprintln!("error: no test matches `{f}`");
+    }
     if LISTING.load(std::sync::atomic::Ordering::Relaxed) {
         if json {
             println!("{{\"tests\":[{}]}}", results.join(","));
@@ -1815,11 +1820,11 @@ pub fn finish_tests(json: bool) -> i32 {
     } else {
         println!(
             "\ntest result: {}. {} passed; {failed} failed",
-            if failed == 0 { "ok" } else { "FAILED" },
+            if failed == 0 && unmatched.is_none() { "ok" } else { "FAILED" },
             ran - failed
         );
     }
-    if failed == 0 { 0 } else { 1 }
+    if failed == 0 && unmatched.is_none() { 0 } else { 1 }
 }
 
 fn run_tests(c: &badger_codegen::Compiled, prog: &badger_mir::Program, opts: &RunOptions) -> i32 {

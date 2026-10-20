@@ -1,0 +1,6 @@
+// expect-error: E0192
+// `@flatten` takes no arguments.
+@flatten(value)
+pub struct BookId { value: Int }
+
+pub fn main() -> Unit {}

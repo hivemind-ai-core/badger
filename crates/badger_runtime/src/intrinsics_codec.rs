@@ -738,7 +738,7 @@ fn resolve_layers(
         }
         let value = match cs.last() {
             Some(c) => c.value.clone(),
-            None if l.desc.name == "Option" => serde_json::Value::Null,
+            None if crate::codec::omittable(l.desc) => serde_json::Value::Null,
             None => {
                 let msg = if !mode.profile {
                     "missing required environment variable".to_string()

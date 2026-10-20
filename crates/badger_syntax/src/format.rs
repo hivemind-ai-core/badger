@@ -20,12 +20,14 @@ pub fn format(src: &str) -> String {
     // a line ending in an operator (or `=`, `=>`) continues on the next,
     // which is indented one level past the statement's first line
     let mut continued: Option<usize> = None;
-    let lines: Vec<&str> = src.lines().collect();
+    // lines without their `\n`; a `\r` before it is kept here, and is
+    // dropped from code lines (the file's line ending is restored below)
+    let lines: Vec<&str> = src.split_inclusive('\n').map(|l| l.strip_suffix('\n').unwrap_or(l)).collect();
     for (li, raw) in lines.iter().enumerate() {
         let line = raw.trim_end();
         if in_raw_string || in_block_comment > 0 {
             // inside multi-line literals and comments: keep the line verbatim
-            // (a raw string's trailing spaces are part of its value)
+            // (a raw string's trailing spaces and `\r` are part of its value)
             let line = if in_raw_string { raw } else { line };
             out.push_str(line);
             out.push('\n');
@@ -68,9 +70,14 @@ pub fn format(src: &str) -> String {
             out.push_str("    ");
         }
         out.push_str(trimmed);
-        out.push('\n');
         let before = stack.len();
         scan(trimmed, &mut stack, indent, &mut in_block_comment, &mut in_raw_string);
+        if in_raw_string {
+            // a raw string opened on this line: what follows the opening
+            // quotes, to the line's end, is part of its value
+            out.push_str(&raw[line.len()..]);
+        }
+        out.push('\n');
         prev_opened = stack.len() > before || trimmed.ends_with(['{', '(', '[']);
         continued = if !in_raw_string && in_block_comment == 0 && ends_continued(trimmed) {
             Some(continued.unwrap_or(indent))
@@ -86,6 +93,20 @@ pub fn format(src: &str) -> String {
     }
     if !out.ends_with('\n') {
         out.push('\n');
+    }
+    // a file written with `\r\n` keeps it (lines ending in a `\r` of
+    // their own, inside raw strings, already have it)
+    if src.find('\n').is_some_and(|i| i > 0 && src.as_bytes()[i - 1] == b'\r') {
+        let mut crlf = String::with_capacity(out.len() + out.len() / 32);
+        let mut prev = '\0';
+        for c in out.chars() {
+            if c == '\n' && prev != '\r' {
+                crlf.push('\r');
+            }
+            crlf.push(c);
+            prev = c;
+        }
+        return crlf;
     }
     out
 }
@@ -210,5 +231,18 @@ mod tests {
         // trailing spaces and a tab-only line inside are part of the value
         let spaces = "let s = \"\"\"\na  \n\t\n\"\"\"\n";
         assert_eq!(format(spaces), spaces);
+        // so are those on the line that opens it
+        let opening = "fn f() {\n    let s = \"\"\"abc   \n\"\"\"\n}\n";
+        assert_eq!(format(opening), opening);
+    }
+
+    #[test]
+    fn line_endings_are_kept() {
+        // a CRLF file stays CRLF, and a raw string's own `\r` is kept
+        let crlf = "fn f() {\r\nlet s = \"\"\"a\r\nb\"\"\"\r\n}\r\n";
+        assert_eq!(format(crlf), "fn f() {\r\n    let s = \"\"\"a\r\nb\"\"\"\r\n}\r\n");
+        let mixed = "fn f() {\nlet s = \"\"\"a\r\nb\"\"\"\n}\n";
+        assert_eq!(format(mixed), "fn f() {\n    let s = \"\"\"a\r\nb\"\"\"\n}\n");
+        assert_eq!(format(&format(crlf)), format(crlf));
     }
 }

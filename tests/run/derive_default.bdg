@@ -20,7 +20,7 @@ pub struct Settings {
 pub struct Pair<T> { a: T, b: T }
 
 @derive(Default)
-pub struct Flags { on: Bool }
+pub struct Flags { on: Bool, marker: Unit }
 
 pub fn main() -> Result<Unit, io.Error> {
     let s: Settings = Settings.default()
@@ -28,5 +28,7 @@ pub fn main() -> Result<Unit, io.Error> {
     let p: Pair<Int> = default_of()
     let custom = { ..Settings.default(), name: "svc", verbose: true }
     io.println($"{p.a} {p.b} {custom.name} {custom.verbose} {Flags.default().on}")?
+    let u: Unit = default_of()
+    io.println($"{u} {Unit.default()} {Flags.default().marker}")?
     ok(())
 }

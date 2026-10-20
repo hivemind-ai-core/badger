@@ -466,10 +466,12 @@ fn resource<T>() -> system.Provider<Options, Endpoints<T>, ConfigError> where T:
 ```
 
 A channel as a system resource: `component(channel.resource<Event>(),
-options)` creates it when the node starts and closes its sender when the
-node halts (after the nodes that use it, which halt first). Publishers
-take `ref(#key).sender`, consumers `ref(#key).receiver`, so a request
-handler can hand events to a background worker in another node.
+options)` creates it when the node starts and closes its sender as the
+system starts halting, before any worker is stopped: a consumer whose
+worker drains (`worker.drain(limit)`) receives what is queued, then
+`none`; a send after that fails. Publishers take `ref(#key).sender`,
+consumers `ref(#key).receiver`, so a request handler can hand events to
+a background worker in another node.
 
 ### `route`
 

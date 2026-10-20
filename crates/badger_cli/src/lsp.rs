@@ -244,6 +244,10 @@ struct Server {
     /// them, dropped at the next change): a module reachable only from a
     /// task still has its uses found and renamed.
     entries: HashMap<PathBuf, Vec<Analysis>>,
+    /// Whether adding `?` at an offset of a file's text checks (by the
+    /// text's hash): the quick fix for an ignored `Result` is offered only
+    /// where it does.
+    propagates: HashMap<(u64, usize), bool>,
 }
 
 impl Server {
@@ -256,6 +260,7 @@ impl Server {
             owner: HashMap::new(),
             dirty: HashSet::new(),
             entries: HashMap::new(),
+            propagates: HashMap::new(),
         }
     }
 
@@ -622,10 +627,13 @@ impl Server {
             // an ignored `Result`: propagate it, or discard it explicitly
             if d["code"] == "E0337" {
                 let (start, end) = (d["range"]["start"].clone(), d["range"]["end"].clone());
-                for (title, at, new_text) in [
+                let warning = d["severity"].as_u64().is_some_and(|s| s > 1);
+                let propagate = self.propagates_at(&file, &text, offset(&text, &end), warning);
+                let fixes = [
                     ("Propagate the error with `?`", end, "?"),
                     ("Discard the result with `let _ =`", start, "let _ = "),
-                ] {
+                ];
+                for (title, at, new_text) in fixes.into_iter().skip(if propagate { 0 } else { 1 }) {
                     actions.push(json!({
                         "title": title,
                         "kind": "quickfix",
@@ -702,6 +710,8 @@ impl Server {
         if !locs.iter().any(|(l, _)| l.path == path && l.start <= off && off <= l.end) {
             return Err("nothing to rename here".into());
         }
+        let file = doc_path(params);
+        self.check_rename(&file, &locs, &old, new)?;
         let mut changes: HashMap<String, Vec<Value>> = HashMap::new();
         for (l, shorthand) in &locs {
             let mut e = self.loc_json(l);
@@ -711,6 +721,172 @@ impl Server {
             changes.entry(uri).or_default().push(e);
         }
         Ok(json!({ "changes": changes }))
+    }
+
+    /// Does the program still check with `?` added at byte `at` of
+    /// `file` (the enclosing function returns a `Result` whose error the
+    /// ignored one converts into)? Analysed once per text and offset.
+    fn propagates_at(&mut self, file: &Path, text: &str, at: usize, fixes_warning: bool) -> bool {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        text.hash(&mut h);
+        let key = (h.finish(), at);
+        if let Some(ok) = self.propagates.get(&key) {
+            return *ok;
+        }
+        let Some(before) = self.analysis_for(file) else { return false };
+        let errors = |a: &Analysis| {
+            a.diagnostics.iter().filter(|d| d.severity == badger_base::Severity::Error).count()
+        };
+        let was = errors(before);
+        let mut edited = text.to_string();
+        if at > edited.len() || !edited.is_char_boundary(at) {
+            return false;
+        }
+        edited.insert(at, '?');
+        let mut overlays = self.docs.clone();
+        overlays.insert(file.to_path_buf(), edited);
+        let prog = self.owner.get(file).cloned().unwrap_or_else(|| self.program_path(file));
+        let after = analyze_owning(&prog, file, &overlays).1;
+        // the fix removes the ignored `Result` (an error, or a warning
+        // where allowed) and adds no error of its own
+        let ok = if fixes_warning { errors(&after) <= was } else { errors(&after) < was };
+        if self.propagates.len() > 256 {
+            self.propagates.clear();
+        }
+        self.propagates.insert(key, ok);
+        ok
+    }
+
+    /// Refuse a rename that changes what the program means: the renamed
+    /// text is analysed again, and every reference must resolve as before
+    /// (no use captured by, or captured from, another `new`), with no new
+    /// errors (a second definition of `new`).
+    fn check_rename(
+        &self,
+        file: &Path,
+        locs: &[(analysis::Loc, bool)],
+        old: &str,
+        new: &str,
+    ) -> Result<(), String> {
+        let Some(before) = self.analysis_for(file) else { return Ok(()) };
+        let prog = self.owner.get(file).cloned().unwrap_or_else(|| self.program_path(file));
+        // the edits of each file, sorted: (old start, old end, new length)
+        let mut edits: HashMap<String, Vec<(usize, usize, usize)>> = HashMap::new();
+        for (l, shorthand) in locs {
+            let len = if *shorthand { old.len() + 2 + new.len() } else { new.len() };
+            edits
+                .entry(canonical(Path::new(&l.path)).display().to_string())
+                .or_default()
+                .push((l.start, l.end, len));
+        }
+        let mut overlays = self.docs.clone();
+        for (path, es) in &mut edits {
+            es.sort();
+            let Some(f) =
+                before.files.iter().find(|f| canonical(Path::new(&f.path)).display().to_string() == *path)
+            else {
+                continue;
+            };
+            let mut text = f.text.clone();
+            let mut mine: Vec<&(analysis::Loc, bool)> = locs
+                .iter()
+                .filter(|(l, _)| canonical(Path::new(&l.path)).display().to_string() == *path)
+                .collect();
+            mine.sort_by_key(|(l, _)| std::cmp::Reverse(l.start));
+            for (l, shorthand) in mine {
+                let t = if *shorthand { format!("{old}: {new}") } else { new.to_string() };
+                text.replace_range(l.start..l.end, &t);
+            }
+            overlays.insert(PathBuf::from(path), text);
+        }
+        let after = if prog.is_dir() || prog == file {
+            analysis::analyze(&prog, overlays)
+        } else {
+            analyze_owning(&prog, file, &overlays).1
+        };
+        // a position in either text, as one in the text before: inside an
+        // edit it is that edit (its spelling changed), elsewhere shifted back
+        #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+        enum Pos {
+            Plain(String, usize),
+            Edit(String, usize),
+        }
+        let canon = |path: &str, off: usize, renamed: bool| -> Pos {
+            let key = canonical(Path::new(path)).display().to_string();
+            let mut shift: isize = 0;
+            for (i, (s, e, n)) in edits.get(&key).map(|v| v.as_slice()).unwrap_or(&[]).iter().enumerate() {
+                let (s2, e2) = if renamed {
+                    ((*s as isize + shift) as usize, (*s as isize + shift) as usize + n)
+                } else {
+                    (*s, *e)
+                };
+                if off >= s2 && off < e2.max(s2 + 1) {
+                    return Pos::Edit(key, i);
+                }
+                if off < s2 {
+                    break;
+                }
+                shift += *n as isize - (*e - *s) as isize;
+            }
+            let back = if renamed { (off as isize - shift) as usize } else { off };
+            Pos::Plain(key, back)
+        };
+        let resolutions = |a: &Analysis, renamed: bool| -> HashMap<Pos, HashSet<Pos>> {
+            let mut m: HashMap<Pos, HashSet<Pos>> = HashMap::new();
+            for f in &a.files {
+                for r in &f.refs {
+                    let Some(t) = &r.target else { continue };
+                    if t.start == r.start && t.path == f.path {
+                        continue;
+                    }
+                    let to = if t.path.starts_with('<') {
+                        Pos::Plain(t.path.clone(), t.start)
+                    } else {
+                        canon(&t.path, t.start, renamed)
+                    };
+                    m.entry(canon(&f.path, r.start, renamed)).or_default().insert(to);
+                }
+            }
+            m
+        };
+        let errors = |a: &Analysis| {
+            a.diagnostics.iter().filter(|d| d.severity == badger_base::Severity::Error).count()
+        };
+        if errors(&after) > errors(before) {
+            let d = after.diagnostics.iter().find(|d| d.severity == badger_base::Severity::Error);
+            let why = d.map(|d| format!(": {}", d.message)).unwrap_or_default();
+            return Err(format!("renaming `{old}` to `{new}` would not check{why}"));
+        }
+        let (was, now) = (resolutions(before, false), resolutions(&after, true));
+        let line = |p: &Pos| -> String {
+            let (Pos::Plain(path, off) | Pos::Edit(path, off)) = p;
+            let off = match p {
+                Pos::Edit(path, i) => edits[path][*i].0,
+                _ => *off,
+            };
+            let text = before
+                .files
+                .iter()
+                .find(|f| canonical(Path::new(&f.path)).display().to_string() == *path)
+                .map(|f| f.text.as_str())
+                .unwrap_or("");
+            let n = text.get(..off.min(text.len())).map(|t| t.matches('\n').count() + 1).unwrap_or(0);
+            format!("{}:{n}", Path::new(path).file_name().and_then(|f| f.to_str()).unwrap_or(path))
+        };
+        for (at, targets) in &was {
+            let moved = match now.get(at) {
+                Some(t) => !targets.is_subset(t),
+                None => true,
+            };
+            if moved {
+                return Err(format!(
+                    "renaming `{old}` to `{new}` would change what the name at {} refers to (another `{new}` is in scope)",
+                    line(at)
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn prepare_rename(&mut self, params: &Value) -> Value {
@@ -1001,29 +1177,25 @@ fn missing_arm(uri: &str, text: &str, d: &Value) -> Option<Value> {
         units += c.len_utf16();
         offset += c.len_utf8();
     }
-    let bytes = text.as_bytes();
-    let open = offset + text[offset..].find('{')?;
-    let (mut depth, mut i, mut in_string) = (0usize, open, false);
-    let close = loop {
-        let c = *bytes.get(i)?;
-        if in_string {
-            if c == b'\\' {
-                i += 1;
-            } else if c == b'"' {
-                in_string = false;
+    // the match's braces, by token (not inside strings, chars, comments)
+    use badger_syntax::token::Tok;
+    let (tokens, _) = badger_syntax::token::lex(text);
+    let mut depth = 0usize;
+    let mut close = None;
+    for (t, s) in tokens.iter().filter(|(_, s)| s.start >= offset) {
+        match t {
+            Tok::LBrace => depth += 1,
+            Tok::RBrace if depth > 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(s.start);
+                    break;
+                }
             }
-        } else if c == b'"' {
-            in_string = true;
-        } else if c == b'{' {
-            depth += 1;
-        } else if c == b'}' {
-            depth -= 1;
-            if depth == 0 {
-                break i;
-            }
+            _ => {}
         }
-        i += 1;
-    };
+    }
+    let close = close?;
     let close_line_start = text[..close].rfind('\n').map(|p| p + 1).unwrap_or(0);
     let before = &text[close_line_start..close];
     let message = pattern.replace('\\', "\\\\").replace('"', "\\\"");

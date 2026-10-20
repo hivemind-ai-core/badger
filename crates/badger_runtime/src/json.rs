@@ -927,7 +927,7 @@ fn record_value(
     present: Vec<Option<(u64, usize)>>,
 ) -> Result<u64, PErr> {
     for (f, p) in fields.iter().zip(&present) {
-        if p.is_none() && f.desc.name != "Option" {
+        if p.is_none() && !crate::codec::omittable(f.desc) {
             return Err(PErr::Dec(
                 DecodeError { path: "$".into(), message: "missing required field".into() }
                     .field(&ty.name, &f.name),
@@ -939,7 +939,7 @@ fn record_value(
     for (f, p) in fields.iter().zip(present) {
         let v = match p {
             Some((v, _)) => v,
-            None => root(make_enum(f.desc, 0, &[])),
+            None => crate::codec::absent(f.desc),
         };
         unsafe { f.repr.store(pl.add(f.offset as usize), v) };
     }

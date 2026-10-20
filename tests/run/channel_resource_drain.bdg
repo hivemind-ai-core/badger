@@ -1,0 +1,50 @@
+// A channel resource closes as the system starts halting, before workers
+// stop: a consumer whose worker drains receives every queued event, sees
+// the end, and finishes (its node halts after it).
+import std.channel
+import std.io
+import std.system
+import std.system.{component}
+import std.worker
+
+@derive(Error, From)
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    sys(source: system.Error),
+    io(source: io.Error),
+}
+
+provider consumer(scope, config: { rx: channel.Receiver<Int> }) -> Result<Unit, AppError> {
+    let rx = config.rx
+    scope.worker_with(#sink, fn() -> Result<Unit, AppError> {
+        var sum = 0
+        loop {
+            match rx.recv() {
+                .some(v) => { sum = sum + v },
+                .none => break,
+            }
+        }
+        io.println($"drained, sum {sum}")?
+        ok(())
+    }, worker.on_failure({ max_restarts: 1, window: 1s, backoff: 1ms }), worker.drain(10s))
+    scope.on_halt(fn() -> Result<Unit, AppError> {
+        io.println("consumer halted")?
+        ok(())
+    })
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        events: component(channel.resource<Int>(), { ..channel.defaults, capacity: 8 }),
+        sink: component(consumer, { rx: ref(#events).receiver }),
+    }
+    system.run(plan, fn(r) -> Result<Unit, AppError> {
+        for i in [1, 2, 3, 4, 5] {
+            let _ = r.events.sender.send(i)
+        }
+        ok(())
+    })?
+    io.println("done")?
+    ok(())
+}

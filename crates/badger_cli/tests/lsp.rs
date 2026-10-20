@@ -413,5 +413,78 @@ fn code_actions_common_fixes() {
     let titles: Vec<&str> = actions.iter().map(|a| a["title"].as_str().unwrap()).collect();
     assert_eq!(titles, vec!["Propagate the error with `?`", "Discard the result with `let _ =`"], "{r}");
     assert_eq!(actions[0]["edit"]["changes"][&uri][0]["newText"], "?");
+    // where `?` would not check (the function returns `Int`), only
+    // discarding is offered
+    let plain = "import std.io\n\nfn count() -> Int {\n    io.println(\"x\")\n    3\n}\n\npub fn main() -> Unit { let _ = count() }\n";
+    c.notify(
+        "textDocument/didChange",
+        json!({ "textDocument": { "uri": uri, "version": 3 }, "contentChanges": [{ "text": plain }] }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let titles: Vec<&str> =
+        r["result"].as_array().unwrap().iter().map(|a| a["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, vec!["Discard the result with `let _ =`"], "{r}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The missing arm goes before the match's own closing brace, whatever
+/// braces its arms hold in chars and comments.
+#[test]
+fn code_action_missing_arm_skips_braces_in_chars_and_comments() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-arm-chars-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "enum Tok { open, close, word(s: String) }\nfn show(t: Tok) -> Char {\n    match t {\n        // a } in a comment\n        .open => '{',\n        .close => '}',\n    }\n}\npub fn main() -> Unit {}\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    let r = c.request(
+        "textDocument/codeAction",
+        json!({ "textDocument": { "uri": uri }, "range": ds[0]["range"], "context": { "diagnostics": ds } }),
+    );
+    let edit = &r["result"][0]["edit"]["changes"][&uri][0];
+    assert_eq!(edit["range"]["start"], json!({ "line": 6, "character": 0 }), "{r}");
+    assert_eq!(edit["newText"], "        .word(_) => panic(\"not handled yet: .word(_)\"),\n", "{r}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// While a bracket is unclosed (as when one is being typed), the file is
+/// still indexed from the text as if it were balanced: its symbols and
+/// hovers stay, and the bracket is the only error reported.
+#[test]
+fn unclosed_bracket_keeps_the_index() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-unclosed-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "fn helper(n: Int) -> Int {\n    if n > 0 {\n        n * 2\n}\n\npub fn main() -> Unit {\n    let _ = helper(3)\n}\n\nfn other() -> String { \"x\" }\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    assert!(ds[0]["message"].as_str().unwrap().contains("unclosed"), "{ds:?}");
+    let r = c.request("textDocument/documentSymbol", json!({ "textDocument": { "uri": uri } }));
+    let names: Vec<&str> =
+        r["result"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["helper", "main", "other"], "{r}");
+    let h = c.request("textDocument/hover", pos(&uri, 6, 13));
+    assert!(h["result"]["contents"]["value"].as_str().unwrap_or("").contains("fn(Int) -> Int"), "{h}");
     let _ = std::fs::remove_dir_all(&dir);
 }
