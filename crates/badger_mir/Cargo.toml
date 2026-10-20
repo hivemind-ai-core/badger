@@ -17,6 +17,7 @@ rustc-hash.workspace = true
 petgraph.workspace = true
 smallvec.workspace = true
 bumpalo.workspace = true
+z3.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
