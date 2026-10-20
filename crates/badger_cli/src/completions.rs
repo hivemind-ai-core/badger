@@ -49,27 +49,15 @@ fn commands() -> Vec<Cmd> {
         .map(|c| Cmd {
             name: c.get_name().to_string(),
             about: c.get_about().map(|a| a.to_string()).unwrap_or_default(),
-            flags: c
-                .get_arguments()
-                .filter(|a| !a.is_positional() && !a.is_hide_set())
-                .map(flag)
-                .collect(),
-            values: c
-                .get_arguments()
-                .find(|a| a.is_positional())
-                .map(values)
-                .unwrap_or_default(),
+            flags: c.get_arguments().filter(|a| !a.is_positional() && !a.is_hide_set()).map(flag).collect(),
+            values: c.get_arguments().find(|a| a.is_positional()).map(values).unwrap_or_default(),
         })
         .collect()
 }
 
 /// The global flags of `badger` itself.
 fn global_flags() -> Vec<Flag> {
-    parser()
-        .get_arguments()
-        .filter(|a| !a.is_positional() && !a.is_hide_set())
-        .map(flag)
-        .collect()
+    parser().get_arguments().filter(|a| !a.is_positional() && !a.is_hide_set()).map(flag).collect()
 }
 
 /// A flag, as the scripts complete it.
@@ -97,11 +85,7 @@ fn flag(a: &Arg) -> Flag {
 
 /// The values an argument takes, when it takes only a fixed set.
 fn values(a: &Arg) -> Vec<String> {
-    a.get_possible_values()
-        .iter()
-        .filter(|v| !v.is_hide_set())
-        .map(|v| v.get_name().to_string())
-        .collect()
+    a.get_possible_values().iter().filter(|v| !v.is_hide_set()).map(|v| v.get_name().to_string()).collect()
 }
 
 /// The text as a shell word in single quotes.
@@ -301,12 +285,7 @@ fn zsh() -> String {
                 if f.value.is_empty() {
                     s.push_str(&format!(" '{}[{}]'", n, zsh_description(&f.about)));
                 } else {
-                    s.push_str(&format!(
-                        " '{}[{}]:{}:'",
-                        n,
-                        zsh_description(&f.about),
-                        f.value
-                    ));
+                    s.push_str(&format!(" '{}[{}]:{}:'", n, zsh_description(&f.about), f.value));
                 }
             }
         }
@@ -407,9 +386,7 @@ fn powershell() -> String {
         s.push_str(")\n");
     }
     s.push_str("    }\n");
-    s.push_str(
-        "    $values = @{\n",
-    );
+    s.push_str("    $values = @{\n");
     for (name, values) in flag_values(&cmds) {
         s.push_str(&format!("        '{}' = @('{}')\n", name, values.join("', '")));
     }

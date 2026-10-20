@@ -1279,8 +1279,10 @@ impl Session {
                 Ok(r) => r,
                 Err(e) => {
                     self.diagnostics.push(
-                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
-                            .with_code("E9001"),
+                        Diagnostic::error(format!(
+                            "internal compiler error: MIR translation validation failed: {e}"
+                        ))
+                        .with_code("E9001"),
                     );
                     return Err(Outcome::Errors);
                 }
@@ -1435,8 +1437,10 @@ impl Session {
                 Ok(_) => {}
                 Err(e) => {
                     self.diagnostics.push(
-                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
-                            .with_code("E9001"),
+                        Diagnostic::error(format!(
+                            "internal compiler error: MIR translation validation failed: {e}"
+                        ))
+                        .with_code("E9001"),
                     );
                     return Err(Outcome::Errors);
                 }

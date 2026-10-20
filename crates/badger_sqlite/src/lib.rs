@@ -134,12 +134,17 @@ fn bind_named(st: &mut rusqlite::Statement<'_>, fields: &[(String, Sql)]) -> Res
         let Some(name) = st.parameter_name(i).map(str::to_string) else {
             return Err(Error::new(
                 "sqlite/params",
-                format!("parameter {i} is positional (`?`), but the parameters are a record: name it (`:name`)"),
+                format!(
+                    "parameter {i} is positional (`?`), but the parameters are a record: name it (`:name`)"
+                ),
             ));
         };
         let key = name.trim_start_matches([':', '@', '$']);
         let Some((_, v)) = fields.iter().find(|(k, _)| k == key) else {
-            return Err(Error::new("sqlite/params", format!("no field `{key}` in the parameters for `{name}`")));
+            return Err(Error::new(
+                "sqlite/params",
+                format!("no field `{key}` in the parameters for `{name}`"),
+            ));
         };
         st.raw_bind_parameter(i, v).map_err(sql_error)?;
     }
@@ -380,7 +385,9 @@ fn statement(a: Args, done: Completion, op: Op) {
         let params = match a.get(2) {
             Some(Value::List(xs)) => Params::Positional(xs.iter().map(sql_param).collect()),
             Some(Value::Map(fs)) if fs.is_empty() => Params::Positional(vec![]),
-            Some(Value::Map(fs)) => Params::Named(fs.iter().map(|(k, v)| (k.clone(), sql_param(v))).collect()),
+            Some(Value::Map(fs)) => {
+                Params::Named(fs.iter().map(|(k, v)| (k.clone(), sql_param(v))).collect())
+            }
             Some(v) => Params::Positional(vec![sql_param(v)]),
             None => return Err(Error::new("sqlite/params", "missing parameters")),
         };

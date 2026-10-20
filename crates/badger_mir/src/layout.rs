@@ -386,7 +386,9 @@ impl<'g, 'a> Layouts<'g, 'a> {
                     let (size, vs) = self.enum_variants(t);
                     // `@message` templates, by variant position
                     let messages: Vec<Option<String>> = match &self.g.hir.defs[*d].kind {
-                        badger_hir::DefKind::Enum(e) => e.variants.iter().map(|v| v.message.clone()).collect(),
+                        badger_hir::DefKind::Enum(e) => {
+                            e.variants.iter().map(|v| v.message.clone()).collect()
+                        }
                         _ => vec![],
                     };
                     let variants = vs

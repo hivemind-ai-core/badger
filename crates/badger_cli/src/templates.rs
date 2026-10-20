@@ -52,13 +52,8 @@ const WORKER: &[(&str, &str)] = &[
 ];
 
 /// The templates, in the order they are listed in the help.
-const TEMPLATES: &[(&str, &[(&str, &str)])] = &[
-    ("cli", CLI),
-    ("service", SERVICE),
-    ("framework", FRAMEWORK),
-    ("library", LIBRARY),
-    ("worker", WORKER),
-];
+const TEMPLATES: &[(&str, &[(&str, &str)])] =
+    &[("cli", CLI), ("service", SERVICE), ("framework", FRAMEWORK), ("library", LIBRARY), ("worker", WORKER)];
 
 /// The templates `badger init --template=NAME` offers, in the order they
 /// are listed in the help.
@@ -74,11 +69,6 @@ pub fn plan(name: &str, template: &str) -> Result<Vec<(String, String)>, String>
         .iter()
         .find(|(t, _)| *t == template)
         .map(|(_, files)| *files)
-        .ok_or_else(|| {
-            format!("unknown template `{template}` (available: {})", names().join(", "))
-        })?;
-    Ok(files
-        .iter()
-        .map(|(path, text)| (path.replace(NAME, name), text.replace(NAME, name)))
-        .collect())
+        .ok_or_else(|| format!("unknown template `{template}` (available: {})", names().join(", ")))?;
+    Ok(files.iter().map(|(path, text)| (path.replace(NAME, name), text.replace(NAME, name))).collect())
 }

@@ -53,7 +53,8 @@ impl Builtins {
     /// operation that consumes it: affine (listed in [`Self::AFFINE_STD`]),
     /// and each value must also be consumed on every path that leaves its
     /// binding's scope normally (see `ownership::Linear`).
-    pub const LINEAR_STD: &'static [(&'static str, &'static str)] = &[("File", "close"), ("Batch", "release")];
+    pub const LINEAR_STD: &'static [(&'static str, &'static str)] =
+        &[("File", "close"), ("Batch", "release")];
 
     /// Whether values of type constructor `d` are confined to their task.
     pub fn is_confined(&self, d: DefId) -> bool {

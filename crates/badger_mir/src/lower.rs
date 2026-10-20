@@ -2573,9 +2573,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     /// return type, not the name.
     fn is_list_call(&self, def: DefId) -> bool {
         let p = self.m.def_path(def);
-        self.m.fusion.get(&p).is_some_and(|t| t == "call")
-            || p == "std.list.map"
-            || p == "std.list.filter"
+        self.m.fusion.get(&p).is_some_and(|t| t == "call") || p == "std.list.map" || p == "std.list.filter"
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,

@@ -88,10 +88,7 @@ fn every_command_and_flag_is_completed() {
         for c in &cmds {
             assert!(text.contains(c), "{shell}: the command `{c}` is not completed");
             for f in flags(c) {
-                assert!(
-                    text.contains(&f),
-                    "{shell}: the flag `{f}` of `{c}` is not completed"
-                );
+                assert!(text.contains(&f), "{shell}: the flag `{f}` of `{c}` is not completed");
             }
         }
     }

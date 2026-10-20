@@ -674,7 +674,10 @@ fn bind(sql: String, params: &Value) -> Result<(String, Vec<Value>), Error> {
                 .iter()
                 .map(|n| {
                     fs.iter().find(|(k, _)| k == n).map(|(_, v)| v.clone()).ok_or_else(|| {
-                        Error::new("postgres/parameters", format!("no field `{n}` in the parameters for `:{n}`"))
+                        Error::new(
+                            "postgres/parameters",
+                            format!("no field `{n}` in the parameters for `:{n}`"),
+                        )
                     })
                 })
                 .collect::<Result<_, _>>()?;
@@ -1011,7 +1014,10 @@ mod tests {
         let (sql, names) = number_named(
             "SELECT a::int, ':no', \"q:x\", $$:body$$ FROM t WHERE a = :a AND b = :b OR a = :a -- :c\n",
         );
-        assert_eq!(sql, "SELECT a::int, ':no', \"q:x\", $$:body$$ FROM t WHERE a = $1 AND b = $2 OR a = $1 -- :c\n");
+        assert_eq!(
+            sql,
+            "SELECT a::int, ':no', \"q:x\", $$:body$$ FROM t WHERE a = $1 AND b = $2 OR a = $1 -- :c\n"
+        );
         assert_eq!(names, vec!["a".to_string(), "b".to_string()]);
         let fields = Value::Map(vec![("b".into(), Value::Int(2)), ("a".into(), Value::Int(1))]);
         let (_, values) = bind("SELECT :a + :b".into(), &fields).unwrap();

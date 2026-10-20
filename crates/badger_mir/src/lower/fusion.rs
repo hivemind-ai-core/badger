@@ -218,9 +218,7 @@ impl FnLower<'_, '_, '_> {
         let (name, args) = self.sequence_call(e)?;
         let template = self.fusion_template(&name)?;
         match (template.as_str(), args.as_slice()) {
-            ("call" | "take" | "skip" | "step_by", [inner, _]) => {
-                self.sequence_local_use(*inner, depth + 1)
-            }
+            ("call" | "take" | "skip" | "step_by", [inner, _]) => self.sequence_local_use(*inner, depth + 1),
             ("scan", [inner, _, _]) => self.sequence_local_use(*inner, depth + 1),
             ("enumerate", [inner]) => self.sequence_local_use(*inner, depth + 1),
             ("dedup", [inner]) => self.sequence_local_use(*inner, depth + 1),
@@ -591,11 +589,7 @@ impl FnLower<'_, '_, '_> {
                     self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(rest);
-                    let eq = self.rt(
-                        "badger_rt_eq",
-                        vec![desc, Operand::Local(prev), value],
-                        Repr::I8,
-                    );
+                    let eq = self.rt("badger_rt_eq", vec![desc, Operand::Local(prev), value], Repr::I8);
                     let eqb = self.copy_to_local(eq, Repr::I8, None);
                     let changed = self.block();
                     self.term(Term::Branch(Operand::Local(eqb), step, changed));

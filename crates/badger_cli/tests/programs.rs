@@ -221,7 +221,13 @@ fn unused_names_and_their_exemptions() {
         "flagged.bdg",
         "import std.text\nfn helper() -> Int { 1 }\ntype Pair = (Int, Int)\npub fn main() {\n    let total = 3\n    var count = 0\n    count = 1\n}\n",
     );
-    for want in ["unused import `text`", "function `helper` is never used", "type `Pair` is never used", "unused variable `total`", "unused variable `count`"] {
+    for want in [
+        "unused import `text`",
+        "function `helper` is never used",
+        "type `Pair` is never used",
+        "unused variable `total`",
+        "unused variable `count`",
+    ] {
         assert!(flagged.contains(want), "missing {want}: {flagged}");
     }
     let exempt = check(
@@ -1541,15 +1547,8 @@ fn query_rename_and_unsupported_inputs() {
             .count(),
         1
     );
-    let (ok, _, err) = r(&[
-        "tests/projects/overlay/src/shapes.bdg",
-        "--line",
-        "3",
-        "--col",
-        "8",
-        "--name",
-        "Surface",
-    ]);
+    let (ok, _, err) =
+        r(&["tests/projects/overlay/src/shapes.bdg", "--line", "3", "--col", "8", "--name", "Surface"]);
     assert!(!ok && err.contains("cannot replace"), "{err}");
     let (ok, _, err) = q(&["symbols", "tests/projects/overlay"]);
     assert!(!ok && err.contains("needs a source file"), "{err}");

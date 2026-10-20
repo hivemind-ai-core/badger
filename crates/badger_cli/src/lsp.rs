@@ -1248,17 +1248,8 @@ fn plain_range(file: &str, text: &str, r: &Value) -> Value {
 }
 
 /// The questions `badger query` answers.
-pub const QUERY_KINDS: [&str; 9] = [
-    "diagnostics",
-    "check",
-    "hover",
-    "definition",
-    "references",
-    "completion",
-    "symbols",
-    "symbol",
-    "api",
-];
+pub const QUERY_KINDS: [&str; 9] =
+    ["diagnostics", "check", "hover", "definition", "references", "completion", "symbols", "symbol", "api"];
 
 /// The rename, which `badger rename` asks for: it is not a question
 /// `badger query` answers (the rename command computes the edits and

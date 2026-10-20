@@ -181,7 +181,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                             })
                             .collect();
                         match message_placeholders(template) {
-                            Err(why) => self.error("E0198", a.span, format!("`@message` template: {why}"), "here"),
+                            Err(why) => {
+                                self.error("E0198", a.span, format!("`@message` template: {why}"), "here")
+                            }
                             Ok(names) => {
                                 if let Some(bad) = names.iter().find(|n| !fields.contains(n)) {
                                     let vname = self.interner.resolve(v.name.sym).to_string();
@@ -193,7 +195,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                                     self.error(
                                         "E0198",
                                         a.span,
-                                        format!("`@message` names `{{{bad}}}`, which is not a field of `{vname}`"),
+                                        format!(
+                                            "`@message` names `{{{bad}}}`, which is not a field of `{vname}`"
+                                        ),
                                         have,
                                     );
                                 } else if !display {
@@ -241,7 +245,10 @@ impl<'a, 'i> Lower<'a, 'i> {
                         self.diags.push(
                             Diagnostic::warning(format!("unknown variant attribute `@{other}`"))
                                 .with_code("E0191")
-                                .with_label(a.span, "a variant takes `@status(code)` and `@message(\"text\")`"),
+                                .with_label(
+                                    a.span,
+                                    "a variant takes `@status(code)` and `@message(\"text\")`",
+                                ),
                         );
                     }
                 }
@@ -478,7 +485,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                     derives.remove(i);
                     self.derive_http_error(name, &generics, &variants, at);
                 }
-                let display = derives.iter().any(|t| self.names_derive(*t, "Error") || self.names_derive(*t, "Display"));
+                let display = derives
+                    .iter()
+                    .any(|t| self.names_derive(*t, "Error") || self.names_derive(*t, "Display"));
                 self.check_variant_attributes(&variants, http.is_some(), display);
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
@@ -1994,7 +2003,9 @@ pub fn message_placeholders(template: &str) -> Result<Vec<String>, String> {
                     match chars.next() {
                         Some('}') => break,
                         Some(c) if c.is_alphanumeric() || c == '_' => name.push(c),
-                        Some(c) => return Err(format!("`{c}` in a placeholder (write `{{{{` for a literal brace)")),
+                        Some(c) => {
+                            return Err(format!("`{c}` in a placeholder (write `{{{{` for a literal brace)"));
+                        }
                         None => return Err("an unclosed `{`".into()),
                     }
                 }

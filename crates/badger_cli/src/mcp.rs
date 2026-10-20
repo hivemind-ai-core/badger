@@ -528,8 +528,8 @@ impl Mcp {
                             vec!["graph".into(), which, arg_path(path), "--format".into(), "json".into()];
                         subprocess_result(&args)
                     }
-                    "hover" | "definition" | "references" | "completion" | "symbols"
-                    | "symbol" | "diagnostics" => {
+                    "hover" | "definition" | "references" | "completion" | "symbols" | "symbol"
+                    | "diagnostics" => {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {

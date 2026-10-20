@@ -247,10 +247,13 @@ fn check_call(
     {
         for name in &p.names {
             let problem = match name {
-                None => Some("a positional `?` takes its value in order: name it (`:name`) or pass a list".to_string()),
+                None => Some(
+                    "a positional `?` takes its value in order: name it (`:name`) or pass a list".to_string(),
+                ),
                 Some(n) => {
                     let key = n.trim_start_matches([':', '@', '$']);
-                    (!fields.iter().any(|f| f == key)).then(|| format!("no field `{key}` in the parameters for `{n}`"))
+                    (!fields.iter().any(|f| f == key))
+                        .then(|| format!("no field `{key}` in the parameters for `{n}`"))
                 }
             };
             if let Some(why) = problem {

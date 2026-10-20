@@ -568,7 +568,10 @@ fn mir_validate_run() -> Option<ExitCode> {
     }
     // an interactive, recording, or benchmarking run has effects the check
     // must not double, and saved binary MIR has no unoptimized form
-    if flags.iter().any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug")) {
+    if flags
+        .iter()
+        .any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug"))
+    {
         return None;
     }
     if flags.iter().any(|f| f.ends_with(".bdgmir")) {
@@ -1105,16 +1108,7 @@ fn command(cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Generate {
-            what,
-            files,
-            item,
-            dry_run,
-            check,
-            database,
-            schema,
-        } if what != "sql" =>
-        {
+        Command::Generate { what, files, item, dry_run, check, database, schema } if what != "sql" => {
             // a flag of another generator is a usage error, not one that
             // is quietly ignored
             if check {
@@ -1192,15 +1186,7 @@ fn command(cli: Cli) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Command::Generate {
-            what,
-            files,
-            item,
-            dry_run,
-            check,
-            database,
-            schema,
-        } => {
+        Command::Generate { what, files, item, dry_run, check, database, schema } => {
             if dry_run {
                 return wrong_flag(&what, "dry-run");
             }
@@ -1707,8 +1693,7 @@ fn remote_repl(addr: &str, load: Option<PathBuf>) -> ExitCode {
 /// afterwards.
 fn load_file(addr: &str, load: Option<PathBuf>) -> Result<(), String> {
     let Some(path) = load else { return Ok(()) };
-    let text =
-        std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     match badger_driver::inspect::eval(addr, &text) {
         Ok(reply) => {
             if !reply.trim().is_empty() {
@@ -1885,9 +1870,7 @@ fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
     let mut changed = vec![];
     for (file, mut es) in by_file {
         let mut text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
-        es.sort_by_key(|e| {
-            (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0)))
-        });
+        es.sort_by_key(|e| (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0))));
         for e in es {
             let line = e["line"].as_i64().unwrap_or(1).max(1) as usize;
             let col = e["col"].as_i64().unwrap_or(1).max(1) as usize;
@@ -1991,4 +1974,3 @@ fn default_binary_name(path: &Path) -> PathBuf {
 fn looks_like_path(a: &str) -> bool {
     a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
 }
-

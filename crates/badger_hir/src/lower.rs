@@ -88,11 +88,23 @@ const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
 const FUSION_ROLES: &[&str] = &["source", "stage", "terminal"];
 const FUSION_KINDS: &[&str] = &[
     // sources
-    "range", "from_range", "list", "entries", //
+    "range",
+    "from_range",
+    "list",
+    "entries", //
     // stages
-    "call", "take", "skip", "step_by", "scan", "enumerate", "dedup", //
+    "call",
+    "take",
+    "skip",
+    "step_by",
+    "scan",
+    "enumerate",
+    "dedup", //
     // terminals
-    "fold", "count", "sum", "collect",
+    "fold",
+    "count",
+    "sum",
+    "collect",
 ];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
@@ -965,9 +977,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
                                 .with_code("E0194");
                         }
-                        self.cx
-                            .diags
-                            .push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
+                        self.cx.diags.push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
                     }
                 }
             }

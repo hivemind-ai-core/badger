@@ -355,7 +355,13 @@ pub fn fmt_duration(nanos: i64) -> String {
 /// A variant's `@message("no book {id}")`: each `{field}` is the field's
 /// display (as in an error-style display); `{{` and `}}` are braces. The
 /// compiler checked the template, so an unknown name is left as written.
-fn render_message(ctx: *mut TaskCtx, template: &str, fields: &[crate::desc::Field], p: *mut u8, o: &mut String) {
+fn render_message(
+    ctx: *mut TaskCtx,
+    template: &str,
+    fields: &[crate::desc::Field],
+    p: *mut u8,
+    o: &mut String,
+) {
     let mut chars = template.chars().peekable();
     while let Some(c) = chars.next() {
         match c {

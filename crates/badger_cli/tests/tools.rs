@@ -95,8 +95,7 @@ fn init_project() {
     assert!(text.contains("already exists"), "{text}");
     // a library project, too
     let lib = dir.join("lib");
-    let out =
-        lang().args(["init", "--template", "library", lib.to_str().unwrap()]).output().unwrap();
+    let out = lang().args(["init", "--template", "library", lib.to_str().unwrap()]).output().unwrap();
     assert!(out.status.success());
     assert!(lib.join("src/lib.bdg").is_file());
     let out = lang().arg("check").arg(&lib).output().unwrap();
