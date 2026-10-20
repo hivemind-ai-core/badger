@@ -406,8 +406,17 @@ fn halt_all(scopes: List<InitScope<Unit>>) -> List<String> {
         // a worker that outlived the grace period may still use this node and
         // everything it depends on (started earlier): nothing more is freed
         if s.stopping.get() && list.len(s.workers.get()) > 0 {
-            notes = list.append(notes, $"node {s.node}: halts skipped, a worker is still running after the cleanup grace period")
-            break
+            // a listed worker that has finished (it failed while draining, and
+            // its failure is why halting resumed here) holds nothing
+            let live = list.filter(s.workers.get(), fn(w: (Int, worker.Shutdown)) -> Bool { !task_done(w.0) })
+            if list.len(live) > 0 {
+                notes = list.append(notes, $"node {s.node}: halts skipped, a worker is still running after the cleanup grace period")
+                break
+            }
+            for w in s.workers.get() {
+                task_settle(w.0)
+            }
+            s.workers.set([])
         }
         stop_workers(s)
         loop {

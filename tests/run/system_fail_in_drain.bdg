@@ -1,0 +1,36 @@
+// A worker that fails while it drains at halt does not skip the halts:
+// its failure is reported, and every node's halt callbacks still run.
+import std.io
+import std.system
+import std.task
+import std.worker
+
+@derive(Error)
+pub enum Failure { boom }
+
+@derive(Error, From)
+pub enum AppError {
+    sys(source: system.Error),
+}
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+provider base(scope, _config: {}) -> Result<Int, Failure> {
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("base halt (releases the resource)"); ok(()) })
+    ok(1)
+}
+
+provider app(scope, _config: { base: Int }) -> Result<Unit, Failure> {
+    scope.worker_with(#finisher, fn() -> Result<Unit, Failure> {
+        task.sleep(100ms)
+        err(Failure.boom)
+    }, worker.never(), worker.drain(1s))
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("app halt"); ok(()) })
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system { base: base(), app: app({ base: ref(#base) }) }
+    let _ = system.run(plan, fn(_r) -> Result<Unit, AppError> { say("body done"); ok(()) })
+    ok(())
+}
