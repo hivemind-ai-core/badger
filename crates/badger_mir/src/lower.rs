@@ -2743,6 +2743,9 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     fn lower_try(&mut self, e: ExprId, inner: ExprId, span: Span) -> Option<Operand> {
         let r = self.lower(inner)?;
         let rt = self.ty(inner);
+        if self.m.lay.is_std(&rt, "Option") {
+            return self.lower_try_option(e, r, &rt, span);
+        }
         let rl = self.copy_to_local(r, Repr::Ptr, None);
         let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(rl)));
         let (okb, errb) = (self.block(), self.block());
@@ -2773,6 +2776,32 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         self.ret(Operand::Local(ol));
         self.switch(okb);
         let (v, _) = self.variant_field(&rt, 0, 0, Operand::Local(rl));
+        Some(v)
+    }
+
+    /// `opt?`: `none` returns `err(E.from(OptionMissing.missing))`.
+    fn lower_try_option(&mut self, e: ExprId, r: Operand, rt: &Ty, span: Span) -> Option<Operand> {
+        let rl = self.copy_to_local(r, Repr::Ptr, None);
+        let tag = self.assign(Repr::I32, Rvalue::Tag(Operand::Local(rl)));
+        let (someb, noneb) = (self.block(), self.block());
+        self.term(Term::Switch(tag, vec![(1, someb)], noneb));
+        self.switch(noneb);
+        let missing = self.hir().lang("OptionMissing");
+        let src = badger_typeck::ty::mk(badger_typeck::ty::TyKind::Con(missing, vec![]));
+        let mv = self.alloc_enum(&src, 0, vec![]);
+        let ret_ty = self.ret_ty.clone();
+        let err_ty = self.m.lay.args(&ret_ty).get(1).cloned().unwrap_or_else(badger_typeck::ty::unit);
+        let conv = match self.inst.res.get(&e).cloned() {
+            Some(Res::Try(Some(t))) => self.call_target(&t, vec![mv], &src, &err_ty, span)?,
+            _ => mv,
+        };
+        let cl = self.copy_to_local(conv, self.repr(&err_ty), None);
+        let out = self.alloc_enum(&ret_ty, 1, vec![Operand::Local(cl)]);
+        let ol = self.copy_to_local(out, Repr::Ptr, None);
+        self.close_iters(0);
+        self.ret(Operand::Local(ol));
+        self.switch(someb);
+        let (v, _) = self.variant_field(rt, 1, 0, Operand::Local(rl));
         Some(v)
     }
 

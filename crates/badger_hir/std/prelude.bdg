@@ -244,6 +244,21 @@ impl Display for NumericError {
 
 impl Error for NumericError {}
 
+/// The error `?` reports on an `Option` that is `none`, in a function
+/// returning `Result<_, E>`: `E` takes it through `From<OptionMissing>`
+/// (a `missing(source: OptionMissing)` variant with `derive(From)`).
+pub enum OptionMissing {
+    missing,
+}
+
+impl Display for OptionMissing {
+    fn display(self: &Self) -> String { "a required value is missing" }
+}
+
+impl Error for OptionMissing {}
+
+impl HttpStatus for OptionMissing {}
+
 impl HttpStatus for NumericError {}
 
 /// Total equality (reflexive): floats are excluded, having only IEEE

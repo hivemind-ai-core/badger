@@ -369,7 +369,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0313",
         "`?` on non-Result",
-        "`?` extracts the success of a `Result`. `Option` must be matched or converted explicitly with a missing-value error.",
+        "`?` extracts the success of a `Result`, or the payload of an `Option` (whose `none` returns an `OptionMissing` error, converted to the function's error by `From`). Other values must be matched.",
     ),
     (
         "E0314",

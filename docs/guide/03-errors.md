@@ -107,13 +107,27 @@ err(3 is odd)
 | Rule | Diagnostic |
 |---|---|
 | The enclosing function or lambda must return `Result` | E0314 |
-| `?` does not work on `Option`; convert it first with `ok_or` | E0313 |
+| `?` on something that is neither a `Result` nor an `Option` | E0313 |
 | The error must be the same type, or convert by one `From` (next section) | E0333 |
 
 `?` returns from the *nearest* function or lambda, so `?` inside a
 callback leaves the callback. It runs any pending cleanup on the way out.
 
-To use `?` on an `Option`, give the missing case an error:
+`?` on an `Option` returns an `OptionMissing` error for `none`, converted
+like any other: give the function's error a variant for it.
+
+```badger fragment
+pub enum AppError {
+    missing(source: OptionMissing),
+    invalid(message: String),
+} derive(Error, From)
+
+fn id_of(params: Map<String, String>) -> Result<Int, AppError> {
+    ok(text.parse_int(params.get("id")?)?)
+}
+```
+
+To report something more specific, name the error with `ok_or`:
 
 ```badger fragment
 let first = items.first().ok_or("no items")?

@@ -445,6 +445,22 @@ enum Option<T> { none, some(value: T) }
 fn display(self: &Self) -> String
 ```
 
+### `OptionMissing`
+
+```badger
+enum OptionMissing { missing }
+```
+
+The error `?` reports on an `Option` that is `none`, in a function
+returning `Result<_, E>`: `E` takes it through `From<OptionMissing>`
+(a `missing(source: OptionMissing)` variant with `derive(From)`).
+
+#### `OptionMissing.display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
 ### `PartialEq`
 
 ```badger

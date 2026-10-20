@@ -122,8 +122,10 @@ explicitly acknowledges discarding it. Ordinary values may be discarded.
 `?` requires a surrounding function or callback returning `Result`. For
 `Result<T, E1>` inside `Result<R, E2>`, it accepts `E1 = E2` or one unique
 direct `From<E1>` implementation for `E2`. It does not search conversion chains,
-erase to `Data`, invent a union, or catch task failure. `Option` must be matched
-or converted explicitly with a missing-value error.
+erase to `Data`, invent a union, or catch task failure. On an `Option<T>`
+inside `Result<R, E>`, `?` gives the `some` payload, and `none` returns
+`err(E.from(OptionMissing.missing))`: it needs a direct `From<OptionMissing>`
+for `E` (or `E = OptionMissing`); `opt.ok_or(error)?` names another error.
 
 ```badger
 import std.codec

@@ -1,0 +1,24 @@
+// `?` on an `Option` in a function returning `Result`: `none` returns
+// `OptionMissing`, converted to the function's error by `From`.
+import std.io
+import std.text
+
+pub enum AppError {
+    missing(source: OptionMissing),
+    io(source: io.Error),
+} derive(Error, From)
+
+fn id_of(params: Map<String, String>) -> Result<Int, AppError> {
+    let id = text.parse_int(params.get("id")?)?
+    ok(id * 10)
+}
+
+fn plain(o: Option<Int>) -> Result<Int, OptionMissing> {
+    ok(o? + 1)
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    io.println($"{id_of(map { "id" => "4" })} {id_of(map {})} {id_of(map { "id" => "x" })}")?
+    io.println($"{plain(Option.some(1))} {plain(Option.none)}")?
+    ok(())
+}

@@ -1944,6 +1944,34 @@ impl<'g, 'a> Infer<'g, 'a> {
 
     fn try_expr(&mut self, e: ExprId, inner: ExprId, span: Span) -> Ty {
         let t = self.infer(inner);
+        // `?` on an `Option`: `none` returns the enclosing `Result`'s error,
+        // converted from `OptionMissing`
+        if let TyKind::Con(d, args) = &*self.icx.resolve(&t)
+            && *d == self.b().option
+            && let Some(missing) = self.g.hir.try_lang("OptionMissing")
+        {
+            let some_t = args.first().cloned().unwrap_or_else(error_ty);
+            let Some(f) = self.fns.last() else {
+                self.error("E0314", span, "`?` outside of a function", "here");
+                return some_t;
+            };
+            let ret = f.ret.clone();
+            let (r_ok, r_err) = (self.icx.fresh(), self.icx.fresh());
+            let want_ret = self.result_ty(r_ok, r_err.clone());
+            if self.icx.unify(&want_ret, &ret).is_err() {
+                let rt = self.show(&ret);
+                self.error(
+                    "E0314",
+                    span,
+                    "`?` on an `Option` requires the enclosing function to return `Result`",
+                    format!("the function returns `{rt}` (match the option, or use `.ok_or(error)?`)"),
+                );
+                return some_t;
+            }
+            let from = self.con(missing, vec![]);
+            self.pending.push(Constraint::ErrConv { from, to: r_err, span, expr: Some(e) });
+            return some_t;
+        }
         let (ok_t, err_t) = (self.icx.fresh(), self.icx.fresh());
         let want = self.result_ty(ok_t.clone(), err_t.clone());
         let it = self.deref(&t);
