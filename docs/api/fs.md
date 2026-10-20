@@ -157,15 +157,18 @@ struct File { handle: native.Handle }
 ```
 
 An open file: an `io.Reader` and `io.Writer` (as its mode allows).
-Closed by `close`, or once nothing can reach it.
+Linear: each file is consumed exactly once, by `close` or by moving it
+on (into a call, a return, or a value that holds it); reading and
+writing borrow it. A file dropped on an error path (`?`) or held by a
+value that is dropped is closed once nothing can reach it.
 
 #### `File.close`
 
 ```badger
-fn close(self: &Self) -> Result<Unit, io.Error> !{Io, Wait}
+fn close(self: Self) -> Result<Unit, io.Error> !{Io, Wait}
 ```
 
-Flush and close; later reads and writes fail with `#io/closed`.
+Flush and close, consuming the file.
 
 #### `File.flush`
 

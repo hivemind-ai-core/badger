@@ -12,7 +12,10 @@ Typed bounded channels and batch channels.
 pub extern type Batch<T>
 ```
 
-A leased, sealed batch of messages; release it when processed.
+A leased, sealed batch of messages; release it when processed. Linear:
+each lease is consumed exactly once, by `release` or by moving it on;
+reading its messages borrows it. A lease dropped on an error path (`?`)
+is released when its task finishes.
 
 #### `Batch.items`
 

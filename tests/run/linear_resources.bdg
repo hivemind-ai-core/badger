@@ -1,0 +1,85 @@
+// Linear resources: a file and a batch lease are each consumed exactly
+// once on every path -- closed or released, or moved on (into a call, a
+// return, a value that holds it) -- while reads and writes borrow them.
+import std.channel
+import std.fs
+import std.io
+import std.path
+
+@derive(Error, From)
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) }
+
+// a parameter takes the obligation: this function closes what it is given
+fn finish(f: fs.File, text: String) -> Result<Unit, io.Error> {
+    f.write_text(text)?
+    f.close()
+}
+
+// returning a file moves it to the caller
+fn reopen(p: String) -> Result<fs.File, io.Error> {
+    let f = fs.append_to(p)?
+    ok(f)
+}
+
+// every branch consumes the file
+fn write_if(p: String, loud: Bool) -> Result<Unit, io.Error> {
+    let f = fs.append_to(p)?
+    if loud {
+        f.write_text("LOUD\n")?
+        f.close()?
+    } else {
+        finish(f, "quiet\n")?
+    }
+    ok(())
+}
+
+// an early exit on the error path (`?`, `return err`) is not checked: the
+// finalizer closes the file there
+fn first_line(p: String) -> Result<String, io.Error> {
+    let f = fs.open(p)?
+    let lines = io.lines(f)
+    match lines.next_line()? {
+        .some(l) => ok(l),
+        .none => err({ kind: #io/empty, message: "empty file" }),
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let tmp = fs.make_temp_dir("lang-linear-")?
+    let p = path.join(tmp, "log.txt")
+    let f = fs.create(p)?
+    f.write_text("one\n")?
+    finish(f, "two\n")?
+    let g = reopen(p)?
+    g.write_text("three\n")?
+    g.close()?
+    write_if(p, true)?
+    write_if(p, false)?
+    // a loop body consumes each file it opens
+    for i in 0..2 {
+        let h = fs.append_to(p)?
+        h.write_text($"loop {i}\n")?
+        h.close()?
+    }
+    // moved into a reader that owns it
+    let n = io.copy(fs.open(p)?, io.memory_writer())?
+    io.println($"first line: {first_line(p)?}")?
+    io.println($"{n} bytes:")?
+    io.print(fs.read_text(p)?)?
+
+    // a batch lease is released on every path
+    let b = channel.batch<Int>({ capacity: 8, max_batch: 4, byte_budget: 0 })?
+    for i in 0..4 { let _ = b.sender.append(i) }
+    b.sender.flush()
+    match b.receiver.recv_batch() {
+        .some(batch) => {
+            var sum = 0
+            for v in batch.items() { sum = sum + v }
+            batch.release()
+            io.println($"batch sum {sum}")?
+        },
+        .none => io.println("no batch")?,
+    }
+    fs.remove_all(tmp)?
+    ok(())
+}

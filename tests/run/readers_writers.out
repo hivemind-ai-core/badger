@@ -4,6 +4,5 @@ line: third
 copied 29 bytes
 wrote 29 bytes, same true
 8 pieces of at most 4 bytes
-after close: io/closed
 create_new: io/already_exists
 through stdout

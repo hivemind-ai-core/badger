@@ -1,0 +1,17 @@
+// expect-error: E0413
+// A batch lease read and dropped without `release`.
+import std.io
+import std.channel
+
+@derive(Error, From)
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) }
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?
+    for i in 0..2 { let _ = b.sender.append(i) }
+    match b.receiver.recv_batch() {
+        .some(x) => io.println($"{x.len()} messages")?,
+        .none => io.println("none")?,
+    }
+    ok(())
+}
