@@ -156,15 +156,27 @@ impl<'a, 'i> Lower<'a, 'i> {
     /// Variant attributes: `@status(code)`, read by `derive(HttpError)`.
     fn check_variant_attributes(&mut self, variants: &[Variant], http: bool) {
         for v in variants {
+            let mut status: Option<Span> = None;
             for a in &v.attributes {
                 match self.interner.resolve(a.name) {
                     "status" => {
-                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (100..=599).contains(n));
+                        if let Some(first) = status {
+                            self.diags.push(
+                                Diagnostic::error("a variant has one `@status`")
+                                    .with_code("E0193")
+                                    .with_label(a.span, "a second one")
+                                    .with_label(first, "the first"),
+                            );
+                            continue;
+                        }
+                        status = Some(a.span);
+                        // an error's status: a client (4xx) or server (5xx) error
+                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (400..=599).contains(n));
                         if !ok {
                             self.error(
                                 "E0193",
                                 a.span,
-                                "`@status` takes one HTTP status code (100 to 599)",
+                                "`@status` takes one HTTP error status code (400 to 599)",
                                 "e.g. `@status(404)`",
                             );
                         } else if !http {
@@ -375,6 +387,16 @@ impl<'a, 'i> Lower<'a, 'i> {
                     let at = self.ast.types[derives[i]].span;
                     derives.remove(i);
                     self.derive_default(name, &generics, &fields, at);
+                }
+                if let Some(i) = derives.iter().position(|t| self.names_derive(*t, "HttpError")) {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.diags.push(
+                        Diagnostic::error("`derive(HttpError)` is for an enum")
+                            .with_code("E0193")
+                            .with_label(at, "on a struct")
+                            .with_note("each variant of an error enum gives its status: `@derive(HttpError) enum AppError { @status(404) missing(id: Int), ... }`; for one status, `impl HttpStatus for T { fn http_status(self: &Self) -> Int { 404 } }`"),
+                    );
                 }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
@@ -712,8 +734,6 @@ impl<'a, 'i> Lower<'a, 'i> {
             let own = m.ret.map(|t| self.ty(t));
             let ret = match kind {
                 _ if own.is_some() => own,
-                // `around(ctx, next)` returns the rest's `Result<Reply, E>`
-                "around" => None,
                 "error" => {
                     // `error(ctx, error)`: the error parameter has the stage's error type
                     if let (Some(e), Some(p)) = (error_ty, params.get_mut(1))
@@ -1022,12 +1042,14 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
         }
         let scoped = !frame.is_empty();
+        let lifted: Vec<Symbol> = frame.values().copied().collect();
         if scoped {
             self.local_fns.push(frame);
         }
         let block = self.block_items(b, span);
         if scoped {
             self.local_fns.pop();
+            self.ast.local_fn_blocks.insert(block, lifted);
         }
         block
     }
@@ -1168,7 +1190,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                 };
                 let otherwise = self.block(*els);
                 self.return_tail_err(otherwise);
-                let diverge = self.alloc_expr(ExprKind::Std("diverge"), span);
+                // generated references are zero-width (see `provider`): hover
+                // and references over the `else` block are its own
+                let diverge = self.alloc_expr(ExprKind::Std("diverge"), Span { end: span.start, ..span });
                 let otherwise = self.alloc_expr(
                     ExprKind::Call { callee: diverge, args: vec![otherwise], type_args: vec![] },
                     span,
@@ -1270,10 +1294,15 @@ impl<'a, 'i> Lower<'a, 'i> {
             }
             cst::Expr::Name(n) => {
                 let mut n = self.name(n);
+                let written = n.sym;
                 if let Some(lifted) = self.local_fn(n.sym) {
                     n.sym = lifted;
                 }
-                self.alloc_expr(ExprKind::Name(n), span)
+                let id = self.alloc_expr(ExprKind::Name(n), span);
+                if n.sym != written {
+                    self.ast.local_fn_refs.insert(id, written);
+                }
+                id
             }
             cst::Expr::TypeName(n) => {
                 let n = self.name(n);

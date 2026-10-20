@@ -61,7 +61,7 @@ fn display(self: &Self) -> String
 ### `InitScope`
 
 ```badger
-struct InitScope<S> { brand: system.Brand<S>, halts: Cell<List<fn() -> Option<String>>>, tasks: Int, workers: Cell<List<(Int, worker.Shutdown)>>, node: Symbol, stopping: Cell<Bool> }
+struct InitScope<S> { brand: system.Brand<S>, halts: Cell<List<fn() -> Option<String>>>, stops: Cell<List<fn() -> Unit>>, tasks: Int, workers: Cell<List<(Int, worker.Shutdown)>>, node: Symbol, stopping: Cell<Bool> }
 ```
 
 Initialization scope of one node: registers halt callbacks and owns the
@@ -86,6 +86,17 @@ fn on_halt<E>(self: &Self, f: once fn() -> Result<Unit, E>) -> Unit where E: pre
 
 Register a one-shot, possibly fallible cleanup; halts run in reverse
 registration order, after the node's workers have settled.
+
+#### `InitScope.on_stop`
+
+```badger
+fn on_stop(self: &Self, f: fn() -> Unit) -> Unit
+```
+
+Register a callback for when the system starts halting, before any
+node's workers are stopped (and before every `on_halt`): stop taking
+new work, so the workers draining what was already queued can finish
+(`channel.resource` closes its sender here).
 
 #### `InitScope.worker`
 

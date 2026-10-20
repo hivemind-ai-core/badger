@@ -1,0 +1,6 @@
+// expect-error: E0193
+// `derive(HttpError)` is for an enum: each variant carries its status.
+@derive(HttpError)
+pub struct NotFound { id: Int }
+
+pub fn main() -> Unit {}

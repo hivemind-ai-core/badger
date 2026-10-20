@@ -103,6 +103,7 @@ report failures as plain data.
 | `InitScope` method | Effect |
 |---|---|
 | `scope.on_halt(f)` | Register cleanup; halts run in reverse registration order, once each |
+| `scope.on_stop(f)` | Run `f` as the system starts halting, before any worker stops (stop taking work) |
 | `scope.worker(factory, policy)` | Start a managed worker owned by the node |
 | `scope.worker_with(name, factory, policy, shutdown)` | The same, with a name and a shutdown policy |
 | `scope.acquire(provider, config)` | Start a nested resource whose cleanup belongs to this node |
@@ -354,10 +355,12 @@ is an in-memory stream; a durable one implements `load` and `append`
 ### A channel between nodes
 
 `channel.resource<T>()` is a provider of a channel the system owns: it is
-created when its node starts and closed when the node halts, after the
-nodes that use it. One node publishes through `ref(#events).sender`,
-another consumes `ref(#events).receiver`, so a request handler hands work
-to a background worker without polling:
+created when its node starts and closed as the system starts halting,
+before any worker stops, so a consumer whose worker drains
+(`worker.drain(limit)`) receives every queued event and then the end. One
+node publishes through `ref(#events).sender`, another consumes
+`ref(#events).receiver`, so a request handler hands work to a background
+worker without polling:
 
 ```badger fragment
 let plan = system {

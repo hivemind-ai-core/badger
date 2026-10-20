@@ -345,6 +345,17 @@ fn field_type(hir: &Hir, interner: &Interner, ty: &badger_hir::HTy) -> (bool, Op
         {
             (true, name(&args[0]))
         }
+        // a `@flatten` struct is stored as its one field
+        HTyKind::Named { def, .. }
+            if let DefKind::Struct(st) = &hir.defs[*def].kind
+                && st.fields.len() == 1
+                && hir
+                    .attributes
+                    .get(def)
+                    .is_some_and(|a| a.iter().any(|a| interner.resolve(a.name) == "flatten")) =>
+        {
+            field_type(hir, interner, &st.fields[0].ty)
+        }
         _ => (false, name(ty)),
     }
 }

@@ -77,6 +77,19 @@ struct ModScope {
 /// error in standard-library sources and a warning elsewhere.
 const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
 
+/// The closed fusion vocabulary: the values a `@fusion(...)` annotation may
+/// carry. A `stage`'s kind is either named here or derived from the
+/// callback's shape (the `call` kind).
+const FUSION_ROLES: &[&str] = &["source", "stage", "terminal"];
+const FUSION_KINDS: &[&str] = &[
+    // sources
+    "range", "from_range", "list", "entries", //
+    // stages
+    "call", "take", "skip", "step_by", "scan", "enumerate", "dedup", //
+    // terminals
+    "fold", "count", "sum", "collect",
+];
+
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
 pub fn lower_program(
@@ -561,7 +574,9 @@ impl Cx<'_> {
             self.hir.defs[def].kind = kind;
             if let DefKind::Fn(f) = &self.hir.defs[def].kind {
                 let name = self.sym(self.hir.defs[def].name).to_string();
-                if !m.is_std && !m.dependency && name.starts_with("test_") {
+                // a local function (lifted as `test_x.helper`) is not a test
+                let local = m.ast.local_fns.contains(&self.hir.defs[def].name);
+                if !m.is_std && !m.dependency && !local && name.starts_with("test_") {
                     if f.params.is_empty() {
                         self.hir.modules[mid].tests.push(def);
                     } else {
@@ -593,6 +608,9 @@ struct BodyCx<'c, 'a> {
     module: ModuleId,
     /// Lexical value scopes (innermost last).
     locals: Vec<FxHashMap<Symbol, LocalId>>,
+    /// Blocks declaring local functions being lowered: the depth of
+    /// `locals` there and the lifted names.
+    local_fn_frames: Vec<(usize, Vec<Symbol>)>,
     /// Generic/type parameter scopes.
     generics: Vec<FxHashMap<Symbol, GenericId>>,
     owners: Vec<OwnerFrame>,
@@ -618,6 +636,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast,
             module,
             locals: vec![],
+            local_fn_frames: vec![],
             generics: vec![],
             owners: vec![],
             loops: vec![],
@@ -735,6 +754,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             return;
         }
         let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
+        let mut flattened: Option<Span> = None;
         for attr in &item.attributes {
             let name = self.cx.interner.resolve(attr.name).to_string();
             if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
@@ -749,7 +769,21 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             // `@flatten`: a one-field struct encoded as its field's value
             if name == "flatten" {
                 let one_field = matches!(&item.kind, ast::ItemKind::Struct(s) if s.fields.len() == 1);
-                if !one_field || !attr.args.is_empty() {
+                if let Some(first) = flattened {
+                    self.cx.diags.push(
+                        Diagnostic::warning("`@flatten` is written twice")
+                            .with_code("E0192")
+                            .with_label(attr.span, "a second one")
+                            .with_label(first, "the first"),
+                    );
+                } else if !attr.args.is_empty() {
+                    self.cx.diags.push(
+                        Diagnostic::error("`@flatten` takes no arguments")
+                            .with_code("E0192")
+                            .with_label(attr.span, "remove the arguments")
+                            .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
+                    );
+                } else if !one_field {
                     self.cx.diags.push(
                         Diagnostic::error("`@flatten` marks a struct with exactly one field")
                             .with_code("E0192")
@@ -757,6 +791,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
                     );
                 }
+                flattened = flattened.or(Some(attr.span));
             }
             // `@allow(<code>, ...)` silences those warnings inside this item
             if name == "allow" {
@@ -768,6 +803,33 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     };
                     if let Some(code) = code {
                         self.cx.hir.allows.push((code, item.span));
+                    }
+                }
+            }
+            // `@fusion(role = ..., template = ...)`: a closed vocabulary
+            if name == "fusion" {
+                for arg in &attr.args {
+                    let ast::AttrArg::KeyValue(k, v) = arg else { continue };
+                    let (label, allowed) = match self.cx.interner.resolve(*k) {
+                        "role" => ("role", FUSION_ROLES),
+                        "template" => ("kind", FUSION_KINDS),
+                        _ => continue,
+                    };
+                    let value = match &**v {
+                        ast::AttrArg::Name(s) => self.cx.interner.resolve(*s).to_string(),
+                        ast::AttrArg::Str(s) => s.clone(),
+                        _ => continue,
+                    };
+                    if !allowed.contains(&value.as_str()) {
+                        let msg = format!("unknown fusion {label} `{value}`");
+                        let mut d = Diagnostic::error(msg).with_code("E0194");
+                        if !is_std {
+                            d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
+                                .with_code("E0194");
+                        }
+                        self.cx
+                            .diags
+                            .push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
                     }
                 }
             }
@@ -1416,7 +1478,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             match self.lookup_module_name(name.sym) {
                 Some(Res::Def(d)) => return Some(TypeRes::Def(d)),
                 _ => {
-                    self.err("E0122", name.span, format!("unknown type `{text}`"), "not found in this scope");
+                    let mut d = Diagnostic::error(format!("unknown type `{text}`"))
+                        .with_code("E0122")
+                        .with_label(name.span, "not found in this scope");
+                    if let Some(near) = self.nearest_name(&text) {
+                        d = d.with_note(format!("did you mean `{near}`?"));
+                    }
+                    self.cx.diags.push(d);
                     return None;
                 }
             }
@@ -1456,7 +1524,27 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             None => {
                 let s = self.sym(name.sym);
                 let mp = self.cx.path_str(&self.cx.hir.modules[m].path.clone());
-                self.err("E0113", name.span, format!("module `{mp}` has no item `{s}`"), "not found");
+                let mut d = Diagnostic::error(format!("module `{mp}` has no item `{s}`"))
+                    .with_code("E0113")
+                    .with_label(name.span, "not found");
+                // the nearest of the members visible here
+                let limit = if s.chars().count() <= 3 { 1 } else { 2 };
+                let upper = |x: &str| x.starts_with(|c: char| c.is_uppercase());
+                let near = self.cx.hir.modules[m]
+                    .items
+                    .iter()
+                    .filter(|(_, d)| self.cx.hir.defs[**d].is_pub || m == self.module)
+                    .map(|(k, _)| self.cx.interner.resolve(*k).to_string())
+                    .filter(|n| upper(n) == upper(&s) && !n.starts_with('_'))
+                    .map(|n| (edit_distance(&s, &n), n))
+                    .filter(|(dist, _)| *dist <= limit)
+                    .min();
+                if let Some((_, near)) = near {
+                    // as written: by the module's last segment (`io.println`)
+                    let short = mp.rsplit('.').next().unwrap_or(&mp);
+                    d = d.with_note(format!("did you mean `{short}.{near}`?"));
+                }
+                self.cx.diags.push(d);
                 None
             }
         }
@@ -1511,7 +1599,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     })
                     .collect(),
             ),
-            ast::ExprKind::Name(n) => return self.lower_name(*n, span),
+            ast::ExprKind::Name(n) => {
+                let n = self.unhidden(e, *n);
+                return self.lower_name(n, span);
+            }
             ast::ExprKind::TypeName(n) => {
                 let s = self.sym(n.sym);
                 self.err(
@@ -1674,7 +1765,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             }
             ast::ExprKind::Block { stmts } => {
                 self.locals.push(FxHashMap::default());
+                let frame = self.ast.local_fn_blocks.get(&e).cloned();
+                if let Some(f) = &frame {
+                    self.local_fn_frames.push((self.locals.len(), f.clone()));
+                }
                 let (stmts, tail) = self.lower_stmts(stmts);
+                if frame.is_some() {
+                    self.local_fn_frames.pop();
+                }
                 self.locals.pop();
                 ExprKind::Block { stmts, tail }
             }
@@ -1775,6 +1873,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         }
     }
 
+    /// A name the syntax rewrote to a local function, as written when a
+    /// binding of it is as close as the function's block or closer (`fn g`
+    /// then `let g = 5`: `g` is the `let`).
+    fn unhidden(&self, e: ast::ExprId, n: ast::Name) -> ast::Name {
+        let Some(&written) = self.ast.local_fn_refs.get(&e) else { return n };
+        let Some(local) = self.locals.iter().rposition(|s| s.contains_key(&written)) else { return n };
+        let block = self.local_fn_frames.iter().rev().find(|(_, f)| f.contains(&n.sym)).map(|(d, _)| *d);
+        // inside a lifted function's own body there is no frame: its
+        // parameters and locals hide the other local functions
+        if block.is_none_or(|d| local + 1 >= d) { ast::Name { sym: written, span: n.span } } else { n }
+    }
+
     fn lower_name(&mut self, n: ast::Name, span: Span) -> ExprId {
         if let Some(l) = self.lookup_local(n.sym) {
             return self.alloc(ExprKind::Local(l), span);
@@ -1834,6 +1944,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             Some(Ns::Type(ty)) => {
                 let kind = self.type_member(ty, name, targs);
                 self.alloc(kind, span)
+            }
+            // `Typo.member`: the unknown type is reported (once)
+            None if matches!(self.ast.exprs[base].kind, ast::ExprKind::TypeName(_)) => {
+                self.alloc(ExprKind::Error, span)
             }
             None => {
                 if !targs.is_empty() {
@@ -1977,8 +2091,8 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             self.lower_expr(callee)
         } else {
             match &self.ast.exprs[callee].kind {
-                ast::ExprKind::Name(n) if self.lookup_local(n.sym).is_none() => {
-                    let n = *n;
+                ast::ExprKind::Name(n) if self.lookup_local(self.unhidden(callee, *n).sym).is_none() => {
+                    let n = self.unhidden(callee, *n);
                     let targs = type_args.iter().map(|t| self.lower_ty(*t)).collect();
                     let kind = match self.lookup_module_name(n.sym) {
                         Some(Res::Def(d)) => self.def_value(d, n, targs),

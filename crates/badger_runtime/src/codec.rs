@@ -397,6 +397,27 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// Can a field of this type be left out? An `Option` (absent is `none`), or
+/// a `@flatten` struct whose one field can (absent wraps that field's).
+pub(crate) fn omittable(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::Enum { .. } => d.name == "Option",
+        Kind::Record { fields, flat: true, .. } if fields.len() == 1 => omittable(fields[0].desc),
+        _ => false,
+    }
+}
+
+/// The value of a left-out field of an [`omittable`] type (rooted).
+pub(crate) fn absent(d: &'static TypeDesc) -> u64 {
+    match &d.kind {
+        Kind::Record { fields, size, flat: true, .. } if fields.len() == 1 => {
+            let v = absent(fields[0].desc);
+            flat_record(d, *size, &fields[0], v)
+        }
+        _ => root(crate::make_enum(d, 0, &[])),
+    }
+}
+
 /// A `@flatten` struct holding `v` as its one field.
 pub(crate) fn flat_record(d: &'static TypeDesc, size: u32, field: &crate::desc::Field, v: u64) -> u64 {
     if field.desc.is_ptr() {
@@ -481,7 +502,7 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 for f in fields {
                     let value = match lookup(m, &d.name, &f.name) {
                         Some(v) => dec(f.desc, v),
-                        None if f.desc.name == "Option" => dec(f.desc, &J::Null),
+                        None if omittable(f.desc) => Ok(absent(f.desc)),
                         None => fail("missing required field"),
                     };
                     vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);
@@ -677,7 +698,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 for f in rfields {
                     let value = match lookup_data(&entries, &d.name, &f.name) {
                         Some(v) => dec_data(f.desc, v),
-                        None if f.desc.name == "Option" => Ok(root(make_enum(f.desc, 0, &[]))),
+                        None if omittable(f.desc) => Ok(absent(f.desc)),
                         None => fail("missing required field"),
                     };
                     vals.push(value.map_err(|e| e.field(&d.name, &f.name))?);

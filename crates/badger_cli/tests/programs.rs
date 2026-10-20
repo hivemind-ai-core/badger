@@ -1785,6 +1785,40 @@ fn test_runner_controlled_clock() {
     }
 }
 
+/// Local functions inside a test (even `test_*` ones taking parameters)
+/// are helpers: only the test itself runs, with no E0142 warning.
+#[test]
+fn test_runner_skips_local_functions() {
+    let out = lang().args(["test", "tests/testing/local_helpers.bdg"]).current_dir(root()).output().unwrap();
+    let (text, err) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(out.status.success(), "{text}{err}");
+    assert!(text.contains("1 passed; 0 failed") && !text.contains("test_value"), "{text}");
+    assert!(!err.contains("E0142"), "{err}");
+}
+
+/// Missing paths and empty selections fail: `inspect` of a path that does
+/// not exist, `test --json` of one (with a JSON report), and a test filter
+/// matching no test; a running program's snapshot without `--connect`
+/// says how to connect.
+#[test]
+fn cli_reports_missing_inputs() {
+    let out = lang().args(["inspect", "config", "tests/no-such-dir"]).current_dir(root()).output().unwrap();
+    assert!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("no such file"));
+    let out = lang().args(["inspect", "tasks"]).current_dir(root()).output().unwrap();
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--connect ADDR"), "{out:?}");
+    let out = lang().args(["test", "tests/no-such.bdg", "--json"]).current_dir(root()).output().unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("a JSON report");
+    assert!(!out.status.success() && v["error"].as_str().unwrap().contains("no such file"), "{v}");
+    let out = lang()
+        .args(["test", "tests/testing/local_helpers.bdg", "--filter", "nomatch"])
+        .current_dir(root())
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success() && String::from_utf8_lossy(&out.stderr).contains("no test matches `nomatch`")
+    );
+}
+
 /// Simulation fixtures: seeded scheduling, record/replay of interleavings,
 /// exploration reporting the failing seed, and property checks.
 #[test]

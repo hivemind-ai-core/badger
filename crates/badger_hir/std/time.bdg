@@ -8,6 +8,9 @@ extern "intrinsic" fn identity<A, B>(value: A) -> B
 /// The monotonic clock's current instant.
 pub fn now() -> Instant !{Io} { time_now() }
 
+/// The time elapsed since `start` (an instant from `now()`).
+pub fn since(start: Instant) -> Duration !{Io} { time_now() - start }
+
 pub fn sleep(d: Duration) -> Unit !{Wait} { task_sleep(d) }
 
 /// A duration of `n` units; durations are never negative (a negative

@@ -767,6 +767,25 @@ fn index(s: &Session, hir: &badger_hir::Hir, checked: &badger_typeck::Checked<'_
             ix.add_ref(&mut refs, decl, r);
         }
     }
+    // record patterns' shorthand fields (`let { x, .. } = r`): a binder
+    // spelled as its label, after `{` or `,` (not `label: x`)
+    for (_, p) in hir.pats.iter() {
+        let PatKind::Record { fields, .. } = &p.kind else { continue };
+        for (label, sub) in fields {
+            let sp = hir.pats[*sub].span;
+            if !matches!(hir.pats[*sub].kind, PatKind::Bind(_))
+                || !user(sp)
+                || ix.text(sp) != s.interner.resolve(*label)
+            {
+                continue;
+            }
+            let src = &s.sources.get(sp.file).text;
+            let before = src.get(..sp.start as usize).unwrap_or("").trim_end();
+            if before.ends_with('{') || before.ends_with(',') {
+                shorthand.entry(ix.path(sp)).or_default().push((sp.start as usize, sp.end as usize));
+            }
+        }
+    }
     // definitions: names, signature types, and symbols
     let mut symbols: HashMap<String, Vec<SymbolInfo>> = HashMap::new();
     let mut impl_children: HashMap<u32, Vec<SymbolInfo>> = HashMap::new();
@@ -821,7 +840,24 @@ fn index(s: &Session, hir: &badger_hir::Hir, checked: &badger_typeck::Checked<'_
         }
         let Some(kind) = kind_of(&def.kind, method_owner.is_some()) else { continue };
         let name = match &def.kind {
-            DefKind::Impl(im) => format!("impl {}", ix.text(im.self_ty.span)),
+            // `impl Display for UserId`, as written (so two impls of one
+            // type differ); a derived one's types by their names
+            DefKind::Impl(im) => {
+                let shown = |t: &badger_hir::HTy| {
+                    let text = ix.text(t.span).to_string();
+                    match &t.kind {
+                        badger_hir::HTyKind::Named { def, .. } => {
+                            let name = s.interner.resolve(hir.defs[*def].name);
+                            if text.starts_with(name) { text } else { name.to_string() }
+                        }
+                        _ => text,
+                    }
+                };
+                match &im.protocol {
+                    Some(p) => format!("impl {} for {}", shown(p), shown(&im.self_ty)),
+                    None => format!("impl {}", shown(&im.self_ty)),
+                }
+            }
             _ => s.interner.resolve(def.name).to_string(),
         };
         let detail = match &def.kind {

@@ -80,6 +80,9 @@ The initializer's `InitScope<S>` has these checked operations:
   handle is valid until this scope closes, registering its cleanup.
 - `scope.on_halt(callback)` registers a one-shot, possibly fallible cleanup
   callback. It may capture this scope's resources; it cannot outlive the scope.
+- `scope.on_stop(callback)` runs once when the system starts halting, before
+  any node's activities are stopped: the node stops taking new work (an
+  intake channel closes), so activities draining what was queued can finish.
 - `scope.worker(factory, policy)` starts a managed activity owned by the node,
   with its declared restart and shutdown policy.
 
@@ -219,8 +222,8 @@ once, with a block or `=> expression` body, and at least one is present;
 callbacks capture the factory's parameters. A callback may annotate its own
 result (`enter(ctx) -> Result<_, E> { ... }`), which takes precedence over
 the stage's. The optional `-> Result<_, E>`
-names the stage's error type once: it annotates the results of `enter` and
-`leave` and the type of `error`'s error parameter. `as #label` names the
+names the stage's error type once: it annotates the results of `enter`,
+`leave`, and `around` and the type of `error`'s error parameter. `as #label` names the
 stage explicitly, as for providers. `requires` / `ensures` lines before a
 stage are its factory's contract. A `pub stage` declares its parameter
 types; its `pipeline.Stage` type follows from its callbacks. `stage` is a

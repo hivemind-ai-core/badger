@@ -1,0 +1,6 @@
+ada none
+{"email":null,"name":"ada"}
+{"type":"object","properties":{"email":{"anyOf":[{"type":"string"},{"type":"null"}]},"name":{"type":"string"}},"required":["name"]}
+bo none
+cy some(cy@example.com)
+true

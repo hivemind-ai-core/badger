@@ -13,6 +13,7 @@ mod graph;
 mod init;
 mod lsp;
 mod mcp;
+mod redact;
 mod search;
 mod templates;
 mod watch;
@@ -840,10 +841,18 @@ fn command(cli: Cli) -> ExitCode {
         Command::Test { path, filter, json, list, exact, watch } => {
             if !path.exists() {
                 // a test name is not a path: it goes after `--filter`
-                eprintln!(
-                    "error: no such file or directory: {} (a test's name goes after --filter)",
+                let message = format!(
+                    "no such file or directory: {} (a test's name goes after --filter)",
                     path.display()
                 );
+                if json {
+                    println!(
+                        "{{\"passed\":0,\"failed\":0,\"tests\":[],\"error\":{}}}",
+                        serde_json::Value::String(message)
+                    );
+                } else {
+                    eprintln!("error: {message}");
+                }
                 return ExitCode::FAILURE;
             }
             if watch {
@@ -891,7 +900,7 @@ fn command(cli: Cli) -> ExitCode {
                     }
                 }
             }
-            exit_now(badger_driver::finish_tests(json))
+            exit_now(badger_driver::finish_tests(json, opts.filter.as_deref()))
         }
         Command::Contracts { path, json, tests: true } => match session.contract_test_report(&path) {
             Ok((clauses, suggestions, (ran, failed))) => {
@@ -1270,6 +1279,10 @@ fn command(cli: Cli) -> ExitCode {
                 }
             }
         }
+        Command::Inspect { path, .. } if !path.exists() => {
+            eprintln!("error: no such file or directory: {}", path.display());
+            ExitCode::FAILURE
+        }
         Command::Inspect { what, path, json, profile, .. } if what == "config" => {
             match Session::effective_config(&path, profile.as_deref()) {
                 Ok(entries) => {
@@ -1283,7 +1296,7 @@ fn command(cli: Cli) -> ExitCode {
                     let entries: Vec<_> = entries
                         .into_iter()
                         .map(|(k, v, s)| {
-                            let v = redact_setting(&k, &v);
+                            let v = redact::setting(&k, &v);
                             (k, v, s)
                         })
                         .collect();
@@ -1347,6 +1360,12 @@ fn command(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Inspect { what, path, json, .. } => {
+            if INSPECT_REMOTE.contains(&what.as_str()) && !INSPECT_LOCAL.contains(&what.as_str()) {
+                eprintln!(
+                    "error: `{what}` is a snapshot of a running program: add `--connect ADDR`, the address of a program started with `badger run --inspect ADDR`"
+                );
+                return ExitCode::from(2);
+            }
             if what != "plans" {
                 eprintln!(
                     "error: `{what}` is not something `badger inspect` reads (one of: {}; with `--connect ADDR`: {})",
@@ -1975,28 +1994,3 @@ fn looks_like_path(a: &str) -> bool {
     a.contains('/') || a.ends_with(".bdg") || a.ends_with(".bdgmir")
 }
 
-/// A configured value as `badger inspect config` shows it: redacted when
-/// its key names a credential (`password`, `secret`, `token`, `api_key`,
-/// `dsn`, ...), with a URL's password masked otherwise. A reference to
-/// the environment (`${NAME}`) is shown as written.
-fn redact_setting(key: &str, value: &str) -> String {
-    if value.starts_with("${") && value.ends_with('}') {
-        return value.to_string();
-    }
-    let last = key.rsplit('.').next().unwrap_or(key).to_ascii_lowercase();
-    let sensitive =
-        ["password", "passwd", "secret", "token", "credential", "private_key", "api_key", "apikey", "dsn"];
-    if sensitive.iter().any(|s| last.contains(s)) {
-        return "[redacted]".to_string();
-    }
-    // scheme://user:password@host
-    if let Some(at) = value.find('@')
-        && let Some(start) = value.find("://")
-        && start < at
-        && let Some(colon) = value[start + 3..at].find(':')
-    {
-        let colon = start + 3 + colon;
-        return format!("{}:[redacted]{}", &value[..colon], &value[at..]);
-    }
-    value.to_string()
-}

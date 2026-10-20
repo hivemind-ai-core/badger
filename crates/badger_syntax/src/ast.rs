@@ -16,6 +16,12 @@ pub struct Ast {
     pub items: Vec<Item>,
     /// Module functions lifted from local `fn` declarations.
     pub local_fns: Vec<Symbol>,
+    /// The blocks declaring local functions, with the lifted names.
+    pub local_fn_blocks: std::collections::HashMap<ExprId, Vec<Symbol>>,
+    /// Names rewritten to a lifted local function, with the name as
+    /// written: a binding of it closer than the function's block (a later
+    /// `let`) still hides the function.
+    pub local_fn_refs: std::collections::HashMap<ExprId, Symbol>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

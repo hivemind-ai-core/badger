@@ -1,0 +1,6 @@
+// expect-error: E0122
+// A misspelled type before `.member` is one error (not also "not a
+// value"), with the near name suggested.
+pub fn main() -> Unit {
+    let _: Option<Int> = Optoin.none
+}
