@@ -1,0 +1,4 @@
+[package]
+name = "@name@"
+entry = "src/lib.bdg"
+kind = "library"

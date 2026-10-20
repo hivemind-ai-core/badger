@@ -509,6 +509,20 @@ cost.
 
 ### 2.3 Immix-style block reclamation (sub-strategy of the bump pool)
 
+**Status:** landed 2026-10-20 (`9d6d5b1`, `5a14cda`): chunks are divided into 32 KiB
+blocks of 16-byte lines, each block headed by its line bitmap. Cells are
+bump-allocated in holes, the sweep marks the lines of its list's survivors
+(sticky across minor collections), and the pool is rebuilt from the bitmaps
+after each collection: partly live blocks are reused in place, blocks with
+no live line are reused whole, and a full collection releases the chunks
+with no live line by bitmap. The size-class free lists are gone. **The
+expected win holds**: the telemetry work ratio 0.79/0.90/0.82/0.85
+(balanced and fanout, at one and four workers), the mutator time 13-22%
+lower, the process CPU 11-18% lower, and the full-collection trim down from
+up to 24 ms to 1-3 ms. The trade-off: the peak RSS of a heap fragmented at
+the grain of single cells goes from 59 to 66 MiB (78 MiB before the
+follow-up that keeps the holes it passes over by size).
+
 - **Goal**: keep the existing bump pool as the primary allocator;
   add an Immix-style line-bitmap "is this 32-byte line live?"
   check on free, so partially-used blocks can be reused in place
@@ -563,6 +577,18 @@ typeck work. It builds on the existing `ownership.rs` and
 `regions.rs`; no user-facing surface changes for §3.1–§3.3.
 
 ### 3.1 Region / arena for typeck and AST
+
+**Status:** **the arena half is not adopted** (2026-10-20): badger_typeck does not link
+badger_runtime and never touches the GC's managed heap -- its nodes are Rust
+values on the system allocator, the HIR is already la-arena indexed, the
+types are `Rc<TyKind>`, Rust's lifetimes are already the escape analysis,
+and stable Rust has no `allocator_api` to point `Rc`/`Vec`/`HashMap` at an
+arena anyway. **The traffic it aimed at is real and was fixed instead**
+(`090efbc`): the type tree is shared when nothing changed and the children
+walk does not allocate, so the allocations per check go from 831K to 386K,
+the type check phase over the 610-file corpus from 46.2 s to 31.2 s (-33%)
+and the whole check from 80.0 s to 57.3 s, with stdout, stderr and exit
+status identical on every file.
 
 - **Goal**: add a `bumpalo` / `typed-arena`-style arena for
   short-lived AST nodes during typeck; an `Immix`-style or
@@ -717,6 +743,20 @@ lifetime information.
   source of truth); the extraction step is size-bounded.
 
 ### 4.3 Alive2-style translation validation across the MIR pipeline
+
+**Status:** landed in its cheap form 2026-10-20 (`a9618b9`): `BADGER_MIR_VALIDATE=1`
+runs a bit-for-bit whole-program MIR comparator over two optimiser runs
+(so it catches non-determinism) and a behavioural gate (the program runs
+optimised and with the MIR pipeline off; the first differing stdout line or
+exit status fails the run). The item's literal "optimised against
+unoptimised, bit for bit" is **not** a gate -- the release passes restructure
+by design (simplify alone reports 2324 changes on
+`tests/run/acceptance_static.bdg`, and the dumps diverge at the first
+renumbering) -- so it rejects correct and broken optimisations alike. The
+behavioural check is the sound one: it catches the deliberately broken
+rewrite (`BADGER_MIR_BREAK=superopt` turns `n*4` into `n<<3`, which
+silently produced `y=24`), and the corpus is identical with the check on
+and off. The full SMT version (an SMT model of MIR) is still open.
 
 **Status:** landed 2026-10-20, with the gate changed from what the item
 specifies. The item's gate — "the post-MIR-optimisation program must be
