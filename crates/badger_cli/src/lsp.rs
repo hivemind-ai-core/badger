@@ -1035,6 +1035,51 @@ fn plain_range(file: &str, text: &str, r: &Value) -> Value {
     json!({ "file": file, "line": l, "col": c, "end_line": el, "end_col": ec })
 }
 
+/// The questions `badger query` answers.
+pub const QUERY_KINDS: [&str; 10] = [
+    "diagnostics",
+    "check",
+    "hover",
+    "definition",
+    "references",
+    "completion",
+    "rename",
+    "symbols",
+    "symbol",
+    "api",
+];
+
+/// The parser of the question `badger query` answers: the questions are
+/// listed in the help and completed by the shell, and an unknown one is
+/// named in the tool's own words.
+#[derive(Clone)]
+pub struct QueryKind;
+
+impl clap::builder::TypedValueParser for QueryKind {
+    type Value = String;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &std::ffi::OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        let s = value.to_string_lossy().into_owned();
+        if QUERY_KINDS.contains(&s.as_str()) {
+            Ok(s)
+        } else {
+            Err(clap::Error::raw(
+                clap::error::ErrorKind::ValueValidation,
+                format!("unknown query `{s}` ({})\n", QUERY_KINDS.join(", ")),
+            ))
+        }
+    }
+
+    fn possible_values(&self) -> Option<Box<dyn Iterator<Item = clap::builder::PossibleValue> + '_>> {
+        Some(Box::new(QUERY_KINDS.iter().map(|v| clap::builder::PossibleValue::new(*v))))
+    }
+}
+
 /// `badger query`: one question about a program, answered as JSON with
 /// 1-based lines and columns (for scripts, agents, and `std.compiler`).
 pub fn query(
@@ -1048,18 +1093,7 @@ pub fn query(
     if kind == "api" {
         return api(path);
     }
-    const KINDS: &[&str] = &[
-        "diagnostics",
-        "check",
-        "hover",
-        "definition",
-        "references",
-        "completion",
-        "rename",
-        "symbols",
-        "symbol",
-        "api",
-    ];
+    const KINDS: &[&str] = &QUERY_KINDS;
     if !KINDS.contains(&kind) {
         return Err(format!("unknown query `{kind}` ({})", KINDS.join(", ")));
     }
