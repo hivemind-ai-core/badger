@@ -93,10 +93,91 @@ the tagged thing.
 | Macros (when they exist) | top-level functions and types by name; statements, blocks, and local functions inside the body passed to the macro | `impl` methods (the macro cannot see which impl a value has); a function stored in a variable (it could change at run time) |
 | Run time (user-defined attributes, later) | top-level declarations, enum variants, and struct fields, compiled into a static table on the type's descriptor (as `@message` already is) | methods, statements, parameters, local functions |
 
-Run-time-readable, user-declared attributes (`pub attribute status(code:
-Int) on variant`, read with a typed query) are planned after 1.0; the
-namespacing rule above is what keeps them from colliding with the
-compiler's own names.
+Run-time-readable, user-declared attributes are planned after 1.0 (next
+section); the namespacing rule above is what keeps them from colliding with
+the compiler's own names.
+
+## User-defined attributes (design, agreed 2026-10-20; not implemented)
+
+A library declares an attribute; other modules annotate with it; only the
+declaring module reads it, at run time, as the list of every use in the
+program — typically from an `init` function (a service's start-up) that
+builds a route table, a schema, or a registry from it.
+
+**Declaration.** A new top-level definition, fields as in a struct, after
+`on` the positions it may be written at:
+
+```text
+pub attribute route on fn(http.Request) -> Result<http.Response, E> {
+    method: Method,            // an enum: a bare variant at the use site
+    path: String,
+    summary: Option<String>,   // an `Option` field may be left out
+}
+
+pub attribute column on field {
+    name: String,
+    primary: Option<Bool>,
+}
+```
+
+- **Positions**: `type`, `fn`, `field`, `variant`, `value` (a module-level
+  `let`) — the positions visible at run time (see the table above).
+- **Field types**: values the compiler can build statically: `Bool`, the
+  integer and float types, `String`, `Symbol`, `Duration`, payload-free enum
+  variants, and `Option`/`List` of these. No functions, maps, or `Data`.
+- **`pub`** lets other modules annotate with it; reading stays private to
+  the declaring module. The declaring module does not annotate with its own
+  attribute (it does not import itself, so `@lib.name` cannot name it).
+- **One use per item** unless declared `repeatable` (a function serving two
+  routes).
+- A name of the compiler's (`allow`, `derive`, ...) cannot be declared.
+
+**Use.** Namespaced by the declaring module, with `key = value` arguments
+(one positional argument when the attribute has exactly one required
+field):
+
+```text
+@web.route(method = get, path = "/books/:id")
+pub fn show(request: http.Request) -> Result<http.Response, AppError> { ... }
+
+@db.table("books")
+pub type Book = { @db.column(name = "id", primary = true) id: Int, title: String }
+```
+
+An argument is checked against the field's type; a missing non-`Option`
+field, an unknown key, or a position the attribute does not list is an
+error. Once declarations exist, an attribute its module does not declare is
+a warning in user code (an error in standard-library sources).
+
+**Reading.** In the declaring module, the attribute's name is a value: the
+uses in the whole program (dependencies included), in a deterministic order
+(module path, then source order):
+
+```text
+for use in route.uses {
+    use.value    // { method: Method, path: String, summary: Option<String> }
+    use.target   // { module: String, name: String, kind: Symbol,
+                 //   owner: Option<String>, file: String, line: Int }
+    use.call     // fn(http.Request) -> Result<http.Response, E>: the function
+}
+```
+
+**An entry carries the annotated item**, not only its name — otherwise
+annotating a particular function or type has no point:
+
+- `on fn(SIGNATURE)`: each use carries the function as a value of that type
+  (`use.call`); annotating a function of another signature is an error.
+- `on type`: each use carries the type's description (its schema, as
+  `schema.of<T>()` gives) and, when the declaration names a protocol
+  (`on type: Codec`), what that protocol offers for it.
+- `on field` / `on variant`: the owning type (as for `type`) and the
+  field's or variant's name and type.
+
+**Implementation notes.** The table is static: it is built when the program
+is lowered, stored with the type descriptors (where `@message` already
+lives) and in saved MIR, and must keep what it references alive — the
+reachability pass may not prune a function or type that only an attribute
+table reaches.
 
 ## Semantics, by phase
 
