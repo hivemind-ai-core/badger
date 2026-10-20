@@ -365,7 +365,7 @@ pub fn main() -> Result<Unit, AppError> {
     sqlite.execute(db, "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL, qty INTEGER NOT NULL)", [])?
     sqlite.transaction(db, fn(tx) -> Result<Unit, AppError> {
         for name in ["milk", "eggs"] {
-            sqlite.execute(tx, "INSERT INTO items (name, qty) VALUES (?, ?)", [Data.string(name), Data.int(2)])?
+            sqlite.execute(tx, "INSERT INTO items (name, qty) VALUES (:name, :qty)", { name, qty: 2 })?
         }
         ok(())
     })?
@@ -373,6 +373,8 @@ pub fn main() -> Result<Unit, AppError> {
     for item in items {
         io.println($"{item.id} {item.name} x{item.qty}")?
     }
+    let first = sqlite.query_opt_as<Item>(db, "SELECT id, name, qty FROM items WHERE id = ?", 1)?
+    io.println($"first: {first.map(fn(i) => i.name).unwrap_or("none")}")?
     ok(())
 }
 ```
@@ -380,6 +382,7 @@ pub fn main() -> Result<Unit, AppError> {
 ```text
 1 milk x2
 2 eggs x2
+first: milk
 ```
 
 | Function | Returns |
@@ -387,11 +390,16 @@ pub fn main() -> Result<Unit, AppError> {
 | `sqlite.execute(conn, sql, params)` | Changed row count |
 | `sqlite.query(conn, sql, params)` | `List<Data>` |
 | `sqlite.query_one(conn, sql, params)` | One row as `Data`; zero or several rows is an error |
-| `sqlite.query_as<T>`, `query_one_as<T>` | Rows decoded as record `T` (an `Option` field for a nullable column) |
+| `sqlite.query_opt(conn, sql, params)` | At most one row: `none` for no rows; several rows is an error |
+| `sqlite.query_as<T>`, `query_one_as<T>`, `query_opt_as<T>` | Rows decoded as record `T` (an `Option` field for a nullable column) |
 | `sqlite.transaction(pool, body)` | Commits after `ok`; rolls back after `err`, a defect, or cancellation |
 
-`conn` is a pool or a transaction. Parameters are `?` placeholders bound
-from a `List<Data>`. A transaction is confined to its task (E0402) and to
+`conn` is a pool or a transaction. The parameters are any encodable
+value: a list or tuple binds `?` placeholders in order (`(title, author)`),
+a record binds named ones by field (`{ id, title }` for `:id` and
+`:title`; `@id` and `$id` too, and a record may carry more fields than the
+statement names), and a single value is the one `?` (`id`). `[]` or `{}`
+is none. A transaction is confined to its task (E0402) and to
 its callback (E0401). In a system, use the `sqlite.pool` provider with
 `{ path }`.
 
@@ -402,7 +410,7 @@ statements:
 | Code | Mistake |
 |---|---|
 | E0180 | The statement does not compile (unknown table or column, syntax), or does not suit the call |
-| E0181 | The parameter list literal has the wrong length |
+| E0181 | A parameter list or tuple literal has the wrong length, or a record literal lacks a field a placeholder names |
 | E0182 | `query_as` row type does not match the result columns |
 
 [Typed SQL](../typed-sql.md) generates typed functions from `.sql` files
@@ -442,7 +450,7 @@ pub enum AppError {
 pub fn main() -> Result<Unit, AppError> {
     let url = env.get("DATABASE_URL").unwrap_or("postgres://localhost/app")
     let db = postgres.connect(url)?
-    let users = postgres.query_as<User>(db, "SELECT id, name FROM users WHERE name LIKE $1", [Data.string("a%")])?
+    let users = postgres.query_as<User>(db, "SELECT id, name FROM users WHERE name LIKE :pattern", { pattern: "a%" })?
     for u in users {
         io.println($"{u.id} {u.name}")?
     }
@@ -451,11 +459,13 @@ pub fn main() -> Result<Unit, AppError> {
 ```
 
 `std.postgres` has the shape of `std.sqlite` (`execute`, `query`,
-`query_one`, `query_as`, `query_one_as`, `transaction`) over a connection
-pool. Differences:
+`query_one`, `query_opt`, `query_as`, `query_one_as`, `query_opt_as`,
+`transaction`) over a connection pool. Differences:
 
-- Parameters are `$1`, `$2`, ..., parsed by the server as each parameter's
-  type.
+- Positional parameters are `$1`, `$2`, ..., parsed by the server as each
+  parameter's type. A record binds `:name` placeholders only (`@` and `$`
+  are Postgres operators); `::` casts, strings, and comments are left
+  alone.
 - `postgres.connect(url)` opens one connection immediately, so a bad
   address or credentials fail there. `connect_with(url, { max_connections })`
   sizes the pool (default 16).
