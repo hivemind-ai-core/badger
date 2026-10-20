@@ -27,10 +27,13 @@
 (enum_declaration name: (type_identifier) @type.definition)
 (protocol_declaration name: (type_identifier) @type.definition)
 (effect) @attribute
+(attribute "@" @attribute name: (_) @attribute)
+(attribute_argument key: (_) @variable.parameter)
 (hole) @type
 
 ; functions
 (function_declaration name: (_) @function)
+(local_function name: (identifier) @function)
 (provider_declaration name: (identifier) @function)
 (stage_declaration name: (identifier) @function)
 (stage_callback kind: _ @keyword.function)

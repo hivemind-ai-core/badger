@@ -25,13 +25,17 @@ and the one known limitation below.
 
 ## Differences from the compiler's parser
 
-The grammar follows `crates/badger_syntax/src/grammar.rs`, with two
+The grammar follows `crates/badger_syntax/src/grammar.rs`, with three
 simplifications. The compiler is the authority on what a program means.
 
 - **Newlines are whitespace here.** The compiler's layout pass makes a
   newline end a statement; this grammar does not reproduce it, so a rare
   multi-line form (a line starting with `(` or `[` after a complete
   expression) may be read as a call or index rather than a new statement.
+- **Match arms may omit their comma.** The compiler needs one after an
+  arm whose body is not a block; this grammar accepts its absence (and
+  reads a block arm as ending at its `}`, so the next line's
+  `.variant =>` starts an arm).
 - **`map`, `set`, `system`, and `pipeline` followed by `{`** are always
   their literal forms. A *variable* with one of these names directly
   before a block (`match set { ... }`) is not parsed correctly; the

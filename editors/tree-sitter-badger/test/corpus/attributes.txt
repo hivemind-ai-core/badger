@@ -1,0 +1,147 @@
+==================
+Attributes on declarations and variants
+==================
+
+@derive(Codec, Eq)
+@flatten
+pub struct BookId { value: Int }
+
+@derive(HttpError)
+pub enum AppError {
+  @status(404) missing(id: Int),
+  other,
+}
+
+@allow(key = "E0103", #app/x)
+fn f() -> Int { 1 }
+
+---
+
+(source_file
+  (attribute
+    (identifier)
+    (attribute_argument
+      (type_identifier))
+    (attribute_argument
+      (type_identifier)))
+  (attribute
+    (identifier))
+  (struct_declaration
+    (visibility)
+    (type_identifier)
+    (struct_field
+      (identifier)
+      (type_path
+        (type_identifier))))
+  (attribute
+    (identifier)
+    (attribute_argument
+      (type_identifier)))
+  (enum_declaration
+    (visibility)
+    (type_identifier)
+    (enum_variant
+      (attribute
+        (identifier)
+        (attribute_argument
+          (integer)))
+      (identifier)
+      (variant_field
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (enum_variant
+      (identifier)))
+  (attribute
+    (identifier)
+    (attribute_argument
+      (identifier)
+      (string))
+    (attribute_argument
+      (symbol)))
+  (function_declaration
+    (identifier)
+    (parameters)
+    (type_path
+      (type_identifier))
+    (block
+      (integer))))
+
+==================
+Local functions, around callbacks, and block arms
+==================
+
+fn outer(n: Int) -> Int {
+  fn twice(x: Int) -> Int => x * 2
+  match n {
+    0 => {
+      twice(1)
+    }
+    .some(x) => x,
+  }
+}
+
+stage timed() -> Result<_, E> {
+  around(ctx, next) { next(ctx) }
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_path
+          (type_identifier))))
+    (type_path
+      (type_identifier))
+    (block
+      (local_function
+        (identifier)
+        (parameters
+          (parameter
+            (identifier)
+            (type_path
+              (type_identifier))))
+        (type_path
+          (type_identifier))
+        (binary_expression
+          (identifier)
+          (integer)))
+      (match_expression
+        (identifier)
+        (match_arm
+          (literal_pattern
+            (integer))
+          (block
+            (call_expression
+              (identifier)
+              (arguments
+                (integer)))))
+        (match_arm
+          (variant_pattern
+            (identifier)
+            (identifier))
+          (identifier)))))
+  (stage_declaration
+    (identifier)
+    (parameters)
+    (type_path
+      (type_identifier)
+      (type_arguments
+        (hole)
+        (type_path
+          (type_identifier))))
+    (stage_callback
+      (parameters
+        (parameter
+          (identifier))
+        (parameter
+          (identifier)))
+      (block
+        (call_expression
+          (identifier)
+          (arguments
+            (identifier)))))))

@@ -21,6 +21,9 @@ const PREC = {
   mul: 11,
   unary: 12,
   postfix: 13,
+  // a match arm whose body is a block ends at its `}`: the next line's
+  // `.variant =>` starts an arm, it does not access a field
+  block_arm: 14,
 };
 
 const sep1 = (rule, s) => seq(rule, repeat(seq(s, rule)));
@@ -57,7 +60,18 @@ module.exports = grammar({
     _member: ($) => choice($.identifier, $.type_identifier, alias(/[0-9]+/, $.integer)),
 
     // ------------------------------------------------------------ items
-    _item: ($) =>
+    // `@derive(Codec)`, `@flatten`, `@allow(E0103)`, `@status(404)`:
+    // metadata a declaration (or an enum variant) carries
+    attribute: ($) =>
+      seq('@', field('name', $._name), optional(seq('(', commaSep($.attribute_argument), ')'))),
+    attribute_argument: ($) =>
+      seq(
+        optional(seq(field('key', $._name), '=')),
+        field('value', choice($._name, $.symbol, $.integer, $.string)),
+      ),
+
+    _item: ($) => seq(repeat($.attribute), $._declaration),
+    _declaration: ($) =>
       choice(
         $.import_declaration,
         $.type_alias,
@@ -110,7 +124,12 @@ module.exports = grammar({
         commaSep($.enum_variant),
         '}',
       ),
-    enum_variant: ($) => seq(field('name', $._member), optional(seq('(', commaSep($.variant_field), ')'))),
+    enum_variant: ($) =>
+      seq(
+        repeat($.attribute),
+        field('name', $._member),
+        optional(seq('(', commaSep($.variant_field), ')')),
+      ),
     variant_field: ($) => seq(optional(seq(field('name', $._member), ':')), $._type),
 
     protocol_declaration: ($) =>
@@ -186,7 +205,7 @@ module.exports = grammar({
 
     stage_callback: ($) =>
       seq(
-        field('kind', choice('enter', 'leave', 'error')),
+        field('kind', choice('enter', 'leave', 'error', 'around')),
         $.parameters,
         optional(seq('->', field('return_type', $._type))),
         choice(field('body', $.block), seq('=>', field('body', $._expression))),
@@ -251,7 +270,20 @@ module.exports = grammar({
 
     // ------------------------------------------------------------ statements
     block: ($) => seq('{', repeat(choice($._statement, ';')), '}'),
-    _statement: ($) => choice($.let_statement, $.use_statement, $.assignment, $._expression),
+    // a local function is a statement: `fn name(...) { ... }` in a body
+    _statement: ($) =>
+      choice($.let_statement, $.use_statement, $.assignment, $.local_function, $._expression),
+    local_function: ($) =>
+      seq(
+        'fn',
+        field('name', $.identifier),
+        optional($.generic_parameters),
+        $.parameters,
+        optional(seq('->', field('return_type', $._type))),
+        optional($.effect),
+        optional($.where_clause),
+        choice(field('body', $.block), seq('=>', field('body', $._expression))),
+      ),
     let_statement: ($) =>
       seq(
         choice('let', 'var', 'const'),
@@ -377,9 +409,16 @@ module.exports = grammar({
         seq('if', choice($.let_condition, $._expression), $.block, optional(seq('else', choice($.if_expression, $.block)))),
       ),
     let_condition: ($) => seq('let', $._pattern, '=', $._expression),
-    match_expression: ($) => seq('match', $._expression, '{', commaSep($.match_arm), '}'),
+    // arms are separated by commas (one whose body is a block needs none)
+    match_expression: ($) => seq('match', $._expression, '{', repeat(seq($.match_arm, optional(','))), '}'),
     match_arm: ($) =>
-      seq($._pattern, repeat(seq('|', $._pattern)), optional(seq('if', $._expression)), '=>', $._expression),
+      seq(
+        $._pattern,
+        repeat(seq('|', $._pattern)),
+        optional(seq('if', $._expression)),
+        '=>',
+        choice(prec(PREC.block_arm, $.block), $._expression),
+      ),
     while_expression: ($) => seq('while', choice($.let_condition, $._expression), $.block),
     for_expression: ($) => seq('for', $._pattern, 'in', $._expression, $.block),
     loop_expression: ($) => seq('loop', $.block),
