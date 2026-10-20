@@ -60,10 +60,11 @@ type Settings = {
     db: { path: String },
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 /// Half of an even number.
 requires n % 2 == 0

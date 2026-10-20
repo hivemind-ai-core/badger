@@ -106,13 +106,11 @@ pub enum ItemKind<'a> {
         name: Ident<'a>,
         generics: Vec<Generic<'a>>,
         fields: Vec<(bool, Ident<'a>, T<'a>)>,
-        derives: Vec<T<'a>>,
     },
     Enum {
         name: Ident<'a>,
         generics: Vec<Generic<'a>>,
         variants: Vec<Variant<'a>>,
-        derives: Vec<T<'a>>,
     },
     Protocol {
         name: Ident<'a>,
