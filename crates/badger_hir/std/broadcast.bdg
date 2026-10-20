@@ -62,6 +62,11 @@ impl<T> Broadcaster<T> {
         let id = self.next_id.update(fn(n: Int) -> Int { n + 1 })
         let sub: Sub<T> = { id, sender: ends.sender, receiver: ends.receiver, lagged }
         let _ = self.subs.update(fn(l: List<Sub<T>>) -> List<Sub<T>> { l.append(sub) })
+        // a close that ran meanwhile may have missed this subscriber: it
+        // sees the end as the others do
+        if self.closed.get() {
+            ends.sender.close()
+        }
         ok({ receiver: ends.receiver, lagged })
     }
 
@@ -78,20 +83,27 @@ impl<T> Broadcaster<T> {
                     .err(_) => { gone = gone.append(s.id) },
                 }
             } else {
+                // until delivered (another publisher may refill the space
+                // made), counting only the messages actually dropped
                 var delivered = false
-                var attempts = 0
-                while !delivered && attempts < 2 {
+                var closed = false
+                while !delivered && !closed {
                     match s.sender.try_send(value) {
                         .ok(_) => { delivered = true },
                         .err(e) => {
                             if e.reason == #channel/closed {
-                                attempts = 2
+                                closed = true
                                 gone = gone.append(s.id)
                             } else {
                                 // full: drop the subscriber's oldest message
-                                let _ = s.receiver.try_recv()
-                                let _ = s.lagged.update(fn(n: Int) -> Int { n + 1 })
-                                attempts = attempts + 1
+                                match s.receiver.try_recv() {
+                                    .value(_) => { let _ = s.lagged.update(fn(n: Int) -> Int { n + 1 }) },
+                                    .empty => (),
+                                    .closed => {
+                                        closed = true
+                                        gone = gone.append(s.id)
+                                    },
+                                }
                             }
                         },
                     }

@@ -1,0 +1,83 @@
+// Broadcast under concurrency: a subscription made while the broadcast
+// closes still sees the end, and with #drop_oldest every publish reaches
+// the subscriber (received + lagged counts every message exactly).
+import std.broadcast
+import std.io
+import std.list
+import std.task
+
+fn close_race() -> Result<Unit, broadcast.Error> {
+    var stuck = 0
+    for round in 0..300 {
+        let b = broadcast.create<Int>(broadcast.defaults)?
+        let r = task.scope(fn(s) -> Result<Int, String> {
+            let subs = s.spawn(fn() {
+                var got = []
+                for _ in 0..20 {
+                    match b.subscribe() {
+                        .ok(sub) => { got = list.append(got, sub) },
+                        .err(_) => break,
+                    }
+                }
+                got
+            })
+            let closer = s.spawn(fn() { b.close() })
+            closer.join()
+            let all = subs.join()
+            var hung = 0
+            for sub in all {
+                match task.timeout(200ms, fn() { sub.recv() }) {
+                    .ok(_) => (),
+                    .err(_) => { hung = hung + 1 },
+                }
+            }
+            ok(hung)
+        })
+        match r {
+            .ok(h) => { stuck = stuck + h },
+            .err(_) => (),
+        }
+        if stuck > 0 {
+            let _ = io.println($"round {round}: {stuck} subscriptions never see the end after close")
+            return ok(())
+        }
+    }
+    let _ = io.println("no stuck subscription")
+    ok(())
+}
+
+fn drop_oldest() -> Result<Unit, broadcast.Error> {
+    let b = broadcast.create<Int>({ backlog: 4, policy: #drop_oldest })?
+    let sub = b.subscribe()?
+    let reached = Atom.new(0)
+    use s <- task.scope()
+    let consumer = s.spawn(fn() {
+        var n = 0
+        loop {
+            match sub.recv() {
+                .some(_) => { n = n + 1 },
+                .none => break,
+            }
+        }
+        n
+    })
+    var ps = []
+    for _p in 0..4 {
+        ps = list.append(ps, s.spawn(fn() {
+            for i in 0..5000 {
+                let r = b.publish(i)
+                let _ = reached.update(fn(x) { x + r })
+            }
+        }))
+    }
+    for p in ps { p.join() }
+    b.close()
+    let got = consumer.join()
+    let _ = io.println($"reached {reached.get()}, received + lagged {got + sub.lagged()}")
+    ok(())
+}
+
+pub fn main() -> Result<Unit, broadcast.Error> {
+    close_race()?
+    drop_oldest()
+}
