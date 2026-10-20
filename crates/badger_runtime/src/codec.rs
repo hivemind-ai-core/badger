@@ -117,12 +117,38 @@ fn lookup<'j>(m: &'j serde_json::Map<String, J>, ty: &str, member: &str) -> Opti
     })
 }
 
+/// How deeply an encoded or decoded value may nest: each level is a native
+/// stack frame, and decoded input may be hostile.
+pub(crate) const MAX_DEPTH: usize = 512;
+
+thread_local! {
+    static ENC_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub fn encode(d: &TypeDesc, w: u64) -> String {
     // Most encoded values are small objects; one modest reservation avoids
     // the first few doublings of the output buffer.
     let mut s = String::with_capacity(64);
+    let outer = ENC_DEPTH.with(|c| c.replace(0));
     enc(d, w, &mut s);
+    ENC_DEPTH.with(|c| c.set(outer));
     s
+}
+
+/// One more level of an encoded value: past the limit it is a defect (its
+/// encoding could not be decoded again), not a native stack overflow.
+fn enc_deeper() {
+    let depth = ENC_DEPTH.with(|c| {
+        c.set(c.get() + 1);
+        c.get()
+    });
+    if depth > MAX_DEPTH {
+        ENC_DEPTH.with(|c| c.set(0));
+        crate::task::panic_current(
+            format!("a value nested more than {MAX_DEPTH} levels deep cannot be encoded"),
+            crate::task::caller_location(),
+        );
+    }
 }
 
 /// Append `v` in decimal. Encoders write many integers; this avoids the
@@ -165,6 +191,12 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
     if matches!(d.kind, Kind::Dynamic) && w != 0 {
         return enc(unsafe { obj(w).desc() }, w, o);
     }
+    enc_deeper();
+    enc_at(d, w, o);
+    ENC_DEPTH.with(|c| c.set(c.get() - 1));
+}
+
+fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
     match &d.kind {
         Kind::Unit => o.push_str("null"),
         Kind::Bool => o.push_str(if w & 1 != 0 { "true" } else { "false" }),

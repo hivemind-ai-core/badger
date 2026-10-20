@@ -135,7 +135,11 @@ define_intrinsics! {
     fn codec_from_sql_row(ctx, targs, ret, d) { decode_result(rdesc(ret), codec::from_sql_row(targ(targs, 0), d)) }
     fn codec_to_data(ctx, targs, ret, v) {
         let text = codec::encode(targ(targs, 0), v);
-        let j: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        // the encoder's own output, nested at most `codec::MAX_DEPTH` deep:
+        // past serde's default limit (128) it is still parsed
+        let mut de = serde_json::Deserializer::from_str(&text);
+        de.disable_recursion_limit();
+        let j: serde_json::Value = serde::Deserialize::deserialize(&mut de).unwrap_or(serde_json::Value::Null);
         // `Data.int` holds an `Int`: a larger unsigned value has no exact form
         if let Some(n) = codec::first_unrepresentable(&j) {
             crate::task::panic_current(

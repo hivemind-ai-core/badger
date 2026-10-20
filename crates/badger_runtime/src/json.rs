@@ -172,11 +172,23 @@ struct P<'a> {
     text: &'a str,
     b: &'a [u8],
     i: usize,
+    /// How deeply the value being read is nested (bounded: the input may be
+    /// hostile, and each level is a native stack frame).
+    depth: usize,
 }
 
 impl<'a> P<'a> {
     fn new(text: &'a str) -> P<'a> {
-        P { text, b: text.as_bytes(), i: 0 }
+        P { text, b: text.as_bytes(), i: 0, depth: 0 }
+    }
+
+    /// Enter one more level of nesting, or fail past the limit.
+    fn deeper(&mut self) -> Result<(), PErr> {
+        self.depth += 1;
+        if self.depth > crate::codec::MAX_DEPTH {
+            return derr(format!("nested more than {} levels deep", crate::codec::MAX_DEPTH));
+        }
+        Ok(())
     }
 
     fn peek(&self) -> Option<u8> {
@@ -366,6 +378,13 @@ impl<'a> P<'a> {
     /// Consume any JSON value, discarding it (for keys and members that do
     /// not decode into anything).
     fn skip_value(&mut self) -> Result<(), PErr> {
+        self.deeper()?;
+        let r = self.skip_value_inner();
+        self.depth -= 1;
+        r
+    }
+
+    fn skip_value_inner(&mut self) -> Result<(), PErr> {
         self.ws();
         match self.peek() {
             Some(b'"') => {
@@ -431,6 +450,13 @@ impl<'a> P<'a> {
 
     /// Decode the next value as `d`, mirroring `codec::dec`.
     fn value(&mut self, d: &'static TypeDesc) -> Result<u64, PErr> {
+        self.deeper()?;
+        let r = self.value_inner(d);
+        self.depth -= 1;
+        r
+    }
+
+    fn value_inner(&mut self, d: &'static TypeDesc) -> Result<u64, PErr> {
         self.ws();
         match &d.kind {
             Kind::Unit => {

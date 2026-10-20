@@ -1,0 +1,30 @@
+// Decoding hostile input nested past 512 JSON levels is an error (not a
+// native stack overflow), and values nested past serde's 128 levels (each
+// `Node` is two: an object and a list) still convert to and from `Data`.
+import std.codec
+import std.io
+import std.text
+
+@derive(Codec, Eq)
+pub struct Node { children: List<Node> }
+
+fn nest(n: Int) -> Node {
+    var node: Node = { children: [] }
+    for _ in 0..n {
+        node = { children: [node] }
+    }
+    node
+}
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let hostile = $"{text.repeat("{\"children\":[", 50000)}{text.repeat("]}", 50000)}"
+    match codec.decode_text<Node>(hostile) {
+        .ok(_) => { let _ = io.println("decoded") },
+        .err(e) => { let _ = io.println($"rejected: {e.message}") },
+    }
+    let deep = nest(200)
+    let back = codec.decode_text<Node>(codec.encode_text(deep))?
+    let data = codec.from_data<Node>(codec.to_data(deep))?
+    let _ = io.println($"{back == deep} {data == deep}")
+    ok(())
+}
