@@ -115,13 +115,13 @@ fn compare_with(baseline: &Path, all: &[Measurement]) -> Result<String, String> 
 }
 
 /// Run the benchmark programs and report their measurements. With `out`,
-/// the measurements are written as JSON; with `compare`, they are
-/// compared with a baseline written that way.
+/// the measurements are written as JSON; with `baseline`, they are
+/// compared with a baseline file written that way.
 pub fn run(
     path: &Path,
     workers: Option<usize>,
     out: Option<&Path>,
-    compare: Option<&Path>,
+    baseline: Option<&Path>,
 ) -> Result<String, String> {
     let programs = programs(path);
     if programs.is_empty() {
@@ -152,7 +152,7 @@ pub fn run(
             return Err(format!("{}: the program printed no measurement", p.display()));
         }
         // with a baseline to compare, the comparison carries the numbers
-        if compare.is_none() {
+        if baseline.is_none() {
             for m in &ms {
                 text.push_str(&format!("{}: {} {} {}\n", m.program, m.label, m.value, m.unit));
             }
@@ -162,7 +162,7 @@ pub fn run(
     if let Some(f) = out {
         write_json(f, &all)?;
     }
-    if let Some(f) = compare {
+    if let Some(f) = baseline {
         text.push_str(&compare_with(f, &all)?);
     }
     Ok(text)

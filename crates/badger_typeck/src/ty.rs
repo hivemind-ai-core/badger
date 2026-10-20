@@ -290,7 +290,8 @@ impl InferCtxt {
         }
     }
 
-    /// Fully substitute all bound variables.
+    /// Fully substitute all bound variables. A subtree with nothing bound in
+    /// it comes back as the same node (shared, not copied).
     pub fn resolve(&mut self, t: &Ty) -> Ty {
         let t = self.shallow(t);
         match &*t {
@@ -300,24 +301,47 @@ impl InferCtxt {
             | TyKind::Gen(_)
             | TyKind::Bound(_)
             | TyKind::Error => t,
-            TyKind::Con(d, args) => mk(TyKind::Con(*d, args.iter().map(|a| self.resolve(a)).collect())),
-            TyKind::Dyn(d, args) => mk(TyKind::Dyn(*d, args.iter().map(|a| self.resolve(a)).collect())),
-            TyKind::Fn(f) => mk(TyKind::Fn(FnTy {
-                params: f.params.iter().map(|p| self.resolve(p)).collect(),
-                ret: self.resolve(&f.ret),
-                eff: self.resolve(&f.eff),
-                once: f.once,
-            })),
-            TyKind::Record(r) => mk(TyKind::Record(self.resolve(r))),
-            TyKind::Tuple(ts) => mk(TyKind::Tuple(ts.iter().map(|a| self.resolve(a)).collect())),
-            TyKind::RowExt(l, a, rest) => mk(TyKind::RowExt(*l, self.resolve(a), self.resolve(rest))),
-            TyKind::Ref(m, a) => mk(TyKind::Ref(*m, self.resolve(a))),
-            TyKind::Forall(n, b) => mk(TyKind::Forall(*n, self.resolve(b))),
+            TyKind::Con(d, args) => match map_shared(args, |a| self.resolve(a)) {
+                Some(args) => mk(TyKind::Con(*d, args)),
+                None => t.clone(),
+            },
+            TyKind::Dyn(d, args) => match map_shared(args, |a| self.resolve(a)) {
+                Some(args) => mk(TyKind::Dyn(*d, args)),
+                None => t.clone(),
+            },
+            TyKind::Fn(f) => {
+                let params = map_shared(&f.params, |p| self.resolve(p));
+                let ret = self.resolve(&f.ret);
+                let eff = self.resolve(&f.eff);
+                if params.is_none() && Rc::ptr_eq(&ret, &f.ret) && Rc::ptr_eq(&eff, &f.eff) {
+                    return t.clone();
+                }
+                mk(TyKind::Fn(FnTy {
+                    params: params.unwrap_or_else(|| f.params.clone()),
+                    ret,
+                    eff,
+                    once: f.once,
+                }))
+            }
+            TyKind::Record(r) => rebuild1(&t, r, self.resolve(r), TyKind::Record),
+            TyKind::Tuple(ts) => match map_shared(ts, |a| self.resolve(a)) {
+                Some(ts) => mk(TyKind::Tuple(ts)),
+                None => t.clone(),
+            },
+            TyKind::RowExt(l, a, rest) => {
+                let (na, nrest) = (self.resolve(a), self.resolve(rest));
+                if Rc::ptr_eq(&na, a) && Rc::ptr_eq(&nrest, rest) {
+                    return t.clone();
+                }
+                mk(TyKind::RowExt(*l, na, nrest))
+            }
+            TyKind::Ref(m, a) => rebuild1(&t, a, self.resolve(a), |a| TyKind::Ref(*m, a)),
+            TyKind::Forall(n, b) => rebuild1(&t, b, self.resolve(b), |b| TyKind::Forall(*n, b)),
             TyKind::Proj(b, n) => {
-                let b = self.resolve(b);
-                match normalize_proj(&b, *n) {
+                let nb = self.resolve(b);
+                match normalize_proj(&nb, *n) {
                     Some(t) => self.resolve(&t),
-                    None => mk(TyKind::Proj(b, *n)),
+                    None => rebuild1(&t, b, nb, |b| TyKind::Proj(b, *n)),
                 }
             }
         }
@@ -751,32 +775,80 @@ pub fn ty_any(t: &Ty, f: &mut impl FnMut(&TyKind) -> bool) -> bool {
 }
 
 /// Structural substitution helper: rebuild `t`, replacing nodes for which
-/// `f` returns `Some`.
+/// `f` returns `Some`. A subtree with nothing replaced in it comes back as
+/// the same node (shared, not copied).
 pub fn ty_map(t: &Ty, f: &mut impl FnMut(&Ty) -> Option<Ty>) -> Ty {
     if let Some(r) = f(t) {
         return r;
     }
     match &**t {
-        TyKind::Con(d, args) => mk(TyKind::Con(*d, args.iter().map(|a| ty_map(a, f)).collect())),
-        TyKind::Tuple(args) => mk(TyKind::Tuple(args.iter().map(|a| ty_map(a, f)).collect())),
-        TyKind::Dyn(d, args) => mk(TyKind::Dyn(*d, args.iter().map(|a| ty_map(a, f)).collect())),
-        TyKind::Fn(ft) => mk(TyKind::Fn(FnTy {
-            params: ft.params.iter().map(|a| ty_map(a, f)).collect(),
-            ret: ty_map(&ft.ret, f),
-            eff: ty_map(&ft.eff, f),
-            once: ft.once,
-        })),
-        TyKind::Record(r) => mk(TyKind::Record(ty_map(r, f))),
-        TyKind::Ref(m, r) => mk(TyKind::Ref(*m, ty_map(r, f))),
-        TyKind::Forall(n, r) => mk(TyKind::Forall(*n, ty_map(r, f))),
-        TyKind::RowExt(l, a, rest) => mk(TyKind::RowExt(*l, ty_map(a, f), ty_map(rest, f))),
+        TyKind::Con(d, args) => {
+            map_shared(args, |a| ty_map(a, f)).map_or_else(|| t.clone(), |a| mk(TyKind::Con(*d, a)))
+        }
+        TyKind::Tuple(args) => {
+            map_shared(args, |a| ty_map(a, f)).map_or_else(|| t.clone(), |a| mk(TyKind::Tuple(a)))
+        }
+        TyKind::Dyn(d, args) => {
+            map_shared(args, |a| ty_map(a, f)).map_or_else(|| t.clone(), |a| mk(TyKind::Dyn(*d, a)))
+        }
+        TyKind::Fn(ft) => {
+            let params = map_shared(&ft.params, |a| ty_map(a, f));
+            let ret = ty_map(&ft.ret, f);
+            let eff = ty_map(&ft.eff, f);
+            if params.is_none() && Rc::ptr_eq(&ret, &ft.ret) && Rc::ptr_eq(&eff, &ft.eff) {
+                return t.clone();
+            }
+            mk(TyKind::Fn(FnTy {
+                params: params.unwrap_or_else(|| ft.params.clone()),
+                ret,
+                eff,
+                once: ft.once,
+            }))
+        }
+        TyKind::Record(r) => rebuild1(t, r, ty_map(r, f), TyKind::Record),
+        TyKind::Ref(m, r) => rebuild1(t, r, ty_map(r, f), |r| TyKind::Ref(*m, r)),
+        TyKind::Forall(n, r) => rebuild1(t, r, ty_map(r, f), |r| TyKind::Forall(*n, r)),
+        TyKind::RowExt(l, a, rest) => {
+            let (na, nrest) = (ty_map(a, f), ty_map(rest, f));
+            if Rc::ptr_eq(&na, a) && Rc::ptr_eq(&nrest, rest) {
+                return t.clone();
+            }
+            mk(TyKind::RowExt(*l, na, nrest))
+        }
         TyKind::Proj(b, n) => {
-            let b = ty_map(b, f);
+            let nb = ty_map(b, f);
             // a substituted base may now select an implementation
-            normalize_proj(&b, *n).unwrap_or_else(|| mk(TyKind::Proj(b, *n)))
+            normalize_proj(&nb, *n).unwrap_or_else(|| rebuild1(t, b, nb, |b| TyKind::Proj(b, *n)))
         }
         _ => t.clone(),
     }
+}
+
+/// `f` applied to each of `ts` in order, or `None` when every result is the
+/// element it came from: an unchanged list allocates nothing and its type
+/// node can be shared instead of copied.
+pub(crate) fn map_shared(ts: &[Ty], mut f: impl FnMut(&Ty) -> Ty) -> Option<Vec<Ty>> {
+    let mut out: Option<Vec<Ty>> = None;
+    for (i, t) in ts.iter().enumerate() {
+        let n = f(t);
+        match &mut out {
+            Some(v) => v.push(n),
+            None if !Rc::ptr_eq(&n, t) => {
+                let mut v = Vec::with_capacity(ts.len());
+                v.extend_from_slice(&ts[..i]);
+                v.push(n);
+                out = Some(v);
+            }
+            None => {}
+        }
+    }
+    out
+}
+
+/// `t` (whose one child is `old`) again when `new` is `old`, else a fresh
+/// node built around `new`.
+fn rebuild1(t: &Ty, old: &Ty, new: Ty, k: impl FnOnce(Ty) -> TyKind) -> Ty {
+    if Rc::ptr_eq(old, &new) { t.clone() } else { mk(k(new)) }
 }
 
 /// Fields of a fully resolved row, sorted by label text (canonical order).
@@ -985,6 +1057,32 @@ mod tests {
         let g = mk(TyKind::Fn(FnTy { params: vec![con(1)], ret: con(2), eff: row_empty(), once: false }));
         cx.unify(&f, &g).unwrap();
         assert_eq!(cx.resolve(&f), g);
+    }
+
+    #[test]
+    fn resolve_and_map_share_unchanged_subtrees() {
+        let mut cx = InferCtxt::new(None);
+        let a = cx.fresh();
+        let fixed = mk(TyKind::Tuple(vec![con(1), mk(TyKind::Ref(false, con(2)))]));
+        let t = mk(TyKind::Fn(FnTy {
+            params: vec![fixed.clone(), a.clone()],
+            ret: con(3),
+            eff: row_empty(),
+            once: false,
+        }));
+        // nothing bound yet: the whole type comes back as itself
+        assert!(Rc::ptr_eq(&cx.resolve(&t), &t));
+        assert!(Rc::ptr_eq(&ty_map(&t, &mut |_| None), &t));
+        // a bound variable rebuilds its path and shares the rest
+        cx.unify(&a, &con(4)).unwrap();
+        let r = cx.resolve(&t);
+        let TyKind::Fn(f) = &*r else { panic!() };
+        assert_eq!(f.params[1], con(4));
+        assert!(Rc::ptr_eq(&f.params[0], &fixed));
+        let m = ty_map(&t, &mut |x| matches!(&**x, TyKind::Ref(..)).then(|| con(5)));
+        let TyKind::Fn(g) = &*m else { panic!() };
+        assert_eq!(g.params[0], mk(TyKind::Tuple(vec![con(1), con(5)])));
+        assert!(Rc::ptr_eq(&g.params[1], &a) && Rc::ptr_eq(&g.ret, &f.ret));
     }
 
     #[test]

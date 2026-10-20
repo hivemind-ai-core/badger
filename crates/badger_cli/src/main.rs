@@ -19,6 +19,21 @@ mod watch;
 use badger_base::diagnostics::json_str;
 use badger_driver::{Outcome, Session};
 
+/// The MIR optimization levels `--opt` takes.
+const OPT_LEVELS: [&str; 3] = ["release", "aggressive", "superopt"];
+
+/// The graphs `badger graph` draws.
+const GRAPH_KINDS: [&str; 4] = ["calls", "modules", "types", "systems"];
+
+/// The generators `badger generate` runs.
+const GENERATORS: [&str; 6] = ["sql", "feature", "worker", "service", "cli", "library"];
+
+/// What `badger inspect` reads from a program or a project.
+const INSPECT_LOCAL: [&str; 3] = ["plans", "config", "runtime"];
+
+/// What `badger inspect --connect` reads from a running program.
+const INSPECT_REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
+
 #[derive(Parser)]
 #[command(name = "badger", version, about = "Badger: compiler, JIT runner, and tools (draft-0)")]
 struct Cli {
@@ -45,7 +60,7 @@ enum Command {
         path: PathBuf,
         /// Output file (default: `FILE.bdgmir` beside an entry file;
         /// `DIR/<package>.bdgmir` for a project).
-        #[arg(short, long, value_name = "FILE")]
+        #[arg(short = 'o', long = "out", alias = "output", value_name = "FILE")]
         output: Option<PathBuf>,
         /// Merge `[profile.NAME]` from `badger.toml` into the saved configuration.
         #[arg(long)]
@@ -55,7 +70,7 @@ enum Command {
         workers: Option<usize>,
         /// MIR optimization level: `release` (default), `aggressive`, or
         /// `superopt`.
-        #[arg(long, value_name = "LEVEL")]
+        #[arg(long, value_name = "LEVEL", value_parser = OPT_LEVELS)]
         opt: Option<String>,
     },
     /// Write a self-contained release directory: the `badger` executable,
@@ -68,7 +83,7 @@ enum Command {
         path: PathBuf,
         /// Release directory (default: `release/<package>`); an earlier
         /// release there is replaced.
-        #[arg(short, long, value_name = "DIR")]
+        #[arg(short = 'o', long = "out", alias = "output", value_name = "DIR")]
         output: Option<PathBuf>,
         /// Merge `[profile.NAME]` from `badger.toml` into the saved configuration.
         #[arg(long)]
@@ -78,7 +93,7 @@ enum Command {
         workers: Option<usize>,
         /// MIR optimization level: `release` (default), `aggressive`, or
         /// `superopt`.
-        #[arg(long, value_name = "LEVEL")]
+        #[arg(long, value_name = "LEVEL", value_parser = OPT_LEVELS)]
         opt: Option<String>,
     },
     /// Write a self-contained release directory: its target, program, and
@@ -110,7 +125,7 @@ enum Command {
         /// MIR optimization level with `--release`: `release` (default),
         /// `aggressive` (repeat inlining and simplification), or `superopt`
         /// (also search for cheaper arithmetic and boolean forms).
-        #[arg(long, value_name = "LEVEL", requires = "release")]
+        #[arg(long, value_name = "LEVEL", requires = "release", value_parser = OPT_LEVELS)]
         opt: Option<String>,
         /// Merge `[profile.NAME]` from `badger.toml` into the configuration.
         #[arg(long)]
@@ -204,8 +219,8 @@ enum Command {
         /// The task's name in `[tasks]`.
         name: String,
         /// Project directory (default `.`).
-        #[arg(long, default_value = ".")]
-        project: PathBuf,
+        #[arg(default_value = ".")]
+        path: PathBuf,
         /// Merge `[profile.NAME]` from `badger.toml` into the configuration.
         #[arg(long)]
         profile: Option<String>,
@@ -216,6 +231,7 @@ enum Command {
     /// Rewrite sources in the canonical layout.
     Format {
         /// Files or directories (recursively, `*.bdg`).
+        #[arg(default_value = ".")]
         paths: Vec<PathBuf>,
         /// Report files that would change instead of rewriting them.
         #[arg(long)]
@@ -239,7 +255,8 @@ enum Command {
         what: String,
         /// Entry file or project directory (for `plans`, `config`, `runtime`;
         /// default `.`).
-        path: Option<PathBuf>,
+        #[arg(default_value = ".")]
+        path: PathBuf,
         /// Print JSON instead of a table.
         #[arg(long)]
         json: bool,
@@ -266,12 +283,17 @@ enum Command {
     /// `systems`, in DOT (default), Mermaid, or JSON.
     Graph {
         /// `calls`, `modules`, `types`, or `systems`.
+        #[arg(value_parser = GRAPH_KINDS)]
         kind: String,
         /// Entry file or project directory (default `.`).
-        path: Option<PathBuf>,
+        #[arg(default_value = ".")]
+        path: PathBuf,
         /// `dot`, `mermaid`, or `json`.
-        #[arg(long, default_value = "dot")]
+        #[arg(long, default_value = "dot", value_parser = ["dot", "mermaid", "json"])]
         format: String,
+        /// Print JSON (the same as `--format json`).
+        #[arg(long)]
+        json: bool,
         /// Include standard-library nodes.
         #[arg(long)]
         std: bool,
@@ -285,6 +307,7 @@ enum Command {
     /// applied).
     Query {
         /// What to ask (see above).
+        #[arg(value_parser = lsp::QueryKind)]
         kind: String,
         /// Source file (checked with its project, if any).
         path: Option<PathBuf>,
@@ -314,10 +337,10 @@ enum Command {
         /// `std`, a standard module (`std.list`), or a program path.
         target: String,
         /// Write the pages into this directory instead of printing them.
-        #[arg(long)]
+        #[arg(short = 'o', long = "out", value_name = "DIR")]
         out: Option<PathBuf>,
         /// Compare with the pages in `--out` and fail if any differ.
-        #[arg(long)]
+        #[arg(long, requires = "out")]
         check: bool,
         /// Write the pages as one HTML file and open it.
         #[arg(long)]
@@ -344,37 +367,26 @@ enum Command {
         #[arg(default_value = "bench")]
         path: PathBuf,
         /// Write the measurements to this file as JSON.
-        #[arg(long, value_name = "FILE")]
+        #[arg(short = 'o', long = "out", value_name = "FILE")]
         out: Option<PathBuf>,
         /// Compare the measurements with a baseline file written by `--out`.
         #[arg(long, value_name = "FILE")]
-        compare: Option<PathBuf>,
+        baseline: Option<PathBuf>,
         /// The number of workers the programs run with.
-        #[arg(long)]
+        #[arg(long, value_name = "N")]
         workers: Option<usize>,
     },
-    /// Create a project: `NAME/badger.toml` and `NAME/src/main.bdg` (a
-    /// program with a test). An existing directory is never written into.
-    New {
-        /// The package name, also the directory (lowercase, `_` between
-        /// words).
-        name: String,
-        /// The shape of the project: `cli`, `service`, `framework`, `lib`,
-        /// or `worker` (default: a program with a test).
-        #[arg(long, value_name = "NAME")]
-        template: Option<String>,
-    },
     /// Turn a directory into a project: `badger.toml` and
-    /// `src/main.bdg` (or `src/lib.bdg` with `--lib`). The directory is
-    /// created when it does not exist; an existing file is never
-    /// overwritten.
+    /// `src/main.bdg` (a program with a test). The directory is created
+    /// when it does not exist; an existing file is never overwritten.
     Init {
-        /// The directory to turn into a project (default `.`).
+        /// The directory of the project (default `.`).
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Make a library package (`src/lib.bdg`, no `main`).
-        #[arg(long)]
-        lib: bool,
+        /// The shape of the project: `cli`, `service`, `framework`,
+        /// `library`, or `worker` (default: a program with a test).
+        #[arg(long, value_name = "NAME", value_parser = templates::names())]
+        template: Option<String>,
     },
     /// Generate code: `sql` turns SQL files of named queries
     /// (`-- name: find_user :one`) into typed functions, `NAME.bdg` next
@@ -386,16 +398,19 @@ enum Command {
     /// its tests in a copy of the project; existing files are never
     /// replaced.
     Generate {
-        /// What to generate: `sql` or `feature`.
+        /// What to generate: `sql`, `feature`, `worker`, `service`, `cli`,
+        /// or `library`.
+        #[arg(value_parser = GENERATORS)]
         what: String,
-        /// The SQL files; for `feature`, its name and the project directory
-        /// (default `.`).
+        /// The SQL files; for the other generators, its name and the project
+        /// directory (default `.`).
         files: Vec<PathBuf>,
         /// `feature`: the name of one record (default: the feature's name
         /// without a final `s`).
         #[arg(long)]
         item: Option<String>,
-        /// `feature`: print the plan and check it, but write nothing.
+        /// The other generators: print the plan and check it, but write
+        /// nothing.
         #[arg(long)]
         dry_run: bool,
         /// Postgres URL to take types from (default: `DATABASE_URL`).
@@ -405,7 +420,7 @@ enum Command {
         /// `[database] schema`).
         #[arg(long)]
         schema: Option<PathBuf>,
-        /// Compare with the generated files and fail if any differ.
+        /// `sql`: compare with the generated files and fail if any differ.
         #[arg(long)]
         check: bool,
     },
@@ -472,6 +487,13 @@ enum Command {
 /// not in the program): `EX_SOFTWARE`.
 const INTERNAL_ERROR: i32 = 70;
 
+/// A flag that belongs to another command: a usage error (status 2),
+/// never a flag that is quietly ignored.
+fn wrong_flag(what: &str, flag: &str) -> ExitCode {
+    eprintln!("error: `--{flag}` is not for `badger generate {what}`");
+    ExitCode::from(2)
+}
+
 /// An internal error ends the whole process at once, from whichever thread
 /// it happened on: runtime invariants may no longer hold, and a worker
 /// thread that died alone could leave the others waiting forever (a
@@ -505,8 +527,112 @@ fn exit_on_internal_errors() {
     }));
 }
 
+/// `BADGER_MIR_VALIDATE=1` for `badger run`: run the program twice — the
+/// optimized build and the build with the MIR optimizer off — and fail when
+/// their stdout or exit status differs.
+///
+/// The optimizer restructures the program by design (inlining, dead-code
+/// removal, representation changes), so the two programs cannot be compared
+/// structurally; running both and comparing what they print is the sound
+/// translation-validation question. `BADGER_NO_INLINE=1` turns the whole
+/// release MIR pipeline off, so the reference is the program the
+/// unoptimized pipeline produced. The driver's structural check
+/// (`badger_mir::validate`) covers the pipeline's determinism in the same
+/// mode.
+///
+/// Returns `Some` when the check ran (the process then exits with the
+/// returned code); `None` when it does not apply. Each child runs the
+/// program once, so a program with external effects happens twice: the mode
+/// is for the test corpus, not for such a program.
+fn mir_validate_run() -> Option<ExitCode> {
+    if std::env::var_os("BADGER_MIR_VALIDATE").is_none() {
+        return None;
+    }
+    // The two children keep the mode on so the driver's structural check
+    // runs inside them; the marker stops the wrapper from re-entering.
+    if std::env::var_os("BADGER_MIR_VALIDATE_CHILD").is_some() {
+        return None;
+    }
+    let argv: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if argv.get(1).is_none_or(|a| a != "run") {
+        return None;
+    }
+    let flags: Vec<String> = argv[2..].iter().map(|a| a.to_string_lossy().into_owned()).collect();
+    if !flags.iter().any(|f| f == "--release") {
+        return None;
+    }
+    // an interactive, recording, or benchmarking run has effects the check
+    // must not double, and saved binary MIR has no unoptimized form
+    if flags.iter().any(|f| matches!(f.as_str(), "--watch" | "--inspect" | "--record" | "--bench" | "--debug")) {
+        return None;
+    }
+    if flags.iter().any(|f| f.ends_with(".bdgmir")) {
+        return None;
+    }
+    // Above one worker the program's output can depend on the scheduler, so
+    // two runs of the *same* code can already differ; the comparison is a
+    // question about the compiled program and is answered at one worker.
+    if workers_of(&flags).is_some_and(|n| n != 1) {
+        return None;
+    }
+    let exe = std::env::current_exe().ok()?;
+    let run = |unoptimized: bool| {
+        let mut c = std::process::Command::new(&exe);
+        c.args(&argv[1..]);
+        c.env("BADGER_MIR_VALIDATE_CHILD", "1");
+        if unoptimized {
+            c.env("BADGER_NO_INLINE", "1");
+        }
+        c.output().ok()
+    };
+    let optimized = run(false)?;
+    let reference = run(true)?;
+    if optimized.stdout == reference.stdout && optimized.status.code() == reference.status.code() {
+        let _ = std::io::stdout().write_all(&optimized.stdout);
+        let _ = std::io::stderr().write_all(&optimized.stderr);
+        return Some(ExitCode::from(optimized.status.code().unwrap_or(1).clamp(0, 255) as u8));
+    }
+    eprintln!("error: MIR translation validation failed: the optimized and unoptimized programs differ");
+    eprintln!("[mir-validate] {}", first_differing_line(&optimized.stdout, &reference.stdout));
+    Some(ExitCode::FAILURE)
+}
+
+/// The `--workers N` (or `--workers=N`) value in a command's arguments.
+fn workers_of(flags: &[String]) -> Option<usize> {
+    let mut it = flags.iter();
+    while let Some(f) = it.next() {
+        if let Some(v) = f.strip_prefix("--workers=") {
+            return v.parse().ok();
+        }
+        if f == "--workers" {
+            return it.next().and_then(|v| v.parse().ok());
+        }
+    }
+    None
+}
+
+/// The first line two outputs disagree on, with its 1-based position.
+fn first_differing_line(a: &[u8], b: &[u8]) -> String {
+    let al: Vec<&[u8]> = a.split(|c| *c == b'\n').collect();
+    let bl: Vec<&[u8]> = b.split(|c| *c == b'\n').collect();
+    for (i, (x, y)) in al.iter().zip(&bl).enumerate() {
+        if x != y {
+            return format!(
+                "line {}: optimized `{}`, unoptimized `{}`",
+                i + 1,
+                String::from_utf8_lossy(x),
+                String::from_utf8_lossy(y)
+            );
+        }
+    }
+    format!("optimized {} lines, unoptimized {} lines", al.len(), bl.len())
+}
+
 fn main() -> ExitCode {
     exit_on_internal_errors();
+    if let Some(code) = mir_validate_run() {
+        return code;
+    }
     // `std.compiler` runs this executable for its queries
     if std::env::var_os("BADGER_EXE").is_none()
         && let Ok(exe) = std::env::current_exe()
@@ -548,13 +674,7 @@ fn opt_level(opt: Option<String>) -> Option<Option<badger_mir::opt::Level>> {
 }
 
 /// Run one CLI command.
-fn command(mut cli: Cli) -> ExitCode {
-    // a missing path means the current directory's project
-    if let Command::Inspect { path, connect: None, .. } = &mut cli.command
-        && path.is_none()
-    {
-        *path = Some(PathBuf::from("."));
-    }
+fn command(cli: Cli) -> ExitCode {
     let mut session = Session::new();
     match cli.command {
         Command::Run {
@@ -585,7 +705,7 @@ fn command(mut cli: Cli) -> ExitCode {
                     PathBuf::from(".")
                 }
             };
-            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
+            let Some(opt) = opt_level(opt) else { return ExitCode::from(2) };
             let opts = badger_driver::RunOptions {
                 optimize: release,
                 opt,
@@ -641,7 +761,7 @@ fn command(mut cli: Cli) -> ExitCode {
             // (code generation then optimizes as `badger run` is told); the
             // level is recorded with the program, and a later run applies a
             // higher requested level
-            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
+            let Some(opt) = opt_level(opt) else { return ExitCode::from(2) };
             let opts =
                 badger_driver::RunOptions { profile, workers, optimize: true, opt, ..Default::default() };
             match session.compile_binary(&path, &opts) {
@@ -662,7 +782,7 @@ fn command(mut cli: Cli) -> ExitCode {
             }
         }
         Command::Release { path, output, profile, workers, opt } => {
-            let Some(opt) = opt_level(opt) else { return ExitCode::FAILURE };
+            let Some(opt) = opt_level(opt) else { return ExitCode::from(2) };
             let opts =
                 badger_driver::RunOptions { profile, workers, optimize: true, opt, ..Default::default() };
             let out = output.unwrap_or_else(|| {
@@ -706,10 +826,10 @@ fn command(mut cli: Cli) -> ExitCode {
             let opts = badger_driver::RunOptions { workers, optimize: true, ..Default::default() };
             run_and_exit(&mut session, &program, args, &opts)
         }
-        Command::Task { name, project, profile, args } => {
+        Command::Task { name, path, profile, args } => {
             badger_driver::select_task(&name);
             let opts = badger_driver::RunOptions { profile, ..Default::default() };
-            run_and_exit(&mut session, &project, args, &opts)
+            run_and_exit(&mut session, &path, args, &opts)
         }
         Command::Test { args, json, list, exact, watch } => {
             // `[path] [filter]`: a first argument naming an existing file or
@@ -849,8 +969,10 @@ fn command(mut cli: Cli) -> ExitCode {
         // no paths: the current directory's sources
         Command::Lsp => ExitCode::from(lsp::serve() as u8),
         Command::Mcp => mcp::serve(),
-        Command::Graph { kind, path, format, std } => {
-            match graph::graph(&kind, &path.unwrap_or_else(|| PathBuf::from(".")), &format, std) {
+        Command::Graph { kind, path, format, json, std } => {
+            // `--json` is the short way to ask for the JSON format
+            let format = if json { "json" } else { format.as_str() };
+            match graph::graph(&kind, &path, format, std) {
                 Ok(g) => {
                     // every format ends with a newline
                     if g.ends_with('\n') {
@@ -947,8 +1069,8 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Bench { path, out, compare, workers } => {
-            match bench::run(&path, workers, out.as_deref(), compare.as_deref()) {
+        Command::Bench { path, out, baseline, workers } => {
+            match bench::run(&path, workers, out.as_deref(), baseline.as_deref()) {
                 Ok(text) => {
                     print!("{text}");
                     ExitCode::SUCCESS
@@ -959,74 +1081,40 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::New { name, template } => {
-            if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
-                || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-            {
-                eprintln!(
-                    "error: `{name}` is not a package name: use a lowercase identifier such as `inventory`"
-                );
-                return ExitCode::FAILURE;
+        Command::Init { path, template } => match init::init(&path, template.as_deref()) {
+            Ok(files) => {
+                println!("{}", init::report(&path, &files));
+                ExitCode::SUCCESS
             }
-            // a package is imported by its name: a reserved word or `std`
-            // could never be
-            if badger_syntax::RESERVED.contains(&name.as_str()) || name == "std" {
-                eprintln!(
-                    "error: `{name}` cannot name a package (`import {name}` would not refer to it): choose another name"
-                );
-                return ExitCode::FAILURE;
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
             }
-            let dir = PathBuf::from(&name);
-            if dir.exists() {
-                eprintln!("error: {} already exists", dir.display());
-                return ExitCode::FAILURE;
-            }
-            // a template supplies the files; without one, the project is
-            // a program with a test
-            let files = match &template {
-                Some(t) => match templates::plan(&name, t) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("error: {e}");
-                        return ExitCode::FAILURE;
-                    }
-                },
-                None => vec![
-                ("badger.toml".to_string(), format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
-                (
-                    "src/main.bdg".to_string(),
-                    format!(
-                        "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
-                         import std.io\n\n\
-                         fn greeting(name: String) -> String {{\n    $\"Hello, {{name}}!\"\n}}\n\n\
-                         pub fn main() -> Result<Unit, io.Error> {{\n    io.println(greeting(\"{name}\"))?\n    ok(())\n}}\n\n\
-                         fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
-                    ),
-                ),
-                ],
-            };
-            for (f, text) in &files {
-                let p = dir.join(f);
-                if let Err(e) =
-                    std::fs::create_dir_all(p.parent().unwrap()).and_then(|_| std::fs::write(&p, text))
-                {
-                    eprintln!("error: {}: {e}", p.display());
-                    return ExitCode::FAILURE;
-                }
-            }
-            let mut made: Vec<String> = vec![];
-            for (f, _) in &files {
-                made.push(format!("{name}/{f}"));
-            }
-            println!(
-                "created {}\n\nnext:\n    cd {name}\n    badger run\n    badger test\n    badger generate feature orders   # a typed feature module",
-                made.join(" and ")
-            );
-            ExitCode::SUCCESS
-        }
-        Command::Generate { what, files, item, dry_run, .. }
-            if matches!(what.as_str(), "feature" | "worker" | "service" | "cli" | "library") =>
+        },
+        Command::Generate {
+            what,
+            files,
+            item,
+            dry_run,
+            check,
+            database,
+            schema,
+        } if what != "sql" =>
         {
+            // a flag of another generator is a usage error, not one that
+            // is quietly ignored
+            if check {
+                return wrong_flag(&what, "check");
+            }
+            if database.is_some() {
+                return wrong_flag(&what, "database");
+            }
+            if schema.is_some() {
+                return wrong_flag(&what, "schema");
+            }
+            if item.is_some() && what != "feature" {
+                return wrong_flag(&what, "item");
+            }
             let Some(name) = files.first().map(|f| f.to_string_lossy().to_string()) else {
                 eprintln!("error: `badger generate {what}` needs a name (`badger generate {what} orders`)");
                 return ExitCode::from(2);
@@ -1090,12 +1178,20 @@ fn command(mut cli: Cli) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Command::Generate { what, files, database, schema, check, .. } => {
-            if what != "sql" {
-                eprintln!(
-                    "error: unknown generator `{what}` (available: sql, feature, worker, service, cli, library)"
-                );
-                return ExitCode::FAILURE;
+        Command::Generate {
+            what,
+            files,
+            item,
+            dry_run,
+            check,
+            database,
+            schema,
+        } => {
+            if dry_run {
+                return wrong_flag(&what, "dry-run");
+            }
+            if item.is_some() {
+                return wrong_flag(&what, "item");
             }
             if files.is_empty() {
                 eprintln!(
@@ -1119,9 +1215,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Format { paths, check } => {
-            format(if paths.is_empty() { vec![PathBuf::from(".")] } else { paths }, check)
-        }
+        Command::Format { paths, check } => format(paths, check),
         Command::Update { path } => match badger_driver::deps::update(&path) {
             Ok(deps) => {
                 for d in &deps {
@@ -1139,11 +1233,10 @@ fn command(mut cli: Cli) -> ExitCode {
             None => repl(load),
         },
         Command::Inspect { what, json, connect: Some(addr), .. } => {
-            const REMOTE: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
-            if !REMOTE.contains(&what.as_str()) {
+            if !INSPECT_REMOTE.contains(&what.as_str()) {
                 eprintln!(
                     "error: `{what}` is not a snapshot of a running program (one of: {})",
-                    REMOTE.join(", ")
+                    INSPECT_REMOTE.join(", ")
                 );
                 return ExitCode::from(2);
             }
@@ -1170,7 +1263,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Inspect { what, path: Some(path), json, profile, .. } if what == "config" => {
+        Command::Inspect { what, path, json, profile, .. } if what == "config" => {
             match Session::effective_config(&path, profile.as_deref()) {
                 Ok(entries) => {
                     let src = |s: &badger_driver::manifest::Source| match s {
@@ -1213,7 +1306,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
             }
         }
-        Command::Inspect { what, path: Some(path), json, profile, .. } if what == "runtime" => {
+        Command::Inspect { what, path, json, profile, .. } if what == "runtime" => {
             // effective runtime settings and where each comes from
             let rows = match Session::runtime_settings_with_sources(&path, profile.as_deref()) {
                 Ok(r) => r,
@@ -1246,21 +1339,14 @@ fn command(mut cli: Cli) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Command::Inspect { path: None, .. } => unreachable!("defaulted above"),
-        Command::Inspect { what, path: Some(path), json, .. } => {
-            const RUNNING: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
+        Command::Inspect { what, path, json, .. } => {
             if what != "plans" {
-                if RUNNING.contains(&what.as_str()) {
-                    eprintln!(
-                        "error: `badger inspect {what}` reads a running program: start it with `badger run --inspect ADDR` and pass `--connect ADDR`"
-                    );
-                } else {
-                    eprintln!(
-                        "error: unknown inspection `{what}`: a file has `plans`, `config`, and `runtime`; a running program (`--connect ADDR`) has {}",
-                        RUNNING.join(", ")
-                    );
-                }
-                return ExitCode::FAILURE;
+                eprintln!(
+                    "error: `{what}` is not something `badger inspect` reads (one of: {}; with `--connect ADDR`: {})",
+                    INSPECT_LOCAL.join(", "),
+                    INSPECT_REMOTE.join(", ")
+                );
+                return ExitCode::from(2);
             }
             let Some(plans) = session.inspect_plans(&path) else {
                 report(&session, json);
@@ -1346,7 +1432,7 @@ fn command(mut cli: Cli) -> ExitCode {
                     eprintln!(
                         "error: `badger explain {kind}` needs what to explain: a diagnostic code, or a definition name (`badger explain type NAME FILE`)"
                     );
-                    return ExitCode::FAILURE;
+                    return ExitCode::from(2);
                 }
             };
             match kind.as_str() {
@@ -1393,7 +1479,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 }
                 other => {
                     eprintln!("error: unknown explain kind `{other}` (expected diagnostic, type, or effect)");
-                    ExitCode::FAILURE
+                    ExitCode::from(2)
                 }
             }
         }
@@ -1416,14 +1502,6 @@ fn command(mut cli: Cli) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Command::Init { path, lib } => {
-            if let Err(e) = init::init(&path, lib) {
-                eprintln!("error: {e}");
-                return ExitCode::FAILURE;
-            }
-            println!("{}", init::report(&path, lib));
-            ExitCode::SUCCESS
-        }
         Command::Watch { path, command } => watch::watch(&path, command),
         Command::Search { query, path, json } => {
             let found = search::search(&query, &path);

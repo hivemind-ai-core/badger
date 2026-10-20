@@ -1275,7 +1275,16 @@ impl Session {
         // release MIR optimization (not under live dispatch, where each
         // function stays replaceable); the dump below shows the result
         if !prog.live && std::env::var_os("BADGER_NO_INLINE").is_none() {
-            let report = timed("optimize", || badger_mir::opt::optimize(&mut prog, level));
+            let report = match timed("optimize", || optimize_mir(&mut prog, level)) {
+                Ok(r) => r,
+                Err(e) => {
+                    self.diagnostics.push(
+                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
+                            .with_code("E9001"),
+                    );
+                    return Err(Outcome::Errors);
+                }
+            };
             if std::env::var_os("BADGER_TIMINGS").is_some_and(|v| v == "1") {
                 for (name, n) in report {
                     eprintln!("[timings] pass {name}: {n} changes");
@@ -1422,7 +1431,16 @@ impl Session {
             .unwrap_or(badger_mir::opt::Level::None);
         let level = opt_level(opts);
         if level > saved && !prog.live {
-            timed("optimize", || badger_mir::opt::optimize(&mut prog, level));
+            match timed("optimize", || optimize_mir(&mut prog, level)) {
+                Ok(_) => {}
+                Err(e) => {
+                    self.diagnostics.push(
+                        Diagnostic::error(format!("internal compiler error: MIR translation validation failed: {e}"))
+                            .with_code("E9001"),
+                    );
+                    return Err(Outcome::Errors);
+                }
+            }
             for e in badger_mir::verify::verify(&prog) {
                 self.diagnostics
                     .push(Diagnostic::error(format!("internal compiler error: {e}")).with_code("E9001"));
@@ -1515,6 +1533,24 @@ fn apply_runtime_setting(k: &str, v: &str) {
         }
         _ => {}
     }
+}
+
+/// Run the MIR pipeline. With `BADGER_MIR_VALIDATE=1`, re-run the same
+/// pipeline on a copy of the input and require the two programs to be bit
+/// for bit equal, so a pass that depends on anything but its input is
+/// caught here and the compilation fails; the program handed on is always
+/// the first run's, so the check never changes the compiler's output.
+fn optimize_mir(
+    prog: &mut badger_mir::Program,
+    level: badger_mir::opt::Level,
+) -> Result<Vec<(&'static str, usize)>, String> {
+    let before = std::env::var_os("BADGER_MIR_VALIDATE").map(|_| prog.clone());
+    let report = badger_mir::opt::optimize(prog, level);
+    if let Some(mut second) = before {
+        badger_mir::opt::optimize(&mut second, level);
+        badger_mir::validate::compare(prog, &second).map_err(|d| d.to_string())?;
+    }
+    Ok(report)
 }
 
 /// The MIR optimization level of a run: `--release` uses `release` unless

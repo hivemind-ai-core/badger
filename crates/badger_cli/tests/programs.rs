@@ -410,28 +410,28 @@ fn test_runner_options() {
     let _ = std::fs::remove_file(&file);
 }
 
-/// `badger new`: a project that runs and tests; never into an existing
-/// directory.
+/// `badger init`: a project that runs and tests; never over an
+/// existing file.
 #[test]
-fn new_project() {
+fn init_project() {
     let dir = std::env::temp_dir().join(format!("badger-new-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let new = |name: &str| lang().current_dir(&dir).args(["new", name]).output().unwrap();
-    assert!(new("shop").status.success());
+    let init = |name: &str| lang().current_dir(&dir).args(["init", name]).output().unwrap();
+    assert!(init("shop").status.success());
     let run = lang().current_dir(dir.join("shop")).arg("run").output().unwrap();
     assert_eq!(String::from_utf8_lossy(&run.stdout), "Hello, shop!\n");
     let test = lang().current_dir(dir.join("shop")).arg("test").output().unwrap();
     assert!(String::from_utf8_lossy(&test.stdout).contains("1 passed; 0 failed"));
     let fmt = lang().current_dir(dir.join("shop")).args(["format", "--check", "src"]).output().unwrap();
     assert!(fmt.status.success());
-    assert!(!new("shop").status.success());
-    assert!(!new("Shop").status.success());
-    // a name `import` could not refer to
-    for bad in ["fn", "match", "std"] {
-        let out = new(bad);
-        assert!(!out.status.success() && !dir.join(bad).exists(), "{bad}");
-    }
+    // an existing file is never overwritten
+    assert!(!init("shop").status.success());
+    // a library package has no `main` to run
+    let lib = lang().current_dir(&dir).args(["init", "lib", "--template", "library"]).output().unwrap();
+    assert!(lib.status.success());
+    let run = lang().current_dir(dir.join("lib")).arg("run").output().unwrap();
+    assert!(!run.status.success());
     let _ = std::fs::remove_dir_all(&dir);
 }
 

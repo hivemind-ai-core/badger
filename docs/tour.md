@@ -51,7 +51,7 @@ The commands you will use most:
 | `badger repl` | Interactive session: definitions accumulate, expressions print |
 | `badger format FILE` | Rewrite a file in the canonical layout |
 | `badger explain E0337` | Explain a diagnostic code |
-| `badger new NAME` | Start a project: `badger.toml` and `src/main.bdg` with a test |
+| `badger init NAME` | Start a project: `badger.toml` and `src/main.bdg` with a test |
 
 Without a file, `run`, `check`, and `test` use the project in the current
 directory (see [modules and projects](#modules-and-projects)).

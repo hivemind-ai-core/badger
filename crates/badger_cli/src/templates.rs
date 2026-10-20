@@ -1,5 +1,5 @@
-//! The project templates `badger new --template=NAME` offers: the files
-//! a new project starts from.
+//! The project templates `badger init --template=NAME` offers: the files
+//! a project starts from.
 //!
 //! The files live in `templates/` at the repository root, one directory
 //! per template, and are embedded in the binary (`include_str!`), so a
@@ -36,11 +36,11 @@ const FRAMEWORK: &[(&str, &str)] = &[
     ("README.md", include_str!("../../../templates/framework/README.md")),
 ];
 
-/// The files of the `lib` template: a library package.
-const LIB: &[(&str, &str)] = &[
-    ("badger.toml", include_str!("../../../templates/lib/badger.toml")),
-    ("src/lib.bdg", include_str!("../../../templates/lib/src/lib.bdg")),
-    ("README.md", include_str!("../../../templates/lib/README.md")),
+/// The files of the `library` template: a library package.
+const LIBRARY: &[(&str, &str)] = &[
+    ("badger.toml", include_str!("../../../templates/library/badger.toml")),
+    ("src/lib.bdg", include_str!("../../../templates/library/src/lib.bdg")),
+    ("README.md", include_str!("../../../templates/library/README.md")),
 ];
 
 /// The files of the `worker` template: a background worker.
@@ -56,11 +56,11 @@ const TEMPLATES: &[(&str, &[(&str, &str)])] = &[
     ("cli", CLI),
     ("service", SERVICE),
     ("framework", FRAMEWORK),
-    ("lib", LIB),
+    ("library", LIBRARY),
     ("worker", WORKER),
 ];
 
-/// The templates `badger new --template=NAME` offers, in the order they
+/// The templates `badger init --template=NAME` offers, in the order they
 /// are listed in the help.
 pub fn names() -> Vec<&'static str> {
     TEMPLATES.iter().map(|(name, _)| *name).collect()

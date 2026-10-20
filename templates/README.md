@@ -1,13 +1,13 @@
 # Project templates
 
-The templates `badger new --template=NAME` offers, one directory each:
+The templates `badger init --template=NAME` offers, one directory each:
 
 | Template | The project it starts |
 |---|---|
 | `cli` | a program that parses its options (`std.cli`) |
 | `service` | a service with routes (`std.http`, `std.route`) |
 | `framework` | the shape of `examples/framework/`: a store, a service, and routes |
-| `lib` | a library package (`kind = "library"`, `src/lib.bdg`) |
+| `library` | a library package (`kind = "library"`, `src/lib.bdg`) |
 | `worker` | a background worker (`std.jobs`) |
 
 The files are embedded in the `badger` binary (`include_str!` in
