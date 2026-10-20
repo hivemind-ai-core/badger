@@ -41,7 +41,7 @@ A composed pipeline: its runner and its stage names in order.
 ### `Stage`
 
 ```badger
-struct Stage<In, Out, R, E, Eff> { pub name: Symbol, pub enter: fn(In) -> Result<pipeline.Enter<In, Out, R>, E>, pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>, pub error: Option<fn(Out, E) -> pipeline.ErrorStep<Out, R, E>> }
+struct Stage<In, Out, R, E, Eff> { pub name: Symbol, pub enter: fn(In) -> Result<pipeline.Enter<In, Out, R>, E>, pub leave: Option<fn(Out, R) -> Result<(Out, R), E>>, pub error: Option<fn(Out, E) -> pipeline.ErrorStep<Out, R, E>>, pub around: Option<fn(Out, fn(Out) -> Result<R, E>) -> Result<R, E>> }
 ```
 
 A stage's callbacks share the effect row `Eff`, so a pipeline's type
@@ -63,6 +63,29 @@ fn adapt<In, R, E, R2, E2, Eff>(p: Plan<In, R, E, Eff>, reply: fn(R) -> R2 !Eff,
 ```
 
 A plan whose reply and error are converted.
+
+### `around`
+
+```badger
+fn around<C, R, E, Eff>(name: Symbol, around: fn(C, fn(C) -> Result<R, E> !Eff) -> Result<R, E> !Eff) -> Stage<C, C, R, E, Eff>
+```
+
+A stage that wraps the rest of the pipeline: `around(ctx, next)` calls
+`next(ctx)` (the later stages and the handler) and returns its result,
+or another one: time a request, log on the way out, map or recover an
+error. Context fields set by the later stages do not reach it.
+
+```badger
+pipeline {
+    pipeline.around(#app/timed, fn(ctx, next) {
+        let t0 = time.now()
+        let r = next(ctx)
+        log.info("handled", { ms: time.as_millis(time.since(t0)) })
+        r
+    }),
+    handle(handler),
+}
+```
 
 ### `compile`
 

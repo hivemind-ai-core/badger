@@ -506,6 +506,7 @@ Each stage's `enter` may add fields to the context, so the handler sees
 | `enter` | `fn(ctx) -> Result<Enter, E>` | `pipeline.next(ctx)` to continue, `pipeline.stop(ctx, reply)` to answer early |
 | `leave` | `fn(ctx, reply) -> Result<(ctx, reply), E>` | `pipeline.leave(ctx, reply)` |
 | `error` | `fn(ctx, error) -> ErrorStep` | `pipeline.propagate(ctx, error)` or `pipeline.recover(ctx, reply)` |
+| `around` | `fn(ctx, next) -> Result<Reply, E>` | `next(ctx)` (the rest of the pipeline), or another result |
 
 `stage NAME(params) { ... }` declares a stage factory: a pipeline calls it
 (`log_stage()`), and parameterized factories capture their arguments.
@@ -518,6 +519,22 @@ Each stage's `enter` may add fields to the context, so the handler sees
   #app/name()` sets it.
 - `pipeline.stage({ name, enter, leave, error })` builds the same stage as a
   value.
+- `around(ctx, next)` wraps the rest in one place (time it, log on the
+  way out, map or recover an error), instead of an `enter`/`leave`/`error`
+  trio. It is a stage of its own: no other callback goes with it. It sees
+  the result, not context fields the later stages set.
+  `pipeline.around(name, f)` builds one as a value.
+
+```badger fragment
+stage timed() -> Result<_, AppError> {
+    around(ctx, next) {
+        let t0 = time.now()
+        let r = next(ctx)
+        log.info("handled", { path: ctx.path, ok: r.is_ok(), ms: time.as_millis(time.since(t0)) })
+        r
+    }
+}
+```
 
 | Handler | Returns |
 |---|---|

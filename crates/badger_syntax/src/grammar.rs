@@ -1320,16 +1320,21 @@ where
         .map(|(((((((contracts, p), name), alias), (params, params_span)), ret), effect), body)| {
             (p, ItemKind::Provider { contracts, name, alias, params, params_span, ret, effect, body })
         });
-    let member = choice((kw("enter").to("enter"), kw("leave").to("leave"), kw("error").to("error")))
-        .map_with(|text, e| Ident { text, span: e.span() })
-        .labelled("a stage callback (`enter`, `leave`, or `error`)")
-        .then(params.clone())
-        .then(ret.clone().or_not())
-        .then(choice((
-            block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
-            just(Tok::FatArrow).ignore_then(expr.clone()),
-        )))
-        .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
+    let member = choice((
+        kw("enter").to("enter"),
+        kw("leave").to("leave"),
+        kw("error").to("error"),
+        kw("around").to("around"),
+    ))
+    .map_with(|text, e| Ident { text, span: e.span() })
+    .labelled("a stage callback (`enter`, `leave`, `error`, or `around`)")
+    .then(params.clone())
+    .then(ret.clone().or_not())
+    .then(choice((
+        block.clone().map_with(|b, e| (Expr::Block(b), e.span())),
+        just(Tok::FatArrow).ignore_then(expr.clone()),
+    )))
+    .map(|(((kind, params), ret), body)| StageMember { kind, params, ret, body });
     let stage_item = contracts
         .clone()
         .then(is_pub.clone())

@@ -2812,18 +2812,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         "E0702",
                         path[0].span,
                         "unexpected stage field",
-                        "expected name, enter, leave, or error",
+                        "expected name, enter, leave, error, or around",
                     );
                     continue;
                 }
             };
             let key = self.sym(label.sym);
-            if !matches!(key.as_str(), "name" | "enter" | "leave" | "error") {
+            if !matches!(key.as_str(), "name" | "enter" | "leave" | "error" | "around") {
                 self.err(
                     "E0702",
                     label.span,
                     format!("unknown stage field `{key}`"),
-                    "expected name, enter, leave, or error",
+                    "expected name, enter, leave, error, or around",
                 );
                 continue;
             }
@@ -2850,6 +2850,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let enter = fields.remove("enter");
         let leave = fields.remove("leave");
         let error = fields.remove("error");
+        // `around(ctx, next)` wraps the rest by itself
+        if let Some(a) = fields.remove("around") {
+            if enter.is_some() || leave.is_some() || error.is_some() {
+                self.err(
+                    "E0702",
+                    span,
+                    "an `around` stage has no `enter`, `leave`, or `error`",
+                    "`around(ctx, next)` runs the rest of the pipeline itself: split the other callbacks into a stage of their own",
+                );
+            }
+            return self.call_lang("pipeline.around", vec![name, a], span);
+        }
         let leave = wrap(self, leave);
         let error = wrap(self, error);
         match enter {

@@ -1,0 +1,33 @@
+// `around(ctx, next)` stages: in a `stage` declaration, as
+// `pipeline.stage({ name, around })`, and as `pipeline.around(name, f)`.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+pub enum AppError { boom, io(source: io.Error) } derive(Error, From)
+
+type Ctx = { path: String }
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+stage logged() -> Result<Unit, AppError> {
+    around(ctx: Ctx, next) {
+        say($"in {ctx.path}")
+        let r = next(ctx)
+        say($"out {ctx.path}")
+        r
+    }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = pipeline {
+        logged(),
+        pipeline.stage({ name: #app/recover, around: fn(ctx: Ctx, next) => next(ctx).or_else(fn(_) => ok("fallback")) }),
+        handle(fn(ctx: Ctx) -> Result<String, AppError> {
+            if ctx.path == "/bad" { err(AppError.boom) } else { ok($"served {ctx.path}") }
+        }),
+    }
+    let run = pipeline.compile(plan)
+    say($"{run({ path: "/ok" })} {run({ path: "/bad" })}")
+    ok(())
+}
