@@ -193,6 +193,10 @@ pub fn run_handler<C, R, E, Eff>(h: Handler<C, R, E, Eff>, ctx: C) -> Unwind<C, 
 }
 
 extern "intrinsic" fn task_stage_push(name: Symbol) -> Unit
+extern "intrinsic" fn task_id() -> Int
+extern "intrinsic" fn pipeline_slot_open<T>(value: T) -> Int
+extern "intrinsic" fn pipeline_slot_set<T>(owner: Int, slot: Int, value: T) -> Unit
+extern "intrinsic" fn pipeline_slot_close<T>(slot: Int, fallback: T) -> T
 extern "intrinsic" fn task_stage_pop() -> Unit
 
 /// Enter `stage`, run the rest of the chain, then unwind through this
@@ -239,15 +243,27 @@ fn run_rest<Out, R, E, Eff>(around: Option<fn(Out, fn(Out) -> Result<R, E> !Eff)
     match around {
         .none => rest(out),
         .some(wrap) => {
+            // the context the rest unwound with: earlier stages see the
+            // latest field values (the stage's own when `next` never ran)
+            let me = task_id()
+            let slot = pipeline_slot_open(out)
             let next = fn(o: Out) -> Result<R, E> {
                 match rest(o) {
-                    .done(_, reply) => ok(reply),
-                    .error(_, e) => err(e),
+                    .done(c, reply) => {
+                        pipeline_slot_set(me, slot, c)
+                        ok(reply)
+                    },
+                    .error(c, e) => {
+                        pipeline_slot_set(me, slot, c)
+                        err(e)
+                    },
                 }
             }
-            match wrap(out, next) {
-                .ok(reply) => Unwind.done(out, reply),
-                .err(e) => Unwind.error(out, e),
+            let r = wrap(out, next)
+            let latest: Out = pipeline_slot_close(slot, out)
+            match r {
+                .ok(reply) => Unwind.done(latest, reply),
+                .err(e) => Unwind.error(latest, e),
             }
         },
     }

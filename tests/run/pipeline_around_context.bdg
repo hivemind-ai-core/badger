@@ -1,0 +1,57 @@
+// An `around` stage between two others does not hide the later stage's
+// context updates: the earlier stage's leave/error see the latest values.
+import std.io
+import std.pipeline
+import std.pipeline.{handle}
+
+@derive(Error)
+pub enum AppError { failed }
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+stage outer_s() {
+    enter(ctx) { pipeline.next({ ..ctx, note: "set by outer" }) }
+    leave(ctx, reply: String) { say($"outer leave sees note={ctx.note}"); pipeline.leave(ctx, reply) }
+    error(ctx, e: AppError) { say($"outer error sees note={ctx.note}"); pipeline.propagate(ctx, e) }
+}
+
+stage mid_s() {
+    enter(ctx) { pipeline.next({ ..ctx, extra: 1 }) }
+    leave(ctx, reply: String) { pipeline.leave({ ..ctx, note: "updated by mid leave" }, reply) }
+    error(ctx, e: AppError) { pipeline.propagate({ ..ctx, note: "updated by mid error" }, e) }
+}
+
+stage around_s() -> Result<_, AppError> {
+    around(ctx, next) { next(ctx) }
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let ok_run = pipeline.compile(pipeline {
+        outer_s(),
+        mid_s(),
+        handle(fn(_ctx) -> Result<String, AppError> { ok("r") }),
+    })
+    let _ = ok_run({ id: 1 })
+    let err_run = pipeline.compile(pipeline {
+        outer_s(),
+        mid_s(),
+        handle(fn(_ctx) -> Result<String, AppError> { err(AppError.failed) }),
+    })
+    let _ = err_run({ id: 1 })
+    say("-- with an around between:")
+    let ok_run2 = pipeline.compile(pipeline {
+        outer_s(),
+        around_s(),
+        mid_s(),
+        handle(fn(_ctx) -> Result<String, AppError> { ok("r") }),
+    })
+    let _ = ok_run2({ id: 1 })
+    let err_run2 = pipeline.compile(pipeline {
+        outer_s(),
+        around_s(),
+        mid_s(),
+        handle(fn(_ctx) -> Result<String, AppError> { err(AppError.failed) }),
+    })
+    let _ = err_run2({ id: 1 })
+    ok(())
+}

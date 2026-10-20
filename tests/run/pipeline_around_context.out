@@ -1,0 +1,5 @@
+outer leave sees note=updated by mid leave
+outer error sees note=updated by mid error
+-- with an around between:
+outer leave sees note=updated by mid leave
+outer error sees note=updated by mid error

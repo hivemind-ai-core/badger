@@ -274,6 +274,37 @@ define_intrinsics! {
     // ---------------------------------------------------------------- cleanup
     fn cleanup_push(ctx, targs, ret, f) { task::push_cleanup(Cleanup::Closure(f)) }
     fn cleanup_remove(ctx, targs, ret, h) { task::remove_cleanup(h); 0 }
+    // An `around` stage's latest context (pipeline.bdg `run_rest`): a slot
+    // in the task's roots, set by its `next` only on the task that opened
+    // it, so no state crosses tasks.
+    fn pipeline_slot_open(ctx, targs, ret, v) {
+        match task::current() {
+            Some(t) => {
+                t.roots.push(v);
+                (t.roots.len() - 1) as u64
+            }
+            None => u64::MAX,
+        }
+    }
+    fn pipeline_slot_set(ctx, targs, ret, owner, slot, v) {
+        if task::current_id() as u64 == owner
+            && let Some(t) = task::current()
+            && let Some(r) = t.roots.get_mut(slot as usize)
+        {
+            *r = v;
+        }
+        0
+    }
+    fn pipeline_slot_close(ctx, targs, ret, slot, fallback) {
+        let Some(t) = task::current() else { return fallback };
+        let Some(&v) = t.roots.get(slot as usize) else { return fallback };
+        if slot as usize + 1 == t.roots.len() {
+            t.roots.pop();
+        } else {
+            t.roots[slot as usize] = 0;
+        }
+        v
+    }
     fn task_stage_push(ctx, targs, ret, name) {
         if let Some(t) = task::current() {
             t.stages.push(crate::string::str_of(name).to_string());
