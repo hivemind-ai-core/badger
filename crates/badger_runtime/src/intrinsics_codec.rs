@@ -538,7 +538,8 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
         _ => d,
     };
     Ok(match &d.kind {
-        Kind::String | Kind::Symbol => serde_json::Value::String(v),
+        // a character is the text itself (`7` too); the codec checks it is one
+        Kind::String | Kind::Symbol | Kind::Char => serde_json::Value::String(v),
         _ if d.name == crate::codec::SECRET => serde_json::Value::String(v),
         Kind::Bool => match v.as_str() {
             "true" | "1" => serde_json::Value::Bool(true),
@@ -553,6 +554,9 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
             Ok(n) => serde_json::json!(n),
             Err(_) => return bad(format!("expected a number, found `{v}`")),
         },
+        Kind::Duration if duration_nanos(&v).is_some_and(|n| n < 0) => {
+            return bad(format!("a duration is not negative, found `{v}`"));
+        }
         Kind::Duration | Kind::Instant | Kind::Timestamp => match duration_nanos(&v) {
             Some(n) => serde_json::Value::from(n),
             None => {

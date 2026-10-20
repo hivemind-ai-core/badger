@@ -1,0 +1,9 @@
+{"small":1.5,"value":"NaN"} -> NaN NaN
+{"small":1.5,"value":"Infinity"} -> inf inf
+{"small":1.5,"value":"-Infinity"} -> -inf -inf
+{"small":1.5,"value":2.5} -> 2.5 2.5
+err 1e300 does not fit an F32
+ok x
+err expected a character
+ok 5.000ms
+err a duration is not negative

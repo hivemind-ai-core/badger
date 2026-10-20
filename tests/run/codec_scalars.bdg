@@ -1,0 +1,33 @@
+// Scalars decode only what they encode: a non-finite float is written by
+// name ("NaN", "Infinity", "-Infinity") and read back, a number too large
+// for an F32 is an error (not an infinity), a Char is exactly one
+// character, and a Duration is never negative.
+import std.codec
+import std.io
+
+@derive(Codec)
+pub struct Reading { value: Float, small: F32 }
+
+fn show<T>(r: Result<T, codec.DecodeError>) -> String where T: Display {
+    match r {
+        .ok(v) => $"ok {v}",
+        .err(e) => $"err {e.message}",
+    }
+}
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let zero = 0.0
+    for v in [zero / zero, 1.0 / zero, -1.0 / zero, 2.5] {
+        let r: Reading = { value: v, small: 1.5F32 }
+        let text = codec.encode_text(r)
+        let back = codec.decode_text<Reading>(text)?
+        let data = codec.from_data<Reading>(codec.to_data(r))?
+        let _ = io.println($"{text} -> {back.value} {data.value}")
+    }
+    let _ = io.println(show(codec.decode_text<F32>("1e300")))
+    let _ = io.println(show(codec.decode_text<Char>("\"x\"")))
+    let _ = io.println(show(codec.decode_text<Char>("\"xyz\"")))
+    let _ = io.println(show(codec.decode_text<Duration>("5000000")))
+    let _ = io.println(show(codec.decode_text<Duration>("-5")))
+    ok(())
+}

@@ -216,7 +216,14 @@ fn enc_at(d: &TypeDesc, w: u64, o: &mut String) {
             if f.is_finite() {
                 o.push_str(&serde_json::Number::from_f64(f).map(|n| n.to_string()).unwrap_or("null".into()))
             } else {
-                o.push_str("null")
+                // JSON has no NaN or infinities: their names, as strings
+                o.push_str(if f.is_nan() {
+                    "\"NaN\""
+                } else if f > 0.0 {
+                    "\"Infinity\""
+                } else {
+                    "\"-Infinity\""
+                })
             }
         }
         Kind::Char => {
@@ -472,6 +479,46 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// The one character of a string (`"x"`), or none (`""`, `"xyz"`).
+pub(crate) fn one_char(s: &str) -> Option<char> {
+    let mut cs = s.chars();
+    let c = cs.next()?;
+    if cs.next().is_some() { None } else { Some(c) }
+}
+
+/// A decoded time value: a `Duration` is never negative (E0327), an
+/// instant or timestamp may be.
+pub(crate) fn time_value(d: &TypeDesc, n: i64) -> Result<u64, DecodeError> {
+    if matches!(d.kind, Kind::Duration) && n < 0 {
+        return fail("a duration is not negative");
+    }
+    Ok(n as u64)
+}
+
+/// A non-finite float by its name on the wire (`"NaN"`, `"Infinity"`,
+/// `"-Infinity"`): JSON numbers cannot hold them.
+pub(crate) fn special_float(s: &str) -> Option<f64> {
+    match s {
+        "NaN" => Some(f64::NAN),
+        "Infinity" => Some(f64::INFINITY),
+        "-Infinity" => Some(f64::NEG_INFINITY),
+        _ => None,
+    }
+}
+
+/// A decoded number as a float of `bits`; a finite one too large for an
+/// `F32` is an error, not an infinity.
+pub(crate) fn float_bits(f: f64, bits: u8) -> Result<u64, String> {
+    if bits != 32 {
+        return Ok(f.to_bits());
+    }
+    let g = f as f32;
+    if f.is_finite() && g.is_infinite() {
+        return Err(format!("{f:e} does not fit an F32"));
+    }
+    Ok(g.to_bits() as u64)
+}
+
 /// Can a value of this type encode as `null`? An `Option` of one encodes
 /// `some(v)` as `[v]`, so `some(none)` and `none` stay apart.
 pub(crate) fn nullable(d: &TypeDesc) -> bool {
@@ -540,8 +587,10 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             Ok(v as u64)
         }
         Kind::Float { bits } => {
-            let Some(f) = j.as_f64() else { return fail("expected a number") };
-            Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
+            let Some(f) = j.as_f64().or_else(|| j.as_str().and_then(special_float)) else {
+                return fail("expected a number");
+            };
+            float_bits(f, *bits).or_else(|m| fail(m))
         }
         Kind::String => match j.as_str() {
             Some(s) => Ok(root(new_string(s))),
@@ -551,7 +600,7 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             Some(s) => crate::string::external_symbol(s).or_else(|m| fail(&m)),
             None => fail("expected a symbol string"),
         },
-        Kind::Char => match j.as_str().and_then(|s| s.chars().next()) {
+        Kind::Char => match j.as_str().and_then(one_char) {
             Some(c) => Ok(c as u64),
             None => fail("expected a character"),
         },
@@ -559,9 +608,10 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             Some(s) => bytes_from_text(s),
             None => fail("expected a string (base64)"),
         },
-        Kind::Duration | Kind::Instant | Kind::Timestamp => {
-            j.as_i64().map(|v| v as u64).ok_or(()).or_else(|_| fail("expected an integer"))
-        }
+        Kind::Duration | Kind::Instant | Kind::Timestamp => match j.as_i64() {
+            Some(v) => time_value(d, v),
+            None => fail("expected an integer"),
+        },
         Kind::Record { fields, size, .. } if d.name == SECRET => {
             let Some(text) = j.as_str() else { return fail("expected a string") };
             let v = root(new_string(text));
@@ -738,9 +788,13 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             let f = match tag {
                 2 => fields[0] as i64 as f64,
                 3 => f64::from_bits(fields[0]),
+                4 => match special_float(str_of(fields[0])) {
+                    Some(f) => f,
+                    None => return fail("expected a number"),
+                },
                 _ => return fail("expected a number"),
             };
-            Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
+            float_bits(f, *bits).or_else(|m| fail(m))
         }
         Kind::String => match tag {
             4 => Ok(root(new_string(str_of(fields[0])))),
@@ -751,7 +805,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             _ => fail("expected a symbol string"),
         },
         Kind::Char => match tag {
-            4 => match str_of(fields[0]).chars().next() {
+            4 => match one_char(str_of(fields[0])) {
                 Some(c) => Ok(c as u64),
                 None => fail("expected a character"),
             },
@@ -762,7 +816,7 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             _ => fail("expected a string (base64)"),
         },
         Kind::Duration | Kind::Instant | Kind::Timestamp => match tag {
-            2 => Ok(fields[0]),
+            2 => time_value(d, fields[0] as i64),
             _ => fail("expected an integer"),
         },
         Kind::Record { fields: rfields, size, .. } if d.name == SECRET => {
@@ -979,7 +1033,7 @@ fn dec_str_key(d: &'static TypeDesc, s: &str) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::String => Ok(root(new_string(s))),
         Kind::Symbol => crate::string::external_symbol(s).or_else(|m| fail(&m)),
-        Kind::Char => match s.chars().next() {
+        Kind::Char => match one_char(s) {
             Some(c) => Ok(c as u64),
             None => fail("expected a character"),
         },

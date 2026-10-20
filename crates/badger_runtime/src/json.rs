@@ -501,13 +501,20 @@ impl<'a> P<'a> {
                 Ok(v as u64)
             }
             Kind::Float { bits } => {
-                match self.peek() {
-                    Some(c) if c == b'-' || c.is_ascii_digit() => {}
+                let f = match self.peek() {
+                    Some(c) if c == b'-' || c.is_ascii_digit() => {
+                        let n = self.number()?;
+                        let Some(f) = n.as_f64() else { return derr("expected a number") };
+                        f
+                    }
+                    // a non-finite float, by name
+                    Some(b'"') => match crate::codec::special_float(&self.string()?) {
+                        Some(f) => f,
+                        None => return derr("expected a number"),
+                    },
                     _ => return derr("expected a number"),
-                }
-                let n = self.number()?;
-                let Some(f) = n.as_f64() else { return derr("expected a number") };
-                Ok(if *bits == 32 { (f as f32).to_bits() as u64 } else { f.to_bits() })
+                };
+                crate::codec::float_bits(f, *bits).or_else(|m| derr(m))
             }
             Kind::String => match self.peek() {
                 Some(b'"') => self.managed_bytes(crate::desc::builtin::string()),
@@ -523,7 +530,7 @@ impl<'a> P<'a> {
             Kind::Char => match self.peek() {
                 Some(b'"') => {
                     let s = self.string()?;
-                    match s.chars().next() {
+                    match crate::codec::one_char(&s) {
                         Some(c) => Ok(c as u64),
                         None => derr("expected a character"),
                     }
@@ -549,7 +556,7 @@ impl<'a> P<'a> {
                 }
                 let n = self.number()?;
                 match n.as_i64() {
-                    Some(v) => Ok(v as u64),
+                    Some(v) => crate::codec::time_value(d, v).map_err(PErr::Dec),
                     None => derr("expected an integer"),
                 }
             }
