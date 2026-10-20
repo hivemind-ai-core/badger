@@ -513,6 +513,37 @@ which keeps the high bits, while the left-then-right shift pair keeps the low
 `bits - k` bits. The mask is corrected and the rule is proved. That is the
 item's point: the rules are proven, not assumed.
 
+## Where the backlog stands
+
+| phase | item | outcome |
+|-------|------|---------|
+| 0 | 0.1 safepoint polling page | **not adopted** (the handshake is already race-free; the mechanism needs polls in the generated code) |
+| 0 | 0.2 Chase-Lev ready queues | landed |
+| 0 | 0.3 AHash | **reverted** (1.6-2x regression on the map cells) |
+| 0 | 0.4 flat map of at most eight entries | landed, but the expected win did not materialise |
+| 0 | 0.5 CHAMP invariants | landed as a paired walk (the O(1) hashcode is not) |
+| 0 | 0.6 scratch buffers | landed (neutral) |
+| 0 | 0.7 chunk index | **landed: a full collection 91 ms -> 36 ms** |
+| 0 | 0.8 external memory accounting | landed |
+| 0 | 0.9 two random victims | landed |
+| 0 | 0.10 half-steal | landed |
+| 1 | 1.1 channel model | landed (38 checks, then 51 with the GC model) |
+| 1 | 1.2 Go-style channel refactor | landed, with F1 and F2 fixed |
+| 1 | 1.3 GC handshake model | landed, rewritten for the QSBR grace period |
+| 2 | 2.1 QSBR handshake | landed as a robustness change, not a latency win |
+| 2 | 2.2 per-worker heap segments | **already satisfied** (it was, before the backlog was written) |
+| 2 | 2.3 Immix-style blocks and lines | **landed: the 10-20% win holds** |
+| 2 | 2.4 NUMA pinning | landed behind a flag (its gate needs a two-socket host) |
+| 3 | 3.1 the typeck's arena | **not adopted**; the traffic it aimed at was fixed instead (typecheck -33%) |
+| 3 | 3.2 MIR escape analysis | **not adopted** (surveyed: the hot allocations escape for real) |
+| 3 | 3.3 region annotations | open |
+| 3 | 3.4 linear resources | landed (E0413) |
+| 3 | 3.5 move-only marker | open |
+| 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
+| 4 | 4.2 egg for straight-line MIR | open |
+| 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
+| 4 | 4.4 lifetime-driven inlining | open |
+
 ## What is left
 
 Phase 0 is done, with three items measured against their gates rather than
