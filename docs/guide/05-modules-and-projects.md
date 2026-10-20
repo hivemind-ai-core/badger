@@ -156,7 +156,7 @@ In the project directory, a missing path means "this project":
 | `badger run report` | runs a named `[entries]` module |
 | `badger run -- ARGS` | passes arguments (`env.args()`) |
 | `badger task greet -- ada bo` | calls a `[tasks]` function |
-| `badger test [path] [filter]` | runs `test_*` functions ([chapter 9](09-testing-and-contracts.md)) |
+| `badger test [path] [--filter name]` | runs `test_*` functions ([chapter 9](09-testing-and-contracts.md)) |
 | `badger format` | rewrites sources in the canonical layout |
 | `badger update` | resolves dependencies and rewrites `badger.lock` |
 | `badger doc .` | Markdown reference for the project's public interface |

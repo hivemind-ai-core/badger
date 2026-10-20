@@ -105,7 +105,7 @@ impl Report {
             }
         }
         s.push('\n');
-        s.push_str("runtime:\n");
+        s.push_str("runtime (as `badger inspect runtime` computes them):\n");
         match &self.runtime_error {
             Some(e) => s.push_str(&format!("  error: {e}\n")),
             None => {
