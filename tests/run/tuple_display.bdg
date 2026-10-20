@@ -1,0 +1,10 @@
+// Tuples of displayable values display as their parts in parentheses.
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let reply = (200, "ok")
+    io.println($"{reply}")?
+    io.println($"{(1, true, "x")} {((1, 2), [3])} {(1, 2, 3, 4, 5, 6)}")?
+    io.println([(1, "a"), (2, "b")].display())?
+    ok(())
+}

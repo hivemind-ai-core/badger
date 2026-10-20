@@ -2,6 +2,9 @@ inserted 1
 row: {"f":0.1,"four":4,"made":"2026-10-16T12:30:00Z","meta":{"color":"blue","sizes":[1,2]},"mood":"happy","name":"pen","note":null,"price":"1.50","tags":["office","a \"quoted\", tag"],"uid":"67e55044-10b1-426f-9247-bb680e5fe0c8","yes":true}
 item 1 pen 1.50 2 -
 item 2 ink 12.00 0 -
+named: ink 12.00
+missing: true
+tuple: [2]
 duplicate: postgres/unique_violation
 not null: postgres/not_null_violation
 syntax: postgres/syntax

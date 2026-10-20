@@ -1,0 +1,10 @@
+// expect-error: E0181
+// A record of parameters binds named placeholders: each one needs a field.
+import std.sqlite
+
+pub fn main() -> Result<Unit, sqlite.Error> {
+    let db = sqlite.open(":memory:")?
+    let _ = sqlite.execute(db, "CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL)", [])?
+    let _ = sqlite.execute(db, "UPDATE books SET title = :title WHERE id = :id", { id: 1 })?
+    ok(())
+}

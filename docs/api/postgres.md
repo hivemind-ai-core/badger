@@ -153,7 +153,7 @@ What the server says `sql` takes and returns (without running it).
 ### `execute`
 
 ```badger
-fn execute<C>(conn: C, sql: String, params: List<Data>) -> Result<Int, Error> !{Io, Wait} where C: Connection
+fn execute<C, P>(conn: C, sql: String, params: P) -> Result<Int, Error> !{Io, Wait} where C: Connection, P: Codec
 ```
 
 Execute a statement with bound parameters; returns the changed row
@@ -188,13 +188,13 @@ Provider of a pool for `{url: String}`, closed when the system halts.
 ### `query`
 
 ```badger
-fn query<C>(conn: C, sql: String, params: List<Data>) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection
+fn query<C, P>(conn: C, sql: String, params: P) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection, P: Codec
 ```
 
 ### `query_as`
 
 ```badger
-fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection
+fn query_as<T, C, P>(conn: C, sql: String, params: P) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec
 ```
 
 Rows as `T`, a record whose fields are named like the result's columns
@@ -203,7 +203,7 @@ Rows as `T`, a record whose fields are named like the result's columns
 ### `query_one`
 
 ```badger
-fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Error> !{Io, Wait} where C: Connection
+fn query_one<C, P>(conn: C, sql: String, params: P) -> Result<Data, Error> !{Io, Wait} where C: Connection, P: Codec
 ```
 
 Exactly one row as `Data`; zero or several rows are an error.
@@ -211,10 +211,27 @@ Exactly one row as `Data`; zero or several rows are an error.
 ### `query_one_as`
 
 ```badger
-fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection
+fn query_one_as<T, C, P>(conn: C, sql: String, params: P) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec
 ```
 
 Exactly one row, as `T` (see `query_as`).
+
+### `query_opt`
+
+```badger
+fn query_opt<C, P>(conn: C, sql: String, params: P) -> Result<Option<Data>, Error> !{Io, Wait} where C: Connection, P: Codec
+```
+
+At most one row as `Data`: none for no rows; several rows are an error.
+
+### `query_opt_as`
+
+```badger
+fn query_opt_as<T, C, P>(conn: C, sql: String, params: P) -> Result<Option<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec
+```
+
+At most one row, as `T` (see `query_as`): none for no rows; several rows
+are an error.
 
 ### `require_current`
 

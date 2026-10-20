@@ -2,7 +2,6 @@
 // carries. The route system reads the status from the error, so the
 // service's own errors answer with the status the service means.
 import std.app
-import std.http
 import std.route
 import service
 

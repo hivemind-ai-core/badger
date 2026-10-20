@@ -225,7 +225,10 @@ impl Regions<'_, '_, '_> {
                 opaque && (self.tainted(*recv) || args.clone().into_iter().any(|a| self.tainted(a)))
             }
             ExprKind::Field { base, .. } | ExprKind::Index { base, .. } => opaque && self.tainted(*base),
-            ExprKind::Try(x) | ExprKind::Unsafe(x) => self.tainted(*x),
+            // `r?` is `r`'s success value: plain data cannot hold on to the
+            // scope even when the `Result` could (an error with a `dyn` cause)
+            ExprKind::Try(x) => opaque && self.tainted(*x),
+            ExprKind::Unsafe(x) => self.tainted(*x),
             ExprKind::Lambda(l) => l.captures.iter().any(|c| self.tainted.get(c).copied().unwrap_or(false)),
             ExprKind::Tuple(xs) | ExprKind::List(xs) | ExprKind::Set(xs) => {
                 opaque && xs.clone().into_iter().any(|x| self.tainted(x))

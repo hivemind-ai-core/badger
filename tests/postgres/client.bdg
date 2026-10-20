@@ -51,6 +51,14 @@ pub fn main() -> Result<Unit, AppError> {
     for it in items {
         io.println($"item {it.id} {it.name} {it.price} {it.tags.len()} {it.note.unwrap_or("-")}")?
     }
+    // a record binds `:name` placeholders (`::` casts are left alone), a
+    // tuple binds `$1`, `$2` in order; query_opt_as is at most one row
+    let named = postgres.query_opt_as<{ name: String, price: String }>(db, "SELECT name, price::text AS price FROM items WHERE name = :name AND price >= :min", { name: "ink", min: 10 })?
+    io.println($"named: {named.map(fn(r) => $"{r.name} {r.price}").unwrap_or("-")}")?
+    let missing = postgres.query_opt_as<{ name: String }>(db, "SELECT name FROM items WHERE name = $1", "nothing")?
+    io.println($"missing: {missing.is_none()}")?
+    let both = postgres.query_as<{ n: Int }>(db, "SELECT COUNT(*)::int AS n FROM items WHERE name = $1 OR name = $2", ("pen", "ink"))?
+    io.println($"tuple: {both.map(fn(r) => r.n)}")?
     // errors are values with kinds
     io.println($"duplicate: {code(postgres.execute(db, "INSERT INTO items (name, price) VALUES ('pen', 1)", []))}")?
     io.println($"not null: {code(postgres.execute(db, "INSERT INTO items (name, price) VALUES ($1, NULL)", [Data.string("x")]))}")?

@@ -567,8 +567,130 @@ async fn run_on(client: &deadpool_postgres::ClientWrapper, sql: &str, values: &[
     }
 }
 
+/// `:name` placeholders as `$1`, `$2`, ... (a repeated name reuses its
+/// number), with the names in number order. Strings, quoted identifiers,
+/// comments, dollar-quoted bodies, and `::` casts are left alone.
+fn number_named(sql: &str) -> (String, Vec<String>) {
+    let cs: Vec<char> = sql.chars().collect();
+    let (mut out, mut names) = (String::new(), Vec::<String>::new());
+    let skip_quoted = |i: usize, q: char| {
+        let mut j = i + 1;
+        while j < cs.len() {
+            if cs[j] == q {
+                if cs.get(j + 1) == Some(&q) {
+                    j += 2;
+                    continue;
+                }
+                return j + 1;
+            }
+            j += 1;
+        }
+        cs.len()
+    };
+    let mut i = 0;
+    while i < cs.len() {
+        let c = cs[i];
+        match c {
+            '\'' | '"' => {
+                let j = skip_quoted(i, c);
+                out.extend(&cs[i..j]);
+                i = j;
+            }
+            '-' if cs.get(i + 1) == Some(&'-') => {
+                while i < cs.len() && cs[i] != '\n' {
+                    out.push(cs[i]);
+                    i += 1;
+                }
+            }
+            '/' if cs.get(i + 1) == Some(&'*') => {
+                let start = i;
+                i += 2;
+                while i + 1 < cs.len() && !(cs[i] == '*' && cs[i + 1] == '/') {
+                    i += 1;
+                }
+                i = (i + 2).min(cs.len());
+                out.extend(&cs[start..i]);
+            }
+            '$' => {
+                // a dollar-quoted body: $$ ... $$ or $tag$ ... $tag$
+                let mut j = i + 1;
+                while j < cs.len() && (cs[j].is_alphanumeric() || cs[j] == '_') {
+                    j += 1;
+                }
+                if j < cs.len() && cs[j] == '$' && !cs[i + 1..j].first().is_some_and(|c| c.is_ascii_digit()) {
+                    let tag: String = cs[i..=j].iter().collect();
+                    let rest: String = cs[j + 1..].iter().collect();
+                    let end = rest
+                        .find(&tag)
+                        .map_or(cs.len(), |k| j + 1 + rest[..k].chars().count() + tag.chars().count());
+                    out.extend(&cs[i..end]);
+                    i = end;
+                } else {
+                    out.push(c);
+                    i += 1;
+                }
+            }
+            ':' if cs.get(i + 1) == Some(&':') => {
+                out.push_str("::");
+                i += 2;
+            }
+            ':' if cs.get(i + 1).is_some_and(|c| c.is_ascii_alphabetic() || *c == '_')
+                && !(i > 0 && (cs[i - 1].is_alphanumeric() || cs[i - 1] == '_')) =>
+            {
+                let mut j = i + 1;
+                while j < cs.len() && (cs[j].is_ascii_alphanumeric() || cs[j] == '_') {
+                    j += 1;
+                }
+                let name: String = cs[i + 1..j].iter().collect();
+                let n = match names.iter().position(|x| *x == name) {
+                    Some(k) => k + 1,
+                    None => {
+                        names.push(name);
+                        names.len()
+                    }
+                };
+                out.push_str(&format!("${n}"));
+                i = j;
+            }
+            _ => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    (out, names)
+}
+
+/// The statement and its positional values: a record binds `:name`
+/// placeholders by field (see [`number_named`]); a list binds `$1`, ... in
+/// order, and a single value is `$1`.
+fn bind(sql: String, params: &Value) -> Result<(String, Vec<Value>), Error> {
+    match params {
+        Value::List(xs) => Ok((sql, xs.clone())),
+        Value::Map(fs) if fs.is_empty() => Ok((sql, vec![])),
+        Value::Map(fs) => {
+            let (sql, names) = number_named(&sql);
+            let values = names
+                .iter()
+                .map(|n| {
+                    fs.iter().find(|(k, _)| k == n).map(|(_, v)| v.clone()).ok_or_else(|| {
+                        Error::new("postgres/parameters", format!("no field `{n}` in the parameters for `:{n}`"))
+                    })
+                })
+                .collect::<Result<_, _>>()?;
+            Ok((sql, values))
+        }
+        v => Ok((sql, vec![v.clone()])),
+    }
+}
+
 fn statement(a: Args, done: Completion, op: Op) {
-    let parsed = (|| Ok((HANDLES.get(a.handle(0)?)?, a.str(1)?.to_string(), a.list(2)?.to_vec())))();
+    let parsed = (|| {
+        let target = HANDLES.get(a.handle(0)?)?;
+        let params = a.get(2).ok_or_else(|| Error::new("postgres/parameters", "missing parameters"))?;
+        let (sql, values) = bind(a.str(1)?.to_string(), params)?;
+        Ok((target, sql, values))
+    })();
     let (target, sql, values) = match parsed {
         Ok(x) => x,
         Err(e) => return done.complete(Err(e)),
@@ -884,6 +1006,21 @@ badger_native::export!("badger_postgres", DEF);
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn named_parameters_are_numbered() {
+        let (sql, names) = number_named(
+            "SELECT a::int, ':no', \"q:x\", $$:body$$ FROM t WHERE a = :a AND b = :b OR a = :a -- :c\n",
+        );
+        assert_eq!(sql, "SELECT a::int, ':no', \"q:x\", $$:body$$ FROM t WHERE a = $1 AND b = $2 OR a = $1 -- :c\n");
+        assert_eq!(names, vec!["a".to_string(), "b".to_string()]);
+        let fields = Value::Map(vec![("b".into(), Value::Int(2)), ("a".into(), Value::Int(1))]);
+        let (_, values) = bind("SELECT :a + :b".into(), &fields).unwrap();
+        assert!(matches!(values.as_slice(), [Value::Int(1), Value::Int(2)]));
+        assert!(bind("SELECT :missing".into(), &fields).is_err());
+        let (_, one) = bind("SELECT $1".into(), &Value::Int(7)).unwrap();
+        assert!(matches!(one.as_slice(), [Value::Int(7)]));
+    }
+
     use super::*;
 
     #[test]

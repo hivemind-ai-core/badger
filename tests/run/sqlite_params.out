@@ -1,0 +1,7 @@
+{"author":"Austen","id":2,"title":"Emma"}
+null
+["Dune", "Emma", "Ulysses"]
+sqlite/row_count: expected at most one row, got 3
+sqlite/params: no field `title` in the parameters for `:title`
+sqlite/params: parameter 1 is positional (`?`), but the parameters are a record: name it (`:name`)
+3
