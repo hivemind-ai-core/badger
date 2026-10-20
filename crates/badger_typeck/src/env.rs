@@ -938,7 +938,10 @@ impl TypeEnv {
                     other => diags.push(
                         Diagnostic::error(format!("`{other}` cannot be derived"))
                             .with_code("E0204")
-                            .with_label(d.span, "supported: Eq, Hash, Display, Codec, From, Error"),
+                            .with_label(
+                                d.span,
+                                "supported: Eq, Hash, Display, Codec, From, Error, Default (structs)",
+                            ),
                     ),
                 }
             }

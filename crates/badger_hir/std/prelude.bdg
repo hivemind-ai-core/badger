@@ -244,6 +244,88 @@ impl Display for NumericError {
 
 impl Error for NumericError {}
 
+/// A value to start from: `0`, `0.0`, `false`, `""`, `0s`, an empty
+/// collection, `none`. `derive(Default)` on a struct builds one from each
+/// field's default; `default_of()` gives one where the type is known.
+pub protocol Default {
+    fn default() -> Self
+}
+
+/// The default value of the type expected here (`let n: Int = default_of()`).
+pub fn default_of<T>() -> T where T: Default { T.default() }
+
+impl Default for Bool {
+    fn default() -> Bool { false }
+}
+
+impl Default for I8 {
+    fn default() -> I8 { 0 }
+}
+
+impl Default for I16 {
+    fn default() -> I16 { 0 }
+}
+
+impl Default for I32 {
+    fn default() -> I32 { 0 }
+}
+
+impl Default for I64 {
+    fn default() -> I64 { 0 }
+}
+
+impl Default for U8 {
+    fn default() -> U8 { 0 }
+}
+
+impl Default for U16 {
+    fn default() -> U16 { 0 }
+}
+
+impl Default for U32 {
+    fn default() -> U32 { 0 }
+}
+
+impl Default for U64 {
+    fn default() -> U64 { 0 }
+}
+
+impl Default for F32 {
+    fn default() -> F32 { 0.0 }
+}
+
+impl Default for F64 {
+    fn default() -> F64 { 0.0 }
+}
+
+impl Default for String {
+    fn default() -> String { "" }
+}
+
+impl Default for Duration {
+    fn default() -> Duration { 0s }
+}
+
+impl Default for Unit {
+    fn default() -> Unit { () }
+}
+
+impl<T> Default for List<T> {
+    fn default() -> List<T> { [] }
+}
+
+impl<K, V> Default for Map<K, V> where K: Hash {
+    fn default() -> Map<K, V> { map {} }
+}
+
+impl<T> Default for Set<T> where T: Hash {
+    fn default() -> Set<T> { set {} }
+}
+
+impl<T> Default for Option<T> {
+    fn default() -> Option<T> { Option.none }
+}
+
 /// The error `?` reports on an `Option` that is `none`, in a function
 /// returning `Result<_, E>`: `E` takes it through `From<OptionMissing>`
 /// (a `missing(source: OptionMissing)` variant with `derive(From)`).

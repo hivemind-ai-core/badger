@@ -633,12 +633,16 @@ dot
 | `Eq`, `Hash`, `Codec` | a checked statement that every field supports it |
 | `Error` | `Display` plus the `Error` protocol (chapter 3) |
 | `From` | (enums) a conversion from each variant's single payload type (chapter 3) |
+| `Default` | (structs) `S.default()`: every field's default (`0`, `0.0`, `false`, `""`, `0s`, an empty collection, `none`, or the field type's own `Default`) |
 
 - Equality, hashing, and `Codec` encoding are structural and available
   without `derive` whenever every field supports them. Deriving them
   documents the intent and makes the compiler check it: `derive(Eq)` on a
   struct with a `Float` or function field is E0204.
-- Only these six can be derived (E0204). There are no user-defined
+- `Default` pairs with a record update for settings:
+  `{ ..Settings.default(), port: 8080 }`. `default_of()` is the default
+  of whatever type is expected there.
+- Only these seven can be derived (E0204). There are no user-defined
   derivations or macros.
 
 ## Generics and bounds

@@ -1,0 +1,29 @@
+// `derive(Default)` (and `@derive(Default)`): every field's default, nested
+// structs and generics included, and `default_of()` for an expected type.
+import std.io
+
+pub struct Limits { requests: Int, ratio: Float, burst: U32 } derive(Default, Display)
+
+pub struct Settings {
+    name: String,
+    verbose: Bool,
+    timeout: Duration,
+    tags: List<String>,
+    labels: Map<String, String>,
+    owner: Option<String>,
+    limits: Limits,
+} derive(Default)
+
+pub struct Pair<T> { a: T, b: T } derive(Default)
+
+@derive(Default)
+pub struct Flags { on: Bool }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let s: Settings = Settings.default()
+    io.println($"{s.name.len()} {s.verbose} {s.timeout} {s.tags} {s.labels.len()} {s.owner} {s.limits}")?
+    let p: Pair<Int> = default_of()
+    let custom = { ..Settings.default(), name: "svc", verbose: true }
+    io.println($"{p.a} {p.b} {custom.name} {custom.verbose} {Flags.default().on}")?
+    ok(())
+}

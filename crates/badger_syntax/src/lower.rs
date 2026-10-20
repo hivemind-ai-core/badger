@@ -132,6 +132,76 @@ impl<'a, 'i> Lower<'a, 'i> {
         }
     }
 
+    /// Is derive type `t` the prelude's `Default`?
+    fn names_default(&self, t: TypeId) -> bool {
+        matches!(&self.ast.types[t].kind,
+            TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == "Default")
+    }
+
+    /// `struct S<T> { a: A, .. } derive(Default)` is
+    /// `impl<T> Default for S<T> where T: Default { fn default() -> S<T> { { a: default_of(), .. } } }`:
+    /// each field's type must have a default.
+    fn derive_default(&mut self, name: Name, generics: &[GenericParam], fields: &[StructField], at: Span) {
+        let path = |this: &mut Self, text: &str, args: Vec<TypeId>| {
+            let sym = this.interner.intern(text);
+            this.alloc_ty(TypeKind::Path { module: vec![], name: Name { sym, span: at }, args }, at)
+        };
+        let gens: Vec<GenericParam> =
+            generics.iter().map(|g| GenericParam { name: g.name, bounds: vec![] }).collect();
+        let args: Vec<TypeId> = generics
+            .iter()
+            .map(|g| self.alloc_ty(TypeKind::Path { module: vec![], name: g.name, args: vec![] }, at))
+            .collect();
+        let sname = self.interner.resolve(name.sym).to_string();
+        let self_ty = path(self, &sname, args.clone());
+        let ret = path(self, &sname, args.clone());
+        let protocol = path(self, "Default", vec![]);
+        let where_preds = args
+            .iter()
+            .map(|a| {
+                let bound = path(self, "Default", vec![]);
+                WherePred { ty: *a, bounds: vec![bound] }
+            })
+            .collect();
+        let entries = fields
+            .iter()
+            .map(|f| {
+                // (a field without a default is reported at the field)
+                let fs = f.name.span;
+                let callee = self.alloc_expr(ExprKind::Std("default_of"), fs);
+                let value = self.alloc_expr(ExprKind::Call { callee, type_args: vec![], args: vec![] }, fs);
+                RecordEntry::Field { path: vec![Label { sym: f.name.sym, span: f.name.span }], value }
+            })
+            .collect();
+        let body = self.alloc_expr(ExprKind::Record { spread: None, entries }, at);
+        let method = FnDecl {
+            name: Name { sym: self.interner.intern("default"), span: at },
+            is_pub: false,
+            generics: vec![],
+            params: vec![],
+            ret: Some(ret),
+            effect: None,
+            where_preds: vec![],
+            body: Some(body),
+            span: at,
+            contracts: vec![],
+            result_inferred: false,
+        };
+        self.extra_items.push(Item {
+            kind: ItemKind::Impl(ImplDecl {
+                generics: gens,
+                protocol: Some(protocol),
+                self_ty,
+                where_preds,
+                methods: vec![method],
+                assoc_types: vec![],
+            }),
+            span: at,
+            is_pub: false,
+            attributes: vec![],
+        });
+    }
+
     fn item(&mut self, it: cst::Item<'_>) -> Option<Item> {
         let span = self.span(it.span);
         let is_pub = it.is_pub;
@@ -167,7 +237,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::ItemKind::Struct { repr_c, name, generics, fields, derives } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
-                let fields = fields
+                let fields: Vec<StructField> = fields
                     .into_iter()
                     .map(|(is_pub, n, t)| {
                         let name = self.value_name(n);
@@ -177,6 +247,12 @@ impl<'a, 'i> Lower<'a, 'i> {
                     .collect();
                 let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
                 derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
+                // `derive(Default)` is an impl built from the fields' defaults
+                if let Some(i) = derives.iter().position(|t| self.names_default(*t)) {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.derive_default(name, &generics, &fields, at);
+                }
                 ItemKind::Struct(StructDecl { name, generics, fields, derives, repr_c })
             }
             cst::ItemKind::Enum { name, generics, variants, derives } => {

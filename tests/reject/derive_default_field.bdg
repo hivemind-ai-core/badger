@@ -1,0 +1,5 @@
+// expect-error: E0341
+// `derive(Default)` needs a default for every field: a function has none.
+pub struct Handle { f: fn() -> Int } derive(Default)
+
+pub fn main() {}

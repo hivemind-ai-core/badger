@@ -77,6 +77,12 @@ run again if another task changed the value concurrently.
 pub extern type Bool
 ```
 
+#### `Bool.default`
+
+```badger
+fn default() -> Bool
+```
+
 #### `Bool.display`
 
 ```badger
@@ -187,6 +193,16 @@ Explicit dynamic data.
 fn display(self: &Self) -> String
 ```
 
+### `Default`
+
+```badger
+protocol Default { default: fn() -> Self }
+```
+
+A value to start from: `0`, `0.0`, `false`, `""`, `0s`, an empty
+collection, `none`. `derive(Default)` on a struct builds one from each
+field's default; `default_of()` gives one where the type is known.
+
 ### `Display`
 
 ```badger
@@ -197,6 +213,12 @@ protocol Display { display: fn(&Self) -> String }
 
 ```badger
 pub extern type Duration
+```
+
+#### `Duration.default`
+
+```badger
+fn default() -> Duration
 ```
 
 #### `Duration.display`
@@ -235,6 +257,12 @@ optional cause (the causal chain), and structured details.
 pub extern type F32
 ```
 
+#### `F32.default`
+
+```badger
+fn default() -> F32
+```
+
 #### `F32.display`
 
 ```badger
@@ -245,6 +273,12 @@ fn display(self: &Self) -> String
 
 ```badger
 pub extern type F64
+```
+
+#### `F64.default`
+
+```badger
+fn default() -> F64
 ```
 
 #### `F64.display`
@@ -302,6 +336,12 @@ impl HttpStatus for AppError {
 pub extern type I16
 ```
 
+#### `I16.default`
+
+```badger
+fn default() -> I16
+```
+
 #### `I16.display`
 
 ```badger
@@ -312,6 +352,12 @@ fn display(self: &Self) -> String
 
 ```badger
 pub extern type I32
+```
+
+#### `I32.default`
+
+```badger
+fn default() -> I32
 ```
 
 #### `I32.display`
@@ -326,6 +372,12 @@ fn display(self: &Self) -> String
 pub extern type I64
 ```
 
+#### `I64.default`
+
+```badger
+fn default() -> I64
+```
+
 #### `I64.display`
 
 ```badger
@@ -336,6 +388,12 @@ fn display(self: &Self) -> String
 
 ```badger
 pub extern type I8
+```
+
+#### `I8.default`
+
+```badger
+fn default() -> I8
 ```
 
 #### `I8.display`
@@ -372,6 +430,12 @@ pub extern type List<T>
 
 Frozen paged sequence.
 
+#### `List.default`
+
+```badger
+fn default() -> List<T>
+```
+
 #### `List.display`
 
 ```badger
@@ -407,6 +471,12 @@ fn display(self: &Self) -> String
 pub extern type Map<K, V>
 ```
 
+#### `Map.default`
+
+```badger
+fn default() -> Map<K, V>
+```
+
 #### `Map.display`
 
 ```badger
@@ -437,6 +507,12 @@ fn display(self: &Self) -> String
 
 ```badger
 enum Option<T> { none, some(value: T) }
+```
+
+#### `Option.default`
+
+```badger
+fn default() -> Option<T>
 ```
 
 #### `Option.display`
@@ -541,6 +617,12 @@ task-local state); an iterator itself always stays on its task.
 pub extern type Set<T>
 ```
 
+#### `Set.default`
+
+```badger
+fn default() -> Set<T>
+```
+
 #### `Set.display`
 
 ```badger
@@ -566,6 +648,12 @@ pub type Size = U64
 
 ```badger
 pub extern type String
+```
+
+#### `String.default`
+
+```badger
+fn default() -> String
 ```
 
 #### `String.display`
@@ -618,6 +706,12 @@ Checked conversion: `Target.try_from(value)` (see `std.num`).
 pub extern type U16
 ```
 
+#### `U16.default`
+
+```badger
+fn default() -> U16
+```
+
 #### `U16.display`
 
 ```badger
@@ -628,6 +722,12 @@ fn display(self: &Self) -> String
 
 ```badger
 pub extern type U32
+```
+
+#### `U32.default`
+
+```badger
+fn default() -> U32
 ```
 
 #### `U32.display`
@@ -642,6 +742,12 @@ fn display(self: &Self) -> String
 pub extern type U64
 ```
 
+#### `U64.default`
+
+```badger
+fn default() -> U64
+```
+
 #### `U64.display`
 
 ```badger
@@ -654,6 +760,12 @@ fn display(self: &Self) -> String
 pub extern type U8
 ```
 
+#### `U8.default`
+
+```badger
+fn default() -> U8
+```
+
 #### `U8.display`
 
 ```badger
@@ -664,6 +776,12 @@ fn display(self: &Self) -> String
 
 ```badger
 pub type Unit = ()
+```
+
+#### `Unit.default`
+
+```badger
+fn default() -> Unit
 ```
 
 ### `Unscoped`
@@ -684,6 +802,14 @@ fn assert
 ```
 
 Terminate the current task with a defect if `condition` is false.
+
+### `default_of`
+
+```badger
+fn default_of<T>() -> T where T: Default
+```
+
+The default value of the type expected here (`let n: Int = default_of()`).
 
 ### `describe_error`
 
