@@ -531,6 +531,12 @@ struct Body<'f> {
     /// young whatever a collection did, so storing into them needs no write
     /// barrier.
     fresh: rustc_hash::FxHashSet<Local>,
+    /// The task's scheduling budget (`TaskCtx::budget`), kept in a register
+    /// between calls: polls decrement it without a load and store each, so a
+    /// loop's polls do not chain through memory. The running task owns its
+    /// budget (no other thread writes it), so the word is written back
+    /// before every call, return, and slow poll, and read again after them.
+    budget: Variable,
 }
 
 static DEBUG_INFO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -760,6 +766,10 @@ impl FnCx<'_> {
                 b.switch_to_block(cont);
                 b.seal_block(cont);
             }
+            let budget = b.declare_var(types::I64);
+            let initial =
+                b.ins().load(types::I64, MemFlagsData::trusted(), ctx, badger_runtime::task::CTX_BUDGET);
+            b.def_var(budget, initial);
             // link the shadow frame
             if framed {
                 let prev = b.ins().load(types::I64, MemFlagsData::trusted(), ctx, 0);
@@ -798,6 +808,7 @@ impl FnCx<'_> {
                 dbg_slot,
                 dbg_offsets,
                 fresh: Default::default(),
+                budget,
             };
             // debug slots start zeroed (a local not yet assigned reads 0)
             if let Some(slot) = body.dbg_slot {
@@ -863,6 +874,7 @@ impl FnCx<'_> {
                             let prev = b.ins().stack_load(types::I64, types::I64, body.frame, 0);
                             b.ins().store(MemFlagsData::trusted(), prev, body.ctx, 0);
                         }
+                        body.spill_budget(&mut b);
                         b.ins().return_(&[x]);
                     }
                     Term::Unreachable => {
@@ -911,7 +923,15 @@ impl FnCx<'_> {
         match s {
             Stmt::Assign(l, rv) => {
                 let ty = cty(body.f.locals[*l].repr);
+                // a call may poll (or resume the task with a new budget)
+                let calls = matches!(rv, Rvalue::Call { .. } | Rvalue::Concat(_));
+                if calls {
+                    body.spill_budget(b);
+                }
                 let v = self.rvalue(b, body, rv, ty, imports, funcs, adapters, globals);
+                if calls {
+                    body.reload_budget(b);
+                }
                 let v = coerce(b, v, ty);
                 body.set(b, *l, v);
                 // a safe point may age every object allocated before it
@@ -971,9 +991,9 @@ impl FnCx<'_> {
             }
             Stmt::Poll => {
                 body.fresh.clear();
-                let budget = b.ins().load(types::I64, MemFlagsData::trusted(), body.ctx, 8);
+                let budget = b.use_var(body.budget);
                 let nb = b.ins().iadd_imm_s(budget, -1);
-                b.ins().store(MemFlagsData::trusted(), nb, body.ctx, 8);
+                b.def_var(body.budget, nb);
                 let neg = b.ins().icmp_imm_s(IntCC::SignedLessThan, nb, 0);
                 let (slow, cont) = (b.create_block(), b.create_block());
                 b.set_cold_block(slow);
@@ -984,7 +1004,9 @@ impl FnCx<'_> {
                 if let Some(roots) = roots {
                     body.publish_roots(b, roots);
                 }
+                body.spill_budget(b);
                 self.rt_call(b, imports, "badger_rt_poll", &[body.ctx], body.ctx);
+                body.reload_budget(b);
                 b.ins().jump(cont, &[]);
                 b.switch_to_block(cont);
             }
@@ -1603,6 +1625,16 @@ impl FnCx<'_> {
 }
 
 impl Body<'_> {
+    fn spill_budget(&self, b: &mut FunctionBuilder) {
+        let v = b.use_var(self.budget);
+        b.ins().store(MemFlagsData::trusted(), v, self.ctx, badger_runtime::task::CTX_BUDGET);
+    }
+
+    fn reload_budget(&self, b: &mut FunctionBuilder) {
+        let v = b.ins().load(types::I64, MemFlagsData::trusted(), self.ctx, badger_runtime::task::CTX_BUDGET);
+        b.def_var(self.budget, v);
+    }
+
     /// Reuse slots at the actual safe point. A shorter len drops dead
     /// roots without clearing the unused tail of the frame.
     fn publish_roots(&self, b: &mut FunctionBuilder, point: &[Local]) {
