@@ -2,7 +2,8 @@
 // A batch's items view borrows the batch: releasing it while the view is used is rejected.
 import std.io
 import std.channel
-pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { cfg(source: channel.ConfigError), io(source: io.Error) }
 pub fn main() -> Result<Unit, AppError> {
     let b = channel.batch<Int>(channel.batch_defaults)?
     let _ = b.sender.append(5)

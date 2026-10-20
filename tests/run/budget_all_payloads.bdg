@@ -5,10 +5,11 @@ import std.buffer
 import std.channel
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     cfg(source: channel.ConfigError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 enum Note {
     text(body: String),

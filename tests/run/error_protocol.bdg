@@ -14,11 +14,12 @@ impl Error for ParseFailure {
     fn details(self: &Self) -> Data { { line: self.line } }
 }
 
+@derive(Error, Display)
 pub enum LoadError {
     parse(source: ParseFailure),
     missing(path: String, reason: String),
     timeout,
-} derive(Error, Display)
+}
 
 fn load(n: Int) -> Result<Int, LoadError> {
     if n == 0 {

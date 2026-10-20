@@ -4,11 +4,12 @@ import std.time
 import std.task
 import std.channel
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn report(label: String, n: Int, t: Duration) -> Result<Unit, io.Error> !{Io} {
     io.println($"{label}: {time.as_nanos(t) / n} ns/message")

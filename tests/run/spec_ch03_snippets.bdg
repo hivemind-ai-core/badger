@@ -13,11 +13,12 @@ fn load(path: String) -> Result<String, io.Error> !{Io, Wait} {
     io.read_text(path)
 }
 
+@derive(Error, From)
 pub enum AppError {
     decode(source: codec.DecodeError),
     database(source: db.Error),
     validation(message: String),
-} derive(Error, From)
+}
 
 fn parse(text: String) -> Result<Int, AppError> {
     let n: Int = codec.decode_text(text)?

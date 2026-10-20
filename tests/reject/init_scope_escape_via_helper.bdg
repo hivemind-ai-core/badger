@@ -10,7 +10,8 @@ pub struct Failure { pub message: String }
 impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
 fn say(s: String) -> Unit { let _ = io.println(s) }
-pub enum AppError { system(source: system.Error), cfg(source: channel.ConfigError) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error), cfg(source: channel.ConfigError) }
 fn keep(a: Atom<List<system.InitScope<Unit>>>, s: system.InitScope<Unit>) -> Unit { a.set([s]) }
 pub fn main() -> Result<Unit, AppError> {
     let empty: List<system.InitScope<Unit>> = []

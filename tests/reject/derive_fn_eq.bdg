@@ -1,4 +1,5 @@
 // expect-error: E0204
 // A derivation is checked against every field.
-struct S { f: fn() -> Int } derive(Eq)
+@derive(Eq)
+struct S { f: fn() -> Int }
 pub fn main() -> Unit {}

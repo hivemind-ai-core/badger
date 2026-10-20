@@ -15,10 +15,11 @@ type Settings = {
     keys: List<config.Secret>,
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn show(s: Settings) -> String {
     let labels = text.join(s.labels.entries().map(fn(e) { $"{e.0}={e.1}" }), ",")

@@ -3,10 +3,11 @@
 import std.io
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     missing(source: OptionMissing),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn id_of(params: Map<String, String>) -> Result<Int, AppError> {
     let id = text.parse_int(params.get("id")?)?

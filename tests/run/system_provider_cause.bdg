@@ -4,13 +4,15 @@ import std.io
 import std.system
 import std.system.{component}
 
+@derive(Error)
 pub enum StartError {
     unavailable(port: Int),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 let flaky = system.provider({
     name: #demo/flaky,

@@ -15,7 +15,8 @@ let counter = system.provider({ name: #t/counter, init: fn(scope, c: { start: In
     scope.on_halt(fn() -> Result<Unit, F> { open.set(0); say("counter halted"); ok(()) })
     ok({ bump: fn() { n.update(fn(x: Int) -> Int { x + 1 }) }, closed: fn() { open.get() == 0 } })
 } })
-pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError) }
 pub fn main() -> Result<Unit, AppError> {
     let ch = channel.create(channel.defaults)?
     let plan = system { c: component(counter, { start: 0 }) }

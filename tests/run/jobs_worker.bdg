@@ -13,16 +13,18 @@ import std.worker
 
 type Mail = { to: String }
 
+@derive(Error)
 pub enum MailError {
     unreachable(to: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     jobs(source: jobs.Error),
     system(source: system.Error),
     timeout,
-} derive(Error, From)
+}
 
 fn deliver(crashes: Atom<Int>) -> fn(jobs.Claim, Mail) -> Result<jobs.Step<Mail>, MailError> {
     fn(c: jobs.Claim, m: Mail) -> Result<jobs.Step<Mail>, MailError> {

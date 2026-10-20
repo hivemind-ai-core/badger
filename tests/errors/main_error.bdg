@@ -2,13 +2,15 @@
 // location where it started propagating.
 import std.io
 
+@derive(Error)
 pub enum Inner {
     bad(n: Int),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum Outer {
     wrap(source: Inner),
-} derive(Error, From)
+}
 
 fn inner(n: Int) -> Result<Int, Inner> {
     if n > 3 { err(Inner.bad(n)) } else { ok(n) }

@@ -8,11 +8,12 @@ import std.list
 import std.set
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn round(n: Int, seed: Int) -> Result<Unit, AppError> {
     let started = Atom.new(0)

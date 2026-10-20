@@ -11,10 +11,11 @@ import std.text
 type NewOrder = { title: String, quantity: Int, note: Option<String> }
 type Order = { id: Int, title: String, quantity: Int }
 
+@derive(Error, From)
 pub enum AppError {
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn show(r: http.Response) -> String {
     $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"

@@ -3,7 +3,8 @@ import std.io
 import std.array
 import std.codec
 import std.map
-pub struct S { pub xs: Array<Int>, pub n: Int } derive(Codec)
+@derive(Codec)
+pub struct S { pub xs: Array<Int>, pub n: Int }
 fn codecs() -> Unit {
     let s: S = { xs: array.from_list([4, 5]), n: 1 }
     let t = codec.encode_text(s)

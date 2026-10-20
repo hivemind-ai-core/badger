@@ -6,11 +6,12 @@ import std.io
 import std.pipeline
 import std.pipeline.{handle}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     app(source: app.Error),
     negative,
-} derive(Error, From)
+}
 
 stage non_negative() -> Result<_, AppError> {
     enter(ctx) {

@@ -6,10 +6,11 @@ import std.io
 import std.postgres
 import queries
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     postgres(source: postgres.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let db = postgres.connect(env.get("POSTGRES_URL").unwrap_or("postgres://localhost/postgres"))?

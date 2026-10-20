@@ -117,10 +117,11 @@ callback leaves the callback. It runs any pending cleanup on the way out.
 like any other: give the function's error a variant for it.
 
 ```badger fragment
+@derive(Error, From)
 pub enum AppError {
     missing(source: OptionMissing),
     invalid(message: String),
-} derive(Error, From)
+}
 
 fn id_of(params: Map<String, String>) -> Result<Int, AppError> {
     ok(text.parse_int(params.get("id")?)?)
@@ -142,16 +143,18 @@ one for each variant with a single payload.
 ```badger
 import std.io
 
+@derive(Error)
 pub enum ParseError {
     empty,
     not_a_number(text: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     parse(source: ParseError),
     range(source: NumericError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn parse_int(s: String) -> Result<Int, ParseError> {
     if s.is_empty() {
@@ -266,10 +269,11 @@ impl Error for ParseFailure {
     fn details(self: &Self) -> Data { { line: self.line } }
 }
 
+@derive(Error)
 pub enum LoadError {
     parse(source: ParseFailure),
     missing(path: String, reason: String),
-} derive(Error)
+}
 
 pub fn main() -> Result<Unit, io.Error> {
     let e = LoadError.parse({ line: 7 })
@@ -302,14 +306,16 @@ propagating.
 ```badger
 import std.io
 
+@derive(Error)
 pub enum ParseError {
     not_a_number(text: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     parse(source: ParseError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn parse_int(s: String) -> Result<Int, ParseError> {
     match s.parse_int() {

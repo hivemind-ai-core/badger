@@ -23,10 +23,11 @@ extern "intrinsic" fn cleanup_remove(h: Int) -> Unit
 
 /// Why a call was not admitted: the queue was full, or its deadline passed
 /// while it waited (or before it arrived).
+@derive(Error)
 pub enum Rejected {
     full(gate: Symbol),
     deadline(gate: Symbol),
-} derive(Error)
+}
 
 /// A problem with a gate's limits.
 pub struct Error {

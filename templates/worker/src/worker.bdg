@@ -11,9 +11,10 @@ import std.worker
 pub type Job = { id: Int }
 
 /// What can go wrong while a job runs.
+@derive(Error)
 pub enum Failure {
     failed(message: String),
-} derive(Error)
+}
 
 /// One step of a job: do the work and decide what happens next (`done`,
 /// `again`, `after(delay)`, or `failed(reason)`); external effects go in

@@ -4,10 +4,11 @@ import std.task
 pub struct Small { pub m: String }
 impl Display for Small { fn display(self: &Self) -> String { self.m } }
 impl Error for Small {}
+@derive(Error)
 pub enum Both {
     small(source: Small),
     text(message: String),
-} derive(Error)
+}
 impl From<Small> for Both { fn from(e: Small) -> Both { Both.small(e) } }
 impl From<String> for Both { fn from(e: String) -> Both { Both.text(e) } }
 pub fn main() -> Result<Unit, io.Error> {

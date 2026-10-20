@@ -1,7 +1,8 @@
 // expect-error: E0333
 // `?` on an `Option` returns `OptionMissing` for `none`: the function's
 // error must convert from it.
-pub enum E { other } derive(Error)
+@derive(Error)
+pub enum E { other }
 
 fn f(o: Option<Int>) -> Result<Int, E> { ok(o?) }
 

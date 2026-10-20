@@ -11,12 +11,13 @@ import std.time
 
 type Settings = { port: U16 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     http(source: http.Error),
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 /// Two events, then a long wait before the third.
 fn ticks(closed: Atom<Int>) -> Seq<http.Event> {

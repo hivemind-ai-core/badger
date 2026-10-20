@@ -19,10 +19,11 @@ impl Display for Failure {
 
 impl Error for Failure {}
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
     failed(source: Failure),
-} derive(Error, From)
+}
 
 fn say(s: String) -> Unit {
     let _ = io.println(s)

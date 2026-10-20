@@ -52,10 +52,11 @@ pub fn commands(tasks: model.Tasks) -> List<command.Command> {
     ]
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn run() -> Result<Int, AppError> {
     let s = settings.resolve([])?

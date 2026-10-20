@@ -320,15 +320,17 @@ pub fn main() -> Result<Unit, io.Error> {
 ```badger
 import std.io
 
+@derive(Error)
 pub enum ParseError {
     empty,
     not_a_number(text: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     parse(source: ParseError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn parse_int(s: String) -> Result<Int, ParseError> {
     if s.is_empty() {

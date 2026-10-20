@@ -2,9 +2,10 @@ import std.app
 
 pub type Book = { id: Int, title: String }
 
+@derive(Error)
 pub enum BookError {
     missing(id: Int),
-} derive(Error)
+}
 
 let shelf: List<Book> = [{ id: 1, title: "Dune" }, { id: 2, title: "Emma" }]
 

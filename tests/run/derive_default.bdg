@@ -2,8 +2,10 @@
 // structs and generics included, and `default_of()` for an expected type.
 import std.io
 
-pub struct Limits { requests: Int, ratio: Float, burst: U32 } derive(Default, Display)
+@derive(Default, Display)
+pub struct Limits { requests: Int, ratio: Float, burst: U32 }
 
+@derive(Default)
 pub struct Settings {
     name: String,
     verbose: Bool,
@@ -12,9 +14,10 @@ pub struct Settings {
     labels: Map<String, String>,
     owner: Option<String>,
     limits: Limits,
-} derive(Default)
+}
 
-pub struct Pair<T> { a: T, b: T } derive(Default)
+@derive(Default)
+pub struct Pair<T> { a: T, b: T }
 
 @derive(Default)
 pub struct Flags { on: Bool }

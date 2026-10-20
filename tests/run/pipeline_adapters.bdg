@@ -7,9 +7,10 @@ import std.pipeline.{handle}
 
 type Ctx = { path: String }
 
+@derive(Error)
 pub enum ApiError {
     missing(path: String),
-} derive(Error)
+}
 
 fn lookup(c: Ctx) -> Result<Int, String> {
     if c.path == "/answer" { ok(42) } else { err($"no {c.path}") }

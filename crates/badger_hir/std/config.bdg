@@ -44,9 +44,10 @@ pub fn load<T>(prefix: String) -> Result<T, Error> !{Io} where T: Codec { config
 /// A secret setting: configured like a string, but shown and encoded as
 /// `[redacted]` (in `Display`, JSON, logs, and provenance). `reveal` gives
 /// the value to the code that needs it.
+@derive(Codec)
 pub struct Secret {
     value: String,
-} derive(Codec)
+}
 
 pub fn secret(value: String) -> Secret {
     { value }

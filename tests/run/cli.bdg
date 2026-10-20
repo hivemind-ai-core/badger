@@ -2,10 +2,11 @@
 import std.cli
 import std.io
 
+@derive(Codec)
 pub enum Mode {
     fast,
     careful,
-} derive(Codec)
+}
 
 type Options = { port: Int, verbose: Bool, dry_run: Bool, name: Option<String>, tag: List<String>, ratio: Float, mode: Mode, args: List<String> }
 

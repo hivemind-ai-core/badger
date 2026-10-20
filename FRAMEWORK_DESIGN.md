@@ -160,10 +160,11 @@ The executable baseline uses these actual current-language contracts:
 pub type CreateOrder = { title: String }
 pub type Order = { id: Int, title: String }
 
+@derive(Error)
 pub enum Error {
     invalid_title,
     unavailable,
-} derive(Error)
+}
 
 pub type Store = {
     insert: fn(CreateOrder) -> Result<Order, Error> !{State},

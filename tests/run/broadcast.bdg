@@ -3,10 +3,11 @@
 import std.broadcast
 import std.io
 
+@derive(Error, From)
 pub enum AppError {
     config(source: broadcast.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let b = broadcast.create<Int>({ ..broadcast.defaults, backlog: 4 })?

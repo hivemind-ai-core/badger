@@ -2,9 +2,10 @@ import std.pipeline
 import std.pipeline.{handle}
 import std.trace
 
+@derive(Error)
 pub enum ExampleError {
     failed,
-} derive(Error)
+}
 
 fn auditing() {
     pipeline.stage({

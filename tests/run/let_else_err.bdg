@@ -1,6 +1,7 @@
 // A `let ... else` block ending in `err(...)` returns it.
 import std.io
-pub enum AppError { missing(what: String) } derive(Error)
+@derive(Error)
+pub enum AppError { missing(what: String) }
 fn first(o: Option<Int>) -> Result<Int, AppError> {
     let .some(v) = o else { err(AppError.missing("value")) }
     ok(v + 1)

@@ -8,7 +8,8 @@ pub struct Failure { pub message: String }
 impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
 fn say(s: String) -> Unit { let _ = io.println(s) }
-pub enum AppError { system(source: system.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error) }
 fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ dep: Int }, Int, Failure> {
     system.provider({ name: #test/node, init: fn(scope, config) -> Result<Int, Failure> {
         say($"start {label} (dep {config.dep})")

@@ -19,11 +19,12 @@ enum Event {
     shipped(at: Int),
 }
 
+@derive(Error)
 pub enum Refusal {
     not_open,
     overpaid(by: Int),
     unpaid,
-} derive(Error)
+}
 
 // what a decision may consult besides the state: the time and an id
 type Context = { now: Int, id: String }

@@ -7,9 +7,10 @@ import std.channel
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?

@@ -3032,6 +3032,59 @@ pub fn run_main(entry: u64) -> Exit {
 /// Worker threads of the previous `run_main` (tests run one after another).
 static WORKER_THREADS: Mutex<Vec<std::thread::JoinHandle<()>>> = Mutex::new(Vec::new());
 
+/// Pin the current thread to one CPU, so that a worker's ready queue and
+/// its heap stay on that core. `BADGER_PIN_WORKERS=1` turns it on: the
+/// per-worker deques and the per-worker pools are the prerequisite, and
+/// the gain is under 5% on a single-socket host and shows on a two-socket
+/// one (`research/12-runtime-scaling-extra.md` §14.10, and Drepper's
+/// NUMA factor of 1.2-1.5x there).
+fn pin_worker(w: usize) {
+    if std::env::var_os("BADGER_PIN_WORKERS").is_none() {
+        return;
+    }
+    let cpus = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+    if cpus <= 0 {
+        return;
+    }
+    // the CPUs of a node are numbered together, so the first workers land
+    // on the first node (first touch)
+    pin_to_cpu(w % cpus as usize);
+}
+
+/// Pin the current thread to CPU `cpu` (and only that one). `false` if
+/// the platform refused.
+fn pin_to_cpu(cpu: usize) -> bool {
+    let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
+    unsafe { libc::CPU_ZERO(&mut set) };
+    unsafe { libc::CPU_SET(cpu, &mut set) };
+    unsafe {
+        libc::pthread_setaffinity_np(
+            libc::pthread_self(),
+            std::mem::size_of::<libc::cpu_set_t>(),
+            &set as *const libc::cpu_set_t,
+        ) == 0
+    }
+}
+
+/// The CPUs the current thread may run on.
+fn affinity() -> Vec<usize> {
+    let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
+    unsafe { libc::CPU_ZERO(&mut set) };
+    let ok = unsafe {
+        libc::pthread_getaffinity_np(
+            libc::pthread_self(),
+            std::mem::size_of::<libc::cpu_set_t>(),
+            &mut set as *mut libc::cpu_set_t,
+        ) == 0
+    };
+    if !ok {
+        return vec![];
+    }
+    (0..libc::CPU_SETSIZE as usize)
+        .filter(|c| unsafe { libc::CPU_ISSET(*c, &set) })
+        .collect()
+}
+
 fn run_main_multi(entry: u64) -> Exit {
     // the previous run's workers finish before a new run starts
     for h in std::mem::take(&mut *WORKER_THREADS.lock().unwrap()) {
@@ -3054,6 +3107,7 @@ fn run_main_multi(entry: u64) -> Exit {
                 }
                 WORKER.with(|c| c.set(w));
                 crate::profile::start_thread();
+                pin_worker(w);
                 lock_for(reason::STARTUP);
                 worker_loop(n);
                 unlock();
@@ -3062,6 +3116,7 @@ fn run_main_multi(entry: u64) -> Exit {
         WORKER_THREADS.lock().unwrap().push(h);
     }
     let _ = main;
+    pin_worker(0);
     let exit = worker_loop(n);
     // whichever worker saw main finish, its exit is recorded on the task
     let exit =
@@ -3900,5 +3955,25 @@ mod tests {
         assert_eq!(q.queued(), 1);
         assert_eq!(q.pop(true).map(|e| e.0), Some(2));
         assert_eq!(q.queued(), 0);
+    }
+
+    /// A pinned worker runs on that CPU only.
+    #[test]
+    fn a_pinned_worker_runs_on_one_cpu() {
+        let cpus = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+        assert!(cpus > 0, "the platform reports its CPUs");
+        let cpu = (std::process::id() as usize) % cpus as usize;
+        let pinned = std::thread::spawn(move || {
+            let ok = pin_to_cpu(cpu);
+            (ok, affinity())
+        })
+        .join()
+        .expect("the pinning thread");
+        let (ok, cpus_of_thread) = pinned;
+        if ok {
+            assert_eq!(cpus_of_thread, vec![cpu], "the thread runs on one CPU only");
+        } else {
+            assert!(cpus_of_thread.len() <= cpus as usize, "the platform refused the pinning");
+        }
     }
 }

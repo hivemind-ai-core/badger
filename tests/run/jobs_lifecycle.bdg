@@ -7,14 +7,16 @@ import std.io
 import std.jobs
 import std.time
 
+@derive(Codec)
 struct Order {
     amount: Int,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct OrderV2 {
     amount: Int,
     currency: String,
-} derive(Codec)
+}
 
 fn say(s: String) -> Unit { let _ = io.println(s) }
 
