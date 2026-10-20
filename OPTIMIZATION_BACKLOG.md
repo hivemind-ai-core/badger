@@ -863,6 +863,27 @@ check fails the compilation on it. See
 
 ### 4.4 Lifetime-driven inlining and dead-assignment elimination
 
+**Status:** **not adopted** (2026-10-20): the type checker has no lifetime
+fact the two passes lack
+([`reports/2026-10-20-lifetime-driven-optimisation.md`](reports/2026-10-20-lifetime-driven-optimisation.md)).
+`ownership.rs` is a checker over affine and linear values whose facts end with
+the check, and the MIR erases what it distinguishes (`&x` lowers to `x`'s
+value, so a moved, borrowed or exclusive argument is the same word). An oracle
+computing the strongest such fact on the MIR itself (liveness after each call
+and assignment) over the 256 `tests/run` programs changes **0** inlining
+decisions and removes **0** assignments. Of the 438 size-rejected candidates
+of round 0 (21 527 taken by the cost model's other tests), 52 have an unused
+result and none fits the budget with its return slice removed; "the argument
+is never used again" holds at 87 % of accepted and 74 % of rejected sites, so it
+does not discriminate and changes nothing in an inlined body. After `reach`,
+all 12 147 assignments with a dead destination are kept for their effect
+(12 141 calls, 5 checked operations, 1 concatenation); `dead_assignments`
+already removes every removable one. No code changed, so the timing and
+`bench/messages.bdg` gates hold by construction (`BADGER_TIMINGS=2` reports
+typeck binding groups, not MIR pass timings). What would pay instead is
+effect information (a total, effect-free callee with an unused result), not
+lifetimes.
+
 - **Goal**: extend the inliner (`inline.rs:1-349`) and the
   dead-assignment eliminator (`simplify.rs:1-780`) to use the
   typeck lifetime information (Phase 3).
@@ -899,6 +920,7 @@ listed.
 | Scheduler Activations | not in mainline Linux; badger cannot adopt them on stock Linux | `research/12-runtime-scaling-extra.md` §14.1 |
 | HotSpot-style safepoint polling page (§0.1) | the race it removes is gone (the `STOP` + `IN_COMPILED` handshake is race-free under sequentially consistent ordering), and the mechanism only pays off when the *generated code* polls: with the poll in the runtime the collector still waits for the counter to drain, so a page fault would replace the load on a hot path | `research/12-runtime-scaling-extra.md` §16.3 |
 | MIR escape analysis with stack allocation (§3.2) | after `sra`/`enums`/`niche` the hot allocations on every benchmark escape for real (the one in `bench/records` is stored with `Atom.set`); the leftovers run once or cross into the runtime | `reports/2026-10-20-mir-escape-analysis.md` |
+| Lifetime-driven inlining and dead-assignment elimination (§4.4) | the type checker's ownership facts are subsumed by MIR liveness (borrows are erased in the MIR): an oracle of them changes 0 inlining decisions and removes 0 assignments over the corpus; every remaining dead assignment is kept for its effect | `reports/2026-10-20-lifetime-driven-optimisation.md` |
 | Full Tofte-Talpin region inference | whole-program analysis; badger compiles per function | `research/13-type-system-memory-management.md` §9.5 |
 | Hazard Eras | hardware support (TSX-NI) is deprecated on desktop Intel | `research/12-runtime-scaling-extra.md` §13.6 |
 | Flat-combining | the cited gain is on MPSC scenarios where one producer is faster than all consumers combined; badger's slow path is rare (1 of 83 891 declines) | `research/12-runtime-scaling-extra.md` §13.8 |
