@@ -70,12 +70,30 @@ fn edit_distance(a: &str, b: &str) -> usize {
 
 struct ModScope {
     names: FxHashMap<Symbol, (Res, Span)>,
+    /// The names this module's imports bind, where.
+    imports: Vec<(Symbol, Span)>,
+    /// The names this module's code looked up (its imports and its own
+    /// items alike): what is not here is unused.
+    used: std::cell::RefCell<FxHashSet<Symbol>>,
 }
 
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
 const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
+
+/// The closed fusion vocabulary: the values a `@fusion(...)` annotation may
+/// carry. A `stage`'s kind is either named here or derived from the
+/// callback's shape (the `call` kind).
+const FUSION_ROLES: &[&str] = &["source", "stage", "terminal"];
+const FUSION_KINDS: &[&str] = &[
+    // sources
+    "range", "from_range", "list", "entries", //
+    // stages
+    "call", "take", "skip", "step_by", "scan", "enumerate", "dedup", //
+    // terminals
+    "fold", "count", "sum", "collect",
+];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
@@ -109,6 +127,7 @@ pub fn lower_program(
     cx.resolve_late_ctors();
     cx.check_consts();
     cx.check_provider_scopes();
+    cx.report_unused(modules);
     cx.hir
 }
 
@@ -131,6 +150,131 @@ struct Cx<'a> {
 }
 
 impl Cx<'_> {
+    /// Warnings for what a program's own modules never use: imports
+    /// (E0195), private top-level items (E0196), and `let` bindings never
+    /// read (E0197). Standard-library and dependency modules are not
+    /// checked; a name starting with `_` is never reported, and `@allow`
+    /// silences an item's.
+    fn report_unused(&mut self, modules: &[ParsedModule]) {
+        let checked = |m: &ParsedModule| !m.is_std && !m.dependency;
+        // a file loaded as two modules (a project's entry, checked on its
+        // own) is one source: what either used is used, reported once
+        let mut by_file: FxHashMap<badger_base::FileId, FxHashSet<Symbol>> = FxHashMap::default();
+        for (mi, _) in modules.iter().enumerate() {
+            let file = self.hir.modules[module_id(mi)].file;
+            by_file.entry(file).or_default().extend(self.scopes[mi].used.borrow().iter().copied());
+        }
+        // a file with errors lost some of its uses to error recovery: its
+        // unused names are not reported until it lowers cleanly
+        let broken: FxHashSet<badger_base::FileId> = self
+            .diags
+            .iter()
+            .filter(|d| d.severity == badger_base::Severity::Error)
+            .filter_map(|d| d.primary().map(|s| s.file))
+            .collect();
+        let mut files = FxHashSet::default();
+        for (mi, m) in modules.iter().enumerate() {
+            if !checked(m) {
+                continue;
+            }
+            let mid = module_id(mi);
+            let file = self.hir.modules[mid].file;
+            if broken.contains(&file) || !files.insert(file) {
+                continue;
+            }
+            let used = by_file[&self.hir.modules[mid].file].clone();
+            for (name, at) in self.scopes[mi].imports.clone() {
+                let n = self.sym(name).to_string();
+                if !used.contains(&name) && !n.starts_with('_') && !at.is_dummy() {
+                    self.diags.push(
+                        Diagnostic::warning(format!("unused import `{n}`"))
+                            .with_code("E0195")
+                            .with_label(at, "never used in this module")
+                            .with_note("remove it"),
+                    );
+                }
+            }
+            let mut items: Vec<(Symbol, DefId)> =
+                self.hir.modules[mid].items.iter().map(|(k, v)| (*k, *v)).collect();
+            items.sort_by_key(|(_, d)| self.hir.defs[*d].span.start);
+            for (name, d) in items {
+                let def = &self.hir.defs[d];
+                let what = match &def.kind {
+                    DefKind::Fn(_) => "function",
+                    DefKind::Global(_) => "value",
+                    DefKind::Struct(_) => "struct",
+                    DefKind::Enum(_) => "enum",
+                    DefKind::Alias(_) => "type",
+                    DefKind::Protocol(_) => "protocol",
+                    _ => continue,
+                };
+                let n = self.sym(name).to_string();
+                if def.is_pub
+                    || used.contains(&name)
+                    || n == "main"
+                    || n.starts_with("test_")
+                    || n.starts_with('_')
+                    || def.span.is_dummy()
+                {
+                    continue;
+                }
+                let span = def.span;
+                self.diags.push(
+                    Diagnostic::warning(format!("{what} `{n}` is never used"))
+                        .with_code("E0196")
+                        .with_label(span, "not used in this module, and not `pub`")
+                        .with_note(format!("remove it, mark it `pub`, or name it `_{n}`")),
+                );
+            }
+        }
+        if files.is_empty() {
+            return;
+        }
+        // locals: read when an expression names them (a lambda's captures
+        // are the same locals); an assignment is not a read
+        let mut read = FxHashSet::default();
+        for (_, e) in self.hir.exprs.iter() {
+            match &e.kind {
+                ExprKind::Local(l) => {
+                    read.insert(*l);
+                }
+                ExprKind::Lambda(lam) => read.extend(lam.captures.iter().copied()),
+                _ => {}
+            }
+        }
+        let mut bound = vec![];
+        for (_, e) in self.hir.exprs.iter() {
+            let ExprKind::Block { stmts, .. } = &e.kind else { continue };
+            for s in stmts {
+                if let Stmt::Let { pat, .. } = s {
+                    self.hir.pat_binders(*pat, &mut bound);
+                }
+            }
+        }
+        bound.sort();
+        bound.dedup();
+        for l in bound {
+            let local = &self.hir.locals[l];
+            let n = self.sym(local.name).to_string();
+            let synthetic = n.starts_with('_') || !n.chars().all(|c| c.is_alphanumeric() || c == '_');
+            // a module-level binding is a global, read through its definition
+            if synthetic
+                || matches!(local.owner, None | Some(Owner::Global(_)))
+                || read.contains(&l)
+                || local.span.is_dummy()
+                || !files.contains(&local.span.file)
+            {
+                continue;
+            }
+            self.diags.push(
+                Diagnostic::warning(format!("unused variable `{n}`"))
+                    .with_code("E0197")
+                    .with_label(local.span, "never read")
+                    .with_note(format!("name it `_{n}`, or discard the value with `let _ = ...`")),
+            );
+        }
+    }
+
     /// Import cycles may join modules of types and functions into one
     /// checked group, but not modules that initialize module-level values.
     fn check_import_cycles(&mut self, modules: &[ParsedModule]) {
@@ -542,7 +686,9 @@ impl Cx<'_> {
             for (k, v) in &self.hir.modules[mid].items {
                 names.insert(*k, (Res::Def(*v), self.hir.defs[*v].span));
             }
-            self.scopes.push(ModScope { names });
+            let mut imports: Vec<(Symbol, Span)> = imported.into_iter().map(|(n, (_, at))| (n, at)).collect();
+            imports.sort_by_key(|(_, at)| at.start);
+            self.scopes.push(ModScope { names, imports, used: Default::default() });
         }
     }
 
@@ -729,7 +875,12 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     }
 
     fn lookup_module_name(&self, name: Symbol) -> Option<Res> {
-        self.cx.scopes[self.module.into_raw().into_u32() as usize].names.get(&name).map(|r| r.0)
+        let scope = &self.cx.scopes[self.module.into_raw().into_u32() as usize];
+        let found = scope.names.get(&name).map(|r| r.0);
+        if found.is_some() {
+            scope.used.borrow_mut().insert(name);
+        }
+        found
     }
 
     // ------------------------------------------------------------ items
@@ -793,6 +944,33 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     }
                 }
             }
+            // `@fusion(role = ..., template = ...)`: a closed vocabulary
+            if name == "fusion" {
+                for arg in &attr.args {
+                    let ast::AttrArg::KeyValue(k, v) = arg else { continue };
+                    let (label, allowed) = match self.cx.interner.resolve(*k) {
+                        "role" => ("role", FUSION_ROLES),
+                        "template" => ("kind", FUSION_KINDS),
+                        _ => continue,
+                    };
+                    let value = match &**v {
+                        ast::AttrArg::Name(s) => self.cx.interner.resolve(*s).to_string(),
+                        ast::AttrArg::Str(s) => s.clone(),
+                        _ => continue,
+                    };
+                    if !allowed.contains(&value.as_str()) {
+                        let msg = format!("unknown fusion {label} `{value}`");
+                        let mut d = Diagnostic::error(msg).with_code("E0194");
+                        if !is_std {
+                            d = Diagnostic::warning(format!("unknown fusion {label} `{value}`"))
+                                .with_code("E0194");
+                        }
+                        self.cx
+                            .diags
+                            .push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
+                    }
+                }
+            }
         }
         self.cx.hir.attributes.entry(def).or_default().extend(item.attributes.iter().cloned());
     }
@@ -852,7 +1030,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     }
                     let fields =
                         v.fields.iter().map(|(l, t)| (l.map(|l| l.sym), self.lower_ty(*t))).collect();
-                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span });
+                    let message = v.attributes.iter().find_map(|a| match a.args.as_slice() {
+                        [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
+                        _ => None,
+                    });
+                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span, message });
                 }
                 let derives = self.lower_derives(&e.derives);
                 self.generics.pop();

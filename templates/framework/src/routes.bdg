@@ -1,7 +1,6 @@
 // The HTTP binding of the service: each operation bound to a method and
 // a path, and the status each error carries.
 import std.app
-import std.http
 import std.route
 import service
 import store

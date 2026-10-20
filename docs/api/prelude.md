@@ -308,7 +308,7 @@ protocol Hash {  }
 ### `HttpStatus`
 
 ```badger
-protocol HttpStatus { http_status: fn(&Self) -> Int }
+protocol HttpStatus { http_code: fn(&Self) -> Symbol, http_status: fn(&Self) -> Int }
 ```
 
 How an error is reported over HTTP: the status the route system (and
@@ -894,6 +894,36 @@ fn some<T>(value: T) -> Option<T>
 ## Methods on other types
 
 ### `().display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+### `(A, B).display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+### `(A, B, C).display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+### `(A, B, C, D).display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+### `(A, B, C, D, E).display`
+
+```badger
+fn display(self: &Self) -> String
+```
+
+### `(A, B, C, D, E, F).display`
 
 ```badger
 fn display(self: &Self) -> String

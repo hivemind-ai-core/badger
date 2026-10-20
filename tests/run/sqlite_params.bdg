@@ -1,0 +1,29 @@
+// SQL parameters: a tuple or list binds `?`s in order, a record binds named
+// placeholders by field, a single value is the one `?`; query_opt_as is at
+// most one row.
+import std.codec
+import std.io
+import std.sqlite
+
+type Book = { id: Int, title: String, author: String }
+
+fn show<T>(x: T) -> Unit where T: Codec { let _ = io.println(codec.encode_text(x)) }
+fn say(x: String) -> Unit { let _ = io.println(x) }
+
+pub fn main() -> Result<Unit, sqlite.Error> {
+    let pool = sqlite.open(":memory:")?
+    let _ = sqlite.execute(pool, "CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, author TEXT NOT NULL); CREATE INDEX t ON books(title)", [])?
+    let _ = sqlite.execute(pool, "INSERT INTO books (title, author) VALUES (?, ?)", ("Dune", "Herbert"))?
+    let _ = sqlite.execute(pool, "INSERT INTO books (title, author) VALUES (:title, :author)", { title: "Emma", author: "Austen", extra: 1 })?
+    let _ = sqlite.execute(pool, "INSERT INTO books (title, author) VALUES (?, ?)", [Data.string("Ulysses"), Data.string("Joyce")])?
+    show(sqlite.query_opt_as<Book>(pool, "SELECT id, title, author FROM books WHERE id = ?", 2)?)
+    show(sqlite.query_opt_as<Book>(pool, "SELECT id, title, author FROM books WHERE id = :id", { id: 9 })?)
+    say($"{sqlite.query_as<Book>(pool, "SELECT id, title, author FROM books WHERE title LIKE :q OR author LIKE :q ORDER BY id", { q: "%u%" })?.map(fn(b) => b.title)}")
+    say(match sqlite.query_opt_as<Book>(pool, "SELECT id, title, author FROM books", []) { .ok(_) => "ok?", .err(e) => e.display() })
+    // (a record literal is checked by `badger check`; a value is checked here)
+    let partial = { id: 1 }
+    say(match sqlite.execute(pool, "UPDATE books SET title = :title WHERE id = :id", partial) { .ok(_) => "ok?", .err(e) => e.display() })
+    say(match sqlite.execute(pool, "UPDATE books SET title = ? WHERE id = :id", partial) { .ok(_) => "ok?", .err(e) => e.display() })
+    say($"{sqlite.query_one_as<{ n: Int }>(pool, "SELECT COUNT(*) AS n FROM books", {})?.n}")
+    ok(())
+}

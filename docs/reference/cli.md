@@ -140,6 +140,13 @@ check` reports them with what was checked (the inputs and the roots),
 for an agent; `badger query diagnostics` reports them flattened to one
 location each, as the editor wants them.
 
+Among the warnings are the names a program's own modules never use: an
+import (E0195), a function, value, or type that is not `pub` (E0196), and a
+`let` binding whose value is never read (E0197). A name starting with `_`
+is never reported, `main` and `test_` functions are used by the tools, and
+`@allow(CODE)` on an item silences it. Standard-library and dependency
+modules are not checked, nor is a file with errors (until it lowers cleanly).
+
 ```sh
 badger check                 # the current project
 badger check src/util.bdg    # one file (checked with its project, if any)

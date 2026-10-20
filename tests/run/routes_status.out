@@ -1,8 +1,8 @@
 200 {"id":"7"}
-404 {"error":"not found","message":"not found: 0"}
+404 {"error":"not_found","message":"not found: 0"}
 200 {"q":"dune"}
 200 {"id":"7"}
-400 {"error":"bad request","message":"invalid input: title required"}
+400 {"error":"invalid_input","message":"invalid input: title required"}
 404 {"error":"route/not_found"}
 500 {"error":"internal server error"}
 /books/7

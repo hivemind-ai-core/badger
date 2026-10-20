@@ -352,7 +352,7 @@ fn code_action_adds_missing_arm() {
     let dir = std::env::temp_dir().join(format!("badger-lsp-arm-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("demo.bdg");
-    let src = "enum Shape {\n    circle(r: Int),\n    square(s: Int),\n    point,\n}\n\nfn size(s: Shape) -> Int {\n    match s {\n        .circle(r) => r,\n        .point => 0,\n    }\n}\n\npub fn main() -> Unit {}\n";
+    let src = "enum Shape {\n    circle(r: Int),\n    square(s: Int),\n    point,\n}\n\npub fn size(s: Shape) -> Int {\n    match s {\n        .circle(r) => r,\n        .point => 0,\n    }\n}\n\npub fn main() -> Unit {}\n";
     std::fs::write(&file, src).unwrap();
     let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
     let mut c = Client::start();

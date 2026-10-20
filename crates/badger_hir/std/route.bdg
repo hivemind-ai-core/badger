@@ -21,6 +21,9 @@ pub type Route = {
     /// JSON Schemas of the path parameters, request body, and reply, when
     /// the route is typed.
     params: Option<String>,
+    /// Whether parameter fields the path does not bind come from the query
+    /// string (`get_json` and the like).
+    query: Bool,
     body: Option<String>,
     reply: Option<String>,
     run: fn(http.Request, Params) -> http.Response !{Io, Wait, State, Foreign},
@@ -51,6 +54,7 @@ fn route<E>(method: Symbol, path: String, name: Symbol, handler: fn(http.Request
         name,
         summary: Option.none,
         params: Option.none,
+        query: false,
         body: Option.none,
         reply: Option.none,
         run: fn(request, params) {
@@ -92,6 +96,7 @@ pub fn json<B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn(htt
         name,
         summary: Option.none,
         params: Option.none,
+        query: false,
         body: Option.some(schema.json_schema(schema.of<B>())),
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, params) {
@@ -117,6 +122,7 @@ pub fn json_get<R, E>(path: String, name: Symbol, handler: fn(http.Request, Para
         name,
         summary: Option.none,
         params: Option.none,
+        query: false,
         body: Option.none,
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, params) {
@@ -145,6 +151,7 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
         name,
         summary: Option.none,
         params: Option.some(schema.json_schema(schema.of<P>())),
+        query: false,
         body: if method == #get || method == #delete { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
         reply: Option.some(schema.json_schema(schema.of<R>())),
         run: fn(request, raw) {
@@ -166,6 +173,76 @@ pub fn typed<P, B, R, E>(method: Symbol, path: String, name: Symbol, handler: fn
             }
         },
     }
+}
+
+/// The path parameters and, for names the path does not bind, the query
+/// parameters of a request.
+fn route_params(request: http.Request, path: Params) -> Params {
+    var all = path
+    for (k, v) in query_params(request.path).entries() {
+        if !all.contains(k) {
+            all = all.insert(k, v)
+        }
+    }
+    all
+}
+
+fn json_route<P, B, R, E>(method: Symbol, path: String, name: Symbol, status: Int, handler: fn(P, B) -> Result<R, E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus {
+    let bodyless = method == #get || method == #delete
+    {
+        method,
+        path,
+        name,
+        summary: Option.none,
+        params: Option.some(schema.json_schema(schema.of<P>())),
+        query: true,
+        body: if bodyless { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
+        reply: Option.some(schema.json_schema(schema.of<R>())),
+        run: fn(request, raw) {
+            match params_decode<P>(route_params(request, raw)) {
+                .err(e) => json_reply(400, { error: "route/invalid_path", path: e.path, message: e.message }),
+                .ok(p) => {
+                    let body = if bodyless { codec.decode<B>(codec.encode({})) } else { codec.decode<B>(request.body) }
+                    match body {
+                        .err(e) => json_reply(400, { error: "route/invalid_body", path: e.path, message: e.message }),
+                        .ok(b) => match handler(p, b) {
+                            .ok(reply) => json_reply(status, reply),
+                            .err(e) => {
+                                trace_event(#route/handler_error, { route: name, message: e.display() })
+                                http.error_reply(e)
+                            },
+                        },
+                    }
+                },
+            }
+        },
+    }
+}
+
+/// A JSON GET route: the path's `:name`s (and the query's parameters)
+/// decode into `P` (`{}` for none; numbers and booleans are parsed), and
+/// the handler's reply is sent with status 200. An invalid parameter is a
+/// structured 400 reply, an error the status it carries (`HttpStatus`).
+/// For another status, use `typed`.
+pub fn get_json<P, R, E>(path: String, name: Symbol, handler: fn(P) -> Result<R, E>) -> Route where P: Codec, R: Codec, E: Display, E: HttpStatus {
+    json_route(#get, path, name, 200, fn(p: P, _body: {}) { handler(p) })
+}
+
+/// A JSON DELETE route, as `get_json` (status 200).
+pub fn delete_json<P, R, E>(path: String, name: Symbol, handler: fn(P) -> Result<R, E>) -> Route where P: Codec, R: Codec, E: Display, E: HttpStatus {
+    json_route(#delete, path, name, 200, fn(p: P, _body: {}) { handler(p) })
+}
+
+/// A JSON POST route: parameters as `get_json`, the body decodes into `B`
+/// (an invalid body is a structured 400 reply), and the reply is sent with
+/// status 201 (created).
+pub fn post_json<P, B, R, E>(path: String, name: Symbol, handler: fn(P, B) -> Result<R, E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus {
+    json_route(#post, path, name, 201, handler)
+}
+
+/// A JSON PUT route, as `post_json` with status 200.
+pub fn put_json<P, B, R, E>(path: String, name: Symbol, handler: fn(P, B) -> Result<R, E>) -> Route where P: Codec, B: Codec, R: Codec, E: Display, E: HttpStatus {
+    json_route(#put, path, name, 200, handler)
 }
 
 fn segments(path: String) -> List<String> {
@@ -287,12 +364,13 @@ pub fn validate(routes: List<Route>) -> Result<Unit, RouteError> {
             return err({ message: $"route {r.name} path must start with /" })
         }
         let ps = params_of(r.path)
-        // a typed route's parameter record names exactly the pattern's
+        // a typed route's parameter record names exactly the pattern's (and,
+        // when the query supplies the rest, at least them)
         match r.params {
             .some(sch) => {
                 let fields = data_field_names(sch)
                 for f in fields {
-                    if !ps.contains(f) {
+                    if !ps.contains(f) && !r.query {
                         return err({ message: $"route {r.name}: parameter field {f} is not in {r.path}" })
                     }
                 }
@@ -407,9 +485,27 @@ fn param_schemas(s: Option<String>) -> Map<String, String> {
     }
 }
 
+/// The `required` names of an object schema.
+fn required_fields(s: Option<String>) -> List<String> {
+    let .some(x) = s else { return [] }
+    match codec.parse_data(x) {
+        .ok(.object(fields)) => match fields.get("required") {
+            .some(.list(names)) => list.filter_map(names, fn(n) {
+                match n {
+                    .string(t) => some(t),
+                    _ => none,
+                }
+            }),
+            _ => [],
+        },
+        _ => [],
+    }
+}
+
 /// An OpenAPI 3.1 document for the table, from the same descriptions:
-/// operation ids are route names, path parameters come from the patterns,
-/// and typed routes contribute their body/reply JSON Schemas.
+/// operation ids are route names, path parameters come from the patterns
+/// (and query parameters from the other fields of a `get_json`-style
+/// route's parameter type), and typed routes contribute their body/reply JSON Schemas.
 pub fn openapi(routes: List<Route>, title: String, version: String) -> Result<String, RouteError> {
     validate(routes)?
     // group operations by OpenAPI path (`/orders/{id}`)
@@ -436,10 +532,19 @@ pub fn openapi(routes: List<Route>, title: String, version: String) -> Result<St
         var first_op = true
         for r in rs {
             let schemas = param_schemas(r.params)
-            let params = list.map(params_of(r.path), fn(n) {
+            let in_path = params_of(r.path)
+            var params = list.map(in_path, fn(n) {
                 let sch = schemas.get(n).unwrap_or("{\"type\":\"string\"}")
                 $"{{\"name\":{json_text(n)},\"in\":\"path\",\"required\":true,\"schema\":{sch}}}"
             })
+            if r.query {
+                let required = required_fields(r.params)
+                for (n, sch) in schemas.entries() {
+                    if !in_path.contains(n) {
+                        params = params.append($"{{\"name\":{json_text(n)},\"in\":\"query\",\"required\":{required.contains(n)},\"schema\":{sch}}}")
+                    }
+                }
+            }
             let body = match r.body {
                 .some(s) => $",\"requestBody\":{{\"required\":true,\"content\":{{\"application/json\":{{\"schema\":{s}}}}}}}",
                 .none => "",

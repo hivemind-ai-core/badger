@@ -205,6 +205,35 @@ fn attribute_allow_silences_warnings() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Unused names are reported with their kind, and a `_` name, `@allow`,
+/// `pub`, `main`, and `test_` functions are not.
+#[test]
+fn unused_names_and_their_exemptions() {
+    let dir = std::env::temp_dir().join(format!("badger-unused-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let check = |name: &str, src: &str| {
+        let f = dir.join(name);
+        std::fs::write(&f, src).unwrap();
+        let out = lang().args(["check", "--json"]).arg(&f).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let flagged = check(
+        "flagged.bdg",
+        "import std.text\nfn helper() -> Int { 1 }\ntype Pair = (Int, Int)\npub fn main() {\n    let total = 3\n    var count = 0\n    count = 1\n}\n",
+    );
+    for want in ["unused import `text`", "function `helper` is never used", "type `Pair` is never used", "unused variable `total`", "unused variable `count`"] {
+        assert!(flagged.contains(want), "missing {want}: {flagged}");
+    }
+    let exempt = check(
+        "exempt.bdg",
+        "import std.text\n@allow(E0196)\nfn helper() -> Int { 1 }\nfn _later() -> Int { 2 }\npub fn shared() -> Int { 3 }\nfn used() -> Int { 4 }\nfn test_used() { assert(used() == 4) }\npub fn main() {\n    let _ignored = 1\n    let (a, _) = (1, 2)\n    let n = text.trim(\" x \")\n    let _ = n.len() + a\n}\n",
+    );
+    for code in ["E0195", "E0196", "E0197"] {
+        assert!(!exempt.contains(code), "unexpected {code}: {exempt}");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Every example project checks (they are not all run, so a checking
 /// regression would otherwise go unnoticed).
 /// `main -> Int` exits with the value it returns (clamped to 0..=255).

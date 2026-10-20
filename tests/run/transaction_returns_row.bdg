@@ -1,0 +1,25 @@
+// A row read inside a transaction is plain data: returning it (through `?`)
+// does not let the transaction escape, even though the query's error type
+// could hold one (E0401 rejected it).
+import std.io
+import std.sqlite
+
+@derive(Error, From)
+pub enum E {
+    db(source: sqlite.Error),
+    io(source: io.Error),
+}
+
+type Row = { id: Int, title: String }
+
+fn insert(pool: sqlite.Pool) -> Result<Row, E> {
+    use tx <- sqlite.transaction(pool)
+    let _ = sqlite.execute(tx, "CREATE TABLE t (id INTEGER PRIMARY KEY, title TEXT NOT NULL)", [])?
+    ok(sqlite.query_one_as<Row>(tx, "SELECT 1 AS id, 'x' AS title", [])?)
+}
+
+pub fn main() -> Result<Unit, E> {
+    let db = sqlite.open(":memory:")?
+    io.println($"{insert(db)?.title}")?
+    ok(())
+}
