@@ -279,6 +279,15 @@ fn call(h: Handler, request: Request) -> Response
 Run a handler in-process on `request` (tests and adapters): a streamed
 reply is collected into the body.
 
+### `call_text`
+
+```badger
+fn call_text(h: Handler, method: Symbol, path: String, body: String) -> (Int, String)
+```
+
+Run a handler in-process (tests): the status and body text of its reply
+to `method path` with `body` (`""` for none).
+
 ### `comment`
 
 ```badger

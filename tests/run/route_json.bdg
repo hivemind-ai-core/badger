@@ -1,0 +1,39 @@
+// route.get_json / post_json / put_json / delete_json: typed path and query
+// parameters, typed bodies, default statuses (201 for POST), errors through
+// HttpStatus; http.call_text drives the table in-process.
+import std.http
+import std.io
+import std.route
+
+@derive(Error, HttpError)
+pub enum E {
+    @status(404) missing(id: Int),
+    @status(400) invalid(message: String),
+}
+
+type Item = { id: Int, name: String }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let table = match route.table([
+        route.get_json("/items", #items/list, fn(_: {}) -> Result<List<Item>, E> { ok([{ id: 1, name: "a" }]) }),
+        route.get_json("/items/:id", #items/show, fn(p: { id: Int }) {
+            if p.id == 1 { ok({ id: 1, name: "a" }) } else { err(E.missing(p.id)) }
+        }),
+        route.post_json("/items", #items/create, fn(_: {}, b: { name: String }) -> Result<Item, E> {
+            if b.name == "" { err(E.invalid("empty name")) } else { ok({ id: 2, name: b.name }) }
+        }),
+        route.put_json("/items/:id", #items/update, fn(p: { id: Int }, b: { name: String }) -> Result<Item, E> { ok({ id: p.id, name: b.name }) }),
+        route.delete_json("/items/:id", #items/delete, fn(p: { id: Int }) -> Result<{ deleted: Int }, E> { ok({ deleted: p.id }) }),
+        route.get_json("/search", #items/search, fn(p: { q: String, limit: Option<Int> }) -> Result<{ q: String, limit: Int }, E> { ok({ q: p.q, limit: p.limit.unwrap_or(10) }) }),
+    ]) {
+        .ok(t) => t,
+        .err(e) => panic(e.display()),
+    }
+    for (m, path, body) in [(#get, "/items", ""), (#get, "/items/1", ""), (#get, "/items/7", ""), (#get, "/items/x", ""),
+                            (#post, "/items", "{\"name\":\"b\"}"), (#post, "/items", "{\"name\":\"\"}"), (#post, "/items", "nope"),
+                            (#put, "/items/3", "{\"name\":\"c\"}"), (#delete, "/items/4", ""), (#get, "/search?q=badger", ""),
+                            (#get, "/search?q=x&limit=2", ""), (#get, "/search", "")] {
+        io.println($"{m} {path} -> {http.call_text(table, m, path, body)}")?
+    }
+    ok(())
+}

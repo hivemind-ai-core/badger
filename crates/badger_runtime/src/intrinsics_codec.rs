@@ -43,7 +43,11 @@ define_intrinsics! {
         for (k, v) in crate::map::entries(m) {
             let key = str_of(k).to_string();
             let text = str_of(v).to_string();
-            let field = d.field(&key).map(|f| f.desc);
+            // an optional parameter parses as its payload type
+            let field = d.field(&key).map(|f| match &f.desc.kind {
+                crate::desc::Kind::Enum { variants, .. } if f.desc.name == "Option" => variants[1].fields[0].desc,
+                _ => f.desc,
+            });
             let val = match field.map(|f| &f.kind) {
                 Some(crate::desc::Kind::Int { .. }) => text.parse::<i64>().map(serde_json::Value::from).unwrap_or(serde_json::Value::String(text)),
                 Some(crate::desc::Kind::Float { .. }) => text.parse::<f64>().ok().and_then(|f| serde_json::Number::from_f64(f).map(serde_json::Value::Number)).unwrap_or(serde_json::Value::String(text)),
