@@ -1,0 +1,1820 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 88eea1b..364ec04 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -198,7 +198,7 @@ dependencies = [
+  "lasso",
+  "rustc-hash",
+  "smol_str",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -232,7 +232,7 @@ dependencies = [
+  "index_vec",
+  "rustc-hash",
+  "slotmap",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -292,7 +292,7 @@ dependencies = [
+  "rusqlite",
+  "serde_json",
+  "sha2 0.10.9",
+- "thiserror",
++ "thiserror 2.0.21",
+  "toml",
+ ]
+ 
+@@ -363,6 +363,7 @@ dependencies = [
+  "badger_syntax",
+  "badger_typeck",
+  "bumpalo",
++ "egg",
+  "index_vec",
+  "insta",
+  "la-arena",
+@@ -436,7 +437,7 @@ dependencies = [
+  "pretty_assertions",
+  "smallvec",
+  "smol_str",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -462,7 +463,7 @@ dependencies = [
+  "petgraph",
+  "rustc-hash",
+  "smallvec",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -1082,7 +1083,7 @@ version = "1.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "71958f69fb2de856c5dd51ac9377e986ca1aa5919f931bf5395a807277f889a0"
+ dependencies = [
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -1148,6 +1149,26 @@ dependencies = [
+  "syn 3.0.9",
+ ]
+ 
++[[package]]
++name = "egg"
++version = "0.11.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "dd40cfd4196d7a8f882ace95d623d4d6734588e502b4e188675a7c2f55eb4fb4"
++dependencies = [
++ "env_logger",
++ "hashbrown 0.15.5",
++ "indexmap",
++ "log",
++ "num-bigint",
++ "num-traits",
++ "quanta",
++ "rustc-hash",
++ "smallvec",
++ "symbol_table",
++ "symbolic_expressions",
++ "thiserror 1.0.69",
++]
++
+ [[package]]
+ name = "either"
+ version = "1.19.0"
+@@ -1169,6 +1190,15 @@ version = "1.0.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
+ 
++[[package]]
++name = "env_logger"
++version = "0.9.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
++dependencies = [
++ "log",
++]
++
+ [[package]]
+ name = "equivalent"
+ version = "1.0.3"
+@@ -1976,6 +2006,34 @@ dependencies = [
+  "windows-sys 0.61.2",
+ ]
+ 
++[[package]]
++name = "num-bigint"
++version = "0.4.8"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
++dependencies = [
++ "num-integer",
++ "num-traits",
++]
++
++[[package]]
++name = "num-integer"
++version = "0.1.47"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7ce2d95d4b3734dc35aa2f45e1aa22cd416814592a4f9d9205e11affd5b8e10b"
++dependencies = [
++ "num-traits",
++]
++
++[[package]]
++name = "num-traits"
++version = "0.2.19"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
++dependencies = [
++ "autocfg",
++]
++
+ [[package]]
+ name = "objc2-core-foundation"
+ version = "0.3.2"
+@@ -2199,6 +2257,21 @@ version = "0.11.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
+ 
++[[package]]
++name = "quanta"
++version = "0.12.6"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f3ab5a9d756f0d97bdc89019bd2e4ea098cf9cde50ee7564dde6b81ccc8f06c7"
++dependencies = [
++ "crossbeam-utils",
++ "libc",
++ "once_cell",
++ "raw-cpuid",
++ "wasi 0.11.1+wasi-snapshot-preview1",
++ "web-sys",
++ "winapi",
++]
++
+ [[package]]
+ name = "quote"
+ version = "1.0.47"
+@@ -2237,6 +2310,15 @@ version = "0.10.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
+ 
++[[package]]
++name = "raw-cpuid"
++version = "11.6.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
++dependencies = [
++ "bitflags 2.13.2",
++]
++
+ [[package]]
+ name = "redis"
+ version = "1.7.1"
+@@ -2352,7 +2434,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c51c9ae4df8a7fba42103df5c621fa3c37eccf3a3c650879e90fc48b11cc192c"
+ dependencies = [
+  "hashbrown 0.16.1",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -2719,6 +2801,23 @@ version = "2.6.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+ 
++[[package]]
++name = "symbol_table"
++version = "0.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f19bffd69fb182e684d14e3c71d04c0ef33d1641ac0b9e81c712c734e83703bc"
++dependencies = [
++ "crossbeam-utils",
++ "foldhash 0.1.5",
++ "hashbrown 0.15.5",
++]
++
++[[package]]
++name = "symbolic_expressions"
++version = "5.0.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7c68d531d83ec6c531150584c42a4290911964d5f0d79132b193b67252a23b71"
++
+ [[package]]
+ name = "syn"
+ version = "2.0.119"
+@@ -2771,13 +2870,33 @@ dependencies = [
+  "windows-sys 0.61.2",
+ ]
+ 
++[[package]]
++name = "thiserror"
++version = "1.0.69"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
++dependencies = [
++ "thiserror-impl 1.0.69",
++]
++
+ [[package]]
+ name = "thiserror"
+ version = "2.0.21"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
+ dependencies = [
+- "thiserror-impl",
++ "thiserror-impl 2.0.21",
++]
++
++[[package]]
++name = "thiserror-impl"
++version = "1.0.69"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.119",
+ ]
+ 
+ [[package]]
+@@ -3019,7 +3138,7 @@ dependencies = [
+  "rustls",
+  "rustls-pki-types",
+  "sha1",
+- "thiserror",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -3306,6 +3425,28 @@ dependencies = [
+  "web-sys",
+ ]
+ 
++[[package]]
++name = "winapi"
++version = "0.3.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
++dependencies = [
++ "winapi-i686-pc-windows-gnu",
++ "winapi-x86_64-pc-windows-gnu",
++]
++
++[[package]]
++name = "winapi-i686-pc-windows-gnu"
++version = "0.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
++
++[[package]]
++name = "winapi-x86_64-pc-windows-gnu"
++version = "0.4.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
++
+ [[package]]
+ name = "windows-link"
+ version = "0.2.1"
+diff --git a/Cargo.toml b/Cargo.toml
+index fc31b09..b00a195 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -74,6 +74,9 @@ clap = { version = "4.6.7", features = ["derive"] }
+ # `bundled` builds the Z3 it ships from source; the optimiser's hot path never
+ # calls it. See `crates/badger_mir/src/opt/smt.rs`.
+ z3 = { version = "0.21.1", features = ["bundled"] }
++# Equality saturation over straight-line MIR regions (opt-in, `--opt egg`).
++# See `crates/badger_mir/src/opt/egg.rs`.
++egg = { version = "0.11.0", default-features = false, features = ["deterministic"] }
+ 
+ # --- testing ---------------------------------------------------------------
+ insta = "1.49.0"
+diff --git a/crates/badger_mir/Cargo.toml b/crates/badger_mir/Cargo.toml
+index a1fa3a8..1b80a60 100644
+--- a/crates/badger_mir/Cargo.toml
++++ b/crates/badger_mir/Cargo.toml
+@@ -18,6 +18,7 @@ petgraph.workspace = true
+ smallvec.workspace = true
+ bumpalo.workspace = true
+ z3.workspace = true
++egg.workspace = true
+ 
+ [dev-dependencies]
+ insta.workspace = true
+diff --git a/crates/badger_mir/src/opt/egg.rs b/crates/badger_mir/src/opt/egg.rs
+new file mode 100644
+index 0000000..a9382ca
+--- /dev/null
++++ b/crates/badger_mir/src/opt/egg.rs
+@@ -0,0 +1,1294 @@
++//! Equality saturation over straight-line MIR regions, with egg (Willsey et
++//! al., PLDI 2021; the technique is Tate et al., POPL 2009).
++//!
++//! A *region* is a run of statements of one block between two effects: a
++//! store, a poll, or an assignment from a call, an allocation or a
++//! concatenation ends it. Inside a region the integer operations MIR has --
++//! `Rvalue::Bin`, `Cmp`, `Not`, `Convert`, `Neg` -- are lifted into an
++//! e-graph whose nodes are the operations that cannot trap: wrapping
++//! arithmetic, bitwise operations, shifts by an in-range constant, division by
++//! a nonzero constant (and not by -1 when signed), comparisons, and the
++//! conversions that are lossless or unchecked. Every other value the region
++//! reads (a checked operation, a load, a local's value at the region's start)
++//! is an opaque leaf, so a rewrite never moves, adds or removes a trap.
++//!
++//! The rewrites are compiled from the rows of [`smt`]'s rule table, the
++//! claims `BADGER_MIR_SMT=1` proves with Z3: there is no second rule list, and
++//! a rule the solver did not prove is not compiled (see [`rewrites`]). A row's
++//! constant-only subterms (`1 << k`, `2^k - 1`) are matched against constant
++//! classes by evaluating them at each shift amount the claim enumerates, and
++//! its premises are evaluated at that amount, so a rewrite instance is always
++//! an instance of the claim the solver checked.
++//!
++//! The result is read back one statement at a time, in place: each lifted
++//! statement takes the cheapest member of its class that the region can
++//! express there -- a constant, a local that holds the value at that point, or
++//! one operation over such operands, costed as egg's extractor costs a tree
++//! (the operation plus the cheapest cost of each operand's class) -- and only
++//! when it is cheaper both than the statement as written, costed after
++//! saturation (an operand that got cheaper is not a rewrite of this
++//! statement), and than the best the e-graph offered before saturation. Equalities that hash-consing
++//! alone finds are common subexpressions, which [`super::cse`] removes, so the
++//! pass changes only what the rules found. No statement is added, removed or
++//! moved.
++//!
++//! # Bounds
++//!
++//! A region holds at most [`REGION`] lifted statements (a longer run is cut).
++//! A function's regions share one e-graph -- their leaves are distinct, so
++//! they do not interact -- and one saturation run, which stops after
++//! [`ITERATIONS`] iterations or at [`NODES`] e-nodes, whichever comes first; a
++//! partially saturated e-graph is still sound, so the work bound is
++//! deterministic. On top of that a function has a
++//! wall-clock budget of [`BUDGET`]: a function whose regions do not all finish
++//! within it is left exactly as it was.
++//!
++//! The pass is off by default; `BADGER_MIR_EGG=1` runs it after `superopt`
++//! at `--opt superopt`, and `BADGER_MIR_EGG=stats` also prints what it found
++//! and how long it took.
++
++use std::collections::BTreeMap;
++use std::sync::LazyLock;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::{Duration, Instant};
++
++use egg::{
++    Analysis, Applier, CostFunction, DidMerge, EGraph, ENodeOrVar, Extractor, Id, Language, Pattern, PatternAst,
++    RecExpr, Rewrite, Runner, StopReason, Subst, Symbol, Var,
++};
++use rustc_hash::FxHashMap;
++
++use crate::mir::*;
++
++use super::simplify::bool_locals;
++use super::smt::{self, Term, VWidth};
++
++/// The most lifted statements in one region; a longer run is cut. The
++/// readback compares each statement's class with every local the region has
++/// assigned so far, so its work is quadratic in the region's length, and the
++/// bound keeps that below 64^2 comparisons whatever the input. The corpus's
++/// regions have a median of 1 and a maximum of 7 lifted statements (measured
++/// 2026-10-20), so the bound only cuts generated straight-line code.
++pub const REGION: usize = 64;
++
++/// Saturation iterations per function. No rule's result is another rule's
++/// source except through commutativity, so a function saturates in a few
++/// iterations; no corpus function reaches this bound.
++pub const ITERATIONS: usize = 8;
++
++/// E-nodes per function: commutativity at most doubles a node, and each other
++/// rule adds a constant number, so an ordinary function stays far below this;
++/// it bounds a pathological one.
++pub const NODES: usize = 20_000;
++
++/// Wall-clock budget per function.
++pub const BUDGET: Duration = Duration::from_millis(50);
++
++/// Whether the pass runs: `BADGER_MIR_EGG=1` or `BADGER_MIR_EGG=stats`.
++pub fn enabled() -> bool {
++    static ENABLED: LazyLock<bool> = LazyLock::new(|| {
++        std::env::var_os("BADGER_MIR_EGG").is_some_and(|v| v == "1" || v == "stats")
++    });
++    *ENABLED
++}
++
++fn stats_enabled() -> bool {
++    static STATS: LazyLock<bool> =
++        LazyLock::new(|| std::env::var_os("BADGER_MIR_EGG").is_some_and(|v| v == "stats"));
++    *STATS
++}
++
++// -------------------------------------------------------------- the language
++
++/// The operation of a binary node, with the signedness MIR's operation has at
++/// its type: `Shr` is `Lshr` or `Ashr`, `Lt` is `Ult` or `Slt`. The
++/// operations whose result does not depend on the signedness have one form.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
++pub enum Op {
++    Add,
++    Sub,
++    Mul,
++    And,
++    Or,
++    Xor,
++    Shl,
++    Lshr,
++    Ashr,
++    Udiv,
++    Urem,
++    Sdiv,
++    Srem,
++    Eq,
++    Ne,
++    Ult,
++    Ule,
++    Ugt,
++    Uge,
++    Slt,
++    Sle,
++    Sgt,
++    Sge,
++}
++
++impl Op {
++    fn is_cmp(self) -> bool {
++        matches!(
++            self,
++            Op::Eq | Op::Ne | Op::Ult | Op::Ule | Op::Ugt | Op::Uge | Op::Slt | Op::Sle | Op::Sgt | Op::Sge
++        )
++    }
++
++    /// The operation an [`smt`] term node states.
++    fn of_claim(o: smt::Op) -> Op {
++        match o {
++            smt::Op::Add => Op::Add,
++            smt::Op::Sub => Op::Sub,
++            smt::Op::Mul => Op::Mul,
++            smt::Op::And => Op::And,
++            smt::Op::Or => Op::Or,
++            smt::Op::Xor => Op::Xor,
++            smt::Op::Udiv => Op::Udiv,
++            smt::Op::Urem => Op::Urem,
++            smt::Op::Shl => Op::Shl,
++            smt::Op::Lshr => Op::Lshr,
++            smt::Op::Eq => Op::Eq,
++            smt::Op::Ne => Op::Ne,
++            smt::Op::Ult => Op::Ult,
++            smt::Op::Ule => Op::Ule,
++            smt::Op::Ugt => Op::Ugt,
++            smt::Op::Uge => Op::Uge,
++            smt::Op::Slt => Op::Slt,
++            smt::Op::Sle => Op::Sle,
++            smt::Op::Sgt => Op::Sgt,
++            smt::Op::Sge => Op::Sge,
++        }
++    }
++
++    /// The relative cost the readback minimises: a multiplication is dearer
++    /// than an addition or shift, a division dearer still.
++    fn cost(self) -> u32 {
++        match self {
++            Op::Mul => 3,
++            Op::Udiv | Op::Urem | Op::Sdiv | Op::Srem => 10,
++            _ => 1,
++        }
++    }
++}
++
++/// A value that is not an operation of the language.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
++pub enum Leaf {
++    /// A local's value where a region (by its index in the function) starts.
++    Entry(u32, u32),
++    /// The value assigned by the statement of a block, by block and index,
++    /// that the region does not lift (a checked operation, a load).
++    Opaque(u32, u32),
++}
++
++/// An e-node: an operation that cannot trap, a constant, or a leaf. Every
++/// node's value has a width (the comparisons and `Not` produce an 8-bit 0 or
++/// 1), and an operation's operands have the operation's width.
++#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
++pub enum Node {
++    /// A binary operation at the operand width.
++    Bin(Op, u8, [Id; 2]),
++    /// Boolean negation (`x == 0`) of an 8-bit value.
++    Not([Id; 1]),
++    /// Wrapping negation at a width.
++    Neg(u8, [Id; 1]),
++    /// Integer conversion `(from bits, from signed, to bits, to signed)` that
++    /// cannot trap.
++    Convert((u8, bool, u8, bool), [Id; 1]),
++    /// A constant: its bits at the width, and the width.
++    Const(u64, u8),
++    Leaf(Leaf),
++}
++
++/// The part of a node that `matches` compares: everything but the children.
++#[derive(Debug, Clone, PartialEq, Eq, Hash)]
++pub enum Head {
++    Bin(Op, u8),
++    Not,
++    Neg(u8),
++    Convert((u8, bool, u8, bool)),
++    Const(u64, u8),
++    Leaf(Leaf),
++}
++
++impl Language for Node {
++    type Discriminant = Head;
++
++    fn discriminant(&self) -> Head {
++        match self {
++            Node::Bin(o, w, _) => Head::Bin(*o, *w),
++            Node::Not(_) => Head::Not,
++            Node::Neg(w, _) => Head::Neg(*w),
++            Node::Convert(c, _) => Head::Convert(*c),
++            Node::Const(v, w) => Head::Const(*v, *w),
++            Node::Leaf(l) => Head::Leaf(*l),
++        }
++    }
++
++    fn matches(&self, other: &Self) -> bool {
++        self.discriminant() == other.discriminant()
++    }
++
++    fn children(&self) -> &[Id] {
++        match self {
++            Node::Bin(_, _, c) => c,
++            Node::Not(c) | Node::Neg(_, c) | Node::Convert(_, c) => c,
++            Node::Const(..) | Node::Leaf(_) => &[],
++        }
++    }
++
++    fn children_mut(&mut self) -> &mut [Id] {
++        match self {
++            Node::Bin(_, _, c) => c,
++            Node::Not(c) | Node::Neg(_, c) | Node::Convert(_, c) => c,
++            Node::Const(..) | Node::Leaf(_) => &mut [],
++        }
++    }
++}
++
++impl Node {
++    /// The width of the node's value.
++    fn width(&self, egraph: &EGraph<Node, Facts>) -> u8 {
++        match self {
++            Node::Bin(o, w, _) => {
++                if o.is_cmp() {
++                    8
++                } else {
++                    *w
++                }
++            }
++            Node::Not(_) => 8,
++            Node::Neg(w, _) => *w,
++            Node::Convert((_, _, to, _), _) => *to,
++            Node::Const(_, w) => *w,
++            Node::Leaf(l) => egraph.analysis.leaves[l].0,
++        }
++    }
++
++    fn cost(&self) -> u32 {
++        match self {
++            Node::Bin(o, ..) => o.cost(),
++            Node::Not(_) | Node::Neg(..) | Node::Convert(..) => 1,
++            Node::Const(..) | Node::Leaf(_) => 0,
++        }
++    }
++}
++
++/// What a class is known to be: its width, its constant value (when it
++/// holds a constant node), and whether its value is 0 or 1.
++#[derive(Debug, Clone)]
++pub struct Data {
++    width: u8,
++    konst: Option<u64>,
++    boolean: bool,
++}
++
++/// The analysis: the per-class [`Data`], and the width and boolean domain
++/// of each leaf (a local's representation, and `bool_locals`).
++#[derive(Default)]
++pub struct Facts {
++    leaves: FxHashMap<Leaf, (u8, bool)>,
++}
++
++impl Analysis<Node> for Facts {
++    type Data = Data;
++
++    fn make(egraph: &mut EGraph<Node, Self>, enode: &Node, _id: Id) -> Data {
++        let boolean = match enode {
++            Node::Bin(o, _, _) if o.is_cmp() => true,
++            Node::Bin(Op::And | Op::Or | Op::Xor, _, [a, b]) => egraph[*a].data.boolean && egraph[*b].data.boolean,
++            Node::Not(_) => true,
++            Node::Const(v, _) => *v <= 1,
++            Node::Leaf(l) => egraph.analysis.leaves[l].1,
++            _ => false,
++        };
++        let konst = match enode {
++            Node::Const(v, _) => Some(*v),
++            _ => None,
++        };
++        Data { width: enode.width(egraph), konst, boolean }
++    }
++
++    fn merge(&mut self, a: &mut Data, b: Data) -> DidMerge {
++        debug_assert_eq!(a.width, b.width, "a class holds values of one width");
++        debug_assert!(a.konst.is_none() || b.konst.is_none() || a.konst == b.konst, "two constants merged");
++        let mut changed = DidMerge(false, false);
++        if a.konst.is_none() && b.konst.is_some() {
++            a.konst = b.konst;
++            changed.0 = true;
++        } else if a.konst.is_some() && b.konst.is_none() {
++            changed.1 = true;
++        }
++        if !a.boolean && b.boolean {
++            a.boolean = true;
++            changed.0 = true;
++        } else if a.boolean && !b.boolean {
++            changed.1 = true;
++        }
++        changed
++    }
++}
++
++// --------------------------------------------------------------- the rules
++
++fn mask(bits: u8) -> u64 {
++    if bits >= 64 { u64::MAX } else { (1u64 << bits) - 1 }
++}
++
++/// Whether a term mentions none of the claim's value variables: its value is
++/// a constant once the shift amount is fixed.
++fn constant_only(t: &Term, vars: &[(&str, VWidth)]) -> bool {
++    match t {
++        Term::Var(n) => matches!(vars[usize::from(*n)].1, VWidth::Shift),
++        Term::Const(_) | Term::Width => true,
++        Term::Not(a) => constant_only(a, vars),
++        Term::Op(_, a, b) => constant_only(a, vars) && constant_only(b, vars),
++    }
++}
++
++/// Evaluate a constant-only term at width `w` with the shift amount `k`, as
++/// the solver's bitvector encoding does; `None` for an operation the encoding
++/// leaves undefined here (a shift past the width).
++fn eval(t: &Term, k: u64, w: u8) -> Option<u64> {
++    let m = mask(w);
++    Some(match t {
++        Term::Var(_) => k & m,
++        Term::Const(n) => n & m,
++        Term::Width => u64::from(w) & m,
++        Term::Not(a) => !eval(a, k, w)? & m,
++        Term::Op(o, a, b) => {
++            let (a, b) = (eval(a, k, w)?, eval(b, k, w)?);
++            match o {
++                smt::Op::Add => a.wrapping_add(b) & m,
++                smt::Op::Sub => a.wrapping_sub(b) & m,
++                smt::Op::Mul => a.wrapping_mul(b) & m,
++                smt::Op::And => a & b,
++                smt::Op::Or => a | b,
++                smt::Op::Xor => a ^ b,
++                smt::Op::Shl if b < u64::from(w) => (a << b) & m,
++                smt::Op::Lshr if b < u64::from(w) => a >> b,
++                smt::Op::Shl | smt::Op::Lshr => 0,
++                smt::Op::Udiv if b != 0 => a / b,
++                smt::Op::Urem if b != 0 => a % b,
++                smt::Op::Udiv => m,
++                smt::Op::Urem => a,
++                smt::Op::Eq => u64::from(a == b),
++                smt::Op::Ne => u64::from(a != b),
++                smt::Op::Ult => u64::from(a < b),
++                smt::Op::Ule => u64::from(a <= b),
++                smt::Op::Ugt => u64::from(a > b),
++                smt::Op::Uge => u64::from(a >= b),
++                smt::Op::Slt | smt::Op::Sle | smt::Op::Sgt | smt::Op::Sge => return None,
++            }
++        }
++    })
++}
++
++/// One claim of the rule table, instantiated at one MIR width: the source
++/// as an egg pattern, and what the applier needs to build the target.
++struct Instance {
++    rule: smt::Rule,
++    width: u8,
++    vars: &'static [(&'static str, VWidth)],
++    /// The pattern variable of each value variable of the claim.
++    pvars: Vec<Option<Var>>,
++    /// Each constant-only subterm of the source, matched by a pattern
++    /// variable whose class must hold the term's value.
++    consts: Vec<(Var, &'static Term)>,
++    premises: &'static [Term],
++    dst: &'static Term,
++}
++
++/// Compile a source term into a pattern; `None` when the term uses an
++/// operation the language has no pure node for.
++fn pattern(
++    t: &'static Term,
++    inst: &mut Instance,
++    ast: &mut PatternAst<Node>,
++    fresh: &mut u32,
++) -> Option<Id> {
++    if let Term::Var(n) = t
++        && !matches!(inst.vars[usize::from(*n)].1, VWidth::Shift)
++    {
++        let v = *inst.pvars[usize::from(*n)].get_or_insert_with(|| {
++            *fresh += 1;
++            Var::from(*fresh)
++        });
++        return Some(ast.add(ENodeOrVar::Var(v)));
++    }
++    if constant_only(t, inst.vars) {
++        *fresh += 1;
++        let v = Var::from(*fresh);
++        inst.consts.push((v, t));
++        return Some(ast.add(ENodeOrVar::Var(v)));
++    }
++    match t {
++        Term::Not(a) => {
++            if !boolean_operand(a, inst.vars) {
++                return None;
++            }
++            let a = pattern(a, inst, ast, fresh)?;
++            Some(ast.add(ENodeOrVar::ENode(Node::Not([a]))))
++        }
++        Term::Op(o, a, b) => {
++            let a = pattern(a, inst, ast, fresh)?;
++            let b = pattern(b, inst, ast, fresh)?;
++            Some(ast.add(ENodeOrVar::ENode(Node::Bin(Op::of_claim(*o), inst.width, [a, b]))))
++        }
++        _ => None,
++    }
++}
++
++/// The claim's `Not` is bitwise negation of a 1-bit value; MIR's `Not` is
++/// `x == 0`. The two agree exactly when the operand is 0 or 1, which holds
++/// for a comparison, a negation, and a one-bit (proven boolean) variable.
++fn boolean_operand(t: &Term, vars: &[(&str, VWidth)]) -> bool {
++    match t {
++        Term::Var(n) => matches!(vars[usize::from(*n)].1, VWidth::One),
++        Term::Not(_) => true,
++        Term::Op(o, _, _) => Op::of_claim(*o).is_cmp(),
++        _ => false,
++    }
++}
++
++/// Whether every `Not` of a target term negates a 0/1 value, and every
++/// variable is bound by the source.
++fn well_formed_target(t: &Term, inst: &Instance) -> bool {
++    match t {
++        Term::Var(n) => {
++            matches!(inst.vars[usize::from(*n)].1, VWidth::Shift) || inst.pvars[usize::from(*n)].is_some()
++        }
++        Term::Const(_) | Term::Width => true,
++        Term::Not(a) => boolean_operand(a, inst.vars) && well_formed_target(a, inst),
++        Term::Op(_, a, b) => well_formed_target(a, inst) && well_formed_target(b, inst),
++    }
++}
++
++impl Instance {
++    /// The shift amounts to try: the claim's enumeration (`0..width`), or one
++    /// pass when the claim has no shift variable.
++    fn amounts(&self) -> std::ops::Range<u64> {
++        if self.vars.iter().any(|(_, w)| matches!(w, VWidth::Shift)) { 0..u64::from(self.width) } else { 0..1 }
++    }
++
++    /// The first shift amount at which every constant subterm has the value
++    /// its class holds and every premise holds.
++    fn amount(&self, egraph: &EGraph<Node, Facts>, subst: &Subst) -> Option<u64> {
++        self.amounts().find(|&k| {
++            self.consts.iter().all(|(v, t)| {
++                let held = egraph[subst[*v]].data.konst;
++                held.is_some() && eval(t, k, self.width) == held
++            }) && self.premises.iter().all(|p| eval(p, k, self.width).is_some_and(|v| v & 1 == 1))
++        })
++    }
++
++    /// Add the target to the e-graph; `None` when a node it needs would trap
++    /// (a shift past the width, a division by zero) and so is not in the
++    /// language.
++    fn build(&self, egraph: &mut EGraph<Node, Facts>, subst: &Subst, k: u64, t: &Term) -> Option<Id> {
++        let w = self.width;
++        if let Term::Var(n) = t
++            && let Some(v) = self.pvars[usize::from(*n)]
++        {
++            return Some(subst[v]);
++        }
++        if constant_only(t, self.vars) {
++            return Some(egraph.add(Node::Const(eval(t, k, w)?, w)));
++        }
++        match t {
++            Term::Not(a) => {
++                let a = self.build(egraph, subst, k, a)?;
++                Some(egraph.add(Node::Not([a])))
++            }
++            Term::Op(o, a, b) => {
++                let o = Op::of_claim(*o);
++                let a = self.build(egraph, subst, k, a)?;
++                let b = self.build(egraph, subst, k, b)?;
++                pure(o, w, egraph[b].data.konst).then(|| egraph.add(Node::Bin(o, w, [a, b])))
++            }
++            _ => None,
++        }
++    }
++}
++
++/// Whether a binary operation at width `w` with right operand `rhs` (its
++/// constant value, if known) cannot trap: a shift needs an in-range constant
++/// amount, a division a nonzero constant divisor (not -1 when signed).
++fn pure(o: Op, w: u8, rhs: Option<u64>) -> bool {
++    match o {
++        Op::Shl | Op::Lshr | Op::Ashr => rhs.is_some_and(|k| k < u64::from(w)),
++        Op::Udiv | Op::Urem | Op::Srem => rhs.is_some_and(|d| d != 0),
++        Op::Sdiv => rhs.is_some_and(|d| d != 0 && d != mask(w)),
++        _ => true,
++    }
++}
++
++impl Applier<Node, Facts> for Instance {
++    fn apply_one(
++        &self,
++        egraph: &mut EGraph<Node, Facts>,
++        eclass: Id,
++        subst: &Subst,
++        _searcher_ast: Option<&PatternAst<Node>>,
++        _rule_name: Symbol,
++    ) -> Vec<Id> {
++        let booleans = self.vars.iter().zip(&self.pvars).all(|((_, w), v)| match (w, v) {
++            (VWidth::One, Some(v)) => egraph[subst[*v]].data.boolean,
++            _ => true,
++        });
++        if !booleans {
++            return vec![];
++        }
++        let Some(k) = self.amount(egraph, subst) else { return vec![] };
++        let Some(dst) = self.build(egraph, subst, k, self.dst) else { return vec![] };
++        if egraph[dst].data.width != egraph[eclass].data.width {
++            return vec![];
++        }
++        if egraph.union(eclass, dst) { vec![dst] } else { vec![] }
++    }
++}
++
++/// The MIR widths a claim is instantiated at: its own widths, except that a
++/// claim over one-bit values (a boolean rule) is instantiated at the 8-bit
++/// width MIR stores a boolean in, with its one-bit variables required to be
++/// proven booleans -- the reading `smt` states for those rows.
++fn mir_widths(row: &smt::Row) -> Vec<u8> {
++    if row.widths == [1] { vec![8] } else { row.widths.to_vec() }
++}
++
++/// The rewrites, compiled once from the rows of [`smt`]'s table whose rule is
++/// accepted ([`smt::accepted`]: every rule, unless the check is enabled and
++/// the solver did not prove it). A row that uses an operation the language
++/// has no pure node for is not compiled.
++fn rewrites() -> &'static [Rewrite<Node, Facts>] {
++    static REWRITES: LazyLock<Vec<Rewrite<Node, Facts>>> = LazyLock::new(|| {
++        let mut out = Vec::new();
++        for (i, row) in smt::rows().iter().enumerate() {
++            if !smt::accepted(row.rule) {
++                continue;
++            }
++            for width in mir_widths(row) {
++                let mut inst = Instance {
++                    rule: row.rule,
++                    width,
++                    vars: row.vars,
++                    pvars: vec![None; row.vars.len()],
++                    consts: Vec::new(),
++                    premises: &row.premises,
++                    dst: &row.dst,
++                };
++                let mut ast = RecExpr::default();
++                let mut fresh = 0;
++                if pattern(&row.src, &mut inst, &mut ast, &mut fresh).is_none()
++                    || !matches!(ast.as_ref().last(), Some(ENodeOrVar::ENode(_)))
++                    || !well_formed_target(inst.dst, &inst)
++                {
++                    continue;
++                }
++                let name = format!("{:?}/{i}/{width}", inst.rule);
++                if let Ok(rw) = Rewrite::new(name, Pattern::new(ast), inst) {
++                    out.push(rw);
++                }
++            }
++        }
++        out
++    });
++    &REWRITES
++}
++
++// ----------------------------------------------------------------- lifting
++
++fn repr_width(r: Repr) -> Option<u8> {
++    match r {
++        Repr::I8 => Some(8),
++        Repr::I16 => Some(16),
++        Repr::I32 => Some(32),
++        Repr::I64 => Some(64),
++        Repr::Ptr | Repr::F32 | Repr::F64 => None,
++    }
++}
++
++fn int_repr(w: u8) -> Repr {
++    match w {
++        8 => Repr::I8,
++        16 => Repr::I16,
++        32 => Repr::I32,
++        _ => Repr::I64,
++    }
++}
++
++/// A statement that ends a region: it has an effect beyond assigning a
++/// local (memory, scheduling, a call, an allocation).
++fn is_effect(s: &Stmt) -> bool {
++    match s {
++        Stmt::Store { .. } | Stmt::GlobalStore { .. } | Stmt::Poll => true,
++        Stmt::Assign(_, rv) => matches!(rv, Rvalue::Call { .. } | Rvalue::Alloc { .. } | Rvalue::Concat(_)),
++        Stmt::Loc { .. } => false,
++    }
++}
++
++/// How a lifted statement relates to its class.
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum Kind {
++    /// An operation of the language: the readback may rewrite it.
++    Lifted,
++    /// A copy of an operand: the readback may rewrite it.
++    Copy,
++    /// A statement the region does not lift; never rewritten.
++    Opaque,
++}
++
++/// One statement of a region, after lifting.
++struct Lifted {
++    at: usize,
++    dest: Local,
++    class: Id,
++    kind: Kind,
++    /// The statement's own node, for a lifted statement.
++    node: Option<Node>,
++}
++
++/// A region lifted into the function's e-graph: its statements, and the
++/// class each local held at the region's start. Regions share the e-graph but
++/// not their leaves, so no equality crosses from one region to another except
++/// between constants.
++struct Region {
++    stmts: Vec<Lifted>,
++    entry: BTreeMap<Local, Id>,
++}
++
++/// A function's regions in one e-graph, and the constant operands the
++/// function was written with (reused verbatim when a class is written back
++/// as a constant).
++struct Lifter<'f> {
++    f: &'f Func,
++    bools: &'f rustc_hash::FxHashSet<Local>,
++    egraph: &'f mut EGraph<Node, Facts>,
++    consts: &'f mut FxHashMap<(u64, u8), Const>,
++    index: u32,
++    region: Region,
++    /// The class each local holds at the current statement.
++    holds: FxHashMap<Local, Id>,
++}
++
++impl Lifter<'_> {
++    fn leaf(&mut self, leaf: Leaf, width: u8, boolean: bool) -> Id {
++        self.egraph.analysis.leaves.insert(leaf, (width, boolean));
++        self.egraph.add(Node::Leaf(leaf))
++    }
++
++    /// The class of an operand read at width `w`, or `None` when the
++    /// language cannot read it there (a pointer, a float, another width).
++    fn operand(&mut self, o: &Operand, w: u8) -> Option<Id> {
++        match o {
++            Operand::Const(c @ Const::Int(v, r)) => {
++                let bits = (*v as u64) & mask(repr_width(*r).unwrap_or(64)) & mask(w);
++                self.consts.entry((bits, w)).or_insert(*c);
++                Some(self.egraph.add(Node::Const(bits, w)))
++            }
++            Operand::Const(_) => None,
++            Operand::Local(l) => {
++                if repr_width(self.f.locals[*l].repr) != Some(w) {
++                    return None;
++                }
++                if let Some(id) = self.holds.get(l) {
++                    return Some(*id);
++                }
++                let id = self.leaf(Leaf::Entry(self.index, l.raw()), w, self.bools.contains(l));
++                self.holds.insert(*l, id);
++                self.region.entry.insert(*l, id);
++                Some(id)
++            }
++        }
++    }
++
++    /// The node an rvalue lifts to, or `None` when it is not an operation of
++    /// the language (it can trap, it reads memory, it is not an integer).
++    fn node(&mut self, rv: &Rvalue) -> Option<Node> {
++        match rv {
++            Rvalue::Bin { op, a, b, ty: NumTy::I(w, signed), loc } => {
++                let o = match (op, signed) {
++                    (BinOp::Add, _) => Op::Add,
++                    (BinOp::Sub, _) => Op::Sub,
++                    (BinOp::Mul, _) => Op::Mul,
++                    (BinOp::And, _) => Op::And,
++                    (BinOp::Or, _) => Op::Or,
++                    (BinOp::Xor, _) => Op::Xor,
++                    (BinOp::Shl, _) => Op::Shl,
++                    (BinOp::Shr, false) => Op::Lshr,
++                    (BinOp::Shr, true) => Op::Ashr,
++                    (BinOp::Div, false) => Op::Udiv,
++                    (BinOp::Rem, false) => Op::Urem,
++                    (BinOp::Div, true) => Op::Sdiv,
++                    (BinOp::Rem, true) => Op::Srem,
++                };
++                if matches!(o, Op::Add | Op::Sub | Op::Mul) && *loc != 0 {
++                    return None;
++                }
++                let x = self.operand(a, *w)?;
++                let y = self.operand(b, *w)?;
++                pure(o, *w, self.egraph[y].data.konst).then_some(Node::Bin(o, *w, [x, y]))
++            }
++            Rvalue::Cmp { op, a, b, ty: NumTy::I(w, signed) } => {
++                let o = match (op, signed) {
++                    (CmpOp::Eq, _) => Op::Eq,
++                    (CmpOp::Ne, _) => Op::Ne,
++                    (CmpOp::Lt, false) => Op::Ult,
++                    (CmpOp::Le, false) => Op::Ule,
++                    (CmpOp::Gt, false) => Op::Ugt,
++                    (CmpOp::Ge, false) => Op::Uge,
++                    (CmpOp::Lt, true) => Op::Slt,
++                    (CmpOp::Le, true) => Op::Sle,
++                    (CmpOp::Gt, true) => Op::Sgt,
++                    (CmpOp::Ge, true) => Op::Sge,
++                };
++                let x = self.operand(a, *w)?;
++                let y = self.operand(b, *w)?;
++                Some(Node::Bin(o, *w, [x, y]))
++            }
++            Rvalue::Not(a) => Some(Node::Not([self.operand(a, 8)?])),
++            Rvalue::Neg { a, ty: NumTy::I(w, _), loc: 0 } => Some(Node::Neg(*w, [self.operand(a, *w)?])),
++            Rvalue::Convert { a, from: NumTy::I(fb, fs), to: NumTy::I(tb, ts), checked, .. } => {
++                let lossy = tb < fb || fs != ts;
++                if *checked && lossy {
++                    return None;
++                }
++                Some(Node::Convert((*fb, *fs, *tb, *ts), [self.operand(a, *fb)?]))
++            }
++            _ => None,
++        }
++    }
++
++    /// Lift one assignment; the local's class afterwards is recorded in
++    /// `holds`, or removed when the language cannot hold its value.
++    fn assign(&mut self, block: BlockId, at: usize, dest: Local, rv: &Rvalue) {
++        let width = repr_width(self.f.locals[dest].repr);
++        let lifted = match rv {
++            Rvalue::Use(o) => width.and_then(|w| self.operand(o, w)).map(|id| (id, Kind::Copy, None)),
++            _ => self.node(rv).and_then(|node| {
++                let id = self.egraph.add(node.clone());
++                (Some(self.egraph[id].data.width) == width).then_some((id, Kind::Lifted, Some(node)))
++            }),
++        };
++        let (class, kind, node) = match (lifted, width) {
++            (Some(l), _) => l,
++            (None, Some(w)) => {
++                let leaf = Leaf::Opaque(block.raw(), at as u32);
++                (self.leaf(leaf, w, self.bools.contains(&dest)), Kind::Opaque, None)
++            }
++            (None, None) => {
++                self.holds.remove(&dest);
++                return;
++            }
++        };
++        self.holds.insert(dest, class);
++        self.region.stmts.push(Lifted { at, dest, class, kind, node });
++    }
++}
++
++/// Cut a block into regions: the indices of the assignments of each run
++/// between effects, at most [`REGION`] lifted statements per run.
++fn regions(block: &Block) -> Vec<Vec<usize>> {
++    let mut out = vec![];
++    let mut cur = vec![];
++    for (i, s) in block.stmts.iter().enumerate() {
++        if is_effect(s) || cur.len() >= REGION {
++            if !cur.is_empty() {
++                out.push(std::mem::take(&mut cur));
++            }
++            if is_effect(s) {
++                continue;
++            }
++        }
++        if matches!(s, Stmt::Assign(..)) {
++            cur.push(i);
++        }
++    }
++    if !cur.is_empty() {
++        out.push(cur);
++    }
++    out
++}
++
++/// A function's regions, lifted into one e-graph so one saturation run
++/// covers them all, and the constant operands the function was written with
++/// (reused verbatim when a class is written back as a constant).
++struct Lifting {
++    egraph: EGraph<Node, Facts>,
++    regions: Vec<(BlockId, Region)>,
++    consts: FxHashMap<(u64, u8), Const>,
++}
++
++fn lift(f: &Func, bools: &rustc_hash::FxHashSet<Local>) -> Lifting {
++    let mut egraph = EGraph::new(Facts::default());
++    let mut consts = FxHashMap::default();
++    let mut regions_out = vec![];
++    for (b, block) in f.blocks.iter_enumerated() {
++        for indices in regions(block) {
++            let mut lifter = Lifter {
++                f,
++                bools,
++                egraph: &mut egraph,
++                consts: &mut consts,
++                index: regions_out.len() as u32,
++                region: Region { stmts: vec![], entry: BTreeMap::new() },
++                holds: FxHashMap::default(),
++            };
++            for &at in &indices {
++                if let Stmt::Assign(dest, rv) = &block.stmts[at] {
++                    lifter.assign(b, at, *dest, rv);
++                }
++            }
++            let region = lifter.region;
++            if region.stmts.iter().any(|s| s.kind == Kind::Lifted) {
++                regions_out.push((b, region));
++            }
++        }
++    }
++    egraph.rebuild();
++    Lifting { egraph, regions: regions_out, consts }
++}
++
++// ---------------------------------------------------------------- readback
++
++/// The tree cost egg's extractor minimises: an operation's cost plus the
++/// cheapest cost of each operand's class; constants and leaves are free. A
++/// statement whose operand is computed only for it pays for that operand, so
++/// `!(a == b)` costs two and `a != b` one, though both are one operation.
++struct TreeCost;
++
++impl CostFunction<Node> for TreeCost {
++    type Cost = u32;
++
++    fn cost<C: FnMut(Id) -> u32>(&mut self, enode: &Node, mut costs: C) -> u32 {
++        enode.children().iter().fold(enode.cost(), |sum, id| sum.saturating_add(costs(*id)))
++    }
++}
++
++/// A node's tree cost with each operand class at its cheapest.
++fn tree_cost(costs: &Extractor<TreeCost, Node, Facts>, node: &Node) -> u32 {
++    node.children().iter().fold(node.cost(), |sum, id| sum.saturating_add(costs.find_best_cost(*id)))
++}
++
++/// The cheapest rvalue for each rewritable statement of a region, with its
++/// tree cost, given the classes the e-graph holds now.
++fn readback(
++    f: &Func,
++    lifting: &Lifting,
++    costs: &Extractor<TreeCost, Node, Facts>,
++    region: &Region,
++) -> Vec<Option<(u32, Rvalue)>> {
++    let eg = &lifting.egraph;
++    let mut holds: BTreeMap<Local, Id> = region.entry.iter().map(|(l, id)| (*l, eg.find(*id))).collect();
++    let mut out = Vec::with_capacity(region.stmts.len());
++    for s in &region.stmts {
++        let class = eg.find(s.class);
++        out.push((s.kind != Kind::Opaque).then(|| best(f, lifting, costs, &holds, s.dest, class)).flatten());
++        holds.insert(s.dest, class);
++    }
++    out
++}
++
++/// The operand that reads a class at width `w` here: a constant, or the
++/// lowest-numbered integer local of that width holding it.
++fn operand_of(f: &Func, lifting: &Lifting, holds: &BTreeMap<Local, Id>, class: Id, w: u8) -> Option<Operand> {
++    if let Some(c) = lifting.egraph[class].data.konst.and_then(|v| constant(lifting, v, w)) {
++        return Some(c);
++    }
++    holds
++        .iter()
++        .find(|(l, id)| **id == class && repr_width(f.locals[**l].repr) == Some(w))
++        .map(|(l, _)| Operand::Local(*l))
++}
++
++/// A constant operand with the bits `v` at width `w`: one the function was
++/// written with, or a new one when its value is the same read signed or
++/// unsigned (below `2^(w-1)`), so no later pass can read it differently.
++fn constant(lifting: &Lifting, v: u64, w: u8) -> Option<Operand> {
++    if let Some(c) = lifting.consts.get(&(v, w)) {
++        return Some(Operand::Const(*c));
++    }
++    (v < 1u64 << (w - 1)).then(|| Operand::Const(Const::Int(v as i64, int_repr(w))))
++}
++
++/// The cheapest way to write a class here: a copy of a constant or of a
++/// local that holds it (free), or one of its nodes over available operands.
++fn best(
++    f: &Func,
++    lifting: &Lifting,
++    costs: &Extractor<TreeCost, Node, Facts>,
++    holds: &BTreeMap<Local, Id>,
++    dest: Local,
++    class: Id,
++) -> Option<(u32, Rvalue)> {
++    let eg = &lifting.egraph;
++    let w = eg[class].data.width;
++    if let Some(o) = operand_of(f, lifting, holds, class, w)
++        && match o {
++            Operand::Local(l) => f.locals[l].repr == f.locals[dest].repr,
++            Operand::Const(_) => true,
++        }
++    {
++        return Some((0, Rvalue::Use(o)));
++    }
++    let mut found: Option<(u32, Rvalue)> = None;
++    for node in &eg[class].nodes {
++        let cost = tree_cost(costs, node);
++        if found.as_ref().is_some_and(|(c, _)| *c <= cost) {
++            continue;
++        }
++        let Some(rv) = rvalue(f, lifting, holds, node) else { continue };
++        found = Some((cost, rv));
++    }
++    found
++}
++
++/// A node as an rvalue over operands available here.
++fn rvalue(f: &Func, lifting: &Lifting, holds: &BTreeMap<Local, Id>, node: &Node) -> Option<Rvalue> {
++    let opnd = |id: Id, w: u8| operand_of(f, lifting, holds, lifting.egraph.find(id), w);
++    Some(match node {
++        Node::Bin(o, w, [a, b]) => {
++            let (a, b) = (opnd(*a, *w)?, opnd(*b, *w)?);
++            let ty = |signed| NumTy::I(*w, signed);
++            let bin = |op, signed| Rvalue::Bin { op, a, b, ty: ty(signed), loc: 0 };
++            let cmp = |op, signed| Rvalue::Cmp { op, a, b, ty: ty(signed) };
++            match o {
++                Op::Add => bin(BinOp::Add, false),
++                Op::Sub => bin(BinOp::Sub, false),
++                Op::Mul => bin(BinOp::Mul, false),
++                Op::And => bin(BinOp::And, false),
++                Op::Or => bin(BinOp::Or, false),
++                Op::Xor => bin(BinOp::Xor, false),
++                Op::Shl => bin(BinOp::Shl, false),
++                Op::Lshr => bin(BinOp::Shr, false),
++                Op::Ashr => bin(BinOp::Shr, true),
++                Op::Udiv => bin(BinOp::Div, false),
++                Op::Urem => bin(BinOp::Rem, false),
++                Op::Sdiv => bin(BinOp::Div, true),
++                Op::Srem => bin(BinOp::Rem, true),
++                Op::Eq => cmp(CmpOp::Eq, false),
++                Op::Ne => cmp(CmpOp::Ne, false),
++                Op::Ult => cmp(CmpOp::Lt, false),
++                Op::Ule => cmp(CmpOp::Le, false),
++                Op::Ugt => cmp(CmpOp::Gt, false),
++                Op::Uge => cmp(CmpOp::Ge, false),
++                Op::Slt => cmp(CmpOp::Lt, true),
++                Op::Sle => cmp(CmpOp::Le, true),
++                Op::Sgt => cmp(CmpOp::Gt, true),
++                Op::Sge => cmp(CmpOp::Ge, true),
++            }
++        }
++        Node::Not([a]) => Rvalue::Not(opnd(*a, 8)?),
++        Node::Neg(w, [a]) => Rvalue::Neg { a: opnd(*a, *w)?, ty: NumTy::I(*w, false), loc: 0 },
++        Node::Convert((fb, fs, tb, ts), [a]) => Rvalue::Convert {
++            a: opnd(*a, *fb)?,
++            from: NumTy::I(*fb, *fs),
++            to: NumTy::I(*tb, *ts),
++            checked: false,
++            loc: 0,
++        },
++        Node::Const(..) | Node::Leaf(_) => return None,
++    })
++}
++
++// -------------------------------------------------------------------- pass
++
++/// What the pass found over a process, for `BADGER_MIR_EGG=stats`.
++struct Stats {
++    functions: AtomicU64,
++    regions: AtomicU64,
++    lifted: AtomicU64,
++    rewritten: AtomicU64,
++    over_budget: AtomicU64,
++    limited: AtomicU64,
++    max_nodes: AtomicU64,
++    micros: std::sync::Mutex<Vec<u64>>,
++}
++
++static STATS: Stats = Stats {
++    functions: AtomicU64::new(0),
++    regions: AtomicU64::new(0),
++    lifted: AtomicU64::new(0),
++    rewritten: AtomicU64::new(0),
++    over_budget: AtomicU64::new(0),
++    limited: AtomicU64::new(0),
++    max_nodes: AtomicU64::new(0),
++    micros: std::sync::Mutex::new(Vec::new()),
++};
++
++/// Run the pass over a program; the number of statements rewritten.
++pub fn egg(prog: &mut Program) -> usize {
++    let n = prog.funcs.iter_mut().map(|f| egg_func(f, BUDGET)).sum();
++    if stats_enabled() {
++        report();
++    }
++    n
++}
++
++fn report() {
++    let mut micros = STATS.micros.lock().unwrap().clone();
++    micros.sort_unstable();
++    let pct = |p: usize| micros.get(micros.len().saturating_sub(1) * p / 100).copied().unwrap_or(0);
++    eprintln!(
++        "BADGER_MIR_EGG: {} rewrites, {} functions, {} regions, {} lifted statements, \
++         {} functions at a limit, {} functions over budget, \
++         {} rules, {} nodes at most; per function p50 {} us, p99 {} us, max {} us",
++        STATS.rewritten.load(Ordering::Relaxed),
++        STATS.functions.load(Ordering::Relaxed),
++        STATS.regions.load(Ordering::Relaxed),
++        STATS.lifted.load(Ordering::Relaxed),
++        STATS.limited.load(Ordering::Relaxed),
++        STATS.over_budget.load(Ordering::Relaxed),
++        rewrites().len(),
++        STATS.max_nodes.load(Ordering::Relaxed),
++        pct(50),
++        pct(99),
++        micros.last().copied().unwrap_or(0),
++    );
++}
++
++/// Rewrite one function within `budget`; a function past it is unchanged.
++fn egg_func(f: &mut Func, budget: Duration) -> usize {
++    let start = Instant::now();
++    let bools = bool_locals(f);
++    let Lifting { egraph, regions, consts } = lift(f, &bools);
++    if regions.is_empty() {
++        return 0;
++    }
++    let mut lifting = Lifting { egraph, regions: vec![], consts };
++    let before: Vec<_> = {
++        let costs = Extractor::new(&lifting.egraph, TreeCost);
++        regions.iter().map(|(_, r)| readback(f, &lifting, &costs, r)).collect()
++    };
++    let Some(remaining) = budget.checked_sub(start.elapsed()) else { return over_budget(start) };
++    let runner = Runner::default()
++        .with_egraph(lifting.egraph)
++        .with_iter_limit(ITERATIONS)
++        .with_node_limit(NODES)
++        .with_time_limit(remaining)
++        .run(rewrites());
++    let limited = match runner.stop_reason {
++        Some(StopReason::TimeLimit(_)) => return over_budget(start),
++        Some(StopReason::Saturated) => 0,
++        _ => 1,
++    };
++    lifting.egraph = runner.egraph;
++    let mut edits: Vec<(BlockId, usize, Rvalue)> = vec![];
++    let costs = Extractor::new(&lifting.egraph, TreeCost);
++    for ((b, region), before) in regions.iter().zip(before) {
++        let after = readback(f, &lifting, &costs, region);
++        for ((s, pre), post) in region.stmts.iter().zip(before).zip(after) {
++            let Stmt::Assign(_, orig) = &f.blocks[*b].stmts[s.at] else { continue };
++            let pre_cost = pre.as_ref().map_or(u32::MAX, |(c, _)| *c);
++            let own_cost = s.node.as_ref().map_or(0, |n| tree_cost(&costs, n));
++            if let Some((cost, rv)) = post
++                && cost < pre_cost
++                && cost < own_cost
++                && rv != *orig
++            {
++                edits.push((*b, s.at, rv));
++            }
++        }
++    }
++    if start.elapsed() > budget {
++        return over_budget(start);
++    }
++    let n = edits.len();
++    for (b, at, rv) in edits {
++        if let Stmt::Assign(_, slot) = &mut f.blocks[b].stmts[at] {
++            *slot = rv;
++        }
++    }
++    if stats_enabled() {
++        let lifted = regions.iter().flat_map(|(_, r)| &r.stmts).filter(|s| s.kind == Kind::Lifted).count();
++        STATS.functions.fetch_add(1, Ordering::Relaxed);
++        STATS.regions.fetch_add(regions.len() as u64, Ordering::Relaxed);
++        STATS.lifted.fetch_add(lifted as u64, Ordering::Relaxed);
++        STATS.rewritten.fetch_add(n as u64, Ordering::Relaxed);
++        STATS.limited.fetch_add(limited, Ordering::Relaxed);
++        STATS.max_nodes.fetch_max(lifting.egraph.total_number_of_nodes() as u64, Ordering::Relaxed);
++        STATS.micros.lock().unwrap().push(start.elapsed().as_micros() as u64);
++    }
++    n
++}
++
++/// A function past the budget is left as it was.
++fn over_budget(start: Instant) -> usize {
++    if stats_enabled() {
++        STATS.functions.fetch_add(1, Ordering::Relaxed);
++        STATS.over_budget.fetch_add(1, Ordering::Relaxed);
++        STATS.micros.lock().unwrap().push(start.elapsed().as_micros() as u64);
++    }
++    0
++}
++
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn local(f: &mut Func, repr: Repr) -> Local {
++        f.locals.push(LocalDecl { repr, name: None })
++    }
++
++    fn param(f: &mut Func, repr: Repr) -> Local {
++        let l = local(f, repr);
++        f.params.push(l);
++        l
++    }
++
++    fn assign(f: &mut Func, repr: Repr, rv: Rvalue) -> Local {
++        let l = local(f, repr);
++        f.blocks[BlockId::from(0)].stmts.push(Stmt::Assign(l, rv));
++        l
++    }
++
++    fn bin(op: BinOp, a: Operand, b: Operand, loc: u64) -> Rvalue {
++        Rvalue::Bin { op, a, b, ty: NumTy::I(64, false), loc }
++    }
++
++    fn word(n: i64) -> Operand {
++        Operand::Const(Const::Int(n, Repr::I64))
++    }
++
++    fn rv_of(f: &Func, l: Local) -> &Rvalue {
++        f.blocks[BlockId::from(0)]
++            .stmts
++            .iter()
++            .find_map(|s| match s {
++                Stmt::Assign(x, rv) if *x == l => Some(rv),
++                _ => None,
++            })
++            .unwrap()
++    }
++
++    /// Every rule of the table has at least one compiled rewrite: the rule
++    /// set egg searches with is the one the solver checks, not a subset.
++    #[test]
++    fn every_rule_compiles_to_a_rewrite() {
++        for rule in smt::RULES {
++            let prefix = format!("{rule:?}/");
++            assert!(
++                rewrites().iter().any(|rw| rw.name.as_str().starts_with(&prefix)),
++                "{} has no rewrite",
++                rule.name()
++            );
++        }
++    }
++
++    /// `(x + y) - y` is `x` for a variable `y`, which the hand-written rule
++    /// (a constant `c` only) does not match: the claim is over every `c`.
++    #[test]
++    fn a_cancelled_variable_is_found() {
++        let mut f = Func::new("cancel".into(), FuncKind::Normal, Repr::I64);
++        let x = param(&mut f, Repr::I64);
++        let y = param(&mut f, Repr::I64);
++        let a = assign(&mut f, Repr::I64, bin(BinOp::Add, Operand::Local(y), Operand::Local(x), 0));
++        let b = assign(&mut f, Repr::I64, bin(BinOp::Sub, Operand::Local(a), Operand::Local(y), 0));
++        assert_eq!(egg_func(&mut f, BUDGET), 1);
++        assert_eq!(rv_of(&f, b), &Rvalue::Use(Operand::Local(x)));
++    }
++
++    /// A rule matches through the operand order `superopt` canonicalises to
++    /// (the constant first), by the proved commutativity claim.
++    #[test]
++    fn a_rule_matches_the_canonical_operand_order() {
++        let mut f = Func::new("mul".into(), FuncKind::Normal, Repr::I64);
++        let x = param(&mut f, Repr::I64);
++        let m = assign(&mut f, Repr::I64, bin(BinOp::Mul, word(8), Operand::Local(x), 0));
++        assert_eq!(egg_func(&mut f, BUDGET), 1);
++        assert_eq!(rv_of(&f, m), &bin(BinOp::Shl, Operand::Local(x), word(3), 0));
++    }
++
++    /// A checked operation can trap, so it is a leaf: nothing is rewritten
++    /// through it, and it is never rewritten itself.
++    #[test]
++    fn a_checked_operation_is_not_lifted() {
++        let mut f = Func::new("checked".into(), FuncKind::Normal, Repr::I64);
++        let x = param(&mut f, Repr::I64);
++        let y = param(&mut f, Repr::I64);
++        let a = assign(&mut f, Repr::I64, bin(BinOp::Add, Operand::Local(x), Operand::Local(y), 7));
++        let m = assign(&mut f, Repr::I64, bin(BinOp::Mul, Operand::Local(x), word(4), 9));
++        assign(&mut f, Repr::I64, bin(BinOp::Sub, Operand::Local(a), Operand::Local(y), 0));
++        let before = f.blocks.clone();
++        assert_eq!(egg_func(&mut f, BUDGET), 0);
++        assert_eq!(format!("{:?}", f.blocks), format!("{before:?}"));
++        assert!(matches!(rv_of(&f, m), Rvalue::Bin { op: BinOp::Mul, .. }));
++    }
++
++    /// An effect ends the region: a value computed before a call is a leaf
++    /// after it, so the cancellation across the call is not found.
++    #[test]
++    fn an_effect_is_a_break_point() {
++        let mut f = Func::new("effect".into(), FuncKind::Normal, Repr::I64);
++        let x = param(&mut f, Repr::I64);
++        let y = param(&mut f, Repr::I64);
++        let a = assign(&mut f, Repr::I64, bin(BinOp::Add, Operand::Local(x), Operand::Local(y), 0));
++        assign(
++            &mut f,
++            Repr::I64,
++            Rvalue::Call { callee: Callee::Runtime("badger_rt_poll"), args: vec![], ret: Repr::I64 },
++        );
++        assign(&mut f, Repr::I64, bin(BinOp::Sub, Operand::Local(a), Operand::Local(y), 0));
++        assert_eq!(regions(&f.blocks[BlockId::from(0)]).len(), 2);
++        assert_eq!(egg_func(&mut f, BUDGET), 0);
++    }
++
++    /// A long straight-line run is cut into regions of at most [`REGION`]
++    /// statements.
++    #[test]
++    fn a_region_is_size_bounded() {
++        let mut f = Func::new("long".into(), FuncKind::Normal, Repr::I64);
++        let mut v = param(&mut f, Repr::I64);
++        for _ in 0..(REGION * 2 + 5) {
++            v = assign(&mut f, Repr::I64, bin(BinOp::Xor, Operand::Local(v), word(5), 0));
++        }
++        let regions = regions(&f.blocks[BlockId::from(0)]);
++        assert_eq!(regions.len(), 3);
++        assert!(regions.iter().all(|r| r.len() <= REGION));
++    }
++
++    /// A function that does not fit its budget is left exactly as it was.
++    #[test]
++    fn a_function_past_the_budget_is_unchanged() {
++        let mut f = Func::new("budget".into(), FuncKind::Normal, Repr::I64);
++        let x = param(&mut f, Repr::I64);
++        assign(&mut f, Repr::I64, bin(BinOp::Mul, word(8), Operand::Local(x), 0));
++        let before = format!("{:?}", f.blocks);
++        assert_eq!(egg_func(&mut f, Duration::ZERO), 0);
++        assert_eq!(format!("{:?}", f.blocks), before);
++    }
++
++    /// The boolean rules need a proven boolean: `x == 1` is `x` only when
++    /// `x` is 0 or 1.
++    #[test]
++    fn a_boolean_rule_needs_a_proven_boolean() {
++        let mut f = Func::new("bools".into(), FuncKind::Normal, Repr::I8);
++        let x = param(&mut f, Repr::I64);
++        let y = param(&mut f, Repr::I64);
++        let b = assign(
++            &mut f,
++            Repr::I8,
++            Rvalue::Cmp { op: CmpOp::Lt, a: Operand::Local(x), b: Operand::Local(y), ty: NumTy::I(64, true) },
++        );
++        let n = param(&mut f, Repr::I8);
++        let one = Operand::Const(Const::Int(1, Repr::I8));
++        let kept = assign(
++            &mut f,
++            Repr::I8,
++            Rvalue::Cmp { op: CmpOp::Eq, a: one, b: Operand::Local(b), ty: NumTy::I(8, false) },
++        );
++        let other = assign(
++            &mut f,
++            Repr::I8,
++            Rvalue::Cmp { op: CmpOp::Eq, a: one, b: Operand::Local(n), ty: NumTy::I(8, false) },
++        );
++        egg_func(&mut f, BUDGET);
++        assert_eq!(rv_of(&f, kept), &Rvalue::Use(Operand::Local(b)));
++        assert!(matches!(rv_of(&f, other), Rvalue::Cmp { .. }));
++    }
++}
+diff --git a/crates/badger_mir/src/opt/mod.rs b/crates/badger_mir/src/opt/mod.rs
+index cc25115..f6a8c94 100644
+--- a/crates/badger_mir/src/opt/mod.rs
++++ b/crates/badger_mir/src/opt/mod.rs
+@@ -3,6 +3,7 @@
+ 
+ pub mod cfg;
+ pub mod cse;
++pub mod egg;
+ pub mod simplify;
+ pub mod smt;
+ pub mod specialize;
+@@ -69,6 +70,9 @@ pub fn passes(level: Level) -> Vec<(&'static str, fn(&mut Program) -> usize)> {
+     }
+     if level >= Level::Superopt {
+         push("superopt", superopt::superopt);
++        if egg::enabled() {
++            push("egg", egg::egg);
++        }
+         push("simplify4", simplify::simplify);
+         push("cse3", cse::cse);
+     }
+diff --git a/crates/badger_mir/src/opt/smt.rs b/crates/badger_mir/src/opt/smt.rs
+index 6b1477f..a7aaf60 100644
+--- a/crates/badger_mir/src/opt/smt.rs
++++ b/crates/badger_mir/src/opt/smt.rs
+@@ -31,8 +31,8 @@
+ //! # Modes and cost
+ //!
+ //! The check is off by default. `BADGER_MIR_SMT=1` runs it once per process,
+-//! before the first function is optimised: 81 claims on the rule set as it
+-//! stands, each a small bitvector query with a per-query timeout, 162 ms in
++//! before the first function is optimised: 141 claims on the rule set as it
++//! stands, each a small bitvector query with a per-query timeout, 169 ms in
+ //! total measured 2026-10-20 (debug build). The verdicts are recorded in a
+ //! [`Report`] (printed to stderr when the check runs) and a rule the solver
+ //! does not prove is not applied, so a dropped rule is visible rather than
+@@ -80,11 +80,16 @@ pub enum Rule {
+     AddSelfShl,
+     /// `(x op c) op c → x op c` for `&` and `|`.
+     MaskIdempotent,
++    /// `a op b → b op a` for the commutative operations, and a mirrored
++    /// comparison (`a < b → b > a`): the operand order [`super::superopt`]
++    /// canonicalises to, and the equalities [`super::egg`] needs to match the
++    /// other rules in either order.
++    Commute,
+ }
+ 
+ /// Every rule, in the order of [`Rule`]'s variants; the report and the
+ /// recorded verdicts are indexed by [`Rule::index`].
+-pub const RULES: [Rule; 11] = [
++pub const RULES: [Rule; 12] = [
+     Rule::MulPow2,
+     Rule::UDivPow2,
+     Rule::URemPow2,
+@@ -96,6 +101,7 @@ pub const RULES: [Rule; 11] = [
+     Rule::AddSubCancel,
+     Rule::AddSelfShl,
+     Rule::MaskIdempotent,
++    Rule::Commute,
+ ];
+ 
+ impl Rule {
+@@ -118,6 +124,7 @@ impl Rule {
+             Rule::AddSubCancel => "(x +/- c) -/+ c -> x",
+             Rule::AddSelfShl => "x + x -> x << 1",
+             Rule::MaskIdempotent => "(x op c) op c -> x op c for & and |",
++            Rule::Commute => "a op b -> b op a, a < b -> b > a",
+         }
+     }
+ }
+@@ -156,7 +163,7 @@ impl Verdict {
+ 
+ /// The width of a rule's free variable.
+ #[derive(Debug, Clone, Copy)]
+-enum VWidth {
++pub(crate) enum VWidth {
+     /// The rule's own width.
+     W,
+     /// One bit: a proven-boolean operand.
+@@ -181,7 +188,7 @@ impl VWidth {
+ /// A value expression over a rule's free variables: the solver-facing form
+ /// of one side of a rule.
+ #[derive(Debug, Clone)]
+-enum Term {
++pub(crate) enum Term {
+     /// Free variable `n`, by its position in the rule's variable list.
+     Var(u8),
+     /// A literal at the rule's width.
+@@ -196,13 +203,14 @@ enum Term {
+ /// The bitvector operation a [`Term`] node states. The signedness is the
+ /// rule's, not MIR's type: a MIR `Shr` is `Lshr` or `Ashr` by its type, and
+ /// the rules that use it state which.
+-#[derive(Debug, Clone, Copy)]
+-enum Op {
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Op {
+     Add,
+     Sub,
+     Mul,
+     And,
+     Or,
++    Xor,
+     Udiv,
+     Urem,
+     Shl,
+@@ -221,18 +229,18 @@ enum Op {
+ }
+ 
+ /// One claim in the rule table.
+-struct Row {
+-    rule: Rule,
++pub(crate) struct Row {
++    pub(crate) rule: Rule,
+     /// The width the rule's own variables have; boolean rules are stated at
+     /// width one.
+-    widths: &'static [u8],
++    pub(crate) widths: &'static [u8],
+     /// Free variables: name and width.
+-    vars: &'static [(&'static str, VWidth)],
++    pub(crate) vars: &'static [(&'static str, VWidth)],
+     /// Assumptions drawn from the match site; the rule is applied only where
+     /// the site establishes them.
+-    premises: Vec<Term>,
+-    src: Term,
+-    dst: Term,
++    pub(crate) premises: Vec<Term>,
++    pub(crate) src: Term,
++    pub(crate) dst: Term,
+     /// Whether the match site must still run the exhaustive verifier for
+     /// this rule (the boolean rules, whose operand domain the site proves).
+     exhaustive: bool,
+@@ -251,7 +259,7 @@ struct RowReport {
+ /// per rule, and how long the whole check took.
+ pub struct Report {
+     rows: Vec<RowReport>,
+-    verdicts: [Verdict; 11],
++    verdicts: [Verdict; RULES.len()],
+     elapsed: Duration,
+ }
+ 
+@@ -318,8 +326,8 @@ pub fn accepted(rule: Rule) -> bool {
+ /// Whether the match site must still run the exhaustive verifier for a rule:
+ /// true for a rule one of whose claims needs the site's operand domain.
+ pub fn needs_exhaustive(rule: Rule) -> bool {
+-    static TABLE: LazyLock<[bool; 11]> = LazyLock::new(|| {
+-        let mut table = [false; 11];
++    static TABLE: LazyLock<[bool; RULES.len()]> = LazyLock::new(|| {
++        let mut table = [false; RULES.len()];
+         for row in rows() {
+             if row.exhaustive {
+                 table[row.rule.index()] = true;
+@@ -353,8 +361,9 @@ pub fn report() {
+     LazyLock::force(&PRINTED);
+ }
+ 
+-/// The rule table, built once.
+-fn rows() -> &'static [Row] {
++/// The rule table, built once. [`super::egg`] compiles its rewrites from
++/// these rows, so the claims the solver checks are the rewrites it applies.
++pub(crate) fn rows() -> &'static [Row] {
+     static ROWS: LazyLock<Vec<Row>> = LazyLock::new(build_rows);
+     &ROWS
+ }
+@@ -559,6 +568,24 @@ fn build_rows() -> Vec<Row> {
+     invert(&mut rows, Op::Sgt, Op::Sle);
+     invert(&mut rows, Op::Sge, Op::Slt);
+ 
++    // a op b -> b op a, and the mirrored comparisons in both directions.
++    let swap = |rows: &mut Vec<Row>, src_op, dst_op| {
++        rows.push(plain(
++            Rule::Commute,
++            &[("a", VWidth::W), ("b", VWidth::W)],
++            vec![],
++            op(src_op, var(0), var(1)),
++            op(dst_op, var(1), var(0)),
++        ));
++    };
++    for o in [Op::Add, Op::Mul, Op::And, Op::Or, Op::Xor, Op::Eq, Op::Ne] {
++        swap(&mut rows, o, o);
++    }
++    for (a, b) in [(Op::Ult, Op::Ugt), (Op::Ule, Op::Uge), (Op::Slt, Op::Sgt), (Op::Sle, Op::Sge)] {
++        swap(&mut rows, a, b);
++        swap(&mut rows, b, a);
++    }
++
+     rows
+ }
+ 
+@@ -566,7 +593,7 @@ fn build_rows() -> Vec<Row> {
+ fn check_all() -> Report {
+     let start = Instant::now();
+     let mut reports = Vec::new();
+-    let mut verdicts = [Verdict::Valid; 11];
++    let mut verdicts = [Verdict::Valid; RULES.len()];
+     for row in rows() {
+         for &width in row.widths {
+             let report = check_row(row, width);
+@@ -686,6 +713,7 @@ fn encode(term: &Term, vars: &[BV], w: u32) -> BV {
+                 Op::Mul => a.bvmul(b),
+                 Op::And => a.bvand(b),
+                 Op::Or => a.bvor(b),
++                Op::Xor => a.bvxor(b),
+                 Op::Udiv => a.bvudiv(b),
+                 Op::Urem => a.bvurem(b),
+                 Op::Shl => a.bvshl(b),
