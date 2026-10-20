@@ -208,6 +208,7 @@ pub fn main() -> Result<Unit, io.Error> {
 | E0404 | use after move |
 | E0412 | implicit borrow of an owned value |
 | E0413 | linear value not consumed |
+| E0414 | move-only value copied |
 | E0401 | region escape |
 | E0414 | region value outlives its region |
 
@@ -224,7 +225,9 @@ outside it: E0414; build it in a region the caller gives (`R: Scope`)
 instead. A resource (an open file, a batch lease) must also be
 consumed: a file that is opened and dropped without `close` (or written
 to and dropped) is E0413, on any path that leaves its scope other than
-an error exit (`?`).
+an error exit (`?`). A value of a struct or enum marked `@move_only` moves
+the same way, and using it again after the move would copy it: E0414.
+Borrow it (`&x`, a `self: &Self` method) to read it and keep it.
 
 ```badger fragment
 pub fn main() -> Result<Unit, io.Error> {

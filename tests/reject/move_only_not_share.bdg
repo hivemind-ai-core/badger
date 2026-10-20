@@ -1,0 +1,9 @@
+// expect-error: E0341
+// A move-only type is not `Share`: shareable values may be duplicated.
+@move_only
+pub struct Token { pub id: Int }
+fn both<T>(x: T) -> (T, T) where T: Share { (x, x) }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let _ = both(t)
+}
