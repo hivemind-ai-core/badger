@@ -248,6 +248,13 @@ pub struct ChanData {
     pub leases: Vec<(TaskId, u64)>,
     /// Every task registered with the channel.
     pub waiters: Waiters,
+    /// Receivers woken for a published message that have not taken it yet.
+    /// A publication wakes one receiver per message, and that wake is a
+    /// wake to *retry*: the woken receiver takes the message when it runs.
+    /// A receiver that is cancelled before it runs must pass its claim on,
+    /// or the message it was woken for is stranded (the model calls this
+    /// F4).
+    pub woken: Vec<TaskId>,
     /// Recycled page buffers (bounded reserve).
     pub pool: Vec<Vec<u64>>,
     pub published_batches: u64,
@@ -994,6 +1001,7 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
         leased: 0,
         leases: vec![],
         waiters: Waiters::default(),
+        woken: Vec::new(),
         pool: vec![],
         published_batches: 0,
         byte_budget: 0,
@@ -1008,14 +1016,36 @@ pub fn new(elem: &'static TypeDesc, capacity: usize, max_batch: usize, batched: 
 }
 
 /// Wake up to `n` live parked receivers (each removed: it was served, and
-/// registers again if another receiver took the message first).
+/// registers again if another receiver took the message first). Each woken
+/// receiver holds a claim on the message it was woken for until it takes
+/// it ([`release_claim`]).
 fn wake_receivers(d: &mut ChanData, mut n: usize) {
     while n > 0
         && let Some(r) = d.waiters.pop(WaitKind::Recv)
     {
         if task::waits(r.task, r.wait) {
+            d.woken.push(r.task);
             task::wake(r.task, task::Wake::Normal);
             n -= 1;
+        }
+    }
+}
+
+/// The published messages that no woken receiver is on its way to take.
+fn unclaimed(d: &ChanData) -> usize {
+    let published: usize = d.batches.iter().map(|b| b.len()).sum();
+    published.saturating_sub(d.woken.len())
+}
+
+/// Release the claim `id` holds on a published message (it took the
+/// message, found none, or died) and pass it on: a message that no woken
+/// receiver is on its way to is offered to another receiver, or a parked
+/// receiver waits for it forever.
+fn release_claim(d: &mut ChanData, id: TaskId) {
+    if let Some(i) = d.woken.iter().position(|t| *t == id) {
+        d.woken.remove(i);
+        if unclaimed(d) > 0 {
+            wake_receivers(d, 1);
         }
     }
 }
@@ -1575,6 +1605,7 @@ pub fn flush(ch: u64) {
 pub fn recv_batch(ch: u64) -> Option<u64> {
     let _r = gc::Roots::new();
     _r.add(ch);
+    let me = task::current_id();
     loop {
         let d = data(ch);
         if !d.batches.is_empty() {
@@ -1599,12 +1630,17 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
             push_charged(&mut data(ch).leases, (task::current_id(), b));
             gc::barrier(ch);
             let _ = note_waiting(ch);
+            // the messages are taken: the claim the wake made is spent
+            release_claim(data(ch), me);
             return Some(b);
         }
         if d.closed && d.staging.values().all(Vec::is_empty) {
+            release_claim(data(ch), me);
             return None;
         }
-        let me = task::current_id();
+        // nothing to take: the claim (if a wake made one) is released, and
+        // the receiver waits again
+        release_claim(data(ch), me);
         d.register(WaitKind::Recv, 0, 0);
         let _ = note_waiting(ch);
         task::park_for("batch receive");
@@ -1618,6 +1654,7 @@ pub fn recv_batch(ch: u64) -> Option<u64> {
 pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
     let _r = gc::Roots::new();
     _r.add(ch);
+    let me = task::current_id();
     loop {
         let d = data(ch);
         while d.batches.front().is_some_and(VecDeque::is_empty) {
@@ -1630,16 +1667,22 @@ pub fn recv_one(ch: u64, wait: bool) -> RecvResult {
             }
             d.accepted -= 1;
             uncharge(ch, &[v]);
+            // the message is taken: the claim the wake made is spent
+            release_claim(data(ch), me);
             wake_capacity(data(ch));
             return RecvResult::Value(v);
         }
         if d.closed && d.staging.values().all(Vec::is_empty) {
+            release_claim(data(ch), me);
             return RecvResult::Closed;
         }
         if !wait {
+            release_claim(data(ch), me);
             return RecvResult::Empty;
         }
-        let me = task::current_id();
+        // nothing to take: the claim (if a wake made one) is released, and
+        // the receiver waits again
+        release_claim(data(ch), me);
         d.register(WaitKind::Recv, 0, 0);
         let _ = note_waiting(ch);
         task::park_for("batch receive");
@@ -1678,14 +1721,17 @@ fn done_waiting(ch: u64, added: bool) {
 }
 
 /// A finished task leaves the channels it was registered with: a waiter
-/// abandoned by cancellation is withdrawn (with the value it offered), and
-/// its unreleased leases return their capacity (a lease is released by
-/// the cleanup of the task that received it).
+/// abandoned by cancellation is withdrawn (with the value it offered), a
+/// receiver that died holding a wake for a published message passes it on
+/// (or the message it was woken for is stranded), and its unreleased
+/// leases return their capacity (a lease is released by the cleanup of the
+/// task that received it).
 pub fn task_finished(id: TaskId) {
     let Some(t) = task::task(id) else { return };
     for ch in std::mem::take(&mut t.chan_regs) {
         let d = data(ch);
         d.waiters.remove_task(id);
+        release_claim(d, id);
         let held: Vec<u64> = d.leases.iter().filter(|(t, _)| *t == id).map(|(_, b)| *b).collect();
         for b in held {
             release(b);
