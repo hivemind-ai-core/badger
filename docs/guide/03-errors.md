@@ -137,7 +137,7 @@ let first = items.first().ok_or("no items")?
 ## Error conversion with `From`
 
 `?` converts the error when the function's error type has exactly one
-direct `From` implementation for it. `derive(From)` on an enum generates
+direct `From` implementation for it. `@derive(From)` on an enum generates
 one for each variant with a single payload.
 
 ```badger
