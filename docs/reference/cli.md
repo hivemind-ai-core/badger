@@ -9,10 +9,12 @@ Conventions used on this page:
 
 - **PATH** is an entry file (`app.bdg`) or a project directory (one with a
   `badger.toml`). Where PATH is optional it defaults to `.`, the current
-  directory's project.
+  directory's project. It is the first argument of the command, after its
+  own arguments (`badger task greet ./shop`).
 - Arguments for the program go after `--`: `badger run app.bdg -- --verbose x`.
 - Human-readable diagnostics go to standard error. `--json` output goes to
   standard output.
+- A command writes a file or a directory with `-o`, `--out`.
 - Output shown with `$` was printed by the example project below, run from
   its directory, unless the command names another path.
 
@@ -108,8 +110,8 @@ pub fn greet(names: List<String>) -> Result<Unit, io.Error> {
 | Status | Meaning |
 |---|---|
 | 0 | Success. For `run`, `start`, `task`: the program's `main` returned normally (or `ok(...)`). |
-| 1 | Failure: the program does not check, a test failed, a `--check` found differences, `main` returned `err(...)`, a replay's outcome differs from the recording, or the command could not do its job (missing file, bad flag value). |
-| 2 | Command-line usage error (unknown flag, missing argument, `--reconstruct` without `--watch`), reported by the argument parser. |
+| 1 | Failure: the program does not check, a test failed, a `--check` found differences, `main` returned `err(...)`, a replay's outcome differs from the recording, or the command could not do its job (missing file, unreadable file). |
+| 2 | Command-line usage error: an unknown flag, a missing argument, an unknown command, an invalid option value (an unknown `--opt` level, an unknown `--template`, an unknown `KIND`), or a flag that belongs to another command (`--check` with `badger generate feature`). |
 | 3 | `badger replay`: the program asked for an operation the bundle does not hold (or sent different content, or needed a redacted value), or ended without performing operations the bundle recorded. |
 | 70 | Internal error: a bug in Badger, not in the program. The message ends with "please report it"; `RUST_BACKTRACE=1` adds a backtrace. |
 | 71 | Fatal: the runtime cannot allocate a task stack (address-space limit `ulimit -v`, or `vm.max_map_count`). |
@@ -216,15 +218,14 @@ test test_half ... ok
 test result: ok. 1 passed; 0 failed
 ```
 
-### `badger task NAME [--project DIR] [--profile NAME] [-- ARGS...]`
+### `badger task NAME [PATH] [--profile NAME] [-- ARGS...]`
 
 Run a user task: a function declared in the project's `[tasks]` table
 (`greet = "src/tasks.bdg#greet"`). The function takes no parameters or a
-`List<String>` of ARGS.
+`List<String>` of ARGS. PATH is the project directory (default `.`).
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--project DIR` | `.` | Project directory. |
 | `--profile NAME` | | As for `badger run`. |
 
 ```sh
@@ -304,7 +305,7 @@ configuration, runtime settings, and optimization level.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `-o`, `--output FILE` | `NAME.bdgmir` | For a file `app.bdg`: `app.bdgmir` beside it. For a project directory: `DIR/PACKAGE.bdgmir`. |
+| `-o`, `--out FILE` | `NAME.bdgmir` | For a file `app.bdg`: `app.bdgmir` beside it. For a project directory: `DIR/PACKAGE.bdgmir`. |
 | `--profile NAME` | | Merge `[profile.NAME]` into the saved configuration. |
 | `--workers N` | | Worker count saved as the default (`badger run --workers` still overrides). |
 | `--opt LEVEL` | `release` | MIR level: `release`, `aggressive`, or `superopt`. A run at a higher level applies its extra passes to the loaded program. |
@@ -323,7 +324,7 @@ replaced only when the new one is complete. Details: [releases.md](../releases.m
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `-o`, `--output DIR` | `release/PACKAGE` (relative to the current directory) | Release directory. |
+| `-o`, `--out DIR` | `release/PACKAGE` (relative to the current directory) | Release directory. |
 | `--profile NAME` | | Merge `[profile.NAME]` into the saved configuration. |
 | `--workers N` | | Worker count saved as the default. |
 | `--opt LEVEL` | `release` | MIR level saved with the program: `release`, `aggressive`, or `superopt`. |
@@ -484,7 +485,7 @@ $ badger rename src/orders.bdg --line 12 --col 4 --name find_order
 renamed in src/orders.bdg
 ```
 
-### `badger bench [PATH] [--out FILE] [--compare FILE] [--workers N]`
+### `badger bench [PATH] [-o FILE] [--baseline FILE] [--workers N]`
 
 Run the benchmark programs and report their measurements. PATH is the
 directory holding the programs (default `bench`); the `.bdg` files in it
@@ -493,17 +494,17 @@ are run in release mode, and each one's printed measurements
 
 | Flag | Meaning |
 |---|---|
-| `--out FILE` | Write the measurements to FILE as JSON (`{program: {label: {value, unit}}}`). |
-| `--compare FILE` | Compare the measurements with a baseline written that way, and report the change of each. |
+| `-o`, `--out FILE` | Write the measurements to FILE as JSON (`{program: {label: {value, unit}}}`). |
+| `--baseline FILE` | Compare the measurements with a baseline written that way, and report the change of each. |
 | `--workers N` | Run the programs with N workers. |
 
 ```sh
 $ badger bench --out /tmp/base.json
-$ badger bench --compare /tmp/base.json
+$ badger bench --baseline /tmp/base.json
 bench/messages.bdg: prompt channel 1234.000 ns/message (-3.2% against 1275.000)
 ```
 
-### `badger graph KIND [PATH] [--format FORMAT] [--std]`
+### `badger graph KIND [PATH] [--format FORMAT] [--json] [--std]`
 
 Program structure as a graph. PATH defaults to `.`.
 
@@ -517,6 +518,7 @@ Program structure as a graph. PATH defaults to `.`.
 | Flag | Default | Meaning |
 |---|---|---|
 | `--format FORMAT` | `dot` | `dot`, `mermaid`, or `json` (`{"nodes": [...], "edges": [{"from","to"}]}`). |
+| `--json` | | Print JSON (the same as `--format json`). |
 | `--std` | off | Include standard-library nodes (`calls`, `modules`, `types`). |
 
 ```sh
@@ -532,7 +534,7 @@ digraph calls {
 }
 ```
 
-### `badger doc TARGET [--out DIR] [--check] [--open]`
+### `badger doc TARGET [-o DIR] [--check] [--open]`
 
 Reference documentation in Markdown from checked interfaces. TARGET is
 `std` (every standard module, one page each plus an index), one standard
@@ -540,7 +542,7 @@ module (`std.list`), or a program path.
 
 | Flag | Meaning |
 |---|---|
-| `--out DIR` | Write the pages into DIR instead of printing them. |
+| `-o`, `--out DIR` | Write the pages into DIR instead of printing them. |
 | `--check` | With `--out`: compare with the pages in DIR and fail if any differ or a page has no module. |
 | `--open` | Write the reference as one HTML page and open it: the page goes into `--out` when a directory is given, and into a private directory otherwise. |
 
@@ -601,6 +603,11 @@ functions: `NAME.bdg` next to each `NAME.sql`. Guide: [typed-sql.md](../typed-sq
 ```sh
 badger generate sql src/queries.sql --schema schema.sql
 ```
+
+Each generator takes its own flags: `--check`, `--database`, and
+`--schema` are for `sql`; `--dry-run` and `--item` are for the module
+generators (`--item` only for `feature`). A flag of another generator is
+a usage error (status 2), never quietly ignored.
 
 ### `badger new NAME [--template NAME]`
 
