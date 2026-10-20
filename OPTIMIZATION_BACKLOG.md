@@ -529,6 +529,16 @@ cost.
 
 ### 2.4 NUMA worker-core pinning
 
+**Status:** landed 2026-10-20 (`808f3b2`) behind `BADGER_PIN_WORKERS=1`: worker
+`w` pins itself to CPU `w` (the CPUs of a node are numbered together, so the
+first workers land on the first node -- first touch). **The item's gate cannot
+be met on this host**: it has one socket (16 CPUs), and the notes put the
+gain under 5% on a single-socket box and 10-15% on a two-socket one
+(`research/12-runtime-scaling-extra.md` §14.10, and Drepper's NUMA factor of
+1.2-1.5x there). What is checked here is that a pinned worker runs on that
+CPU only, and that the corpus passes with the pinning on; the measurement is
+left to a two-socket deployment.
+
 - **Goal**: the per-worker deques (0.2) and the per-worker heap
   segments (2.2) are the prerequisite for NUMA pinning; once
   they land, pin each worker to a core via
