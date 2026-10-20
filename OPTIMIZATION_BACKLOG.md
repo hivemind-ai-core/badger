@@ -760,7 +760,11 @@ optimiser's hot path never calls the solver, and the corpus is identical with
 the check on and off at `--opt superopt`. **The check found one wrong rule**:
 `(x << k) >> k` was masked with `~(2^k - 1)`, which keeps the high bits,
 while the left-then-right shift pair keeps the low `bits - k` bits. The mask
-is corrected and the rule is proved.
+is corrected and the rule is proved. The negative control is in the tree as
+its own commit (`644ea69`): the claim `x * 2^k -> x << (k + 1)`, the
+multiplication rewrite shifted one bit too far, is put through the check and
+the solver is asserted to refute it with a counterexample -- a wrong rule
+cannot pass the check.
 
 - **Goal**: refactor `superopt.rs::Candidate` (`superopt.rs:30-32`)
   into `(precondition, transformation)` form, in the style of
