@@ -753,7 +753,7 @@ fn command(mut cli: Cli) -> ExitCode {
                 let mut s = if i == 0 { std::mem::take(&mut session) } else { Session::new() };
                 badger_driver::select_entry(None);
                 if s.run(&pkg, vec![], &opts).is_err() {
-                    report(&s, json);
+                    test_failure_report(&s, json);
                     return ExitCode::FAILURE;
                 }
                 report(&s, false);
@@ -764,7 +764,7 @@ fn command(mut cli: Cli) -> ExitCode {
                     badger_driver::select_entry(Some(sel));
                     s.reset_for_build();
                     if s.run(&pkg, vec![], &opts).is_err() {
-                        report(&s, json);
+                        test_failure_report(&s, json);
                         return ExitCode::FAILURE;
                     }
                 }
@@ -968,6 +968,14 @@ fn command(mut cli: Cli) -> ExitCode {
                 );
                 return ExitCode::FAILURE;
             }
+            // a package is imported by its name: a reserved word or `std`
+            // could never be
+            if badger_syntax::RESERVED.contains(&name.as_str()) || name == "std" {
+                eprintln!(
+                    "error: `{name}` cannot name a package (`import {name}` would not refer to it): choose another name"
+                );
+                return ExitCode::FAILURE;
+            }
             let dir = PathBuf::from(&name);
             if dir.exists() {
                 eprintln!("error: {} already exists", dir.display());
@@ -984,17 +992,20 @@ fn command(mut cli: Cli) -> ExitCode {
                     }
                 },
                 None => vec![
-                ("badger.toml".to_string(), format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n")),
-                (
-                    "src/main.bdg".to_string(),
-                    format!(
-                        "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
+                    (
+                        "badger.toml".to_string(),
+                        format!("[package]\nname = \"{name}\"\nentry = \"src/main.bdg\"\n"),
+                    ),
+                    (
+                        "src/main.bdg".to_string(),
+                        format!(
+                            "// {name}: `badger run` runs `main`; `badger test` runs the `test_*` functions.\n\
                          import std.io\n\n\
                          fn greeting(name: String) -> String {{\n    $\"Hello, {{name}}!\"\n}}\n\n\
                          pub fn main() -> Result<Unit, io.Error> {{\n    io.println(greeting(\"{name}\"))?\n    ok(())\n}}\n\n\
                          fn test_greeting() -> Unit {{\n    assert(greeting(\"you\") == \"Hello, you!\")\n}}\n"
+                        ),
                     ),
-                ),
                 ],
             };
             for (f, text) in &files {
@@ -1240,16 +1251,28 @@ fn command(mut cli: Cli) -> ExitCode {
         }
         Command::Inspect { path: None, .. } => unreachable!("defaulted above"),
         Command::Inspect { what, path: Some(path), json, .. } => {
+            const RUNNING: [&str; 6] = ["tasks", "channels", "system", "heap", "code", "all"];
             if what != "plans" {
-                eprintln!(
-                    "error: `badger inspect {what}` reads a running program: start it with `badger run --inspect ADDR` and pass `--connect ADDR`"
-                );
+                if RUNNING.contains(&what.as_str()) {
+                    eprintln!(
+                        "error: `badger inspect {what}` reads a running program: start it with `badger run --inspect ADDR` and pass `--connect ADDR`"
+                    );
+                } else {
+                    eprintln!(
+                        "error: unknown inspection `{what}`: a file has `plans`, `config`, and `runtime`; a running program (`--connect ADDR`) has {}",
+                        RUNNING.join(", ")
+                    );
+                }
                 return ExitCode::FAILURE;
             }
             let Some(plans) = session.inspect_plans(&path) else {
                 report(&session, json);
                 return ExitCode::FAILURE;
             };
+            if plans.is_empty() && !json {
+                println!("(no `system` or `pipeline` plans in {})", path.display());
+                return ExitCode::SUCCESS;
+            }
             if json {
                 let ps: Vec<String> = plans
                     .iter()
@@ -1453,14 +1476,35 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
         source_files(p, &mut files);
     }
     let mut changed = 0;
+    // a file that cannot be read or does not parse is reported and left
+    // alone; the others are still formatted
+    let mut failed = 0;
+    let mut sources = badger_base::SourceMap::default();
+    let mut interner = badger_base::Interner::default();
     for f in files {
         let src = match std::fs::read_to_string(&f) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("error: cannot read {}: {e}", f.display());
-                return ExitCode::FAILURE;
+                failed += 1;
+                continue;
             }
         };
+        let id = sources.add(f.display().to_string(), src.clone());
+        let mut diags = vec![];
+        if let Err(e) = badger_syntax::parse(id, &src, &mut interner, &mut diags) {
+            let at = e.span();
+            let (line, col) = sources.get(id).line_col(at.start as usize);
+            // named on the command line: an error; found in a directory (a
+            // test of a syntax error, say): skipped, with a warning
+            if paths.contains(&f) {
+                eprintln!("error: {}:{line}:{col}: does not parse ({e}); not formatted", f.display());
+                failed += 1;
+            } else {
+                eprintln!("warning: {}:{line}:{col}: does not parse ({e}); skipped", f.display());
+            }
+            continue;
+        }
         let out = badger_syntax::format::format(&src);
         if out != src {
             changed += 1;
@@ -1468,11 +1512,11 @@ fn format(paths: Vec<PathBuf>, check: bool) -> ExitCode {
                 println!("would reformat {}", f.display());
             } else if let Err(e) = std::fs::write(&f, out) {
                 eprintln!("error: cannot write {}: {e}", f.display());
-                return ExitCode::FAILURE;
+                failed += 1;
             }
         }
     }
-    if check && changed > 0 { ExitCode::FAILURE } else { ExitCode::SUCCESS }
+    if failed > 0 || (check && changed > 0) { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
 /// Human-readable rendering of an inspection snapshot (JSON from the
@@ -1564,8 +1608,7 @@ fn remote_repl(addr: &str, load: Option<PathBuf>) -> ExitCode {
 /// afterwards.
 fn load_file(addr: &str, load: Option<PathBuf>) -> Result<(), String> {
     let Some(path) = load else { return Ok(()) };
-    let text =
-        std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     match badger_driver::inspect::eval(addr, &text) {
         Ok(reply) => {
             if !reply.trim().is_empty() {
@@ -1742,9 +1785,7 @@ fn apply_edits(edits: &serde_json::Value) -> Result<Vec<String>, String> {
     let mut changed = vec![];
     for (file, mut es) in by_file {
         let mut text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
-        es.sort_by_key(|e| {
-            (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0)))
-        });
+        es.sort_by_key(|e| (-(e["line"].as_i64().unwrap_or(0)), -(e["col"].as_i64().unwrap_or(0))));
         for e in es {
             let line = e["line"].as_i64().unwrap_or(1).max(1) as usize;
             let col = e["col"].as_i64().unwrap_or(1).max(1) as usize;
@@ -1811,6 +1852,19 @@ pub(crate) fn exit_now(code: i32) -> ExitCode {
 /// The session's diagnostics as JSON (the `check --json` form).
 fn diagnostics_json(session: &Session) -> serde_json::Value {
     serde_json::from_str(&session.diagnostics.render_json(&session.sources)).unwrap_or_default()
+}
+
+/// `badger test` when the program does not build: with `--json`, the
+/// documented result object (no tests ran) carrying the diagnostics.
+fn test_failure_report(session: &Session, json: bool) {
+    if json && session.diagnostics.has_errors() {
+        println!(
+            "{{\"passed\":0,\"failed\":0,\"tests\":[],\"diagnostics\":{}}}",
+            session.diagnostics.render_json(&session.sources)
+        );
+    } else {
+        report(session, json);
+    }
 }
 
 pub(crate) fn report(session: &Session, json: bool) {

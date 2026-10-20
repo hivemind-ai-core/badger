@@ -526,11 +526,9 @@ pub fn plan_worker(dir: &Path, name: &str) -> Result<Plan, String> {
     }
     let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
     let file = src.join(format!("{name}.bdg"));
-    if dir.join(&file).exists() || dir.join(src.join(name)).exists() {
-        return Err(format!(
-            "{} already exists: a worker is generated only into new files",
-            dir.join(&file).display()
-        ));
+    // (name the path that is there: the module file or its directory)
+    if let Some(taken) = [dir.join(&file), dir.join(src.join(name))].into_iter().find(|p| p.exists()) {
+        return Err(format!("{} already exists: a worker is generated only into new files", taken.display()));
     }
     Ok(Plan {
         root: src.join(name),
@@ -562,10 +560,12 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
     // modules resolve from the entry's directory
     let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
     let root = src.join(name);
-    if dir.join(&root).exists() || dir.join(src.join(format!("{name}.bdg"))).exists() {
+    if let Some(taken) =
+        [dir.join(&root), dir.join(src.join(format!("{name}.bdg")))].into_iter().find(|p| p.exists())
+    {
         return Err(format!(
             "{} already exists: a feature is generated only into new files",
-            dir.join(&root).display()
+            taken.display()
         ));
     }
     let fill = |t: &str| {
@@ -582,8 +582,18 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
 /// The names the generated files import for themselves: a generated
 /// module may not have one of them.
 const RESERVED_SERVICE: &[&str] = &[
-    "app", "endpoint", "generate_probe", "http", "list", "model", "route", "service", "std",
-    "store", "system", "text",
+    "app",
+    "endpoint",
+    "generate_probe",
+    "http",
+    "list",
+    "model",
+    "route",
+    "service",
+    "std",
+    "store",
+    "system",
+    "text",
 ];
 
 /// The names the generated command's files import for themselves.
@@ -599,14 +609,10 @@ fn check_name(name: &str, kind: &str, reserved: &[&str]) -> Result<(), String> {
         || !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
         || KEYWORDS.contains(&name)
     {
-        return Err(format!(
-            "`{name}` is not a {kind} name: use a lowercase identifier such as `orders`"
-        ));
+        return Err(format!("`{name}` is not a {kind} name: use a lowercase identifier such as `orders`"));
     }
     if reserved.contains(&name) {
-        return Err(format!(
-            "`{name}` is a module the generated files import: choose another {kind} name"
-        ));
+        return Err(format!("`{name}` is a module the generated files import: choose another {kind} name"));
     }
     Ok(())
 }
@@ -614,32 +620,19 @@ fn check_name(name: &str, kind: &str, reserved: &[&str]) -> Result<(), String> {
 /// The record's name for a feature, a service, or a library `name` (the
 /// name without a final `s`).
 fn item_of(name: &str) -> String {
-    name.strip_suffix('s')
-        .filter(|s| !s.is_empty())
-        .unwrap_or(name)
-        .to_string()
+    name.strip_suffix('s').filter(|s| !s.is_empty()).unwrap_or(name).to_string()
 }
 
 /// The text of a generated file: the name and the record's name are
 /// filled in.
 fn fill(name: &str, item: &str, t: &str) -> String {
-    t.replace("@name@", name)
-        .replace("@Item@", &pascal(item))
-        .replace("@item@", &item.replace('_', " "))
+    t.replace("@name@", name).replace("@Item@", &pascal(item)).replace("@item@", &item.replace('_', " "))
 }
 
 /// The generator's files: the path each takes in the project, and its
 /// text (the name and the record's name are filled in).
-fn generated(
-    root: &Path,
-    name: &str,
-    item: &str,
-    files: &[(&str, &str)],
-) -> Vec<(PathBuf, String)> {
-    files
-        .iter()
-        .map(|(f, t)| (root.join(format!("{f}.bdg")), fill(name, item, t)))
-        .collect()
+fn generated(root: &Path, name: &str, item: &str, files: &[(&str, &str)]) -> Vec<(PathBuf, String)> {
+    files.iter().map(|(f, t)| (root.join(format!("{f}.bdg")), fill(name, item, t))).collect()
 }
 
 /// Plan service `name` in the project at `dir`: a module with the
@@ -670,10 +663,7 @@ pub fn plan_service(dir: &Path, name: &str) -> Result<Plan, String> {
             ("http", SERVICE_HTTP),
         ],
     );
-    let imports = ["http", "model", "service", "store"]
-        .iter()
-        .map(|m| format!("{name}.{m}"))
-        .collect();
+    let imports = ["http", "model", "service", "store"].iter().map(|m| format!("{name}.{m}")).collect();
     Ok(Plan { root, files, imports })
 }
 
@@ -714,11 +704,7 @@ pub fn plan_library(dir: &Path, name: &str) -> Result<Plan, String> {
         ));
     }
     let text = fill(name, &item, LIBRARY);
-    Ok(Plan {
-        root: src.join(name),
-        files: vec![(file, text)],
-        imports: vec![name.to_string()],
-    })
+    Ok(Plan { root: src.join(name), files: vec![(file, text)], imports: vec![name.to_string()] })
 }
 
 fn copy_project(from: &Path, to: &Path) -> std::io::Result<()> {

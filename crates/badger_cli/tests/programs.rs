@@ -379,6 +379,15 @@ fn query_symbol() {
 /// `--json`.
 #[test]
 fn test_runner_options() {
+    // a program that does not build: the same JSON object, with no tests
+    // and the diagnostics
+    let broken = std::env::temp_dir().join(format!("badger-test-broken-{}.bdg", std::process::id()));
+    std::fs::write(&broken, "fn test_x() -> Unit { nope }\npub fn main() {}\n").unwrap();
+    let out = lang().arg("test").arg("--json").arg(&broken).output().unwrap();
+    let _ = std::fs::remove_file(&broken);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(!out.status.success() && v["tests"] == serde_json::json!([]), "{v}");
+    assert_eq!(v["diagnostics"][0]["code"], "E0127", "{v}");
     let dir = root().join("examples/framework");
     let out = lang().arg("test").arg(&dir).arg("--list").output().unwrap();
     let text = String::from_utf8_lossy(&out.stdout).to_string();
@@ -418,6 +427,11 @@ fn new_project() {
     assert!(fmt.status.success());
     assert!(!new("shop").status.success());
     assert!(!new("Shop").status.success());
+    // a name `import` could not refer to
+    for bad in ["fn", "match", "std"] {
+        let out = new(bad);
+        assert!(!out.status.success() && !dir.join(bad).exists(), "{bad}");
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1521,6 +1535,17 @@ fn query_rename_and_unsupported_inputs() {
     let (ok, out, err) = q(&["rename", p, "--line", "11", "--col", "13", "--name", "q"]);
     assert!(ok, "{err}");
     assert_eq!(cols(&out), vec![(11, 13), (11, 26), (11, 32), (11, 36)], "{out}");
+    // a hole's hover is the type expected there
+    let (ok, out, _) = q(&["hover", "tests/query/hole_hover.bdg", "--line", "2", "--col", "22"]);
+    assert!(ok && out.contains("\"Int\""), "{out}");
+    // positions are 1-based and on a line of the file
+    let (ok, _, err) = q(&["hover", "tests/query/symbol_methods.bdg", "--line", "0", "--col", "0"]);
+    assert!(!ok && err.contains("start at 1"), "{err}");
+    let (ok, _, err) = q(&["hover", "tests/query/symbol_methods.bdg", "--line", "500", "--col", "1"]);
+    assert!(!ok && err.contains("past the end of the file"), "{err}");
+    // a method by its type: `Order.doubled`
+    let (ok, out, err) = q(&["symbol", "tests/query/symbol_methods.bdg", "--name", "Order.doubled"]);
+    assert!(ok && out.contains("\"name\":\"doubled\"") && out.contains("\"kind\":\"method\""), "{out}{err}");
 }
 
 /// Project tooling: optional paths (the current project), named entries,
@@ -2823,4 +2848,26 @@ fn conflicting_imports_are_reported() {
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(!out.status.success());
     assert!(text.contains("\"code\":\"E0141\"") && text.contains("`greet` is imported twice"), "{text}");
+}
+
+/// `badger format` leaves a file that does not parse alone (an error when
+/// the file is named, a warning when it is found in a directory), and an
+/// unreadable file does not stop the others being formatted.
+#[test]
+fn format_skips_broken_files() {
+    let dir = std::env::temp_dir().join(format!("badger-format-broken-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.bdg"), "fn  good( ) -> Int => 1\n").unwrap();
+    let broken = "fn bad( -> Int =>\n   1 +\n";
+    std::fs::write(dir.join("b.bdg"), broken).unwrap();
+    std::fs::write(dir.join("c.bdg"), [0xffu8, 0xfe, b'\n']).unwrap();
+    let out = lang().arg("format").arg(&dir).output().unwrap();
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("b.bdg:1:7: does not parse") && err.contains("cannot read"), "{err}");
+    assert_eq!(std::fs::read_to_string(dir.join("a.bdg")).unwrap(), "fn good() -> Int => 1\n");
+    assert_eq!(std::fs::read_to_string(dir.join("b.bdg")).unwrap(), broken);
+    let out = lang().arg("format").arg(dir.join("b.bdg")).output().unwrap();
+    assert!(!out.status.success(), "a named file that does not parse is an error");
+    let _ = std::fs::remove_dir_all(&dir);
 }

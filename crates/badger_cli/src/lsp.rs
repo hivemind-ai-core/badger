@@ -1123,6 +1123,14 @@ pub fn query(
     let text = text_of(&file.display().to_string());
     let at = || -> Result<Value, String> {
         let (Some(l), Some(c)) = (line, col) else { return Err(format!("`{kind}` needs --line and --col")) };
+        // positions are 1-based, and on a line of the file
+        let lines = text.lines().count().max(1);
+        if l == 0 || c == 0 {
+            return Err(format!("--line and --col start at 1 (got {l}:{c})"));
+        }
+        if l > lines {
+            return Err(format!("line {l} is past the end of the file ({lines} lines)"));
+        }
         // characters -> UTF-16 units on that line
         let line_text = text.lines().nth(l.saturating_sub(1)).unwrap_or("");
         let units: usize = line_text.chars().take(c.saturating_sub(1)).map(char::len_utf16).sum();

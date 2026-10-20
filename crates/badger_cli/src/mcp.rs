@@ -533,9 +533,15 @@ impl Mcp {
                         let Some(path) = a["path"].as_str() else { return text("`path` is required", true) };
                         let mut args = vec!["query".to_string(), kind.to_string(), arg_path(path)];
                         for k in ["line", "col"] {
-                            if let Some(v) = a[k].as_u64() {
-                                args.push(format!("--{k}"));
-                                args.push(v.to_string());
+                            match &a[k] {
+                                Value::Null => {}
+                                v => match v.as_u64() {
+                                    Some(n) if n >= 1 => {
+                                        args.push(format!("--{k}"));
+                                        args.push(n.to_string());
+                                    }
+                                    _ => return text(format!("`{k}` is a position from 1, not {v}"), true),
+                                },
                             }
                         }
                         if matches!(kind, "rename" | "symbol")
