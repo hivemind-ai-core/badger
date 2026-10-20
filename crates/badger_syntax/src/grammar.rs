@@ -84,11 +84,7 @@ pub const BLOCK_BODY: &str = "a block `{ ... }`";
 
 /// An expected-found error whose expectation is a whole phrase, built at
 /// run time (the body of an `if` says which `if`).
-fn expected_phrase<'t, 's: 't, I, Er>(
-    what: String,
-    found: Option<Tok<'s>>,
-    span: Span,
-) -> Er
+fn expected_phrase<'t, 's: 't, I, Er>(what: String, found: Option<Tok<'s>>, span: Span) -> Er
 where
     I: ValueInput<'t, Token = Tok<'s>, Span = Span>,
     Er: ParseErr<'t, 's, I>,
@@ -554,8 +550,7 @@ where
             .then(expr.clone())
             .then(body_block(block.clone(), "after the `for` header"))
             .map(|((pat, iter), body)| Expr::For { pat, iter: Box::new(iter), body });
-        let loop_expr =
-            kw("loop").ignore_then(body_block(block.clone(), "after `loop`")).map(Expr::Loop);
+        let loop_expr = kw("loop").ignore_then(body_block(block.clone(), "after `loop`")).map(Expr::Loop);
         let system = kw("system")
             .ignore_then(braced(label.clone().then_ignore(just(Tok::Colon)).then(expr.clone())))
             .map(Expr::System);
