@@ -201,8 +201,12 @@ pub enum UnifyError {
 pub struct SkolemInfo {
     pub name: Symbol,
     pub level: u32,
-    /// Region/scope brand (from `for<S>`), as opposed to a declared generic.
+    /// Region/scope brand (from `for<S>` or a `region` block), as opposed to
+    /// a declared generic.
     pub region: bool,
+    /// The brand of a `region R { ... }` block: a lexical region that ends
+    /// with its block (implies `region`).
+    pub lexical: bool,
 }
 
 pub struct InferCtxt {
@@ -257,7 +261,15 @@ impl InferCtxt {
 
     pub fn fresh_skolem(&mut self, name: Symbol, region: bool) -> Ty {
         let id = self.skolems.len() as u32;
-        self.skolems.push(SkolemInfo { name, level: self.level, region });
+        self.skolems.push(SkolemInfo { name, level: self.level, region, lexical: false });
+        mk(TyKind::Skolem(id))
+    }
+
+    /// The brand of a `region` block opened at the current level: no
+    /// variable of an outer level can be bound to a type naming it.
+    pub fn fresh_lexical_region(&mut self, name: Symbol) -> Ty {
+        let id = self.skolems.len() as u32;
+        self.skolems.push(SkolemInfo { name, level: self.level, region: true, lexical: true });
         mk(TyKind::Skolem(id))
     }
 
@@ -1136,5 +1148,26 @@ mod tests {
         cx.unify(&inner, &s).unwrap();
         cx.level -= 1;
         assert!(matches!(cx.unify(&outer, &inner), Err(UnifyError::Escape { .. })));
+    }
+
+    #[test]
+    fn lexical_region_record_cannot_escape() {
+        let interner = badger_base::Interner::new();
+        let mut cx = InferCtxt::new(None);
+        let node = |r: Ty| mk(TyKind::Con(Idx::from_raw(9u32.into()), vec![r]));
+        // a variable of the function's level, and the function's region parameter
+        let outer = cx.fresh();
+        let param = cx.fresh_skolem(interner.intern("R"), false);
+        cx.level += 1;
+        let local = cx.fresh_lexical_region(interner.intern("Local"));
+        let made = cx.fresh();
+        cx.unify(&node(made.clone()), &node(local.clone())).unwrap();
+        let kept = node(param.clone());
+        cx.level -= 1;
+        assert!(matches!(cx.unify(&outer, &node(made)), Err(UnifyError::Escape { .. })));
+        // a record of the outliving region leaves the block
+        let back = cx.fresh();
+        cx.unify(&back, &kept).unwrap();
+        assert!(matches!(cx.unify(&node(param), &node(local)), Err(UnifyError::Mismatch(..))));
     }
 }

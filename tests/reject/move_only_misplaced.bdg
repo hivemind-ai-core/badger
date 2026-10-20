@@ -1,0 +1,9 @@
+// expect-error: E0199
+// `@move_only` marks a struct or an enum, and takes no arguments.
+@move_only
+fn f() -> Int { 1 }
+@move_only(strict)
+pub struct Token { pub id: Int }
+pub fn main() {
+    let _ = f()
+}

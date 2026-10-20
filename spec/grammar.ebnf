@@ -18,7 +18,7 @@ declaration      = import_decl | type_decl | struct_decl | enum_decl
 visibility       = [ "pub" ] ;
 separator        = NEWLINE | ";" ;
 value_name       = VALUE_IDENT | "system" | "pipeline" | "ref" | "map"
-                 | "set" | "derive" | "repr" ;
+                 | "set" | "region" | "derive" | "repr" ;
 type_name        = TYPE_IDENT ;
 module_path      = value_name, { ".", value_name } ;
 type_path        = [ module_path, "." ], type_name ;
@@ -110,7 +110,8 @@ primary          = literal | value_path | type_path
                  | "(", expr, ")" | tuple_literal | list_literal
                  | record_literal | map_literal | set_literal | lambda
                  | if_expr | match_expr | while_expr | for_expr | loop_expr
-                 | system_expr | pipeline_expr | ref_expr | unsafe_expr | block
+                 | system_expr | pipeline_expr | ref_expr | unsafe_expr
+                 | region_expr | block
                  | unary_op, primary ;
 postfix          = [ type_args ], "(", arguments, ")"
                  | ".", value_name | "[", expr, "]" | "?" ;
@@ -143,6 +144,8 @@ system_entry     = label, ":", expr ;   (* a provider application: provider(conf
 pipeline_expr    = "pipeline", "{", [ expr, { ",", expr }, [ "," ] ], "}" ;
 ref_expr         = "ref", "(", SYMBOL, ")" ;
 unsafe_expr      = "unsafe", block ;
+(* a lexical region: the name is a region type parameter inside the block *)
+region_expr      = "region", type_name, block ;
 
 pattern          = "_" | value_name | literal | tuple_pattern | record_pattern
                  | variant_pattern ;

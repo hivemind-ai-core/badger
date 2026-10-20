@@ -1611,6 +1611,11 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let b = self.block(b);
                 self.alloc_expr(ExprKind::Unsafe(b), span)
             }
+            cst::Expr::Region(n, b) => {
+                let name = self.name(n);
+                let body = self.block(b);
+                self.alloc_expr(ExprKind::Region { name, body }, span)
+            }
             cst::Expr::Return(e) => {
                 let e = e.map(|e| self.expr(*e));
                 self.alloc_expr(ExprKind::Return(e), span)
@@ -2010,7 +2015,7 @@ fn expr_children(kind: &ExprKind, f: &mut impl FnMut(ExprId)) {
             f(*iter);
             f(*body)
         }
-        ExprKind::Loop { body } | ExprKind::Unsafe(body) => f(*body),
+        ExprKind::Loop { body } | ExprKind::Unsafe(body) | ExprKind::Region { body, .. } => f(*body),
         ExprKind::Block { stmts } => {
             for s in stmts {
                 stmt(s, f)

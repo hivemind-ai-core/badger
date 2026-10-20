@@ -1,0 +1,16 @@
+// The observers of a list of affine values (`len`, `is_empty`) keep the
+// list: the `list` module hands `self` to its intrinsics without consuming
+// it, which is not a duplicate of the elements.
+import std.buffer
+import std.io
+
+pub fn main() -> Result<Unit, io.Error> {
+    let xs = [buffer.new<Int>(), buffer.new<Int>()]
+    io.println($"{xs.len()} {xs.is_empty()}")?
+    var total = 0
+    for b in xs {
+        b.push(1)
+        total = total + b.freeze().len()
+    }
+    io.println(total)
+}

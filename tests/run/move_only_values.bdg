@@ -1,0 +1,66 @@
+// A `@move_only` type's values are moved, never copied: a binding, a call by
+// value, a return, a record, a list, a match, and a closure each move one,
+// while field reads, `&Self` methods, `&T` parameters, and interpolation
+// borrow it. Each value is moved once, so the program is accepted.
+import std.io
+
+@move_only
+pub struct Token { pub id: Int }
+
+@move_only
+pub enum Ticket { open(seat: Int), closed }
+
+// an aggregate holding a move-only value is move-only too
+pub struct Wallet { pub tok: Token, pub owner: String }
+
+impl Token {
+    pub fn peek(self: &Self) -> Int { self.id }
+    pub fn redeem(self: Self) -> Int { self.id * 10 }
+}
+
+fn read(t: &Token) -> Int { t.id }
+fn take(t: Token) -> Int { t.id }
+fn pass(t: Token) -> Token { t }
+fn mint(n: Int) -> Token { { id: n } }
+
+fn seat(t: Ticket) -> Int {
+    match t {
+        .open(n) => n,
+        .closed => 0,
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let t = mint(1)
+    io.println($"{t.id} {t.peek()} {read(&t)}")?
+    // a binding, a call, and a return each move it on
+    let u = pass(t)
+    let w = u
+    io.println(take(w))?
+    // into a record, and out of it again
+    let r = { tok: mint(2) }
+    io.println(r.tok.redeem())?
+    let wallet: Wallet = { tok: mint(3), owner: "ada" }
+    io.println($"{wallet.owner} {wallet.tok.peek()}")?
+    io.println(take(wallet.tok))?
+    // into a list, and out of it by iterating
+    let xs = [mint(4), mint(5)]
+    var sum = 0
+    for x in xs {
+        sum = sum + x.redeem()
+    }
+    io.println(sum)?
+    // into a closure that takes it
+    let v = mint(6)
+    let f = fn() => take(v)
+    io.println(f())?
+    // a fresh value on each iteration
+    for i in 0..2 {
+        let k = mint(i)
+        io.println(take(k))?
+    }
+    io.println(seat(Ticket.open(7)) + seat(Ticket.closed))?
+    // a move-only value may be dropped unused: it is not linear
+    let _unused = mint(8)
+    ok(())
+}

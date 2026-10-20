@@ -399,6 +399,7 @@ buf.push(1)   // E0404: use of moved value `buf`
 | E0408 | `&mut` of something not assignable: a plain `let` value (builders and buffers are fine), a temporary, or a shared borrow |
 | E0412 | Passing an owned affine value where a function takes `&T` |
 | E0413 | A resource (file, batch lease) dropped without being closed, released, or moved on |
+| E0414 | A value of a `@move_only` type used again after it moved (a copy) |
 
 ### Resources are used exactly once
 
@@ -442,6 +443,56 @@ too. An error exit (`?`, `return err(..)`) is not checked: there the runtime
 closes the file, as it does for a file held by a value that is dropped.
 Channel endpoints are shared handles, not resources of this kind: see
 [the specification](../../spec/04-memory-and-collections.md#linear-resources).
+
+### Move-only types
+
+Your own struct or enum can ask for the same discipline: mark it
+`@move_only` and its values are moved, never copied. It suits a value that
+stands for something that happens once, such as a ticket that is redeemed or
+a draft that is sent.
+
+```badger
+import std.io
+
+@move_only
+pub struct Draft { pub to: String, pub body: String }
+
+pub struct Sent { pub to: String }
+
+impl Draft {
+    pub fn preview(self: &Self) -> String { $"to {self.to}: {self.body}" }
+}
+
+// sending takes the draft: it cannot be sent twice
+fn send(d: Draft) -> Sent { { to: d.to } }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let d: Draft = { to: "ada", body: "hello" }
+    io.println(d.preview())?
+    let s = send(d)
+    io.println($"sent to {s.to}")?
+    ok(())
+}
+```
+
+```text
+to ada: hello
+sent to ada
+```
+
+Binding, passing by value, returning, storing in a record or list, and
+capturing in a closure that takes it all move the value; using the old
+binding again would copy it, and is E0414. Field reads, `self: &Self`
+methods, and `&d` arguments only borrow.
+
+```badger fragment
+let s = send(d)
+let t = send(d)   // E0414: cannot copy `d`: `Draft` is move-only
+```
+
+Move-only is not linear: a draft may be dropped without being sent. A file
+must be closed (E0413) *and* cannot be copied; a `@move_only` type only
+promises the second. A type without the marker copies as it always has.
 
 ### Moving into a task
 
@@ -554,5 +605,60 @@ The standard library uses regions for every resource with a lifetime:
 
 A trailing region parameter may be elided in annotations: `sqlite.Pool`
 means `sqlite.Pool<_>`.
+
+### Region blocks
+
+A `region` block opens a region of your own. Its name is a type-level name
+inside the block, and a struct whose last type parameter is a region
+(`R: Scope`) is a *region record*: `Batch<Scratch>` is a batch of region
+`Scratch`. Use one for scratch values that must not outlive a computation:
+
+```badger
+import std.io
+
+struct Batch<R: Scope> { name: String, items: List<Int> }
+
+fn batch<R: Scope>(name: String, items: List<Int>) -> Batch<R> { { name, items } }
+
+fn total<R: Scope>(b: &Batch<R>) -> Int { b.items.fold(0, fn(a, x) { a + x }) }
+
+// the caller gives the region of the result: it outlives the return
+fn summary<R: Scope>(n: Int) -> Batch<R> {
+    region Scratch {
+        let scratch: Batch<Scratch> = batch("scratch", [n, n + 1])
+        batch("summary", [total(&scratch)])
+    }
+}
+
+pub fn main() -> Result<Unit, io.Error> {
+    let sum = region Main {
+        let s: Batch<Main> = summary(2)
+        total(&s)
+    }
+    io.println($"sum {sum}")
+}
+```
+
+```text
+sum 5
+```
+
+`Scratch` ends with its block, so a `Batch<Scratch>` cannot leave it: not
+as the block's result, not by `return` or `break`, not into an outer `var`,
+cell, or collection, and not inside a closure or task. All are E0414:
+
+```badger fragment
+fn leak<R: Scope>(n: Int) -> Batch<R> {
+    region Scratch {
+        let scratch: Batch<Scratch> = batch("scratch", [n])
+        scratch
+        // E0414: a value of region `Scratch` outlives its region
+    }
+}
+```
+
+The brand is a static guarantee: region records are allocated and
+collected like any other value, and a `region` block runs as an ordinary
+block.
 
 Next: [Systems and pipelines](08-systems-and-pipelines.md).

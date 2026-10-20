@@ -1,0 +1,9 @@
+// expect-error: E0415
+// Each list element is a move: the same value twice would be a copy.
+@move_only
+pub struct Token { pub id: Int }
+pub fn main() {
+    let t: Token = { id: 1 }
+    let xs = [t, t]
+    let _ = xs.len()
+}

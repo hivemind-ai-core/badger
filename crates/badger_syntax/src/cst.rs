@@ -475,6 +475,8 @@ pub enum Expr<'a> {
     /// `ref(#key)`: the symbol's text and span.
     Ref(&'a str, Span),
     Unsafe(Block<'a>),
+    /// `region R { ... }`: a lexical region named `R` (a type-level name).
+    Region(Ident<'a>, Block<'a>),
     Return(Option<Box<E<'a>>>),
     Break(Option<Box<E<'a>>>),
     Continue,

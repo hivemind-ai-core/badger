@@ -3,7 +3,7 @@
 
 use badger_base::{Diagnostic, Interner, Span, Symbol};
 use badger_hir::{DefId, DefKind, GenericId, HEffect, HTy, HTyKind, Hir};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::ty::*;
 
@@ -201,6 +201,9 @@ pub struct TypeEnv {
     /// Impls whose self type is not a nominal constructor (records, tuples...).
     pub structural_impls: Vec<usize>,
     pub aliases: FxHashMap<DefId, (Vec<GenericId>, HTy)>,
+    /// Structs and enums marked `@move_only`: each value has one owning use
+    /// (it is moved, never copied), and the type is never `Share`.
+    pub move_only: FxHashSet<DefId>,
     /// Every modeled effect: the bound of a function type stored without an
     /// effect annotation in user declarations (nothing can be inferred there).
     pub all_effects: Vec<Symbol>,
@@ -233,6 +236,7 @@ impl TypeEnv {
             impls_by_head: FxHashMap::default(),
             structural_impls: vec![],
             aliases: FxHashMap::default(),
+            move_only: FxHashSet::default(),
             all_effects: ["Io", "Wait", "State", "Foreign"].iter().map(|l| interner.intern(l)).collect(),
             local: interner.intern("Local"),
             confined: interner.intern("%confined"),
@@ -244,6 +248,13 @@ impl TypeEnv {
         }
         env.check_aliases(hir, interner, diags);
         for (id, def) in hir.defs.iter() {
+            if matches!(def.kind, DefKind::Struct(_) | DefKind::Enum(_))
+                && hir.attributes.get(&id).is_some_and(|attrs| {
+                    attrs.iter().any(|a| a.namespace.is_empty() && interner.resolve(a.name) == "move_only")
+                })
+            {
+                env.move_only.insert(id);
+            }
             match &def.kind {
                 DefKind::Struct(s) => {
                     let gens = gen_map(&s.generics);

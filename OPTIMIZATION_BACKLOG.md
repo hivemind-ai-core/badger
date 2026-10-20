@@ -570,11 +570,12 @@ left to a two-socket deployment.
   CPU sampling; 4-worker `bench/messages.bdg` improves on a
   2-socket host.
 
-## Phase 3 — Type-system memory management (language-side, no language change for §3.1–§3.3)
+## Phase 3 — Type-system memory management (language-side, no language change for §3.1–§3.2)
 
 Phase 3 is the research-driven version of the BACKLOG "C3 / R1"
 typeck work. It builds on the existing `ownership.rs` and
-`regions.rs`; no user-facing surface changes for §3.1–§3.3.
+`regions.rs`; no user-facing surface changes for §3.1–§3.2 (§3.3 adds the
+`region` block).
 
 ### 3.1 Region / arena for typeck and AST
 
@@ -657,6 +658,39 @@ loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
 
 ### 3.3 Region annotation on builtin types
 
+**Status:** landed 2026-10-20 as a **static guarantee; the expected win does
+not hold without a runtime arena**. The brand reuses the type checker's
+existing region machinery: a region record is a struct or enum whose last
+type parameter is a region (`struct Batch<R: Scope>`), so the brand travels
+in `Ty` as that argument and is erased (to `Unit`) by `program::ground`
+before the MIR, which consumes `TyKind` directly and so cannot take a new
+variant without MIR changes. The new surface is a lexical region block,
+`region Scratch { ... }` (Tofte-Talpin's `letregion`, Cyclone's
+`region r { }`), with `region` contextual like `system` and `map`. The block
+is checked one level deeper with `Scratch` bound to a fresh *lexical* region
+skolem, so no type of an outer level (the block's result, a `return`, a
+`break`, an outer `var`, a captured cell) can name it; `regions.rs` checks
+the block like a `for<S>` callback for the values whose types hide the brand
+(closures, sequences, tasks, `dyn`, stores into captured state). The
+violation is the new **E0414** "region value outlives its region". A record
+of a function's region parameter (`fn make<R: Scope>() -> Batch<R>`) is
+returned to the caller; one of a `region` block inside the function is not.
+HIR lowers the block to an ordinary `Block` plus `Hir::region_blocks`, so
+the MIR, the codegen, and the runtime see an ordinary block. `TypeDesc`
+gains a `region` flag (with `with_region`), ignored by tracing, layout and
+collection; the descriptors are built in `badger_mir/src/layout.rs`, outside
+this item, so nothing sets it yet (a follow-up for the MIR owners: mark the
+descriptor of a struct or enum whose last parameter is a region). With no
+arena to allocate into, the brand cannot change allocation: the win on
+`bench/parallel_alloc` is 0 %, not ~5 %. No existing program uses a
+`region` block, so the corpus checks and runs as before; the type checker's
+region taint tests are unchanged. The gate is
+`region_record_return_needs_an_outliving_region` in
+`crates/badger_cli/tests/programs.rs` (the same program rejected with the
+block's region, accepted with the caller's), with
+`tests/run/region_records.bdg` and seven `tests/reject/region_record_*.bdg`
+programs for the escape paths.
+
 - **Goal**: add a region brand to `TypeDesc` for selected builtin
   types (records of pointers); add a `region` qualifier in the
   user-facing surface.
@@ -720,6 +754,37 @@ mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
   `E04xx` (linear-use-before-move) are reviewed.
 
 ### 3.5 Move-only marker for user-defined types
+
+**Status:** **the marker landed; the `sra` half is not adopted with it**
+(2026-10-20). A struct or enum written `@move_only` is affine by
+declaration: the typeck records the marker per type
+(`TypeEnv::move_only`) and `ownership.rs` classifies such a type, and any
+aggregate holding one, as affine. A value is then moved by a binding, a
+call by value, a return, a record, variant, list, map or set, a binding
+match, or a closure that takes it, and every use after a move is a copy:
+the new **E0414** "move-only value copied", also for a generic function or
+closure that uses the value twice and for taking one out of a borrow. A
+move-only type is never `Share` (E0341) and cannot be a module value
+(E0138), the two places a value is duplicated without a binding. The marker
+is not linearity: `Linear` (E0413) says a resource must be *used* on every
+exit; `@move_only` says a value is *moved*, never copied, and it may be
+dropped unused. Every linear type is affine, so moved too. Unmarked types
+copy as before (`tests/run/move_only_unmarked.bdg`); the corpus is
+otherwise unchanged. One related false positive went: a `&Self` method of
+the trusted `list` module handing `self` to an intrinsic no longer counts as
+duplicating its element type, so `List<Token>.len()` (and
+`List<Buffer<Int>>.len()`) check; `map` and `set` keep the old, conservative
+answer. The MIR, the codegen and the runtime are unchanged: the check runs on
+the typeck's view of every copy the language makes, and nothing later copies
+a value the source does not. **What the `sra` half would add**, were §3.2
+ever adopted: a move-only value has one owner at a time, so its escape is a
+single chain of moves rather than an alias set, and a callee that takes one
+by value and neither returns nor stores it is a NoEscape summary without an
+alias analysis. Its use would be in-place reuse (a function consuming a
+`Token` and building another can reuse the storage) rather than stack
+allocation, and on the measured benchmarks it adds nothing: no gate
+workload uses the marker, and the allocations §3.2 measured escape for real
+(returned, stored, sent), which a move does not change.
 
 - **Goal**: add a `~Copyable` / `move` marker to user-defined
   types; the existing `sra.rs` (extended in 3.2) then operates

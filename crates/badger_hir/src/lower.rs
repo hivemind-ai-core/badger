@@ -80,7 +80,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message", "move_only"];
 
 /// Where an attribute is written.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -137,7 +137,7 @@ struct AttrUse {
 fn attribute_fits(name: &str, place: Place) -> bool {
     match name {
         "allow" => true,
-        "derive" => matches!(place, Place::Item("struct" | "enum")),
+        "derive" | "move_only" => matches!(place, Place::Item("struct" | "enum")),
         "flatten" => place == Place::Item("struct"),
         "fusion" => matches!(place, Place::Item("fn") | Place::Method),
         "status" | "message" => place == Place::Variant,
@@ -1335,7 +1335,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     }
 
     /// Record the item's attributes, check them, and check the ones
-    /// particular to an item (`@flatten`, `@fusion`).
+    /// particular to an item (`@flatten`, `@fusion`, `@move_only`).
     fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
         if item.attributes.is_empty() {
             return;
@@ -1382,6 +1382,17 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     );
                 }
                 flattened = flattened.or(Some(attr.span));
+            }
+            // `@move_only`: the type's values are moved, never copied
+            if name == "move_only" && !attr.args.is_empty() {
+                self.cx.diags.push(
+                    Diagnostic::error("`@move_only` takes no arguments")
+                        .with_code("E0199")
+                        .with_label(attr.span, "remove the arguments")
+                        .with_note(
+                            "`@move_only pub struct Token { id: Int }` makes the values of `Token` move-only",
+                        ),
+                );
             }
             // `@fusion(role = ..., template = ..., <parameter> = ...)`: a
             // closed vocabulary, a shape each kind is written for, and the
@@ -2559,6 +2570,23 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
             },
             ast::ExprKind::Unsafe(b) => ExprKind::Unsafe(self.lower_expr(*b)),
+            ast::ExprKind::Region { name, body } => {
+                let bounds = match self.cx.hir.try_lang("Scope") {
+                    Some(def) => vec![HTy { kind: HTyKind::Named { def, args: vec![] }, span: name.span }],
+                    None => vec![],
+                };
+                let g = self.cx.hir.generics.alloc(GenericParam {
+                    name: name.sym,
+                    span: name.span,
+                    bounds,
+                    owner: self.cur_def,
+                });
+                self.generics.push(FxHashMap::from_iter([(name.sym, g)]));
+                let body = self.lower_expr(*body);
+                self.generics.pop();
+                self.cx.hir.region_blocks.insert(body, g);
+                return body;
+            }
         };
         self.alloc(kind, span)
     }
@@ -3895,7 +3923,11 @@ fn collect_refs(ast: &ast::Ast, e: ast::ExprId, out: &mut Vec<(Symbol, Span)>) {
             go(*callee);
             args.iter().for_each(|a| go(*a))
         }
-        K::Try(x) | K::Unary { operand: x, .. } | K::Unsafe(x) | K::Loop { body: x } => go(*x),
+        K::Try(x)
+        | K::Unary { operand: x, .. }
+        | K::Unsafe(x)
+        | K::Loop { body: x }
+        | K::Region { body: x, .. } => go(*x),
         K::Binary { lhs, rhs, .. } => {
             go(*lhs);
             go(*rhs)

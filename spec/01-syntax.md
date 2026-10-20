@@ -47,11 +47,11 @@ are exempt.
 Keywords include `import`, `as`, `pub`, `type`, `struct`, `enum`, `protocol`,
 `impl`, `for`, `where`, `derive`, `fn`, `once`, `let`, `var`, `const`, `if`,
 `else`, `match`, `while`, `loop`, `in`, `break`, `continue`, `return`, `use`,
-`system`, `pipeline`, `ref`, `map`, `set`, `unsafe`, `extern`, `dyn`, `repr`,
-`requires`, and `ensures`.
+`system`, `pipeline`, `ref`, `map`, `set`, `region`, `unsafe`, `extern`, `dyn`,
+`repr`, `requires`, and `ensures`.
 `true` and `false` are boolean literals. `mut` is reserved for exclusive borrows.
-`system`, `pipeline`, `ref`, `map`, `set`, `derive`, `repr`, `requires`, and
-`ensures` are contextual:
+`system`, `pipeline`, `ref`, `map`, `set`, `region`, `derive`, `repr`,
+`requires`, and `ensures` are contextual:
 their special syntax is recognized in the corresponding form, while module
 paths such as `std.system` and calls such as `pipeline.compile` remain valid.
 Keywords after a dot can name a declared member; ordinary declarations still
