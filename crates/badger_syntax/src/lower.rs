@@ -240,17 +240,9 @@ impl<'a, 'i> Lower<'a, 'i> {
                             );
                         }
                     }
-                    other => {
-                        let other = other.to_string();
-                        self.diags.push(
-                            Diagnostic::warning(format!("unknown variant attribute `@{other}`"))
-                                .with_code("E0191")
-                                .with_label(
-                                    a.span,
-                                    "a variant takes `@status(code)` and `@message(\"text\")`",
-                                ),
-                        );
-                    }
+                    // the rest (a library's, an unknown one, a misplaced one)
+                    // are checked with every other attribute
+                    _ => {}
                 }
             }
         }
@@ -303,10 +295,11 @@ impl<'a, 'i> Lower<'a, 'i> {
         let scrutinee = self.alloc_expr(ExprKind::Name(Name { sym: self_sym, span: at }), at);
         let body = self.alloc_expr(ExprKind::Match { scrutinee, arms }, at);
         let method = FnDecl {
+            attributes: vec![],
             name: Name { sym: self.interner.intern("http_status"), span: at },
             is_pub: false,
             generics: vec![],
-            params: vec![Param { pat: self_pat, ty: Some(selfref) }],
+            params: vec![Param { attributes: vec![], pat: self_pat, ty: Some(selfref) }],
             ret: Some(int),
             effect: None,
             where_preds: vec![],
@@ -367,6 +360,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             .collect();
         let body = self.alloc_expr(ExprKind::Record { spread: None, entries }, at);
         let method = FnDecl {
+            attributes: vec![],
             name: Name { sym: self.interner.intern("default"), span: at },
             is_pub: false,
             generics: vec![],
@@ -431,10 +425,11 @@ impl<'a, 'i> Lower<'a, 'i> {
                 let generics = self.generics(generics);
                 let fields: Vec<StructField> = fields
                     .into_iter()
-                    .map(|(is_pub, n, t)| {
+                    .map(|(attrs, is_pub, n, t)| {
+                        let attributes = self.attributes(attrs);
                         let name = self.value_name(n);
                         let ty = self.ty(t);
-                        StructField { is_pub, name, ty }
+                        StructField { attributes, is_pub, name, ty }
                     })
                     .collect();
                 let mut derives: Vec<TypeId> = attribute_derives.iter().map(|t| self.ty(t.clone())).collect();
@@ -560,9 +555,13 @@ impl<'a, 'i> Lower<'a, 'i> {
             .into_iter()
             .map(|a| {
                 let span = self.span(a.span);
-                let name = self.interner.intern(a.name.text);
+                let namespace: Vec<Symbol> =
+                    a.namespace.iter().map(|n| self.interner.intern(n.text)).collect();
+                let full =
+                    a.namespace.iter().map(|n| n.text).chain([a.name.text]).collect::<Vec<_>>().join(".");
+                let name = self.interner.intern(&full);
                 let args = a.args.into_iter().map(|x| self.attr_arg(x)).collect();
-                Attribute { name, args, span }
+                Attribute { name, namespace, args, span }
             })
             .collect()
     }
@@ -584,9 +583,12 @@ impl<'a, 'i> Lower<'a, 'i> {
         let mut assoc = vec![];
         for m in members {
             match m {
-                cst::Member::Fn(d) => {
+                cst::Member::Fn(mut d) => {
                     let span = self.span(d.span);
-                    methods.push(self.fn_decl(d, span))
+                    let attributes = self.attributes(std::mem::take(&mut d.attributes));
+                    let mut decl = self.fn_decl(d, span);
+                    decl.attributes = attributes;
+                    methods.push(decl)
                 }
                 cst::Member::AssocType(n, t) => {
                     let n = self.type_name(n);
@@ -615,6 +617,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         let where_preds = self.where_preds(d.where_preds);
         let body = d.body.map(|b| self.block(b));
         FnDecl {
+            attributes: vec![],
             name,
             is_pub: d.is_pub,
             generics,
@@ -673,7 +676,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             // `(config)`: the scope is unused
             let pspan = self.span(params_span);
             let scope = self.alloc_pat(PatKind::Discard, pspan);
-            params.insert(0, Param { pat: scope, ty: None });
+            params.insert(0, Param { attributes: vec![], pat: scope, ty: None });
         } else if params.len() != 2 {
             self.error(
                 "E0705",
@@ -703,6 +706,7 @@ impl<'a, 'i> Lower<'a, 'i> {
             let fname = Name { sym: self.interner.intern(&text), span: n.span };
             self.extra_items.push(Item {
                 kind: ItemKind::Fn(FnDecl {
+                    attributes: vec![],
                     name: fname,
                     is_pub: false,
                     generics: vec![],
@@ -826,6 +830,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         let body =
             self.alloc_expr(ExprKind::Block { stmts: vec![Stmt::Expr { expr: call, semi: false }] }, span);
         FnDecl {
+            attributes: vec![],
             name: n,
             is_pub,
             generics,
@@ -867,9 +872,10 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn params(&mut self, ps: Vec<cst::Param<'_>>) -> Vec<Param> {
         ps.into_iter()
             .map(|p| {
+                let attributes = self.attributes(p.attributes);
                 let pat = self.pattern(p.pat);
                 let ty = p.ty.map(|t| self.ty(t));
-                Param { pat, ty }
+                Param { attributes, pat, ty }
             })
             .collect()
     }
@@ -1121,8 +1127,9 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     /// A local function: lifted to a private module function (it does not
     /// capture the enclosing function's locals; a closure does).
-    fn local_fn_decl(&mut self, d: cst::FnDecl<'_>) -> Stmt {
+    fn local_fn_decl(&mut self, mut d: cst::FnDecl<'_>) -> Stmt {
         let span = self.span(d.span);
+        let attributes = self.attributes(std::mem::take(&mut d.attributes));
         let written = self.interner.intern(d.name.text);
         let lifted = self.local_fn(written).unwrap_or(written);
         if d.is_pub {
@@ -1145,7 +1152,7 @@ impl<'a, 'i> Lower<'a, 'i> {
         decl.name = Name { sym: lifted, span: decl.name.span };
         decl.is_pub = false;
         self.ast.local_fns.push(lifted);
-        self.extra_items.push(Item { kind: ItemKind::Fn(decl), span, is_pub: false, attributes: vec![] });
+        self.extra_items.push(Item { kind: ItemKind::Fn(decl), span, is_pub: false, attributes });
         let unit = self.alloc_expr(ExprKind::Lit(Lit::Unit), span);
         Stmt::Expr { expr: unit, semi: true }
     }
@@ -1219,6 +1226,13 @@ impl<'a, 'i> Lower<'a, 'i> {
     fn stmt(&mut self, s: cst::Stmt<'_>) -> Stmt {
         match s {
             cst::Stmt::Fn(d) => self.local_fn_decl(*d),
+            cst::Stmt::Attributed(tags, inner) => {
+                let span = self.span(cst_stmt_span(&inner));
+                let tags = self.attributes(tags);
+                let st = self.stmt(*inner);
+                self.ast.stmt_attributes.push((span, tags));
+                st
+            }
             cst::Stmt::Let { kind, pat, ty, value, els: None, span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
@@ -2022,4 +2036,14 @@ pub fn message_placeholders(template: &str) -> Result<Vec<String>, String> {
         }
     }
     Ok(names)
+}
+
+/// A statement's source span.
+fn cst_stmt_span(s: &cst::Stmt<'_>) -> crate::token::Span {
+    match s {
+        cst::Stmt::Fn(d) => d.span,
+        cst::Stmt::Let { span, .. } | cst::Stmt::Use { span, .. } | cst::Stmt::Assign { span, .. } => *span,
+        cst::Stmt::Expr((_, span)) => *span,
+        cst::Stmt::Attributed(_, inner) => cst_stmt_span(inner),
+    }
 }
