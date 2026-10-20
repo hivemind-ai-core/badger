@@ -186,6 +186,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise (an error: a typo, or a library's attribute written without its namespace). A library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports (an error otherwise); one the module does not declare is a warning in user code and an error in standard-library sources.",
     ),
     (
+        "E0200",
+        "fusion shape mismatch",
+        "A `@fusion(...)` annotation whose kind does not match the function it is written on: the kind fixes both the role (`source`, `stage`, or `terminal`) and the number of parameters, counting the sequence as the first. It would never fuse.",
+    ),
+    (
         "E0199",
         "misplaced attribute",
         "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",

@@ -1,0 +1,12 @@
+// A `@fusion` annotation must agree with the function it is written on:
+// the kind fixes the role and the arity, and a mismatch warns in user code
+// (it is an error in standard-library sources).
+// expect-warning: E0200
+@fusion(role = stage, template = count)
+pub fn counted(xs: List<Int>) -> List<Int> { xs }
+
+// expect-warning: E0200
+@fusion(role = stage, template = take)
+pub fn overlong(xs: List<Int>, _n: Int, _extra: Int) -> List<Int> { xs }
+
+pub fn main() {}
