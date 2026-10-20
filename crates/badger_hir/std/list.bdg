@@ -84,6 +84,7 @@ impl<T> List<T> {
     pub fn last(self: &Self) -> Option<T> { list_get(self, list_len(self) - 1) }
     pub fn contains(self: &Self, value: T) -> Bool where T: PartialEq { list_contains(self, value) }
     /// Lazy view over the elements.
+    @fusion(role = source, template = list)
     pub fn seq(self: &Self) -> Seq<T> { of(self) }
     /// Read-only contiguous page views (page directory size).
     pub fn page_count(self: &Self) -> Int { page_count(self) }

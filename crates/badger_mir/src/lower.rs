@@ -64,13 +64,6 @@ pub(crate) struct FusionTemplate {
 }
 
 impl FusionTemplate {
-    pub(crate) fn new(kind: &str, params: &[(&str, &str)]) -> Self {
-        FusionTemplate {
-            kind: kind.to_string(),
-            params: params.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-        }
-    }
-
     /// The value the annotation gave a parameter (`mode = take`).
     pub(crate) fn param(&self, key: &str) -> Option<&str> {
         self.params.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
@@ -2521,8 +2514,6 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         let is_entries = |def: DefId| {
             let p = self.m.def_path(def);
             self.m.fusion.get(&p).is_some_and(|t| t.kind == "entries")
-                || p == "std.map.entries"
-                || p == "std.map.to_list"
         };
         match &hir.exprs[e].kind {
             ExprKind::MethodCall { recv, args, .. } if args.is_empty() => {
@@ -2556,7 +2547,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
         }
         let source = self.map_entries_source(recv)?;
         let path = self.m.def_path(outer);
-        let is_fold = self.m.fusion.get(&path).is_some_and(|t| t.kind == "fold") || path == "std.list.fold";
+        let is_fold = self.m.fusion.get(&path).is_some_and(|t| t.kind == "fold");
         let kind = if self.is_list_call(outer) && args.len() == 1 {
             // map (0) or filter (1), by the callback's shape
             if self.callback_returns_bool(args[0]) { 1 } else { 0 }
@@ -2599,7 +2590,7 @@ impl<'m, 'g, 'a> FnLower<'m, 'g, 'a> {
     /// return type, not the name.
     fn is_list_call(&self, def: DefId) -> bool {
         let p = self.m.def_path(def);
-        self.m.fusion.get(&p).is_some_and(|t| t.kind == "call") || p == "std.list.map" || p == "std.list.filter"
+        self.m.fusion.get(&p).is_some_and(|t| t.kind == "call")
     }
 
     /// One `List.map`/`List.filter` stage: (is map, receiver, callback,
