@@ -115,6 +115,49 @@ for these checked callback contracts, not unrestricted higher-rank inference.
 Resource implementations declare their handle's region parameter; the compiler
 may elide it in diagnostic/display contexts where its origin is unambiguous.
 
+### Region blocks and region records
+
+A `region` block names a lexical region that ends with the block:
+
+```text
+region Scratch { statements; result }
+```
+
+`region` is a keyword only before a type-level name and a block; elsewhere
+it is an ordinary name. The name is a region type parameter (bounded by
+`Scope`) in scope for the types written inside the block. A struct or enum
+whose last type parameter is a region is a *region record*: `Node<Scratch>`
+is a `Node` of region `Scratch`. A region record is created in the region its
+type names, and none of its values outlives that region. Region brands are
+invariant: `Node<A>` and `Node<B>` are different types for different regions.
+
+A region outlives the places where it is in scope: a block's region outlives
+the statements of its block; a function's region parameter (`R: Scope`),
+provided by the caller, outlives the function's return. A value of a block's
+region therefore cannot be the block's result, be returned (`return`) or
+broken (`break`) out of it, be assigned to a `var` declared outside it, or be
+stored into a cell, atom, collection, or channel reached from outside it. A
+closure, sequence, task, `dyn` value, or handle built from one cannot leave
+the block either. A violation is E0414. A record of a function's region
+parameter is returned to the caller:
+
+```text
+fn make<R: Scope>(v: Int) -> Node<R> { { value: v } }  // R outlives the return
+fn leak<R: Scope>(v: Int) -> Node<R> {
+    region Scratch {
+        let n: Node<Scratch> = make(v)
+        n                                            // E0414
+    }
+}
+```
+
+The region of a block is checked like the fresh region of a `for<S: Scope>`
+callback: the block's body is the callback's body, and the locals it uses
+from outside are its captures. A brand is a static guarantee. A region
+record is allocated, traced, and collected like any other record, and a
+`region` block runs as an ordinary block. The runtime type descriptor has a
+region flag for the brand, which tracing and collection ignore.
+
 Child tasks in a scope may borrow enclosing *shareable* resources if they finish
 before that resource closes. A task-local transaction does not become shareable
 just because a child has a shorter lifetime. Captures and returned records keep

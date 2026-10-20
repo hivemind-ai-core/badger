@@ -209,6 +209,7 @@ pub fn main() -> Result<Unit, io.Error> {
 | E0412 | implicit borrow of an owned value |
 | E0413 | linear value not consumed |
 | E0401 | region escape |
+| E0414 | region value outlives its region |
 
 Some values have one owner. Passing a builder, a buffer, a lease, or a
 `once` closure by value moves it, and the old binding is dead: E0404.
@@ -217,7 +218,10 @@ Ordinary function arguments borrow explicitly, so a function that takes
 value: E0412. A value tied to a scope (a transaction, a task handle, a
 running system) cannot outlive the callback that introduced the scope:
 E0401, so return plain data from such a callback instead of the scoped
-value itself. A resource (an open file, a batch lease) must also be
+value itself. A record of a `region` block's region (`Node<Scratch>`)
+cannot leave the block either, by its result, a `return`, or a store
+outside it: E0414; build it in a region the caller gives (`R: Scope`)
+instead. A resource (an open file, a batch lease) must also be
 consumed: a file that is opened and dropped without `close` (or written
 to and dropped) is E0413, on any path that leaves its scope other than
 an error exit (`?`).

@@ -570,11 +570,12 @@ left to a two-socket deployment.
   CPU sampling; 4-worker `bench/messages.bdg` improves on a
   2-socket host.
 
-## Phase 3 — Type-system memory management (language-side, no language change for §3.1–§3.3)
+## Phase 3 — Type-system memory management (language-side, no language change for §3.1–§3.2)
 
 Phase 3 is the research-driven version of the BACKLOG "C3 / R1"
 typeck work. It builds on the existing `ownership.rs` and
-`regions.rs`; no user-facing surface changes for §3.1–§3.3.
+`regions.rs`; no user-facing surface changes for §3.1–§3.2 (§3.3 adds the
+`region` block).
 
 ### 3.1 Region / arena for typeck and AST
 
@@ -656,6 +657,39 @@ loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
   the diff on the IR is reviewed for false positives.
 
 ### 3.3 Region annotation on builtin types
+
+**Status:** landed 2026-10-20 as a **static guarantee; the expected win does
+not hold without a runtime arena**. The brand reuses the type checker's
+existing region machinery: a region record is a struct or enum whose last
+type parameter is a region (`struct Batch<R: Scope>`), so the brand travels
+in `Ty` as that argument and is erased (to `Unit`) by `program::ground`
+before the MIR, which consumes `TyKind` directly and so cannot take a new
+variant without MIR changes. The new surface is a lexical region block,
+`region Scratch { ... }` (Tofte-Talpin's `letregion`, Cyclone's
+`region r { }`), with `region` contextual like `system` and `map`. The block
+is checked one level deeper with `Scratch` bound to a fresh *lexical* region
+skolem, so no type of an outer level (the block's result, a `return`, a
+`break`, an outer `var`, a captured cell) can name it; `regions.rs` checks
+the block like a `for<S>` callback for the values whose types hide the brand
+(closures, sequences, tasks, `dyn`, stores into captured state). The
+violation is the new **E0414** "region value outlives its region". A record
+of a function's region parameter (`fn make<R: Scope>() -> Batch<R>`) is
+returned to the caller; one of a `region` block inside the function is not.
+HIR lowers the block to an ordinary `Block` plus `Hir::region_blocks`, so
+the MIR, the codegen, and the runtime see an ordinary block. `TypeDesc`
+gains a `region` flag (with `with_region`), ignored by tracing, layout and
+collection; the descriptors are built in `badger_mir/src/layout.rs`, outside
+this item, so nothing sets it yet (a follow-up for the MIR owners: mark the
+descriptor of a struct or enum whose last parameter is a region). With no
+arena to allocate into, the brand cannot change allocation: the win on
+`bench/parallel_alloc` is 0 %, not ~5 %. No existing program uses a
+`region` block, so the corpus checks and runs as before; the type checker's
+region taint tests are unchanged. The gate is
+`region_record_return_needs_an_outliving_region` in
+`crates/badger_cli/tests/programs.rs` (the same program rejected with the
+block's region, accepted with the caller's), with
+`tests/run/region_records.bdg` and seven `tests/reject/region_record_*.bdg`
+programs for the escape paths.
 
 - **Goal**: add a region brand to `TypeDesc` for selected builtin
   types (records of pointers); add a `region` qualifier in the
