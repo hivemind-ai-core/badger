@@ -677,13 +677,30 @@ loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
 
 ### 3.4 Linear types for resources (file / socket / channel)
 
-**Status:** landed 2026-10-20: the typeck tracks a `Linear` mode (use at least once)
-next to the existing `Affine` (use at most once), and the standard library's
-file and batch-channel resources are linear -- a file that is opened and
-closed is used, one that is opened and dropped is not, and a batch lease
-that is never released is not either. The new diagnostic `E0413` says so,
-with a span and a message naming the resource. The runtime does not change:
-the mode is a static guarantee, and the finalizers stay.
+**Status:** landed 2026-10-20: the typeck tracks a `Linear` mode (use at
+least once) next to the existing `Affine` (use at most once), and the
+standard library's file and batch-channel resources are linear. Like
+`Affine`, the mode is chosen per type (`Builtins::LINEAR_STD`) and tracked
+per binding by a must-consume pass. **The rules per resource**: a `File` is
+used by `close` or by a move, and reads and writes only borrow it; a
+`Batch` is used by `release` or by a move; sending on a channel neither uses
+nor consumes it. A linear value must be moved -- closed, released, passed
+by value into a call, returned, stored, or captured by a closure that
+consumes it -- on every normal exit from its scope (scope end, return,
+break, continue, an assignment over a variable); discarding one with `_` or
+as an expression statement is the new **E0413** "linear value not consumed".
+Error exits (`?`, `return err(..)`) and calls that never return are not
+checked. The channel endpoints, `ReplySender` and `websocket.WebSocket` are
+deliberately *not* linear: they are shared handles copied into tasks, and
+`http`'s `run_websocket` uses the server socket after passing it to the
+session. The runtime, the MIR, the codegen and the finalizers are
+unchanged: the mode is a static guarantee. The corpus impact is one
+program: `tests/run/readers_writers.bdg` dropped an open reader and wrote
+after close (now the static E0404, moved to
+`tests/reject/file_use_after_close.bdg`), and
+`tests/reject/system_output_batch_escape.bdg` now releases its lease. The
+mode is documented in the catalog, `docs/common-errors.md`, guide 07 and
+`spec/04`.
 
 - **Goal**: extend `ownership.rs` to track a `linear` mode (use at
   least once) in addition to `affine` (use at most once); apply
