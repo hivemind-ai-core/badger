@@ -474,6 +474,11 @@ fn generate_feature() {
     assert!(!again.status.success() && String::from_utf8_lossy(&again.stderr).contains("already exists"));
     let reserved = generate(&["http"]);
     assert!(!reserved.status.success());
+    // nor under a standard module's name, which it would hide
+    let hidden = generate(&["log"]);
+    assert!(!hidden.status.success() && String::from_utf8_lossy(&hidden.stderr).contains("standard module"));
+    let hidden = lang().args(["generate", "worker", "io"]).arg(&dir).output().unwrap();
+    assert!(!hidden.status.success() && String::from_utf8_lossy(&hidden.stderr).contains("standard module"));
     // a worker: one module with a durable job kind, checked and tested
     let worker = lang().args(["generate", "worker", "emails"]).arg(&dir).output().unwrap();
     let text = String::from_utf8_lossy(&worker.stdout).to_string();

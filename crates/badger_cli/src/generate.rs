@@ -498,6 +498,17 @@ const RESERVED: &[&str] = &[
     "generate_probe",
 ];
 
+/// A generated module named like a standard one (`io`, `json`) would hide
+/// it in every module importing both.
+fn std_clash(name: &str) -> Result<(), String> {
+    if badger_driver::std_modules().iter().any(|m| *m == name) {
+        return Err(format!(
+            "`{name}` is a standard module (`std.{name}`): a module of that name hides it where both are imported; choose another name"
+        ));
+    }
+    Ok(())
+}
+
 fn pascal(s: &str) -> String {
     s.split('_')
         .filter(|p| !p.is_empty())
@@ -532,6 +543,7 @@ pub fn plan_worker(dir: &Path, name: &str) -> Result<Plan, String> {
     if RESERVED.contains(&name) || ["jobs", "system", "task", "time", "worker"].contains(&name) {
         return Err(format!("`{name}` is a module the generated file imports: choose another name"));
     }
+    std_clash(name)?;
     let src = Path::new(&manifest.entry).parent().map(Path::to_path_buf).unwrap_or_default();
     let file = src.join(format!("{name}.bdg"));
     // (name the path that is there: the module file or its directory)
@@ -558,6 +570,7 @@ pub fn plan(dir: &Path, name: &str, item: Option<&str>) -> Result<Plan, String> 
     if RESERVED.contains(&name) {
         return Err(format!("`{name}` is a module the generated files import: choose another feature name"));
     }
+    std_clash(name)?;
     let item = match item {
         Some(i) => i.to_string(),
         None => name.strip_suffix('s').filter(|s| !s.is_empty()).unwrap_or(name).to_string(),
