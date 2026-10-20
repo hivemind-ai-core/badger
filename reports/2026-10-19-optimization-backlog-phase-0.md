@@ -513,6 +513,26 @@ which keeps the high bits, while the left-then-right shift pair keeps the low
 `bits - k` bits. The mask is corrected and the rule is proved. That is the
 item's point: the rules are proven, not assumed.
 
+## §4.4 is not adopted either (the survey)
+
+The item asks the inliner and the dead-assignment eliminator to use the
+type checker's lifetime information. The type checker has none that the two passes lack:
+`ownership.rs` is a checker over affine and linear values whose facts end with the
+check, and the MIR erases what it distinguishes (`&x` lowers to `x`'s value, so a
+moved, borrowed or exclusive argument is the same word). An oracle computing the
+strongest such fact on the MIR itself (liveness after each call and assignment) over
+the 256 `tests/run` programs changes **0** inlining decisions and removes **0**
+assignments. Of the 438 size-rejected candidates of round 0 (21 527 taken by the cost
+model's other tests), 52 have an unused result and none fits the budget with its
+return slice removed; "the argument is never used again" holds at 87% of accepted and
+74% of rejected sites, so it does not discriminate. After `reach`, all 12 147
+assignments with a dead destination are kept for their effect (12 141 calls, 5 checked
+operations, 1 concatenation) -- `dead_assignments` already removes every removable one.
+No code changed, so the timing and `bench/messages.bdg` gates hold by construction.
+What would pay instead is **effect** information (a total, effect-free callee with an
+unused result), not lifetimes. The report and the survey script are in
+`reports/2026-10-20-lifetime-driven-optimisation.md`.
+
 ## Where the backlog stands
 
 | phase | item | outcome |
@@ -542,7 +562,7 @@ item's point: the rules are proven, not assumed.
 | 4 | 4.1 SMT-validated rules | **landed: the check found a wrong shift mask** |
 | 4 | 4.2 egg for straight-line MIR | open |
 | 4 | 4.3 translation validation | landed in its cheap form; the SMT version is open |
-| 4 | 4.4 lifetime-driven inlining | open |
+| 4 | 4.4 lifetime-driven inlining | **not adopted** (surveyed: the MIR's liveness already has every lifetime fact the type checker knows -- 0 inlining decisions and 0 assignments change) |
 
 ## What is left
 
