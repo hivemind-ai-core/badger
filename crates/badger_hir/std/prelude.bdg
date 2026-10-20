@@ -470,6 +470,21 @@ impl Display for Data {
 impl Display for () {
     fn display(self: &Self) -> String { "()" }
 }
+impl<A, B> Display for (A, B) where A: Display, B: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C> Display for (A, B, C) where A: Display, B: Display, C: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D> Display for (A, B, C, D) where A: Display, B: Display, C: Display, D: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D, E> Display for (A, B, C, D, E) where A: Display, B: Display, C: Display, D: Display, E: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D, E, F> Display for (A, B, C, D, E, F) where A: Display, B: Display, C: Display, D: Display, E: Display, F: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
 
 extern "intrinsic" fn display_value<T>(value: T) -> String
 
