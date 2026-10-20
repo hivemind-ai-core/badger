@@ -200,7 +200,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0204",
         "underivable protocol",
-        "Supported derivations: Eq, Hash, Display, Codec, From, Error, and Default (structs; every field's type must implement Default).",
+        "Supported derivations: Eq, Hash, Display, Codec, From, Error, Default (structs; every field's type must implement Default), and HttpError (enums; each variant's `@status(code)`).",
     ),
     ("E0205", "inference hole", "`_` is only allowed in private annotations."),
     (
@@ -330,6 +330,16 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "E0142",
         "test with parameters",
         "A `test_*` function runs only when it takes no parameters (warning): `badger test` skips this one. Remove the parameters, or rename the function if it is a helper.",
+    ),
+    (
+        "E0193",
+        "misplaced status",
+        "`@status(code)` on an enum variant gives the HTTP status `derive(HttpError)` answers that variant with: one code from 100 to 599 (an error otherwise), and a warning when the enum does not derive `HttpError`. Variants without one answer 500.",
+    ),
+    (
+        "E0192",
+        "misplaced flatten",
+        "`@flatten` marks a struct with exactly one field (and takes no arguments): it encodes, decodes, and appears in schemas as that field's value, so `@flatten pub struct BookId { value: Int }` in a record is `\"id\": 1`, not `\"id\": {\"value\": 1}`.",
     ),
     (
         "E0148",

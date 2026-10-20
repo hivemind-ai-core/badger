@@ -171,6 +171,7 @@ pub enum ItemKind<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Variant<'a> {
+    pub attributes: Vec<Attribute<'a>>,
     pub name: Ident<'a>,
     pub fields: Vec<(Option<Ident<'a>>, T<'a>)>,
     pub span: Span,

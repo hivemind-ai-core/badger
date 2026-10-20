@@ -4,9 +4,11 @@
 storage) and the unknown-attribute policy are in place on
 `feature/attributes`; the *recognised set is empty*, so any attribute is
 unknown — an error in standard-library sources, a warning elsewhere — until
-the first built-in attributes land (Phase 2). Placement is **item position
-only** for now (a function-level attribute is the coarse silencing scope);
-statement/scope placement lands with the warning-silencing built-in.
+the first built-in attributes land (Phase 2). Placement is **item position**
+(a function-level attribute is the coarse silencing scope) and **enum
+variant position** (`@status(404) not_found(id: Int)`, read by
+`derive(HttpError)`); statement/scope placement lands with the
+warning-silencing built-in.
 `derive(...)` is unchanged. The design and open questions below still apply.
 
 ## Why
@@ -194,6 +196,8 @@ recognised attribute is a row, and the consumer does the work.
 | Attribute | Consumer | Class |
 |---|---|---|
 | `@derive(P, …)` | impl synthesis from the type’s shape | generator |
+| `@flatten` | codecs and schemas: a one-field struct is its field (done) | metadata |
+| `@status(code)` (variant) | `derive(HttpError)`: the variant's HTTP status (done) | metadata |
 | `@fusion(role, template)` | sequence/eager fusion templates | metadata |
 | `@inline(always\|never)` | inliner | metadata |
 | `@must_use` | unused-value diagnostic | metadata |

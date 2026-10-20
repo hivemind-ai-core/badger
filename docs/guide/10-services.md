@@ -90,8 +90,11 @@ cannot outlive it (E0401).
 
 An error carries the status it should be answered with through the
 `HttpStatus` protocol. The default is 500 ("internal server error"), so
-an error type that says nothing about HTTP keeps the old behaviour; an
-application implements it once, on its error type:
+an error type that says nothing about HTTP keeps the old behaviour. An
+application states it once, on its error type: `derive(HttpError)`
+answers each variant marked `@status(code)` with that code, and the
+others with 500. (Implementing `HttpStatus` by hand, with a `match` in
+`http_status`, decides it some other way.)
 
 ```badger
 import std.http
@@ -99,23 +102,15 @@ import std.io
 import std.route
 import std.text
 
+// The status each error is answered with: the variant's `@status`.
 pub enum AppError {
+    @status(400)
     invalid_input(message: String),
+    @status(404)
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
-
-// The status each error is answered with.
-impl HttpStatus for AppError {
-    fn http_status(self: &Self) -> Int {
-        match self {
-            .invalid_input(_) => 400,
-            .not_found(_) => 404,
-            _ => 500,
-        }
-    }
-}
+} derive(Error, HttpError, From)
 
 fn show(r: http.Response) -> String {
     $"{r.status} {text.from_bytes(r.body).unwrap_or("?")}"

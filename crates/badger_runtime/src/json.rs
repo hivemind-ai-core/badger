@@ -529,6 +529,10 @@ impl<'a> P<'a> {
                 unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
                 Ok(w)
             }
+            Kind::Record { fields, size, flat: true, .. } => {
+                let v = self.value(fields[0].desc)?;
+                Ok(crate::codec::flat_record(d, *size, &fields[0], v))
+            }
             Kind::Record { fields, tuple, size, .. } => {
                 if *tuple {
                     let vals = self.tuple(fields)?;

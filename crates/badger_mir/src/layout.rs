@@ -357,22 +357,30 @@ impl<'g, 'a> Layouts<'g, 'a> {
                     fields: self.fields_of(&l),
                     nominal: false,
                     tuple: matches!(&**t, TyKind::Tuple(_)),
+                    flat: false,
                 }
             }
             TyKind::Fn(_) => Kind::Fn,
             TyKind::Dyn(..) => {
                 let l = self.record(t);
-                Kind::Record { size: l.size, fields: self.fields_of(&l), nominal: true, tuple: false }
+                Kind::Record {
+                    size: l.size,
+                    fields: self.fields_of(&l),
+                    nominal: true,
+                    tuple: false,
+                    flat: false,
+                }
             }
             TyKind::Con(d, args) => {
                 if self.g.env.structs.contains_key(d) {
                     let l = self.record(t);
-                    return Kind::Record {
-                        size: l.size,
-                        fields: self.fields_of(&l),
-                        nominal: true,
-                        tuple: false,
-                    };
+                    let fields = self.fields_of(&l);
+                    // `@flatten` on a one-field struct
+                    let flat = fields.len() == 1
+                        && self.g.hir.attributes.get(d).is_some_and(|attrs| {
+                            attrs.iter().any(|a| self.g.interner.resolve(a.name) == "flatten")
+                        });
+                    return Kind::Record { size: l.size, fields, nominal: true, tuple: false, flat };
                 }
                 if self.g.env.enums.contains_key(d) {
                     let (size, vs) = self.enum_variants(t);

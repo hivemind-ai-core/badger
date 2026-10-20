@@ -136,6 +136,8 @@ pub struct EnumDecl {
 
 #[derive(Debug, Clone)]
 pub struct Variant {
+    /// `@status(404)` and the like, read by derives (`derive(HttpError)`).
+    pub attributes: Vec<Attribute>,
     pub name: Name,
     pub fields: Vec<(Option<Name>, TypeId)>,
     pub span: Span,

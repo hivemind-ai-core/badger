@@ -438,7 +438,7 @@ fn optional_record(d: &'static TypeDesc) -> Option<&'static TypeDesc> {
     }
     let p = variants.get(1)?.fields.first()?.desc;
     match &p.kind {
-        Kind::Record { tuple: false, .. } if p.name != crate::codec::SECRET => Some(p),
+        Kind::Record { tuple: false, flat: false, .. } if p.name != crate::codec::SECRET => Some(p),
         _ => None,
     }
 }
@@ -450,7 +450,8 @@ fn leaves(t: &'static TypeDesc, env_pre: &str, key_pre: &str, optional: Option<&
         let path = format!("{key_pre}{}", f.name);
         let env = format!("{env_pre}{}", f.name.to_uppercase());
         match &f.desc.kind {
-            Kind::Record { tuple: false, .. } if f.desc.name != crate::codec::SECRET => {
+            // (a `@flatten` struct is one setting, as its field is)
+            Kind::Record { tuple: false, flat: false, .. } if f.desc.name != crate::codec::SECRET => {
                 leaves(f.desc, &format!("{env}_"), &format!("{path}."), optional, out)
             }
             // an optional record: its fields, `none` when none is set
@@ -503,6 +504,11 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
                 None => d,
             }
         }
+        _ => d,
+    };
+    // a `@flatten` struct's setting is its field's
+    let d = match &d.kind {
+        Kind::Record { fields, flat: true, .. } => fields[0].desc,
         _ => d,
     };
     Ok(match &d.kind {

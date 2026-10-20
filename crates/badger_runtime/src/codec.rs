@@ -206,6 +206,11 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
                 o.push_str("\"[redacted]\"")
             }
         }
+        // `@flatten`: the one field's value
+        Kind::Record { fields, flat: true, .. } => {
+            let p = unsafe { obj(w).payload() };
+            enc(fields[0].desc, unsafe { fields[0].repr.load(p.add(fields[0].offset as usize)) }, o)
+        }
         Kind::Record { fields, tuple, .. } => {
             let p = unsafe { obj(w).payload() };
             if *tuple {
@@ -392,6 +397,16 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// A `@flatten` struct holding `v` as its one field.
+pub(crate) fn flat_record(d: &'static TypeDesc, size: u32, field: &crate::desc::Field, v: u64) -> u64 {
+    if field.desc.is_ptr() {
+        root(v);
+    }
+    let w = root(gc::alloc(d, size as usize));
+    unsafe { field.repr.store(obj(w).payload().add(field.offset as usize), v) };
+    w
+}
+
 fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
     match &d.kind {
         Kind::Unit => Ok(0),
@@ -446,6 +461,10 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
             let w = root(gc::alloc(d, *size as usize));
             unsafe { fields[0].repr.store(obj(w).payload().add(fields[0].offset as usize), v) };
             Ok(w)
+        }
+        Kind::Record { fields, size, flat: true, .. } => {
+            let v = dec(fields[0].desc, j)?;
+            Ok(flat_record(d, *size, &fields[0], v))
         }
         Kind::Record { fields, tuple, size, .. } => {
             let mut vals = Vec::with_capacity(fields.len());
@@ -630,6 +649,10 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             let w = root(gc::alloc(d, *size as usize));
             unsafe { rfields[0].repr.store(obj(w).payload().add(rfields[0].offset as usize), v) };
             Ok(w)
+        }
+        Kind::Record { fields: rfields, size, flat: true, .. } => {
+            let v = dec_data(rfields[0].desc, w)?;
+            Ok(flat_record(d, *size, &rfields[0], v))
         }
         Kind::Record { fields: rfields, tuple, size, .. } => {
             let mut vals = Vec::with_capacity(rfields.len());

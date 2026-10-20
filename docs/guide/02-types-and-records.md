@@ -634,6 +634,7 @@ dot
 | `Error` | `Display` plus the `Error` protocol (chapter 3) |
 | `From` | (enums) a conversion from each variant's single payload type (chapter 3) |
 | `Default` | (structs) `S.default()`: every field's default (`0`, `0.0`, `false`, `""`, `0s`, an empty collection, `none`, or the field type's own `Default`) |
+| `HttpError` | (enums) `HttpStatus` from each variant's `@status(code)`, 500 for the others (chapter 10) |
 
 - Equality, hashing, and `Codec` encoding are structural and available
   without `derive` whenever every field supports them. Deriving them
@@ -642,8 +643,25 @@ dot
 - `Default` pairs with a record update for settings:
   `{ ..Settings.default(), port: 8080 }`. `default_of()` is the default
   of whatever type is expected there.
-- Only these seven can be derived (E0204). There are no user-defined
+- Only these eight can be derived (E0204). There are no user-defined
   derivations or macros.
+
+### Wrapper structs in JSON: `@flatten`
+
+A one-field struct gives a value its own type (`BookId` is not any
+`Int`). In JSON it nests like any struct, `{"id":{"value":7}}`, unless
+it is marked `@flatten`: then it encodes, decodes, reads from
+configuration, and appears in schemas as its field's value.
+
+```badger fragment
+@flatten
+pub struct BookId { value: Int } derive(Codec)
+
+pub struct Book { id: BookId, title: String } derive(Codec)
+// {"id":7,"title":"Dune"}
+```
+
+`@flatten` on anything other than a one-field struct is E0192.
 
 ## Generics and bounds
 

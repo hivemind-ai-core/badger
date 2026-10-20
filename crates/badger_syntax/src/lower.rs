@@ -144,8 +144,122 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     /// Is derive type `t` the prelude's `Default`?
     fn names_default(&self, t: TypeId) -> bool {
+        self.names_derive(t, "Default")
+    }
+
+    /// Is derive type `t` the bare name `which`?
+    fn names_derive(&self, t: TypeId, which: &str) -> bool {
         matches!(&self.ast.types[t].kind,
-            TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == "Default")
+            TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == which)
+    }
+
+    /// Variant attributes: `@status(code)`, read by `derive(HttpError)`.
+    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool) {
+        for v in variants {
+            for a in &v.attributes {
+                match self.interner.resolve(a.name) {
+                    "status" => {
+                        let ok = matches!(a.args.as_slice(), [AttrArg::Int(n)] if (100..=599).contains(n));
+                        if !ok {
+                            self.error(
+                                "E0193",
+                                a.span,
+                                "`@status` takes one HTTP status code (100 to 599)",
+                                "e.g. `@status(404)`",
+                            );
+                        } else if !http {
+                            self.diags.push(
+                                Diagnostic::warning("`@status` has no effect without `derive(HttpError)`")
+                                    .with_code("E0193")
+                                    .with_label(a.span, "read by `derive(HttpError)` on the enum"),
+                            );
+                        }
+                    }
+                    other => {
+                        let other = other.to_string();
+                        self.diags.push(
+                            Diagnostic::warning(format!("unknown variant attribute `@{other}`"))
+                                .with_code("E0191")
+                                .with_label(a.span, "a variant takes `@status(code)`"),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// `enum E { @status(404) missing(id: Int), other } derive(HttpError)` is
+    /// `impl HttpStatus for E { fn http_status(self: &Self) -> Int { match self { .missing(_) => 404, _ => 500 } } }`.
+    fn derive_http_error(&mut self, name: Name, generics: &[GenericParam], variants: &[Variant], at: Span) {
+        let path = |this: &mut Self, text: &str, args: Vec<TypeId>| {
+            let sym = this.interner.intern(text);
+            this.alloc_ty(TypeKind::Path { module: vec![], name: Name { sym, span: at }, args }, at)
+        };
+        let gens: Vec<GenericParam> =
+            generics.iter().map(|g| GenericParam { name: g.name, bounds: vec![] }).collect();
+        let args: Vec<TypeId> = generics
+            .iter()
+            .map(|g| self.alloc_ty(TypeKind::Path { module: vec![], name: g.name, args: vec![] }, at))
+            .collect();
+        let ename = self.interner.resolve(name.sym).to_string();
+        let self_ty = path(self, &ename, args);
+        let protocol = path(self, "HttpStatus", vec![]);
+        let int = path(self, "Int", vec![]);
+        let selfref_inner = path(self, "Self", vec![]);
+        let selfref = self.alloc_ty(TypeKind::Ref { mutable: false, inner: selfref_inner }, at);
+        let self_sym = self.interner.intern("self");
+        let self_pat = self.alloc_pat(PatKind::Bind(Name { sym: self_sym, span: at }), at);
+        let mut arms = vec![];
+        let mut all = true;
+        for v in variants {
+            let code =
+                v.attributes.iter().find_map(|a| match (self.interner.resolve(a.name), a.args.as_slice()) {
+                    ("status", [AttrArg::Int(n)]) => Some(*n),
+                    _ => None,
+                });
+            let Some(code) = code else {
+                all = false;
+                continue;
+            };
+            let pargs = (!v.fields.is_empty())
+                .then(|| v.fields.iter().map(|_| self.alloc_pat(PatKind::Discard, v.span)).collect());
+            let pat = self.alloc_pat(PatKind::Variant { ty: None, name: v.name, args: pargs }, v.span);
+            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: code as u128, suffix: None }), v.span);
+            arms.push(MatchArm { pat, guard: None, body, span: v.span });
+        }
+        if !all || arms.is_empty() {
+            let pat = self.alloc_pat(PatKind::Discard, at);
+            let body = self.alloc_expr(ExprKind::Lit(Lit::Int { value: 500, suffix: None }), at);
+            arms.push(MatchArm { pat, guard: None, body, span: at });
+        }
+        let scrutinee = self.alloc_expr(ExprKind::Name(Name { sym: self_sym, span: at }), at);
+        let body = self.alloc_expr(ExprKind::Match { scrutinee, arms }, at);
+        let method = FnDecl {
+            name: Name { sym: self.interner.intern("http_status"), span: at },
+            is_pub: false,
+            generics: vec![],
+            params: vec![Param { pat: self_pat, ty: Some(selfref) }],
+            ret: Some(int),
+            effect: None,
+            where_preds: vec![],
+            body: Some(body),
+            span: at,
+            contracts: vec![],
+            result_inferred: false,
+        };
+        self.extra_items.push(Item {
+            kind: ItemKind::Impl(ImplDecl {
+                generics: gens,
+                protocol: Some(protocol),
+                self_ty,
+                where_preds: vec![],
+                methods: vec![method],
+                assoc_types: vec![],
+            }),
+            span: at,
+            is_pub: false,
+            attributes: vec![],
+        });
     }
 
     /// `struct S<T> { a: A, .. } derive(Default)` is
@@ -268,10 +382,11 @@ impl<'a, 'i> Lower<'a, 'i> {
             cst::ItemKind::Enum { name, generics, variants, derives } => {
                 let name = self.type_name(name);
                 let generics = self.generics(generics);
-                let variants = variants
+                let variants: Vec<Variant> = variants
                     .into_iter()
                     .map(|v| {
                         let vspan = self.span(v.span);
+                        let attributes = self.attributes(v.attributes);
                         let vname = self.value_name(v.name);
                         let fields = v
                             .fields
@@ -281,11 +396,20 @@ impl<'a, 'i> Lower<'a, 'i> {
                                 (l, self.ty(t))
                             })
                             .collect();
-                        Variant { name: vname, fields, span: vspan }
+                        Variant { attributes, name: vname, fields, span: vspan }
                     })
                     .collect();
                 let mut derives: Vec<TypeId> = derives.into_iter().map(|t| self.ty(t)).collect();
                 derives.extend(attribute_derives.iter().map(|t| self.ty(t.clone())));
+                // `derive(HttpError)`: an HttpStatus implementation from the
+                // variants' `@status(code)`
+                let http = derives.iter().position(|t| self.names_derive(*t, "HttpError"));
+                if let Some(i) = http {
+                    let at = self.ast.types[derives[i]].span;
+                    derives.remove(i);
+                    self.derive_http_error(name, &generics, &variants, at);
+                }
+                self.check_variant_attributes(&variants, http.is_some());
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {

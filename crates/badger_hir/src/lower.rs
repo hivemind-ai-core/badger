@@ -75,7 +75,7 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
@@ -745,6 +745,18 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
                 self.cx.diags.push(d.with_label(attr.span, "not recognised by the compiler"));
                 continue;
+            }
+            // `@flatten`: a one-field struct encoded as its field's value
+            if name == "flatten" {
+                let one_field = matches!(&item.kind, ast::ItemKind::Struct(s) if s.fields.len() == 1);
+                if !one_field || !attr.args.is_empty() {
+                    self.cx.diags.push(
+                        Diagnostic::error("`@flatten` marks a struct with exactly one field")
+                            .with_code("E0192")
+                            .with_label(attr.span, "not a one-field struct")
+                            .with_note("`@flatten pub struct BookId { value: Int }` encodes as its value (`1`, not `{\"value\":1}`)"),
+                    );
+                }
             }
             // `@allow(<code>, ...)` silences those warnings inside this item
             if name == "allow" {

@@ -940,7 +940,7 @@ impl TypeEnv {
                             .with_code("E0204")
                             .with_label(
                                 d.span,
-                                "supported: Eq, Hash, Display, Codec, From, Error, Default (structs)",
+                                "supported: Eq, Hash, Display, Codec, From, Error, Default (structs), HttpError (enums)",
                             ),
                     ),
                 }

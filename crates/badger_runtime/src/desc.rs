@@ -107,6 +107,9 @@ pub enum Kind {
         fields: Vec<Field>,
         nominal: bool,
         tuple: bool,
+        /// `@flatten`: a one-field struct encoded as its field's value
+        /// (`BookId { value: 1 }` is `1` in JSON, data, and schemas).
+        flat: bool,
     },
     /// Boxed enum: `u32` tag at payload offset 0, variant fields after.
     Enum {

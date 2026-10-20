@@ -661,6 +661,7 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
         Kind::Record { .. } if d.name == crate::codec::SECRET => {
             "{\"type\":\"string\",\"writeOnly\":true}".into()
         }
+        Kind::Record { fields, flat: true, .. } => json_schema(fields[0].desc, depth),
         Kind::Record { fields, tuple: true, .. } => {
             let items: Vec<String> = fields.iter().map(|f| json_schema(f.desc, depth + 1)).collect();
             format!(
