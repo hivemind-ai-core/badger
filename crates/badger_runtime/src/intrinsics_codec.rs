@@ -70,7 +70,11 @@ define_intrinsics! {
         let out = g.add(crate::list::new(rdesc(ret)));
         let tuple = match &rdesc(ret).kind { crate::desc::Kind::List { elem } => *elem, _ => return out };
         let data_desc = tuple.field("1").map(|f| f.desc).unwrap();
-        if let crate::desc::Kind::Record { fields, .. } = &d.kind {
+        // a `Secret` encodes as `"[redacted]"`, not as a record: it has no
+        // fields to show (its value stays hidden)
+        if let crate::desc::Kind::Record { fields, .. } = &d.kind
+            && d.name != codec::SECRET
+        {
             for f in fields {
                 let w = unsafe { f.repr.load(crate::gc::obj(v).payload().add(f.offset as usize)) };
                 let j: serde_json::Value = serde_json::from_str(&codec::encode(f.desc, w)).unwrap_or(serde_json::Value::Null);
@@ -714,7 +718,10 @@ fn resolve_layers(
         }
         for (k, v) in &over {
             if *k == l.path {
-                let shown = if holds_secret(l.desc, 0) { "[redacted]" } else { v.as_str() };
+                // as its value is shown: hidden for a secret, or a setting
+                // whose name says it is one
+                let secret = holds_secret(l.desc, 0) || crate::repro::secret_name(&l.path);
+                let shown = if secret { "[redacted]" } else { v.as_str() };
                 cs.push(Candidate {
                     source: "override",
                     origin: format!("{k}={shown}"),
