@@ -196,6 +196,12 @@ lambda. `continue` targets the nearest loop. Ranges `start..end` and
 Self tail recursion is lowered to a loop; other tail-call optimization is not
 a source-level stack-space guarantee.
 
+Every control-flow body is a block: the two branches of an `if`, a `while`, a
+`for`, a `loop`, an `unsafe` block, and the `else` of a `let ... else`. A body
+is never a bare statement: `if x return` is a syntax error (E0001), and the
+block is written `if x { return }`. A function or lambda body is a block too,
+or `=> expression` for a body of one expression.
+
 `match` is exhaustive. Arms use `=>`; guards use `if`. Guarded arms do not
 establish exhaustiveness. Patterns include literals, bindings, `_`, tuples,
 records, and enum variants. Record patterns may use `..` to ignore other fields;

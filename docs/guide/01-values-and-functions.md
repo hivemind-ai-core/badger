@@ -752,7 +752,9 @@ A brace that starts with `label:`, `..spread`, or a lone name followed by
 ## `if`
 
 `if` is an expression. With `else`, both branches must have the same
-type; without `else`, it is `Unit`.
+type; without `else`, it is `Unit`. A branch is a block: a bare
+statement is not a branch, so `if n > 10 return` is a syntax error and
+the branch is written `if n > 10 { return }`.
 
 ```badger
 import std.io
