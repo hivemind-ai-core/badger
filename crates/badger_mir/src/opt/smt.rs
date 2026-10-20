@@ -33,7 +33,7 @@
 //! The check is off by default. `BADGER_MIR_SMT=1` runs it once per process,
 //! before the first function is optimised: 81 claims on the rule set as it
 //! stands, each a small bitvector query with a per-query timeout, 162 ms in
-//! total (release-built CLI, 2026-10-20). The verdicts are recorded in a
+//! total measured 2026-10-20 (debug build). The verdicts are recorded in a
 //! [`Report`] (printed to stderr when the check runs) and a rule the solver
 //! does not prove is not applied, so a dropped rule is visible rather than
 //! silent. With the variable unset the optimiser never calls the solver: the
