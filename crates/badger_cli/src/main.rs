@@ -843,7 +843,15 @@ fn command(cli: Cli) -> ExitCode {
                 Some(a) if Path::new(&a).exists() => (PathBuf::from(a), args.next()),
                 // a mistyped path is not a filter that matches nothing
                 Some(a) if looks_like_path(&a) => {
-                    eprintln!("error: no such file or directory: {a}");
+                    let message = format!("no such file or directory: {a}");
+                    if json {
+                        println!(
+                            "{{\"passed\":0,\"failed\":0,\"tests\":[],\"error\":{}}}",
+                            serde_json::Value::String(message)
+                        );
+                    } else {
+                        eprintln!("error: {message}");
+                    }
                     return ExitCode::FAILURE;
                 }
                 Some(a) => (PathBuf::from("."), Some(a)),
@@ -893,7 +901,7 @@ fn command(cli: Cli) -> ExitCode {
                     }
                 }
             }
-            exit_now(badger_driver::finish_tests(json))
+            exit_now(badger_driver::finish_tests(json, opts.filter.as_deref()))
         }
         Command::Contracts { path, json, tests: true } => match session.contract_test_report(&path) {
             Ok((clauses, suggestions, (ran, failed))) => {
@@ -1272,6 +1280,10 @@ fn command(cli: Cli) -> ExitCode {
                 }
             }
         }
+        Command::Inspect { path, .. } if !path.exists() => {
+            eprintln!("error: no such file or directory: {}", path.display());
+            ExitCode::FAILURE
+        }
         Command::Inspect { what, path, json, profile, .. } if what == "config" => {
             match Session::effective_config(&path, profile.as_deref()) {
                 Ok(entries) => {
@@ -1349,6 +1361,12 @@ fn command(cli: Cli) -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Inspect { what, path, json, .. } => {
+            if INSPECT_REMOTE.contains(&what.as_str()) && !INSPECT_LOCAL.contains(&what.as_str()) {
+                eprintln!(
+                    "error: `{what}` is a snapshot of a running program: add `--connect ADDR`, the address of a program started with `badger run --inspect ADDR`"
+                );
+                return ExitCode::from(2);
+            }
             if what != "plans" {
                 eprintln!(
                     "error: `{what}` is not something `badger inspect` reads (one of: {}; with `--connect ADDR`: {})",
