@@ -1,8 +1,9 @@
 pub type Note = { id: Int, text: String }
 
+@derive(Error)
 pub enum NoteError {
     missing(id: Int),
-} derive(Error)
+}
 
 pub fn add(notes: List<Note>, text: String) -> List<Note> {
     notes.append({ id: notes.len() + 1, text })

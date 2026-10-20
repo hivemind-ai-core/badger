@@ -2,10 +2,11 @@ import std.io
 import std.system
 import std.trace
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 // A provider is a component factory: its initializer receives a scope (to
 // register halts) and its configuration, and returns its public interface.

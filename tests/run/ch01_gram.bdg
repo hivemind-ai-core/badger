@@ -13,7 +13,8 @@ protocol Loud: Named + Display {
     fn shout(self: &Self) -> String
 }
 
-struct Dog { pub n: String } derive(Eq,)
+@derive(Eq,)
+struct Dog { pub n: String }
 
 impl Display for Dog { fn display(self: &Self) -> String { self.n } }
 impl Named for Dog { fn name(self: &Self) -> String { self.n } }

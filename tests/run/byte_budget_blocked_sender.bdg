@@ -4,11 +4,12 @@ import std.inspect
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<String>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn is_sending(t: Data) -> Bool {
     match t {

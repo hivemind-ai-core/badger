@@ -7,11 +7,12 @@ import std.task
 
 type Message = { producer: Int, seq: Int }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Message>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn produce(ends: channel.BatchEndpoints<Message>, producer: Int, count: Int) -> Result<Bool, AppError> {
     let first = task.worker_index()

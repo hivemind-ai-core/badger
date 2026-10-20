@@ -18,10 +18,11 @@ impl Display for F {
 
 impl Error for F {}
 
+@derive(Error, From)
 pub enum AppError {
     sys(source: system.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 let num = system.provider({ name: #t/num, init: fn(scope, c: { v: Int }) -> Result<Int, F> { ok(c.v) } })
 

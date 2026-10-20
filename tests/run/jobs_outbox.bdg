@@ -15,6 +15,7 @@ import std.worker
 
 type Order = { id: Int, email: String }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     db(source: sqlite.Error),
@@ -22,7 +23,7 @@ pub enum AppError {
     system(source: system.Error),
     refused,
     timeout,
-} derive(Error, From)
+}
 
 // an order and its confirmation job, in one transaction; `fail` aborts it
 fn place(pool: sqlite.Pool, order: Order, fail: Bool) -> Result<Unit, AppError> {

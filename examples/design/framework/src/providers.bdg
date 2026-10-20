@@ -4,12 +4,13 @@ import orders.service
 import std.io
 import std.system
 
+@derive(Error, From)
 pub enum Error {
     domain(source: api.Error),
     system(source: system.Error),
     io(source: io.Error),
     startup,
-} derive(Error, From)
+}
 
 pub type LifecycleLog = Atom<List<String>>
 pub type StoreConfig = { log: LifecycleLog }

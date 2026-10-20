@@ -4,17 +4,19 @@ import std.io
 import std.fs
 import std.sqlite
 
+@derive(Codec)
 struct Account {
     id: Int,
     owner: String,
     balance: Int,
     note: Option<String>,
-} derive(Codec)
+}
 
+@derive(Error, From)
 pub enum AppError {
     database(source: sqlite.Error),
     output(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let db = sqlite.open(":memory:")?

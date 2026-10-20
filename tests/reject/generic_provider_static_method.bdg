@@ -9,7 +9,8 @@ pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
 fn say(s: String) -> Unit { let _ = io.println(s) }
-pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) }
 fn nonep<T>() -> system.Provider<{ x: Int }, Option<T>, F> { system.provider({ name: #t/g, init: fn(scope, c) -> Result<Option<T>, F> { ok(none) } }) }
 fn run_decl<T>(p: system.Provider<{ x: Int }, Option<T>, F>) -> Result<Unit, AppError> {
     let plan = system { a: component(p, { x: 1 }) }

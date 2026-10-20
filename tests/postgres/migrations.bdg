@@ -6,10 +6,11 @@ import std.env
 import std.io
 import std.postgres
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     db(source: postgres.Error),
-} derive(Error, From)
+}
 
 fn report<T>(r: Result<T, postgres.Error>) -> String {
     match r {

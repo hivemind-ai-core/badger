@@ -4,10 +4,11 @@ import std.io
 import std.parse
 import std.parse.{rule, lit, re}
 
+@derive(Error, From)
 pub enum AppError {
     grammar(message: String),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn g(r: Result<parse.Grammar, String>) -> Result<parse.Grammar, AppError> {
     match r {

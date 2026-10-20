@@ -39,12 +39,13 @@ fn slow_chain() -> Result<String, String> {
     pipeline.compile(chain)({ path: "/slow" })
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let plan = system {

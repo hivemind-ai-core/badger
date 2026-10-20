@@ -13,13 +13,14 @@ import std.websocket
 
 type Settings = { port: U16 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     http(source: http.Error),
     io(source: io.Error),
     system(source: system.Error),
     websocket(source: websocket.Error),
-} derive(Error, From)
+}
 
 fn echo(ws: websocket.WebSocket) -> Result<Unit, websocket.Error> {
     loop {

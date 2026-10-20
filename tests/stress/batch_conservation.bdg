@@ -7,12 +7,13 @@ import std.list
 import std.set
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn run(capacity: Int, max_batch: Int, producers: Int, per: Int) -> Result<Unit, AppError> {
     let b = channel.batch<Int>({ capacity: capacity, max_batch: max_batch, byte_budget: 0 })?

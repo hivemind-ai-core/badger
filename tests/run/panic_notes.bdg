@@ -7,7 +7,8 @@ import std.task
 pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
-pub enum AppError { system(source: system.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error) }
 let p = system.provider({
     name: #t/p,
     init: fn(scope, c: { v: Int }) -> Result<Int, F> {

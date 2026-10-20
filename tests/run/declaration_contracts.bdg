@@ -7,10 +7,11 @@ import std.pipeline
 import std.pipeline.{handle}
 import std.system
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 requires config.size > 0, "a pool needs at least one slot"
 ensures result.is_err() || result.unwrap_or(0) == config.size

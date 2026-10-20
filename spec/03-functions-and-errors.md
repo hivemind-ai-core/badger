@@ -131,11 +131,12 @@ for `E` (or `E = OptionMissing`); `opt.ok_or(error)?` names another error.
 import std.codec
 import std.sqlite as db
 
+@derive(Error, From)
 pub enum AppError {
     decode(source: codec.DecodeError),
     database(source: db.Error),
     validation(message: String),
-} derive(Error, From)
+}
 ```
 
 `derive(From)` generates direct conversions for variants with exactly one

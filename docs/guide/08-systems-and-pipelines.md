@@ -9,10 +9,11 @@ A `pipeline { ... }` composes typed interceptor stages around a handler.
 import std.io
 import std.system
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn say(line: String) -> Unit {
     let _ = io.println(line)
@@ -121,9 +122,10 @@ import std.system
 import std.task
 import std.worker
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 provider heartbeat(scope, _config: { every: Int }) -> Result<Unit, AppError> {
     scope.worker(fn() -> Result<Unit, AppError> {
@@ -148,14 +150,16 @@ and no worker pool. The scope the provider is given is the one to use.
 import std.io
 import std.system
 
+@derive(Error)
 pub enum Failure {
     unreachable(host: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 provider cache(scope, _config: {}) -> Result<Int, Failure> {
     scope.on_halt(fn() -> Result<Unit, Failure> {
@@ -221,11 +225,12 @@ import std.system
 import std.task
 import std.worker
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 provider tally(scope, config: { capacity: Int }) -> Result<_, AppError> {
     let inbox = channel.create<Int>({ ..channel.defaults, capacity: config.capacity })?
@@ -368,14 +373,16 @@ let plan = system {
 import std.io
 import std.system
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
+@derive(Error)
 pub enum Failure {
     invalid,
-} derive(Error)
+}
 
 provider clock(config: { start: Int }) -> Result<Int, Failure> {
  ok(config.start)
@@ -440,9 +447,10 @@ import std.pipeline.{handle}
 
 type Reply = { status: Int, body: String }
 
+@derive(Error)
 pub enum AppError {
     missing_name,
-} derive(Error)
+}
 
 stage log_stage() {
     enter(ctx) {
@@ -666,9 +674,10 @@ import std.io
 import std.pipeline
 import std.pipeline.{handle_context}
 
+@derive(Error)
 pub enum AppError {
     failed,
-} derive(Error)
+}
 
 stage counting() {
     enter(ctx) {
@@ -755,14 +764,16 @@ import std.text
 
 type Greeting = { text: String }
 
+@derive(Error)
 pub enum GreetError {
     unnamed,
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     route(source: route.RouteError),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let greet = app.from_fn({ id: #hello/greet, version: 1, doc: "Greet someone." }, fn(_call, name: String) -> Result<Greeting, GreetError> {

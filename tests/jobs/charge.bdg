@@ -12,9 +12,10 @@ import std.process
 import std.text
 import std.time
 
+@derive(Codec)
 struct Order {
     amount: Int,
-} derive(Codec)
+}
 
 fn say(s: String) -> Unit { let _ = io.println(s) }
 

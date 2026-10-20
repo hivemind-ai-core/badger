@@ -3,10 +3,11 @@ import std.task
 
 type Event = { sequence: Int, value: Int }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Event>),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     use endpoints <- channel.open_batch<Event>({

@@ -2,9 +2,10 @@
 // expect-error: E0401
 import std.system
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn leak<Os: Row>(plan: system.SystemPlan<Os>) -> Unit {
     let _ = system.run(plan, fn(running) -> Result<_, AppError> { ok(running) })

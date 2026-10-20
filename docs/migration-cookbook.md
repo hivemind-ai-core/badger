@@ -86,10 +86,11 @@ import std.io
 
 type Book = { title: String, author: String, year: Int }
 
+@derive(Error, From)
 pub enum AppError {
     no_books(author: String),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn books_by_author(books: List<Book>, author: String) -> Result<List<Book>, AppError> {
     let found = books.filter(fn(book) => book.author == author)
@@ -314,10 +315,11 @@ Children of Dune
 ```badger
 import std.io
 
+@derive(Error, From)
 pub enum AppError {
     no_books(author: String),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub struct Book {
     title: String,
@@ -455,10 +457,11 @@ import std.system
 
 type Book = { title: String, author: String, year: Int }
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 provider library(config: { author: String }) -> Result<_, AppError> {
     let books: List<Book> = [

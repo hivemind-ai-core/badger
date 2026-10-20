@@ -284,10 +284,11 @@ import std.channel
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let jobs = channel.create<Int>({ ..channel.defaults, capacity: 2 })?

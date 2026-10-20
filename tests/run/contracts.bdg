@@ -6,7 +6,8 @@ import std.list
 
 pub struct Account { pub owner: String, pub balance: Int }
 
-pub enum BankError { overdrawn(needed: Int) } derive(Error)
+@derive(Error)
+pub enum BankError { overdrawn(needed: Int) }
 
 requires amount > 0, "withdraw a positive amount"
 ensures result.is_err() || result.unwrap_or(account).balance == account.balance - amount

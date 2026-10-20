@@ -25,6 +25,7 @@ import tasks.sqlite_store
 import cli
 import web
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     system(source: system.Error),
@@ -33,7 +34,7 @@ pub enum AppError {
     admission(source: admission.Error),
     db(source: sqlite.Error),
     tasks(source: model.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     // [config] < profile < TASKS_* variables < `key=value` arguments

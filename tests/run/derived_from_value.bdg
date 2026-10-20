@@ -2,14 +2,16 @@
 // compiler error): the variant's constructor.
 import std.io
 
+@derive(Error)
 pub enum Inner {
     bad,
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum Outer {
     inner(source: Inner),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn fails() -> Result<Int, Inner> { err(Inner.bad) }
 

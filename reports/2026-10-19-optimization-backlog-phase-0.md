@@ -287,19 +287,27 @@ F1 and F2 are spec violations, not just smells: they are recorded in
 `BACKLOG.md` and are part of the §1.2 refactor's acceptance.
 
 **F4 -- a batch receiver woken to retry and then cancelled takes its wake
-with it (open).** Found by the model of the *refactored* protocol
+with it (fixed).** Found by the model of the *refactored* protocol
 (`16bbcbb`): a publication wakes one receiver per message, but the wake is
 a wake to *retry* -- the woken receiver takes a message only when it runs
 -- and if it is cancelled before it runs, `park()` honours the interrupt
 (rightly: nothing was handed to it, its status is not 1) and the task
-abandons without passing its wake on. The message is stranded. Reproduced
-on the real runtime at `9f1ff4c` with one worker
-(`spec/tla/repro/cancel_after_retry_wake.bdg`: "r2 got 1", "r1 cancelled",
-then a deadlock with the third receiver waiting on a batch receive). The
-same configuration without the cancellation passes, and prompt channels are
-not affected (a prompt value is handed over with status 1, which F1's fix
-protects). It needs four tasks, so it is outside the three-task bounds the
-backlog names, and the §1.2 contract has the same gap.
+abandons without passing its wake on. The message is stranded: no receiver
+was on its way to take it, and the next parked receiver waits for a message
+nobody is coming for. Reproduced on the real runtime at `9f1ff4c` with one
+worker. It needs four tasks, so it was outside the three-task bounds the
+backlog names, and the §1.2 contract had the same gap.
+
+The fix (`ac3f85c`): a channel keeps the receivers it woke for a published
+message and that have not taken it yet. A receiver releases its claim when
+it takes the message, when it finds none (it registers again), and when it
+dies -- `task_finished` releases the claim of a task that died holding one.
+Releasing a claim passes it on: a published message that no woken receiver
+is on its way to is offered to another receiver, so a parked receiver is
+never left asleep with a message waiting. The regression test
+(`crates/badger_runtime/tests/channel_state.rs`) fails without the fix (the
+third receiver waits forever) and passes with it; the repro program is
+rewritten to be deterministic ("stranded 1" before the fix, "taken" after).
 
 **The model also settles §0.1.** The GC handshake model says the same thing
 the phase 0 analysis said, in the model's own terms: the protocol is
@@ -415,7 +423,8 @@ own:
 | item | what it needs | why it is not done here |
 |------|---------------|------------------------|
 | §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | **done** (`16bbcbb`): the model now describes the new protocol, all 33 checks match, and it found F4 (above), which is open |
-| F4 | a batch receiver woken to retry and then cancelled must pass its wake on, or the message must go to another receiver | open: reproduced on the real runtime; needs four tasks, and the §1.2 contract has the same gap |
+| F4 | a batch receiver woken to retry and then cancelled must pass its wake on, or the message must go to another receiver | **fixed** (`ac3f85c`): the channel keeps the claims, and a released claim is passed on |
+| §2.2 per-worker heap segments | a per-worker bump pool and free list | **already satisfied**: `POOLS.0[w]`, `alloc_cell(w, ...)` and `free_cell(w, ...)` are per-worker, and were at the snapshot the backlog was written against; the missing part is §2.3's block and line layer |
 | §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | **landed** (above) as a robustness change: the epoch makes the acknowledgement real and removes the "no nested stop" and "balanced slots" dependencies, but its latency claim did not hold |
 | §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
 | §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |

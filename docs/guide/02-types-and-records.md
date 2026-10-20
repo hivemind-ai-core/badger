@@ -599,16 +599,18 @@ protocols.
 ```badger
 import std.io
 
+@derive(Display, Eq, Hash)
 pub struct Point {
     pub x: Int,
     pub y: Int,
-} derive(Display, Eq, Hash)
+}
 
+@derive(Display)
 pub enum Shape {
     circle(radius: Float),
     rect(w: Float, h: Float),
     dot,
-} derive(Display)
+}
 
 pub fn main() -> Result<Unit, io.Error> {
     let p: Point = { x: 1, y: 2 }

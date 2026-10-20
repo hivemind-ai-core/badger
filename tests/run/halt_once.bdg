@@ -6,7 +6,8 @@ import std.system.{component}
 pub struct Failure { pub message: String }
 impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
-pub enum AppError { system(source: system.Error), failed(source: Failure) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error), failed(source: Failure) }
 fn consume(b: Buffer<Int>) -> Int { b.len() }
 let p = system.provider({ name: #t/p, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> {
     let b: Buffer<Int> = buffer.new()

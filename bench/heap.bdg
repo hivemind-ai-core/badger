@@ -7,12 +7,13 @@ import std.task
 import std.channel
 import std.inspect
 
+@derive(Error)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
     stop(message: String),
-} derive(Error)
+}
 
 impl From<channel.ConfigError> for AppError {
     fn from(e: channel.ConfigError) -> AppError { AppError.config(e) }

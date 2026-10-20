@@ -10,6 +10,7 @@ pub enum Exit<T> {
 }
 
 /// Why a task was cancelled.
+@derive(Display, Eq)
 pub enum CancelReason {
     /// `task.cancel()` was called.
     requested,
@@ -21,7 +22,7 @@ pub enum CancelReason {
     sibling_failed,
     /// A sibling joined with `try_join`/`try_all` returned an error.
     sibling_error,
-} derive(Display, Eq)
+}
 
 pub struct PanicInfo {
     pub message: String,

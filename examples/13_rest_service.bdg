@@ -109,6 +109,7 @@ pub type BookPatch = { title: String, author: String }
 // A typed error. `derive(Error)` makes it printable; `derive(From)` lets
 // the `?` operator convert each underlying error into the matching
 // variant without an explicit match.
+@derive(Error, From)
 pub enum AppError {
     configuration(source: config.Error),
     database(source: sqlite.Error),
@@ -119,7 +120,7 @@ pub enum AppError {
     io(source: io.Error),
     invalid_input(message: String),
     not_found(id: Int),
-} derive(Error, From)
+}
 
 // The status each error is answered with. The route system reads it, so a
 // handler's `Err` produces the status the application intended instead of

@@ -9,11 +9,12 @@ import tasks.memory
 import tasks.model
 import tasks.service
 
+@derive(Error, From)
 pub enum AppError {
     tasks(source: model.Error),
     system(source: system.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 // Report the open tasks `rounds` times, then finish.
 provider reminders(scope, config: { tasks: model.Tasks, rounds: Int, sent: Atom<Int> }) -> Result<Unit, AppError> {

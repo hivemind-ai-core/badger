@@ -5,10 +5,11 @@ import std.io
 import std.list
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn check(base: List<Int>, got: List<Int>, mine: Int) -> Bool {
     var ok = got.len() == base.len() + 1 && got[base.len()] == mine

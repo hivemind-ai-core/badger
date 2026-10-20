@@ -3,10 +3,11 @@
 import std.io
 import std.sqlite
 
+@derive(Error, From)
 pub enum AppError {
     database(source: sqlite.Error),
     validation(message: String),
-} derive(Error, From)
+}
 
 fn setup(db: sqlite.Pool) -> Result<Unit, AppError> {
     sqlite.execute(db, "PRAGMA foreign_keys = ON", [])?

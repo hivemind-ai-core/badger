@@ -36,9 +36,10 @@ fn make(label: String, fail_start: Bool, fail_halt: Bool) -> system.Provider<{ d
     })
 }
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Unit {
     let plan = system {

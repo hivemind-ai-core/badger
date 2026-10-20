@@ -6,11 +6,12 @@ import std.channel
 import std.task
 import std.time
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     send_text(source: channel.SendError<String>),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let a = channel.create<String>({ ..channel.defaults, capacity: 1 })?

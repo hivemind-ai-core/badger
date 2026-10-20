@@ -7,10 +7,11 @@ import service
 import store
 
 /// The service's errors, as the HTTP layer sees them.
+@derive(Error, From)
 pub enum Error {
     store(source: store.Error),
     route(source: route.RouteError),
-} derive(Error, From)
+}
 
 /// The status each error is answered with (500 unless the error chooses
 /// one): the route system reads it.

@@ -9,11 +9,12 @@ import std.io
 import std.task
 import std.time
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     admission(source: admission.Error),
     rejected(source: admission.Rejected),
-} derive(Error, From)
+}
 
 fn outcome(r: Result<Int, admission.Rejected>) -> String {
     match r {

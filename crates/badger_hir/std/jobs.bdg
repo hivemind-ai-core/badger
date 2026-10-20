@@ -78,10 +78,11 @@ pub struct Store<S: Scope> {
 }
 
 /// Whether `submit` created a job or the event was seen before.
+@derive(Display)
 pub enum Submitted {
     created(id: String),
     duplicate(id: String),
-} derive(Display)
+}
 
 /// A job claimed by a worker: its identity, state version, the step it
 /// reached, its failed attempts so far, and the fence its transitions
@@ -124,6 +125,7 @@ pub struct Send {
 
 /// An outbox entry: `pending`, `sending`, `confirmed`, `rejected`,
 /// `uncertain`, or `cancelled`, with the receipt or reason recorded for it.
+@derive(Codec, Display)
 pub struct Entry {
     pub id: Int,
     pub job: String,
@@ -133,7 +135,7 @@ pub struct Entry {
     pub status: String,
     pub receipt: Option<String>,
     pub attempts: Int,
-} derive(Codec, Display)
+}
 
 /// What happened to a sent (or checked) operation.
 pub enum Outcome {
@@ -148,6 +150,7 @@ pub enum Outcome {
 }
 
 /// A job as stored.
+@derive(Codec, Display)
 pub struct Job {
     pub id: String,
     pub kind: String,
@@ -162,29 +165,34 @@ pub struct Job {
     pub error: Option<String>,
     pub created: Int,
     pub updated: Int,
-} derive(Codec, Display)
+}
 
 /// One recorded transition of a job.
+@derive(Codec, Display)
 pub struct Transition {
     pub at: Int,
     pub step: String,
     pub status: String,
     pub note: Option<String>,
-} derive(Codec, Display)
+}
 
+@derive(Codec)
 struct Version {
     value: String,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Count {
     n: Int,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Fenced {
     status: String,
     fence: Int,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Stored {
     id: String,
     kind: String,
@@ -193,19 +201,22 @@ struct Stored {
     attempts: Int,
     fence: Int,
     state: String,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Id {
     id: String,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct RowId {
     id: Int,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Payload {
     payload: String,
-} derive(Codec)
+}
 
 let schema = [
     "CREATE TABLE IF NOT EXISTS jobs_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",

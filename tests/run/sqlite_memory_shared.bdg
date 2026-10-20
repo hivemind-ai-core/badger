@@ -6,10 +6,11 @@ import std.io
 import std.sqlite
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     db(source: sqlite.Error),
-} derive(Error, From)
+}
 
 type Count = { n: Int }
 

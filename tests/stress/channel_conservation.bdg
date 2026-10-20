@@ -7,12 +7,13 @@ import std.list
 import std.set
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn run(capacity: Int, producers: Int, consumers: Int, per: Int) -> Result<Unit, AppError> {
     let ends = channel.create<Int>({ ..channel.defaults, capacity: capacity })?

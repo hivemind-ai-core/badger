@@ -2,7 +2,8 @@
 // A transaction stored through an alias escapes its callback.
 import std.io
 import std.sqlite
-pub enum AppError { sql(source: sqlite.Error), io(source: io.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { sql(source: sqlite.Error), io(source: io.Error) }
 fn keep<S: Scope>(a: Cell<List<fn() -> Int>>, tx: sqlite.Tx<S>) -> Unit {
     let t = tx
     a.set([fn() { match sqlite.execute(t, "SELECT 1", []) { .ok(n) => 1, .err(e) => -1 } }])

@@ -12,12 +12,13 @@ import std.route
 import std.system
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
     route(source: route.RouteError),
     failed,
-} derive(Error, From)
+}
 
 provider store(config: { log: Atom<List<String>>, fail: Bool }) -> Result<Atom<Int>, AppError> {
     let log = config.log

@@ -14,16 +14,18 @@ import std.text
 type Order = { id: Int, title: String }
 type NewOrder = { title: String }
 
+@derive(Error)
 pub enum OrderError {
     invalid(message: String),
     missing(id: Int),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     route(source: route.RouteError),
     command(source: command.Error),
-} derive(Error, From)
+}
 
 fn create_op() -> app.Operation<NewOrder, Order, OrderError, !{}> {
     app.from_fn({ id: #orders/create, version: 1, doc: "Create an order." }, fn(_call, input: NewOrder) -> Result<Order, OrderError> !{} {

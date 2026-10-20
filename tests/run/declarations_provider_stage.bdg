@@ -7,11 +7,12 @@ import std.pipeline.{handle_context}
 import std.system
 import std.trace
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     system(source: system.Error),
     invalid_name,
-} derive(Error, From)
+}
 
 type Greeter = { greet: fn(String) -> String }
 

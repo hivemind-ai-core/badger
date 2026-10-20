@@ -12,9 +12,10 @@ import std.list
 let width: Int = 63
 
 /// Equal sets have equal words (trailing zero words are dropped).
+@derive(Eq)
 pub struct BitSet {
     words: List<Int>,
-} derive(Eq)
+}
 
 fn bit(i: Int) -> Int {
     1 << (i % width)

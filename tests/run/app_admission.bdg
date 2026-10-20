@@ -12,16 +12,18 @@ import std.task
 
 type Created = { count: Int, deadline: Bool, actor: String }
 
+@derive(Error)
 pub enum OrderError {
     unauthenticated,
     forbidden(actor: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     route(source: route.RouteError),
     admission(source: admission.Error),
-} derive(Error, From)
+}
 
 fn verify(token: String) -> Option<app.Actor> {
     if token == "w-token" {
