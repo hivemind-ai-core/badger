@@ -1104,10 +1104,15 @@ where
     );
     let assoc_type =
         kw("type").ignore_then(name.clone()).then(just(Tok::Assign).ignore_then(ty.clone()).or_not());
+    // members on one line are separated, as statements are
+    let member_end =
+        choice((sep.clone(), just(Tok::Semi).ignored().rewind(), just(Tok::RBrace).ignored().rewind()))
+            .labelled("a new line or `;`");
     let members = choice((
         sep.clone().to(None),
-        fn_decl(member.clone().boxed()).map(|f| Some(Member::Fn(f))),
-        assoc_type.map(|(n, t)| Some(Member::AssocType(n, t))),
+        just(Tok::Semi).to(None),
+        fn_decl(member.clone().boxed()).then_ignore(member_end.clone()).map(|f| Some(Member::Fn(f))),
+        assoc_type.then_ignore(member_end.clone()).map(|(n, t)| Some(Member::AssocType(n, t))),
     ))
     .repeated()
     .collect::<Vec<_>>()
@@ -1384,11 +1389,24 @@ where
         .then(params.clone())
         .then(ret.clone().or_not())
         .then(
-            choice((sep.clone().to(None), member.map(Some)))
-                .repeated()
-                .collect::<Vec<_>>()
-                .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
-                .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
+            choice((
+                sep.clone().to(None),
+                just(Tok::Semi).to(None),
+                member
+                    .then_ignore(
+                        choice((
+                            sep.clone(),
+                            just(Tok::Semi).ignored().rewind(),
+                            just(Tok::RBrace).ignored().rewind(),
+                        ))
+                        .labelled("a new line or `;`"),
+                    )
+                    .map(Some),
+            ))
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
+            .map_with(|ms, e| (ms.into_iter().flatten().collect::<Vec<_>>(), e.span())),
         )
         .map(|(((((((contracts, p), name), alias), g), params), ret), (members, body_span))| {
             (
