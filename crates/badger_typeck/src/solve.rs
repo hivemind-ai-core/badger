@@ -2544,12 +2544,16 @@ fn dummy_expr() -> ExprId {
 /// implementation or literal type a constraint selects.
 fn strip_effects(t: &Ty) -> Ty {
     crate::ty::ty_map(t, &mut |x| match &**x {
-        TyKind::Fn(f) => Some(mk(TyKind::Fn(FnTy {
-            params: f.params.iter().map(strip_effects).collect(),
-            ret: strip_effects(&f.ret),
-            eff: crate::ty::row_empty(),
-            once: f.once,
-        }))),
+        TyKind::Fn(f) => {
+            let params = crate::ty::map_shared(&f.params, strip_effects);
+            let ret = strip_effects(&f.ret);
+            // an effect-free function type is shared, not copied
+            if params.is_none() && std::rc::Rc::ptr_eq(&ret, &f.ret) && matches!(&*f.eff, TyKind::RowEmpty) {
+                return Some(x.clone());
+            }
+            let params = params.unwrap_or_else(|| f.params.clone());
+            Some(mk(TyKind::Fn(FnTy { params, ret, eff: crate::ty::row_empty(), once: f.once })))
+        }
         _ => None,
     })
 }

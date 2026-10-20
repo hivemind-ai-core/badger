@@ -463,8 +463,12 @@ pub(crate) fn collect(hir: &badger_hir::Hir, p: badger_hir::PatId, out: &mut Vec
     hir.pat_binders(p, out)
 }
 
-pub(crate) fn sub_exprs(kind: &ExprKind) -> Vec<ExprId> {
-    kind.children()
+/// The direct sub-expressions of `kind`, inline for the common short lists
+/// (the walks over a body call this once per node).
+pub(crate) fn sub_exprs(kind: &ExprKind) -> smallvec::SmallVec<[ExprId; 8]> {
+    let mut v = smallvec::SmallVec::new();
+    kind.for_each_child(|c| v.push(c));
+    v
 }
 
 /// `seeds` and the locals of `body` bound or assigned to an alias of them
