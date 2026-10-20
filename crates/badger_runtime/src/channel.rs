@@ -625,9 +625,11 @@ fn try_fast_spin(d: &ChanData) -> bool {
 }
 
 /// End a fast path: publish the phase of what it leaves and free the
-/// channel (the release that makes its effects visible to the next owner).
+/// channel (the release that makes its effects visible to the next owner),
+/// then tell idle workers of the tasks it made ready.
 fn end_fast(d: &ChanData) {
     d.state.store(word::FREE | d.word(), Ordering::Release);
+    task::notify_deferred();
 }
 
 /// Why a fast path declined (`BADGER_RUNTIME_STATS=1`): counted on the
@@ -694,7 +696,7 @@ pub fn send_fast(ch: u64, v: u64) -> bool {
         // the channel is held, so the receiver cannot finish and leave it
         // meanwhile
         while let Some(r) = d.waiters.pop(WaitKind::Recv) {
-            if task::deliver(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
+            if task::deliver_held(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
                 ok = true;
                 break;
             }
@@ -814,7 +816,7 @@ pub fn recv_fast(ch: u64) -> Option<u64> {
         } else {
             // capacity zero or a drained queue: take a parked sender's value
             while let Some(s) = d.waiters.pop(WaitKind::Send) {
-                if task::deliver(s.rec, s.wait, 0, false, 1) {
+                if task::deliver_held(s.rec, s.wait, 0, false, 1) {
                     v = Some(s.value);
                     break;
                 }
@@ -868,7 +870,7 @@ pub fn recv_free(ch: u64) -> Free {
         return Free::Done(x);
     }
     while let Some(s) = d.waiters.pop(WaitKind::Send) {
-        if task::deliver(s.rec, s.wait, 0, false, 1) {
+        if task::deliver_held(s.rec, s.wait, 0, false, 1) {
             end_fast(d);
             return Free::Done(s.value);
         }
@@ -910,7 +912,7 @@ pub fn send_free(ch: u64, v: u64) -> Free {
         return Free::Locked;
     }
     while let Some(r) = d.waiters.pop(WaitKind::Recv) {
-        if task::deliver(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
+        if task::deliver_held(r.rec, r.wait, v, d.elem.is_ptr(), 1) {
             end_fast(d);
             return Free::Done(0);
         }
@@ -967,7 +969,7 @@ fn admit_sender_fast(d: &mut ChanData) {
             d.waiters.push_front(s);
             return;
         }
-        if task::deliver(s.rec, s.wait, 0, false, 1) {
+        if task::deliver_held(s.rec, s.wait, 0, false, 1) {
             push_back_charged(&mut d.queue, s.value);
             d.bytes += s.size;
             push_back_charged(&mut d.sizes, s.size);
@@ -1385,7 +1387,7 @@ pub fn close_fast(ch: u64) -> bool {
         d.closed = true;
         for w in d.waiters.take_all() {
             let status = if w.kind == WaitKind::Send { 2 } else { 0 };
-            task::deliver(w.rec, w.wait, 0, false, status);
+            task::deliver_held(w.rec, w.wait, 0, false, status);
         }
     }
     end_fast(d);
