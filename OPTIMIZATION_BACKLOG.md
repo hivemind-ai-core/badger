@@ -578,17 +578,20 @@ typeck work. It builds on the existing `ownership.rs` and
 
 ### 3.1 Region / arena for typeck and AST
 
-**Status:** **the arena half is not adopted** (2026-10-20): badger_typeck does not link
-badger_runtime and never touches the GC's managed heap -- its nodes are Rust
-values on the system allocator, the HIR is already la-arena indexed, the
-types are `Rc<TyKind>`, Rust's lifetimes are already the escape analysis,
-and stable Rust has no `allocator_api` to point `Rc`/`Vec`/`HashMap` at an
-arena anyway. **The traffic it aimed at is real and was fixed instead**
-(`090efbc`): the type tree is shared when nothing changed and the children
-walk does not allocate, so the allocations per check go from 831K to 386K,
-the type check phase over the 610-file corpus from 46.2 s to 31.2 s (-33%)
-and the whole check from 80.0 s to 57.3 s, with stdout, stderr and exit
-status identical on every file.
+**Status:** **the arena is not adopted; the win landed without it**
+(2026-10-20). The type checker never uses the managed heap. Its nodes are
+Rust values (`Rc<TyKind>`, an `la_arena` HIR), and the types escape the check
+by design, into `Checked` and the session's `StdCache`. `ownership.rs`
+analyses the Badger program's bindings, not the compiler's values. Stable
+Rust cannot point `Rc`/`Vec`/`HashMap` at an arena. The malloc traffic was
+real, but most of it was `resolve`/`ty_map` copying unchanged type trees and
+a `Vec` per visited expression. Sharing unchanged subtrees (`090efbc`) halves
+the typecheck allocations (831K -> 386K per check): typecheck -16.8 % and
+`badger check` wall -10.4 % over the 610-file corpus, with output identical.
+What allocation still costs is better taken by a process-wide allocator:
+jemalloc measured a further -13 % on typecheck, but that needs the runtime
+owners' gates. See
+[the report](reports/2026-10-20-typeck-allocation.md).
 
 - **Goal**: add a `bumpalo` / `typed-arena`-style arena for
   short-lived AST nodes during typeck; an `Immix`-style or
