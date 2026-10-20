@@ -274,10 +274,10 @@ fn mark_lines(p: *mut Header, payload: usize) {
     let offset = p.addr() & (BLOCK - 1);
     let (first, last) = (offset / LINE, (offset + size - 1) / LINE);
     let map = line_map(p as *mut u8);
-    for word in first / 64..=last / 64 {
+    for (word, bits) in map.iter_mut().enumerate().take(last / 64 + 1).skip(first / 64) {
         let low = if word == first / 64 { first % 64 } else { 0 };
         let high = if word == last / 64 { last % 64 } else { 63 };
-        map[word] |= (u64::MAX << low) & (u64::MAX >> (63 - high));
+        *bits |= (u64::MAX << low) & (u64::MAX >> (63 - high));
     }
 }
 
@@ -1018,7 +1018,7 @@ fn collect_inner(#[cfg(feature = "gc-profile")] profile: &mut diagnostics::Colle
     // the collector's buffer is reused (it is empty at the end of a
     // collection).
     for r in &REMEMBER.0 {
-        remembered.extend(unsafe { &mut *r.get() }.drain(..));
+        remembered.append(unsafe { &mut *r.get() });
     }
     let live: FxHashSet<usize> =
         if checking { all_objects().map(|p| p as usize).collect() } else { FxHashSet::default() };

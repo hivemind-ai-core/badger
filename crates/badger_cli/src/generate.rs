@@ -501,7 +501,7 @@ const RESERVED: &[&str] = &[
 /// A generated module named like a standard one (`io`, `json`) would hide
 /// it in every module importing both.
 fn std_clash(name: &str) -> Result<(), String> {
-    if badger_driver::std_modules().iter().any(|m| *m == name) {
+    if badger_driver::std_modules().contains(&name) {
         return Err(format!(
             "`{name}` is a standard module (`std.{name}`): a module of that name hides it where both are imported; choose another name"
         ));

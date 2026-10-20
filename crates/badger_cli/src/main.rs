@@ -552,9 +552,7 @@ fn exit_on_internal_errors() {
 /// program once, so a program with external effects happens twice: the mode
 /// is for the test corpus, not for such a program.
 fn mir_validate_run() -> Option<ExitCode> {
-    if std::env::var_os("BADGER_MIR_VALIDATE").is_none() {
-        return None;
-    }
+    std::env::var_os("BADGER_MIR_VALIDATE")?;
     // The two children keep the mode on so the driver's structural check
     // runs inside them; the marker stops the wrapper from re-entering.
     if std::env::var_os("BADGER_MIR_VALIDATE_CHILD").is_some() {

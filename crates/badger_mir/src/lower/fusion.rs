@@ -588,19 +588,19 @@ impl FnLower<'_, '_, '_> {
                     let passing = self.block();
                     self.switch(first);
                     self.emit(Stmt::Assign(seen, Rvalue::Use(int(1))));
-                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(rest);
                     let eq = self.rt(
                         "badger_rt_eq",
-                        vec![desc.clone(), Operand::Local(prev), value.clone()],
+                        vec![desc, Operand::Local(prev), value],
                         Repr::I8,
                     );
                     let eqb = self.copy_to_local(eq, Repr::I8, None);
                     let changed = self.block();
                     self.term(Term::Branch(Operand::Local(eqb), step, changed));
                     self.switch(changed);
-                    self.emit(Stmt::Assign(prev, Rvalue::Use(value.clone())));
+                    self.emit(Stmt::Assign(prev, Rvalue::Use(value)));
                     self.term(Term::Goto(passing));
                     self.switch(passing);
                 }

@@ -97,7 +97,7 @@ pub fn compare(left: &Program, right: &Program) -> Result<(), Difference> {
         return Err(program(format!("{:?}", left.static_closures), format!("{:?}", right.static_closures)));
     }
     if left.display_hooks.len() != right.display_hooks.len()
-        || left.display_hooks.iter().zip(&right.display_hooks).any(|(a, b)| a.0 as *const _ != b.0 as *const _ || a.1 != b.1)
+        || left.display_hooks.iter().zip(&right.display_hooks).any(|(a, b)| !std::ptr::eq(a.0, b.0) || a.1 != b.1)
     {
         return Err(program(format!("{:?}", left.display_hooks), format!("{:?}", right.display_hooks)));
     }
@@ -105,7 +105,7 @@ pub fn compare(left: &Program, right: &Program) -> Result<(), Difference> {
         return Err(program(format!("{:?}", left.tests), format!("{:?}", right.tests)));
     }
     if left.test_errors.len() != right.test_errors.len()
-        || left.test_errors.iter().zip(&right.test_errors).any(|(a, b)| a.0 != b.0 || a.1 as *const _ != b.1 as *const _)
+        || left.test_errors.iter().zip(&right.test_errors).any(|(a, b)| a.0 != b.0 || !std::ptr::eq(a.1, b.1))
     {
         return Err(program(format!("{:?}", left.test_errors), format!("{:?}", right.test_errors)));
     }
