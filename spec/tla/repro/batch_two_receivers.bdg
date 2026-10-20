@@ -2,6 +2,7 @@
 // channel; one sealed batch of two messages is published. Expected: both
 // receivers get a message. At 13e7756 (1 and 4 workers): "r1 got 1", then
 // "deadlock: all tasks are blocked" with r2 waiting on batch receive.
+// Fixed in 9f1ff4c: both receivers get a message at 1 and 4 workers.
 import std.channel
 import std.io
 import std.task
