@@ -576,6 +576,7 @@ fn kind_out(w: &mut W, pool: &mut Pool<'_>, k: &Kind) -> Result<(), String> {
             for v in variants {
                 w.str(&v.name);
                 fields(w, pool, &v.fields)?;
+                w.opt_str(&v.message);
             }
         }
         Kind::Closure { size, captures } => {
@@ -1298,7 +1299,8 @@ fn read_kind(d: &mut Dec<'_>) -> Result<Kind, String> {
             let mut variants = vec![];
             for _ in 0..n {
                 let name = d.r.str()?;
-                variants.push(Variant { name, fields: fields(d)? });
+                let fields = fields(d)?;
+                variants.push(Variant { name, fields, message: d.r.opt_str()? });
             }
             Kind::Enum { size, variants }
         }

@@ -148,6 +148,7 @@ pub fn bind_in<P, B, I, O, E, Eff>(context: Context, binding: {
         name: operation.info.id,
         summary: Option.some(operation.info.doc),
         params: Option.some(schema.json_schema(schema.of<P>())),
+        query: false,
         body: if bodiless { Option.none } else { Option.some(schema.json_schema(schema.of<B>())) },
         reply: Option.some(schema.json_schema(schema.of<O>())),
         run: fn(request, raw) {
@@ -204,6 +205,7 @@ pub fn health(h: app.Health) -> List<route.Route> {
         name: #health/live,
         summary: Option.some("Whether the process is running."),
         params: Option.none,
+        query: false,
         body: Option.none,
         reply: Option.none,
         run: fn(_request, _params) { reply(200, "", { status: "live" }) },
@@ -214,6 +216,7 @@ pub fn health(h: app.Health) -> List<route.Route> {
         name: #health/ready,
         summary: Option.some("Whether the application accepts work, with each readiness check."),
         params: Option.none,
+        query: false,
         body: Option.none,
         reply: Option.some(schema.json_schema(schema.of<app.Report>())),
         run: fn(_request, _params) {

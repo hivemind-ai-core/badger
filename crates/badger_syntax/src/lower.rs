@@ -153,12 +153,61 @@ impl<'a, 'i> Lower<'a, 'i> {
             TypeKind::Path { module, name, args } if module.is_empty() && args.is_empty() && self.interner.resolve(name.sym) == which)
     }
 
-    /// Variant attributes: `@status(code)`, read by `derive(HttpError)`.
-    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool) {
+    /// Variant attributes: `@status(code)`, read by `derive(HttpError)`, and
+    /// `@message("text {field}")`, read by `derive(Error)` and
+    /// `derive(Display)`.
+    fn check_variant_attributes(&mut self, variants: &[Variant], http: bool, display: bool) {
         for v in variants {
             let mut status: Option<Span> = None;
             for a in &v.attributes {
                 match self.interner.resolve(a.name) {
+                    "message" => {
+                        let [AttrArg::Str(template)] = a.args.as_slice() else {
+                            self.error(
+                                "E0198",
+                                a.span,
+                                "`@message` takes one string",
+                                "e.g. `@message(\"no book {id}\")`",
+                            );
+                            continue;
+                        };
+                        let fields: Vec<String> = v
+                            .fields
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (l, _))| match l {
+                                Some(l) => self.interner.resolve(l.sym).to_string(),
+                                None => i.to_string(),
+                            })
+                            .collect();
+                        match message_placeholders(template) {
+                            Err(why) => self.error("E0198", a.span, format!("`@message` template: {why}"), "here"),
+                            Ok(names) => {
+                                if let Some(bad) = names.iter().find(|n| !fields.contains(n)) {
+                                    let vname = self.interner.resolve(v.name.sym).to_string();
+                                    let have = if fields.is_empty() {
+                                        "it has no fields".to_string()
+                                    } else {
+                                        format!("its fields are {}", fields.join(", "))
+                                    };
+                                    self.error(
+                                        "E0198",
+                                        a.span,
+                                        format!("`@message` names `{{{bad}}}`, which is not a field of `{vname}`"),
+                                        have,
+                                    );
+                                } else if !display {
+                                    self.diags.push(
+                                        Diagnostic::warning(
+                                            "`@message` has no effect without `derive(Error)` or `derive(Display)`",
+                                        )
+                                        .with_code("E0198")
+                                        .with_label(a.span, "read by the derived display of the enum"),
+                                    );
+                                }
+                            }
+                        }
+                    }
                     "status" => {
                         if let Some(first) = status {
                             self.diags.push(
@@ -192,7 +241,7 @@ impl<'a, 'i> Lower<'a, 'i> {
                         self.diags.push(
                             Diagnostic::warning(format!("unknown variant attribute `@{other}`"))
                                 .with_code("E0191")
-                                .with_label(a.span, "a variant takes `@status(code)`"),
+                                .with_label(a.span, "a variant takes `@status(code)` and `@message(\"text\")`"),
                         );
                     }
                 }
@@ -429,7 +478,8 @@ impl<'a, 'i> Lower<'a, 'i> {
                     derives.remove(i);
                     self.derive_http_error(name, &generics, &variants, at);
                 }
-                self.check_variant_attributes(&variants, http.is_some());
+                let display = derives.iter().any(|t| self.names_derive(*t, "Error") || self.names_derive(*t, "Display"));
+                self.check_variant_attributes(&variants, http.is_some(), display);
                 ItemKind::Enum(EnumDecl { name, generics, variants, derives })
             }
             cst::ItemKind::Protocol { name, generics, supers, members } => {
@@ -1926,4 +1976,39 @@ fn bound_names(ast: &Ast, p: PatId, out: &mut Vec<Name>) {
         PatKind::Variant { args: Some(ps), .. } => ps.iter().for_each(|q| bound_names(ast, *q, out)),
         _ => {}
     }
+}
+
+/// The field names a `@message` template interpolates (`{id}`), with `{{`
+/// and `}}` for literal braces; the same rules the runtime renders it with.
+pub fn message_placeholders(template: &str) -> Result<Vec<String>, String> {
+    let mut names = vec![];
+    let mut chars = template.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+            }
+            '{' => {
+                let mut name = String::new();
+                loop {
+                    match chars.next() {
+                        Some('}') => break,
+                        Some(c) if c.is_alphanumeric() || c == '_' => name.push(c),
+                        Some(c) => return Err(format!("`{c}` in a placeholder (write `{{{{` for a literal brace)")),
+                        None => return Err("an unclosed `{`".into()),
+                    }
+                }
+                if name.is_empty() {
+                    return Err("an empty `{}`".into());
+                }
+                names.push(name);
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+            }
+            '}' => return Err("a lone `}` (write `}}` for a literal brace)".into()),
+            _ => {}
+        }
+    }
+    Ok(names)
 }

@@ -214,7 +214,6 @@ counts as any effect, and the call is E0501 under a tight bound. Annotate
 it.
 
 ```badger
-import std.io
 
 struct Hooks {
     on_start: fn() -> Unit !{},

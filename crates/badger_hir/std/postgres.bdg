@@ -76,9 +76,9 @@ pub type Description = {
 extern "native badger_postgres.connect" fn pg_connect(url: String, max_connections: Int) -> Result<native.Handle, native.Error> !{Io, Wait}
 extern "native badger_postgres.close" fn pg_close(pool: native.Handle) -> Unit
 extern "native badger_postgres.is_closed" fn pg_is_closed(pool: native.Handle) -> Bool
-extern "native badger_postgres.execute" fn pg_execute(conn: native.Handle, sql: String, params: List<Data>) -> Result<Int, native.Error> !{Io, Wait}
-extern "native badger_postgres.query" fn pg_query(conn: native.Handle, sql: String, params: List<Data>) -> Result<List<Data>, native.Error> !{Io, Wait}
-extern "native badger_postgres.query_one" fn pg_query_one(conn: native.Handle, sql: String, params: List<Data>) -> Result<Data, native.Error> !{Io, Wait}
+extern "native badger_postgres.execute" fn pg_execute(conn: native.Handle, sql: String, params: Data) -> Result<Int, native.Error> !{Io, Wait}
+extern "native badger_postgres.query" fn pg_query(conn: native.Handle, sql: String, params: Data) -> Result<List<Data>, native.Error> !{Io, Wait}
+extern "native badger_postgres.query_one" fn pg_query_one(conn: native.Handle, sql: String, params: Data) -> Result<Data, native.Error> !{Io, Wait}
 extern "native badger_postgres.begin" fn pg_begin(pool: native.Handle) -> Result<native.Handle, native.Error> !{Io, Wait}
 extern "native badger_postgres.finish" fn pg_finish(tx: native.Handle, commit: Bool) -> Result<Unit, native.Error> !{Io, Wait}
 extern "native badger_postgres.describe" fn pg_describe(pool: native.Handle, sql: String) -> Result<Description, native.Error> !{Io, Wait}
@@ -106,20 +106,35 @@ pub fn connect_with<S: Scope>(url: String, options: Options) -> Result<Pool<S>, 
 pub fn close<S: Scope>(pool: Pool<S>) -> Unit { pg_close(pool.handle) }
 pub fn is_closed<S: Scope>(pool: Pool<S>) -> Bool { pg_is_closed(pool.handle) }
 
+// Parameters, in every statement function: a list or tuple binds `$1`,
+// `$2`, ... in order (`[id]`, `(title, author)`), a record binds `:name`
+// placeholders by field (`{ id }` for `:id`; `::` casts, strings, and
+// comments are left alone), and a single value is `$1`. Values are
+// converted as `Codec` encodes them; `[]` or `{}` is none.
+
 /// Execute a statement with bound parameters; returns the changed row
 /// count. Without parameters, several `;`-separated statements may run
 /// together (a schema script); the count is the last one's.
-pub fn execute<C>(conn: C, sql: String, params: List<Data>) -> Result<Int, Error> !{Io, Wait} where C: Connection {
-    lift(pg_execute(conn.connection(), sql, params))
+pub fn execute<C, P>(conn: C, sql: String, params: P) -> Result<Int, Error> !{Io, Wait} where C: Connection, P: Codec {
+    lift(pg_execute(conn.connection(), sql, codec.to_data(params)))
 }
 
-pub fn query<C>(conn: C, sql: String, params: List<Data>) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection {
-    lift(pg_query(conn.connection(), sql, params))
+pub fn query<C, P>(conn: C, sql: String, params: P) -> Result<List<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
+    lift(pg_query(conn.connection(), sql, codec.to_data(params)))
 }
 
 /// Exactly one row as `Data`; zero or several rows are an error.
-pub fn query_one<C>(conn: C, sql: String, params: List<Data>) -> Result<Data, Error> !{Io, Wait} where C: Connection {
-    lift(pg_query_one(conn.connection(), sql, params))
+pub fn query_one<C, P>(conn: C, sql: String, params: P) -> Result<Data, Error> !{Io, Wait} where C: Connection, P: Codec {
+    lift(pg_query_one(conn.connection(), sql, codec.to_data(params)))
+}
+
+/// At most one row as `Data`: none for no rows; several rows are an error.
+pub fn query_opt<C, P>(conn: C, sql: String, params: P) -> Result<Option<Data>, Error> !{Io, Wait} where C: Connection, P: Codec {
+    let rows = lift(pg_query(conn.connection(), sql, codec.to_data(params)))?
+    if rows.len() > 1 {
+        return err({ code: #postgres/row_count, message: $"expected at most one row, got {rows.len()}", cause: Option.none })
+    }
+    ok(rows.first())
 }
 
 fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
@@ -131,13 +146,22 @@ fn decode_row<T>(row: Data) -> Result<T, Error> where T: Codec {
 
 /// Rows as `T`, a record whose fields are named like the result's columns
 /// (an `Option` field for a column that can be NULL).
-pub fn query_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection {
-    list.try_map(lift(pg_query(conn.connection(), sql, params))?, decode_row)
+pub fn query_as<T, C, P>(conn: C, sql: String, params: P) -> Result<List<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
+    list.try_map(lift(pg_query(conn.connection(), sql, codec.to_data(params)))?, decode_row)
+}
+
+/// At most one row, as `T` (see `query_as`): none for no rows; several rows
+/// are an error.
+pub fn query_opt_as<T, C, P>(conn: C, sql: String, params: P) -> Result<Option<T>, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
+    match query_opt(conn, sql, params)? {
+        .some(row) => ok(some(decode_row(row)?)),
+        .none => ok(none),
+    }
 }
 
 /// Exactly one row, as `T` (see `query_as`).
-pub fn query_one_as<T, C>(conn: C, sql: String, params: List<Data>) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection {
-    decode_row(lift(pg_query_one(conn.connection(), sql, params))?)
+pub fn query_one_as<T, C, P>(conn: C, sql: String, params: P) -> Result<T, Error> !{Io, Wait} where T: Codec, C: Connection, P: Codec {
+    decode_row(lift(pg_query_one(conn.connection(), sql, codec.to_data(params)))?)
 }
 
 /// What the server says `sql` takes and returns (without running it).

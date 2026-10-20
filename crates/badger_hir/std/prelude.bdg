@@ -183,6 +183,9 @@ pub protocol Display {
 pub protocol HttpStatus {
     /// The status this error is answered with.
     fn http_status(self: &Self) -> Int { 500 }
+    /// The stable code a client error reply carries (`"error"`): by default,
+    /// as `Error.code`, the enum variant (or type) name.
+    fn http_code(self: &Self) -> Symbol { error_code(self) }
 }
 
 /// An expected failure: display text, a stable machine-readable code, an
@@ -469,6 +472,21 @@ impl Display for Data {
 }
 impl Display for () {
     fn display(self: &Self) -> String { "()" }
+}
+impl<A, B> Display for (A, B) where A: Display, B: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C> Display for (A, B, C) where A: Display, B: Display, C: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D> Display for (A, B, C, D) where A: Display, B: Display, C: Display, D: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D, E> Display for (A, B, C, D, E) where A: Display, B: Display, C: Display, D: Display, E: Display {
+    fn display(self: &Self) -> String { display_value(self) }
+}
+impl<A, B, C, D, E, F> Display for (A, B, C, D, E, F) where A: Display, B: Display, C: Display, D: Display, E: Display, F: Display {
+    fn display(self: &Self) -> String { display_value(self) }
 }
 
 extern "intrinsic" fn display_value<T>(value: T) -> String

@@ -14,6 +14,8 @@ pub struct Column {
 
 pub struct Prepared {
     pub params: usize,
+    /// Each parameter's name (`:id`), none for a positional `?`.
+    pub names: Vec<Option<String>>,
     pub columns: Vec<Column>,
 }
 
@@ -45,7 +47,8 @@ impl Db {
             };
             columns.push(Column { name: name.to_string(), decl: decls[i].clone(), nullable });
         }
-        Ok(Prepared { params: st.parameter_count(), columns })
+        let names = (1..=st.parameter_count()).map(|i| st.parameter_name(i).map(str::to_string)).collect();
+        Ok(Prepared { params: st.parameter_count(), names, columns })
     }
 }
 
