@@ -3,10 +3,11 @@ import std.io
 import std.channel
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     cfg(source: channel.ConfigError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 enum Got {
     prompt(v: Int),

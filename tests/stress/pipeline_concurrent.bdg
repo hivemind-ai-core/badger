@@ -7,10 +7,11 @@ import std.task
 
 type Ctx = { id: Int, hits: Int }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn counter(name: Symbol, seen: Atom<Int>) -> pipeline.Stage<Ctx, Ctx, String, String> {
     pipeline.stage({

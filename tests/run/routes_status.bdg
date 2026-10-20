@@ -7,13 +7,14 @@ import std.io
 import std.route
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     invalid_input(message: String),
     not_found(id: Int),
     http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 // The status each error is answered with.
 impl HttpStatus for AppError {

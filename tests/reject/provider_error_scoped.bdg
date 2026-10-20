@@ -16,7 +16,8 @@ fn init(scope: system.InitScope, c: { path: String }) -> Result<Int, E> {
     }
 }
 let p = system.provider({ name: #t/p, init })
-pub enum AppError { system(source: system.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error) }
 pub fn main() -> Result<Unit, AppError> {
     let plan = system { a: component(p, { path: ":memory:" }) }
     system.run(plan, fn(r) -> Result<Unit, AppError> { ok(()) })

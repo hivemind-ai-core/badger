@@ -7,10 +7,11 @@ import std.list
 pub type Task = { id: Int, title: String, done: Bool }
 
 /// What can go wrong.
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
-} derive(Error)
+}
 
 /// What the service needs from storage.
 pub type Store = {

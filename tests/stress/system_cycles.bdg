@@ -18,11 +18,12 @@ impl Display for Boom {
 
 impl Error for Boom {}
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 fn node(started: Atom<List<String>>, halted: Atom<List<String>>, attempts: Atom<Int>) -> system.Provider<{ label: String }, String, Boom> {
     system.provider({

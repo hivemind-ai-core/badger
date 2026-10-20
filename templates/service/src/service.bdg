@@ -12,10 +12,11 @@ pub type Note = { id: Int, title: String, done: Bool }
 pub type NewNote = { title: String }
 
 /// What can go wrong.
+@derive(Error)
 pub enum Error {
     invalid(message: String),
     not_found(id: Int),
-} derive(Error)
+}
 
 /// The service's operations.
 pub type Operations = {

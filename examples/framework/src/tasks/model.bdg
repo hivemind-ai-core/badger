@@ -6,11 +6,12 @@ import std.app
 pub type Task = { id: Int, title: String, done: Bool }
 pub type NewTask = { title: String }
 
+@derive(Error)
 pub enum Error {
     invalid_title(message: String),
     not_found(id: Int),
     storage(message: String),
-} derive(Error)
+}
 
 // What the feature needs from storage; `memory.store` and `sqlite_store.store`
 // provide it (and `store_contract` in the tests checks both the same way).

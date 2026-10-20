@@ -4,10 +4,11 @@ import std.buffer
 import std.channel
 import std.io
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn consume(b: Buffer<Int>) -> Int { b.len() }
 

@@ -11,10 +11,11 @@ import std.pipeline.{handle}
 import std.route
 import tasks.model
 
+@derive(Error, From)
 pub enum Error {
     route(source: route.RouteError),
     admission(source: admission.Error),
-} derive(Error, From)
+}
 
 // The status each error is answered with (500 unless the error chooses
 // one): the route system reads it.

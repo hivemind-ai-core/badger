@@ -26,14 +26,16 @@ impl HttpStatus for Error {}
 
 impl prelude.Error for Error {}
 
+@derive(Codec, Display)
 pub struct Location {
     pub file: String,
     pub line: Int,
     pub col: Int,
     pub end_line: Int,
     pub end_col: Int,
-} derive(Codec, Display)
+}
 
+@derive(Codec, Display)
 pub struct Diagnostic {
     pub file: String,
     pub line: Int,
@@ -57,8 +59,9 @@ pub struct Diagnostic {
     /// Related definitions (a called function, the expected type) and where
     /// they are declared.
     pub declarations: List<Declaration>,
-} derive(Codec, Display)
+}
 
+@derive(Codec, Display)
 pub struct Related {
     pub file: String,
     pub line: Int,
@@ -66,8 +69,9 @@ pub struct Related {
     pub end_line: Int,
     pub end_col: Int,
     pub message: String,
-} derive(Codec, Display)
+}
 
+@derive(Codec, Display)
 pub struct Declaration {
     pub name: String,
     pub file: String,
@@ -75,10 +79,11 @@ pub struct Declaration {
     pub col: Int,
     pub end_line: Int,
     pub end_col: Int,
-} derive(Codec, Display)
+}
 
 pub struct Symbol {
     pub name: String,
+    @derive(Codec, Display)
     /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, `value`,
     /// or `impl`.
     pub kind: String,
@@ -88,40 +93,45 @@ pub struct Symbol {
     pub col: Int,
     /// The impl a method belongs to.
     pub container: Option<String>,
-} derive(Codec, Display)
+}
 
+@derive(Codec, Display)
 pub struct Completion {
     pub name: String,
     pub detail: Option<String>,
-} derive(Codec, Display)
+}
 
 /// A file a check read: whether it was proposed content (rather than the
 /// file on disk), its size in bytes, and a hash of its text.
+@derive(Codec, Display)
 pub struct Input {
     pub file: String,
     pub proposed: Bool,
     pub bytes: Int,
     pub hash: String,
-} derive(Codec, Display)
+}
 
 /// An entry point a check covered: `main`, an `[entries]` name, or
 /// `task:NAME`, with its module and function when they resolved.
+@derive(Codec, Display)
 pub struct Root {
     pub entry: String,
     pub module: Option<String>,
     pub function: Option<String>,
-} derive(Codec, Display)
+}
 
 /// Where a task is spawned (`spawn` or `capture`), and the function
 /// containing it.
+@derive(Codec, Display)
 pub struct TaskSite {
     pub function: String,
     pub file: String,
     pub line: Int,
     pub col: Int,
-} derive(Codec, Display)
+}
 
 /// The result of checking a project with proposed file contents.
+@derive(Codec, Display)
 pub struct Check {
     /// No errors (warnings may remain).
     pub ok: Bool,
@@ -134,13 +144,14 @@ pub struct Check {
     pub roots: List<Root>,
     pub tests: List<String>,
     pub tasks: List<TaskSite>,
-} derive(Codec, Display)
+}
 
 /// A public item of a module's interface.
 pub struct ApiItem {
     /// The module (`std.list`, or a program's source file).
     pub module: String,
     pub name: String,
+    @derive(Codec, Display)
     /// `function`, `method`, `struct`, `enum`, `protocol`, `type`, or
     /// `value`.
     pub kind: String,
@@ -150,20 +161,23 @@ pub struct ApiItem {
     /// empty for other kinds.
     pub declaration: String,
     pub doc: String,
-} derive(Codec, Display)
+}
 
 /// Program structure: named nodes and directed edges.
+@derive(Codec, Display)
 pub struct Graph {
     pub nodes: List<String>,
     pub edges: List<Edge>,
-} derive(Codec, Display)
+}
 
+@derive(Codec, Display)
 pub struct Edge {
     pub from: String,
     pub to: String,
-} derive(Codec, Display)
+}
 
 /// A replacement of the text between two positions.
+@derive(Codec, Display)
 pub struct Edit {
     pub file: String,
     pub line: Int,
@@ -171,15 +185,17 @@ pub struct Edit {
     pub end_line: Int,
     pub end_col: Int,
     pub text: String,
-} derive(Codec, Display)
+}
 
+@derive(Codec)
 struct Edits {
     edits: List<Edit>,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Hover {
     text: String,
-} derive(Codec)
+}
 
 /// The `badger` executable (`BADGER_EXE`, set by `badger` itself).
 fn exe() -> String !{Io} { env.get("BADGER_EXE").unwrap_or("badger") }

@@ -3,10 +3,11 @@ import std.codec
 
 type Settings = { retries: Int }
 
+@derive(Error, From)
 pub enum InputError {
     decode(source: codec.DecodeError),
     invalid_retries(value: Int),
-} derive(Error, From)
+}
 
 fn read_settings(payload: Bytes) -> Result<Settings, InputError> {
     let settings = codec.decode<Settings>(payload)?

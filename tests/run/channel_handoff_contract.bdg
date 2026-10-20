@@ -6,10 +6,11 @@ import std.io
 import std.task
 import std.time
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
-} derive(Error, From)
+}
 
 fn got(e: task.Exit<Int>) -> String {
     match e {

@@ -26,10 +26,11 @@ impl Shape for Rect {
     fn label(self: &Self, prefix: String) -> String { $"{prefix} rect" }
 }
 
+@derive(Display)
 pub enum Color {
     red,
     green,
-} derive(Display)
+}
 
 fn describe(s: dyn Shape) -> String {
     $"{s.label("a")} with area {s.area()}"

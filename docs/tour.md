@@ -435,11 +435,12 @@ import std.text
 
 // An error type is an ordinary enum. `derive(Error)` makes it printable as
 // an error; `derive(From)` lets `?` convert each wrapped error type into it.
+@derive(Error, From)
 pub enum AppError {
     bad_number(input: String),
     too_big(value: Int),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn parse(input: String) -> Result<Int, AppError> {
     // text.parse_int returns an Option; turn absence into an error.
@@ -852,10 +853,11 @@ I/O, a channel) suspends only that task. `badger run --workers N` spreads tasks 
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     failed(message: String),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn slow_square(n: Int) -> Int {
     task.sleep(20ms)
@@ -921,11 +923,12 @@ import std.channel
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 // A request that carries its own one-shot reply channel.
 type Lookup = { key: Int, reply: channel.ReplySender<String> }

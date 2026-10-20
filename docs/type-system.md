@@ -272,10 +272,11 @@ warns (E0203); the other variants still convert.
 ```badger
 import std.io
 
+@derive(Error, From)
 pub enum AppError {
     parse(text: String),
     range(value: NumericError),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, io.Error> {
     io.println(AppError.from("boom"))?
@@ -338,15 +339,17 @@ accepts `E1` equal to `E2`, or one direct `From<E1>` implementation for
 ```badger
 import std.io
 
+@derive(Error)
 pub enum ParseError {
     empty,
     not_a_number(text: String),
-} derive(Error)
+}
 
+@derive(Error, From)
 pub enum AppError {
     parse(source: ParseError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn parse_int(s: String) -> Result<Int, ParseError> {
     if s.is_empty() {

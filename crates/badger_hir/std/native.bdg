@@ -20,10 +20,11 @@ pub extern type Handle
 
 /// An expected failure reported by a native module: a `kind` such as
 /// `#sqlite/constraint`, and a message.
+@derive(Codec)
 pub struct Error {
     pub kind: Symbol,
     pub message: String,
-} derive(Codec)
+}
 
 impl Display for Error {
     fn display(self: &Self) -> String { $"{self.kind}: {self.message}" }

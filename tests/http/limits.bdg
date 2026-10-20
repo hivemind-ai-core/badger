@@ -14,12 +14,13 @@ import std.text
 
 type Settings = { port: U16 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     http(source: http.Error),
     io(source: io.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn chunks(n: Int) -> Seq<Bytes> {
     seq.scoped(

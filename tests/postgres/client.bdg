@@ -9,10 +9,11 @@ import std.time
 
 type Item = { id: Int, name: String, price: String, tags: List<String>, note: Option<String> }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     postgres(source: postgres.Error),
-} derive(Error, From)
+}
 
 fn code<T>(r: Result<T, postgres.Error>) -> String {
     match r {

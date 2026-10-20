@@ -25,12 +25,13 @@ import std.http
 import std.io
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     invalid_input(message: String),
     not_found(id: Int),
     http(source: http.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 impl HttpStatus for AppError {
     fn http_status(self: &Self) -> Int {
@@ -100,10 +101,11 @@ import std.io
 import std.result
 import std.validate
 
+@derive(Error, From)
 pub enum AppError {
     invalid_input(message: String),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn title_rules(title: String) -> List<validate.Rule<AppError>> {
     [
@@ -194,11 +196,12 @@ type Settings = {
     token: config.Secret,
 }
 
+@derive(Error, From)
 pub enum AppError {
     cli(source: cli.Error),
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let opts = cli.parse_env({ host: cli.text("127.0.0.1"), port: cli.integer(8080), verbose: cli.flag(false) })?
@@ -331,13 +334,14 @@ type NewNote = { title: String }
 type Id = { id: Int }
 type NoBody = {}
 
+@derive(Error, From)
 pub enum AppError {
     invalid_input(message: String),
     not_found(id: Int),
     http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 impl HttpStatus for AppError {
     fn http_status(self: &Self) -> Int {
@@ -442,10 +446,11 @@ import std.pipeline.{handle}
 
 type Reply = { status: Int, body: String }
 
+@derive(Error, From)
 pub enum AppError {
     missing_name,
     io(source: io.Error),
-} derive(Error, From)
+}
 
 stage timed() {
     enter(ctx) {
@@ -533,10 +538,11 @@ import std.system
 import std.task
 import std.worker
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 provider heartbeat(scope, _config: { every: Int }) -> Result<Unit, AppError> {
     scope.worker(fn() -> Result<Unit, AppError> {
@@ -609,11 +615,12 @@ import std.test
 
 type Note = { id: Int, title: String }
 
+@derive(Error, From)
 pub enum AppError {
     not_found(id: Int),
     http(source: http.Error),
     route(source: route.RouteError),
-} derive(Error, From)
+}
 
 impl HttpStatus for AppError {
     fn http_status(self: &Self) -> Int {

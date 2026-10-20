@@ -16,7 +16,8 @@ let counter = system.provider({ name: #t/counter, init: fn(scope, c: { start: In
     scope.on_halt(fn() -> Result<Unit, F> { open.set(0); say("counter halted"); ok(()) })
     ok({ bump: fn() { n.update(fn(x: Int) -> Int { x + 1 }) }, closed: fn() { open.get() == 0 } })
 } })
-pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { sys(source: system.Error), cfg(source: channel.ConfigError), io(source: io.Error) }
 let leaky = system.provider({ name: #t/leaky, init: fn(scope, c: { out: channel.Sender<Counter>, inner: Counter }) -> Result<Int, F> {
     let _ = c.out.try_send(c.inner)
     ok(1)

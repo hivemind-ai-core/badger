@@ -2,11 +2,12 @@
 // no derived conversion (a warning), so `?` from that type needs an
 // explicit mapping; the other variants still convert.
 // expect-error: E0333
+@derive(Error, From)
 pub enum AppError {
     a(source: Int),
     b(source: Int),
     c(source: String),
-} derive(Error, From)
+}
 
 fn number() -> Result<Unit, Int> { err(1) }
 

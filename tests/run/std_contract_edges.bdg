@@ -16,10 +16,11 @@ type Order = { qty: Int }
 
 type Order2 = { qty: Int, note: String }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     jobs(source: jobs.Error),
-} derive(Error, From)
+}
 
 fn show<T>(r: Result<T, jobs.Error>) -> String where T: Display {
     match r {

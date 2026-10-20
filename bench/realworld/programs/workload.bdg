@@ -10,13 +10,14 @@ import std.task
 import std.text
 import std.time
 
+@derive(Codec)
 pub struct Order {
     pub id: Int,
     pub customer: Int,
     pub amount: Int,
     pub active: Bool,
     pub note: String,
-} derive(Codec)
+}
 
 fn must<T, E>(r: Result<T, E>) -> T {
     match r {

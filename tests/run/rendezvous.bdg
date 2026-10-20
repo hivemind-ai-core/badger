@@ -5,11 +5,12 @@ import std.channel
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send(source: channel.SendError<Int>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let ends = channel.create<Int>({ ..channel.defaults, capacity: 0 })?

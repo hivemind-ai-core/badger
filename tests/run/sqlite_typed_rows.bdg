@@ -3,27 +3,31 @@
 import std.io
 import std.sqlite
 
+@derive(Codec)
 struct User {
     id: Int,
     name: String,
     email: Option<String>,
-} derive(Codec)
+}
 
+@derive(Codec)
 struct Total {
     n: Int,
     newest: Option<String>,
-} derive(Codec)
+}
 
 // SQLite has no boolean type: a `Bool` field reads an INTEGER 0 or 1
+@derive(Codec)
 struct Flag {
     name: String,
     active: Bool,
-} derive(Codec)
+}
 
+@derive(Error, From)
 pub enum AppError {
     database(source: sqlite.Error),
     output(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let db = sqlite.open(":memory:")?

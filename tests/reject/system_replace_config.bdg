@@ -7,7 +7,8 @@ import std.system.{component}
 pub struct Failure { pub message: String }
 impl Display for Failure { fn display(self: &Self) -> String { self.message } }
 impl Error for Failure {}
-pub enum AppError { system(source: system.Error), failed(source: Failure) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error), failed(source: Failure) }
 let constant = system.provider({ name: #t/c, init: fn(scope, config: { v: Int }) -> Result<Int, Failure> { ok(config.v) } })
 let stringy = system.provider({ name: #t/s, init: fn(scope, config: { v: Int }) -> Result<String, Failure> { ok("s") } })
 let otherconf = system.provider({ name: #t/o, init: fn(scope, config: { w: String }) -> Result<Int, Failure> { ok(5) } })

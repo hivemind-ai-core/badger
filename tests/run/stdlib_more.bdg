@@ -16,11 +16,12 @@ fn say(s: String) -> Unit {
     let _ = io.println(s)
 }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     config(source: channel.ConfigError),
     route(source: route.RouteError),
-} derive(Error, From)
+}
 
 // The status each error is answered with (500 unless the error chooses
 // one): the route system uses it.

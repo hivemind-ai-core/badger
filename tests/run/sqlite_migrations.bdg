@@ -4,10 +4,11 @@
 import std.io
 import std.sqlite
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     db(source: sqlite.Error),
-} derive(Error, From)
+}
 
 fn report<T>(r: Result<T, sqlite.Error>) -> String {
     match r {

@@ -4,10 +4,11 @@
 import std.io
 import std.sqlite
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     sqlite(source: sqlite.Error),
-} derive(Error, From)
+}
 
 fn insert_notes(tx: sqlite.Tx<_>, notes: List<String>) -> Result<Int, AppError> {
     for n in notes {

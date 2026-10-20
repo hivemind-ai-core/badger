@@ -3,9 +3,10 @@
 // hand, so its metadata and callable always belong together.
 import std.app
 
+@derive(Error)
 pub enum E {
     bad,
-} derive(Error)
+}
 
 pub fn main() {
     let f = fn(c: app.Call, n: Int) -> Result<Int, E> { ok(n) }

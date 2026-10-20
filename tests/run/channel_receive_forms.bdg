@@ -5,6 +5,7 @@ import std.channel
 import std.io
 import std.task
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     send_f(source: channel.SendError<Float>),
@@ -13,7 +14,7 @@ pub enum AppError {
     send_u(source: channel.SendError<U8>),
     send_i(source: channel.SendError<Int>),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let floats = channel.create<Float>({ ..channel.defaults, capacity: 4 })?

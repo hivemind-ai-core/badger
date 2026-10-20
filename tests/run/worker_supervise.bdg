@@ -4,7 +4,8 @@ import std.io
 import std.task
 import std.worker
 
-pub enum Failure { always } derive(Error)
+@derive(Error)
+pub enum Failure { always }
 
 pub fn main() -> Result<Unit, String> {
     let attempts = Atom.new(0)

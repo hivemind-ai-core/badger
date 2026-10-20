@@ -5,9 +5,10 @@ import std.io
 import std.list
 import std.task
 
+@derive(Error)
 pub enum Failure {
     bad(n: Int),
-} derive(Error)
+}
 
 pub fn main() -> Result<Unit, io.Error> {
     let running = Atom.new(0)

@@ -5,10 +5,11 @@ import std.io
 import std.task
 import std.time
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     broken(message: String),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let early = Atom.new(0)

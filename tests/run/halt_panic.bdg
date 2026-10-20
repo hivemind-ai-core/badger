@@ -6,7 +6,8 @@ import std.system.{component}
 pub struct F { pub m: String }
 impl Display for F { fn display(self: &Self) -> String { self.m } }
 impl Error for F {}
-pub enum AppError { system(source: system.Error) } derive(Error, From)
+@derive(Error, From)
+pub enum AppError { system(source: system.Error) }
 fn say(s: String) -> Unit { let _ = io.println(s) }
 let p = system.provider({
     name: #t/p,

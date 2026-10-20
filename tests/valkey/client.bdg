@@ -8,11 +8,12 @@ import std.valkey
 
 type Profile = { name: String, langs: List<String> }
 
+@derive(Error, From)
 pub enum AppError {
     io(source: io.Error),
     valkey(source: valkey.Error),
     missing(what: String),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let url = env.get("VALKEY_URL").unwrap_or("valkey://127.0.0.1:6379")

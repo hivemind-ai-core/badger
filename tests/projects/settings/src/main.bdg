@@ -13,10 +13,11 @@ type Settings = {
     db: { path: String, pool: Int },
 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let defaults: Settings = {

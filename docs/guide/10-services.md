@@ -16,10 +16,11 @@ import std.text
 type NewNote = { title: String }
 type Note = { id: Int, title: String }
 
+@derive(Error, From)
 pub enum AppError {
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 fn routes() -> List<route.Route> {
     [
@@ -99,12 +100,13 @@ import std.io
 import std.route
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     invalid_input(message: String),
     not_found(id: Int),
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 // The status each error is answered with.
 impl HttpStatus for AppError {
@@ -151,11 +153,12 @@ import std.io
 import std.route
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     http(source: http.Error),
     route(source: route.RouteError),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 impl HttpStatus for AppError { }
 
@@ -192,10 +195,11 @@ import std.system
 
 type Settings = { address: String, port: U16 }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn hello(request: http.Request) -> Result<http.Response, http.Error> {
     http.text(200, $"hello from {request.path}\n")
@@ -278,9 +282,10 @@ import std.http
 import std.system
 import std.websocket
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn echo(_request: http.Request, ws: websocket.WebSocket) -> Result<Unit, websocket.Error> {
     loop {
@@ -353,10 +358,11 @@ import std.sqlite
 
 type Item = { id: Int, name: String, qty: Int }
 
+@derive(Error, From)
 pub enum AppError {
     database(source: sqlite.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let db = sqlite.open(":memory:")?
@@ -431,10 +437,11 @@ import std.postgres
 
 type User = { id: Int, name: String }
 
+@derive(Error, From)
 pub enum AppError {
     database(source: postgres.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let url = env.get("DATABASE_URL").unwrap_or("postgres://localhost/app")
@@ -491,10 +498,11 @@ import std.io
 
 type Settings = { port: Int, database: String, greeting: String }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let s = config.load<Settings>("NOTES_")?
@@ -543,10 +551,11 @@ import std.io
 
 type Settings = { port: Int, token: config.Secret }
 
+@derive(Error, From)
 pub enum AppError {
     config(source: config.Error),
     io(source: io.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let defaults: Settings = { port: 8080, token: config.secret("dev") }
@@ -628,9 +637,10 @@ import std.http
 import std.otel
 import std.system
 
+@derive(Error, From)
 pub enum AppError {
     system(source: system.Error),
-} derive(Error, From)
+}
 
 fn hello(_request: http.Request) -> Result<http.Response, http.Error> {
     http.text(200, "hello\n")

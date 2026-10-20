@@ -3,6 +3,7 @@
 import std.io
 struct S { v: Int }
 impl Display for S { fn display(self: &Self) -> String { let _ = io.println("EFFECT"); "s" } }
-struct W { s: S } derive(Display)
+@derive(Display)
+struct W { s: S }
 fn pure_w(w: W) -> String !{} { $"{w}" }
 pub fn main() -> Result<Unit, io.Error> { let w: W = { s: { v: 1 } }; io.println(pure_w(w))?; ok(()) }

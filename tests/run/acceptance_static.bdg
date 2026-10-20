@@ -24,9 +24,10 @@ fn origin() -> Point {
 }
 
 // E01: `?` with one declared direct conversion.
+@derive(Error, From)
 pub enum AppError {
     parse(source: String),
-} derive(Error, From)
+}
 
 fn parse(s: String) -> Result<Int, String> {
     if s == "42" { ok(42) } else { err($"bad number {s}") }

@@ -6,12 +6,13 @@ import std.sqlite
 import std.system
 import std.text
 
+@derive(Error, From)
 pub enum AppError {
     usage(message: String),
     io(source: io.Error),
     database(source: sqlite.Error),
     system(source: system.Error),
-} derive(Error, From)
+}
 
 pub fn main() -> Result<Unit, AppError> {
     let path = match env.args().get(0) {

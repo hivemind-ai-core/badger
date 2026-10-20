@@ -19,12 +19,13 @@ impl Display for Failure {
 
 impl Error for Failure {}
 
+@derive(Error, From)
 pub enum AppError {
     config(source: channel.ConfigError),
     io(source: io.Error),
     system(source: system.Error),
     failed(message: String),
-} derive(Error, From)
+}
 
 // scalars only: no roots in the frame
 fn scalar_step(a: Int, b: Int, c: Int, d: Int) -> Int { a + b * 2 + c * 3 + d * 4 }
