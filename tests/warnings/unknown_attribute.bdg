@@ -1,8 +1,0 @@
-// Attributes parse and are stored; a name the compiler does not recognise
-// warns in user code (it is an error in standard-library sources).
-// expect-warning: E0191
-@mystery(thing)
-@another(key = value, #sym, 3, "s")
-fn helper() {}
-
-pub fn main() {}

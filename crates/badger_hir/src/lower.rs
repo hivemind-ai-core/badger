@@ -110,6 +110,14 @@ impl Place {
     }
 }
 
+/// Whether a module declares attribute `name` (`lib.name`): `None` while
+/// it cannot be known. Modules cannot declare attributes yet, so a library's
+/// attribute is never reported as unknown; with declarations, an
+/// undeclared one is (a warning outside the standard library).
+fn library_attribute_declared(_module: ModuleId, _name: &str) -> Option<bool> {
+    None
+}
+
 /// Where each of the compiler's attributes may be written (`allow`
 /// anywhere).
 fn attribute_fits(name: &str, place: Place) -> bool {
@@ -962,45 +970,64 @@ impl<'c, 'a> BodyCx<'c, 'a> {
     // ------------------------------------------------------------ items
 
     /// Check attributes written at `place`, covering `scope`: a library's
-    /// (`@lib.name`) needs `lib` to be a module this one imports; the rest
-    /// are the compiler's, and one it does not know is reported (an error
-    /// in standard-library sources, a warning elsewhere, so a newer
-    /// attribute does not break an older compiler); one written where it
-    /// does not apply is an error. `@allow(<code>, ...)` silences those
+    /// (`@lib.name`) needs `lib` to be a module this one imports (an error
+    /// otherwise), and one the module does not declare is a warning outside
+    /// the standard library; the rest are the compiler's, and one it does
+    /// not know, or one written where it does not apply, is an error. `@allow(<code>, ...)` silences those
     /// warnings within `scope`.
     fn check_attributes(&mut self, attrs: &[ast::Attribute], place: Place, scope: Span) {
         let is_std = self.cx.hir.modules[self.module].is_std;
-        let report = |this: &mut Self, msg: String, at: Span, label: &str, note: Option<&str>| {
-            let mut d = if is_std { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
-            d = d.with_code("E0191").with_label(at, label.to_string());
-            if let Some(n) = note {
-                d = d.with_note(n.to_string());
-            }
-            this.cx.diags.push(d);
+        let report = |this: &mut Self, error: bool, msg: String, at: Span, label: &str, note: &str| {
+            let d = if error { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
+            this.cx
+                .diags
+                .push(d.with_code("E0191").with_label(at, label.to_string()).with_note(note.to_string()));
         };
         for attr in attrs {
             let name = self.cx.interner.resolve(attr.name).to_string();
             if let Some(&first) = attr.namespace.first() {
                 // a library's attribute: named after a module it imports
-                if !matches!(self.lookup_module_name(first), Some(Res::Module(_))) {
-                    let ns = self.cx.interner.resolve(first).to_string();
+                let module = match self.lookup_module_name(first) {
+                    Some(Res::Module(m)) => m,
+                    _ => {
+                        let ns = self.cx.interner.resolve(first).to_string();
+                        report(
+                            self,
+                            true,
+                            format!("attribute `@{name}`: `{ns}` is not an imported module"),
+                            attr.span,
+                            "a library's attributes are named after its module",
+                            "import the module that defines it (`import lib`, for `@lib.name`)",
+                        );
+                        continue;
+                    }
+                };
+                // one the module does not declare: a warning in user code (a
+                // library may be newer or older than its user), an error in
+                // standard-library sources
+                if library_attribute_declared(module, &name) == Some(false) {
                     report(
                         self,
-                        format!("attribute `@{name}`: `{ns}` is not an imported module"),
+                        is_std,
+                        format!("unknown attribute `@{name}`"),
                         attr.span,
-                        "a library's attributes are named after its module",
-                        Some("import the module that defines it (`import lib`, for `@lib.name`)"),
+                        "not declared by its module",
+                        "check the library's documentation for its attributes",
                     );
                 }
                 continue;
             }
+            // the compiler's own names: a closed set, so an unknown one is
+            // always an error (a typo, or a library's name without its
+            // namespace)
             if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
                 report(
                     self,
+                    true,
                     format!("unknown attribute `@{name}`"),
                     attr.span,
-                    "not recognised by the compiler",
-                    Some("a name without a namespace is the compiler's; a library's is `@lib.name`"),
+                    "not one of the compiler's attributes",
+                    "a name without a namespace is the compiler's; a library's is `@lib.name`",
                 );
                 continue;
             }
