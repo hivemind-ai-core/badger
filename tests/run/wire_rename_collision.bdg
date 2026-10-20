@@ -1,0 +1,17 @@
+// Wire renames may swap two members' names (the contract is checked where
+// it is used, not while it is built), but two members of one type with the
+// same wire name are a defect: one would encode over the other.
+import std.io
+import std.schema
+
+@derive(Codec, Eq)
+pub struct P { a: Int, b: Int }
+
+pub fn main() {
+    let swapped = schema.wire(schema.of<P>(), 2).rename("P.a", "b").rename("P.b", "a")
+    let p: P = { a: 1, b: 2 }
+    let t = swapped.encode_text(p)
+    let _ = io.println($"{t} {swapped.decode_text(t).map(fn(x) => x == p)}")
+    let clash = schema.wire(schema.of<P>(), 3).rename("P.a", "b")
+    let _ = io.println(clash.encode_text(p))
+}

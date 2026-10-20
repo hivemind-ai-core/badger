@@ -25,13 +25,13 @@ fn decode_result(ret: &'static TypeDesc, r: Result<u64, codec::DecodeError>) -> 
 
 define_intrinsics! {
     fn wire_encode(ctx, targs, ret, names, aliases, v) {
-        let w = wire_names(names, aliases);
+        let w = checked_wire(targ(targs, 0), names, aliases);
         codec::with_wire(w, || new_string(&codec::encode(targ(targs, 0), v)))
     }
     fn wire_decode(ctx, targs, ret, names, aliases, s) {
         let roots = Roots::new();
         roots.add(s);
-        let w = wire_names(names, aliases);
+        let w = checked_wire(targ(targs, 0), names, aliases);
         let r = codec::with_wire(w, || codec::decode(targ(targs, 0), str_of(s)));
         decode_result(rdesc(ret), r)
     }
@@ -121,11 +121,11 @@ define_intrinsics! {
         m
     }
     fn wire_json_schema(ctx, targs, ret, names, aliases) {
-        let w = wire_names(names, aliases);
+        let w = checked_wire(targ(targs, 0), names, aliases);
         codec::with_wire(w, || new_string(&crate::intrinsics_std::json_schema(targ(targs, 0), 0)))
     }
     fn wire_describe(ctx, targs, ret, names, aliases) {
-        let w = wire_names(names, aliases);
+        let w = checked_wire(targ(targs, 0), names, aliases);
         codec::with_wire(w, || new_string(&crate::intrinsics_std::describe(targ(targs, 0), 0)))
     }
     fn codec_encode(ctx, targs, ret, v) { new_string(&codec::encode(targ(targs, 0), v)) }
@@ -948,6 +948,59 @@ pub fn inspect_symbols() -> Vec<(&'static str, *const u8)> {
 
 /// Wire naming from `Map<String, String>` names and
 /// `Map<String, List<String>>` decode aliases.
+/// The first two members of a type in `d` (its fields, or a variant's)
+/// that share a wire name.
+fn wire_clash(d: &'static TypeDesc, seen: &mut Vec<*const TypeDesc>) -> Option<String> {
+    use crate::desc::Kind;
+    if seen.contains(&(d as *const TypeDesc)) {
+        return None;
+    }
+    seen.push(d);
+    let dup = |ty: &str, members: &[&str]| -> Option<String> {
+        let mut names: Vec<(String, &str)> = vec![];
+        for m in members {
+            let n = codec::wire_name(ty, m);
+            if let Some((_, first)) = names.iter().find(|(x, _)| *x == n) {
+                return Some(format!("wire names collide: `{ty}.{first}` and `{ty}.{m}` both encode as `{n}`"));
+            }
+            names.push((n, m));
+        }
+        None
+    };
+    match &d.kind {
+        Kind::Record { fields, tuple: false, .. } => {
+            let ms: Vec<&str> = fields.iter().map(|f| f.name.as_str()).collect();
+            dup(&d.name, &ms).or_else(|| fields.iter().find_map(|f| wire_clash(f.desc, seen)))
+        }
+        Kind::Record { fields, .. } => fields.iter().find_map(|f| wire_clash(f.desc, seen)),
+        Kind::Enum { variants, .. } => {
+            let vs: Vec<&str> = variants.iter().map(|v| v.name.as_str()).collect();
+            dup(&d.name, &vs).or_else(|| {
+                variants.iter().find_map(|v| {
+                    let vty = format!("{}.{}", d.name, v.name);
+                    let ms: Vec<&str> = v.fields.iter().map(|f| f.name.as_str()).collect();
+                    dup(&vty, &ms).or_else(|| v.fields.iter().find_map(|f| wire_clash(f.desc, seen)))
+                })
+            })
+        }
+        Kind::List { elem } | Kind::Set { elem } => wire_clash(elem, seen),
+        Kind::Map { key, val } => wire_clash(key, seen).or_else(|| wire_clash(val, seen)),
+        _ => None,
+    }
+}
+
+/// A contract's names for `d`, checked: two members of one type renamed (or
+/// left) to the same wire name would encode one over the other, a defect
+/// where the contract is used (a swap may pass through one while built).
+fn checked_wire(d: &'static TypeDesc, names: u64, aliases: u64) -> codec::WireNames {
+    let w = wire_names(names, aliases);
+    let probe = codec::WireNames { names: w.names.clone(), aliases: Default::default() };
+    if let Some(m) = codec::with_wire(probe, || wire_clash(d, &mut Vec::new())) {
+        crate::task::panic_current(m, crate::task::caller_location());
+    }
+    w
+}
+
 fn wire_names(names: u64, aliases: u64) -> codec::WireNames {
     let mut w = codec::WireNames::default();
     for (k, v) in crate::map::entries(names) {
