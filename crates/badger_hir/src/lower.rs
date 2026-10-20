@@ -176,6 +176,37 @@ const FUSION_KINDS: &[&str] = &[
     "position",
 ];
 
+/// The shape each fusion kind is written for: its role, and how many
+/// parameters the function takes (the sequence or list is the first of
+/// them, and a method's `self` counts as one). An annotation that disagrees
+/// with the function it is written on is `E0200`.
+const FUSION_SHAPES: &[(&str, &str, usize)] = &[
+    // sources
+    ("range", "source", 2),
+    ("from_range", "source", 1),
+    ("list", "source", 1),
+    ("entries", "source", 1),
+    // stages
+    ("call", "stage", 2),
+    ("take", "stage", 2),
+    ("skip", "stage", 2),
+    ("step_by", "stage", 2),
+    ("scan", "stage", 3),
+    ("enumerate", "stage", 1),
+    ("dedup", "stage", 1),
+    // terminals
+    ("fold", "terminal", 3),
+    ("count", "terminal", 1),
+    ("sum", "terminal", 1),
+    ("collect", "terminal", 1),
+    ("any", "terminal", 2),
+    ("all", "terminal", 2),
+    ("find", "terminal", 2),
+    ("find_map", "terminal", 2),
+    ("first", "terminal", 1),
+    ("position", "terminal", 2),
+];
+
 /// Lower all modules into a single HIR. `entry` is the index of the user's
 /// entry module within `modules`.
 pub fn lower_program(
@@ -1348,8 +1379,10 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 }
                 flattened = flattened.or(Some(attr.span));
             }
-            // `@fusion(role = ..., template = ...)`: a closed vocabulary
+            // `@fusion(role = ..., template = ...)`: a closed vocabulary, and
+            // a shape each kind is written for
             if name == "fusion" {
+                let (mut role, mut kind) = (None, None);
                 for arg in &attr.args {
                     let ast::AttrArg::KeyValue(k, v) = arg else { continue };
                     let (label, allowed) = match self.cx.interner.resolve(*k) {
@@ -1370,6 +1403,44 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                                 .with_code("E0194");
                         }
                         self.cx.diags.push(d.with_label(attr.span, "not a fusion kind the compiler knows"));
+                        continue;
+                    }
+                    if label == "role" {
+                        role = Some(value);
+                    } else {
+                        kind = Some(value);
+                    }
+                }
+                // The kind fixes both the role and the arity: an annotation
+                // and a function that disagree would never fuse, and a third
+                // party cannot see why.
+                if let (Some(role), Some(kind)) = (&role, &kind)
+                    && let Some((_, want_role, arity)) =
+                        FUSION_SHAPES.iter().find(|(k, _, _)| k == kind)
+                {
+                    let params = match &item.kind {
+                        ast::ItemKind::Fn(f) => Some(f.params.len()),
+                        _ => None,
+                    };
+                    let mut problems = vec![];
+                    if *want_role != role.as_str() {
+                        problems.push(format!("`{kind}` is a {want_role} kind, not `{role}`"));
+                    }
+                    if let Some(n) = params
+                        && n != *arity
+                    {
+                        problems.push(format!(
+                            "`{kind}` is written for {arity} parameter(s), but this function has {n}"
+                        ));
+                    }
+                    for problem in problems {
+                        let mut d = Diagnostic::error(problem.clone()).with_code("E0200");
+                        if !is_std {
+                            d = Diagnostic::warning(problem).with_code("E0200");
+                        }
+                        self.cx
+                            .diags
+                            .push(d.with_label(attr.span, "not the shape this fusion kind is written for"));
                     }
                 }
             }

@@ -196,6 +196,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`).",
     ),
     (
+        "E0200",
+        "fusion shape mismatch",
+        "A `@fusion(...)` annotation whose kind does not match the function it is written on: the kind fixes both the role (`source`, `stage`, or `terminal`) and the number of parameters, counting the sequence as the first. It would never fuse.",
+    ),
+    (
         "E0199",
         "misplaced attribute",
         "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
