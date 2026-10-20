@@ -74,6 +74,20 @@ fn mcp_tools() {
     let (out, err) =
         call("generate", json!({ "what": "feature", "name": "orders", "path": at, "dry_run": true }));
     assert!(!err && out.contains("3 passed") && !project.join("src/orders").exists(), "{out}");
+    // a mistyped argument is refused, never read as "write" or passed on as a flag
+    for bad in [
+        json!({ "what": "feature", "name": "orders", "path": at, "dry_run": "true" }),
+        json!({ "what": "feature", "name": "--dry-run", "path": at }),
+        json!({ "what": "feature", "name": "orders", "path": at, "item": "--help" }),
+        json!({ "what": "worker", "name": "jobs", "path": at, "item": "job" }),
+    ] {
+        let (out, err) = call("generate", bad.clone());
+        assert!(
+            err && !project.join("src/orders").exists() && !project.join("src/jobs.bdg").exists(),
+            "{bad}: {out}"
+        );
+    }
+    assert!(call("run", json!({ "path": at, "args": [1, 2] })).1);
     let (out, err) = call("generate", json!({ "what": "feature", "name": "orders", "path": at }));
     assert!(!err && project.join("src/orders/service.bdg").is_file(), "{out}");
     assert!(call("generate", json!({ "what": "feature", "name": "orders", "path": at })).1);
