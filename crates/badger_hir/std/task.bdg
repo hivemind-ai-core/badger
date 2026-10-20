@@ -63,6 +63,7 @@ extern "intrinsic" fn task_cancel(id: Int) -> Unit
 extern "intrinsic" fn task_yield() -> Unit
 extern "intrinsic" fn task_sleep(d: Duration) -> Unit
 extern "intrinsic" fn task_id() -> Int
+extern "intrinsic" fn task_repanic(message: String, location: String, notes: List<String>) -> Never
 extern "intrinsic" fn task_worker() -> Int
 extern "intrinsic" fn task_workers() -> Int
 
@@ -240,7 +241,8 @@ pub fn timeout<T, Eff>(limit: Duration, f: fn() -> T !Eff) -> Result<T, TimedOut
         match exit {
             .returned(v) => ok(v),
             .cancelled(_) => err({ limit }),
-            .failed(info) => panic(info.message),
+            // the defect as it was: its location and notes carry over
+            .failed(info) => task_repanic(info.message, info.location, info.notes),
         }
     })
 }

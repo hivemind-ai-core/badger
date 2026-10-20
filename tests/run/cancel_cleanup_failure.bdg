@@ -1,0 +1,36 @@
+// A cleanup that fails while a task is being cancelled is a defect, not a
+// silent cancellation; and `task.timeout` re-raises a child's defect as it
+// was (its location and the notes of cleanups that failed after it).
+import std.io
+import std.task
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+pub fn main() -> Result<Unit, String> {
+    use outer <- task.scope()
+    let c = outer.capture(fn() -> Result<Unit, String> {
+        use s <- task.scope()
+        s.defer(fn() { panic("cleanup broke during cancellation") })
+        task.sleep(10s)
+        ok(())
+    })
+    task.sleep(10ms)
+    c.cancel()
+    match c.join() {
+        .failed(info) => say($"failed: {info.message} ({info.notes})"),
+        .cancelled(r) => say($"cancelled {r}"),
+        .returned(_) => say("returned"),
+    }
+    let t = outer.capture(fn() -> Result<Result<Unit, String>, task.TimedOut> {
+        task.timeout(1s, fn() -> Result<Unit, String> {
+            use s <- task.scope()
+            s.defer(fn() { panic("a cleanup broke too") })
+            panic("the primary defect")
+        })
+    })
+    match t.join() {
+        .failed(info) => say($"timeout re-raised: {info.message}; located {info.location.ends_with(":28:13")}; notes {info.notes.len()}"),
+        _ => say("no defect"),
+    }
+    ok(())
+}

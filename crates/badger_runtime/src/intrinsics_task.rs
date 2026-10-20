@@ -207,6 +207,17 @@ define_intrinsics! {
     }
     fn task_done(ctx, targs, ret, id) { task::is_done(id) as u64 }
     // attach a cleanup failure to the current task's primary defect
+    // a defect of a child, raised again with its location and notes
+    fn task_repanic(ctx, targs, ret, message, location, notes) {
+        let notes = (0..crate::list::len(notes))
+            .map(|i| crate::string::str_of(crate::list::get(notes, i)).to_string())
+            .collect();
+        task::panic_with(task::PanicInfo {
+            message: crate::string::str_of(message).to_string(),
+            location: crate::string::str_of(location).to_string(),
+            notes,
+        })
+    }
     fn attach_note(ctx, targs, ret, note) {
         task::attach_note(crate::string::str_of(note).to_string());
         0

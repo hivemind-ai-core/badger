@@ -2259,17 +2259,44 @@ pub fn panic_current(message: String, location: String) -> ! {
     let t = current().expect("panic outside of a task");
     if t.state.get() == State::Cleaning {
         // a failing cleanup: attach to the primary failure and continue
-        if let Some(Exit::Failed(p)) = &mut t.pending_exit
-            && p.message != message
-        {
-            let at = if location.is_empty() { String::new() } else { format!(" at {location}") };
-            p.notes.push(format!("cleanup failed: {message}{at}"));
+        match &mut t.pending_exit {
+            Some(Exit::Failed(p)) => {
+                if p.message != message {
+                    let at = if location.is_empty() { String::new() } else { format!(" at {location}") };
+                    p.notes.push(format!("cleanup failed: {message}{at}"));
+                }
+            }
+            // a cancelled task whose cleanup fails has a defect, which is
+            // its outcome (not silently a cancellation)
+            Some(Exit::Cancelled) => {
+                t.pending_exit = Some(Exit::Failed(PanicInfo {
+                    message,
+                    location,
+                    notes: vec!["a cleanup that ran after the task was cancelled".into()],
+                }));
+            }
+            _ => {}
         }
         suspend(Signal::Abandon);
         unreachable!();
     }
     let notes = t.returning.iter().rev().map(|e| format!("while returning the error: {e}")).collect();
     abandon(Some(Exit::Failed(PanicInfo { message, location, notes })))
+}
+
+/// Raise a defect another task had, as it was: its location and its notes
+/// (a cleanup that failed after it) carry over.
+pub fn panic_with(info: PanicInfo) -> ! {
+    if !holds_lock() {
+        enter_runtime_for(reason::DEFECT);
+    }
+    let t = current().expect("panic outside of a task");
+    if t.state.get() == State::Cleaning {
+        panic_current(info.message, info.location);
+    }
+    let mut info = info;
+    info.notes.extend(t.returning.iter().rev().map(|e| format!("while returning the error: {e}")));
+    abandon(Some(Exit::Failed(info)))
 }
 
 /// Register a cleanup for the current task; returns a handle for removal.
