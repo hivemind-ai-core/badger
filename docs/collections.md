@@ -70,7 +70,8 @@ Rules of thumb:
 | `map`, `filter`, `filter_map`, `flat_map`, `enumerate`, `scan`, `zip` (lists) | O(n) | One pass into a builder |
 | `take`, `skip`, `slice`, `take_while`, `skip_while` (lists) | O(result) | A new list of the kept items |
 | `find`, `position`, `any`, `all`, `find_map` | O(position found) | Stop at the first match |
-| `count`, `sum`, `fold`, `min_by`, `max_by` | O(n) | `min_by`/`max_by` keep the first item on ties |
+| `count` | O(1) on a counted source, else O(n) | See [counting](#counting) |
+| `sum`, `fold`, `min_by`, `max_by` | O(n) | `min_by`/`max_by` keep the first item on ties |
 | `sort`, `sort_by`, `sort_with` | O(n log n) | Stable; `sort_by` computes each key once |
 | `dedup` | O(n) | Consecutive duplicates only |
 | `unique`, `group_by` | O(n) expected | Hash-based; each group keeps input order |
@@ -83,6 +84,17 @@ Rules of thumb:
 | `set.union` | O(n + k) | |
 | `set.intersection`, `difference`, `is_subset` | O(n) lookups in the other set | |
 | `Seq` adapters (`map`, `filter`, `skip`, `chunks`, ...) | O(1) to build | The work happens during iteration |
+
+### Counting
+
+A `list`, `map`, or `range` source knows how many items it has, so `count`
+is that span — no pass. A pipeline keeps the count when its stages neither
+drop nor re-shape items (`map`, `enumerate`) **and** those callbacks are
+pure and infallible: skipping work that could defect or have an effect
+would be observable, so a fallible or effectful callback, or a `filter`,
+`filter_map`, `flat_map`, `dedup`, `take`, `skip`, or `step_by` stage,
+counts the items as they pass instead. Both paths return the same number;
+only the work differs.
 
 ### Text and bytes
 
