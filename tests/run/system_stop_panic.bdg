@@ -1,0 +1,34 @@
+// A panicking `on_stop` callback does not skip the others: each runs once,
+// last registered first, and the halts follow; the defect is reported.
+import std.io
+import std.system
+
+@derive(Error)
+pub enum Failure { boom }
+
+@derive(Error, From)
+pub enum AppError {
+    sys(source: system.Error),
+}
+
+fn say(s: String) -> Unit { let _ = io.println(s) }
+
+provider a(scope, _config: {}) -> Result<Unit, Failure> {
+    scope.on_stop(fn() { say("a stop 1 (registered first)") })
+    scope.on_stop(fn() { say("a stop 2 panics"); panic("stop failed") })
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("a halt"); ok(()) })
+    ok(())
+}
+
+provider b(scope, _config: {}) -> Result<Unit, Failure> {
+    scope.on_stop(fn() { say("b stop") })
+    scope.on_halt(fn() -> Result<Unit, Failure> { say("b halt"); ok(()) })
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system { b: b(), a: a() }
+    let r = system.run(plan, fn(_r) -> Result<Unit, AppError> { ok(()) })
+    say($"{r}")
+    ok(())
+}

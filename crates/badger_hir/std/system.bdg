@@ -396,9 +396,15 @@ fn halt_all(scopes: List<InitScope<Unit>>) -> List<String> {
     // halting begins: every node stops taking work (each callback is removed
     // before it runs, so it runs once)
     for s in list.reverse(scopes) {
-        let ss = s.stops.get()
-        s.stops.set([])
-        for f in list.reverse(ss) {
+        // last registered first; each is removed just before it runs, so a
+        // panicking one does not stop the rest when cleanup resumes
+        loop {
+            let ss = s.stops.get()
+            if list.len(ss) == 0 {
+                break
+            }
+            let f = ss[list.len(ss) - 1]
+            s.stops.set(list.slice(ss, 0, list.len(ss) - 1))
             f()
         }
     }

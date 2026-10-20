@@ -1,0 +1,5 @@
+a stop 2 panics
+a stop 1 (registered first)
+b stop
+a halt
+b halt
