@@ -70,11 +70,26 @@ pub fn parse_recovering(
     };
     let (tokens, lex_errors) = token::lex(src);
     let mut errors: Vec<Diagnostic> = lex_errors.into_iter().map(|e| syntax(e.span, e.message)).collect();
-    // unbalanced brackets explain everything after them: report them alone
+    // unbalanced brackets explain everything after them: report them alone,
+    // with the tree of the text as if they were balanced (for the editor's
+    // symbols, hover, and completion while one is being typed)
     let brackets = bracket_errors(file, src, &tokens);
     if !brackets.is_empty() {
         errors.extend(brackets);
-        return (Ast::default(), errors);
+        let (tokens, too_deep) = token::layout(repair_brackets(src, tokens));
+        if too_deep.is_some() {
+            return (Ast::default(), errors);
+        }
+        let eoi: token::Span = (src.len()..src.len()).into();
+        let input = tokens.as_slice().split_token_span(eoi);
+        let (items, _) = grammar::program::<_, grammar::Error<'_, '_>>().parse(input).into_output_errors();
+        // the repaired tree's own findings are left out, as its errors are
+        let mut scratch = vec![];
+        let mut lower = Lower::new(file, src, interner, &mut scratch);
+        if let Some(items) = items {
+            lower.items(items);
+        }
+        return (lower.ast, errors);
     }
     let (tokens, too_deep) = token::layout(tokens);
     if let Some(at) = too_deep {
@@ -250,6 +265,47 @@ fn bracket_errors(file: FileId, src: &str, tokens: &[(Tok<'_>, token::Span)]) ->
                 .with_label(sp(os), "this is never closed")
                 .with_label(Span::new(file, end, end), format!("the file ends here: add {}", close_of(open))),
         );
+    }
+    out
+}
+
+/// The tokens with their brackets balanced, guessing where the missing
+/// ones go: a stray closer is dropped, a mismatched one closes what is
+/// open up to its opener, and what is still open closes before the next
+/// line starting at column 0 (the next declaration) or at the end.
+fn repair_brackets<'a>(src: &str, tokens: Vec<(Tok<'a>, token::Span)>) -> Vec<(Tok<'a>, token::Span)> {
+    let close_of = |t: Tok<'_>| match t {
+        Tok::LParen => Tok::RParen,
+        Tok::LBracket => Tok::RBracket,
+        _ => Tok::RBrace,
+    };
+    let at = |p: usize| -> token::Span { (p..p).into() };
+    let mut stack: Vec<Tok<'a>> = vec![];
+    let mut out = Vec::with_capacity(tokens.len() + 4);
+    for (t, s) in tokens {
+        let line_start = s.start == 0 || src.as_bytes().get(s.start - 1) == Some(&b'\n');
+        let closer = matches!(t, Tok::RParen | Tok::RBracket | Tok::RBrace);
+        if line_start && !closer && !stack.is_empty() {
+            while let Some(open) = stack.pop() {
+                out.push((close_of(open), at(s.start)));
+            }
+        }
+        match t {
+            Tok::LParen | Tok::LBracket | Tok::LBrace => stack.push(t),
+            Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                let Some(depth) = stack.iter().rposition(|o| close_of(*o) == t) else { continue };
+                while stack.len() > depth + 1 {
+                    let open = stack.pop().unwrap();
+                    out.push((close_of(open), at(s.start)));
+                }
+                stack.pop();
+            }
+            _ => {}
+        }
+        out.push((t, s));
+    }
+    while let Some(open) = stack.pop() {
+        out.push((close_of(open), at(src.len())));
     }
     out
 }

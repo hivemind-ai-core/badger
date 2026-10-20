@@ -458,3 +458,33 @@ fn code_action_missing_arm_skips_braces_in_chars_and_comments() {
     assert_eq!(edit["newText"], "        .word(_) => panic(\"not handled yet: .word(_)\"),\n", "{r}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// While a bracket is unclosed (as when one is being typed), the file is
+/// still indexed from the text as if it were balanced: its symbols and
+/// hovers stay, and the bracket is the only error reported.
+#[test]
+fn unclosed_bracket_keeps_the_index() {
+    let dir = std::env::temp_dir().join(format!("badger-lsp-unclosed-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("demo.bdg");
+    let src = "fn helper(n: Int) -> Int {\n    if n > 0 {\n        n * 2\n}\n\npub fn main() -> Unit {\n    let _ = helper(3)\n}\n\nfn other() -> String { \"x\" }\n";
+    std::fs::write(&file, src).unwrap();
+    let uri = format!("file://{}", std::fs::canonicalize(&file).unwrap().display());
+    let mut c = Client::start();
+    c.request("initialize", json!({ "capabilities": {} }));
+    c.notify("initialized", json!({}));
+    c.notify(
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "badger", "version": 1, "text": src } }),
+    );
+    let ds = c.diagnostics(&uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    assert!(ds[0]["message"].as_str().unwrap().contains("unclosed"), "{ds:?}");
+    let r = c.request("textDocument/documentSymbol", json!({ "textDocument": { "uri": uri } }));
+    let names: Vec<&str> =
+        r["result"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["helper", "main", "other"], "{r}");
+    let h = c.request("textDocument/hover", pos(&uri, 6, 13));
+    assert!(h["result"]["contents"]["value"].as_str().unwrap_or("").contains("fn(Int) -> Int"), "{h}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
