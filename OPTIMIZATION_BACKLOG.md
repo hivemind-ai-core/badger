@@ -677,6 +677,14 @@ loop-reuse liveness, callee summaries) does not pay for a measured 0 %.
 
 ### 3.4 Linear types for resources (file / socket / channel)
 
+**Status:** landed 2026-10-20: the typeck tracks a `Linear` mode (use at least once)
+next to the existing `Affine` (use at most once), and the standard library's
+file and batch-channel resources are linear -- a file that is opened and
+closed is used, one that is opened and dropped is not, and a batch lease
+that is never released is not either. The new diagnostic `E0413` says so,
+with a span and a message naming the resource. The runtime does not change:
+the mode is a static guarantee, and the finalizers stay.
+
 - **Goal**: extend `ownership.rs` to track a `linear` mode (use at
   least once) in addition to `affine` (use at most once); apply
   it to the standard library's file / socket / channel modules.
@@ -719,6 +727,23 @@ Phase 4 is the MIR superoptimisation research. The cheap items
 lifetime information.
 
 ### 4.1 SMT-validated algebraic rules with Z3 (Alive-style)
+
+**Status:** landed 2026-10-20: `opt::smt` states every algebraic rule `opt::superopt`
+applies as a bitvector claim `premises => src == dst` and asks Z3 for a
+counterexample, so an unsatisfiable answer proves the rewrite is exact at
+every bit of the operation's width. `Candidate` now names the rule it matched
+instead of carrying a hand-written "proven" flag, and the match site's
+premises (an operand's boolean domain, a nonzero shift amount) are stated
+with the rule. Each shift amount the optimiser can use is checked as a
+concrete constant rather than quantified: Z3 does not decide the 64-bit
+variable-divisor division identity within the budget. `BADGER_MIR_SMT=1`
+runs the check once per compilation (11 rules, 81 claims, ~170 ms), prints the
+verdict for each rule, and withholds any rule the solver does not prove; the
+optimiser's hot path never calls the solver, and the corpus is identical with
+the check on and off at `--opt superopt`. **The check found one wrong rule**:
+`(x << k) >> k` was masked with `~(2^k - 1)`, which keeps the high bits,
+while the left-then-right shift pair keeps the low `bits - k` bits. The mask
+is corrected and the rule is proved.
 
 - **Goal**: refactor `superopt.rs::Candidate` (`superopt.rs:30-32`)
   into `(precondition, transformation)` form, in the style of
