@@ -408,6 +408,32 @@ and gc_retention suites, `select_and_budget` 6/6 at 1 and at 4 workers,
 `BADGER_GC_VERIFY=1` clean), and the stress test catches the model's
 `check_before_inc` race in 6 of 10 mutated runs.
 
+## F4, and the other work after Phase 2.1
+
+**F4 is fixed** (`ac3f85c`): a channel keeps the receivers it woke for a
+published message and that have not taken it yet; a receiver releases its
+claim when it takes the message, when it finds none, and when it dies; a
+released claim is passed on, so a parked receiver is never left asleep with
+a message waiting. The regression test fails without the fix and passes
+with it, and the repro program is deterministic now ("stranded 1" before
+the fix, "taken" after it).
+
+**§2.4 (NUMA pinning) landed behind a flag** (`808f3b2`): worker `w` pins
+itself to CPU `w` when `BADGER_PIN_WORKERS=1` is set. The item's gate is a
+measurement on a two-socket host, and this host has one socket, where the
+notes put the gain under 5% -- so the change is opt-in and the measurement
+is left to a two-socket deployment.
+
+**§2.2's premise is already satisfied**: the bump pool and the free lists
+are per-worker (`POOLS.0[w]`, `alloc_cell(w, ...)`, `free_cell(w, ...)`),
+and they were per-worker at the snapshot the backlog was written against.
+The missing part in that area is §2.3's block and line layer.
+
+**The suite was red on `main` for a while**, for a reason outside this
+work: the migration of the derive clauses to prefix attributes put two of
+them inside their struct bodies, so `std.compiler` did not parse and the
+MCP session's compiler queries failed (`7ca370b`).
+
 ## What is left
 
 Phase 0 is done, with three items measured against their gates rather than
