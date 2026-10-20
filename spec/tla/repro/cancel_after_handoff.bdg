@@ -3,7 +3,8 @@
 // commits, cancellation does not silently retract a message." At 13e7756
 // with one worker: "empty: the sent value is gone" and the victim prints
 // nothing (with 4 workers the victim receives first: the free path takes
-// the value before it honours the cancellation).
+// the value before it honours the cancellation). Fixed in c4750f8: "victim
+// got 111" at 1 and 4 workers ("empty" then means it is no longer queued).
 import std.io
 import std.channel
 import std.task

@@ -1,0 +1,45 @@
+// Finding F4 (spec/tla/README.md): three receivers parked on one batch
+// channel; one sealed batch of two messages is published, which wakes the
+// first two to retry; the first is cancelled before it runs again. Its
+// wake goes with it: the second receiver takes one message and the third
+// stays parked with the other one published. Expected: r2 and r3 each get a
+// message. At 9f1ff4c with one worker: "r2 got 1", "r1 cancelled", then
+// "deadlock: all tasks are blocked" with r3 waiting on batch receive (with
+// four workers usually too; r1 sometimes runs before the cancellation).
+import std.channel
+import std.io
+import std.task
+import std.time
+
+pub enum AppError {
+    config(source: channel.ConfigError),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    let b = channel.batch<Int>({ capacity: 4, max_batch: 2, byte_budget: 0 })?
+    let r = task.scope(fn(s) -> Result<Unit, AppError> {
+        let r1 = s.capture(fn() { b.receiver.recv().unwrap_or(0) })
+        let r2 = s.capture(fn() {
+            let _ = io.println($"r2 got {b.receiver.recv().unwrap_or(0)}")
+            0
+        })
+        let r3 = s.capture(fn() {
+            let _ = io.println($"r3 got {b.receiver.recv().unwrap_or(0)}")
+            0
+        })
+        task.sleep(time.millis(5))
+        // the batch fills and is published: r1 and r2 are woken to retry
+        let _ = b.sender.append(1)
+        let _ = b.sender.append(2)
+        // r1 has not run yet: the cancellation makes it abandon its retry
+        r1.cancel()
+        let _ = r1.join()
+        let _ = io.println("r1 cancelled")
+        let _ = r2.join()
+        let _ = r3.join()
+        ok(())
+    })
+    let _ = r
+    let _ = io.println("done")
+    ok(())
+}
