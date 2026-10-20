@@ -6,10 +6,15 @@ import std.app
 pub type Task = { id: Int, title: String, done: Bool }
 pub type NewTask = { title: String }
 
+// Each variant's message is the feature's own text, for every binding
+// (HTTP, the command line, workers); the bindings choose statuses and codes.
 @derive(Error)
 pub enum Error {
+    @message("{message}")
     invalid_title(message: String),
+    @message("no task {id}")
     not_found(id: Int),
+    @message("{message}")
     storage(message: String),
 }
 
