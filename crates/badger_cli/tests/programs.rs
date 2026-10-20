@@ -291,6 +291,47 @@ fn region_record_return_needs_an_outliving_region() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// A library reads its attribute's uses (`route.uses`): each entry's
+/// values, what it annotates, and, for `on fn(SIGNATURE)`, the function,
+/// called through the table. A function of another signature is a type
+/// error at the use; reading the uses from another module, or naming the
+/// attribute as a value, is E0151.
+#[test]
+fn attribute_tables_read_their_uses() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-read-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("badger.toml"), "[package]\nname = \"attrread\"\nentry = \"src/main.bdg\"\n")
+        .unwrap();
+    let web = "// A tiny router: handlers register themselves with `@web.route`.\npub enum Method {\n    get,\n    post,\n}\n\npub attribute route on fn(String) -> String {\n    method: Method,\n    path: String,\n    summary: Option<String>,\n}\n\npub attribute column on field { name: String, primary: Option<Bool> }\n\nfn method_name(m: Method) -> String {\n    match m {\n        .get => \"GET\",\n        .post => \"POST\",\n    }\n}\n\n/// The route table, from every `@web.route` in the program.\npub fn describe() -> List<String> {\n    route.uses.map(fn(u) => $\"{method_name(u.value.method)} {u.value.path} -> {u.target.module}.{u.target.name} ({u.value.summary.unwrap_or(\"-\")})\")\n}\n\n/// Run the handler for `path`.\npub fn dispatch(path: String, body: String) -> String {\n    match route.uses.find(fn(u) => u.value.path == path) {\n        .some(u) => (u.call)(body),\n        .none => \"404\",\n    }\n}\n\npub fn columns() -> List<String> {\n    column.uses.map(fn(u) => $\"{u.target.owner.unwrap_or(\"?\")}.{u.target.name} as {u.value.name} primary={u.value.primary.unwrap_or(false)} kind={u.target.kind}\")\n}\n\npub attribute nobody on type {}\n\npub attribute marker on fn() -> Int, type { label: String }\n\npub fn extras() -> String {\n    let marks = marker.uses.map(fn(u) => $\"{u.target.kind}:{u.target.name}:{u.value.label}:{u.call.map(fn(f) => f()).unwrap_or(-1)}\")\n    $\"nobody={nobody.uses.len()} marks={marks}\"\n}\n";
+    std::fs::write(dir.join("src/web.bdg"), web).unwrap();
+    std::fs::write(dir.join("src/main.bdg"), "import std.io\nimport web\n\n@web.marker(label = \"a type\")\npub struct Book {\n    @web.column(name = \"book_id\", primary = true) pub id: Int,\n    @web.column(\"title\") pub title: String,\n}\n\n@web.route(method = get, path = \"/books\", summary = \"every book\")\npub fn list(_body: String) -> String { \"[dune, emma]\" }\n\n@web.route(method = post, path = \"/books\")\nfn create(body: String) -> String { $\"created {body}\" }\n\n@web.marker(\"seven\")\npub fn seven() -> Int { 7 }\n\npub fn main() -> Result<Unit, io.Error> {\n    io.println(web.extras())?\n    for line in web.describe() {\n        io.println(line)?\n    }\n    io.println(web.dispatch(\"/books\", \"\"))?\n    io.println(web.dispatch(\"/nope\", \"\"))?\n    for c in web.columns() {\n        io.println(c)?\n    }\n    let b: Book = { id: 1, title: \"x\" }\n    io.println($\"{b.id}\")?\n    ok(())\n}\n").unwrap();
+    let run = lang().arg("run").arg(&dir).output().unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&run.stdout),
+        "nobody=0 marks=[\"type:Book:a type:-1\", \"fn:seven:seven:7\"]\nGET /books -> main.list (every book)\nPOST /books -> main.create (-)\n[dune, emma]\n404\nBook.id as book_id primary=true kind=field\nBook.title as title primary=false kind=field\n1\n"
+    );
+    assert!(run.stderr.is_empty(), "{}", String::from_utf8_lossy(&run.stderr));
+    let check = |main: &str| {
+        std::fs::write(dir.join("src/main.bdg"), main).unwrap();
+        let out = lang().args(["check", "--json"]).arg(&dir).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    let wrong = check(
+        "import web\n\n@web.route(method = get, path = \"/x\")\npub fn wrong(n: Int) -> Int { n }\n\npub fn main() { let _ = web.dispatch(\"/x\", \"\") }\n",
+    );
+    assert!(wrong.contains("expected `fn(String) -> String`, found `fn(Int) -> Int`"), "{wrong}");
+    let outside = check("import web\n\npub fn main() { let _ = web.route.uses }\n");
+    assert!(outside.contains("only the module declaring `route` reads its uses"), "{outside}");
+    std::fs::write(
+        dir.join("src/web.bdg"),
+        format!("{web}\npub fn bare() -> Int {{\n    let _r = route\n    0\n}}\n"),
+    )
+    .unwrap();
+    let bare = check("import web\n\npub fn main() {}\n");
+    assert!(bare.contains("is not a value: its uses are `route.uses`"), "{bare}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));

@@ -75,7 +75,7 @@ error, E0191, otherwise), which also counts as a use of the import. One the
 module does not declare is a warning in user code (an error in
 standard-library sources), so a library newer or older than its user does
 not break the build; one it declares is checked against the declaration
-(E0151; see [User-defined attributes](#user-defined-attributes-design-agreed-2026-10-20-declarations-and-uses-checked)).
+(E0151; see [User-defined attributes](#user-defined-attributes-agreed-2026-10-20-declarations-uses-and-reading-implemented)).
 
 **`@allow(CODE, ...)`** works in every position: it silences that warning
 within what it tags (an item, a method, a field, a variant, a parameter's
@@ -96,10 +96,10 @@ Run-time-readable, user-declared attributes are planned after 1.0 (next
 section); the namespacing rule above is what keeps them from colliding with
 the compiler's own names.
 
-## User-defined attributes (design, agreed 2026-10-20; declarations and uses checked)
+## User-defined attributes (agreed 2026-10-20; declarations, uses, and reading implemented)
 
-**Status:** declarations and uses are checked; the read side does not
-exist yet.
+**Status:** declarations, uses, and reading work; types do not yet carry
+their schema, and entries do not yet carry a file and line.
 
 - A declaration (`attribute NAME on POSITIONS { FIELDS }`) is parsed,
   formatted, and lowered (`DefKind::Attribute`); a bad position, a repeated
@@ -111,14 +111,21 @@ exist yet.
   module is lowered: an attribute its module does not declare is a warning
   in user code (E0191; an error in std); a private one, a position the
   declaration does not list, an unknown or repeated field, a missing
-  non-`Option` field, or a value of the wrong kind is E0151.
-- Not yet: a function's signature against `on fn(SIGNATURE)`, and reading
-  (`NAME.uses`).
-
-A library declares an attribute; other modules annotate with it; only the
-declaring module reads it, at run time, as the list of every use in the
-program — typically from an `init` function (a service's start-up) that
-builds a route table, a schema, or a registry from it.
+  non-`Option` field, or a value of the wrong kind is E0151. An item
+  annotated with a library's attribute counts as used (E0196).
+- Reading: `NAME.uses` in the declaring module is a module-level value,
+  built when the program is lowered and initialized before the module's own
+  values: a `List` of `{ value, target, call }`, one per use in the program
+  (definition order). `value` is the use's fields (an `Option` left out is
+  `none`); `target` is `{ module: String, name: String, kind: Symbol
+  (#fn, #type, #field, #variant, #value), owner: Option<String> }` (the
+  struct or enum of a field or variant); `call` is the annotated function,
+  of the declared `fn(SIGNATURE)` type — an `Option` when the attribute has
+  other positions too. A function of another signature is a type error at
+  its use. Reading the uses from another module, or naming the attribute as
+  a value otherwise, is E0151. The table is an ordinary value, so what it
+  references is kept by reachability like anything else, and it is in saved
+  MIR.
 
 **Declaration.** A new top-level definition, fields as in a struct, after
 `on` the positions it may be written at:

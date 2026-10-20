@@ -193,7 +193,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0151",
         "attribute use",
-        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`).",
+        "A use of a library's attribute (`@lib.name(...)`) does not fit its declaration: the attribute is private to its module, it is written at a position the declaration does not list, or its arguments do not give its fields — an unknown field, one given twice, a missing field that is not an `Option`, or a value of the wrong kind (`true`/`false`, an integer, a string, a `#symbol`, or a variant name). Arguments are `field = value`; an attribute with exactly one field that is not an `Option` also takes that value alone (`@db.table(\"books\")`). Its uses are read as `NAME.uses`, only in the module declaring it; naming the attribute as a value otherwise is an error too.",
     ),
     (
         "E0200",
@@ -376,7 +376,11 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
         "message template",
         "`@message(\"text\")` on an enum variant is that variant's display under `derive(Error)` or `derive(Display)` (the error message): `@message(\"no book {id}\")` interpolates the variant's field `id`, `{{` and `}}` are literal braces. A placeholder that names no field of the variant, or a malformed template, is an error; `@message` on an enum that derives neither is a warning. Variants without one display as `variant: payload`.",
     ),
-    ("E0194", "unknown fusion kind", "A `@fusion(...)` role, kind, or parameter value is not one the compiler knows, or an annotation gives no kind at all."),
+    (
+        "E0194",
+        "unknown fusion kind",
+        "A `@fusion(...)` role, kind, or parameter value is not one the compiler knows, or an annotation gives no kind at all.",
+    ),
     (
         "E0193",
         "misplaced status",

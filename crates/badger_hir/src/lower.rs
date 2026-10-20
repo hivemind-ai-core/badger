@@ -130,6 +130,17 @@ struct AttrUse {
     attr: ast::Attribute,
     place: Place,
     is_std: bool,
+    target: Option<(DefId, Option<Symbol>)>,
+}
+
+/// A use that fits its declaration: the value of each field (none for an
+/// `Option` left out), and what it annotates.
+struct ValidUse {
+    attribute: DefId,
+    span: Span,
+    values: Vec<Option<ast::AttrArg>>,
+    target: (DefId, Option<Symbol>),
+    place: Place,
 }
 
 /// Where each of the compiler's attributes may be written (`allow`
@@ -160,7 +171,7 @@ const FUSION_KINDS: &[&str] = &[
     "cursor",
     "scan",
     "enumerate",
-    "dedup", //
+    "dedup",    //
     "distinct", //
     // terminals
     "fold",
@@ -177,10 +188,8 @@ const FUSION_KINDS: &[&str] = &[
 /// The parameters a kind takes: the kind, the key, and the values the key
 /// accepts. Every listed parameter is required — the kind cannot be
 /// honoured without one.
-const FUSION_PARAMS: &[(&str, &str, &[&str])] = &[
-    ("cursor", "mode", &["take", "skip", "step_by"]),
-    ("accumulate", "combine", &["add", "count", "mul"]),
-];
+const FUSION_PARAMS: &[(&str, &str, &[&str])] =
+    &[("cursor", "mode", &["take", "skip", "step_by"]), ("accumulate", "combine", &["add", "count", "mul"])];
 
 /// The shape each fusion kind is written for: its role, and how many
 /// parameters the function takes (the sequence or list is the first of
@@ -230,6 +239,7 @@ pub fn lower_program(
         failed_imports: FxHashSet::default(),
         provider_inits: vec![],
         attr_uses: vec![],
+        attr_valid: vec![],
     };
     cx.collect(modules);
     if let Some(e) = entry {
@@ -246,6 +256,7 @@ pub fn lower_program(
     cx.check_provider_scopes();
     cx.check_attribute_declarations();
     cx.check_attribute_uses();
+    cx.build_attribute_tables();
     cx.report_unused(modules);
     cx.hir
 }
@@ -268,6 +279,8 @@ struct Cx<'a> {
     provider_inits: Vec<ExprId>,
     /// Uses of libraries' attributes, checked once every module is lowered.
     attr_uses: Vec<AttrUse>,
+    /// The uses that fit, for the declaring modules' tables.
+    attr_valid: Vec<ValidUse>,
 }
 
 impl Cx<'_> {
@@ -454,6 +467,11 @@ impl Cx<'_> {
                     use_err(self, u.attr.span, format!("`@{full}` needs `{n}`"), "missing a field");
                 }
             }
+            let mut values: Vec<Option<ast::AttrArg>> = vec![None; decl.fields.len()];
+            let mut fits_values = required.iter().all(|i| given.iter().any(|(j, _, _)| j == i));
+            for (i, v, _) in &given {
+                values[*i] = Some((*v).clone());
+            }
             for (i, v, at) in given {
                 let f = &decl.fields[i];
                 let ty = self.option_arg(&f.ty).unwrap_or(&f.ty).clone();
@@ -481,9 +499,289 @@ impl Cx<'_> {
                         }
                     };
                     use_err(self, at, format!("`{n}` of `@{full}` is {want}"), "a value of another kind");
+                    fits_values = false;
                 }
             }
+            if fits_values && let Some(target) = u.target {
+                self.attr_valid.push(ValidUse {
+                    attribute: def,
+                    span: u.attr.span,
+                    values,
+                    target,
+                    place: u.place,
+                });
+            }
         }
+    }
+
+    /// `NAME.uses`, in the module declaring attribute `NAME`: a module-level
+    /// value built from every use in the program (in definition order), each
+    /// `{ value, target, call }` — the use's fields (`Option`s left out are
+    /// `none`), what it annotates (`module`, `name`, `kind`, `owner`), and,
+    /// for an attribute declared `on fn(SIGNATURE)`, the function (typed by
+    /// the signature, so one of another type is a type error at the use).
+    /// Reading it from another module, or naming the attribute as a value
+    /// otherwise, is E0151. Nothing is built for an attribute never read.
+    fn build_attribute_tables(&mut self) {
+        let uses_sym = self.interner.intern("uses");
+        // the reads: `NAME.uses` on an attribute's definition
+        let mut reads: Vec<(ExprId, ExprId, DefId)> = vec![];
+        for (id, e) in self.hir.exprs.iter() {
+            if let ExprKind::Field { base, label, .. } = &e.kind
+                && *label == uses_sym
+                && let ExprKind::Def { def, .. } = &self.hir.exprs[*base].kind
+                && matches!(self.hir.defs[*def].kind, DefKind::Attribute(_))
+            {
+                reads.push((id, *base, *def));
+            }
+        }
+        let read_bases: FxHashSet<ExprId> = reads.iter().map(|r| r.1).collect();
+        let mut bad: Vec<(Span, String)> = vec![];
+        for (id, e) in self.hir.exprs.iter() {
+            if let ExprKind::Def { def, .. } = &e.kind
+                && matches!(self.hir.defs[*def].kind, DefKind::Attribute(_))
+                && !read_bases.contains(&id)
+            {
+                let n = self.sym(self.hir.defs[*def].name).to_string();
+                bad.push((e.span, format!("attribute `{n}` is not a value: its uses are `{n}.uses`")));
+            }
+        }
+        let mut tables: FxHashMap<DefId, DefId> = FxHashMap::default();
+        for (read, base, attr) in reads {
+            let span = self.hir.exprs[read].span;
+            let attr_module = self.hir.defs[attr].module;
+            if self.hir.modules[attr_module].file != span.file {
+                let n = self.sym(self.hir.defs[attr].name).to_string();
+                bad.push((span, format!("only the module declaring `{n}` reads its uses")));
+                self.hir.exprs[read].kind = ExprKind::Error;
+                continue;
+            }
+            let table = match tables.get(&attr) {
+                Some(t) => *t,
+                None => {
+                    let t = self.attribute_table(attr);
+                    tables.insert(attr, t);
+                    t
+                }
+            };
+            self.hir.exprs[read].kind = ExprKind::Def { def: table, type_args: vec![] };
+            let _ = base;
+        }
+        for (span, msg) in bad {
+            self.diags.push(Diagnostic::error(msg).with_code("E0151").with_label(span, "here"));
+        }
+    }
+
+    fn lang_ty(&self, name: &str, args: Vec<HTy>, span: Span) -> HTy {
+        match self.hir.try_lang(name) {
+            Some(def) => HTy { kind: HTyKind::Named { def, args }, span },
+            None => HTy { kind: HTyKind::Error, span },
+        }
+    }
+
+    /// The module-level value `NAME.uses` reads (see `build_attribute_tables`).
+    fn attribute_table(&mut self, attr: DefId) -> DefId {
+        let DefKind::Attribute(decl) = &self.hir.defs[attr].kind else { unreachable!() };
+        let decl = decl.clone();
+        let at = self.hir.defs[attr].span;
+        let module = self.hir.defs[attr].module;
+        let sig = decl.positions.iter().find_map(|(p, _)| match p {
+            AttributePosition::Fn(t) => Some(t.clone()),
+            _ => None,
+        });
+        let only_fns = sig.is_some() && decl.positions.len() == 1;
+        let string = self.lang_ty("String", vec![], at);
+        let name = self.interner.intern(&format!("{}.uses", self.sym(self.hir.defs[attr].name)));
+        let table =
+            self.hir.defs.alloc(Def { name, module, span: at, is_pub: false, kind: DefKind::Pending });
+        // the entry type
+        let value_ty = HTy {
+            kind: HTyKind::Record {
+                fields: decl.fields.iter().map(|f| (f.name, f.ty.clone())).collect(),
+                rest: None,
+            },
+            span: at,
+        };
+        let target_ty = HTy {
+            kind: HTyKind::Record {
+                fields: vec![
+                    (self.interner.intern("module"), string.clone()),
+                    (self.interner.intern("name"), string.clone()),
+                    (self.interner.intern("kind"), self.lang_ty("Symbol", vec![], at)),
+                    (self.interner.intern("owner"), self.lang_ty("Option", vec![string.clone()], at)),
+                ],
+                rest: None,
+            },
+            span: at,
+        };
+        let mut entry_fields =
+            vec![(self.interner.intern("value"), value_ty), (self.interner.intern("target"), target_ty)];
+        if let Some(sig) = &sig {
+            let call_ty = if only_fns { sig.clone() } else { self.lang_ty("Option", vec![sig.clone()], at) };
+            entry_fields.push((self.interner.intern("call"), call_ty));
+        }
+        let entry_ty = HTy { kind: HTyKind::Record { fields: entry_fields, rest: None }, span: at };
+        let table_ty = self.lang_ty("List", vec![entry_ty], at);
+        // the entries
+        let uses: Vec<usize> =
+            (0..self.attr_valid.len()).filter(|i| self.attr_valid[*i].attribute == attr).collect();
+        let mut entries = vec![];
+        for i in uses {
+            let (span, target, place) =
+                (self.attr_valid[i].span, self.attr_valid[i].target, self.attr_valid[i].place);
+            let values = self.attr_valid[i].values.clone();
+            let mut fields = vec![];
+            for (f, v) in decl.fields.iter().zip(values) {
+                let optional = self.option_arg(&f.ty).is_some();
+                let ty = self.option_arg(&f.ty).unwrap_or(&f.ty).clone();
+                let e = match v {
+                    Some(v) => {
+                        let x = self.attr_value_expr(&ty, &v, span);
+                        if optional { self.some_expr(x, span) } else { x }
+                    }
+                    None => self.none_expr(span),
+                };
+                fields.push((f.name, span, e));
+            }
+            let value = self.hir.exprs.alloc(Expr { kind: ExprKind::Record { spread: None, fields }, span });
+            let (item, member) = target;
+            let item_def = &self.hir.defs[item];
+            let module_name = self.hir.modules[item_def.module]
+                .path
+                .iter()
+                .map(|p| self.interner.resolve(*p).to_string())
+                .collect::<Vec<_>>()
+                .join(".");
+            let item_name = self.sym(item_def.name).to_string();
+            let (name, owner, kind) = match (member, place) {
+                (Some(m), Place::Variant) => (self.sym(m).to_string(), Some(item_name.clone()), "variant"),
+                (Some(m), _) => (self.sym(m).to_string(), Some(item_name.clone()), "field"),
+                (None, Place::Item("fn")) => (item_name.clone(), None, "fn"),
+                (None, Place::Item("let")) => (item_name.clone(), None, "value"),
+                (None, _) => (item_name.clone(), None, "type"),
+            };
+            let lit = |this: &mut Self, l: Lit| this.hir.exprs.alloc(Expr { kind: ExprKind::Lit(l), span });
+            let m = lit(self, Lit::Str(module_name));
+            let n = lit(self, Lit::Str(name));
+            let k = lit(self, Lit::Symbol(self.interner.intern(kind)));
+            let o = match owner {
+                Some(o) => {
+                    let x = lit(self, Lit::Str(o));
+                    self.some_expr(x, span)
+                }
+                None => self.none_expr(span),
+            };
+            let target = self.hir.exprs.alloc(Expr {
+                kind: ExprKind::Record {
+                    spread: None,
+                    fields: vec![
+                        (self.interner.intern("module"), span, m),
+                        (self.interner.intern("name"), span, n),
+                        (self.interner.intern("kind"), span, k),
+                        (self.interner.intern("owner"), span, o),
+                    ],
+                },
+                span,
+            });
+            let mut entry = vec![
+                (self.interner.intern("value"), span, value),
+                (self.interner.intern("target"), span, target),
+            ];
+            if sig.is_some() {
+                let call = if place == Place::Item("fn") {
+                    // `{ let call: SIGNATURE = f; call }`: a function of another
+                    // type is reported against the signature, at the use
+                    let f = self
+                        .hir
+                        .exprs
+                        .alloc(Expr { kind: ExprKind::Def { def: item, type_args: vec![] }, span });
+                    let call_sym = self.interner.intern("call");
+                    let local = self.hir.locals.alloc(Local {
+                        name: call_sym,
+                        span,
+                        mutable: false,
+                        owner: Some(Owner::Global(table)),
+                    });
+                    let pat = self.hir.pats.alloc(Pat { kind: PatKind::Bind(local), span });
+                    let read = self.hir.exprs.alloc(Expr { kind: ExprKind::Local(local), span });
+                    let f = self.hir.exprs.alloc(Expr {
+                        kind: ExprKind::Block {
+                            stmts: vec![Stmt::Let { pat, ty: sig.clone(), init: f, span }],
+                            tail: Some(read),
+                        },
+                        span,
+                    });
+                    if only_fns { f } else { self.some_expr(f, span) }
+                } else {
+                    self.none_expr(span)
+                };
+                entry.push((self.interner.intern("call"), span, call));
+            }
+            entries.push(
+                self.hir.exprs.alloc(Expr { kind: ExprKind::Record { spread: None, fields: entry }, span }),
+            );
+        }
+        let list = self.hir.exprs.alloc(Expr { kind: ExprKind::List(entries), span: at });
+        // the value: `let NAME.uses: List<...> = [...]`, initialized before
+        // the module's own values (it reads only functions and literals)
+        let local = self.hir.locals.alloc(Local {
+            name,
+            span: at,
+            mutable: false,
+            owner: Some(Owner::Global(table)),
+        });
+        let pat = self.hir.pats.alloc(Pat { kind: PatKind::Bind(local), span: at });
+        self.hir.defs[table].kind =
+            DefKind::Global(GlobalDef { pat, ty: Some(table_ty), value: list, is_const: false, local });
+        self.hir.globals.insert(0, table);
+        table
+    }
+
+    /// An attribute argument as an expression of field type `ty`.
+    fn attr_value_expr(&mut self, ty: &HTy, v: &ast::AttrArg, span: Span) -> ExprId {
+        let kind = match (self.attr_value_kind(ty), v) {
+            (Some(AttrValue::Bool), ast::AttrArg::Name(n)) => {
+                ExprKind::Lit(Lit::Bool(self.sym(*n) == "true"))
+            }
+            (Some(AttrValue::Int), ast::AttrArg::Int(n)) => {
+                ExprKind::Lit(Lit::Int { value: *n as u128, suffix: None })
+            }
+            (Some(AttrValue::Str), ast::AttrArg::Str(t)) => ExprKind::Lit(Lit::Str(t.clone())),
+            (Some(AttrValue::Symbol), ast::AttrArg::Symbol(t)) => ExprKind::Lit(Lit::Symbol(*t)),
+            (Some(AttrValue::Variant(e)), ast::AttrArg::Name(n)) => match &self.hir.defs[e].kind {
+                DefKind::Enum(en) => match en.variants.iter().position(|vd| vd.name == *n) {
+                    Some(i) => ExprKind::Ctor { enum_def: e, variant: i as u32, type_args: vec![] },
+                    None => ExprKind::Error,
+                },
+                _ => ExprKind::Error,
+            },
+            _ => ExprKind::Error,
+        };
+        self.hir.exprs.alloc(Expr { kind, span })
+    }
+
+    fn option_variant(&self, name: &str) -> Option<(DefId, u32)> {
+        let def = self.hir.try_lang("Option")?;
+        let DefKind::Enum(e) = &self.hir.defs[def].kind else { return None };
+        let i = e.variants.iter().position(|v| self.sym(v.name) == name)?;
+        Some((def, i as u32))
+    }
+
+    fn some_expr(&mut self, x: ExprId, span: Span) -> ExprId {
+        let Some((def, i)) = self.option_variant("some") else { return x };
+        let ctor = self
+            .hir
+            .exprs
+            .alloc(Expr { kind: ExprKind::Ctor { enum_def: def, variant: i, type_args: vec![] }, span });
+        self.hir.exprs.alloc(Expr { kind: ExprKind::Call { callee: ctor, args: vec![x] }, span })
+    }
+
+    fn none_expr(&mut self, span: Span) -> ExprId {
+        let kind = match self.option_variant("none") {
+            Some((def, i)) => ExprKind::Ctor { enum_def: def, variant: i, type_args: vec![] },
+            None => ExprKind::Error,
+        };
+        self.hir.exprs.alloc(Expr { kind, span })
     }
 
     /// Warnings for what a program's own modules never use: imports
@@ -508,6 +806,7 @@ impl Cx<'_> {
             .filter(|d| d.severity == badger_base::Severity::Error)
             .filter_map(|d| d.primary().map(|s| s.file))
             .collect();
+        let registered: FxHashSet<DefId> = self.attr_valid.iter().map(|u| u.target.0).collect();
         let mut files = FxHashSet::default();
         for (mi, m) in modules.iter().enumerate() {
             if !checked(m) {
@@ -547,6 +846,8 @@ impl Cx<'_> {
                 let n = self.sym(name).to_string();
                 if def.is_pub
                     || used.contains(&name)
+                    // registered with a library through its attribute
+                    || registered.contains(&d)
                     || n == "main"
                     || n.starts_with("test_")
                     || n.starts_with('_')
@@ -1111,6 +1412,9 @@ struct BodyCx<'c, 'a> {
     in_impl: bool,
     /// Current owning definition for generic params.
     cur_def: Option<DefId>,
+    /// What the attributes being checked annotate (for a library's
+    /// attribute table): the item, and the field or variant within it.
+    attr_target: Option<(DefId, Option<Symbol>)>,
     /// Active system configuration context: node locals by plan label.
     system: Option<FxHashMap<Symbol, LocalId>>,
     system_outputs: Option<LocalId>,
@@ -1135,6 +1439,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             loops: vec![],
             in_impl: false,
             cur_def: None,
+            attr_target: None,
             system: None,
             system_outputs: None,
             pat_depth: 0,
@@ -1280,7 +1585,13 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 };
                 // checked against the module's declaration once every module
                 // is lowered
-                self.cx.attr_uses.push(AttrUse { lib: module, attr: attr.clone(), place, is_std });
+                self.cx.attr_uses.push(AttrUse {
+                    lib: module,
+                    attr: attr.clone(),
+                    place,
+                    is_std,
+                    target: self.attr_target,
+                });
                 continue;
             }
             // the compiler's own names: a closed set, so an unknown one is
@@ -1349,7 +1660,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             ast::ItemKind::Global { .. } => "let",
             _ => "other",
         };
+        self.attr_target = Some((def, None));
         self.check_attributes(&item.attributes, Place::Item(kind), item.span);
+        self.attr_target = None;
         let mut flattened: Option<Span> = None;
         for attr in &item.attributes {
             let name = self.cx.interner.resolve(attr.name).to_string();
@@ -1465,9 +1778,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     // it cannot be honoured without: an annotation and a
                     // function that disagree would never fuse, and a third
                     // party cannot see why.
-                    if let Some((_, want_role, arity)) =
-                        FUSION_SHAPES.iter().find(|(k, _, _)| *k == kind)
-                    {
+                    if let Some((_, want_role, arity)) = FUSION_SHAPES.iter().find(|(k, _, _)| *k == kind) {
                         let mut problems = vec![];
                         if let Some(role) = role.as_deref()
                             && *want_role != role
@@ -1492,9 +1803,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                             if !is_std {
                                 d = Diagnostic::warning(problem).with_code("E0200");
                             }
-                            self.cx
-                                .diags
-                                .push(d.with_label(attr.span, "not the shape this fusion kind is written for"));
+                            self.cx.diags.push(
+                                d.with_label(attr.span, "not the shape this fusion kind is written for"),
+                            );
                         }
                     }
                 }
@@ -1578,7 +1889,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     .iter()
                     .map(|f| {
                         let span = f.name.span.to(self.ast.types[f.ty].span);
+                        self.attr_target = self.cur_def.map(|d| (d, Some(f.name.sym)));
                         self.check_attributes(&f.attributes, Place::Field, span);
+                        self.attr_target = None;
                         FieldDef {
                             attributes: f.attributes.clone(),
                             name: f.name.sym,
@@ -1607,7 +1920,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
                         _ => None,
                     });
+                    self.attr_target = self.cur_def.map(|d| (d, Some(v.name.sym)));
                     self.check_attributes(&v.attributes, Place::Variant, v.span);
+                    self.attr_target = None;
                     variants.push(VariantDef {
                         attributes: v.attributes.clone(),
                         name: v.name.sym,
