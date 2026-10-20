@@ -183,7 +183,7 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0191",
         "unknown attribute",
-        "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise; a library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports. Standard-library sources reject both; other code warns, so an attribute from a newer compiler or library does not break an older build.",
+        "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise (an error: a typo, or a library's attribute written without its namespace). A library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports (an error otherwise); one the module does not declare is a warning in user code and an error in standard-library sources.",
     ),
     (
         "E0199",

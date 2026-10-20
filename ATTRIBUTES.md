@@ -66,14 +66,17 @@ Expressions (calls included) take no attributes: a caller-side hint such as
 "inline this call" is not part of the language.
 
 **Namespaces.** A name without a namespace (`@allow`, `@derive`) is the
-compiler's: the set is closed, so an unknown one is a warning in user code
-(an error in standard-library sources), and a known one written where it
-does not apply is an error (E0199). A library's attribute is namespaced by
-its module, `@lib.name` (`@app.operation`, after `import std.app`): the
-first segment must be a module the file imports (E0191 otherwise), which
-also counts as a use of the import. A library attribute is recorded and
-visible to the compiler; nothing checks its name or arguments yet — that
-comes with declared attributes (below).
+compiler's: the set is closed, so an unknown one is an error (E0191) — a
+typo, or a library's attribute written without its namespace — and a known
+one written where it does not apply is an error (E0199). A library's
+attribute is namespaced by its module, `@lib.name` (`@app.operation`, after
+`import std.app`): the first segment must be a module the file imports (an
+error, E0191, otherwise), which also counts as a use of the import. One the
+module does not declare is a warning in user code (an error in
+standard-library sources), so a library newer or older than its user does
+not break the build; modules cannot declare attributes yet, so until
+declared attributes (below) every attribute of an imported module is
+accepted, and nothing checks its arguments.
 
 **`@allow(CODE, ...)`** works in every position: it silences that warning
 within what it tags (an item, a method, a field, a variant, a parameter's
@@ -104,10 +107,11 @@ compiler's own names.
 - Attributes carry no runtime representation and do not change type
   checking except where a consumer (the fusion pass, the inliner) reads
   them.
-- Policy for an unknown attribute is open: error everywhere (catches typos,
-  blocks forward compatibility) versus error in standard-library sources and
-  warn in user code (allows future/user attributes). A known attribute in a
-  wrong position is always an error.
+- An unknown attribute without a namespace is an error everywhere; a
+  library's (`@lib.name`) attribute its module does not declare is a
+  warning in user code and an error in standard-library sources; a
+  namespace that is not an imported module is an error. A known attribute
+  in a wrong position is always an error.
 - An attribute is part of an item’s **interface**: it is recorded in
   interfaces and visible to `badger query api`, so changing one is an
   interface change and the generated reference must account for it.
@@ -276,9 +280,8 @@ specific pass reads, it belongs in an attribute.
    (`FxHashMap<DefId, Vec<ast::Attribute>>`); accessible to passes.
    (Not yet surfaced by `badger query api`.)
 3. **Policy** — `KNOWN_ATTRIBUTES` in `badger_hir/src/lower.rs` (empty in
-   Phase 1) with `E0191`: an unrecognised attribute is an **error** in
-   standard-library sources and a **warning** elsewhere
-   (`tests/warnings/unknown_attribute.bdg`).
+   Phase 1) with `E0191`: an unrecognised attribute is an **error**
+   (`tests/reject/unknown_attribute.bdg`).
 4. **Consumers** — none yet; the first built-in attributes are Phase 2
    (`@derive`, the scoped warning-silencing attribute, `@inline`, …).
 5. **Docs** — `badger doc std` does not print attributes yet; the
@@ -346,8 +349,9 @@ work, and treat the attribute unification as its own project.
 - ~~**Placement**~~: decided (see
   [Placement, namespaces, and visibility](#placement-namespaces-and-visibility));
   expressions take none.
-- ~~**Unknown-attribute policy**~~: decided — warn in user code, error in
-  standard-library sources; namespaced names are libraries'.
+- ~~**Unknown-attribute policy**~~: decided — an unknown compiler
+  attribute is an error; a library's undeclared one warns in user code
+  (errors in std); an unimported namespace is an error.
 - **Interface stability**: are attributes part of public compatibility?
 - **Naming**: one `@fusion(role, template)` versus `@source(…)` /
   `@stage(…)` / `@terminal(…)`.
