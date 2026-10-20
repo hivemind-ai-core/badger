@@ -5,9 +5,9 @@ per-channel state machine) and §1.3 (the stop-the-world handshake). The channel
 model describes `crates/badger_runtime` as of `ac3f85c` (the Go-style channel
 protocol of §1.2 from `9f1ff4c`: one state word, one waiter list, `c4750f8`'s
 hand-off rule, and `ac3f85c`'s claims, the fix for F4; line references are to
-`ac3f85c`); the GC model describes it as of `13e7756`.
-They are the contract that the QSBR handshake (§2.1) and any polling page
-(§0.1) must keep. Nothing here changes the runtime.
+`ac3f85c`); the GC model describes it as of `6cd8e06` (the QSBR handshake
+of §2.1). They are the contract that any polling page (§0.1) must keep.
+Nothing here changes the runtime.
 
 | File | What |
 |---|---|
@@ -50,44 +50,57 @@ After editing the PlusCal in `GcHandshake.tla`, regenerate its translation with
 
 | Check | Expected | Got | States | Time |
 |---|---|---|---:|---:|
-| `channel` | pass | pass | 280,301 | 6s |
-| `channel-live` | pass | pass | 275,956 | 82s |
-| `channel-full` | pass | pass | 332,232 | 7s |
-| `channel-full-live` | pass | pass | 421,815 | 116s |
-| `contract` | pass | pass | 332,281 | 18s |
-| `contract-live` | pass | pass | 421,575 | 197s |
-| `contract-forgets-watchers` | WatchKept | WatchKept | 16,047 | 5s |
-| `f1-cancel-after-handoff` | pass | pass | 280,301 | 9s |
+| `channel` | pass | pass | 280,301 | 7s |
+| `channel-live` | pass | pass | 275,956 | 51s |
+| `channel-full` | pass | pass | 332,232 | 6s |
+| `channel-full-live` | pass | pass | 421,815 | 132s |
+| `contract` | pass | pass | 332,281 | 6s |
+| `contract-live` | pass | pass | 421,575 | 84s |
+| `contract-forgets-watchers` | WatchKept | WatchKept | 17,072 | 2s |
+| `f1-cancel-after-handoff` | pass | pass | 280,301 | 5s |
 | `f2-batch-one-wake` | pass | pass | 51,931 | 3s |
-| `f2-batch-one-wake-live` | pass | pass | 145,859 | 50s |
-| `f3-one-step` | pass | pass | 280,301 | 8s |
-| `f3-registration-served` | pass | pass | 280,301 | 14s |
-| `f4-cancel-after-retry-wake` | pass | pass | 6,446 | 4s |
-| `f4-cancel-after-retry-wake-live` | pass | pass | 145,114 | 49s |
-| `f4-no-cancel` | pass | pass | 2,749 | 1s |
-| `f4-workers` | pass | pass | 359,200 | 20s |
-| `f4-contract` | pass | pass | 6,386 | 3s |
-| `f4-contract-live` | pass | pass | 143,274 | 50s |
-| `m-fast-ignores-watchers` | NoLostWake | NoLostWake | 1,425 | 1s |
-| `m-fast-ignores-watchers-live` | temporal | temporal | 275,206 | 44s |
-| `m-select-no-claim` | NoLostWake | NoLostWake | 1,587 | 2s |
-| `m-no-stale` | PhasePublished | PhasePublished | 242 | 2s |
-| `m-no-stale-safe` | pass | pass | 279,466 | 11s |
-| `m-cancel-retracts` | ExactlyOnce | ExactlyOnce | 14,814 | 3s |
-| `m-one-wake-per-batch` | NoLostWake | NoLostWake | 17,005 | 2s |
-| `m-one-wake-per-batch-live` | temporal | temporal | 144,473 | 21s |
-| `m-one-wake-claimed` | NoLostWake | NoLostWake | 15,283 | 2s |
-| `m-one-wake-claimed-live` | pass | pass | 146,147 | 27s |
-| `m-queue-forgets-watchers` | OneStep | OneStep | 5,278 | 1s |
-| `m-queue-forgets-watchers-reg` | RegistrationServed | RegistrationServed | 7,847 | 2s |
-| `m-dead-keeps-claim` | NoLostWake | NoLostWake | 6,211 | 1s |
-| `m-dead-keeps-claim-live` | temporal | temporal | 149,938 | 30s |
-| `m-dead-keeps-claim-held` | ClaimsHeld | ClaimsHeld | 11,651 | 3s |
-| `gc` | pass | pass | 80,106 | 19s |
-| `gc-check-before-inc` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 26,072 | 3s |
-| `gc-unlock-before-inc` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 33,355 | 6s |
-| `gc-dec-before-publish` | RootsPublished | RootsPublished | 19,043 | 3s |
-| `gc-nested-collect` | ScanUnderStop | ScanUnderStop | 24,493 | 4s |
+| `f2-batch-one-wake-live` | pass | pass | 145,859 | 26s |
+| `f3-one-step` | pass | pass | 280,301 | 6s |
+| `f3-registration-served` | pass | pass | 280,301 | 6s |
+| `f4-cancel-after-retry-wake` | pass | pass | 6,446 | 1s |
+| `f4-cancel-after-retry-wake-live` | pass | pass | 145,114 | 38s |
+| `f4-no-cancel` | pass | pass | 2,749 | 2s |
+| `f4-workers` | pass | pass | 359,150 | 8s |
+| `f4-contract` | pass | pass | 6,386 | 4s |
+| `f4-contract-live` | pass | pass | 143,274 | 49s |
+| `m-fast-ignores-watchers` | NoLostWake | NoLostWake | 2,845 | 2s |
+| `m-fast-ignores-watchers-live` | temporal | temporal | 275,206 | 28s |
+| `m-select-no-claim` | NoLostWake | NoLostWake | 2,137 | 1s |
+| `m-no-stale` | PhasePublished | PhasePublished | 377 | 1s |
+| `m-no-stale-safe` | pass | pass | 279,466 | 5s |
+| `m-cancel-retracts` | ExactlyOnce | ExactlyOnce | 20,912 | 3s |
+| `m-one-wake-per-batch` | NoLostWake | NoLostWake | 14,950 | 1s |
+| `m-one-wake-per-batch-live` | temporal | temporal | 144,473 | 19s |
+| `m-one-wake-claimed` | NoLostWake | NoLostWake | 16,049 | 2s |
+| `m-one-wake-claimed-live` | pass | pass | 146,147 | 39s |
+| `m-queue-forgets-watchers` | OneStep | OneStep | 7,113 | 1s |
+| `m-queue-forgets-watchers-reg` | RegistrationServed | RegistrationServed | 5,497 | 2s |
+| `m-dead-keeps-claim` | NoLostWake | NoLostWake | 5,808 | 2s |
+| `m-dead-keeps-claim-live` | temporal | temporal | 149,938 | 25s |
+| `m-dead-keeps-claim-held` | ClaimsHeld | ClaimsHeld | 10,620 | 2s |
+| `gc` | pass | pass | 60,597 | 11s |
+| `gc-acks-stay` | AcksStay | AcksStay | 10,994 | 1s |
+| `gc-recheck-parity` | pass | pass | 111,663 | 16s |
+| `gc-online-no-publish` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 28,547 | 2s |
+| `gc-online-no-publish-slot` | SlotMatches | SlotMatches | 1,020 | 1s |
+| `gc-online-no-recheck` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 13,519 | 1s |
+| `gc-online-no-backout` | temporal | temporal | 86,763 | 3s |
+| `gc-online-no-backout-spin` | temporal | temporal | 50,307 | 4s |
+| `gc-unlock-before-online` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 20,481 | 1s |
+| `gc-offline-before-publish` | RootsPublished | RootsPublished | 12,492 | 2s |
+| `gc-read-before-advance` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 15,340 | 1s |
+| `gc-scan-before-grace` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 9,092 | 1s |
+| `gc-nested-grace` | ScanUnderStop | ScanUnderStop | 14,410 | 1s |
+| `gc-nested-grace-resume` | ResumeAfterSweep | ResumeAfterSweep | 14,434 | 2s |
+| `gc-nested-resume-ends` | ScanUnderStop | ScanUnderStop | 14,237 | 1s |
+| `gc-nested-resume-ends-resume` | ResumeAfterSweep | ResumeAfterSweep | 14,243 | 1s |
+| `gc-poll-acks` | SlotMatches | SlotMatches | 3,279 | 1s |
+| `gc-poll-acks-observes` | EveryWorkerObservesEpoch | EveryWorkerObservesEpoch | 13,705 | 1s |
 
 In short: every check matched its expected outcome, so the channel protocol
 as of `ac3f85c` (the refactor of `9f1ff4c` with the F4 fix) satisfies the
@@ -105,13 +118,21 @@ receiver's claim passes on) and passes at four tasks too. The model finds no
 new defect. One observation: the claims also make one wake per publication
 live (each receiver that takes a message passes the next wake on), so F2's
 per-message wake is now needed for `NoLostWake` but no longer for
-`EveryBlockedRecvWoken` (`m-one-wake-claimed`, `m-one-wake-claimed-live`). The GC handshake model still passes, with every mutation caught
-(it describes the handshake of `13e7756`, which `6cd8e06` has since replaced
-with a QSBR grace period; updating it is a separate task).
+`EveryBlockedRecvWoken` (`m-one-wake-claimed`, `m-one-wake-claimed-live`).
 
-Times are wall-clock for one `run.sh` run (13m51s in all) on a 16-core
-machine that other jobs were loading (load average 25-30), so they are
-higher than on a quiet machine (`channel-live` took 33s on one, 82s here).
+The GC handshake model now describes the QSBR grace period of `6cd8e06`,
+with a nested stop in every collection: `EveryWorkerObservesEpoch`,
+`RootsPublished`, `ScanUnderStop`, `ResumeAfterSweep`, `SlotMatches` (was
+`CountMatches`), `CollectionCompletes` and `SpinnersProceed` all hold
+(`gc`), and all fifteen checks of the ten mutations catch them. The
+model finds no defect; it finds that `stop_the_world`'s comment overstates
+(G1: a slot read as acknowledged can fall back to the old epoch in
+`online`'s window, harmlessly, `gc-acks-stay`), and that `online`'s re-read
+could test the parity alone (`gc-recheck-parity`).
+
+Times are wall-clock for one `run.sh` run (10m20s in all) on a 16-core
+machine that other jobs were loading (load average 15-25), so they are
+higher than on a quiet machine (`channel-live` took 33s on one, 51s here).
 The state count of a violated property is where TLC stopped, which varies
 slightly between runs with several TLC workers; the counts of passing checks
 do not vary.
@@ -526,94 +547,207 @@ regression test is in `crates/badger_runtime/tests/channel_state.rs`.
 
 ### What is modelled
 
-One process per worker thread, three workers, `MaxEpochs = 2` collections.
-Each label is one sequentially consistent access, following the code:
+The handshake of `6cd8e06`: a quiescent-state grace period (QSBR,
+`gc_handshake.rs`), which replaced the `STOP` flag and the sum of the
+`IN_COMPILED` counters of `13e7756`. One process per worker thread, three
+workers, `MaxCollections = 2` collections, each of which may contain one
+nested stop and resume. Each label is one sequentially consistent access,
+following the code:
 
 | Code | Model |
 |---|---|
-| `stop_the_world` (`task.rs:938`): `STOP := true`, spin until the counters sum to 0, read one slot at a time | `CStop`, `CRestart`, `CRead` (one slot per step, any order), `CCheck` |
-| `collect` (`gc.rs:650`): trace and sweep, then `resume_the_world` (`task.rs:949`) | `CScan`, `CSweep`, `CResume` |
-| `gc_enter` (`task.rs:1496`): count, read `STOP`; if set, uncount, spin, retry | `GEFirst`, `GECheck`, `GEDec`, `GESpin` |
-| `badger_rt_enter` (`task.rs:875`): uncount, take the lock | `EnterDec`, `EnterLock` |
-| `badger_rt_leave` (`task.rs:882`): count (holding the lock), unlock | `LeaveFirst`, `LeaveUnlock` |
-| `enter_runtime_holding` (`task.rs:923`): publish `RETURNED`, uncount, lock, root, clear | `HFirst`, `HSecond`, `HLock`, `HRoot` |
-| `badger_rt_safe_begin` / `_end` (`task.rs:890-899`): uncount; lock, count, unlock | `ForeignDec`, `ForeignLock`, `ForeignInc`, `ForeignUnlock` |
-| `suspended_free` (`task.rs:3073`): a task suspended without the lock uncounts its worker | `SuspendDec` |
+| `EPOCH` (`gc_handshake.rs:25`): even while workers may run compiled code, odd from a collector's request until its resume | `epoch` |
+| `DEPTH` (`gc_handshake.rs:30`): the lock holder's stops in progress | `depth` |
+| `OBSERVED` (`gc_handshake.rs:38`): per worker, the even epoch it observed going online, or `OFFLINE` (greater than every epoch) | `slot`, with `Offline` above every epoch the bounded model reaches |
+| `online` (`gc_handshake.rs:48`, from `gc_enter`, `task.rs:1503`): read the epoch; if even, publish it in the slot and re-read the epoch; if it moved, go offline; spin while it is odd; retry | `GERead`, `GEPub`, `GERecheck`, `GEBack`, `GESpin` |
+| `online_locked` (`gc_handshake.rs:69`): publish the epoch, lock held (its load and its swap are one step: the lock excludes a stop) | `LeaveFirst`, `ForeignOnline` |
+| `offline` (`gc_handshake.rs:79`): the slot becomes `OFFLINE` | `EnterOff`, `HSecond`, `SuspendOff`, `ForeignOff` |
+| `stop_the_world` (`gc_handshake.rs:93`): count the stop; the outermost one advances the epoch and waits until each slot is at least the new epoch, one slot at a time | `CStop`, `CAdvance`, `CWait` (one slot per step, in every order); a nested one `NStop` |
+| `resume_the_world` (`gc_handshake.rs:109`): uncount; the outermost one advances the epoch | `CResume`; a nested one `NResume` |
+| `collect` (`gc.rs:650`): stop, trace and sweep, resume; `for_each_object_of` (`gc.rs:1339`) stops and resumes inside it | `CScan`, `CSweep` (then `NStop` ... `NResume` or not), `CResume` |
+| `badger_rt_enter` (`task.rs:874`): offline, take the lock | `EnterOff`, `EnterLock` |
+| `badger_rt_leave` (`task.rs:881`): online (lock held), unlock | `LeaveFirst`, `LeaveSecond` |
+| `enter_runtime_holding` (`task.rs:922`): publish `RETURNED`, offline, lock, root, clear | `HFirst`, `HSecond`, `HLock`, `HRoot` |
+| `badger_rt_safe_begin` / `_end` (`task.rs:889-899`): offline; lock, online, unlock | `ForeignOff`, `ForeignLock`, `ForeignOnline`, `ForeignUnlock` |
+| `suspended_free` (`task.rs:3254`): a task suspended without the lock takes its worker offline | `SuspendOff` |
 | the scheduler with the lock: run a locked task, `run_free`, go idle, or collect | `Runtime`, `IdleLock`, `FreeSched`, `FreeLock` |
 
 A worker "may mutate" (`MutatorPCs`) while it runs compiled code, or runtime
 code that compiled code calls without the lock (allocation, the channel fast
-paths), up to the step that uncounts it.
+paths), up to the step that takes it offline. The ghost variables are `seen`
+(the epoch a worker observed going online: `online`'s local `e`), `ack` (the
+epoch whose grace period last read the worker's slot as acknowledged) and
+`phase` / `collector`. Every worker starts online at epoch 0.
 
 ### Properties
 
+The properties of the model of `13e7756` carry over; one is renamed because
+the counters are gone.
+
 - **Every worker observes the new epoch** — `EveryWorkerObservesEpoch`: while
-  the collector traces or sweeps, no other worker may mutate, and each of them
-  acknowledged the epoch (`ack[w] = epoch`: the collector read its slot as 0
-  during this epoch's stop and it has not run compiled code since). Being an
-  invariant of every state of the scan, it also says that no worker enters
-  compiled code after the scan started.
+  the collector traces or sweeps, no other worker may mutate, each of them was
+  read as acknowledged by this epoch's grace period (`ack[w] = epoch`), and
+  its slot still acknowledges the epoch (`slot[w] >= epoch`) unless the worker
+  is in `online`'s window between publishing and backing out (finding G1).
+  Being an invariant of every state of the scan, it also says that no worker
+  enters compiled code after the scan started. The acknowledgement is no
+  longer a ghost: it is the slot the collector reads (`ack` only records the
+  read). **Established.**
 - **No root published after the scan starts** — `RootsPublished`: during the
   scan, a pointer that compiled code returned to a worker that is not yet
-  holding the lock is in `RETURNED`.
+  holding the lock is in `RETURNED`. **Established.**
 - **The resume is ordered after the scan** — `ScanUnderStop` (tracing and
-  sweeping happen with `STOP` set and the lock held by the collector) and
-  `ResumeAfterSweep` (`STOP` clears only from the collector's resume step after
-  its sweep).
-- `CountMatches`: each slot is exactly 1 while its worker may run compiled code
-  and 0 otherwise.
+  sweeping happen with the epoch odd, inside a stop, with the lock held by
+  the collector) and `ResumeAfterSweep` (the epoch turns even only at the
+  collector's outermost resume, after its sweep, at depth 1; it used to say
+  "`STOP` clears only..."). **Both established**, now with nested stops in
+  the model rather than as a mutation.
+- `SlotMatches` (was `CountMatches`: there are no counts to match): a slot is
+  `OFFLINE` exactly while its worker is in a quiescent state, and otherwise
+  the even epoch the worker observed going online. **Established.** It is no
+  longer restricted to the unmutated model, so it catches mutations too.
 - Liveness: `CollectionCompletes` (a started collection ends; this needs every
-  worker in compiled code to reach a safe point, the model's weak fairness for
-  the poll) and `SpinnersProceed` (a worker waiting in `gc_enter` runs again).
+  worker in compiled code to reach a safe point, the model's fairness for the
+  poll) and `SpinnersProceed` (a worker waiting in `online` runs again).
+  **Both established.**
 
-### What the current code relies on
+`AcksStay` (the claim of `stop_the_world`'s comment, "a slot read as
+acknowledged stays so for the stop") is defined too, and fails: finding G1.
 
-The handshake satisfies every property above in the model (check `gc`). The
-model makes explicit what that depends on:
+### Mutations
 
-- **Store-then-load on both sides, sequentially consistent.** The worker counts
-  itself before it reads `STOP` (`gc_enter`); the collector sets `STOP` before
-  it reads the counters. Reading `STOP` first (`Mutation = "check_before_inc"`)
-  lets a worker read `STOP = false`, the collector stop and read all zeros, and
-  the worker count itself and run compiled code during the scan (a 20-state trace). The model is sequentially consistent; the code gets the same
-  guarantee only because all four accesses are `SeqCst` (`task.rs:942-943`, `950`,
-  `1498-1499`). With release/acquire on either side the store-load pair may
-  reorder — the same interleaving.
-- **Counting before unlocking.** `badger_rt_leave` counts while it still holds
-  the lock; unlocking first (`"unlock_before_inc"`) lets a collector take the
-  lock and read the slot as 0 before the worker counts and returns to compiled
-  code, which does not check `STOP` (21-state trace). `badger_rt_safe_end` relies on
-  the same order.
-- **Publishing before uncounting.** `enter_runtime_holding` stores `RETURNED`
-  before `badger_rt_enter` uncounts; the reverse order
-  (`"dec_before_publish"`) lets the scan miss the pointer (`RootsPublished`, 17-state
-  trace).
-- **No nested stop.** `STOP` is a flag, not a count or an epoch: a
-  `stop_the_world` / `resume_the_world` pair inside a collection clears it
-  while the outer collection still sweeps, and workers spinning in `gc_enter`
-  then run compiled code during the sweep (`"nested_collect"`, `ScanUnderStop`,
-  20-state trace). Today nothing nests: a collection inside a finalizer is ruled out
-  by `debug_assert!(!FINALIZING…)` (`gc.rs:347`), which release builds do not
-  check, and `for_each_object_of` (`gc.rs:1339`), which also stops and resumes
-  the world, is not called during a collection. A QSBR epoch (§2.1) removes the
-  dependence.
-- **Balanced slots.** The collector tests the sum, not every slot; a slot that
-  went negative would hide another worker's 1. `CountMatches` holds for the
-  modelled paths; the claim that every count and uncount on a thread pair up
-  (`task.rs:793-796`) is the code's, and the model only covers the paths in
-  the table.
-- **Reading the slots one at a time is safe** because outside the lock a slot
-  can only rise in `gc_enter`, which re-reads `STOP` and backs out; the model
-  reads the slots in every order.
-- **Acknowledgement is implicit.** `ack` is a ghost variable: the code has no
-  per-worker epoch, only the sum. §2.1 should make the acknowledgement real
-  (a per-worker observed epoch) and keep `EveryWorkerObservesEpoch`; §0.1's
-  polling page would replace the `gc_enter` / `badger_rt_enter` paths and must
-  keep the same invariant.
+Each property has a mutation that breaks it, and every mutation is caught.
+The checks keep `TypeOK` and the one property they name (`run.sh`'s
+`gconly`), so each shows that this property alone catches the defect; the
+trace length is that of TLC's counterexample (one TLC worker thread;
+with several, the trace found can differ).
+
+| Mutation | The defect | Check | Caught by | Trace |
+|---|---|---|---|---:|
+| `online_no_publish` | `online` returns without publishing its slot | `gc-online-no-publish`, `gc-online-no-publish-slot` | `EveryWorkerObservesEpoch`; `SlotMatches` | 20; 6 |
+| `online_no_recheck` | `online` publishes and does not re-read the epoch (a stop that began between the read and the publication passes the worker's `OFFLINE` slot) | `gc-online-no-recheck` | `EveryWorkerObservesEpoch` | 19 |
+| `online_no_backout` | `online`, seeing a stop after publishing, waits for it with its slot published: the collector waits for the worker, the worker for the collector | `gc-online-no-backout`, `gc-online-no-backout-spin` | `CollectionCompletes`; `SpinnersProceed` (a deadlock: `SlotMatches` sees it too) | 18 + stutter |
+| `unlock_before_online` | `badger_rt_leave` unlocks, then goes online: a collector takes the lock, reads the slot as `OFFLINE`, and the worker publishes the odd epoch and runs | `gc-unlock-before-online` | `EveryWorkerObservesEpoch` | 20 |
+| `offline_before_publish` | `enter_runtime_holding` goes offline before publishing `RETURNED` | `gc-offline-before-publish` | `RootsPublished` | 16 |
+| `read_before_advance` | the collector waits for the slots, then advances the epoch: a worker read before the advance goes online at the old epoch | `gc-read-before-advance` | `EveryWorkerObservesEpoch` | 20 |
+| `scan_before_grace` | the collector reads each slot once and goes on (the scan starts before the grace period ends) | `gc-scan-before-grace` | `EveryWorkerObservesEpoch` | 12 |
+| `nested_grace` | no `DEPTH`: a nested stop advances the epoch (to an even one: the world runs during the sweep) and waits again | `gc-nested-grace`, `gc-nested-grace-resume` | `ScanUnderStop`; `ResumeAfterSweep` | 19 |
+| `nested_resume_ends` | `DEPTH` counted on the stop only: the nested resume advances the epoch, ending the stop while the outer collection sweeps (the old `nested_collect`; the outer resume then stops the world for good) | `gc-nested-resume-ends`, `gc-nested-resume-ends-resume` | `ScanUnderStop`; `ResumeAfterSweep` | 19 |
+| `poll_acks` | a worker acknowledges an epoch it has not observed going online: compiled code at a poll publishes the current epoch and runs on (urcu-qsbr's `rcu_quiescent_state`) | `gc-poll-acks`, `gc-poll-acks-observes` | `SlotMatches`; `EveryWorkerObservesEpoch` | 8; 14 |
+
+The mutations of the model of `13e7756`, and what became of them:
+
+- `gc-check-before-inc` (`gc_enter` read `STOP` before counting itself) is
+  gone: `gc_enter` no longer counts. Its rule -- store, then load, on both
+  sides -- is now `online`'s publish-then-re-read and the collector's
+  advance-then-read: `gc-online-no-recheck` and `gc-read-before-advance`.
+- `gc-unlock-before-inc` is now `gc-unlock-before-online`: the same rule
+  (`online_locked` must publish before the unlock) for the new primitive.
+- `gc-dec-before-publish` is now `gc-offline-before-publish`: the same rule
+  (`RETURNED` before the worker goes offline).
+- `gc-nested-collect` (an inner resume cleared the `STOP` flag under the
+  outer collection) is gone as a mutation of the code: `DEPTH` makes nested
+  stops correct, so the base model now nests one in every collection and
+  `gc` passes with it. The two ways `DEPTH` could be wrong are
+  `gc-nested-grace` and `gc-nested-resume-ends` (the latter is the old
+  defect, made possible again).
+
+The mutations `poll_acks` and `online_no_backout` are new kinds: the first
+shows why the classic QSBR announcement does not fit a stop-the-world (a
+grace period alone only waits out the readers that were there; the collector
+also needs every worker to stay out until the resume, which only the safe
+point's offline-then-lock gives), the second why `online` goes offline while
+it waits.
+
+### Findings
+
+**G1 — a slot read as acknowledged can fall back to the old epoch (harmless;
+the comment overstates).** `stop_the_world`'s comment says "A slot read as
+acknowledged stays so for the stop: outside the lock a worker goes online
+only in `online`, which backs out." The conclusion holds, but the slot does
+not stay acknowledged: a worker that read the even epoch `e` before the
+collector advanced it, and whose `OFFLINE` slot the collector has already
+read, then publishes `e` (below the stop's `e + 1`) and only backs out after
+its re-read. TLC's trace (`gc-acks-stay`, 13 states): w1 takes the lock and
+starts a stop; w2 suspends without the lock (offline) and enters `online`,
+reading epoch 0; w1 advances the epoch to 1 and reads w2's slot as `OFFLINE`;
+w2 publishes 0 -- the slot of a worker the grace period acknowledged is now
+below the epoch. w2's re-read sees 1, it goes offline and spins, so no worker
+runs compiled code during the scan (`EveryWorkerObservesEpoch` holds, with
+the window as its stated exception). Nothing reads the slots after the grace
+period, so nothing depends on the stronger claim today; an assertion at the
+resume that every slot acknowledges the epoch, or a collector that re-reads
+the slots, would trip on it. The comment could say: "a worker whose slot was
+read as acknowledged does not run compiled code until the resume: outside the
+lock it goes online only in `online`, which re-reads the epoch and backs
+out". (The runtime is not changed by this task.)
+
+**Observation — `online`'s re-read could test the parity alone.**
+`Mutation = "recheck_parity"` makes the re-read accept any even epoch, not
+only the one published, and every property still holds (`gc-recheck-parity`,
+111,663 states): a worker that publishes `e` after a whole stop and resume
+(`e + 2`) runs with a slot below the current epoch, which only makes the next
+stop wait for it, as it must. The equality test is stricter than it needs to
+be, and costs nothing; this is not a proposal to change it.
+
+The model finds no defect in the QSBR protocol.
+
+### What the QSBR protocol relies on
+
+The handshake satisfies every property above in the model (check `gc`). What
+that depends on, each shown by a mutation:
+
+- **Publish, then re-read; advance, then read; sequentially consistent.** A
+  worker going online without the lock publishes its slot before it re-reads
+  the epoch, and the collector advances the epoch before it reads the slots,
+  so one of them sees the other (`online_no_recheck`, `read_before_advance`;
+  `online_no_publish` takes the worker's half away altogether). The model is
+  sequentially consistent; the code gets the same guarantee because the four
+  accesses are `SeqCst` (`gc_handshake.rs:51-55`, `98-100`). With
+  release/acquire the store-load pairs may reorder -- the same interleavings.
+- **Online before unlocking.** `badger_rt_leave` and `badger_rt_safe_end`
+  publish their slot while still holding the lock (`unlock_before_online`).
+- **Publishing the root before going offline.** `enter_runtime_holding`
+  stores `RETURNED` before `badger_rt_enter` goes offline
+  (`offline_before_publish`).
+- **The grace period waits for each slot.** The collector spins on each slot
+  until it acknowledges the epoch (`scan_before_grace`), and a worker
+  acknowledges it only by going offline, never by announcing the epoch from
+  compiled code (`poll_acks`).
+- **Backing out while waiting.** `online` stores `OFFLINE` before it spins on
+  an odd epoch (`online_no_backout`: a deadlock).
+- **`DEPTH` on both sides.** Only the outermost stop advances the epoch and
+  waits, and only the outermost resume ends the stop (`nested_grace`,
+  `nested_resume_ends`). `DEPTH` itself is `Relaxed` and touched only by the
+  lock holder, which the model takes as given (one step of the lock holder).
+- **Reading the slots one at a time is safe** because outside the lock a
+  worker goes online only in `online`, which re-reads the epoch and backs out
+  (finding G1 is the precise form); the model reads the slots in every order.
+
+The dependencies the model of `13e7756` spelled out and that are gone:
+
+- **No nested stop.** A nested stop and resume is now in every collection of
+  the base model, and the properties hold.
+- **Balanced slots.** The collector tests each slot against the epoch rather
+  than a sum, so no slot can hide another; `SlotMatches` checks each slot
+  against its own worker's state. (The code's `debug_assert!`s for going
+  online or offline twice are the release-build-unchecked remnant of the old
+  pairing claim; the model covers the paths in the table.)
+- **Implicit acknowledgement.** The per-worker observed epoch §2.1 asked for
+  is the slot; `ack` only records that the collector read it.
+
+§0.1's polling page would replace the `online` / `badger_rt_enter` paths and
+must keep `EveryWorkerObservesEpoch`.
 
 ### What the GC model does not cover
 
 The memory model (it is sequentially consistent), the roots themselves (task
 shadow stacks, `Roots`, the remembered sets: only `RETURNED` is modelled),
 allocation debt and the collection trigger, the polling page (§0.1 is not
-adopted), and runs with more than three workers or two collections.
+adopted), the `stopping()` hint in `yield_free` (it only sends a poll to the
+locked path sooner), compiled code run by the collector during its own stop
+(a finalizer calling back into compiled code would go `online_locked` at an
+odd epoch, which `online_locked`'s `debug_assert!` rules out in debug builds
+and the model does not include), epoch wrap-around (`u64`), more than one
+nested stop per collection, and runs with more than three workers or two
+collections.
