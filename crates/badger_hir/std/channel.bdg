@@ -1,6 +1,7 @@
 // Typed bounded channels and batch channels.
 
 import std.list
+import std.system
 
 pub extern type Sender<T>
 pub extern type Receiver<T>
@@ -94,6 +95,26 @@ pub fn create<T>(options: Options) -> Result<Endpoints<T>, ConfigError> where T:
     }
     let s: Sender<T> = chan_new<T, Sender<T>>(options.capacity, 1, false, options.byte_budget)
     ok({ sender: s, receiver: identity(s) })
+}
+
+/// A channel as a system resource: `component(channel.resource<Event>(),
+/// options)` creates it when the node starts and closes its sender when the
+/// node halts (after the nodes that use it, which halt first). Publishers
+/// take `ref(#key).sender`, consumers `ref(#key).receiver`, so a request
+/// handler can hand events to a background worker in another node.
+pub fn resource<T>() -> system.Provider<Options, Endpoints<T>, ConfigError> where T: Transfer {
+    system.provider({
+        name: #channel/resource,
+        init: fn(scope, options: Options) -> Result<Endpoints<T>, ConfigError> {
+            let ch = create<T>(options)?
+            let sender = ch.sender
+            scope.on_halt(fn() -> Result<Unit, ConfigError> {
+                sender.close()
+                ok(())
+            })
+            ok(ch)
+        },
+    })
 }
 
 /// Validate options and create a batch channel.

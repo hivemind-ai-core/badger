@@ -1,0 +1,48 @@
+// A channel as a system resource (channel.resource): one node publishes,
+// another node's worker consumes, and the channels close when the system
+// halts. The consumer acknowledges each event on a second resource channel.
+import std.channel
+import std.io
+import std.system
+import std.system.{component}
+import std.worker
+
+pub enum AppError {
+    cfg(source: channel.ConfigError),
+    sys(source: system.Error),
+    io(source: io.Error),
+} derive(Error, From)
+
+provider consumer(scope, config: { rx: channel.Receiver<Int>, acks: channel.Sender<Int> }) -> Result<Unit, AppError> {
+    let rx = config.rx
+    let acks = config.acks
+    scope.worker(fn() -> Result<Unit, AppError> {
+        loop {
+            match rx.recv() {
+                .some(n) => {
+                    io.println($"got {n}")?
+                    let _ = acks.send(n)
+                },
+                .none => break,
+            }
+        }
+        ok(())
+    }, worker.on_failure({ max_restarts: 1, window: 1s, backoff: 1ms }))
+    ok(())
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let plan = system {
+        events: component(channel.resource<Int>(), { ..channel.defaults, capacity: 8 }),
+        acks: component(channel.resource<Int>(), { ..channel.defaults, capacity: 8 }),
+        sink: component(consumer, { rx: ref(#events).receiver, acks: ref(#acks).sender }),
+    }
+    system.run(plan, fn(r) -> Result<Unit, AppError> {
+        let _ = r.events.sender.send(1)
+        let _ = r.events.sender.send(2)
+        let a = r.acks.receiver.recv()
+        let b = r.acks.receiver.recv()
+        io.println($"acknowledged {a} {b}")?
+        ok(())
+    })
+}

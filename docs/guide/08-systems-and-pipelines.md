@@ -346,6 +346,22 @@ unchanged; after a conflict it loads and decides again, calling
 is an in-memory stream; a durable one implements `load` and `append`
 (`decide.Stream`).
 
+### A channel between nodes
+
+`channel.resource<T>()` is a provider of a channel the system owns: it is
+created when its node starts and closed when the node halts, after the
+nodes that use it. One node publishes through `ref(#events).sender`,
+another consumes `ref(#events).receiver`, so a request handler hands work
+to a background worker without polling:
+
+```badger fragment
+let plan = system {
+    events: component(channel.resource<Change>(), { ..channel.defaults, capacity: 64 }),
+    notifier: component(notifier, { changes: ref(#events).receiver }),
+    api: component(api, { publish: ref(#events).sender }),
+}
+```
+
 ## Select and replace nodes
 
 ```badger

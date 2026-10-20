@@ -456,6 +456,18 @@ sends (`call` passes the sender along with a request). Much cheaper than
 a channel; sending twice is an error, and closing the sender without
 sending makes the receiver's `recv` return `none`.
 
+### `resource`
+
+```badger
+fn resource<T>() -> system.Provider<Options, Endpoints<T>, ConfigError> where T: Transfer
+```
+
+A channel as a system resource: `component(channel.resource<Event>(),
+options)` creates it when the node starts and closes its sender when the
+node halts (after the nodes that use it, which halt first). Publishers
+take `ref(#key).sender`, consumers `ref(#key).receiver`, so a request
+handler can hand events to a background worker in another node.
+
 ### `route`
 
 ```badger
