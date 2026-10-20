@@ -2,6 +2,7 @@
 // the others answer 500; generic enums too.
 import std.io
 
+@derive(Error, HttpError, From)
 pub enum AppError {
     @status(404)
     not_found(id: Int),
@@ -9,12 +10,13 @@ pub enum AppError {
     @status(409)
     conflict,
     io(source: io.Error),
-} derive(Error, HttpError, From)
+}
 
+@derive(HttpError)
 pub enum Wrapped<T> {
     @status(422)
     bad(value: T),
-} derive(HttpError)
+}
 
 fn status_of<E>(e: E) -> Int where E: HttpStatus { e.http_status() }
 
