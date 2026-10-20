@@ -69,6 +69,10 @@ enum Terminal {
     Count,
     Sum,
     Collect,
+    /// `any`/`all`: the predicate decides, and the loop stops at the first
+    /// item that does.
+    Any(ExprId),
+    All(ExprId),
     For(PatId, ExprId),
 }
 pub(super) struct Plan {
@@ -123,6 +127,8 @@ impl FnLower<'_, '_, '_> {
                 "std.seq.count" => "count",
                 "std.seq.sum" => "sum",
                 "std.seq.collect" | "std.list.collect" => "collect",
+                "std.seq.any" => "any",
+                "std.seq.all" => "all",
                 _ => return None,
             }
             .to_string(),
@@ -325,6 +331,8 @@ impl FnLower<'_, '_, '_> {
             ("count", [iter]) => (*iter, Terminal::Count),
             ("sum", [iter]) => (*iter, Terminal::Sum),
             ("collect", [iter]) => (*iter, Terminal::Collect),
+            ("any", [iter, test]) => (*iter, Terminal::Any(*test)),
+            ("all", [iter, test]) => (*iter, Terminal::All(*test)),
             _ => return None,
         };
         let (source, stages) = self.sequence_plan(iter, 0)?;
@@ -336,29 +344,38 @@ impl FnLower<'_, '_, '_> {
         Some(Plan { source, stages, terminal: Terminal::For(pat, body) })
     }
 
+    /// A source's construction-time bounds: the first index, the exclusive
+    /// end, the inclusive flag, and the backing list when there is one. The
+    /// construction arguments are evaluated once, here, in source order.
+    #[allow(clippy::type_complexity)]
+    fn lower_source(
+        &mut self,
+        source: &Source,
+    ) -> Option<(Operand, Operand, Operand, Option<(Operand, Ty)>)> {
+        Some(match source {
+            Source::Bounds(lo, hi) => (self.lower(*lo)?, self.lower(*hi)?, int(0), None),
+            Source::Range(expr, coerced) => {
+                let r = if *coerced { self.lower_inner(*expr)? } else { self.lower(*expr)? };
+                let mut field =
+                    |offset| self.assign(Repr::I64, Rvalue::Load { base: r, offset, repr: Repr::I64 });
+                (field(0), field(8), field(16), None)
+            }
+            Source::List(expr, elem, coerced) => {
+                let l = if *coerced { self.lower_inner(*expr)? } else { self.lower(*expr)? };
+                let n = self.rt("badger_rt_list_len", vec![l], Repr::I64);
+                (int(0), n, int(0), Some((l, elem.clone())))
+            }
+            Source::Stored(_) => return None,
+        })
+    }
+
     pub(super) fn prepare_sequence(&mut self, plan: SequencePlan) -> Option<Prepared> {
         let SequencePlan(source, stages) = plan;
-        let mut list_source = None;
         let mut prepared = if let Source::Stored(local) = source {
             self.stored_sequences[&local].clone()
         } else {
-            let (start, end, inclusive) = match source {
-                Source::Bounds(lo, hi) => (self.lower(lo)?, self.lower(hi)?, int(0)),
-                Source::Range(expr, coerced) => {
-                    let r = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
-                    let mut field =
-                        |offset| self.assign(Repr::I64, Rvalue::Load { base: r, offset, repr: Repr::I64 });
-                    (field(0), field(8), field(16))
-                }
-                Source::List(expr, elem, coerced) => {
-                    let l = if coerced { self.lower_inner(expr)? } else { self.lower(expr)? };
-                    let n = self.rt("badger_rt_list_len", vec![l], Repr::I64);
-                    list_source = Some((l, elem));
-                    (int(0), n, int(0))
-                }
-                Source::Stored(_) => unreachable!(),
-            };
-            Prepared { start, end, inclusive, list: list_source, stages: vec![] }
+            let (start, end, inclusive, list) = self.lower_source(&source)?;
+            Prepared { start, end, inclusive, list, stages: vec![] }
         };
         for stage in stages {
             prepared.stages.push(match stage {
@@ -393,7 +410,64 @@ impl FnLower<'_, '_, '_> {
         Some(prepared)
     }
 
+    /// Whether `count` can be answered from the source's span alone. Only the
+    /// 1:1 stages keep it, and skipping their callbacks is unobservable only
+    /// when each is pure and infallible: a defect or an effect must still
+    /// happen. (`scan`'s initial is evaluated at construction, so it is not
+    /// eligible here even though it is 1:1.)
+    fn count_is_known(&self, plan: &Plan) -> bool {
+        !matches!(plan.source, Source::Stored(_))
+            && plan.stages.iter().all(|stage| match stage {
+                Stage::Enumerate(_) => true,
+                Stage::Map(cb) => self.callback_pure_infallible(*cb),
+                _ => false,
+            })
+    }
+
+    /// A `Bool` operand: the `Int`-literal conversion a lowered `Bool`
+    /// constant uses.
+    fn bool_op(&mut self, value: bool) -> Operand {
+        self.assign(
+            Repr::I8,
+            Rvalue::Convert {
+                a: int(i64::from(value)),
+                from: NumTy::I(64, false),
+                to: NumTy::I(8, false),
+                checked: false,
+                loc: 0,
+            },
+        )
+    }
+
+    /// `max(0, (end - start) + inclusive)`: how many items the source yields.
+    /// A start past the end is an empty range, which the subtraction alone
+    /// would report as negative.
+    fn clamped_span(&mut self, start: Operand, end: Operand, inclusive: Operand) -> Operand {
+        let bin = |s: &mut Self, op, a, b| {
+            s.assign(Repr::I64, Rvalue::Bin { op, a, b, ty: NumTy::I(64, false), loc: 0 })
+        };
+        let span = bin(self, BinOp::Sub, end, start);
+        let raw = bin(self, BinOp::Add, span, inclusive);
+        let out = self.copy_to_local(raw, Repr::I64, None);
+        let negative = self.assign(
+            Repr::I8,
+            Rvalue::Cmp { op: CmpOp::Lt, a: raw, b: int(0), ty: NumTy::I(64, true) },
+        );
+        let empty = self.block();
+        let done = self.block();
+        self.term(Term::Branch(negative, empty, done));
+        self.switch(empty);
+        self.emit(Stmt::Assign(out, Rvalue::Use(int(0))));
+        self.term(Term::Goto(done));
+        self.switch(done);
+        Operand::Local(out)
+    }
+
     pub(super) fn lower_fused(&mut self, e: ExprId, plan: Plan) -> Option<Operand> {
+        if matches!(plan.terminal, Terminal::Count) && self.count_is_known(&plan) {
+            let (start, end, inclusive, _) = self.lower_source(&plan.source)?;
+            return Some(self.clamped_span(start, end, inclusive));
+        }
         let Prepared { start, end, inclusive, list: list_source, stages } =
             self.prepare_sequence(SequencePlan(plan.source, plan.stages))?;
         let stages: Vec<_> = stages
@@ -435,7 +509,18 @@ impl FnLower<'_, '_, '_> {
                 (Some(acc), Some(self.lower(f)?))
             }
             Terminal::Count | Terminal::Sum => (Some(self.copy_to_local(int(0), Repr::I64, None)), None),
+            // `any` keeps false and `all` keeps true: the answer when no item
+            // decides. The loop overwrites it and exits at the first decider.
+            Terminal::Any(_) | Terminal::All(_) => {
+                let init = self.bool_op(matches!(plan.terminal, Terminal::All(_)));
+                (Some(self.copy_to_local(init, Repr::I8, None)), None)
+            }
             Terminal::Collect | Terminal::For(..) => (None, None),
+        };
+        // The search predicate is construction-time, like a fold's callback.
+        let search = match plan.terminal {
+            Terminal::Any(cb) | Terminal::All(cb) => Some(self.lower(cb)?),
+            _ => None,
         };
         // `collect` builds its list in the fused loop. When the source count
         // is known and no filter can drop items, pages are sized up front.
@@ -627,6 +712,22 @@ impl FnLower<'_, '_, '_> {
             }
         }
         match plan.terminal {
+            Terminal::Any(_) | Terminal::All(_) => {
+                let acc = acc.unwrap();
+                let decided = self.call(Callee::Closure(search?), vec![value], Repr::I8);
+                // `any` stops on a match, `all` on a miss.
+                let hit = if matches!(plan.terminal, Terminal::Any(_)) {
+                    decided
+                } else {
+                    self.assign(Repr::I8, Rvalue::Not(decided))
+                };
+                let done = self.block();
+                self.term(Term::Branch(hit, done, step));
+                self.switch(done);
+                let outcome = self.bool_op(matches!(plan.terminal, Terminal::Any(_)));
+                self.emit(Stmt::Assign(acc, Rvalue::Use(outcome)));
+                self.term(Term::Goto(exit));
+            }
             Terminal::For(pat, expr) => {
                 let ty = self.pat_ty(pat);
                 self.bind_irrefutable(pat, value, &ty);

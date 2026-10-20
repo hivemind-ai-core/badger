@@ -305,6 +305,7 @@ pub fn find_map<T, U, Eff>(items: Seq<T, Eff>, f: fn(T) -> Option<U> !Eff) -> Op
 }
 
 /// Whether some item satisfies `test` (stopping at the first).
+@fusion(role = terminal, template = any)
 pub fn any<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool {
     for x in items {
         if test(x) {
@@ -315,6 +316,7 @@ pub fn any<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool {
 }
 
 /// Whether every item satisfies `test` (stopping at the first that does not).
+@fusion(role = terminal, template = all)
 pub fn all<T, Eff>(items: Seq<T, Eff>, test: fn(T) -> Bool !Eff) -> Bool {
     for x in items {
         if !test(x) {

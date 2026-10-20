@@ -34,11 +34,12 @@ stage access_log() -> Result<_, Error> {
     }
 }
 
-// The feature's errors are client errors, with the message the feature gives.
+// The status and code of each error: the client ones carry the feature's
+// message; a storage failure is the service's, and keeps its details.
 fn failure(e: model.Error) -> endpoint.Failure {
     match e {
-        .invalid_title(message) => endpoint.failure(400, #tasks/invalid_title, message),
-        .not_found(id) => endpoint.failure(404, #tasks/not_found, $"no task {id}"),
+        .invalid_title(_) => endpoint.failure(400, #tasks/invalid_title, e.display()),
+        .not_found(_) => endpoint.failure(404, #tasks/not_found, e.display()),
         .storage(_) => endpoint.failure(503, #tasks/unavailable, "the task store is unavailable"),
     }
 }

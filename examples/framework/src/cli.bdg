@@ -18,12 +18,14 @@ fn show(task: model.Task) -> String {
     $"[{mark}] {task.id} {task.title}"
 }
 
+// The exit status of each error; the message is the error's.
 fn failure(e: model.Error) -> command.Failure {
-    match e {
-        .invalid_title(message) => command.failure(1, message),
-        .not_found(id) => command.failure(3, $"no task {id}"),
-        .storage(message) => command.failure(74, message),
+    let status = match e {
+        .invalid_title(_) => 1,
+        .not_found(_) => 3,
+        .storage(_) => 74,
     }
+    command.failure(status, e.display())
 }
 
 pub fn commands(tasks: model.Tasks) -> List<command.Command> {

@@ -1,0 +1,4 @@
+// expect-error: E0191
+// A library's attribute is named after a module the file imports.
+@nolib.thing
+pub fn main() {}

@@ -80,7 +80,56 @@ struct ModScope {
 /// Attributes the compiler recognises. The first built-in attributes are a
 /// separate phase; until a name is listed here it is unknown, which is an
 /// error in standard-library sources and a warning elsewhere.
-const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten"];
+const KNOWN_ATTRIBUTES: &[&str] = &["derive", "allow", "fusion", "flatten", "status", "message"];
+
+/// Where an attribute is written.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Place {
+    /// A top-level declaration (or a local function), by its keyword.
+    Item(&'static str),
+    Method,
+    Field,
+    Variant,
+    Param,
+    Statement,
+}
+
+impl Place {
+    fn describe(self) -> &'static str {
+        match self {
+            Place::Item("fn") => "a function",
+            Place::Item("struct") => "a struct",
+            Place::Item("enum") => "an enum",
+            Place::Item(_) => "this declaration",
+            Place::Method => "a method",
+            Place::Field => "a struct field",
+            Place::Variant => "an enum variant",
+            Place::Param => "a parameter",
+            Place::Statement => "a statement",
+        }
+    }
+}
+
+/// Whether a module declares attribute `name` (`lib.name`): `None` while
+/// it cannot be known. Modules cannot declare attributes yet, so a library's
+/// attribute is never reported as unknown; with declarations, an
+/// undeclared one is (a warning outside the standard library).
+fn library_attribute_declared(_module: ModuleId, _name: &str) -> Option<bool> {
+    None
+}
+
+/// Where each of the compiler's attributes may be written (`allow`
+/// anywhere).
+fn attribute_fits(name: &str, place: Place) -> bool {
+    match name {
+        "allow" => true,
+        "derive" => matches!(place, Place::Item("struct" | "enum")),
+        "flatten" => place == Place::Item("struct"),
+        "fusion" => matches!(place, Place::Item("fn") | Place::Method),
+        "status" | "message" => place == Place::Variant,
+        _ => true,
+    }
+}
 
 /// The closed fusion vocabulary: the values a `@fusion(...)` annotation may
 /// carry. A `stage`'s kind is either named here or derived from the
@@ -105,6 +154,8 @@ const FUSION_KINDS: &[&str] = &[
     "count",
     "sum",
     "collect",
+    "any",
+    "all",
 ];
 
 /// Lower all modules into a single HIR. `entry` is the index of the user's
@@ -712,6 +763,29 @@ impl Cx<'_> {
 
     fn lower_module(&mut self, mi: usize, m: &ParsedModule) {
         let mid = module_id(mi);
+        // imports' and statements' attributes, checked against the
+        // module's imports
+        let imports_tagged = m
+            .ast
+            .items
+            .iter()
+            .any(|it| matches!(it.kind, ast::ItemKind::Import(_)) && !it.attributes.is_empty());
+        if imports_tagged || !m.ast.stmt_attributes.is_empty() {
+            let mut lx = BodyCx::new(self, &m.ast, mid);
+            for it in &m.ast.items {
+                if matches!(it.kind, ast::ItemKind::Import(_)) && !it.attributes.is_empty() {
+                    lx.check_attributes(&it.attributes, Place::Item("import"), it.span);
+                }
+            }
+            for (span, attrs) in &m.ast.stmt_attributes {
+                lx.check_attributes(attrs, Place::Statement, *span);
+                lx.cx.hir.scoped_attributes.push(ScopedAttributes {
+                    target: AttributeTarget::Statement,
+                    span: *span,
+                    attributes: attrs.clone(),
+                });
+            }
+        }
         for (ii, item) in m.ast.items.iter().enumerate() {
             let Some(def) = self.item_defs[mi][ii] else { continue };
             let mut lx = BodyCx::new(self, &m.ast, mid);
@@ -897,23 +971,123 @@ impl<'c, 'a> BodyCx<'c, 'a> {
 
     // ------------------------------------------------------------ items
 
-    /// Record the item's attributes and report any the compiler does not
-    /// know (an error in standard-library sources, a warning elsewhere).
+    /// Check attributes written at `place`, covering `scope`: a library's
+    /// (`@lib.name`) needs `lib` to be a module this one imports (an error
+    /// otherwise), and one the module does not declare is a warning outside
+    /// the standard library; the rest are the compiler's, and one it does
+    /// not know, or one written where it does not apply, is an error. `@allow(<code>, ...)` silences those
+    /// warnings within `scope`.
+    fn check_attributes(&mut self, attrs: &[ast::Attribute], place: Place, scope: Span) {
+        let is_std = self.cx.hir.modules[self.module].is_std;
+        let report = |this: &mut Self, error: bool, msg: String, at: Span, label: &str, note: &str| {
+            let d = if error { Diagnostic::error(msg) } else { Diagnostic::warning(msg) };
+            this.cx
+                .diags
+                .push(d.with_code("E0191").with_label(at, label.to_string()).with_note(note.to_string()));
+        };
+        for attr in attrs {
+            let name = self.cx.interner.resolve(attr.name).to_string();
+            if let Some(&first) = attr.namespace.first() {
+                // a library's attribute: named after a module it imports
+                let module = match self.lookup_module_name(first) {
+                    Some(Res::Module(m)) => m,
+                    _ => {
+                        let ns = self.cx.interner.resolve(first).to_string();
+                        report(
+                            self,
+                            true,
+                            format!("attribute `@{name}`: `{ns}` is not an imported module"),
+                            attr.span,
+                            "a library's attributes are named after its module",
+                            "import the module that defines it (`import lib`, for `@lib.name`)",
+                        );
+                        continue;
+                    }
+                };
+                // one the module does not declare: a warning in user code (a
+                // library may be newer or older than its user), an error in
+                // standard-library sources
+                if library_attribute_declared(module, &name) == Some(false) {
+                    report(
+                        self,
+                        is_std,
+                        format!("unknown attribute `@{name}`"),
+                        attr.span,
+                        "not declared by its module",
+                        "check the library's documentation for its attributes",
+                    );
+                }
+                continue;
+            }
+            // the compiler's own names: a closed set, so an unknown one is
+            // always an error (a typo, or a library's name without its
+            // namespace)
+            if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
+                report(
+                    self,
+                    true,
+                    format!("unknown attribute `@{name}`"),
+                    attr.span,
+                    "not one of the compiler's attributes",
+                    "a name without a namespace is the compiler's; a library's is `@lib.name`",
+                );
+                continue;
+            }
+            if !attribute_fits(&name, place) {
+                self.cx.diags.push(
+                    Diagnostic::error(format!("`@{name}` does not apply to {}", place.describe()))
+                        .with_code("E0199")
+                        .with_label(attr.span, "written here"),
+                );
+                continue;
+            }
+            if name == "allow" {
+                for arg in &attr.args {
+                    let code = match arg {
+                        ast::AttrArg::Name(s) => Some(self.cx.interner.resolve(*s).to_string()),
+                        ast::AttrArg::Str(s) => Some(s.clone()),
+                        _ => None,
+                    };
+                    if let Some(code) = code {
+                        self.cx.hir.allows.push((code, scope));
+                    }
+                }
+            }
+        }
+    }
+
+    /// A parameter's attributes, covering its pattern.
+    fn param_attributes(&mut self, p: &ast::Param) {
+        if p.attributes.is_empty() {
+            return;
+        }
+        let span = self.ast.pats[p.pat].span;
+        self.check_attributes(&p.attributes, Place::Param, span);
+        self.cx.hir.scoped_attributes.push(ScopedAttributes {
+            target: AttributeTarget::Param,
+            span,
+            attributes: p.attributes.clone(),
+        });
+    }
+
+    /// Record the item's attributes, check them, and check the ones
+    /// particular to an item (`@flatten`, `@fusion`).
     fn record_attributes(&mut self, def: DefId, item: &ast::Item) {
         if item.attributes.is_empty() {
             return;
         }
         let is_std = self.cx.hir.modules[self.cx.hir.defs[def].module].is_std;
+        let kind = match &item.kind {
+            ast::ItemKind::Fn(_) => "fn",
+            ast::ItemKind::Struct(_) => "struct",
+            ast::ItemKind::Enum(_) => "enum",
+            _ => "other",
+        };
+        self.check_attributes(&item.attributes, Place::Item(kind), item.span);
         let mut flattened: Option<Span> = None;
         for attr in &item.attributes {
             let name = self.cx.interner.resolve(attr.name).to_string();
-            if !KNOWN_ATTRIBUTES.contains(&name.as_str()) {
-                let msg = format!("unknown attribute `@{name}`");
-                let mut d = Diagnostic::error(msg).with_code("E0191");
-                if !is_std {
-                    d = Diagnostic::warning(format!("unknown attribute `@{name}`")).with_code("E0191");
-                }
-                self.cx.diags.push(d.with_label(attr.span, "not recognised by the compiler"));
+            if !attr.namespace.is_empty() || !attribute_fits(&name, Place::Item(kind)) {
                 continue;
             }
             // `@flatten`: a one-field struct encoded as its field's value
@@ -942,19 +1116,6 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     );
                 }
                 flattened = flattened.or(Some(attr.span));
-            }
-            // `@allow(<code>, ...)` silences those warnings inside this item
-            if name == "allow" {
-                for arg in &attr.args {
-                    let code = match arg {
-                        ast::AttrArg::Name(s) => Some(self.cx.interner.resolve(*s).to_string()),
-                        ast::AttrArg::Str(s) => Some(s.clone()),
-                        _ => None,
-                    };
-                    if let Some(code) = code {
-                        self.cx.hir.allows.push((code, item.span));
-                    }
-                }
             }
             // `@fusion(role = ..., template = ...)`: a closed vocabulary
             if name == "fusion" {
@@ -1018,11 +1179,16 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 let fields = s
                     .fields
                     .iter()
-                    .map(|f| FieldDef {
-                        name: f.name.sym,
-                        ty: self.lower_ty(f.ty),
-                        is_pub: f.is_pub,
-                        span: f.name.span,
+                    .map(|f| {
+                        let span = f.name.span.to(self.ast.types[f.ty].span);
+                        self.check_attributes(&f.attributes, Place::Field, span);
+                        FieldDef {
+                            attributes: f.attributes.clone(),
+                            name: f.name.sym,
+                            ty: self.lower_ty(f.ty),
+                            is_pub: f.is_pub,
+                            span: f.name.span,
+                        }
                     })
                     .collect();
                 let derives = self.lower_derives(&s.derives);
@@ -1044,7 +1210,14 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                         [ast::AttrArg::Str(t)] if self.sym(a.name) == "message" => Some(t.clone()),
                         _ => None,
                     });
-                    variants.push(VariantDef { name: v.name.sym, fields, span: v.span, message });
+                    self.check_attributes(&v.attributes, Place::Variant, v.span);
+                    variants.push(VariantDef {
+                        attributes: v.attributes.clone(),
+                        name: v.name.sym,
+                        fields,
+                        span: v.span,
+                        message,
+                    });
                 }
                 let derives = self.lower_derives(&e.derives);
                 self.generics.pop();
@@ -1076,7 +1249,11 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                 for m in &i.methods {
                     // inherent methods are private unless `pub`; protocol
                     // methods are as visible as the protocol
+                    self.check_attributes(&m.attributes, Place::Method, m.span);
                     let mdef = self.alloc_method_def(m, def, protocol.is_some() || m.is_pub);
+                    if !m.attributes.is_empty() {
+                        self.cx.hir.attributes.entry(mdef).or_default().extend(m.attributes.iter().cloned());
+                    }
                     methods.push(mdef);
                 }
                 self.in_impl = false;
@@ -1312,6 +1489,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         self.check_bound_once(&pats);
         self.in_params = true;
         for (i, p) in f.params.iter().enumerate() {
+            self.param_attributes(p);
             if i == 0
                 && let ast::PatKind::Bind(n) = &self.ast.pats[p.pat].kind
             {
@@ -2425,6 +2603,9 @@ impl<'c, 'a> BodyCx<'c, 'a> {
         let saved_loops = std::mem::take(&mut self.loops);
         let pats: Vec<ast::PatId> = params.iter().map(|p| p.pat).collect();
         self.check_bound_once(&pats);
+        for p in params {
+            self.param_attributes(p);
+        }
         let was_params = std::mem::replace(&mut self.in_params, true);
         let mut params: Vec<Param> = params
             .iter()
@@ -2509,7 +2690,7 @@ impl<'c, 'a> BodyCx<'c, 'a> {
                     let span = *span;
                     let call_id = *call;
                     let lam_params: Vec<ast::Param> =
-                        pats.iter().map(|&p| ast::Param { pat: p, ty: None }).collect();
+                        pats.iter().map(|&p| ast::Param { attributes: vec![], pat: p, ty: None }).collect();
                     let body_span = rest
                         .first()
                         .map(|s| stmt_span(self.ast, s))

@@ -22,6 +22,8 @@ pub struct Ast {
     /// written: a binding of it closer than the function's block (a later
     /// `let`) still hides the function.
     pub local_fn_refs: std::collections::HashMap<ExprId, Symbol>,
+    /// Attributes on statements, with the statement's span.
+    pub stmt_attributes: Vec<(Span, Vec<Attribute>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -43,7 +45,10 @@ pub struct Label {
 /// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`.
 #[derive(Debug, Clone)]
 pub struct Attribute {
+    /// The full name: `allow`, or `lib.name` for a library's attribute
+    /// (whose `namespace` is `[lib]`).
     pub name: Symbol,
+    pub namespace: Vec<Symbol>,
     pub args: Vec<AttrArg>,
     pub span: Span,
 }
@@ -127,6 +132,7 @@ pub struct StructDecl {
 
 #[derive(Debug, Clone)]
 pub struct StructField {
+    pub attributes: Vec<Attribute>,
     pub is_pub: bool,
     pub name: Name,
     pub ty: TypeId,
@@ -171,6 +177,8 @@ pub struct ImplDecl {
 
 #[derive(Debug, Clone)]
 pub struct FnDecl {
+    /// A method's attributes (an item's are on the item).
+    pub attributes: Vec<Attribute>,
     pub name: Name,
     pub is_pub: bool,
     pub generics: Vec<GenericParam>,
@@ -204,6 +212,7 @@ pub struct Contract {
 
 #[derive(Debug, Clone)]
 pub struct Param {
+    pub attributes: Vec<Attribute>,
     pub pat: PatId,
     pub ty: Option<TypeId>,
 }

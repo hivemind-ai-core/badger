@@ -1,0 +1,8 @@
+// expect-error: E0199
+// The compiler's attributes apply where they mean something: `@flatten` to
+// a struct, not to one of its fields.
+pub struct A {
+    @flatten pub x: Int,
+}
+
+pub fn main() -> Unit {}

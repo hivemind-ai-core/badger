@@ -40,6 +40,9 @@ pub struct Hir {
     pub const_local_inits: Vec<(LocalId, ExprId)>,
     /// Attributes declared on each item (`@name(...)`), in source order.
     pub attributes: FxHashMap<DefId, Vec<badger_syntax::ast::Attribute>>,
+    /// Attributes on statements and parameters, with the span they cover
+    /// (an item's, a method's, a field's, and a variant's are on those).
+    pub scoped_attributes: Vec<ScopedAttributes>,
     /// Warning-suppression regions from `@allow(<code>)`: a warning with that
     /// code whose primary span lies inside a region is dropped.
     pub allows: Vec<(String, Span)>,
@@ -220,6 +223,7 @@ pub struct StructDef {
 
 #[derive(Debug, Clone)]
 pub struct FieldDef {
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
     pub name: Symbol,
     pub ty: HTy,
     pub is_pub: bool,
@@ -233,8 +237,23 @@ pub struct EnumDef {
     pub derives: Vec<Derive>,
 }
 
+/// What a statement or parameter attribute is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttributeTarget {
+    Statement,
+    Param,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScopedAttributes {
+    pub target: AttributeTarget,
+    pub span: Span,
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
+}
+
 #[derive(Debug, Clone)]
 pub struct VariantDef {
+    pub attributes: Vec<badger_syntax::ast::Attribute>,
     pub name: Symbol,
     pub fields: Vec<(Option<Symbol>, HTy)>,
     pub span: Span,

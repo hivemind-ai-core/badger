@@ -1,0 +1,52 @@
+// A counted source answers `count` without running the pipeline; the
+// pipelines that cannot be counted must still give the same answers (and
+// still run their callbacks).
+import std.io
+import std.list
+import std.seq
+
+fn double(x: Int) -> Int { x * 2 }
+
+pub fn main() -> Result<Unit, io.Error> {
+    // A list source is counted.
+    let xs = [1, 2, 3, 4, 5]
+    assert(xs.seq().count() == 5)
+    // 1:1 stages keep the count.
+    assert(xs.seq().map(fn(x: Int) { x * 2 }).count() == 5)
+    assert(xs.seq().enumerate().count() == 5)
+    // Ranges are counted.
+    assert(seq.range(0, 100).count() == 100)
+    assert(seq.range(5, 9).count() == 4)
+    assert(seq.range(0, 0).count() == 0)
+    assert(seq.range(-3, 2).count() == 5)
+    // A start past the end is empty, not negative.
+    assert(seq.range(9, 5).count() == 0)
+    // A callback that is not provably pure and infallible keeps the loop.
+    assert(xs.seq().map(double).count() == 5)
+    // Dropping and re-shaping stages keep the loop too.
+    assert(xs.seq().filter(fn(x: Int) { x % 2 == 0 }).count() == 2)
+    assert(xs.seq().take(3).count() == 3)
+    assert(xs.seq().skip(2).count() == 3)
+    assert(
+        xs
+        .seq()
+        .filter_map(fn(x: Int) {
+            if x % 2 == 0 {
+                Option.some(x)
+            } else {
+                Option.none
+            }
+        })
+        .count() == 2
+    )
+    // The count of an empty pipeline is 0.
+    assert(xs.seq().filter(fn(x: Int) { x > 9 }).count() == 0)
+    // An effectful callback must still see every item: the count cannot skip
+    // work that is observable.
+    let seen = Cell.new(0)
+    let counted = xs.seq().map(fn(x: Int) { seen.set(seen.get() + 1); x }).count()
+    assert(counted == 5)
+    assert(seen.get() == 5)
+    io.println("cardinality: ok")?
+    ok(())
+}

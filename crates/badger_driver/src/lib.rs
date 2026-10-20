@@ -846,19 +846,7 @@ impl Session {
 
     /// Drop warnings suppressed by an `@allow(<code>)` region.
     fn suppress_warnings(&mut self, hir: &badger_hir::Hir) {
-        if hir.allows.is_empty() {
-            return;
-        }
-        let allows = &hir.allows;
-        self.diagnostics.retain(|d| {
-            if d.severity != badger_base::Severity::Warning {
-                return true;
-            }
-            let (Some(code), Some(span)) = (d.code, d.primary()) else { return true };
-            !allows.iter().any(|(c, r)| {
-                c.as_str() == code && r.file == span.file && r.start <= span.start && span.end <= r.end
-            })
-        });
+        suppress_allowed(&mut self.diagnostics, hir)
     }
 
     /// Give each diagnostic without one a readable scope: the innermost
@@ -1257,6 +1245,8 @@ impl Session {
                 Diagnostic::error(format!("no `{entry_fn}` function in the entry module")).with_code("E0012"),
             );
         }
+        // `@allow(...)` applies to running (and testing) as to checking
+        suppress_allowed(&mut self.diagnostics, &hir);
         if self.diagnostics.has_errors() {
             return Err(Outcome::Errors);
         }
@@ -2395,4 +2385,21 @@ fn check_typed<'a>(
         }
     }
     (checked, diags, fresh)
+}
+
+/// Drop the warnings an `@allow(<code>)` region covers.
+fn suppress_allowed(diagnostics: &mut Diagnostics, hir: &badger_hir::Hir) {
+    if hir.allows.is_empty() {
+        return;
+    }
+    let allows = &hir.allows;
+    diagnostics.retain(|d| {
+        if d.severity != badger_base::Severity::Warning {
+            return true;
+        }
+        let (Some(code), Some(span)) = (d.code, d.primary()) else { return true };
+        !allows.iter().any(|(c, r)| {
+            c.as_str() == code && r.file == span.file && r.start <= span.start && span.end <= r.end
+        })
+    });
 }

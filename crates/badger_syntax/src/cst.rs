@@ -13,9 +13,13 @@ pub struct Ident<'a> {
     pub span: Span,
 }
 
-/// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`.
+/// An attribute: `@name`, `@name(a, b)`, `@name(key = value)`, or a
+/// library's namespaced one, `@lib.name(...)`.
 #[derive(Debug, Clone)]
 pub struct Attribute<'a> {
+    /// The segments before the name (`lib` in `@lib.name`); none for the
+    /// compiler's own attributes.
+    pub namespace: Vec<Ident<'a>>,
     pub name: Ident<'a>,
     pub args: Vec<AttrArg<'a>>,
     pub span: Span,
@@ -105,7 +109,7 @@ pub enum ItemKind<'a> {
         repr_c: bool,
         name: Ident<'a>,
         generics: Vec<Generic<'a>>,
-        fields: Vec<(bool, Ident<'a>, T<'a>)>,
+        fields: Vec<(Vec<Attribute<'a>>, bool, Ident<'a>, T<'a>)>,
     },
     Enum {
         name: Ident<'a>,
@@ -213,6 +217,8 @@ pub struct Contract<'a> {
 
 #[derive(Debug, Clone)]
 pub struct FnDecl<'a> {
+    /// A method's or local function's attributes (an item's are the item's).
+    pub attributes: Vec<Attribute<'a>>,
     pub contracts: Vec<Contract<'a>>,
     pub is_pub: bool,
     pub name: Ident<'a>,
@@ -227,6 +233,8 @@ pub struct FnDecl<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Param<'a> {
+    /// `@allow(...)` and the like, before the parameter.
+    pub attributes: Vec<Attribute<'a>>,
     pub pat: P<'a>,
     pub ty: Option<T<'a>>,
 }
@@ -356,6 +364,9 @@ pub enum Stmt<'a> {
     /// A local function declaration (lifted to its module, scoped to the
     /// block).
     Fn(Box<FnDecl<'a>>),
+    /// `@allow(E0197) let x = ...`: a statement's attributes (on the lines
+    /// before it).
+    Attributed(Vec<Attribute<'a>>, Box<Stmt<'a>>),
     /// `els`: `let PATTERN = VALUE else { ... }` (the block must diverge).
     Let {
         kind: LetKind,

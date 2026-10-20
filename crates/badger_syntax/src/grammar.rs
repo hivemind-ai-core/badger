@@ -170,6 +170,54 @@ where
     // `#name` or `#ns/name` (one token)
     let symbol = select! { Tok::Symbol(s) => s }.map_with(|s, e| (s, e.span())).labelled("symbol");
 
+    // `@name` / `@name(a, b)` / `@name(key = value)`
+    let attr_word = any()
+        .filter(|t: &Tok<'s>| matches!(t, Tok::Word(_)))
+        .map_with(|t, e| match t {
+            Tok::Word(text) => Ident { text, span: e.span() },
+            _ => unreachable!(),
+        })
+        .labelled("attribute name");
+    let attr_value = choice((
+        select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
+        select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
+        select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
+        attr_word.clone().map(AttrArg::Name),
+    ));
+    let attr_arg = attr_word
+        .clone()
+        .then_ignore(just(Tok::Assign))
+        .then(attr_value.clone())
+        .map(|(k, v)| AttrArg::KeyValue(k, Box::new(v)))
+        .or(attr_value.clone());
+    // `@lib.name`: a library's attribute, named after its module
+    let attr_path = attr_word
+        .clone()
+        .then(just(Tok::Dot).ignore_then(attr_word.clone()).repeated().collect::<Vec<_>>())
+        .map(|(first, rest)| {
+            let mut all = vec![first];
+            all.extend(rest);
+            let name = all.pop().unwrap();
+            (all, name)
+        });
+    let attribute = just(Tok::At)
+        .ignore_then(attr_path)
+        .then(
+            just(Tok::LParen)
+                .ignore_then(attr_arg.separated_by(just(Tok::Comma)).allow_trailing().collect::<Vec<_>>())
+                .then_ignore(just(Tok::RParen))
+                .or_not(),
+        )
+        .map_with(|((namespace, name), args), e| Attribute {
+            namespace,
+            name,
+            args: args.unwrap_or_default(),
+            span: e.span(),
+        });
+    // A run of attributes prefixes a declaration (newline-separated or not).
+    let attributes = attribute.clone().then_ignore(sep.clone().repeated()).repeated().collect::<Vec<_>>();
+
     let lit = select! {
         Tok::Int(n) => Lit::Int(n),
         Tok::Float(n) => Lit::Float(n),
@@ -425,10 +473,11 @@ where
     // ------------------------------------------------------------ expressions
     let mut expr = Recursive::declare();
     let mut block = Recursive::declare();
-    let params = pattern
+    let params = attributes
         .clone()
+        .then(pattern.clone())
         .then(just(Tok::Colon).ignore_then(ty.clone()).or_not())
-        .map(|(pat, ty)| Param { pat, ty })
+        .map(|((attributes, pat), ty)| Param { attributes, pat, ty })
         .separated_by(just(Tok::Comma))
         .allow_trailing()
         .collect::<Vec<_>>()
@@ -1117,6 +1166,7 @@ where
                     body,
                 ),
                  e| FnDecl {
+                    attributes: vec![],
                     contracts,
                     is_pub,
                     name,
@@ -1138,12 +1188,23 @@ where
                 .labelled("a new line or `;`"),
         )
         .map(|d| Stmt::Fn(Box::new(d)));
+    // a statement's or local function's attributes, on the lines before it
+    let tagged = |tags: Vec<Attribute<'s>>, s: Stmt<'s>| match s {
+        _ if tags.is_empty() => s,
+        Stmt::Fn(mut d) => {
+            d.attributes = tags;
+            Stmt::Fn(d)
+        }
+        s => Stmt::Attributed(tags, Box::new(s)),
+    };
     block.define(
         choice((
             sep.clone().to(None),
             just(Tok::Semi).to(Some(BlockItem::Semi)),
-            local_fn.map(|s| Some(BlockItem::Stmt(s))),
-            stmt.map(|s| Some(BlockItem::Stmt(s))),
+            attributes
+                .clone()
+                .then(choice((local_fn, stmt)))
+                .map(move |(tags, s)| Some(BlockItem::Stmt(tagged(tags, s)))),
         ))
         .repeated()
         .collect::<Vec<_>>()
@@ -1161,7 +1222,12 @@ where
     let members = choice((
         sep.clone().to(None),
         just(Tok::Semi).to(None),
-        fn_decl(member.clone().boxed()).then_ignore(member_end.clone()).map(|f| Some(Member::Fn(f))),
+        attributes.clone().then(fn_decl(member.clone().boxed())).then_ignore(member_end.clone()).map(
+            |(tags, mut f)| {
+                f.attributes = tags;
+                Some(Member::Fn(f))
+            },
+        ),
         assoc_type.then_ignore(member_end.clone()).map(|(n, t)| Some(Member::AssocType(n, t))),
     ))
     .repeated()
@@ -1220,12 +1286,13 @@ where
         .then_ignore(just(Tok::Assign))
         .then(ty.clone())
         .map(|(((p, name), g), ty)| (p, ItemKind::TypeAlias { name, generics: g.unwrap_or_default(), ty }));
-    let struct_field = is_pub
+    let struct_field = attributes
         .clone()
+        .then(is_pub.clone())
         .then(member.clone())
         .then_ignore(just(Tok::Colon))
         .then(ty.clone())
-        .map(|((p, n), t)| (p, n, t));
+        .map(|(((a, p), n), t)| (a, p, n, t));
     let struct_decl = is_pub
         .clone()
         .then(kw("repr").then(kw("c")).or_not().map(|r| r.is_some()))
@@ -1237,38 +1304,6 @@ where
             (p, ItemKind::Struct { repr_c, name, generics: g.unwrap_or_default(), fields })
         });
     let variant_field = member.clone().then_ignore(just(Tok::Colon)).or_not().then(ty.clone());
-    // `@name` / `@name(a, b)` / `@name(key = value)`
-    let attr_word = any()
-        .filter(|t: &Tok<'s>| matches!(t, Tok::Word(_)))
-        .map_with(|t, e| match t {
-            Tok::Word(text) => Ident { text, span: e.span() },
-            _ => unreachable!(),
-        })
-        .labelled("attribute name");
-    let attr_value = choice((
-        select! { Tok::Symbol(s) => s }.map_with(|s, e| AttrArg::Symbol(s, e.span())),
-        select! { Tok::Str(s) => s }.map_with(|s, e| AttrArg::Str(s, e.span())),
-        select! { Tok::Int(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
-        select! { Tok::Number(n) => n }.map_with(|n, e| AttrArg::Int(n, e.span())),
-        attr_word.clone().map(AttrArg::Name),
-    ));
-    let attr_arg = attr_word
-        .clone()
-        .then_ignore(just(Tok::Assign))
-        .then(attr_value.clone())
-        .map(|(k, v)| AttrArg::KeyValue(k, Box::new(v)))
-        .or(attr_value.clone());
-    let attribute = just(Tok::At)
-        .ignore_then(attr_word)
-        .then(
-            just(Tok::LParen)
-                .ignore_then(attr_arg.separated_by(just(Tok::Comma)).allow_trailing().collect::<Vec<_>>())
-                .then_ignore(just(Tok::RParen))
-                .or_not(),
-        )
-        .map_with(|(name, args), e| Attribute { name, args: args.unwrap_or_default(), span: e.span() });
-    // A run of attributes prefixes a declaration (newline-separated or not).
-    let attributes = attribute.then_ignore(sep.clone().repeated()).repeated().collect::<Vec<_>>();
     // a variant may carry attributes (`@status(404) not_found(id: Int)`)
     let variant = attributes
         .clone()
@@ -1350,6 +1385,7 @@ where
         .then(where_clause.clone().or_not())
         .map_with(|(((((((p, abi), name), g), params), ret), effect), w), e| {
             let decl = FnDecl {
+                attributes: vec![],
                 contracts: vec![],
                 is_pub: p,
                 name,
