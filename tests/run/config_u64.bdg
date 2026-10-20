@@ -1,0 +1,10 @@
+// A U64 setting takes the whole U64 range (past I64::MAX).
+import std.config
+import std.io
+type Settings = { big: U64 }
+pub fn main() {
+    match config.resolve<Settings>("APP_", ["big=18446744073709551615"]) {
+        .ok(r) => { let _ = io.println($"big {r.value.big}") },
+        .err(e) => { let _ = io.println($"err {e}") },
+    }
+}

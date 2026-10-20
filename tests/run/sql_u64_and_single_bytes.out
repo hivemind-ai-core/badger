@@ -1,0 +1,2 @@
+refused: 18446744073709551615 does not fit an SQLite integer (64-bit signed)
+1 1 [{"big":"integer","data":"null"}, {"big":"null","data":"blob"}]

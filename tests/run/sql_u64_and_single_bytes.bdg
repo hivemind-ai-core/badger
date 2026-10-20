@@ -1,0 +1,25 @@
+// Statement parameters past `Data`'s range: a `U64` above `I64::MAX` is an
+// error from SQLite (its integers are 64-bit signed), not a defect, and a
+// single `Bytes` value is the one positional parameter (a blob).
+import std.bytes
+import std.io
+import std.sqlite
+
+@derive(Error, From)
+pub enum AppError {
+    database(source: sqlite.Error),
+}
+
+pub fn main() -> Result<Unit, AppError> {
+    let db = sqlite.open(":memory:")?
+    sqlite.execute(db, "CREATE TABLE t (big INTEGER, data BLOB)", [])?
+    match sqlite.execute(db, "INSERT INTO t (big) VALUES (?)", 18446744073709551615U64) {
+        .ok(_) => { let _ = io.println("stored") },
+        .err(e) => { let _ = io.println($"refused: {e.message}") },
+    }
+    let fits = sqlite.execute(db, "INSERT INTO t (big) VALUES (?)", 9223372036854775807U64)?
+    let blob = bytes.from_list([0U8, 255U8])
+    let one = sqlite.execute(db, "INSERT INTO t (data) VALUES (?)", blob)?
+    let _ = io.println($"{fits} {one} {sqlite.query(db, "SELECT typeof(big) AS big, typeof(data) AS data FROM t", [])?}")
+    ok(())
+}

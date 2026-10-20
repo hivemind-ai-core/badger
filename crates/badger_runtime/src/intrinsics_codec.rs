@@ -78,6 +78,13 @@ define_intrinsics! {
             for f in fields {
                 let w = unsafe { f.repr.load(crate::gc::obj(v).payload().add(f.offset as usize)) };
                 let j: serde_json::Value = serde_json::from_str(&codec::encode(f.desc, w)).unwrap_or(serde_json::Value::Null);
+                // as `to_data`: `Data.int` holds an `Int`, and is not rounded
+                if let Some(n) = codec::first_unrepresentable(&j) {
+                    crate::task::panic_current(
+                        format!("{n} does not fit `Data.int` (conversions to Data do not truncate)"),
+                        crate::task::caller_location(),
+                    );
+                }
                 let dv = g.add(codec::data_of(data_desc, &j));
                 let name = g.add(new_string(&codec::wire_name(&d.name, &f.name)));
                 let t = g.add(make_record(tuple, &[("0", name), ("1", dv)]));
@@ -142,13 +149,9 @@ define_intrinsics! {
         let text = codec::encode_sql_params(targ(targs, 0), v);
         let mut de = serde_json::Deserializer::from_str(&text);
         de.disable_recursion_limit();
-        let j: serde_json::Value = serde::Deserialize::deserialize(&mut de).unwrap_or(serde_json::Value::Null);
-        if let Some(n) = codec::first_unrepresentable(&j) {
-            crate::task::panic_current(
-                format!("{n} does not fit `Data.int` (conversions to Data do not truncate)"),
-                crate::task::caller_location(),
-            );
-        }
+        let mut j: serde_json::Value = serde::Deserialize::deserialize(&mut de).unwrap_or(serde_json::Value::Null);
+        // a `U64` above `I64::MAX` is tagged with its exact decimal text
+        codec::stringify_unrepresentable(&mut j);
         codec::data_of(rdesc(ret), &j)
     }
     fn codec_to_data(ctx, targs, ret, v) {
@@ -545,6 +548,11 @@ fn leaf_json(d: &TypeDesc, key: &str, v: String) -> Result<serde_json::Value, (S
             "true" | "1" => serde_json::Value::Bool(true),
             "false" | "0" => serde_json::Value::Bool(false),
             _ => return bad("expected true or false".into()),
+        },
+        // a `U64` spans past `I64::MAX`
+        Kind::Int { signed: false, bits: 64 } => match v.trim().parse::<u64>() {
+            Ok(n) => serde_json::Value::from(n),
+            Err(_) => return bad(format!("expected an integer, found `{v}`")),
         },
         Kind::Int { .. } => match v.trim().parse::<i64>() {
             Ok(n) => serde_json::Value::from(n),

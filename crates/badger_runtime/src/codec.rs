@@ -772,6 +772,13 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
             // an unsigned type
             let v = match tag {
                 2 if *signed || fields[0] as i64 >= 0 => fields[0] as i64,
+                // a row's `U64` above `I64::MAX`, stored as its decimal text
+                4 if !*signed && *bits == 64 && INT_BOOLS.with(|c| c.get()) => {
+                    return match str_of(fields[0]).parse::<u64>() {
+                        Ok(u) => Ok(u),
+                        Err(_) => fail("expected an integer"),
+                    };
+                }
                 _ => return fail("expected an integer"),
             };
             let ok = match (bits, signed) {
@@ -1060,6 +1067,22 @@ pub fn first_unrepresentable(j: &J) -> Option<u64> {
         J::Array(xs) => xs.iter().find_map(first_unrepresentable),
         J::Object(m) => m.values().find_map(first_unrepresentable),
         _ => None,
+    }
+}
+
+/// Tag integers that `Data.int` cannot hold (a `U64` above `I64::MAX`) as
+/// `{"$u64": "<digits>"}`: a statement parameter keeps its exact value, and
+/// the driver binds it if its database can hold it.
+pub fn stringify_unrepresentable(j: &mut J) {
+    match j {
+        J::Number(n) if n.is_u64() && n.as_i64().is_none() => {
+            let mut m = serde_json::Map::new();
+            m.insert("$u64".into(), J::String(n.to_string()));
+            *j = J::Object(m)
+        }
+        J::Array(xs) => xs.iter_mut().for_each(stringify_unrepresentable),
+        J::Object(m) => m.values_mut().for_each(stringify_unrepresentable),
+        _ => {}
     }
 }
 

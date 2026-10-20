@@ -347,8 +347,8 @@ impl Pool {
 }
 
 /// A `Data` parameter as an SQL value (lists and maps as JSON text).
-fn sql_param(v: &Value) -> Sql {
-    match v {
+fn sql_param(v: &Value) -> Result<Sql, Error> {
+    Ok(match v {
         Value::Null | Value::Unit => Sql::Null,
         Value::Bool(b) => Sql::Integer(*b as i64),
         Value::Int(i) => Sql::Integer(*i),
@@ -364,8 +364,19 @@ fn sql_param(v: &Value) -> Sql {
                 Err(_) => Sql::Text(t.clone()),
             }
         }
+        // a `U64` above `I64::MAX`: SQLite integers are 64-bit signed
+        Value::Map(m) if m.len() == 1 && m[0].0 == "$u64" => {
+            let digits = match &m[0].1 {
+                Value::Str(t) => t.clone(),
+                _ => String::new(),
+            };
+            return Err(Error::new(
+                "sqlite/params",
+                format!("{digits} does not fit an SQLite integer (64-bit signed)"),
+            ));
+        }
         other => Sql::Text(json(other).to_string()),
-    }
+    })
 }
 
 fn json(v: &Value) -> serde_json::Value {
@@ -396,12 +407,16 @@ fn statement(a: Args, done: Completion, op: Op) {
         // a list (or tuple) binds in order, a record by name, and a single
         // value is the one positional parameter
         let params = match a.get(2) {
-            Some(Value::List(xs)) => Params::Positional(xs.iter().map(sql_param).collect()),
+            Some(Value::List(xs)) => Params::Positional(xs.iter().map(sql_param).collect::<Result<_, _>>()?),
             Some(Value::Map(fs)) if fs.is_empty() => Params::Positional(vec![]),
-            Some(Value::Map(fs)) => {
-                Params::Named(fs.iter().map(|(k, v)| (k.clone(), sql_param(v))).collect())
+            // a tagged value (`Bytes`, a large `U64`) is the one parameter
+            Some(v @ Value::Map(fs)) if fs.len() == 1 && fs[0].0.starts_with('$') => {
+                Params::Positional(vec![sql_param(v)?])
             }
-            Some(v) => Params::Positional(vec![sql_param(v)]),
+            Some(Value::Map(fs)) => Params::Named(
+                fs.iter().map(|(k, v)| Ok((k.clone(), sql_param(v)?))).collect::<Result<_, Error>>()?,
+            ),
+            Some(v) => Params::Positional(vec![sql_param(v)?]),
             None => return Err(Error::new("sqlite/params", "missing parameters")),
         };
         Ok((target(&a, 0)?, a.str(1)?.to_string(), params))

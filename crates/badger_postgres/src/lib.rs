@@ -247,6 +247,11 @@ fn text_of(v: &Value, ty: &Type) -> Result<String, String> {
             }
             s
         }
+        // a `U64` above `I64::MAX`, as exact text (for a `numeric` column)
+        Value::Map(m) if m.len() == 1 && m[0].0 == "$u64" && matches!(m[0].1, Value::Str(_)) => {
+            let Value::Str(t) = &m[0].1 else { unreachable!() };
+            t.clone()
+        }
         Value::Map(_) => return Err(format!("an object was given for a parameter of type {}", ty.name())),
         Value::Unit | Value::Null => unreachable!("NULL is sent as such"),
         Value::Variant(n, xs) if xs.is_empty() => n.clone(),
@@ -678,6 +683,8 @@ fn bind(sql: String, params: &Value) -> Result<(String, Vec<Value>), Error> {
     match params {
         Value::List(xs) => Ok((sql, xs.clone())),
         Value::Map(fs) if fs.is_empty() => Ok((sql, vec![])),
+        // a tagged value (`Bytes`, a large `U64`) is the one parameter
+        Value::Map(fs) if fs.len() == 1 && fs[0].0.starts_with('$') => Ok((sql, vec![params.clone()])),
         Value::Map(fs) => {
             let (sql, names) = number_named(&sql);
             let values = names
