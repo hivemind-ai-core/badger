@@ -8,9 +8,9 @@
 //! bindings, and refuses expressions nested deeper than
 //! [`MAX_EXPR_DEPTH`].
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use badger_base::{Diagnostic, FileId, Interner, Span};
+use badger_base::{Diagnostic, FileId, Interner, Span, Symbol};
 
 use crate::ast::*;
 use crate::cst;
@@ -34,6 +34,13 @@ pub struct Lower<'a, 'i> {
     /// Items a declaration generates besides itself (a provider's
     /// initializer when it has contracts).
     extra_items: Vec<Item>,
+    /// Local functions in scope, innermost block last: the name written,
+    /// and the module-level function it was lifted to.
+    local_fns: Vec<HashMap<Symbol, Symbol>>,
+    /// The functions being lowered (names for lifted local functions), and
+    /// the lifted names already taken.
+    fn_path: Vec<String>,
+    lifted: HashSet<String>,
 }
 
 fn is_upper(s: &str) -> bool {
@@ -61,6 +68,9 @@ impl<'a, 'i> Lower<'a, 'i> {
             depth: Vec::new(),
             too_deep: None,
             extra_items: vec![],
+            local_fns: vec![],
+            fn_path: vec![],
+            lifted: HashSet::new(),
         }
     }
 
@@ -386,6 +396,13 @@ impl<'a, 'i> Lower<'a, 'i> {
     }
 
     fn fn_decl(&mut self, d: cst::FnDecl<'_>, span: Span) -> FnDecl {
+        self.fn_path.push(d.name.text.to_string());
+        let decl = self.fn_decl_inner(d, span);
+        self.fn_path.pop();
+        decl
+    }
+
+    fn fn_decl_inner(&mut self, d: cst::FnDecl<'_>, span: Span) -> FnDecl {
         let contracts = d.contracts.into_iter().map(|c| self.contract(c)).collect();
         let name = self.value_name(d.name);
         let generics = self.generics(d.generics);
@@ -862,6 +879,72 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     fn block(&mut self, b: cst::Block<'_>) -> ExprId {
         let span = self.span(b.span);
+        // local functions are visible in the whole block (they may call one
+        // another): each is lifted to a private module function
+        let mut frame = HashMap::new();
+        for it in &b.items {
+            if let cst::BlockItem::Stmt(cst::Stmt::Fn(d)) = it {
+                let base = format!("{}.{}", self.fn_path.join("."), d.name.text);
+                let mut lifted = base.clone();
+                let mut k = 2;
+                while !self.lifted.insert(lifted.clone()) {
+                    lifted = format!("{base}#{k}");
+                    k += 1;
+                }
+                let written = self.interner.intern(d.name.text);
+                let sym = self.interner.intern(&lifted);
+                frame.insert(written, sym);
+            }
+        }
+        let scoped = !frame.is_empty();
+        if scoped {
+            self.local_fns.push(frame);
+        }
+        let block = self.block_items(b, span);
+        if scoped {
+            self.local_fns.pop();
+        }
+        block
+    }
+
+    /// The function a name written in a body refers to, when it names a
+    /// local function in scope.
+    fn local_fn(&self, sym: Symbol) -> Option<Symbol> {
+        self.local_fns.iter().rev().find_map(|f| f.get(&sym).copied())
+    }
+
+    /// A local function: lifted to a private module function (it does not
+    /// capture the enclosing function's locals; a closure does).
+    fn local_fn_decl(&mut self, d: cst::FnDecl<'_>) -> Stmt {
+        let span = self.span(d.span);
+        let written = self.interner.intern(d.name.text);
+        let lifted = self.local_fn(written).unwrap_or(written);
+        if d.is_pub {
+            self.error(
+                "E0002",
+                span,
+                "a local function cannot be `pub`",
+                "declare it at module level to export it",
+            );
+        }
+        let mut decl = self.fn_decl(d, span);
+        if decl.body.is_none() {
+            self.error(
+                "E0002",
+                decl.name.span,
+                "function declaration without a body",
+                "add a body `{ ... }`",
+            );
+        }
+        decl.name = Name { sym: lifted, span: decl.name.span };
+        decl.is_pub = false;
+        self.ast.local_fns.push(lifted);
+        self.extra_items.push(Item { kind: ItemKind::Fn(decl), span, is_pub: false, attributes: vec![] });
+        let unit = self.alloc_expr(ExprKind::Lit(Lit::Unit), span);
+        Stmt::Expr { expr: unit, semi: true }
+    }
+
+    fn block_items(&mut self, b: cst::Block<'_>, span: Span) -> ExprId {
         let mut stmts: Vec<Stmt> = vec![];
         for it in b.items {
             match it {
@@ -905,6 +988,7 @@ impl<'a, 'i> Lower<'a, 'i> {
 
     fn stmt(&mut self, s: cst::Stmt<'_>) -> Stmt {
         match s {
+            cst::Stmt::Fn(d) => self.local_fn_decl(*d),
             cst::Stmt::Let { kind, pat, ty, value, els: None, span } => {
                 let span = self.span(span);
                 let pat = self.pattern(pat);
@@ -1035,7 +1119,10 @@ impl<'a, 'i> Lower<'a, 'i> {
                 self.alloc_expr(ExprKind::Interp(parts), span)
             }
             cst::Expr::Name(n) => {
-                let n = self.name(n);
+                let mut n = self.name(n);
+                if let Some(lifted) = self.local_fn(n.sym) {
+                    n.sym = lifted;
+                }
                 self.alloc_expr(ExprKind::Name(n), span)
             }
             cst::Expr::TypeName(n) => {

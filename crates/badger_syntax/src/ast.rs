@@ -14,6 +14,8 @@ pub struct Ast {
     pub pats: Arena<Pat>,
     pub types: Arena<TypeExpr>,
     pub items: Vec<Item>,
+    /// Module functions lifted from local `fn` declarations.
+    pub local_fns: Vec<Symbol>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

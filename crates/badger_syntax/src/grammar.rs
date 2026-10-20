@@ -1030,19 +1030,6 @@ where
             skip_balanced(&[Tok::Sep, Tok::Semi, Tok::RBrace])
                 .map_with(|_, e| Stmt::Expr((Expr::Error, e.span()))),
         ));
-    block.define(
-        choice((
-            sep.clone().to(None),
-            just(Tok::Semi).to(Some(BlockItem::Semi)),
-            stmt.map(|s| Some(BlockItem::Stmt(s))),
-        ))
-        .repeated()
-        .collect::<Vec<_>>()
-        .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
-        .map_with(|items, e| Block { items: items.into_iter().flatten().collect(), span: e.span() })
-        .labelled("block")
-        .boxed(),
-    );
 
     // ------------------------------------------------------------ items
     let is_pub = kw("pub").or_not().map(|p| p.is_some());
@@ -1051,6 +1038,8 @@ where
         .then(just(Tok::Comma).ignore_then(string.clone()).or_not())
         .map_with(|((ensures, cond), message), e| Contract { ensures, cond, message, span: e.span() });
     let contracts = contract.then_ignore(sep.clone().repeated().at_least(1)).repeated().collect::<Vec<_>>();
+    // (a handle to the block parser, defined below with local functions)
+    let fn_block = block.clone();
     let fn_decl = |fn_name: chumsky::Boxed<'t, 't, I, Ident<'s>, extra::Err<Er>>| {
         contracts
             .clone()
@@ -1065,7 +1054,7 @@ where
             // `=> expr` is a body of one expression, as a lambda's
             .then(
                 choice((
-                    block.clone(),
+                    fn_block.clone(),
                     just(Tok::FatArrow)
                         .ignore_then(expr.clone())
                         .map(|e: E<'s>| Block { span: e.1, items: vec![BlockItem::Stmt(Stmt::Expr(e))] }),
@@ -1091,6 +1080,28 @@ where
                 },
             )
     };
+    // a local function: `fn name<T>(...) { ... }` inside a body (a lambda is
+    // `fn(`, so the name tells them apart)
+    let local_fn = fn_decl(name.clone().boxed())
+        .then_ignore(
+            choice((sep.clone(), just(Tok::Semi).ignored().rewind(), just(Tok::RBrace).ignored().rewind()))
+                .labelled("a new line or `;`"),
+        )
+        .map(|d| Stmt::Fn(Box::new(d)));
+    block.define(
+        choice((
+            sep.clone().to(None),
+            just(Tok::Semi).to(Some(BlockItem::Semi)),
+            local_fn.map(|s| Some(BlockItem::Stmt(s))),
+            stmt.map(|s| Some(BlockItem::Stmt(s))),
+        ))
+        .repeated()
+        .collect::<Vec<_>>()
+        .delimited_by(just(Tok::LBrace), just(Tok::RBrace))
+        .map_with(|items, e| Block { items: items.into_iter().flatten().collect(), span: e.span() })
+        .labelled("block")
+        .boxed(),
+    );
     let assoc_type =
         kw("type").ignore_then(name.clone()).then(just(Tok::Assign).ignore_then(ty.clone()).or_not());
     let members = choice((

@@ -354,6 +354,9 @@ pub enum PlaceElem<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Stmt<'a> {
+    /// A local function declaration (lifted to its module, scoped to the
+    /// block).
+    Fn(Box<FnDecl<'a>>),
     /// `els`: `let PATTERN = VALUE else { ... }` (the block must diverge).
     Let {
         kind: LetKind,

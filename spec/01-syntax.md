@@ -131,6 +131,12 @@ match arm), so `fn(n) => fn(k) => k + n` nests. Use the short form for a
 single expression and a block for statements. A named function's body may
 take the same form: `fn double(n: Int) -> Int => n * 2`.
 
+A `fn` declaration inside a body is a local function: an ordinary (possibly
+generic, recursive) function whose name is visible throughout the enclosing
+block, including in the block's other local functions. It does not capture
+the enclosing function's locals (a lambda does) and cannot be `pub`; it is
+named `outer.name` in diagnostics.
+
 Calls are explicit and positional. Use an options record when several arguments
 need labels or defaults. There is no automatic currying or parameter default
 evaluation. Generic arguments normally infer; explicit arguments use `<...>`.

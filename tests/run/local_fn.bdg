@@ -1,0 +1,28 @@
+// Local functions: generic, recursive, mutually recursive, visible in the
+// whole block, and declared inside a closure's body too.
+import std.io
+
+pub enum AppError {
+    parse(message: String),
+    io(source: io.Error),
+} derive(Error, From)
+
+pub fn main() -> Result<Unit, AppError> {
+    fn lift<X>(r: Result<X, String>) -> Result<X, AppError> {
+        match r {
+            .ok(x) => ok(x),
+            .err(m) => err(AppError.parse(m)),
+        }
+    }
+    fn fact(n: Int) -> Int => if n <= 1 { 1 } else { n * fact(n - 1) }
+    fn even(n: Int) -> Bool => if n == 0 { true } else { odd(n - 1) }
+    fn odd(n: Int) -> Bool => if n == 0 { false } else { even(n - 1) }
+    let a = lift(ok(3))?
+    io.println($"{a} {fact(5)} {even(10)} {odd(7)}")?
+    let f = fn(x: Int) {
+        fn twice(y: Int) -> Int => y * 2
+        twice(x)
+    }
+    io.println($"{f(21)} {lift<Int>(err("bad")).is_err()}")?
+    ok(())
+}

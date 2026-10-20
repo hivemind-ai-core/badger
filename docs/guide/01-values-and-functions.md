@@ -595,6 +595,25 @@ let a = take()
 let b = take()   // E0404: use of moved value `take`
 ```
 
+## Local functions
+
+A `fn` declared inside a body is a helper for that block: it may be
+generic, call itself, and call the block's other local functions (they
+are visible in the whole block, also before their declaration).
+
+```badger fragment
+fn parse_all(lines: List<String>) -> Result<List<Int>, AppError> {
+    fn lift<X>(r: Result<X, String>) -> Result<X, AppError> => r.map_err(AppError.parse)
+    fn digits(n: Int) -> Int => if n < 10 { 1 } else { 1 + digits(n / 10) }
+    ...
+}
+```
+
+Unlike a closure, a local function does not capture the enclosing
+function's variables (an unknown name there says so): pass what it needs,
+or use a closure. It is private to its block, and it is reported as
+`parse_all.lift`.
+
 ## Pipes
 
 `x |> f(a, b)` means `f(x, a, b)`: the left side becomes the first

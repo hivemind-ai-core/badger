@@ -677,6 +677,12 @@ impl<'c, 'a> BodyCx<'c, 'a> {
             if let Some(near) = self.nearest_name(&s) {
                 d = d.with_note(format!("did you mean `{near}`?"));
             }
+            // a local function does not see the enclosing function's locals
+            if let Some(cur) = self.cur_def
+                && self.ast.local_fns.contains(&self.cx.hir.defs[cur].name)
+            {
+                d = d.with_note("a local `fn` does not capture the enclosing function's variables: pass it as a parameter, or use a closure (`let f = fn(x: Int) => ...`)");
+            }
         }
         self.cx.diags.push(d);
     }

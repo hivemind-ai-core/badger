@@ -1,0 +1,8 @@
+// expect-error: E0127
+// A local `fn` does not capture the enclosing function's variables (a
+// closure does): `base` is not in scope in `add`.
+pub fn main() {
+    let base = 10
+    fn add(n: Int) -> Int => n + base
+    let x = add(1)
+}
