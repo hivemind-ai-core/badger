@@ -700,6 +700,11 @@ pub fn json_schema(d: &TypeDesc, depth: usize) -> String {
             .get(1)
             .and_then(|v| v.fields.first())
         {
+            // a value that can be `null` itself is wrapped: `[value]`
+            Some(f) if crate::codec::nullable(f.desc) => format!(
+                "{{\"anyOf\":[{{\"type\":\"array\",\"prefixItems\":[{}],\"minItems\":1,\"maxItems\":1}},{{\"type\":\"null\"}}]}}",
+                json_schema(f.desc, depth + 1)
+            ),
             Some(f) => format!("{{\"anyOf\":[{},{{\"type\":\"null\"}}]}}", json_schema(f.desc, depth + 1)),
             None => "{}".into(),
         },

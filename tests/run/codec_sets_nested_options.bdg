@@ -1,0 +1,38 @@
+// Sets round-trip through every codec path (as sorted arrays), and an
+// `Option` whose value can be `null` itself encodes `some(v)` as `[v]`, so
+// `some(none)` stays apart from `none`.
+import std.codec
+import std.io
+import std.schema
+
+@derive(Codec)
+pub struct Tags { names: Set<String>, ids: Set<Int> }
+
+@derive(Codec)
+pub struct Patch { title: Option<Option<String>>, done: Option<Unit> }
+
+pub fn main() -> Result<Unit, codec.DecodeError> {
+    let t: Tags = { names: set { "b", "a", "c" }, ids: set { 3, 1, 2 } }
+    let text = codec.encode_text(t)
+    let _ = io.println(text)
+    let back = codec.decode_text<Tags>(text)?
+    let data = codec.from_data<Tags>(codec.to_data(t))?
+    let bytes = codec.decode<Tags>(codec.encode(t))?
+    let _ = io.println($"{back == t} {data == t} {bytes == t}")
+    let _ = io.println(schema.json_schema(schema.of<Tags>()))
+    let patches: List<Patch> = [
+        { title: Option.none, done: Option.none },
+        { title: Option.some(Option.none), done: Option.some(()) },
+        { title: Option.some(Option.some("x")), done: Option.none },
+    ]
+    for p in patches {
+        let text = codec.encode_text(p)
+        let back = codec.decode_text<Patch>(text)?
+        let data = codec.from_data<Patch>(codec.to_data(p))?
+        let _ = io.println($"{text} {back.title} {back.done} {back == p && data == p}")
+    }
+    let bad = codec.decode_text<Patch>("{\"title\":\"x\"}")
+    let _ = io.println($"{bad.is_err()}")
+    let _ = io.println(schema.json_schema(schema.of<Patch>()))
+    ok(())
+}

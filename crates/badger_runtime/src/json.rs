@@ -547,7 +547,17 @@ impl<'a> P<'a> {
                     self.literal(b"null")?;
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = self.value(variants[1].fields[0].desc)?;
+                let p = variants[1].fields[0].desc;
+                if !crate::codec::nullable(p) {
+                    let v = self.value(p)?;
+                    return Ok(root(make_enum(d, 1, &[v])));
+                }
+                // `[value]`: a value that can be `null` itself
+                self.expect_dec(b'[', "`null` or a one-element array (`[value]`)")?;
+                self.ws();
+                let v = self.value(p).map_err(|e| add_index(e, 0))?;
+                self.ws();
+                self.expect_dec(b']', "`]` after the one element")?;
                 Ok(root(make_enum(d, 1, &[v])))
             }
             Kind::Enum { variants, .. } => self.enumeration(d, variants),

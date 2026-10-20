@@ -1,0 +1,8 @@
+{"ids":[1,2,3],"names":["a","b","c"]}
+true true true
+{"type":"object","properties":{"ids":{"type":"array","items":{"type":"integer"},"uniqueItems":true},"names":{"type":"array","items":{"type":"string"},"uniqueItems":true}},"required":["ids","names"]}
+{"done":null,"title":null} none none true
+{"done":[null],"title":[null]} some(none) some(()) true
+{"done":null,"title":["x"]} some(some(x)) none true
+true
+{"type":"object","properties":{"done":{"anyOf":[{"type":"array","prefixItems":[{"type":"null"}],"minItems":1,"maxItems":1},{"type":"null"}]},"title":{"anyOf":[{"type":"array","prefixItems":[{"anyOf":[{"type":"string"},{"type":"null"}]}],"minItems":1,"maxItems":1},{"type":"null"}]}},"required":[]}

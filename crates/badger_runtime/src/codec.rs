@@ -3,7 +3,8 @@
 //! Descriptors are the derived schemas: records/structs encode as objects
 //! (field names are the wire names), enums as `{"variant": {...fields}}` or a
 //! bare string for nullary variants (`Option` encodes as the value or
-//! `null`), lists as arrays, maps with string keys as objects, and `Data` as
+//! `null`; as `[value]` when the value can be `null` itself, so `some(none)`
+//! is not `none`), lists and sets as arrays, maps with string keys as objects, and `Data` as
 //! its natural JSON value. Decoding validates against the schema and reports
 //! the failing path.
 
@@ -247,6 +248,10 @@ fn enc(d: &TypeDesc, w: u64, o: &mut String) {
             if d.name == "Option" {
                 if v.fields.is_empty() {
                     o.push_str("null");
+                } else if nullable(v.fields[0].desc) {
+                    o.push('[');
+                    enc(v.fields[0].desc, vals[0], o);
+                    o.push(']');
                 } else {
                     enc(v.fields[0].desc, vals[0], o);
                 }
@@ -400,6 +405,17 @@ fn root(w: u64) -> u64 {
     w
 }
 
+/// Can a value of this type encode as `null`? An `Option` of one encodes
+/// `some(v)` as `[v]`, so `some(none)` and `none` stay apart.
+pub(crate) fn nullable(d: &TypeDesc) -> bool {
+    match &d.kind {
+        Kind::Unit => true,
+        Kind::Enum { .. } => d.name == "Option" || d.name == "Data",
+        Kind::Record { fields, flat: true, .. } if fields.len() == 1 => nullable(fields[0].desc),
+        _ => false,
+    }
+}
+
 /// Can a field of this type be left out? An `Option` (absent is `none`), or
 /// a `@flatten` struct whose one field can (absent wraps that field's).
 pub(crate) fn omittable(d: &TypeDesc) -> bool {
@@ -526,7 +542,15 @@ fn dec(d: &'static TypeDesc, j: &J) -> Result<u64, DecodeError> {
                 if j.is_null() {
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = dec(variants[1].fields[0].desc, j)?;
+                let p = variants[1].fields[0].desc;
+                let v = if nullable(p) {
+                    match j.as_array().map(|a| a.as_slice()) {
+                        Some([x]) => dec(p, x)?,
+                        _ => return fail("expected `null` or a one-element array (`[value]`)"),
+                    }
+                } else {
+                    dec(p, j)?
+                };
                 return Ok(root(make_enum(d, 1, &[v])));
             }
             if let Some(s) = j.as_str() {
@@ -728,7 +752,15 @@ fn dec_data(d: &'static TypeDesc, w: u64) -> Result<u64, DecodeError> {
                 if tag == 0 {
                     return Ok(root(make_enum(d, 0, &[])));
                 }
-                let v = dec_data(variants[1].fields[0].desc, w)?;
+                let p = variants[1].fields[0].desc;
+                let v = if nullable(p) {
+                    if tag != 5 || list::len(fields[0]) != 1 {
+                        return fail("expected `null` or a one-element array (`[value]`)");
+                    }
+                    dec_data(p, list::get(fields[0], 0))?
+                } else {
+                    dec_data(p, w)?
+                };
                 return Ok(root(make_enum(d, 1, &[v])));
             }
             if tag == 4 {

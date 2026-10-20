@@ -665,6 +665,20 @@ pub struct Book { id: BookId, title: String } derive(Codec)
 
 `@flatten` on anything other than a one-field struct is E0192.
 
+### Options and sets in JSON
+
+An `Option` field is its value or `null`, and may be left out (it
+decodes as `none`; so may a `@flatten` struct over an `Option`). When the
+value can be `null` itself -- `Option<Option<T>>`, `Option<Unit>` --
+`some(v)` is written `[v]`, so a patch can say "clear it" (`[null]`)
+apart from "leave it" (`null`). A `Set` is an array, in sorted order.
+
+```badger fragment
+@derive(Codec)
+pub struct Patch { title: Option<Option<String>> }
+// none: {"title":null}   some(none): {"title":[null]}   some(some("x")): {"title":["x"]}
+```
+
 ## Generics and bounds
 
 Structs, enums, aliases, functions, and `impl` blocks take type
