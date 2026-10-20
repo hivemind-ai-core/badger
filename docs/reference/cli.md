@@ -133,6 +133,13 @@ workspace root, every member package. A single file need not have a
 
 Exit status: 0 when there are no errors (warnings allowed), 1 otherwise.
 
+Among the warnings are the names a program's own modules never use: an
+import (E0195), a function, value, or type that is not `pub` (E0196), and a
+`let` binding whose value is never read (E0197). A name starting with `_`
+is never reported, `main` and `test_` functions are used by the tools, and
+`@allow(CODE)` on an item silences it. Standard-library and dependency
+modules are not checked, nor is a file with errors (until it lowers cleanly).
+
 ```sh
 badger check                 # the current project
 badger check src/util.bdg    # one file (checked with its project, if any)

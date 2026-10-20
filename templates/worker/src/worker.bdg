@@ -2,9 +2,6 @@
 // supervised worker that retries a failed attempt and survives restarts.
 // `Job` and `step` are placeholders for the job's own state and work.
 import std.jobs
-import std.system
-import std.task
-import std.time
 import std.worker
 
 /// A job's state (what the work needs; stored as JSON).

@@ -1,0 +1,14 @@
+// expect-warning: E0195
+// expect-warning: E0196
+// expect-warning: E0197
+// What a module never uses: an import, a private item, a `let` never read.
+import std.io
+import std.text
+
+fn helper() -> Int { 1 }
+
+pub fn main() -> Result<Unit, io.Error> {
+    let total = 3
+    io.println("hi")?
+    ok(())
+}

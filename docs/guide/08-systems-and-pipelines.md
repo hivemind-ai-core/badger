@@ -222,7 +222,6 @@ error as data.
 import std.channel
 import std.io
 import std.system
-import std.task
 import std.worker
 
 @derive(Error, From)

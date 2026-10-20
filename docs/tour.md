@@ -542,9 +542,7 @@ with status 101.
 ```badger
 import std.io
 import std.list
-import std.map
 import std.seq
-import std.set
 
 type Person = { name: String, age: Int, team: String }
 
