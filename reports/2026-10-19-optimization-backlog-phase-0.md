@@ -356,6 +356,34 @@ model's "current code" configuration still describes the old one, so
 checking the new implementation against the contract is the next step of
 §1.2, not a gap in the refactor.
 
+## §2.1: the QSBR handshake (delegated worker)
+
+`6cd8e06` replaces the `STOP` flag and the sum of the `IN_COMPILED`
+counters with a grace period: a global epoch is odd while a collector stops
+the world, each worker's slot holds the even epoch it observed when it went
+online (or `OFFLINE` in a quiescent state), and the collector reads each
+slot until it has acknowledged the new epoch. A stop depth keeps a nested
+stop and resume from restarting the world.
+
+**It is not a latency win, and the item says so.** The wait still ends when
+the slowest worker reaches its next safe point, which no epoch shortens. The
+idle case improves (`bench/records.bdg` 0.9 -> 0.3 us at 4 workers, 570
+collections) because the live workers' slots are read instead of all 64
+counters -- which the old protocol could have had in one line -- and
+stop-world time was already 0.07-0.16% of GC time, so nothing moves end to
+end. The `bench/parallel_alloc.bdg` numbers at 4 workers (2.5 -> 2.3 ms and
+5.4 -> 4.3 ms) are preemption of a running worker, not a credible
+comparison.
+
+What it does buy is robustness, which is why it lands: the model's "no
+nested stop" and "balanced slots" dependencies go away, so release builds
+no longer rely on the finalizer's debug assertion for nesting safety, and
+the acknowledgement becomes a real per-worker epoch rather than a sum. The
+gates pass (the corpus 76/76 single-threaded and at 4 workers, the stress
+and gc_retention suites, `select_and_budget` 6/6 at 1 and at 4 workers,
+`BADGER_GC_VERIFY=1` clean), and the stress test catches the model's
+`check_before_inc` race in 6 of 10 mutated runs.
+
 ## What is left
 
 Phase 0 is done, with three items measured against their gates rather than
@@ -371,7 +399,7 @@ own:
 | item | what it needs | why it is not done here |
 |------|---------------|------------------------|
 | §1.1/§1.3 follow-up | the model of the refactored protocol, and the TLC run against it | in flight; the model describes the old protocol today |
-| §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | the model's README already spells out what the code relies on (the `SeqCst` store-then-load, counting before unlocking, publishing before uncounting, `STOP` not nesting); the epoch makes the acknowledgement real |
+| §2.1 QSBR | a per-worker epoch in the handshake, and the model's `EveryWorkerObservesEpoch` as the gate | **landed** (above) as a robustness change: the epoch makes the acknowledgement real and removes the "no nested stop" and "balanced slots" dependencies, but its latency claim did not hold |
 | §2.2 per-worker heap segments | a design phase: which objects are worker-local, the segment layout, the migration rule | needs the QSBR handshake first |
 | §2.3 Immix-style block reclamation | the block allocator of §2.2 | depends on §2.2 |
 | §2.4 NUMA pinning | the segment layout (§2.2) to place | a ~30-line change that only pays off with §2.2 |
