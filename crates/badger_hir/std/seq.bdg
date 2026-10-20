@@ -666,6 +666,7 @@ pub fn dedup<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: PartialEq {
 }
 
 /// The first of each set of equal items.
+@fusion(role = stage, template = distinct)
 pub fn distinct<T, Eff>(items: Seq<T, Eff>) -> Seq<T, Eff> where T: Hash {
     {
         start: fn() {

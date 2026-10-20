@@ -161,6 +161,7 @@ const FUSION_KINDS: &[&str] = &[
     "scan",
     "enumerate",
     "dedup", //
+    "distinct", //
     // terminals
     "fold",
     "accumulate",
@@ -197,6 +198,7 @@ const FUSION_SHAPES: &[(&str, &str, usize)] = &[
     ("scan", "stage", 3),
     ("enumerate", "stage", 1),
     ("dedup", "stage", 1),
+    ("distinct", "stage", 1),
     // terminals
     ("fold", "terminal", 3),
     ("accumulate", "terminal", 1),
