@@ -183,7 +183,12 @@ pub const CATALOG: &[(&str, &str, &str)] = &[
     (
         "E0191",
         "unknown attribute",
-        "The compiler does not recognise this attribute. Standard-library sources reject unknown attributes; other code warns.",
+        "An attribute without a namespace (`@name`) is the compiler's, and this one it does not recognise; a library's attribute is namespaced by its module (`@lib.name`), and `lib` must be a module the file imports. Standard-library sources reject both; other code warns, so an attribute from a newer compiler or library does not break an older build.",
+    ),
+    (
+        "E0199",
+        "misplaced attribute",
+        "One of the compiler's attributes written where it does not apply: `@derive` belongs on a struct or enum, `@flatten` on a struct, `@fusion` on a function or method, `@status` and `@message` on an enum variant. `@allow(CODE)` applies anywhere an attribute may be written (a declaration, a method, a field, a variant, a parameter, a statement) and silences that warning within it.",
     ),
     (
         "E0190",

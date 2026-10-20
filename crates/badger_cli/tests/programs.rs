@@ -186,6 +186,31 @@ fn warning_programs() {
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
+/// Attributes in every position they may take (declarations, methods,
+/// fields, parameters, local functions, statements, blocks), a library's
+/// namespaced ones included: `@allow` silences what it tags, in `check` and
+/// `run` alike, and an import used only by an attribute is used.
+#[test]
+fn attributes_in_every_position() {
+    let dir = std::env::temp_dir().join(format!("badger-attr-positions-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("positions.bdg");
+    std::fs::write(&f, "import std.app\nimport std.io\n@allow(E0195)\nimport std.text\n\npub struct Point {\n    @app.column(\"px\") pub x: Int,\n    @allow(E0196) pub y: Int,\n}\n\nimpl Point {\n    @allow(E0197)\n    pub fn norm(self: &Self) -> Int {\n        let unused = 1\n        self.x + self.y\n    }\n    @app.operation(#points/sum)\n    pub fn sum(self: &Self) -> Int { self.x + self.y }\n}\n\nfn apply(@app.input f: fn(Int) -> Int, @allow(E0197) x: Int) -> Int { f(x) }\n\npub fn main() -> Result<Unit, io.Error> {\n    @allow(E0197)\n    fn helper() -> Int {\n        let ignored = 2\n        3\n    }\n    @allow(E0197)\n    let quiet = 1\n    @allow(E0197) {\n        let also_quiet = 2\n    }\n    let loud = 3\n    let p: Point = { x: 1, y: 2 }\n    io.println($\"{p.norm()} {p.sum()} {apply(fn(v) => v + 1, helper())}\")?\n    ok(())\n}\n").unwrap();
+    let check = lang().args(["check", "--json"]).arg(&f).output().unwrap();
+    let json = String::from_utf8_lossy(&check.stdout).to_string();
+    assert!(check.status.success(), "{json}");
+    assert_eq!(json.matches("\"code\":\"").count(), 1, "only `loud` is reported: {json}");
+    assert!(json.contains("unused variable `loud`"), "{json}");
+    let run = lang().arg("run").arg(&f).output().unwrap();
+    let stderr = String::from_utf8_lossy(&run.stderr).to_string();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "3 3 4\n");
+    assert!(
+        stderr.contains("`loud`") && !stderr.contains("`quiet`") && !stderr.contains("`text`"),
+        "{stderr}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn attribute_allow_silences_warnings() {
     let dir = std::env::temp_dir().join(format!("badger-allow-{}", std::process::id()));
