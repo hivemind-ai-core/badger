@@ -248,6 +248,8 @@ fn declared_attributes_check_their_uses() {
         let json = check(&format!("import web\n\n{body}\npub fn main() {{}}\n"));
         assert!(json.contains(&format!("\"code\":\"{code}\"")) && json.contains(text), "{body}: {json}");
     }
+    let _ = std::fs::remove_dir_all(dir);
+}
 
 /// The gate of region records: one program returns a record built in a
 /// region, and is rejected (E0414) when that region is the function's own
